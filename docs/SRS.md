@@ -109,7 +109,7 @@ The WebUI replaces the Jupyter-based visualizers (`nifti_visualizer.ipynb`, `voi
 
 ## 3. Data Model & Folder Schema
 
-The WebUI discovers data from a **Dataset root** (`DatasetID/`). Multiple datasets may coexist under a parent directory; the user selects which one to explore at runtime.
+The WebUI operates on one active **Dataset root** (`DatasetID/`) at a time. The user provides the server-side filesystem path to a single dataset folder through the GUI, and the backend activates that folder as the current workspace.
 
 ### 3.1 Canonical Dataset Layout
 
@@ -121,9 +121,11 @@ DatasetID/
 ├── dataset_fingerprint.json               # Preprocessor fingerprint
 ├── patient_preprocess.csv                 # Preprocessor per-patient log
 ├── splits.json                            # Train/val/test splits
-├── decisions.json                         # Viewer review audit log (append-only)
-├── reclassification_log.json              # Batch reclassification report
-├── deletion_log.json                      # Batch deletion report
+├── .webui/
+│   ├── settings.json                      # Viewer settings persisted by this app
+│   ├── decisions.json                     # Viewer review audit log (append-only)
+│   ├── reclassification_log.json          # Batch reclassification report
+│   └── deletion_log.json                  # Batch deletion report
 ├── deleted/                               # Recycle bin for NIfTI/SEG file moves
 │
 ├── nifti/                                 # Full CT volumes (flat)
@@ -202,7 +204,8 @@ When `manifest.csv` is absent, the system falls back to filename-based discovery
 
 | ID       | Requirement                                                                                              | Priority  |
 |----------|----------------------------------------------------------------------------------------------------------|-----------|
-| FR-01    | **Dataset Selection**: User can browse and select a dataset root folder from the allowed mount path.     | Must      |
+| FR-01    | **Dataset Selection**: User can provide a server-side path to a single dataset root folder through the GUI before dataset browsing begins. | Must |
+| FR-01a   | **Workspace Validation**: The selected dataset folder must exist on the backend server and contain at least one recognized dataset marker (`nifti/`, `seg/`, `voi/`, or `manifest.csv`). | Must |
 | FR-02    | **Patient Discovery**: System scans `nifti/`, `seg/`, and `voi/` to build a patient list grouped by `case_YYYYY`. If `manifest.csv` exists, enrich with group/phase metadata. | Must |
 | FR-03    | **Series Discovery**: For a selected patient, list all available series (NIfTI volumes, segmentation masks, VOI crops) with their contrast phase and laterality. | Must |
 | FR-04    | **Adaptive Content**: The viewer adapts to available data: (a) NIfTI-only → 2D MPR + empty 3D panel; (b) NIfTI + seg → 2D MPR with overlay + 3D surface; (c) VOI-only → 2D MPR from NumPy + overlay if mask exists + 3D surface if mask exists. | Must |
@@ -261,7 +264,7 @@ When `manifest.csv` is absent, the system falls back to filename-based discovery
 | FR-50    | **Persist Last Patient**: Store last viewed patient ID per dataset so the user resumes where they left off. | Should |
 | FR-51    | **Persist W/L Settings**: Save last-used window/level values per dataset.                                 | Should    |
 | FR-52    | **Persist Layer Visibility**: Save layer on/off and opacity settings.                                     | Should    |
-| FR-53    | **Settings Storage**: Preferences are persisted server-side in a JSON file (default `~/.radiology-webui/settings.json`, fallback `/tmp/radiology-webui/settings.json`) keyed by dataset ID. | Should |
+| FR-53    | **Settings Storage**: Preferences are persisted server-side in `<dataset>/.webui/settings.json`, keyed by dataset ID within the active workspace. | Should |
 
 ### 4.7 Authentication
 
@@ -282,7 +285,7 @@ When `manifest.csv` is absent, the system falls back to filename-based discovery
 | FR-75    | **Staged Queue + Apply**: Review actions are staged client-side (current patient scope) and only executed after explicit confirmation in `Apply Changes`. | Must |
 | FR-76    | **Apply Endpoint**: `POST /api/datasets/{dataset_id}/review/apply` executes queued operations and returns per-operation status (`applied`, `skipped`, `failed`) plus batch summary. | Must |
 | FR-77    | **Mutation Safety Gate**: Review apply is rejected with `409` unless `ALLOW_DATA_MUTATIONS=true`. | Must |
-| FR-78    | **Audit Artifacts**: Applying review actions appends records to `<dataset>/decisions.json` and updates batch logs `<dataset>/reclassification_log.json`, `<dataset>/deletion_log.json`. | Must |
+| FR-78    | **Audit Artifacts**: Applying review actions appends records to `<dataset>/.webui/decisions.json` and updates batch logs `<dataset>/.webui/reclassification_log.json`, `<dataset>/.webui/deletion_log.json`. | Must |
 | FR-79    | **NIfTI Reclassify Rule**: For NIfTI series, reclassification updates `manifest.csv` (`phase`, `protocol_source`) if present and does not move NIfTI files. | Must |
 | FR-80    | **Recycle Paths**: NIfTI/SEG delete moves files under `<dataset>/deleted/...`; VOI delete moves files under `<dataset>/voi/deleted/...`. | Must |
 
@@ -311,14 +314,14 @@ When `manifest.csv` is absent, the system falls back to filename-based discovery
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  [1] Dataset Selector Page                                │
-│   • Browse allowed folders under /data                    │
-│   • Show dataset summary (patient count, has seg, etc.)   │
-│   • Click dataset → Patient List                          │
+│  [1] Workspace Setup Page                                 │
+│   • Enter server path to one dataset folder               │
+│   • Validate folder and create .webui/                    │
+│   • Activate workspace → Dataset Summary                  │
 └──────────────────────────┬───────────────────────────────┘
                            ▼
 ┌──────────────────────────────────────────────────────────┐
-│  [2] Patient List Page                                     │
+│  [2] Patient List Page                                    │
 │   • Table: patient_id | group | #series | #seg | #voi     │
 │   • Search bar + group/phase filters                       │
 │   • Click patient → Viewer                                 │
@@ -518,8 +521,11 @@ frontend/
 | Method | Endpoint                                                                              | Returns                  | Description                                 |
 |--------|---------------------------------------------------------------------------------------|--------------------------|---------------------------------------------|
 | GET    | `/api/health`                                                                         | `{"status":"ok"}`        | Backend health check                        |
-| GET    | `/api/datasets`                                                                       | `Dataset[]`              | List available dataset folders              |
-| GET    | `/api/datasets/{dataset_id}/patients`                                                 | `Patient[]`              | List patients in dataset                    |
+| GET    | `/api/workspace`                                                                      | `WorkspaceStatus`        | Get active dataset workspace status         |
+| PUT    | `/api/workspace`                                                                      | `WorkspaceStatus`        | Validate and activate one dataset folder    |
+| DELETE | `/api/workspace`                                                                      | `WorkspaceStatus`        | Clear active dataset workspace              |
+| GET    | `/api/datasets`                                                                       | `Dataset[]`              | List dataset summary for the active workspace |
+| GET    | `/api/datasets/{dataset_id}/patients`                                                 | `Patient[]`              | List patients in the active dataset workspace |
 | GET    | `/api/datasets/{dataset_id}/patients/{patient_id}/series`                             | `Series[]`               | List series for patient                     |
 | POST   | `/api/datasets/{dataset_id}/patients/{patient_id}/series/{series_id}/load`            | `VolumeInfo`             | Load volume into cache and return `load_handle`, shape, spacing, labels |
 | GET    | `/api/slice/{axis}/{index}?load_handle=...&ww=...&wl=...&layers=1,2&opacity_1=...`   | `image/png`              | Render 2D slice from cached series          |
@@ -533,10 +539,16 @@ frontend/
 ```
 [Browser]                          [FastAPI Backend]                    [Filesystem]
     │                                     │                                  │
-    │  GET /api/datasets                  │                                  │
-    │ ──────────────────────────────────► │  scan DATA_ROOT/Dataset*/        │
+    │  PUT /api/workspace                 │                                  │
+    │ ──────────────────────────────────► │  validate dataset path           │
+    │                                     │  create .webui/ if missing       │
     │                                     │ ─────────────────────────────────►│
-    │  ◄────── Dataset[]                  │  ◄─── folder list                │
+    │  ◄────── WorkspaceStatus            │                                  │
+    │                                     │                                  │
+    │  GET /api/datasets                  │                                  │
+    │ ──────────────────────────────────► │  inspect active workspace        │
+    │                                     │ ─────────────────────────────────►│
+    │  ◄────── Dataset[]                  │  ◄─── dataset summary            │
     │                                     │                                  │
     │  GET /api/.../patients              │                                  │
     │ ──────────────────────────────────► │  parse manifest.csv + scan trees │
@@ -577,8 +589,7 @@ RUN npm run build
 
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    DATA_ROOT=/data
+    PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
@@ -620,7 +631,7 @@ python udocker.py run \
 | Variable                    | Default          | Description                                                  |
 |----------------------------|------------------|--------------------------------------------------------------|
 | `RADIOLOGY_UI_TOKEN`       | `""` (no auth)   | Bearer token for API protection (`/api/*`, except health)    |
-| `DATA_ROOT`                | `/data`          | Mount point for dataset files                                |
+| `DATA_ROOT`                | `/data`          | Fallback/dev-only dataset root when workspace selection is not used |
 | `LOG_LEVEL`                | `info`           | Python logging level                                         |
 | `ALLOW_DATA_MUTATIONS`     | `false`          | Enables review apply (reclassify/delete) filesystem writes   |
 | `PORT`                     | `8000`           | Uvicorn bind port                                            |
@@ -631,7 +642,7 @@ python udocker.py run \
 
 | Variable       | Default            | Description                                  |
 |----------------|--------------------|----------------------------------------------|
-| `DATASET_DIR`  | `./data/dataset`   | Host dataset directory mounted at `/data` (rw for review apply) |
+| `DATASET_DIR`  | `./data/dataset`   | Host parent directory or dataset directory mounted at `/data` for server-side workspace selection |
 | `WEBUI_PORT`   | `8000`             | Host port mapped to container `8000`         |
 
 ---
@@ -665,13 +676,15 @@ python udocker.py run \
 | 9  | Double-click on any panel expands it; double-click again restores 2×2.                                 | Manual test        |
 | 10 | VOI `.npy` series are loadable and displayable with the same interaction as NIfTI series.              | Manual test        |
 | 11 | Application runs via `docker compose up` (native Docker/Podman) or equivalent `udocker run` fallback. | Deployment test    |
+| 11a | With no configured workspace, the app prompts for a server-side dataset path before browsing begins.   | Manual test        |
+| 11b | Selecting a valid dataset path creates `<dataset>/.webui/` and enables patient browsing.               | Manual test        |
 | 12 | Dataset mutations occur only through `review/apply` when `ALLOW_DATA_MUTATIONS=true`; no hard deletes. | Audit / strace     |
 | 13 | Setting `RADIOLOGY_UI_TOKEN` blocks unauthenticated `/api/*` access (except `/api/health`).           | Manual test        |
 | 14 | Last-viewed patient and W/L settings persist across browser refresh.                                   | Manual test        |
 | 15 | Viewer group filter + patient dropdown + next button navigate patients correctly in filtered order.    | Manual test        |
 | 16 | Applying queued `NC/ART/VEN` reclassify updates NIfTI manifest phase/protocol_source when available.   | Manual test        |
 | 17 | Applying queued delete moves NIfTI/SEG and VOI image/mask files into recycle paths.                    | Manual test        |
-| 18 | `decisions.json`, `reclassification_log.json`, and `deletion_log.json` are appended per apply batch.   | Manual test        |
+| 18 | `.webui/decisions.json`, `.webui/reclassification_log.json`, and `.webui/deletion_log.json` are appended per apply batch. | Manual test        |
 | 19 | With `ALLOW_DATA_MUTATIONS=false`, review apply endpoint returns `409` and no dataset files are changed.| Manual test        |
 
 ---

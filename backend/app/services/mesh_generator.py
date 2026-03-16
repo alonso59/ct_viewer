@@ -6,6 +6,10 @@ from skimage.measure import marching_cubes
 from trimesh.smoothing import filter_laplacian
 
 
+MIN_COMPONENT_FACES = 96
+MIN_COMPONENT_AREA_RATIO = 0.025
+
+
 def generate_mesh(
     mask: np.ndarray | None,
     label: int,
@@ -38,7 +42,44 @@ def generate_mesh(
         vertex_normals=normals,
         process=False,
     )
-    if smooth:
-        filter_laplacian(mesh, lamb=0.35, iterations=5)
+    _cleanup_mesh(mesh)
 
-    return mesh.export(file_type="glb")
+    cleaned_mesh = _filter_components(mesh)
+    if cleaned_mesh is None:
+        return None
+
+    if smooth:
+        filter_laplacian(cleaned_mesh, lamb=0.18, iterations=2)
+        _cleanup_mesh(cleaned_mesh)
+
+    return cleaned_mesh.export(file_type="glb")
+
+
+def _filter_components(mesh: trimesh.Trimesh) -> trimesh.Trimesh | None:
+    components = [component for component in mesh.split(only_watertight=False) if len(component.faces) > 0]
+    if not components:
+        return None
+
+    max_area = max(float(component.area) for component in components)
+    kept = [
+        component
+        for component in components
+        if len(component.faces) >= MIN_COMPONENT_FACES
+        and float(component.area) >= max_area * MIN_COMPONENT_AREA_RATIO
+    ]
+    if not kept:
+        largest = max(components, key=lambda component: (float(component.area), len(component.faces)))
+        kept = [largest]
+
+    combined = trimesh.util.concatenate(kept)
+    combined.process(validate=True)
+    if len(combined.faces) == 0 or len(combined.vertices) == 0:
+        return None
+    return combined
+
+
+def _cleanup_mesh(mesh: trimesh.Trimesh) -> None:
+    nondegenerate = mesh.nondegenerate_faces()
+    if nondegenerate is not None:
+        mesh.update_faces(nondegenerate)
+    mesh.remove_unreferenced_vertices()

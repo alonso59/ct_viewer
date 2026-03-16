@@ -63,11 +63,11 @@ function ExpandablePanel({
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ xs: 'flex-start', sm: 'center' }}
         justifyContent="space-between"
-        spacing={1.5}
+        spacing={1}
         onDoubleClick={onToggleExpand}
         sx={{
-          px: 1.25,
-          py: 0.6,
+          px: 1,
+          py: 0.45,
           borderBottom: '1px solid',
           borderColor: 'divider',
           backgroundColor: 'rgba(255, 255, 255, 0.02)',
@@ -75,11 +75,11 @@ function ExpandablePanel({
           userSelect: 'none',
         }}
       >
-        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+        <Stack direction="row" spacing={0.9} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
           <Box
             sx={{
-              px: 1,
-              py: 0.35,
+              px: 0.8,
+              py: 0.25,
               borderRadius: 999,
               border: '1px solid',
               borderColor: accent,
@@ -113,7 +113,14 @@ function ExpandablePanel({
               event.stopPropagation()
               onToggleExpand()
             }}
-            sx={{ color: 'text.secondary', minWidth: 0, px: 1.25, alignSelf: { xs: 'flex-end', sm: 'center' } }}
+            sx={{
+              color: 'text.secondary',
+              minWidth: 0,
+              px: 0.9,
+              py: 0.2,
+              alignSelf: { xs: 'flex-end', sm: 'center' },
+              opacity: 0.82,
+            }}
           >
             {expanded ? 'Restore' : 'Expand'}
           </Button>

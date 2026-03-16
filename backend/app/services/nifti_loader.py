@@ -14,7 +14,7 @@ def load_nifti(path: str | Path) -> tuple[np.ndarray, tuple[float, float, float]
     try:
         image = nib.load(str(file_path))
         image = nib.as_closest_canonical(image)
-        data = image.get_fdata()
+        data = np.asarray(image.dataobj, dtype=np.float32)
     except Exception as exc:
         raise ValueError(f"Failed to read NIfTI volume '{file_path.name}': {exc}") from exc
 
@@ -26,4 +26,4 @@ def load_nifti(path: str | Path) -> tuple[np.ndarray, tuple[float, float, float]
         )
 
     spacing = tuple(float(value) for value in image.header.get_zooms()[:3])
-    return data.astype(np.float32), spacing
+    return data.astype(np.float32, copy=False), spacing

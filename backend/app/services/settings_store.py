@@ -5,25 +5,24 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from app.models.settings import DatasetViewerSettings
+from app.services.workspace import workspace_file
 
 
 class SettingsStore:
-    def __init__(self, path: Path | None = None):
-        self.path = path or self._default_path()
-
     def load(self) -> dict[str, DatasetViewerSettings]:
-        if not self.path.exists():
+        path = workspace_file("settings.json")
+        if not path.exists():
             return {}
 
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
+            payload = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Settings file '{self.path}' is not valid JSON") from exc
+            raise RuntimeError(f"Settings file '{path}' is not valid JSON") from exc
         except OSError as exc:
-            raise RuntimeError(f"Unable to read settings file '{self.path}'") from exc
+            raise RuntimeError(f"Unable to read settings file '{path}'") from exc
 
         if not isinstance(payload, dict):
-            raise RuntimeError(f"Settings file '{self.path}' must contain a JSON object")
+            raise RuntimeError(f"Settings file '{path}' must contain a JSON object")
 
         return {
             dataset_id: DatasetViewerSettings.model_validate(value)
@@ -34,17 +33,24 @@ class SettingsStore:
         self,
         settings: dict[str, DatasetViewerSettings],
     ) -> dict[str, DatasetViewerSettings]:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        path = workspace_file("settings.json")
+        merged = self.load()
+        merged.update(settings)
         payload = {
             dataset_id: config.model_dump(mode="json")
-            for dataset_id, config in settings.items()
+            for dataset_id, config in merged.items()
         }
+        self._atomic_write(path, payload)
+        return merged
+
+    def _atomic_write(self, path: Path, payload: dict[str, object]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             with NamedTemporaryFile(
                 "w",
-                dir=self.path.parent,
-                prefix=self.path.stem + ".",
+                dir=path.parent,
+                prefix=path.stem + ".",
                 suffix=".tmp",
                 encoding="utf-8",
                 delete=False,
@@ -52,29 +58,9 @@ class SettingsStore:
                 json.dump(payload, handle, indent=2, sort_keys=True)
                 handle.write("\n")
                 temp_path = Path(handle.name)
-            temp_path.replace(self.path)
+            temp_path.replace(path)
         except OSError as exc:
-            raise RuntimeError(f"Unable to write settings file '{self.path}'") from exc
-
-        return settings
-
-    @staticmethod
-    def _default_path() -> Path:
-        home_path = Path.home() / ".radiology-webui" / "settings.json"
-        if SettingsStore._is_writable(home_path.parent):
-            return home_path
-        return Path("/tmp/radiology-webui/settings.json")
-
-    @staticmethod
-    def _is_writable(directory: Path) -> bool:
-        try:
-            directory.mkdir(parents=True, exist_ok=True)
-            probe = directory / ".write-test"
-            probe.write_text("", encoding="utf-8")
-            probe.unlink()
-            return True
-        except OSError:
-            return False
+            raise RuntimeError(f"Unable to write settings file '{path}'") from exc
 
 
 settings_store = SettingsStore()

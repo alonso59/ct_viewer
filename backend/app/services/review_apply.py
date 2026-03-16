@@ -4,6 +4,7 @@ import csv
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import shutil
 from tempfile import NamedTemporaryFile
 from threading import Lock, RLock
@@ -14,13 +15,26 @@ from app.models.review import (
     ReviewApplyResponse,
     ReviewApplyResult,
     ReviewApplySummary,
+    ReviewDeleteDecision,
+    ReviewMovedFile,
     ReviewOperation,
 )
-from app.services.discovery import resolve_dataset_path, resolve_series_source
+from app.services.discovery import resolve_series_source
+from app.services.runtime_cache import reset_runtime_caches
+from app.services.workspace import validate_workspace_dataset_id, workspace_file
 
 
 _DATASET_LOCKS: dict[str, RLock] = {}
 _DATASET_LOCKS_GUARD = Lock()
+CASE_ID_PATTERN = re.compile(r"(case_\d{5})")
+MANIFEST_MINIMAL_FIELDS = [
+    "filename",
+    "patient_id",
+    "case_id",
+    "phase",
+    "protocol_source",
+]
+DELETE_DECISION_LIMIT = 20
 
 
 def apply_review_operations(
@@ -33,7 +47,7 @@ def apply_review_operations(
             "Review apply is disabled. Set ALLOW_DATA_MUTATIONS=true to enable dataset mutations."
         )
 
-    dataset_path = resolve_dataset_path(settings.data_root, dataset_id)
+    dataset_path = validate_workspace_dataset_id(dataset_id)
     lock = _dataset_lock(dataset_id)
     batch_id = _build_batch_id()
     applied_at = _now_iso()
@@ -41,7 +55,7 @@ def apply_review_operations(
     with lock:
         summary = ReviewApplySummary(requested=len(operations))
         results: list[ReviewApplyResult] = []
-        decisions_path = dataset_path / "decisions.json"
+        decisions_path = workspace_file("decisions.json")
         decisions_payload = _load_json_payload(decisions_path, default=[])
         reclassification_entries: list[dict] = []
         deletion_entries: list[dict] = []
@@ -76,18 +90,19 @@ def apply_review_operations(
         _atomic_write_json(decisions_path, decisions_payload)
         if reclassification_entries:
             _append_batch_log(
-                dataset_path / "reclassification_log.json",
+                workspace_file("reclassification_log.json"),
                 batch_id=batch_id,
                 applied_at=applied_at,
                 entries=reclassification_entries,
             )
         if deletion_entries:
             _append_batch_log(
-                dataset_path / "deletion_log.json",
+                workspace_file("deletion_log.json"),
                 batch_id=batch_id,
                 applied_at=applied_at,
                 entries=deletion_entries,
             )
+        reset_runtime_caches()
 
     return ReviewApplyResponse(
         batch_id=batch_id,
@@ -120,6 +135,7 @@ def _apply_single_operation(
                 "group": None,
                 "phase": None,
                 "filename": None,
+                "moved_file_pairs": [],
             },
         )
 
@@ -129,11 +145,14 @@ def _apply_single_operation(
         "group": source.group,
         "phase": source.phase,
         "filename": source.filename,
+        "moved_file_pairs": [],
     }
 
     if operation.action == "reclassify":
         return _apply_reclassify(dataset_path, operation, source), metadata
-    return _apply_delete(dataset_path, operation, source), metadata
+    result, moved_pairs = _apply_delete(dataset_path, operation, source)
+    metadata["moved_file_pairs"] = moved_pairs
+    return result, metadata
 
 
 def _apply_reclassify(dataset_path: Path, operation: ReviewOperation, source) -> ReviewApplyResult:
@@ -179,29 +198,36 @@ def _apply_reclassify(dataset_path: Path, operation: ReviewOperation, source) ->
     )
 
 
-def _apply_delete(dataset_path: Path, operation: ReviewOperation, source) -> ReviewApplyResult:
+def _apply_delete(
+    dataset_path: Path,
+    operation: ReviewOperation,
+    source,
+) -> tuple[ReviewApplyResult, list[dict[str, str]]]:
     if source.type == "nifti":
-        moved_files, message, status = _move_nifti_to_recycle(
+        moved_files, moved_pairs, message, status = _move_nifti_to_recycle(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
         )
     else:
-        moved_files, message, status = _move_voi_to_recycle(
+        moved_files, moved_pairs, message, status = _move_voi_to_recycle(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
         )
 
-    return ReviewApplyResult(
-        patient_id=operation.patient_id,
-        series_id=operation.series_id,
-        action=operation.action,
-        target_phase=None,
-        status=status,
-        message=message,
-        moved_files=moved_files,
-        manifest_updated=False,
+    return (
+        ReviewApplyResult(
+            patient_id=operation.patient_id,
+            series_id=operation.series_id,
+            action=operation.action,
+            target_phase=None,
+            status=status,
+            message=message,
+            moved_files=moved_files,
+            manifest_updated=False,
+        ),
+        moved_pairs,
     )
 
 
@@ -209,7 +235,7 @@ def _move_nifti_to_recycle(
     dataset_path: Path,
     image_path: Path,
     mask_path: Path | None,
-) -> tuple[list[str], str, str]:
+) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
     recycle_nifti_root = dataset_path / "deleted" / "nifti"
     recycle_seg_root = dataset_path / "deleted" / "seg"
 
@@ -229,8 +255,8 @@ def _move_nifti_to_recycle(
     if collision is not None:
         return [], f"Destination already exists: {collision}", "skipped"
 
-    moved = _execute_moves(candidates, dataset_path)
-    return moved, "moved to recycle bin", "applied"
+    moved, move_pairs = _execute_moves(candidates, dataset_path)
+    return moved, move_pairs, "moved to recycle bin", "applied"
 
 
 def _move_voi_to_phase(
@@ -238,7 +264,7 @@ def _move_voi_to_phase(
     image_path: Path,
     mask_path: Path | None,
     target_phase: str,
-) -> tuple[list[str], str, str]:
+) -> tuple[list[ReviewMovedFile], str, str]:
     image_root = dataset_path / "voi" / "images"
     image_resolved = _ensure_within(image_path, image_root)
     if not image_resolved.exists():
@@ -288,7 +314,7 @@ def _move_voi_to_phase(
     if collision is not None:
         return [], f"Destination already exists: {collision}", "skipped"
 
-    moved = _execute_moves(candidates, dataset_path)
+    moved, _ = _execute_moves(candidates, dataset_path)
     return moved, "moved to target phase", "applied"
 
 
@@ -296,7 +322,7 @@ def _move_voi_to_recycle(
     dataset_path: Path,
     image_path: Path,
     mask_path: Path | None,
-) -> tuple[list[str], str, str]:
+) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
     image_root = dataset_path / "voi" / "images"
     recycle_image_root = dataset_path / "voi" / "deleted" / "images"
     recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
@@ -332,14 +358,22 @@ def _move_voi_to_recycle(
     if collision is not None:
         return [], f"Destination already exists: {collision}", "skipped"
 
-    moved = _execute_moves(candidates, dataset_path)
-    return moved, "moved to recycle bin", "applied"
+    moved, move_pairs = _execute_moves(candidates, dataset_path)
+    return moved, move_pairs, "moved to recycle bin", "applied"
 
 
 def _update_manifest_phase(dataset_path: Path, filename: str, target_phase: str) -> bool:
     manifest_path = dataset_path / "manifest.csv"
     if not manifest_path.is_file():
-        return False
+        row = {
+            "filename": filename,
+            "patient_id": _extract_case_id(filename),
+            "case_id": _extract_case_id(filename),
+            "phase": target_phase,
+            "protocol_source": "manual",
+        }
+        _atomic_write_csv(manifest_path, MANIFEST_MINIMAL_FIELDS, [row])
+        return True
 
     with manifest_path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -360,10 +394,31 @@ def _update_manifest_phase(dataset_path: Path, filename: str, target_phase: str)
         updated = True
 
     if not updated:
-        return False
+        rows.append(
+            {
+                "filename": filename,
+                "patient_id": _extract_case_id(filename),
+                "case_id": _extract_case_id(filename),
+                "phase": target_phase,
+                "protocol_source": "manual",
+            }
+        )
+        updated = True
 
     _atomic_write_csv(manifest_path, fieldnames, rows)
     return True
+
+
+def _extract_case_id(filename: str) -> str:
+    match = CASE_ID_PATTERN.search(filename)
+    if match:
+        return match.group(1)
+    stem = filename
+    if stem.endswith(".nii.gz"):
+        stem = stem[:-7]
+    elif "." in stem:
+        stem = stem.rsplit(".", 1)[0]
+    return stem
 
 
 def _decision_entry(
@@ -375,6 +430,7 @@ def _decision_entry(
     metadata: dict,
 ) -> dict:
     return {
+        "decision_id": uuid.uuid4().hex,
         "batch_id": batch_id,
         "applied_at": applied_at,
         "dataset_id": dataset_id,
@@ -384,7 +440,8 @@ def _decision_entry(
         "target_phase": operation.target_phase,
         "status": result.status,
         "message": result.message,
-        "moved_files": list(result.moved_files),
+        "moved_files": [entry.model_dump() for entry in result.moved_files],
+        "moved_file_pairs": list(metadata.get("moved_file_pairs", [])),
         "manifest_updated": result.manifest_updated,
         "series_type": metadata.get("series_type"),
         "group": metadata.get("group"),
@@ -401,7 +458,7 @@ def _batch_log_entry(operation: ReviewOperation, result: ReviewApplyResult, meta
         "target_phase": operation.target_phase,
         "status": result.status,
         "message": result.message,
-        "moved_files": list(result.moved_files),
+        "moved_files": [entry.model_dump() for entry in result.moved_files],
         "manifest_updated": result.manifest_updated,
         "series_type": metadata.get("series_type"),
         "group": metadata.get("group"),
@@ -427,15 +484,27 @@ def _append_batch_log(path: Path, batch_id: str, applied_at: str, entries: list[
     _atomic_write_json(path, payload)
 
 
-def _execute_moves(candidates: list[tuple[Path, Path]], dataset_path: Path) -> list[str]:
-    moved_files: list[str] = []
+def _execute_moves(
+    candidates: list[tuple[Path, Path]], dataset_path: Path
+) -> tuple[list[ReviewMovedFile], list[dict[str, str]]]:
+    moved_files: list[ReviewMovedFile] = []
+    moved_pairs: list[dict[str, str]] = []
     for source_path, destination_path in candidates:
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(source_path), str(destination_path))
         moved_files.append(
-            f"{source_path.relative_to(dataset_path)} -> {destination_path.relative_to(dataset_path)}"
+            ReviewMovedFile(
+                source=str(source_path.relative_to(dataset_path)),
+                destination=str(destination_path.relative_to(dataset_path)),
+            )
         )
-    return moved_files
+        moved_pairs.append(
+            {
+                "source": str(source_path.relative_to(dataset_path)),
+                "destination": str(destination_path.relative_to(dataset_path)),
+            }
+        )
+    return moved_files, moved_pairs
 
 
 def _first_collision(candidates: list[tuple[Path, Path]]) -> str | None:
@@ -443,6 +512,144 @@ def _first_collision(candidates: list[tuple[Path, Path]]) -> str | None:
         if destination.exists():
             return str(destination)
     return None
+
+
+def list_recent_delete_decisions(dataset_id: str) -> list[ReviewDeleteDecision]:
+    validate_workspace_dataset_id(dataset_id)
+    decisions_path = workspace_file("decisions.json")
+    payload = _load_json_payload(decisions_path, default=[])
+    if not isinstance(payload, list):
+        raise RuntimeError(f"Invalid decisions payload in '{decisions_path}'")
+
+    undone_ids = {
+        str(entry.get("undoes_decision_id"))
+        for entry in payload
+        if isinstance(entry, dict) and entry.get("action") == "undo_delete"
+    }
+
+    decisions: list[ReviewDeleteDecision] = []
+    for entry in reversed(payload):
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("action") != "delete" or entry.get("status") != "applied":
+            continue
+        decision_id = str(entry.get("decision_id") or "")
+        if not decision_id or decision_id in undone_ids:
+            continue
+        moved_pairs = [
+            ReviewMovedFile.model_validate(item)
+            for item in entry.get("moved_file_pairs", [])
+            if isinstance(item, dict)
+        ]
+        decisions.append(
+            ReviewDeleteDecision(
+                decision_id=decision_id,
+                applied_at=str(entry.get("applied_at") or ""),
+                patient_id=str(entry.get("patient_id") or ""),
+                series_id=str(entry.get("series_id") or ""),
+                filename=entry.get("filename"),
+                series_type=entry.get("series_type"),
+                moved_files=moved_pairs,
+                raw=entry,
+            )
+        )
+        if len(decisions) >= DELETE_DECISION_LIMIT:
+            break
+    return decisions
+
+
+def undo_delete_decision(dataset_id: str, decision_id: str) -> ReviewApplyResponse:
+    settings = get_settings()
+    if not settings.allow_data_mutations:
+        raise PermissionError(
+            "Review apply is disabled. Set ALLOW_DATA_MUTATIONS=true to enable dataset mutations."
+        )
+
+    dataset_path = validate_workspace_dataset_id(dataset_id)
+    lock = _dataset_lock(dataset_id)
+    applied_at = _now_iso()
+    batch_id = _build_batch_id()
+
+    with lock:
+        decisions_path = workspace_file("decisions.json")
+        payload = _load_json_payload(decisions_path, default=[])
+        if not isinstance(payload, list):
+            raise RuntimeError(f"Invalid decisions payload in '{decisions_path}'")
+
+        target_entry = None
+        for entry in payload:
+            if isinstance(entry, dict) and entry.get("decision_id") == decision_id:
+                target_entry = entry
+                break
+
+        if target_entry is None:
+            raise FileNotFoundError(f"Delete decision '{decision_id}' not found")
+        if target_entry.get("action") != "delete" or target_entry.get("status") != "applied":
+            raise ValueError(f"Decision '{decision_id}' is not an applied delete decision")
+        if any(
+            isinstance(entry, dict)
+            and entry.get("action") == "undo_delete"
+            and entry.get("undoes_decision_id") == decision_id
+            for entry in payload
+        ):
+            raise RuntimeError(f"Delete decision '{decision_id}' was already undone")
+
+        move_pairs = [
+            ReviewMovedFile.model_validate(item)
+            for item in target_entry.get("moved_file_pairs", [])
+            if isinstance(item, dict)
+        ]
+        if len(move_pairs) == 0:
+            raise RuntimeError(f"Delete decision '{decision_id}' has no restorable file mapping")
+
+        candidates: list[tuple[Path, Path]] = []
+        for pair in move_pairs:
+            source = _ensure_within(dataset_path / pair.destination, dataset_path)
+            destination = _ensure_within(dataset_path / pair.source, dataset_path)
+            if not source.exists():
+                raise FileNotFoundError(f"Deleted file not found for undo: {pair.destination}")
+            if destination.exists():
+                raise RuntimeError(f"Original destination already exists: {pair.source}")
+            candidates.append((source, destination))
+
+        moved_files, moved_pairs = _execute_moves(candidates, dataset_path)
+        result = ReviewApplyResult(
+            patient_id=str(target_entry.get("patient_id") or ""),
+            series_id=str(target_entry.get("series_id") or ""),
+            action="delete",
+            target_phase=None,
+            status="applied",
+            message="delete restored from recycle bin",
+            moved_files=moved_files,
+            manifest_updated=False,
+        )
+        payload.append(
+            {
+                "decision_id": uuid.uuid4().hex,
+                "batch_id": batch_id,
+                "applied_at": applied_at,
+                "dataset_id": dataset_id,
+                "patient_id": result.patient_id,
+                "series_id": result.series_id,
+                "action": "undo_delete",
+                "undoes_decision_id": decision_id,
+                "status": result.status,
+                "message": result.message,
+                "moved_files": [entry.model_dump() for entry in moved_files],
+                "moved_file_pairs": moved_pairs,
+                "filename": target_entry.get("filename"),
+                "series_type": target_entry.get("series_type"),
+            }
+        )
+        _atomic_write_json(decisions_path, payload)
+        reset_runtime_caches()
+
+    return ReviewApplyResponse(
+        batch_id=batch_id,
+        applied_at=applied_at,
+        summary=ReviewApplySummary(requested=1, applied=1, skipped=0, failed=0),
+        results=[result],
+    )
 
 
 def _dataset_lock(dataset_id: str) -> RLock:

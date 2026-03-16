@@ -10,10 +10,11 @@ import numpy as np
 
 from app.config import get_settings
 from app.models.dataset import VolumeInfo
-from app.services.discovery import resolve_dataset_path, resolve_series_source
+from app.services.discovery import resolve_series_source
 from app.services.mask_loader import load_mask
 from app.services.nifti_loader import load_nifti
 from app.services.numpy_loader import load_numpy
+from app.services.workspace import validate_workspace_dataset_id
 
 
 @dataclass
@@ -24,6 +25,7 @@ class CachedSeries:
     mask: np.ndarray | None
     spacing: tuple[float, float, float]
     labels: list[int]
+    byte_size: int
 
 
 @dataclass
@@ -35,37 +37,35 @@ class HandleRecord:
 class VolumeCache:
     def __init__(
         self,
-        max_items: int = 2,
+        max_bytes: int,
         max_handles: int = 256,
         handle_ttl_seconds: int = 30 * 60,
     ):
-        self.max_items = max_items
+        self.max_bytes = max(0, int(max_bytes))
         self.max_handles = max_handles
         self.handle_ttl_seconds = handle_ttl_seconds
         self._series_cache: OrderedDict[str, CachedSeries] = OrderedDict()
+        self._series_cache_bytes = 0
         self._handles: OrderedDict[str, HandleRecord] = OrderedDict()
         self._lock = RLock()
 
-    def load_series(self, dataset_id: str, patient_id: str, series_id: str) -> VolumeInfo:
+    def load_series(
+        self,
+        dataset_id: str,
+        patient_id: str,
+        series_id: str,
+        storage_path: str | None = None,
+    ) -> VolumeInfo:
         with self._lock:
             self._purge_expired_handles()
-            cache_key = f"{dataset_id}:{patient_id}:{series_id}"
+            dataset_path = validate_workspace_dataset_id(dataset_id)
+            source = resolve_series_source(dataset_path, patient_id, series_id, storage_path=storage_path)
+            cache_key = f"{dataset_id}:{patient_id}:{series_id}:{source.storage_path or source.image_path}"
             cached = self._series_cache.pop(cache_key, None)
             if cached is not None:
                 self._series_cache[cache_key] = cached
                 load_handle = self._register_handle(cache_key)
-                return VolumeInfo(
-                    series_id=series_id,
-                    load_handle=load_handle,
-                    shape=list(cached.volume.shape),
-                    spacing=[float(value) for value in cached.spacing],
-                    has_mask=cached.mask is not None,
-                    labels=list(cached.labels),
-                )
-
-            # Load from disk on first access for this dataset/patient/series tuple.
-            dataset_path = resolve_dataset_path(get_settings().data_root, dataset_id)
-            source = resolve_series_source(dataset_path, patient_id, series_id)
+                return self._volume_info(series_id, load_handle, cached)
 
             try:
                 if source.type == "nifti":
@@ -95,21 +95,19 @@ class VolumeCache:
                 mask=mask,
                 spacing=spacing,
                 labels=labels,
+                byte_size=volume.nbytes + (mask.nbytes if mask is not None else 0),
             )
             self._series_cache[cache_key] = cached
-            self._trim_series_cache()
+            self._series_cache_bytes += cached.byte_size
+            self._trim_series_cache(protected_key=cache_key)
 
             load_handle = self._register_handle(cache_key)
-            return VolumeInfo(
-                series_id=series_id,
-                load_handle=load_handle,
-                shape=list(volume.shape),
-                spacing=[float(value) for value in spacing],
-                has_mask=mask is not None,
-                labels=labels,
-            )
+            return self._volume_info(series_id, load_handle, cached)
 
-    def get_by_handle(self, load_handle: str) -> tuple[np.ndarray, np.ndarray | None, tuple[float, float, float]]:
+    def get_by_handle(
+        self,
+        load_handle: str,
+    ) -> tuple[np.ndarray, np.ndarray | None, tuple[float, float, float]]:
         with self._lock:
             self._purge_expired_handles()
             if not load_handle:
@@ -124,7 +122,6 @@ class VolumeCache:
                 self._handles.pop(load_handle, None)
                 raise RuntimeError("Load handle is no longer available")
 
-            # Touch both series entry and handle for LRU semantics.
             self._series_cache.pop(record.cache_key, None)
             self._series_cache[record.cache_key] = cached
             self._handles.pop(load_handle, None)
@@ -134,10 +131,20 @@ class VolumeCache:
             )
             return cached.volume, cached.mask, cached.spacing
 
-    def _trim_series_cache(self) -> None:
-        while len(self._series_cache) > self.max_items:
-            evicted_key, _ = self._series_cache.popitem(last=False)
-            self._drop_handles_for_cache_key(evicted_key)
+    def reset(self) -> None:
+        with self._lock:
+            self._series_cache.clear()
+            self._series_cache_bytes = 0
+            self._handles.clear()
+
+    def _trim_series_cache(self, protected_key: str | None = None) -> None:
+        while self._series_cache and self._series_cache_bytes > self.max_bytes:
+            stale_key = next(iter(self._series_cache.keys()))
+            if protected_key is not None and stale_key == protected_key and len(self._series_cache) == 1:
+                break
+            stale_entry = self._series_cache.pop(stale_key)
+            self._series_cache_bytes -= stale_entry.byte_size
+            self._drop_handles_for_cache_key(stale_key)
 
     def _register_handle(self, cache_key: str) -> str:
         handle = uuid.uuid4().hex
@@ -163,5 +170,16 @@ class VolumeCache:
                 break
             self._handles.pop(handle, None)
 
+    @staticmethod
+    def _volume_info(series_id: str, load_handle: str, cached: CachedSeries) -> VolumeInfo:
+        return VolumeInfo(
+            series_id=series_id,
+            load_handle=load_handle,
+            shape=list(cached.volume.shape),
+            spacing=[float(value) for value in cached.spacing],
+            has_mask=cached.mask is not None,
+            labels=list(cached.labels),
+        )
 
-volume_cache = VolumeCache()
+
+volume_cache = VolumeCache(max_bytes=get_settings().volume_cache_max_bytes)

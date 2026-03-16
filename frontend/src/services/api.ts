@@ -12,6 +12,14 @@ export type PhaseDecision = 'NC' | 'ART' | 'VEN'
 
 export interface HealthStatus {
   status: string
+  allow_data_mutations?: boolean
+}
+
+export interface WorkspaceStatus {
+  configured: boolean
+  dataset_id: string | null
+  dataset_path: string | null
+  workspace_dir: string | null
 }
 
 export interface DatasetSummary {
@@ -31,6 +39,8 @@ export interface PatientSummary {
   series_count: number
   seg_count: number
   voi_count: number
+  has_deleted: boolean
+  deleted_series_count: number
 }
 
 export interface SeriesInfo {
@@ -42,6 +52,8 @@ export interface SeriesInfo {
   laterality: string | null
   filename: string
   has_seg: boolean
+  deleted: boolean
+  storage_path: string | null
 }
 
 export interface VolumeInfo {
@@ -92,7 +104,7 @@ export interface ReviewApplyResult {
   target_phase: PhaseDecision | null
   status: 'applied' | 'skipped' | 'failed'
   message: string
-  moved_files: string[]
+  moved_files: ReviewMovedFile[]
   manifest_updated: boolean
 }
 
@@ -106,6 +118,21 @@ export interface ReviewApplyResponse {
     failed: number
   }
   results: ReviewApplyResult[]
+}
+
+export interface ReviewMovedFile {
+  source: string
+  destination: string
+}
+
+export interface ReviewDeleteDecision {
+  decision_id: string
+  applied_at: string
+  patient_id: string
+  series_id: string
+  filename: string | null
+  series_type: string | null
+  moved_files: ReviewMovedFile[]
 }
 
 interface RequestOptions {
@@ -261,6 +288,23 @@ export const apiClient = {
     return response.data
   },
 
+  async getWorkspace(): Promise<WorkspaceStatus> {
+    const response = await api.get<WorkspaceStatus>('/workspace')
+    return response.data
+  },
+
+  async putWorkspace(datasetPath: string): Promise<WorkspaceStatus> {
+    const response = await api.put<WorkspaceStatus>('/workspace', {
+      dataset_path: datasetPath,
+    })
+    return response.data
+  },
+
+  async clearWorkspace(): Promise<WorkspaceStatus> {
+    const response = await api.delete<WorkspaceStatus>('/workspace')
+    return response.data
+  },
+
   async listDatasets(): Promise<DatasetSummary[]> {
     const response = await api.get<DatasetSummary[]>('/datasets')
     return response.data
@@ -282,9 +326,21 @@ export const apiClient = {
     datasetId: string,
     patientId: string,
     seriesId: string,
+    storagePath?: string | null,
+    options: RequestOptions = {},
   ): Promise<VolumeInfo> {
+    const params = new URLSearchParams()
+    if (storagePath) {
+      params.set('storage_path', storagePath)
+    }
     const response = await api.post<VolumeInfo>(
-      `/datasets/${datasetId}/patients/${patientId}/series/${seriesId}/load`,
+      `/datasets/${datasetId}/patients/${patientId}/series/${seriesId}/load${
+        params.size > 0 ? `?${params.toString()}` : ''
+      }`,
+      undefined,
+      {
+        signal: options.signal,
+      },
     )
     return response.data
   },
@@ -348,6 +404,23 @@ export const apiClient = {
     const response = await api.post<ReviewApplyResponse>(
       `/datasets/${datasetId}/review/apply`,
       payload,
+    )
+    return response.data
+  },
+
+  async listDeleteDecisions(datasetId: string): Promise<ReviewDeleteDecision[]> {
+    const response = await api.get<ReviewDeleteDecision[]>(
+      `/datasets/${datasetId}/review/deletions`,
+    )
+    return response.data
+  },
+
+  async undoDeleteDecision(
+    datasetId: string,
+    decisionId: string,
+  ): Promise<ReviewApplyResponse> {
+    const response = await api.post<ReviewApplyResponse>(
+      `/datasets/${datasetId}/review/undo-delete/${decisionId}`,
     )
     return response.data
   },

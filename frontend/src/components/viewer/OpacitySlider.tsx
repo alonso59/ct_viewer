@@ -16,7 +16,7 @@ function OpacitySlider({
   value,
 }: OpacitySliderProps) {
   return (
-    <Stack spacing={0.75} sx={{ minWidth: 180 }}>
+    <Stack spacing={0.6} sx={{ minWidth: 0 }}>
       <Stack direction="row" justifyContent="space-between" spacing={1}>
         <Typography variant="caption" color="text.secondary">
           {label}

@@ -19,7 +19,7 @@ function WindowLevelControl({ ww, wl, onPreset }: WindowLevelControlProps) {
   return (
     <Stack spacing={1.25} data-window-width={ww} data-window-level={wl}>
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Typography variant="overline" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.22em' }}>
           Window / Level
         </Typography>
         <Chip label={`WW ${ww}`} variant="outlined" size="small" />
@@ -37,6 +37,7 @@ function WindowLevelControl({ ww, wl, onPreset }: WindowLevelControlProps) {
               variant="outlined"
               size="small"
               onClick={() => onPreset(preset)}
+              sx={{ minWidth: 0, px: 1.25 }}
             >
               {PRESET_LABELS[preset]}
             </Button>

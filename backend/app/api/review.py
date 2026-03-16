@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.review import ReviewApplyRequest, ReviewApplyResponse
-from app.services.review_apply import apply_review_operations
+from app.models.review import ReviewApplyRequest, ReviewApplyResponse, ReviewDeleteDecision
+from app.services.review_apply import (
+    apply_review_operations,
+    list_recent_delete_decisions,
+    undo_delete_decision,
+)
 
 
 router = APIRouter(tags=["review"])
@@ -30,5 +34,27 @@ def review_apply(dataset_id: str, payload: ReviewApplyRequest) -> ReviewApplyRes
         raise HTTPException(status_code=400, detail="At least one operation is required")
     try:
         return apply_review_operations(dataset_id, payload.operations)
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get(
+    "/api/datasets/{dataset_id}/review/deletions",
+    response_model=list[ReviewDeleteDecision],
+)
+def review_deletions(dataset_id: str) -> list[ReviewDeleteDecision]:
+    try:
+        return list_recent_delete_decisions(dataset_id)
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post(
+    "/api/datasets/{dataset_id}/review/undo-delete/{decision_id}",
+    response_model=ReviewApplyResponse,
+)
+def review_undo_delete(dataset_id: str, decision_id: str) -> ReviewApplyResponse:
+    try:
+        return undo_delete_decision(dataset_id, decision_id)
     except Exception as exc:
         raise _http_error(exc) from exc

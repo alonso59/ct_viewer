@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Response
 
+from app.services.mesh_cache import mesh_cache
 from app.services.mesh_generator import generate_mesh
 from app.services.volume_cache import volume_cache
 
@@ -28,7 +29,12 @@ def mesh_glb(
 ):
     try:
         _volume, mask, spacing = volume_cache.get_by_handle(load_handle)
-        glb_bytes = generate_mesh(mask=mask, label=label, spacing=spacing, smooth=smooth)
+        cache_key = mesh_cache.build_key(load_handle=load_handle, label=label, smooth=smooth)
+        glb_bytes = mesh_cache.get(cache_key)
+        if glb_bytes is None:
+            glb_bytes = generate_mesh(mask=mask, label=label, spacing=spacing, smooth=smooth)
+            if glb_bytes is not None:
+                mesh_cache.set(cache_key, glb_bytes)
     except Exception as exc:
         raise _http_error(exc) from exc
 

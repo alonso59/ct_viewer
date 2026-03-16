@@ -12,6 +12,9 @@ See the full requirements in [docs/SRS.md](docs/SRS.md).
 - Portable runtime for other machines: native Docker + `docker compose`
 - Frontend auth token storage defaults to in-memory (`frontend/.env.example`)
 
+First-time machine setup guide:
+- [docs/SETUP_PREREQUISITES.md](docs/SETUP_PREREQUISITES.md)
+
 ## Local udocker entrypoints
 
 This repo ships two local entrypoints:
@@ -29,11 +32,18 @@ python udocker.py images -l
 ## Quickstart
 
 ```bash
-make setup-node
-make install-backend
+make setup
 make dev-backend
 make dev-frontend
 ```
+
+`make setup` performs first-step bootstrap for this repository:
+- checks conda + vendored udocker availability
+- initializes local udocker runtime (`.udocker/`)
+- pulls/creates the `radio-node` container only if missing
+- installs backend Python requirements
+
+Note: Docker is detected and reported, but not auto-installed by `make` because Docker installation is system-level and usually requires admin privileges.
 
 To produce the frontend static bundle with udocker:
 
@@ -45,6 +55,7 @@ make build-frontend
 
 - Backend health: `http://localhost:8000/api/health`
 - Frontend dev server: `http://localhost:5173`
+- At first launch, enter the server path to one dataset folder in the workspace setup screen
 
 ## Review Workflow Safety
 
@@ -54,8 +65,9 @@ When `ALLOW_DATA_MUTATIONS=true`, `Apply Changes` in the viewer mutates dataset 
 - Reclassify/Delete (VOI): moves files to phase folders or recycle paths
 - Delete (NIfTI): moves image/seg files to recycle paths
 
-Audit files are appended in each dataset root:
+App-managed files are written under `<dataset>/.webui/`:
 
+- `settings.json`
 - `decisions.json`
 - `reclassification_log.json`
 - `deletion_log.json`
@@ -72,7 +84,7 @@ Back up datasets before enabling mutations.
 Yes, this repo can run on other machines without `udocker`.
 
 1. Copy [.env.example](.env.example) to `.env`.
-2. Set `DATASET_DIR` in `.env` to the host path that contains your dataset root.
+2. Set `DATASET_DIR` in `.env` so the server can access your dataset folders.
 3. Keep `ALLOW_DATA_MUTATIONS=false` for read-only mode, or set it to `true` to enable reviewer apply operations.
 4. Start the app:
 
@@ -84,6 +96,8 @@ docker compose up -d --build
 
 - `http://localhost:8000/`
 - `http://localhost:8000/api/health`
+
+6. In the UI, enter the server path to a specific dataset folder, for example `/data/Dataset820`.
 
 Useful commands:
 

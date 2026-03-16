@@ -22,14 +22,20 @@ interface SeriesSelectorProps {
   datasetId: string
   patientId: string
   onSeriesChange?: (series: SeriesInfo | null) => void
+  onSeriesListLoaded?: (seriesList: SeriesInfo[]) => void
   preferredSeriesId?: string | null
   reloadKey?: number
+}
+
+function seriesOptionKey(series: SeriesInfo): string {
+  return `${series.series_id}::${series.storage_path ?? ''}`
 }
 
 function SeriesSelector({
   datasetId,
   patientId,
   onSeriesChange,
+  onSeriesListLoaded,
   preferredSeriesId = null,
   reloadKey = 0,
 }: SeriesSelectorProps) {
@@ -42,7 +48,7 @@ function SeriesSelector({
     seriesList: [],
     error: null,
   })
-  const [selectedSeriesId, setSelectedSeriesId] = useState('')
+  const [selectedSeriesKey, setSelectedSeriesKey] = useState('')
   const scope = `${datasetId}:${patientId}:${reloadKey}`
   const loading = requestState.scope !== scope
   const seriesList = requestState.scope === scope ? requestState.seriesList : []
@@ -63,13 +69,14 @@ function SeriesSelector({
           seriesList: series,
           error: null,
         })
+        onSeriesListLoaded?.(series)
 
         const preferredSeries =
           preferredSeriesId !== null
             ? (series.find((entry) => entry.series_id === preferredSeriesId) ?? null)
             : null
         const defaultSeries = preferredSeries ?? series[0] ?? null
-        setSelectedSeriesId(defaultSeries?.series_id ?? '')
+        setSelectedSeriesKey(defaultSeries ? seriesOptionKey(defaultSeries) : '')
         onSeriesChange?.(defaultSeries)
       })
       .catch((requestError) => {
@@ -82,45 +89,67 @@ function SeriesSelector({
           seriesList: [],
           error: getApiErrorMessage(requestError),
         })
-        setSelectedSeriesId('')
+        onSeriesListLoaded?.([])
+        setSelectedSeriesKey('')
         onSeriesChange?.(null)
       })
 
     return () => {
       active = false
     }
-  }, [datasetId, onSeriesChange, patientId, preferredSeriesId, reloadKey, scope])
+  }, [datasetId, onSeriesChange, onSeriesListLoaded, patientId, preferredSeriesId, reloadKey, scope])
 
   const selectedSeries =
-    seriesList.find((series) => series.series_id === selectedSeriesId) ?? null
+    seriesList.find((series) => seriesOptionKey(series) === selectedSeriesKey) ?? null
 
   return (
-    <Stack spacing={1.25} minWidth={{ xs: '100%', md: 360 }}>
+    <Stack spacing={1.25} sx={{ minWidth: 0, width: '100%' }}>
       <FormControl fullWidth disabled={loading || seriesList.length === 0}>
         <InputLabel id="series-selector-label">Series</InputLabel>
         <Select
           labelId="series-selector-label"
           label="Series"
-          value={selectedSeriesId}
+          value={selectedSeriesKey}
+          renderValue={(value) => {
+            const series = seriesList.find((entry) => seriesOptionKey(entry) === value)
+            if (!series) {
+              return ''
+            }
+            return series.deleted ? `${series.filename} [DELETED]` : series.filename
+          }}
           onChange={(event) => {
-            const nextId = event.target.value
-            setSelectedSeriesId(nextId)
+            const nextKey = event.target.value
+            setSelectedSeriesKey(nextKey)
             onSeriesChange?.(
-              seriesList.find((series) => series.series_id === nextId) ?? null,
+              seriesList.find((series) => seriesOptionKey(series) === nextKey) ?? null,
             )
           }}
         >
           {seriesList.map((series) => (
-            <MenuItem key={series.series_id} value={series.series_id}>
+            <MenuItem key={seriesOptionKey(series)} value={seriesOptionKey(series)}>
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={{ xs: 0.5, sm: 1.25 }}
                 alignItems={{ sm: 'center' }}
+                sx={{ minWidth: 0 }}
               >
-                <Typography fontWeight={600}>{series.filename}</Typography>
+                <Typography
+                  fontWeight={600}
+                  sx={{
+                    minWidth: 0,
+                    overflowWrap: 'anywhere',
+                    color: series.deleted ? 'error.main' : 'text.primary',
+                    textDecoration: series.deleted ? 'line-through' : 'none',
+                  }}
+                >
+                  {series.filename}
+                </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {series.type.toUpperCase()}
                 </Typography>
+                {series.deleted ? (
+                  <Chip label="DELETED" size="small" color="error" variant="filled" />
+                ) : null}
               </Stack>
             </MenuItem>
           ))}
@@ -140,6 +169,9 @@ function SeriesSelector({
 
       {!loading && !error && selectedSeries ? (
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+          {selectedSeries.deleted ? (
+            <Chip label="DELETED" color="error" variant="filled" size="small" />
+          ) : null}
           <Chip
             label={selectedSeries.phase ?? selectedSeries.type.toUpperCase()}
             color="primary"

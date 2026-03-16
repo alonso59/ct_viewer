@@ -5,6 +5,7 @@ from copy import deepcopy
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from app.models.dataset import VolumeInfo
+from app.services.slice_cache import slice_cache
 from app.services.slice_renderer import DEFAULT_LAYER_CONFIG, render_slice
 from app.services.volume_cache import volume_cache
 
@@ -44,9 +45,19 @@ def _parse_layers(layers: str | None) -> list[int]:
     "/api/datasets/{dataset_id}/patients/{patient_id}/series/{series_id}/load",
     response_model=VolumeInfo,
 )
-def load_series(dataset_id: str, patient_id: str, series_id: str):
+def load_series(
+    dataset_id: str,
+    patient_id: str,
+    series_id: str,
+    storage_path: str | None = Query(default=None),
+):
     try:
-        return volume_cache.load_series(dataset_id, patient_id, series_id)
+        return volume_cache.load_series(
+            dataset_id,
+            patient_id,
+            series_id,
+            storage_path=storage_path,
+        )
     except Exception as exc:
         raise _http_error(exc) from exc
 
@@ -65,10 +76,25 @@ def slice_png(
         volume, mask, _spacing = volume_cache.get_by_handle(load_handle)
         visible_layers = _parse_layers(layers)
         layer_config = deepcopy(DEFAULT_LAYER_CONFIG)
+        opacity_signature: list[tuple[int, float]] = []
         for label, config in layer_config.items():
             opacity_key = f"opacity_{label}"
             if opacity_key in request.query_params:
                 config["alpha"] = float(request.query_params[opacity_key])
+            opacity_signature.append((label, float(config["alpha"])))
+
+        cache_key = slice_cache.build_key(
+            load_handle=load_handle,
+            axis=axis,
+            index=index,
+            ww=ww,
+            wl=wl,
+            layers=visible_layers,
+            opacity_signature=tuple(opacity_signature),
+        )
+        cached_png = slice_cache.get(cache_key)
+        if cached_png is not None:
+            return Response(content=cached_png, media_type="image/png")
 
         png_bytes = render_slice(
             volume=volume,
@@ -80,6 +106,7 @@ def slice_png(
             layers=visible_layers,
             layer_config=layer_config,
         )
+        slice_cache.set(cache_key, png_bytes)
     except Exception as exc:
         raise _http_error(exc) from exc
 

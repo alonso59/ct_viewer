@@ -3,21 +3,19 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
   FormControl,
   InputLabel,
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { alpha } from '@mui/material/styles'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -25,6 +23,7 @@ import {
   type DatasetViewerSettings,
   type PatientSummary,
   type ReviewApplyResponse,
+  type ReviewDeleteDecision,
   type ReviewOperation,
   getApiErrorMessage,
   type Axis,
@@ -64,6 +63,13 @@ const SURFACE_LAYER_COLORS: Record<number, string> = {
 }
 const Surface3DView = lazy(() => import('../components/viewer/Surface3DView'))
 
+function seriesKey(series: Pick<SeriesInfo, 'series_id' | 'storage_path'> | null): string | null {
+  if (!series) {
+    return null
+  }
+  return `${series.series_id}::${series.storage_path ?? ''}`
+}
+
 function mapLayerStateFromSettings(
   settings: DatasetViewerSettings,
 ): {
@@ -96,13 +102,14 @@ function ViewerPage() {
 
   const [hydratedDatasetId, setHydratedDatasetId] = useState<string | null>(null)
   const [selectedSeries, setSelectedSeries] = useState<SeriesInfo | null>(null)
+  const [seriesList, setSeriesList] = useState<SeriesInfo[]>([])
   const [preferredSeriesId, setPreferredSeriesId] = useState<string | null>(null)
   const [volumeRequest, setVolumeRequest] = useState<{
-    seriesId: string | null
+    seriesKey: string | null
     info: VolumeInfo | null
     error: string | null
   }>({
-    seriesId: null,
+    seriesKey: null,
     info: null,
     error: null,
   })
@@ -115,9 +122,16 @@ function ViewerPage() {
   const [handleReloadTick, setHandleReloadTick] = useState(0)
   const [reviewDataRevision, setReviewDataRevision] = useState(0)
   const [selectedGroup, setSelectedGroup] = useState('all')
-  const [phaseDecision, setPhaseDecision] = useState<PhaseDecision>('NC')
-  const [pendingOperations, setPendingOperations] = useState<ReviewOperation[]>([])
-  const [applyDialogOpen, setApplyDialogOpen] = useState(false)
+  const [mutationsEnabled, setMutationsEnabled] = useState(false)
+  const [deleteHistoryState, setDeleteHistoryState] = useState<{
+    decisions: ReviewDeleteDecision[]
+    error: string | null
+    loading: boolean
+  }>({
+    decisions: [],
+    error: null,
+    loading: false,
+  })
   const [applyState, setApplyState] = useState<{
     running: boolean
     error: string | null
@@ -136,6 +150,15 @@ function ViewerPage() {
     patients: [],
     error: null,
   })
+  const [toastState, setToastState] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'warning' | 'error'
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
 
   const handleRecoveryRequestedRef = useRef(false)
   const windowLevel = useWindowLevel()
@@ -149,22 +172,20 @@ function ViewerPage() {
     },
   })
   const {
+    flushSettings,
     loadError: settingsLoadError,
     loading: settingsLoading,
     saveError: settingsSaveError,
     updateDatasetSettings,
   } = settingsState
 
+  const selectedSeriesKey = seriesKey(selectedSeries)
   const activeVolumeInfo =
-    selectedSeries && volumeRequest.seriesId === selectedSeries.series_id
-      ? volumeRequest.info
-      : null
+    selectedSeries && volumeRequest.seriesKey === selectedSeriesKey ? volumeRequest.info : null
   const volumeError =
-    selectedSeries && volumeRequest.seriesId === selectedSeries.series_id
-      ? volumeRequest.error
-      : null
-  const volumeLoading =
-    selectedSeries !== null && volumeRequest.seriesId !== selectedSeries.series_id
+    selectedSeries && volumeRequest.seriesKey === selectedSeriesKey ? volumeRequest.error : null
+  const volumeLoading = selectedSeries !== null && volumeRequest.seriesKey !== selectedSeriesKey
+  const selectedSeriesDeleted = Boolean(selectedSeries?.deleted)
   const navigation = useSliceNavigation(activeVolumeInfo?.shape ?? null)
   const activeLoadHandle = activeVolumeInfo?.load_handle ?? null
   const canPersistSettings =
@@ -196,21 +217,44 @@ function ViewerPage() {
         }),
       )
   }, [patientList, selectedGroup])
+  const selectedPatientRecord = useMemo(
+    () => filteredPatients.find((patient) => patient.patient_id === pid) ?? null,
+    [filteredPatients, pid],
+  )
 
-  const currentPatientIndex = filteredPatients.findIndex((patient) => patient.patient_id === pid)
-  const nextPatient = currentPatientIndex >= 0 ? filteredPatients[currentPatientIndex + 1] ?? null : null
-  const canLoadNextPatient = nextPatient !== null
+  const currentPatientIndex = useMemo(
+    () => filteredPatients.findIndex((patient) => patient.patient_id === pid),
+    [filteredPatients, pid],
+  )
+  const previousPatient =
+    currentPatientIndex > 0 ? filteredPatients[currentPatientIndex - 1] ?? null : null
+  const nextPatient =
+    currentPatientIndex >= 0 ? filteredPatients[currentPatientIndex + 1] ?? null : null
+  const currentSeriesIndex = useMemo(
+    () =>
+      selectedSeries ? seriesList.findIndex((series) => seriesKey(series) === selectedSeriesKey) : -1,
+    [selectedSeries, selectedSeriesKey, seriesList],
+  )
+  const previousSeries =
+    currentSeriesIndex > 0 ? seriesList[currentSeriesIndex - 1] ?? null : null
+  const nextSeries =
+    currentSeriesIndex >= 0 ? seriesList[currentSeriesIndex + 1] ?? null : seriesList[0] ?? null
+  const hasPreviousSeries =
+    previousSeries !== null &&
+    (selectedSeries === null || seriesKey(previousSeries) !== selectedSeriesKey)
+  const hasNextSeries =
+    nextSeries !== null &&
+    (selectedSeries === null || seriesKey(nextSeries) !== selectedSeriesKey)
+  const canRetreatReview = hasPreviousSeries || previousPatient !== null
+  const canAdvanceReview = hasNextSeries || nextPatient !== null
 
-  const queuedReclassifications = pendingOperations.filter((entry) => entry.action === 'reclassify').length
-  const queuedDeletes = pendingOperations.filter((entry) => entry.action === 'delete').length
-
-  function requestHandleReload() {
+  const requestHandleReload = useCallback(() => {
     if (!selectedSeries || handleRecoveryRequestedRef.current) {
       return
     }
     handleRecoveryRequestedRef.current = true
     setHandleReloadTick((current) => current + 1)
-  }
+  }, [selectedSeries])
 
   useEffect(() => {
     let active = true
@@ -256,33 +300,89 @@ function ViewerPage() {
     if (patientLoading || filteredPatients.length === 0) {
       return
     }
-    if (currentPatientIndex >= 0) {
+    if (filteredPatients.some((patient) => patient.patient_id === pid)) {
       return
     }
     navigate(`/datasets/${dsid}/patients/${filteredPatients[0].patient_id}/viewer`)
-  }, [currentPatientIndex, dsid, filteredPatients, navigate, patientLoading])
+  }, [dsid, filteredPatients, navigate, patientLoading, pid])
 
   useEffect(() => {
-    setPendingOperations([])
-    setApplyDialogOpen(false)
-  }, [pid])
+    let active = true
+
+    apiClient
+      .getHealth()
+      .then((health) => {
+        if (active) {
+          setMutationsEnabled(Boolean(health.allow_data_mutations))
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setMutationsEnabled(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const loadDeleteHistory = useCallback(async () => {
+    if (!mutationsEnabled) {
+      setDeleteHistoryState({
+        decisions: [],
+        error: null,
+        loading: false,
+      })
+      return
+    }
+    setDeleteHistoryState((current) => ({
+      ...current,
+      loading: true,
+      error: null,
+    }))
+    try {
+      const decisions = await apiClient.listDeleteDecisions(dsid)
+      setDeleteHistoryState({
+        decisions,
+        error: null,
+        loading: false,
+      })
+    } catch (requestError) {
+      setDeleteHistoryState({
+        decisions: [],
+        error: getApiErrorMessage(requestError),
+        loading: false,
+      })
+    }
+  }, [dsid, mutationsEnabled])
+
+  useEffect(() => {
+    if (!selectedSeriesDeleted) {
+      return
+    }
+    void loadDeleteHistory()
+  }, [loadDeleteHistory, reviewDataRevision, selectedSeriesDeleted])
 
   useEffect(() => {
     if (!selectedSeries) {
       return
     }
 
+    const controller = new AbortController()
     let active = true
 
     apiClient
-      .loadSeries(dsid, pid, selectedSeries.series_id)
+      .loadSeries(dsid, pid, selectedSeries.series_id, selectedSeries.storage_path, {
+        signal: controller.signal,
+      })
       .then((info) => {
         if (!active) {
           return
         }
         handleRecoveryRequestedRef.current = false
         setVolumeRequest({
-          seriesId: selectedSeries.series_id,
+          seriesKey: selectedSeriesKey,
           info,
           error: null,
         })
@@ -293,7 +393,7 @@ function ViewerPage() {
         }
         handleRecoveryRequestedRef.current = false
         setVolumeRequest({
-          seriesId: selectedSeries.series_id,
+          seriesKey: selectedSeriesKey,
           info: null,
           error: getApiErrorMessage(requestError),
         })
@@ -301,11 +401,26 @@ function ViewerPage() {
 
     return () => {
       active = false
+      controller.abort()
     }
-  }, [dsid, handleReloadTick, pid, selectedSeries])
+  }, [dsid, handleReloadTick, pid, selectedSeries, selectedSeriesKey])
+
+  useEffect(() => {
+    function handleBeforeUnload() {
+      void flushSettings().catch(() => {})
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [flushSettings])
 
   const availableLabels = activeVolumeInfo?.labels ?? []
-  const visibleLayers = availableLabels.filter((label) => layerState[label as 1 | 2 | 3]?.visible)
+  const visibleLayers = useMemo(
+    () => availableLabels.filter((label) => layerState[label as 1 | 2 | 3]?.visible),
+    [availableLabels, layerState],
+  )
   const persistedVisibleLayers = useMemo(
     () => ([1, 2, 3] as const).filter((label) => layerState[label].visible),
     [layerState],
@@ -352,68 +467,207 @@ function ViewerPage() {
     windowLevel.ww,
   ])
 
-  function upsertPendingOperation(operation: ReviewOperation) {
-    setPendingOperations((current) => {
-      const withoutCurrentSeries = current.filter(
-        (entry) =>
-          !(
-            entry.series_id === operation.series_id &&
-            entry.action === operation.action
-          ),
-      )
-      return [...withoutCurrentSeries, operation]
-    })
-  }
-
-  function queueReclassification() {
-    if (!selectedSeries) {
-      return
-    }
-    upsertPendingOperation({
-      patient_id: pid,
-      series_id: selectedSeries.series_id,
-      action: 'reclassify',
-      target_phase: phaseDecision,
-    })
-  }
-
-  function queueDelete() {
-    if (!selectedSeries) {
-      return
-    }
-    upsertPendingOperation({
-      patient_id: pid,
-      series_id: selectedSeries.series_id,
-      action: 'delete',
-    })
-  }
-
-  async function applyPendingOperations() {
-    if (pendingOperations.length === 0 || applyState.running) {
+  async function applyReviewAction(
+    operation: ReviewOperation,
+    options?: {
+      onSuccess?: () => void
+    },
+  ) {
+    if (applyState.running) {
       return
     }
     setApplyState({ running: true, error: null, response: null })
     try {
       const response = await apiClient.applyReviewOperations(dsid, {
-        operations: pendingOperations,
+        operations: [operation],
       })
+      const severity = response.summary.failed > 0 ? 'warning' : 'success'
       setApplyState({
         running: false,
         error: null,
         response,
       })
-      setPendingOperations([])
+      setToastState({
+        open: true,
+        severity,
+        message: `Batch ${response.batch_id}: ${response.summary.applied} applied, ${response.summary.skipped} skipped, ${response.summary.failed} failed.`,
+      })
       setReviewDataRevision((current) => current + 1)
       setPreferredSeriesId(selectedSeries?.series_id ?? null)
       setHandleReloadTick((current) => current + 1)
+      options?.onSuccess?.()
     } catch (requestError) {
       setApplyState({
         running: false,
         error: getApiErrorMessage(requestError),
         response: null,
       })
-    } finally {
-      setApplyDialogOpen(false)
+      setToastState({
+        open: true,
+        severity: 'error',
+        message: `Apply failed: ${getApiErrorMessage(requestError)}`,
+      })
+    }
+  }
+
+  function reclassifyCurrentSeries(targetPhase: PhaseDecision) {
+    if (!selectedSeries) {
+      return
+    }
+    const nextSeriesId = hasNextSeries && nextSeries ? nextSeries.series_id : null
+    const nextPatientId = !nextSeriesId && nextPatient ? nextPatient.patient_id : null
+    void applyReviewAction(
+      {
+        patient_id: pid,
+        series_id: selectedSeries.series_id,
+        action: 'reclassify',
+        target_phase: targetPhase,
+      },
+      {
+        onSuccess: () => {
+          if (nextSeriesId) {
+            setPreferredSeriesId(nextSeriesId)
+            return
+          }
+          if (nextPatientId) {
+            void flushSettings().catch(() => {})
+            navigate(`/datasets/${dsid}/patients/${nextPatientId}/viewer`)
+          }
+        },
+      },
+    )
+  }
+
+  function deleteCurrentSeries() {
+    if (!selectedSeries) {
+      return
+    }
+    void applyReviewAction({
+      patient_id: pid,
+      series_id: selectedSeries.series_id,
+      action: 'delete',
+    })
+  }
+
+  async function undoDelete(decisionId: string) {
+    if (applyState.running) {
+      return
+    }
+    setApplyState({ running: true, error: null, response: null })
+    try {
+      const response = await apiClient.undoDeleteDecision(dsid, decisionId)
+      setApplyState({
+        running: false,
+        error: null,
+        response,
+      })
+      setToastState({
+        open: true,
+        severity: response.summary.failed > 0 ? 'warning' : 'success',
+        message: `Batch ${response.batch_id}: ${response.summary.applied} applied, ${response.summary.skipped} skipped, ${response.summary.failed} failed.`,
+      })
+      setReviewDataRevision((current) => current + 1)
+      setHandleReloadTick((current) => current + 1)
+      await loadDeleteHistory()
+    } catch (requestError) {
+      setApplyState({
+        running: false,
+        error: getApiErrorMessage(requestError),
+        response: null,
+      })
+      setToastState({
+        open: true,
+        severity: 'error',
+        message: `Undo failed: ${getApiErrorMessage(requestError)}`,
+      })
+    }
+  }
+
+  async function undoCurrentSeriesDelete() {
+    if (!selectedSeries || !selectedSeries.deleted || applyState.running) {
+      return
+    }
+    const decisions =
+      deleteHistoryState.decisions.length > 0
+        ? deleteHistoryState.decisions
+        : await apiClient.listDeleteDecisions(dsid)
+    const matchingDecision = decisions.find(
+      (decision) =>
+        decision.patient_id === selectedSeries.patient_id &&
+        decision.series_id === selectedSeries.series_id,
+    )
+    if (!matchingDecision) {
+      setToastState({
+        open: true,
+        severity: 'warning',
+        message: 'No delete record was found for the selected series.',
+      })
+      return
+    }
+    await undoDelete(matchingDecision.decision_id)
+    setPreferredSeriesId(selectedSeries.series_id)
+  }
+
+  function clearTransientApplyState() {
+    setApplyState((current) => ({ ...current, response: null, error: null }))
+  }
+
+  function handleSeriesSelection(nextSeries: SeriesInfo | null) {
+    if (seriesKey(nextSeries) === selectedSeriesKey) {
+      return
+    }
+    if (selectedSeriesKey) {
+      void flushSettings().catch(() => {})
+    }
+    setSelectedSeries(nextSeries)
+    clearTransientApplyState()
+  }
+
+  function goToNextSeries() {
+    if (hasNextSeries && nextSeries) {
+      void flushSettings().catch(() => {})
+      setPreferredSeriesId(nextSeries.series_id)
+      setSelectedSeries(nextSeries)
+      clearTransientApplyState()
+      return
+    }
+    if (nextPatient) {
+      void flushSettings().catch(() => {})
+      navigate(`/datasets/${dsid}/patients/${nextPatient.patient_id}/viewer`)
+    }
+  }
+
+  function goToPreviousSeries() {
+    if (hasPreviousSeries && previousSeries) {
+      void flushSettings().catch(() => {})
+      setPreferredSeriesId(previousSeries.series_id)
+      setSelectedSeries(previousSeries)
+      clearTransientApplyState()
+      return
+    }
+    if (previousPatient) {
+      void flushSettings().catch(() => {})
+      navigate(`/datasets/${dsid}/patients/${previousPatient.patient_id}/viewer`)
+    }
+  }
+
+  function getPhaseButtonSx(phase: PhaseDecision) {
+    const isActive = selectedSeries?.phase === phase
+    const baseSx = {
+      transition: 'none',
+    }
+    if (!isActive) {
+      return baseSx
+    }
+    return {
+      ...baseSx,
+      backgroundColor: alpha('#60a5fa', 0.3),
+      borderColor: '#60a5fa',
+      boxShadow: `0 0 0 1px ${alpha('#60a5fa', 0.35)} inset`,
+      '&:hover': {
+        backgroundColor: alpha('#60a5fa', 0.38),
+        borderColor: '#93c5fd',
+      },
     }
   }
 
@@ -534,252 +788,185 @@ function ViewerPage() {
     },
   }
 
-  return (
-    <Stack spacing={3}>
-      <Paper
-        elevation={0}
-        sx={{
-          px: { xs: 3, md: 4 },
-          py: { xs: 3, md: 3.5 },
-        }}
-      >
-        <Stack spacing={3}>
-          <Stack
-            direction={{ xs: 'column', xl: 'row' }}
-            spacing={2.5}
-            justifyContent="space-between"
+  const sidebarContent = (
+    <Paper
+      elevation={0}
+      sx={{
+        px: { xs: 2.25, md: 2.5 },
+        py: { xs: 2.25, md: 2.5 },
+      }}
+    >
+      <Stack spacing={2}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row', lg: 'column' }}
+          spacing={1}
+          justifyContent="flex-end"
+        >
+          <Button
+            component={RouterLink}
+            to={`/datasets/${dsid}/patients`}
+            variant="outlined"
+            size="small"
           >
-            <Stack spacing={1.25} maxWidth={500}>
-              <Typography variant="overline" color="text.secondary">
-                Viewer Workspace
-              </Typography>
-              <Typography variant="h3">{pid}</Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Chip label={dsid} color="primary" variant="outlined" />
-                <Chip
-                  label={selectedSeries?.filename ?? 'Select a series'}
-                  variant="outlined"
-                />
-                {activeVolumeInfo ? (
-                  <Chip
-                    label={`${activeVolumeInfo.shape.join(' × ')}`}
-                    variant="outlined"
-                  />
-                ) : null}
-                {queuedReclassifications + queuedDeletes > 0 ? (
-                  <Chip
-                    color="secondary"
-                    label={`Pending: ${queuedReclassifications + queuedDeletes}`}
-                    variant="outlined"
-                  />
-                ) : null}
-              </Stack>
-            </Stack>
+            Back to Patient List
+          </Button>
+          <Button component={RouterLink} to="/" variant="contained" size="small">
+            Return Home
+          </Button>
+        </Stack>
 
-            <Stack spacing={1.5} minWidth={{ xs: '100%', xl: 460 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <FormControl fullWidth>
-                  <InputLabel id="viewer-group-filter-label">Group</InputLabel>
-                  <Select
-                    labelId="viewer-group-filter-label"
-                    label="Group"
-                    value={selectedGroup}
-                    onChange={(event) => setSelectedGroup(event.target.value)}
-                    disabled={patientLoading || groupOptions.length === 0}
-                  >
-                    {groupOptions.map((group) => (
-                      <MenuItem key={group} value={group}>
-                        {group === 'all' ? 'All' : group}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth>
-                  <InputLabel id="viewer-patient-selector-label">Patient</InputLabel>
-                  <Select
-                    labelId="viewer-patient-selector-label"
-                    label="Patient"
-                    value={filteredPatients.some((patient) => patient.patient_id === pid) ? pid : ''}
-                    onChange={(event) =>
-                      navigate(`/datasets/${dsid}/patients/${event.target.value}/viewer`)
-                    }
-                    disabled={patientLoading || filteredPatients.length === 0}
-                  >
-                    {filteredPatients.map((patient) => (
-                      <MenuItem key={patient.patient_id} value={patient.patient_id}>
-                        {patient.patient_id}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    if (nextPatient) {
-                      navigate(`/datasets/${dsid}/patients/${nextPatient.patient_id}/viewer`)
-                    }
-                  }}
-                  disabled={!canLoadNextPatient || patientLoading}
-                >
-                  Next
-                </Button>
-              </Stack>
-
-              <SeriesSelector
-                datasetId={dsid}
-                patientId={pid}
-                onSeriesChange={setSelectedSeries}
-                preferredSeriesId={preferredSeriesId}
-                reloadKey={reviewDataRevision}
-              />
-            </Stack>
-          </Stack>
-
-          <Stack
-            direction={{ xs: 'column', lg: 'row' }}
-            spacing={1}
-            alignItems={{ lg: 'center' }}
-            justifyContent="space-between"
-          >
-            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-              {[1, 2, 3].map((label) => (
-                <LayerToggle
-                  key={label}
-                  checked={layerState[label as 1 | 2 | 3].visible}
-                  color={LAYER_META[label].color}
-                  disabled={!availableLabels.includes(label)}
-                  label={LAYER_META[label].label}
-                  onChange={(checked) =>
-                    setLayerState((current) => ({
-                      ...current,
-                      [label]: {
-                        ...current[label as 1 | 2 | 3],
-                        visible: checked,
-                      },
-                    }))
-                  }
-                />
-              ))}
-            </Stack>
-
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <Button
-                component={RouterLink}
-                to={`/datasets/${dsid}/patients`}
+        <Stack spacing={1}>
+          <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.22em' }}>
+            Viewer Workspace
+          </Typography>
+          <Typography variant="h4" sx={{ lineHeight: 1.05 }}>
+            {pid}
+          </Typography>
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <Chip label={dsid} color="primary" variant="outlined" size="small" />
+            <Chip
+              label={selectedSeries?.filename ?? 'Select a series'}
+              color={selectedSeriesDeleted ? 'error' : 'default'}
+              variant={selectedSeriesDeleted ? 'filled' : 'outlined'}
+              size="small"
+            />
+            {activeVolumeInfo ? (
+              <Chip
+                label={`${activeVolumeInfo.shape.join(' × ')}`}
                 variant="outlined"
-              >
-                Back to Patient List
-              </Button>
-              <Button component={RouterLink} to="/" variant="contained">
-                Return Home
-              </Button>
-            </Stack>
+                size="small"
+              />
+            ) : null}
+            {selectedPatientRecord?.has_deleted ? (
+              <Chip
+                label={`Deleted ${selectedPatientRecord.deleted_series_count}`}
+                color="error"
+                variant="filled"
+                size="small"
+              />
+            ) : null}
           </Stack>
+        </Stack>
 
-          <Stack direction={{ xs: 'column', xl: 'row' }} spacing={1.5} alignItems={{ xl: 'center' }}>
-            <FormControl sx={{ minWidth: 160 }}>
-              <InputLabel id="phase-decision-label">Phase</InputLabel>
+        <Stack spacing={1.25}>
+          <Stack direction={{ xs: 'column', sm: 'row', lg: 'column' }} spacing={1}>
+            <FormControl fullWidth>
+              <InputLabel id="viewer-group-filter-label">Group</InputLabel>
               <Select
-                labelId="phase-decision-label"
-                label="Phase"
-                value={phaseDecision}
-                onChange={(event) => setPhaseDecision(event.target.value as PhaseDecision)}
+                labelId="viewer-group-filter-label"
+                label="Group"
+                value={selectedGroup}
+                onChange={(event) => setSelectedGroup(event.target.value)}
+                disabled={patientLoading || groupOptions.length === 0}
               >
-                <MenuItem value="NC">NC</MenuItem>
-                <MenuItem value="ART">ART</MenuItem>
-                <MenuItem value="VEN">VEN</MenuItem>
+                {groupOptions.map((group) => (
+                  <MenuItem key={group} value={group}>
+                    {group === 'all' ? 'All' : group}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
-            <Button
-              variant="outlined"
-              onClick={queueReclassification}
-              disabled={!selectedSeries}
-            >
-              Queue Reclassify
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={queueDelete}
-              disabled={!selectedSeries}
-            >
-              Queue Delete
-            </Button>
-            <Button
-              variant="text"
-              onClick={() => setPendingOperations([])}
-              disabled={pendingOperations.length === 0}
-            >
-              Clear Pending
-            </Button>
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={() => setApplyDialogOpen(true)}
-              disabled={pendingOperations.length === 0 || applyState.running}
-            >
-              Apply Changes
-            </Button>
+            <FormControl fullWidth>
+              <InputLabel id="viewer-patient-selector-label">Patient</InputLabel>
+              <Select
+                labelId="viewer-patient-selector-label"
+                label="Patient"
+                value={filteredPatients.some((patient) => patient.patient_id === pid) ? pid : ''}
+                renderValue={(value) => {
+                  const patient =
+                    filteredPatients.find((entry) => entry.patient_id === value) ?? null
+                  if (!patient) {
+                    return ''
+                  }
+                  return patient.has_deleted
+                    ? `${patient.patient_id} [DELETED ${patient.deleted_series_count}]`
+                    : patient.patient_id
+                }}
+                onChange={(event) => {
+                  void flushSettings().catch(() => {})
+                  navigate(`/datasets/${dsid}/patients/${event.target.value}/viewer`)
+                }}
+                disabled={patientLoading || filteredPatients.length === 0}
+              >
+                {filteredPatients.map((patient) => (
+                  <MenuItem key={patient.patient_id} value={patient.patient_id}>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                      <Typography color={patient.has_deleted ? 'error.main' : 'text.primary'}>
+                        {patient.patient_id}
+                      </Typography>
+                      {patient.has_deleted ? (
+                        <Chip
+                          label={`DELETED ${patient.deleted_series_count}`}
+                          size="small"
+                          color="error"
+                          variant="filled"
+                        />
+                      ) : null}
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Stack>
 
-          {pendingOperations.length > 0 ? (
-            <Alert severity="info">
-              Pending operations: {queuedReclassifications} reclassify, {queuedDeletes} delete.
-            </Alert>
-          ) : null}
-
-          {volumeLoading ? (
-            <Alert severity="info">Loading volume and initial slices...</Alert>
-          ) : null}
-          {patientError ? (
-            <Alert severity="warning">Failed to load patient list: {patientError}</Alert>
-          ) : null}
-          {settingsLoadError ? (
-            <Alert severity="warning">
-              Failed to load saved viewer settings: {settingsLoadError}
-            </Alert>
-          ) : null}
-          {settingsSaveError ? (
-            <Alert severity="warning">
-              Failed to persist viewer settings: {settingsSaveError}
-            </Alert>
-          ) : null}
-          {applyState.error ? (
-            <Alert severity="error">Apply failed: {applyState.error}</Alert>
-          ) : null}
-          {applyState.response ? (
-            <Alert severity={applyState.response.summary.failed > 0 ? 'warning' : 'success'}>
-              Batch {applyState.response.batch_id}: {applyState.response.summary.applied} applied,
-              {' '}
-              {applyState.response.summary.skipped} skipped, {applyState.response.summary.failed} failed.
-            </Alert>
-          ) : null}
+          <SeriesSelector
+            datasetId={dsid}
+            patientId={pid}
+            onSeriesChange={handleSeriesSelection}
+            onSeriesListLoaded={setSeriesList}
+            preferredSeriesId={preferredSeriesId}
+            reloadKey={reviewDataRevision}
+          />
         </Stack>
-      </Paper>
 
-      <ViewerGrid2x2 panels={viewerPanels} />
+        <Stack spacing={0.9}>
+          <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.22em' }}>
+            Visible Masks
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {[1, 2, 3].map((label) => (
+              <LayerToggle
+                key={label}
+                checked={layerState[label as 1 | 2 | 3].visible}
+                color={LAYER_META[label].color}
+                disabled={!availableLabels.includes(label)}
+                label={LAYER_META[label].label}
+                onChange={(checked) =>
+                  setLayerState((current) => ({
+                    ...current,
+                    [label]: {
+                      ...current[label as 1 | 2 | 3],
+                      visible: checked,
+                    },
+                  }))
+                }
+              />
+            ))}
+          </Stack>
+        </Stack>
 
-      <Paper elevation={0} sx={{ px: { xs: 3, md: 4 }, py: 2.5 }}>
+        <Divider />
+
         <Stack
-          direction={{ xs: 'column', lg: 'row' }}
-          spacing={2}
-          justifyContent="space-between"
-          divider={
-            <Divider
-              orientation="vertical"
-              flexItem
-              sx={{ display: { xs: 'none', lg: 'block' } }}
-            />
-          }
+          spacing={1.5}
+          sx={{
+            '& .MuiChip-root': {
+              height: 24,
+            },
+            '& .MuiFormControl-root .MuiInputBase-root': {
+              minHeight: 44,
+            },
+            '& [data-window-width] .MuiButton-root': {
+              py: 0.45,
+            },
+          }}
         >
-          <Box sx={{ flex: 1 }}>
-            <WindowLevelControl
-              ww={windowLevel.ww}
-              wl={windowLevel.wl}
-              onPreset={windowLevel.applyPreset}
-            />
-          </Box>
-          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+          <WindowLevelControl
+            ww={windowLevel.ww}
+            wl={windowLevel.wl}
+            onPreset={windowLevel.applyPreset}
+          />
+          <Stack spacing={1.2}>
             {[1, 2, 3].map((label) => (
               <OpacitySlider
                 key={label}
@@ -805,33 +992,244 @@ function ViewerPage() {
             />
           </Stack>
         </Stack>
-      </Paper>
 
-      <Dialog open={applyDialogOpen} onClose={() => setApplyDialogOpen(false)}>
-        <DialogTitle>Apply Review Changes</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This will execute {pendingOperations.length} queued operation(s) for patient {pid}.
-            Reclassification updates manifest metadata; delete actions move files to recycle paths.
-          </DialogContentText>
-          <DialogContentText sx={{ mt: 1 }}>
-            Queue summary: {queuedReclassifications} reclassify, {queuedDeletes} delete.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApplyDialogOpen(false)} disabled={applyState.running}>
-            Cancel
-          </Button>
-          <Button
-            onClick={applyPendingOperations}
-            color="warning"
-            variant="contained"
-            disabled={applyState.running}
+        {!mutationsEnabled ? (
+          <Alert severity="info">
+            Review actions are in read-only mode. Restart the backend with <code>ALLOW_DATA_MUTATIONS=true</code> to enable reclassify and delete.
+          </Alert>
+        ) : null}
+
+        {patientError ? (
+          <Alert severity="warning">Failed to load patient list: {patientError}</Alert>
+        ) : null}
+        {settingsLoadError ? (
+          <Alert severity="warning">
+            Failed to load dataset viewer settings: {settingsLoadError}
+          </Alert>
+        ) : null}
+        {settingsSaveError ? (
+          <Alert severity="warning">
+            Failed to persist dataset viewer settings: {settingsSaveError}
+          </Alert>
+        ) : null}
+      </Stack>
+    </Paper>
+  )
+
+  return (
+    <Stack spacing={3}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: { xs: 2, xl: 2.25 },
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            xl: 'minmax(0, 1fr) minmax(300px, 340px)',
+          },
+          alignItems: 'start',
+        }}
+      >
+        <Stack spacing={3} sx={{ minWidth: 0 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              px: { xs: 2.25, md: 3 },
+              py: { xs: 1.5, md: 1.75 },
+            }}
           >
-            {applyState.running ? 'Applying...' : 'Apply Changes'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Stack
+              direction={{ xs: 'column', xl: 'row' }}
+              spacing={1.25}
+              alignItems={{ xl: 'center' }}
+              justifyContent="space-between"
+            >
+              <Stack
+                direction={{ xs: 'column', lg: 'row' }}
+                spacing={1.25}
+                alignItems={{ lg: 'center' }}
+                divider={
+                  <Divider
+                    orientation="vertical"
+                    flexItem
+                    sx={{ display: { xs: 'none', lg: 'block' }, borderColor: 'divider' }}
+                  />
+                }
+              >
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={deleteCurrentSeries}
+                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
+                    disableRipple
+                    size="small"
+                    sx={{ transition: 'none' }}
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      if (selectedSeriesDeleted) {
+                        void undoCurrentSeriesDelete()
+                      }
+                    }}
+                    disabled={
+                      applyState.running ||
+                      !mutationsEnabled ||
+                      !selectedSeriesDeleted
+                    }
+                    disableRipple
+                    size="small"
+                    sx={{
+                      transition: 'none',
+                      color: '#fb923c',
+                      borderColor: alpha('#fb923c', 0.72),
+                      backgroundColor: selectedSeriesDeleted ? alpha('#fb923c', 0.2) : 'transparent',
+                      '&:hover': {
+                        borderColor: '#fdba74',
+                        backgroundColor: alpha('#fb923c', 0.28),
+                      },
+                    }}
+                  >
+                    Undo
+                  </Button>
+                </Stack>
+
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button
+                    variant="outlined"
+                    onClick={() => reclassifyCurrentSeries('NC')}
+                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
+                    disableRipple
+                    size="small"
+                    sx={getPhaseButtonSx('NC')}
+                  >
+                    NC
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => reclassifyCurrentSeries('ART')}
+                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
+                    disableRipple
+                    size="small"
+                    sx={getPhaseButtonSx('ART')}
+                  >
+                    ART
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => reclassifyCurrentSeries('VEN')}
+                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
+                    disableRipple
+                    size="small"
+                    sx={getPhaseButtonSx('VEN')}
+                  >
+                    VEN
+                  </Button>
+                </Stack>
+
+                <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+                  <Tooltip title="Go to the previous series for the current patient">
+                    <span>
+                      <Button
+                        variant="outlined"
+                        onClick={goToPreviousSeries}
+                        disabled={!canRetreatReview || applyState.running || volumeLoading || patientLoading}
+                        disableRipple
+                        size="small"
+                        sx={{
+                          transition: 'none',
+                          color: '#cbd5e1',
+                          borderColor: alpha('#94a3b8', 0.6),
+                          backgroundColor: alpha('#94a3b8', 0.08),
+                          '&:hover': {
+                            borderColor: '#cbd5e1',
+                            backgroundColor: alpha('#94a3b8', 0.16),
+                          },
+                          '&.Mui-disabled': {
+                            color: alpha('#cbd5e1', 0.4),
+                            borderColor: alpha('#94a3b8', 0.24),
+                            backgroundColor: alpha('#94a3b8', 0.04),
+                          },
+                        }}
+                      >
+                        Back
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Go to the next series for the current patient">
+                    <span>
+                      <Button
+                        variant="contained"
+                        onClick={goToNextSeries}
+                        disabled={!canAdvanceReview || applyState.running || volumeLoading || patientLoading}
+                        disableRipple
+                        size="small"
+                        sx={{
+                          transition: 'none',
+                          backgroundColor: '#22c55e',
+                          color: '#03130a',
+                          '&:hover': {
+                            backgroundColor: '#4ade80',
+                          },
+                          '&.Mui-disabled': {
+                            backgroundColor: alpha('#22c55e', 0.2),
+                            color: alpha('#d1fae5', 0.45),
+                          },
+                        }}
+                      >
+                        Next
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </Stack>
+              </Stack>
+            </Stack>
+          </Paper>
+
+          <ViewerGrid2x2 panels={viewerPanels} />
+        </Stack>
+
+        <Box
+          sx={{
+            minWidth: 0,
+            position: { xs: 'static', xl: 'sticky' },
+            top: { xl: 18 },
+            alignSelf: 'start',
+          }}
+        >
+          {sidebarContent}
+        </Box>
+      </Box>
+
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        autoHideDuration={4200}
+        open={toastState.open}
+        onClose={(_, reason) => {
+          if (reason === 'clickaway') {
+            return
+          }
+          setToastState((current) => ({ ...current, open: false }))
+        }}
+        sx={{ mt: 1.5, mr: 1.5 }}
+      >
+        <Alert
+          severity={toastState.severity}
+          variant="filled"
+          elevation={6}
+          onClose={() => setToastState((current) => ({ ...current, open: false }))}
+          sx={{
+            minWidth: 320,
+            maxWidth: 520,
+            borderRadius: 2.5,
+            boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
+          }}
+        >
+          {toastState.message}
+        </Alert>
+      </Snackbar>
     </Stack>
   )
 }

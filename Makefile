@@ -2,12 +2,50 @@ SHELL := /bin/bash
 
 PROJECT_ROOT := /home/alonso/Documents/radio-ccrcc/radioccrcc-webui
 UDOCKER := /home/alonso/anaconda3/envs/ccrcc/bin/python $(PROJECT_ROOT)/udocker.py
+SETUP_DOC := $(PROJECT_ROOT)/docs/SETUP_PREREQUISITES.md
 
-.PHONY: setup-node install-backend dev-backend dev-frontend build-frontend compose-build compose-up compose-down compose-logs
+.PHONY: setup setup-prereqs setup-udocker setup-node install-backend dev-backend dev-frontend build-frontend compose-build compose-up compose-down compose-logs
+
+setup: setup-prereqs setup-udocker setup-node install-backend
+
+setup-prereqs:
+	@echo "Checking repository prerequisites..."
+	@if [ -f "/home/alonso/anaconda3/etc/profile.d/conda.sh" ]; then \
+		echo "OK: conda base installation found"; \
+	else \
+		echo "ERROR: conda not found at /home/alonso/anaconda3"; \
+		echo "See setup guide: $(SETUP_DOC)"; \
+		exit 1; \
+	fi
+	@if [ -f "$(PROJECT_ROOT)/udocker.py" ] && [ -f "$(PROJECT_ROOT)/udocker-1.3.17/udocker/maincmd.py" ]; then \
+		echo "OK: vendored udocker runtime found"; \
+	else \
+		echo "ERROR: vendored udocker runtime not found under $(PROJECT_ROOT)/udocker-1.3.17"; \
+		echo "See setup guide: $(SETUP_DOC)"; \
+		exit 1; \
+	fi
+	@if command -v docker >/dev/null 2>&1; then \
+		echo "OK: docker CLI available (compose targets enabled)"; \
+	else \
+		echo "INFO: docker CLI not found (this is fine for remote dev mode)."; \
+		echo "      For optional Docker install steps, see: $(SETUP_DOC)"; \
+	fi
+
+setup-udocker:
+	@echo "Initializing local udocker runtime..."
+	@$(UDOCKER) version >/dev/null
 
 setup-node:
-	$(UDOCKER) pull node:20-slim
-	$(UDOCKER) create --name=radio-node node:20-slim
+	@if $(UDOCKER) images -l 2>/dev/null | awk '{print $$1}' | grep -Fxq "node:20-slim"; then \
+		echo "Node image already present: node:20-slim"; \
+	else \
+		$(UDOCKER) pull node:20-slim; \
+	fi
+	@if $(UDOCKER) ps | awk '{print $$1}' | grep -Fxq "radio-node"; then \
+		echo "Container already exists: radio-node"; \
+	else \
+		$(UDOCKER) create --name=radio-node node:20-slim; \
+	fi
 
 install-backend:
 	source /home/alonso/anaconda3/etc/profile.d/conda.sh && \
@@ -18,6 +56,9 @@ install-backend:
 dev-backend:
 	source /home/alonso/anaconda3/etc/profile.d/conda.sh && \
 	conda activate ccrcc && \
+	set -a && \
+	[ ! -f .env ] || source .env && \
+	set +a && \
 	cd backend && \
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 

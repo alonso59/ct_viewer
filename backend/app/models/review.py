@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -36,7 +36,7 @@ class ReviewApplyResult(BaseModel):
     target_phase: PhaseDecision | None = None
     status: ReviewResultStatus
     message: str
-    moved_files: list[str] = Field(default_factory=list)
+    moved_files: list["ReviewMovedFile"] = Field(default_factory=list)
     manifest_updated: bool = False
 
 
@@ -52,3 +52,19 @@ class ReviewApplyResponse(BaseModel):
     applied_at: str
     summary: ReviewApplySummary
     results: list[ReviewApplyResult] = Field(default_factory=list)
+
+
+class ReviewMovedFile(BaseModel):
+    source: str
+    destination: str
+
+
+class ReviewDeleteDecision(BaseModel):
+    decision_id: str
+    applied_at: str
+    patient_id: str
+    series_id: str
+    filename: str | None = None
+    series_type: str | None = None
+    moved_files: list[ReviewMovedFile] = Field(default_factory=list)
+    raw: dict[str, Any] = Field(default_factory=dict)

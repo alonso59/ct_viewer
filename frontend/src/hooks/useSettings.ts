@@ -7,6 +7,8 @@ import {
   type ViewerSettings,
 } from '../services/api'
 
+const SAVE_DEBOUNCE_MS = 1500
+
 const DEFAULT_DATASET_SETTINGS: DatasetViewerSettings = {
   last_patient: null,
   last_series: null,
@@ -98,17 +100,31 @@ function datasetSettingsEqual(
   )
 }
 
+function buildScopedPayload(
+  payload: ViewerSettings,
+  datasetId: string | null,
+): ViewerSettings {
+  if (!datasetId) {
+    return payload
+  }
+  return {
+    [datasetId]: normalizeDatasetSettings(payload[datasetId]),
+  }
+}
+
 type DatasetSettingsUpdater =
   | DatasetViewerSettings
   | ((current: DatasetViewerSettings) => DatasetViewerSettings)
 
 interface UseSettingsOptions {
   datasetId?: string | null
+  enabled?: boolean
   onLoadedDatasetSettings?: (settings: DatasetViewerSettings) => void
 }
 
 export function useSettings({
   datasetId = null,
+  enabled = true,
   onLoadedDatasetSettings,
 }: UseSettingsOptions = {}) {
   const [state, setState] = useState<{
@@ -129,12 +145,39 @@ export function useSettings({
 
   const onLoadedRef = useRef(onLoadedDatasetSettings)
   const lastNotifiedRef = useRef<string | null>(null)
+  const stateRef = useRef(state)
+  const datasetIdRef = useRef(datasetId)
+  const enabledRef = useRef(enabled)
 
   useEffect(() => {
     onLoadedRef.current = onLoadedDatasetSettings
   }, [onLoadedDatasetSettings])
 
   useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  useEffect(() => {
+    datasetIdRef.current = datasetId
+  }, [datasetId])
+
+  useEffect(() => {
+    enabledRef.current = enabled
+  }, [enabled])
+
+  useEffect(() => {
+    if (!enabled) {
+      setState({
+        draftSettings: {},
+        loadError: null,
+        loadRevision: 0,
+        loaded: false,
+        remoteSettings: {},
+        saveError: null,
+      })
+      return
+    }
+
     let active = true
 
     apiClient
@@ -168,7 +211,7 @@ export function useSettings({
     return () => {
       active = false
     }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
     if (!datasetId || !state.loaded || state.loadRevision === 0) {
@@ -191,46 +234,69 @@ export function useSettings({
     [state.draftSettings],
   )
 
+  const remoteSerializedRef = useRef(remoteSerialized)
+  const draftSerializedRef = useRef(draftSerialized)
+
   useEffect(() => {
-    if (!state.loaded || draftSerialized === remoteSerialized) {
+    remoteSerializedRef.current = remoteSerialized
+  }, [remoteSerialized])
+
+  useEffect(() => {
+    draftSerializedRef.current = draftSerialized
+  }, [draftSerialized])
+
+  const flushSettings = useCallback(async () => {
+    const currentState = stateRef.current
+    if (!enabledRef.current || !currentState.loaded) {
+      return currentState.remoteSettings
+    }
+    if (draftSerializedRef.current === remoteSerializedRef.current) {
+      return currentState.remoteSettings
+    }
+
+    try {
+      const payload = await apiClient.putSettings(
+        buildScopedPayload(currentState.draftSettings, datasetIdRef.current),
+      )
+      const normalized = normalizeViewerSettings(payload)
+      setState((current) => ({
+        ...current,
+        remoteSettings: normalized,
+        saveError: null,
+      }))
+      return normalized
+    } catch (requestError) {
+      setState((current) => ({
+        ...current,
+        saveError: getApiErrorMessage(requestError),
+      }))
+      throw requestError
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!enabled || !state.loaded || draftSerialized === remoteSerialized) {
       return
     }
 
     let active = true
     const timer = window.setTimeout(() => {
-      apiClient
-        .putSettings(state.draftSettings)
-        .then((payload) => {
-          if (!active) {
-            return
-          }
-          const normalized = normalizeViewerSettings(payload)
-          setState((current) => ({
-            ...current,
-            remoteSettings: normalized,
-            saveError: null,
-          }))
-        })
-        .catch((requestError) => {
-          if (!active) {
-            return
-          }
-          setState((current) => ({
-            ...current,
-            saveError: getApiErrorMessage(requestError),
-          }))
-        })
-    }, 500)
+      flushSettings().catch(() => {
+        if (!active) {
+          return
+        }
+      })
+    }, SAVE_DEBOUNCE_MS)
 
     return () => {
       active = false
       window.clearTimeout(timer)
     }
-  }, [draftSerialized, remoteSerialized, state.draftSettings, state.loaded])
+  }, [draftSerialized, enabled, flushSettings, remoteSerialized, state.loaded])
 
   const updateDatasetSettings = useCallback(
     (updater: DatasetSettingsUpdater) => {
-      if (!datasetId || !state.loaded) {
+      if (!enabled || !datasetId || !state.loaded) {
         return
       }
 
@@ -254,7 +320,7 @@ export function useSettings({
         }
       })
     },
-    [datasetId, state.loaded],
+    [datasetId, enabled, state.loaded],
   )
 
   return {
@@ -263,8 +329,9 @@ export function useSettings({
       ? normalizeDatasetSettings(state.draftSettings[datasetId])
       : null,
     loadError: state.loadError,
-    loading: !state.loaded,
+    loading: enabled && !state.loaded,
     saveError: state.saveError,
+    flushSettings,
     updateDatasetSettings,
   }
 }

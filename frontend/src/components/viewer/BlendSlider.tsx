@@ -12,7 +12,7 @@ function BlendSlider({
   value,
 }: BlendSliderProps) {
   return (
-    <Stack spacing={0.75} sx={{ minWidth: 200 }} data-blend-slider="root">
+    <Stack spacing={0.6} sx={{ minWidth: 0 }} data-blend-slider="root">
       <Stack direction="row" justifyContent="space-between" spacing={1}>
         <Typography variant="caption" color="text.secondary">
           3D Blend

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import {
   AppBar,
   Box,
@@ -9,12 +9,18 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material'
-import { Link as RouterLink, Route, Routes, useLocation } from 'react-router-dom'
+import {
+  Link as RouterLink,
+  matchPath,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 
 import LoginDialog from './components/LoginDialog'
+import { useWorkspace } from './hooks/useWorkspace'
 import DatasetSelectorPage from './pages/DatasetSelectorPage'
-import PatientListPage from './pages/PatientListPage'
-import ViewerPage from './pages/ViewerPage'
 import {
   apiClient,
   getStoredAuthToken,
@@ -23,35 +29,73 @@ import {
 
 type ApiStatus = 'checking' | 'online' | 'offline'
 
+const PatientListPage = lazy(() => import('./pages/PatientListPage'))
+const ViewerPage = lazy(() => import('./pages/ViewerPage'))
+
 function App() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking')
   const [loginOpen, setLoginOpen] = useState(false)
   const [storedToken, setStoredToken] = useState(getStoredAuthToken())
   const [resolveToken, setResolveToken] = useState<((token: string | null) => void) | null>(
     null,
   )
+  const workspaceState = useWorkspace()
+  const activeDatasetId = workspaceState.workspace.dataset_id
+  const isViewerRoute = Boolean(
+    matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname),
+  )
 
   useEffect(() => {
     let active = true
 
-    apiClient
-      .getHealth()
-      .then(() => {
+    async function checkApiHealth() {
+      try {
+        await apiClient.getHealth()
         if (active) {
           setApiStatus('online')
         }
-      })
-      .catch(() => {
+      } catch {
         if (active) {
           setApiStatus('offline')
         }
-      })
+      }
+    }
+
+    void checkApiHealth()
 
     return () => {
       active = false
     }
-  }, [location.pathname])
+  }, [])
+
+  useEffect(() => {
+    if (apiStatus !== 'offline') {
+      return
+    }
+
+    let active = true
+    const interval = window.setInterval(() => {
+      apiClient
+        .getHealth()
+        .then(() => {
+          if (active) {
+            setApiStatus('online')
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setApiStatus('offline')
+          }
+        })
+    }, 15000)
+
+    return () => {
+      active = false
+      window.clearInterval(interval)
+    }
+  }, [apiStatus])
 
   useEffect(() => {
     registerAuthPromptHandler(
@@ -76,6 +120,51 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (workspaceState.loading || workspaceState.workspace.configured) {
+      return
+    }
+    if (location.pathname !== '/') {
+      navigate('/', { replace: true })
+    }
+  }, [
+    location.pathname,
+    navigate,
+    workspaceState.loading,
+    workspaceState.workspace.configured,
+  ])
+
+  const routes = (
+    <Suspense
+      fallback={
+        <Stack spacing={1.25} alignItems="center" justifyContent="center" sx={{ minHeight: 240 }}>
+          <Typography variant="body2" color="text.secondary">
+            Loading page...
+          </Typography>
+        </Stack>
+      }
+    >
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <DatasetSelectorPage
+              workspace={workspaceState.workspace}
+              workspaceLoading={workspaceState.loading}
+              workspaceError={workspaceState.error}
+              onWorkspaceChange={(workspace) => workspaceState.setWorkspace(workspace)}
+            />
+          }
+        />
+        <Route path="/datasets/:dsid/patients" element={<PatientListPage />} />
+        <Route
+          path="/datasets/:dsid/patients/:pid/viewer"
+          element={<ViewerPage />}
+        />
+      </Routes>
+    </Suspense>
+  )
+
   return (
     <Box sx={{ minHeight: '100vh' }}>
       <AppBar
@@ -98,22 +187,17 @@ function App() {
 
           <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
             <Button component={RouterLink} to="/" color="inherit">
-              Datasets
+              Workspace
             </Button>
-            <Button
-              component={RouterLink}
-              to="/datasets/Dataset820/patients"
-              color="inherit"
-            >
-              Patients
-            </Button>
-            <Button
-              component={RouterLink}
-              to="/datasets/Dataset820/patients/case_00001/viewer"
-              color="inherit"
-            >
-              Viewer
-            </Button>
+            {activeDatasetId ? (
+              <Button
+                component={RouterLink}
+                to={`/datasets/${activeDatasetId}/patients`}
+                color="inherit"
+              >
+                Patients
+              </Button>
+            ) : null}
           </Stack>
 
           <Chip
@@ -136,25 +220,47 @@ function App() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-        <Stack spacing={2.5}>
-          <Box>
-            <Typography variant="overline" color="text.secondary">
-              Active Route
-            </Typography>
-            <Typography variant="body1">{location.pathname}</Typography>
-          </Box>
+      {isViewerRoute ? (
+        <Box
+          sx={{
+            width: '100%',
+            px: { xs: 2, sm: 2.5, md: 3, xl: 4 },
+            py: { xs: 2.5, md: 3.5 },
+          }}
+        >
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Active Context
+              </Typography>
+              <Typography variant="body1">
+                {workspaceState.workspace.configured
+                  ? `${workspaceState.workspace.dataset_id} at ${workspaceState.workspace.dataset_path}`
+                  : location.pathname}
+              </Typography>
+            </Box>
 
-          <Routes>
-            <Route path="/" element={<DatasetSelectorPage />} />
-            <Route path="/datasets/:dsid/patients" element={<PatientListPage />} />
-            <Route
-              path="/datasets/:dsid/patients/:pid/viewer"
-              element={<ViewerPage />}
-            />
-          </Routes>
-        </Stack>
-      </Container>
+            {routes}
+          </Stack>
+        </Box>
+      ) : (
+        <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+          <Stack spacing={2.5}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Active Context
+              </Typography>
+              <Typography variant="body1">
+                {workspaceState.workspace.configured
+                  ? `${workspaceState.workspace.dataset_id} at ${workspaceState.workspace.dataset_path}`
+                  : location.pathname}
+              </Typography>
+            </Box>
+
+            {routes}
+          </Stack>
+        </Container>
+      )}
 
       <LoginDialog
         key={`${Number(loginOpen)}:${storedToken}`}

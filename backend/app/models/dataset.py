@@ -22,6 +22,8 @@ class PatientSummary(BaseModel):
     series_count: int = 0
     seg_count: int = 0
     voi_count: int = 0
+    has_deleted: bool = False
+    deleted_series_count: int = 0
 
 
 class SeriesInfo(BaseModel):
@@ -33,6 +35,8 @@ class SeriesInfo(BaseModel):
     laterality: str | None = None
     filename: str
     has_seg: bool = False
+    deleted: bool = False
+    storage_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,8 @@ class SeriesSource:
     image_path: str
     mask_path: str | None
     has_seg: bool
+    deleted: bool
+    storage_path: str | None
 
 
 class VolumeInfo(BaseModel):

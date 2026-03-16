@@ -11,7 +11,7 @@ def load_numpy(path: str | Path) -> np.ndarray:
         raise FileNotFoundError(f"NumPy volume not found: {file_path}")
 
     try:
-        data = np.load(file_path, allow_pickle=False)
+        data = np.load(file_path, allow_pickle=False, mmap_mode="r")
     except Exception as exc:
         raise ValueError(f"Failed to read NumPy volume '{file_path.name}': {exc}") from exc
 
@@ -22,4 +22,4 @@ def load_numpy(path: str | Path) -> np.ndarray:
             f"NumPy volume '{file_path.name}' must be 3D after squeeze; got shape {data.shape}"
         )
 
-    return data.astype(np.float32)
+    return data.astype(np.float32, copy=False)

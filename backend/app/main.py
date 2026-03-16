@@ -11,6 +11,7 @@ from app.api.mesh import router as mesh_router
 from app.api.review import router as review_router
 from app.api.settings import router as settings_router
 from app.api.slices import router as slices_router
+from app.api.workspace import router as workspace_router
 from app.config import get_settings
 from app.middleware.auth import AuthMiddleware
 
@@ -21,6 +22,7 @@ app.include_router(mesh_router)
 app.include_router(review_router)
 app.include_router(settings_router)
 app.include_router(slices_router)
+app.include_router(workspace_router)
 
 _STATIC_DIR = Path(os.environ.get("STATIC_ROOT", "/app/static")).resolve()
 
@@ -35,9 +37,12 @@ def _safe_static_file(relative_path: str) -> Path | None:
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
-    _ = get_settings()
-    return {"status": "ok"}
+def health() -> dict[str, str | bool]:
+    settings = get_settings()
+    return {
+        "status": "ok",
+        "allow_data_mutations": settings.allow_data_mutations,
+    }
 
 
 @app.get("/{full_path:path}", include_in_schema=False)

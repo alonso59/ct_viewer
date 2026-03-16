@@ -10,6 +10,8 @@ router = APIRouter(tags=["settings"])
 
 
 def _http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, RuntimeError) and "workspace" in str(exc).lower():
+        return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, RuntimeError):
         return HTTPException(status_code=500, detail=str(exc))
     return HTTPException(status_code=500, detail="Unexpected settings error")

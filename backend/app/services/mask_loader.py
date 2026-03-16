@@ -15,14 +15,14 @@ def load_mask(path: str | Path, is_nifti: bool) -> np.ndarray:
         try:
             image = nib.load(str(mask_path))
             image = nib.as_closest_canonical(image)
-            data = image.get_fdata()
+            data = np.asanyarray(image.dataobj)
         except Exception as exc:
             raise ValueError(
                 f"Failed to read NIfTI segmentation '{mask_path.name}': {exc}"
             ) from exc
     else:
         try:
-            data = np.load(mask_path, allow_pickle=False)
+            data = np.load(mask_path, allow_pickle=False, mmap_mode="r")
         except Exception as exc:
             raise ValueError(
                 f"Failed to read NumPy segmentation '{mask_path.name}': {exc}"
@@ -35,4 +35,4 @@ def load_mask(path: str | Path, is_nifti: bool) -> np.ndarray:
             f"Segmentation mask '{mask_path.name}' must be 3D after squeeze; got shape {data.shape}"
         )
 
-    return data.astype(np.uint8)
+    return data.astype(np.uint8, copy=False)
