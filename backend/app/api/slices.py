@@ -68,8 +68,8 @@ def slice_png(
     index: int,
     request: Request,
     load_handle: str = Query(...),
-    ww: float = Query(default=400.0),
-    wl: float = Query(default=50.0),
+    ww: float = Query(default=300.0),
+    wl: float = Query(default=100.0),
     layers: str | None = Query(default="1,2"),
 ):
     try:

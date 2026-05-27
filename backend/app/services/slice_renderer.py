@@ -9,9 +9,9 @@ from skimage import measure
 
 
 DEFAULT_LAYER_CONFIG: dict[int, dict[str, Any]] = {
-    1: {"name": "Kidney", "color": "cyan", "alpha": 0.15, "linewidth": 2},
-    2: {"name": "Tumor", "color": "yellow", "alpha": 0.20, "linewidth": 2},
-    3: {"name": "Cyst", "color": "magenta", "alpha": 0.15, "linewidth": 2},
+    1: {"name": "Kidney", "color": "cyan", "alpha": 0.10, "linewidth": 1},
+    2: {"name": "Tumor", "color": "yellow", "alpha": 0.10, "linewidth": 1},
+    3: {"name": "Cyst", "color": "magenta", "alpha": 0.05, "linewidth": 1},
 }
 
 # Slices are upscaled so their longest side is at least this many pixels.

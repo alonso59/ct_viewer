@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -49,10 +49,20 @@ function SeriesSelector({
     error: null,
   })
   const [selectedSeriesKey, setSelectedSeriesKey] = useState('')
+  const onSeriesChangeRef = useRef(onSeriesChange)
+  const onSeriesListLoadedRef = useRef(onSeriesListLoaded)
   const scope = `${datasetId}:${patientId}:${reloadKey}`
   const loading = requestState.scope !== scope
   const seriesList = requestState.scope === scope ? requestState.seriesList : []
   const error = requestState.scope === scope ? requestState.error : null
+
+  useEffect(() => {
+    onSeriesChangeRef.current = onSeriesChange
+  }, [onSeriesChange])
+
+  useEffect(() => {
+    onSeriesListLoadedRef.current = onSeriesListLoaded
+  }, [onSeriesListLoaded])
 
   useEffect(() => {
     let active = true
@@ -69,7 +79,7 @@ function SeriesSelector({
           seriesList: series,
           error: null,
         })
-        onSeriesListLoaded?.(series)
+        onSeriesListLoadedRef.current?.(series)
 
         const preferredSeries =
           preferredSeriesId !== null
@@ -77,7 +87,7 @@ function SeriesSelector({
             : null
         const defaultSeries = preferredSeries ?? series[0] ?? null
         setSelectedSeriesKey(defaultSeries ? seriesOptionKey(defaultSeries) : '')
-        onSeriesChange?.(defaultSeries)
+        onSeriesChangeRef.current?.(defaultSeries)
       })
       .catch((requestError) => {
         if (!active) {
@@ -89,15 +99,15 @@ function SeriesSelector({
           seriesList: [],
           error: getApiErrorMessage(requestError),
         })
-        onSeriesListLoaded?.([])
+        onSeriesListLoadedRef.current?.([])
         setSelectedSeriesKey('')
-        onSeriesChange?.(null)
+        onSeriesChangeRef.current?.(null)
       })
 
     return () => {
       active = false
     }
-  }, [datasetId, onSeriesChange, onSeriesListLoaded, patientId, preferredSeriesId, reloadKey, scope])
+  }, [datasetId, patientId, preferredSeriesId, reloadKey, scope])
 
   const selectedSeries =
     seriesList.find((series) => seriesOptionKey(series) === selectedSeriesKey) ?? null

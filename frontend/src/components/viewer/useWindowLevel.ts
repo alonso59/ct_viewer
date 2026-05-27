@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 export const WINDOW_LEVEL_PRESETS = {
-  softTissue: [400, 50],
+  softTissue: [300, 100],
   bone: [1800, 400],
   lung: [1500, -600],
   brain: [80, 40],
