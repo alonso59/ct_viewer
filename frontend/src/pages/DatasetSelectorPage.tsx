@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -14,10 +14,16 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
+import BackendFileBrowserDialog from '../components/dataset-setup/BackendFileBrowserDialog'
+import ValidationProgressDialog from '../components/dataset-setup/ValidationProgressDialog'
 import { useSettings } from '../hooks/useSettings'
 import {
   apiClient,
+  type CaseSummary,
+  type DatabaseValidationReport,
   type DatasetSummary,
+  type WorkspaceSelectionValidationPayload,
+  type WorkspaceSelectionValidationResponse,
   type WorkspaceStatus,
   getApiErrorMessage,
 } from '../services/api'
@@ -29,6 +35,15 @@ interface DatasetSelectorPageProps {
   onWorkspaceChange: (workspace: WorkspaceStatus) => void
 }
 
+const VALIDATION_STEPS = [
+  'Checking path',
+  'Finding database.csv',
+  'Reading CSV',
+  'Checking columns',
+  'Sampling files',
+  'Building summary',
+]
+
 function DatasetSelectorPage({
   workspace,
   workspaceLoading,
@@ -37,6 +52,7 @@ function DatasetSelectorPage({
 }: DatasetSelectorPageProps) {
   const navigate = useNavigate()
   const settingsState = useSettings({ enabled: workspace.configured })
+  const validationTimerRef = useRef<number | null>(null)
   const [datasets, setDatasets] = useState<DatasetSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,10 +64,43 @@ function DatasetSelectorPage({
     running: false,
     error: null,
   })
+  const [browserOpen, setBrowserOpen] = useState(false)
+  const [lastValidation, setLastValidation] =
+    useState<WorkspaceSelectionValidationResponse | null>(null)
+  const [validationDialog, setValidationDialog] = useState<{
+    open: boolean
+    progress: number
+    currentStep: string
+    result: WorkspaceSelectionValidationResponse | null
+    error: string | null
+  }>({
+    open: false,
+    progress: 0,
+    currentStep: VALIDATION_STEPS[0],
+    result: null,
+    error: null,
+  })
+  const [reviewReadiness, setReviewReadiness] = useState<{
+    datasetId: string | null
+    cases: CaseSummary[]
+    validation: DatabaseValidationReport | null
+    error: string | null
+  }>({
+    datasetId: null,
+    cases: [],
+    validation: null,
+    error: null,
+  })
 
   useEffect(() => {
     setPathInput(workspace.dataset_path ?? '')
   }, [workspace.dataset_path])
+
+  useEffect(() => {
+    return () => {
+      clearValidationTimer()
+    }
+  }, [])
 
   useEffect(() => {
     if (!workspace.configured) {
@@ -91,6 +140,109 @@ function DatasetSelectorPage({
     }
   }, [workspace.configured, workspace.dataset_id])
 
+  useEffect(() => {
+    if (!workspace.configured || !workspace.dataset_id) {
+      setReviewReadiness({ datasetId: null, cases: [], validation: null, error: null })
+      return
+    }
+
+    let active = true
+    const datasetId = workspace.dataset_id
+    setReviewReadiness({ datasetId: null, cases: [], validation: null, error: null })
+
+    Promise.all([apiClient.listCases(datasetId), apiClient.getDatabaseValidation(datasetId)])
+      .then(([casesResponse, validationResponse]) => {
+        if (!active) {
+          return
+        }
+        setReviewReadiness({
+          datasetId,
+          cases: casesResponse,
+          validation: validationResponse,
+          error: null,
+        })
+      })
+      .catch((requestError) => {
+        if (!active) {
+          return
+        }
+        setReviewReadiness({
+          datasetId,
+          cases: [],
+          validation: null,
+          error: getApiErrorMessage(requestError),
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [workspace.configured, workspace.dataset_id])
+
+  async function runValidation(payload: WorkspaceSelectionValidationPayload) {
+    clearValidationTimer()
+    setSubmitState({ running: true, error: null })
+    setValidationDialog({
+      open: true,
+      progress: 4,
+      currentStep: VALIDATION_STEPS[0],
+      result: null,
+      error: null,
+    })
+
+    let stepIndex = 0
+    validationTimerRef.current = window.setInterval(() => {
+      stepIndex = Math.min(stepIndex + 1, VALIDATION_STEPS.length - 1)
+      setValidationDialog((state) =>
+        state.result || state.error
+          ? state
+          : {
+              ...state,
+              progress: Math.min(92, 6 + stepIndex * 17),
+              currentStep: VALIDATION_STEPS[stepIndex],
+            },
+      )
+    }, 420)
+
+    try {
+      const response = await apiClient.validateWorkspaceSelection(payload)
+      clearValidationTimer()
+      setLastValidation(response)
+      if (response.workspace) {
+        onWorkspaceChange(response.workspace)
+        setPathInput(response.summary.dataset_root ?? response.workspace.dataset_path ?? '')
+      }
+      setValidationDialog({
+        open: true,
+        progress: 100,
+        currentStep: VALIDATION_STEPS[VALIDATION_STEPS.length - 1],
+        result: response,
+        error: null,
+      })
+      setSubmitState({
+        running: false,
+        error:
+          response.errors.length > 0
+            ? 'Selection has blocking errors and was not activated.'
+            : null,
+      })
+    } catch (requestError) {
+      clearValidationTimer()
+      const message = getApiErrorMessage(requestError)
+      setValidationDialog({
+        open: true,
+        progress: 100,
+        currentStep: VALIDATION_STEPS[VALIDATION_STEPS.length - 1],
+        result: null,
+        error: message,
+      })
+      setSubmitState({
+        running: false,
+        error: message,
+      })
+    }
+  }
+
   async function submitWorkspace() {
     const trimmed = pathInput.trim()
     if (!trimmed) {
@@ -101,26 +253,7 @@ function DatasetSelectorPage({
       return
     }
 
-    setSubmitState({
-      running: true,
-      error: null,
-    })
-
-    try {
-      const response = await apiClient.putWorkspace(trimmed)
-      onWorkspaceChange(response)
-    } catch (requestError) {
-      setSubmitState({
-        running: false,
-        error: getApiErrorMessage(requestError),
-      })
-      return
-    }
-
-    setSubmitState({
-      running: false,
-      error: null,
-    })
+    await runValidation({ dataset_folder_path: trimmed })
   }
 
   async function clearWorkspace() {
@@ -132,6 +265,7 @@ function DatasetSelectorPage({
     try {
       const response = await apiClient.clearWorkspace()
       onWorkspaceChange(response)
+      setLastValidation(null)
     } catch (requestError) {
       setSubmitState({
         running: false,
@@ -146,7 +280,32 @@ function DatasetSelectorPage({
     })
   }
 
+  function clearValidationTimer() {
+    if (validationTimerRef.current !== null) {
+      window.clearInterval(validationTimerRef.current)
+      validationTimerRef.current = null
+    }
+  }
+
   const activeDataset = datasets[0] ?? null
+  const activeReviewDatasetId = activeDataset?.dataset_id ?? workspace.dataset_id
+  const readinessLoading =
+    workspace.configured && reviewReadiness.datasetId !== workspace.dataset_id
+  const readinessCases =
+    reviewReadiness.datasetId === workspace.dataset_id ? reviewReadiness.cases : []
+  const validationReport =
+    reviewReadiness.datasetId === workspace.dataset_id ? reviewReadiness.validation : null
+  const reviewedCases = readinessCases.filter((entry) => entry.latest_curation_status).length
+  const warningCases = readinessCases.filter((entry) => entry.warning_count > 0).length
+  const validationWarningCount = validationReport?.warnings.length ?? 0
+  const displayedCaseCount =
+    validationReport?.case_count ?? (readinessCases.length || activeDataset?.patient_count || 0)
+  const activeDatabasePath =
+    workspace.database_csv_path ??
+    (lastValidation?.activated &&
+    lastValidation.summary.dataset_root === workspace.dataset_path
+      ? lastValidation.summary.database_csv_path
+      : null)
 
   return (
     <Paper
@@ -163,15 +322,13 @@ function DatasetSelectorPage({
       }}
     >
       <Stack spacing={3}>
-        <Stack spacing={1.5} maxWidth={820}>
+        <Stack spacing={1.5} maxWidth={880}>
           <Typography variant="overline" color="text.secondary">
-            Workspace Setup
+            Dataset Discovery
           </Typography>
-          <Typography variant="h3">Dataset Workspace</Typography>
+          <Typography variant="h3">Medical curation setup</Typography>
           <Typography variant="body1" color="text.secondary">
-            Enter the server path to one dataset folder. The app will validate the
-            folder, create <code>.webui/</code> inside it, and use that folder as the
-            active workspace.
+            Select a backend-visible dataset folder or database.csv, validate it, then start review from the active workspace.
           </Typography>
         </Stack>
 
@@ -185,57 +342,15 @@ function DatasetSelectorPage({
         {workspaceError ? <Alert severity="error">{workspaceError}</Alert> : null}
         {submitState.error ? <Alert severity="error">{submitState.error}</Alert> : null}
 
-        <Card
-          sx={{
-            background:
-              'linear-gradient(145deg, rgba(10, 10, 10, 0.9), rgba(31, 41, 55, 0.9))',
-          }}
-        >
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={2}>
-              <TextField
-                label="Dataset folder path on server"
-                value={pathInput}
-                onChange={(event) => setPathInput(event.target.value)}
-                placeholder="/path/to/Dataset820"
-                fullWidth
-                disabled={submitState.running || workspaceLoading}
-              />
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button
-                  variant="contained"
-                  onClick={submitWorkspace}
-                  disabled={submitState.running || workspaceLoading}
-                >
-                  {workspace.configured ? 'Change dataset folder' : 'Activate dataset folder'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={clearWorkspace}
-                  disabled={!workspace.configured || submitState.running || workspaceLoading}
-                >
-                  Clear workspace
-                </Button>
-              </Stack>
-
-              <Typography variant="body2" color="text.secondary">
-                The path must exist on the backend server filesystem and contain at
-                least one of <code>nifti/</code>, <code>seg/</code>, <code>voi/</code>, or
-                <code> manifest.csv</code>.
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-
         {workspace.configured ? (
           <Card
             sx={{
+              borderColor: validationWarningCount > 0 ? 'warning.dark' : 'success.dark',
               background:
-                'linear-gradient(150deg, rgba(125, 211, 252, 0.08), rgba(18, 18, 18, 0.98) 42%)',
+                'linear-gradient(150deg, rgba(125, 211, 252, 0.1), rgba(18, 18, 18, 0.98) 42%)',
             }}
           >
-            <CardContent sx={{ p: 3 }}>
+            <CardContent sx={{ p: { xs: 2.25, md: 3 } }}>
               <Stack spacing={2}>
                 <Stack
                   direction={{ xs: 'column', md: 'row' }}
@@ -249,81 +364,186 @@ function DatasetSelectorPage({
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                       <Typography variant="h4">{workspace.dataset_id}</Typography>
-                      <Chip label="Workspace active" color="primary" variant="outlined" />
+                      <Chip
+                        label={
+                          validationReport?.has_database
+                            ? 'database.csv ready'
+                            : 'database.csv pending'
+                        }
+                        color={validationReport?.has_database ? 'success' : 'warning'}
+                        variant={validationReport?.has_database ? 'filled' : 'outlined'}
+                      />
                     </Stack>
                   </Box>
-                  {activeDataset && !settingsState.loading ? (
-                    <Button
-                      variant="outlined"
-                      onClick={() =>
-                        navigate(`/datasets/${activeDataset.dataset_id}/patients`)
-                      }
-                    >
-                      Open patients
-                    </Button>
-                  ) : null}
-                </Stack>
-
-                <Typography variant="body2" color="text.secondary">
-                  Dataset path: {workspace.dataset_path}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Workspace directory: {workspace.workspace_dir}
-                </Typography>
-
-                {loading ? (
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <CircularProgress size={24} />
-                    <Typography color="text.secondary">Loading dataset summary...</Typography>
-                  </Stack>
-                ) : null}
-
-                {!loading && error ? <Alert severity="error">{error}</Alert> : null}
-
-                {!loading && !error && activeDataset ? (
-                  <Stack spacing={1.5}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      <Chip
-                        label={`${activeDataset.patient_count} patients`}
-                        color="primary"
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={activeDataset.has_nifti ? 'NIfTI' : 'No NIfTI'}
-                        color={activeDataset.has_nifti ? 'primary' : 'default'}
-                        variant={activeDataset.has_nifti ? 'filled' : 'outlined'}
-                      />
-                      <Chip
-                        label={activeDataset.has_seg ? 'SEG' : 'No SEG'}
-                        color={activeDataset.has_seg ? 'secondary' : 'default'}
-                        variant={activeDataset.has_seg ? 'filled' : 'outlined'}
-                      />
-                      <Chip
-                        label={activeDataset.has_voi ? 'VOI' : 'No VOI'}
-                        color={activeDataset.has_voi ? 'success' : 'default'}
-                        variant={activeDataset.has_voi ? 'filled' : 'outlined'}
-                      />
-                    </Stack>
-                    {settingsState.allSettings[activeDataset.dataset_id]?.last_patient ? (
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                    {activeReviewDatasetId && !settingsState.loading ? (
                       <Button
-                        size="small"
-                        variant="text"
+                        variant="contained"
                         onClick={() =>
                           navigate(
-                            `/datasets/${activeDataset.dataset_id}/patients/${settingsState.allSettings[activeDataset.dataset_id]?.last_patient}/viewer`,
+                            `/datasets/${activeReviewDatasetId}/review${
+                              readinessCases[0]?.case_id ? `/${readinessCases[0].case_id}` : ''
+                            }`,
                           )
                         }
                       >
-                        Resume {settingsState.allSettings[activeDataset.dataset_id]?.last_patient}
+                        Start Review
+                      </Button>
+                    ) : null}
+                    {activeReviewDatasetId &&
+                    settingsState.allSettings[activeReviewDatasetId]?.last_patient ? (
+                      <Button
+                        variant="outlined"
+                        onClick={() =>
+                          navigate(
+                            `/datasets/${activeReviewDatasetId}/review/${settingsState.allSettings[activeReviewDatasetId]?.last_patient}`,
+                          )
+                        }
+                      >
+                        Resume Review
                       </Button>
                     ) : null}
                   </Stack>
+                </Stack>
+
+                {readinessLoading ? (
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <CircularProgress size={22} />
+                    <Typography color="text.secondary">Loading review readiness...</Typography>
+                  </Stack>
                 ) : null}
+                {loading ? (
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <CircularProgress size={22} />
+                    <Typography color="text.secondary">Loading dataset summary...</Typography>
+                  </Stack>
+                ) : null}
+                {!loading && error ? <Alert severity="error">{error}</Alert> : null}
+                {reviewReadiness.error ? (
+                  <Alert severity="warning">{reviewReadiness.error}</Alert>
+                ) : null}
+
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip label={`${displayedCaseCount} cases`} color="primary" variant="outlined" />
+                  <Chip
+                    label={`${reviewedCases} reviewed`}
+                    color={reviewedCases > 0 ? 'success' : 'default'}
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={`${warningCases} cases with warnings`}
+                    color={warningCases > 0 ? 'warning' : 'default'}
+                    variant={warningCases > 0 ? 'filled' : 'outlined'}
+                  />
+                  <Chip
+                    label={`${validationWarningCount} validation warnings`}
+                    color={validationWarningCount > 0 ? 'warning' : 'default'}
+                    variant={validationWarningCount > 0 ? 'filled' : 'outlined'}
+                  />
+                  <Chip
+                    label={activeDataset?.has_seg ? 'SEG available' : 'SEG missing'}
+                    color={activeDataset?.has_seg ? 'success' : 'default'}
+                    variant={activeDataset?.has_seg ? 'filled' : 'outlined'}
+                  />
+                  <Chip
+                    label={activeDataset?.has_voi ? 'VOI available' : 'VOI missing'}
+                    color={activeDataset?.has_voi ? 'success' : 'default'}
+                    variant={activeDataset?.has_voi ? 'filled' : 'outlined'}
+                  />
+                </Stack>
+
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                    Dataset root: {workspace.dataset_path}
+                  </Typography>
+                  {activeDatabasePath ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                      database.csv: {activeDatabasePath}
+                    </Typography>
+                  ) : null}
+                </Stack>
               </Stack>
             </CardContent>
           </Card>
         ) : null}
+
+        <Card
+          sx={{
+            background:
+              'linear-gradient(145deg, rgba(10, 10, 10, 0.78), rgba(31, 41, 55, 0.62))',
+          }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Stack spacing={2.25}>
+              <Box>
+                <Typography variant="overline" color="text.secondary">
+                  Dataset Selection
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Select the dataset folder on the backend server.
+                </Typography>
+              </Box>
+
+              <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                <TextField
+                  label="Dataset folder path"
+                  value={pathInput}
+                  onChange={(event) => setPathInput(event.target.value)}
+                  placeholder="/path/to/Dataset820"
+                  fullWidth
+                  disabled={submitState.running || workspaceLoading}
+                  helperText="Path on the backend server filesystem."
+                />
+                <Button
+                  variant="outlined"
+                  onClick={() => setBrowserOpen(true)}
+                  disabled={submitState.running || workspaceLoading}
+                  sx={{ mt: 1, flexShrink: 0 }}
+                >
+                  Browse
+                </Button>
+              </Stack>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                <Button
+                  variant="contained"
+                  onClick={submitWorkspace}
+                  disabled={submitState.running || workspaceLoading}
+                >
+                  {workspace.configured ? 'Validate and Change' : 'Validate and Activate'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={clearWorkspace}
+                  disabled={!workspace.configured || submitState.running || workspaceLoading}
+                >
+                  Clear workspace
+                </Button>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
       </Stack>
+
+      <BackendFileBrowserDialog
+        open={browserOpen}
+        initialPath={pathInput || '/'}
+        onClose={() => setBrowserOpen(false)}
+        onSelect={(selectedPath) => {
+          setBrowserOpen(false)
+          setPathInput(selectedPath)
+          void runValidation({ dataset_folder_path: selectedPath })
+        }}
+      />
+
+      <ValidationProgressDialog
+        open={validationDialog.open}
+        progress={validationDialog.progress}
+        currentStep={validationDialog.currentStep}
+        result={validationDialog.result}
+        error={validationDialog.error}
+        onClose={() => setValidationDialog((state) => ({ ...state, open: false }))}
+      />
     </Paper>
   )
 }

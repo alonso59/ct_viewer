@@ -52,7 +52,7 @@ const PANEL_ACCENTS: Record<Axis, string> = {
 
 const LAYER_META: Record<number, { label: string; color: string; defaultOpacity: number }> = {
   1: { label: 'Kidney', color: '#22d3ee', defaultOpacity: 0.15 },
-  2: { label: 'Tumor', color: '#facc15', defaultOpacity: 0.2 },
+  2: { label: 'Tumor', color: '#FFFF00', defaultOpacity: 0.2 },
   3: { label: 'Cyst', color: '#e879f9', defaultOpacity: 0.15 },
 }
 
@@ -61,6 +61,7 @@ const SURFACE_LAYER_COLORS: Record<number, string> = {
   2: LAYER_META[2].color,
   3: LAYER_META[3].color,
 }
+const VOI_DISPLAY_SPACING = [1, 1, 1]
 const Surface3DView = lazy(() => import('../components/viewer/Surface3DView'))
 
 function seriesKey(series: Pick<SeriesInfo, 'series_id' | 'storage_path'> | null): string | null {
@@ -120,7 +121,7 @@ function ViewerPage() {
   }))
   const [surfaceBlend, setSurfaceBlend] = useState(0.75)
   const [handleReloadTick, setHandleReloadTick] = useState(0)
-  const [reviewDataRevision, setReviewDataRevision] = useState(0)
+  const reviewDataRevision = 0
   const [selectedGroup, setSelectedGroup] = useState('all')
   const [mutationsEnabled, setMutationsEnabled] = useState(false)
   const [deleteHistoryState, setDeleteHistoryState] = useState<{
@@ -184,6 +185,8 @@ function ViewerPage() {
     selectedSeries && volumeRequest.seriesKey === selectedSeriesKey ? volumeRequest.info : null
   const volumeError =
     selectedSeries && volumeRequest.seriesKey === selectedSeriesKey ? volumeRequest.error : null
+  const viewerSpacing =
+    selectedSeries?.type === 'voi' ? VOI_DISPLAY_SPACING : activeVolumeInfo?.spacing
   const volumeLoading = selectedSeries !== null && volumeRequest.seriesKey !== selectedSeriesKey
   const selectedSeriesDeleted = Boolean(selectedSeries?.deleted)
   const navigation = useSliceNavigation(activeVolumeInfo?.shape ?? null)
@@ -468,46 +471,24 @@ function ViewerPage() {
   ])
 
   async function applyReviewAction(
-    operation: ReviewOperation,
-    options?: {
+    _operation: ReviewOperation,
+    _options?: {
       onSuccess?: () => void
     },
   ) {
     if (applyState.running) {
       return
     }
-    setApplyState({ running: true, error: null, response: null })
-    try {
-      const response = await apiClient.applyReviewOperations(dsid, {
-        operations: [operation],
-      })
-      const severity = response.summary.failed > 0 ? 'warning' : 'success'
-      setApplyState({
-        running: false,
-        error: null,
-        response,
-      })
-      setToastState({
-        open: true,
-        severity,
-        message: `Batch ${response.batch_id}: ${response.summary.applied} applied, ${response.summary.skipped} skipped, ${response.summary.failed} failed.`,
-      })
-      setReviewDataRevision((current) => current + 1)
-      setPreferredSeriesId(selectedSeries?.series_id ?? null)
-      setHandleReloadTick((current) => current + 1)
-      options?.onSuccess?.()
-    } catch (requestError) {
-      setApplyState({
-        running: false,
-        error: getApiErrorMessage(requestError),
-        response: null,
-      })
-      setToastState({
-        open: true,
-        severity: 'error',
-        message: `Apply failed: ${getApiErrorMessage(requestError)}`,
-      })
-    }
+    setApplyState({
+      running: false,
+      error: 'Controlled dataset correction is disabled until Phase B.',
+      response: null,
+    })
+    setToastState({
+      open: true,
+      severity: 'warning',
+      message: 'Phase correction and file-moving actions are disabled until Phase B.',
+    })
   }
 
   function reclassifyCurrentSeries(targetPhase: PhaseDecision) {
@@ -549,38 +530,20 @@ function ViewerPage() {
     })
   }
 
-  async function undoDelete(decisionId: string) {
+  async function undoDelete(_decisionId: string) {
     if (applyState.running) {
       return
     }
-    setApplyState({ running: true, error: null, response: null })
-    try {
-      const response = await apiClient.undoDeleteDecision(dsid, decisionId)
-      setApplyState({
-        running: false,
-        error: null,
-        response,
-      })
-      setToastState({
-        open: true,
-        severity: response.summary.failed > 0 ? 'warning' : 'success',
-        message: `Batch ${response.batch_id}: ${response.summary.applied} applied, ${response.summary.skipped} skipped, ${response.summary.failed} failed.`,
-      })
-      setReviewDataRevision((current) => current + 1)
-      setHandleReloadTick((current) => current + 1)
-      await loadDeleteHistory()
-    } catch (requestError) {
-      setApplyState({
-        running: false,
-        error: getApiErrorMessage(requestError),
-        response: null,
-      })
-      setToastState({
-        open: true,
-        severity: 'error',
-        message: `Undo failed: ${getApiErrorMessage(requestError)}`,
-      })
-    }
+    setApplyState({
+      running: false,
+      error: 'Controlled dataset correction is disabled until Phase B.',
+      response: null,
+    })
+    setToastState({
+      open: true,
+      severity: 'warning',
+      message: 'Undoing dataset file moves is disabled until Phase B.',
+    })
   }
 
   async function undoCurrentSeriesDelete() {
@@ -680,6 +643,7 @@ function ViewerPage() {
           axis="axial"
           crosshair={navigation.getCrosshair('axial')}
           errorText={volumeError}
+          fitLabel={selectedSeries?.type === 'voi' ? 'VOI fit' : undefined}
           index={navigation.sliceIndices.axial}
           maxIndex={navigation.getMaxIndex('axial')}
           onCrosshairChange={(point) => navigation.setFromPanelPosition('axial', point)}
@@ -688,6 +652,7 @@ function ViewerPage() {
           onWindowLevelDrag={windowLevel.applyDrag}
           query={sliceQuery}
           requestKey={activeLoadHandle}
+          spacing={viewerSpacing}
           wl={windowLevel.wl}
           ww={windowLevel.ww}
         />
@@ -705,6 +670,7 @@ function ViewerPage() {
           axis="coronal"
           crosshair={navigation.getCrosshair('coronal')}
           errorText={volumeError}
+          fitLabel={selectedSeries?.type === 'voi' ? 'VOI fit' : undefined}
           index={navigation.sliceIndices.coronal}
           maxIndex={navigation.getMaxIndex('coronal')}
           onCrosshairChange={(point) => navigation.setFromPanelPosition('coronal', point)}
@@ -713,6 +679,7 @@ function ViewerPage() {
           onWindowLevelDrag={windowLevel.applyDrag}
           query={sliceQuery}
           requestKey={activeLoadHandle}
+          spacing={viewerSpacing}
           wl={windowLevel.wl}
           ww={windowLevel.ww}
         />
@@ -730,6 +697,7 @@ function ViewerPage() {
           axis="sagittal"
           crosshair={navigation.getCrosshair('sagittal')}
           errorText={volumeError}
+          fitLabel={selectedSeries?.type === 'voi' ? 'VOI fit' : undefined}
           index={navigation.sliceIndices.sagittal}
           maxIndex={navigation.getMaxIndex('sagittal')}
           onCrosshairChange={(point) => navigation.setFromPanelPosition('sagittal', point)}
@@ -738,6 +706,7 @@ function ViewerPage() {
           onWindowLevelDrag={windowLevel.applyDrag}
           query={sliceQuery}
           requestKey={activeLoadHandle}
+          spacing={viewerSpacing}
           wl={windowLevel.wl}
           ww={windowLevel.ww}
         />
@@ -817,7 +786,7 @@ function ViewerPage() {
 
         <Stack spacing={1}>
           <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.22em' }}>
-            Viewer Workspace
+            Legacy Technical Viewer
           </Typography>
           <Typography variant="h4" sx={{ lineHeight: 1.05 }}>
             {pid}
@@ -1239,6 +1208,7 @@ function SlicePanel({
   axis,
   crosshair,
   errorText,
+  fitLabel,
   index,
   maxIndex,
   onCrosshairChange,
@@ -1247,6 +1217,7 @@ function SlicePanel({
   onWindowLevelDrag,
   query,
   requestKey,
+  spacing,
   wl,
   ww,
 }: {
@@ -1254,6 +1225,7 @@ function SlicePanel({
   axis: Axis
   crosshair: { x: number; y: number }
   errorText: string | null
+  fitLabel?: string
   index: number
   maxIndex: number
   onCrosshairChange: (point: { x: number; y: number }) => void
@@ -1267,6 +1239,7 @@ function SlicePanel({
   ) => void
   query: SliceQuery
   requestKey: string | null
+  spacing?: number[]
   wl: number
   ww: number
 }) {
@@ -1285,6 +1258,7 @@ function SlicePanel({
         crosshair={crosshair}
         disabled={!requestKey}
         errorText={errorText}
+        fitLabel={fitLabel}
         index={index}
         maxIndex={maxIndex}
         onCrosshairChange={onCrosshairChange}
@@ -1293,6 +1267,7 @@ function SlicePanel({
         onWindowLevelDrag={onWindowLevelDrag}
         query={query}
         requestKey={requestKey}
+        spacing={spacing}
         wl={wl}
         ww={ww}
       />

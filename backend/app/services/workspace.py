@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from app.models.workspace import WorkspaceStatus
+from app.services.state_dir import dataset_state_dir
 from app.services.workspace_store import workspace_store
 
 
-REQUIRED_DATASET_MARKERS = ("nifti", "seg", "voi", "manifest.csv")
+REQUIRED_DATASET_MARKERS = ("database.csv", "nifti", "seg", "voi", "manifest.csv")
 
 
 def get_workspace_status() -> WorkspaceStatus:
@@ -22,7 +24,8 @@ def get_workspace_status() -> WorkspaceStatus:
         configured=True,
         dataset_id=dataset_path.name,
         dataset_path=str(dataset_path),
-        workspace_dir=str(dataset_path / ".webui"),
+        database_csv_path=status.database_csv_path,
+        workspace_dir=str(dataset_state_dir(dataset_path)),
     )
 
 
@@ -34,17 +37,20 @@ def require_workspace_dataset_path() -> Path:
 
 
 def set_workspace_dataset_path(dataset_path: str) -> WorkspaceStatus:
+    return set_workspace_selection(dataset_path)
+
+
+def set_workspace_selection(
+    dataset_path: str,
+    database_csv_path: str | Path | None = None,
+) -> WorkspaceStatus:
     candidate = Path(dataset_path).expanduser().resolve()
     _validate_dataset_path(candidate)
-    workspace_dir = candidate / ".webui"
-    try:
-        workspace_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        raise RuntimeError(f"Unable to create workspace directory '{workspace_dir}'") from exc
+    resolved_database = _validate_database_csv_path(database_csv_path) if database_csv_path else None
     from app.services.runtime_cache import reset_runtime_caches
 
     reset_runtime_caches()
-    return workspace_store.set(candidate)
+    return workspace_store.set(candidate, resolved_database)
 
 
 def clear_workspace() -> WorkspaceStatus:
@@ -63,14 +69,23 @@ def validate_workspace_dataset_id(dataset_id: str) -> Path:
     return dataset_path
 
 
-def workspace_file(filename: str) -> Path:
+def active_workspace_database_csv_path(dataset_path: Path | str) -> Path | None:
+    status = get_workspace_status()
+    if not status.configured or not status.dataset_path or not status.database_csv_path:
+        return None
+    resolved_dataset = Path(dataset_path).expanduser().resolve()
+    active_dataset = Path(status.dataset_path).expanduser().resolve()
+    if resolved_dataset != active_dataset:
+        return None
+    database_path = Path(status.database_csv_path).expanduser().resolve()
+    return database_path if database_path.is_file() else None
+
+
+def workspace_file(filename: str, *, create: bool = True) -> Path:
     dataset_path = require_workspace_dataset_path()
-    workspace_dir = dataset_path / ".webui"
-    try:
-        workspace_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        raise RuntimeError(f"Unable to create workspace directory '{workspace_dir}'") from exc
-    return workspace_dir / filename
+    from app.services.state_dir import dataset_state_file
+
+    return dataset_state_file(dataset_path, filename, create=create)
 
 
 def _validate_dataset_path(dataset_path: Path) -> None:
@@ -92,5 +107,20 @@ def _validate_dataset_path(dataset_path: Path) -> None:
 
     if not has_marker:
         raise ValueError(
-            "Selected folder is not a dataset directory. Expected one of: nifti/, seg/, voi/, manifest.csv"
+            "Selected folder is not a dataset directory. Expected one of: database.csv, nifti/, seg/, voi/, manifest.csv"
         )
+
+
+def _validate_database_csv_path(database_csv_path: str | Path | None) -> Path | None:
+    if database_csv_path is None:
+        return None
+    candidate = Path(database_csv_path).expanduser().resolve()
+    if not candidate.exists():
+        raise FileNotFoundError(f"database.csv path '{candidate}' does not exist")
+    if not candidate.is_file():
+        raise ValueError(f"database.csv path '{candidate}' is not a file")
+    if candidate.name != "database.csv":
+        raise ValueError(f"database.csv path '{candidate}' must be named database.csv")
+    if not os.access(candidate, os.R_OK):
+        raise PermissionError(f"database.csv path '{candidate}' is not readable")
+    return candidate

@@ -18,11 +18,28 @@ import {
   getApiErrorMessage,
   isHandleExpiredError,
 } from '../../services/api'
+import {
+  computeContainRect,
+  getPhysicalFitSize,
+  type ContentRect,
+  type PhysicalFitSize,
+} from './fitGeometry'
+import { viewerControlButtonSx } from './viewerControlStyles'
 
 const MAX_SLICE_CACHE_ITEMS = 24
 const MIN_ZOOM = 1
 const MAX_ZOOM = 8
 const ZOOM_STEP = 0.14
+
+// Anatomical orientation labels per view axis (RAS convention, as_closest_canonical guaranteed).
+// axial:    view down Z → screen X=L→R, screen Y=A→P (flipped: top=A)
+// coronal:  view down Y → screen X=L→R, screen Y=I→S (flipped: top=S)
+// sagittal: view down X (from patient-left) → screen X=P→A, screen Y=I→S (flipped: top=S)
+const ORIENTATION_LABELS = {
+  axial:    { top: 'A', bottom: 'P', left: 'L', right: 'R' },
+  coronal:  { top: 'S', bottom: 'I', left: 'L', right: 'R' },
+  sagittal: { top: 'S', bottom: 'I', left: 'P', right: 'A' },
+} as const
 
 interface SliceViewProps {
   accent: string
@@ -30,10 +47,12 @@ interface SliceViewProps {
   crosshair: { x: number; y: number }
   disabled?: boolean
   errorText?: string | null
+  fitLabel?: string
   index: number
   maxIndex: number
   query: SliceQuery
   requestKey: string | null
+  spacing?: number[]
   wl: number
   onCrosshairChange: (point: { x: number; y: number }) => void
   onSliceChange: (index: number) => void
@@ -47,32 +66,13 @@ interface SliceViewProps {
   ww: number
 }
 
-function computeContentRect(
-  containerW: number,
-  containerH: number,
-  naturalW: number,
-  naturalH: number,
-): { left: number; top: number; width: number; height: number } | null {
-  if (containerW === 0 || containerH === 0 || naturalW === 0 || naturalH === 0) {
-    return null
-  }
-  const scale = Math.min(containerW / naturalW, containerH / naturalH)
-  const rw = naturalW * scale
-  const rh = naturalH * scale
-  return {
-    left: (containerW - rw) / 2 / containerW,
-    top: (containerH - rh) / 2 / containerH,
-    width: rw / containerW,
-    height: rh / containerH,
-  }
-}
-
 function SliceView({
   accent,
   axis,
   crosshair,
   disabled = false,
   errorText,
+  fitLabel,
   index,
   maxIndex,
   onCrosshairChange,
@@ -81,6 +81,7 @@ function SliceView({
   onWindowLevelDrag,
   query,
   requestKey,
+  spacing,
   wl,
   ww,
 }: SliceViewProps) {
@@ -93,12 +94,7 @@ function SliceView({
     width: 0,
     height: 0,
   })
-  const [contentRect, setContentRect] = useState<{
-    left: number
-    top: number
-    width: number
-    height: number
-  } | null>(null)
+  const [contentRect, setContentRect] = useState<ContentRect | null>(null)
   const [viewState, setViewState] = useState<{ zoom: number; panX: number; panY: number }>({
     zoom: 1,
     panX: 0,
@@ -121,7 +117,7 @@ function SliceView({
   } | null>(null)
   const suppressClickRef = useRef(false)
   const hasImageRef = useRef(false)
-  const naturalSizeRef = useRef(naturalSize)
+  const physicalFitSizeRef = useRef<PhysicalFitSize>({ width: 0, height: 0 })
   const viewStateRef = useRef(viewState)
   const cacheRef = useRef(new Map<string, string>())
   const cacheOrderRef = useRef<string[]>([])
@@ -131,9 +127,19 @@ function SliceView({
   const indexRef = useRef(index)
   const maxIndexRef = useRef(maxIndex)
 
+  const queryKey = JSON.stringify(query)
+  const requestQuery = useMemo(() => JSON.parse(queryKey) as SliceQuery, [queryKey])
+  const fetchKey = !disabled && requestKey ? `${requestKey}:${axis}:${index}:${queryKey}` : null
+  const physicalFitSize = getPhysicalFitSize(
+    axis,
+    naturalSize.width,
+    naturalSize.height,
+    spacing,
+  )
+
   useEffect(() => {
-    naturalSizeRef.current = naturalSize
-  }, [naturalSize])
+    physicalFitSizeRef.current = physicalFitSize
+  }, [physicalFitSize.height, physicalFitSize.width])
 
   useEffect(() => {
     viewStateRef.current = viewState
@@ -147,10 +153,6 @@ function SliceView({
     maxIndexRef.current = maxIndex
   }, [maxIndex])
 
-  const queryKey = JSON.stringify(query)
-  const requestQuery = useMemo(() => JSON.parse(queryKey) as SliceQuery, [queryKey])
-  const fetchKey = !disabled && requestKey ? `${requestKey}:${axis}:${index}:${queryKey}` : null
-
   const displayUrl = requestState.url
   const isStale = Boolean(fetchKey) && requestState.key !== fetchKey
   const isFirstLoad = !displayUrl && Boolean(fetchKey) && requestState.key !== fetchKey
@@ -163,6 +165,10 @@ function SliceView({
   useEffect(() => {
     hasImageRef.current = Boolean(displayUrl)
   }, [displayUrl])
+
+  useEffect(() => {
+    setViewState({ zoom: 1, panX: 0, panY: 0 })
+  }, [requestKey])
 
   function cacheSliceUrl(key: string, url: string) {
     const existing = cacheRef.current.get(key)
@@ -270,8 +276,8 @@ function SliceView({
         return
       }
       const { width, height } = entry.contentRect
-      const { width: nw, height: nh } = naturalSizeRef.current
-      setContentRect(computeContentRect(width, height, nw, nh))
+      const { width: fitWidth, height: fitHeight } = physicalFitSizeRef.current
+      setContentRect(computeContainRect(width, height, fitWidth, fitHeight))
     })
 
     observer.observe(el)
@@ -280,12 +286,12 @@ function SliceView({
 
   useEffect(() => {
     const el = viewportRef.current
-    if (!el || naturalSize.width === 0) {
+    if (!el || physicalFitSize.width === 0) {
       return
     }
     const { width, height } = el.getBoundingClientRect()
-    setContentRect(computeContentRect(width, height, naturalSize.width, naturalSize.height))
-  }, [naturalSize])
+    setContentRect(computeContainRect(width, height, physicalFitSize.width, physicalFitSize.height))
+  }, [physicalFitSize.height, physicalFitSize.width])
 
   useEffect(() => {
     function handleMouseMove(event: MouseEvent) {
@@ -475,11 +481,21 @@ function SliceView({
     const baseX = (unpannedX - centerX) / viewState.zoom + centerX
     const baseY = (unpannedY - centerY) / viewState.zoom + centerY
 
-    const scale = Math.min(rect.width / naturalSize.width, rect.height / naturalSize.height)
-    const rw = naturalSize.width * scale
-    const rh = naturalSize.height * scale
-    const imgLeft = (rect.width - rw) / 2
-    const imgTop = (rect.height - rh) / 2
+    const fitRect =
+      contentRect ??
+      computeContainRect(
+        rect.width,
+        rect.height,
+        physicalFitSizeRef.current.width,
+        physicalFitSizeRef.current.height,
+      )
+    if (!fitRect) {
+      return
+    }
+    const rw = fitRect.width * rect.width
+    const rh = fitRect.height * rect.height
+    const imgLeft = fitRect.left * rect.width
+    const imgTop = fitRect.top * rect.height
     const x = (baseX - imgLeft) / rw
     const y = (baseY - imgTop) / rh
     onCrosshairChange({
@@ -493,6 +509,8 @@ function SliceView({
   const chTop = `${(cr.top + crosshair.y * cr.height) * 100}%`
   const crLeft = `${cr.left * 100}%`
   const crTop = `${cr.top * 100}%`
+  const crWidth = `${cr.width * 100}%`
+  const crHeight = `${cr.height * 100}%`
   const crRight = `${(1 - cr.left - cr.width) * 100}%`
   const crBottom = `${(1 - cr.top - cr.height) * 100}%`
   const displayNaturalSize = naturalSize.width > 0 ? `${naturalSize.width}×${naturalSize.height}` : ''
@@ -508,10 +526,8 @@ function SliceView({
         position: 'relative',
         flex: 1,
         minHeight: 0,
-        borderRadius: 1,
+        borderRadius: 0,
         backgroundColor: '#000',
-        border: '1px solid',
-        borderColor: 'divider',
         overflow: 'hidden',
       }}
     >
@@ -554,26 +570,36 @@ function SliceView({
                   }}
                 >
                   <Box
-                    component="img"
-                    src={displayUrl}
-                    alt={`${axis} slice ${index + 1}`}
-                    data-slice-axis={axis}
-                    data-slice-index={index}
-                    onLoad={(event: SyntheticEvent<HTMLImageElement>) => {
-                      const { naturalWidth: nw, naturalHeight: nh } = event.currentTarget
-                      setNaturalSize({ width: nw, height: nh })
-                    }}
                     sx={{
-                      display: 'block',
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      userSelect: 'none',
-                      opacity: isStale ? 0.65 : 1,
-                      transition: 'opacity 0.12s ease-out',
-                      imageRendering: 'pixelated',
+                      position: 'absolute',
+                      left: crLeft,
+                      top: crTop,
+                      width: crWidth,
+                      height: crHeight,
                     }}
-                  />
+                  >
+                    <Box
+                      component="img"
+                      src={displayUrl}
+                      alt={`${axis} slice ${index + 1}`}
+                      data-slice-axis={axis}
+                      data-slice-index={index}
+                      onLoad={(event: SyntheticEvent<HTMLImageElement>) => {
+                        const { naturalWidth: nw, naturalHeight: nh } = event.currentTarget
+                        setNaturalSize({ width: nw, height: nh })
+                      }}
+                      sx={{
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'fill',
+                        userSelect: 'none',
+                        opacity: isStale ? 0.65 : 1,
+                        transition: 'opacity 0.12s ease-out',
+                        imageRendering: 'pixelated',
+                      }}
+                    />
+                  </Box>
 
                   {contentRect ? (
                     <Box sx={{ position: 'absolute', inset: 0 }}>
@@ -620,21 +646,18 @@ function SliceView({
                 />
               ) : null}
               <Button
-                size="small"
-                variant={isViewTransformed ? 'contained' : 'outlined'}
+                aria-label="Fit view"
                 onClick={(event) => {
                   event.stopPropagation()
                   resetViewToFit()
                 }}
                 sx={{
+                  ...viewerControlButtonSx(isViewTransformed),
                   position: 'absolute',
                   top: 8,
                   right: 8,
                   minWidth: 46,
-                  px: 0.9,
-                  py: 0.15,
-                  lineHeight: 1.2,
-                  fontSize: '0.68rem',
+                  minHeight: 32,
                 }}
               >
                 Fit
@@ -680,6 +703,59 @@ function SliceView({
         </Box>
       ) : null}
 
+      {displayUrl ? (
+        <>
+          {/* Top label */}
+          <Typography
+            variant="caption"
+            sx={{
+              position: 'absolute', top: 6, left: '50%',
+              transform: 'translateX(-50%)',
+              color: 'rgba(0,210,0,0.85)', fontSize: '0.72rem', fontWeight: 700,
+              lineHeight: 1, pointerEvents: 'none', userSelect: 'none', zIndex: 10,
+            }}
+          >
+            {ORIENTATION_LABELS[axis].top}
+          </Typography>
+          {/* Bottom label — sits above the status bar */}
+          <Typography
+            variant="caption"
+            sx={{
+              position: 'absolute', bottom: 28, left: '50%',
+              transform: 'translateX(-50%)',
+              color: 'rgba(0,210,0,0.85)', fontSize: '0.72rem', fontWeight: 700,
+              lineHeight: 1, pointerEvents: 'none', userSelect: 'none', zIndex: 10,
+            }}
+          >
+            {ORIENTATION_LABELS[axis].bottom}
+          </Typography>
+          {/* Left label */}
+          <Typography
+            variant="caption"
+            sx={{
+              position: 'absolute', left: 6, top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'rgba(0,210,0,0.85)', fontSize: '0.72rem', fontWeight: 700,
+              lineHeight: 1, pointerEvents: 'none', userSelect: 'none', zIndex: 10,
+            }}
+          >
+            {ORIENTATION_LABELS[axis].left}
+          </Typography>
+          {/* Right label */}
+          <Typography
+            variant="caption"
+            sx={{
+              position: 'absolute', right: 6, top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'rgba(0,210,0,0.85)', fontSize: '0.72rem', fontWeight: 700,
+              lineHeight: 1, pointerEvents: 'none', userSelect: 'none', zIndex: 10,
+            }}
+          >
+            {ORIENTATION_LABELS[axis].right}
+          </Typography>
+        </>
+      ) : null}
+
       <Stack
         direction="row"
         spacing={1}
@@ -690,6 +766,7 @@ function SliceView({
           Scroll slices · Ctrl+Scroll zoom · Shift+Drag/MMB pan
         </Typography>
         <Typography variant="caption" sx={{ color: 'rgba(0, 255, 0, 0.95)', fontSize: '0.65rem' }}>
+          {fitLabel ? `${fitLabel} · ` : ''}
           {displayNaturalSize} {displayNaturalSize ? '· ' : ''}
           {zoomLabel}
         </Typography>

@@ -1,33 +1,34 @@
-import { Box, Stack, Typography } from '@mui/material'
+import { Box, Button, Stack, Typography } from '@mui/material'
 import { useEffect, useState, type ReactNode } from 'react'
 
 import ExpandablePanel from './ExpandablePanel'
+import { viewerControlButtonSx } from './viewerControlStyles'
 
 const PANEL_DEFS = [
   {
     id: 'axial',
-    label: 'AXIAL',
+    label: 'AXI',
     accent: '#fbbf24',
     caption: 'Axial viewport placeholder',
     placeholder: 'Slice view and navigation land here in M8.',
   },
   {
-    id: 'sagittal',
-    label: 'SAGITTAL',
-    accent: '#22c55e',
-    caption: 'Sagittal viewport placeholder',
-    placeholder: 'Crosshair sync and scrolling arrive next.',
-  },
-  {
     id: 'coronal',
-    label: 'CORONAL',
+    label: 'COR',
     accent: '#ef4444',
     caption: 'Coronal viewport placeholder',
     placeholder: 'Coronal image panel will reuse the shared slice API.',
   },
   {
+    id: 'sagittal',
+    label: 'SAG',
+    accent: '#22c55e',
+    caption: 'Sagittal viewport placeholder',
+    placeholder: 'Crosshair sync and scrolling arrive next.',
+  },
+  {
     id: 'surface',
-    label: '3D SURFACE',
+    label: '3D',
     accent: '#f5f5f5',
     caption: 'Surface viewport placeholder',
     placeholder: 'Mesh rendering and blend controls arrive in M9.',
@@ -42,12 +43,15 @@ interface PanelOverride {
 }
 
 interface ViewerGrid2x2Props {
+  legend?: ReactNode
+  layout?: 'standard' | 'cockpit'
   panels?: Partial<Record<PanelId, PanelOverride>>
 }
 
-function ViewerGrid2x2({ panels = {} }: ViewerGrid2x2Props) {
+function ViewerGrid2x2({ legend, layout = 'standard', panels = {} }: ViewerGrid2x2Props) {
   const [expandedPanel, setExpandedPanel] = useState<PanelId | null>(null)
   const hasExpandedPanel = expandedPanel !== null
+  const cockpit = layout === 'cockpit'
 
   useEffect(() => {
     if (!hasExpandedPanel) {
@@ -58,27 +62,57 @@ function ViewerGrid2x2({ panels = {} }: ViewerGrid2x2Props) {
 
   return (
     <Box
+      data-testid="viewer-grid-2x2"
       sx={{
+        position: 'relative',
         display: 'grid',
+        height: cockpit ? '100%' : 'auto',
         width: '100%',
+        maxWidth: '100%',
+        mx: 0,
         gridTemplateColumns: hasExpandedPanel
           ? 'minmax(0, 1fr)'
-          : { xs: 'minmax(0, 1fr)', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
+          : { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
         gridTemplateRows: hasExpandedPanel
-          ? 'minmax(320px, min(82vh, 980px))'
-          : {
-              xs: 'repeat(4, minmax(260px, auto))',
-              sm: 'repeat(4, minmax(300px, auto))',
-              xl: 'repeat(2, auto)',
-            },
+          ? cockpit
+            ? 'minmax(0, 1fr)'
+            : 'minmax(320px, min(82vh, 980px))'
+          : cockpit
+            ? {
+                xs: 'repeat(4, minmax(260px, auto))',
+                sm: 'repeat(4, minmax(300px, auto))',
+                lg: 'repeat(2, minmax(0, 1fr))',
+              }
+            : {
+                xs: 'repeat(4, minmax(260px, auto))',
+                sm: 'repeat(4, minmax(300px, auto))',
+                lg: 'repeat(2, auto)',
+              },
         gap: '1px',
-        p: '1px',
-        borderRadius: 1,
-        backgroundColor: 'divider',
-        minHeight: hasExpandedPanel ? 320 : { xs: 'auto', xl: 0 },
+        p: 0,
+        borderRadius: 0,
+        backgroundColor: '#111',
+        minHeight: hasExpandedPanel ? 320 : { xs: 'auto', lg: cockpit ? 0 : 0 },
         minWidth: 0,
       }}
     >
+      {legend}
+      {hasExpandedPanel ? (
+        <Button
+          aria-label="Reset layout"
+          onClick={() => setExpandedPanel(null)}
+          sx={{
+            ...viewerControlButtonSx(false),
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            zIndex: 8,
+            minWidth: 96,
+          }}
+        >
+          Reset layout
+        </Button>
+      ) : null}
       {PANEL_DEFS.map((panel) => {
         const expanded = expandedPanel === panel.id
         const hidden = expandedPanel !== null && !expanded
@@ -89,8 +123,7 @@ function ViewerGrid2x2({ panels = {} }: ViewerGrid2x2Props) {
             sx={{
               minWidth: 0,
               minHeight: 0,
-              height: hasExpandedPanel ? '100%' : 'auto',
-              aspectRatio: hasExpandedPanel ? 'auto' : { xs: 'auto', xl: '1 / 1' },
+              height: cockpit || hasExpandedPanel ? '100%' : 'auto',
               display: hidden ? 'none' : 'block',
               ...(expandedPanel
                 ? {

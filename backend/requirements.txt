@@ -7,3 +7,4 @@ Pillow==12.1.1
 trimesh==4.11.2
 pydantic==2.12.5
 python-multipart==0.0.22
+pytest==9.0.1

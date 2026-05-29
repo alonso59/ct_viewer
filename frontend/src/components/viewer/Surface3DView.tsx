@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
 import { Bounds, OrbitControls, useBounds } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
@@ -127,16 +127,19 @@ function Surface3DViewComponent({
     error: string | null
     loadingLabels: number[]
     meshesByLabel: Record<number, MeshEntry>
+    failedLabels: Set<number>
     seriesKey: string | null
   }>({
     error: null,
     loadingLabels: [],
     meshesByLabel: {},
+    failedLabels: new Set(),
     seriesKey: null,
   })
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>('front')
   const [fitTick, setFitTick] = useState(0)
   const [presetTick, setPresetTick] = useState(0)
+  const [surface3dEnabled, setSurface3dEnabled] = useState(true)
   const inFlightRef = useRef(new Map<number, AbortController>())
   const meshesRef = useRef<Record<number, MeshEntry>>({})
 
@@ -162,13 +165,14 @@ function Surface3DViewComponent({
         error: null,
         loadingLabels: [],
         meshesByLabel: {},
+        failedLabels: new Set(),
         seriesKey,
       }
     })
   }, [seriesKey])
 
   useEffect(() => {
-    if (!seriesKey || sortedVisibleLabels.length === 0) {
+    if (!seriesKey || sortedVisibleLabels.length === 0 || !surface3dEnabled) {
       return
     }
 
@@ -176,6 +180,7 @@ function Surface3DViewComponent({
       (label) =>
         !requestState.meshesByLabel[label] &&
         !requestState.loadingLabels.includes(label) &&
+        !requestState.failedLabels.has(label) &&
         !inFlightRef.current.has(label),
     )
     if (missingLabels.length === 0) {
@@ -245,16 +250,19 @@ function Surface3DViewComponent({
             ...current,
             error: getApiErrorMessage(requestError),
             loadingLabels: current.loadingLabels.filter((value) => value !== label),
+            failedLabels: new Set([...current.failedLabels, label]),
           }))
         })
     })
   }, [
     labelColors,
     onHandleExpired,
+    requestState.failedLabels,
     requestState.loadingLabels,
     requestState.meshesByLabel,
     seriesKey,
     sortedVisibleLabels,
+    surface3dEnabled,
   ])
 
   useEffect(() => {
@@ -300,6 +308,25 @@ function Surface3DViewComponent({
       <SurfacePanelMessage
         title="All layers hidden"
         description="Enable at least one structure to render the 3D surface."
+      />
+    )
+  }
+
+  if (!surface3dEnabled) {
+    return (
+      <SurfacePanelMessage
+        title="3D surface disabled"
+        description="Click Enable 3D to load meshes."
+        action={
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setSurface3dEnabled(true)}
+            sx={{ mt: 1 }}
+          >
+            Enable 3D
+          </Button>
+        }
       />
     )
   }
@@ -391,6 +418,41 @@ function Surface3DViewComponent({
             }}
           >
             Reset view
+          </Button>
+          {requestState.failedLabels.size > 0 ? (
+            <Button
+              size="small"
+              variant="outlined"
+              color="warning"
+              onClick={() => {
+                setRequestState((current) => ({
+                  ...current,
+                  error: null,
+                  failedLabels: new Set(),
+                }))
+              }}
+              sx={{
+                minWidth: 0,
+                px: 1.2,
+                backgroundColor: 'rgba(8, 12, 16, 0.72)',
+              }}
+            >
+              Retry
+            </Button>
+          ) : null}
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => setSurface3dEnabled(false)}
+            sx={{
+              minWidth: 0,
+              px: 1.2,
+              borderColor: 'rgba(255,100,100,0.3)',
+              backgroundColor: 'rgba(8, 12, 16, 0.72)',
+            }}
+          >
+            Disable 3D
           </Button>
         </Stack>
       </Stack>
@@ -590,9 +652,11 @@ function PanelChip({
 }
 
 function SurfacePanelMessage({
+  action,
   description,
   title,
 }: {
+  action?: ReactNode
   description: string
   title: string
 }) {
@@ -618,6 +682,7 @@ function SurfacePanelMessage({
         <Typography variant="body2" color="text.secondary">
           {description}
         </Typography>
+        {action ?? null}
       </Stack>
     </Box>
   )

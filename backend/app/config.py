@@ -7,6 +7,9 @@ import os
 @dataclass(frozen=True)
 class Settings:
     data_root: str
+    dataset_dir: str | None
+    dataset_roots: str | None
+    webui_state_dir: str | None
     radiology_ui_token: str
     log_level: str
     port: int
@@ -49,6 +52,9 @@ def _parse_nonnegative_int(value: str | None, default: int) -> int:
 def get_settings() -> Settings:
     return Settings(
         data_root=os.environ.get("DATA_ROOT", "../../data/dataset"),
+        dataset_dir=os.environ.get("DATASET_DIR") or None,
+        dataset_roots=os.environ.get("DATASET_ROOTS") or None,
+        webui_state_dir=os.environ.get("WEBUI_STATE_DIR") or None,
         radiology_ui_token=os.environ.get("RADIOLOGY_UI_TOKEN", ""),
         log_level=os.environ.get("LOG_LEVEL", "info"),
         port=_parse_port(os.environ.get("PORT")),

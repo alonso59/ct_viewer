@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from app.models.workspace import WorkspaceStatus
+from app.services.state_dir import dataset_state_dir
 
 
 class WorkspaceStore:
@@ -18,17 +19,25 @@ class WorkspaceStore:
             return WorkspaceStatus(configured=False)
 
         resolved = Path(dataset_path).expanduser().resolve()
-        workspace_dir = resolved / ".webui"
+        database_csv_path = payload.get("database_csv_path")
+        resolved_database = (
+            Path(database_csv_path).expanduser().resolve()
+            if database_csv_path
+            else None
+        )
         return WorkspaceStatus(
             configured=True,
             dataset_id=resolved.name,
             dataset_path=str(resolved),
-            workspace_dir=str(workspace_dir),
+            database_csv_path=str(resolved_database) if resolved_database else None,
+            workspace_dir=str(dataset_state_dir(resolved)),
         )
 
-    def set(self, dataset_path: Path) -> WorkspaceStatus:
+    def set(self, dataset_path: Path, database_csv_path: Path | None = None) -> WorkspaceStatus:
         resolved = dataset_path.expanduser().resolve()
         payload = {"dataset_path": str(resolved)}
+        if database_csv_path is not None:
+            payload["database_csv_path"] = str(database_csv_path.expanduser().resolve())
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
         try:

@@ -10,7 +10,7 @@ from app.services.workspace import workspace_file
 
 class SettingsStore:
     def load(self) -> dict[str, DatasetViewerSettings]:
-        path = workspace_file("settings.json")
+        path = workspace_file("settings.json", create=False)
         if not path.exists():
             return {}
 
@@ -33,7 +33,7 @@ class SettingsStore:
         self,
         settings: dict[str, DatasetViewerSettings],
     ) -> dict[str, DatasetViewerSettings]:
-        path = workspace_file("settings.json")
+        path = workspace_file("settings.json", create=True)
         merged = self.load()
         merged.update(settings)
         payload = {

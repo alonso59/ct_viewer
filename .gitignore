@@ -11,8 +11,14 @@ frontend/dist/
 frontend/.vite/
 .udocker/
 
+# Build artifacts
+dist/
+build/
+output/
+
 # Logs / misc
 *.log
+webui_state/
 
 # Archives
 *.tar

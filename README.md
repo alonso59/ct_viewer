@@ -1,6 +1,6 @@
 # Radiology WebUI
 
-Radiology WebUI is a local-first radiology viewer for the `radio-ccrcc` dataset layout. It combines a FastAPI backend and a React + TypeScript + Vite frontend for dataset browsing, slice review, overlay visualization, 3D mesh rendering, and reviewer decision workflows.
+Radiology WebUI is a local-first ccRCC CT dataset curation viewer. It combines a FastAPI backend and a React + TypeScript + Vite frontend for database-driven case worklists, MPR slice review, overlay visualization, optional 3D mesh rendering, and state-only medical curation decisions.
 
 See the full requirements in [docs/SRS.md](docs/SRS.md).
 
@@ -55,29 +55,59 @@ make build-frontend
 
 - Backend health: `http://localhost:8000/api/health`
 - Frontend dev server: `http://localhost:5173`
-- At first launch, enter the server path to one dataset folder in the workspace setup screen
+- At first launch, browse an allowed backend root or enter one backend/server path in the workspace setup screen
+- Medical curation route: `/datasets/<dataset_id>/cases`
 
-## Review Workflow Safety
+## Dataset Discovery Setup
 
-When `ALLOW_DATA_MUTATIONS=true`, `Apply Changes` in the viewer mutates dataset files:
+The initial setup screen is a safe Dataset Discovery workflow:
 
-- Reclassify (NIfTI): updates `manifest.csv` (`phase`, `protocol_source=manual`)
-- Reclassify/Delete (VOI): moves files to phase folders or recycle paths
-- Delete (NIfTI): moves image/seg files to recycle paths
+- Allowed backend roots come from `DATASET_DIR`, `DATASET_ROOTS`, `DATA_ROOT`, and `/data` when mounted.
+- The backend browser lists only one directory level at a time and does not allow navigation outside those roots.
+- Users can select either a dataset folder or a `database.csv` file.
+- Validation checks path readability, locates/parses `database.csv`, verifies required columns, counts rows/cases, samples referenced CT/SEG/VOI paths, and reports Success/Warnings/Errors.
+- If `database.csv` is selected directly, the workspace stores both the inferred dataset root and the selected CSV path.
+- Validation does not load all NIfTI volumes, recursively crawl the dataset, modify source files, or edit `database.csv`.
+- Blocking errors prevent activation; warnings allow activation by default.
 
-App-managed files are written under `<dataset>/.webui/`:
+When running with Docker Compose, the host `.env` value `DATASET_DIR=/host/path/to/dataset` is mounted inside the app as `/data`. In the UI, use `/data` paths such as `/data/Dataset820`, not the host-only path, unless the backend is running directly on that host filesystem.
+
+## v2.0 Medical Curation Workflow
+
+v2.0 is case-first: the doctor selects a case, then reviews complete scans or VOIs from the scan inventory. When `database.csv` is present, it is the source of truth for:
+
+- `case_id`, `patient_id`, group, phase, scan index, side
+- full scan, SEG, VOI image, and VOI mask paths
+- preprocessing/QC fields and advanced metadata
+
+The legacy `manifest.csv` and folder discovery paths remain available only as fallback when `database.csv` is absent.
+
+The medical worklist surfaces `database.csv` readiness before review, including row/case counts, required-column status, path warning status, and total warnings. The case review page shows prior curation decisions for the active case, exposes the correction queue, and provides CSV export for external correction workflows.
+
+Medical Curation Mode is source-data read-only. Doctor-facing actions save review state only:
+
+- segmentation QC status and priority
+- free-text comments
+- phase correction proposals
+- correction queue entries for external editing
+
+The app does not rename files, move files, overwrite `database.csv`/`manifest.csv`, or modify NIfTI/SEG/VOI voxel data during v2.0 curation.
+
+App-managed files are written under `<dataset>/.webui/` when writable:
 
 - `settings.json`
-- `decisions.json`
-- `reclassification_log.json`
-- `deletion_log.json`
+- `curation_review.csv`
+- `correction_queue.csv`
 
-Recycle paths used by the app:
+For read-only dataset mounts, set `WEBUI_STATE_DIR` and mount it writable:
 
-- `<dataset>/deleted/...`
-- `<dataset>/voi/deleted/...`
+```bash
+WEBUI_STATE_DIR=/path/to/webui_state
+```
 
-Back up datasets before enabling mutations.
+Then curation state is written to `$WEBUI_STATE_DIR/<dataset_id>/`.
+
+Legacy source-data mutation endpoints and the old patient/series viewer can remain for technical fallback, but they are not exposed in the v2.0 medical curation route.
 
 ## Run On Other Machines (Docker Compose)
 
@@ -85,19 +115,20 @@ Yes, this repo can run on other machines without `udocker`.
 
 1. Copy [.env.example](.env.example) to `.env`.
 2. Set `DATASET_DIR` in `.env` so the server can access your dataset folders.
-3. Keep `ALLOW_DATA_MUTATIONS=false` for read-only mode, or set it to `true` to enable reviewer apply operations.
-4. Start the app:
+3. Keep `ALLOW_DATA_MUTATIONS=false` for v2.0 medical curation.
+4. For read-only data mounts, set `WEBUI_STATE_DIR` to a writable state directory.
+5. Start the app:
 
 ```bash
 docker compose up -d --build
 ```
 
-5. Open:
+6. Open:
 
 - `http://localhost:8000/`
 - `http://localhost:8000/api/health`
 
-6. In the UI, enter the server path to a specific dataset folder, for example `/data/Dataset820`.
+7. In the UI, browse `/data` or enter the server path to a specific dataset folder, for example `/data/Dataset420`.
 
 Useful commands:
 
@@ -139,8 +170,9 @@ Run it against the mounted dataset:
 
 ```bash
 podman run --rm -p 8000:8000 \
-  -e ALLOW_DATA_MUTATIONS=true \
-  -v /home/alonso/Documents/radio-ccrcc/data/dataset:/data:rw \
+  -e WEBUI_STATE_DIR=/state \
+  -v /home/alonso/Documents/radio-ccrcc/data/dataset:/data:ro \
+  -v /home/alonso/Documents/radio-ccrcc/webui_state:/state:rw \
   radiology-ui:1.0
 ```
 
@@ -148,8 +180,9 @@ Docker equivalent:
 
 ```bash
 docker run --rm -p 8000:8000 \
-  -e ALLOW_DATA_MUTATIONS=true \
-  -v /home/alonso/Documents/radio-ccrcc/data/dataset:/data:rw \
+  -e WEBUI_STATE_DIR=/state \
+  -v /home/alonso/Documents/radio-ccrcc/data/dataset:/data:ro \
+  -v /home/alonso/Documents/radio-ccrcc/webui_state:/state:rw \
   radiology-ui:1.0
 ```
 
@@ -168,8 +201,9 @@ podman save -o radiology-ui_1.0.tar radiology-ui:1.0
 python udocker.py load -i radiology-ui_1.0.tar
 python udocker.py create --name=radio-ui radiology-ui:1.0
 python udocker.py run -p 8000:8000 \
-  -e ALLOW_DATA_MUTATIONS=true \
-  -v /home/alonso/Documents/radio-ccrcc/data/dataset:/data:rw \
+  -e WEBUI_STATE_DIR=/state \
+  -v /home/alonso/Documents/radio-ccrcc/data/dataset:/data:ro \
+  -v /home/alonso/Documents/radio-ccrcc/webui_state:/state:rw \
   radio-ui
 ```
 

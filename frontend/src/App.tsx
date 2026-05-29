@@ -12,10 +12,12 @@ import {
 import {
   Link as RouterLink,
   matchPath,
+  Navigate,
   Route,
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from 'react-router-dom'
 
 import LoginDialog from './components/LoginDialog'
@@ -31,6 +33,7 @@ type ApiStatus = 'checking' | 'online' | 'offline'
 
 const PatientListPage = lazy(() => import('./pages/PatientListPage'))
 const ViewerPage = lazy(() => import('./pages/ViewerPage'))
+const MainReviewScreen = lazy(() => import('./pages/MainReviewScreen'))
 
 function App() {
   const location = useLocation()
@@ -43,9 +46,12 @@ function App() {
   )
   const workspaceState = useWorkspace()
   const activeDatasetId = workspaceState.workspace.dataset_id
-  const isViewerRoute = Boolean(
-    matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname),
+  const isMainReviewRoute = Boolean(
+    matchPath('/datasets/:dsid/review', location.pathname) ??
+      matchPath('/datasets/:dsid/review/:caseId', location.pathname),
   )
+  const isViewerRoute =
+    isMainReviewRoute || Boolean(matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname))
 
   useEffect(() => {
     let active = true
@@ -156,6 +162,17 @@ function App() {
             />
           }
         />
+        <Route path="/datasets/:dsid/review" element={<MainReviewScreen />} />
+        <Route
+          path="/datasets/:dsid/review/:caseId"
+          element={<MainReviewScreen />}
+        />
+        <Route path="/datasets/:dsid/cases" element={<LegacyCasesRedirect />} />
+        <Route
+          path="/datasets/:dsid/cases/:caseId/review"
+          element={<LegacyCaseReviewRedirect />}
+        />
+        <Route path="/datasets/:dsid/cases/:caseId/dossier" element={<LegacyCaseReviewRedirect />} />
         <Route path="/datasets/:dsid/patients" element={<PatientListPage />} />
         <Route
           path="/datasets/:dsid/patients/:pid/viewer"
@@ -167,98 +184,76 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
-      <AppBar
-        position="sticky"
-        elevation={0}
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          backgroundColor: 'rgba(18, 18, 18, 0.82)',
-          backdropFilter: 'blur(18px)',
-        }}
-      >
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="overline" color="text.secondary">
-              Radiology WebUI
-            </Typography>
-            <Typography variant="h6">Routing Shell</Typography>
-          </Box>
+      {!isMainReviewRoute ? (
+        <AppBar
+          position="sticky"
+          elevation={0}
+          sx={{
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            backgroundColor: 'rgba(18, 18, 18, 0.82)',
+            backdropFilter: 'blur(18px)',
+          }}
+        >
+          <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="overline" color="text.secondary">
+                ccRCC CT Dataset Curation
+              </Typography>
+              <Typography variant="h6">Medical Review Workspace</Typography>
+            </Box>
 
-          <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
-            <Button component={RouterLink} to="/" color="inherit">
-              Workspace
-            </Button>
-            {activeDatasetId ? (
-              <Button
-                component={RouterLink}
-                to={`/datasets/${activeDatasetId}/patients`}
-                color="inherit"
-              >
-                Patients
+            <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+              <Button component={RouterLink} to="/" color="inherit">
+                Dataset
               </Button>
-            ) : null}
-          </Stack>
+              {activeDatasetId ? (
+                <Button
+                  component={RouterLink}
+                  to={`/datasets/${activeDatasetId}/review`}
+                  color="inherit"
+                >
+                  Review
+                </Button>
+              ) : null}
+            </Stack>
 
-          <Chip
-            color={
-              apiStatus === 'online'
-                ? 'primary'
-                : apiStatus === 'offline'
-                  ? 'secondary'
-                  : 'default'
-            }
-            label={
-              apiStatus === 'online'
-                ? 'API online'
-                : apiStatus === 'offline'
-                  ? 'API unreachable'
-                  : 'Checking API'
-            }
-            variant={apiStatus === 'checking' ? 'outlined' : 'filled'}
-          />
-        </Toolbar>
-      </AppBar>
+            <Chip
+              color={
+                apiStatus === 'online'
+                  ? 'primary'
+                  : apiStatus === 'offline'
+                    ? 'secondary'
+                    : 'default'
+              }
+              label={
+                apiStatus === 'online'
+                  ? 'API online'
+                  : apiStatus === 'offline'
+                    ? 'API unreachable'
+                    : 'Checking API'
+              }
+              variant={apiStatus === 'checking' ? 'outlined' : 'filled'}
+            />
+          </Toolbar>
+        </AppBar>
+      ) : null}
 
-      {isViewerRoute ? (
+      {isMainReviewRoute ? (
+        routes
+      ) : isViewerRoute ? (
         <Box
           sx={{
             width: '100%',
             px: { xs: 2, sm: 2.5, md: 3, xl: 4 },
-            py: { xs: 2.5, md: 3.5 },
+            py: { xs: 2, md: 2.5 },
           }}
         >
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="overline" color="text.secondary">
-                Active Context
-              </Typography>
-              <Typography variant="body1">
-                {workspaceState.workspace.configured
-                  ? `${workspaceState.workspace.dataset_id} at ${workspaceState.workspace.dataset_path}`
-                  : location.pathname}
-              </Typography>
-            </Box>
-
-            {routes}
-          </Stack>
+          {routes}
         </Box>
       ) : (
         <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-          <Stack spacing={2.5}>
-            <Box>
-              <Typography variant="overline" color="text.secondary">
-                Active Context
-              </Typography>
-              <Typography variant="body1">
-                {workspaceState.workspace.configured
-                  ? `${workspaceState.workspace.dataset_id} at ${workspaceState.workspace.dataset_path}`
-                  : location.pathname}
-              </Typography>
-            </Box>
-
-            {routes}
-          </Stack>
+          {routes}
         </Container>
       )}
 
@@ -271,6 +266,16 @@ function App() {
       />
     </Box>
   )
+}
+
+function LegacyCasesRedirect() {
+  const { dsid = '' } = useParams<{ dsid: string }>()
+  return <Navigate to={`/datasets/${dsid}/review`} replace />
+}
+
+function LegacyCaseReviewRedirect() {
+  const { dsid = '', caseId = '' } = useParams<{ dsid: string; caseId: string }>()
+  return <Navigate to={`/datasets/${dsid}/review/${caseId}`} replace />
 }
 
 export default App

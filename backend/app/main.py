@@ -6,6 +6,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
+from app.api.cases import router as cases_router
+from app.api.curation import router as curation_router
+from app.api.dataset_browser import router as dataset_browser_router
 from app.api.datasets import router as datasets_router
 from app.api.mesh import router as mesh_router
 from app.api.review import router as review_router
@@ -17,6 +20,9 @@ from app.middleware.auth import AuthMiddleware
 
 app = FastAPI(title="Radiology WebUI API")
 app.add_middleware(AuthMiddleware)
+app.include_router(cases_router)
+app.include_router(curation_router)
+app.include_router(dataset_browser_router)
 app.include_router(datasets_router)
 app.include_router(mesh_router)
 app.include_router(review_router)
@@ -42,6 +48,7 @@ def health() -> dict[str, str | bool]:
     return {
         "status": "ok",
         "allow_data_mutations": settings.allow_data_mutations,
+        "webui_state_dir": settings.webui_state_dir or "",
     }
 
 
