@@ -10,6 +10,7 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
 
 HERE = Path(SPECPATH)                         # backend/
 ROOT = HERE.parent                            # radioccrcc-webui/
@@ -21,15 +22,31 @@ if not FRONTEND_DIST.is_dir():
         "Run 'npm run build' inside frontend/ first.\n"
     )
 
+# Collect ALL binaries, data files, and submodule names for packages that
+# contain compiled C/Cython extensions.  Plain hiddenimports entries are not
+# enough — PyInstaller only follows Python imports; it does NOT copy .so/.pyd
+# extension binaries unless collect_all (or collect_dynamic_libs) is used.
+_skimage_datas,   _skimage_bins,   _skimage_hidden   = collect_all('skimage')
+_trimesh_datas,   _trimesh_bins,   _trimesh_hidden   = collect_all('trimesh')
+_scipy_sp_datas,  _scipy_sp_bins,  _scipy_sp_hidden  = collect_all('scipy.sparse')
+# scipy.sparse.csgraph has Cython extensions used by trimesh.split()
+_scipy_cg_datas,  _scipy_cg_bins,  _scipy_cg_hidden  = collect_all('scipy.sparse.csgraph')
+# scipy.spatial is needed by trimesh geometry helpers
+_scipy_st_datas,  _scipy_st_bins,  _scipy_st_hidden  = collect_all('scipy.spatial')
+
 a = Analysis(
     [str(HERE / "app" / "__main__.py")],
     pathex=[str(HERE)],
-    binaries=[],
+    binaries=(
+        _skimage_bins + _trimesh_bins + _scipy_sp_bins + _scipy_cg_bins + _scipy_st_bins
+    ),
     datas=[
         # Bundle the compiled frontend as static/
         (str(FRONTEND_DIST), "static"),
-    ],
-    hiddenimports=[
+    ] + _skimage_datas + _trimesh_datas + _scipy_sp_datas + _scipy_cg_datas + _scipy_st_datas,
+    hiddenimports=(
+        _skimage_hidden + _trimesh_hidden + _scipy_sp_hidden + _scipy_cg_hidden + _scipy_st_hidden +
+    [  # ── explicit extras ──────────────────────────────────────────────────
         # uvicorn dynamic loaders
         "uvicorn.logging",
         "uvicorn.loops",
@@ -115,11 +132,15 @@ a = Analysis(
         "app.services.volume_cache",
         "app.services.workspace",
         "app.services.workspace_store",
-    ],
+    ]),
     hookspath=[],
+    # Note: collect_all already pulled in the scientific-stack modules above.
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "test", "unittest", "jupyter", "IPython"],
+    # unittest is kept (not excluded) because scipy.sparse.csgraph imports numpy.testing
+    # at load time, which in turn imports unittest.  Excluding it causes a
+    # ModuleNotFoundError when trimesh calls csgraph.connected_components().
+    excludes=["tkinter", "test", "jupyter", "IPython"],
     noarchive=False,
 )
 
