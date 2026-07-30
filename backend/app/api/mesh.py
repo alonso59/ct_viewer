@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+import traceback
+
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.services.mesh_cache import mesh_cache
 from app.services.mesh_generator import generate_mesh
 from app.services.volume_cache import volume_cache
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["mesh"])
 
@@ -18,7 +22,8 @@ def _http_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=409, detail=message)
     if isinstance(exc, ValueError):
         return HTTPException(status_code=400, detail=str(exc))
-    return HTTPException(status_code=500, detail="Unexpected mesh error")
+    logger.error("Unexpected mesh error: %s\n%s", repr(exc), traceback.format_exc())
+    return HTTPException(status_code=500, detail=f"Unexpected mesh error: {type(exc).__name__}: {exc}")
 
 
 @router.get("/api/mesh/{label}")

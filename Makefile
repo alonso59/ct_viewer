@@ -6,7 +6,7 @@ SETUP_DOC := $(PROJECT_ROOT)/docs/SETUP_PREREQUISITES.md
 NODE_IMAGE := node:22-slim
 NODE_CONTAINER := radio-node22
 
-.PHONY: setup setup-prereqs setup-udocker setup-node install-backend dev-backend dev-frontend build-frontend compose-build compose-up compose-down compose-logs
+.PHONY: setup setup-prereqs setup-udocker setup-node install-backend dev-backend dev-frontend build-frontend compose-build compose-up compose-down compose-logs run build-portable
 
 setup: setup-prereqs setup-udocker setup-node install-backend
 
@@ -64,6 +64,14 @@ dev-backend:
 	cd backend && \
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
+# Standalone mode: opens browser automatically, supports --data-dir and --port
+# Usage: make run  OR  make run DATA_DIR=/path/to/dataset PORT=8000
+# Uses whatever python is active in the current shell (no conda dependency).
+run:
+	set -a && [ ! -f .env ] || source .env && set +a && \
+	cd backend && \
+	python -m app $(if $(DATA_DIR),--data-dir "$(DATA_DIR)",) $(if $(PORT),--port $(PORT),)
+
 dev-frontend:
 	$(UDOCKER) run --hostenv \
 		-v /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui/frontend:/app \
@@ -88,3 +96,8 @@ compose-down:
 
 compose-logs:
 	docker compose logs -f
+
+# Portable executable build (Linux/macOS)
+# Requires: npm on PATH + python with pyinstaller
+build-portable:
+	chmod +x build-portable.sh && ./build-portable.sh $(if $(SKIP_FRONTEND),--skip-frontend,)

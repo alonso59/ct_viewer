@@ -188,11 +188,13 @@ function Surface3DViewComponent({
     error: string | null
     loadingLabels: number[]
     meshesByLabel: Record<number, MeshEntry>
+    failedLabels: Set<number>
     seriesKey: string | null
   }>({
     error: null,
     loadingLabels: [],
     meshesByLabel: {},
+    failedLabels: new Set(),
     seriesKey: null,
   })
   const [deferredMeshLoadKey, setDeferredMeshLoadKey] = useState<string | null>(null)
@@ -245,6 +247,7 @@ function Surface3DViewComponent({
         error: null,
         loadingLabels: [],
         meshesByLabel: {},
+        failedLabels: new Set(),
         seriesKey,
       }
     })
@@ -263,6 +266,7 @@ function Surface3DViewComponent({
       (label) =>
         !requestState.meshesByLabel[label] &&
         !requestState.loadingLabels.includes(label) &&
+        !requestState.failedLabels.has(label) &&
         !inFlightRef.current.has(label),
     )
     if (missingLabels.length === 0) {
@@ -331,6 +335,7 @@ function Surface3DViewComponent({
             ...current,
             error: getApiErrorMessage(requestError),
             loadingLabels: current.loadingLabels.filter((value) => value !== label),
+            failedLabels: new Set([...current.failedLabels, label]),
           }))
         })
     })
@@ -339,10 +344,12 @@ function Surface3DViewComponent({
     deferredMeshLoadKey,
     meshLoadKey,
     onHandleExpired,
+    requestState.failedLabels,
     requestState.loadingLabels,
     requestState.meshesByLabel,
     seriesKey,
     sortedVisibleLabels,
+    surface3dEnabled,
   ])
 
   useEffect(() => {
@@ -400,6 +407,25 @@ function Surface3DViewComponent({
       <SurfacePanelMessage
         title="All layers hidden"
         description="Enable at least one structure to render the 3D surface."
+      />
+    )
+  }
+
+  if (!surface3dEnabled) {
+    return (
+      <SurfacePanelMessage
+        title="3D surface disabled"
+        description="Click Enable 3D to load meshes."
+        action={
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setSurface3dEnabled(true)}
+            sx={{ mt: 1 }}
+          >
+            Enable 3D
+          </Button>
+        }
       />
     )
   }
@@ -681,9 +707,11 @@ function OrientationLabels() {
 }
 
 function SurfacePanelMessage({
+  action,
   description,
   title,
 }: {
+  action?: ReactNode
   description: string
   title: string
 }) {
@@ -709,6 +737,7 @@ function SurfacePanelMessage({
         <Typography variant="body2" color="text.secondary">
           {description}
         </Typography>
+        {action ?? null}
       </Stack>
     </Box>
   )

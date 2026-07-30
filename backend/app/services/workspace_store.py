@@ -19,7 +19,12 @@ class WorkspaceStore:
             return WorkspaceStatus(configured=False)
 
         resolved = Path(dataset_path).expanduser().resolve()
-        workspace_dir = resolved / ".webui"
+        database_csv_path = payload.get("database_csv_path")
+        resolved_database = (
+            Path(database_csv_path).expanduser().resolve()
+            if database_csv_path
+            else None
+        )
         return WorkspaceStatus(
             configured=True,
             dataset_id=resolved.name,
@@ -27,9 +32,11 @@ class WorkspaceStore:
             workspace_dir=str(dataset_state_dir(resolved)),
         )
 
-    def set(self, dataset_path: Path) -> WorkspaceStatus:
+    def set(self, dataset_path: Path, database_csv_path: Path | None = None) -> WorkspaceStatus:
         resolved = dataset_path.expanduser().resolve()
         payload = {"dataset_path": str(resolved)}
+        if database_csv_path is not None:
+            payload["database_csv_path"] = str(database_csv_path.expanduser().resolve())
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
         try:

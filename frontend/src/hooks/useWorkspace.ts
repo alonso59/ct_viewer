@@ -6,6 +6,7 @@ const EMPTY_WORKSPACE: WorkspaceStatus = {
   configured: false,
   dataset_id: null,
   dataset_path: null,
+  database_csv_path: null,
   workspace_dir: null,
 }
 
