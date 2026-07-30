@@ -45,74 +45,7 @@ export interface WorkspaceStatus {
   configured: boolean
   dataset_id: string | null
   dataset_path: string | null
-  database_csv_path: string | null
   workspace_dir: string | null
-}
-
-export interface DatasetBrowserRoot {
-  label: string
-  path: string
-  source: string
-  exists: boolean
-  readable: boolean
-}
-
-export interface DatasetBrowserRootsResponse {
-  roots: DatasetBrowserRoot[]
-}
-
-export interface DatasetBrowserEntry {
-  name: string
-  path: string
-  type: 'directory' | 'file'
-  is_database_csv: boolean
-  maybe_has_dataset_structure: boolean
-  readable: boolean
-}
-
-export interface DatasetBrowserListResponse {
-  path: string
-  parent_path: string | null
-  entries: DatasetBrowserEntry[]
-}
-
-export interface WorkspaceSelectionValidationPayload {
-  dataset_folder_path?: string | null
-  database_csv_path?: string | null
-}
-
-export interface SelectionValidationMessage {
-  code: string
-  message: string
-  severity: 'success' | 'warning' | 'error'
-  path: string | null
-}
-
-export interface WorkspaceSelectionSummary {
-  dataset_id: string | null
-  dataset_root: string | null
-  database_csv_path: string | null
-  has_database: boolean
-  row_count: number
-  case_count: number
-  sampled_rows: number
-  sampled_referenced_files: number
-  sampled_existing_files: number
-  has_nifti: boolean
-  has_seg: boolean
-  has_voi: boolean
-  has_manifest: boolean
-}
-
-export interface WorkspaceSelectionValidationResponse {
-  valid: boolean
-  activated: boolean
-  requires_dataset_root: boolean
-  summary: WorkspaceSelectionSummary
-  successes: SelectionValidationMessage[]
-  warnings: SelectionValidationMessage[]
-  errors: SelectionValidationMessage[]
-  workspace: WorkspaceStatus | null
 }
 
 export interface DatasetSummary {
@@ -322,137 +255,6 @@ export interface CurationDecision extends CurationDecisionRequest {
 export interface CorrectionQueueResponse {
   dataset_id: string
   items: CurationDecision[]
-}
-
-export interface PathStatus {
-  raw: string | null
-  resolved: string | null
-  status: PathStatusValue
-}
-
-export interface QCWarning {
-  code: string
-  message: string
-  severity: 'info' | 'warning' | 'error'
-  row_id: string | null
-  scope: Scope | null
-  path_field: string | null
-}
-
-export interface CaseSummary {
-  case_id: string
-  patient_id: string | null
-  group: string | null
-  available_phases: CanonicalPhase[]
-  scan_count: number
-  seg_count: number
-  voi_image_count: number
-  voi_mask_count: number
-  voi_sides: string[]
-  latest_curation_status: string | null
-  warning_count: number
-  has_comments: boolean
-}
-
-export interface CaseInventoryRow {
-  row_id: string
-  source_row_id: string | null
-  case_id: string
-  patient_id: string | null
-  group: string | null
-  raw_phase: string | null
-  canonical_phase: CanonicalPhase
-  phase_status: 'normalized' | 'ambiguous' | 'missing'
-  scan_idx: string | null
-  side: string | null
-  scope_availability: Record<Scope, boolean>
-  nifti_path: PathStatus
-  seg_path: PathStatus
-  voi_image_path: PathStatus
-  voi_mask_path: PathStatus
-  has_seg: boolean
-  has_voi_image: boolean
-  has_voi_mask: boolean
-  qc_warnings: QCWarning[]
-  latest_curation_status: string | null
-}
-
-export interface CaseDossier {
-  case_id: string
-  core: Record<string, unknown>
-  acquisition: Record<string, unknown>
-  segmentation_voi: Record<string, unknown>
-  preprocessing_qc: Record<string, unknown>
-  external_research: Record<string, unknown>
-  advanced_raw_fields: Array<Record<string, unknown>>
-}
-
-export interface RequiredColumnStatus {
-  name: string
-  present: boolean
-  alternatives: string[]
-}
-
-export interface DatabaseValidationReport {
-  dataset_id: string
-  has_database: boolean
-  row_count: number
-  case_count: number
-  required_columns: RequiredColumnStatus[]
-  warnings: QCWarning[]
-}
-
-export interface CurationDecisionRequest {
-  case_id: string
-  row_id?: string | null
-  scope: Scope
-  target: CurationTarget
-  status: CurationStatus
-  priority: CurationPriority
-  comment: string
-  proposed_phase?: string | null
-  reviewer: string
-  add_to_queue?: boolean
-}
-
-export interface CurationDecision extends CurationDecisionRequest {
-  review_id: string
-  dataset_id: string
-  patient_id: string | null
-  source_row_id: string | null
-  scan_idx: string | null
-  raw_phase: string | null
-  canonical_phase: string | null
-  side: string | null
-  reviewed_at: string
-  nifti_path: string | null
-  seg_path: string | null
-  voi_image_path: string | null
-  voi_mask_path: string | null
-}
-
-export interface CorrectionQueueResponse {
-  dataset_id: string
-  items: CurationDecision[]
-}
-
-export interface PhaseCorrectionRequest {
-  case_id: string
-  scan_idx?: string | null
-  proposed_phase: string
-  comment?: string
-  reviewer?: string
-  add_to_queue?: boolean
-}
-
-export interface PhaseCorrectionResponse {
-  case_id: string
-  scan_idx: string | null
-  proposed_phase: string
-  total_rows: number
-  complete_rows: number
-  voi_rows: number
-  decisions: CurationDecision[]
 }
 
 export interface DatasetViewerSettings {
@@ -693,38 +495,15 @@ export const apiClient = {
     return response.data
   },
 
-  async putWorkspace(datasetPath: string, databaseCsvPath?: string | null): Promise<WorkspaceStatus> {
+  async putWorkspace(datasetPath: string): Promise<WorkspaceStatus> {
     const response = await api.put<WorkspaceStatus>('/workspace', {
       dataset_path: datasetPath,
-      database_csv_path: databaseCsvPath ?? null,
     })
     return response.data
   },
 
   async clearWorkspace(): Promise<WorkspaceStatus> {
     const response = await api.delete<WorkspaceStatus>('/workspace')
-    return response.data
-  },
-
-  async listDatasetBrowserRoots(): Promise<DatasetBrowserRootsResponse> {
-    const response = await api.get<DatasetBrowserRootsResponse>('/dataset-browser/roots')
-    return response.data
-  },
-
-  async listDatasetBrowserPath(path: string): Promise<DatasetBrowserListResponse> {
-    const response = await api.get<DatasetBrowserListResponse>('/dataset-browser/list', {
-      params: { path },
-    })
-    return response.data
-  },
-
-  async validateWorkspaceSelection(
-    payload: WorkspaceSelectionValidationPayload,
-  ): Promise<WorkspaceSelectionValidationResponse> {
-    const response = await api.post<WorkspaceSelectionValidationResponse>(
-      '/workspace/validate-selection',
-      payload,
-    )
     return response.data
   },
 

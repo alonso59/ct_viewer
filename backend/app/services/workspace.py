@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from app.models.workspace import WorkspaceStatus
@@ -36,19 +35,12 @@ def require_workspace_dataset_path() -> Path:
 
 
 def set_workspace_dataset_path(dataset_path: str) -> WorkspaceStatus:
-    return set_workspace_selection(dataset_path)
-
-
-def set_workspace_selection(
-    dataset_path: str,
-    database_csv_path: str | Path | None = None,
-) -> WorkspaceStatus:
     candidate = Path(dataset_path).expanduser().resolve()
     _validate_dataset_path(candidate)
     from app.services.runtime_cache import reset_runtime_caches
 
     reset_runtime_caches()
-    return workspace_store.set(candidate, resolved_database)
+    return workspace_store.set(candidate)
 
 
 def clear_workspace() -> WorkspaceStatus:
@@ -95,18 +87,3 @@ def _validate_dataset_path(dataset_path: Path) -> None:
         raise ValueError(
             "Selected folder is not a dataset directory. Expected one of: database.csv, metadata.jsonl, nifti/, seg/, voi/, manifest.csv"
         )
-
-
-def _validate_database_csv_path(database_csv_path: str | Path | None) -> Path | None:
-    if database_csv_path is None:
-        return None
-    candidate = Path(database_csv_path).expanduser().resolve()
-    if not candidate.exists():
-        raise FileNotFoundError(f"database.csv path '{candidate}' does not exist")
-    if not candidate.is_file():
-        raise ValueError(f"database.csv path '{candidate}' is not a file")
-    if candidate.name != "database.csv":
-        raise ValueError(f"database.csv path '{candidate}' must be named database.csv")
-    if not os.access(candidate, os.R_OK):
-        raise PermissionError(f"database.csv path '{candidate}' is not readable")
-    return candidate

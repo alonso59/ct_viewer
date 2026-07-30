@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass
 from threading import RLock
-from typing import Sequence
 import time
 import uuid
 
@@ -21,9 +20,6 @@ from app.services.volume_metadata import (
     validate_volume_alignment,
 )
 from app.services.workspace import validate_workspace_dataset_id
-
-
-VOI_DISPLAY_SPACING = (1.0, 1.0, 1.0)
 
 
 @dataclass
@@ -253,28 +249,6 @@ class VolumeCache:
             warnings=list(cached.metadata.warnings),
             metadata=cached.metadata,
         )
-
-    @staticmethod
-    def _normalize_spacing_override(
-        spacing_override: Sequence[float] | None,
-    ) -> tuple[float, float, float] | None:
-        if spacing_override is None or len(spacing_override) < 3:
-            return None
-        values = tuple(float(spacing_override[index]) for index in range(3))
-        if all(np.isfinite(value) and value > 0 for value in values):
-            return values
-        return None
-
-    @classmethod
-    def _spacing_key(cls, spacing_override: Sequence[float] | None) -> str:
-        spacing = cls._normalize_spacing_override(spacing_override)
-        if spacing is None:
-            return "unit"
-        return ",".join(f"{value:g}" for value in spacing)
-
-    @staticmethod
-    def _is_voi_source(source_type: str) -> bool:
-        return source_type in {"voi", "voi_numpy", "voi_nifti"}
 
 
 volume_cache = VolumeCache(max_bytes=get_settings().volume_cache_max_bytes)

@@ -3,15 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.models.workspace import WorkspaceStatus, WorkspaceUpdateRequest
-from app.services.workspace import clear_workspace, get_workspace_status, set_workspace_selection
+from app.services.workspace import clear_workspace, get_workspace_status, set_workspace_dataset_path
 
 
 router = APIRouter(tags=["workspace"])
 
 
 def _http_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, PermissionError):
-        return HTTPException(status_code=403, detail=str(exc))
     if isinstance(exc, FileNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, ValueError):
@@ -32,7 +30,7 @@ def get_workspace() -> WorkspaceStatus:
 @router.put("/api/workspace", response_model=WorkspaceStatus)
 def put_workspace(payload: WorkspaceUpdateRequest) -> WorkspaceStatus:
     try:
-        return set_workspace_selection(payload.dataset_path, payload.database_csv_path)
+        return set_workspace_dataset_path(payload.dataset_path)
     except Exception as exc:
         raise _http_error(exc) from exc
 

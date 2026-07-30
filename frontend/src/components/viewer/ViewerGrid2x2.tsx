@@ -2,7 +2,6 @@ import { Box, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/ma
 import { useEffect, useState, type ReactNode } from 'react'
 
 import ExpandablePanel from './ExpandablePanel'
-import { viewerControlButtonSx } from './viewerControlStyles'
 
 const PANEL_DEFS = [
   {
@@ -13,22 +12,22 @@ const PANEL_DEFS = [
     placeholder: 'Slice view and navigation land here in M8.',
   },
   {
-    id: 'coronal',
-    label: 'COR',
-    accent: '#ef4444',
-    caption: 'Coronal viewport placeholder',
-    placeholder: 'Coronal image panel will reuse the shared slice API.',
-  },
-  {
     id: 'sagittal',
-    label: 'SAG',
+    label: 'SAGITTAL',
     accent: '#22c55e',
     caption: 'Sagittal viewport placeholder',
     placeholder: 'Crosshair sync and scrolling arrive next.',
   },
   {
+    id: 'coronal',
+    label: 'CORONAL',
+    accent: '#ef4444',
+    caption: 'Coronal viewport placeholder',
+    placeholder: 'Coronal image panel will reuse the shared slice API.',
+  },
+  {
     id: 'surface',
-    label: '3D',
+    label: '3D SURFACE',
     accent: '#f5f5f5',
     caption: 'Surface viewport placeholder',
     placeholder: 'Mesh rendering and blend controls arrive in M9.',
@@ -50,7 +49,6 @@ function ViewerGrid2x2({ panels = {} }: ViewerGrid2x2Props) {
   const [activeMobilePanel, setActiveMobilePanel] = useState<ViewerPanelId>('axial')
   const [expandedPanel, setExpandedPanel] = useState<ViewerPanelId | null>(null)
   const hasExpandedPanel = expandedPanel !== null
-  const cockpit = layout === 'cockpit'
 
   useEffect(() => {
     if (!hasExpandedPanel) {

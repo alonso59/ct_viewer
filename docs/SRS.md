@@ -398,7 +398,7 @@ Minimum fields for `curation_review.csv`:
 
 ## 4. Functional Requirements
 
-### 4.1 Dataset Load, Routing & Navigation
+### 4.1 Data Discovery & Navigation
 
 | ID     | Requirement                                                                                                                                                                                                                                                      | Priority |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -412,7 +412,7 @@ Minimum fields for `curation_review.csv`:
 | FR-06  | **Inventory Selector**: The case review page provides phase, scope, scan_idx, and side controls to switch between available data without returning to the worklist.                                                                                              | Must     |
 | FR-07  | **Progressive Control Display**: `scan_idx` selector appears only when multiple scans exist for the selected phase. Side selector appears only when both L/R exist or VOI mode requires side selection.                                                          | Must     |
 
-### 4.2 Main Review Screen & Left Panel
+### 4.2 2D Visualization (MPR Views)
 
 | ID    | Requirement                                                                                                                                                                 | Priority |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -427,7 +427,7 @@ Minimum fields for `curation_review.csv`:
 | FR-18 | **RAS Reorientation**: NIfTI volumes are reoriented to RAS on load using `nibabel.as_closest_canonical`. Original files are never modified.                                 | Must     |
 | FR-19 | **Legacy NumPy VOI Support**: Legacy `.npy` VOI arrays may be loaded as compatibility fallback. v2.0 primary VOI format is NIfTI when paths are provided in `database.csv`. | Should   |
 
-### 4.3 Viewer Grid & 2D Visualization
+### 4.3 Segmentation Overlay
 
 | ID    | Requirement                                                                                                                                                                | Priority |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -438,7 +438,7 @@ Minimum fields for `curation_review.csv`:
 | FR-24 | **Mask Path Resolution**: System resolves masks from `database.csv` path fields first. Filename-derived matching is legacy fallback only.                                  | Must     |
 | FR-25 | **Overlay Missing Warning**: If a selected item claims mask availability but the file is missing or unreadable, the viewer shows a QC warning instead of failing silently. | Must     |
 
-### 4.4 CT to VOI Comparison, Overlays & 3D
+### 4.4 3D Visualization
 
 | ID    | Requirement                                                                                                                  | Priority |
 | ----- | ---------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -449,7 +449,7 @@ Minimum fields for `curation_review.csv`:
 | FR-34 | **3D as Secondary Tool**: 3D view is optional orientation support and shall not dominate the v2.0 medical curation workflow. | Must     |
 | FR-35 | **3D Color Consistency**: Surface colors match the 2D overlay colors.                                                        | Should   |
 
-### 4.5 Warnings
+### 4.5 Layout & Expand
 
 | ID    | Requirement                                                                                                                                                       | Priority |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -459,7 +459,7 @@ Minimum fields for `curation_review.csv`:
 | FR-43 | **Restore Layout**: When expanded, a button or double-click restores the prior layout.                                                                            | Must     |
 | FR-44 | **Minimal Default UI**: The default view shall emphasize the selected image and segmentation overlay, not large metadata tables.                                  | Must     |
 
-### 4.6 Case-Level QC Workflow
+### 4.6 Persistence & Settings
 
 | ID    | Requirement                                                                                                                    | Priority |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------ | -------- |
@@ -469,7 +469,7 @@ Minimum fields for `curation_review.csv`:
 | FR-53 | **Settings Storage**: Preferences are persisted in `<dataset>/.webui/settings.json` or configured external state directory.    | Should   |
 | FR-54 | **No Source Data Mutation for Settings**: Viewer settings shall not modify NIfTI, SEG, VOI, `manifest.csv`, or `database.csv`. | Must     |
 
-### 4.7 Case Data Modal
+### 4.7 Authentication
 
 | ID    | Requirement                                                                                                                                                                           | Priority |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -497,7 +497,7 @@ Minimum fields for `curation_review.csv`:
 
 ---
 
-## 5. Controlled Dataset Correction
+## 5. Non-Functional Requirements
 
 | ID     | Requirement                                                                                                                                                    | Target                            |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
@@ -518,7 +518,7 @@ Minimum fields for `curation_review.csv`:
 
 ---
 
-## 6. Non-Functional Requirements
+## 6. User Interface Specification
 
 ### 6.1 Page Flow
 
@@ -655,9 +655,9 @@ Dark theme may be preserved from v1.2.
 
 ---
 
-## 7. User Interface Specification
+## 7. Technical Architecture
 
-### 7.1 Primary Screen Flow
+### 7.1 Stack Selection
 
 | Layer        | Technology                                               | Rationale                                                      |
 | ------------ | -------------------------------------------------------- | -------------------------------------------------------------- |
@@ -722,7 +722,7 @@ backend/
 * **Curation-state store**: QC decisions are written separately from source metadata.
 * **No destructive curation mutation**: v2.0 curation shall not move files, rename files, or overwrite `database.csv`.
 
-### 8.3 Frontend Architecture
+### 7.3 Frontend Architecture
 
 ```text
 frontend/
@@ -780,7 +780,7 @@ frontend/
 * **Inventory-driven loading**: viewer source is selected through scan inventory, not raw file browsing.
 * **Curation panel**: doctor actions are structured and auditable.
 
-### 8.4 API Contract (Summary)
+### 7.4 API Contract (Summary)
 
 | Method | Endpoint                                                             | Returns                 | Description                                 |
 | ------ | -------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
@@ -805,7 +805,7 @@ frontend/
 
 Legacy endpoints for `/patients`, `/series`, and `/review/apply` may remain for compatibility or technical/admin mode, but shall not be the primary v2.0 medical curation workflow.
 
-Legacy endpoints for `/patients`, `/series`, `/review/apply`, and any `/cases` page route may remain for compatibility or technical/admin mode, but shall not be the primary v2.0 medical curation workflow.
+### 7.5 Data Flow
 
 ```text
 [Browser]                          [FastAPI Backend]                         [Filesystem]
@@ -841,7 +841,7 @@ Legacy endpoints for `/patients`, `/series`, `/review/apply`, and any `/cases` p
 
 ---
 
-## 9. Deployment
+## 8. Deployment
 
 ### 8.1 Dockerfile
 
@@ -895,7 +895,7 @@ python udocker.py run \
   radiology-ui:2.0
 ```
 
-### 9.4 Configuration (Environment Variables)
+### 8.4 Configuration (Environment Variables)
 
 | Variable                  | Default               | Description                                                               |
 | ------------------------- | --------------------- | ------------------------------------------------------------------------- |
@@ -909,7 +909,7 @@ python udocker.py run \
 | `VITE_AUTH_TOKEN_STORAGE` | `memory`              | Frontend token persistence mode (`memory` or `local`)                     |
 | `PHASE_PRIORITY`          | `NP,CMP,NC,DELAY,UNK` | Default phase selection order                                             |
 
-### 9.5 Compose Host Variables (`.env`)
+### 8.5 Compose Host Variables (`.env`)
 
 | Variable               | Default          | Description                                                      |
 | ---------------------- | ---------------- | ---------------------------------------------------------------- |
@@ -938,7 +938,7 @@ python udocker.py run \
 
 ---
 
-## 11. Acceptance Criteria
+## 10. Acceptance Criteria
 
 | #  | Criterion                                                                                                | Verified by       |
 | -- | -------------------------------------------------------------------------------------------------------- | ----------------- |
@@ -968,7 +968,7 @@ python udocker.py run \
 
 ---
 
-## 12. Glossary
+## 11. Glossary
 
 | Term                          | Definition                                                                                                           |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |

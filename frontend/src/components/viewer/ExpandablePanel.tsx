@@ -2,12 +2,11 @@ import { useEffect, type ReactNode } from 'react'
 import {
   Box,
   Button,
-  SvgIcon,
+  Paper,
+  Stack,
   Tooltip,
   Typography,
 } from '@mui/material'
-
-import { viewerControlButtonSx } from './viewerControlStyles'
 
 interface ExpandablePanelProps {
   axisLabel: string
@@ -20,6 +19,7 @@ interface ExpandablePanelProps {
 
 function ExpandablePanel({
   axisLabel,
+  caption,
   accent,
   expanded,
   onToggleExpand,
@@ -42,11 +42,9 @@ function ExpandablePanel({
     }
   }, [expanded, onToggleExpand])
 
-  const controlLabel = expanded ? 'Restore' : 'Expand'
-  const tooltipLabel = expanded ? 'Restore view' : 'Expand view'
-
   return (
-    <Box
+    <Paper
+      elevation={0}
       data-expanded={expanded ? 'true' : 'false'}
       data-panel={axisLabel}
       sx={{
@@ -56,84 +54,81 @@ function ExpandablePanel({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        outline: expanded ? `1px solid ${accent}` : 'none',
-        outlineOffset: '-1px',
-        backgroundColor: '#000',
+        borderColor: expanded ? accent : 'divider',
+        boxShadow: expanded ? `0 0 0 1px ${accent}` : 'none',
+        backgroundColor: 'background.paper',
       }}
     >
-      <Box
-        display="flex"
-        flexDirection="row"
-        alignItems="center"
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
         justifyContent="space-between"
+        spacing={1}
         onDoubleClick={onToggleExpand}
         sx={{
-          px: 0.75,
-          py: 0.25,
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
-          backgroundColor: 'rgba(0,0,0,0.72)',
+          px: 1,
+          py: 0.45,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: 'rgba(255, 255, 255, 0.02)',
           cursor: 'pointer',
           userSelect: 'none',
-          minHeight: 36,
-          flexShrink: 0,
         }}
       >
-        <Box
-          sx={{
-            px: 0.65,
-            py: 0.1,
-            borderRadius: 999,
-            border: '1px solid',
-            borderColor: accent,
-            color: accent,
-            lineHeight: 1,
-            flexShrink: 0,
-          }}
-        >
-          <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, lineHeight: 1 }}>
-            {axisLabel}
+        <Stack direction="row" spacing={0.9} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+          <Box
+            sx={{
+              px: 0.8,
+              py: 0.25,
+              borderRadius: 999,
+              border: '1px solid',
+              borderColor: accent,
+              color: accent,
+              backgroundColor: 'rgba(255,255,255,0.03)',
+            }}
+          >
+            <Typography variant="caption" fontWeight={800}>
+              {axisLabel}
+            </Typography>
+          </Box>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              minWidth: 0,
+              display: '-webkit-box',
+              overflow: 'hidden',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+            }}
+          >
+            {caption}
           </Typography>
-        </Box>
+        </Stack>
 
-        <Tooltip title={tooltipLabel}>
+        <Tooltip title={expanded ? 'Restore grid' : 'Expand panel'}>
           <Button
-            aria-label={tooltipLabel}
+            size="small"
             onClick={(event) => {
               event.stopPropagation()
               onToggleExpand()
             }}
-            startIcon={expanded ? <RestoreViewIcon /> : <ExpandViewIcon />}
             sx={{
-              ...viewerControlButtonSx(expanded),
-              minHeight: 32,
-              minWidth: expanded ? 82 : 78,
-              px: 0.8,
+              color: 'text.secondary',
+              minWidth: 0,
+              px: 0.9,
               py: 0.2,
+              alignSelf: { xs: 'flex-end', sm: 'center' },
+              opacity: 0.82,
             }}
           >
-            {controlLabel}
+            {expanded ? 'Restore' : 'Expand'}
           </Button>
         </Tooltip>
-      </Box>
+      </Stack>
 
       <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>{children}</Box>
-    </Box>
-  )
-}
-
-function ExpandViewIcon() {
-  return (
-    <SvgIcon>
-      <path d="M5 5h6v2H8.41l3.3 3.29-1.42 1.42L7 8.41V11H5V5Zm8 0h6v6h-2V8.41l-3.29 3.3-1.42-1.42 3.3-3.29H13V5ZM7 15.59 10.29 12.3l1.42 1.41L8.41 17H11v2H5v-6h2v2.59Zm9.59 1.41-3.3-3.29 1.42-1.41L18 15.59V13h2v6h-6v-2h2.59Z" />
-    </SvgIcon>
-  )
-}
-
-function RestoreViewIcon() {
-  return (
-    <SvgIcon>
-      <path d="M9 3h2v6H5V7h2.59L4.29 3.71 5.71 2.3 9 5.59V3Zm6 0 3.29-3.3 1.42 1.41L16.41 7H19v2h-6V3h2v2.59ZM5 15h6v6H9v-2.59l-3.29 3.3-1.42-1.42L7.59 17H5v-2Zm8 0h6v2h-2.59l3.3 3.29-1.42 1.42L15 18.41V21h-2v-6Z" />
-    </SvgIcon>
+    </Paper>
   )
 }
 

@@ -94,7 +94,7 @@ function ViewerPage() {
   const [layerState, setLayerState] = useState<LayerState>(() => createDefaultLayerState())
   const [surfaceBlend, setSurfaceBlend] = useState(0.75)
   const [handleReloadTick, setHandleReloadTick] = useState(0)
-  const reviewDataRevision = 0
+  const [reviewDataRevision, setReviewDataRevision] = useState(0)
   const [selectedGroup, setSelectedGroup] = useState('all')
   const [mutationsEnabled, setMutationsEnabled] = useState(false)
   const [mprRendererMode, setMprRendererMode] = useState<MprRendererMode>(() =>
@@ -152,8 +152,6 @@ function ViewerPage() {
     selectedSeries && volumeRequest.seriesKey === selectedSeriesKey ? volumeRequest.info : null
   const volumeError =
     selectedSeries && volumeRequest.seriesKey === selectedSeriesKey ? volumeRequest.error : null
-  const viewerSpacing =
-    selectedSeries?.type === 'voi' ? VOI_DISPLAY_SPACING : activeVolumeInfo?.spacing
   const volumeLoading = selectedSeries !== null && volumeRequest.seriesKey !== selectedSeriesKey
   const selectedSeriesDeleted = Boolean(selectedSeries?.deleted)
   const navigation = useSliceNavigation(activeVolumeInfo?.shape ?? null, selectedSeriesKey)
@@ -430,24 +428,46 @@ function ViewerPage() {
   ])
 
   async function applyReviewAction(
-    _operation: ReviewOperation,
-    _options?: {
+    operation: ReviewOperation,
+    options?: {
       onSuccess?: () => void
     },
   ) {
     if (applyState.running) {
       return
     }
-    setApplyState({
-      running: false,
-      error: 'Controlled dataset correction is disabled until Phase B.',
-      response: null,
-    })
-    setToastState({
-      open: true,
-      severity: 'warning',
-      message: 'Phase correction and file-moving actions are disabled until Phase B.',
-    })
+    setApplyState({ running: true, error: null, response: null })
+    try {
+      const response = await apiClient.applyReviewOperations(dsid, {
+        operations: [operation],
+      })
+      const severity = response.summary.failed > 0 ? 'warning' : 'success'
+      setApplyState({
+        running: false,
+        error: null,
+        response,
+      })
+      setToastState({
+        open: true,
+        severity,
+        message: `Batch ${response.batch_id}: ${response.summary.applied} applied, ${response.summary.skipped} skipped, ${response.summary.failed} failed.`,
+      })
+      setReviewDataRevision((current) => current + 1)
+      setPreferredSeriesId(selectedSeries?.series_id ?? null)
+      setHandleReloadTick((current) => current + 1)
+      options?.onSuccess?.()
+    } catch (requestError) {
+      setApplyState({
+        running: false,
+        error: getApiErrorMessage(requestError),
+        response: null,
+      })
+      setToastState({
+        open: true,
+        severity: 'error',
+        message: `Apply failed: ${getApiErrorMessage(requestError)}`,
+      })
+    }
   }
 
   function reclassifyCurrentSeries(targetPhase: PhaseDecision) {
@@ -644,7 +664,7 @@ function ViewerPage() {
 
         <Stack spacing={1}>
           <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.22em' }}>
-            Legacy Technical Viewer
+            Viewer Workspace
           </Typography>
           <Typography variant="h4" sx={{ lineHeight: 1.05 }}>
             {pid}

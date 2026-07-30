@@ -10,7 +10,6 @@ services:
       - "${WEBUI_PORT:-8000}:8000"
     environment:
       DATA_ROOT: /data
-      DATASET_ROOTS: "${DATASET_ROOTS:-}"
       RADIOLOGY_UI_TOKEN: "${RADIOLOGY_UI_TOKEN:-}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       ALLOW_DATA_MUTATIONS: "${ALLOW_DATA_MUTATIONS:-false}"
