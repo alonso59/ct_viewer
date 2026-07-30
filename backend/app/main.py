@@ -8,12 +8,12 @@ from fastapi.responses import FileResponse
 
 from app.api.cases import router as cases_router
 from app.api.curation import router as curation_router
-from app.api.dataset_browser import router as dataset_browser_router
 from app.api.datasets import router as datasets_router
 from app.api.mesh import router as mesh_router
 from app.api.review import router as review_router
 from app.api.settings import router as settings_router
 from app.api.slices import router as slices_router
+from app.api.volumes import router as volumes_router
 from app.api.workspace import router as workspace_router
 from app.config import get_settings
 from app.middleware.auth import AuthMiddleware
@@ -22,15 +22,27 @@ app = FastAPI(title="Radiology WebUI API")
 app.add_middleware(AuthMiddleware)
 app.include_router(cases_router)
 app.include_router(curation_router)
-app.include_router(dataset_browser_router)
 app.include_router(datasets_router)
 app.include_router(mesh_router)
 app.include_router(review_router)
 app.include_router(settings_router)
 app.include_router(slices_router)
+app.include_router(volumes_router)
 app.include_router(workspace_router)
 
-_STATIC_DIR = Path(os.environ.get("STATIC_ROOT", "/app/static")).resolve()
+def _resolve_static_dir() -> Path:
+    configured = os.environ.get("STATIC_ROOT")
+    if configured:
+        return Path(configured).resolve()
+
+    container_static = Path("/app/static")
+    if container_static.is_dir():
+        return container_static.resolve()
+
+    return (Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
+
+
+_STATIC_DIR = _resolve_static_dir()
 
 
 def _safe_static_file(relative_path: str) -> Path | None:
@@ -49,6 +61,7 @@ def health() -> dict[str, str | bool]:
         "status": "ok",
         "allow_data_mutations": settings.allow_data_mutations,
         "webui_state_dir": settings.webui_state_dir or "",
+        "mpr_renderer": settings.mpr_renderer,
     }
 
 
@@ -58,7 +71,10 @@ def frontend(full_path: str):
         raise HTTPException(status_code=404, detail="Not Found")
 
     if not _STATIC_DIR.is_dir():
-        raise HTTPException(status_code=404, detail="Frontend static build not found at /app/static")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Frontend static build not found at {_STATIC_DIR}",
+        )
 
     normalized = full_path.strip("/")
     if normalized:
@@ -70,6 +86,6 @@ def frontend(full_path: str):
     if not index_path.is_file():
         raise HTTPException(
             status_code=404,
-            detail="Frontend index.html not found at /app/static/index.html",
+            detail=f"Frontend index.html not found at {_STATIC_DIR / 'index.html'}",
         )
     return FileResponse(index_path)

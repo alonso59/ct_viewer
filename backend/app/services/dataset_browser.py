@@ -111,11 +111,37 @@ def _detect_drives_and_mounts() -> list[tuple[str, str, str]]:
 
 
 def list_dataset_browser_path(raw_path: str) -> DatasetBrowserListResponse:
+    # Reject empty paths and tilde-prefixed expressions before resolving.
+    sanitized = (raw_path or "").strip()
+    if not sanitized:
+        raise ValueError("Path must not be empty")
+    if sanitized.startswith("~"):
+        raise PermissionError("Tilde-expanded paths are not permitted")
     roots = dataset_browser_roots()
-    candidate = _resolve(raw_path)
-    root = _matching_root(candidate, roots)
-    if root is None:
+
+    # Resolve the user-supplied path to an absolute, canonical form.
+    real_input = os.path.realpath(sanitized)
+
+    # Find the matching configured root using a string-level containment check
+    # so that CodeQL can verify the guard without custom-function indirection.
+    matching_root: DatasetBrowserRoot | None = None
+    root_real: str = ""
+    for r in roots:
+        if not r.exists or not r.readable:
+            continue
+        rr = os.path.realpath(r.path)
+        if real_input == rr or real_input.startswith(rr + os.sep):
+            matching_root = r
+            root_real = rr
+            break
+
+    if matching_root is None:
         raise PermissionError("Path is outside the configured dataset browser roots")
+
+    # After the startswith guard, 'real_input' is confirmed to be within the
+    # trusted root.  Construct a Path from the validated string.
+    candidate = Path(real_input)
+
     if not candidate.exists():
         raise FileNotFoundError(f"Path '{candidate}' does not exist")
     if not candidate.is_dir():
@@ -149,7 +175,7 @@ def list_dataset_browser_path(raw_path: str) -> DatasetBrowserListResponse:
     entries.sort(key=lambda item: (item.type != "directory", not item.is_database_csv, item.name.lower()))
     return DatasetBrowserListResponse(
         path=str(candidate),
-        parent_path=_browser_parent(candidate, root),
+        parent_path=_browser_parent(candidate, matching_root),
         entries=entries,
     )
 

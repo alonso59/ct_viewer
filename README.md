@@ -7,7 +7,7 @@ See the full requirements in [docs/SRS.md](docs/SRS.md).
 ## Environment
 
 - Backend runtime: Anaconda environment `ccrcc`
-- Frontend runtime: vendored `udocker` with a `node:20-slim` image
+- Frontend runtime: vendored `udocker` with a `node:22-slim` image
 - Port forwarding: handled by VS Code Remote SSH
 - Portable runtime for other machines: native Docker + `docker compose`
 - Frontend auth token storage defaults to in-memory (`frontend/.env.example`)
@@ -40,7 +40,7 @@ make dev-frontend
 `make setup` performs first-step bootstrap for this repository:
 - checks conda + vendored udocker availability
 - initializes local udocker runtime (`.udocker/`)
-- pulls/creates the `radio-node` container only if missing
+- pulls/creates the `radio-node22` container only if missing
 - installs backend Python requirements
 
 Note: Docker is detected and reported, but not auto-installed by `make` because Docker installation is system-level and usually requires admin privileges.
@@ -55,22 +55,12 @@ make build-frontend
 
 - Backend health: `http://localhost:8000/api/health`
 - Frontend dev server: `http://localhost:5173`
-- At first launch, browse an allowed backend root or enter one backend/server path in the workspace setup screen
+- At first launch, enter the server path to one dataset folder in the workspace setup screen
 - Medical curation route: `/datasets/<dataset_id>/cases`
 
-## Dataset Discovery Setup
+## MPR Rendering
 
-The initial setup screen is a safe Dataset Discovery workflow:
-
-- Allowed backend roots come from `DATASET_DIR`, `DATASET_ROOTS`, `DATA_ROOT`, and `/data` when mounted.
-- The backend browser lists only one directory level at a time and does not allow navigation outside those roots.
-- Users can select either a dataset folder or a `database.csv` file.
-- Validation checks path readability, locates/parses `database.csv`, verifies required columns, counts rows/cases, samples referenced CT/SEG/VOI paths, and reports Success/Warnings/Errors.
-- If `database.csv` is selected directly, the workspace stores both the inferred dataset root and the selected CSV path.
-- Validation does not load all NIfTI volumes, recursively crawl the dataset, modify source files, or edit `database.csv`.
-- Blocking errors prevent activation; warnings allow activation by default.
-
-When running with Docker Compose, the host `.env` value `DATASET_DIR=/host/path/to/dataset` is mounted inside the app as `/data`. In the UI, use `/data` paths such as `/data/Dataset820`, not the host-only path, unless the backend is running directly on that host filesystem.
+The MPR renderer uses server-rendered PNG slices. This keeps first-slice loading and slice navigation light because the browser requests only the active axial, sagittal, and coronal PNGs plus adjacent slice prefetches.
 
 ## v2.0 Medical Curation Workflow
 
@@ -128,7 +118,7 @@ docker compose up -d --build
 - `http://localhost:8000/`
 - `http://localhost:8000/api/health`
 
-7. In the UI, browse `/data` or enter the server path to a specific dataset folder, for example `/data/Dataset420`.
+7. In the UI, enter the server path to a specific dataset folder, for example `/data/Dataset420`.
 
 Useful commands:
 

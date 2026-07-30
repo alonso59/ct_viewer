@@ -91,7 +91,7 @@ def case_inventory(dataset_id: str, case_id: str) -> list[CaseInventoryRow]:
     try:
         rows = list_case_inventory(dataset_path, case_id)
         if not rows:
-            raise FileNotFoundError(f"Case '{case_id}' not found in database.csv")
+            raise FileNotFoundError(f"Case '{case_id}' not found in dataset index")
         latest = latest_row_status_map(dataset_path, dataset_id)
         return [
             row.model_copy(update={"latest_curation_status": latest.get(row.row_id)})
@@ -121,9 +121,16 @@ def load_case_source(
     case_id: str,
     row_id: str = Query(...),
     scope: Scope = Query(default="complete"),
+    row_index: int | None = Query(default=None),
 ) -> VolumeInfo:
     try:
-        source = get_case_load_source(_dataset_path(dataset_id), case_id, row_id, scope)
+        source = get_case_load_source(
+            _dataset_path(dataset_id),
+            case_id,
+            row_id,
+            scope,
+            row_index=row_index,
+        )
         return volume_cache.load_case_source(
             dataset_id=dataset_id,
             case_id=case_id,
@@ -131,8 +138,7 @@ def load_case_source(
             image_path=source.image_path,
             mask_path=source.mask_path,
             source_type=source.source_type,
-            cache_key_suffix=f"{source.scope}:{source.row_id}",
-            spacing_override=source.spacing,
+            cache_key_suffix=f"{source.scope}:{source.row_index}:{source.row_id}",
         )
     except Exception as exc:
         raise _http_error(exc) from exc

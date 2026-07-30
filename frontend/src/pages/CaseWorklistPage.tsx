@@ -19,7 +19,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from '../services/router'
 
 import {
   apiClient,
@@ -158,8 +158,6 @@ function CaseWorklistPage() {
         numeric: true,
       }),
     )
-  const warningCaseCount = cases.filter((entry) => entry.warning_count > 0).length
-  const reviewedCaseCount = cases.filter((entry) => entry.latest_curation_status).length
 
   return (
     <Paper
@@ -179,21 +177,6 @@ function CaseWorklistPage() {
             <Typography variant="h3">Cases</Typography>
             <Chip label={dsid} color="primary" variant="outlined" />
             <CorrectionQueueButton datasetId={dsid} />
-          </Stack>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-            <Chip label={`${cases.length} cases`} size="small" variant="outlined" />
-            <Chip
-              label={`${reviewedCaseCount} reviewed`}
-              color={reviewedCaseCount > 0 ? 'success' : 'default'}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={`${warningCaseCount} with warnings`}
-              color={warningCaseCount > 0 ? 'warning' : 'default'}
-              size="small"
-              variant={warningCaseCount > 0 ? 'filled' : 'outlined'}
-            />
           </Stack>
         </Box>
 
@@ -306,14 +289,7 @@ function CaseWorklistPage() {
                         ? entry.voi_sides.join(' / ')
                         : `${entry.voi_image_count} image`}
                     </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={formatStatus(entry.latest_curation_status)}
-                        color={statusChipColor(entry.latest_curation_status)}
-                        size="small"
-                        variant={entry.latest_curation_status ? 'filled' : 'outlined'}
-                      />
-                    </TableCell>
+                    <TableCell>{formatStatus(entry.latest_curation_status)}</TableCell>
                     <TableCell align="right">
                       <Chip
                         label={entry.warning_count}
@@ -322,14 +298,7 @@ function CaseWorklistPage() {
                         variant={entry.warning_count > 0 ? 'filled' : 'outlined'}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={entry.has_comments ? 'Comment' : 'None'}
-                        size="small"
-                        variant={entry.has_comments ? 'filled' : 'outlined'}
-                        color={entry.has_comments ? 'primary' : 'default'}
-                      />
-                    </TableCell>
+                    <TableCell>{entry.has_comments ? 'Yes' : 'No'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -357,28 +326,6 @@ function formatStatus(status: string | null): string {
   return status.replaceAll('_', ' ')
 }
 
-function statusChipColor(
-  status: string | null,
-): 'default' | 'primary' | 'success' | 'warning' | 'error' {
-  if (!status || status === 'not_reviewed') {
-    return 'default'
-  }
-  if (status === 'accepted') {
-    return 'success'
-  }
-  if (status === 'rejected' || status === 'missing') {
-    return 'error'
-  }
-  if (
-    status.includes('correction') ||
-    status.includes('wrong_') ||
-    status === 'cannot_assess'
-  ) {
-    return 'warning'
-  }
-  return 'primary'
-}
-
 function DatasetValidationBanner({
   error,
   loading,
@@ -391,7 +338,7 @@ function DatasetValidationBanner({
   if (loading) {
     return (
       <Alert severity="info" data-testid="dataset-validation-banner">
-        Checking database.csv validation...
+        Checking dataset index validation...
       </Alert>
     )
   }
@@ -408,6 +355,7 @@ function DatasetValidationBanner({
     return null
   }
 
+  const sourceFile = report.source_file ?? 'database.csv'
   const requiredTotal = report.required_columns.length
   const requiredPresent = report.required_columns.filter((column) => column.present).length
   const pathWarningCount = report.warnings.filter(
@@ -438,7 +386,7 @@ function DatasetValidationBanner({
           size="small"
         />
         <Chip
-          label={`database.csv: ${report.has_database ? 'Present' : 'Missing'}`}
+          label={`${sourceFile}: ${report.has_database ? 'Present' : 'Missing'}`}
           color={report.has_database ? 'success' : 'warning'}
           size="small"
           variant="outlined"

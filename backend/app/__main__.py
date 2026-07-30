@@ -94,7 +94,7 @@ def main() -> None:
     with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as _s:
         _s.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
         try:
-            _s.bind(("0.0.0.0", port))
+            _s.bind(("127.0.0.1", port))
         except OSError:
             print(f"\n  ERROR: Port {port} is already in use.")
             print(f"  Try: radiology-webui --port {port + 1}\n")

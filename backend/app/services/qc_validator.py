@@ -10,7 +10,11 @@ from app.services.database import get_database_index, required_column_status
 def validate_database(dataset_path: Path | str) -> DatabaseValidationReport:
     index = get_database_index(dataset_path)
     if not index.has_database:
-        return DatabaseValidationReport(dataset_id=index.dataset_id, has_database=False)
+        return DatabaseValidationReport(
+            dataset_id=index.dataset_id,
+            has_database=False,
+            source_file=index.source_file,
+        )
 
     warnings = [warning for row in index.rows for warning in row.qc_warnings]
     duplicate_ids = _duplicate_row_id_warnings(index.rows)
@@ -21,6 +25,7 @@ def validate_database(dataset_path: Path | str) -> DatabaseValidationReport:
     return DatabaseValidationReport(
         dataset_id=index.dataset_id,
         has_database=True,
+        source_file=index.source_file,
         row_count=len(index.rows),
         case_count=len({row.case_id for row in index.rows}),
         required_columns=required_column_status(index.fieldnames),

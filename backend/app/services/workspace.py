@@ -8,7 +8,7 @@ from app.services.state_dir import dataset_state_dir
 from app.services.workspace_store import workspace_store
 
 
-REQUIRED_DATASET_MARKERS = ("database.csv", "nifti", "seg", "voi", "manifest.csv")
+REQUIRED_DATASET_MARKERS = ("database.csv", "metadata.jsonl", "nifti", "seg", "voi", "manifest.csv")
 
 
 def get_workspace_status() -> WorkspaceStatus:
@@ -24,7 +24,6 @@ def get_workspace_status() -> WorkspaceStatus:
         configured=True,
         dataset_id=dataset_path.name,
         dataset_path=str(dataset_path),
-        database_csv_path=status.database_csv_path,
         workspace_dir=str(dataset_state_dir(dataset_path)),
     )
 
@@ -46,7 +45,6 @@ def set_workspace_selection(
 ) -> WorkspaceStatus:
     candidate = Path(dataset_path).expanduser().resolve()
     _validate_dataset_path(candidate)
-    resolved_database = _validate_database_csv_path(database_csv_path) if database_csv_path else None
     from app.services.runtime_cache import reset_runtime_caches
 
     reset_runtime_caches()
@@ -69,18 +67,6 @@ def validate_workspace_dataset_id(dataset_id: str) -> Path:
     return dataset_path
 
 
-def active_workspace_database_csv_path(dataset_path: Path | str) -> Path | None:
-    status = get_workspace_status()
-    if not status.configured or not status.dataset_path or not status.database_csv_path:
-        return None
-    resolved_dataset = Path(dataset_path).expanduser().resolve()
-    active_dataset = Path(status.dataset_path).expanduser().resolve()
-    if resolved_dataset != active_dataset:
-        return None
-    database_path = Path(status.database_csv_path).expanduser().resolve()
-    return database_path if database_path.is_file() else None
-
-
 def workspace_file(filename: str, *, create: bool = True) -> Path:
     dataset_path = require_workspace_dataset_path()
     from app.services.state_dir import dataset_state_file
@@ -97,7 +83,7 @@ def _validate_dataset_path(dataset_path: Path) -> None:
     has_marker = False
     for marker in REQUIRED_DATASET_MARKERS:
         candidate = dataset_path / marker
-        if marker.endswith(".csv"):
+        if Path(marker).suffix:
             if candidate.is_file():
                 has_marker = True
                 break
@@ -107,7 +93,7 @@ def _validate_dataset_path(dataset_path: Path) -> None:
 
     if not has_marker:
         raise ValueError(
-            "Selected folder is not a dataset directory. Expected one of: database.csv, nifti/, seg/, voi/, manifest.csv"
+            "Selected folder is not a dataset directory. Expected one of: database.csv, metadata.jsonl, nifti/, seg/, voi/, manifest.csv"
         )
 
 

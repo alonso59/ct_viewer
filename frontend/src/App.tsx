@@ -17,8 +17,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
-  useParams,
-} from 'react-router-dom'
+} from './services/router'
 
 import LoginDialog from './components/LoginDialog'
 import { useWorkspace } from './hooks/useWorkspace'
@@ -33,7 +32,8 @@ type ApiStatus = 'checking' | 'online' | 'offline'
 
 const PatientListPage = lazy(() => import('./pages/PatientListPage'))
 const ViewerPage = lazy(() => import('./pages/ViewerPage'))
-const MainReviewScreen = lazy(() => import('./pages/MainReviewScreen'))
+const CaseWorklistPage = lazy(() => import('./pages/CaseWorklistPage'))
+const CaseReviewPage = lazy(() => import('./pages/CaseReviewPage'))
 
 function App() {
   const location = useLocation()
@@ -46,9 +46,9 @@ function App() {
   )
   const workspaceState = useWorkspace()
   const activeDatasetId = workspaceState.workspace.dataset_id
-  const isMainReviewRoute = Boolean(
-    matchPath('/datasets/:dsid/review', location.pathname) ??
-      matchPath('/datasets/:dsid/review/:caseId', location.pathname),
+  const isViewerRoute = Boolean(
+    matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname) ??
+      matchPath('/datasets/:dsid/cases/:caseId/review', location.pathname),
   )
   const isViewerRoute =
     isMainReviewRoute || Boolean(matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname))
@@ -162,17 +162,11 @@ function App() {
             />
           }
         />
-        <Route path="/datasets/:dsid/review" element={<MainReviewScreen />} />
-        <Route
-          path="/datasets/:dsid/review/:caseId"
-          element={<MainReviewScreen />}
-        />
-        <Route path="/datasets/:dsid/cases" element={<LegacyCasesRedirect />} />
+        <Route path="/datasets/:dsid/cases" element={<CaseWorklistPage />} />
         <Route
           path="/datasets/:dsid/cases/:caseId/review"
-          element={<LegacyCaseReviewRedirect />}
+          element={<CaseReviewPage />}
         />
-        <Route path="/datasets/:dsid/cases/:caseId/dossier" element={<LegacyCaseReviewRedirect />} />
         <Route path="/datasets/:dsid/patients" element={<PatientListPage />} />
         <Route
           path="/datasets/:dsid/patients/:pid/viewer"
@@ -203,9 +197,17 @@ function App() {
               <Typography variant="h6">Medical Review Workspace</Typography>
             </Box>
 
-            <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
-              <Button component={RouterLink} to="/" color="inherit">
-                Dataset
+          <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+            <Button component={RouterLink} to="/" color="inherit">
+              Workspace
+            </Button>
+            {activeDatasetId ? (
+              <Button
+                component={RouterLink}
+                to={`/datasets/${activeDatasetId}/cases`}
+                color="inherit"
+              >
+                Cases
               </Button>
               {activeDatasetId ? (
                 <Button

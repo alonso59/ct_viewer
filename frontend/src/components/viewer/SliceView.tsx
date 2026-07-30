@@ -6,7 +6,6 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
   type SyntheticEvent,
-  type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
 import axios from 'axios'
@@ -30,6 +29,11 @@ const MAX_SLICE_CACHE_ITEMS = 24
 const MIN_ZOOM = 1
 const MAX_ZOOM = 8
 const ZOOM_STEP = 0.14
+const REFERENCE_PLANE_COLORS: Record<Axis, string> = {
+  axial: '#fb923c',
+  coronal: '#ef4444',
+  sagittal: '#22c55e',
+}
 
 // Anatomical orientation labels per view axis (RAS convention, as_closest_canonical guaranteed).
 // axial:    view down Z → screen X=L→R, screen Y=A→P (flipped: top=A)
@@ -64,6 +68,45 @@ interface SliceViewProps {
     deltaY: number,
   ) => void
   ww: number
+}
+
+function computeContentRect(
+  containerW: number,
+  containerH: number,
+  naturalW: number,
+  naturalH: number,
+): { left: number; top: number; width: number; height: number } | null {
+  if (containerW === 0 || containerH === 0 || naturalW === 0 || naturalH === 0) {
+    return null
+  }
+  const scale = Math.min(containerW / naturalW, containerH / naturalH)
+  const rw = naturalW * scale
+  const rh = naturalH * scale
+  return {
+    left: (containerW - rw) / 2 / containerW,
+    top: (containerH - rh) / 2 / containerH,
+    width: rw / containerW,
+    height: rh / containerH,
+  }
+}
+
+function getCrosshairLineColors(axis: Axis): { vertical: string; horizontal: string } {
+  if (axis === 'axial') {
+    return {
+      vertical: REFERENCE_PLANE_COLORS.sagittal,
+      horizontal: REFERENCE_PLANE_COLORS.coronal,
+    }
+  }
+  if (axis === 'coronal') {
+    return {
+      vertical: REFERENCE_PLANE_COLORS.sagittal,
+      horizontal: REFERENCE_PLANE_COLORS.axial,
+    }
+  }
+  return {
+    vertical: REFERENCE_PLANE_COLORS.coronal,
+    horizontal: REFERENCE_PLANE_COLORS.axial,
+  }
 }
 
 function SliceView({
@@ -122,10 +165,13 @@ function SliceView({
   const cacheRef = useRef(new Map<string, string>())
   const cacheOrderRef = useRef<string[]>([])
   const abortRef = useRef<AbortController | null>(null)
+  const prefetchControllersRef = useRef(new Map<string, AbortController>())
   const wheelFrameRef = useRef<number | null>(null)
   const pendingWheelDeltaRef = useRef(0)
+  const disabledRef = useRef(disabled)
   const indexRef = useRef(index)
   const maxIndexRef = useRef(maxIndex)
+  const onSliceChangeRef = useRef(onSliceChange)
 
   const queryKey = JSON.stringify(query)
   const requestQuery = useMemo(() => JSON.parse(queryKey) as SliceQuery, [queryKey])
@@ -146,12 +192,29 @@ function SliceView({
   }, [viewState])
 
   useEffect(() => {
+    disabledRef.current = disabled
+  }, [disabled])
+
+  useEffect(() => {
     indexRef.current = index
   }, [index])
 
   useEffect(() => {
     maxIndexRef.current = maxIndex
   }, [maxIndex])
+
+  useEffect(() => {
+    onSliceChangeRef.current = onSliceChange
+  }, [onSliceChange])
+
+  const queryKey = JSON.stringify(query)
+  const requestQuery = useMemo(() => JSON.parse(queryKey) as SliceQuery, [queryKey])
+  const makeSliceFetchKey = useCallback(
+    (sliceIndex: number) =>
+      !disabled && requestKey ? `${requestKey}:${axis}:${sliceIndex}:${queryKey}` : null,
+    [axis, disabled, queryKey, requestKey],
+  )
+  const fetchKey = makeSliceFetchKey(index)
 
   const displayUrl = requestState.url
   const isStale = Boolean(fetchKey) && requestState.key !== fetchKey
@@ -166,11 +229,7 @@ function SliceView({
     hasImageRef.current = Boolean(displayUrl)
   }, [displayUrl])
 
-  useEffect(() => {
-    setViewState({ zoom: 1, panX: 0, panY: 0 })
-  }, [requestKey])
-
-  function cacheSliceUrl(key: string, url: string) {
+  const cacheSliceUrl = useCallback((key: string, url: string) => {
     const existing = cacheRef.current.get(key)
     if (existing && existing !== url) {
       URL.revokeObjectURL(existing)
@@ -191,7 +250,7 @@ function SliceView({
       }
       cacheRef.current.delete(staleKey)
     }
-  }
+  }, [])
 
   useEffect(() => {
     if (!fetchKey) {
@@ -248,12 +307,65 @@ function SliceView({
       active = false
       controller.abort()
     }
-  }, [axis, fetchKey, index, onHandleExpired, requestQuery, requestState.key])
+  }, [axis, cacheSliceUrl, fetchKey, index, onHandleExpired, requestQuery, requestState.key])
+
+  const prefetchSlice = useCallback(
+    (sliceIndex: number) => {
+      if (sliceIndex < 0 || sliceIndex > maxIndex) {
+        return
+      }
+
+      const prefetchKey = makeSliceFetchKey(sliceIndex)
+      if (
+        !prefetchKey ||
+        prefetchKey === fetchKey ||
+        cacheRef.current.has(prefetchKey) ||
+        prefetchControllersRef.current.has(prefetchKey)
+      ) {
+        return
+      }
+
+      const controller = new AbortController()
+      prefetchControllersRef.current.set(prefetchKey, controller)
+      apiClient
+        .getSliceBlob(axis, sliceIndex, requestQuery, { signal: controller.signal })
+        .then((blob) => {
+          if (controller.signal.aborted) {
+            return
+          }
+          cacheSliceUrl(prefetchKey, URL.createObjectURL(blob))
+        })
+        .catch((requestError) => {
+          if (axios.isAxiosError(requestError) && requestError.code === 'ERR_CANCELED') {
+            return
+          }
+          if (isHandleExpiredError(requestError)) {
+            onHandleExpired?.()
+          }
+        })
+        .finally(() => {
+          prefetchControllersRef.current.delete(prefetchKey)
+        })
+    },
+    [axis, cacheSliceUrl, fetchKey, makeSliceFetchKey, maxIndex, onHandleExpired, requestQuery],
+  )
+
+  useEffect(() => {
+    if (!displayUrl || requestState.key !== fetchKey) {
+      return
+    }
+
+    prefetchSlice(index + 1)
+    prefetchSlice(index - 1)
+  }, [displayUrl, fetchKey, index, prefetchSlice, requestState.key])
 
   useEffect(() => {
     const cache = cacheRef.current
+    const prefetchControllers = prefetchControllersRef.current
     return () => {
       abortRef.current?.abort()
+      prefetchControllers.forEach((controller) => controller.abort())
+      prefetchControllers.clear()
       cache.forEach((url) => URL.revokeObjectURL(url))
       cache.clear()
       cacheOrderRef.current = []
@@ -371,31 +483,9 @@ function SliceView({
     setViewState({ zoom: 1, panX: 0, panY: 0 })
   }
 
-  useEffect(() => {
-    const element = viewportRef.current
-    if (!element) {
-      return
-    }
-
-    function handleNativeCtrlWheel(event: WheelEvent) {
-      if (!(event.ctrlKey || event.metaKey) || !hasImageRef.current) {
-        return
-      }
-      // Browser zoom on Ctrl+Wheel must be intercepted at a non-passive listener.
-      event.preventDefault()
-      event.stopPropagation()
-      applyZoomAt(event.clientX, event.clientY, event.deltaY)
-    }
-
-    element.addEventListener('wheel', handleNativeCtrlWheel, { passive: false })
-    return () => {
-      element.removeEventListener('wheel', handleNativeCtrlWheel)
-    }
-  }, [applyZoomAt])
-
-  function flushWheelDelta() {
+  const flushWheelDelta = useCallback(() => {
     wheelFrameRef.current = null
-    if (disabled || maxIndexRef.current <= 0) {
+    if (disabledRef.current || maxIndexRef.current <= 0) {
       pendingWheelDeltaRef.current = 0
       return
     }
@@ -407,28 +497,51 @@ function SliceView({
     )
     pendingWheelDeltaRef.current = 0
     if (nextIndex !== currentIndex) {
-      onSliceChange(nextIndex)
+      onSliceChangeRef.current(nextIndex)
     }
-  }
+  }, [])
 
-  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    event.preventDefault()
-    if (!displayUrl) {
+  const queueSliceWheel = useCallback((deltaY: number) => {
+    if (deltaY === 0) {
       return
     }
-    if (event.ctrlKey || event.metaKey) {
-      // Native non-passive wheel listener handles zoom to avoid browser page zoom.
-      return
-    }
-    if (disabled || maxIndexRef.current <= 0) {
+    if (disabledRef.current || maxIndexRef.current <= 0) {
       return
     }
 
-    pendingWheelDeltaRef.current += event.deltaY > 0 ? 1 : -1
+    pendingWheelDeltaRef.current += deltaY > 0 ? 1 : -1
     if (wheelFrameRef.current === null) {
       wheelFrameRef.current = window.requestAnimationFrame(flushWheelDelta)
     }
-  }
+  }, [flushWheelDelta])
+
+  useEffect(() => {
+    const element = viewportRef.current
+    if (!element) {
+      return
+    }
+
+    function handleNativeWheel(event: WheelEvent) {
+      // Keep wheel input local to the slice viewport. Outside this element the
+      // page keeps its normal scrolling behavior.
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (!hasImageRef.current) {
+        return
+      }
+      if (event.ctrlKey || event.metaKey) {
+        applyZoomAt(event.clientX, event.clientY, event.deltaY)
+        return
+      }
+      queueSliceWheel(event.deltaY)
+    }
+
+    element.addEventListener('wheel', handleNativeWheel, { passive: false })
+    return () => {
+      element.removeEventListener('wheel', handleNativeWheel)
+    }
+  }, [applyZoomAt, queueSliceWheel])
 
   function handleMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
     if (event.button === 2) {
@@ -515,13 +628,13 @@ function SliceView({
   const crBottom = `${(1 - cr.top - cr.height) * 100}%`
   const displayNaturalSize = naturalSize.width > 0 ? `${naturalSize.width}×${naturalSize.height}` : ''
   const zoomLabel = `${viewState.zoom.toFixed(2)}×`
+  const crosshairLineColors = getCrosshairLineColors(axis)
 
   return (
     <Box
       data-slice-root={axis}
       onContextMenu={(event) => event.preventDefault()}
       onMouseDown={handleMouseDown}
-      onWheel={handleWheel}
       sx={{
         position: 'relative',
         flex: 1,
@@ -529,6 +642,7 @@ function SliceView({
         borderRadius: 0,
         backgroundColor: '#000',
         overflow: 'hidden',
+        overscrollBehavior: 'contain',
       }}
     >
       {errorText ? (
@@ -548,6 +662,7 @@ function SliceView({
             inset: 0,
             backgroundColor: '#000',
             cursor: displayUrl ? (isPanning ? 'grabbing' : 'crosshair') : 'default',
+            overscrollBehavior: 'contain',
           }}
         >
           {displayUrl ? (
@@ -571,11 +686,14 @@ function SliceView({
                 >
                   <Box
                     sx={{
-                      position: 'absolute',
-                      left: crLeft,
-                      top: crTop,
-                      width: crWidth,
-                      height: crHeight,
+                      display: 'block',
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      userSelect: 'none',
+                      opacity: isStale ? 0.65 : 1,
+                      transition: 'opacity 0.12s ease-out',
+                      imageRendering: axis === 'axial' ? 'pixelated' : 'auto',
                     }}
                   >
                     <Box
@@ -611,7 +729,7 @@ function SliceView({
                           bottom: crBottom,
                           width: '1.5px',
                           transform: 'translateX(-50%)',
-                          backgroundColor: accent,
+                          backgroundColor: crosshairLineColors.vertical,
                           opacity: 0.85,
                         }}
                       />
@@ -623,7 +741,7 @@ function SliceView({
                           top: chTop,
                           height: '1.5px',
                           transform: 'translateY(-50%)',
-                          backgroundColor: accent,
+                          backgroundColor: crosshairLineColors.horizontal,
                           opacity: 0.85,
                         }}
                       />

@@ -35,6 +35,7 @@ class QCWarning(BaseModel):
 class DatabaseValidationReport(BaseModel):
     dataset_id: str
     has_database: bool
+    source_file: str | None = None
     row_count: int = 0
     case_count: int = 0
     required_columns: list[RequiredColumnStatus] = Field(default_factory=list)
@@ -66,8 +67,10 @@ class CaseSummary(BaseModel):
 
 
 class CaseInventoryRow(BaseModel):
+    row_index: int
     row_id: str
     source_row_id: str | None = None
+    series_id: str | None = None
     case_id: str
     patient_id: str | None = None
     group: str | None = None
@@ -84,6 +87,7 @@ class CaseInventoryRow(BaseModel):
     has_seg: bool = False
     has_voi_image: bool = False
     has_voi_mask: bool = False
+    deleted: bool = False
     qc_warnings: list[QCWarning] = Field(default_factory=list)
     latest_curation_status: str | None = None
 
@@ -101,10 +105,10 @@ class CaseDossier(BaseModel):
 class CaseLoadSource(BaseModel):
     dataset_id: str
     case_id: str
+    row_index: int
     row_id: str
     scope: Scope
     series_id: str
     image_path: str
     mask_path: str | None = None
     source_type: Literal["nifti", "voi_nifti", "voi_numpy"]
-    spacing: list[float] | None = None

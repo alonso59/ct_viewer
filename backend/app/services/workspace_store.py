@@ -29,7 +29,6 @@ class WorkspaceStore:
             configured=True,
             dataset_id=resolved.name,
             dataset_path=str(resolved),
-            database_csv_path=str(resolved_database) if resolved_database else None,
             workspace_dir=str(dataset_state_dir(resolved)),
         )
 

@@ -5,8 +5,10 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 
+from app.services.volume_metadata import LoadedVolume, loaded_volume_from_array
 
-def load_nifti(path: str | Path) -> tuple[np.ndarray, tuple[float, float, float]]:
+
+def load_nifti(path: str | Path) -> LoadedVolume:
     file_path = Path(path)
     if not file_path.is_file():
         raise FileNotFoundError(f"NIfTI volume not found: {file_path}")
@@ -25,5 +27,9 @@ def load_nifti(path: str | Path) -> tuple[np.ndarray, tuple[float, float, float]
             f"NIfTI volume '{file_path.name}' must be 3D after canonicalization; got shape {data.shape}"
         )
 
-    spacing = tuple(float(value) for value in image.header.get_zooms()[:3])
-    return data.astype(np.float32, copy=False), spacing
+    return loaded_volume_from_array(
+        data=data.astype(np.float32, copy=False),
+        source_path=file_path,
+        source_format="nifti",
+        affine=np.asarray(image.affine, dtype=np.float64),
+    )

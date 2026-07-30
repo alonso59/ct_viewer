@@ -19,6 +19,11 @@ from app.models.review import (
     ReviewMovedFile,
     ReviewOperation,
 )
+from app.services.converter_metadata import (
+    mark_converter_deleted,
+    restore_converter_deleted,
+    update_converter_phase,
+)
 from app.services.discovery import resolve_series_source
 from app.services.runtime_cache import reset_runtime_caches
 from app.services.workspace import validate_workspace_dataset_id, workspace_file
@@ -150,7 +155,10 @@ def _apply_single_operation(
 
     if operation.action == "reclassify":
         return _apply_reclassify(dataset_path, operation, source), metadata
-    result, moved_pairs = _apply_delete(dataset_path, operation, source)
+    if operation.action == "delete":
+        result, moved_pairs = _apply_delete(dataset_path, operation, source)
+    else:
+        result, moved_pairs = _apply_restore(dataset_path, operation, source)
     metadata["moved_file_pairs"] = moved_pairs
     return result, metadata
 
@@ -168,16 +176,18 @@ def _apply_reclassify(dataset_path: Path, operation: ReviewOperation, source) ->
         )
 
     if source.type == "nifti":
-        manifest_updated = _update_manifest_phase(dataset_path, source.filename, target_phase)
+        metadata_updated = update_converter_phase(dataset_path, source.filename, target_phase)
+        message = _metadata_update_message(metadata_updated, manifest_updated=False)
         return ReviewApplyResult(
             patient_id=operation.patient_id,
             series_id=operation.series_id,
             action=operation.action,
             target_phase=target_phase,
             status="applied",
-            message="manifest updated" if manifest_updated else "manifest row not found",
+            message=message,
             moved_files=[],
-            manifest_updated=manifest_updated,
+            manifest_updated=False,
+            metadata_updated=metadata_updated,
         )
 
     moved_files, message, status = _move_voi_to_phase(
@@ -195,6 +205,7 @@ def _apply_reclassify(dataset_path: Path, operation: ReviewOperation, source) ->
         message=message,
         moved_files=moved_files,
         manifest_updated=False,
+        metadata_updated=False,
     )
 
 
@@ -203,12 +214,21 @@ def _apply_delete(
     operation: ReviewOperation,
     source,
 ) -> tuple[ReviewApplyResult, list[dict[str, str]]]:
+    metadata_updated = False
     if source.type == "nifti":
         moved_files, moved_pairs, message, status = _move_nifti_to_recycle(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
         )
+        if status == "applied":
+            metadata_updated = mark_converter_deleted(
+                dataset_path,
+                source.filename,
+                _nifti_destination_relative(moved_pairs),
+            )
+            if metadata_updated:
+                message = f"{message}; converter metadata updated"
     else:
         moved_files, moved_pairs, message, status = _move_voi_to_recycle(
             dataset_path=dataset_path,
@@ -226,6 +246,66 @@ def _apply_delete(
             message=message,
             moved_files=moved_files,
             manifest_updated=False,
+            metadata_updated=metadata_updated,
+        ),
+        moved_pairs,
+    )
+
+
+def _apply_restore(
+    dataset_path: Path,
+    operation: ReviewOperation,
+    source,
+) -> tuple[ReviewApplyResult, list[dict[str, str]]]:
+    metadata_updated = False
+    if not source.deleted:
+        return (
+            ReviewApplyResult(
+                patient_id=operation.patient_id,
+                series_id=operation.series_id,
+                action=operation.action,
+                target_phase=None,
+                status="skipped",
+                message="series is not marked as deleted",
+                moved_files=[],
+                manifest_updated=False,
+                metadata_updated=False,
+            ),
+            [],
+        )
+
+    if source.type == "nifti":
+        moved_files, moved_pairs, message, status = _restore_nifti_from_recycle(
+            dataset_path=dataset_path,
+            image_path=Path(source.image_path),
+            mask_path=Path(source.mask_path) if source.mask_path else None,
+        )
+        if status == "applied":
+            metadata_updated = restore_converter_deleted(
+                dataset_path,
+                source.filename,
+                _nifti_restored_relative(moved_pairs),
+            )
+            if metadata_updated:
+                message = f"{message}; converter metadata updated"
+    else:
+        moved_files, moved_pairs, message, status = _restore_voi_from_recycle(
+            dataset_path=dataset_path,
+            image_path=Path(source.image_path),
+            mask_path=Path(source.mask_path) if source.mask_path else None,
+        )
+
+    return (
+        ReviewApplyResult(
+            patient_id=operation.patient_id,
+            series_id=operation.series_id,
+            action=operation.action,
+            target_phase=None,
+            status=status,
+            message=message,
+            moved_files=moved_files,
+            manifest_updated=False,
+            metadata_updated=metadata_updated,
         ),
         moved_pairs,
     )
@@ -242,21 +322,51 @@ def _move_nifti_to_recycle(
     candidates: list[tuple[Path, Path]] = []
     image_resolved = _ensure_within(image_path, dataset_path)
     if not image_resolved.exists():
-        return [], f"Source image not found: {image_resolved.name}", "skipped"
+        return [], [], f"Source image not found: {image_resolved.name}", "skipped"
     candidates.append((image_resolved, recycle_nifti_root / image_resolved.name))
 
     if mask_path is not None:
         mask_resolved = _ensure_within(mask_path, dataset_path)
         if not mask_resolved.exists():
-            return [], f"Source mask not found: {mask_resolved.name}", "skipped"
+            return [], [], f"Source mask not found: {mask_resolved.name}", "skipped"
         candidates.append((mask_resolved, recycle_seg_root / mask_resolved.name))
 
     collision = _first_collision(candidates)
     if collision is not None:
-        return [], f"Destination already exists: {collision}", "skipped"
+        return [], [], f"Destination already exists: {collision}", "skipped"
 
     moved, move_pairs = _execute_moves(candidates, dataset_path)
     return moved, move_pairs, "moved to recycle bin", "applied"
+
+
+def _restore_nifti_from_recycle(
+    dataset_path: Path,
+    image_path: Path,
+    mask_path: Path | None,
+) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
+    recycle_nifti_root = (dataset_path / "deleted" / "nifti").resolve()
+    recycle_seg_root = (dataset_path / "deleted" / "seg").resolve()
+    nifti_root = dataset_path / "nifti"
+    seg_root = dataset_path / "seg"
+
+    candidates: list[tuple[Path, Path]] = []
+    image_resolved = _ensure_within(image_path, recycle_nifti_root)
+    if not image_resolved.exists():
+        return [], [], f"Deleted image not found: {image_resolved.name}", "skipped"
+    candidates.append((image_resolved, nifti_root / image_resolved.name))
+
+    if mask_path is not None:
+        mask_resolved = _ensure_within(mask_path, recycle_seg_root)
+        if not mask_resolved.exists():
+            return [], [], f"Deleted mask not found: {mask_resolved.name}", "skipped"
+        candidates.append((mask_resolved, seg_root / mask_resolved.name))
+
+    collision = _first_collision(candidates)
+    if collision is not None:
+        return [], [], f"Destination already exists: {collision}", "skipped"
+
+    moved, move_pairs = _execute_moves(candidates, dataset_path)
+    return moved, move_pairs, "restored from recycle bin", "applied"
 
 
 def _move_voi_to_phase(
@@ -329,12 +439,12 @@ def _move_voi_to_recycle(
 
     image_resolved = _ensure_within(image_path, image_root)
     if not image_resolved.exists():
-        return [], f"Source image not found: {image_resolved.name}", "skipped"
+        return [], [], f"Source image not found: {image_resolved.name}", "skipped"
 
     try:
         image_relative = image_resolved.relative_to(image_root)
     except ValueError:
-        return [], "VOI image path is outside expected root", "failed"
+        return [], [], "VOI image path is outside expected root", "failed"
 
     candidates: list[tuple[Path, Path]] = [(image_resolved, recycle_image_root / image_relative)]
 
@@ -349,17 +459,65 @@ def _move_voi_to_recycle(
             except ValueError:
                 continue
         if selected_relative is None:
-            return [], "VOI mask path is outside expected roots", "failed"
+            return [], [], "VOI mask path is outside expected roots", "failed"
         if not mask_resolved.exists():
-            return [], f"Source mask not found: {mask_resolved.name}", "skipped"
+            return [], [], f"Source mask not found: {mask_resolved.name}", "skipped"
         candidates.append((mask_resolved, recycle_mask_root / selected_relative))
 
     collision = _first_collision(candidates)
     if collision is not None:
-        return [], f"Destination already exists: {collision}", "skipped"
+        return [], [], f"Destination already exists: {collision}", "skipped"
 
     moved, move_pairs = _execute_moves(candidates, dataset_path)
     return moved, move_pairs, "moved to recycle bin", "applied"
+
+
+def _restore_voi_from_recycle(
+    dataset_path: Path,
+    image_path: Path,
+    mask_path: Path | None,
+) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
+    recycle_image_root = (dataset_path / "voi" / "deleted" / "images").resolve()
+    recycle_mask_root = (dataset_path / "voi" / "deleted" / "mask").resolve()
+    image_root = dataset_path / "voi" / "images"
+    mask_root = dataset_path / "voi" / "mask"
+
+    image_resolved = _ensure_within(image_path, recycle_image_root)
+    if not image_resolved.exists():
+        return [], [], f"Deleted image not found: {image_resolved.name}", "skipped"
+
+    try:
+        image_relative = image_resolved.relative_to(recycle_image_root)
+    except ValueError:
+        return [], [], "Deleted VOI image path is outside expected root", "failed"
+
+    candidates: list[tuple[Path, Path]] = [(image_resolved, image_root / image_relative)]
+
+    if mask_path is not None:
+        mask_resolved = _ensure_within(mask_path, recycle_mask_root)
+        if not mask_resolved.exists():
+            return [], [], f"Deleted mask not found: {mask_resolved.name}", "skipped"
+        try:
+            mask_relative = mask_resolved.relative_to(recycle_mask_root)
+        except ValueError:
+            return [], [], "Deleted VOI mask path is outside expected root", "failed"
+        candidates.append((mask_resolved, mask_root / mask_relative))
+
+    collision = _first_collision(candidates)
+    if collision is not None:
+        return [], [], f"Destination already exists: {collision}", "skipped"
+
+    moved, move_pairs = _execute_moves(candidates, dataset_path)
+    return moved, move_pairs, "restored from recycle bin", "applied"
+
+
+def _metadata_update_message(metadata_updated: bool, manifest_updated: bool) -> str:
+    parts: list[str] = []
+    if metadata_updated:
+        parts.append("phase.json updated")
+    if manifest_updated:
+        parts.append("manifest updated")
+    return "; ".join(parts) if parts else "phase row not found"
 
 
 def _update_manifest_phase(dataset_path: Path, filename: str, target_phase: str) -> bool:
@@ -443,6 +601,7 @@ def _decision_entry(
         "moved_files": [entry.model_dump() for entry in result.moved_files],
         "moved_file_pairs": list(metadata.get("moved_file_pairs", [])),
         "manifest_updated": result.manifest_updated,
+        "metadata_updated": result.metadata_updated,
         "series_type": metadata.get("series_type"),
         "group": metadata.get("group"),
         "phase": metadata.get("phase"),
@@ -460,6 +619,7 @@ def _batch_log_entry(operation: ReviewOperation, result: ReviewApplyResult, meta
         "message": result.message,
         "moved_files": [entry.model_dump() for entry in result.moved_files],
         "manifest_updated": result.manifest_updated,
+        "metadata_updated": result.metadata_updated,
         "series_type": metadata.get("series_type"),
         "group": metadata.get("group"),
         "phase": metadata.get("phase"),
@@ -507,6 +667,22 @@ def _execute_moves(
     return moved_files, moved_pairs
 
 
+def _nifti_destination_relative(moved_pairs: list[dict[str, str]]) -> str | None:
+    for pair in moved_pairs:
+        destination = pair.get("destination", "")
+        if destination.startswith("deleted/nifti/"):
+            return destination
+    return None
+
+
+def _nifti_restored_relative(moved_pairs: list[dict[str, str]]) -> str | None:
+    for pair in moved_pairs:
+        destination = pair.get("destination", "")
+        if destination.startswith("nifti/"):
+            return destination
+    return None
+
+
 def _first_collision(candidates: list[tuple[Path, Path]]) -> str | None:
     for _source, destination in candidates:
         if destination.exists():
@@ -527,14 +703,29 @@ def list_recent_delete_decisions(dataset_id: str) -> list[ReviewDeleteDecision]:
         if isinstance(entry, dict) and entry.get("action") == "undo_delete"
     }
 
+    restored_series: set[tuple[str, str]] = set()
     decisions: list[ReviewDeleteDecision] = []
     for entry in reversed(payload):
         if not isinstance(entry, dict):
+            continue
+        if entry.get("action") == "restore" and entry.get("status") == "applied":
+            restored_series.add(
+                (
+                    str(entry.get("patient_id") or ""),
+                    str(entry.get("series_id") or ""),
+                )
+            )
             continue
         if entry.get("action") != "delete" or entry.get("status") != "applied":
             continue
         decision_id = str(entry.get("decision_id") or "")
         if not decision_id or decision_id in undone_ids:
+            continue
+        series_key = (
+            str(entry.get("patient_id") or ""),
+            str(entry.get("series_id") or ""),
+        )
+        if series_key in restored_series:
             continue
         moved_pairs = [
             ReviewMovedFile.model_validate(item)
@@ -613,15 +804,27 @@ def undo_delete_decision(dataset_id: str, decision_id: str) -> ReviewApplyRespon
             candidates.append((source, destination))
 
         moved_files, moved_pairs = _execute_moves(candidates, dataset_path)
+        metadata_updated = False
+        filename = str(target_entry.get("filename") or "")
+        if target_entry.get("series_type") == "nifti" and filename:
+            metadata_updated = restore_converter_deleted(
+                dataset_path,
+                filename,
+                _nifti_restored_relative(moved_pairs),
+            )
+        message = "delete restored from recycle bin"
+        if metadata_updated:
+            message = f"{message}; converter metadata updated"
         result = ReviewApplyResult(
             patient_id=str(target_entry.get("patient_id") or ""),
             series_id=str(target_entry.get("series_id") or ""),
             action="delete",
             target_phase=None,
             status="applied",
-            message="delete restored from recycle bin",
+            message=message,
             moved_files=moved_files,
             manifest_updated=False,
+            metadata_updated=metadata_updated,
         )
         payload.append(
             {
@@ -637,6 +840,7 @@ def undo_delete_decision(dataset_id: str, decision_id: str) -> ReviewApplyRespon
                 "message": result.message,
                 "moved_files": [entry.model_dump() for entry in moved_files],
                 "moved_file_pairs": moved_pairs,
+                "metadata_updated": result.metadata_updated,
                 "filename": target_entry.get("filename"),
                 "series_type": target_entry.get("series_type"),
             }

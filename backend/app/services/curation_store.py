@@ -12,8 +12,6 @@ from app.models.curation import (
     CorrectionQueueResponse,
     CurationDecision,
     CurationDecisionRequest,
-    PhaseCorrectionRequest,
-    PhaseCorrectionResponse,
 )
 from app.services.database import get_database_index
 from app.services.state_dir import dataset_state_file
@@ -58,93 +56,6 @@ def list_correction_queue(dataset_path: Path | str, dataset_id: str) -> Correcti
         dataset_id=dataset_id,
         items=_read_decisions(_queue_path(dataset_path, dataset_id, create=False)),
     )
-
-
-def save_phase_correction(
-    dataset_path: Path | str,
-    dataset_id: str,
-    payload: PhaseCorrectionRequest,
-) -> PhaseCorrectionResponse:
-    """Record a phase-correction proposal for every scope of every row that shares
-    the given case_id + scan_idx.  For each matching DatabaseRow, one decision is
-    created per available scope (complete and/or VOI).
-    """
-    from app.services.path_resolver import path_exists as _path_exists
-
-    dataset = Path(dataset_path).expanduser().resolve()
-    lock = _dataset_lock(dataset_id)
-
-    with lock:
-        index = get_database_index(dataset)
-
-        matching = [
-            row
-            for row in index.rows
-            if row.case_id == payload.case_id
-            and (payload.scan_idx is None or row.scan_idx == payload.scan_idx)
-        ]
-
-        now = datetime.now(timezone.utc).isoformat()
-        decisions: list[CurationDecision] = []
-
-        for row in matching:
-            has_complete = _path_exists(row.nifti_path)
-            has_voi = _path_exists(row.voi_image_path)
-
-            for scope, present in (("complete", has_complete), ("voi", has_voi)):
-                if not present:
-                    continue
-                decisions.append(
-                    CurationDecision(
-                        review_id=uuid.uuid4().hex,
-                        dataset_id=dataset_id,
-                        case_id=row.case_id,
-                        patient_id=row.patient_id,
-                        source_row_id=row.source_row_id,
-                        row_id=row.row_id,
-                        scan_idx=row.scan_idx,
-                        raw_phase=row.raw_phase,
-                        canonical_phase=row.canonical_phase,
-                        proposed_phase=payload.proposed_phase.strip() or None,
-                        side=row.side,
-                        scope=scope,  # type: ignore[arg-type]
-                        target="phase_issue",
-                        status="wrong_phase_suspected",
-                        priority="medium",
-                        comment=payload.comment.strip(),
-                        reviewer=payload.reviewer.strip(),
-                        reviewed_at=now,
-                        nifti_path=row.nifti_path.resolved if row.nifti_path.resolved else None,
-                        seg_path=row.seg_path.resolved if row.seg_path.resolved else None,
-                        voi_image_path=row.voi_image_path.resolved if row.voi_image_path.resolved else None,
-                        voi_mask_path=row.voi_mask_path.resolved if row.voi_mask_path.resolved else None,
-                    )
-                )
-
-        if decisions:
-            review_path = _review_path(dataset, dataset_id, create=True)
-            existing = _read_decisions(review_path)
-            existing.extend(decisions)
-            _write_decisions(review_path, existing)
-
-            if payload.add_to_queue:
-                queue_path = _queue_path(dataset, dataset_id, create=True)
-                queue = _read_decisions(queue_path)
-                queue.extend(decisions)
-                _write_decisions(queue_path, queue)
-
-        complete_rows = sum(1 for d in decisions if d.scope == "complete")
-        voi_rows = sum(1 for d in decisions if d.scope == "voi")
-
-        return PhaseCorrectionResponse(
-            case_id=payload.case_id,
-            scan_idx=payload.scan_idx,
-            proposed_phase=payload.proposed_phase.strip(),
-            total_rows=len(decisions),
-            complete_rows=complete_rows,
-            voi_rows=voi_rows,
-            decisions=decisions,
-        )
 
 
 def correction_queue_csv(dataset_path: Path | str, dataset_id: str) -> str:

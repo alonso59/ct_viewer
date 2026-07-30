@@ -21,7 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useParams } from '../services/router'
 
 import {
   apiClient,

@@ -8,24 +8,43 @@ from threading import RLock
 from typing import Any
 
 from app.models.dataset import DatasetSummary, PatientSummary, SeriesInfo, SeriesSource
+from app.services.converter_metadata import (
+    metadata_rows_by_filename,
+    phase_overrides_by_filename,
+    select_converter_phase,
+    text_value,
+)
 
 
 CASE_ID_PATTERN = re.compile(r"(case_\d{5})")
 LATERALITY_PATTERN = re.compile(r"_(?:side)?([LR])$", re.IGNORECASE)
 NIFTI_SUFFIXES = (".nii.gz", ".nii")
 PHASE_ORDER = {
-    "NC": 0,
-    "ART": 1,
-    "VEN": 2,
+    "NP": 0,
+    "CMP": 1,
+    "NC": 2,
     "DELAY": 3,
     "UNDEFINED": 4,
     "DELETED": 5,
 }
 PHASE_NORMALIZATION = {
     "nc": "NC",
-    "art": "ART",
-    "ven": "VEN",
+    "noncontrast": "NC",
+    "art": "CMP",
+    "arterial": "CMP",
+    "cmp": "CMP",
+    "ven": "NP",
+    "venous": "NP",
+    "np": "NP",
+    "nephrographic": "NP",
     "delay": "DELAY",
+    "delayed": "DELAY",
+    "ep": "DELAY",
+    "ex": "DELAY",
+    "exc": "DELAY",
+    "excretory": "DELAY",
+    "unknown": "UNDEFINED",
+    "unk": "UNDEFINED",
     "undefined": "UNDEFINED",
     "deleted": "DELETED",
 }
@@ -67,7 +86,7 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
         return []
 
     dataset_candidates: list[Path]
-    if any((root / marker).exists() for marker in ("nifti", "seg", "voi", "manifest.csv")):
+    if any((root / marker).exists() for marker in ("nifti", "seg", "voi", "manifest.csv", "metadata.jsonl")):
         dataset_candidates = [root]
     else:
         dataset_candidates = sorted(
@@ -81,6 +100,7 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
         has_seg = (dataset_path / "seg").is_dir()
         has_voi = (dataset_path / "voi").is_dir()
         has_manifest = (dataset_path / "manifest.csv").is_file()
+        has_metadata = (dataset_path / "metadata.jsonl").is_file()
 
         try:
             patient_count = len(_get_dataset_index(dataset_path).patient_summaries)
@@ -95,6 +115,7 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
                 has_seg=has_seg,
                 has_voi=has_voi,
                 has_manifest=has_manifest,
+                has_metadata=has_metadata,
             )
         )
 
@@ -255,7 +276,10 @@ def _normalize_phase(value: str | None) -> str:
     cleaned = (value or "").strip()
     if not cleaned:
         return "UNDEFINED"
-    return PHASE_NORMALIZATION.get(cleaned.lower(), cleaned.upper())
+    if ";" in cleaned:
+        cleaned = cleaned.split(";", 1)[0].strip()
+    key = cleaned.lower().replace(" ", "").replace("_", "-")
+    return PHASE_NORMALIZATION.get(key, cleaned.upper())
 
 
 def _extract_patient_id(case_name: str) -> str:
@@ -334,17 +358,29 @@ def _collect_nifti_entries(
         return []
 
     manifest_index = _load_manifest_index(dataset_path)
+    metadata_index = metadata_rows_by_filename(dataset_path)
+    phase_overrides = phase_overrides_by_filename(dataset_path)
     entries: list[dict[str, Any]] = []
     for image_path in _nifti_files(nifti_dir, patient_filter=patient_filter):
         filename = image_path.name
         image_stem = _strip_nifti_suffix(filename)
-        row = manifest_index.get(filename, {})
-        patient_id = (row.get("case_id") or "").strip() or _extract_patient_id(image_stem)
+        manifest_row = manifest_index.get(filename, {})
+        metadata_row = metadata_index.get(filename, {})
+        phase_value, _phase_source = select_converter_phase(
+            metadata_row,
+            manifest_row,
+            phase_override=phase_overrides.get(filename),
+        )
+        patient_id = (
+            text_value(metadata_row.get("case_id"))
+            or (manifest_row.get("case_id") or "").strip()
+            or _extract_patient_id(image_stem)
+        )
         if patient_filter and patient_id != patient_filter:
             continue
-        source_patient_id = (row.get("patient_id") or "").strip() or None
-        group = (row.get("group") or "").strip() or None
-        phase = _normalize_phase(row.get("phase"))
+        source_patient_id = text_value(metadata_row.get("patient_id")) or (manifest_row.get("patient_id") or "").strip() or None
+        group = (manifest_row.get("group") or "").strip() or text_value(metadata_row.get("group")) or None
+        phase = _normalize_phase(phase_value)
         seg_path = _find_seg_path(dataset_path, image_stem)
 
         entries.append(
@@ -436,17 +472,29 @@ def _collect_deleted_nifti_entries(
         return []
 
     manifest_index = _load_manifest_index(dataset_path)
+    metadata_index = metadata_rows_by_filename(dataset_path)
+    phase_overrides = phase_overrides_by_filename(dataset_path)
     entries: list[dict[str, Any]] = []
     for image_path in _nifti_files(deleted_nifti_dir, patient_filter=patient_filter):
         filename = image_path.name
         image_stem = _strip_nifti_suffix(filename)
-        row = manifest_index.get(filename, {})
-        patient_id = (row.get("case_id") or "").strip() or _extract_patient_id(image_stem)
+        manifest_row = manifest_index.get(filename, {})
+        metadata_row = metadata_index.get(filename, {})
+        phase_value, _phase_source = select_converter_phase(
+            metadata_row,
+            manifest_row,
+            phase_override=phase_overrides.get(filename),
+        )
+        patient_id = (
+            text_value(metadata_row.get("case_id"))
+            or (manifest_row.get("case_id") or "").strip()
+            or _extract_patient_id(image_stem)
+        )
         if patient_filter and patient_id != patient_filter:
             continue
-        source_patient_id = (row.get("patient_id") or "").strip() or None
-        group = (row.get("group") or "").strip() or None
-        phase = _normalize_phase(row.get("phase"))
+        source_patient_id = text_value(metadata_row.get("patient_id")) or (manifest_row.get("patient_id") or "").strip() or None
+        group = (manifest_row.get("group") or "").strip() or text_value(metadata_row.get("group")) or None
+        phase = _normalize_phase(phase_value)
         mask_path = next(
             (
                 candidate

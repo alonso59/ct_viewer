@@ -12,7 +12,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '../services/router'
 
 import BackendFileBrowserDialog from '../components/dataset-setup/BackendFileBrowserDialog'
 import ValidationProgressDialog from '../components/dataset-setup/ValidationProgressDialog'
@@ -342,6 +342,49 @@ function DatasetSelectorPage({
         {workspaceError ? <Alert severity="error">{workspaceError}</Alert> : null}
         {submitState.error ? <Alert severity="error">{submitState.error}</Alert> : null}
 
+        <Card
+          sx={{
+            background:
+              'linear-gradient(145deg, rgba(10, 10, 10, 0.9), rgba(31, 41, 55, 0.9))',
+          }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <TextField
+                label="Dataset folder path on server"
+                value={pathInput}
+                onChange={(event) => setPathInput(event.target.value)}
+                placeholder="/path/to/Dataset820"
+                fullWidth
+                disabled={submitState.running || workspaceLoading}
+              />
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                <Button
+                  variant="contained"
+                  onClick={submitWorkspace}
+                  disabled={submitState.running || workspaceLoading}
+                >
+                  {workspace.configured ? 'Change dataset folder' : 'Activate dataset folder'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={clearWorkspace}
+                  disabled={!workspace.configured || submitState.running || workspaceLoading}
+                >
+                  Clear workspace
+                </Button>
+              </Stack>
+
+              <Typography variant="body2" color="text.secondary">
+                The path must exist on the backend server filesystem and contain at
+                least one of <code>database.csv</code>, <code>nifti/</code>, <code>seg/</code>, <code>voi/</code>, or
+                <code> manifest.csv</code>, or <code> metadata.jsonl</code>.
+              </Typography>
+            </Stack>
+          </CardContent>
+        </Card>
+
         {workspace.configured ? (
           <Card
             sx={{
@@ -375,15 +418,69 @@ function DatasetSelectorPage({
                       />
                     </Stack>
                   </Box>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                    {activeReviewDatasetId && !settingsState.loading ? (
+                  {activeDataset && !settingsState.loading ? (
+                    <Button
+                      variant="outlined"
+                      onClick={() =>
+                        navigate(`/datasets/${activeDataset.dataset_id}/cases`)
+                      }
+                    >
+                      Open cases
+                    </Button>
+                  ) : null}
+                </Stack>
+
+                <Typography variant="body2" color="text.secondary">
+                  Dataset path: {workspace.dataset_path}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Workspace directory: {workspace.workspace_dir}
+                </Typography>
+
+                {loading ? (
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <CircularProgress size={24} />
+                    <Typography color="text.secondary">Loading dataset summary...</Typography>
+                  </Stack>
+                ) : null}
+
+                {!loading && error ? <Alert severity="error">{error}</Alert> : null}
+
+                {!loading && !error && activeDataset ? (
+                  <Stack spacing={1.5}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Chip
+                        label={`${activeDataset.patient_count} patients`}
+                        color="primary"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={activeDataset.has_nifti ? 'NIfTI' : 'No NIfTI'}
+                        color={activeDataset.has_nifti ? 'primary' : 'default'}
+                        variant={activeDataset.has_nifti ? 'filled' : 'outlined'}
+                      />
+                      <Chip
+                        label={activeDataset.has_seg ? 'SEG' : 'No SEG'}
+                        color={activeDataset.has_seg ? 'secondary' : 'default'}
+                        variant={activeDataset.has_seg ? 'filled' : 'outlined'}
+                      />
+                      <Chip
+                        label={activeDataset.has_voi ? 'VOI' : 'No VOI'}
+                        color={activeDataset.has_voi ? 'success' : 'default'}
+                        variant={activeDataset.has_voi ? 'filled' : 'outlined'}
+                      />
+                      <Chip
+                        label={activeDataset.has_metadata ? 'metadata.jsonl' : 'No metadata.jsonl'}
+                        color={activeDataset.has_metadata ? 'success' : 'default'}
+                        variant={activeDataset.has_metadata ? 'filled' : 'outlined'}
+                      />
+                    </Stack>
+                    {settingsState.allSettings[activeDataset.dataset_id]?.last_patient ? (
                       <Button
                         variant="contained"
                         onClick={() =>
                           navigate(
-                            `/datasets/${activeReviewDatasetId}/review${
-                              readinessCases[0]?.case_id ? `/${readinessCases[0].case_id}` : ''
-                            }`,
+                            `/datasets/${activeDataset.dataset_id}/cases/${settingsState.allSettings[activeDataset.dataset_id]?.last_patient}/review`,
                           )
                         }
                       >

@@ -16,17 +16,15 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useParams } from '../services/router'
 
 import {
   apiClient,
   type DatasetViewerSettings,
   type PatientSummary,
   type ReviewApplyResponse,
-  type ReviewDeleteDecision,
   type ReviewOperation,
   getApiErrorMessage,
-  type Axis,
   type PhaseDecision,
   type SeriesInfo,
   type SliceQuery,
@@ -34,34 +32,32 @@ import {
 } from '../services/api'
 import BlendSlider from '../components/viewer/BlendSlider'
 import LayerToggle from '../components/viewer/LayerToggle'
+import MprRenderer from '../components/viewer/MprRenderer'
 import OpacitySlider from '../components/viewer/OpacitySlider'
+import SegmentationColorMap from '../components/viewer/SegmentationColorMap'
 import SeriesSelector from '../components/viewer/SeriesSelector'
-import SliceSlider from '../components/viewer/SliceSlider'
-import SliceView from '../components/viewer/SliceView'
-import ViewerGrid2x2 from '../components/viewer/ViewerGrid2x2'
 import WindowLevelControl from '../components/viewer/WindowLevelControl'
+import {
+  createDefaultLayerState,
+  ensureLayerStateForLabels,
+  getLayerStateEntry,
+  getSegmentationColor,
+  getSegmentationDefaultOpacity,
+  getSegmentationLabel,
+  layerColorsForLabels,
+  layerOpacitiesForLabels,
+  layerStateFromSettings,
+  sortedLayerLabels,
+  type LayerState,
+} from '../components/viewer/segmentationPalette'
 import { useSettings } from '../hooks/useSettings'
 import { useSliceNavigation } from '../components/viewer/useSliceNavigation'
 import { useWindowLevel } from '../components/viewer/useWindowLevel'
+import {
+  resolveMprRendererMode,
+  type MprRendererMode,
+} from '../services/mprRendererConfig'
 
-const PANEL_ACCENTS: Record<Axis, string> = {
-  axial: '#fbbf24',
-  coronal: '#ef4444',
-  sagittal: '#22c55e',
-}
-
-const LAYER_META: Record<number, { label: string; color: string; defaultOpacity: number }> = {
-  1: { label: 'Kidney', color: '#22d3ee', defaultOpacity: 0.15 },
-  2: { label: 'Tumor', color: '#FFFF00', defaultOpacity: 0.2 },
-  3: { label: 'Cyst', color: '#e879f9', defaultOpacity: 0.15 },
-}
-
-const SURFACE_LAYER_COLORS: Record<number, string> = {
-  1: LAYER_META[1].color,
-  2: LAYER_META[2].color,
-  3: LAYER_META[3].color,
-}
-const VOI_DISPLAY_SPACING = [1, 1, 1]
 const Surface3DView = lazy(() => import('../components/viewer/Surface3DView'))
 
 function seriesKey(series: Pick<SeriesInfo, 'series_id' | 'storage_path'> | null): string | null {
@@ -71,27 +67,8 @@ function seriesKey(series: Pick<SeriesInfo, 'series_id' | 'storage_path'> | null
   return `${series.series_id}::${series.storage_path ?? ''}`
 }
 
-function mapLayerStateFromSettings(
-  settings: DatasetViewerSettings,
-): {
-  1: { visible: boolean; opacity: number }
-  2: { visible: boolean; opacity: number }
-  3: { visible: boolean; opacity: number }
-} {
-  return {
-    1: {
-      visible: settings.layers_visible.includes(1),
-      opacity: settings.layers_opacity['1'] ?? LAYER_META[1].defaultOpacity,
-    },
-    2: {
-      visible: settings.layers_visible.includes(2),
-      opacity: settings.layers_opacity['2'] ?? LAYER_META[2].defaultOpacity,
-    },
-    3: {
-      visible: settings.layers_visible.includes(3),
-      opacity: settings.layers_opacity['3'] ?? LAYER_META[3].defaultOpacity,
-    },
-  }
+function mapLayerStateFromSettings(settings: DatasetViewerSettings): LayerState {
+  return layerStateFromSettings(settings.layers_visible, settings.layers_opacity)
 }
 
 function ViewerPage() {
@@ -114,25 +91,15 @@ function ViewerPage() {
     info: null,
     error: null,
   })
-  const [layerState, setLayerState] = useState(() => ({
-    1: { visible: true, opacity: LAYER_META[1].defaultOpacity },
-    2: { visible: true, opacity: LAYER_META[2].defaultOpacity },
-    3: { visible: false, opacity: LAYER_META[3].defaultOpacity },
-  }))
+  const [layerState, setLayerState] = useState<LayerState>(() => createDefaultLayerState())
   const [surfaceBlend, setSurfaceBlend] = useState(0.75)
   const [handleReloadTick, setHandleReloadTick] = useState(0)
   const reviewDataRevision = 0
   const [selectedGroup, setSelectedGroup] = useState('all')
   const [mutationsEnabled, setMutationsEnabled] = useState(false)
-  const [deleteHistoryState, setDeleteHistoryState] = useState<{
-    decisions: ReviewDeleteDecision[]
-    error: string | null
-    loading: boolean
-  }>({
-    decisions: [],
-    error: null,
-    loading: false,
-  })
+  const [mprRendererMode, setMprRendererMode] = useState<MprRendererMode>(() =>
+    resolveMprRendererMode(),
+  )
   const [applyState, setApplyState] = useState<{
     running: boolean
     error: string | null
@@ -189,13 +156,16 @@ function ViewerPage() {
     selectedSeries?.type === 'voi' ? VOI_DISPLAY_SPACING : activeVolumeInfo?.spacing
   const volumeLoading = selectedSeries !== null && volumeRequest.seriesKey !== selectedSeriesKey
   const selectedSeriesDeleted = Boolean(selectedSeries?.deleted)
-  const navigation = useSliceNavigation(activeVolumeInfo?.shape ?? null)
+  const navigation = useSliceNavigation(activeVolumeInfo?.shape ?? null, selectedSeriesKey)
   const activeLoadHandle = activeVolumeInfo?.load_handle ?? null
   const canPersistSettings =
     !settingsLoading &&
     (hydratedDatasetId === dsid || Boolean(settingsLoadError))
 
-  const patientList = patientRequest.datasetId === dsid ? patientRequest.patients : []
+  const patientList = useMemo(
+    () => (patientRequest.datasetId === dsid ? patientRequest.patients : []),
+    [dsid, patientRequest.datasetId, patientRequest.patients],
+  )
   const patientLoading = patientRequest.datasetId !== dsid
   const patientError = patientRequest.datasetId === dsid ? patientRequest.error : null
 
@@ -317,6 +287,7 @@ function ViewerPage() {
       .then((health) => {
         if (active) {
           setMutationsEnabled(Boolean(health.allow_data_mutations))
+          setMprRendererMode(resolveMprRendererMode(health.mpr_renderer))
         }
       })
       .catch(() => {
@@ -329,43 +300,6 @@ function ViewerPage() {
       active = false
     }
   }, [])
-
-  const loadDeleteHistory = useCallback(async () => {
-    if (!mutationsEnabled) {
-      setDeleteHistoryState({
-        decisions: [],
-        error: null,
-        loading: false,
-      })
-      return
-    }
-    setDeleteHistoryState((current) => ({
-      ...current,
-      loading: true,
-      error: null,
-    }))
-    try {
-      const decisions = await apiClient.listDeleteDecisions(dsid)
-      setDeleteHistoryState({
-        decisions,
-        error: null,
-        loading: false,
-      })
-    } catch (requestError) {
-      setDeleteHistoryState({
-        decisions: [],
-        error: getApiErrorMessage(requestError),
-        loading: false,
-      })
-    }
-  }, [dsid, mutationsEnabled])
-
-  useEffect(() => {
-    if (!selectedSeriesDeleted) {
-      return
-    }
-    void loadDeleteHistory()
-  }, [loadDeleteHistory, reviewDataRevision, selectedSeriesDeleted])
 
   useEffect(() => {
     if (!selectedSeries) {
@@ -419,14 +353,41 @@ function ViewerPage() {
     }
   }, [flushSettings])
 
-  const availableLabels = activeVolumeInfo?.labels ?? []
+  const availableLabels = useMemo(() => activeVolumeInfo?.labels ?? [], [activeVolumeInfo?.labels])
+  const sortedAvailableLabels = useMemo(() => sortedLayerLabels(availableLabels), [availableLabels])
+
+  useEffect(() => {
+    setLayerState((current) => ensureLayerStateForLabels(current, sortedAvailableLabels))
+  }, [sortedAvailableLabels])
+
   const visibleLayers = useMemo(
-    () => availableLabels.filter((label) => layerState[label as 1 | 2 | 3]?.visible),
-    [availableLabels, layerState],
+    () => sortedAvailableLabels.filter((label) => getLayerStateEntry(layerState, label).visible),
+    [layerState, sortedAvailableLabels],
   )
   const persistedVisibleLayers = useMemo(
-    () => ([1, 2, 3] as const).filter((label) => layerState[label].visible),
+    () =>
+      sortedLayerLabels(
+        Object.keys(layerState)
+          .map((label) => Number(label))
+          .filter((label) => getLayerStateEntry(layerState, label).visible),
+      ),
     [layerState],
+  )
+  const layerOpacities = useMemo(
+    () =>
+      layerOpacitiesForLabels(
+        sortedLayerLabels(Object.keys(layerState).map((label) => Number(label))),
+        layerState,
+      ),
+    [layerState],
+  )
+  const surfaceLayerColors = useMemo(
+    () => layerColorsForLabels(sortedAvailableLabels),
+    [sortedAvailableLabels],
+  )
+  const maskControlLabels = useMemo(
+    () => (sortedAvailableLabels.length > 0 ? sortedAvailableLabels : [1, 2, 3]),
+    [sortedAvailableLabels],
   )
 
   const sliceQuery: SliceQuery = {
@@ -434,9 +395,10 @@ function ViewerPage() {
     ww: windowLevel.ww,
     wl: windowLevel.wl,
     layers: visibleLayers,
-    opacity_1: layerState[1].opacity,
-    opacity_2: layerState[2].opacity,
-    opacity_3: layerState[3].opacity,
+    opacities: layerOpacities,
+    opacity_1: getLayerStateEntry(layerState, 1).opacity,
+    opacity_2: getLayerStateEntry(layerState, 2).opacity,
+    opacity_3: getLayerStateEntry(layerState, 3).opacity,
   }
 
   useEffect(() => {
@@ -451,14 +413,11 @@ function ViewerPage() {
       ww: windowLevel.ww,
       wl: windowLevel.wl,
       layers_visible: persistedVisibleLayers,
-      layers_opacity: {
-        1: layerState[1].opacity,
-        2: layerState[2].opacity,
-        3: layerState[3].opacity,
-      },
+      layers_opacity: layerOpacities,
     }))
   }, [
     layerState,
+    layerOpacities,
     persistedVisibleLayers,
     pid,
     selectedSeries?.series_id,
@@ -530,45 +489,20 @@ function ViewerPage() {
     })
   }
 
-  async function undoDelete(_decisionId: string) {
-    if (applyState.running) {
+  function restoreCurrentSeries() {
+    if (!selectedSeries) {
       return
     }
-    setApplyState({
-      running: false,
-      error: 'Controlled dataset correction is disabled until Phase B.',
-      response: null,
-    })
-    setToastState({
-      open: true,
-      severity: 'warning',
-      message: 'Undoing dataset file moves is disabled until Phase B.',
-    })
-  }
-
-  async function undoCurrentSeriesDelete() {
-    if (!selectedSeries || !selectedSeries.deleted || applyState.running) {
-      return
-    }
-    const decisions =
-      deleteHistoryState.decisions.length > 0
-        ? deleteHistoryState.decisions
-        : await apiClient.listDeleteDecisions(dsid)
-    const matchingDecision = decisions.find(
-      (decision) =>
-        decision.patient_id === selectedSeries.patient_id &&
-        decision.series_id === selectedSeries.series_id,
+    void applyReviewAction(
+      {
+        patient_id: pid,
+        series_id: selectedSeries.series_id,
+        action: 'restore',
+      },
+      {
+        onSuccess: () => setPreferredSeriesId(selectedSeries.series_id),
+      },
     )
-    if (!matchingDecision) {
-      setToastState({
-        open: true,
-        severity: 'warning',
-        message: 'No delete record was found for the selected series.',
-      })
-      return
-    }
-    await undoDelete(matchingDecision.decision_id)
-    setPreferredSeriesId(selectedSeries.series_id)
   }
 
   function clearTransientApplyState() {
@@ -634,127 +568,51 @@ function ViewerPage() {
     }
   }
 
-  const viewerPanels = {
-    axial: {
-      caption: describeSlice('axial', navigation.sliceIndices.axial, navigation.getMaxIndex('axial')),
-      content: (
-        <SlicePanel
-          accent={PANEL_ACCENTS.axial}
-          axis="axial"
-          crosshair={navigation.getCrosshair('axial')}
-          errorText={volumeError}
-          fitLabel={selectedSeries?.type === 'voi' ? 'VOI fit' : undefined}
-          index={navigation.sliceIndices.axial}
-          maxIndex={navigation.getMaxIndex('axial')}
-          onCrosshairChange={(point) => navigation.setFromPanelPosition('axial', point)}
-          onSliceChange={(index) => navigation.setSlice('axial', index)}
-          onHandleExpired={requestHandleReload}
-          onWindowLevelDrag={windowLevel.applyDrag}
-          query={sliceQuery}
-          requestKey={activeLoadHandle}
-          spacing={viewerSpacing}
-          wl={windowLevel.wl}
-          ww={windowLevel.ww}
-        />
-      ),
-    },
-    coronal: {
-      caption: describeSlice(
-        'coronal',
-        navigation.sliceIndices.coronal,
-        navigation.getMaxIndex('coronal'),
-      ),
-      content: (
-        <SlicePanel
-          accent={PANEL_ACCENTS.coronal}
-          axis="coronal"
-          crosshair={navigation.getCrosshair('coronal')}
-          errorText={volumeError}
-          fitLabel={selectedSeries?.type === 'voi' ? 'VOI fit' : undefined}
-          index={navigation.sliceIndices.coronal}
-          maxIndex={navigation.getMaxIndex('coronal')}
-          onCrosshairChange={(point) => navigation.setFromPanelPosition('coronal', point)}
-          onSliceChange={(index) => navigation.setSlice('coronal', index)}
-          onHandleExpired={requestHandleReload}
-          onWindowLevelDrag={windowLevel.applyDrag}
-          query={sliceQuery}
-          requestKey={activeLoadHandle}
-          spacing={viewerSpacing}
-          wl={windowLevel.wl}
-          ww={windowLevel.ww}
-        />
-      ),
-    },
-    sagittal: {
-      caption: describeSlice(
-        'sagittal',
-        navigation.sliceIndices.sagittal,
-        navigation.getMaxIndex('sagittal'),
-      ),
-      content: (
-        <SlicePanel
-          accent={PANEL_ACCENTS.sagittal}
-          axis="sagittal"
-          crosshair={navigation.getCrosshair('sagittal')}
-          errorText={volumeError}
-          fitLabel={selectedSeries?.type === 'voi' ? 'VOI fit' : undefined}
-          index={navigation.sliceIndices.sagittal}
-          maxIndex={navigation.getMaxIndex('sagittal')}
-          onCrosshairChange={(point) => navigation.setFromPanelPosition('sagittal', point)}
-          onSliceChange={(index) => navigation.setSlice('sagittal', index)}
-          onHandleExpired={requestHandleReload}
-          onWindowLevelDrag={windowLevel.applyDrag}
-          query={sliceQuery}
-          requestKey={activeLoadHandle}
-          spacing={viewerSpacing}
-          wl={windowLevel.wl}
-          ww={windowLevel.ww}
-        />
-      ),
-    },
-    surface: {
-      caption: activeVolumeInfo?.has_mask
+  const surfacePanel = {
+    caption: activeVolumeInfo?.has_mask
+      ? availableLabels.length > 0
         ? 'Interactive segmentation surface'
-        : 'No segmentation available',
-      content: (
-        <Stack
-          spacing={0.75}
-          sx={{
-            height: '100%',
-            p: 0.5,
-            background: 'transparent',
-          }}
+        : 'Empty segmentation mask'
+      : 'No segmentation available',
+    content: (
+      <Stack
+        spacing={0.75}
+        sx={{
+          height: '100%',
+          p: 0.5,
+          background: 'transparent',
+        }}
+      >
+        <Suspense
+          fallback={
+            <Stack
+              spacing={1}
+              alignItems="center"
+              justifyContent="center"
+              sx={{ flex: 1 }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Loading 3D renderer...
+              </Typography>
+            </Stack>
+          }
         >
-          <Suspense
-            fallback={
-              <Stack
-                spacing={1}
-                alignItems="center"
-                justifyContent="center"
-                sx={{ flex: 1 }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Loading 3D renderer...
-                </Typography>
-              </Stack>
-            }
-          >
-            <Surface3DView
-              blend={surfaceBlend}
-              errorText={volumeError}
-              hasMask={Boolean(activeVolumeInfo?.has_mask)}
-              labelColors={SURFACE_LAYER_COLORS}
-              loadHandle={activeLoadHandle}
-              onHandleExpired={requestHandleReload}
-              visibleLabels={visibleLayers}
-            />
-          </Suspense>
-          <Typography variant="caption" color="text.secondary">
-            Visible 3D labels: {visibleLayers.length > 0 ? visibleLayers.join(', ') : 'none'}
-          </Typography>
-        </Stack>
-      ),
-    },
+          <Surface3DView
+            availableLabels={availableLabels}
+            blend={surfaceBlend}
+            crosshairPoint={navigation.crosshairPoint}
+            errorText={volumeError}
+            hasMask={Boolean(activeVolumeInfo?.has_mask)}
+            labelColors={surfaceLayerColors}
+            loadHandle={activeLoadHandle}
+            onHandleExpired={requestHandleReload}
+            spacing={activeVolumeInfo?.spacing ?? null}
+            visibleLabels={visibleLayers}
+            volumeShape={activeVolumeInfo?.shape ?? null}
+          />
+        </Suspense>
+      </Stack>
+    ),
   }
 
   const sidebarContent = (
@@ -893,18 +751,21 @@ function ViewerPage() {
             Visible Masks
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {[1, 2, 3].map((label) => (
+            {maskControlLabels.map((label) => (
               <LayerToggle
                 key={label}
-                checked={layerState[label as 1 | 2 | 3].visible}
-                color={LAYER_META[label].color}
+                checked={availableLabels.includes(label) && getLayerStateEntry(layerState, label).visible}
+                color={getSegmentationColor(label)}
                 disabled={!availableLabels.includes(label)}
-                label={LAYER_META[label].label}
+                label={getSegmentationLabel(label)}
                 onChange={(checked) =>
                   setLayerState((current) => ({
                     ...current,
                     [label]: {
-                      ...current[label as 1 | 2 | 3],
+                      ...(current[label] ?? {
+                        visible: checked,
+                        opacity: getSegmentationDefaultOpacity(label),
+                      }),
                       visible: checked,
                     },
                   }))
@@ -912,6 +773,7 @@ function ViewerPage() {
               />
             ))}
           </Stack>
+          <SegmentationColorMap labels={maskControlLabels} />
         </Stack>
 
         <Divider />
@@ -931,27 +793,34 @@ function ViewerPage() {
           }}
         >
           <WindowLevelControl
+            activePreset={windowLevel.activePreset}
+            maxHu={windowLevel.maxHu}
+            minHu={windowLevel.minHu}
             ww={windowLevel.ww}
             wl={windowLevel.wl}
+            onCustomRange={windowLevel.setWindowRange}
             onPreset={windowLevel.applyPreset}
           />
           <Stack spacing={1.2}>
-            {[1, 2, 3].map((label) => (
+            {maskControlLabels.map((label) => (
               <OpacitySlider
                 key={label}
-                color={LAYER_META[label].color}
-                disabled={!availableLabels.includes(label) || !layerState[label as 1 | 2 | 3].visible}
-                label={LAYER_META[label].label}
+                color={getSegmentationColor(label)}
+                disabled={!availableLabels.includes(label) || !getLayerStateEntry(layerState, label).visible}
+                label={getSegmentationLabel(label)}
                 onChange={(value) =>
                   setLayerState((current) => ({
                     ...current,
                     [label]: {
-                      ...current[label as 1 | 2 | 3],
+                      ...(current[label] ?? {
+                        visible: true,
+                        opacity: getSegmentationDefaultOpacity(label),
+                      }),
                       opacity: value,
                     },
                   }))
                 }
-                value={layerState[label as 1 | 2 | 3].opacity}
+                value={getLayerStateEntry(layerState, label).opacity}
               />
             ))}
             <BlendSlider
@@ -1027,75 +896,44 @@ function ViewerPage() {
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <Button
                     variant="outlined"
-                    color="error"
-                    onClick={deleteCurrentSeries}
-                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
+                    color={selectedSeriesDeleted ? undefined : 'error'}
+                    onClick={selectedSeriesDeleted ? restoreCurrentSeries : deleteCurrentSeries}
+                    disabled={!selectedSeries || applyState.running || !mutationsEnabled}
                     disableRipple
                     size="small"
-                    sx={{ transition: 'none' }}
-                  >
-                    Delete
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      if (selectedSeriesDeleted) {
-                        void undoCurrentSeriesDelete()
-                      }
-                    }}
-                    disabled={
-                      applyState.running ||
-                      !mutationsEnabled ||
-                      !selectedSeriesDeleted
+                    sx={
+                      selectedSeriesDeleted
+                        ? {
+                            transition: 'none',
+                            color: '#fb923c',
+                            borderColor: alpha('#fb923c', 0.72),
+                            backgroundColor: alpha('#fb923c', 0.2),
+                            '&:hover': {
+                              borderColor: '#fdba74',
+                              backgroundColor: alpha('#fb923c', 0.28),
+                            },
+                          }
+                        : { transition: 'none' }
                     }
-                    disableRipple
-                    size="small"
-                    sx={{
-                      transition: 'none',
-                      color: '#fb923c',
-                      borderColor: alpha('#fb923c', 0.72),
-                      backgroundColor: selectedSeriesDeleted ? alpha('#fb923c', 0.2) : 'transparent',
-                      '&:hover': {
-                        borderColor: '#fdba74',
-                        backgroundColor: alpha('#fb923c', 0.28),
-                      },
-                    }}
                   >
-                    Undo
+                    {selectedSeriesDeleted ? 'Restore' : 'Delete'}
                   </Button>
                 </Stack>
 
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Button
-                    variant="outlined"
-                    onClick={() => reclassifyCurrentSeries('NC')}
-                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
-                    disableRipple
-                    size="small"
-                    sx={getPhaseButtonSx('NC')}
-                  >
-                    NC
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => reclassifyCurrentSeries('ART')}
-                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
-                    disableRipple
-                    size="small"
-                    sx={getPhaseButtonSx('ART')}
-                  >
-                    ART
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => reclassifyCurrentSeries('VEN')}
-                    disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
-                    disableRipple
-                    size="small"
-                    sx={getPhaseButtonSx('VEN')}
-                  >
-                    VEN
-                  </Button>
+                  {(['NC', 'CMP', 'NP', 'DELAY'] as const).map((phase) => (
+                    <Button
+                      key={phase}
+                      variant="outlined"
+                      onClick={() => reclassifyCurrentSeries(phase)}
+                      disabled={!selectedSeries || selectedSeriesDeleted || applyState.running || !mutationsEnabled}
+                      disableRipple
+                      size="small"
+                      sx={getPhaseButtonSx(phase)}
+                    >
+                      {phase}
+                    </Button>
+                  ))}
                 </Stack>
 
                 <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
@@ -1157,7 +995,18 @@ function ViewerPage() {
             </Stack>
           </Paper>
 
-          <ViewerGrid2x2 panels={viewerPanels} />
+          <MprRenderer
+            errorText={volumeError}
+            navigation={navigation}
+            onHandleExpired={requestHandleReload}
+            onWindowLevelDrag={windowLevel.applyDrag}
+            query={sliceQuery}
+            rendererMode={mprRendererMode}
+            requestKey={activeLoadHandle}
+            surfacePanel={surfacePanel}
+            wl={windowLevel.wl}
+            ww={windowLevel.ww}
+          />
         </Stack>
 
         <Box
@@ -1203,95 +1052,12 @@ function ViewerPage() {
   )
 }
 
-function SlicePanel({
-  accent,
-  axis,
-  crosshair,
-  errorText,
-  fitLabel,
-  index,
-  maxIndex,
-  onCrosshairChange,
-  onSliceChange,
-  onHandleExpired,
-  onWindowLevelDrag,
-  query,
-  requestKey,
-  spacing,
-  wl,
-  ww,
-}: {
-  accent: string
-  axis: Axis
-  crosshair: { x: number; y: number }
-  errorText: string | null
-  fitLabel?: string
-  index: number
-  maxIndex: number
-  onCrosshairChange: (point: { x: number; y: number }) => void
-  onSliceChange: (index: number) => void
-  onHandleExpired: () => void
-  onWindowLevelDrag: (
-    startWw: number,
-    startWl: number,
-    deltaX: number,
-    deltaY: number,
-  ) => void
-  query: SliceQuery
-  requestKey: string | null
-  spacing?: number[]
-  wl: number
-  ww: number
-}) {
-  return (
-    <Stack
-      spacing={0.75}
-      sx={{
-        height: '100%',
-        p: 0.5,
-        background: 'transparent',
-      }}
-    >
-      <SliceView
-        accent={accent}
-        axis={axis}
-        crosshair={crosshair}
-        disabled={!requestKey}
-        errorText={errorText}
-        fitLabel={fitLabel}
-        index={index}
-        maxIndex={maxIndex}
-        onCrosshairChange={onCrosshairChange}
-        onSliceChange={onSliceChange}
-        onHandleExpired={onHandleExpired}
-        onWindowLevelDrag={onWindowLevelDrag}
-        query={query}
-        requestKey={requestKey}
-        spacing={spacing}
-        wl={wl}
-        ww={ww}
-      />
-      <SliceSlider
-        axis={axis}
-        color={accent}
-        index={index}
-        maxIndex={maxIndex}
-        onChange={onSliceChange}
-      />
-    </Stack>
-  )
-}
-
 function normalizePatientGroup(group: string | null): string {
   const normalized = group?.trim()
   if (!normalized) {
     return 'Unknown'
   }
   return normalized
-}
-
-function describeSlice(axis: string, index: number, maxIndex: number) {
-  return `${axis.toUpperCase()} ${index + 1} / ${maxIndex + 1}`
 }
 
 export default ViewerPage

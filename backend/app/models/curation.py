@@ -96,22 +96,3 @@ class CurationDecision(BaseModel):
 class CorrectionQueueResponse(BaseModel):
     dataset_id: str
     items: list[CurationDecision] = Field(default_factory=list)
-
-
-class PhaseCorrectionRequest(BaseModel):
-    case_id: str
-    scan_idx: str | None = None
-    proposed_phase: str
-    comment: str = ""
-    reviewer: str = ""
-    add_to_queue: bool = True
-
-
-class PhaseCorrectionResponse(BaseModel):
-    case_id: str
-    scan_idx: str | None
-    proposed_phase: str
-    total_rows: int
-    complete_rows: int
-    voi_rows: int
-    decisions: list[CurationDecision] = Field(default_factory=list)

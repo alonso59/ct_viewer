@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
-import math
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -18,6 +17,14 @@ from app.models.database import (
     QCWarning,
     RequiredColumnStatus,
     Scope,
+)
+from app.services.converter_metadata import (
+    has_converter_metadata,
+    metadata_filename,
+    phase_overrides_by_filename,
+    read_converter_metadata_rows,
+    select_converter_phase,
+    text_value,
 )
 from app.services.path_resolver import path_exists, path_is_unreadable, resolve_database_path
 
@@ -37,6 +44,8 @@ PHASE_MAPPING: dict[str, CanonicalPhase] = {
     "NEPHROGRAPHIC": "NP",
     "DELAY": "DELAY",
     "DELAYED": "DELAY",
+    "EP": "DELAY",
+    "EX": "DELAY",
     "EXC": "DELAY",
     "EXCRETORY": "DELAY",
 }
@@ -82,6 +91,7 @@ class DatabaseIndex:
     dataset_id: str
     dataset_path: Path
     has_database: bool
+    source_file: str | None
     fieldnames: tuple[str, ...]
     rows: tuple[DatabaseRow, ...]
 
@@ -96,18 +106,18 @@ def reset_database_index() -> None:
 
 
 def has_database(dataset_path: Path | str) -> bool:
-    return _database_csv_path(Path(dataset_path).expanduser().resolve()).is_file()
+    resolved = Path(dataset_path).expanduser().resolve()
+    return (resolved / "database.csv").is_file() or has_converter_metadata(resolved)
 
 
 def get_database_index(dataset_path: Path | str) -> DatabaseIndex:
     resolved = Path(dataset_path).expanduser().resolve()
-    database_path = _database_csv_path(resolved)
-    key = f"{resolved}::{database_path}"
+    key = str(resolved)
     with _DATABASE_LOCK:
         cached = _DATABASE_CACHE.get(key)
         if cached is not None:
             return cached
-        index = _load_database_index(resolved, database_path)
+        index = _load_database_index(resolved)
         _DATABASE_CACHE[key] = index
         return index
 
@@ -163,7 +173,7 @@ def list_case_inventory(dataset_path: Path | str, case_id: str) -> list[CaseInve
 def get_case_dossier(dataset_path: Path | str, case_id: str) -> CaseDossier:
     rows = [row for row in get_database_index(dataset_path).rows if row.case_id == case_id]
     if not rows:
-        raise FileNotFoundError(f"Case '{case_id}' not found in database.csv")
+        raise FileNotFoundError(f"Case '{case_id}' not found in dataset index")
 
     return CaseDossier(
         case_id=case_id,
@@ -178,7 +188,23 @@ def get_case_dossier(dataset_path: Path | str, case_id: str) -> CaseDossier:
                 "scan_idx",
                 "filename",
                 "phase",
+                "raw_phase",
+                "canonical_phase",
                 "phase_source",
+                "phase_confidence",
+                "phase_guess",
+                "phase_guess_confidence",
+                "phase_guess_evidence",
+                "phase_guess_conflict",
+                "curated_phase",
+                "curated_keep",
+                "curated_quality",
+                "include_guess",
+                "output_role",
+                "exclude_reason",
+                "analysis_readiness",
+                "analysis_readiness_reasons",
+                "notes",
                 "side",
                 "laterality",
                 "tumor_laterality",
@@ -242,9 +268,25 @@ def get_case_dossier(dataset_path: Path | str, case_id: str) -> CaseDossier:
     )
 
 
-def get_case_load_source(dataset_path: Path | str, case_id: str, row_id: str, scope: Scope) -> CaseLoadSource:
+def get_case_load_source(
+    dataset_path: Path | str,
+    case_id: str,
+    row_id: str,
+    scope: Scope,
+    row_index: int | None = None,
+) -> CaseLoadSource:
     index = get_database_index(dataset_path)
-    row = next((entry for entry in index.rows if entry.case_id == case_id and entry.row_id == row_id), None)
+    if row_index is None:
+        row = next((entry for entry in index.rows if entry.case_id == case_id and entry.row_id == row_id), None)
+    else:
+        row = next(
+            (
+                entry
+                for entry in index.rows
+                if entry.case_id == case_id and entry.row_id == row_id and entry.index == row_index
+            ),
+            None,
+        )
     if row is None:
         raise FileNotFoundError(f"Row '{row_id}' was not found for case '{case_id}'")
 
@@ -260,7 +302,6 @@ def get_case_load_source(dataset_path: Path | str, case_id: str, row_id: str, sc
         image_path = row.voi_image_path.resolved
         mask_path = row.voi_mask_path.resolved if path_exists(row.voi_mask_path) else None
         source_type = "voi_numpy" if _is_numpy_path(image_path or "") else "voi_nifti"
-    spacing = _metadata_spacing(row.raw) if source_type == "voi_numpy" else None
 
     if image_path is None:
         raise FileNotFoundError(f"Image path is missing for row '{row_id}'")
@@ -268,13 +309,13 @@ def get_case_load_source(dataset_path: Path | str, case_id: str, row_id: str, sc
     return CaseLoadSource(
         dataset_id=index.dataset_id,
         case_id=case_id,
+        row_index=row.index,
         row_id=row.row_id,
         scope=scope,
-        series_id=f"{scope}:{row.row_id}",
+        series_id=f"{scope}:{row.index}:{row.row_id}",
         image_path=image_path,
         mask_path=mask_path,
         source_type=source_type,
-        spacing=spacing,
     )
 
 
@@ -307,6 +348,10 @@ def required_column_status(fieldnames: tuple[str, ...]) -> list[RequiredColumnSt
 
 def normalize_phase(value: str | None) -> tuple[CanonicalPhase, PhaseStatus]:
     cleaned = (value or "").strip()
+    if ";" in cleaned:
+        mapped, status = normalize_phase(cleaned.split(";", 1)[0])
+        return (mapped, "ambiguous") if mapped != "UNK" else (mapped, status)
+
     key = _phase_key(cleaned)
     if key in MISSING_PHASE_VALUES:
         return "UNK", "missing"
@@ -316,45 +361,174 @@ def normalize_phase(value: str | None) -> tuple[CanonicalPhase, PhaseStatus]:
     return mapped, "normalized"
 
 
-def _load_database_index(dataset_path: Path, database_path: Path) -> DatabaseIndex:
-    if not database_path.is_file():
+def _load_database_index(dataset_path: Path) -> DatabaseIndex:
+    database_path = dataset_path / "database.csv"
+    if database_path.is_file():
+        with database_path.open(newline="", encoding="utf-8-sig") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = tuple(reader.fieldnames or ())
+            rows = tuple(
+                _normalize_row(dataset_path, index, _stringify_row(row))
+                for index, row in enumerate(reader)
+            )
+
+        dataset_id = _first_value(row.raw.get("dataset_id") for row in rows) or dataset_path.name
         return DatabaseIndex(
-            dataset_id=dataset_path.name,
+            dataset_id=dataset_id,
             dataset_path=dataset_path,
-            has_database=False,
-            fieldnames=(),
-            rows=(),
+            has_database=True,
+            source_file="database.csv",
+            fieldnames=fieldnames,
+            rows=rows,
         )
 
-    with database_path.open(newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = tuple(reader.fieldnames or ())
-        rows = tuple(
-            _normalize_row(dataset_path, index, _stringify_row(row))
-            for index, row in enumerate(reader)
-        )
+    metadata_path = dataset_path / "metadata.jsonl"
+    if metadata_path.is_file():
+        return _load_converter_metadata_index(dataset_path)
 
+    return DatabaseIndex(
+        dataset_id=dataset_path.name,
+        dataset_path=dataset_path,
+        has_database=False,
+        source_file=None,
+        fieldnames=(),
+        rows=(),
+    )
+
+
+def _load_converter_metadata_index(dataset_path: Path) -> DatabaseIndex:
+    manifest_index = _load_manifest_index(dataset_path)
+    phase_overrides = phase_overrides_by_filename(dataset_path)
+    projected_rows = [
+        _metadata_to_database_row(dataset_path, index, row, manifest_index, phase_overrides)
+        for index, row in enumerate(read_converter_metadata_rows(dataset_path))
+    ]
+    fieldnames = tuple(dict.fromkeys(field for row in projected_rows for field in row))
+    rows = tuple(
+        _normalize_row(dataset_path, index, _stringify_row(row))
+        for index, row in enumerate(projected_rows)
+    )
     dataset_id = _first_value(row.raw.get("dataset_id") for row in rows) or dataset_path.name
     return DatabaseIndex(
         dataset_id=dataset_id,
         dataset_path=dataset_path,
         has_database=True,
+        source_file="metadata.jsonl",
         fieldnames=fieldnames,
         rows=rows,
     )
 
 
-def _database_csv_path(dataset_path: Path) -> Path:
-    try:
-        from app.services.workspace import active_workspace_database_csv_path
+def _metadata_to_database_row(
+    dataset_path: Path,
+    index: int,
+    row: dict[str, Any],
+    manifest_index: dict[str, dict[str, str]],
+    phase_overrides: dict[str, str],
+) -> dict[str, Any]:
+    filename = metadata_filename(row) or f"metadata_row_{index:06d}.nii.gz"
+    manifest = manifest_index.get(filename, {})
+    phase, phase_source = select_converter_phase(
+        row,
+        manifest,
+        phase_override=phase_overrides.get(filename),
+    )
+    nifti_path = _metadata_nifti_path(row, filename)
+    seg_path = _metadata_seg_path(dataset_path, filename)
+    has_seg = path_exists(resolve_database_path(dataset_path, seg_path))
 
-        active_database_path = active_workspace_database_csv_path(dataset_path)
-        if active_database_path is not None:
-            return active_database_path
-    except Exception:
-        pass
-    return dataset_path / "database.csv"
+    projected = {
+        **row,
+        "row_id": f"metadata:{text_value(row.get('relative_path')) or filename}",
+        "source_row_id": _first_value(
+            [
+                text_value(row.get("source_row_id")),
+                text_value(row.get("series_uid")),
+                text_value(row.get("study_uid")),
+            ]
+        ),
+        "dataset_id": text_value(row.get("dataset_id")) or dataset_path.name,
+        "case_id": text_value(row.get("case_id")) or text_value(manifest.get("case_id")) or _extract_case_id(filename),
+        "patient_id": text_value(row.get("patient_id")) or text_value(manifest.get("patient_id")),
+        "group": text_value(manifest.get("group")) or text_value(row.get("group")),
+        "raw_phase": phase,
+        "phase": phase,
+        "phase_source": phase_source,
+        "phase_confidence": text_value(row.get("phase_guess_confidence")),
+        "scan_idx": text_value(row.get("scan_idx")) or text_value(manifest.get("scan_idx")),
+        "side": _metadata_side(row, manifest),
+        "filename": filename,
+        "nifti_path": nifti_path,
+        "nifti_original_volume_path": nifti_path,
+        "seg_path": seg_path,
+        "voi_image_path": "",
+        "voi_mask_path": "",
+        "has_seg": str(has_seg).lower(),
+        "has_voi_image": "false",
+        "has_voi_mask": "false",
+        "source_index": "metadata.jsonl",
+    }
+    return projected
 
+
+def _load_manifest_index(dataset_path: Path) -> dict[str, dict[str, str]]:
+    manifest_path = dataset_path / "manifest.csv"
+    if not manifest_path.is_file():
+        return {}
+
+    with manifest_path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        return {
+            filename: dict(row)
+            for row in reader
+            if (filename := (row.get("filename") or "").strip())
+        }
+
+
+def _metadata_nifti_path(row: dict[str, Any], filename: str) -> str:
+    return (
+        text_value(row.get("relative_path"))
+        or text_value(row.get("nifti_file"))
+        or f"nifti/{filename}"
+    )
+
+
+def _metadata_seg_path(dataset_path: Path, filename: str) -> str:
+    stem = _strip_nifti_suffix(filename)
+    seg_stem = stem[:-5] if stem.endswith("_0000") else stem
+    for suffix in (".nii.gz", ".nii"):
+        candidate = dataset_path / "seg" / f"{seg_stem}{suffix}"
+        if candidate.exists():
+            return f"seg/{seg_stem}{suffix}"
+    return f"seg/{seg_stem}.nii.gz"
+
+
+def _metadata_side(row: dict[str, Any], manifest: dict[str, str]) -> str:
+    for value in (
+        text_value(row.get("side")),
+        text_value(row.get("laterality")),
+        text_value(manifest.get("side")),
+        text_value(manifest.get("Laterality")),
+    ):
+        if value.upper() in VALID_SIDES:
+            return value.upper()
+    return ""
+
+
+def _extract_case_id(filename: str) -> str:
+    stem = _strip_nifti_suffix(filename)
+    parts = stem.split("_")
+    for index, part in enumerate(parts[:-1]):
+        if part == "case" and parts[index + 1].isdigit():
+            return f"case_{parts[index + 1]}"
+    return stem
+
+
+def _strip_nifti_suffix(filename: str) -> str:
+    for suffix in (".nii.gz", ".nii"):
+        if filename.endswith(suffix):
+            return filename[: -len(suffix)]
+    return Path(filename).stem
 
 def _normalize_row(dataset_path: Path, index: int, raw: dict[str, str]) -> DatabaseRow:
     source_row_id = _first_value(
@@ -441,15 +615,16 @@ def _row_warnings(row: DatabaseRow) -> list[QCWarning]:
             )
         )
     if not row.has_voi_image:
-        warnings.append(
-            QCWarning(
-                code="missing_voi_image",
-                message="VOI image is marked unavailable.",
-                row_id=row.row_id,
-                scope="voi",
-                path_field="voi_image_path",
+        if _should_warn_missing_voi(row, row.voi_image_path):
+            warnings.append(
+                QCWarning(
+                    code="missing_voi_image",
+                    message="VOI image is marked unavailable.",
+                    row_id=row.row_id,
+                    scope="voi",
+                    path_field="voi_image_path",
+                )
             )
-        )
     elif not path_exists(row.voi_image_path):
         warnings.append(
             QCWarning(
@@ -461,15 +636,16 @@ def _row_warnings(row: DatabaseRow) -> list[QCWarning]:
             )
         )
     if not row.has_voi_mask:
-        warnings.append(
-            QCWarning(
-                code="missing_voi_mask",
-                message="VOI mask is marked unavailable.",
-                row_id=row.row_id,
-                scope="voi",
-                path_field="voi_mask_path",
+        if _should_warn_missing_voi(row, row.voi_mask_path):
+            warnings.append(
+                QCWarning(
+                    code="missing_voi_mask",
+                    message="VOI mask is marked unavailable.",
+                    row_id=row.row_id,
+                    scope="voi",
+                    path_field="voi_mask_path",
+                )
             )
-        )
     elif not path_exists(row.voi_mask_path):
         warnings.append(
             QCWarning(
@@ -499,6 +675,10 @@ def _row_warnings(row: DatabaseRow) -> list[QCWarning]:
         )
     return warnings
 
+
+
+def _should_warn_missing_voi(row: DatabaseRow, status: PathStatus) -> bool:
+    return not (row.raw.get("source_index") == "metadata.jsonl" and status.status == "not_provided")
 
 def _append_path_warning(
     warnings: list[QCWarning],
@@ -535,8 +715,10 @@ def _append_path_warning(
 
 def _inventory_row(row: DatabaseRow) -> CaseInventoryRow:
     return CaseInventoryRow(
+        row_index=row.index,
         row_id=row.row_id,
         source_row_id=row.source_row_id,
+        series_id=_nifti_series_id(row.nifti_path),
         case_id=row.case_id,
         patient_id=row.patient_id,
         group=row.group,
@@ -556,8 +738,38 @@ def _inventory_row(row: DatabaseRow) -> CaseInventoryRow:
         has_seg=row.has_seg,
         has_voi_image=row.has_voi_image,
         has_voi_mask=row.has_voi_mask,
+        deleted=_row_is_deleted(row),
         qc_warnings=list(row.qc_warnings),
     )
+
+
+def _nifti_series_id(path_status: PathStatus) -> str | None:
+    raw_path = path_status.raw or path_status.resolved
+    if not raw_path:
+        return None
+    filename = Path(raw_path).name
+    stem = _strip_nifti_suffix(filename)
+    if not stem:
+        return None
+    return f"nifti:{stem}"
+
+
+def _row_is_deleted(row: DatabaseRow) -> bool:
+    return any(
+        _path_status_is_deleted(status)
+        for status in (row.nifti_path, row.seg_path, row.voi_image_path, row.voi_mask_path)
+    )
+
+
+def _path_status_is_deleted(status: PathStatus) -> bool:
+    values = [status.raw, status.resolved]
+    for value in values:
+        if not value:
+            continue
+        normalized = value.replace("\\", "/")
+        if "/deleted/" in normalized or normalized.startswith("deleted/"):
+            return True
+    return False
 
 
 def _project_fields(rows: list[DatabaseRow], fields: set[str]) -> dict[str, Any]:
@@ -641,24 +853,3 @@ def _stringify_row(row: dict[str, Any]) -> dict[str, str]:
 
 def _is_numpy_path(path: str) -> bool:
     return path.lower().endswith(".npy")
-
-
-def _metadata_spacing(raw: dict[str, str]) -> list[float] | None:
-    values = [
-        _positive_float(raw.get("spacing_x")),
-        _positive_float(raw.get("spacing_y")),
-        _positive_float(raw.get("spacing_z")),
-    ]
-    if any(value is None for value in values):
-        return None
-    return [float(value) for value in values if value is not None]
-
-
-def _positive_float(value: str | None) -> float | None:
-    if value is None:
-        return None
-    try:
-        parsed = float(value.strip())
-    except ValueError:
-        return None
-    return parsed if math.isfinite(parsed) and parsed > 0 else None

@@ -1,22 +1,14 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from '../services/router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import MainReviewScreen from './MainReviewScreen'
-import { apiClient, type CurationDecision } from '../services/api'
+import CaseReviewPage from './CaseReviewPage'
+import CaseWorklistPage from './CaseWorklistPage'
+import { apiClient } from '../services/api'
 
 vi.mock('../components/viewer/SliceView', () => ({
-  default: (props: { axis: string; fitLabel?: string; spacing?: number[] }) => (
-    <div
-      data-axis={props.axis}
-      data-fit-label={props.fitLabel ?? ''}
-      data-spacing={props.spacing?.join(',') ?? ''}
-      data-testid="slice-view"
-    >
-      Slice
-    </div>
-  ),
+  default: () => <div data-testid="slice-view">Slice</div>,
 }))
 
 vi.mock('../components/viewer/Surface3DView', () => ({
@@ -25,19 +17,21 @@ vi.mock('../components/viewer/Surface3DView', () => ({
 
 vi.mock('../services/api', async () => {
   const apiClient = {
-    getCaseDossier: vi.fn(),
-    getCurationHistory: vi.fn(),
+    getHealth: vi.fn(),
+    getDatabaseValidation: vi.fn(),
     listCases: vi.fn(),
     listCaseInventory: vi.fn(),
+    getCaseDossier: vi.fn(),
+    getCurationHistory: vi.fn(),
     listCorrectionQueue: vi.fn(),
     loadCaseSource: vi.fn(),
     saveCurationDecision: vi.fn(),
+    applyReviewOperations: vi.fn(),
   }
   return {
     apiClient,
     getApiErrorMessage: (error: unknown) =>
       error instanceof Error ? error.message : 'Unexpected API error',
-    isHandleExpiredError: () => false,
   }
 })
 
@@ -58,26 +52,14 @@ const cases = [
     warning_count: 2,
     has_comments: true,
   },
-  {
-    case_id: 'case_00002',
-    patient_id: 'patient-b',
-    group: 'G',
-    available_phases: ['NP'],
-    scan_count: 1,
-    seg_count: 1,
-    voi_image_count: 1,
-    voi_mask_count: 1,
-    voi_sides: ['L'],
-    latest_curation_status: null,
-    warning_count: 0,
-    has_comments: false,
-  },
 ]
 
 const inventory = [
   {
+    row_index: 0,
     row_id: 'row-a',
     source_row_id: null,
+    series_id: 'nifti:a',
     case_id: 'case_00001',
     patient_id: 'patient-a',
     group: 'G',
@@ -94,12 +76,15 @@ const inventory = [
     has_seg: true,
     has_voi_image: true,
     has_voi_mask: true,
+    deleted: false,
     qc_warnings: [],
     latest_curation_status: null,
   },
   {
+    row_index: 1,
     row_id: 'row-a-r',
     source_row_id: null,
+    series_id: 'nifti:a',
     case_id: 'case_00001',
     patient_id: 'patient-a',
     group: 'G',
@@ -116,12 +101,15 @@ const inventory = [
     has_seg: true,
     has_voi_image: true,
     has_voi_mask: true,
+    deleted: false,
     qc_warnings: [],
     latest_curation_status: null,
   },
   {
+    row_index: 2,
     row_id: 'row-b',
     source_row_id: null,
+    series_id: 'nifti:b',
     case_id: 'case_00001',
     patient_id: 'patient-a',
     group: 'G',
@@ -138,6 +126,7 @@ const inventory = [
     has_seg: true,
     has_voi_image: true,
     has_voi_mask: true,
+    deleted: false,
     qc_warnings: [
       {
         code: 'missing_seg',
@@ -160,7 +149,28 @@ const inventory = [
   },
 ]
 
-const history: CurationDecision[] = [
+const validationReport = {
+  dataset_id: 'DatasetTest',
+  has_database: true,
+  row_count: 3,
+  case_count: 1,
+  required_columns: [
+    { name: 'case_id', present: true, alternatives: [] },
+    { name: 'nifti_path', present: true, alternatives: [] },
+  ],
+  warnings: [
+    {
+      code: 'missing_voi_image',
+      message: 'VOI image is expected but missing or unreadable.',
+      severity: 'warning',
+      row_id: 'row-b',
+      scope: 'voi',
+      path_field: 'voi_image_path',
+    },
+  ],
+}
+
+const history = [
   {
     review_id: 'review-a',
     dataset_id: 'DatasetTest',
@@ -200,9 +210,16 @@ const correctionQueue = {
   ],
 }
 
-describe('Main Review Screen UX', () => {
+describe('v2 medical curation UI', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedApi.getHealth.mockResolvedValue({
+      status: 'ok',
+      allow_data_mutations: false,
+      mpr_renderer: 'png',
+      webui_state_dir: '',
+    } as never)
+    mockedApi.getDatabaseValidation.mockResolvedValue(validationReport as never)
     mockedApi.listCases.mockResolvedValue(cases as never)
     mockedApi.listCaseInventory.mockResolvedValue(inventory as never)
     mockedApi.getCurationHistory.mockResolvedValue(history as never)
@@ -222,333 +239,231 @@ describe('Main Review Screen UX', () => {
       shape: [8, 8, 8],
       spacing: [1, 1, 1],
       has_mask: true,
-      labels: [1, 2, 3],
+      labels: [1, 2],
     })
     mockedApi.saveCurationDecision.mockResolvedValue({
-      ...history[0],
+      review_id: 'review-a',
+      dataset_id: 'DatasetTest',
+      case_id: 'case_00001',
+      row_id: 'row-a',
+      scope: 'complete',
+      target: 'SEG',
+      status: 'accepted',
+      priority: 'medium',
       comment: '',
       reviewer: '',
+      patient_id: 'patient-a',
+      source_row_id: null,
+      scan_idx: '0',
+      raw_phase: 'ven',
+      canonical_phase: 'NP',
+      proposed_phase: null,
+      side: 'L',
+      reviewed_at: '2026-05-27T00:00:00Z',
+      nifti_path: null,
+      seg_path: null,
+      voi_image_path: null,
+      voi_mask_path: null,
+    })
+    mockedApi.applyReviewOperations.mockResolvedValue({
+      batch_id: 'batch-a',
+      applied_at: '2026-05-27T00:00:00Z',
+      summary: {
+        requested: 1,
+        applied: 1,
+        skipped: 0,
+        failed: 0,
+      },
+      results: [
+        {
+          patient_id: 'case_00001',
+          series_id: 'nifti:a',
+          action: 'reclassify',
+          target_phase: 'CMP',
+          status: 'applied',
+          message: 'phase.json updated',
+          moved_files: [],
+          manifest_updated: false,
+          metadata_updated: true,
+        },
+      ],
     })
   })
 
-  it.each([
-    [1280, 720],
-    [1440, 1000],
-    [2560, 1440],
-  ])('keeps the cockpit surfaces mounted at %ix%i', async (width, height) => {
-    setViewport(width, height)
-    renderReviewScreen()
-
-    expect(await screen.findByTestId('main-review-screen')).toBeInTheDocument()
-    expect(screen.getByTestId('left-review-panel')).toBeInTheDocument()
-    expect(screen.getByTestId('case-navigator')).toBeInTheDocument()
-    expect(screen.getByTestId('module-selector')).toBeInTheDocument()
-    expect(screen.getByTestId('viewer-grid-2x2')).toBeInTheDocument()
-    // bottom drawer is not rendered by default in v2.0 layout
-    expect(screen.queryByTestId('bottom-drawer')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('scan-idx-selector')).not.toBeInTheDocument()
-  })
-
-  it('uses discoverable pane expand controls without changing the default pane order', async () => {
-    const user = userEvent.setup()
-    const { container } = renderReviewScreen()
-
-    expect(await screen.findByTestId('viewer-grid-2x2')).toBeInTheDocument()
-    expect(getPanelOrder(container)).toEqual(['AXI', 'COR', 'SAG', '3D'])
-
-    const expandButtons = await screen.findAllByRole('button', { name: /expand view/i })
-    expect(expandButtons).toHaveLength(4)
-    expect(expandButtons[0]).toHaveTextContent('Expand')
-
-    await user.click(expandButtons[0])
-    expect(await screen.findByRole('button', { name: /reset layout/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /restore view/i })).toHaveTextContent('Restore')
-  })
-
-  it('keeps case navigation persistent across left-panel modules', async () => {
-    const user = userEvent.setup()
-    renderReviewScreen()
-
-    expect(await screen.findByTestId('case-navigator')).toHaveTextContent('1/2')
-
-    for (const moduleName of ['Sources', 'QC', 'Warnings', 'History']) {
-      await switchToModule(moduleName)
-      expect(screen.getByTestId('case-navigator')).toBeInTheDocument()
-    }
-
-    const saveCalls = mockedApi.saveCurationDecision.mock.calls.length
-    await user.click(within(screen.getByTestId('case-navigator')).getByRole('button', { name: 'Next' }))
-
-    await waitFor(() => expect(screen.getByTestId('case-navigator')).toHaveTextContent('2/2'))
-    expect(mockedApi.saveCurationDecision).toHaveBeenCalledTimes(saveCalls)
-  })
-
-  it('loads scan 0 complete CT by default', async () => {
-    renderReviewScreen()
-
-    await waitFor(() =>
-      expect(mockedApi.loadCaseSource).toHaveBeenCalledWith(
-        'DatasetTest',
-        'case_00001',
-        'row-a',
-        'complete',
-        expect.any(Object),
-      ),
-    )
-    // source-navigator lives in the Sources module
-    await switchToModule('Sources')
-    const sourceNavigator = screen.getByTestId('source-navigator')
-    expect(sourceNavigator).toHaveTextContent('Scan 0')
-    expect(sourceNavigator).toHaveTextContent('NP · scan 0 · Complete CT')
-  })
-
-  it('shows a compact source matrix with visible source states and no primary table', async () => {
-    renderReviewScreen()
-    await switchToModule('Sources')
-    const sourceNavigator = await screen.findByTestId('source-navigator')
-
-    const phaseChips = within(sourceNavigator).getAllByTestId('phase-filter-chip')
-    expect(phaseChips.map((chip) => chip.textContent)).toEqual(['NP', 'CMP', 'NC', 'EXC'])
-    expect(phaseChips.find((chip) => chip.textContent === 'CMP')).toBeDisabled()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    expect(screen.getByTestId('inventory-detail')).toHaveTextContent('Inventory detail')
-
-    expect(
-      within(sourceNavigator).getByRole('button', { name: /NP · scan 0 · Complete CT/i }),
-    ).toHaveAttribute('data-source-state', 'selected')
-    expect(
-      within(sourceNavigator).getByRole('button', { name: /NP · scan 0 · VOI L/i }),
-    ).toHaveAttribute('data-source-state', 'available')
-    expect(
-      within(sourceNavigator).getByRole('button', { name: /NP · scan 1 · Complete CT/i }),
-    ).toHaveAttribute('data-source-state', 'warning')
-    const missingVoi = within(sourceNavigator).getByRole('button', { name: /NP · scan 1 · VOI R/i })
-    expect(missingVoi).toBeDisabled()
-    expect(missingVoi).toHaveAttribute('data-source-state', 'missing')
-  })
-
-  it('toggles CT to VOI with one source-card click inside the Main Review Screen', async () => {
-    const user = userEvent.setup()
-    renderReviewScreen()
-    // source-navigator lives in the Sources module
-    await switchToModule('Sources')
-    const sourceNavigator = await screen.findByTestId('source-navigator')
-
-    await user.click(within(sourceNavigator).getByRole('button', { name: /NP · scan 0 · VOI L/i }))
-
-    await waitFor(() =>
-      expect(mockedApi.loadCaseSource).toHaveBeenLastCalledWith(
-        'DatasetTest',
-        'case_00001',
-        'row-a',
-        'voi',
-        expect.any(Object),
-      ),
-    )
-    expect(screen.getByTestId('main-review-screen')).toBeInTheDocument()
-  })
-
-  it('keeps MPR pane order fixed and applies isotropic VOI fit metadata', async () => {
-    mockedApi.loadCaseSource.mockImplementation(async (_datasetId, _caseId, _rowId, nextScope) => ({
-      series_id: `${nextScope}:row-a`,
-      load_handle: `handle-${nextScope}`,
-      shape: nextScope === 'voi' ? [32, 28, 12] : [256, 256, 40],
-      spacing: nextScope === 'voi' ? [0.8, 0.9, 4] : [0.7, 0.7, 5],
-      has_mask: true,
-      labels: [1, 2, 3],
-    }))
-
-    const user = userEvent.setup()
-    const { container } = renderReviewScreen()
-
-    await screen.findByTestId('viewer-grid-2x2')
-    expect(getPanelOrder(container)).toEqual(['AXI', 'COR', 'SAG', '3D'])
-
-    await waitFor(() =>
-      expect(
-        screen
-          .getAllByTestId('slice-view')
-          .every((node) => node.getAttribute('data-spacing') === '0.7,0.7,5'),
-      ).toBe(true),
+  it('renders one worklist row per case with core curation columns', async () => {
+    render(
+      <MemoryRouter initialEntries={['/datasets/DatasetTest/cases']}>
+        <Routes>
+          <Route path="/datasets/:dsid/cases" element={<CaseWorklistPage />} />
+        </Routes>
+      </MemoryRouter>,
     )
 
-    await switchToModule('Sources')
-    const sourceNavigator = await screen.findByTestId('source-navigator')
-    await user.click(within(sourceNavigator).getByRole('button', { name: /NP · scan 0 · VOI L/i }))
+    await screen.findByText('Ready for review')
+    const validationBanner = screen.getByTestId('dataset-validation-banner')
+    expect(validationBanner).toHaveTextContent('Ready for review')
+    expect(validationBanner).toHaveTextContent('database.csv: Present')
+    expect(validationBanner).toHaveTextContent('Rows: 3')
+    expect(validationBanner).toHaveTextContent('Cases: 1')
+    expect(validationBanner).toHaveTextContent('Required columns: 2/2')
+    expect(validationBanner).toHaveTextContent('Warnings: 1')
 
-    await waitFor(() =>
-      expect(mockedApi.loadCaseSource).toHaveBeenLastCalledWith(
-        'DatasetTest',
-        'case_00001',
-        'row-a',
-        'voi',
-        expect.any(Object),
-      ),
+    const rows = await screen.findAllByTestId('case-worklist-row')
+    expect(rows).toHaveLength(1)
+    expect(within(rows[0]).getByText('case_00001')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('G')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('NP')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('CMP')).toBeInTheDocument()
+    expect(within(rows[0]).getAllByText('2').length).toBeGreaterThan(0)
+    expect(within(rows[0]).getByText('L / R')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Not reviewed')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Yes')).toBeInTheDocument()
+  })
+
+  it('opens correction queue and exposes CSV export', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/datasets/DatasetTest/cases']}>
+        <Routes>
+          <Route path="/datasets/:dsid/cases" element={<CaseWorklistPage />} />
+        </Routes>
+      </MemoryRouter>,
     )
-    expect(getPanelOrder(container)).toEqual(['AXI', 'COR', 'SAG', '3D'])
-    await waitFor(() => {
-      const slices = screen.getAllByTestId('slice-view')
-      expect(slices).toHaveLength(3)
-      expect(slices.every((node) => node.getAttribute('data-fit-label') === 'VOI fit')).toBe(true)
-      expect(slices.every((node) => node.getAttribute('data-spacing') === '1,1,1')).toBe(true)
-    })
-  })
 
-  it('supports filled and contour overlay modes with a viewer HUD and popover', async () => {
-    const user = userEvent.setup()
-    renderReviewScreen()
-    const viewerRegion = await screen.findByTestId('mpr-viewer-region')
-    const overlayLegend = await within(viewerRegion).findByTestId('overlay-legend')
-    const overlayHud = within(viewerRegion).getByTestId('overlay-status-hud')
-    const overlayButton = within(viewerRegion).getByTestId('overlay-controls-button')
+    await screen.findAllByTestId('case-worklist-row')
+    await user.click(screen.getByRole('button', { name: /correction queue/i }))
 
-    expect(overlayLegend).toContainElement(overlayButton)
-    expect(overlayLegend).toHaveAttribute('data-overlay-placement', 'top-center')
-    expect(overlayHud).toHaveTextContent('Overlay Filled')
-    expect(overlayHud).toHaveTextContent('Kidney')
-    expect(overlayHud).toHaveTextContent('Tumor')
-    expect(overlayButton).toHaveTextContent('Overlay')
-
-    await user.click(overlayButton)
-    await user.click(await screen.findByTestId('overlay-mode-contour'))
-    expect(overlayHud).toHaveTextContent('Overlay Contour')
-    await user.click(screen.getByTestId('overlay-mode-filled'))
-    expect(overlayHud).toHaveTextContent('Overlay Filled')
-  })
-
-  it('saves accepted case QC through Save & Next', async () => {
-    const user = userEvent.setup()
-    renderReviewScreen()
-    // QC panel lives in the QC module
-    await switchToModule('QC')
-    await screen.findByTestId('right-qc-panel')
-    const saveAndNext = screen.getByTestId('save-and-next')
-    await waitFor(() => expect(saveAndNext).toBeEnabled())
-
-    await user.click(saveAndNext)
-
-    await waitFor(() =>
-      expect(mockedApi.saveCurationDecision).toHaveBeenCalledWith(
-        'DatasetTest',
-        expect.objectContaining({
-          case_id: 'case_00001',
-          row_id: 'row-a',
-          scope: 'complete',
-          target: 'SEG',
-          status: 'accepted',
-          add_to_queue: false,
-        }),
-      ),
+    expect(await screen.findByRole('heading', { name: 'Correction Queue' })).toBeInTheDocument()
+    expect(screen.getByText('Needs external correction.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /export csv/i })).toHaveAttribute(
+      'href',
+      '/api/datasets/DatasetTest/curation/correction-queue.csv',
     )
   })
 
-  it('automatically queues Needs correction', async () => {
-    const user = userEvent.setup()
-    renderReviewScreen()
-    // QC panel lives in the QC module
-    await switchToModule('QC')
-    const qcPanel = await screen.findByTestId('right-qc-panel')
+  it('opens case review with top phase controls and no curation panels', async () => {
+    renderReviewPage()
 
-    await user.click(within(qcPanel).getByRole('button', { name: 'Needs correction' }))
-    await user.click(screen.getByTestId('save-and-next'))
+    expect(await screen.findByText('case_00001')).toBeInTheDocument()
+    const phaseButtons = await screen.findAllByTestId('phase-button')
+    expect(phaseButtons.map((button) => button.textContent)).toEqual(['NC', 'CMP', 'NP', 'DELAY'])
+    expect(await screen.findByTestId('scan-idx-selector')).toBeInTheDocument()
+    expect(await screen.findByTestId('side-selector')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'NP' })).toHaveClass('MuiButton-contained')
+    expect(screen.queryByText('QC Warnings')).not.toBeInTheDocument()
+    expect(screen.queryByText('Segmentation QC')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('curation-history-panel')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /advanced metadata/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^delete$/i })).toBeInTheDocument()
+    expect(screen.queryByText(/current:/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /reclassify/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^undo$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /apply changes/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Soft Tissue' })).toHaveClass('MuiButton-contained')
+    expect(screen.getByRole('button', { name: 'Kidney' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pancreas' })).toBeInTheDocument()
+    expect(screen.getByText('WW 400')).toBeInTheDocument()
+    expect(screen.getByText('WL 50')).toBeInTheDocument()
+  })
+
+  it('applies selected phase correction through top phase buttons', async () => {
+    const user = userEvent.setup()
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'CMP' })).not.toBeDisabled())
+    await user.click(screen.getByRole('button', { name: 'CMP' }))
 
     await waitFor(() =>
-      expect(mockedApi.saveCurationDecision).toHaveBeenCalledWith(
-        'DatasetTest',
-        expect.objectContaining({
-          status: 'needs_major_correction',
-          add_to_queue: true,
-          priority: 'high',
-        }),
-      ),
+      expect(mockedApi.applyReviewOperations).toHaveBeenCalledWith('DatasetTest', {
+        operations: [
+          {
+            patient_id: 'case_00001',
+            series_id: 'nifti:a',
+            action: 'reclassify',
+            target_phase: 'CMP',
+          },
+        ],
+      }),
     )
   })
 
-  it('blocks QC when Missing SEG is active and keeps Missing VOI informational', async () => {
+  it('calculates window level from a custom HU range', async () => {
     const user = userEvent.setup()
-    renderReviewScreen()
-    // select a source with missing SEG via the Sources module
-    await switchToModule('Sources')
-    const sourceNavigator = await screen.findByTestId('source-navigator')
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
 
-    await user.click(within(sourceNavigator).getByRole('button', { name: /NP · scan 1 · Complete CT/i }))
+    await user.click(screen.getByRole('button', { name: 'Custom' }))
+    const minInput = screen.getByRole('spinbutton', { name: 'Min HU' })
+    const maxInput = screen.getByRole('spinbutton', { name: 'Max HU' })
+    await user.clear(minInput)
+    await user.type(minInput, '-100')
+    await user.clear(maxInput)
+    await user.type(maxInput, '200')
 
-    // QC block message and Save & Next state are in the QC module
-    await switchToModule('QC')
-    expect(await screen.findByText('Missing SEG blocks case QC.')).toBeInTheDocument()
-    expect(screen.getByTestId('save-and-next')).toBeDisabled()
-    // Missing VOI is informational — visible in the Warnings module
-    await switchToModule('Warnings')
-    expect(await screen.findByText('Missing VOI')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('WW 300')).toBeInTheDocument())
+    expect(screen.getByText('WL 50')).toBeInTheDocument()
   })
 
-  it('opens Case Data as a searchable modal with raw fields and paths hidden', async () => {
+  it('moves selected scan to recycle bin through delete button', async () => {
     const user = userEvent.setup()
-    renderReviewScreen()
-    // case-data-action button lives in the Case Data module
-    await switchToModule('Case Data')
-    await screen.findByTestId('case-data-action')
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
+    await waitFor(() => expect(screen.getByRole('button', { name: /^delete$/i })).not.toBeDisabled())
 
-    await user.click(screen.getByTestId('case-data-action'))
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
 
-    const modal = await screen.findByTestId('case-data-modal')
-    expect(within(modal).getByText('Case Summary')).toBeInTheDocument()
-    expect(within(modal).getByText('Imaging Availability')).toBeInTheDocument()
-    expect(within(modal).getByText('Segmentation & VOI')).toBeInTheDocument()
-    expect(within(modal).getByText('QC History')).toBeInTheDocument()
-    expect(within(modal).getByLabelText('Search metadata')).toBeInTheDocument()
-    expect(within(modal).getByTestId('raw-fields')).toHaveTextContent('Raw fields hidden by default')
-    expect(within(modal).getByTestId('technical-paths')).toHaveTextContent('Technical paths hidden by default')
+    await waitFor(() =>
+      expect(mockedApi.applyReviewOperations).toHaveBeenCalledWith('DatasetTest', {
+        operations: [
+          {
+            patient_id: 'case_00001',
+            series_id: 'nifti:a',
+            action: 'delete',
+          },
+        ],
+      }),
+    )
   })
 
-  it('shows shortcut help without leaving the Main Review Screen', async () => {
+  it('restores selected deleted scan through restore button', async () => {
     const user = userEvent.setup()
-    renderReviewScreen()
-    await user.click(await screen.findByRole('button', { name: /keyboard shortcuts/i }))
+    mockedApi.listCaseInventory.mockResolvedValue([
+      {
+        ...inventory[0],
+        deleted: true,
+        nifti_path: {
+          raw: 'deleted/nifti/a.nii.gz',
+          resolved: '/data/deleted/nifti/a.nii.gz',
+          status: 'exists',
+        },
+      },
+    ] as never)
 
-    expect(screen.getByTestId('help-overlay')).toHaveTextContent('Review shortcuts')
-    expect(screen.getByTestId('main-review-screen')).toBeInTheDocument()
-  })
+    renderReviewPage()
+    await waitFor(() => expect(screen.getByRole('button', { name: /^restore$/i })).not.toBeDisabled())
 
-  it('shows phase correction dialog scoped to the current scan', async () => {
-    const user = userEvent.setup()
-    renderReviewScreen()
-    // Phase correction button lives in the Case Data module
-    await switchToModule('Case Data')
+    await user.click(screen.getByRole('button', { name: /^restore$/i }))
 
-    await user.click(await screen.findByRole('button', { name: 'Phase correction' }))
-
-    expect(screen.getByText('Controlled phase correction')).toBeInTheDocument()
-    expect(screen.getByText(/no files are moved/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /confirm phase correction/i })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mockedApi.applyReviewOperations).toHaveBeenCalledWith('DatasetTest', {
+        operations: [
+          {
+            patient_id: 'case_00001',
+            series_id: 'nifti:a',
+            action: 'restore',
+          },
+        ],
+      }),
+    )
   })
 })
 
-async function switchToModule(moduleName: string) {
-  const user = userEvent.setup()
-  await user.click(screen.getByRole('combobox', { name: 'Module' }))
-  const option = await screen.findByRole('option', { name: new RegExp(moduleName, 'i') })
-  await user.click(option)
-}
-
-function renderReviewScreen() {
-  return render(
-    <MemoryRouter initialEntries={['/datasets/DatasetTest/review/case_00001']}>
+function renderReviewPage() {
+  render(
+    <MemoryRouter initialEntries={['/datasets/DatasetTest/cases/case_00001/review']}>
       <Routes>
-        <Route path="/datasets/:dsid/review/:caseId" element={<MainReviewScreen />} />
+        <Route path="/datasets/:dsid/cases/:caseId/review" element={<CaseReviewPage />} />
       </Routes>
     </MemoryRouter>,
-  )
-}
-
-function setViewport(width: number, height: number) {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
-  fireEvent(window, new Event('resize'))
-}
-
-function getPanelOrder(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll('[data-panel]')).map(
-    (node) => node.getAttribute('data-panel') ?? '',
   )
 }
