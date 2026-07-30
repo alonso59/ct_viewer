@@ -7,7 +7,7 @@ from app.services.byte_lru import BytesLRUCache
 class SliceCache(BytesLRUCache):
     @staticmethod
     def build_key(
-        load_handle: str,
+        data_key: str,
         axis: str,
         index: int,
         ww: float,
@@ -16,7 +16,7 @@ class SliceCache(BytesLRUCache):
         opacity_signature: tuple[tuple[int, float], ...],
     ) -> str:
         return (
-            f"{load_handle}|{axis.lower()}|{index}|{ww:.4f}|{wl:.4f}|"
+            f"{data_key}|{axis.lower()}|{index}|{ww:.4f}|{wl:.4f}|"
             f"{','.join(str(layer) for layer in layers)}|{opacity_signature!r}"
         )
 

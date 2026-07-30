@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,7 @@ class DatasetSummary(BaseModel):
     has_seg: bool = False
     has_voi: bool = False
     has_manifest: bool = False
+    has_metadata: bool = False
 
 
 class PatientSummary(BaseModel):
@@ -55,6 +57,53 @@ class SeriesSource:
     storage_path: str | None
 
 
+class VolumeWarning(BaseModel):
+    code: str
+    message: str
+    severity: Literal["info", "warning", "error"] = "warning"
+
+
+class VolumeGeometry(BaseModel):
+    dimensions: list[int] = Field(default_factory=list)
+    spacing: list[float] = Field(default_factory=list)
+    origin: list[float] = Field(default_factory=list)
+    direction: list[list[float]] = Field(default_factory=list)
+    index_to_world: list[list[float]] | None = None
+    dtype: str
+    byte_order: str
+    scalar_range: list[float] = Field(default_factory=list)
+
+
+class SegmentationMetadata(BaseModel):
+    source_format: str
+    source_path: str
+    source_fingerprint: str
+    geometry: VolumeGeometry
+    labels: list[int] = Field(default_factory=list)
+
+
+class GeometryValidation(BaseModel):
+    status: Literal["aligned", "mismatch", "not_applicable"]
+    tolerance_mm: float
+    shape_matches: bool
+    affine_matches: bool | None = None
+    cornerstone_compatible: bool
+    warnings: list[VolumeWarning] = Field(default_factory=list)
+
+
+class VolumeMetadata(BaseModel):
+    source_type: str
+    source_format: str
+    source_path: str
+    source_fingerprint: str
+    geometry_fingerprint: str
+    fingerprint: str
+    geometry: VolumeGeometry
+    segmentation: SegmentationMetadata | None = None
+    alignment: GeometryValidation
+    warnings: list[VolumeWarning] = Field(default_factory=list)
+
+
 class VolumeInfo(BaseModel):
     series_id: str
     load_handle: str
@@ -62,3 +111,5 @@ class VolumeInfo(BaseModel):
     spacing: list[float] = Field(default_factory=list)
     has_mask: bool = False
     labels: list[int] = Field(default_factory=list)
+    warnings: list[VolumeWarning] = Field(default_factory=list)
+    metadata: VolumeMetadata | None = None

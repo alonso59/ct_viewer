@@ -6,7 +6,12 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from app.models.dataset import VolumeInfo
 from app.services.slice_cache import slice_cache
-from app.services.slice_renderer import DEFAULT_LAYER_CONFIG, render_slice
+from app.services.slice_renderer import (
+    DEFAULT_LAYER_CONFIG,
+    default_layer_config,
+    render_mask_overlay_slice,
+    render_slice,
+)
 from app.services.volume_cache import volume_cache
 
 
@@ -41,6 +46,23 @@ def _parse_layers(layers: str | None) -> list[int]:
     return sorted(set(parsed))
 
 
+def _layer_config_from_query(
+    request: Request,
+    layers: list[int],
+) -> tuple[dict[int, dict], tuple[tuple[int, float], ...]]:
+    layer_config = deepcopy(DEFAULT_LAYER_CONFIG)
+    for label in layers:
+        layer_config.setdefault(label, default_layer_config(label))
+
+    opacity_signature: list[tuple[int, float]] = []
+    for label, config in sorted(layer_config.items()):
+        opacity_key = f"opacity_{label}"
+        if opacity_key in request.query_params:
+            config["alpha"] = float(request.query_params[opacity_key])
+        opacity_signature.append((label, float(config["alpha"])))
+    return layer_config, tuple(opacity_signature)
+
+
 @router.post(
     "/api/datasets/{dataset_id}/patients/{patient_id}/series/{series_id}/load",
     response_model=VolumeInfo,
@@ -73,38 +95,74 @@ def slice_png(
     layers: str | None = Query(default="1,2"),
 ):
     try:
-        volume, mask, _spacing = volume_cache.get_by_handle(load_handle)
+        cached = volume_cache.get_record_by_handle(load_handle)
         visible_layers = _parse_layers(layers)
-        layer_config = deepcopy(DEFAULT_LAYER_CONFIG)
-        opacity_signature: list[tuple[int, float]] = []
-        for label, config in layer_config.items():
-            opacity_key = f"opacity_{label}"
-            if opacity_key in request.query_params:
-                config["alpha"] = float(request.query_params[opacity_key])
-            opacity_signature.append((label, float(config["alpha"])))
+        layer_config, opacity_signature = _layer_config_from_query(request, visible_layers)
 
         cache_key = slice_cache.build_key(
-            load_handle=load_handle,
+            data_key=cached.metadata.fingerprint,
             axis=axis,
             index=index,
             ww=ww,
             wl=wl,
             layers=visible_layers,
-            opacity_signature=tuple(opacity_signature),
+            opacity_signature=opacity_signature,
         )
         cached_png = slice_cache.get(cache_key)
         if cached_png is not None:
             return Response(content=cached_png, media_type="image/png")
 
         png_bytes = render_slice(
-            volume=volume,
-            mask=mask,
+            volume=cached.volume,
+            mask=cached.mask,
             axis=axis,
             index=index,
             ww=ww,
             wl=wl,
             layers=visible_layers,
             layer_config=layer_config,
+            spacing=cached.spacing,
+        )
+        slice_cache.set(cache_key, png_bytes)
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+    return Response(content=png_bytes, media_type="image/png")
+
+
+@router.get("/api/slice-overlay/{axis}/{index}")
+def slice_mask_overlay_png(
+    axis: str,
+    index: int,
+    request: Request,
+    load_handle: str = Query(...),
+    layers: str | None = Query(default="1,2"),
+):
+    try:
+        cached = volume_cache.get_record_by_handle(load_handle)
+        visible_layers = _parse_layers(layers)
+        layer_config, opacity_signature = _layer_config_from_query(request, visible_layers)
+
+        cache_key = slice_cache.build_key(
+            data_key=cached.metadata.fingerprint,
+            axis=f"overlay:{axis}",
+            index=index,
+            ww=0,
+            wl=0,
+            layers=visible_layers,
+            opacity_signature=opacity_signature,
+        )
+        cached_png = slice_cache.get(cache_key)
+        if cached_png is not None:
+            return Response(content=cached_png, media_type="image/png")
+
+        png_bytes = render_mask_overlay_slice(
+            mask=cached.mask,
+            axis=axis,
+            index=index,
+            layers=visible_layers,
+            layer_config=layer_config,
+            spacing=cached.spacing,
         )
         slice_cache.set(cache_key, png_bytes)
     except Exception as exc:

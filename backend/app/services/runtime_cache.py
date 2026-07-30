@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 def reset_runtime_caches() -> None:
+    from app.services.database import reset_database_index
     from app.services.discovery import reset_discovery_index
     from app.services.mesh_cache import mesh_cache
     from app.services.slice_cache import slice_cache
@@ -11,3 +12,4 @@ def reset_runtime_caches() -> None:
     slice_cache.reset()
     mesh_cache.reset()
     reset_discovery_index()
+    reset_database_index()

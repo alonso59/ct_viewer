@@ -2,12 +2,23 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-ReviewAction = Literal["reclassify", "delete"]
-PhaseDecision = Literal["NC", "ART", "VEN"]
+ReviewAction = Literal["reclassify", "delete", "restore"]
+PhaseDecision = Literal["NC", "CMP", "NP", "DELAY", "UNK"]
 ReviewResultStatus = Literal["applied", "skipped", "failed"]
+LEGACY_PHASE_DECISIONS = {
+    "ART": "CMP",
+    "ARTERIAL": "CMP",
+    "VEN": "NP",
+    "VENOUS": "NP",
+    "EX": "DELAY",
+    "EXC": "DELAY",
+    "EXCRETORY": "DELAY",
+    "UNKNOWN": "UNK",
+    "UNDEFINED": "UNK",
+}
 
 
 class ReviewOperation(BaseModel):
@@ -16,12 +27,20 @@ class ReviewOperation(BaseModel):
     action: ReviewAction
     target_phase: PhaseDecision | None = None
 
+    @field_validator("target_phase", mode="before")
+    @classmethod
+    def normalize_target_phase(cls, value):
+        if value is None:
+            return None
+        key = str(value).strip().upper().replace(" ", "").replace("_", "-")
+        return LEGACY_PHASE_DECISIONS.get(key, key)
+
     @model_validator(mode="after")
     def validate_target_phase(self) -> "ReviewOperation":
         if self.action == "reclassify" and self.target_phase is None:
             raise ValueError("target_phase is required for reclassify action")
-        if self.action == "delete" and self.target_phase is not None:
-            raise ValueError("target_phase must be omitted for delete action")
+        if self.action in {"delete", "restore"} and self.target_phase is not None:
+            raise ValueError("target_phase must be omitted for delete/restore actions")
         return self
 
 
@@ -38,6 +57,7 @@ class ReviewApplyResult(BaseModel):
     message: str
     moved_files: list["ReviewMovedFile"] = Field(default_factory=list)
     manifest_updated: bool = False
+    metadata_updated: bool = False
 
 
 class ReviewApplySummary(BaseModel):

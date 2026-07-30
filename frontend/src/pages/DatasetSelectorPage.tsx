@@ -12,7 +12,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '../services/router'
 
 import { useSettings } from '../hooks/useSettings'
 import {
@@ -221,8 +221,8 @@ function DatasetSelectorPage({
 
               <Typography variant="body2" color="text.secondary">
                 The path must exist on the backend server filesystem and contain at
-                least one of <code>nifti/</code>, <code>seg/</code>, <code>voi/</code>, or
-                <code> manifest.csv</code>.
+                least one of <code>database.csv</code>, <code>nifti/</code>, <code>seg/</code>, <code>voi/</code>, or
+                <code> manifest.csv</code>, or <code> metadata.jsonl</code>.
               </Typography>
             </Stack>
           </CardContent>
@@ -256,10 +256,10 @@ function DatasetSelectorPage({
                     <Button
                       variant="outlined"
                       onClick={() =>
-                        navigate(`/datasets/${activeDataset.dataset_id}/patients`)
+                        navigate(`/datasets/${activeDataset.dataset_id}/cases`)
                       }
                     >
-                      Open patients
+                      Open cases
                     </Button>
                   ) : null}
                 </Stack>
@@ -303,6 +303,11 @@ function DatasetSelectorPage({
                         color={activeDataset.has_voi ? 'success' : 'default'}
                         variant={activeDataset.has_voi ? 'filled' : 'outlined'}
                       />
+                      <Chip
+                        label={activeDataset.has_metadata ? 'metadata.jsonl' : 'No metadata.jsonl'}
+                        color={activeDataset.has_metadata ? 'success' : 'default'}
+                        variant={activeDataset.has_metadata ? 'filled' : 'outlined'}
+                      />
                     </Stack>
                     {settingsState.allSettings[activeDataset.dataset_id]?.last_patient ? (
                       <Button
@@ -310,7 +315,7 @@ function DatasetSelectorPage({
                         variant="text"
                         onClick={() =>
                           navigate(
-                            `/datasets/${activeDataset.dataset_id}/patients/${settingsState.allSettings[activeDataset.dataset_id]?.last_patient}/viewer`,
+                            `/datasets/${activeDataset.dataset_id}/cases/${settingsState.allSettings[activeDataset.dataset_id]?.last_patient}/review`,
                           )
                         }
                       >

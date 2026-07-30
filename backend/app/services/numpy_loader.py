@@ -4,8 +4,10 @@ from pathlib import Path
 
 import numpy as np
 
+from app.services.volume_metadata import LoadedVolume, loaded_volume_from_array
 
-def load_numpy(path: str | Path) -> np.ndarray:
+
+def load_numpy(path: str | Path) -> LoadedVolume:
     file_path = Path(path)
     if not file_path.is_file():
         raise FileNotFoundError(f"NumPy volume not found: {file_path}")
@@ -22,4 +24,9 @@ def load_numpy(path: str | Path) -> np.ndarray:
             f"NumPy volume '{file_path.name}' must be 3D after squeeze; got shape {data.shape}"
         )
 
-    return data.astype(np.float32, copy=False)
+    return loaded_volume_from_array(
+        data=data.astype(np.float32, copy=False),
+        source_path=file_path,
+        source_format="numpy",
+        affine=None,
+    )

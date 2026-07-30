@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+import type { MprRendererMode } from './mprRendererConfig'
+
 export const AUTH_TOKEN_STORAGE_KEY = 'radiology-ui-token'
 const TOKEN_STORAGE_MODE = (import.meta.env.VITE_AUTH_TOKEN_STORAGE ?? 'memory').toLowerCase()
 const USE_LOCAL_STORAGE_TOKEN = TOKEN_STORAGE_MODE === 'local'
@@ -7,12 +9,36 @@ let memoryAuthToken = ''
 
 export type Axis = 'axial' | 'coronal' | 'sagittal'
 export type SeriesType = 'nifti' | 'voi'
-export type ReviewAction = 'reclassify' | 'delete'
-export type PhaseDecision = 'NC' | 'ART' | 'VEN'
+export type ReviewAction = 'reclassify' | 'delete' | 'restore'
+export type PhaseDecision = 'NC' | 'CMP' | 'NP' | 'DELAY' | 'UNK'
+export type CanonicalPhase = 'NC' | 'CMP' | 'NP' | 'DELAY' | 'UNK'
+export type Scope = 'complete' | 'voi'
+export type PathStatusValue = 'not_provided' | 'exists' | 'missing' | 'unreadable'
+export type CurationTarget =
+  | 'SEG'
+  | 'tumor_mask'
+  | 'kidney_mask'
+  | 'cyst_mask'
+  | 'VOI_mask'
+  | 'phase_issue'
+  | 'side_laterality_issue'
+export type CurationStatus =
+  | 'not_reviewed'
+  | 'accepted'
+  | 'needs_minor_correction'
+  | 'needs_major_correction'
+  | 'rejected'
+  | 'missing'
+  | 'wrong_phase_suspected'
+  | 'wrong_side_suspected'
+  | 'cannot_assess'
+export type CurationPriority = 'low' | 'medium' | 'high'
 
 export interface HealthStatus {
   status: string
   allow_data_mutations?: boolean
+  mpr_renderer?: MprRendererMode
+  webui_state_dir?: string
 }
 
 export interface WorkspaceStatus {
@@ -29,6 +55,7 @@ export interface DatasetSummary {
   has_seg: boolean
   has_voi: boolean
   has_manifest: boolean
+  has_metadata: boolean
 }
 
 export interface PatientSummary {
@@ -63,6 +90,171 @@ export interface VolumeInfo {
   spacing: number[]
   has_mask: boolean
   labels: number[]
+  warnings?: VolumeDataWarning[]
+  metadata?: VolumeMetadata | null
+}
+
+export interface VolumeDataWarning {
+  code: string
+  message: string
+  severity: 'info' | 'warning' | 'error'
+}
+
+export interface VolumeGeometry {
+  dimensions: number[]
+  spacing: number[]
+  origin: number[]
+  direction: number[][]
+  index_to_world: number[][] | null
+  dtype: string
+  byte_order: string
+  scalar_range: number[]
+}
+
+export interface SegmentationMetadata {
+  source_format: string
+  source_path: string
+  source_fingerprint: string
+  geometry: VolumeGeometry
+  labels: number[]
+}
+
+export interface GeometryValidation {
+  status: 'aligned' | 'mismatch' | 'not_applicable'
+  tolerance_mm: number
+  shape_matches: boolean
+  affine_matches: boolean | null
+  cornerstone_compatible: boolean
+  warnings: VolumeDataWarning[]
+}
+
+export interface VolumeMetadata {
+  source_type: string
+  source_format: string
+  source_path: string
+  source_fingerprint: string
+  geometry_fingerprint: string
+  fingerprint: string
+  geometry: VolumeGeometry
+  segmentation: SegmentationMetadata | null
+  alignment: GeometryValidation
+  warnings: VolumeDataWarning[]
+}
+
+export interface PathStatus {
+  raw: string | null
+  resolved: string | null
+  status: PathStatusValue
+}
+
+export interface QCWarning {
+  code: string
+  message: string
+  severity: 'info' | 'warning' | 'error'
+  row_id: string | null
+  scope: Scope | null
+  path_field: string | null
+}
+
+export interface CaseSummary {
+  case_id: string
+  patient_id: string | null
+  group: string | null
+  available_phases: CanonicalPhase[]
+  scan_count: number
+  seg_count: number
+  voi_image_count: number
+  voi_mask_count: number
+  voi_sides: string[]
+  latest_curation_status: string | null
+  warning_count: number
+  has_comments: boolean
+}
+
+export interface CaseInventoryRow {
+  row_index: number
+  row_id: string
+  source_row_id: string | null
+  series_id?: string | null
+  case_id: string
+  patient_id: string | null
+  group: string | null
+  raw_phase: string | null
+  canonical_phase: CanonicalPhase
+  phase_status: 'normalized' | 'ambiguous' | 'missing'
+  scan_idx: string | null
+  side: string | null
+  scope_availability: Record<Scope, boolean>
+  nifti_path: PathStatus
+  seg_path: PathStatus
+  voi_image_path: PathStatus
+  voi_mask_path: PathStatus
+  has_seg: boolean
+  has_voi_image: boolean
+  has_voi_mask: boolean
+  deleted: boolean
+  qc_warnings: QCWarning[]
+  latest_curation_status: string | null
+}
+
+export interface CaseDossier {
+  case_id: string
+  core: Record<string, unknown>
+  acquisition: Record<string, unknown>
+  segmentation_voi: Record<string, unknown>
+  preprocessing_qc: Record<string, unknown>
+  external_research: Record<string, unknown>
+  advanced_raw_fields: Array<Record<string, unknown>>
+}
+
+export interface RequiredColumnStatus {
+  name: string
+  present: boolean
+  alternatives: string[]
+}
+
+export interface DatabaseValidationReport {
+  dataset_id: string
+  has_database: boolean
+  source_file: string | null
+  row_count: number
+  case_count: number
+  required_columns: RequiredColumnStatus[]
+  warnings: QCWarning[]
+}
+
+export interface CurationDecisionRequest {
+  case_id: string
+  row_id?: string | null
+  scope: Scope
+  target: CurationTarget
+  status: CurationStatus
+  priority: CurationPriority
+  comment: string
+  proposed_phase?: string | null
+  reviewer: string
+  add_to_queue?: boolean
+}
+
+export interface CurationDecision extends CurationDecisionRequest {
+  review_id: string
+  dataset_id: string
+  patient_id: string | null
+  source_row_id: string | null
+  scan_idx: string | null
+  raw_phase: string | null
+  canonical_phase: string | null
+  side: string | null
+  reviewed_at: string
+  nifti_path: string | null
+  seg_path: string | null
+  voi_image_path: string | null
+  voi_mask_path: string | null
+}
+
+export interface CorrectionQueueResponse {
+  dataset_id: string
+  items: CurationDecision[]
 }
 
 export interface DatasetViewerSettings {
@@ -81,6 +273,7 @@ export interface SliceQuery {
   ww?: number
   wl?: number
   layers?: number[]
+  opacities?: Record<number, number>
   opacity_1?: number
   opacity_2?: number
   opacity_3?: number
@@ -106,6 +299,7 @@ export interface ReviewApplyResult {
   message: string
   moved_files: ReviewMovedFile[]
   manifest_updated: boolean
+  metadata_updated: boolean
 }
 
 export interface ReviewApplyResponse {
@@ -271,6 +465,14 @@ function buildSliceQuery(query: SliceQuery): string {
     params.set('layers', query.layers.join(','))
   }
 
+  if (query.opacities) {
+    Object.entries(query.opacities).forEach(([label, value]) => {
+      if (typeof value === 'number') {
+        params.set(`opacity_${label}`, String(value))
+      }
+    })
+  }
+
   ;(['opacity_1', 'opacity_2', 'opacity_3'] as const).forEach((key) => {
     const value = query[key]
     if (typeof value === 'number') {
@@ -312,6 +514,82 @@ export const apiClient = {
 
   async listPatients(datasetId: string): Promise<PatientSummary[]> {
     const response = await api.get<PatientSummary[]>(`/datasets/${datasetId}/patients`)
+    return response.data
+  },
+
+  async getDatabaseValidation(datasetId: string): Promise<DatabaseValidationReport> {
+    const response = await api.get<DatabaseValidationReport>(
+      `/datasets/${datasetId}/database/validation`,
+    )
+    return response.data
+  },
+
+  async listCases(datasetId: string): Promise<CaseSummary[]> {
+    const response = await api.get<CaseSummary[]>(`/datasets/${datasetId}/cases`)
+    return response.data
+  },
+
+  async listCaseInventory(datasetId: string, caseId: string): Promise<CaseInventoryRow[]> {
+    const response = await api.get<CaseInventoryRow[]>(
+      `/datasets/${datasetId}/cases/${caseId}/inventory`,
+    )
+    return response.data
+  },
+
+  async getCaseDossier(datasetId: string, caseId: string): Promise<CaseDossier> {
+    const response = await api.get<CaseDossier>(
+      `/datasets/${datasetId}/cases/${caseId}/dossier`,
+    )
+    return response.data
+  },
+
+  async loadCaseSource(
+    datasetId: string,
+    caseId: string,
+    rowId: string,
+    scope: Scope,
+    rowIndex?: number | null,
+    options: RequestOptions = {},
+  ): Promise<VolumeInfo> {
+    const params = new URLSearchParams({
+      row_id: rowId,
+      scope,
+    })
+    if (rowIndex !== undefined && rowIndex !== null) {
+      params.set('row_index', String(rowIndex))
+    }
+    const response = await api.post<VolumeInfo>(
+      `/datasets/${datasetId}/cases/${caseId}/load?${params.toString()}`,
+      undefined,
+      {
+        signal: options.signal,
+      },
+    )
+    return response.data
+  },
+
+  async getCurationHistory(datasetId: string, caseId: string): Promise<CurationDecision[]> {
+    const response = await api.get<CurationDecision[]>(
+      `/datasets/${datasetId}/curation/cases/${caseId}/history`,
+    )
+    return response.data
+  },
+
+  async saveCurationDecision(
+    datasetId: string,
+    payload: CurationDecisionRequest,
+  ): Promise<CurationDecision> {
+    const response = await api.post<CurationDecision>(
+      `/datasets/${datasetId}/curation/decisions`,
+      payload,
+    )
+    return response.data
+  },
+
+  async listCorrectionQueue(datasetId: string): Promise<CorrectionQueueResponse> {
+    const response = await api.get<CorrectionQueueResponse>(
+      `/datasets/${datasetId}/curation/correction-queue`,
+    )
     return response.data
   },
 
@@ -358,6 +636,22 @@ export const apiClient = {
     return response.data
   },
 
+  async getSliceOverlayBlob(
+    axis: Axis,
+    index: number,
+    query: SliceQuery = {},
+    options: RequestOptions = {},
+  ): Promise<Blob> {
+    const response = await api.get<Blob>(
+      `/slice-overlay/${axis}/${index}${buildSliceQuery(query)}`,
+      {
+        responseType: 'blob',
+        signal: options.signal,
+      },
+    )
+    return response.data
+  },
+
   async getMeshBlob(
     label: number,
     loadHandle: string,
@@ -370,6 +664,38 @@ export const apiClient = {
     })
     const response = await api.get<Blob>(`/mesh/${label}?${params.toString()}`, {
       responseType: 'blob',
+      signal: options.signal,
+    })
+    return response.data
+  },
+
+  async getVolumeMetadata(
+    loadHandle: string,
+    options: RequestOptions = {},
+  ): Promise<VolumeMetadata> {
+    const response = await api.get<VolumeMetadata>(`/volumes/${loadHandle}/metadata`, {
+      signal: options.signal,
+    })
+    return response.data
+  },
+
+  async getVolumeScalarData(
+    loadHandle: string,
+    options: RequestOptions = {},
+  ): Promise<ArrayBuffer> {
+    const response = await api.get<ArrayBuffer>(`/volumes/${loadHandle}/ct`, {
+      responseType: 'arraybuffer',
+      signal: options.signal,
+    })
+    return response.data
+  },
+
+  async getSegmentationLabelmap(
+    loadHandle: string,
+    options: RequestOptions = {},
+  ): Promise<ArrayBuffer> {
+    const response = await api.get<ArrayBuffer>(`/volumes/${loadHandle}/segmentation`, {
+      responseType: 'arraybuffer',
       signal: options.signal,
     })
     return response.data

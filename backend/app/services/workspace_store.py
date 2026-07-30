@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from app.models.workspace import WorkspaceStatus
+from app.services.state_dir import dataset_state_dir
 
 
 class WorkspaceStore:
@@ -23,7 +24,7 @@ class WorkspaceStore:
             configured=True,
             dataset_id=resolved.name,
             dataset_path=str(resolved),
-            workspace_dir=str(workspace_dir),
+            workspace_dir=str(dataset_state_dir(resolved)),
         )
 
     def set(self, dataset_path: Path) -> WorkspaceStatus:

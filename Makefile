@@ -1,8 +1,10 @@
 SHELL := /bin/bash
 
-PROJECT_ROOT := /home/alonso/Documents/radio-ccrcc/radioccrcc-webui
+PROJECT_ROOT := /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui
 UDOCKER := /home/alonso/anaconda3/envs/ccrcc/bin/python $(PROJECT_ROOT)/udocker.py
 SETUP_DOC := $(PROJECT_ROOT)/docs/SETUP_PREREQUISITES.md
+NODE_IMAGE := node:22-slim
+NODE_CONTAINER := radio-node22
 
 .PHONY: setup setup-prereqs setup-udocker setup-node install-backend dev-backend dev-frontend build-frontend compose-build compose-up compose-down compose-logs
 
@@ -36,15 +38,15 @@ setup-udocker:
 	@$(UDOCKER) version >/dev/null
 
 setup-node:
-	@if $(UDOCKER) images -l 2>/dev/null | awk '{print $$1}' | grep -Fxq "node:20-slim"; then \
-		echo "Node image already present: node:20-slim"; \
+	@if $(UDOCKER) images -l 2>/dev/null | awk '{print $$1}' | grep -Fxq "$(NODE_IMAGE)"; then \
+		echo "Node image already present: $(NODE_IMAGE)"; \
 	else \
-		$(UDOCKER) pull node:20-slim; \
+		$(UDOCKER) pull $(NODE_IMAGE); \
 	fi
-	@if $(UDOCKER) ps | awk '{print $$1}' | grep -Fxq "radio-node"; then \
-		echo "Container already exists: radio-node"; \
+	@if $(UDOCKER) ps | awk '{print $$1}' | grep -Fxq "$(NODE_CONTAINER)"; then \
+		echo "Container already exists: $(NODE_CONTAINER)"; \
 	else \
-		$(UDOCKER) create --name=radio-node node:20-slim; \
+		$(UDOCKER) create --name=$(NODE_CONTAINER) $(NODE_IMAGE); \
 	fi
 
 install-backend:
@@ -64,15 +66,15 @@ dev-backend:
 
 dev-frontend:
 	$(UDOCKER) run --hostenv \
-		-v /home/alonso/Documents/radio-ccrcc/radioccrcc-webui/frontend:/app \
+		-v /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui/frontend:/app \
 		-p 5173:5173 \
-		radio-node \
+		$(NODE_CONTAINER) \
 		bash -c "cd /app && npm install && npm run dev -- --host 0.0.0.0 --port 5173"
 
 build-frontend:
 	$(UDOCKER) run --hostenv \
-		-v /home/alonso/Documents/radio-ccrcc/radioccrcc-webui/frontend:/app \
-		radio-node \
+		-v /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui/frontend:/app \
+		$(NODE_CONTAINER) \
 		bash -c "cd /app && npm install && npm run build"
 
 compose-build:

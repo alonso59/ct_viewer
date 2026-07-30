@@ -13,8 +13,10 @@ services:
       RADIOLOGY_UI_TOKEN: "${RADIOLOGY_UI_TOKEN:-}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       ALLOW_DATA_MUTATIONS: "${ALLOW_DATA_MUTATIONS:-false}"
+      WEBUI_STATE_DIR: /state
     volumes:
-      - "${DATASET_DIR:-./data/dataset}:/data:rw"
+      - "${DATASET_DIR:-./data/dataset}:/data:ro"
+      - "${WEBUI_STATE_DIR_HOST:-./webui_state}:/state:rw"
     healthcheck:
       test:
         [

@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material'
+import { Box, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useEffect, useState, type ReactNode } from 'react'
 
 import ExpandablePanel from './ExpandablePanel'
@@ -7,7 +7,7 @@ const PANEL_DEFS = [
   {
     id: 'axial',
     label: 'AXIAL',
-    accent: '#fbbf24',
+    accent: '#fb923c',
     caption: 'Axial viewport placeholder',
     placeholder: 'Slice view and navigation land here in M8.',
   },
@@ -34,19 +34,20 @@ const PANEL_DEFS = [
   },
 ] as const
 
-type PanelId = (typeof PANEL_DEFS)[number]['id']
+export type ViewerPanelId = (typeof PANEL_DEFS)[number]['id']
 
-interface PanelOverride {
+export interface ViewerPanelOverride {
   caption?: string
   content?: ReactNode
 }
 
 interface ViewerGrid2x2Props {
-  panels?: Partial<Record<PanelId, PanelOverride>>
+  panels?: Partial<Record<ViewerPanelId, ViewerPanelOverride>>
 }
 
 function ViewerGrid2x2({ panels = {} }: ViewerGrid2x2Props) {
-  const [expandedPanel, setExpandedPanel] = useState<PanelId | null>(null)
+  const [activeMobilePanel, setActiveMobilePanel] = useState<ViewerPanelId>('axial')
+  const [expandedPanel, setExpandedPanel] = useState<ViewerPanelId | null>(null)
   const hasExpandedPanel = expandedPanel !== null
 
   useEffect(() => {
@@ -57,118 +58,160 @@ function ViewerGrid2x2({ panels = {} }: ViewerGrid2x2Props) {
   }, [hasExpandedPanel])
 
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        width: '100%',
-        gridTemplateColumns: hasExpandedPanel
-          ? 'minmax(0, 1fr)'
-          : { xs: 'minmax(0, 1fr)', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
-        gridTemplateRows: hasExpandedPanel
-          ? 'minmax(320px, min(82vh, 980px))'
-          : {
-              xs: 'repeat(4, minmax(260px, auto))',
-              sm: 'repeat(4, minmax(300px, auto))',
-              xl: 'repeat(2, auto)',
-            },
-        gap: '1px',
-        p: '1px',
-        borderRadius: 1,
-        backgroundColor: 'divider',
-        minHeight: hasExpandedPanel ? 320 : { xs: 'auto', xl: 0 },
-        minWidth: 0,
-      }}
-    >
-      {PANEL_DEFS.map((panel) => {
-        const expanded = expandedPanel === panel.id
-        const hidden = expandedPanel !== null && !expanded
-
-        return (
-          <Box
-            key={panel.id}
-            sx={{
+    <Stack spacing={{ xs: 1, xl: 0 }} sx={{ minWidth: 0 }}>
+      {!hasExpandedPanel ? (
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          size="small"
+          value={activeMobilePanel}
+          onChange={(_, value: ViewerPanelId | null) => {
+            if (value) {
+              setActiveMobilePanel(value)
+            }
+          }}
+          sx={{
+            display: { xs: 'flex', xl: 'none' },
+            '& .MuiToggleButton-root': {
+              borderRadius: 1,
+              color: 'text.secondary',
               minWidth: 0,
-              minHeight: 0,
-              height: hasExpandedPanel ? '100%' : 'auto',
-              aspectRatio: hasExpandedPanel ? 'auto' : { xs: 'auto', xl: '1 / 1' },
-              display: hidden ? 'none' : 'block',
-              ...(expandedPanel
-                ? {
-                    gridColumn: '1 / -1',
-                    gridRow: '1 / -1',
-                  }
-                : {}),
-            }}
-          >
-            <ExpandablePanel
-              axisLabel={panel.label}
-              caption={panels[panel.id]?.caption ?? panel.caption}
-              accent={panel.accent}
-              expanded={expanded}
-              onToggleExpand={() =>
-                setExpandedPanel((current) => (current === panel.id ? null : panel.id))
-              }
+              px: 0.75,
+              py: 0.55,
+              '&.Mui-selected': {
+                color: '#06111a',
+                backgroundColor: '#8bd7ff',
+              },
+            },
+          }}
+        >
+          {PANEL_DEFS.map((panel) => (
+            <ToggleButton key={panel.id} value={panel.id}>
+              {panel.label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      ) : null}
+
+      <Box
+        sx={{
+          display: 'grid',
+          width: '100%',
+          gridTemplateColumns: hasExpandedPanel
+            ? 'minmax(0, 1fr)'
+            : { xs: 'minmax(0, 1fr)', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
+          gridTemplateRows: hasExpandedPanel
+            ? 'minmax(320px, min(82vh, 980px))'
+            : {
+                xs: 'minmax(340px, min(72vh, 780px))',
+                sm: 'minmax(420px, min(76vh, 860px))',
+                xl: 'repeat(2, auto)',
+              },
+          gap: '1px',
+          p: '1px',
+          borderRadius: 1,
+          backgroundColor: 'divider',
+          minHeight: hasExpandedPanel ? 320 : { xs: 340, sm: 420, xl: 0 },
+          minWidth: 0,
+        }}
+      >
+        {PANEL_DEFS.map((panel) => {
+          const expanded = expandedPanel === panel.id
+          const hidden = expandedPanel !== null && !expanded
+          const mobileHidden = !hasExpandedPanel && activeMobilePanel !== panel.id
+
+          return (
+            <Box
+              key={panel.id}
+              sx={{
+                minWidth: 0,
+                minHeight: 0,
+                height: '100%',
+                aspectRatio: hasExpandedPanel ? 'auto' : { xs: 'auto', xl: '1 / 1' },
+                display: hidden
+                  ? 'none'
+                  : {
+                      xs: mobileHidden ? 'none' : 'block',
+                      xl: 'block',
+                    },
+                ...(expandedPanel
+                  ? {
+                      gridColumn: '1 / -1',
+                      gridRow: '1 / -1',
+                    }
+                  : {}),
+              }}
             >
-              {panels[panel.id]?.content ?? (
-                <Stack
-                  spacing={2}
-                  justifyContent="space-between"
-                  sx={{
-                    height: '100%',
-                    p: 2.5,
-                    background:
-                      'linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.03))',
-                  }}
-                >
-                  <Box
+              <ExpandablePanel
+                axisLabel={panel.label}
+                caption={panels[panel.id]?.caption ?? panel.caption}
+                accent={panel.accent}
+                expanded={expanded}
+                onToggleExpand={() =>
+                  setExpandedPanel((current) => (current === panel.id ? null : panel.id))
+                }
+              >
+                {panels[panel.id]?.content ?? (
+                  <Stack
+                    spacing={2}
+                    justifyContent="space-between"
                     sx={{
-                      flex: 1,
-                      minHeight: 0,
-                      borderRadius: 3,
-                      border: '1px dashed',
-                      borderColor: 'divider',
+                      height: '100%',
+                      p: 2.5,
                       background:
-                        'radial-gradient(circle at top, rgba(125, 211, 252, 0.08), transparent 42%), rgba(255,255,255,0.015)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      textAlign: 'center',
-                      px: 3,
+                        'linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.03))',
                     }}
                   >
-                    <Stack spacing={1.25} alignItems="center">
-                      <Typography variant="h5">{panel.label}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {panel.placeholder}
-                      </Typography>
-                    </Stack>
-                  </Box>
-
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="caption" color="text.secondary">
-                      Double-click header or use the corner control to expand.
-                    </Typography>
-                    <Typography
-                      variant="caption"
+                    <Box
                       sx={{
-                        px: 1,
-                        py: 0.4,
-                        borderRadius: 999,
-                        border: '1px solid',
-                        borderColor: panel.accent,
-                        color: panel.accent,
+                        flex: 1,
+                        minHeight: 0,
+                        borderRadius: 3,
+                        border: '1px dashed',
+                        borderColor: 'divider',
+                        background:
+                          'radial-gradient(circle at top, rgba(125, 211, 252, 0.08), transparent 42%), rgba(255,255,255,0.015)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        px: 3,
                       }}
                     >
-                      Placeholder
-                    </Typography>
+                      <Stack spacing={1.25} alignItems="center">
+                        <Typography variant="h5">{panel.label}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {panel.placeholder}
+                        </Typography>
+                      </Stack>
+                    </Box>
+
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="caption" color="text.secondary">
+                        Double-click header or use the corner control to expand.
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          px: 1,
+                          py: 0.4,
+                          borderRadius: 999,
+                          border: '1px solid',
+                          borderColor: panel.accent,
+                          color: panel.accent,
+                        }}
+                      >
+                        Placeholder
+                      </Typography>
+                    </Stack>
                   </Stack>
-                </Stack>
-              )}
-            </ExpandablePanel>
-          </Box>
-        )
-      })}
-    </Box>
+                )}
+              </ExpandablePanel>
+            </Box>
+          )
+        })}
+      </Box>
+    </Stack>
   )
 }
 

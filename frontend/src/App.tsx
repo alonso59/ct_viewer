@@ -16,7 +16,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
-} from 'react-router-dom'
+} from './services/router'
 
 import LoginDialog from './components/LoginDialog'
 import { useWorkspace } from './hooks/useWorkspace'
@@ -31,6 +31,8 @@ type ApiStatus = 'checking' | 'online' | 'offline'
 
 const PatientListPage = lazy(() => import('./pages/PatientListPage'))
 const ViewerPage = lazy(() => import('./pages/ViewerPage'))
+const CaseWorklistPage = lazy(() => import('./pages/CaseWorklistPage'))
+const CaseReviewPage = lazy(() => import('./pages/CaseReviewPage'))
 
 function App() {
   const location = useLocation()
@@ -44,7 +46,8 @@ function App() {
   const workspaceState = useWorkspace()
   const activeDatasetId = workspaceState.workspace.dataset_id
   const isViewerRoute = Boolean(
-    matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname),
+    matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname) ??
+      matchPath('/datasets/:dsid/cases/:caseId/review', location.pathname),
   )
 
   useEffect(() => {
@@ -156,6 +159,11 @@ function App() {
             />
           }
         />
+        <Route path="/datasets/:dsid/cases" element={<CaseWorklistPage />} />
+        <Route
+          path="/datasets/:dsid/cases/:caseId/review"
+          element={<CaseReviewPage />}
+        />
         <Route path="/datasets/:dsid/patients" element={<PatientListPage />} />
         <Route
           path="/datasets/:dsid/patients/:pid/viewer"
@@ -192,10 +200,10 @@ function App() {
             {activeDatasetId ? (
               <Button
                 component={RouterLink}
-                to={`/datasets/${activeDatasetId}/patients`}
+                to={`/datasets/${activeDatasetId}/cases`}
                 color="inherit"
               >
-                Patients
+                Cases
               </Button>
             ) : null}
           </Stack>

@@ -1,29 +1,33 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
+import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material'
 import { Bounds, OrbitControls, useBounds } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas } from '@react-three/fiber'
 import axios from 'axios'
 import {
   Group,
   Mesh,
   MeshStandardMaterial,
   Object3D,
-  PerspectiveCamera,
   type Material,
 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 
 import { apiClient, getApiErrorMessage, isHandleExpiredError } from '../../services/api'
+import { getSegmentationColor } from './segmentationPalette'
 
 interface Surface3DViewProps {
+  availableLabels: number[]
   blend: number
+  crosshairPoint?: VolumePoint | null
   errorText?: string | null
   hasMask: boolean
   labelColors: Record<number, string>
   loadHandle: string | null
   onHandleExpired?: () => void
+  spacing?: number[] | null
   visibleLabels: number[]
+  volumeShape?: number[] | null
 }
 
 interface MeshEntry {
@@ -31,7 +35,18 @@ interface MeshEntry {
   object: Object3D
 }
 
-type CameraPreset = 'front' | 'side' | 'top'
+interface VolumePoint {
+  x: number
+  y: number
+  z: number
+}
+
+interface VolumeFrame {
+  center: [number, number, number]
+  size: [number, number, number]
+}
+
+const MESH_LOAD_DEFER_MS = 900
 
 function isMeshObject(node: Object3D): node is Mesh {
   return 'isMesh' in node && Boolean((node as { isMesh?: boolean }).isMesh)
@@ -51,7 +66,16 @@ function disposeObject(root: Object3D): void {
   })
 }
 
-function applyVisualStyle(root: Object3D, color: string, blend: number): void {
+function surfaceOpacity(blend: number): number {
+  return Math.min(1, Math.max(0, blend))
+}
+
+function applyVisualStyle(
+  root: Object3D,
+  color: string,
+  blend: number,
+): void {
+  const opacity = surfaceOpacity(blend)
   root.traverse((node) => {
     if (!isMeshObject(node)) {
       return
@@ -60,31 +84,63 @@ function applyVisualStyle(root: Object3D, color: string, blend: number): void {
     toMaterialList(node.material).forEach((material) => material.dispose())
     node.material = new MeshStandardMaterial({
       color,
-      opacity: blend,
-      transparent: blend < 1,
+      opacity,
+      transparent: opacity < 1,
       roughness: 0.52,
       metalness: 0.02,
       emissive: color,
       emissiveIntensity: 0.05,
+      depthWrite: opacity >= 0.95,
     })
     node.castShadow = false
     node.receiveShadow = true
   })
 }
 
-function updateBlend(root: Object3D, blend: number): void {
+function updateMeshVisual(root: Object3D, blend: number): void {
+  const opacity = surfaceOpacity(blend)
   root.traverse((node) => {
     if (!isMeshObject(node)) {
       return
     }
     toMaterialList(node.material).forEach((material) => {
       if (material instanceof MeshStandardMaterial) {
-        material.opacity = blend
-        material.transparent = blend < 1
+        material.opacity = opacity
+        material.transparent = opacity < 1
+        material.depthWrite = opacity >= 0.95
         material.needsUpdate = true
       }
     })
   })
+}
+
+function validVolumeFrame(shape?: number[] | null, spacing?: number[] | null): VolumeFrame | null {
+  if (!shape || !spacing || shape.length < 3 || spacing.length < 3) {
+    return null
+  }
+  const size = [0, 1, 2].map((index) =>
+    Math.max(Number(spacing[index]) || 1, (Math.max(1, Number(shape[index]) || 1) - 1) * (Number(spacing[index]) || 1)),
+  ) as [number, number, number]
+  return {
+    center: [size[0] / 2, size[1] / 2, size[2] / 2],
+    size,
+  }
+}
+
+function volumePointToWorld(
+  point: VolumePoint | null | undefined,
+  shape?: number[] | null,
+  spacing?: number[] | null,
+): [number, number, number] | null {
+  if (!point || !shape || !spacing || shape.length < 3 || spacing.length < 3) {
+    return null
+  }
+
+  return [
+    Math.min(Math.max(point.x, 0), Math.max(0, shape[0] - 1)) * (Number(spacing[0]) || 1),
+    Math.min(Math.max(point.y, 0), Math.max(0, shape[1] - 1)) * (Number(spacing[1]) || 1),
+    Math.min(Math.max(point.z, 0), Math.max(0, shape[2] - 1)) * (Number(spacing[2]) || 1),
+  ]
 }
 
 async function loadMesh(
@@ -101,6 +157,7 @@ async function loadMesh(
       const loader = new GLTFLoader()
       const gltf = await loader.loadAsync(objectUrl)
       const object = gltf.scene
+      object.userData.surfaceLabel = label
       applyVisualStyle(object, color, blend)
       return { label, object }
     } finally {
@@ -115,13 +172,17 @@ async function loadMesh(
 }
 
 function Surface3DViewComponent({
+  availableLabels,
   blend,
+  crosshairPoint,
   errorText,
   hasMask,
   labelColors,
   loadHandle,
   onHandleExpired,
+  spacing,
   visibleLabels,
+  volumeShape,
 }: Surface3DViewProps) {
   const [requestState, setRequestState] = useState<{
     error: string | null
@@ -134,9 +195,8 @@ function Surface3DViewComponent({
     meshesByLabel: {},
     seriesKey: null,
   })
-  const [cameraPreset, setCameraPreset] = useState<CameraPreset>('front')
+  const [deferredMeshLoadKey, setDeferredMeshLoadKey] = useState<string | null>(null)
   const [fitTick, setFitTick] = useState(0)
-  const [presetTick, setPresetTick] = useState(0)
   const inFlightRef = useRef(new Map<number, AbortController>())
   const meshesRef = useRef<Record<number, MeshEntry>>({})
 
@@ -144,11 +204,34 @@ function Surface3DViewComponent({
     () => [...visibleLabels].sort((left, right) => left - right),
     [visibleLabels],
   )
+  const sortedAvailableLabels = useMemo(
+    () => [...availableLabels].sort((left, right) => left - right),
+    [availableLabels],
+  )
   const seriesKey = loadHandle && hasMask ? loadHandle : null
+  const visibleLabelsKey = sortedVisibleLabels.join(',')
+  const meshLoadKey = seriesKey && visibleLabelsKey ? `${seriesKey}:${visibleLabelsKey}` : null
+  const referencePoint = useMemo(
+    () => volumePointToWorld(crosshairPoint, volumeShape, spacing),
+    [crosshairPoint, spacing, volumeShape],
+  )
+  const volumeFrame = useMemo(() => validVolumeFrame(volumeShape, spacing), [spacing, volumeShape])
 
   useEffect(() => {
     meshesRef.current = requestState.meshesByLabel
   }, [requestState.meshesByLabel])
+
+  useEffect(() => {
+    setDeferredMeshLoadKey(null)
+    if (!meshLoadKey) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDeferredMeshLoadKey(meshLoadKey)
+    }, MESH_LOAD_DEFER_MS)
+    return () => window.clearTimeout(timeout)
+  }, [meshLoadKey])
 
   useEffect(() => {
     setRequestState((current) => {
@@ -168,7 +251,11 @@ function Surface3DViewComponent({
   }, [seriesKey])
 
   useEffect(() => {
-    if (!seriesKey || sortedVisibleLabels.length === 0) {
+    if (
+      !seriesKey ||
+      sortedVisibleLabels.length === 0 ||
+      deferredMeshLoadKey !== meshLoadKey
+    ) {
       return
     }
 
@@ -191,7 +278,7 @@ function Surface3DViewComponent({
     missingLabels.forEach((label) => {
       const controller = new AbortController()
       inFlightRef.current.set(label, controller)
-      const color = labelColors[label] ?? '#f5f5f5'
+      const color = labelColors[label] ?? getSegmentationColor(label)
 
       loadMesh(label, color, 1, seriesKey, controller.signal)
         .then((entry) => {
@@ -225,7 +312,6 @@ function Surface3DViewComponent({
           })
           if (shouldFit) {
             setFitTick((current) => current + 1)
-            setPresetTick((current) => current + 1)
           }
         })
         .catch((requestError) => {
@@ -250,6 +336,8 @@ function Surface3DViewComponent({
     })
   }, [
     labelColors,
+    deferredMeshLoadKey,
+    meshLoadKey,
     onHandleExpired,
     requestState.loadingLabels,
     requestState.meshesByLabel,
@@ -258,13 +346,16 @@ function Surface3DViewComponent({
   ])
 
   useEffect(() => {
-    Object.values(requestState.meshesByLabel).forEach((entry) => updateBlend(entry.object, blend))
+    Object.values(requestState.meshesByLabel).forEach((entry) =>
+      updateMeshVisual(entry.object, blend),
+    )
   }, [blend, requestState.meshesByLabel])
 
   useEffect(() => {
+    const inFlightControllers = inFlightRef.current
     return () => {
-      inFlightRef.current.forEach((controller) => controller.abort())
-      inFlightRef.current.clear()
+      inFlightControllers.forEach((controller) => controller.abort())
+      inFlightControllers.clear()
       Object.values(meshesRef.current).forEach((entry) => disposeObject(entry.object))
     }
   }, [])
@@ -295,6 +386,15 @@ function Surface3DViewComponent({
     )
   }
 
+  if (sortedAvailableLabels.length === 0) {
+    return (
+      <SurfacePanelMessage
+        title="Empty segmentation mask"
+        description="The loaded segmentation file does not contain any visible labels."
+      />
+    )
+  }
+
   if (sortedVisibleLabels.length === 0) {
     return (
       <SurfacePanelMessage
@@ -315,6 +415,7 @@ function Surface3DViewComponent({
     <Box
       data-surface-3d="panel"
       data-surface-blend={blend.toFixed(2)}
+      data-surface-labels={sortedVisibleLabels.join(',')}
       data-surface-loading={isLoading ? 'true' : 'false'}
       sx={{
         position: 'relative',
@@ -324,77 +425,11 @@ function Surface3DViewComponent({
         borderRadius: 3,
         overflow: 'hidden',
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: 'rgba(119, 92, 168, 0.38)',
         background:
-          'radial-gradient(circle at top, rgba(125, 211, 252, 0.08), transparent 22%), #040608',
+          'linear-gradient(180deg, #b7bfd9 0%, #9fa8c8 52%, #858cad 100%)',
       }}
     >
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={1}
-        justifyContent="space-between"
-        sx={{
-          position: 'absolute',
-          top: 12,
-          left: 12,
-          right: 12,
-          zIndex: 2,
-          pointerEvents: 'none',
-        }}
-      >
-        <Stack spacing={0.35}>
-          <Typography variant="caption" sx={{ color: 'rgba(221,221,221,0.92)' }}>
-            Drag to rotate, scroll to zoom, Shift-drag to pan
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Visible structures: {sortedVisibleLabels.join(', ')}
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={0.75} sx={{ pointerEvents: 'auto', flexWrap: 'wrap' }}>
-          <PanelChip
-            active={cameraPreset === 'front'}
-            label="Front"
-            onClick={() => {
-              setCameraPreset('front')
-              setPresetTick((current) => current + 1)
-            }}
-          />
-          <PanelChip
-            active={cameraPreset === 'side'}
-            label="Side"
-            onClick={() => {
-              setCameraPreset('side')
-              setPresetTick((current) => current + 1)
-            }}
-          />
-          <PanelChip
-            active={cameraPreset === 'top'}
-            label="Top"
-            onClick={() => {
-              setCameraPreset('top')
-              setPresetTick((current) => current + 1)
-            }}
-          />
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => {
-              setFitTick((current) => current + 1)
-              setPresetTick((current) => current + 1)
-            }}
-            sx={{
-              minWidth: 0,
-              px: 1.2,
-              color: 'text.secondary',
-              borderColor: 'rgba(255,255,255,0.16)',
-              backgroundColor: 'rgba(8, 12, 16, 0.72)',
-            }}
-          >
-            Reset view
-          </Button>
-        </Stack>
-      </Stack>
-
       {hasBlockingLoadError ? (
         <Alert severity="error" sx={{ m: 2 }}>
           3D surface generation failed: {loadError}
@@ -409,15 +444,17 @@ function Surface3DViewComponent({
             position: [300, 240, 300],
           }}
           gl={{ antialias: true }}
+          style={{ width: '100%', height: '100%' }}
         >
           <SurfaceScene
-            cameraPreset={cameraPreset}
             fitTick={fitTick}
             meshes={renderedMeshes}
-            presetTick={presetTick}
+            referencePoint={referencePoint}
+            volumeFrame={volumeFrame}
           />
         </Canvas>
       )}
+      {!hasBlockingLoadError ? <OrientationLabels /> : null}
 
       {!hasBlockingLoadError && loadError ? (
         <Alert
@@ -447,7 +484,7 @@ function Surface3DViewComponent({
           sx={{
             position: 'absolute',
             inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            backgroundColor: 'rgba(65, 70, 105, 0.22)',
             pointerEvents: 'none',
           }}
         >
@@ -462,39 +499,39 @@ function Surface3DViewComponent({
 }
 
 function SurfaceScene({
-  cameraPreset,
   fitTick,
   meshes,
-  presetTick,
+  referencePoint,
+  volumeFrame,
 }: {
-  cameraPreset: CameraPreset
   fitTick: number
   meshes: MeshEntry[]
-  presetTick: number
+  referencePoint: [number, number, number] | null
+  volumeFrame: VolumeFrame | null
 }) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const groupRef = useRef<Group | null>(null)
 
   return (
     <>
-      <color attach="background" args={['#040608']} />
-      <fog attach="fog" args={['#040608', 560, 2100]} />
-      <ambientLight intensity={0.5} />
-      <hemisphereLight args={['#dbeafe', '#0b1018', 1.2]} />
-      <directionalLight position={[260, 360, 180]} intensity={1.45} />
-      <directionalLight position={[-180, 140, -220]} intensity={0.35} color="#cbd5e1" />
+      <color attach="background" args={['#aeb7d2']} />
+      <fog attach="fog" args={['#aeb7d2', 720, 2400]} />
+      <ambientLight intensity={0.72} />
+      <hemisphereLight args={['#f8fbff', '#7d86ad', 0.9]} />
+      <directionalLight position={[260, 360, 180]} intensity={1.05} />
+      <directionalLight position={[-180, 140, -220]} intensity={0.42} color="#f2f5ff" />
       <Bounds fit clip margin={1.1}>
         <group ref={groupRef}>
+          <VolumeReferenceFrame frame={volumeFrame} />
+          <CrosshairGuides frame={volumeFrame} point={referencePoint} />
           {meshes.map((entry) => (
             <primitive key={entry.label} object={entry.object} />
           ))}
         </group>
         <SceneCameraController
-          cameraPreset={cameraPreset}
           controlsRef={controlsRef}
           fitTick={fitTick}
           meshCount={meshes.length}
-          presetTick={presetTick}
           targetRef={groupRef}
         />
       </Bounds>
@@ -510,82 +547,136 @@ function SurfaceScene({
 }
 
 function SceneCameraController({
-  cameraPreset,
   controlsRef,
   fitTick,
   meshCount,
-  presetTick,
   targetRef,
 }: {
-  cameraPreset: CameraPreset
   controlsRef: React.RefObject<OrbitControlsImpl | null>
   fitTick: number
   meshCount: number
-  presetTick: number
   targetRef: React.RefObject<Group | null>
 }) {
   const bounds = useBounds()
-  const { camera } = useThree()
 
   useEffect(() => {
     if (!targetRef.current || meshCount === 0) {
       return
     }
     bounds.refresh(targetRef.current).clip().fit()
-  }, [bounds, fitTick, meshCount, targetRef])
-
-  useEffect(() => {
-    if (meshCount === 0 || !(camera instanceof PerspectiveCamera)) {
-      return
-    }
-    const distance = camera.position.length() || 320
-    const target = controlsRef.current?.target
-    const targetX = target?.x ?? 0
-    const targetY = target?.y ?? 0
-    const targetZ = target?.z ?? 0
-
-    if (cameraPreset === 'front') {
-      camera.position.set(targetX + distance * 0.8, targetY + distance * 0.45, targetZ + distance * 0.8)
-    } else if (cameraPreset === 'side') {
-      camera.position.set(targetX + distance * 1.15, targetY + distance * 0.18, targetZ)
-    } else {
-      camera.position.set(targetX, targetY + distance * 1.2, targetZ + distance * 0.08)
-    }
-    camera.lookAt(targetX, targetY, targetZ)
-    camera.updateProjectionMatrix()
     controlsRef.current?.update()
-  }, [camera, cameraPreset, controlsRef, meshCount, presetTick])
+  }, [bounds, controlsRef, fitTick, meshCount, targetRef])
 
   return null
 }
 
-function PanelChip({
-  active,
-  label,
-  onClick,
+function VolumeReferenceFrame({ frame }: { frame: VolumeFrame | null }) {
+  if (!frame) {
+    return null
+  }
+
+  return (
+    <mesh position={frame.center}>
+      <boxGeometry args={frame.size} />
+      <meshBasicMaterial color="#bf53d9" transparent opacity={0.22} wireframe />
+    </mesh>
+  )
+}
+
+function CrosshairGuides({
+  frame,
+  point,
 }: {
-  active: boolean
-  label: string
-  onClick: () => void
+  frame: VolumeFrame | null
+  point: [number, number, number] | null
+}) {
+  if (!frame || !point) {
+    return null
+  }
+
+  const [x, y, z] = point
+  const [width, height, depth] = frame.size
+  const lineThickness = Math.max(0.6, Math.min(width, height, depth) * 0.004)
+
+  return (
+    <group>
+      <ReferenceSlab
+        color="#fb923c"
+        opacity={0.84}
+        position={[frame.center[0], y, z]}
+        size={[width, lineThickness, lineThickness]}
+      />
+      <ReferenceSlab
+        color="#22c55e"
+        opacity={0.84}
+        position={[x, frame.center[1], z]}
+        size={[lineThickness, height, lineThickness]}
+      />
+      <ReferenceSlab
+        color="#ef4444"
+        opacity={0.84}
+        position={[x, y, frame.center[2]]}
+        size={[lineThickness, lineThickness, depth]}
+      />
+      <mesh position={point}>
+        <sphereGeometry args={[lineThickness * 2.2, 20, 12]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.92} />
+      </mesh>
+    </group>
+  )
+}
+
+function ReferenceSlab({
+  color,
+  opacity,
+  position,
+  size,
+}: {
+  color: string
+  opacity: number
+  position: [number, number, number]
+  size: [number, number, number]
 }) {
   return (
-    <Button
-      size="small"
-      variant={active ? 'contained' : 'outlined'}
-      onClick={onClick}
-      sx={{
-        minWidth: 0,
-        px: 1.2,
-        color: active ? '#041018' : 'text.secondary',
-        borderColor: active ? 'transparent' : 'rgba(255,255,255,0.16)',
-        backgroundColor: active ? '#7dd3fc' : 'rgba(8, 12, 16, 0.72)',
-        '&:hover': {
-          backgroundColor: active ? '#93ddff' : 'rgba(18, 28, 36, 0.88)',
-        },
-      }}
-    >
-      {label}
-    </Button>
+    <mesh position={position}>
+      <boxGeometry args={size} />
+      <meshBasicMaterial
+        color={color}
+        depthWrite={false}
+        transparent
+        opacity={opacity}
+      />
+    </mesh>
+  )
+}
+
+function OrientationLabels() {
+  const labelSx = {
+    color: 'rgba(255,255,255,0.88)',
+    fontWeight: 800,
+    lineHeight: 1,
+    position: 'absolute',
+    textShadow: '0 1px 4px rgba(45, 36, 74, 0.55)',
+    zIndex: 2,
+    pointerEvents: 'none',
+    userSelect: 'none',
+  } as const
+
+  return (
+    <>
+      <Typography variant="body2" data-orientation-label="S" sx={{ ...labelSx, top: 12, left: '50%' }}>
+        S
+      </Typography>
+      <Typography variant="body2" data-orientation-label="R" sx={{ ...labelSx, left: 12, top: '50%' }}>
+        R
+      </Typography>
+      <Typography variant="body2" data-orientation-label="L" sx={{ ...labelSx, right: 12, top: '50%' }}>
+        L
+      </Typography>
+      <Typography variant="body2" data-orientation-label="I" sx={{ ...labelSx, bottom: 12, left: '50%' }}>
+        I
+      </Typography>
+    </>
   )
 }
 
@@ -603,9 +694,9 @@ function SurfacePanelMessage({
         minHeight: 0,
         borderRadius: 3,
         border: '1px dashed',
-        borderColor: 'divider',
+        borderColor: 'rgba(119, 92, 168, 0.38)',
         background:
-          'radial-gradient(circle at top, rgba(125, 211, 252, 0.08), transparent 42%), rgba(255,255,255,0.015)',
+          'linear-gradient(180deg, rgba(183,191,217,0.28) 0%, rgba(133,140,173,0.18) 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -626,11 +717,20 @@ function SurfacePanelMessage({
 const Surface3DView = memo(
   Surface3DViewComponent,
   (prev, next) =>
+    prev.availableLabels.length === next.availableLabels.length &&
+    prev.availableLabels.every((value, index) => value === next.availableLabels[index]) &&
     prev.blend === next.blend &&
     prev.errorText === next.errorText &&
     prev.hasMask === next.hasMask &&
     prev.loadHandle === next.loadHandle &&
     prev.labelColors === next.labelColors &&
+    prev.crosshairPoint?.x === next.crosshairPoint?.x &&
+    prev.crosshairPoint?.y === next.crosshairPoint?.y &&
+    prev.crosshairPoint?.z === next.crosshairPoint?.z &&
+    prev.spacing?.length === next.spacing?.length &&
+    (prev.spacing ?? []).every((value, index) => value === next.spacing?.[index]) &&
+    prev.volumeShape?.length === next.volumeShape?.length &&
+    (prev.volumeShape ?? []).every((value, index) => value === next.volumeShape?.[index]) &&
     prev.visibleLabels.length === next.visibleLabels.length &&
     prev.visibleLabels.every((value, index) => value === next.visibleLabels[index]),
 )

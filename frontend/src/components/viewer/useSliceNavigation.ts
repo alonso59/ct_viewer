@@ -55,8 +55,8 @@ function clampPoint(point: VolumePoint, shape: number[]): VolumePoint {
   }
 }
 
-export function useSliceNavigation(shape: number[] | null) {
-  const shapeKey = shape?.join('x') ?? null
+export function useSliceNavigation(shape: number[] | null, resetKey: string | null = null) {
+  const shapeKey = shape ? `${shape.join('x')}::${resetKey ?? ''}` : null
   const [state, setState] = useState<{
     shapeKey: string | null
     point: VolumePoint
