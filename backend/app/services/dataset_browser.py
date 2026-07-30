@@ -111,8 +111,15 @@ def _detect_drives_and_mounts() -> list[tuple[str, str, str]]:
 
 
 def list_dataset_browser_path(raw_path: str) -> DatasetBrowserListResponse:
+    # Reject empty paths and tilde-prefixed expressions before resolving.
+    sanitized = (raw_path or "").strip()
+    if not sanitized:
+        raise ValueError("Path must not be empty")
+    if sanitized.startswith("~"):
+        raise PermissionError("Tilde-expanded paths are not permitted")
     roots = dataset_browser_roots()
-    candidate = _resolve(raw_path)
+    # Resolve without expanduser() so ~ cannot be used as an escape vector.
+    candidate = Path(sanitized).resolve()
     root = _matching_root(candidate, roots)
     if root is None:
         raise PermissionError("Path is outside the configured dataset browser roots")

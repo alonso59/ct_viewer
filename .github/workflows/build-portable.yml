@@ -19,6 +19,9 @@ on:
           - macos
           - linux
 
+permissions:
+  contents: read
+
 jobs:
   build:
     strategy:
