@@ -123,6 +123,15 @@ def list_dataset_browser_path(raw_path: str) -> DatasetBrowserListResponse:
     root = _matching_root(candidate, roots)
     if root is None:
         raise PermissionError("Path is outside the configured dataset browser roots")
+    # Re-derive candidate from the trusted root path to eliminate the taint.
+    # relative_to() raises ValueError if candidate escapes the root; this acts
+    # as an additional hard guard that CodeQL can reason about.
+    root_resolved = _resolve(root.path)
+    try:
+        rel = candidate.relative_to(root_resolved)
+    except ValueError:
+        raise PermissionError("Path is outside the configured dataset browser roots")
+    candidate = root_resolved / rel
     if not candidate.exists():
         raise FileNotFoundError(f"Path '{candidate}' does not exist")
     if not candidate.is_dir():
