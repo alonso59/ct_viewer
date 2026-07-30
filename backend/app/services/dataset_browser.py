@@ -118,20 +118,30 @@ def list_dataset_browser_path(raw_path: str) -> DatasetBrowserListResponse:
     if sanitized.startswith("~"):
         raise PermissionError("Tilde-expanded paths are not permitted")
     roots = dataset_browser_roots()
-    # Resolve without expanduser() so ~ cannot be used as an escape vector.
-    candidate = Path(sanitized).resolve()
-    root = _matching_root(candidate, roots)
-    if root is None:
+
+    # Resolve the user-supplied path to an absolute, canonical form.
+    real_input = os.path.realpath(sanitized)
+
+    # Find the matching configured root using a string-level containment check
+    # so that CodeQL can verify the guard without custom-function indirection.
+    matching_root: DatasetBrowserRoot | None = None
+    root_real: str = ""
+    for r in roots:
+        if not r.exists or not r.readable:
+            continue
+        rr = os.path.realpath(r.path)
+        if real_input == rr or real_input.startswith(rr + os.sep):
+            matching_root = r
+            root_real = rr
+            break
+
+    if matching_root is None:
         raise PermissionError("Path is outside the configured dataset browser roots")
-    # Re-derive candidate from the trusted root path to eliminate the taint.
-    # relative_to() raises ValueError if candidate escapes the root; this acts
-    # as an additional hard guard that CodeQL can reason about.
-    root_resolved = _resolve(root.path)
-    try:
-        rel = candidate.relative_to(root_resolved)
-    except ValueError:
-        raise PermissionError("Path is outside the configured dataset browser roots")
-    candidate = root_resolved / rel
+
+    # After the startswith guard, 'real_input' is confirmed to be within the
+    # trusted root.  Construct a Path from the validated string.
+    candidate = Path(real_input)
+
     if not candidate.exists():
         raise FileNotFoundError(f"Path '{candidate}' does not exist")
     if not candidate.is_dir():
@@ -165,7 +175,7 @@ def list_dataset_browser_path(raw_path: str) -> DatasetBrowserListResponse:
     entries.sort(key=lambda item: (item.type != "directory", not item.is_database_csv, item.name.lower()))
     return DatasetBrowserListResponse(
         path=str(candidate),
-        parent_path=_browser_parent(candidate, root),
+        parent_path=_browser_parent(candidate, matching_root),
         entries=entries,
     )
 
