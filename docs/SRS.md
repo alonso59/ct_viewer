@@ -622,6 +622,19 @@ Conditional controls:
 | Advanced metadata | Collapsed by default                                             |
 | Raw paths         | Hidden by default; visible in advanced metadata                  |
 
+Route-specific navigation is intentionally preserved:
+
+- Canonical and converter-output datasets use the **Cases** review surface. It
+  keeps the case worklist visible and uses the `scan_idx` selector to move among
+  scans for the selected phase. `Back`/`Next` controls must not replace this
+  worklist or selector.
+- Legacy, NIfTI-collection, and VOI-collection datasets use the **Patients**
+  viewer. That compatibility route may retain its existing previous/next series
+  controls and patient/series selectors.
+- The Windows desktop host reuses both browser surfaces unchanged; desktop
+  transport and native dataset opening do not redefine their panel layout or
+  navigation model.
+
 ### 6.4 Default Case Opening Behavior
 
 When a case is opened, the viewer shall default to:

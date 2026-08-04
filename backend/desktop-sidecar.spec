@@ -3,7 +3,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules
 
 
-project_root = Path(SPECPATH).parent.parent
+# PyInstaller exposes SPECPATH as the directory containing this spec file.
+project_root = Path(SPECPATH).parent
 backend_root = project_root / "backend"
 hidden_imports = (
     collect_submodules("uvicorn")
