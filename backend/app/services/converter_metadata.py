@@ -7,6 +7,8 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Callable
 
+from app.services.path_policy import file_access_status
+
 
 METADATA_FILENAME = "metadata.jsonl"
 PHASE_FILENAME = "phase.json"
@@ -16,16 +18,16 @@ MISSING_PHASE_VALUES = {"", "UNDEFINED", "UNKNOWN", "UNK", "N/A", "NA", "NONE", 
 
 
 def has_converter_metadata(dataset_path: Path | str) -> bool:
-    return _metadata_path(dataset_path).is_file()
+    return file_access_status(_metadata_path(dataset_path)) == "exists"
 
 
 def read_converter_metadata_rows(dataset_path: Path | str) -> list[dict[str, Any]]:
     path = _metadata_path(dataset_path)
-    if not path.is_file():
+    if file_access_status(path) != "exists":
         return []
 
     rows: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as handle:
+    with path.resolve(strict=True).open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             stripped = line.strip()
             if not stripped:
@@ -214,10 +216,10 @@ def _curation_path(dataset_path: Path | str) -> Path:
 
 def _read_phase_payload(dataset_path: Path | str) -> dict[str, Any] | list[Any] | None:
     path = _phase_path(dataset_path)
-    if not path.is_file():
+    if file_access_status(path) != "exists":
         return None
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.resolve(strict=True).read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
     if isinstance(payload, (dict, list)):
@@ -285,7 +287,7 @@ def _update_metadata_rows(
     updater: Callable[[dict[str, Any]], None],
 ) -> bool:
     path = _metadata_path(dataset_path)
-    if not path.is_file():
+    if file_access_status(path) != "exists":
         return False
 
     rows = read_converter_metadata_rows(dataset_path)
@@ -309,10 +311,10 @@ def _update_curation_rows(
     updater: Callable[[dict[str, str]], None],
 ) -> bool:
     path = _curation_path(dataset_path)
-    if not path.is_file():
+    if file_access_status(path) != "exists":
         return False
 
-    with path.open(newline="", encoding="utf-8") as handle:
+    with path.resolve(strict=True).open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         fieldnames = list(reader.fieldnames or [])
         rows = [dict(row) for row in reader]

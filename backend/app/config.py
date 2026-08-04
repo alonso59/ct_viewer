@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class Settings:
     data_root: str
+    allowed_data_roots: tuple[str, ...]
+    allow_unrestricted_data_paths: bool
+    cors_origins: tuple[str, ...]
+    desktop_runtime: bool
     webui_state_dir: str | None
     radiology_ui_token: str
     log_level: str
@@ -55,9 +59,32 @@ def _parse_mpr_renderer(value: str | None) -> str:
     return "png"
 
 
+def _parse_csv(value: str | None) -> tuple[str, ...]:
+    if not value:
+        return ()
+    return tuple(item.strip() for item in value.split(",") if item.strip())
+
+
 def get_settings() -> Settings:
+    data_root = os.environ.get("DATA_ROOT", "../../data/dataset")
+    allowed_roots_raw = os.environ.get("ALLOWED_DATA_ROOTS")
+    allowed_data_roots = tuple(
+        part.strip()
+        for part in (allowed_roots_raw or data_root).split(os.pathsep)
+        if part.strip()
+    ) or (data_root,)
     return Settings(
-        data_root=os.environ.get("DATA_ROOT", "../../data/dataset"),
+        data_root=data_root,
+        allowed_data_roots=allowed_data_roots,
+        allow_unrestricted_data_paths=_parse_bool(
+            os.environ.get("ALLOW_UNRESTRICTED_DATA_PATHS"),
+            default=False,
+        ),
+        cors_origins=_parse_csv(os.environ.get("CORS_ORIGINS")),
+        desktop_runtime=_parse_bool(
+            os.environ.get("RADIOLOGY_DESKTOP_RUNTIME"),
+            default=False,
+        ),
         webui_state_dir=os.environ.get("WEBUI_STATE_DIR") or None,
         radiology_ui_token=os.environ.get("RADIOLOGY_UI_TOKEN", ""),
         log_level=os.environ.get("LOG_LEVEL", "info"),

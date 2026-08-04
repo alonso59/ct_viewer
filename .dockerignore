@@ -13,6 +13,11 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 
+.desktop-build/
+artifacts/
+src-tauri/target/
+src-tauri/binaries/*.exe
+
 backend/__pycache__/
 backend/.pytest_cache/
 backend/.mypy_cache/

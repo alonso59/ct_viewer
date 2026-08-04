@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from app.models.database import PathStatus
+from app.services.path_policy import file_access_status, is_path_allowed, is_path_value_valid
 
 
 def resolve_database_path(dataset_path: Path | str, raw_value: str | None) -> PathStatus:
     raw = (raw_value or "").strip()
     if not raw:
         return PathStatus(raw=None, resolved=None, status="not_provided")
+    if not is_path_value_valid(raw):
+        return PathStatus(raw=raw, resolved=None, status="unreadable")
 
     raw_path = Path(raw).expanduser()
     candidates: list[Path] = []
@@ -18,8 +20,9 @@ def resolve_database_path(dataset_path: Path | str, raw_value: str | None) -> Pa
     else:
         root = Path(dataset_path).expanduser().resolve()
         candidates.append(root / raw_path)
-        candidates.extend(parent / raw_path for parent in root.parents)
-        candidates.append(Path.cwd() / raw_path)
+        candidates.extend(parent / raw_path for parent in root.parents if is_path_allowed(parent))
+        if is_path_allowed(Path.cwd()):
+            candidates.append(Path.cwd() / raw_path)
 
     seen: set[str] = set()
     normalized: list[Path] = []
@@ -34,13 +37,27 @@ def resolve_database_path(dataset_path: Path | str, raw_value: str | None) -> Pa
         seen.add(key)
         normalized.append(resolved)
 
+    saw_forbidden = False
+    saw_unreadable = False
     for candidate in normalized:
-        if candidate.is_file():
+        access_status = file_access_status(candidate)
+        if access_status == "forbidden":
+            saw_forbidden = True
+            continue
+        if access_status == "unreadable":
+            saw_unreadable = True
+            continue
+        if access_status == "exists":
             return PathStatus(
                 raw=raw,
                 resolved=str(candidate),
-                status="exists" if os.access(candidate, os.R_OK) else "unreadable",
+                status="exists",
             )
+
+    if saw_forbidden:
+        return PathStatus(raw=raw, resolved=None, status="forbidden")
+    if saw_unreadable:
+        return PathStatus(raw=raw, resolved=None, status="unreadable")
 
     first = normalized[0] if normalized else raw_path
     return PathStatus(raw=raw, resolved=str(first), status="missing")
@@ -52,3 +69,7 @@ def path_exists(status: PathStatus) -> bool:
 
 def path_is_unreadable(status: PathStatus) -> bool:
     return status.status == "unreadable"
+
+
+def path_is_forbidden(status: PathStatus) -> bool:
+    return status.status == "forbidden"

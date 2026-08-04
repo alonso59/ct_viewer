@@ -18,6 +18,7 @@ This project runs on a **remote Linux server with no sudo access**.
 |---|---|---|
 | **Python backend** | **Anaconda env `ccrcc`** (native) | `conda activate ccrcc` then `pip install` or `conda install` |
 | **Frontend dev** | **`udocker` + `node:20-slim` image** | Node.js is NOT available natively on the server |
+| **Windows desktop build** | **Pinned native Windows x64 toolchains** | Only through `scripts/build-desktop.ps1`; see `toolchains/desktop-windows-x64.json` |
 | **Data access** | Native filesystem | Direct path access, no container needed |
 | **Port forwarding** | **VS Code Remote SSH** | Already configured — do NOT suggest ssh tunnel commands |
 | **Container deploy** | **udocker** | Final deployment only (M12) — NOT the dev environment |
@@ -50,6 +51,7 @@ You have skills defined in radioccrcc-webui/.codex/skills as base to get best pr
 ### Hard constraints for the agent
 - ❌ Never use `sudo`, `apt`, `brew`, or system-level installs
 - ❌ Never suggest native `npm` or `node` commands outside udocker
+- ✅ Exception: the authorized Windows M15 release script may use its validated, pinned native Node/MSVC/Rust/Python toolchains
 - ❌ Never modify files outside `radioccrcc-webui/`
 - ❌ Never suggest SSH port-forward commands (VS Code handles this)
 - ✅ Always use `conda activate ccrcc` before backend commands
@@ -517,16 +519,16 @@ and server restart.
   - FastAPI serves static files from `/app/static`
   - `CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`
 - [x] **M12.2** Create `.dockerignore` (exclude `node_modules`, `__pycache__`, `.git`, data)
-- [ ] **M12.3** Build and test with podman/docker:
+- [x] **M12.3** Build and test with podman/docker:
   - `podman build -t radiology-ui:1.0 .`
   - `podman run -p 8000:8000 -v /path/to/data/dataset:/data:ro radiology-ui:1.0`
   - Verify all features work at `http://localhost:8000`
-- [ ] **M12.4** Export and test with udocker:
+- [x] **M12.4** Export and test with udocker:
   - `podman save -o radiology-ui_1.0.tar radiology-ui:1.0`
   - `udocker load -i radiology-ui_1.0.tar`
   - `udocker create --name=radio-ui radiology-ui:1.0`
   - `udocker run -p 8000:8000 -v /path/to/data:/data:ro radio-ui`
-- [ ] **M12.5** Verify image size ≤ 1.5 GB.
+- [x] **M12.5** Verify image size ≤ 1.5 GB.
 - [x] **M12.6** Update README with final deployment instructions.
 
 **Completion criteria**: App runs from udocker with single load+create+run
@@ -574,6 +576,72 @@ decision artifacts while preserving non-destructive recycle semantics.
 
 ---
 
+### Milestone 14 — Secure Dataset Opening & Inspection
+
+**Goal**: Separate read-only dataset inspection from activation, restrict data
+access to configured roots, and streamline the opening experience.
+
+**Tasks**:
+
+- [x] **M14.1** Add workspace inspection models and `POST /api/workspace/inspect`.
+- [x] **M14.2** Add allowed-root enforcement for datasets, references, and symlinks.
+- [x] **M14.3** Add bounded structural classification and diagnostic summaries.
+- [x] **M14.4** Migrate workspace persistence to active + five-entry MRU state.
+- [x] **M14.5** Redesign `DatasetSelectorPage` and route by dataset kind after activation.
+- [x] **M14.6** Add backend/frontend security, persistence, and workflow tests.
+- [x] **M14.7** Update SRS, README, environment, and deployment configuration.
+- [x] **M14.8** Run backend tests in `conda activate ccrcc` and frontend test/lint/build in udocker.
+
+**Completion criteria**: Inspection never changes workspace state, caches, or
+dataset contents. Only usable datasets can be activated. Data access stays within
+allowed roots by default, recent paths are re-inspected, and opening navigates
+directly to the compatible explorer.
+
+---
+
+### Milestone 15 — Desktop Foundation & Dataset Opening
+
+**Authorization note**: M15 was explicitly authorized before the M12.3–M12.5 and
+M14.8 closeout. That exception did not pre-mark the earlier verification items complete.
+
+**Goal**: Add a Windows 10/11 x64 Tauri 2 edition that reuses the existing React
+frontend and FastAPI backend, manages a private self-contained sidecar, and adds
+native dataset folder selection without changing the web distribution.
+
+**Tasks**:
+
+- [x] **M15.1** Add `src-tauri/` with hidden native window, minimal capability/CSP,
+  application metadata, icons, single-instance handling, and NSIS `currentUser`
+  configuration.
+- [x] **M15.2** Add the desktop FastAPI entrypoint with loopback dynamic binding,
+  atomic PID/port handshake, file logging, parent watchdog, exact CORS origins,
+  and authenticated private shutdown.
+- [x] **M15.3** Manage the sidecar lifecycle in Rust: ephemeral 256-bit token,
+  60-second health gate, IPC runtime handoff, startup diagnostics, five-second
+  graceful close, forced fallback, and handshake cleanup.
+- [x] **M15.4** Add the frontend desktop bridge and dynamic Axios transport while
+  retaining relative `/api` and manual paths in browser mode. Runtime credentials
+  remain memory-only and take precedence over browser token storage.
+- [x] **M15.5** Redesign only `DatasetSelectorPage` as the M16 reference surface,
+  with desktop-only Browse, separate Inspect/Open actions, stable loading regions,
+  row summaries, warning details, Resume, and compact re-inspected recents.
+- [x] **M15.6** Add pinned toolchain files, Cargo and hashed Python locks,
+  PyInstaller onefile specification, the reproducible PowerShell build entrypoint,
+  and Windows GitHub Actions artifact publication.
+- [x] **M15.7** Add backend, frontend, sidecar, transport, and routing tests; update
+  SRS v2.2, README, environment documentation, and this milestone tracker.
+- [ ] **M15.8** Run the complete Windows x64 release script and manual Windows
+  10/11 regression: installer, single instance, Browse → Inspect → Open, existing
+  Cases/Patients/Resume/2D/3D routes, parent-loss cleanup, and no remaining backend.
+
+**Completion criteria**: The unsigned per-user NSIS installer starts a single
+hidden FastAPI sidecar on loopback, shows the application only after readiness,
+opens datasets through the unchanged M14 contracts, preserves the web edition,
+and exits without orphaned backend processes. The committed Windows workflow
+must pass before M15 is marked completed.
+
+---
+
 ## Agent Instructions
 
 ### Before starting any milestone
@@ -595,9 +663,10 @@ decision artifacts while preserving non-destructive recycle semantics.
 
 - ✅ Backend Python → always use `conda activate ccrcc` first
 - ✅ Frontend / Node.js → always run inside `udocker` with `radio-node` container
+- ✅ Windows desktop release → native toolchains are permitted only through `scripts/build-desktop.ps1`
 - ✅ Data path → use `DATA_ROOT` env var defaulting to `../../data/dataset` (relative to `backend/`)
 - ❌ Never use `sudo`, `apt-get`, `brew`, or system package managers
-- ❌ Never run `npm`, `node`, or `npx` outside of a udocker container
+- ❌ Never run `npm`, `node`, or `npx` outside udocker except through the authorized Windows desktop release script
 - ❌ Never write files outside `radioccrcc-webui/`
 - ❌ Never suggest SSH tunnel commands — VS Code Remote handles port forwarding
 - ❌ Never create a Dockerfile or refer to Docker/Podman build until **M12**
@@ -632,5 +701,7 @@ decision artifacts while preserving non-destructive recycle semantics.
 | M9        | Frontend: 3D Surface Panel         | ✅ Completed    |       |
 | M10       | Frontend: Settings Persistence     | ✅ Completed    | 2026-03-05 |
 | M11       | Integration Testing & Polish       | ✅ Completed    | 2026-03-05 |
-| M12       | Containerization & Deployment      | 🟨 Blocked      | `podman`/`docker` missing on host; M12.3–M12.5 pending |
+| M12       | Containerization & Deployment      | ✅ Completed    | 2026-08-04 |
 | M13       | Reviewer Decisions Workflow        | ✅ Completed    | 2026-03-05 |
+| M14       | Secure Dataset Opening & Inspection| ✅ Completed    | 2026-08-04 |
+| M15       | Desktop Foundation & Dataset Opening| 🟨 Windows verification pending | Implementation complete; full NSIS build and Windows 10/11 regression require the pinned desktop toolchains |

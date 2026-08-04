@@ -14,6 +14,7 @@ from app.services.converter_metadata import (
     select_converter_phase,
     text_value,
 )
+from app.services.path_policy import file_access_status, is_path_allowed
 
 
 CASE_ID_PATTERN = re.compile(r"(case_\d{5})")
@@ -86,7 +87,14 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
         return []
 
     dataset_candidates: list[Path]
-    if any((root / marker).exists() for marker in ("nifti", "seg", "voi", "manifest.csv", "metadata.jsonl")):
+    root_has_nifti = any(
+        path.is_file() and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES)
+        for path in root.iterdir()
+    )
+    if root_has_nifti or any(
+        (root / marker).exists()
+        for marker in ("database.csv", "nifti", "seg", "voi", "manifest.csv", "metadata.jsonl")
+    ):
         dataset_candidates = [root]
     else:
         dataset_candidates = sorted(
@@ -306,23 +314,23 @@ def _nifti_files(nifti_dir: Path, patient_filter: str | None = None) -> list[Pat
         files = [
             path
             for path in nifti_dir.glob(f"*{patient_filter}*")
-            if path.is_file() and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES)
+            if _is_allowed_file(path) and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES)
         ]
         return sorted(files, key=lambda path: path.name)
 
     files: list[Path] = []
     for path in nifti_dir.iterdir():
-        if path.is_file() and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES):
-            files.append(path)
+        if _is_allowed_file(path) and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES):
+            files.append(path.resolve(strict=True))
     return sorted(files, key=lambda path: path.name)
 
 
 def _load_manifest_index(dataset_path: Path) -> dict[str, dict[str, str]]:
     manifest_path = dataset_path / "manifest.csv"
-    if not manifest_path.is_file():
+    if not _is_allowed_file(manifest_path):
         return {}
 
-    with manifest_path.open(newline="") as handle:
+    with manifest_path.resolve(strict=True).open(newline="") as handle:
         reader = csv.DictReader(handle)
         index: dict[str, dict[str, str]] = {}
         for row in reader:
@@ -334,19 +342,23 @@ def _load_manifest_index(dataset_path: Path) -> dict[str, dict[str, str]]:
 
 def _find_seg_path(dataset_path: Path, image_stem: str) -> Path | None:
     seg_dir = dataset_path / "seg"
-    if not seg_dir.is_dir():
+    if not _is_allowed_directory(seg_dir):
         return None
 
     seg_stem = re.sub(r"_0000$", "", image_stem)
     for suffix in NIFTI_SUFFIXES:
         candidate = seg_dir / f"{seg_stem}{suffix}"
-        if candidate.exists():
-            return candidate
+        if _is_allowed_file(candidate):
+            return candidate.resolve(strict=True)
     return None
 
 
 def _relative_storage_path(dataset_path: Path, file_path: Path) -> str:
-    return str(file_path.resolve().relative_to(dataset_path.resolve()))
+    resolved = file_path.resolve()
+    try:
+        return str(resolved.relative_to(dataset_path.resolve()))
+    except ValueError:
+        return str(resolved)
 
 
 def _collect_nifti_entries(
@@ -354,14 +366,13 @@ def _collect_nifti_entries(
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
     nifti_dir = dataset_path / "nifti"
-    if not nifti_dir.is_dir():
-        return []
+    source_dir = nifti_dir if _is_allowed_directory(nifti_dir) else dataset_path
 
     manifest_index = _load_manifest_index(dataset_path)
     metadata_index = metadata_rows_by_filename(dataset_path)
     phase_overrides = phase_overrides_by_filename(dataset_path)
     entries: list[dict[str, Any]] = []
-    for image_path in _nifti_files(nifti_dir, patient_filter=patient_filter):
+    for image_path in _nifti_files(source_dir, patient_filter=patient_filter):
         filename = image_path.name
         image_stem = _strip_nifti_suffix(filename)
         manifest_row = manifest_index.get(filename, {})
@@ -406,7 +417,11 @@ def _collect_nifti_entries(
 
 def _candidate_voi_mask_roots(dataset_path: Path) -> list[Path]:
     voi_dir = dataset_path / "voi"
-    return [path for path in (voi_dir / "mask", voi_dir / "segmentation") if path.is_dir()]
+    return [
+        path
+        for path in (voi_dir / "mask", voi_dir / "segmentation")
+        if _is_allowed_directory(path)
+    ]
 
 
 def _collect_voi_entries(
@@ -414,19 +429,23 @@ def _collect_voi_entries(
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
     image_root = dataset_path / "voi" / "images"
-    if not image_root.is_dir():
+    if not _is_allowed_directory(image_root):
         return []
 
     mask_roots = _candidate_voi_mask_roots(dataset_path)
     entries: list[dict[str, Any]] = []
     if patient_filter:
         image_paths: list[Path] = []
-        for group_dir in sorted(path for path in image_root.iterdir() if path.is_dir()):
+        for group_dir in sorted(
+            path for path in image_root.iterdir() if _is_allowed_directory(path)
+        ):
             patient_dir = group_dir / patient_filter
-            if patient_dir.is_dir():
-                image_paths.extend(sorted(patient_dir.rglob("*.npy")))
+            if _is_allowed_directory(patient_dir):
+                image_paths.extend(
+                    sorted(path for path in patient_dir.rglob("*.npy") if _is_allowed_file(path))
+                )
     else:
-        image_paths = sorted(image_root.rglob("*.npy"))
+        image_paths = sorted(path for path in image_root.rglob("*.npy") if _is_allowed_file(path))
 
     for image_path in image_paths:
         relative = image_path.relative_to(image_root)
@@ -440,7 +459,10 @@ def _collect_voi_entries(
             group, patient_id, phase = relative.parts[:3]
             filename = relative.name
         stem = image_path.stem
-        mask_path = next((root / relative for root in mask_roots if (root / relative).exists()), None)
+        mask_path = next(
+            (root / relative for root in mask_roots if _is_allowed_file(root / relative)),
+            None,
+        )
 
         entries.append(
             {
@@ -468,7 +490,7 @@ def _collect_deleted_nifti_entries(
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
     deleted_nifti_dir = dataset_path / "deleted" / "nifti"
-    if not deleted_nifti_dir.is_dir():
+    if not _is_allowed_directory(deleted_nifti_dir):
         return []
 
     manifest_index = _load_manifest_index(dataset_path)
@@ -500,7 +522,7 @@ def _collect_deleted_nifti_entries(
                 candidate
                 for suffix in NIFTI_SUFFIXES
                 for candidate in [dataset_path / "deleted" / "seg" / f"{re.sub(r'_0000$', '', image_stem)}{suffix}"]
-                if candidate.exists()
+                if _is_allowed_file(candidate)
             ),
             None,
         )
@@ -529,19 +551,23 @@ def _collect_deleted_voi_entries(
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
     image_root = dataset_path / "voi" / "deleted" / "images"
-    if not image_root.is_dir():
+    if not _is_allowed_directory(image_root):
         return []
 
     mask_root = dataset_path / "voi" / "deleted" / "mask"
     entries: list[dict[str, Any]] = []
     if patient_filter:
         image_paths: list[Path] = []
-        for group_dir in sorted(path for path in image_root.iterdir() if path.is_dir()):
+        for group_dir in sorted(
+            path for path in image_root.iterdir() if _is_allowed_directory(path)
+        ):
             patient_dir = group_dir / patient_filter
-            if patient_dir.is_dir():
-                image_paths.extend(sorted(patient_dir.rglob("*.npy")))
+            if _is_allowed_directory(patient_dir):
+                image_paths.extend(
+                    sorted(path for path in patient_dir.rglob("*.npy") if _is_allowed_file(path))
+                )
     else:
-        image_paths = sorted(image_root.rglob("*.npy"))
+        image_paths = sorted(path for path in image_root.rglob("*.npy") if _is_allowed_file(path))
 
     for image_path in image_paths:
         relative = image_path.relative_to(image_root)
@@ -567,8 +593,8 @@ def _collect_deleted_voi_entries(
                 "laterality": _extract_laterality(stem),
                 "filename": filename,
                 "image_path": str(image_path),
-                "mask_path": str(mask_path) if mask_path.exists() else None,
-                "has_seg": mask_path.exists(),
+                "mask_path": str(mask_path.resolve(strict=True)) if _is_allowed_file(mask_path) else None,
+                "has_seg": _is_allowed_file(mask_path),
                 "deleted": True,
                 "storage_path": _relative_storage_path(dataset_path, image_path),
             }
@@ -585,3 +611,15 @@ def _collect_series_entries(dataset_path: Path, patient_filter: str | None = Non
         nifti_entries + voi_entries + deleted_nifti_entries + deleted_voi_entries,
         key=_series_sort_key,
     )
+
+
+def _is_allowed_file(path: Path) -> bool:
+    return file_access_status(path) == "exists"
+
+
+def _is_allowed_directory(path: Path) -> bool:
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError:
+        return False
+    return resolved.is_dir() and is_path_allowed(resolved)

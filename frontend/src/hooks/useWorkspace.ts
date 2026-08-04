@@ -5,8 +5,11 @@ import { apiClient, getApiErrorMessage, type WorkspaceStatus } from '../services
 const EMPTY_WORKSPACE: WorkspaceStatus = {
   configured: false,
   dataset_id: null,
+  dataset_key: null,
+  dataset_kind: null,
   dataset_path: null,
   workspace_dir: null,
+  recent_datasets: [],
 }
 
 export function useWorkspace() {

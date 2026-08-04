@@ -1,0 +1,1 @@
+{"main":{"identifier":"main","description":"Minimum capability set for the Radiology Desktop main window.","local":true,"windows":["main"],"permissions":["core:default"]}}

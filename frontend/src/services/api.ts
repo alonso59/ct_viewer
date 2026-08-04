@@ -6,6 +6,8 @@ export const AUTH_TOKEN_STORAGE_KEY = 'radiology-ui-token'
 const TOKEN_STORAGE_MODE = (import.meta.env.VITE_AUTH_TOKEN_STORAGE ?? 'memory').toLowerCase()
 const USE_LOCAL_STORAGE_TOKEN = TOKEN_STORAGE_MODE === 'local'
 let memoryAuthToken = ''
+let runtimeAuthToken: string | null = null
+let configuredApiBaseUrl = '/api'
 
 export type Axis = 'axial' | 'coronal' | 'sagittal'
 export type SeriesType = 'nifti' | 'voi'
@@ -13,7 +15,21 @@ export type ReviewAction = 'reclassify' | 'delete' | 'restore'
 export type PhaseDecision = 'NC' | 'CMP' | 'NP' | 'DELAY' | 'UNK'
 export type CanonicalPhase = 'NC' | 'CMP' | 'NP' | 'DELAY' | 'UNK'
 export type Scope = 'complete' | 'voi'
-export type PathStatusValue = 'not_provided' | 'exists' | 'missing' | 'unreadable'
+export type PathStatusValue =
+  | 'not_provided'
+  | 'exists'
+  | 'missing'
+  | 'unreadable'
+  | 'forbidden'
+export type DatasetKind =
+  | 'canonical'
+  | 'converter_output'
+  | 'legacy'
+  | 'nifti_collection'
+  | 'voi_collection'
+  | 'incomplete'
+  | 'unsupported'
+export type InspectionSeverity = 'info' | 'warning' | 'error'
 export type CurationTarget =
   | 'SEG'
   | 'tumor_mask'
@@ -44,8 +60,55 @@ export interface HealthStatus {
 export interface WorkspaceStatus {
   configured: boolean
   dataset_id: string | null
+  dataset_key: string | null
+  dataset_kind: DatasetKind | null
   dataset_path: string | null
   workspace_dir: string | null
+  recent_datasets: RecentDataset[]
+}
+
+export interface RecentDataset {
+  dataset_path: string
+  display_name: string
+  dataset_key: string
+  dataset_kind: DatasetKind | null
+  last_opened_at: string
+}
+
+export interface WorkspaceInspection {
+  valid: boolean
+  dataset_path: string
+  dataset_id: string
+  dataset_key: string
+  dataset_kind: DatasetKind
+  markers: {
+    database_csv: boolean
+    metadata_jsonl: boolean
+    manifest_csv: boolean
+    nifti: boolean
+    seg: boolean
+    voi: boolean
+  }
+  summary: {
+    case_count: number
+    volume_count: number
+    nifti_count: number
+    voi_image_count: number
+    segmentation_count: number
+    voi_mask_count: number
+    warning_count: number
+    warnings_truncated: boolean
+  }
+  state: {
+    path: string
+    exists: boolean
+    writable: boolean
+  }
+  warnings: Array<{
+    code: string
+    message: string
+    severity: InspectionSeverity
+  }>
 }
 
 export interface DatasetSummary {
@@ -343,6 +406,16 @@ const api = axios.create({
   baseURL: '/api',
 })
 
+export function configureApiBaseUrl(baseUrl: string): void {
+  const normalized = baseUrl.trim().replace(/\/+$/, '')
+  configuredApiBaseUrl = normalized ? `${normalized}/api` : '/api'
+  api.defaults.baseURL = configuredApiBaseUrl
+}
+
+export function configureRuntimeAuthToken(token: string): void {
+  runtimeAuthToken = token.trim() || null
+}
+
 let authPromptHandler: AuthPromptHandler | null = null
 let pendingPrompt: Promise<string | null> | null = null
 
@@ -368,6 +441,9 @@ api.interceptors.response.use(
     if (requestConfig._authRetried) {
       return Promise.reject(error)
     }
+    if (runtimeAuthToken !== null) {
+      return Promise.reject(error)
+    }
 
     const token = await requestAuthToken()
     if (!token) {
@@ -383,6 +459,9 @@ api.interceptors.response.use(
 )
 
 export function getStoredAuthToken(): string {
+  if (runtimeAuthToken !== null) {
+    return runtimeAuthToken
+  }
   if (USE_LOCAL_STORAGE_TOKEN) {
     return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ?? ''
   }
@@ -390,6 +469,9 @@ export function getStoredAuthToken(): string {
 }
 
 export function setStoredAuthToken(token: string): void {
+  if (runtimeAuthToken !== null) {
+    return
+  }
   memoryAuthToken = token
   if (!USE_LOCAL_STORAGE_TOKEN) {
     window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
@@ -502,8 +584,17 @@ export const apiClient = {
     return response.data
   },
 
-  async clearWorkspace(): Promise<WorkspaceStatus> {
-    const response = await api.delete<WorkspaceStatus>('/workspace')
+  async inspectWorkspace(datasetPath: string): Promise<WorkspaceInspection> {
+    const response = await api.post<WorkspaceInspection>('/workspace/inspect', {
+      dataset_path: datasetPath,
+    })
+    return response.data
+  },
+
+  async clearWorkspace(recentKey?: string): Promise<WorkspaceStatus> {
+    const response = await api.delete<WorkspaceStatus>('/workspace', {
+      params: recentKey ? { recent_key: recentKey } : undefined,
+    })
     return response.data
   },
 
@@ -702,7 +793,7 @@ export const apiClient = {
   },
 
   sliceUrl(axis: Axis, index: number, query: SliceQuery = {}): string {
-    return `/api/slice/${axis}/${index}${buildSliceQuery(query)}`
+    return `${configuredApiBaseUrl}/slice/${axis}/${index}${buildSliceQuery(query)}`
   },
 
   meshUrl(label: number, loadHandle: string, smooth = true): string {
@@ -710,7 +801,7 @@ export const apiClient = {
       load_handle: loadHandle,
       smooth: String(smooth),
     })
-    return `/api/mesh/${label}?${params.toString()}`
+    return `${configuredApiBaseUrl}/mesh/${label}?${params.toString()}`
   },
 
   async getSettings(): Promise<ViewerSettings> {

@@ -26,7 +26,13 @@ from app.services.converter_metadata import (
     select_converter_phase,
     text_value,
 )
-from app.services.path_resolver import path_exists, path_is_unreadable, resolve_database_path
+from app.services.path_resolver import (
+    path_exists,
+    path_is_forbidden,
+    path_is_unreadable,
+    resolve_database_path,
+)
+from app.services.path_policy import file_access_status
 
 
 PHASE_PRIORITY: tuple[CanonicalPhase, ...] = ("NP", "CMP", "NC", "DELAY", "UNK")
@@ -107,7 +113,10 @@ def reset_database_index() -> None:
 
 def has_database(dataset_path: Path | str) -> bool:
     resolved = Path(dataset_path).expanduser().resolve()
-    return (resolved / "database.csv").is_file() or has_converter_metadata(resolved)
+    return (
+        file_access_status(resolved / "database.csv") == "exists"
+        or has_converter_metadata(resolved)
+    )
 
 
 def get_database_index(dataset_path: Path | str) -> DatabaseIndex:
@@ -363,8 +372,11 @@ def normalize_phase(value: str | None) -> tuple[CanonicalPhase, PhaseStatus]:
 
 def _load_database_index(dataset_path: Path) -> DatabaseIndex:
     database_path = dataset_path / "database.csv"
-    if database_path.is_file():
-        with database_path.open(newline="", encoding="utf-8-sig") as handle:
+    if file_access_status(database_path) == "exists":
+        with database_path.resolve(strict=True).open(
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
             reader = csv.DictReader(handle)
             fieldnames = tuple(reader.fieldnames or ())
             rows = tuple(
@@ -382,8 +394,7 @@ def _load_database_index(dataset_path: Path) -> DatabaseIndex:
             rows=rows,
         )
 
-    metadata_path = dataset_path / "metadata.jsonl"
-    if metadata_path.is_file():
+    if has_converter_metadata(dataset_path):
         return _load_converter_metadata_index(dataset_path)
 
     return DatabaseIndex(
@@ -473,10 +484,10 @@ def _metadata_to_database_row(
 
 def _load_manifest_index(dataset_path: Path) -> dict[str, dict[str, str]]:
     manifest_path = dataset_path / "manifest.csv"
-    if not manifest_path.is_file():
+    if file_access_status(manifest_path) != "exists":
         return {}
 
-    with manifest_path.open(newline="", encoding="utf-8-sig") as handle:
+    with manifest_path.resolve(strict=True).open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         return {
             filename: dict(row)
@@ -711,6 +722,17 @@ def _append_path_warning(
                 path_field=field,
             )
         )
+    elif path_is_forbidden(status):
+        warnings.append(
+            QCWarning(
+                code="forbidden_path",
+                message=f"{field} resolves outside the allowed data roots.",
+                severity="error",
+                row_id=row.row_id,
+                scope=scope,
+                path_field=field,
+            )
+        )
 
 
 def _inventory_row(row: DatabaseRow) -> CaseInventoryRow:
@@ -802,6 +824,10 @@ def _select_first_existing(dataset_path: Path, *raw_values: str | None) -> PathS
     for status in statuses:
         if path_exists(status):
             return status
+    for preferred_status in ("unreadable", "forbidden"):
+        for status in statuses:
+            if status.status == preferred_status:
+                return status
     return statuses[0] if statuses else PathStatus()
 
 

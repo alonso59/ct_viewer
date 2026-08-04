@@ -1,12 +1,12 @@
 # Software Requirements Specification (SRS)
 
-## Radiology WebUI — Medical Dataset Curation Tool
+## Radiology Desktop & WebUI — Medical Dataset Curation Tool
 
 | Field       | Value                                                     |
 | ----------- | --------------------------------------------------------- |
-| **Version** | 2.0                                                       |
-| **Date**    | 2026-05-27                                                |
-| **Status**  | Target specification for v2.0 upgrade from v1.2           |
+| **Version** | 2.2                                                       |
+| **Date**    | 2026-08-03                                                |
+| **Status**  | Active specification                                      |
 | **Project** | radio-ccrcc / Radiology WebUI                             |
 | **Author**  | Alonso (researcher) + GitHub Copilot / Codex-assisted SRS |
 
@@ -22,7 +22,7 @@
 6. [User Interface Specification](#6-user-interface-specification)
 7. [Technical Architecture](#7-technical-architecture)
 8. [Deployment](#8-deployment)
-9. [Future Versions (Out of Scope v2.0)](#9-future-versions-out-of-scope-v20)
+9. [Future Versions (Out of Scope v2.2)](#9-future-versions-out-of-scope-v22)
 10. [Acceptance Criteria](#10-acceptance-criteria)
 11. [Glossary](#11-glossary)
 
@@ -32,7 +32,7 @@
 
 ### 1.1 Purpose
 
-This document specifies the requirements for **Radiology WebUI v2.0**, a lightweight, local-first Web-based medical dataset curation interface for the `radio-ccrcc` pipeline.
+This document specifies the requirements for **Radiology v2.2**, a lightweight, local-first medical dataset curation interface for the `radio-ccrcc` pipeline. It is distributed both as the existing WebUI and as a Windows x64 desktop application; both editions reuse the same React frontend, FastAPI API, inspection contracts, and clinical viewers.
 
 The v2.0 system is no longer only an auxiliary researcher viewer. It is a **medical curation cockpit** where the medical doctor is the data-curation owner. The tool shall support case-by-case review of CT volumes, segmentation masks, VOIs, canonical metadata, QC warnings, and segmentation-focused curation decisions.
 
@@ -87,6 +87,8 @@ The WebUI shall not edit segmentation masks directly. Segmentation correction re
 * Store curation decisions separately from `database.csv`.
 * Export or list a correction queue for external segmentation correction.
 * Run as one web service image, compatible with `docker`, `podman`, and `udocker`.
+* Run as an unprivileged Windows 10/11 x64 desktop application using Tauri 2 and a private FastAPI sidecar.
+* Select a dataset through a native folder dialog in the desktop edition while retaining manual server-visible paths in the web edition.
 
 **Out of scope (v2.0):**
 
@@ -154,6 +156,7 @@ The system shall translate `database.csv` rows and dataset paths into a simple r
 | Aspect         | Specification                                                                                        |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
 | Host OS        | Linux (primary), macOS (secondary)                                                                   |
+| Desktop OS     | Windows 10/11 x64                                                                                     |
 | Container      | OCI image run via `udocker`, `podman`, or `docker`                                                   |
 | Browser        | Chromium-based browsers or Firefox, latest 2 ESR                                                     |
 | Data mount     | Host path bind-mounted at `/data`; source imaging data should be read-only whenever possible         |
@@ -162,7 +165,8 @@ The system shall translate `database.csv` rows and dataset paths into a simple r
 
 ### 2.3 Constraints
 
-* **Single service runtime**: backend API and compiled frontend are served by one container process.
+* **Web runtime**: backend API and compiled frontend are served by one container process.
+* **Desktop runtime**: Tauri loads local Vite assets and owns one private loopback FastAPI sidecar.
 * **database.csv-first design**: when `database.csv` exists, it shall drive case, scan, VOI, path, and QC state.
 * **Legacy fallback**: folder discovery and `manifest.csv` may remain as fallback, but shall not be the primary v2.0 workflow.
 * **Visualization preservation**: current MPR rendering, slice navigation, overlays, pan/zoom, and W/L behavior should be reused where possible.
@@ -405,6 +409,10 @@ Minimum fields for `curation_review.csv`:
 | FR-01  | **Dataset Selection**: User can provide a server-side path to a single dataset root folder through the GUI before dataset browsing begins.                                                                                                                       | Must     |
 | FR-01a | **Workspace Validation**: The selected dataset folder must exist on the backend server and contain at least one recognized dataset marker. For v2.0, `database.csv` is the preferred marker. Legacy markers include `nifti/`, `seg/`, `voi/`, or `manifest.csv`. | Must     |
 | FR-01b | **Database Status**: After workspace activation, the system displays `database.csv` status, row count, case count, required-column status, and warning count.                                                                                                    | Must     |
+| FR-01c | **Read-only Inspection**: Dataset inspection shall report type, markers, inventory counts, state-path readiness, and warnings without changing workspace state, caches, or filesystem contents.                                                                  | Must     |
+| FR-01d | **Controlled Activation**: Only canonical, converter, legacy, NIfTI-collection, or VOI-collection datasets with a readable volume may be activated. Incomplete datasets remain diagnostic-only.                                                                  | Must     |
+| FR-01e | **Allowed Data Roots**: Dataset roots, referenced files, and symlink targets shall remain under configured allowed roots unless an explicit development-only override is enabled.                                                                                | Must     |
+| FR-01f | **Recent Datasets**: The system shall retain at most five recently activated server paths without patient or clinical metadata and re-inspect a recent path before reuse.                                                                                          | Should   |
 | FR-02  | **Case Discovery**: System builds a case worklist from `database.csv`, grouped by `case_id`. If `database.csv` is absent, it may fall back to v1.2 patient discovery.                                                                                            | Must     |
 | FR-03  | **Inventory Discovery**: For a selected case, the system lists all available phases, scan indices, full scans, SEG masks, VOI images, VOI masks, and sides from `database.csv`.                                                                                  | Must     |
 | FR-04  | **Adaptive Content**: The viewer adapts to available data: complete scan only, complete scan + SEG, VOI only, VOI + VOI mask, or missing/partial data with QC warning.                                                                                           | Must     |
@@ -497,6 +505,21 @@ Minimum fields for `curation_review.csv`:
 
 ---
 
+### 4.9 Windows Desktop Runtime
+
+| ID     | Requirement                                                                                                                                                                   | Priority |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| FR-80  | **Native Host**: Windows 10/11 x64 uses Tauri 2 without replacing the React, FastAPI, or web distributions.                                                                  | Must     |
+| FR-81  | **Single Instance**: A second launch focuses the existing window and never starts another backend.                                                                           | Must     |
+| FR-82  | **Readiness Gate**: The main window remains hidden until the sidecar health check succeeds and React has configured the dynamic backend runtime.                             | Must     |
+| FR-83  | **Private Sidecar**: FastAPI binds only to `127.0.0.1` on an operating-system-selected port and requires a fresh 256-bit bearer token for every API route except health.      | Must     |
+| FR-84  | **Native Browse**: The desktop Open Dataset page exposes a native folder picker. Selection fills the path field but does not inspect or activate automatically.              | Must     |
+| FR-85  | **Controlled Shutdown**: Closing Tauri requests authenticated sidecar shutdown, waits up to five seconds, and terminates the process only as fallback.                       | Must     |
+| FR-86  | **Parent Watchdog**: The sidecar terminates when its Tauri parent exits unexpectedly.                                                                                         | Must     |
+| FR-87  | **Web Compatibility**: Browser Axios remains relative to `/api`; the web server keeps allowed-root enforcement and continues serving the compiled React application.        | Must     |
+| FR-88  | **Desktop Path Policy**: Only the desktop sidecar enables unrestricted local paths; source-data mutations remain disabled.                                                   | Must     |
+| FR-89  | **Private Shutdown API**: `/api/desktop/shutdown` is authenticated, absent from OpenAPI, and registered only by the desktop sidecar.                                         | Must     |
+
 ## 5. Non-Functional Requirements
 
 | ID     | Requirement                                                                                                                                                    | Target                            |
@@ -524,11 +547,11 @@ Minimum fields for `curation_review.csv`:
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
-│  [1] Workspace Setup Page                                 │
-│   • Enter server path to one dataset folder               │
-│   • Validate folder and database.csv                      │
-│   • Show database row count, case count, warnings         │
-│   • Activate workspace → Case Worklist                    │
+│  [1] Open Dataset Page                                    │
+│   • Enter a server-visible dataset path                   │
+│   • Inspect without changing the active workspace         │
+│   • Show type, inventory, state readiness, and warnings   │
+│   • Activate → Cases (modern) or Patients (legacy)        │
 └──────────────────────────┬───────────────────────────────┘
                            ▼
 ┌──────────────────────────────────────────────────────────┐
@@ -655,6 +678,10 @@ Dark theme may be preserved from v1.2.
 
 ---
 
+### 6.7 Open Dataset Reference Surface
+
+The root route is a standalone clinical opening surface. It hides the global AppBar and Active Context while every other route retains the established application shell. The page uses a solid background, no decorative gradients, no nested cards, compact recent rows, visible but subordinate warnings, and one primary `Open Dataset` action. It reserves stable space for progress, errors, and inspection results. `Browse…` appears only when the Tauri IPC bridge exists. `Inspect` remains read-only; activation remains a separate `PUT /api/workspace` action.
+
 ## 7. Technical Architecture
 
 ### 7.1 Stack Selection
@@ -667,6 +694,8 @@ Dark theme may be preserved from v1.2.
 | 3D Rendering | **three.js via @react-three/fiber + GLTFLoader**         | Optional orientation support using existing approach           |
 | Bundler      | **Vite 7**                                               | Fast TypeScript builds and dev-server proxy                    |
 | Container    | **Multi-stage OCI image**                                | Node build stage + Python runtime stage, non-root runtime user |
+| Desktop host | **Tauri 2 + Rust**                                       | Native lifecycle, single instance, folder dialog, and NSIS     |
+| Sidecar      | **PyInstaller 6.21 onefile**                             | Self-contained FastAPI runtime without a console window        |
 
 ### 7.2 Backend Architecture
 
@@ -786,8 +815,9 @@ frontend/
 | ------ | -------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
 | GET    | `/api/health`                                                        | `{"status":"ok"}`       | Backend health check                        |
 | GET    | `/api/workspace`                                                     | `WorkspaceStatus`       | Get active dataset workspace status         |
+| POST   | `/api/workspace/inspect`                                             | `WorkspaceInspection`   | Read-only dataset inspection                 |
 | PUT    | `/api/workspace`                                                     | `WorkspaceStatus`       | Validate and activate one dataset folder    |
-| DELETE | `/api/workspace`                                                     | `WorkspaceStatus`       | Clear active dataset workspace              |
+| DELETE | `/api/workspace?recent_key=...`                                      | `WorkspaceStatus`       | Clear active workspace or remove one recent |
 | GET    | `/api/datasets`                                                      | `Dataset[]`             | Dataset summary for active workspace        |
 | GET    | `/api/datasets/{dataset_id}/database/validation`                     | `DatabaseValidation`    | database.csv validation and warning summary |
 | GET    | `/api/datasets/{dataset_id}/cases`                                   | `CaseSummary[]`         | One row per case_id                         |
@@ -805,14 +835,45 @@ frontend/
 
 Legacy endpoints for `/patients`, `/series`, and `/review/apply` may remain for compatibility or technical/admin mode, but shall not be the primary v2.0 medical curation workflow.
 
+The desktop-only `POST /api/desktop/shutdown` endpoint is an internal lifecycle contract. It is authenticated by the ephemeral runtime token, excluded from OpenAPI, and does not exist in the normal web application process.
+
+#### 7.4.1 Workspace inspection and activation
+
+`POST /api/workspace/inspect` accepts `{ "dataset_path": "..." }` and returns the
+normalized path, visible `dataset_id`, path-derived `dataset_key`, `valid`, and one
+of these kinds: `canonical`, `converter_output`, `legacy`, `nifti_collection`,
+`voi_collection`, `incomplete`, or `unsupported`. The response also contains the
+detected markers; case, NIfTI, VOI, segmentation, and VOI-mask counts; the
+predicted `.webui` or `WEBUI_STATE_DIR` path; and structured warnings with code,
+severity, and message. At most 100 warning details are returned while the summary
+preserves the complete warning count.
+
+Inspection resolves paths strictly, rejects NUL and paths longer than 4096
+characters, follows symlinks before authorization, and permits dataset and
+referenced-file access only below `ALLOWED_DATA_ROOTS`. It reads metadata and
+volume headers, never voxel arrays, and is bounded to 100,000 filesystem entries
+or metadata rows and depth 6. Exceeding either bound is a blocking diagnostic.
+
+`PUT /api/workspace` repeats inspection and persists only a valid result. A
+successful path change atomically updates `active_dataset_path`, refreshes the
+five-entry UTC MRU list by `dataset_key`, and clears runtime caches. A failed or
+incomplete activation changes none of those. `WorkspaceStatus` exposes
+`dataset_key`, `dataset_kind`, and `recent_datasets`. `DELETE /api/workspace`
+clears only the active entry while retaining recents; `recent_key` removes only
+the selected MRU entry. Database path statuses include `forbidden` when a
+reference leaves the authorized roots.
+
 ### 7.5 Data Flow
 
 ```text
 [Browser]                          [FastAPI Backend]                         [Filesystem]
     │                                     │                                       │
+    │  POST /api/workspace/inspect        │                                       │
+    │ ──────────────────────────────────► │  authorize path + inspect read-only   │
+    │  ◄────── WorkspaceInspection        │                                       │
+    │                                     │                                       │
     │  PUT /api/workspace                 │                                       │
-    │ ──────────────────────────────────► │  validate dataset path                │
-    │                                     │  inspect database.csv                  │
+    │ ──────────────────────────────────► │  re-inspect + atomically activate     │
     │                                     │ ─────────────────────────────────────► │
     │  ◄────── WorkspaceStatus            │                                       │
     │                                     │                                       │
@@ -840,6 +901,30 @@ Legacy endpoints for `/patients`, `/series`, and `/review/apply` may remain for 
 ```
 
 ---
+
+### 7.6 Desktop Architecture
+
+```text
+Radiology Desktop (single instance)
+├── Tauri 2 / Rust
+│   ├── hidden native window and minimal CSP
+│   ├── native folder command
+│   ├── ephemeral token + sidecar ownership
+│   └── readiness and shutdown coordination
+├── React + TypeScript + Vite
+│   ├── local compiled assets
+│   ├── dynamic Axios base URL and in-memory runtime token
+│   └── existing Cases, Patients, Resume, 2D and 3D routes
+└── FastAPI sidecar
+    ├── 127.0.0.1:dynamic-port
+    ├── M14 inspection and activation
+    ├── PNG and GLB rendering
+    └── parent watchdog and private shutdown endpoint
+```
+
+The sidecar writes an atomic handshake containing only PID and port. Tauri stores the token exclusively in Rust memory and communicates `{baseUrl, token}` to the local frontend through the `get_backend_runtime` command. The frontend signals `frontend_ready` only after transport configuration and its first render. No general shell or filesystem permission is exposed to JavaScript.
+
+Desktop CORS accepts exactly `http://tauri.localhost` and the local Vite development origin `http://localhost:5173`. The CSP permits local application resources, Tauri IPC, and loopback HTTP connections only.
 
 ## 8. Deployment
 
@@ -900,7 +985,11 @@ python udocker.py run \
 | Variable                  | Default               | Description                                                               |
 | ------------------------- | --------------------- | ------------------------------------------------------------------------- |
 | `RADIOLOGY_UI_TOKEN`      | `""` (no auth)        | Bearer token for API protection (`/api/*`, except health)                 |
+| `RADIOLOGY_DESKTOP_RUNTIME` | `false`              | Registers the private shutdown route; set only by the Tauri host          |
+| `CORS_ORIGINS`            | empty                 | Exact comma-separated allow-list; set by the Tauri host for desktop       |
 | `DATA_ROOT`               | `/data`               | Fallback/dev-only dataset root when workspace selection is not used       |
+| `ALLOWED_DATA_ROOTS`      | `DATA_ROOT`            | Server-visible roots allowed for datasets and referenced files            |
+| `ALLOW_UNRESTRICTED_DATA_PATHS` | `false`          | Development-only bypass for the allowed-root boundary                     |
 | `WEBUI_STATE_DIR`         | empty                 | Optional external directory for curation/settings state                   |
 | `LOG_LEVEL`               | `info`                | Python logging level                                                      |
 | `ALLOW_DATA_MUTATIONS`    | `false`               | Legacy/admin mutation gate; not used by v2.0 medical curation actions    |
@@ -917,9 +1006,15 @@ python udocker.py run \
 | `WEBUI_STATE_DIR_HOST` | `./webui_state`  | Host directory for curation outputs when data mount is read-only |
 | `WEBUI_PORT`           | `8000`           | Host port mapped to container `8000`                             |
 
+### 8.6 Windows Desktop Build
+
+`scripts/build-desktop.ps1` is the single Windows x64 build entrypoint. It validates the pinned Python, Node, Rust, Tauri CLI, MSVC, and WebView2 toolchains; installs from hashed/committed locks; runs backend, frontend, and Rust checks; creates the target-suffixed PyInstaller sidecar; smoke-tests it without a Python runtime; and produces an unsigned per-user NSIS installer. Build outputs include the installer SHA-256, build log, and a toolchain manifest.
+
+Pinned versions are recorded in `toolchains/desktop-windows-x64.json`, `.python-version`, `.node-version`, `src-tauri/rust-toolchain.toml`, `backend/requirements-desktop.lock`, `frontend/package-lock.json`, and `src-tauri/Cargo.lock`. Builds use `PYTHONHASHSEED=0`, a commit-derived `SOURCE_DATE_EPOCH`, PyInstaller onefile without UPX, and NSIS `currentUser` mode with the standard WebView2 download bootstrapper. The installer is intentionally unsigned in v2.2.
+
 ---
 
-## 9. Future Versions (Out of Scope v2.0)
+## 9. Future Versions (Out of Scope v2.2)
 
 | Version | Feature                                                                  |
 | ------- | ------------------------------------------------------------------------ |
@@ -963,8 +1058,23 @@ python udocker.py run \
 | 19 | Source NIfTI, SEG, VOI image, VOI mask, `manifest.csv`, and `database.csv` are unchanged after curation. | Audit / checksum  |
 | 20 | Existing MPR controls, W/L, pan/zoom, overlays, and panel expansion remain functional.                   | Manual regression |
 | 21 | Legacy discovery remains available only as fallback when `database.csv` is absent.                       | API test          |
-| 22 | With curation writes disabled, curation save endpoint rejects writes and no curation files are changed.  | API test          |
-| 23 | With `RADIOLOGY_UI_TOKEN` set, unauthenticated `/api/*` access is blocked except `/api/health`.          | Manual/API test   |
+| 22 | Inspecting a dataset does not change workspace state, caches, or `.webui` contents.                       | API/file test     |
+| 23 | Incomplete datasets show a read-only diagnosis and cannot be activated.                                   | Frontend/API test |
+| 24 | Paths, referenced files, traversal attempts, and symlinks cannot escape allowed roots by default.          | Security test     |
+| 25 | The five-entry recent list is MRU-ordered, contains no clinical metadata, and re-inspects before opening.   | API/frontend test |
+| 26 | Modern datasets open in Cases; legacy/NIfTI/VOI collections open in Patients.                              | Frontend test     |
+| 27 | With curation writes disabled, curation save endpoint rejects writes and no curation files are changed.  | API test          |
+| 28 | With `RADIOLOGY_UI_TOKEN` set, unauthenticated `/api/*` access is blocked except `/api/health`.          | Manual/API test   |
+| 29 | Windows desktop starts exactly one backend bound to a dynamic `127.0.0.1` port.                              | Rust/smoke test   |
+| 30 | The desktop window is hidden until health succeeds and frontend transport configuration completes.           | Rust/manual test  |
+| 31 | The runtime handshake contains PID and port only; the ephemeral token is never persisted or logged.          | Backend/Rust test |
+| 32 | Desktop Browse handles selection and cancellation without automatic inspection or activation.                | Frontend/manual   |
+| 33 | Inspect remains read-only and Open Dataset activates through the unchanged M14 contracts.                    | API/frontend test |
+| 34 | Closing desktop removes the sidecar and handshake; parent loss also terminates the sidecar.                   | Smoke/manual test |
+| 35 | The web build retains relative `/api`, manual paths, allowed roots, and no Browse action.                     | Frontend/manual   |
+| 36 | Cases, Patients, Resume, PNG 2D, and GLB 3D remain operational in both editions.                              | Regression test   |
+| 37 | The unsigned NSIS x64 installer installs per-user without administrative privileges or a console window.      | Windows manual    |
+| 38 | CI publishes installer, SHA-256, build log, and a pinned toolchain manifest.                                  | CI artifact audit |
 
 ---
 
@@ -993,4 +1103,4 @@ python udocker.py run \
 
 ---
 
-*End of SRS v2.0*
+*End of SRS v2.2*

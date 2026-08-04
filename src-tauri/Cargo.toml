@@ -1,0 +1,26 @@
+[package]
+name = "radiology-desktop"
+version = "2.2.0"
+description = "Native Windows host for Radiology WebUI"
+authors = ["Radiology WebUI contributors"]
+edition = "2021"
+rust-version = "1.88"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+rand = "=0.8.5"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+tauri = { version = "=2.11.5", features = [] }
+tauri-plugin-dialog = "=2.7.2"
+tauri-plugin-shell = "=2.3.5"
+tauri-plugin-single-instance = "=2.4.3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

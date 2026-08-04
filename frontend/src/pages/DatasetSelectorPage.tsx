@@ -1,32 +1,48 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Paper,
+  Collapse,
+  Divider,
+  InputAdornment,
+  LinearProgress,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate } from '../services/router'
 
 import { useSettings } from '../hooks/useSettings'
 import {
   apiClient,
-  type DatasetSummary,
-  type WorkspaceStatus,
   getApiErrorMessage,
+  type DatasetKind,
+  type WorkspaceInspection,
+  type WorkspaceStatus,
 } from '../services/api'
+import {
+  browseForDatasetDirectory,
+  isDesktopRuntime,
+} from '../services/desktop'
+import { useNavigate } from '../services/router'
 
 interface DatasetSelectorPageProps {
   workspace: WorkspaceStatus
   workspaceLoading: boolean
   workspaceError: string | null
   onWorkspaceChange: (workspace: WorkspaceStatus) => void
+}
+
+interface RequestState {
+  error: string | null
+  recentKey: string | null
+  running: boolean
+}
+
+const EMPTY_REQUEST: RequestState = {
+  error: null,
+  recentKey: null,
+  running: false,
 }
 
 function DatasetSelectorPage({
@@ -37,300 +53,527 @@ function DatasetSelectorPage({
 }: DatasetSelectorPageProps) {
   const navigate = useNavigate()
   const settingsState = useSettings({ enabled: workspace.configured })
-  const [datasets, setDatasets] = useState<DatasetSummary[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [pathInput, setPathInput] = useState(workspace.dataset_path ?? '')
-  const [submitState, setSubmitState] = useState<{
-    running: boolean
-    error: string | null
-  }>({
-    running: false,
-    error: null,
-  })
+  const [inspection, setInspection] = useState<WorkspaceInspection | null>(null)
+  const [requestState, setRequestState] = useState<RequestState>(EMPTY_REQUEST)
+  const hasDesktopBridge = isDesktopRuntime()
 
   useEffect(() => {
     setPathInput(workspace.dataset_path ?? '')
   }, [workspace.dataset_path])
 
-  useEffect(() => {
-    if (!workspace.configured) {
-      setDatasets([])
-      setLoading(false)
-      setError(null)
-      return
-    }
+  const savedCaseId = workspace.dataset_id
+    ? settingsState.allSettings[workspace.dataset_id]?.last_patient
+    : null
+  const isBusy = workspaceLoading || requestState.running
 
-    let active = true
-    setLoading(true)
+  function changePath(nextPath: string) {
+    setPathInput(nextPath)
+    setInspection(null)
+    setRequestState(EMPTY_REQUEST)
+  }
 
-    apiClient
-      .listDatasets()
-      .then((response) => {
-        if (!active) {
-          return
-        }
-        setDatasets(response)
-        setError(null)
-      })
-      .catch((requestError) => {
-        if (!active) {
-          return
-        }
-        setDatasets([])
-        setError(getApiErrorMessage(requestError))
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false)
-        }
-      })
-
-    return () => {
-      active = false
-    }
-  }, [workspace.configured, workspace.dataset_id])
-
-  async function submitWorkspace() {
-    const trimmed = pathInput.trim()
+  async function inspectCandidate(
+    candidatePath: string,
+    options: { openImmediately?: boolean; resumeId?: string | null; recentKey?: string } = {},
+  ) {
+    const trimmed = candidatePath.trim()
     if (!trimmed) {
-      setSubmitState({
-        running: false,
-        error: 'Dataset path is required.',
-      })
+      setRequestState({ error: 'Dataset path is required.', recentKey: null, running: false })
       return
     }
 
-    setSubmitState({
-      running: true,
-      error: null,
-    })
+    setPathInput(trimmed)
+    setInspection(null)
+    setRequestState({ error: null, recentKey: options.recentKey ?? null, running: true })
 
     try {
-      const response = await apiClient.putWorkspace(trimmed)
-      onWorkspaceChange(response)
-    } catch (requestError) {
-      setSubmitState({
+      const result = await apiClient.inspectWorkspace(trimmed)
+      setInspection(result)
+      setPathInput(result.dataset_path)
+      if (options.openImmediately && result.valid) {
+        await activateDataset(result, options.resumeId ?? null)
+        return
+      }
+      setRequestState({ error: null, recentKey: options.recentKey ?? null, running: false })
+    } catch (error) {
+      setRequestState({
+        error: getApiErrorMessage(error),
+        recentKey: options.recentKey ?? null,
         running: false,
-        error: getApiErrorMessage(requestError),
       })
-      return
     }
-
-    setSubmitState({
-      running: false,
-      error: null,
-    })
   }
 
-  async function clearWorkspace() {
-    setSubmitState({
-      running: true,
-      error: null,
-    })
-
+  async function activateDataset(
+    result: WorkspaceInspection,
+    resumeId: string | null = null,
+  ): Promise<boolean> {
+    setRequestState((current) => ({ ...current, error: null, running: true }))
     try {
-      const response = await apiClient.clearWorkspace()
-      onWorkspaceChange(response)
-    } catch (requestError) {
-      setSubmitState({
+      const nextWorkspace = await apiClient.putWorkspace(result.dataset_path)
+      if (!nextWorkspace.dataset_id || !nextWorkspace.dataset_kind) {
+        throw new Error('The activated workspace response is incomplete.')
+      }
+      onWorkspaceChange(nextWorkspace)
+      navigate(
+        destinationFor(
+          nextWorkspace.dataset_kind,
+          nextWorkspace.dataset_id,
+          nextWorkspace.dataset_key === result.dataset_key ? resumeId : null,
+        ),
+      )
+      return true
+    } catch (error) {
+      setRequestState((current) => ({
+        ...current,
+        error: getApiErrorMessage(error),
         running: false,
-        error: getApiErrorMessage(requestError),
-      })
-      return
+      }))
+      return false
     }
-
-    setSubmitState({
-      running: false,
-      error: null,
-    })
   }
 
-  const activeDataset = datasets[0] ?? null
+  async function submitInspection(event: FormEvent) {
+    event.preventDefault()
+    await inspectCandidate(pathInput)
+  }
+
+  async function browseForDataset() {
+    try {
+      const selectedPath = await browseForDatasetDirectory()
+      if (selectedPath) {
+        changePath(selectedPath)
+      }
+    } catch (error) {
+      setRequestState({ error: getApiErrorMessage(error), recentKey: null, running: false })
+    }
+  }
+
+  async function removeUnavailableRecent() {
+    const key = requestState.recentKey
+    if (!key) {
+      return
+    }
+    setRequestState((current) => ({ ...current, running: true }))
+    try {
+      const nextWorkspace = await apiClient.clearWorkspace(key)
+      onWorkspaceChange(nextWorkspace)
+      setInspection(null)
+      setRequestState(EMPTY_REQUEST)
+    } catch (error) {
+      setRequestState((current) => ({
+        ...current,
+        error: getApiErrorMessage(error),
+        running: false,
+      }))
+    }
+  }
 
   return (
-    <Paper
-      elevation={0}
+    <Box
+      component="main"
       sx={{
-        minHeight: 420,
-        px: { xs: 3, md: 5 },
-        py: { xs: 3, md: 4 },
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        background:
-          'linear-gradient(160deg, rgba(125, 211, 252, 0.08), rgba(18, 18, 18, 0.98) 38%)',
+        minHeight: '100vh',
+        backgroundColor: '#0f1213',
+        color: 'text.primary',
       }}
     >
-      <Stack spacing={3}>
-        <Stack spacing={1.5} maxWidth={820}>
-          <Typography variant="overline" color="text.secondary">
-            Workspace Setup
-          </Typography>
-          <Typography variant="h3">Dataset Workspace</Typography>
-          <Typography variant="body1" color="text.secondary">
-            Enter the server path to one dataset folder. The app will validate the
-            folder, create <code>.webui/</code> inside it, and use that folder as the
-            active workspace.
-          </Typography>
-        </Stack>
+      <Box
+        sx={{
+          width: 'min(920px, 100%)',
+          mx: 'auto',
+          px: { xs: 2.5, sm: 4, md: 6 },
+          py: { xs: 4, sm: 6, md: 8 },
+        }}
+      >
+        <Stack spacing={{ xs: 4, md: 5 }}>
+          <Box>
+            <Typography
+              variant="overline"
+              sx={{ color: '#93a4aa', letterSpacing: '0.22em' }}
+            >
+              Radiology
+            </Typography>
+            <Typography
+              component="h1"
+              sx={{
+                mt: 1.25,
+                fontFamily: '"IBM Plex Serif", Georgia, serif',
+                fontSize: { xs: '2.4rem', md: '3.35rem' },
+                fontWeight: 500,
+                lineHeight: 1.04,
+                letterSpacing: '-0.035em',
+              }}
+            >
+              Open Dataset
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 620 }}>
+              Select a dataset containing NIfTI volumes and metadata. Inspection is read-only
+              until you choose to open it.
+            </Typography>
+          </Box>
 
-        {workspaceLoading ? (
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minHeight: 120 }}>
-            <CircularProgress size={28} />
-            <Typography color="text.secondary">Checking workspace status...</Typography>
-          </Stack>
-        ) : null}
+          {workspace.configured && workspace.dataset_path && workspace.dataset_id ? (
+            <CurrentDataset
+              datasetId={workspace.dataset_id}
+              datasetKind={workspace.dataset_kind}
+              datasetPath={workspace.dataset_path}
+              disabled={isBusy}
+              resumeId={savedCaseId}
+              onOpen={() =>
+                void inspectCandidate(workspace.dataset_path ?? '', { openImmediately: true })
+              }
+              onResume={() =>
+                void inspectCandidate(workspace.dataset_path ?? '', {
+                  openImmediately: true,
+                  resumeId: savedCaseId,
+                })
+              }
+            />
+          ) : null}
 
-        {workspaceError ? <Alert severity="error">{workspaceError}</Alert> : null}
-        {submitState.error ? <Alert severity="error">{submitState.error}</Alert> : null}
-
-        <Card
-          sx={{
-            background:
-              'linear-gradient(145deg, rgba(10, 10, 10, 0.9), rgba(31, 41, 55, 0.9))',
-          }}
-        >
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={2}>
+          <Box component="form" onSubmit={(event) => void submitInspection(event)}>
+            <Stack spacing={1.5}>
               <TextField
-                label="Dataset folder path on server"
+                label="Dataset path visible to the server"
                 value={pathInput}
-                onChange={(event) => setPathInput(event.target.value)}
-                placeholder="/path/to/Dataset820"
+                onChange={(event) => changePath(event.target.value)}
+                placeholder={hasDesktopBridge ? 'C:\\Research\\Dataset420' : '/data/Dataset420'}
                 fullWidth
-                disabled={submitState.running || workspaceLoading}
-              />
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button
-                  variant="contained"
-                  onClick={submitWorkspace}
-                  disabled={submitState.running || workspaceLoading}
-                >
-                  {workspace.configured ? 'Change dataset folder' : 'Activate dataset folder'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={clearWorkspace}
-                  disabled={!workspace.configured || submitState.running || workspaceLoading}
-                >
-                  Clear workspace
-                </Button>
-              </Stack>
-
-              <Typography variant="body2" color="text.secondary">
-                The path must exist on the backend server filesystem and contain at
-                least one of <code>database.csv</code>, <code>nifti/</code>, <code>seg/</code>, <code>voi/</code>, or
-                <code> manifest.csv</code>, or <code> metadata.jsonl</code>.
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {workspace.configured ? (
-          <Card
-            sx={{
-              background:
-                'linear-gradient(150deg, rgba(125, 211, 252, 0.08), rgba(18, 18, 18, 0.98) 42%)',
-            }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              <Stack spacing={2}>
-                <Stack
-                  direction={{ xs: 'column', md: 'row' }}
-                  spacing={1.5}
-                  justifyContent="space-between"
-                  alignItems={{ xs: 'flex-start', md: 'center' }}
-                >
-                  <Box>
-                    <Typography variant="overline" color="text.secondary">
-                      Active Dataset
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                      <Typography variant="h4">{workspace.dataset_id}</Typography>
-                      <Chip label="Workspace active" color="primary" variant="outlined" />
-                    </Stack>
-                  </Box>
-                  {activeDataset && !settingsState.loading ? (
-                    <Button
-                      variant="outlined"
-                      onClick={() =>
-                        navigate(`/datasets/${activeDataset.dataset_id}/cases`)
-                      }
-                    >
-                      Open cases
-                    </Button>
-                  ) : null}
-                </Stack>
-
-                <Typography variant="body2" color="text.secondary">
-                  Dataset path: {workspace.dataset_path}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Workspace directory: {workspace.workspace_dir}
-                </Typography>
-
-                {loading ? (
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <CircularProgress size={24} />
-                    <Typography color="text.secondary">Loading dataset summary...</Typography>
-                  </Stack>
-                ) : null}
-
-                {!loading && error ? <Alert severity="error">{error}</Alert> : null}
-
-                {!loading && !error && activeDataset ? (
-                  <Stack spacing={1.5}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      <Chip
-                        label={`${activeDataset.patient_count} patients`}
-                        color="primary"
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={activeDataset.has_nifti ? 'NIfTI' : 'No NIfTI'}
-                        color={activeDataset.has_nifti ? 'primary' : 'default'}
-                        variant={activeDataset.has_nifti ? 'filled' : 'outlined'}
-                      />
-                      <Chip
-                        label={activeDataset.has_seg ? 'SEG' : 'No SEG'}
-                        color={activeDataset.has_seg ? 'secondary' : 'default'}
-                        variant={activeDataset.has_seg ? 'filled' : 'outlined'}
-                      />
-                      <Chip
-                        label={activeDataset.has_voi ? 'VOI' : 'No VOI'}
-                        color={activeDataset.has_voi ? 'success' : 'default'}
-                        variant={activeDataset.has_voi ? 'filled' : 'outlined'}
-                      />
-                      <Chip
-                        label={activeDataset.has_metadata ? 'metadata.jsonl' : 'No metadata.jsonl'}
-                        color={activeDataset.has_metadata ? 'success' : 'default'}
-                        variant={activeDataset.has_metadata ? 'filled' : 'outlined'}
-                      />
-                    </Stack>
-                    {settingsState.allSettings[activeDataset.dataset_id]?.last_patient ? (
+                disabled={isBusy}
+                inputProps={{ maxLength: 4096 }}
+                InputProps={{
+                  endAdornment: hasDesktopBridge ? (
+                    <InputAdornment position="end">
                       <Button
-                        size="small"
+                        type="button"
                         variant="text"
-                        onClick={() =>
-                          navigate(
-                            `/datasets/${activeDataset.dataset_id}/cases/${settingsState.allSettings[activeDataset.dataset_id]?.last_patient}/review`,
-                          )
-                        }
+                        disabled={isBusy}
+                        onClick={() => void browseForDataset()}
+                        sx={{ borderRadius: 1, px: 1.5 }}
                       >
-                        Resume {settingsState.allSettings[activeDataset.dataset_id]?.last_patient}
+                        Browse…
                       </Button>
-                    ) : null}
-                  </Stack>
+                    </InputAdornment>
+                  ) : undefined,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1,
+                    backgroundColor: '#15191a',
+                  },
+                }}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  type="submit"
+                  variant="outlined"
+                  disabled={isBusy || !pathInput.trim()}
+                  sx={{ borderRadius: 1, minWidth: 118 }}
+                >
+                  Inspect
+                </Button>
+              </Box>
+              <Box sx={{ height: 2 }}>
+                <LinearProgress
+                  aria-label="Dataset operation in progress"
+                  sx={{ visibility: isBusy ? 'visible' : 'hidden' }}
+                />
+              </Box>
+            </Stack>
+          </Box>
+
+          <Box aria-live="polite" sx={{ minHeight: 56 }}>
+            {workspaceError ? <Alert severity="error">{workspaceError}</Alert> : null}
+            {settingsState.loadError ? (
+              <Alert severity="warning">{settingsState.loadError}</Alert>
+            ) : null}
+            {requestState.error ? (
+              <Stack spacing={1}>
+                <Alert severity="error">{requestState.error}</Alert>
+                {requestState.recentKey ? (
+                  <Box>
+                    <Button
+                      variant="text"
+                      color="secondary"
+                      disabled={requestState.running}
+                      onClick={() => void removeUnavailableRecent()}
+                    >
+                      Remove from recent
+                    </Button>
+                  </Box>
                 ) : null}
               </Stack>
-            </CardContent>
-          </Card>
+            ) : null}
+          </Box>
+
+          <Box sx={{ minHeight: { xs: 260, md: 330 } }}>
+            {inspection ? (
+              <InspectionResult
+                inspection={inspection}
+                disabled={requestState.running}
+                onOpen={() => void activateDataset(inspection)}
+              />
+            ) : (
+              <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Dataset details will appear here after inspection.
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {workspace.recent_datasets.length > 0 ? (
+            <Box component="section" aria-labelledby="recent-datasets-title">
+              <Typography id="recent-datasets-title" variant="h6" sx={{ mb: 1 }}>
+                Recent datasets
+              </Typography>
+              <Stack divider={<Divider flexItem />} sx={{ borderBlock: '1px solid', borderColor: 'divider' }}>
+                {workspace.recent_datasets.map((recent) => (
+                  <Button
+                    key={recent.dataset_key}
+                    variant="text"
+                    disabled={isBusy}
+                    onClick={() =>
+                      void inspectCandidate(recent.dataset_path, { recentKey: recent.dataset_key })
+                    }
+                    sx={{
+                      borderRadius: 0,
+                      justifyContent: 'space-between',
+                      py: 1.5,
+                      px: 0,
+                      textAlign: 'left',
+                      textTransform: 'none',
+                      color: 'text.primary',
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography fontWeight={650}>{recent.display_name}</Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ overflowWrap: 'anywhere', textTransform: 'none' }}
+                      >
+                        {recent.dataset_path}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ pl: 2, flexShrink: 0, textAlign: 'right' }}>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatKind(recent.dataset_kind)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(recent.last_opened_at)}
+                      </Typography>
+                    </Box>
+                  </Button>
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+        </Stack>
+      </Box>
+    </Box>
+  )
+}
+
+function CurrentDataset({
+  datasetId,
+  datasetKind,
+  datasetPath,
+  disabled,
+  resumeId,
+  onOpen,
+  onResume,
+}: {
+  datasetId: string
+  datasetKind: DatasetKind | null
+  datasetPath: string
+  disabled: boolean
+  resumeId: string | null
+  onOpen: () => void
+  onResume: () => void
+}) {
+  return (
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      justifyContent="space-between"
+      alignItems={{ sm: 'center' }}
+      spacing={1.5}
+      sx={{ borderBlock: '1px solid', borderColor: 'divider', py: 1.75 }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="caption" color="text.secondary">
+          Current dataset · {formatKind(datasetKind)}
+        </Typography>
+        <Typography fontWeight={650}>{datasetId}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          {datasetPath}
+        </Typography>
+      </Box>
+      <Stack direction="row" spacing={0.5} flexShrink={0}>
+        <Button variant="text" disabled={disabled} onClick={onOpen}>
+          Open last dataset
+        </Button>
+        {resumeId ? (
+          <Button variant="text" disabled={disabled} onClick={onResume}>
+            Resume {resumeId}
+          </Button>
         ) : null}
       </Stack>
-    </Paper>
+    </Stack>
   )
+}
+
+function InspectionResult({
+  disabled,
+  inspection,
+  onOpen,
+}: {
+  disabled: boolean
+  inspection: WorkspaceInspection
+  onOpen: () => void
+}) {
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const hasMetadata =
+    inspection.markers.database_csv ||
+    inspection.markers.metadata_jsonl ||
+    inspection.markers.manifest_csv
+  const rows = [
+    ['Cases', inspection.summary.case_count.toLocaleString()],
+    ['NIfTI volumes', inspection.summary.nifti_count.toLocaleString()],
+    ['Segmentation masks', inspection.summary.segmentation_count.toLocaleString()],
+    ['Metadata', hasMetadata ? 'Available' : 'Not found'],
+    ['State directory', inspection.state.writable ? 'Writable' : 'Read only'],
+  ] as const
+
+  return (
+    <Stack spacing={2.5} sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2.5 }}>
+      <Box>
+        <Typography
+          variant="caption"
+          color={inspection.valid ? 'primary.main' : 'secondary.main'}
+          fontWeight={700}
+        >
+          {inspection.valid ? 'Ready to open' : 'Activation blocked'}
+        </Typography>
+        <Typography variant="h4" sx={{ mt: 0.5 }}>
+          {inspection.dataset_id}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {formatKind(inspection.dataset_kind)}
+        </Typography>
+      </Box>
+
+      <Stack divider={<Divider flexItem />} sx={{ borderBlock: '1px solid', borderColor: 'divider' }}>
+        {rows.map(([label, value]) => (
+          <Stack
+            key={label}
+            direction="row"
+            justifyContent="space-between"
+            spacing={2}
+            sx={{ py: 1.15 }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              {label}
+            </Typography>
+            <Typography variant="body2" fontWeight={650} sx={{ textAlign: 'right' }}>
+              {value}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+
+      {inspection.summary.warning_count > 0 ? (
+        <Box>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="body2" color="secondary.main" fontWeight={650}>
+              {inspection.summary.warning_count} warning
+              {inspection.summary.warning_count === 1 ? '' : 's'}
+            </Typography>
+            <Button
+              variant="text"
+              size="small"
+              aria-expanded={detailsOpen}
+              onClick={() => setDetailsOpen((open) => !open)}
+            >
+              {detailsOpen ? 'Hide details' : 'Details'}
+            </Button>
+          </Stack>
+          <Collapse in={detailsOpen}>
+            <Stack spacing={1} sx={{ mt: 1.5 }}>
+              {inspection.warnings.map((warning, index) => (
+                <Box
+                  key={`${warning.code}-${index}`}
+                  sx={{ borderLeft: '2px solid', borderColor: 'divider', pl: 1.5 }}
+                >
+                  <Typography variant="body2">{warning.message}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {warning.code}
+                  </Typography>
+                </Box>
+              ))}
+              {inspection.summary.warnings_truncated ? (
+                <Typography variant="caption" color="text.secondary">
+                  Additional warning details were omitted from this preview.
+                </Typography>
+              ) : null}
+            </Stack>
+          </Collapse>
+        </Box>
+      ) : null}
+
+      {inspection.valid ? (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="contained"
+            disabled={disabled}
+            onClick={onOpen}
+            sx={{ borderRadius: 1, minWidth: 150 }}
+          >
+            Open dataset
+          </Button>
+        </Box>
+      ) : (
+        <Alert severity="warning">
+          This dataset remains available for diagnosis only. The active workspace was not changed.
+        </Alert>
+      )}
+    </Stack>
+  )
+}
+
+function destinationFor(kind: DatasetKind, datasetId: string, resumeId: string | null) {
+  const encodedDatasetId = encodeURIComponent(datasetId)
+  if (kind === 'canonical' || kind === 'converter_output') {
+    return resumeId
+      ? `/datasets/${encodedDatasetId}/cases/${encodeURIComponent(resumeId)}/review`
+      : `/datasets/${encodedDatasetId}/cases`
+  }
+  return resumeId
+    ? `/datasets/${encodedDatasetId}/patients/${encodeURIComponent(resumeId)}/viewer`
+    : `/datasets/${encodedDatasetId}/patients`
+}
+
+function formatKind(kind: DatasetKind | null) {
+  if (!kind) {
+    return 'Requires inspection'
+  }
+  const labels: Record<DatasetKind, string> = {
+    canonical: 'Canonical dataset',
+    converter_output: 'Converter output',
+    legacy: 'Legacy dataset',
+    nifti_collection: 'NIfTI collection',
+    voi_collection: 'VOI collection',
+    incomplete: 'Incomplete dataset',
+    unsupported: 'Unsupported path',
+  }
+  return labels[kind]
+}
+
+function formatDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString()
 }
 
 export default DatasetSelectorPage

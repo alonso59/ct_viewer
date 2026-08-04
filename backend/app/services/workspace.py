@@ -2,52 +2,70 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.models.workspace import WorkspaceStatus
-from app.services.state_dir import dataset_state_dir
+from app.models.workspace import WorkspaceInspection, WorkspaceStatus
+from app.services.path_policy import resolve_dataset_path_input
+from app.services.workspace_inspector import inspect_workspace_dataset_path
 from app.services.workspace_store import workspace_store
-
-
-REQUIRED_DATASET_MARKERS = ("database.csv", "metadata.jsonl", "nifti", "seg", "voi", "manifest.csv")
 
 
 def get_workspace_status() -> WorkspaceStatus:
     status = workspace_store.get()
-    if not status.configured:
+    if not status.configured or not status.dataset_path:
         return status
-
-    dataset_path = Path(status.dataset_path or "").expanduser().resolve()
-    if not dataset_path.is_dir():
-        return workspace_store.clear()
-
-    return WorkspaceStatus(
-        configured=True,
-        dataset_id=dataset_path.name,
-        dataset_path=str(dataset_path),
-        workspace_dir=str(dataset_state_dir(dataset_path)),
+    try:
+        resolved = resolve_dataset_path_input(status.dataset_path)
+    except (FileNotFoundError, PermissionError, ValueError):
+        return WorkspaceStatus(configured=False, recent_datasets=status.recent_datasets)
+    return status.model_copy(
+        update={
+            "dataset_id": resolved.name,
+            "dataset_path": str(resolved),
+        }
     )
 
 
+def inspect_workspace(dataset_path: str) -> WorkspaceInspection:
+    return inspect_workspace_dataset_path(dataset_path)
+
+
 def require_workspace_dataset_path() -> Path:
-    status = get_workspace_status()
+    status = workspace_store.get()
     if not status.configured or not status.dataset_path:
         raise RuntimeError("No dataset workspace configured. Select a dataset folder first.")
-    return Path(status.dataset_path).expanduser().resolve()
+    return resolve_dataset_path_input(status.dataset_path)
 
 
 def set_workspace_dataset_path(dataset_path: str) -> WorkspaceStatus:
-    candidate = Path(dataset_path).expanduser().resolve()
-    _validate_dataset_path(candidate)
-    from app.services.runtime_cache import reset_runtime_caches
+    inspection = inspect_workspace_dataset_path(dataset_path)
+    if not inspection.valid:
+        raise ValueError(
+            f"Dataset cannot be activated because it is classified as '{inspection.dataset_kind}'."
+        )
 
-    reset_runtime_caches()
-    return workspace_store.set(candidate)
+    previous = workspace_store.get()
+    next_status = workspace_store.set(
+        Path(inspection.dataset_path),
+        inspection.dataset_kind,
+    )
+    if previous.dataset_key != next_status.dataset_key:
+        from app.services.runtime_cache import reset_runtime_caches
+
+        reset_runtime_caches()
+    return next_status
 
 
-def clear_workspace() -> WorkspaceStatus:
-    from app.services.runtime_cache import reset_runtime_caches
+def clear_workspace(recent_key: str | None = None) -> WorkspaceStatus:
+    previous = workspace_store.get()
+    if recent_key:
+        next_status = workspace_store.remove_recent(recent_key)
+    else:
+        next_status = workspace_store.clear()
 
-    reset_runtime_caches()
-    return workspace_store.clear()
+    if previous.dataset_key and previous.dataset_key != next_status.dataset_key:
+        from app.services.runtime_cache import reset_runtime_caches
+
+        reset_runtime_caches()
+    return next_status
 
 
 def validate_workspace_dataset_id(dataset_id: str) -> Path:
@@ -64,26 +82,3 @@ def workspace_file(filename: str, *, create: bool = True) -> Path:
     from app.services.state_dir import dataset_state_file
 
     return dataset_state_file(dataset_path, filename, create=create)
-
-
-def _validate_dataset_path(dataset_path: Path) -> None:
-    if not dataset_path.exists():
-        raise FileNotFoundError(f"Dataset path '{dataset_path}' does not exist")
-    if not dataset_path.is_dir():
-        raise ValueError(f"Dataset path '{dataset_path}' is not a directory")
-
-    has_marker = False
-    for marker in REQUIRED_DATASET_MARKERS:
-        candidate = dataset_path / marker
-        if Path(marker).suffix:
-            if candidate.is_file():
-                has_marker = True
-                break
-        elif candidate.is_dir():
-            has_marker = True
-            break
-
-    if not has_marker:
-        raise ValueError(
-            "Selected folder is not a dataset directory. Expected one of: database.csv, metadata.jsonl, nifti/, seg/, voi/, manifest.csv"
-        )

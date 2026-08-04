@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -17,7 +19,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         authorization = request.headers.get("Authorization", "")
         scheme, _, credentials = authorization.partition(" ")
-        if scheme.lower() == "bearer" and credentials == token:
+        if scheme.lower() == "bearer" and secrets.compare_digest(credentials, token):
             return await call_next(request)
 
         return JSONResponse(

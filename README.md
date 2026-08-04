@@ -10,6 +10,7 @@ See the full requirements in [docs/SRS.md](docs/SRS.md).
 - Frontend runtime: vendored `udocker` with a `node:22-slim` image
 - Port forwarding: handled by VS Code Remote SSH
 - Portable runtime for other machines: native Docker + `docker compose`
+- Desktop runtime: Tauri 2 on Windows 10/11 x64 with a private FastAPI sidecar
 - Frontend auth token storage defaults to in-memory (`frontend/.env.example`)
 
 First-time machine setup guide:
@@ -55,8 +56,59 @@ make build-frontend
 
 - Backend health: `http://localhost:8000/api/health`
 - Frontend dev server: `http://localhost:5173`
-- At first launch, enter the server path to one dataset folder in the workspace setup screen
+- At first launch, enter a server-visible path in **Open Dataset**, inspect it, then activate it
 - Medical curation route: `/datasets/<dataset_id>/cases`
+
+## Windows Desktop (M15)
+
+Radiology Desktop is an additional distribution; it does not replace the web application. Tauri loads the compiled Vite assets locally and starts one hidden PyInstaller FastAPI sidecar on a dynamic loopback port. React receives the backend URL and an ephemeral bearer token through Tauri IPC before the native window is shown.
+
+Desktop security boundaries:
+
+- the sidecar listens only on `127.0.0.1`;
+- every non-health API request requires a fresh 256-bit token kept only in memory;
+- the handshake contains PID and port, never the token;
+- CORS accepts only `http://tauri.localhost` and `http://localhost:5173`;
+- JavaScript has no general shell permission; Browse uses one purpose-built Rust command;
+- local path access is unrestricted only in the desktop sidecar, while source-data mutation remains disabled;
+- normal close is graceful, with a five-second forced-termination fallback and parent-process watchdog.
+
+The Open Dataset page shows `Browse…` only in desktop. Browse fills the field; `Inspect` still calls the read-only M14 contract and `Open dataset` activates separately. Cases, Patients, Resume, MPR PNG, and GLB routes are shared with the web edition.
+
+### Reproducible Windows x64 build
+
+Use a 64-bit Windows PowerShell with MSVC Build Tools, WebView2 Runtime, and the exact versions in `toolchains/desktop-windows-x64.json`. Install the pinned Tauri CLI once, then run the sole build entrypoint:
+
+```powershell
+cargo install tauri-cli --version 2.11.4 --locked
+pwsh -File .\scripts\build-desktop.ps1
+```
+
+The script uses `npm ci`, the hashed desktop Python lock, `Cargo.lock`, deterministic environment settings, PyInstaller onefile without UPX, and Tauri NSIS `currentUser` packaging. Outputs are written to `artifacts/windows-x64/`:
+
+- `Radiology-Desktop_2.2.0_x64-setup.exe` (unsigned);
+- `Radiology-Desktop_2.2.0_x64-setup.exe.sha256`;
+- `toolchain-manifest.json`;
+- `build.log`.
+
+The matching GitHub Actions workflow is `.github/workflows/windows-desktop.yml`. The installer uses the standard WebView2 download bootstrapper and may display the normal Windows warning because code signing is outside M15.
+
+## Secure Dataset Opening
+
+Dataset selection is a two-step operation:
+
+1. `POST /api/workspace/inspect` reads markers, metadata, and volume headers without changing the active workspace, clearing caches, or creating `.webui/`.
+2. `PUT /api/workspace` repeats validation and activates only an openable dataset.
+
+`canonical` and `converter_output` datasets open in the case worklist. Legacy, standalone NIfTI, and VOI collections open in the compatible patient explorer. Incomplete datasets remain available as read-only diagnostics and cannot be activated.
+
+The backend restricts dataset paths, referenced files, and symlink targets to `ALLOWED_DATA_ROOTS`. When that variable is absent it defaults to `DATA_ROOT`. Multiple roots use the server operating system's path separator (`:` on Linux, `;` on Windows), for example:
+
+```bash
+ALLOWED_DATA_ROOTS=/data:/mnt/research
+```
+
+`ALLOW_UNRESTRICTED_DATA_PATHS=true` bypasses this boundary and is intended only for explicit, isolated development. The workspace store keeps the five most recently opened server paths; it never stores patient or clinical metadata.
 
 ## MPR Rendering
 
@@ -95,7 +147,7 @@ For read-only dataset mounts, set `WEBUI_STATE_DIR` and mount it writable:
 WEBUI_STATE_DIR=/path/to/webui_state
 ```
 
-Then curation state is written to `$WEBUI_STATE_DIR/<dataset_id>/`.
+Then curation state is written to `$WEBUI_STATE_DIR/<dataset_id>/`. Inspecting a dataset only reports the predicted state path and never creates it.
 
 Legacy source-data mutation endpoints and the old patient/series viewer can remain for technical fallback, but they are not exposed in the v2.0 medical curation route.
 
@@ -105,20 +157,21 @@ Yes, this repo can run on other machines without `udocker`.
 
 1. Copy [.env.example](.env.example) to `.env`.
 2. Set `DATASET_DIR` in `.env` so the server can access your dataset folders.
-3. Keep `ALLOW_DATA_MUTATIONS=false` for v2.0 medical curation.
-4. For read-only data mounts, set `WEBUI_STATE_DIR` to a writable state directory.
-5. Start the app:
+3. Keep `ALLOWED_DATA_ROOTS=/data` and `ALLOW_UNRESTRICTED_DATA_PATHS=false`.
+4. Keep `ALLOW_DATA_MUTATIONS=false` for medical curation.
+5. For read-only data mounts, set `WEBUI_STATE_DIR` to a writable state directory.
+6. Start the app:
 
 ```bash
 docker compose up -d --build
 ```
 
-6. Open:
+7. Open:
 
 - `http://localhost:8000/`
 - `http://localhost:8000/api/health`
 
-7. In the UI, enter the server path to a specific dataset folder, for example `/data/Dataset420`.
+8. In the UI, inspect and open a specific dataset folder, for example `/data/Dataset420`.
 
 Useful commands:
 

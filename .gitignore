@@ -10,6 +10,10 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 .udocker/
+src-tauri/target/
+src-tauri/binaries/*.exe
+.desktop-build/
+artifacts/
 
 # Logs / misc
 *.log

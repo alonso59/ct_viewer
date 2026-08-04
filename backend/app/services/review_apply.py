@@ -654,14 +654,14 @@ def _execute_moves(
         shutil.move(str(source_path), str(destination_path))
         moved_files.append(
             ReviewMovedFile(
-                source=str(source_path.relative_to(dataset_path)),
-                destination=str(destination_path.relative_to(dataset_path)),
+                source=source_path.relative_to(dataset_path).as_posix(),
+                destination=destination_path.relative_to(dataset_path).as_posix(),
             )
         )
         moved_pairs.append(
             {
-                "source": str(source_path.relative_to(dataset_path)),
-                "destination": str(destination_path.relative_to(dataset_path)),
+                "source": source_path.relative_to(dataset_path).as_posix(),
+                "destination": destination_path.relative_to(dataset_path).as_posix(),
             }
         )
     return moved_files, moved_pairs

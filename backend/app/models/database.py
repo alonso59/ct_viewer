@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 CanonicalPhase = Literal["NC", "CMP", "NP", "DELAY", "UNK"]
 PhaseStatus = Literal["normalized", "ambiguous", "missing"]
-PathStatusValue = Literal["not_provided", "exists", "missing", "unreadable"]
+PathStatusValue = Literal["not_provided", "exists", "missing", "unreadable", "forbidden"]
 Scope = Literal["complete", "voi"]
 
 

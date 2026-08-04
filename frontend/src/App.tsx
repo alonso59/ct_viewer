@@ -26,6 +26,7 @@ import {
   getStoredAuthToken,
   registerAuthPromptHandler,
 } from './services/api'
+import { routeUsesStandaloneShell } from './services/applicationShell'
 
 type ApiStatus = 'checking' | 'online' | 'offline'
 
@@ -45,6 +46,7 @@ function App() {
   )
   const workspaceState = useWorkspace()
   const activeDatasetId = workspaceState.workspace.dataset_id
+  const isDatasetRoute = routeUsesStandaloneShell(location.pathname)
   const isViewerRoute = Boolean(
     matchPath('/datasets/:dsid/patients/:pid/viewer', location.pathname) ??
       matchPath('/datasets/:dsid/cases/:caseId/review', location.pathname),
@@ -175,60 +177,64 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
-      <AppBar
-        position="sticky"
-        elevation={0}
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          backgroundColor: 'rgba(18, 18, 18, 0.82)',
-          backdropFilter: 'blur(18px)',
-        }}
-      >
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="overline" color="text.secondary">
-              Radiology WebUI
-            </Typography>
-            <Typography variant="h6">Routing Shell</Typography>
-          </Box>
+      {!isDatasetRoute ? (
+        <AppBar
+          position="sticky"
+          elevation={0}
+          sx={{
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            backgroundColor: 'rgba(18, 18, 18, 0.82)',
+            backdropFilter: 'blur(18px)',
+          }}
+        >
+          <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="overline" color="text.secondary">
+                Radiology WebUI
+              </Typography>
+              <Typography variant="h6">Routing Shell</Typography>
+            </Box>
 
-          <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
-            <Button component={RouterLink} to="/" color="inherit">
-              Workspace
-            </Button>
-            {activeDatasetId ? (
-              <Button
-                component={RouterLink}
-                to={`/datasets/${activeDatasetId}/cases`}
-                color="inherit"
-              >
-                Cases
+            <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+              <Button component={RouterLink} to="/" color="inherit">
+                Dataset
               </Button>
-            ) : null}
-          </Stack>
+              {activeDatasetId ? (
+                <Button
+                  component={RouterLink}
+                  to={`/datasets/${activeDatasetId}/cases`}
+                  color="inherit"
+                >
+                  Cases
+                </Button>
+              ) : null}
+            </Stack>
 
-          <Chip
-            color={
-              apiStatus === 'online'
-                ? 'primary'
-                : apiStatus === 'offline'
-                  ? 'secondary'
-                  : 'default'
-            }
-            label={
-              apiStatus === 'online'
-                ? 'API online'
-                : apiStatus === 'offline'
-                  ? 'API unreachable'
-                  : 'Checking API'
-            }
-            variant={apiStatus === 'checking' ? 'outlined' : 'filled'}
-          />
-        </Toolbar>
-      </AppBar>
+            <Chip
+              color={
+                apiStatus === 'online'
+                  ? 'primary'
+                  : apiStatus === 'offline'
+                    ? 'secondary'
+                    : 'default'
+              }
+              label={
+                apiStatus === 'online'
+                  ? 'API online'
+                  : apiStatus === 'offline'
+                    ? 'API unreachable'
+                    : 'Checking API'
+              }
+              variant={apiStatus === 'checking' ? 'outlined' : 'filled'}
+            />
+          </Toolbar>
+        </AppBar>
+      ) : null}
 
-      {isViewerRoute ? (
+      {isDatasetRoute ? (
+        routes
+      ) : isViewerRoute ? (
         <Box
           sx={{
             width: '100%',
