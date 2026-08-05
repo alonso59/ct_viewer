@@ -174,6 +174,21 @@ function Test-SidecarExecutable {
         }
 
         try {
+            Invoke-WebRequest -Uri "$BaseUrl/api/desktop/ready" -TimeoutSec 5 | Out-Null
+            throw 'Unauthenticated desktop readiness unexpectedly succeeded.'
+        }
+        catch {
+            $StatusCode = [int]$_.Exception.Response.StatusCode
+            if ($StatusCode -ne 401) {
+                throw
+            }
+        }
+        $Ready = Invoke-RestMethod -Uri "$BaseUrl/api/desktop/ready" -Headers @{ Authorization = "Bearer $Token" } -TimeoutSec 5
+        if ($Ready.status -ne 'ready') {
+            throw 'Authenticated desktop readiness response was not ready.'
+        }
+
+        try {
             Invoke-WebRequest -Uri "$BaseUrl/api/workspace" -TimeoutSec 5 | Out-Null
             throw 'Unauthenticated sidecar API request unexpectedly succeeded.'
         }

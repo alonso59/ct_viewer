@@ -286,7 +286,7 @@ fn send_http_request(
     successful && expected_body.is_none_or(|expected| response.contains(expected))
 }
 
-fn wait_for_backend(app: AppHandle, shared: Arc<SharedRuntime>, token: String, expected_pid: u32) {
+fn wait_for_backend(app: AppHandle, shared: Arc<SharedRuntime>, token: String) {
     let deadline = Instant::now() + BACKEND_START_TIMEOUT;
     let mut last_handshake_error = None;
 
@@ -305,20 +305,12 @@ fn wait_for_backend(app: AppHandle, shared: Arc<SharedRuntime>, token: String, e
 
         match read_handshake(&shared.runtime_path) {
             Ok(handshake) => {
-                if handshake.pid != expected_pid {
-                    last_handshake_error = Some(format!(
-                        "The handshake PID {} did not match sidecar PID {expected_pid}.",
-                        handshake.pid
-                    ));
-                    thread::sleep(HEALTH_RETRY_INTERVAL);
-                    continue;
-                }
                 if send_http_request(
                     handshake.port,
                     "GET",
-                    "/api/health",
-                    None,
-                    Some("\"status\":\"ok\""),
+                    "/api/desktop/ready",
+                    Some(&token),
+                    Some("\"status\":\"ready\""),
                 ) {
                     shared.set_ready(BackendRuntime {
                         base_url: format!("http://127.0.0.1:{}", handshake.port),
@@ -326,6 +318,10 @@ fn wait_for_backend(app: AppHandle, shared: Arc<SharedRuntime>, token: String, e
                     });
                     return;
                 }
+                last_handshake_error = Some(format!(
+                    "Backend PID {} on port {} did not pass authenticated readiness.",
+                    handshake.pid, handshake.port
+                ));
             }
             Err(error) => last_handshake_error = Some(error),
         }
@@ -402,7 +398,6 @@ fn start_backend(app: &AppHandle, shared: Arc<SharedRuntime>) {
             return;
         }
     };
-    let expected_pid = child.pid();
     *shared
         .child
         .lock()
@@ -441,7 +436,7 @@ fn start_backend(app: &AppHandle, shared: Arc<SharedRuntime>) {
 
     let readiness_app = app.clone();
     let _readiness_thread =
-        thread::spawn(move || wait_for_backend(readiness_app, shared, token, expected_pid));
+        thread::spawn(move || wait_for_backend(readiness_app, shared, token));
 }
 
 fn stop_backend(app: AppHandle, shared: Arc<SharedRuntime>, exit_code: i32) {

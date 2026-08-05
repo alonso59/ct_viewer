@@ -519,7 +519,7 @@ Minimum fields for `curation_review.csv`:
 | FR-86  | **Parent Watchdog**: The sidecar terminates when its Tauri parent exits unexpectedly.                                                                                         | Must     |
 | FR-87  | **Web Compatibility**: Browser Axios remains relative to `/api`; the web server keeps allowed-root enforcement and continues serving the compiled React application.        | Must     |
 | FR-88  | **Desktop Path Policy**: Only the desktop sidecar enables unrestricted local paths; source-data mutations remain disabled.                                                   | Must     |
-| FR-89  | **Private Shutdown API**: `/api/desktop/shutdown` is authenticated, absent from OpenAPI, and registered only by the desktop sidecar.                                         | Must     |
+| FR-89  | **Private Lifecycle API**: `/api/desktop/ready` and `/api/desktop/shutdown` are authenticated, absent from OpenAPI, and registered only by the desktop sidecar.                   | Must     |
 
 ## 5. Non-Functional Requirements
 
@@ -849,7 +849,7 @@ frontend/
 
 Legacy endpoints for `/patients`, `/series`, and `/review/apply` may remain for compatibility or technical/admin mode, but shall not be the primary v2.0 medical curation workflow.
 
-The desktop-only `POST /api/desktop/shutdown` endpoint is an internal lifecycle contract. It is authenticated by the ephemeral runtime token, excluded from OpenAPI, and does not exist in the normal web application process.
+The desktop-only `GET /api/desktop/ready` and `POST /api/desktop/shutdown` endpoints form an internal lifecycle contract. Both are authenticated by the ephemeral runtime token, excluded from OpenAPI, and absent from the normal web application process. Tauri uses the ready endpoint instead of comparing its PyInstaller launcher PID with the Python service PID because a one-file bundle uses separate parent and child processes.
 
 #### 7.4.1 Workspace inspection and activation
 

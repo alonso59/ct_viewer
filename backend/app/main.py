@@ -82,6 +82,10 @@ def create_app() -> FastAPI:
 
     if settings.desktop_runtime:
 
+        @application.get("/api/desktop/ready", include_in_schema=False)
+        def desktop_ready() -> dict[str, str]:
+            return {"status": "ready"}
+
         @application.post("/api/desktop/shutdown", include_in_schema=False)
         def desktop_shutdown() -> dict[str, str]:
             if not request_shutdown():

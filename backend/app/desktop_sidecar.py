@@ -7,7 +7,6 @@ import logging
 import logging.handlers
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -60,20 +59,10 @@ def _bind_loopback_socket() -> socket.socket:
     return server_socket
 
 
-def _runtime_process_id(
-    *, frozen: bool | None = None, platform_name: str | None = None
-) -> int:
-    is_frozen = getattr(sys, "frozen", False) if frozen is None else frozen
-    current_platform = os.name if platform_name is None else platform_name
-    if current_platform == "nt" and is_frozen:
-        return os.getppid()
-    return os.getpid()
-
-
 def _write_runtime_file(runtime_path: Path, port: int) -> None:
     runtime_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = runtime_path.with_name(f".{runtime_path.name}.{os.getpid()}.tmp")
-    payload = {"pid": _runtime_process_id(), "port": port}
+    payload = {"pid": os.getpid(), "port": port}
     temporary_path.write_text(json.dumps(payload), encoding="utf-8")
     os.replace(temporary_path, runtime_path)
 

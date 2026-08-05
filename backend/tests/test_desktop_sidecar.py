@@ -12,7 +12,6 @@ from app.desktop_sidecar import (
     LOOPBACK_HOST,
     _bind_loopback_socket,
     _process_is_alive,
-    _runtime_process_id,
     _write_runtime_file,
 )
 from app.main import create_app
@@ -54,10 +53,6 @@ def test_runtime_handshake_never_contains_token(tmp_path: Path) -> None:
     assert "token" not in runtime_path.read_text(encoding="utf-8").lower()
 
 
-def test_frozen_windows_handshake_identifies_pyinstaller_launcher() -> None:
-    assert _runtime_process_id(frozen=True, platform_name="nt") == os.getppid()
-
-
 def test_parent_watchdog_recognizes_current_process() -> None:
     assert _process_is_alive(os.getpid()) is True
 
@@ -76,7 +71,7 @@ def test_desktop_shutdown_callback_is_optional() -> None:
     assert calls == ["stop"]
 
 
-def test_desktop_api_auth_cors_and_private_shutdown(monkeypatch) -> None:
+def test_desktop_api_auth_cors_and_private_lifecycle(monkeypatch) -> None:
     monkeypatch.setenv("RADIOLOGY_DESKTOP_RUNTIME", "true")
     monkeypatch.setenv("RADIOLOGY_UI_TOKEN", "ephemeral-token")
     monkeypatch.setenv(
@@ -89,6 +84,14 @@ def test_desktop_api_auth_cors_and_private_shutdown(monkeypatch) -> None:
         client = TestClient(create_app())
         assert client.get("/api/health").status_code == 200
         assert client.get("/api/workspace").status_code == 401
+        assert client.get("/api/desktop/ready").status_code == 401
+        assert (
+            client.get(
+                "/api/desktop/ready",
+                headers={"Authorization": "Bearer ephemeral-token"},
+            ).json()
+            == {"status": "ready"}
+        )
 
         allowed_preflight = client.options(
             "/api/workspace",
@@ -121,18 +124,20 @@ def test_desktop_api_auth_cors_and_private_shutdown(monkeypatch) -> None:
         )
         assert response.status_code == 200
         assert calls == ["stop"]
-        assert "/api/desktop/shutdown" not in client.get("/openapi.json").json()[
-            "paths"
-        ]
+        schema_paths = client.get("/openapi.json").json()["paths"]
+        assert "/api/desktop/ready" not in schema_paths
+        assert "/api/desktop/shutdown" not in schema_paths
     finally:
         set_shutdown_callback(None)
 
 
-def test_web_app_does_not_register_desktop_shutdown(monkeypatch) -> None:
+def test_web_app_does_not_register_desktop_lifecycle(monkeypatch) -> None:
     monkeypatch.delenv("RADIOLOGY_DESKTOP_RUNTIME", raising=False)
     monkeypatch.delenv("RADIOLOGY_UI_TOKEN", raising=False)
 
     client = TestClient(create_app())
 
+    assert client.get("/api/desktop/ready").status_code == 404
     assert client.post("/api/desktop/shutdown").status_code in {404, 405}
+    assert "/api/desktop/ready" not in client.get("/openapi.json").json()["paths"]
     assert "/api/desktop/shutdown" not in client.get("/openapi.json").json()["paths"]
