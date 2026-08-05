@@ -7,7 +7,7 @@ from app.services.state_dir import dataset_state_dir
 from app.services.workspace_store import workspace_store
 
 
-REQUIRED_DATASET_MARKERS = ("database.csv", "metadata.jsonl", "nifti", "seg", "voi", "manifest.csv")
+REQUIRED_DATASET_MARKERS = ("database.csv", "metadata.jsonl", "nifti", "seg", "voi")
 
 
 def get_workspace_status() -> WorkspaceStatus:
@@ -85,5 +85,5 @@ def _validate_dataset_path(dataset_path: Path) -> None:
 
     if not has_marker:
         raise ValueError(
-            "Selected folder is not a dataset directory. Expected one of: database.csv, metadata.jsonl, nifti/, seg/, voi/, manifest.csv"
+            "Selected folder is not a dataset directory. Expected one of: database.csv, metadata.jsonl, nifti/, seg/, voi/"
         )

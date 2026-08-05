@@ -54,33 +54,8 @@ export interface DatasetSummary {
   has_nifti: boolean
   has_seg: boolean
   has_voi: boolean
-  has_manifest: boolean
   has_metadata: boolean
-}
-
-export interface PatientSummary {
-  patient_id: string
-  source_patient_id: string | null
-  group: string | null
-  phases: string[]
-  series_count: number
-  seg_count: number
-  voi_count: number
-  has_deleted: boolean
-  deleted_series_count: number
-}
-
-export interface SeriesInfo {
-  series_id: string
-  patient_id: string
-  type: SeriesType
-  group: string | null
-  phase: string | null
-  laterality: string | null
-  filename: string
-  has_seg: boolean
-  deleted: boolean
-  storage_path: string | null
+  has_voi_catalog: boolean
 }
 
 export interface VolumeInfo {
@@ -298,7 +273,6 @@ export interface ReviewApplyResult {
   status: 'applied' | 'skipped' | 'failed'
   message: string
   moved_files: ReviewMovedFile[]
-  manifest_updated: boolean
   metadata_updated: boolean
 }
 
@@ -319,14 +293,51 @@ export interface ReviewMovedFile {
   destination: string
 }
 
-export interface ReviewDeleteDecision {
-  decision_id: string
+export type MetadataSyncKind =
+  | 'phase_changes'
+  | 'delete_changes'
+  | 'restore_changes'
+  | 'already_consolidated'
+  | 'conflicts'
+  | 'noop'
+
+export interface MetadataSyncChange {
+  kind: MetadataSyncKind
+  target: 'metadata' | 'voi_catalog'
+  filename: string
+  case_id: string | null
+  scan_idx: string | null
+  side: string | null
+  row_index: number | null
+  message: string
+  current_phase: string | null
+  target_phase: string | null
+  current_relative_path: string | null
+  target_relative_path: string | null
+}
+
+export interface MetadataSyncSummary {
+  phase_changes: number
+  delete_changes: number
+  restore_changes: number
+  already_consolidated: number
+  conflicts: number
+  noop: number
+  voi_catalog_changes: number
+  total_rows: number
+}
+
+export interface MetadataSyncPreviewResponse {
+  dataset_id: string
+  summary: MetadataSyncSummary
+  changes: MetadataSyncChange[]
+}
+
+export interface MetadataSyncApplyResponse extends MetadataSyncPreviewResponse {
+  batch_id: string
   applied_at: string
-  patient_id: string
-  series_id: string
-  filename: string | null
-  series_type: string | null
-  moved_files: ReviewMovedFile[]
+  metadata_updated: boolean
+  phase_json_neutralized: boolean
 }
 
 interface RequestOptions {
@@ -512,11 +523,6 @@ export const apiClient = {
     return response.data
   },
 
-  async listPatients(datasetId: string): Promise<PatientSummary[]> {
-    const response = await api.get<PatientSummary[]>(`/datasets/${datasetId}/patients`)
-    return response.data
-  },
-
   async getDatabaseValidation(datasetId: string): Promise<DatabaseValidationReport> {
     const response = await api.get<DatabaseValidationReport>(
       `/datasets/${datasetId}/database/validation`,
@@ -589,36 +595,6 @@ export const apiClient = {
   async listCorrectionQueue(datasetId: string): Promise<CorrectionQueueResponse> {
     const response = await api.get<CorrectionQueueResponse>(
       `/datasets/${datasetId}/curation/correction-queue`,
-    )
-    return response.data
-  },
-
-  async listSeries(datasetId: string, patientId: string): Promise<SeriesInfo[]> {
-    const response = await api.get<SeriesInfo[]>(
-      `/datasets/${datasetId}/patients/${patientId}/series`,
-    )
-    return response.data
-  },
-
-  async loadSeries(
-    datasetId: string,
-    patientId: string,
-    seriesId: string,
-    storagePath?: string | null,
-    options: RequestOptions = {},
-  ): Promise<VolumeInfo> {
-    const params = new URLSearchParams()
-    if (storagePath) {
-      params.set('storage_path', storagePath)
-    }
-    const response = await api.post<VolumeInfo>(
-      `/datasets/${datasetId}/patients/${patientId}/series/${seriesId}/load${
-        params.size > 0 ? `?${params.toString()}` : ''
-      }`,
-      undefined,
-      {
-        signal: options.signal,
-      },
     )
     return response.data
   },
@@ -734,19 +710,16 @@ export const apiClient = {
     return response.data
   },
 
-  async listDeleteDecisions(datasetId: string): Promise<ReviewDeleteDecision[]> {
-    const response = await api.get<ReviewDeleteDecision[]>(
-      `/datasets/${datasetId}/review/deletions`,
+  async previewMetadataSync(datasetId: string): Promise<MetadataSyncPreviewResponse> {
+    const response = await api.get<MetadataSyncPreviewResponse>(
+      `/datasets/${datasetId}/metadata-sync/preview`,
     )
     return response.data
   },
 
-  async undoDeleteDecision(
-    datasetId: string,
-    decisionId: string,
-  ): Promise<ReviewApplyResponse> {
-    const response = await api.post<ReviewApplyResponse>(
-      `/datasets/${datasetId}/review/undo-delete/${decisionId}`,
+  async applyMetadataSync(datasetId: string): Promise<MetadataSyncApplyResponse> {
+    const response = await api.post<MetadataSyncApplyResponse>(
+      `/datasets/${datasetId}/metadata-sync/apply`,
     )
     return response.data
   },

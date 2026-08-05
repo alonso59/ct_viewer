@@ -57,9 +57,9 @@ The WebUI shall not edit segmentation masks directly. Segmentation correction re
 
 **In scope (v2.0):**
 
-* Use `database.csv` as the primary source of truth when available.
-* Treat `manifest.csv` and folder discovery as legacy fallback only.
-* Browse a mounted dataset folder and validate `database.csv` status.
+* Use `metadata.jsonl`, `phase.json`, and `voi/voi_catalog.jsonl` as the primary source of truth.
+* Do not read, write, or depend on `manifest.csv`.
+* Browse a mounted dataset folder and validate dataset artifact status.
 * Display a case-centered worklist instead of a file/folder-centered workflow.
 * Show one case review interface per selected `case_id`.
 * Show a compact case summary and scan inventory.
@@ -120,8 +120,9 @@ The primary user for v2.0 is the **Medical Curator**.
 | ---------------------------- | ----------------------------------------------------------------------------- |
 | 3D Slicer (slicer.org)       | Open-source medical image computing platform — MPR/overlay inspiration        |
 | DeepUnity / clinical viewers | Case-centered clinical workflow inspiration, not a target for feature copying |
-| `database.csv`               | Reconciled canonical dataset table for v2.0                                   |
-| `manifest.csv`               | Raw converter metadata; legacy fallback, not primary v2.0 source              |
+| `metadata.jsonl`             | Read-only converter traceability and scan metadata                            |
+| `phase.json`                 | Mutable scan-level phase curation keyed by `case_id + scan_idx`               |
+| `voi/voi_catalog.jsonl`      | VOI catalog with scan linkage, paths, side, provenance, and metrics           |
 | `nifti_visualizer.ipynb`     | Existing Jupyter NIfTI viewer in this project                                 |
 | `voi_visualizer.ipynb`       | Existing Jupyter VOI viewer in this project                                   |
 | `visualizer_utils.py`        | Shared rendering/overlay utilities                                            |
@@ -163,8 +164,8 @@ The system shall translate `database.csv` rows and dataset paths into a simple r
 ### 2.3 Constraints
 
 * **Single service runtime**: backend API and compiled frontend are served by one container process.
-* **database.csv-first design**: when `database.csv` exists, it shall drive case, scan, VOI, path, and QC state.
-* **Legacy fallback**: folder discovery and `manifest.csv` may remain as fallback, but shall not be the primary v2.0 workflow.
+* **JSONL/JSON-first design**: `metadata.jsonl`, `phase.json`, and `voi/voi_catalog.jsonl` shall drive case, scan, VOI, path, and phase state.
+* **No manifest fallback**: `manifest.csv` shall not be read, written, or used for discovery.
 * **Visualization preservation**: current MPR rendering, slice navigation, overlays, pan/zoom, and W/L behavior should be reused where possible.
 * **No segmentation editing**: the WebUI shall not modify voxel data.
 * **No destructive phase mutation**: the WebUI may record phase correction proposals, but shall not directly rename files, move files across phase folders, or silently overwrite `database.csv`.
@@ -189,16 +190,16 @@ The WebUI operates on one active **Dataset root** (`DatasetID/`) at a time. The 
 
 ### 3.1 Canonical Dataset Layout
 
-v2.0 expects `database.csv` to be present at the dataset root.
+v2.0 expects converter metadata and curated phase artifacts at the dataset root, with VOI catalog data under `voi/`.
 
 ```text
 DatasetID/
-├── database.csv                           # Canonical reconciled review database; primary v2.0 source
-├── manifest.csv                           # Raw converter metadata; legacy fallback / provenance
+├── metadata.jsonl                         # Read-only converter traceability and scan metadata
+├── phase.json                             # Mutable scan-level phase curation
 ├── conversion_summary.json                # Converter run metadata, if available
 ├── dataset.json                           # Preprocessor dataset summary, if available
 ├── dataset_fingerprint.json               # Preprocessor fingerprint, if available
-├── patient_preprocess.csv                 # Preprocessor per-patient log, if available
+├── preprocess_report.json                 # Preprocessor audit report, if available
 ├── splits.json                            # Train/val/test splits, if available
 │
 ├── .webui/                                # Optional app-state folder; no source image data
@@ -403,10 +404,10 @@ Minimum fields for `curation_review.csv`:
 | ID     | Requirement                                                                                                                                                                                                                                                      | Priority |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | FR-01  | **Dataset Selection**: User can provide a server-side path to a single dataset root folder through the GUI before dataset browsing begins.                                                                                                                       | Must     |
-| FR-01a | **Workspace Validation**: The selected dataset folder must exist on the backend server and contain at least one recognized dataset marker. For v2.0, `database.csv` is the preferred marker. Legacy markers include `nifti/`, `seg/`, `voi/`, or `manifest.csv`. | Must     |
-| FR-01b | **Database Status**: After workspace activation, the system displays `database.csv` status, row count, case count, required-column status, and warning count.                                                                                                    | Must     |
-| FR-02  | **Case Discovery**: System builds a case worklist from `database.csv`, grouped by `case_id`. If `database.csv` is absent, it may fall back to v1.2 patient discovery.                                                                                            | Must     |
-| FR-03  | **Inventory Discovery**: For a selected case, the system lists all available phases, scan indices, full scans, SEG masks, VOI images, VOI masks, and sides from `database.csv`.                                                                                  | Must     |
+| FR-01a | **Workspace Validation**: The selected dataset folder must exist on the backend server and contain at least one recognized dataset marker: `metadata.jsonl`, `nifti/`, `seg/`, `voi/`, or `database.csv` fallback. | Must     |
+| FR-01b | **Dataset Status**: After workspace activation, the system displays dataset status, row count, case count, required-column status, and warning count.                                                                                                    | Must     |
+| FR-02  | **Case Discovery**: System builds a case worklist from `metadata.jsonl` plus `voi/voi_catalog.jsonl`, grouped by `case_id`.                                                                                            | Must     |
+| FR-03  | **Inventory Discovery**: For a selected case, the system lists all available phases, scan indices, full scans, SEG masks, VOI images, VOI masks, and sides from `metadata.jsonl`, `phase.json`, and `voi/voi_catalog.jsonl`.                                                                                  | Must     |
 | FR-04  | **Adaptive Content**: The viewer adapts to available data: complete scan only, complete scan + SEG, VOI only, VOI + VOI mask, or missing/partial data with QC warning.                                                                                           | Must     |
 | FR-05  | **Case Search/Filter**: User can search by case ID or patient ID and filter by group, canonical phase, curation status, warning status, VOI availability, or segmentation status.                                                                                | Should   |
 | FR-06  | **Inventory Selector**: The case review page provides phase, scope, scan_idx, and side controls to switch between available data without returning to the worklist.                                                                                              | Must     |
@@ -467,7 +468,7 @@ Minimum fields for `curation_review.csv`:
 | FR-51 | **Persist W/L Settings**: Save last-used window/level values per dataset.                                                      | Should   |
 | FR-52 | **Persist Layer Visibility**: Save layer on/off and opacity settings.                                                          | Should   |
 | FR-53 | **Settings Storage**: Preferences are persisted in `<dataset>/.webui/settings.json` or configured external state directory.    | Should   |
-| FR-54 | **No Source Data Mutation for Settings**: Viewer settings shall not modify NIfTI, SEG, VOI, `manifest.csv`, or `database.csv`. | Must     |
+| FR-54 | **No Source Data Mutation for Settings**: Viewer settings shall not modify NIfTI, SEG, VOI, `metadata.jsonl`, `phase.json`, `voi_catalog.jsonl`, or `database.csv`. | Must     |
 
 ### 4.7 Authentication
 
@@ -506,7 +507,7 @@ Minimum fields for `curation_review.csv`:
 | NFR-03 | **3D Mesh Generation**: Initial marching-cubes computation completes in < 5 seconds for typical segmentation size, when 3D is used.                            | < 5 s                             |
 | NFR-04 | **Memory Footprint**: Backend holds a limited number of volumes in memory simultaneously using LRU cache.                                                      | Configurable; default ≤ 2 volumes |
 | NFR-05 | **Container Image Size**: Final OCI image should remain reasonably small for local/HPC deployment.                                                             | ≤ 1.5 GB target                   |
-| NFR-06 | **Source-Data Read-Only**: v2.0 medical curation workflow shall not modify NIfTI, SEG, VOI, `manifest.csv`, or `database.csv` directly.                        | Mandatory                         |
+| NFR-06 | **Source-Data Read-Only**: v2.0 medical curation workflow shall not modify NIfTI, SEG, VOI, `metadata.jsonl`, `voi_catalog.jsonl`, or `database.csv` directly.                        | Mandatory                         |
 | NFR-07 | **Controlled Curation Writes**: Only explicit curation-state actions may write to curation files or configured state storage.                                  | Mandatory                         |
 | NFR-08 | **Auditability**: Every curation decision shall include reviewer, timestamp, target, status, and source row reference when available.                          | Mandatory                         |
 | NFR-09 | **Privacy / Local-Only**: No data leaves the host. No telemetry, analytics, or external API calls.                                                             | Mandatory                         |
@@ -960,9 +961,9 @@ python udocker.py run \
 | 16 | User can flag wrong side/laterality suspected without moving files or overwriting source metadata.       | Manual/API test   |
 | 17 | Curation decisions are written to `curation_review.csv` or configured curation store.                    | File/API test     |
 | 18 | Items needing correction appear in correction queue or are exportable as CSV.                            | Manual/API test   |
-| 19 | Source NIfTI, SEG, VOI image, VOI mask, `manifest.csv`, and `database.csv` are unchanged after curation. | Audit / checksum  |
+| 19 | Source NIfTI, SEG, VOI image, VOI mask, `metadata.jsonl`, `voi_catalog.jsonl`, and `database.csv` are unchanged after curation. | Audit / checksum  |
 | 20 | Existing MPR controls, W/L, pan/zoom, overlays, and panel expansion remain functional.                   | Manual regression |
-| 21 | Legacy discovery remains available only as fallback when `database.csv` is absent.                       | API test          |
+| 21 | VOI discovery uses `voi/voi_catalog.jsonl` and does not infer phase from folders.                        | API test          |
 | 22 | With curation writes disabled, curation save endpoint rejects writes and no curation files are changed.  | API test          |
 | 23 | With `RADIOLOGY_UI_TOKEN` set, unauthenticated `/api/*` access is blocked except `/api/health`.          | Manual/API test   |
 
@@ -984,8 +985,9 @@ python udocker.py run \
 | **OCI**                       | Open Container Initiative — container image specification                                                            |
 | **udocker**                   | User-space container execution tool (no root required)                                                               |
 | **Marching Cubes**            | Algorithm to extract isosurface mesh from a 3D scalar field                                                          |
-| **database.csv**              | Canonical reconciled dataset table used as the primary v2.0 metadata source                                          |
-| **manifest.csv**              | Raw converter metadata retained for provenance and fallback use                                                      |
+| **metadata.jsonl**            | Read-only converter traceability and scan metadata                                                                  |
+| **phase.json**                | Mutable scan-level phase curation keyed by `case_id + scan_idx`                                                     |
+| **voi_catalog.jsonl**         | Preprocessor VOI catalog linking each VOI to its parent scan, side, paths, provenance, and metrics                   |
 | **Curation state**            | Review decisions, comments, correction status, and proposed metadata corrections written separately from source data |
 | **Source-data read-only**     | Policy that the WebUI shall not modify image files, masks, or canonical dataset metadata directly                    |
 | **Phase correction proposal** | Doctor-authored suggestion that a scan phase may be mislabeled; does not directly rename files or overwrite metadata |

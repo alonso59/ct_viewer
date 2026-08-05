@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 METADATA_FILENAME = "metadata.jsonl"
 PHASE_FILENAME = "phase.json"
+VOI_CATALOG_FILENAME = "voi/voi_catalog.jsonl"
 CURATION_FILENAME = "curation.csv"
 DELETE_KEEP_VALUES = {"0", "false", "no", "delete", "deleted", "trash", "recycle"}
 MISSING_PHASE_VALUES = {"", "UNDEFINED", "UNKNOWN", "UNK", "N/A", "NA", "NONE", "NULL"}
@@ -48,19 +49,74 @@ def metadata_rows_by_filename(dataset_path: Path | str) -> dict[str, dict[str, A
     return rows
 
 
-def phase_overrides_by_filename(dataset_path: Path | str) -> dict[str, str]:
+def metadata_rows_by_scan_key(dataset_path: Path | str) -> dict[tuple[str, str], dict[str, Any]]:
+    rows: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in read_converter_metadata_rows(dataset_path):
+        key = scan_key(row)
+        if key is not None:
+            rows[key] = row
+    return rows
+
+
+def read_voi_catalog_rows(dataset_path: Path | str) -> list[dict[str, Any]]:
+    path = Path(dataset_path).expanduser().resolve() / VOI_CATALOG_FILENAME
+    if not path.is_file():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                value = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSONL in {path} at line {line_number}: {exc}") from exc
+            if isinstance(value, dict):
+                rows.append(value)
+    return rows
+
+
+def phase_overrides_by_scan_key(dataset_path: Path | str) -> dict[tuple[str, str], str]:
     payload = _read_phase_payload(dataset_path)
     if not payload:
         return {}
 
     rows = _phase_payload_rows(payload)
-    overrides: dict[str, str] = {}
+    overrides: dict[tuple[str, str], str] = {}
     for row in rows:
-        filename = metadata_filename(row)
+        key = scan_key(row)
         phase = text_value(row.get("phase"))
-        if filename:
-            overrides[filename] = phase
+        if key is not None and phase:
+            overrides[key] = phase
     return overrides
+
+
+def resolve_curated_phase(
+    phase_overrides: dict[tuple[str, str], str],
+    case_id: str | None,
+    scan_idx: str | None,
+) -> str | None:
+    key = canonical_scan_key(case_id, scan_idx)
+    if key is None:
+        return None
+    phase = text_value(phase_overrides.get(key))
+    if not phase or _phase_is_missing(phase):
+        return None
+    return phase
+
+
+def scan_key(row: dict[str, Any]) -> tuple[str, str] | None:
+    return canonical_scan_key(row.get("case_id"), row.get("scan_idx"))
+
+
+def canonical_scan_key(case_id: Any, scan_idx: Any) -> tuple[str, str] | None:
+    case = text_value(case_id)
+    scan = text_value(scan_idx)
+    if not case or not scan:
+        return None
+    return case, scan
 
 
 def metadata_filename(row: dict[str, Any]) -> str | None:
@@ -78,18 +134,19 @@ def select_converter_phase(
     row: dict[str, Any],
     fallback: dict[str, Any] | None = None,
     phase_override: str | None = None,
+    *,
+    include_phase_guess: bool = False,
 ) -> tuple[str, str]:
     missing_candidate: tuple[str, str] | None = None
-    for source, candidate in (
+    candidates = [
         ("phase_json", phase_override),
         ("phase", row.get("phase")),
         ("curated_phase", row.get("curated_phase")),
         ("canonical_phase", row.get("canonical_phase")),
-        ("phase_guess", row.get("phase_guess")),
-        ("manifest.curated_phase", (fallback or {}).get("curated_phase")),
-        ("manifest.canonical_phase", (fallback or {}).get("canonical_phase")),
-        ("manifest.phase", (fallback or {}).get("phase")),
-    ):
+    ]
+    if include_phase_guess:
+        candidates.append(("phase_guess", row.get("phase_guess")))
+    for source, candidate in candidates:
         value = text_value(candidate)
         if value:
             if source != "phase_json" and _phase_is_missing(value):
@@ -109,10 +166,15 @@ def update_phase_override(dataset_path: Path | str, filename: str, target_phase:
     payload = _read_phase_payload(dataset) or _initial_phase_payload(dataset)
     rows = _phase_payload_rows(payload)
     now = _now_iso()
+    metadata_index = metadata_rows_by_filename(dataset)
+    metadata_row = metadata_index.get(filename, {})
+    target_key = scan_key(metadata_row)
+    if target_key is None:
+        return False
 
     matched = False
     for row in rows:
-        if not _row_matches_filename(row, filename):
+        if scan_key(row) != target_key:
             continue
         row["phase"] = target_phase
         row["updated_at"] = now
@@ -123,6 +185,11 @@ def update_phase_override(dataset_path: Path | str, filename: str, target_phase:
         rows.append(
             {
                 "filename": filename,
+                "relative_path": text_value(metadata_row.get("relative_path")),
+                "nifti_file": text_value(metadata_row.get("nifti_file")),
+                "case_id": target_key[0],
+                "patient_id": text_value(metadata_row.get("patient_id")),
+                "scan_idx": target_key[1],
                 "phase": target_phase,
                 "source_phase": "",
                 "source_phase_source": "manual",
@@ -254,6 +321,7 @@ def _initial_phase_payload(dataset_path: Path | str) -> dict[str, Any]:
         if not filename:
             continue
         phase, phase_source = select_converter_phase(row)
+        source_phase, source_phase_source = select_converter_phase(row, include_phase_guess=True)
         rows.append(
             {
                 "filename": filename,
@@ -263,8 +331,8 @@ def _initial_phase_payload(dataset_path: Path | str) -> dict[str, Any]:
                 "patient_id": text_value(row.get("patient_id")),
                 "scan_idx": text_value(row.get("scan_idx")),
                 "phase": phase,
-                "source_phase": phase,
-                "source_phase_source": phase_source,
+                "source_phase": source_phase,
+                "source_phase_source": source_phase_source,
                 "updated_at": "",
                 "updated_by": "",
             }

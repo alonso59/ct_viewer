@@ -222,7 +222,7 @@ function DatasetSelectorPage({
               <Typography variant="body2" color="text.secondary">
                 The path must exist on the backend server filesystem and contain at
                 least one of <code>database.csv</code>, <code>nifti/</code>, <code>seg/</code>, <code>voi/</code>, or
-                <code> manifest.csv</code>, or <code> metadata.jsonl</code>.
+                <code> metadata.jsonl</code>.
               </Typography>
             </Stack>
           </CardContent>
@@ -284,7 +284,7 @@ function DatasetSelectorPage({
                   <Stack spacing={1.5}>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       <Chip
-                        label={`${activeDataset.patient_count} patients`}
+                        label={`${activeDataset.patient_count} cases`}
                         color="primary"
                         variant="outlined"
                       />
@@ -307,6 +307,11 @@ function DatasetSelectorPage({
                         label={activeDataset.has_metadata ? 'metadata.jsonl' : 'No metadata.jsonl'}
                         color={activeDataset.has_metadata ? 'success' : 'default'}
                         variant={activeDataset.has_metadata ? 'filled' : 'outlined'}
+                      />
+                      <Chip
+                        label={activeDataset.has_voi_catalog ? 'voi_catalog.jsonl' : 'No voi_catalog.jsonl'}
+                        color={activeDataset.has_voi_catalog ? 'success' : 'default'}
+                        variant={activeDataset.has_voi_catalog ? 'filled' : 'outlined'}
                       />
                     </Stack>
                     {settingsState.allSettings[activeDataset.dataset_id]?.last_patient ? (

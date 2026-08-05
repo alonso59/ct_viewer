@@ -12,8 +12,8 @@ class DatasetSummary(BaseModel):
     has_nifti: bool = False
     has_seg: bool = False
     has_voi: bool = False
-    has_manifest: bool = False
     has_metadata: bool = False
+    has_voi_catalog: bool = False
 
 
 class PatientSummary(BaseModel):
@@ -32,10 +32,17 @@ class SeriesInfo(BaseModel):
     series_id: str
     patient_id: str
     type: str
+    case_id: str | None = None
+    scan_idx: str | None = None
+    voi_id: str | None = None
     group: str | None = None
     phase: str | None = None
+    phase_source: str | None = None
     laterality: str | None = None
+    side: str | None = None
     filename: str
+    image_path: str | None = None
+    mask_path: str | None = None
     has_seg: bool = False
     deleted: bool = False
     storage_path: str | None = None
@@ -46,9 +53,14 @@ class SeriesSource:
     series_id: str
     patient_id: str
     type: str
+    case_id: str | None
+    scan_idx: str | None
+    voi_id: str | None
     group: str | None
     phase: str | None
+    phase_source: str | None
     laterality: str | None
+    side: str | None
     filename: str
     image_path: str
     mask_path: str | None
