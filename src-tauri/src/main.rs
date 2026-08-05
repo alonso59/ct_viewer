@@ -435,8 +435,7 @@ fn start_backend(app: &AppHandle, shared: Arc<SharedRuntime>) {
     });
 
     let readiness_app = app.clone();
-    let _readiness_thread =
-        thread::spawn(move || wait_for_backend(readiness_app, shared, token));
+    let _readiness_thread = thread::spawn(move || wait_for_backend(readiness_app, shared, token));
 }
 
 fn stop_backend(app: AppHandle, shared: Arc<SharedRuntime>, exit_code: i32) {
