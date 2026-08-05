@@ -12,6 +12,7 @@ from app.desktop_sidecar import (
     LOOPBACK_HOST,
     _bind_loopback_socket,
     _process_is_alive,
+    _runtime_process_id,
     _write_runtime_file,
 )
 from app.main import create_app
@@ -51,6 +52,10 @@ def test_runtime_handshake_never_contains_token(tmp_path: Path) -> None:
         "port": 49152,
     }
     assert "token" not in runtime_path.read_text(encoding="utf-8").lower()
+
+
+def test_frozen_windows_handshake_identifies_pyinstaller_launcher() -> None:
+    assert _runtime_process_id(frozen=True, platform_name="nt") == os.getppid()
 
 
 def test_parent_watchdog_recognizes_current_process() -> None:
