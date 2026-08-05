@@ -56,7 +56,6 @@ class ReviewApplyResult(BaseModel):
     status: ReviewResultStatus
     message: str
     moved_files: list["ReviewMovedFile"] = Field(default_factory=list)
-    manifest_updated: bool = False
     metadata_updated: bool = False
 
 

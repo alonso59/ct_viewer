@@ -27,6 +27,8 @@ vi.mock('../services/api', async () => {
     loadCaseSource: vi.fn(),
     saveCurationDecision: vi.fn(),
     applyReviewOperations: vi.fn(),
+    previewMetadataSync: vi.fn(),
+    applyMetadataSync: vi.fn(),
   }
   return {
     apiClient,
@@ -283,10 +285,41 @@ describe('v2 medical curation UI', () => {
           status: 'applied',
           message: 'phase.json updated',
           moved_files: [],
-          manifest_updated: false,
           metadata_updated: true,
         },
       ],
+    })
+    mockedApi.previewMetadataSync.mockResolvedValue({
+      dataset_id: 'DatasetTest',
+      summary: {
+        phase_changes: 0,
+        delete_changes: 0,
+        restore_changes: 0,
+        already_consolidated: 2,
+        conflicts: 0,
+        noop: 0,
+        voi_catalog_changes: 0,
+        total_rows: 2,
+      },
+      changes: [],
+    })
+    mockedApi.applyMetadataSync.mockResolvedValue({
+      dataset_id: 'DatasetTest',
+      batch_id: 'metadata-batch-a',
+      applied_at: '2026-05-27T00:00:00Z',
+      metadata_updated: true,
+      phase_json_neutralized: true,
+      summary: {
+        phase_changes: 1,
+        delete_changes: 1,
+        restore_changes: 1,
+        already_consolidated: 0,
+        conflicts: 0,
+        noop: 0,
+        voi_catalog_changes: 1,
+        total_rows: 3,
+      },
+      changes: [],
     })
   })
 
@@ -387,6 +420,17 @@ describe('v2 medical curation UI', () => {
     )
   })
 
+  it('disables phase correction when reviewing VOI scope', async () => {
+    const user = userEvent.setup()
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
+
+    await user.click(screen.getByRole('button', { name: 'VOI' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'CMP' })).toBeDisabled())
+    expect(mockedApi.applyReviewOperations).not.toHaveBeenCalled()
+  })
+
   it('calculates window level from a custom HU range', async () => {
     const user = userEvent.setup()
     renderReviewPage()
@@ -423,6 +467,111 @@ describe('v2 medical curation UI', () => {
         ],
       }),
     )
+  })
+
+  it('previews and confirms metadata sync updates', async () => {
+    const user = userEvent.setup()
+    mockedApi.previewMetadataSync.mockResolvedValue({
+      dataset_id: 'DatasetTest',
+      summary: {
+        phase_changes: 1,
+        delete_changes: 1,
+        restore_changes: 1,
+        already_consolidated: 3,
+        conflicts: 0,
+        noop: 0,
+        voi_catalog_changes: 1,
+        total_rows: 6,
+      },
+      changes: [
+        {
+          kind: 'phase_changes',
+          target: 'metadata',
+          filename: 'a.nii.gz',
+          case_id: 'case_00001',
+          scan_idx: '0',
+          side: null,
+          row_index: 0,
+          message: 'phase.json phase differs from metadata.jsonl.',
+          current_phase: 'NP',
+          target_phase: 'CMP',
+          current_relative_path: null,
+          target_relative_path: null,
+        },
+        {
+          kind: 'delete_changes',
+          target: 'voi_catalog',
+          filename: 'a_L.npy',
+          case_id: 'case_00001',
+          scan_idx: '0',
+          side: 'L',
+          row_index: 1,
+          message: 'VOI image is in recycle bin.',
+          current_phase: null,
+          target_phase: null,
+          current_relative_path: 'voi/images/G/case_00001/a_L.npy',
+          target_relative_path: 'voi/deleted/images/G/case_00001/a_L.npy',
+        },
+      ],
+    } as never)
+
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
+    await user.click(screen.getByRole('button', { name: /update metadata/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Update metadata' })).toBeInTheDocument()
+    expect(screen.getByText('Phase 1')).toBeInTheDocument()
+    expect(screen.getByText('Delete 1')).toBeInTheDocument()
+    expect(screen.getByText('Restore 1')).toBeInTheDocument()
+    expect(screen.getByText('VOI 1')).toBeInTheDocument()
+    expect(screen.getByText('NP -> CMP')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /apply update/i }))
+
+    await waitFor(() => expect(mockedApi.applyMetadataSync).toHaveBeenCalledWith('DatasetTest'))
+    await waitFor(() => expect(mockedApi.listCaseInventory).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText(/metadata.jsonl updated/i)).toBeInTheDocument()
+  })
+
+  it('blocks metadata sync confirmation when preview has conflicts', async () => {
+    const user = userEvent.setup()
+    mockedApi.previewMetadataSync.mockResolvedValue({
+      dataset_id: 'DatasetTest',
+      summary: {
+        phase_changes: 0,
+        delete_changes: 0,
+        restore_changes: 0,
+        already_consolidated: 0,
+        conflicts: 1,
+        noop: 0,
+        voi_catalog_changes: 0,
+        total_rows: 1,
+      },
+      changes: [
+        {
+          kind: 'conflicts',
+          target: 'metadata',
+          filename: 'a.nii.gz',
+          case_id: 'case_00001',
+          scan_idx: '0',
+          side: null,
+          row_index: 0,
+          message: 'Both active and deleted NIfTI files exist.',
+          current_phase: null,
+          target_phase: null,
+          current_relative_path: 'nifti/a.nii.gz',
+          target_relative_path: null,
+        },
+      ],
+    } as never)
+
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
+    await user.click(screen.getByRole('button', { name: /update metadata/i }))
+
+    expect(await screen.findByText(/resolve conflicts/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply update/i })).toBeDisabled()
+    expect(mockedApi.applyMetadataSync).not.toHaveBeenCalled()
   })
 
   it('restores selected deleted scan through restore button', async () => {

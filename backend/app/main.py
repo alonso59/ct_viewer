@@ -11,6 +11,7 @@ from app.api.cases import router as cases_router
 from app.api.curation import router as curation_router
 from app.api.datasets import router as datasets_router
 from app.api.mesh import router as mesh_router
+from app.api.metadata_sync import router as metadata_sync_router
 from app.api.review import router as review_router
 from app.api.settings import router as settings_router
 from app.api.slices import router as slices_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     application.include_router(curation_router)
     application.include_router(datasets_router)
     application.include_router(mesh_router)
+    application.include_router(metadata_sync_router)
     application.include_router(review_router)
     application.include_router(settings_router)
     application.include_router(slices_router)

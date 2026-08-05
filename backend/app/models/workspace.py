@@ -28,7 +28,8 @@ class RecentDataset(BaseModel):
 class WorkspaceMarkers(BaseModel):
     database_csv: bool = False
     metadata_jsonl: bool = False
-    manifest_csv: bool = False
+    phase_json: bool = False
+    voi_catalog_jsonl: bool = False
     nifti: bool = False
     seg: bool = False
     voi: bool = False

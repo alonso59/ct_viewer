@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import csv
 import hashlib
+from io import BytesIO
 import json
 from pathlib import Path
+import shutil
 import time
 
 import nibabel as nib
 import numpy as np
+from PIL import Image
 
 from app.models.curation import CurationDecisionRequest
 from app.models.review import ReviewOperation
@@ -22,9 +25,11 @@ from app.services.database import (
     list_case_summaries,
     reset_database_index,
 )
-from app.services.discovery import reset_discovery_index
+from app.services.discovery import discover_series, reset_discovery_index
+from app.services.metadata_sync import apply_metadata_sync, preview_metadata_sync
 from app.services.qc_validator import validate_database
 from app.services.review_apply import apply_review_operations
+from app.services.slice_renderer import render_slice
 from app.services.volume_cache import volume_cache
 
 
@@ -98,11 +103,10 @@ def test_database_loading_validation_projection_and_read_only_curation(tmp_path,
     before = _fingerprints(
         [
             dataset / "database.csv",
-            dataset / "manifest.csv",
             dataset / "nifti" / "scan_0000.nii.gz",
             dataset / "seg" / "scan.nii.gz",
-            dataset / "voi" / "images" / "G" / "case_00001" / "NP" / "scan_L.npy",
-            dataset / "voi" / "mask" / "G" / "case_00001" / "NP" / "scan_L.npy",
+            dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy",
+            dataset / "voi" / "mask" / "G" / "case_00001" / "scan_L.npy",
         ]
     )
     time.sleep(0.01)
@@ -157,14 +161,13 @@ def test_converter_metadata_jsonl_drives_phase_curation_and_trash(tmp_path, monk
 
     inventory = list_case_inventory(dataset, "case_00001")
     assert [row.canonical_phase for row in inventory] == ["NP", "CMP"]
-    assert inventory[1].raw_phase == "CMP; unknown"
-    assert inventory[1].phase_status == "ambiguous"
+    assert inventory[1].raw_phase == "CMP"
+    assert inventory[1].phase_status == "normalized"
     assert inventory[0].scope_availability["complete"] is True
 
     readonly_before = _fingerprints(
         [
             dataset / "metadata.jsonl",
-            dataset / "manifest.csv",
             dataset / "curation.csv",
         ]
     )
@@ -181,7 +184,6 @@ def test_converter_metadata_jsonl_drives_phase_curation_and_trash(tmp_path, monk
     )
     assert response.summary.applied == 1
     assert response.results[0].metadata_updated is True
-    assert response.results[0].manifest_updated is False
     assert response.results[0].message == "phase.json updated"
     assert readonly_before == _fingerprints(readonly_before.keys())
     phase_rows = _read_phase_json(dataset / "phase.json")
@@ -205,12 +207,12 @@ def test_converter_metadata_jsonl_drives_phase_curation_and_trash(tmp_path, monk
         ],
     )
     assert response.summary.applied == 1
-    assert response.results[0].metadata_updated is True
+    assert response.results[0].metadata_updated is False
     assert not (dataset / "nifti" / "001_case_00001_0000.nii.gz").exists()
     assert (dataset / "deleted" / "nifti" / "001_case_00001_0000.nii.gz").is_file()
     metadata_rows = _read_jsonl(dataset / "metadata.jsonl")
-    assert metadata_rows[1]["curated_keep"] == "no"
-    assert metadata_rows[1]["relative_path"] == "deleted/nifti/001_case_00001_0000.nii.gz"
+    assert metadata_rows[1]["curated_keep"] == ""
+    assert metadata_rows[1]["relative_path"] == "nifti/001_case_00001_0000.nii.gz"
     deleted_inventory = list_case_inventory(dataset, "case_00001")
     assert deleted_inventory[1].deleted is True
 
@@ -225,7 +227,7 @@ def test_converter_metadata_jsonl_drives_phase_curation_and_trash(tmp_path, monk
         ],
     )
     assert restore_response.summary.applied == 1
-    assert restore_response.results[0].metadata_updated is True
+    assert restore_response.results[0].metadata_updated is False
     assert (dataset / "nifti" / "001_case_00001_0000.nii.gz").is_file()
     assert not (dataset / "deleted" / "nifti" / "001_case_00001_0000.nii.gz").exists()
     restored_metadata_rows = _read_jsonl(dataset / "metadata.jsonl")
@@ -235,25 +237,276 @@ def test_converter_metadata_jsonl_drives_phase_curation_and_trash(tmp_path, monk
     assert restored_inventory[1].deleted is False
 
 
+def test_metadata_sync_consolidates_phase_delete_restore_and_neutralizes_phase_json(tmp_path, monkeypatch):
+    dataset = _make_converter_metadata_dataset(tmp_path)
+    state_dir = tmp_path / "state"
+    monkeypatch.setenv("ALLOW_DATA_MUTATIONS", "true")
+    monkeypatch.setenv("WEBUI_STATE_DIR", str(state_dir))
+
+    import app.services.metadata_sync as metadata_sync
+
+    monkeypatch.setattr(metadata_sync, "validate_workspace_dataset_id", lambda dataset_id: dataset)
+    monkeypatch.setattr(metadata_sync, "workspace_file", lambda filename, create=True: state_dir / filename)
+
+    deleted_nifti = dataset / "deleted" / "nifti"
+    deleted_seg = dataset / "deleted" / "seg"
+    deleted_nifti.mkdir(parents=True)
+    deleted_seg.mkdir(parents=True)
+    (dataset / "nifti" / "001_case_00001_0000.nii.gz").rename(
+        deleted_nifti / "001_case_00001_0000.nii.gz"
+    )
+    (dataset / "seg" / "001_case_00001.nii.gz").rename(
+        deleted_seg / "001_case_00001.nii.gz"
+    )
+
+    preview = preview_metadata_sync("DatasetMeta")
+    assert preview.summary.phase_changes == 2
+    assert preview.summary.delete_changes == 1
+    assert preview.summary.conflicts == 0
+
+    response = apply_metadata_sync("DatasetMeta")
+    assert response.metadata_updated is True
+    assert response.phase_json_neutralized is True
+    rows = _read_jsonl(dataset / "metadata.jsonl")
+    assert rows[0]["phase"] == "NP"
+    assert rows[0]["curated_phase"] == "NP"
+    assert rows[1]["phase"] == "CMP"
+    assert rows[1]["curated_phase"] == "CMP"
+    assert rows[1]["curated_keep"] == "no"
+    assert rows[1]["relative_path"] == "deleted/nifti/001_case_00001_0000.nii.gz"
+    assert rows[1]["webui_metadata_batch_id"] == response.batch_id
+    assert _read_phase_json(dataset / "phase.json") == []
+    assert (state_dir / f"phase_json_consumed_{response.batch_id}.json").is_file()
+    assert (state_dir / "metadata_update_log.json").is_file()
+
+    reset_database_index()
+    reset_discovery_index()
+    inventory = list_case_inventory(dataset, "case_00001")
+    assert inventory[1].deleted is True
+
+    (deleted_nifti / "001_case_00001_0000.nii.gz").rename(
+        dataset / "nifti" / "001_case_00001_0000.nii.gz"
+    )
+    (deleted_seg / "001_case_00001.nii.gz").rename(dataset / "seg" / "001_case_00001.nii.gz")
+    restore_preview = preview_metadata_sync("DatasetMeta")
+    assert restore_preview.summary.restore_changes == 1
+    restore_response = apply_metadata_sync("DatasetMeta")
+    assert restore_response.summary.restore_changes == 1
+    restored_rows = _read_jsonl(dataset / "metadata.jsonl")
+    assert restored_rows[1]["curated_keep"] == ""
+    assert restored_rows[1]["relative_path"] == "nifti/001_case_00001_0000.nii.gz"
+
+
+def test_metadata_sync_blocks_conflicting_active_and_deleted_files(tmp_path, monkeypatch):
+    dataset = _make_converter_metadata_dataset(tmp_path)
+    state_dir = tmp_path / "state"
+    monkeypatch.setenv("ALLOW_DATA_MUTATIONS", "true")
+    monkeypatch.setenv("WEBUI_STATE_DIR", str(state_dir))
+
+    import app.services.metadata_sync as metadata_sync
+
+    monkeypatch.setattr(metadata_sync, "validate_workspace_dataset_id", lambda dataset_id: dataset)
+    monkeypatch.setattr(metadata_sync, "workspace_file", lambda filename, create=True: state_dir / filename)
+
+    deleted_nifti = dataset / "deleted" / "nifti"
+    deleted_nifti.mkdir(parents=True)
+    shutil.copy2(
+        dataset / "nifti" / "000_case_00001_0000.nii.gz",
+        deleted_nifti / "000_case_00001_0000.nii.gz",
+    )
+    before = _fingerprints([dataset / "metadata.jsonl"])
+
+    preview = preview_metadata_sync("DatasetMeta")
+    assert preview.summary.conflicts == 1
+    try:
+        apply_metadata_sync("DatasetMeta")
+        raise AssertionError("metadata sync should fail with conflicts")
+    except RuntimeError:
+        pass
+    assert before == _fingerprints(before.keys())
+
+
+def test_voi_catalog_uses_scan_idx_phase_and_blocks_voi_reclassify(tmp_path, monkeypatch):
+    dataset = _make_voi_catalog_dataset(tmp_path)
+    state_dir = tmp_path / "state"
+    monkeypatch.setenv("ALLOW_DATA_MUTATIONS", "true")
+    monkeypatch.setenv("WEBUI_STATE_DIR", str(state_dir))
+
+    import app.services.review_apply as review_apply
+
+    monkeypatch.setattr(review_apply, "validate_workspace_dataset_id", lambda dataset_id: dataset)
+    monkeypatch.setattr(review_apply, "workspace_file", lambda filename, create=True: state_dir / filename)
+    reset_database_index()
+    reset_discovery_index()
+    volume_cache.reset()
+
+    series = discover_series(dataset, "case_00001")
+    voi_series = [entry for entry in series if entry.type == "voi"]
+    assert len(voi_series) == 2
+    assert {entry.voi_id for entry in voi_series} == {"case_00001/000/L", "case_00001/000/R"}
+    assert {entry.phase for entry in voi_series} == {"NP"}
+    assert {entry.scan_idx for entry in voi_series} == {"000"}
+    assert all("/NP/" not in (entry.storage_path or "") for entry in voi_series)
+
+    inventory = list_case_inventory(dataset, "case_00001")
+    voi_rows = [row for row in inventory if row.scope_availability["voi"]]
+    assert len(voi_rows) == 2
+    assert {row.canonical_phase for row in voi_rows} == {"NP"}
+    assert {row.scan_idx for row in voi_rows} == {"000"}
+
+    load_source = get_case_load_source(
+        dataset,
+        "case_00001",
+        voi_rows[0].row_id,
+        "voi",
+        row_index=voi_rows[0].row_index,
+    )
+    volume = np.load(load_source.image_path)
+    mask = np.load(load_source.mask_path)
+    png_bytes = render_slice(volume, mask, axis="axial", index=1, ww=2, wl=1, layers=[1])
+    with Image.open(BytesIO(png_bytes)) as image:
+        pixels = np.asarray(image)
+    assert pixels.max() > 0
+    assert np.unique(pixels.reshape(-1, pixels.shape[-1]), axis=0).shape[0] > 1
+
+    response = apply_review_operations(
+        "DatasetVOI",
+        [
+            ReviewOperation(
+                patient_id="case_00001",
+                series_id="voi:case_00001/000/L",
+                action="reclassify",
+                target_phase="CMP",
+            )
+        ],
+    )
+    assert response.summary.failed == 1
+    assert response.results[0].metadata_updated is False
+    assert "inherited from phase.json" in response.results[0].message
+    assert (dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy").is_file()
+    assert not (dataset / "voi" / "images" / "G" / "case_00001" / "CMP").exists()
+
+    delete_response = apply_review_operations(
+        "DatasetVOI",
+        [
+            ReviewOperation(
+                patient_id="case_00001",
+                series_id="nifti:000_case_00001_0000",
+                action="delete",
+            )
+        ],
+    )
+    assert delete_response.summary.applied == 1
+    moved_destinations = {entry.destination for entry in delete_response.results[0].moved_files}
+    assert "deleted/nifti/000_case_00001_0000.nii.gz" in moved_destinations
+    assert "deleted/seg/000_case_00001.nii.gz" in moved_destinations
+    assert "voi/deleted/images/G/case_00001/scan_L.npy" in moved_destinations
+    assert "voi/deleted/mask/G/case_00001/scan_L.npy" in moved_destinations
+    assert "voi/deleted/images/G/case_00001/scan_R.npy" in moved_destinations
+    assert "voi/deleted/mask/G/case_00001/scan_R.npy" in moved_destinations
+    assert not (dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy").exists()
+    assert (dataset / "voi" / "deleted" / "images" / "G" / "case_00001" / "scan_L.npy").is_file()
+
+    reset_database_index()
+    reset_discovery_index()
+    deleted_inventory = list_case_inventory(dataset, "case_00001")
+    assert any(row.deleted for row in deleted_inventory if row.series_id == "nifti:000_case_00001_0000")
+    assert all(row.deleted for row in deleted_inventory if row.series_id and row.series_id.startswith("voi:case_00001/000/"))
+
+    restore_response = apply_review_operations(
+        "DatasetVOI",
+        [
+            ReviewOperation(
+                patient_id="case_00001",
+                series_id="nifti:000_case_00001_0000",
+                action="restore",
+            )
+        ],
+    )
+    assert restore_response.summary.applied == 1
+    restored_destinations = {entry.destination for entry in restore_response.results[0].moved_files}
+    assert "nifti/000_case_00001_0000.nii.gz" in restored_destinations
+    assert "seg/000_case_00001.nii.gz" in restored_destinations
+    assert "voi/images/G/case_00001/scan_L.npy" in restored_destinations
+    assert "voi/mask/G/case_00001/scan_L.npy" in restored_destinations
+    assert (dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy").is_file()
+    assert not (dataset / "voi" / "deleted" / "images" / "G" / "case_00001" / "scan_L.npy").exists()
+
+    phase_payload = json.loads((dataset / "phase.json").read_text(encoding="utf-8"))
+    phase_payload["phases"][0]["phase"] = "CMP"
+    (dataset / "phase.json").write_text(json.dumps(phase_payload), encoding="utf-8")
+    reset_database_index()
+    reset_discovery_index()
+
+    updated_series = [entry for entry in discover_series(dataset, "case_00001") if entry.type == "voi"]
+    assert {entry.phase for entry in updated_series} == {"CMP"}
+    updated_inventory = [row for row in list_case_inventory(dataset, "case_00001") if row.scope_availability["voi"]]
+    assert {row.canonical_phase for row in updated_inventory} == {"CMP"}
+
+
+def test_metadata_sync_updates_voi_catalog_delete_and_restore(tmp_path, monkeypatch):
+    dataset = _make_voi_catalog_dataset(tmp_path)
+    state_dir = tmp_path / "state"
+    monkeypatch.setenv("ALLOW_DATA_MUTATIONS", "true")
+    monkeypatch.setenv("WEBUI_STATE_DIR", str(state_dir))
+
+    import app.services.metadata_sync as metadata_sync
+
+    monkeypatch.setattr(metadata_sync, "validate_workspace_dataset_id", lambda dataset_id: dataset)
+    monkeypatch.setattr(metadata_sync, "workspace_file", lambda filename, create=True: state_dir / filename)
+
+    active_image = dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy"
+    active_mask = dataset / "voi" / "mask" / "G" / "case_00001" / "scan_L.npy"
+    deleted_image = dataset / "voi" / "deleted" / "images" / "G" / "case_00001" / "scan_L.npy"
+    deleted_mask = dataset / "voi" / "deleted" / "mask" / "G" / "case_00001" / "scan_L.npy"
+    deleted_image.parent.mkdir(parents=True)
+    deleted_mask.parent.mkdir(parents=True)
+    active_image.rename(deleted_image)
+    active_mask.rename(deleted_mask)
+
+    preview = preview_metadata_sync("DatasetVOI")
+    assert preview.summary.voi_catalog_changes == 1
+    assert preview.summary.delete_changes == 1
+    response = apply_metadata_sync("DatasetVOI")
+    assert response.metadata_updated is True
+    catalog_rows = _read_jsonl(dataset / "voi" / "voi_catalog.jsonl")
+    left_row = next(row for row in catalog_rows if row["side"] == "L")
+    assert left_row["image_path"] == "voi/deleted/images/G/case_00001/scan_L.npy"
+    assert left_row["mask_path"] == "voi/deleted/mask/G/case_00001/scan_L.npy"
+
+    reset_database_index()
+    reset_discovery_index()
+    inventory = list_case_inventory(dataset, "case_00001")
+    assert any(row.deleted for row in inventory if row.series_id == "voi:case_00001/000/L")
+    assert any(row.scope_availability["voi"] for row in inventory)
+
+    deleted_image.rename(active_image)
+    deleted_mask.rename(active_mask)
+    restore_preview = preview_metadata_sync("DatasetVOI")
+    assert restore_preview.summary.restore_changes == 1
+    apply_metadata_sync("DatasetVOI")
+    restored_catalog_rows = _read_jsonl(dataset / "voi" / "voi_catalog.jsonl")
+    restored_left_row = next(row for row in restored_catalog_rows if row["side"] == "L")
+    assert restored_left_row["image_path"] == "voi/images/G/case_00001/scan_L.npy"
+    assert restored_left_row["mask_path"] == "voi/mask/G/case_00001/scan_L.npy"
+
+
 def _make_dataset(tmp_path: Path) -> Path:
     dataset = tmp_path / "DatasetTest"
     (dataset / "nifti").mkdir(parents=True)
     (dataset / "seg").mkdir()
-    (dataset / "voi" / "images" / "G" / "case_00001" / "NP").mkdir(parents=True)
-    (dataset / "voi" / "mask" / "G" / "case_00001" / "NP").mkdir(parents=True)
-    (dataset / "voi" / "images" / "G" / "case_00001" / "CMP").mkdir(parents=True)
-    (dataset / "voi" / "mask" / "G" / "case_00001" / "CMP").mkdir(parents=True)
+    (dataset / "voi" / "images" / "G" / "case_00001").mkdir(parents=True)
+    (dataset / "voi" / "mask" / "G" / "case_00001").mkdir(parents=True)
 
     _write_nifti(dataset / "nifti" / "scan_0000.nii.gz", np.arange(64, dtype=np.float32).reshape(4, 4, 4))
     mask = np.zeros((4, 4, 4), dtype=np.uint8)
     mask[1, 1, 1] = 1
     mask[2, 2, 2] = 2
     _write_nifti(dataset / "seg" / "scan.nii.gz", mask)
-    np.save(dataset / "voi" / "images" / "G" / "case_00001" / "NP" / "scan_L.npy", np.ones((2, 2, 2), dtype=np.float32))
-    np.save(dataset / "voi" / "mask" / "G" / "case_00001" / "NP" / "scan_L.npy", np.ones((2, 2, 2), dtype=np.uint8))
-    _write_nifti(dataset / "voi" / "images" / "G" / "case_00001" / "CMP" / "scan_R.nii.gz", np.ones((2, 2, 2), dtype=np.float32))
-    _write_nifti(dataset / "voi" / "mask" / "G" / "case_00001" / "CMP" / "scan_R.nii.gz", np.ones((2, 2, 2), dtype=np.uint8))
-    (dataset / "manifest.csv").write_text("filename,phase\nscan_0000.nii.gz,ven\n", encoding="utf-8")
+    np.save(dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy", np.ones((2, 2, 2), dtype=np.float32))
+    np.save(dataset / "voi" / "mask" / "G" / "case_00001" / "scan_L.npy", np.ones((2, 2, 2), dtype=np.uint8))
+    _write_nifti(dataset / "voi" / "images" / "G" / "case_00001" / "scan_R.nii.gz", np.ones((2, 2, 2), dtype=np.float32))
+    _write_nifti(dataset / "voi" / "mask" / "G" / "case_00001" / "scan_R.nii.gz", np.ones((2, 2, 2), dtype=np.uint8))
 
     rows = [
         {
@@ -269,8 +522,8 @@ def _make_dataset(tmp_path: Path) -> Path:
             "nifti_path": "missing_root_relative.nii.gz",
             "nifti_original_volume_path": "nifti/scan_0000.nii.gz",
             "seg_path": "seg/scan.nii.gz",
-            "voi_image_path": "voi/images/G/case_00001/NP/scan_L.npy",
-            "voi_mask_path": "voi/mask/G/case_00001/NP/scan_L.npy",
+            "voi_image_path": "voi/images/G/case_00001/scan_L.npy",
+            "voi_mask_path": "voi/mask/G/case_00001/scan_L.npy",
             "has_seg": "true",
             "has_voi_image": "true",
             "has_voi_mask": "true",
@@ -288,8 +541,8 @@ def _make_dataset(tmp_path: Path) -> Path:
             "nifti_path": "nifti/scan_0000.nii.gz",
             "nifti_original_volume_path": "",
             "seg_path": "seg/scan.nii.gz",
-            "voi_image_path": "voi/images/G/case_00001/NP/scan_L.npy",
-            "voi_mask_path": "voi/mask/G/case_00001/NP/scan_L.npy",
+            "voi_image_path": "voi/images/G/case_00001/scan_L.npy",
+            "voi_mask_path": "voi/mask/G/case_00001/scan_L.npy",
             "has_seg": "true",
             "has_voi_image": "true",
             "has_voi_mask": "true",
@@ -307,8 +560,8 @@ def _make_dataset(tmp_path: Path) -> Path:
             "nifti_path": "nifti/scan_0000.nii.gz",
             "nifti_original_volume_path": "",
             "seg_path": "seg/missing.nii.gz",
-            "voi_image_path": "voi/images/G/case_00001/CMP/scan_R.nii.gz",
-            "voi_mask_path": "voi/mask/G/case_00001/CMP/scan_R.nii.gz",
+            "voi_image_path": "voi/images/G/case_00001/scan_R.nii.gz",
+            "voi_mask_path": "voi/mask/G/case_00001/scan_R.nii.gz",
             "has_seg": "true",
             "has_voi_image": "true",
             "has_voi_mask": "true",
@@ -326,8 +579,8 @@ def _make_dataset(tmp_path: Path) -> Path:
             "nifti_path": "nifti/scan_0000.nii.gz",
             "nifti_original_volume_path": "",
             "seg_path": "",
-            "voi_image_path": "voi/images/G/case_00001/NP/missing.npy",
-            "voi_mask_path": "voi/mask/G/case_00001/NP/missing.npy",
+            "voi_image_path": "voi/images/G/case_00001/missing.npy",
+            "voi_mask_path": "voi/mask/G/case_00001/missing.npy",
             "has_seg": "false",
             "has_voi_image": "true",
             "has_voi_mask": "true",
@@ -337,6 +590,80 @@ def _make_dataset(tmp_path: Path) -> Path:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+    return dataset
+
+
+def _make_voi_catalog_dataset(tmp_path: Path) -> Path:
+    dataset = tmp_path / "DatasetVOI"
+    (dataset / "nifti").mkdir(parents=True)
+    (dataset / "seg").mkdir()
+    (dataset / "voi" / "images" / "G" / "case_00001").mkdir(parents=True)
+    (dataset / "voi" / "mask" / "G" / "case_00001").mkdir(parents=True)
+
+    _write_nifti(dataset / "nifti" / "000_case_00001_0000.nii.gz", np.ones((4, 4, 4), dtype=np.float32))
+    _write_nifti(dataset / "seg" / "000_case_00001.nii.gz", np.ones((4, 4, 4), dtype=np.uint8))
+    np.save(dataset / "voi" / "images" / "G" / "case_00001" / "scan_L.npy", np.ones((3, 3, 3), dtype=np.float32))
+    np.save(dataset / "voi" / "mask" / "G" / "case_00001" / "scan_L.npy", np.ones((3, 3, 3), dtype=np.uint8))
+    np.save(dataset / "voi" / "images" / "G" / "case_00001" / "scan_R.npy", np.ones((3, 3, 3), dtype=np.float32))
+    np.save(dataset / "voi" / "mask" / "G" / "case_00001" / "scan_R.npy", np.ones((3, 3, 3), dtype=np.uint8))
+
+    metadata_row = {
+        "case_id": "case_00001",
+        "case_index": "1",
+        "scan_idx": "000",
+        "filename": "000_case_00001_0000.nii.gz",
+        "relative_path": "nifti/000_case_00001_0000.nii.gz",
+        "nifti_file": str((dataset / "nifti" / "000_case_00001_0000.nii.gz").resolve()),
+        "patient_id": "ANONYM-A",
+        "group": "G",
+        "series_uid": "series-a",
+        "phase_guess": "DELAY",
+    }
+    (dataset / "metadata.jsonl").write_text(json.dumps(metadata_row) + "\n", encoding="utf-8")
+    (dataset / "phase.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "phases": [
+                    {
+                        "filename": "000_case_00001_0000.nii.gz",
+                        "case_id": "case_00001",
+                        "patient_id": "ANONYM-A",
+                        "scan_idx": "000",
+                        "phase": "NP",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    catalog_rows = [
+        {
+            "case_id": "case_00001",
+            "scan_idx": "000",
+            "voi_id": f"case_00001/000/{side}",
+            "side": side,
+            "group": "G",
+            "phase": "NC",
+            "phase_source": "phase.json",
+            "filename": "000_case_00001_0000.nii.gz",
+            "series_uid": "series-a",
+            "patient_folder": "patient-folder",
+            "patient_id": "ANONYM-A",
+            "nifti_path": "nifti/000_case_00001_0000.nii.gz",
+            "seg_path": "seg/000_case_00001.nii.gz",
+            "image_path": f"voi/images/G/case_00001/scan_{side}.npy",
+            "mask_path": f"voi/mask/G/case_00001/scan_{side}.npy",
+            "crop_provenance": {},
+            "resample_provenance": {},
+            "tumor_metrics": {},
+        }
+        for side in ("L", "R")
+    ]
+    (dataset / "voi" / "voi_catalog.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in catalog_rows),
+        encoding="utf-8",
+    )
     return dataset
 
 
@@ -409,10 +736,28 @@ def _make_converter_metadata_dataset(tmp_path: Path) -> Path:
         "".join(json.dumps(row) + "\n" for row in rows),
         encoding="utf-8",
     )
-    (dataset / "manifest.csv").write_text(
-        "filename,patient_id,case_id,group,phase,scan_idx\n"
-        "000_case_00001_0000.nii.gz,ANONYM-A,case_00001,NG,undefined,000\n"
-        "001_case_00001_0000.nii.gz,ANONYM-A,case_00001,NG,undefined,001\n",
+    (dataset / "phase.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "phases": [
+                    {
+                        "filename": "000_case_00001_0000.nii.gz",
+                        "case_id": "case_00001",
+                        "patient_id": "ANONYM-A",
+                        "scan_idx": "000",
+                        "phase": "NP",
+                    },
+                    {
+                        "filename": "001_case_00001_0000.nii.gz",
+                        "case_id": "case_00001",
+                        "patient_id": "ANONYM-A",
+                        "scan_idx": "001",
+                        "phase": "CMP",
+                    },
+                ],
+            }
+        ),
         encoding="utf-8",
     )
     with (dataset / "curation.csv").open("w", newline="", encoding="utf-8") as handle:

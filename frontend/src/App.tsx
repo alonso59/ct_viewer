@@ -193,7 +193,7 @@ function App() {
               <Typography variant="overline" color="text.secondary">
                 Radiology WebUI
               </Typography>
-              <Typography variant="h6">Routing Shell</Typography>
+              <Typography variant="h6">Medical Curation</Typography>
             </Box>
 
             <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>

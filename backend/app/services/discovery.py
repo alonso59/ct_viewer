@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 from dataclasses import dataclass
 import re
 from pathlib import Path
@@ -9,8 +8,12 @@ from typing import Any
 
 from app.models.dataset import DatasetSummary, PatientSummary, SeriesInfo, SeriesSource
 from app.services.converter_metadata import (
+    canonical_scan_key,
+    read_voi_catalog_rows,
+    metadata_rows_by_scan_key,
     metadata_rows_by_filename,
-    phase_overrides_by_filename,
+    phase_overrides_by_scan_key,
+    resolve_curated_phase,
     select_converter_phase,
     text_value,
 )
@@ -88,13 +91,17 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
 
     dataset_candidates: list[Path]
     root_has_nifti = any(
-        path.is_file() and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES)
+        _is_allowed_file(path) and any(path.name.endswith(suffix) for suffix in NIFTI_SUFFIXES)
         for path in root.iterdir()
     )
-    if root_has_nifti or any(
-        (root / marker).exists()
-        for marker in ("database.csv", "nifti", "seg", "voi", "manifest.csv", "metadata.jsonl")
-    ):
+    root_has_marker = any(
+        _is_allowed_file(root / marker)
+        for marker in ("database.csv", "metadata.jsonl")
+    ) or any(
+        _is_allowed_directory(root / marker)
+        for marker in ("nifti", "seg", "voi")
+    )
+    if root_has_nifti or root_has_marker:
         dataset_candidates = [root]
     else:
         dataset_candidates = sorted(
@@ -107,8 +114,8 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
         has_nifti = (dataset_path / "nifti").is_dir()
         has_seg = (dataset_path / "seg").is_dir()
         has_voi = (dataset_path / "voi").is_dir()
-        has_manifest = (dataset_path / "manifest.csv").is_file()
         has_metadata = (dataset_path / "metadata.jsonl").is_file()
+        has_voi_catalog = (dataset_path / "voi" / "voi_catalog.jsonl").is_file()
 
         try:
             patient_count = len(_get_dataset_index(dataset_path).patient_summaries)
@@ -122,8 +129,8 @@ def list_datasets(data_root: Path | str) -> list[DatasetSummary]:
                 has_nifti=has_nifti,
                 has_seg=has_seg,
                 has_voi=has_voi,
-                has_manifest=has_manifest,
                 has_metadata=has_metadata,
+                has_voi_catalog=has_voi_catalog,
             )
         )
 
@@ -207,10 +214,17 @@ def _build_dataset_index(dataset_path: Path) -> DatasetIndex:
             series_id=entry["series_id"],
             patient_id=entry["patient_id"],
             type=entry["type"],
+            case_id=entry.get("case_id"),
+            scan_idx=entry.get("scan_idx"),
+            voi_id=entry.get("voi_id"),
             group=entry["group"],
             phase=entry["phase"],
+            phase_source=entry.get("phase_source"),
             laterality=entry.get("laterality"),
+            side=entry.get("side"),
             filename=entry["filename"],
+            image_path=entry.get("image_path"),
+            mask_path=entry.get("mask_path"),
             has_seg=entry["has_seg"],
             deleted=bool(entry.get("deleted")),
             storage_path=entry.get("storage_path"),
@@ -221,9 +235,14 @@ def _build_dataset_index(dataset_path: Path) -> DatasetIndex:
             series_id=entry["series_id"],
             patient_id=entry["patient_id"],
             type=entry["type"],
+            case_id=entry.get("case_id"),
+            scan_idx=entry.get("scan_idx"),
+            voi_id=entry.get("voi_id"),
             group=entry["group"],
             phase=entry["phase"],
+            phase_source=entry.get("phase_source"),
             laterality=entry.get("laterality"),
+            side=entry.get("side"),
             filename=entry["filename"],
             image_path=entry["image_path"],
             mask_path=entry["mask_path"],
@@ -325,21 +344,6 @@ def _nifti_files(nifti_dir: Path, patient_filter: str | None = None) -> list[Pat
     return sorted(files, key=lambda path: path.name)
 
 
-def _load_manifest_index(dataset_path: Path) -> dict[str, dict[str, str]]:
-    manifest_path = dataset_path / "manifest.csv"
-    if not _is_allowed_file(manifest_path):
-        return {}
-
-    with manifest_path.resolve(strict=True).open(newline="") as handle:
-        reader = csv.DictReader(handle)
-        index: dict[str, dict[str, str]] = {}
-        for row in reader:
-            filename = (row.get("filename") or "").strip()
-            if filename:
-                index[filename] = row
-        return index
-
-
 def _find_seg_path(dataset_path: Path, image_stem: str) -> Path | None:
     seg_dir = dataset_path / "seg"
     if not _is_allowed_directory(seg_dir):
@@ -368,29 +372,28 @@ def _collect_nifti_entries(
     nifti_dir = dataset_path / "nifti"
     source_dir = nifti_dir if _is_allowed_directory(nifti_dir) else dataset_path
 
-    manifest_index = _load_manifest_index(dataset_path)
     metadata_index = metadata_rows_by_filename(dataset_path)
-    phase_overrides = phase_overrides_by_filename(dataset_path)
+    phase_overrides = phase_overrides_by_scan_key(dataset_path)
     entries: list[dict[str, Any]] = []
     for image_path in _nifti_files(source_dir, patient_filter=patient_filter):
         filename = image_path.name
         image_stem = _strip_nifti_suffix(filename)
-        manifest_row = manifest_index.get(filename, {})
         metadata_row = metadata_index.get(filename, {})
-        phase_value, _phase_source = select_converter_phase(
-            metadata_row,
-            manifest_row,
-            phase_override=phase_overrides.get(filename),
-        )
+        case_id = text_value(metadata_row.get("case_id")) or _extract_patient_id(image_stem)
+        scan_idx = text_value(metadata_row.get("scan_idx"))
+        curated_phase = resolve_curated_phase(phase_overrides, case_id, scan_idx)
+        if curated_phase:
+            phase_value, phase_source = curated_phase, "phase.json"
+        else:
+            phase_value, phase_source = select_converter_phase(metadata_row)
         patient_id = (
             text_value(metadata_row.get("case_id"))
-            or (manifest_row.get("case_id") or "").strip()
             or _extract_patient_id(image_stem)
         )
         if patient_filter and patient_id != patient_filter:
             continue
-        source_patient_id = text_value(metadata_row.get("patient_id")) or (manifest_row.get("patient_id") or "").strip() or None
-        group = (manifest_row.get("group") or "").strip() or text_value(metadata_row.get("group")) or None
+        source_patient_id = text_value(metadata_row.get("patient_id")) or None
+        group = text_value(metadata_row.get("group")) or "NG"
         phase = _normalize_phase(phase_value)
         seg_path = _find_seg_path(dataset_path, image_stem)
 
@@ -398,11 +401,16 @@ def _collect_nifti_entries(
             {
                 "series_id": f"nifti:{image_stem}",
                 "patient_id": patient_id,
+                "case_id": patient_id,
+                "scan_idx": scan_idx or None,
+                "voi_id": None,
                 "source_patient_id": source_patient_id,
                 "type": "nifti",
                 "group": group,
                 "phase": phase,
+                "phase_source": phase_source or None,
                 "laterality": None,
+                "side": None,
                 "filename": filename,
                 "image_path": str(image_path),
                 "mask_path": str(seg_path) if seg_path else None,
@@ -415,64 +423,75 @@ def _collect_nifti_entries(
     return entries
 
 
-def _candidate_voi_mask_roots(dataset_path: Path) -> list[Path]:
-    voi_dir = dataset_path / "voi"
-    return [
-        path
-        for path in (voi_dir / "mask", voi_dir / "segmentation")
-        if _is_allowed_directory(path)
-    ]
+def _resolve_voi_catalog_path(dataset_path: Path, raw_path: str | None) -> Path | None:
+    value = text_value(raw_path)
+    if not value:
+        return None
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    if candidate.parts and candidate.parts[0] == "voi":
+        return dataset_path / candidate
+    return dataset_path / "voi" / candidate
+
+
+def _catalog_image_path_value(row: dict[str, Any]) -> str:
+    return text_value(row.get("voi_image_path")) or text_value(row.get("image_path"))
+
+
+def _catalog_mask_path_value(row: dict[str, Any]) -> str:
+    return text_value(row.get("voi_mask_path")) or text_value(row.get("mask_path"))
 
 
 def _collect_voi_entries(
     dataset_path: Path,
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
-    image_root = dataset_path / "voi" / "images"
-    if not _is_allowed_directory(image_root):
-        return []
-
-    mask_roots = _candidate_voi_mask_roots(dataset_path)
+    phase_overrides = phase_overrides_by_scan_key(dataset_path)
+    metadata_rows = metadata_rows_by_scan_key(dataset_path)
     entries: list[dict[str, Any]] = []
-    if patient_filter:
-        image_paths: list[Path] = []
-        for group_dir in sorted(
-            path for path in image_root.iterdir() if _is_allowed_directory(path)
-        ):
-            patient_dir = group_dir / patient_filter
-            if _is_allowed_directory(patient_dir):
-                image_paths.extend(
-                    sorted(path for path in patient_dir.rglob("*.npy") if _is_allowed_file(path))
-                )
-    else:
-        image_paths = sorted(path for path in image_root.rglob("*.npy") if _is_allowed_file(path))
-
-    for image_path in image_paths:
-        relative = image_path.relative_to(image_root)
-        if len(relative.parts) < 3:
+    for row in read_voi_catalog_rows(dataset_path):
+        case_id = text_value(row.get("case_id"))
+        scan_idx = text_value(row.get("scan_idx"))
+        if not case_id or not scan_idx or (patient_filter and case_id != patient_filter):
             continue
-
-        if len(relative.parts) == 3:
-            group, patient_id, filename = relative.parts
-            phase = "UNDEFINED"
+        phase_value = resolve_curated_phase(phase_overrides, case_id, scan_idx)
+        phase_source = "phase.json"
+        if not phase_value:
+            key = canonical_scan_key(case_id, scan_idx)
+            metadata_row = metadata_rows.get(key, {}) if key is not None else {}
+            phase_value, phase_source = select_converter_phase(metadata_row)
+        if not phase_value:
+            continue
+        image_path = _resolve_voi_catalog_path(dataset_path, _catalog_image_path_value(row))
+        if image_path is None or not _is_allowed_file(image_path):
+            continue
+        image_path = image_path.resolve(strict=True)
+        mask_path = _resolve_voi_catalog_path(dataset_path, _catalog_mask_path_value(row))
+        if mask_path is not None and _is_allowed_file(mask_path):
+            mask_path = mask_path.resolve(strict=True)
         else:
-            group, patient_id, phase = relative.parts[:3]
-            filename = relative.name
+            mask_path = None
+        filename = image_path.name
         stem = image_path.stem
-        mask_path = next(
-            (root / relative for root in mask_roots if _is_allowed_file(root / relative)),
-            None,
-        )
+        side = text_value(row.get("side")) or _extract_laterality(stem)
+        group = text_value(row.get("group")) or "NG"
+        voi_id = text_value(row.get("voi_id")) or f"{case_id}/{scan_idx}/{side or stem}"
 
         entries.append(
             {
-                "series_id": f"voi:{group}:{phase}:{stem}",
-                "patient_id": patient_id,
-                "source_patient_id": None,
+                "series_id": f"voi:{voi_id}",
+                "patient_id": case_id,
+                "case_id": case_id,
+                "scan_idx": scan_idx,
+                "voi_id": voi_id,
+                "source_patient_id": text_value(row.get("patient_id")) or None,
                 "type": "voi",
                 "group": group,
-                "phase": _normalize_phase(phase),
-                "laterality": _extract_laterality(stem),
+                "phase": _normalize_phase(phase_value),
+                "phase_source": phase_source or None,
+                "laterality": side,
+                "side": side,
                 "filename": filename,
                 "image_path": str(image_path),
                 "mask_path": str(mask_path) if mask_path else None,
@@ -493,29 +512,28 @@ def _collect_deleted_nifti_entries(
     if not _is_allowed_directory(deleted_nifti_dir):
         return []
 
-    manifest_index = _load_manifest_index(dataset_path)
     metadata_index = metadata_rows_by_filename(dataset_path)
-    phase_overrides = phase_overrides_by_filename(dataset_path)
+    phase_overrides = phase_overrides_by_scan_key(dataset_path)
     entries: list[dict[str, Any]] = []
     for image_path in _nifti_files(deleted_nifti_dir, patient_filter=patient_filter):
         filename = image_path.name
         image_stem = _strip_nifti_suffix(filename)
-        manifest_row = manifest_index.get(filename, {})
         metadata_row = metadata_index.get(filename, {})
-        phase_value, _phase_source = select_converter_phase(
-            metadata_row,
-            manifest_row,
-            phase_override=phase_overrides.get(filename),
-        )
+        case_id = text_value(metadata_row.get("case_id")) or _extract_patient_id(image_stem)
+        scan_idx = text_value(metadata_row.get("scan_idx"))
+        curated_phase = resolve_curated_phase(phase_overrides, case_id, scan_idx)
+        if curated_phase:
+            phase_value, phase_source = curated_phase, "phase.json"
+        else:
+            phase_value, phase_source = select_converter_phase(metadata_row)
         patient_id = (
             text_value(metadata_row.get("case_id"))
-            or (manifest_row.get("case_id") or "").strip()
             or _extract_patient_id(image_stem)
         )
         if patient_filter and patient_id != patient_filter:
             continue
-        source_patient_id = text_value(metadata_row.get("patient_id")) or (manifest_row.get("patient_id") or "").strip() or None
-        group = (manifest_row.get("group") or "").strip() or text_value(metadata_row.get("group")) or None
+        source_patient_id = text_value(metadata_row.get("patient_id")) or None
+        group = text_value(metadata_row.get("group")) or "NG"
         phase = _normalize_phase(phase_value)
         mask_path = next(
             (
@@ -530,11 +548,16 @@ def _collect_deleted_nifti_entries(
             {
                 "series_id": f"nifti:{image_stem}",
                 "patient_id": patient_id,
+                "case_id": patient_id,
+                "scan_idx": scan_idx or None,
+                "voi_id": None,
                 "source_patient_id": source_patient_id,
                 "type": "nifti",
                 "group": group,
                 "phase": phase,
+                "phase_source": phase_source or None,
                 "laterality": None,
+                "side": None,
                 "filename": filename,
                 "image_path": str(image_path),
                 "mask_path": str(mask_path) if mask_path else None,
@@ -550,51 +573,74 @@ def _collect_deleted_voi_entries(
     dataset_path: Path,
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
-    image_root = dataset_path / "voi" / "deleted" / "images"
-    if not _is_allowed_directory(image_root):
-        return []
-
-    mask_root = dataset_path / "voi" / "deleted" / "mask"
+    recycle_image_root = dataset_path / "voi" / "deleted" / "images"
+    recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
+    phase_overrides = phase_overrides_by_scan_key(dataset_path)
+    metadata_rows = metadata_rows_by_scan_key(dataset_path)
     entries: list[dict[str, Any]] = []
-    if patient_filter:
-        image_paths: list[Path] = []
-        for group_dir in sorted(
-            path for path in image_root.iterdir() if _is_allowed_directory(path)
-        ):
-            patient_dir = group_dir / patient_filter
-            if _is_allowed_directory(patient_dir):
-                image_paths.extend(
-                    sorted(path for path in patient_dir.rglob("*.npy") if _is_allowed_file(path))
-                )
-    else:
-        image_paths = sorted(path for path in image_root.rglob("*.npy") if _is_allowed_file(path))
-
-    for image_path in image_paths:
-        relative = image_path.relative_to(image_root)
-        if len(relative.parts) < 3:
+    for row in read_voi_catalog_rows(dataset_path):
+        case_id = text_value(row.get("case_id"))
+        scan_idx = text_value(row.get("scan_idx"))
+        if not case_id or not scan_idx or (patient_filter and case_id != patient_filter):
             continue
-
-        if len(relative.parts) == 3:
-            group, patient_id, filename = relative.parts
-            phase = "UNDEFINED"
+        phase_value = resolve_curated_phase(phase_overrides, case_id, scan_idx)
+        phase_source = "phase.json"
+        if not phase_value:
+            key = canonical_scan_key(case_id, scan_idx)
+            metadata_row = metadata_rows.get(key, {}) if key is not None else {}
+            phase_value, phase_source = select_converter_phase(metadata_row)
+        if not phase_value:
+            continue
+        active_image_path = _resolve_voi_catalog_path(dataset_path, _catalog_image_path_value(row))
+        if active_image_path is None:
+            continue
+        try:
+            active_relative = active_image_path.resolve(strict=False).relative_to(
+                (dataset_path / "voi" / "images").resolve()
+            )
+        except ValueError:
+            continue
+        image_path = recycle_image_root / active_relative
+        if not _is_allowed_file(image_path):
+            continue
+        image_path = image_path.resolve(strict=True)
+        active_mask_path = _resolve_voi_catalog_path(dataset_path, _catalog_mask_path_value(row))
+        mask_relative: Path | None = None
+        if active_mask_path is not None:
+            try:
+                mask_relative = active_mask_path.resolve(strict=False).relative_to(
+                    (dataset_path / "voi" / "mask").resolve()
+                )
+            except ValueError:
+                mask_relative = None
+        mask_path = recycle_mask_root / mask_relative if mask_relative is not None else None
+        if mask_path is not None and _is_allowed_file(mask_path):
+            mask_path = mask_path.resolve(strict=True)
         else:
-            group, patient_id, phase = relative.parts[:3]
-            filename = relative.name
+            mask_path = None
+        filename = image_path.name
         stem = image_path.stem
-        mask_path = mask_root / relative
+        side = text_value(row.get("side")) or _extract_laterality(stem)
+        group = text_value(row.get("group")) or "NG"
+        voi_id = text_value(row.get("voi_id")) or f"{case_id}/{scan_idx}/{side or stem}"
         entries.append(
             {
-                "series_id": f"voi:{group}:{phase}:{stem}",
-                "patient_id": patient_id,
-                "source_patient_id": None,
+                "series_id": f"voi:{voi_id}",
+                "patient_id": case_id,
+                "case_id": case_id,
+                "scan_idx": scan_idx,
+                "voi_id": voi_id,
+                "source_patient_id": text_value(row.get("patient_id")) or None,
                 "type": "voi",
                 "group": group,
-                "phase": _normalize_phase(phase),
-                "laterality": _extract_laterality(stem),
+                "phase": _normalize_phase(phase_value),
+                "phase_source": phase_source or None,
+                "laterality": side,
+                "side": side,
                 "filename": filename,
                 "image_path": str(image_path),
-                "mask_path": str(mask_path.resolve(strict=True)) if _is_allowed_file(mask_path) else None,
-                "has_seg": _is_allowed_file(mask_path),
+                "mask_path": str(mask_path) if mask_path else None,
+                "has_seg": mask_path is not None,
                 "deleted": True,
                 "storage_path": _relative_storage_path(dataset_path, image_path),
             }

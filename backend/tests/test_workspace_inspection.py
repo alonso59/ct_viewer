@@ -67,16 +67,6 @@ def _allow_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
             ),
         ),
         (
-            "legacy",
-            lambda dataset: (
-                _write_nifti(dataset / "nifti" / "001_case_00003_0000.nii.gz"),
-                (dataset / "manifest.csv").write_text(
-                    "case_id,filename\ncase_00003,001_case_00003_0000.nii.gz\n",
-                    encoding="utf-8",
-                ),
-            ),
-        ),
-        (
             "nifti_collection",
             lambda dataset: _write_nifti(dataset / "001_case_00004_0000.nii.gz"),
         ),
@@ -164,6 +154,54 @@ def test_inspection_counts_nifti_voi_and_masks(
     assert result.summary.nifti_count == 2
     assert result.summary.voi_image_count == 1
     assert result.summary.segmentation_count == 1
+    assert result.summary.voi_mask_count == 1
+
+
+def test_inspection_uses_flat_voi_catalog_without_folder_inference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _allow_root(monkeypatch, tmp_path)
+    dataset = tmp_path / "DatasetFlatCatalog"
+    image_dir = dataset / "voi" / "images" / "case_00001"
+    mask_dir = dataset / "voi" / "mask" / "case_00001"
+    image_dir.mkdir(parents=True)
+    mask_dir.mkdir(parents=True)
+    np.save(image_dir / "registered_L.npy", np.zeros((2, 3, 4), dtype=np.float32))
+    np.save(image_dir / "not_registered_R.npy", np.zeros((2, 3, 4), dtype=np.float32))
+    np.save(mask_dir / "registered_L.npy", np.ones((2, 3, 4), dtype=np.uint8))
+    (dataset / "phase.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "phases": [
+                    {"case_id": "case_00001", "scan_idx": "000", "phase": "NP"}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (dataset / "voi" / "voi_catalog.jsonl").write_text(
+        json.dumps(
+            {
+                "case_id": "case_00001",
+                "scan_idx": "000",
+                "side": "L",
+                "voi_image_path": "images/case_00001/registered_L.npy",
+                "voi_mask_path": "mask/case_00001/registered_L.npy",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_workspace_dataset_path(str(dataset))
+
+    assert result.dataset_kind == "voi_collection"
+    assert result.markers.phase_json is True
+    assert result.markers.voi_catalog_jsonl is True
+    assert result.summary.case_count == 1
+    assert result.summary.voi_image_count == 1
     assert result.summary.voi_mask_count == 1
 
 
@@ -371,11 +409,12 @@ def test_scan_entry_limit_is_blocking(
     monkeypatch.setattr(workspace_inspector, "MAX_INSPECTION_ENTRIES", 2)
     dataset = tmp_path / "DatasetLarge"
     dataset.mkdir()
-    (dataset / "manifest.csv").write_text(
-        "case_id,filename\n"
-        "case_00001,missing-1.nii.gz\n"
-        "case_00002,missing-2.nii.gz\n"
-        "case_00003,missing-3.nii.gz\n",
+    (dataset / "metadata.jsonl").write_text(
+        "\n".join(
+            json.dumps({"case_id": f"case_{index:05d}", "relative_path": f"missing-{index}.nii.gz"})
+            for index in range(1, 4)
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -396,11 +435,12 @@ def test_warning_details_are_bounded_while_total_is_preserved(
     monkeypatch.setattr(workspace_inspector, "MAX_WARNING_DETAILS", 2)
     dataset = tmp_path / "DatasetWarnings"
     dataset.mkdir()
-    (dataset / "manifest.csv").write_text(
-        "case_id,filename\n"
-        "case_00001,missing-1.nii.gz\n"
-        "case_00002,missing-2.nii.gz\n"
-        "case_00003,missing-3.nii.gz\n",
+    (dataset / "metadata.jsonl").write_text(
+        "\n".join(
+            json.dumps({"case_id": f"case_{index:05d}", "relative_path": f"missing-{index}.nii.gz"})
+            for index in range(1, 4)
+        )
+        + "\n",
         encoding="utf-8",
     )
 

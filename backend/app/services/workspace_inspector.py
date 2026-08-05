@@ -79,7 +79,7 @@ class _Inventory:
     voi_mask_paths: set[Path] = field(default_factory=set)
     canonical_paths: set[Path] = field(default_factory=set)
     converter_paths: set[Path] = field(default_factory=set)
-    legacy_paths: set[Path] = field(default_factory=set)
+    collection_paths: set[Path] = field(default_factory=set)
     invalid_paths: set[Path] = field(default_factory=set)
 
     @property
@@ -90,9 +90,12 @@ class _Inventory:
 def inspect_workspace_dataset_path(raw_path: str) -> WorkspaceInspection:
     dataset_path = resolve_dataset_path_input(raw_path)
     markers = WorkspaceMarkers(
-        database_csv=(dataset_path / "database.csv").is_file(),
-        metadata_jsonl=(dataset_path / "metadata.jsonl").is_file(),
-        manifest_csv=(dataset_path / "manifest.csv").is_file(),
+        database_csv=file_access_status(dataset_path / "database.csv") == "exists",
+        metadata_jsonl=file_access_status(dataset_path / "metadata.jsonl") == "exists",
+        phase_json=file_access_status(dataset_path / "phase.json") == "exists",
+        voi_catalog_jsonl=(
+            file_access_status(dataset_path / "voi" / "voi_catalog.jsonl") == "exists"
+        ),
         nifti=(dataset_path / "nifti").is_dir(),
         seg=(dataset_path / "seg").is_dir(),
         voi=(dataset_path / "voi").is_dir(),
@@ -107,8 +110,8 @@ def inspect_workspace_dataset_path(raw_path: str) -> WorkspaceInspection:
             _inspect_database_csv(dataset_path, inventory, warnings, budget)
         if markers.metadata_jsonl:
             _inspect_metadata_jsonl(dataset_path, inventory, warnings, budget)
-        if markers.manifest_csv:
-            _inspect_manifest_csv(dataset_path, inventory, warnings, budget)
+        if markers.voi_catalog_jsonl:
+            _inspect_voi_catalog_jsonl(dataset_path, inventory, warnings, budget)
 
         root_nifti = _inspect_direct_volumes(
             dataset_path,
@@ -134,7 +137,7 @@ def inspect_workspace_dataset_path(raw_path: str) -> WorkspaceInspection:
                 warnings,
                 budget,
             )
-        if markers.voi:
+        if markers.voi and not markers.voi_catalog_jsonl:
             _inspect_voi_tree(dataset_path, inventory, warnings, budget)
     except InspectionLimitExceeded:
         limit_exceeded = True
@@ -268,41 +271,63 @@ def _inspect_metadata_jsonl(
         warnings.add("invalid_metadata_jsonl", f"metadata.jsonl could not be read: {exc}", "error")
 
 
-def _inspect_manifest_csv(
+def _inspect_voi_catalog_jsonl(
     dataset_path: Path,
     inventory: _Inventory,
     warnings: _WarningCollector,
     budget: _ScanBudget,
 ) -> None:
-    path = dataset_path / "manifest.csv"
+    path = dataset_path / "voi" / "voi_catalog.jsonl"
     readable_path = _allowed_readable_file(path, warnings)
     if readable_path is None:
         return
     try:
-        with readable_path.open(newline="", encoding="utf-8-sig") as handle:
-            for row in csv.DictReader(handle):
+        with readable_path.open("r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if not line.strip():
+                    continue
                 budget.consume()
-                case_id = (row.get("case_id") or row.get("patient_id") or "").strip()
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    warnings.add(
+                        "invalid_voi_catalog_jsonl",
+                        f"voi_catalog.jsonl contains invalid JSON at line {line_number}.",
+                        "error",
+                    )
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                case_id = _text(row.get("case_id"))
                 if case_id:
                     inventory.case_ids.add(case_id)
-                raw_options = [
-                    (row.get("nifti_path") or "").strip(),
-                    (row.get("nifti_file") or "").strip(),
-                ]
-                if filename := (row.get("filename") or "").strip():
-                    existing = inventory.nifti_by_name.get(filename)
-                    if existing and not any(raw_options):
-                        inventory.legacy_paths.add(existing)
-                        _inspect_referenced_masks(dataset_path, row, inventory, warnings)
-                        continue
-                    raw_options.append(f"nifti/{filename}")
-                if any(raw_options):
-                    resolved = _resolve_reference_options(dataset_path, raw_options, warnings)
-                    if resolved and _add_volume(resolved, "nifti", inventory, warnings):
-                        inventory.legacy_paths.add(resolved)
-                _inspect_referenced_masks(dataset_path, row, inventory, warnings)
-    except (OSError, UnicodeError, csv.Error) as exc:
-        warnings.add("invalid_manifest_csv", f"manifest.csv could not be read: {exc}", "error")
+                raw_image = _text(row.get("voi_image_path"))
+                if raw_image:
+                    resolved = _resolve_voi_reference(dataset_path, raw_image, warnings)
+                    if resolved:
+                        _add_volume(resolved, "voi", inventory, warnings)
+                raw_mask = _text(row.get("voi_mask_path"))
+                if raw_mask:
+                    resolved = _resolve_voi_reference(dataset_path, raw_mask, warnings)
+                    if resolved:
+                        _add_mask(resolved, inventory.voi_mask_paths, inventory, warnings)
+    except (OSError, UnicodeError) as exc:
+        warnings.add(
+            "invalid_voi_catalog_jsonl",
+            f"voi_catalog.jsonl could not be read: {exc}",
+            "error",
+        )
+
+
+def _resolve_voi_reference(
+    dataset_path: Path,
+    raw_value: str,
+    warnings: _WarningCollector,
+) -> Path | None:
+    normalized = raw_value.replace("\\", "/")
+    if not Path(normalized).is_absolute() and not normalized.startswith("voi/"):
+        normalized = f"voi/{normalized}"
+    return _resolve_reference(dataset_path, normalized, warnings)
 
 
 def _database_volume_references(row: dict[str, str | None]) -> Iterable[str]:
@@ -386,10 +411,14 @@ def _inspect_voi_tree(
             if path.suffix.lower() != ".npy":
                 continue
             if _add_volume(path, "voi", inventory, warnings):
-                inventory.legacy_paths.add(path.resolve(strict=False))
+                inventory.collection_paths.add(path.resolve(strict=False))
                 relative = path.relative_to(image_root)
-                if len(relative.parts) >= 2:
-                    inventory.case_ids.add(relative.parts[1])
+                case_id = next(
+                    (part for part in relative.parts if re.fullmatch(r"case_\d{5}", part)),
+                    relative.parent.name if relative.parent.name else "",
+                )
+                if case_id:
+                    inventory.case_ids.add(case_id)
 
     for name in ("mask", "segmentation"):
         mask_root = voi_root / name
@@ -616,12 +645,10 @@ def _valid_array_header(
 
 
 def _classify_dataset(markers: WorkspaceMarkers, inventory: _Inventory) -> DatasetKind:
-    if markers.database_csv and inventory.canonical_paths:
-        return "canonical"
     if markers.metadata_jsonl and inventory.converter_paths:
         return "converter_output"
-    if markers.manifest_csv and (inventory.legacy_paths or inventory.volume_paths):
-        return "legacy"
+    if markers.database_csv and inventory.canonical_paths:
+        return "canonical"
     if inventory.nifti_paths:
         return "nifti_collection"
     if inventory.voi_image_paths:

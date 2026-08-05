@@ -438,7 +438,7 @@ function InspectionResult({
   const hasMetadata =
     inspection.markers.database_csv ||
     inspection.markers.metadata_jsonl ||
-    inspection.markers.manifest_csv
+    inspection.markers.voi_catalog_jsonl
   const rows = [
     ['Cases', inspection.summary.case_count.toLocaleString()],
     ['NIfTI volumes', inspection.summary.nifti_count.toLocaleString()],

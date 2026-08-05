@@ -4,6 +4,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   InputLabel,
@@ -13,6 +17,11 @@ import {
   Snackbar,
   Stack,
   Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -55,6 +64,7 @@ import {
   getApiErrorMessage,
   type CaseInventoryRow,
   type CaseSummary,
+  type MetadataSyncPreviewResponse,
   type PhaseDecision,
   type Scope,
   type SliceQuery,
@@ -87,6 +97,13 @@ function CaseReviewPage() {
   const [overlayEnabled, setOverlayEnabled] = useState(true)
   const [surfaceBlend, setSurfaceBlend] = useState(0.75)
   const [phaseApplying, setPhaseApplying] = useState(false)
+  const [metadataSyncState, setMetadataSyncState] = useState<{
+    open: boolean
+    loading: boolean
+    applying: boolean
+    preview: MetadataSyncPreviewResponse | null
+    error: string | null
+  }>({ open: false, loading: false, applying: false, preview: null, error: null })
   const [handleReloadTick, setHandleReloadTick] = useState(0)
   const [mprRendererMode, setMprRendererMode] = useState<MprRendererMode>(() =>
     resolveMprRendererMode(),
@@ -313,6 +330,7 @@ function CaseReviewPage() {
         !selectedRow?.series_id ||
         selectedRow.deleted ||
         phaseApplying ||
+        scope === 'voi' ||
         selectedRow.canonical_phase === targetPhase
       ) {
         return
@@ -355,7 +373,7 @@ function CaseReviewPage() {
         setPhaseApplying(false)
       }
     },
-    [caseId, dsid, phaseApplying, refreshCaseList, refreshInventory, selectedRow],
+    [caseId, dsid, phaseApplying, refreshCaseList, refreshInventory, scope, selectedRow],
   )
   const applySelectedScanDeletionState = useCallback(async () => {
     if (!selectedRow?.series_id || phaseApplying) {
@@ -406,6 +424,70 @@ function CaseReviewPage() {
       setPhaseApplying(false)
     }
   }, [caseId, dsid, phaseApplying, refreshCaseList, refreshInventory, selectedRow])
+
+  const openMetadataSyncPreview = useCallback(async () => {
+    setMetadataSyncState({
+      open: true,
+      loading: true,
+      applying: false,
+      preview: null,
+      error: null,
+    })
+    try {
+      const preview = await apiClient.previewMetadataSync(dsid)
+      setMetadataSyncState({
+        open: true,
+        loading: false,
+        applying: false,
+        preview,
+        error: null,
+      })
+    } catch (error) {
+      setMetadataSyncState({
+        open: true,
+        loading: false,
+        applying: false,
+        preview: null,
+        error: getApiErrorMessage(error),
+      })
+    }
+  }, [dsid])
+
+  const applyMetadataSync = useCallback(async () => {
+    const preview = metadataSyncState.preview
+    if (
+      !preview ||
+      preview.summary.conflicts > 0 ||
+      metadataSyncActionableCount(preview) === 0 ||
+      metadataSyncState.applying
+    ) {
+      return
+    }
+    setMetadataSyncState((current) => ({ ...current, applying: true, error: null }))
+    try {
+      const response = await apiClient.applyMetadataSync(dsid)
+      await Promise.all([refreshInventory(), refreshCaseList()])
+      setHandleReloadTick((current) => current + 1)
+      setMetadataSyncState({
+        open: false,
+        loading: false,
+        applying: false,
+        preview: null,
+        error: null,
+      })
+      setToastState({
+        open: true,
+        severity: 'success',
+        message: `metadata.jsonl updated (${response.batch_id}).`,
+      })
+    } catch (error) {
+      setMetadataSyncState((current) => ({
+        ...current,
+        applying: false,
+        error: getApiErrorMessage(error),
+      }))
+    }
+  }, [dsid, metadataSyncState.applying, metadataSyncState.preview, refreshCaseList, refreshInventory])
 
   const phaseButtonSx = useCallback(
     (phase: PhaseDecision) => {
@@ -510,7 +592,7 @@ function CaseReviewPage() {
                   key={phase}
                   variant={currentPhase === phase ? 'contained' : 'outlined'}
                   size="small"
-                  disabled={!selectedRow?.series_id || selectedRowDeleted || phaseApplying}
+                  disabled={!selectedRow?.series_id || selectedRowDeleted || phaseApplying || scope === 'voi'}
                   onClick={() => void applyPhaseChange(phase)}
                   sx={phaseButtonSx(phase)}
                   data-testid="phase-button"
@@ -564,6 +646,15 @@ function CaseReviewPage() {
                 }}
               >
                 {selectedRowDeleted ? 'Restore' : 'Delete'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={phaseApplying || metadataSyncState.loading || metadataSyncState.applying}
+                onClick={() => void openMetadataSyncPreview()}
+                sx={{ borderRadius: 1, fontWeight: 700 }}
+              >
+                Update metadata
               </Button>
             </Stack>
 
@@ -666,8 +757,159 @@ function CaseReviewPage() {
           {toastState.message}
         </Alert>
       </Snackbar>
+      <MetadataSyncDialog
+        applying={metadataSyncState.applying}
+        error={metadataSyncState.error}
+        loading={metadataSyncState.loading}
+        onApply={() => void applyMetadataSync()}
+        onClose={() =>
+          setMetadataSyncState({
+            open: false,
+            loading: false,
+            applying: false,
+            preview: null,
+            error: null,
+          })
+        }
+        open={metadataSyncState.open}
+        preview={metadataSyncState.preview}
+      />
     </Box>
   )
+}
+
+function MetadataSyncDialog({
+  applying,
+  error,
+  loading,
+  onApply,
+  onClose,
+  open,
+  preview,
+}: {
+  applying: boolean
+  error: string | null
+  loading: boolean
+  onApply: () => void
+  onClose: () => void
+  open: boolean
+  preview: MetadataSyncPreviewResponse | null
+}) {
+  const actionable = preview ? metadataSyncActionableCount(preview) : 0
+  const hasConflicts = Boolean(preview?.summary.conflicts)
+  const visibleChanges =
+    preview?.changes
+      .filter((change) => change.kind !== 'already_consolidated')
+      .slice(0, 8) ?? []
+
+  return (
+    <Dialog open={open} onClose={applying ? undefined : onClose} fullWidth maxWidth="md">
+      <DialogTitle>Update metadata</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 0.5 }}>
+          {loading ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                Checking metadata changes...
+              </Typography>
+            </Stack>
+          ) : null}
+          {error ? <Alert severity="error">{error}</Alert> : null}
+          {preview ? (
+            <>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip label={`Phase ${preview.summary.phase_changes}`} size="small" />
+                <Chip label={`Delete ${preview.summary.delete_changes}`} size="small" />
+                <Chip label={`Restore ${preview.summary.restore_changes}`} size="small" />
+                <Chip label={`VOI ${preview.summary.voi_catalog_changes}`} size="small" />
+                <Chip
+                  color={preview.summary.conflicts ? 'error' : 'default'}
+                  label={`Conflicts ${preview.summary.conflicts}`}
+                  size="small"
+                />
+                <Chip label={`Consolidated ${preview.summary.already_consolidated}`} size="small" />
+              </Stack>
+              {hasConflicts ? (
+                <Alert severity="error">
+                  Resolve conflicts before updating metadata.jsonl.
+                </Alert>
+              ) : actionable === 0 ? (
+                <Alert severity="info">No pending metadata changes.</Alert>
+              ) : (
+                <Alert severity="warning">
+                  Confirming will rewrite metadata.jsonl and voi_catalog.jsonl when VOI paths changed.
+                </Alert>
+              )}
+              {visibleChanges.length > 0 ? (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Target</TableCell>
+                      <TableCell>File</TableCell>
+                      <TableCell>Change</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {visibleChanges.map((change, index) => (
+                      <TableRow key={`${change.target}:${change.filename}:${index}`}>
+                        <TableCell>{formatMetadataSyncKind(change.kind)}</TableCell>
+                        <TableCell>{change.target}</TableCell>
+                        <TableCell>{change.filename}</TableCell>
+                        <TableCell>
+                          {change.target_phase
+                            ? `${change.current_phase ?? '-'} -> ${change.target_phase}`
+                            : `${change.current_relative_path ?? '-'} -> ${
+                                change.target_relative_path ?? '-'
+                              }`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : null}
+            </>
+          ) : null}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button disabled={applying} onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          disabled={loading || applying || !preview || hasConflicts || actionable === 0}
+          onClick={onApply}
+          variant="contained"
+        >
+          {applying ? 'Applying...' : 'Apply update'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function metadataSyncActionableCount(preview: MetadataSyncPreviewResponse): number {
+  return (
+    preview.summary.phase_changes +
+    preview.summary.delete_changes +
+    preview.summary.restore_changes
+  )
+}
+
+function formatMetadataSyncKind(kind: string): string {
+  switch (kind) {
+    case 'phase_changes':
+      return 'Phase'
+    case 'delete_changes':
+      return 'Delete'
+    case 'restore_changes':
+      return 'Restore'
+    case 'conflicts':
+      return 'Conflict'
+    default:
+      return kind
+  }
 }
 
 function CaseRail({

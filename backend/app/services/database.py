@@ -19,10 +19,12 @@ from app.models.database import (
     Scope,
 )
 from app.services.converter_metadata import (
-    has_converter_metadata,
+    canonical_scan_key,
     metadata_filename,
-    phase_overrides_by_filename,
+    phase_overrides_by_scan_key,
+    read_voi_catalog_rows,
     read_converter_metadata_rows,
+    resolve_curated_phase,
     select_converter_phase,
     text_value,
 )
@@ -85,7 +87,7 @@ class DatabaseRow:
 
     @property
     def has_complete_scope(self) -> bool:
-        return path_exists(self.nifti_path)
+        return self.raw.get("source_index") != "voi/voi_catalog.jsonl" and path_exists(self.nifti_path)
 
     @property
     def has_voi_scope(self) -> bool:
@@ -115,7 +117,7 @@ def has_database(dataset_path: Path | str) -> bool:
     resolved = Path(dataset_path).expanduser().resolve()
     return (
         file_access_status(resolved / "database.csv") == "exists"
-        or has_converter_metadata(resolved)
+        or file_access_status(resolved / "metadata.jsonl") == "exists"
     )
 
 
@@ -264,7 +266,7 @@ def get_case_dossier(dataset_path: Path | str, case_id: str) -> CaseDossier:
         ),
         external_research=_project_prefixed_fields(
             rows,
-            prefixes=("external__", "radiomics", "vessel__", "manifest__", "source_"),
+            prefixes=("external__", "radiomics", "vessel__", "source_"),
         ),
         advanced_raw_fields=[
             {
@@ -371,6 +373,10 @@ def normalize_phase(value: str | None) -> tuple[CanonicalPhase, PhaseStatus]:
 
 
 def _load_database_index(dataset_path: Path) -> DatabaseIndex:
+    metadata_path = dataset_path / "metadata.jsonl"
+    if file_access_status(metadata_path) == "exists":
+        return _load_converter_metadata_index(dataset_path)
+
     database_path = dataset_path / "database.csv"
     if file_access_status(database_path) == "exists":
         with database_path.resolve(strict=True).open(
@@ -394,9 +400,6 @@ def _load_database_index(dataset_path: Path) -> DatabaseIndex:
             rows=rows,
         )
 
-    if has_converter_metadata(dataset_path):
-        return _load_converter_metadata_index(dataset_path)
-
     return DatabaseIndex(
         dataset_id=dataset_path.name,
         dataset_path=dataset_path,
@@ -408,12 +411,26 @@ def _load_database_index(dataset_path: Path) -> DatabaseIndex:
 
 
 def _load_converter_metadata_index(dataset_path: Path) -> DatabaseIndex:
-    manifest_index = _load_manifest_index(dataset_path)
-    phase_overrides = phase_overrides_by_filename(dataset_path)
-    projected_rows = [
-        _metadata_to_database_row(dataset_path, index, row, manifest_index, phase_overrides)
+    phase_overrides = phase_overrides_by_scan_key(dataset_path)
+    projected_rows: list[dict[str, Any]] = [
+        _metadata_to_database_row(dataset_path, index, row, phase_overrides)
         for index, row in enumerate(read_converter_metadata_rows(dataset_path))
     ]
+    metadata_phase_by_key = _metadata_phase_index(projected_rows)
+    projected_rows.extend(
+        row
+        for index, catalog_row in enumerate(read_voi_catalog_rows(dataset_path), start=len(projected_rows))
+        if (
+            row := _voi_catalog_to_database_row(
+                dataset_path,
+                index,
+                catalog_row,
+                phase_overrides,
+                metadata_phase_by_key,
+            )
+        )
+        is not None
+    )
     fieldnames = tuple(dict.fromkeys(field for row in projected_rows for field in row))
     rows = tuple(
         _normalize_row(dataset_path, index, _stringify_row(row))
@@ -434,17 +451,17 @@ def _metadata_to_database_row(
     dataset_path: Path,
     index: int,
     row: dict[str, Any],
-    manifest_index: dict[str, dict[str, str]],
-    phase_overrides: dict[str, str],
+    phase_overrides: dict[tuple[str, str], str],
 ) -> dict[str, Any]:
     filename = metadata_filename(row) or f"metadata_row_{index:06d}.nii.gz"
-    manifest = manifest_index.get(filename, {})
-    phase, phase_source = select_converter_phase(
-        row,
-        manifest,
-        phase_override=phase_overrides.get(filename),
-    )
-    nifti_path = _metadata_nifti_path(row, filename)
+    case_id = text_value(row.get("case_id")) or _extract_case_id(filename)
+    scan_idx = text_value(row.get("scan_idx"))
+    curated_phase = resolve_curated_phase(phase_overrides, case_id, scan_idx)
+    if curated_phase:
+        phase, phase_source = curated_phase, "phase.json"
+    else:
+        phase, phase_source = select_converter_phase(row)
+    nifti_path = _metadata_nifti_path(dataset_path, row, filename)
     seg_path = _metadata_seg_path(dataset_path, filename)
     has_seg = path_exists(resolve_database_path(dataset_path, seg_path))
 
@@ -459,15 +476,15 @@ def _metadata_to_database_row(
             ]
         ),
         "dataset_id": text_value(row.get("dataset_id")) or dataset_path.name,
-        "case_id": text_value(row.get("case_id")) or text_value(manifest.get("case_id")) or _extract_case_id(filename),
-        "patient_id": text_value(row.get("patient_id")) or text_value(manifest.get("patient_id")),
-        "group": text_value(manifest.get("group")) or text_value(row.get("group")),
+        "case_id": case_id,
+        "patient_id": text_value(row.get("patient_id")),
+        "group": text_value(row.get("group")) or "NG",
         "raw_phase": phase,
         "phase": phase,
         "phase_source": phase_source,
         "phase_confidence": text_value(row.get("phase_guess_confidence")),
-        "scan_idx": text_value(row.get("scan_idx")) or text_value(manifest.get("scan_idx")),
-        "side": _metadata_side(row, manifest),
+        "scan_idx": scan_idx,
+        "side": _metadata_side(row),
         "filename": filename,
         "nifti_path": nifti_path,
         "nifti_original_volume_path": nifti_path,
@@ -482,26 +499,117 @@ def _metadata_to_database_row(
     return projected
 
 
-def _load_manifest_index(dataset_path: Path) -> dict[str, dict[str, str]]:
-    manifest_path = dataset_path / "manifest.csv"
-    if file_access_status(manifest_path) != "exists":
-        return {}
+def _voi_catalog_to_database_row(
+    dataset_path: Path,
+    index: int,
+    row: dict[str, Any],
+    phase_overrides: dict[tuple[str, str], str],
+    metadata_phase_by_key: dict[tuple[str, str], str],
+) -> dict[str, Any] | None:
+    case_id = text_value(row.get("case_id"))
+    scan_idx = text_value(row.get("scan_idx"))
+    phase = resolve_curated_phase(phase_overrides, case_id, scan_idx)
+    if not phase:
+        key = canonical_scan_key(case_id, scan_idx)
+        phase = metadata_phase_by_key.get(key) if key is not None else None
+    image_path = _catalog_voi_path(dataset_path, _catalog_image_path_value(row))
+    mask_path = _catalog_voi_path(dataset_path, _catalog_mask_path_value(row))
+    if not case_id or not scan_idx or not phase or not image_path:
+        return None
 
-    with manifest_path.resolve(strict=True).open(newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
-        return {
-            filename: dict(row)
-            for row in reader
-            if (filename := (row.get("filename") or "").strip())
-        }
+    side = _normalize_side(text_value(row.get("side"))) or ""
+    filename = (
+        text_value(row.get("filename"))
+        or text_value(row.get("metadata_filename"))
+        or Path(image_path).name
+        or f"voi_row_{index:06d}.npy"
+    )
+    voi_id = text_value(row.get("voi_id")) or f"{case_id}/{scan_idx}/{side or Path(filename).stem}"
+
+    return {
+        **row,
+        "row_id": f"voi:{voi_id}",
+        "source_row_id": text_value(row.get("series_uid")),
+        "dataset_id": text_value(row.get("dataset_id")) or dataset_path.name,
+        "case_id": case_id,
+        "patient_id": text_value(row.get("patient_id")),
+        "group": text_value(row.get("group")) or "NG",
+        "raw_phase": phase,
+        "phase": phase,
+        "phase_source": "phase.json",
+        "phase_confidence": "",
+        "scan_idx": scan_idx,
+        "side": side,
+        "filename": filename,
+        "nifti_path": text_value(row.get("nifti_path")) or text_value(row.get("metadata_relative_path")),
+        "nifti_original_volume_path": text_value(row.get("nifti_path")) or text_value(row.get("metadata_relative_path")),
+        "seg_path": text_value(row.get("seg_path")) or _metadata_seg_path(dataset_path, filename),
+        "voi_image_path": image_path,
+        "voi_mask_path": mask_path,
+        "has_seg": str(path_exists(resolve_database_path(dataset_path, text_value(row.get("seg_path"))))).lower(),
+        "has_voi_image": str(path_exists(resolve_database_path(dataset_path, image_path))).lower(),
+        "has_voi_mask": str(path_exists(resolve_database_path(dataset_path, mask_path))).lower(),
+        "source_index": "voi/voi_catalog.jsonl",
+        "voi_id": voi_id,
+    }
 
 
-def _metadata_nifti_path(row: dict[str, Any], filename: str) -> str:
-    return (
+def _metadata_phase_index(rows: list[dict[str, Any]]) -> dict[tuple[str, str], str]:
+    phases: dict[tuple[str, str], str] = {}
+    for row in rows:
+        key = canonical_scan_key(row.get("case_id"), row.get("scan_idx"))
+        phase = text_value(row.get("phase")) or text_value(row.get("curated_phase"))
+        if key is not None and phase:
+            phases[key] = phase
+    return phases
+
+
+def _catalog_voi_path(dataset_path: Path, raw_path: str) -> str:
+    if not raw_path:
+        return ""
+    normalized = raw_path.replace("\\", "/")
+    if not normalized.startswith("voi/") and not normalized.startswith("deleted/"):
+        normalized = f"voi/{normalized}"
+    if path_exists(resolve_database_path(dataset_path, normalized)):
+        return normalized
+    deleted_path = _deleted_voi_path(normalized)
+    if deleted_path and path_exists(resolve_database_path(dataset_path, deleted_path)):
+        return deleted_path
+    return normalized
+
+
+def _deleted_voi_path(path: str) -> str:
+    if path.startswith("voi/deleted/"):
+        return path
+    if path.startswith("voi/images/"):
+        return "voi/deleted/images/" + path.removeprefix("voi/images/")
+    if path.startswith("voi/mask/"):
+        return "voi/deleted/mask/" + path.removeprefix("voi/mask/")
+    if path.startswith("voi/segmentation/"):
+        return "voi/deleted/mask/" + path.removeprefix("voi/segmentation/")
+    return ""
+
+
+def _catalog_image_path_value(row: dict[str, Any]) -> str:
+    return text_value(row.get("voi_image_path")) or text_value(row.get("image_path"))
+
+
+def _catalog_mask_path_value(row: dict[str, Any]) -> str:
+    return text_value(row.get("voi_mask_path")) or text_value(row.get("mask_path"))
+
+
+def _metadata_nifti_path(dataset_path: Path, row: dict[str, Any], filename: str) -> str:
+    raw_path = (
         text_value(row.get("relative_path"))
         or text_value(row.get("nifti_file"))
         or f"nifti/{filename}"
     )
+    if path_exists(resolve_database_path(dataset_path, raw_path)):
+        return raw_path
+    deleted_path = f"deleted/nifti/{filename}"
+    if path_exists(resolve_database_path(dataset_path, deleted_path)):
+        return deleted_path
+    return raw_path
 
 
 def _metadata_seg_path(dataset_path: Path, filename: str) -> str:
@@ -511,15 +619,16 @@ def _metadata_seg_path(dataset_path: Path, filename: str) -> str:
         candidate = dataset_path / "seg" / f"{seg_stem}{suffix}"
         if candidate.exists():
             return f"seg/{seg_stem}{suffix}"
+        deleted_candidate = dataset_path / "deleted" / "seg" / f"{seg_stem}{suffix}"
+        if deleted_candidate.exists():
+            return f"deleted/seg/{seg_stem}{suffix}"
     return f"seg/{seg_stem}.nii.gz"
 
 
-def _metadata_side(row: dict[str, Any], manifest: dict[str, str]) -> str:
+def _metadata_side(row: dict[str, Any]) -> str:
     for value in (
         text_value(row.get("side")),
         text_value(row.get("laterality")),
-        text_value(manifest.get("side")),
-        text_value(manifest.get("Laterality")),
     ):
         if value.upper() in VALID_SIDES:
             return value.upper()
@@ -546,7 +655,6 @@ def _normalize_row(dataset_path: Path, index: int, raw: dict[str, str]) -> Datab
         [
             raw.get("source_row_id"),
             raw.get("source_row_indices"),
-            raw.get("source_manifest_row_index"),
             raw.get("source_preprocess_row_index"),
         ]
     )
@@ -740,7 +848,7 @@ def _inventory_row(row: DatabaseRow) -> CaseInventoryRow:
         row_index=row.index,
         row_id=row.row_id,
         source_row_id=row.source_row_id,
-        series_id=_nifti_series_id(row.nifti_path),
+        series_id=_row_series_id(row),
         case_id=row.case_id,
         patient_id=row.patient_id,
         group=row.group,
@@ -763,6 +871,13 @@ def _inventory_row(row: DatabaseRow) -> CaseInventoryRow:
         deleted=_row_is_deleted(row),
         qc_warnings=list(row.qc_warnings),
     )
+
+
+def _row_series_id(row: DatabaseRow) -> str | None:
+    if row.raw.get("source_index") == "voi/voi_catalog.jsonl":
+        voi_id = _blank_to_none(row.raw.get("voi_id"))
+        return f"voi:{voi_id}" if voi_id else None
+    return _nifti_series_id(row.nifti_path)
 
 
 def _nifti_series_id(path_status: PathStatus) -> str | None:

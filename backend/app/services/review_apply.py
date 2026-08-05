@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -20,8 +19,8 @@ from app.models.review import (
     ReviewOperation,
 )
 from app.services.converter_metadata import (
-    mark_converter_deleted,
-    restore_converter_deleted,
+    read_voi_catalog_rows,
+    text_value,
     update_converter_phase,
 )
 from app.services.discovery import resolve_series_source
@@ -32,13 +31,6 @@ from app.services.workspace import validate_workspace_dataset_id, workspace_file
 _DATASET_LOCKS: dict[str, RLock] = {}
 _DATASET_LOCKS_GUARD = Lock()
 CASE_ID_PATTERN = re.compile(r"(case_\d{5})")
-MANIFEST_MINIMAL_FIELDS = [
-    "filename",
-    "patient_id",
-    "case_id",
-    "phase",
-    "protocol_source",
-]
 DELETE_DECISION_LIMIT = 20
 
 
@@ -177,7 +169,7 @@ def _apply_reclassify(dataset_path: Path, operation: ReviewOperation, source) ->
 
     if source.type == "nifti":
         metadata_updated = update_converter_phase(dataset_path, source.filename, target_phase)
-        message = _metadata_update_message(metadata_updated, manifest_updated=False)
+        message = _metadata_update_message(metadata_updated)
         return ReviewApplyResult(
             patient_id=operation.patient_id,
             series_id=operation.series_id,
@@ -186,25 +178,17 @@ def _apply_reclassify(dataset_path: Path, operation: ReviewOperation, source) ->
             status="applied",
             message=message,
             moved_files=[],
-            manifest_updated=False,
             metadata_updated=metadata_updated,
         )
 
-    moved_files, message, status = _move_voi_to_phase(
-        dataset_path=dataset_path,
-        image_path=Path(source.image_path),
-        mask_path=Path(source.mask_path) if source.mask_path else None,
-        target_phase=target_phase,
-    )
     return ReviewApplyResult(
         patient_id=operation.patient_id,
         series_id=operation.series_id,
         action=operation.action,
         target_phase=target_phase,
-        status=status,
-        message=message,
-        moved_files=moved_files,
-        manifest_updated=False,
+        status="failed",
+        message="VOI phase is inherited from phase.json by case_id + scan_idx; reclassify the parent NIfTI scan.",
+        moved_files=[],
         metadata_updated=False,
     )
 
@@ -220,15 +204,9 @@ def _apply_delete(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
+            case_id=source.case_id or operation.patient_id,
+            scan_idx=source.scan_idx,
         )
-        if status == "applied":
-            metadata_updated = mark_converter_deleted(
-                dataset_path,
-                source.filename,
-                _nifti_destination_relative(moved_pairs),
-            )
-            if metadata_updated:
-                message = f"{message}; converter metadata updated"
     else:
         moved_files, moved_pairs, message, status = _move_voi_to_recycle(
             dataset_path=dataset_path,
@@ -245,7 +223,6 @@ def _apply_delete(
             status=status,
             message=message,
             moved_files=moved_files,
-            manifest_updated=False,
             metadata_updated=metadata_updated,
         ),
         moved_pairs,
@@ -268,7 +245,6 @@ def _apply_restore(
                 status="skipped",
                 message="series is not marked as deleted",
                 moved_files=[],
-                manifest_updated=False,
                 metadata_updated=False,
             ),
             [],
@@ -279,15 +255,9 @@ def _apply_restore(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
+            case_id=source.case_id or operation.patient_id,
+            scan_idx=source.scan_idx,
         )
-        if status == "applied":
-            metadata_updated = restore_converter_deleted(
-                dataset_path,
-                source.filename,
-                _nifti_restored_relative(moved_pairs),
-            )
-            if metadata_updated:
-                message = f"{message}; converter metadata updated"
     else:
         moved_files, moved_pairs, message, status = _restore_voi_from_recycle(
             dataset_path=dataset_path,
@@ -304,7 +274,6 @@ def _apply_restore(
             status=status,
             message=message,
             moved_files=moved_files,
-            manifest_updated=False,
             metadata_updated=metadata_updated,
         ),
         moved_pairs,
@@ -315,6 +284,8 @@ def _move_nifti_to_recycle(
     dataset_path: Path,
     image_path: Path,
     mask_path: Path | None,
+    case_id: str | None = None,
+    scan_idx: str | None = None,
 ) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
     recycle_nifti_root = dataset_path / "deleted" / "nifti"
     recycle_seg_root = dataset_path / "deleted" / "seg"
@@ -331,6 +302,8 @@ def _move_nifti_to_recycle(
             return [], [], f"Source mask not found: {mask_resolved.name}", "skipped"
         candidates.append((mask_resolved, recycle_seg_root / mask_resolved.name))
 
+    candidates.extend(_related_voi_recycle_candidates(dataset_path, case_id, scan_idx))
+
     collision = _first_collision(candidates)
     if collision is not None:
         return [], [], f"Destination already exists: {collision}", "skipped"
@@ -343,6 +316,8 @@ def _restore_nifti_from_recycle(
     dataset_path: Path,
     image_path: Path,
     mask_path: Path | None,
+    case_id: str | None = None,
+    scan_idx: str | None = None,
 ) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
     recycle_nifti_root = (dataset_path / "deleted" / "nifti").resolve()
     recycle_seg_root = (dataset_path / "deleted" / "seg").resolve()
@@ -361,71 +336,14 @@ def _restore_nifti_from_recycle(
             return [], [], f"Deleted mask not found: {mask_resolved.name}", "skipped"
         candidates.append((mask_resolved, seg_root / mask_resolved.name))
 
+    candidates.extend(_related_voi_restore_candidates(dataset_path, case_id, scan_idx))
+
     collision = _first_collision(candidates)
     if collision is not None:
         return [], [], f"Destination already exists: {collision}", "skipped"
 
     moved, move_pairs = _execute_moves(candidates, dataset_path)
     return moved, move_pairs, "restored from recycle bin", "applied"
-
-
-def _move_voi_to_phase(
-    dataset_path: Path,
-    image_path: Path,
-    mask_path: Path | None,
-    target_phase: str,
-) -> tuple[list[ReviewMovedFile], str, str]:
-    image_root = dataset_path / "voi" / "images"
-    image_resolved = _ensure_within(image_path, image_root)
-    if not image_resolved.exists():
-        return [], f"Source image not found: {image_resolved.name}", "skipped"
-
-    try:
-        image_relative = image_resolved.relative_to(image_root)
-    except ValueError:
-        return [], "VOI image path is outside expected root", "failed"
-
-    if len(image_relative.parts) < 3:
-        return [], "VOI image path is malformed", "failed"
-
-    if len(image_relative.parts) == 3:
-        group, patient_id, filename = image_relative.parts
-    else:
-        group, patient_id, _, filename = image_relative.parts[:4]
-    image_target_relative = Path(group) / patient_id / target_phase / filename
-    image_target = image_root / image_target_relative
-
-    candidates: list[tuple[Path, Path]] = [(image_resolved, image_target)]
-
-    if mask_path is not None:
-        mask_resolved = mask_path.resolve()
-        mask_roots = [dataset_path / "voi" / "mask", dataset_path / "voi" / "segmentation"]
-        selected_root: Path | None = None
-        selected_relative: Path | None = None
-        for mask_root in mask_roots:
-            try:
-                selected_relative = mask_resolved.relative_to(mask_root.resolve())
-                selected_root = mask_root
-                break
-            except ValueError:
-                continue
-        if selected_root is None or selected_relative is None:
-            return [], "VOI mask path is outside expected roots", "failed"
-        if not mask_resolved.exists():
-            return [], f"Source mask not found: {mask_resolved.name}", "skipped"
-        if len(selected_relative.parts) == 3:
-            mask_group, mask_patient, mask_filename = selected_relative.parts
-        else:
-            mask_group, mask_patient, _, mask_filename = selected_relative.parts[:4]
-        mask_target_relative = Path(mask_group) / mask_patient / target_phase / mask_filename
-        candidates.append((mask_resolved, selected_root / mask_target_relative))
-
-    collision = _first_collision(candidates)
-    if collision is not None:
-        return [], f"Destination already exists: {collision}", "skipped"
-
-    moved, _ = _execute_moves(candidates, dataset_path)
-    return moved, "moved to target phase", "applied"
 
 
 def _move_voi_to_recycle(
@@ -511,60 +429,132 @@ def _restore_voi_from_recycle(
     return moved, move_pairs, "restored from recycle bin", "applied"
 
 
-def _metadata_update_message(metadata_updated: bool, manifest_updated: bool) -> str:
+def _related_voi_recycle_candidates(
+    dataset_path: Path,
+    case_id: str | None,
+    scan_idx: str | None,
+) -> list[tuple[Path, Path]]:
+    image_root = dataset_path / "voi" / "images"
+    mask_roots = [dataset_path / "voi" / "mask", dataset_path / "voi" / "segmentation"]
+    recycle_image_root = dataset_path / "voi" / "deleted" / "images"
+    recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
+    candidates: list[tuple[Path, Path]] = []
+
+    for row in _related_voi_catalog_rows(dataset_path, case_id, scan_idx):
+        image_path = _catalog_path(dataset_path, _catalog_image_path_value(row))
+        if image_path is not None:
+            candidates.extend(_recycle_candidate_for_root(image_path, image_root, recycle_image_root))
+
+        mask_path = _catalog_path(dataset_path, _catalog_mask_path_value(row))
+        if mask_path is None:
+            continue
+        for mask_root in mask_roots:
+            candidate = _recycle_candidate_for_root(mask_path, mask_root, recycle_mask_root)
+            if candidate:
+                candidates.extend(candidate)
+                break
+
+    return candidates
+
+
+def _related_voi_restore_candidates(
+    dataset_path: Path,
+    case_id: str | None,
+    scan_idx: str | None,
+) -> list[tuple[Path, Path]]:
+    image_root = dataset_path / "voi" / "images"
+    mask_root = dataset_path / "voi" / "mask"
+    recycle_image_root = dataset_path / "voi" / "deleted" / "images"
+    recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
+    candidates: list[tuple[Path, Path]] = []
+
+    for row in _related_voi_catalog_rows(dataset_path, case_id, scan_idx):
+        image_path = _catalog_path(dataset_path, _catalog_image_path_value(row))
+        if image_path is not None:
+            candidates.extend(
+                _restore_candidate_for_active_path(image_path, image_root, recycle_image_root)
+            )
+
+        mask_path = _catalog_path(dataset_path, _catalog_mask_path_value(row))
+        if mask_path is not None:
+            candidates.extend(_restore_candidate_for_active_path(mask_path, mask_root, recycle_mask_root))
+
+    return candidates
+
+
+def _related_voi_catalog_rows(
+    dataset_path: Path,
+    case_id: str | None,
+    scan_idx: str | None,
+) -> list[dict]:
+    case = text_value(case_id)
+    scan = text_value(scan_idx)
+    if not case or not scan:
+        return []
+    return [
+        row
+        for row in read_voi_catalog_rows(dataset_path)
+        if text_value(row.get("case_id")) == case and text_value(row.get("scan_idx")) == scan
+    ]
+
+
+def _recycle_candidate_for_root(
+    source_path: Path,
+    source_root: Path,
+    destination_root: Path,
+) -> list[tuple[Path, Path]]:
+    try:
+        source_resolved = _ensure_within(source_path, source_root)
+        relative = source_resolved.relative_to(source_root.resolve())
+    except RuntimeError:
+        return []
+    except ValueError:
+        return []
+    if not source_resolved.exists():
+        return []
+    return [(source_resolved, destination_root / relative)]
+
+
+def _restore_candidate_for_active_path(
+    active_path: Path,
+    active_root: Path,
+    recycle_root: Path,
+) -> list[tuple[Path, Path]]:
+    try:
+        active_relative = active_path.resolve().relative_to(active_root.resolve())
+    except ValueError:
+        return []
+    deleted_path = recycle_root / active_relative
+    if not deleted_path.exists():
+        return []
+    return [(deleted_path.resolve(), active_root / active_relative)]
+
+
+def _catalog_path(dataset_path: Path, raw_path: str) -> Path | None:
+    value = text_value(raw_path)
+    if not value:
+        return None
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    if path.parts and path.parts[0] == "voi":
+        return dataset_path / path
+    return dataset_path / "voi" / path
+
+
+def _catalog_image_path_value(row: dict) -> str:
+    return text_value(row.get("voi_image_path")) or text_value(row.get("image_path"))
+
+
+def _catalog_mask_path_value(row: dict) -> str:
+    return text_value(row.get("voi_mask_path")) or text_value(row.get("mask_path"))
+
+
+def _metadata_update_message(metadata_updated: bool) -> str:
     parts: list[str] = []
     if metadata_updated:
         parts.append("phase.json updated")
-    if manifest_updated:
-        parts.append("manifest updated")
     return "; ".join(parts) if parts else "phase row not found"
-
-
-def _update_manifest_phase(dataset_path: Path, filename: str, target_phase: str) -> bool:
-    manifest_path = dataset_path / "manifest.csv"
-    if not manifest_path.is_file():
-        row = {
-            "filename": filename,
-            "patient_id": _extract_case_id(filename),
-            "case_id": _extract_case_id(filename),
-            "phase": target_phase,
-            "protocol_source": "manual",
-        }
-        _atomic_write_csv(manifest_path, MANIFEST_MINIMAL_FIELDS, [row])
-        return True
-
-    with manifest_path.open(newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = list(reader.fieldnames or [])
-        rows = list(reader)
-
-    updated = False
-    if "phase" not in fieldnames:
-        fieldnames.append("phase")
-    if "protocol_source" not in fieldnames:
-        fieldnames.append("protocol_source")
-
-    for row in rows:
-        if (row.get("filename") or "").strip() != filename:
-            continue
-        row["phase"] = target_phase
-        row["protocol_source"] = "manual"
-        updated = True
-
-    if not updated:
-        rows.append(
-            {
-                "filename": filename,
-                "patient_id": _extract_case_id(filename),
-                "case_id": _extract_case_id(filename),
-                "phase": target_phase,
-                "protocol_source": "manual",
-            }
-        )
-        updated = True
-
-    _atomic_write_csv(manifest_path, fieldnames, rows)
-    return True
 
 
 def _extract_case_id(filename: str) -> str:
@@ -600,7 +590,6 @@ def _decision_entry(
         "message": result.message,
         "moved_files": [entry.model_dump() for entry in result.moved_files],
         "moved_file_pairs": list(metadata.get("moved_file_pairs", [])),
-        "manifest_updated": result.manifest_updated,
         "metadata_updated": result.metadata_updated,
         "series_type": metadata.get("series_type"),
         "group": metadata.get("group"),
@@ -618,7 +607,6 @@ def _batch_log_entry(operation: ReviewOperation, result: ReviewApplyResult, meta
         "status": result.status,
         "message": result.message,
         "moved_files": [entry.model_dump() for entry in result.moved_files],
-        "manifest_updated": result.manifest_updated,
         "metadata_updated": result.metadata_updated,
         "series_type": metadata.get("series_type"),
         "group": metadata.get("group"),
@@ -665,22 +653,6 @@ def _execute_moves(
             }
         )
     return moved_files, moved_pairs
-
-
-def _nifti_destination_relative(moved_pairs: list[dict[str, str]]) -> str | None:
-    for pair in moved_pairs:
-        destination = pair.get("destination", "")
-        if destination.startswith("deleted/nifti/"):
-            return destination
-    return None
-
-
-def _nifti_restored_relative(moved_pairs: list[dict[str, str]]) -> str | None:
-    for pair in moved_pairs:
-        destination = pair.get("destination", "")
-        if destination.startswith("nifti/"):
-            return destination
-    return None
 
 
 def _first_collision(candidates: list[tuple[Path, Path]]) -> str | None:
@@ -806,15 +778,7 @@ def undo_delete_decision(dataset_id: str, decision_id: str) -> ReviewApplyRespon
         moved_files, moved_pairs = _execute_moves(candidates, dataset_path)
         metadata_updated = False
         filename = str(target_entry.get("filename") or "")
-        if target_entry.get("series_type") == "nifti" and filename:
-            metadata_updated = restore_converter_deleted(
-                dataset_path,
-                filename,
-                _nifti_restored_relative(moved_pairs),
-            )
         message = "delete restored from recycle bin"
-        if metadata_updated:
-            message = f"{message}; converter metadata updated"
         result = ReviewApplyResult(
             patient_id=str(target_entry.get("patient_id") or ""),
             series_id=str(target_entry.get("series_id") or ""),
@@ -823,7 +787,6 @@ def undo_delete_decision(dataset_id: str, decision_id: str) -> ReviewApplyRespon
             status="applied",
             message=message,
             moved_files=moved_files,
-            manifest_updated=False,
             metadata_updated=metadata_updated,
         )
         payload.append(
@@ -889,27 +852,6 @@ def _atomic_write_json(path: Path, payload) -> None:
         ) as handle:
             json.dump(payload, handle, indent=2)
             handle.write("\n")
-            temp_path = Path(handle.name)
-        temp_path.replace(path)
-    except OSError as exc:
-        raise RuntimeError(f"Unable to write '{path}'") from exc
-
-
-def _atomic_write_csv(path: Path, fieldnames: list[str], rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with NamedTemporaryFile(
-            "w",
-            dir=path.parent,
-            prefix=path.stem + ".",
-            suffix=".tmp",
-            encoding="utf-8",
-            newline="",
-            delete=False,
-        ) as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
             temp_path = Path(handle.name)
         temp_path.replace(path)
     except OSError as exc:

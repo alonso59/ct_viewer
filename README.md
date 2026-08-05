@@ -116,15 +116,13 @@ The MPR renderer uses server-rendered PNG slices. This keeps first-slice loading
 
 ## v2.0 Medical Curation Workflow
 
-v2.0 is case-first: the doctor selects a case, then reviews complete scans or VOIs from the scan inventory. When `database.csv` is present, it is the source of truth for:
+v2.0 is case-first: the doctor selects a case, then reviews complete scans or VOIs from the scan inventory. The current dataset contract is:
 
-- `case_id`, `patient_id`, group, phase, scan index, side
-- full scan, SEG, VOI image, and VOI mask paths
-- preprocessing/QC fields and advanced metadata
+- `metadata.jsonl` for converter traceability and read-only scan metadata
+- `phase.json` for mutable scan-level phase curation keyed by `case_id + scan_idx`
+- `voi/voi_catalog.jsonl` for VOI rows, paths, side, provenance, and scan linkage
 
-The legacy `manifest.csv` and folder discovery paths remain available only as fallback when `database.csv` is absent.
-
-The medical worklist surfaces `database.csv` readiness before review, including row/case counts, required-column status, path warning status, and total warnings. The case review page shows prior curation decisions for the active case, exposes the correction queue, and provides CSV export for external correction workflows.
+The medical worklist surfaces dataset readiness before review, including row/case counts, required-column status, path warning status, and total warnings. The case review page shows prior curation decisions for the active case, exposes the correction queue, and provides CSV export for external correction workflows.
 
 Medical Curation Mode is source-data read-only. Doctor-facing actions save review state only:
 
@@ -133,7 +131,7 @@ Medical Curation Mode is source-data read-only. Doctor-facing actions save revie
 - phase correction proposals
 - correction queue entries for external editing
 
-The app does not rename files, move files, overwrite `database.csv`/`manifest.csv`, or modify NIfTI/SEG/VOI voxel data during v2.0 curation.
+The app does not rename files, move files across phase folders, overwrite `metadata.jsonl`/`voi_catalog.jsonl`, or modify NIfTI/SEG/VOI voxel data during v2.0 curation.
 
 App-managed files are written under `<dataset>/.webui/` when writable:
 
@@ -149,7 +147,7 @@ WEBUI_STATE_DIR=/path/to/webui_state
 
 Then curation state is written to `$WEBUI_STATE_DIR/<dataset_id>/`. Inspecting a dataset only reports the predicted state path and never creates it.
 
-Legacy source-data mutation endpoints and the old patient/series viewer can remain for technical fallback, but they are not exposed in the v2.0 medical curation route.
+Legacy source-data mutation endpoints may remain for technical fallback, but the old patient/series viewer is no longer exposed in the WebUI. The GUI uses the case worklist and case review flow.
 
 ## Run On Other Machines (Docker Compose)
 

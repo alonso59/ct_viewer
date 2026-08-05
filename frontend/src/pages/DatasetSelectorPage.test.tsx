@@ -52,7 +52,8 @@ const canonicalInspection: WorkspaceInspection = {
   markers: {
     database_csv: true,
     metadata_jsonl: false,
-    manifest_csv: false,
+    phase_json: false,
+    voi_catalog_jsonl: false,
     nifti: true,
     seg: true,
     voi: false,
