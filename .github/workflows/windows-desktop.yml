@@ -103,7 +103,7 @@ jobs:
           finally {
             $archive.Dispose()
           }
-          $expectedEntries = @('Radiology-Desktop.exe', 'radiology-backend-x86_64-pc-windows-msvc.exe')
+          $expectedEntries = @('Radiology-Desktop.exe', 'radiology-backend.exe')
           if (Compare-Object -ReferenceObject $expectedEntries -DifferenceObject $entries) {
             throw "Portable ZIP inventory is invalid: $($entries -join ', ')"
           }

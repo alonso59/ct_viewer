@@ -23,7 +23,7 @@ $StableInstaller = Join-Path $ArtifactRoot 'Radiology-Desktop_2.2.0_x64-setup.ex
 $PackagedSidecar = Join-Path $ArtifactRoot 'radiology-backend-x86_64-pc-windows-msvc.exe'
 $PortableDirectory = Join-Path $ArtifactRoot 'Radiology-Desktop_2.2.0_x64-portable'
 $PortableExecutable = Join-Path $PortableDirectory 'Radiology-Desktop.exe'
-$PortableSidecar = Join-Path $PortableDirectory 'radiology-backend-x86_64-pc-windows-msvc.exe'
+$PortableSidecar = Join-Path $PortableDirectory 'radiology-backend.exe'
 $PortableZip = Join-Path $ArtifactRoot 'Radiology-Desktop_2.2.0_x64-portable.zip'
 $ToolchainManifestPath = Join-Path $ArtifactRoot 'toolchain-manifest.json'
 $BuildManifestPath = Join-Path $ArtifactRoot 'build-manifest.json'
@@ -325,7 +325,7 @@ try {
         )
         $ExpectedEntries = @(
             'Radiology-Desktop.exe',
-            'radiology-backend-x86_64-pc-windows-msvc.exe'
+            'radiology-backend.exe'
         )
         if (Compare-Object -ReferenceObject $ExpectedEntries -DifferenceObject $ArchiveEntries) {
             throw "Portable archive inventory was unexpected: $($ArchiveEntries -join ', ')"
