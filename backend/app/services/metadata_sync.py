@@ -87,7 +87,6 @@ def apply_metadata_sync(dataset_id: str) -> MetadataSyncApplyResponse:
 
         metadata_updated = _apply_metadata_rows(dataset_path, batch_id, applied_at, preview.changes)
         voi_updated = _apply_voi_catalog_rows(dataset_path, batch_id, applied_at, preview.changes)
-        phase_json_neutralized = _neutralize_phase_json(dataset_path, batch_id, applied_at)
         _append_sync_log(
             batch_id=batch_id,
             applied_at=applied_at,
@@ -95,7 +94,6 @@ def apply_metadata_sync(dataset_id: str) -> MetadataSyncApplyResponse:
             preview=preview,
             metadata_updated=metadata_updated,
             voi_catalog_updated=voi_updated,
-            phase_json_neutralized=phase_json_neutralized,
         )
         reset_runtime_caches()
 
@@ -106,7 +104,6 @@ def apply_metadata_sync(dataset_id: str) -> MetadataSyncApplyResponse:
         summary=preview.summary,
         changes=preview.changes,
         metadata_updated=metadata_updated or voi_updated,
-        phase_json_neutralized=phase_json_neutralized,
     )
 
 
@@ -401,29 +398,6 @@ def _apply_metadata_path_state(dataset_path: Path, row: dict[str, Any], change: 
     row["nifti_file"] = str((dataset_path / relative_path).resolve())
 
 
-def _neutralize_phase_json(dataset_path: Path, batch_id: str, applied_at: str) -> bool:
-    path = dataset_path / "phase.json"
-    if not path.is_file():
-        return False
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return False
-
-    archive_path = workspace_file(f"phase_json_consumed_{batch_id}.json", create=True)
-    _atomic_write_json(archive_path, payload)
-    neutral_payload = {
-        "schema_version": 1,
-        "source": "metadata.jsonl",
-        "description": "Neutralized by WebUI metadata sync. metadata.jsonl is the source of truth.",
-        "updated_at": applied_at,
-        "batch_id": batch_id,
-        "phases": [],
-    }
-    _atomic_write_json(path, neutral_payload)
-    return True
-
-
 def _append_sync_log(
     *,
     batch_id: str,
@@ -432,7 +406,6 @@ def _append_sync_log(
     preview: MetadataSyncPreviewResponse,
     metadata_updated: bool,
     voi_catalog_updated: bool,
-    phase_json_neutralized: bool,
 ) -> None:
     path = workspace_file("metadata_update_log.json", create=True)
     payload = _load_json_payload(path, default={"batches": []})
@@ -447,7 +420,6 @@ def _append_sync_log(
             "changes": [change.model_dump() for change in preview.changes if change.kind != "already_consolidated"],
             "metadata_updated": metadata_updated,
             "voi_catalog_updated": voi_catalog_updated,
-            "phase_json_neutralized": phase_json_neutralized,
         }
     )
     _atomic_write_json(path, payload)
