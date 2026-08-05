@@ -1022,9 +1022,11 @@ python udocker.py run \
 
 ### 8.6 Windows Desktop Build
 
-`scripts/build-desktop.ps1` is the single Windows x64 build entrypoint. It validates the pinned Python, Node, Rust, Tauri CLI, MSVC, and WebView2 toolchains; installs from hashed/committed locks; runs backend, frontend, and Rust checks; creates the target-suffixed PyInstaller sidecar; smoke-tests it without a Python runtime; and produces an unsigned per-user NSIS installer. Build outputs include the installer SHA-256, build log, and a toolchain manifest.
+`scripts/build-desktop.ps1` is the base Windows x64 build entrypoint. It validates the pinned Python, Node, Rust, Tauri CLI, MSVC, and WebView2 toolchains; installs from hashed/committed locks; runs backend, frontend, and Rust checks; creates the target-suffixed PyInstaller sidecar; smoke-tests it without a Python runtime; and produces an unsigned per-user NSIS installer plus the base portable folder.
 
-Pinned versions are recorded in `toolchains/desktop-windows-x64.json`, `.python-version`, `.node-version`, `src-tauri/rust-toolchain.toml`, `backend/requirements-desktop.lock`, `frontend/package-lock.json`, and `src-tauri/Cargo.lock`. Builds use `PYTHONHASHSEED=0`, a commit-derived `SOURCE_DATE_EPOCH`, PyInstaller onefile without UPX, and NSIS `currentUser` mode with the standard WebView2 download bootstrapper. The installer is intentionally unsigned in v2.2.
+`scripts/build-portable-windows.ps1` is the delivery entrypoint. It reuses the base build, verifies the two-file portable inventory, optionally signs both executables through an existing SignTool-accessible certificate selected only by environment variables, recreates the final ZIP, and updates manifests and checksums. It never imports certificates, installs trusted roots, or stores private-key material. Unsigned portable builds remain supported.
+
+Pinned versions are recorded in `toolchains/desktop-windows-x64.json`, `.python-version`, `.node-version`, `src-tauri/rust-toolchain.toml`, `backend/requirements-desktop.lock`, `frontend/package-lock.json`, and `src-tauri/Cargo.lock`. Builds use `PYTHONHASHSEED=0`, a commit-derived `SOURCE_DATE_EPOCH`, PyInstaller onefile without UPX, and NSIS `currentUser` mode with the standard WebView2 download bootstrapper. The portable ZIP embeds frontend and backend dependencies but relies on the Windows-provided WebView2 Runtime.
 
 ---
 

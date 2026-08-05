@@ -77,7 +77,7 @@ The Open Dataset page shows `Browse…` only in desktop. Browse fills the field;
 
 ### Reproducible Windows x64 build
 
-Use a 64-bit Windows PowerShell with MSVC Build Tools, WebView2 Runtime, and the exact versions in `toolchains/desktop-windows-x64.json`. Install the pinned Tauri CLI once, then run the sole build entrypoint:
+Use a 64-bit Windows PowerShell with MSVC Build Tools, WebView2 Runtime, and the exact versions in `toolchains/desktop-windows-x64.json`. Install the pinned Tauri CLI once, then run the desktop build entrypoint:
 
 ```powershell
 cargo install tauri-cli --version 2.11.4 --locked
@@ -91,7 +91,30 @@ The script uses `npm ci`, the hashed desktop Python lock, `Cargo.lock`, determin
 - `toolchain-manifest.json`;
 - `build.log`.
 
-The matching GitHub Actions workflow is `.github/workflows/windows-desktop.yml`. The installer uses the standard WebView2 download bootstrapper and may display the normal Windows warning because code signing is outside M15.
+The matching GitHub Actions workflow is `.github/workflows/windows-desktop.yml`. The installer uses the standard WebView2 download bootstrapper and may display the normal Windows warning because unsigned builds remain supported.
+
+### Portable Windows x64 build
+
+The portable entrypoint reuses the complete verified desktop build, validates that the delivery folder contains only the Tauri host and PyInstaller sidecar, recreates the ZIP, and updates all portable hashes:
+
+```powershell
+pwsh -File .\scripts\build-portable-windows.ps1
+```
+
+The final artifact is `artifacts/windows-x64/Radiology-Desktop_2.2.0_x64-portable.zip`. Extract the two files into the same directory and start `Radiology-Desktop.exe`. The frontend is embedded in the Tauri executable; Python, FastAPI, native Python DLLs, loaders, and backend configuration are embedded in the PyInstaller sidecar. No Node.js, Python, Conda, Docker, or writable installation directory is required on the target computer.
+
+Unsigned output is the default. Optional Authenticode signing reads only these build-time variables and never imports a certificate or writes credentials:
+
+```powershell
+$env:RADIOLOGY_WINDOWS_CERTIFICATE_THUMBPRINT = '<40-character SHA-1 thumbprint>'
+$env:RADIOLOGY_WINDOWS_SIGNTOOL_PATH = 'C:\Program Files (x86)\Windows Kits\10\bin\<sdk>\x64\signtool.exe' # optional when signtool.exe is on PATH
+$env:RADIOLOGY_WINDOWS_TIMESTAMP_URL = 'https://<certificate-provider-timestamp-url>' # optional
+pwsh -File .\scripts\build-portable-windows.ps1
+```
+
+The certificate and private key must already be available to SignTool through the user's Personal certificate store, hardware token, or configured signing provider. The script does not install certificates and must not be given a PFX password. A self-signed certificate is not added to Trusted Root Certification Authorities.
+
+Clean-machine smoke test: on a Windows 10/11 x64 VM without Node.js, Python, Conda, or Docker, extract the ZIP, keep both executables together, start `Radiology-Desktop.exe`, use **Browse… → Inspect → Open dataset**, verify one 2D slice and one 3D mesh, close the app, and confirm that no `radiology-backend.exe` process remains. Microsoft WebView2 Runtime is the only OS runtime not included in the ZIP; it is distributed with supported Windows 10/11 systems, but must be installed separately on stripped-down images.
 
 ## Secure Dataset Opening
 

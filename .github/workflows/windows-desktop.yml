@@ -9,6 +9,7 @@ on:
       - "frontend/**"
       - "src-tauri/**"
       - "scripts/build-desktop.ps1"
+      - "scripts/build-portable-windows.ps1"
       - "toolchains/desktop-windows-x64.json"
       - ".python-version"
       - ".node-version"
@@ -19,6 +20,7 @@ on:
       - "frontend/**"
       - "src-tauri/**"
       - "scripts/build-desktop.ps1"
+      - "scripts/build-portable-windows.ps1"
       - "toolchains/desktop-windows-x64.json"
       - ".python-version"
       - ".node-version"
@@ -66,7 +68,7 @@ jobs:
 
       - name: Build and verify Windows desktop distribution
         shell: pwsh
-        run: ./scripts/build-desktop.ps1
+        run: ./scripts/build-portable-windows.ps1
 
       - name: Verify release artifact inventory and checksums
         shell: pwsh

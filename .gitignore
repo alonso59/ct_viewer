@@ -5,6 +5,12 @@ __pycache__/
 # Env files
 .env
 
+# Code-signing private material
+*.pfx
+*.p12
+*.pvk
+*.key
+
 # Frontend
 frontend/node_modules/
 frontend/dist/

@@ -18,7 +18,7 @@ This project runs on a **remote Linux server with no sudo access**.
 |---|---|---|
 | **Python backend** | **Anaconda env `ccrcc`** (native) | `conda activate ccrcc` then `pip install` or `conda install` |
 | **Frontend dev** | **`udocker` + `node:20-slim` image** | Node.js is NOT available natively on the server |
-| **Windows desktop build** | **Pinned native Windows x64 toolchains** | Only through `scripts/build-desktop.ps1`; see `toolchains/desktop-windows-x64.json` |
+| **Windows desktop build** | **Pinned native Windows x64 toolchains** | Only through `scripts/build-desktop.ps1` or its `scripts/build-portable-windows.ps1` wrapper; see `toolchains/desktop-windows-x64.json` |
 | **Data access** | Native filesystem | Direct path access, no container needed |
 | **Port forwarding** | **VS Code Remote SSH** | Already configured — do NOT suggest ssh tunnel commands |
 | **Container deploy** | **udocker** | Final deployment only (M12) — NOT the dev environment |
@@ -51,7 +51,7 @@ You have skills defined in radioccrcc-webui/.codex/skills as base to get best pr
 ### Hard constraints for the agent
 - ❌ Never use `sudo`, `apt`, `brew`, or system-level installs
 - ❌ Never suggest native `npm` or `node` commands outside udocker
-- ✅ Exception: the authorized Windows M15 release script may use its validated, pinned native Node/MSVC/Rust/Python toolchains
+- ✅ Exception: the authorized Windows M15 desktop and portable release scripts may use their validated, pinned native Node/MSVC/Rust/Python toolchains
 - ❌ Never modify files outside `radioccrcc-webui/`
 - ❌ Never suggest SSH port-forward commands (VS Code handles this)
 - ✅ Always use `conda activate ccrcc` before backend commands
@@ -630,12 +630,12 @@ native dataset folder selection without changing the web distribution.
   and Windows GitHub Actions artifact publication.
 - [x] **M15.7** Add backend, frontend, sidecar, transport, and routing tests; update
   SRS v2.2, README, environment documentation, and this milestone tracker.
-- [ ] **M15.8** Run the complete Windows x64 release script and manual Windows
-  10/11 regression: installer, single instance, Browse → Inspect → Open, existing
+- [ ] **M15.8** Run the complete Windows x64 release scripts and manual Windows
+  10/11 regression: installer and portable ZIP, single instance, Browse → Inspect → Open, existing
   Cases/Patients/Resume/2D/3D routes, parent-loss cleanup, and no remaining backend.
 
-**Completion criteria**: The unsigned per-user NSIS installer starts a single
-hidden FastAPI sidecar on loopback, shows the application only after readiness,
+**Completion criteria**: The unsigned per-user NSIS installer and portable ZIP start a single
+hidden FastAPI sidecar on loopback, show the application only after readiness,
 opens datasets through the unchanged M14 contracts, preserves the web edition,
 and exits without orphaned backend processes. The committed Windows workflow
 must pass before M15 is marked completed.
@@ -663,7 +663,7 @@ must pass before M15 is marked completed.
 
 - ✅ Backend Python → always use `conda activate ccrcc` first
 - ✅ Frontend / Node.js → always run inside `udocker` with `radio-node` container
-- ✅ Windows desktop release → native toolchains are permitted only through `scripts/build-desktop.ps1`
+- ✅ Windows desktop release → native toolchains are permitted only through `scripts/build-desktop.ps1` or `scripts/build-portable-windows.ps1`
 - ✅ Data path → use `DATA_ROOT` env var defaulting to `../../data/dataset` (relative to `backend/`)
 - ❌ Never use `sudo`, `apt-get`, `brew`, or system package managers
 - ❌ Never run `npm`, `node`, or `npx` outside udocker except through the authorized Windows desktop release script
