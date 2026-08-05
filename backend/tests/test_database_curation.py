@@ -237,8 +237,9 @@ def test_converter_metadata_jsonl_drives_phase_curation_and_trash(tmp_path, monk
     assert restored_inventory[1].deleted is False
 
 
-def test_metadata_sync_consolidates_phase_delete_restore_and_neutralizes_phase_json(tmp_path, monkeypatch):
+def test_metadata_sync_consolidates_changes_and_preserves_phase_json(tmp_path, monkeypatch):
     dataset = _make_converter_metadata_dataset(tmp_path)
+    phase_json_before = (dataset / "phase.json").read_bytes()
     state_dir = tmp_path / "state"
     monkeypatch.setenv("ALLOW_DATA_MUTATIONS", "true")
     monkeypatch.setenv("WEBUI_STATE_DIR", str(state_dir))
@@ -266,7 +267,6 @@ def test_metadata_sync_consolidates_phase_delete_restore_and_neutralizes_phase_j
 
     response = apply_metadata_sync("DatasetMeta")
     assert response.metadata_updated is True
-    assert response.phase_json_neutralized is True
     rows = _read_jsonl(dataset / "metadata.jsonl")
     assert rows[0]["phase"] == "NP"
     assert rows[0]["curated_phase"] == "NP"
@@ -275,8 +275,7 @@ def test_metadata_sync_consolidates_phase_delete_restore_and_neutralizes_phase_j
     assert rows[1]["curated_keep"] == "no"
     assert rows[1]["relative_path"] == "deleted/nifti/001_case_00001_0000.nii.gz"
     assert rows[1]["webui_metadata_batch_id"] == response.batch_id
-    assert _read_phase_json(dataset / "phase.json") == []
-    assert (state_dir / f"phase_json_consumed_{response.batch_id}.json").is_file()
+    assert (dataset / "phase.json").read_bytes() == phase_json_before
     assert (state_dir / "metadata_update_log.json").is_file()
 
     reset_database_index()

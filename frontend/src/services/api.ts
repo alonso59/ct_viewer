@@ -433,7 +433,6 @@ export interface MetadataSyncApplyResponse extends MetadataSyncPreviewResponse {
   batch_id: string
   applied_at: string
   metadata_updated: boolean
-  phase_json_neutralized: boolean
 }
 
 interface RequestOptions {

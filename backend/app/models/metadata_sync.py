@@ -51,4 +51,3 @@ class MetadataSyncApplyResponse(MetadataSyncPreviewResponse):
     batch_id: str
     applied_at: str
     metadata_updated: bool = False
-    phase_json_neutralized: bool = False

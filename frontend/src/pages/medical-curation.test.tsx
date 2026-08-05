@@ -308,7 +308,6 @@ describe('v2 medical curation UI', () => {
       batch_id: 'metadata-batch-a',
       applied_at: '2026-05-27T00:00:00Z',
       metadata_updated: true,
-      phase_json_neutralized: true,
       summary: {
         phase_changes: 1,
         delete_changes: 1,
