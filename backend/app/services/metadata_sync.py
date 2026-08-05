@@ -284,7 +284,7 @@ def _voi_row_changes(dataset_path: Path, row: dict[str, Any], row_index: int) ->
                 side=side,
                 row_index=row_index,
                 current_relative_path=_relative_or_raw(dataset_path, image_path),
-                target_relative_path=str(deleted_image.relative_to(dataset_path)),
+                target_relative_path=deleted_image.relative_to(dataset_path).as_posix(),
                 message="VOI image is in recycle bin; voi_catalog.jsonl must mark delete.",
             )
         ]
@@ -299,7 +299,7 @@ def _voi_row_changes(dataset_path: Path, row: dict[str, Any], row_index: int) ->
                 side=side,
                 row_index=row_index,
                 current_relative_path=_relative_or_raw(dataset_path, image_path),
-                target_relative_path=str(active_image.relative_to(dataset_path)),
+                target_relative_path=active_image.relative_to(dataset_path).as_posix(),
                 message="VOI image is active again; voi_catalog.jsonl must mark restore.",
             )
         ]
@@ -388,7 +388,7 @@ def _apply_voi_catalog_rows(
                 continue
             active_image, deleted_image = pair
             target_image = deleted_image if change.kind == "delete_changes" else active_image
-            _set_catalog_path(row, image=True, value=str(target_image.relative_to(dataset_path)))
+            _set_catalog_path(row, image=True, value=target_image.relative_to(dataset_path).as_posix())
         if mask_path is not None:
             pair = _voi_active_deleted_pair(dataset_path, mask_path, "mask")
             if pair is None:
@@ -396,7 +396,7 @@ def _apply_voi_catalog_rows(
             active_mask, deleted_mask = pair
             target_mask = deleted_mask if change.kind == "delete_changes" else active_mask
             if file_access_status(target_mask) == "exists":
-                _set_catalog_path(row, image=False, value=str(target_mask.relative_to(dataset_path)))
+                _set_catalog_path(row, image=False, value=target_mask.relative_to(dataset_path).as_posix())
         row["webui_metadata_batch_id"] = batch_id
         row["webui_metadata_updated_at"] = applied_at
         row["webui_metadata_action"] = "delete" if change.kind == "delete_changes" else "restore"
@@ -554,7 +554,7 @@ def _metadata_relative_path(row: dict[str, Any], dataset_path: Path, filename: s
     if nifti_file:
         path = Path(nifti_file)
         try:
-            return str(path.resolve().relative_to(dataset_path))
+            return path.resolve().relative_to(dataset_path).as_posix()
         except (OSError, ValueError):
             return nifti_file
     return f"nifti/{filename}"
@@ -647,7 +647,7 @@ def _voi_active_deleted_pair(
 
 def _relative_or_raw(dataset_path: Path, path: Path) -> str:
     try:
-        return str(path.resolve().relative_to(dataset_path))
+        return path.resolve().relative_to(dataset_path).as_posix()
     except ValueError:
         return str(path)
 
