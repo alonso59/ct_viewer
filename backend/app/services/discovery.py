@@ -420,6 +420,30 @@ def _resolve_voi_catalog_path(dataset_path: Path, raw_path: str | None) -> Path 
     return dataset_path / "voi" / candidate
 
 
+def _voi_active_deleted_pair(
+    dataset_path: Path,
+    path: Path,
+    kind: str,
+) -> tuple[Path, Path] | None:
+    resolved = path.resolve()
+    active_roots = [(dataset_path / "voi" / kind).resolve()]
+    if kind == "mask":
+        active_roots.append((dataset_path / "voi" / "segmentation").resolve())
+    deleted_root = (dataset_path / "voi" / "deleted" / kind).resolve()
+
+    for active_root in active_roots:
+        try:
+            relative = resolved.relative_to(active_root)
+            return active_roots[0] / relative, deleted_root / relative
+        except ValueError:
+            continue
+    try:
+        relative = resolved.relative_to(deleted_root)
+        return active_roots[0] / relative, deleted_root / relative
+    except ValueError:
+        return None
+
+
 def _catalog_image_path_value(row: dict[str, Any]) -> str:
     return text_value(row.get("voi_image_path")) or text_value(row.get("image_path"))
 
@@ -447,10 +471,24 @@ def _collect_voi_entries(
             phase_value, _phase_source = select_converter_phase(metadata_row)
         if not phase_value:
             continue
-        image_path = _resolve_voi_catalog_path(dataset_path, _catalog_image_path_value(row))
-        if image_path is None or not image_path.exists():
+        catalog_image_path = _resolve_voi_catalog_path(
+            dataset_path, _catalog_image_path_value(row)
+        )
+        if catalog_image_path is None:
             continue
-        mask_path = _resolve_voi_catalog_path(dataset_path, _catalog_mask_path_value(row))
+        image_pair = _voi_active_deleted_pair(dataset_path, catalog_image_path, "images")
+        image_path = image_pair[0] if image_pair is not None else catalog_image_path
+        if not image_path.exists():
+            continue
+        catalog_mask_path = _resolve_voi_catalog_path(
+            dataset_path, _catalog_mask_path_value(row)
+        )
+        mask_pair = (
+            _voi_active_deleted_pair(dataset_path, catalog_mask_path, "mask")
+            if catalog_mask_path is not None
+            else None
+        )
+        mask_path = mask_pair[0] if mask_pair is not None else catalog_mask_path
         filename = image_path.name
         stem = image_path.stem
         side = text_value(row.get("side")) or _extract_laterality(stem)
@@ -552,8 +590,6 @@ def _collect_deleted_voi_entries(
     dataset_path: Path,
     patient_filter: str | None = None,
 ) -> list[dict[str, Any]]:
-    recycle_image_root = dataset_path / "voi" / "deleted" / "images"
-    recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
     phase_overrides = phase_overrides_by_scan_key(dataset_path)
     metadata_rows = metadata_rows_by_scan_key(dataset_path)
     entries: list[dict[str, Any]] = []
@@ -569,24 +605,26 @@ def _collect_deleted_voi_entries(
             phase_value, _phase_source = select_converter_phase(metadata_row)
         if not phase_value:
             continue
-        active_image_path = _resolve_voi_catalog_path(dataset_path, _catalog_image_path_value(row))
-        if active_image_path is None:
+        catalog_image_path = _resolve_voi_catalog_path(
+            dataset_path, _catalog_image_path_value(row)
+        )
+        if catalog_image_path is None:
             continue
-        try:
-            active_relative = active_image_path.relative_to(dataset_path / "voi" / "images")
-        except ValueError:
+        image_pair = _voi_active_deleted_pair(dataset_path, catalog_image_path, "images")
+        if image_pair is None:
             continue
-        image_path = recycle_image_root / active_relative
+        _active_image_path, image_path = image_pair
         if not image_path.exists():
             continue
-        active_mask_path = _resolve_voi_catalog_path(dataset_path, _catalog_mask_path_value(row))
-        mask_relative: Path | None = None
-        if active_mask_path is not None:
-            try:
-                mask_relative = active_mask_path.relative_to(dataset_path / "voi" / "mask")
-            except ValueError:
-                mask_relative = None
-        mask_path = recycle_mask_root / mask_relative if mask_relative is not None else None
+        catalog_mask_path = _resolve_voi_catalog_path(
+            dataset_path, _catalog_mask_path_value(row)
+        )
+        mask_pair = (
+            _voi_active_deleted_pair(dataset_path, catalog_mask_path, "mask")
+            if catalog_mask_path is not None
+            else None
+        )
+        mask_path = mask_pair[1] if mask_pair is not None else None
         filename = image_path.name
         stem = image_path.stem
         side = text_value(row.get("side")) or _extract_laterality(stem)

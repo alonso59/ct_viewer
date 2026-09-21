@@ -46,6 +46,7 @@ const cases = [
     group: 'G',
     available_phases: ['NP', 'CMP'],
     scan_count: 2,
+    skipped_count: 1,
     seg_count: 1,
     voi_image_count: 2,
     voi_mask_count: 2,
@@ -346,6 +347,7 @@ describe('v2 medical curation UI', () => {
     expect(within(rows[0]).getByText('G')).toBeInTheDocument()
     expect(within(rows[0]).getByText('NP')).toBeInTheDocument()
     expect(within(rows[0]).getByText('CMP')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Skipped 1')).toBeInTheDocument()
     expect(within(rows[0]).getAllByText('2').length).toBeGreaterThan(0)
     expect(within(rows[0]).getByText('L / R')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Not reviewed')).toBeInTheDocument()
@@ -382,6 +384,7 @@ describe('v2 medical curation UI', () => {
     expect(await screen.findByTestId('scan-idx-selector')).toBeInTheDocument()
     expect(await screen.findByTestId('side-selector')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'NP' })).toHaveClass('MuiButton-contained')
+    expect(screen.getAllByText('Skipped 1')).toHaveLength(2)
     expect(screen.queryByText('QC Warnings')).not.toBeInTheDocument()
     expect(screen.queryByText('Segmentation QC')).not.toBeInTheDocument()
     expect(screen.queryByTestId('curation-history-panel')).not.toBeInTheDocument()
@@ -478,11 +481,25 @@ describe('v2 medical curation UI', () => {
         restore_changes: 1,
         already_consolidated: 3,
         conflicts: 0,
-        noop: 0,
+        noop: 1,
         voi_catalog_changes: 1,
-        total_rows: 6,
+        total_rows: 7,
       },
       changes: [
+        {
+          kind: 'noop',
+          target: 'metadata',
+          filename: 'skipped-series',
+          case_id: 'case_00001',
+          scan_idx: null,
+          side: null,
+          row_index: 6,
+          message: 'Series was intentionally skipped by the converter.',
+          current_phase: null,
+          target_phase: null,
+          current_relative_path: null,
+          target_relative_path: null,
+        },
         {
           kind: 'phase_changes',
           target: 'metadata',
@@ -523,13 +540,58 @@ describe('v2 medical curation UI', () => {
     expect(screen.getByText('Delete 1')).toBeInTheDocument()
     expect(screen.getByText('Restore 1')).toBeInTheDocument()
     expect(screen.getByText('VOI 1')).toBeInTheDocument()
+    expect(within(screen.getByRole('dialog')).getByText('Skipped 1')).toBeInTheDocument()
     expect(screen.getByText('NP -> CMP')).toBeInTheDocument()
+    expect(screen.queryByText('skipped-series')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /apply update/i }))
 
     await waitFor(() => expect(mockedApi.applyMetadataSync).toHaveBeenCalledWith('DatasetTest'))
     await waitFor(() => expect(mockedApi.listCaseInventory).toHaveBeenCalledTimes(2))
     expect(await screen.findByText(/metadata.jsonl updated/i)).toBeInTheDocument()
+  })
+
+  it('keeps metadata apply disabled when skipped rows are the only preview entries', async () => {
+    const user = userEvent.setup()
+    mockedApi.previewMetadataSync.mockResolvedValue({
+      dataset_id: 'DatasetTest',
+      summary: {
+        phase_changes: 0,
+        delete_changes: 0,
+        restore_changes: 0,
+        already_consolidated: 0,
+        conflicts: 0,
+        noop: 2,
+        voi_catalog_changes: 0,
+        total_rows: 2,
+      },
+      changes: [
+        {
+          kind: 'noop',
+          target: 'metadata',
+          filename: 'skipped-only-series',
+          case_id: 'case_00002',
+          scan_idx: null,
+          side: null,
+          row_index: 0,
+          message: 'Series was intentionally skipped by the converter.',
+          current_phase: null,
+          target_phase: null,
+          current_relative_path: null,
+          target_relative_path: null,
+        },
+      ],
+    } as never)
+
+    renderReviewPage()
+    await screen.findAllByTestId('phase-button')
+    await user.click(screen.getByRole('button', { name: /update metadata/i }))
+
+    expect(await screen.findByText('Skipped 2')).toBeInTheDocument()
+    expect(screen.getByText(/no pending metadata changes/i)).toBeInTheDocument()
+    expect(screen.queryByText('skipped-only-series')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /apply update/i })).toBeDisabled()
+    expect(mockedApi.applyMetadataSync).not.toHaveBeenCalled()
   })
 
   it('blocks metadata sync confirmation when preview has conflicts', async () => {

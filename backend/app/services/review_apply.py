@@ -212,6 +212,9 @@ def _apply_delete(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
+            case_id=source.case_id,
+            scan_idx=source.scan_idx,
+            voi_id=source.voi_id,
         )
 
     return (
@@ -263,6 +266,9 @@ def _apply_restore(
             dataset_path=dataset_path,
             image_path=Path(source.image_path),
             mask_path=Path(source.mask_path) if source.mask_path else None,
+            case_id=source.case_id,
+            scan_idx=source.scan_idx,
+            voi_id=source.voi_id,
         )
 
     return (
@@ -304,6 +310,9 @@ def _move_nifti_to_recycle(
 
     candidates.extend(_related_voi_recycle_candidates(dataset_path, case_id, scan_idx))
 
+    missing = _first_missing_source(candidates)
+    if missing is not None:
+        return [], [], f"Source file not found: {missing}", "skipped"
     collision = _first_collision(candidates)
     if collision is not None:
         return [], [], f"Destination already exists: {collision}", "skipped"
@@ -338,6 +347,9 @@ def _restore_nifti_from_recycle(
 
     candidates.extend(_related_voi_restore_candidates(dataset_path, case_id, scan_idx))
 
+    missing = _first_missing_source(candidates)
+    if missing is not None:
+        return [], [], f"Deleted file not found: {missing}", "skipped"
     collision = _first_collision(candidates)
     if collision is not None:
         return [], [], f"Destination already exists: {collision}", "skipped"
@@ -350,6 +362,9 @@ def _move_voi_to_recycle(
     dataset_path: Path,
     image_path: Path,
     mask_path: Path | None,
+    case_id: str | None = None,
+    scan_idx: str | None = None,
+    voi_id: str | None = None,
 ) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
     image_root = dataset_path / "voi" / "images"
     recycle_image_root = dataset_path / "voi" / "deleted" / "images"
@@ -382,6 +397,18 @@ def _move_voi_to_recycle(
             return [], [], f"Source mask not found: {mask_resolved.name}", "skipped"
         candidates.append((mask_resolved, recycle_mask_root / selected_relative))
 
+    candidates.extend(
+        _related_voi_recycle_candidates(
+            dataset_path,
+            case_id,
+            scan_idx,
+            voi_id=voi_id,
+            nifti_only=True,
+        )
+    )
+    missing = _first_missing_source(candidates)
+    if missing is not None:
+        return [], [], f"Source file not found: {missing}", "skipped"
     collision = _first_collision(candidates)
     if collision is not None:
         return [], [], f"Destination already exists: {collision}", "skipped"
@@ -394,6 +421,9 @@ def _restore_voi_from_recycle(
     dataset_path: Path,
     image_path: Path,
     mask_path: Path | None,
+    case_id: str | None = None,
+    scan_idx: str | None = None,
+    voi_id: str | None = None,
 ) -> tuple[list[ReviewMovedFile], list[dict[str, str]], str, str]:
     recycle_image_root = (dataset_path / "voi" / "deleted" / "images").resolve()
     recycle_mask_root = (dataset_path / "voi" / "deleted" / "mask").resolve()
@@ -421,6 +451,18 @@ def _restore_voi_from_recycle(
             return [], [], "Deleted VOI mask path is outside expected root", "failed"
         candidates.append((mask_resolved, mask_root / mask_relative))
 
+    candidates.extend(
+        _related_voi_restore_candidates(
+            dataset_path,
+            case_id,
+            scan_idx,
+            voi_id=voi_id,
+            nifti_only=True,
+        )
+    )
+    missing = _first_missing_source(candidates)
+    if missing is not None:
+        return [], [], f"Deleted file not found: {missing}", "skipped"
     collision = _first_collision(candidates)
     if collision is not None:
         return [], [], f"Destination already exists: {collision}", "skipped"
@@ -433,26 +475,19 @@ def _related_voi_recycle_candidates(
     dataset_path: Path,
     case_id: str | None,
     scan_idx: str | None,
+    *,
+    voi_id: str | None = None,
+    nifti_only: bool = False,
 ) -> list[tuple[Path, Path]]:
-    image_root = dataset_path / "voi" / "images"
-    mask_roots = [dataset_path / "voi" / "mask", dataset_path / "voi" / "segmentation"]
-    recycle_image_root = dataset_path / "voi" / "deleted" / "images"
-    recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
     candidates: list[tuple[Path, Path]] = []
 
-    for row in _related_voi_catalog_rows(dataset_path, case_id, scan_idx):
-        image_path = _catalog_path(dataset_path, _catalog_image_path_value(row))
-        if image_path is not None:
-            candidates.extend(_recycle_candidate_for_root(image_path, image_root, recycle_image_root))
-
-        mask_path = _catalog_path(dataset_path, _catalog_mask_path_value(row))
-        if mask_path is None:
-            continue
-        for mask_root in mask_roots:
-            candidate = _recycle_candidate_for_root(mask_path, mask_root, recycle_mask_root)
-            if candidate:
-                candidates.extend(candidate)
-                break
+    for row in _related_voi_catalog_rows(dataset_path, case_id, scan_idx, voi_id=voi_id):
+        for raw_path, kind in _catalog_voi_output_values(row, nifti_only=nifti_only):
+            path = _catalog_path(dataset_path, raw_path)
+            if path is None:
+                continue
+            active_path, deleted_path = _voi_active_deleted_pair(dataset_path, path, kind)
+            candidates.append((active_path, deleted_path))
 
     return candidates
 
@@ -461,23 +496,19 @@ def _related_voi_restore_candidates(
     dataset_path: Path,
     case_id: str | None,
     scan_idx: str | None,
+    *,
+    voi_id: str | None = None,
+    nifti_only: bool = False,
 ) -> list[tuple[Path, Path]]:
-    image_root = dataset_path / "voi" / "images"
-    mask_root = dataset_path / "voi" / "mask"
-    recycle_image_root = dataset_path / "voi" / "deleted" / "images"
-    recycle_mask_root = dataset_path / "voi" / "deleted" / "mask"
     candidates: list[tuple[Path, Path]] = []
 
-    for row in _related_voi_catalog_rows(dataset_path, case_id, scan_idx):
-        image_path = _catalog_path(dataset_path, _catalog_image_path_value(row))
-        if image_path is not None:
-            candidates.extend(
-                _restore_candidate_for_active_path(image_path, image_root, recycle_image_root)
-            )
-
-        mask_path = _catalog_path(dataset_path, _catalog_mask_path_value(row))
-        if mask_path is not None:
-            candidates.extend(_restore_candidate_for_active_path(mask_path, mask_root, recycle_mask_root))
+    for row in _related_voi_catalog_rows(dataset_path, case_id, scan_idx, voi_id=voi_id):
+        for raw_path, kind in _catalog_voi_output_values(row, nifti_only=nifti_only):
+            path = _catalog_path(dataset_path, raw_path)
+            if path is None:
+                continue
+            active_path, deleted_path = _voi_active_deleted_pair(dataset_path, path, kind)
+            candidates.append((deleted_path, active_path))
 
     return candidates
 
@@ -486,48 +517,71 @@ def _related_voi_catalog_rows(
     dataset_path: Path,
     case_id: str | None,
     scan_idx: str | None,
+    *,
+    voi_id: str | None = None,
 ) -> list[dict]:
+    target_voi_id = text_value(voi_id)
+    rows = read_voi_catalog_rows(dataset_path)
+    if target_voi_id:
+        return [row for row in rows if text_value(row.get("voi_id")) == target_voi_id]
+
     case = text_value(case_id)
     scan = text_value(scan_idx)
     if not case or not scan:
         return []
     return [
         row
-        for row in read_voi_catalog_rows(dataset_path)
+        for row in rows
         if text_value(row.get("case_id")) == case and text_value(row.get("scan_idx")) == scan
     ]
 
 
-def _recycle_candidate_for_root(
-    source_path: Path,
-    source_root: Path,
-    destination_root: Path,
-) -> list[tuple[Path, Path]]:
-    try:
-        source_resolved = _ensure_within(source_path, source_root)
-        relative = source_resolved.relative_to(source_root.resolve())
-    except RuntimeError:
-        return []
-    except ValueError:
-        return []
-    if not source_resolved.exists():
-        return []
-    return [(source_resolved, destination_root / relative)]
+def _catalog_voi_output_values(
+    row: dict,
+    *,
+    nifti_only: bool = False,
+) -> list[tuple[str, str]]:
+    values: list[tuple[str, str]] = []
+    if not nifti_only:
+        image_path = _catalog_image_path_value(row)
+        mask_path = _catalog_mask_path_value(row)
+        if image_path:
+            values.append((image_path, "images"))
+        if mask_path:
+            values.append((mask_path, "mask"))
+
+    nifti_image_path = text_value(row.get("voi_image_nii_path"))
+    nifti_mask_path = text_value(row.get("voi_mask_nii_path"))
+    if nifti_image_path:
+        values.append((nifti_image_path, "images_nii"))
+    if nifti_mask_path:
+        values.append((nifti_mask_path, "masks_nii"))
+    return values
 
 
-def _restore_candidate_for_active_path(
-    active_path: Path,
-    active_root: Path,
-    recycle_root: Path,
-) -> list[tuple[Path, Path]]:
+def _voi_active_deleted_pair(
+    dataset_path: Path,
+    path: Path,
+    kind: str,
+) -> tuple[Path, Path]:
+    resolved = path.resolve()
+    active_roots = [(dataset_path / "voi" / kind).resolve()]
+    if kind == "mask":
+        active_roots.append((dataset_path / "voi" / "segmentation").resolve())
+    deleted_root = (dataset_path / "voi" / "deleted" / kind).resolve()
+
+    for active_root in active_roots:
+        try:
+            relative = resolved.relative_to(active_root)
+            return active_root / relative, deleted_root / relative
+        except ValueError:
+            continue
+
     try:
-        active_relative = active_path.resolve().relative_to(active_root.resolve())
+        relative = resolved.relative_to(deleted_root)
+        return active_roots[0] / relative, deleted_root / relative
     except ValueError:
-        return []
-    deleted_path = recycle_root / active_relative
-    if not deleted_path.exists():
-        return []
-    return [(deleted_path.resolve(), active_root / active_relative)]
+        return path, dataset_path / "voi" / "deleted" / kind / path.name
 
 
 def _catalog_path(dataset_path: Path, raw_path: str) -> Path | None:
@@ -662,6 +716,13 @@ def _first_collision(candidates: list[tuple[Path, Path]]) -> str | None:
     return None
 
 
+def _first_missing_source(candidates: list[tuple[Path, Path]]) -> str | None:
+    for source, _destination in candidates:
+        if not source.exists():
+            return str(source)
+    return None
+
+
 def list_recent_delete_decisions(dataset_id: str) -> list[ReviewDeleteDecision]:
     validate_workspace_dataset_id(dataset_id)
     decisions_path = workspace_file("decisions.json")
@@ -777,7 +838,6 @@ def undo_delete_decision(dataset_id: str, decision_id: str) -> ReviewApplyRespon
 
         moved_files, moved_pairs = _execute_moves(candidates, dataset_path)
         metadata_updated = False
-        filename = str(target_entry.get("filename") or "")
         message = "delete restored from recycle bin"
         result = ReviewApplyResult(
             patient_id=str(target_entry.get("patient_id") or ""),

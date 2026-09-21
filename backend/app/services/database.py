@@ -21,6 +21,7 @@ from app.models.database import (
 from app.services.converter_metadata import (
     canonical_scan_key,
     has_converter_metadata,
+    is_intentionally_skipped_metadata_row,
     metadata_filename,
     phase_overrides_by_scan_key,
     read_voi_catalog_rows,
@@ -88,6 +89,13 @@ class DatabaseRow:
     def has_voi_scope(self) -> bool:
         return path_exists(self.voi_image_path)
 
+    @property
+    def is_intentionally_skipped(self) -> bool:
+        return (
+            self.raw.get("source_index") == "metadata.jsonl"
+            and is_intentionally_skipped_metadata_row(self.raw)
+        )
+
 
 @dataclass(frozen=True)
 class DatabaseIndex:
@@ -134,7 +142,11 @@ def list_case_summaries(dataset_path: Path | str) -> list[CaseSummary]:
     summaries: list[CaseSummary] = []
     for case_id, rows in sorted(cases.items(), key=lambda item: item[0]):
         phases = sorted(
-            {row.canonical_phase for row in rows},
+            {
+                row.canonical_phase
+                for row in rows
+                if row.has_complete_scope or row.has_voi_scope
+            },
             key=lambda phase: PHASE_PRIORITY.index(phase)
             if phase in PHASE_PRIORITY
             else len(PHASE_PRIORITY),
@@ -151,6 +163,7 @@ def list_case_summaries(dataset_path: Path | str) -> list[CaseSummary]:
                 group=_first_value(row.group for row in rows),
                 available_phases=phases,
                 scan_count=len(scans),
+                skipped_count=sum(row.is_intentionally_skipped for row in rows),
                 seg_count=len({row.seg_path.resolved for row in rows if path_exists(row.seg_path)}),
                 voi_image_count=len(
                     {row.voi_image_path.resolved for row in rows if path_exists(row.voi_image_path)}
@@ -442,7 +455,11 @@ def _metadata_to_database_row(
     row: dict[str, Any],
     phase_overrides: dict[tuple[str, str], str],
 ) -> dict[str, Any]:
-    filename = metadata_filename(row) or f"metadata_row_{index:06d}.nii.gz"
+    intentionally_skipped = is_intentionally_skipped_metadata_row(row)
+    filename = metadata_filename(row)
+    if not filename and not intentionally_skipped:
+        filename = f"metadata_row_{index:06d}.nii.gz"
+    filename = filename or ""
     case_id = text_value(row.get("case_id")) or _extract_case_id(filename)
     scan_idx = text_value(row.get("scan_idx"))
     curated_phase = resolve_curated_phase(phase_overrides, case_id, scan_idx)
@@ -450,13 +467,23 @@ def _metadata_to_database_row(
         phase, phase_source = curated_phase, "phase.json"
     else:
         phase, phase_source = select_converter_phase(row)
-    nifti_path = _metadata_nifti_path(dataset_path, row, filename)
-    seg_path = _metadata_seg_path(dataset_path, filename)
+    nifti_path = (
+        "" if intentionally_skipped else _metadata_nifti_path(dataset_path, row, filename)
+    )
+    seg_path = "" if intentionally_skipped else _metadata_seg_path(dataset_path, filename)
     has_seg = path_exists(resolve_database_path(dataset_path, seg_path))
+    row_identity = (
+        text_value(row.get("relative_path"))
+        or filename
+        or text_value(row.get("source_row_id"))
+        or text_value(row.get("series_uid"))
+        or text_value(row.get("study_uid"))
+        or f"row_{index:06d}"
+    )
 
     projected = {
         **row,
-        "row_id": f"metadata:{text_value(row.get('relative_path')) or filename}",
+        "row_id": f"metadata:{row_identity}",
         "source_row_id": _first_value(
             [
                 text_value(row.get("source_row_id")),
@@ -697,12 +724,21 @@ def _normalize_row(dataset_path: Path, index: int, raw: dict[str, str]) -> Datab
 
 def _row_warnings(row: DatabaseRow) -> list[QCWarning]:
     warnings: list[QCWarning] = []
-    _append_path_warning(warnings, row, "nifti_path", row.nifti_path, "complete")
-    _append_path_warning(warnings, row, "seg_path", row.seg_path, "complete", expected=row.has_seg)
+    intentionally_skipped = row.is_intentionally_skipped
+    if not intentionally_skipped:
+        _append_path_warning(warnings, row, "nifti_path", row.nifti_path, "complete")
+        _append_path_warning(
+            warnings,
+            row,
+            "seg_path",
+            row.seg_path,
+            "complete",
+            expected=row.has_seg,
+        )
     _append_path_warning(warnings, row, "voi_image_path", row.voi_image_path, "voi", expected=row.has_voi_image)
     _append_path_warning(warnings, row, "voi_mask_path", row.voi_mask_path, "voi", expected=row.has_voi_mask)
 
-    if not row.has_seg:
+    if not intentionally_skipped and not row.has_seg:
         warnings.append(
             QCWarning(
                 code="missing_seg",
@@ -712,7 +748,7 @@ def _row_warnings(row: DatabaseRow) -> list[QCWarning]:
                 path_field="seg_path",
             )
         )
-    elif not path_exists(row.seg_path):
+    elif not intentionally_skipped and not path_exists(row.seg_path):
         warnings.append(
             QCWarning(
                 code="missing_seg",

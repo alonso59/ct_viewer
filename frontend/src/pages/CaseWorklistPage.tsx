@@ -253,6 +253,7 @@ function CaseWorklistPage() {
                   <TableCell>Group</TableCell>
                   <TableCell>Phases</TableCell>
                   <TableCell align="right">Scans</TableCell>
+                  <TableCell>Skipped</TableCell>
                   <TableCell>VOI</TableCell>
                   <TableCell>QC</TableCell>
                   <TableCell align="right">Warnings</TableCell>
@@ -281,9 +282,22 @@ function CaseWorklistPage() {
                         {entry.available_phases.map((phase) => (
                           <Chip key={phase} label={phase} size="small" variant="outlined" />
                         ))}
+                        {entry.available_phases.length === 0 ? (
+                          <Typography color="text.secondary" variant="body2">
+                            -
+                          </Typography>
+                        ) : null}
                       </Stack>
                     </TableCell>
                     <TableCell align="right">{entry.scan_count}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={`Skipped ${entry.skipped_count ?? 0}`}
+                        color={entry.skipped_count > 0 ? 'warning' : 'default'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
                     <TableCell>
                       {entry.voi_sides.length > 0
                         ? entry.voi_sides.join(' / ')

@@ -137,6 +137,7 @@ export interface CaseSummary {
   group: string | null
   available_phases: CanonicalPhase[]
   scan_count: number
+  skipped_count: number
   seg_count: number
   voi_image_count: number
   voi_mask_count: number

@@ -14,6 +14,7 @@ VOI_CATALOG_FILENAME = "voi/voi_catalog.jsonl"
 CURATION_FILENAME = "curation.csv"
 DELETE_KEEP_VALUES = {"0", "false", "no", "delete", "deleted", "trash", "recycle"}
 MISSING_PHASE_VALUES = {"", "UNDEFINED", "UNKNOWN", "UNK", "N/A", "NA", "NONE", "NULL"}
+EXPLICIT_FALSE_VALUES = {"0", "false", "no", "off"}
 
 
 def has_converter_metadata(dataset_path: Path | str) -> bool:
@@ -128,6 +129,14 @@ def metadata_filename(row: dict[str, Any]) -> str | None:
         if value:
             return Path(value).name
     return None
+
+
+def is_intentionally_skipped_metadata_row(row: dict[str, Any]) -> bool:
+    return (
+        text_value(row.get("status")).lower() == "skipped"
+        and text_value(row.get("planned_conversion")).lower() in EXPLICIT_FALSE_VALUES
+        and all(not text_value(row.get(key)) for key in ("filename", "relative_path", "nifti_file"))
+    )
 
 
 def select_converter_phase(

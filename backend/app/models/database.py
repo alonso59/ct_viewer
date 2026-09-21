@@ -57,6 +57,7 @@ class CaseSummary(BaseModel):
     group: str | None = None
     available_phases: list[CanonicalPhase] = Field(default_factory=list)
     scan_count: int = 0
+    skipped_count: int = 0
     seg_count: int = 0
     voi_image_count: int = 0
     voi_mask_count: int = 0

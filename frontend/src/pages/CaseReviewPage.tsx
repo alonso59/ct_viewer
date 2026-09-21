@@ -580,6 +580,14 @@ function CaseReviewPage() {
               </Typography>
               <Chip label={selectedCase?.patient_id ?? 'Unknown patient'} variant="outlined" />
               <Chip label={selectedCase?.group ?? 'Unknown group'} variant="outlined" />
+              {selectedCase && selectedCase.skipped_count > 0 ? (
+                <Chip
+                  label={`Skipped ${selectedCase.skipped_count}`}
+                  color="warning"
+                  size="small"
+                  variant="outlined"
+                />
+              ) : null}
               {activeVolumeInfo ? (
                 <Chip label={`${activeVolumeInfo.shape.join(' x ')}`} size="small" variant="outlined" />
               ) : null}
@@ -799,7 +807,9 @@ function MetadataSyncDialog({
   const hasConflicts = Boolean(preview?.summary.conflicts)
   const visibleChanges =
     preview?.changes
-      .filter((change) => change.kind !== 'already_consolidated')
+      .filter(
+        (change) => change.kind !== 'already_consolidated' && change.kind !== 'noop',
+      )
       .slice(0, 8) ?? []
 
   return (
@@ -823,6 +833,7 @@ function MetadataSyncDialog({
                 <Chip label={`Delete ${preview.summary.delete_changes}`} size="small" />
                 <Chip label={`Restore ${preview.summary.restore_changes}`} size="small" />
                 <Chip label={`VOI ${preview.summary.voi_catalog_changes}`} size="small" />
+                <Chip label={`Skipped ${preview.summary.noop}`} size="small" />
                 <Chip
                   color={preview.summary.conflicts ? 'error' : 'default'}
                   label={`Conflicts ${preview.summary.conflicts}`}
@@ -938,7 +949,18 @@ function CaseRail({
             sx={{ justifyContent: 'space-between', borderRadius: 1, px: 1 }}
           >
             <span>{entry.case_id}</span>
-            <span>{entry.warning_count}</span>
+            <Stack component="span" direction="row" spacing={0.5} alignItems="center">
+              {entry.skipped_count > 0 ? (
+                <Chip
+                  component="span"
+                  label={`Skipped ${entry.skipped_count}`}
+                  color="warning"
+                  size="small"
+                  variant="outlined"
+                />
+              ) : null}
+              <span>{entry.warning_count}</span>
+            </Stack>
           </Button>
         ))}
       </Stack>

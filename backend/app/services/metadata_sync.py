@@ -17,11 +17,11 @@ from app.models.metadata_sync import (
 )
 from app.services.converter_metadata import (
     canonical_scan_key,
+    is_intentionally_skipped_metadata_row,
     metadata_filename,
     read_converter_metadata_rows,
     read_voi_catalog_rows,
     scan_key,
-    select_converter_phase,
     text_value,
 )
 from app.services.runtime_cache import reset_runtime_caches
@@ -116,6 +116,19 @@ def _metadata_row_changes(
     phase_by_filename: dict[str, str],
     decisions_by_filename: dict[str, dict[str, Any]],
 ) -> list[MetadataSyncChange]:
+    if is_intentionally_skipped_metadata_row(row):
+        return [
+            MetadataSyncChange(
+                kind="noop",
+                target="metadata",
+                filename=f"metadata_row_{row_index}",
+                case_id=text_value(row.get("case_id")) or None,
+                scan_idx=text_value(row.get("scan_idx")) or None,
+                row_index=row_index,
+                message="Metadata row was intentionally skipped during conversion.",
+            )
+        ]
+
     filename = metadata_filename(row)
     if not filename:
         return [
@@ -230,20 +243,52 @@ def _metadata_row_changes(
 
 
 def _voi_row_changes(dataset_path: Path, row: dict[str, Any], row_index: int) -> list[MetadataSyncChange]:
-    image_path = _catalog_path(dataset_path, _catalog_image_path_value(row), expected_root="images")
-    if image_path is None:
+    path_specs = _catalog_voi_path_specs(row)
+    if not path_specs:
         return []
 
     case_id = text_value(row.get("case_id")) or None
     scan_idx = text_value(row.get("scan_idx")) or None
     side = text_value(row.get("side")) or None
-    filename = image_path.name
-    active_image, deleted_image = _voi_active_deleted_pair(dataset_path, image_path, "images")
-    active_exists = active_image.is_file()
-    deleted_exists = deleted_image.is_file()
-    row_deleted = _path_points_deleted(_catalog_image_path_value(row))
+    resolved_paths: list[tuple[str, Path, Path, Path]] = []
+    file_states: set[str] = set()
+    catalog_states: set[str] = set()
 
-    if active_exists and deleted_exists:
+    for _field, raw_path, kind in path_specs:
+        path = _catalog_path(dataset_path, raw_path, expected_root=kind)
+        if path is None:
+            continue
+        active_path, deleted_path = _voi_active_deleted_pair(dataset_path, path, kind)
+        active_exists = active_path.is_file()
+        deleted_exists = deleted_path.is_file()
+        if active_exists == deleted_exists:
+            state_message = (
+                "Both active and deleted files exist"
+                if active_exists
+                else "Neither active nor deleted file exists"
+            )
+            return [
+                MetadataSyncChange(
+                    kind="conflicts",
+                    target="voi_catalog",
+                    filename=path.name,
+                    case_id=case_id,
+                    scan_idx=scan_idx,
+                    side=side,
+                    row_index=row_index,
+                    current_relative_path=_relative_or_raw(dataset_path, path),
+                    message=f"{state_message} for VOI output role={kind}.",
+                )
+            ]
+        file_states.add("active" if active_exists else "deleted")
+        catalog_states.add("deleted" if _path_points_deleted(raw_path) else "active")
+        resolved_paths.append((kind, path, active_path, deleted_path))
+
+    primary = next((item for item in resolved_paths if item[0] == "images"), resolved_paths[0])
+    _primary_kind, image_path, active_image, deleted_image = primary
+    filename = image_path.name
+
+    if len(file_states) != 1 or len(catalog_states) != 1:
         return [
             MetadataSyncChange(
                 kind="conflicts",
@@ -254,10 +299,13 @@ def _voi_row_changes(dataset_path: Path, row: dict[str, Any], row_index: int) ->
                 side=side,
                 row_index=row_index,
                 current_relative_path=_relative_or_raw(dataset_path, image_path),
-                message="Both active and deleted VOI image files exist for this catalog row.",
+                message="VOI outputs or catalog paths are split between active and deleted states.",
             )
         ]
-    if deleted_exists and not row_deleted:
+
+    file_state = next(iter(file_states))
+    catalog_state = next(iter(catalog_states))
+    if file_state == "deleted" and catalog_state == "active":
         return [
             MetadataSyncChange(
                 kind="delete_changes",
@@ -269,10 +317,10 @@ def _voi_row_changes(dataset_path: Path, row: dict[str, Any], row_index: int) ->
                 row_index=row_index,
                 current_relative_path=_relative_or_raw(dataset_path, image_path),
                 target_relative_path=str(deleted_image.relative_to(dataset_path)),
-                message="VOI image is in recycle bin; voi_catalog.jsonl must mark delete.",
+                message="VOI outputs are in the recycle bin; both catalogs must mark delete.",
             )
         ]
-    if active_exists and row_deleted:
+    if file_state == "active" and catalog_state == "deleted":
         return [
             MetadataSyncChange(
                 kind="restore_changes",
@@ -284,7 +332,7 @@ def _voi_row_changes(dataset_path: Path, row: dict[str, Any], row_index: int) ->
                 row_index=row_index,
                 current_relative_path=_relative_or_raw(dataset_path, image_path),
                 target_relative_path=str(active_image.relative_to(dataset_path)),
-                message="VOI image is active again; voi_catalog.jsonl must mark restore.",
+                message="VOI outputs are active again; both catalogs must mark restore.",
             )
         ]
     return []
@@ -364,23 +412,30 @@ def _apply_voi_catalog_rows(
         if row_index is None or row_index < 0 or row_index >= len(rows):
             continue
         row = dict(rows[row_index])
-        image_path = _catalog_path(dataset_path, _catalog_image_path_value(row), expected_root="images")
-        mask_path = _catalog_path(dataset_path, _catalog_mask_path_value(row), expected_root="mask")
-        if image_path is not None:
-            active_image, deleted_image = _voi_active_deleted_pair(dataset_path, image_path, "images")
-            target_image = deleted_image if change.kind == "delete_changes" else active_image
-            _set_catalog_path(row, image=True, value=str(target_image.relative_to(dataset_path)))
-        if mask_path is not None:
-            active_mask, deleted_mask = _voi_active_deleted_pair(dataset_path, mask_path, "mask")
-            target_mask = deleted_mask if change.kind == "delete_changes" else active_mask
-            if target_mask.exists():
-                _set_catalog_path(row, image=False, value=str(target_mask.relative_to(dataset_path)))
+        for field, raw_path, kind in _catalog_voi_path_specs(row):
+            current_path = _catalog_path(dataset_path, raw_path, expected_root=kind)
+            if current_path is None:
+                continue
+            active_path, deleted_path = _voi_active_deleted_pair(
+                dataset_path, current_path, kind
+            )
+            target_path = deleted_path if change.kind == "delete_changes" else active_path
+            row[field] = str(target_path.relative_to(dataset_path))
         row["webui_metadata_batch_id"] = batch_id
         row["webui_metadata_updated_at"] = applied_at
         row["webui_metadata_action"] = "delete" if change.kind == "delete_changes" else "restore"
         rows[row_index] = row
 
     _atomic_write_jsonl(path, rows)
+    numpy_catalog_rows = [
+        {
+            "voi_id": text_value(row.get("voi_id")),
+            "image_path": _catalog_image_path_value(row),
+            "mask_path": _catalog_mask_path_value(row),
+        }
+        for row in rows
+    ]
+    _atomic_write_jsonl(path.parent / "voi_catalog_npy.jsonl", numpy_catalog_rows)
     return True
 
 
@@ -573,13 +628,21 @@ def _catalog_mask_path_value(row: dict[str, Any]) -> str:
     return text_value(row.get("voi_mask_path")) or text_value(row.get("mask_path"))
 
 
-def _set_catalog_path(row: dict[str, Any], *, image: bool, value: str) -> None:
-    preferred = "voi_image_path" if image else "voi_mask_path"
-    fallback = "image_path" if image else "mask_path"
-    if preferred in row:
-        row[preferred] = value
-    else:
-        row[fallback] = value
+def _catalog_voi_path_specs(row: dict[str, Any]) -> list[tuple[str, str, str]]:
+    specs: list[tuple[str, str, str]] = []
+    for preferred, fallback, kind in (
+        ("voi_image_path", "image_path", "images"),
+        ("voi_mask_path", "mask_path", "mask"),
+        ("voi_image_nii_path", None, "images_nii"),
+        ("voi_mask_nii_path", None, "masks_nii"),
+    ):
+        preferred_value = text_value(row.get(preferred))
+        fallback_value = text_value(row.get(fallback)) if fallback else ""
+        if preferred_value:
+            specs.append((preferred, preferred_value, kind))
+        elif fallback and fallback_value:
+            specs.append((fallback, fallback_value, kind))
+    return specs
 
 
 def _catalog_path(dataset_path: Path, raw_path: str, *, expected_root: str) -> Path | None:
@@ -592,6 +655,14 @@ def _catalog_path(dataset_path: Path, raw_path: str, *, expected_root: str) -> P
     if path.parts and path.parts[0] == "voi":
         return dataset_path / path
     if path.parts and path.parts[0] == "deleted":
+        return dataset_path / "voi" / path
+    if path.parts and path.parts[0] in {
+        "images",
+        "mask",
+        "segmentation",
+        "images_nii",
+        "masks_nii",
+    }:
         return dataset_path / "voi" / path
     return dataset_path / "voi" / expected_root / path
 
