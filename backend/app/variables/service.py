@@ -116,6 +116,25 @@ class VariableService:
         await self.catalog(project_id)
         return tbl.read_table(self.table_path(project_id), columns)
 
+    def case_values(self, project_id: str) -> dict[str, dict[str, float | str | None]]:
+        """Case-level visible variables per case (explorer columns/colour, VAR-10).
+
+        Reads the stored catalog + table only (no profiling); empty before the first index.
+        """
+        cat = self._stored(project_id)
+        if cat is None:
+            return {}
+        names = [v.name for v in cat.variables if v.level == "case" and v.visible]
+        t = tbl.read_table(self.table_path(project_id), ["case_id", *names]) if names else None
+        if t is None:
+            return {}
+        rows = t.to_pydict()
+        out: dict[str, dict[str, float | str | None]] = {}
+        for i, case_id in enumerate(rows["case_id"]):
+            if case_id not in out:
+                out[case_id] = {n: rows[n][i] for n in names}
+        return out
+
     async def filter_ids(
         self, project_id: str, filters: Mapping[str, Sequence[str]]
     ) -> dict[str, set[str]]:

@@ -78,6 +78,10 @@ class CaseSummary(BaseModel):
     n_warnings: int = 0
     curation_status: str = "not_reviewed"  # CUR-08 rollup; filled by curation (lane P4)
     last_reviewed_at: str | None = None
+    # Best item for the case thumbnail (API-26): active `complete` item, by phase priority.
+    thumb_item_id: str | None = None
+    # Case-level visible variables (VAR-02/10) for explorer columns and colour; query-time join.
+    variables: dict[str, float | str | None] = Field(default_factory=dict)
 
 
 class IndexStatus(BaseModel):

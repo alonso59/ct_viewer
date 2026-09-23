@@ -16,10 +16,11 @@ from pydantic import ValidationError
 
 from app.config import Settings
 from app.core.errors import FormatVersionUnsupported, NotFound, ValidationProblem
-from app.core.fsio import atomic_write_json, read_json
+from app.core.fsio import atomic_write_json, iter_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard, PathResolver
+from app.curation.state import case_statuses
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
     FORMAT_VERSION,
@@ -122,9 +123,17 @@ class Workspace:
 
     def summary(self, project_id: str) -> ProjectSummary:
         entry = self.entry(project_id)
+        folder = self._folder(entry)
+        case_ids = _case_ids(folder / "index" / "cases.jsonl")
+        reviewed = sum(
+            1
+            for cid, (status, _) in case_statuses(folder).items()
+            if cid in case_ids and status != "not_reviewed"
+        )
         return ProjectSummary(
             **entry.model_dump(),
-            n_cases=_count_lines(self._folder(entry) / "index" / "cases.jsonl"),
+            n_cases=len(case_ids),
+            curation_progress=reviewed / len(case_ids) if case_ids else 0.0,
             share_url=self.share_url(project_id),
         )
 
@@ -305,11 +314,9 @@ def check_phase_config(cfg: dict[str, Any]) -> None:
             )
 
 
-def _count_lines(path: Path) -> int:
-    if not path.exists():
-        return 0
-    with path.open("rb") as fh:
-        return sum(1 for line in fh if line.strip())
+def _case_ids(path: Path) -> set[str]:
+    """Case ids in `index/cases.jsonl` (PRJ-02 count and curation-progress denominator)."""
+    return {str(r.get("case_id")) for r in iter_jsonl(path)}
 
 
 def _purge(cache: Path) -> None:

@@ -9,8 +9,18 @@ from app.ingest.models import CaseSummary, Item, Phase, QcWarning
 from app.ingest.normalize import CCRCC_RULES, PhaseRules
 
 
+def _thumb_item(items: Sequence[Item], priority: Sequence[str]) -> str | None:
+    cands = [i for i in items if i.scope == "complete" and i.status == "active" and i.image]
+    rank = {p: n for n, p in enumerate(priority)}
+    cands.sort(key=lambda i: (rank.get(i.phase.canonical, len(rank)), i.scan_idx))
+    return cands[0].item_id if cands else None
+
+
 def build_cases(
-    items: Sequence[Item], warnings: Sequence[QcWarning], rules: PhaseRules = CCRCC_RULES
+    items: Sequence[Item],
+    warnings: Sequence[QcWarning],
+    rules: PhaseRules = CCRCC_RULES,
+    priority: Sequence[str] = (),
 ) -> list[CaseSummary]:
     n_warn = Counter(w.case_id for w in warnings if w.case_id)
     by_case: dict[str, list[Item]] = {}
@@ -32,6 +42,7 @@ def build_cases(
                 has_voi_L=any(i.scope == "voi" and i.side == "L" for i in live),
                 has_voi_R=any(i.scope == "voi" and i.side == "R" for i in live),
                 n_warnings=n_warn[case_id],
+                thumb_item_id=_thumb_item(live, priority),
             )
         )
     return out

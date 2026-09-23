@@ -1,0 +1,591 @@
+{
+  "version": "1",
+  "standard": "IBSI 1 (image biomarker standardisation initiative, reference manual v11)",
+  "engine": "pyradiomics",
+  "engine_version": "3.1.1.dev111+g8ed579383",
+  "status_semantics": {
+    "compliant": "matches the IBSI digital-phantom reference value within tolerance (verified by TST-06)",
+    "deviates": "known definitional deviation with a documented conversion (verified by TST-06)",
+    "not_defined": "no IBSI equivalent, or compliance not established in this map version (a code, when present, is the nearest IBSI concept)"
+  },
+  "aggregation": {
+    "glcm": "3D averaged",
+    "glrlm": "3D averaged",
+    "glszm": "3D",
+    "gldm": "3D",
+    "ngtdm": "3D"
+  },
+  "image_types_in_scope": [
+    "original"
+  ],
+  "image_types_note": "IBSI 1 covers unfiltered images; features of filtered image types are exported with status not_defined",
+  "features": {
+    "firstorder": {
+      "10Percentile": {
+        "code": "QG58",
+        "status": "compliant"
+      },
+      "90Percentile": {
+        "code": "8DWT",
+        "status": "compliant"
+      },
+      "Energy": {
+        "code": "N8CA",
+        "status": "compliant",
+        "note": "equals IBSI energy only with voxelArrayShift=0"
+      },
+      "Entropy": {
+        "code": "TLU2",
+        "status": "compliant",
+        "note": "IBSI intensity-histogram entropy (discretised)"
+      },
+      "InterquartileRange": {
+        "code": "SALO",
+        "status": "compliant"
+      },
+      "Kurtosis": {
+        "code": "IPH6",
+        "status": "deviates",
+        "note": "PyRadiomics reports non-excess kurtosis: IBSI value = PyRadiomics value - 3"
+      },
+      "Maximum": {
+        "code": "84IY",
+        "status": "compliant"
+      },
+      "Mean": {
+        "code": "Q4LE",
+        "status": "compliant"
+      },
+      "MeanAbsoluteDeviation": {
+        "code": "4FUA",
+        "status": "compliant"
+      },
+      "Median": {
+        "code": "Y12H",
+        "status": "compliant"
+      },
+      "Minimum": {
+        "code": "1GSF",
+        "status": "compliant"
+      },
+      "Range": {
+        "code": "2OJQ",
+        "status": "compliant"
+      },
+      "RobustMeanAbsoluteDeviation": {
+        "code": "1128",
+        "status": "compliant"
+      },
+      "RootMeanSquared": {
+        "code": "5ZWQ",
+        "status": "compliant",
+        "note": "equals IBSI RMS only with voxelArrayShift=0"
+      },
+      "Skewness": {
+        "code": "KE2A",
+        "status": "compliant"
+      },
+      "StandardDeviation": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine; not an IBSI feature"
+      },
+      "TotalEnergy": {
+        "code": null,
+        "status": "not_defined",
+        "note": "energy scaled by voxel volume; not an IBSI feature"
+      },
+      "Uniformity": {
+        "code": "BJ5W",
+        "status": "compliant",
+        "note": "IBSI intensity-histogram uniformity (discretised)"
+      },
+      "Variance": {
+        "code": "ECT3",
+        "status": "compliant"
+      }
+    },
+    "shape": {
+      "Compactness1": {
+        "code": "SKGS",
+        "status": "compliant"
+      },
+      "Compactness2": {
+        "code": "BQWJ",
+        "status": "compliant"
+      },
+      "Elongation": {
+        "code": "Q3CK",
+        "status": "compliant"
+      },
+      "Flatness": {
+        "code": "N17B",
+        "status": "compliant"
+      },
+      "LeastAxisLength": {
+        "code": "7J51",
+        "status": "deviates",
+        "note": "population (N) instead of sample (N-1) covariance: IBSI value = value * sqrt(N/(N-1)), N = ROI voxels"
+      },
+      "MajorAxisLength": {
+        "code": "TDIC",
+        "status": "deviates",
+        "note": "population (N) instead of sample (N-1) covariance: IBSI value = value * sqrt(N/(N-1)), N = ROI voxels"
+      },
+      "Maximum2DDiameterColumn": {
+        "code": null,
+        "status": "not_defined"
+      },
+      "Maximum2DDiameterRow": {
+        "code": null,
+        "status": "not_defined"
+      },
+      "Maximum2DDiameterSlice": {
+        "code": null,
+        "status": "not_defined"
+      },
+      "Maximum3DDiameter": {
+        "code": "L0JK",
+        "status": "compliant"
+      },
+      "MeshVolume": {
+        "code": "RNU0",
+        "status": "compliant"
+      },
+      "MinorAxisLength": {
+        "code": "P9VJ",
+        "status": "deviates",
+        "note": "population (N) instead of sample (N-1) covariance: IBSI value = value * sqrt(N/(N-1)), N = ROI voxels"
+      },
+      "SphericalDisproportion": {
+        "code": "KRCK",
+        "status": "compliant"
+      },
+      "Sphericity": {
+        "code": "QCFX",
+        "status": "compliant"
+      },
+      "SurfaceArea": {
+        "code": "C0JK",
+        "status": "compliant"
+      },
+      "SurfaceVolumeRatio": {
+        "code": "2PR5",
+        "status": "compliant"
+      },
+      "VoxelVolume": {
+        "code": "YEKZ",
+        "status": "compliant"
+      }
+    },
+    "shape2D": {
+      "Elongation": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "MajorAxisLength": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "MaximumDiameter": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "MeshSurface": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "MinorAxisLength": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "Perimeter": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "PerimeterSurfaceRatio": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "PixelSurface": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "SphericalDisproportion": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      },
+      "Sphericity": {
+        "code": null,
+        "status": "not_defined",
+        "note": "IBSI 1 morphology is 3D only"
+      }
+    },
+    "glcm": {
+      "Autocorrelation": {
+        "code": "QWB0",
+        "status": "compliant"
+      },
+      "ClusterProminence": {
+        "code": "AE86",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "ClusterShade": {
+        "code": "7NFM",
+        "status": "compliant"
+      },
+      "ClusterTendency": {
+        "code": "DG8W",
+        "status": "compliant"
+      },
+      "Contrast": {
+        "code": "ACUI",
+        "status": "compliant"
+      },
+      "Correlation": {
+        "code": "NI2N",
+        "status": "compliant"
+      },
+      "DifferenceAverage": {
+        "code": "TF7R",
+        "status": "compliant"
+      },
+      "DifferenceEntropy": {
+        "code": "NTRS",
+        "status": "compliant"
+      },
+      "DifferenceVariance": {
+        "code": "D3YU",
+        "status": "compliant"
+      },
+      "Dissimilarity": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine (no value computed); equals DifferenceAverage"
+      },
+      "Homogeneity1": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine (no value computed); equals Id"
+      },
+      "Homogeneity2": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine (no value computed); equals Idm"
+      },
+      "Id": {
+        "code": "IB1Z",
+        "status": "compliant"
+      },
+      "Idm": {
+        "code": "WF0Z",
+        "status": "compliant"
+      },
+      "Idmn": {
+        "code": "1QCO",
+        "status": "compliant"
+      },
+      "Idn": {
+        "code": "NDRX",
+        "status": "compliant"
+      },
+      "Imc1": {
+        "code": "R8DG",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "Imc2": {
+        "code": "JN9H",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "InverseVariance": {
+        "code": "E8JP",
+        "status": "compliant"
+      },
+      "JointAverage": {
+        "code": "60VM",
+        "status": "compliant"
+      },
+      "JointEnergy": {
+        "code": "8ZQL",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "JointEntropy": {
+        "code": "TU9B",
+        "status": "compliant"
+      },
+      "MCC": {
+        "code": null,
+        "status": "not_defined",
+        "note": "not an IBSI feature"
+      },
+      "MaximumProbability": {
+        "code": "GYBY",
+        "status": "compliant"
+      },
+      "SumAverage": {
+        "code": "ZGXS",
+        "status": "compliant"
+      },
+      "SumEntropy": {
+        "code": "P6QZ",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "SumSquares": {
+        "code": "UR99",
+        "status": "compliant"
+      },
+      "SumVariance": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine (no value computed); equals ClusterTendency"
+      }
+    },
+    "glrlm": {
+      "GrayLevelNonUniformity": {
+        "code": "R5YN",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "GrayLevelNonUniformityNormalized": {
+        "code": "OVBL",
+        "status": "compliant"
+      },
+      "GrayLevelVariance": {
+        "code": "8CE5",
+        "status": "compliant"
+      },
+      "HighGrayLevelRunEmphasis": {
+        "code": "G3QZ",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "LongRunEmphasis": {
+        "code": "W4KF",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "LongRunHighGrayLevelEmphasis": {
+        "code": "3KUM",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "LongRunLowGrayLevelEmphasis": {
+        "code": "IVPO",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "LowGrayLevelRunEmphasis": {
+        "code": "V3SW",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "RunEntropy": {
+        "code": "HJ9O",
+        "status": "compliant"
+      },
+      "RunLengthNonUniformity": {
+        "code": "W92Y",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "RunLengthNonUniformityNormalized": {
+        "code": "IC23",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "RunPercentage": {
+        "code": "9ZK5",
+        "status": "compliant"
+      },
+      "RunVariance": {
+        "code": "SXLW",
+        "status": "compliant"
+      },
+      "ShortRunEmphasis": {
+        "code": "22OV",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "ShortRunHighGrayLevelEmphasis": {
+        "code": "GD3A",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      },
+      "ShortRunLowGrayLevelEmphasis": {
+        "code": "HTZT",
+        "status": "not_defined",
+        "note": "IBSI concept code; compliance not established in this map version (no verified digital-phantom match)"
+      }
+    },
+    "glszm": {
+      "GrayLevelNonUniformity": {
+        "code": "JNSA",
+        "status": "compliant"
+      },
+      "GrayLevelNonUniformityNormalized": {
+        "code": "Y1RO",
+        "status": "compliant"
+      },
+      "GrayLevelVariance": {
+        "code": "BYLV",
+        "status": "compliant"
+      },
+      "HighGrayLevelZoneEmphasis": {
+        "code": "5GN9",
+        "status": "compliant"
+      },
+      "LargeAreaEmphasis": {
+        "code": "48P8",
+        "status": "compliant"
+      },
+      "LargeAreaHighGrayLevelEmphasis": {
+        "code": "J17V",
+        "status": "compliant"
+      },
+      "LargeAreaLowGrayLevelEmphasis": {
+        "code": "YH51",
+        "status": "compliant"
+      },
+      "LowGrayLevelZoneEmphasis": {
+        "code": "XMSY",
+        "status": "compliant"
+      },
+      "SizeZoneNonUniformity": {
+        "code": "4JP3",
+        "status": "compliant"
+      },
+      "SizeZoneNonUniformityNormalized": {
+        "code": "VB3A",
+        "status": "compliant"
+      },
+      "SmallAreaEmphasis": {
+        "code": "5QRC",
+        "status": "compliant"
+      },
+      "SmallAreaHighGrayLevelEmphasis": {
+        "code": "HW1V",
+        "status": "compliant"
+      },
+      "SmallAreaLowGrayLevelEmphasis": {
+        "code": "5RAI",
+        "status": "compliant"
+      },
+      "ZoneEntropy": {
+        "code": "GU8N",
+        "status": "compliant"
+      },
+      "ZonePercentage": {
+        "code": "P30P",
+        "status": "compliant"
+      },
+      "ZoneVariance": {
+        "code": "3NSA",
+        "status": "compliant"
+      }
+    },
+    "gldm": {
+      "DependenceEntropy": {
+        "code": "FCBV",
+        "status": "compliant"
+      },
+      "DependenceNonUniformity": {
+        "code": "Z87G",
+        "status": "compliant"
+      },
+      "DependenceNonUniformityNormalized": {
+        "code": "OKJI",
+        "status": "compliant"
+      },
+      "DependencePercentage": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine (no value computed)"
+      },
+      "DependenceVariance": {
+        "code": "DNX2",
+        "status": "compliant"
+      },
+      "GrayLevelNonUniformity": {
+        "code": "FP8K",
+        "status": "compliant"
+      },
+      "GrayLevelNonUniformityNormalized": {
+        "code": null,
+        "status": "not_defined",
+        "note": "deprecated in the engine (no value computed)"
+      },
+      "GrayLevelVariance": {
+        "code": "1PFV",
+        "status": "compliant"
+      },
+      "HighGrayLevelEmphasis": {
+        "code": "OAE7",
+        "status": "compliant"
+      },
+      "LargeDependenceEmphasis": {
+        "code": "IMOQ",
+        "status": "compliant"
+      },
+      "LargeDependenceHighGrayLevelEmphasis": {
+        "code": "9QMG",
+        "status": "compliant"
+      },
+      "LargeDependenceLowGrayLevelEmphasis": {
+        "code": "NBZI",
+        "status": "compliant"
+      },
+      "LowGrayLevelEmphasis": {
+        "code": "TL9H",
+        "status": "compliant"
+      },
+      "SmallDependenceEmphasis": {
+        "code": "SODN",
+        "status": "compliant"
+      },
+      "SmallDependenceHighGrayLevelEmphasis": {
+        "code": "JA6D",
+        "status": "compliant"
+      },
+      "SmallDependenceLowGrayLevelEmphasis": {
+        "code": "EQ3F",
+        "status": "compliant"
+      }
+    },
+    "ngtdm": {
+      "Busyness": {
+        "code": "NQ30",
+        "status": "compliant"
+      },
+      "Coarseness": {
+        "code": "QCDE",
+        "status": "compliant"
+      },
+      "Complexity": {
+        "code": "HDEZ",
+        "status": "compliant"
+      },
+      "Contrast": {
+        "code": "65HE",
+        "status": "compliant"
+      },
+      "Strength": {
+        "code": "1X9X",
+        "status": "compliant"
+      }
+    }
+  }
+}

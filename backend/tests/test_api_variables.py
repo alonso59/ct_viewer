@@ -198,3 +198,15 @@ def test_phase_config_patch_is_validated(client: TestClient) -> None:
     r = client.patch(url, json={"phase_mapping": {"ARTERIAL-LATE": "CMP"}})
     assert r.status_code == 200 and r.json()["phase_mapping"] == {"ARTERIAL-LATE": "CMP"}
     assert_problem(client.post(f"{API}/projects", json={"name": "y", "preset": "z"}), "validation")
+
+
+def test_case_summaries_carry_variables_and_thumbnail_item(client: TestClient, pid: str) -> None:
+    cases = client.get(f"{API}/projects/{pid}/cases?limit=2000").json()["items"]
+    c30 = next(c for c in cases if c["case_id"] == "case_00030")
+    assert set(c30["variables"]) >= {"marker_a", "marker_b", "score", "patient_sex"}
+    assert "manufacturer" not in c30["variables"]  # acquisition: hidden by default
+    assert c30["thumb_item_id"] == "case_00030.01.complete.-"  # NP first (ccrcc priority)
+    c1 = next(c for c in cases if c["case_id"] == "case_00001")
+    assert c1["thumb_item_id"] == "case_00001.03.complete.-"  # VEN -> NP
+    detail = client.get(f"{API}/projects/{pid}/cases/case_00030").json()["case"]
+    assert detail["variables"] == c30["variables"]

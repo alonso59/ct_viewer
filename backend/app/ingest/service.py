@@ -17,6 +17,7 @@ from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json, r
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import validate_alias
+from app.curation.state import case_statuses
 from app.events.bus import EventBus
 from app.ingest import indexer, preview
 from app.ingest.cases import build_cases
@@ -178,7 +179,8 @@ class IngestService:
                 if ok:
                     previous = self.store.load(project_id).by_id
                     items, warnings = finalize(drafts, results, previous, import_id)
-                    cases = build_cases(items, warnings, rules)
+                    priority = self.workspace.get(project_id).phase_priority
+                    cases = build_cases(items, warnings, rules, priority)
                     self.store.replace(project_id, items, cases, warnings)
                     n_items, n_warnings = len(items), len(warnings)
                     st = IndexStatus(
@@ -358,7 +360,9 @@ class IngestService:
                 return False
             return has_voi is None or (c.has_voi_L or c.has_voi_R) == has_voi
 
-        out = [c for c in idx.cases if keep(c)]
+        rollup = case_statuses(self.workspace.project_dir(project_id))
+        values = self.variables.case_values(project_id)
+        out = [_with_values(_with_curation(c, rollup), values) for c in idx.cases if keep(c)]
         if sort in ("n_warnings", "-n_warnings"):
             out.sort(key=lambda c: c.case_id)
             out.sort(key=lambda c: c.n_warnings, reverse=sort.startswith("-"))
@@ -371,7 +375,13 @@ class IngestService:
     def case_detail(self, project_id: str, case_id: str) -> CaseDetail:
         """API-21: case + scans → items tree + warnings."""
         idx = self.store.load(project_id)
-        case = self.store.get_case(project_id, case_id)
+        case = _with_values(
+            _with_curation(
+                self.store.get_case(project_id, case_id),
+                case_statuses(self.workspace.project_dir(project_id)),
+            ),
+            self.variables.case_values(project_id),
+        )
         scans: dict[str, list[Item]] = {}
         for it in idx.items:
             if it.case_id == case_id:
@@ -405,3 +415,19 @@ class IngestService:
             ),
             warnings=warnings,
         )
+
+
+def _with_values(
+    case: CaseSummary, values: dict[str, dict[str, float | str | None]]
+) -> CaseSummary:
+    """VAR-10 case-level visible variables onto a (cached, so copied) case summary."""
+    hit = values.get(case.case_id)
+    return case.model_copy(update={"variables": hit}) if hit else case
+
+
+def _with_curation(case: CaseSummary, rollup: dict[str, tuple[str, str | None]]) -> CaseSummary:
+    """CUR-08 rollup onto a (cached, so copied) case summary."""
+    hit = rollup.get(case.case_id)
+    if hit is None:
+        return case
+    return case.model_copy(update={"curation_status": hit[0], "last_reviewed_at": hit[1]})
