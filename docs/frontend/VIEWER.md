@@ -44,26 +44,25 @@ Depends: ADR-0003, frontend/ARCHITECTURE.md, API-23/24/25.
 
 ## Wrapper contract (`features/viewer`)
 
-```ts
-interface ViewerHandle {
-  load(item: ItemRecord, opts: { imageUrl: string; maskUrl?: string }): Promise<void>;
-  setLayout(id: LayoutId): void;
-  setWindow(ww: number, wl: number): void;
-  setLabel(value: number, p: { visible?: boolean; opacity?: number; outline?: boolean }): void;
-  setCrosshair(ras: [number, number, number]): void;
-  onCursor(cb: (r: CursorReadout) => void): Unsubscribe;
-  snapshot(): ViewerContext;            // for CUR context
-  dispose(): void;
-}
-```
+Source of truth: `frontend/src/features/viewer/model/types.ts` (`ViewerHandle`). Summary:
+`load(item, {imageUrl, maskUrl?, onProgress, onImage, signal})`, `maskError`, `setTiles`, `setWindow`, `defaultWindow`,
+`setLabels`, `setOverlay`, `setLinkedZoom`, `setRender`, `setMeshes`, `setCrosshair`, `step/goto/pick/hover/pan/zoom/orbit`,
+`resetView`, `onView`, `onCursor`, `screenshot`, `stats`, `dispose`. `getViewerContext()` gives CUR `context.viewer`; its `slice` is the 1-based index shown in the viewport header.
 
-NiiVue is only imported inside `features/viewer/engine/`. Everything else uses `ViewerHandle`, which keeps the engine swappable.
-
-## Technical spikes (P3, no user decision needed)
-
-- Can NiiVue render the 2×2 layout from one instance (multiplanar + render tiles), or does it need four instances sharing one volume? Pick the one with lower memory.
-- Label rendering: NiiVue label colormap vs a custom LUT with outline support.
+NiiVue is only imported inside `features/viewer/engine/`, and **lazily** (`createViewer` is async), so it stays out of the initial bundle (FE-05). Everything else uses `ViewerHandle`, which keeps the engine swappable.
 
 ## Decisions
 
 - Mesh format (API-25, P1 spike): **gzip MZ3**, cached as `cache/meshes/{mask_fp}_{label}_{smooth}.mz3`, vertices in world mm via the NIfTI affine, served as `application/octet-stream`. A 302k-triangle mesh is 2.0 MB and parses in 16 ms in NiiVue 0.69 (GIfTI 2.6 MB, STL 14.8 MB, OBJ 10.4 MB).
+
+- One NiiVue instance per case tab (P3 spike): all tiles on one canvas via `setCustomLayout`; frames, headers, sliders and crosshair lines are DOM over the canvas. Four instances would hold four GPU copies of the volume.
+- Label rendering (P3 spike): custom LUT in our 2D slice shader (row 0 = colour + per-label opacity, 0 = hidden; row 1 = outline flag; outline = in-plane 4-neighbour boundary, Slicer style). NiiVue's label colormap is used only in the 3D tile (it forces alpha 1 per label and draws 3D outlines).
+- 2D performance (TST-09): NiiVue re-composites the whole volume on each W/L or overlay change (≈ 0.6 s on 512×512×600). 2D tiles therefore use NiiVue's `setCustomSliceShader` hook over full-resolution textures uploaded once (R16_SNORM via EXT_texture_norm16, R32F fallback; labels R8UI/R16UI); W/L and labels are uniforms. The 3D tile renders a ≤ 24 M-voxel proxy. Still within ADR-0003.
+- **NiiVue is pinned to an exact version (0.69.0)** because the slice-shader hook is not a stable public API; re-run TST-09 before any upgrade.
+- TST-09 on the synthetic reference (Apple M4, Chrome): first slice 1.9 s (mask 3.1 s), scroll and W/L 60 fps, one tab 0.58 GB JS heap. Dataset820 re-run in P7.
+
+## Known gaps (from P3)
+
+- `ItemRecord` has no `modality`: the viewer reads `extra.modality`, missing = CT (VW-05).
+- 3D pan not available (NiiVue has no 3D pan); orbit and zoom work.
+- NFR-09 with 3 loaded tabs not measured; Safari/Firefox untested (R32F fallback doubles GPU memory for int16).

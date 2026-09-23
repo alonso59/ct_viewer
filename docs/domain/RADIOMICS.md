@@ -112,3 +112,12 @@ Study variables are **not** copied into features; they are joined at analysis ti
 
 - No built-in presets beyond engine defaults; users save their own profiles.
 - Engine defaults assume CT (HU; `binWidth=25`). When the selection contains non-CT modality, the form warns and the analysis raises REC-MODALITY.
+
+## Implementation notes (P5-BE)
+
+- Profiles stored as `profiles/{hex}.json`; saving identical settings returns the existing profile (200); DELETE returns the remaining list.
+- Labels absent from a mask → `kind: "skipped"` rows in `errors.jsonl` and `counts.skipped` (not an error). `run.json` also has `job_id`, `error`, `counts.skipped`; `units.jsonl` is the per-run plan used by resume.
+- One radiomics run per project at a time (409 `job-conflict`); an engine major-version change → 409 `format-version-unsupported`.
+- Engine schema differs from the design table: `sigma` has no default; extra `label_channel` (mask handling); 107 default features. LBP3D is unavailable unless `trimesh` is added to `[radiomics]`.
+- TST-06: IBSI digital phantom, 85 features compliant + 4 deviating within 0.6 %. **The IBSI codes and extended reference values were written by the implementing agent from memory and must be spot-checked against the IBSI manual**; the IBSI CT phantom (TST-06 part 2) has not been run.
+- Without PyRadiomics installed, engine endpoints return 503 `server-busy` and its tests are skipped.

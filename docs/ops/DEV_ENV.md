@@ -33,3 +33,9 @@ Depends: DEPLOYMENT.md.
 - On remote servers: never use sudo/apt; Node runs only through udocker (AGENTS R4).
 - Remote port forwarding is handled by VS Code (AGENTS R7).
 - The dev workspace defaults to `./.workspace/` (gitignored).
+
+## Notes
+
+- Port 5173 is held by VS Code on the dev Mac: use `VITE_PORT` (lanes used 5174/5175).
+- `make e2e` starts its own backend (port 8011) and Vite (5174) on a temporary workspace; run `make fixtures` first and keep 5174 free.
+- PyRadiomics is optional: `VIRTUAL_ENV=backend/.venv uv pip install -e 'backend[radiomics]'` (needs a C compiler). Without it, 3 test modules are skipped.

@@ -2,7 +2,7 @@
 import { act, renderHook } from '@testing-library/react'
 
 import { configureViewer, isLoaded, useBudget, useLoadBudget } from './budget'
-import { VW_EN } from './i18n'
+import en from '../../i18n/en.json'
 import { fetchMesh, MeshUnavailable } from './meshes'
 
 describe('memory budget (VW-14)', () => {
@@ -65,10 +65,10 @@ describe('mesh client (API-25)', () => {
 describe('viewer strings (FE-11)', () => {
   const files = import.meta.glob(['./**/*.{ts,tsx}', '!./**/*.test.{ts,tsx}'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 
-  test('every vw.* key used in the viewer exists in the local bundle', () => {
+  test('every vw.* key used in the viewer exists in en.json', () => {
     type Tree = { [k: string]: string | Tree }
     const has = (key: string) => {
-      let node: string | Tree | undefined = VW_EN as Tree
+      let node: string | Tree | undefined = en.vw as Tree
       for (const p of key.split('.').slice(1)) node = typeof node === 'object' ? node[p] : undefined
       return typeof node === 'string'
     }

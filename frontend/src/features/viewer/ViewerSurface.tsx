@@ -67,12 +67,18 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => {
     const c = canvasHost.current
     if (!loaded || !c || !webgl) return
-    const h = createViewer(c)
-    setHandle(h)
-    setHandleId((n) => n + 1)
+    let h: ViewerHandle | null = null
+    let cancelled = false
+    void createViewer(c).then((created) => {
+      if (cancelled) return created.dispose()
+      h = created
+      setHandle(created)
+      setHandleId((n) => n + 1)
+    })
     return () => {
+      cancelled = true
       setHandle(null)
-      h.dispose()
+      h?.dispose()
     }
   }, [loaded, webgl])
 

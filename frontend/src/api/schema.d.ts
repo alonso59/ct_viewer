@@ -206,6 +206,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Variables
+         * @description Catalog with profiles (VAR-01..05, 08, 09); profiles lazily after the first index.
+         */
+        get: operations["get_variables_api_v1_projects__pid__variables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Variable
+         * @description Confirm or override the type; set visibility and tags (VAR-03/05).
+         */
+        patch: operations["patch_variable_api_v1_projects__pid__variables__name__patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/variables/derived": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Derived
+         * @description Bin / recode / dominant (VAR-06).
+         */
+        post: operations["add_derived_api_v1_projects__pid__variables_derived_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/variables/derived/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Derived */
+        delete: operations["delete_derived_api_v1_projects__pid__variables_derived__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/variables/external": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import External
+         * @description External case-keyed table → match report (VAR-07).
+         */
+        post: operations["import_external_api_v1_projects__pid__variables_external_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/cases": {
         parameters: {
             query?: never;
@@ -213,7 +310,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Cases */
+        /**
+         * List Cases
+         * @description Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max` (VAR-10);
+         *     a case matches when any of its items matches every variable filter.
+         */
         get: operations["list_cases_api_v1_projects__pid__cases_get"];
         put?: never;
         post?: never;
@@ -311,6 +412,631 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/curation/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Events
+         * @description API-50 history, newest first (CUR-14); every event is kept (CUR-02/12).
+         */
+        get: operations["list_events_api_v1_projects__pid__curation_events_get"];
+        put?: never;
+        /**
+         * Append Event
+         * @description API-50 append one decision (CUR-02/03/05/06/07); pushes `curation.appended` (CUR-11).
+         *
+         *     428 `reviewer-required` without `X-Reviewer` (CUR-01).
+         */
+        post: operations["append_event_api_v1_projects__pid__curation_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/curation/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get State
+         * @description API-51 derived latest state per item and per case (CUR-08, last-writer-wins CUR-12).
+         */
+        get: operations["get_state_api_v1_projects__pid__curation_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/curation/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Queue
+         * @description API-52 correction queue (CUR-09); CSV for 3D Slicer with absolute paths.
+         */
+        get: operations["get_queue_api_v1_projects__pid__curation_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/curation/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Curation
+         * @description API-53 write the CUR-10 files into the project's `exports/`.
+         */
+        post: operations["export_curation_api_v1_projects__pid__curation_exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/curation/import-v2": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import V2
+         * @description API-54 import v2 decisions as `source: "v2_import"` events (CUR-13).
+         *
+         *     `X-Reviewer` is required (CUR-01) and used for rows without a reviewer.
+         */
+        post: operations["import_v2_api_v1_projects__pid__curation_import_v2_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/radiomics/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Schema
+         * @description API-30 (RAD-01/02): every engine option with type, default, constraints and group.
+         */
+        get: operations["get_schema_api_v1_radiomics_schema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/radiomics/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Settings
+         * @description API-31 (RAD-04): issues (errors + the normalize/HU warning) with field locations.
+         */
+        post: operations["validate_settings_api_v1_radiomics_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Profiles
+         * @description API-32 (RAD-03): saved profiles, by name.
+         */
+        get: operations["list_profiles_api_v1_projects__pid__radiomics_profiles_get"];
+        put?: never;
+        /**
+         * Create Profile
+         * @description API-32 (RAD-03): save settings; content-addressed by `profile_hash` (200 if it exists).
+         */
+        post: operations["create_profile_api_v1_projects__pid__radiomics_profiles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/profiles/{phash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Profile
+         * @description API-32 (RAD-03): delete a profile → remaining profiles (runs keep their snapshot).
+         */
+        delete: operations["delete_profile_api_v1_projects__pid__radiomics_profiles__phash__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Profile
+         * @description API-32 (RAD-03): rename. `phash` is `sha256:<hex>` or `<hex>`.
+         */
+        patch: operations["rename_profile_api_v1_projects__pid__radiomics_profiles__phash__patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimate
+         * @description API-33 (RAD-11): n_items x n_labels and time per item from a 3-item worker sample.
+         */
+        post: operations["estimate_api_v1_projects__pid__radiomics_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description API-34: runs, newest first; stale `running` runs are reported `interrupted` (BE-06).
+         */
+        get: operations["list_runs_api_v1_projects__pid__radiomics_runs_get"];
+        put?: never;
+        /**
+         * Start Run
+         * @description API-34 (RAD-05/06/09): validate and start a background run. 428 without `X-Reviewer`.
+         */
+        post: operations["start_run_api_v1_projects__pid__radiomics_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run
+         * @description API-34 (RAD-09): the run record plus live progress while its job runs.
+         */
+        get: operations["get_run_api_v1_projects__pid__radiomics_runs__rid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Run
+         * @description API-35 (RAD-06): cancel; idempotent for finished runs.
+         */
+        post: operations["cancel_run_api_v1_projects__pid__radiomics_runs__rid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Run
+         * @description API-35 (RAD-08): resume an interrupted/cancelled/failed run, skipping finished parts.
+         */
+        post: operations["resume_run_api_v1_projects__pid__radiomics_runs__rid__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Features
+         * @description API-36 (RAD-10, UI-14): long or wide features as JSON, CSV or Parquet.
+         */
+        get: operations["get_features_api_v1_projects__pid__radiomics_runs__rid__features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Errors
+         * @description API-37 (RAD-07): per-item failures and label-absent skips.
+         */
+        get: operations["get_errors_api_v1_projects__pid__radiomics_runs__rid__errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/run-overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Overview
+         * @description Run overview: items ok/failed, per-label counts, runtime, errors -> item (API-38).
+         */
+        post: operations["run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/feature-distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Feature Distribution
+         * @description Histogram / box of one feature split by a color variable (DB-03/07).
+         */
+        post: operations["feature_distribution_api_v1_projects__pid__radiomics_runs__rid__views_feature_distribution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/missing-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Missing Matrix
+         * @description Feature x item NaN/inf/absent cells, sparse (DB-05).
+         */
+        post: operations["missing_matrix_api_v1_projects__pid__radiomics_runs__rid__views_missing_matrix_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/correlation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correlation
+         * @description Spearman correlation between features, clustered order.
+         */
+        post: operations["correlation_api_v1_projects__pid__radiomics_runs__rid__views_correlation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/embedding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Embedding
+         * @description PCA (default) or UMAP (optional extra) on z-scored features (DB-03/07).
+         */
+        post: operations["embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/outliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Outliers
+         * @description Robust z-score (median/MAD) per item; top-N items and features.
+         */
+        post: operations["outliers_api_v1_projects__pid__radiomics_runs__rid__views_outliers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/feature-vs-volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Feature Vs Volume
+         * @description Scatter of a feature against shape MeshVolume; size-driven features ranked.
+         */
+        post: operations["feature_vs_volume_api_v1_projects__pid__radiomics_runs__rid__views_feature_vs_volume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/group-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Group Comparison
+         * @description Box per group + test for one feature, results for all features (ANA-03..07).
+         */
+        post: operations["group_comparison_api_v1_projects__pid__radiomics_runs__rid__views_group_comparison_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/association": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Association
+         * @description Scatter feature x continuous variable with rho; ranked table (ANA-04/05).
+         */
+        post: operations["association_api_v1_projects__pid__radiomics_runs__rid__views_association_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Balance
+         * @description Contingency heat map of two categorical variables with chi2 / Fisher.
+         */
+        post: operations["balance_api_v1_projects__pid__radiomics_runs__rid__views_balance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/phase-side-consistency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Phase Side Consistency
+         * @description Same case across phases or sides, Bland-Altman style.
+         */
+        post: operations["phase_side_consistency_api_v1_projects__pid__radiomics_runs__rid__views_phase_side_consistency_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Analyses
+         * @description Saved analyses, newest first (optionally for one run).
+         */
+        get: operations["list_analyses_api_v1_projects__pid__analyses_get"];
+        put?: never;
+        /**
+         * Create Analysis
+         * @description Create and run an analysis synchronously (ANA-01..08); saved under `analyses/`.
+         */
+        post: operations["create_analysis_api_v1_projects__pid__analyses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/analyses/{aid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Analysis
+         * @description Results + descriptives + recommendations (DB-08).
+         */
+        get: operations["get_analysis_api_v1_projects__pid__analyses__aid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/analyses/{aid}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Analysis
+         * @description ANA-09: `tidy` (unit rows x ids + variables + features), `results`, `descriptives`
+         *     CSV, or `spec` JSON.
+         */
+        get: operations["export_analysis_api_v1_projects__pid__analyses__aid__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs": {
         parameters: {
             query?: never;
@@ -385,10 +1111,243 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/items/{iid}/mesh/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Surface mesh of one mask label (202 + job if not cached) */
+        get: operations["get_mesh_api_v1_projects__pid__items__iid__mesh__label__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Analysis
+         * @description GET …/analyses/{aid}: results + descriptives + recommendations (DB-08).
+         */
+        Analysis: {
+            /** Analysis Id */
+            analysis_id: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            spec: components["schemas"]["AnalysisSpec"];
+            unit: components["schemas"]["UnitSummary"];
+            /** Groups */
+            groups: components["schemas"]["GroupInfo"][];
+            choice: components["schemas"]["TestChoice"];
+            /** Results */
+            results: components["schemas"]["ResultRow"][];
+            /** Descriptives */
+            descriptives: components["schemas"]["DescriptiveRow"][];
+            /** Recommendations */
+            recommendations: components["schemas"]["Recommendation"][];
+            balance?: components["schemas"]["Contingency"] | null;
+        };
+        /** AnalysisList */
+        AnalysisList: {
+            /** Items */
+            items: components["schemas"]["AnalysisSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
+        /**
+         * AnalysisSpec
+         * @description ANA-01: run + filter + unit + question type + variable (+ optional confounder).
+         *
+         *     `balance` compares `variable` x `confounder` (both categorical). `paired` (ANA-10) is
+         *     planned for v3.1 and rejected with `validation`.
+         */
+        AnalysisSpec: {
+            /** Run Id */
+            run_id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Question
+             * @enum {string}
+             */
+            question: "explore" | "compare" | "association" | "balance" | "paired";
+            /** Variable */
+            variable?: string | null;
+            /** Confounder */
+            confounder?: string | null;
+            filters?: components["schemas"]["GlobalFilters"];
+            unit?: components["schemas"]["UnitSpec"];
+            /**
+             * Test
+             * @default auto
+             * @enum {string}
+             */
+            test: "auto" | "default" | "alternative";
+            /** Features */
+            features?: string[] | null;
+            /** Feature Class */
+            feature_class?: string[] | null;
+        };
+        /** AnalysisSummary */
+        AnalysisSummary: {
+            /** Analysis Id */
+            analysis_id: string;
+            /** Name */
+            name: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Question
+             * @enum {string}
+             */
+            question: "explore" | "compare" | "association" | "balance" | "paired";
+            /** Variable */
+            variable: string | null;
+            /** Confounder */
+            confounder: string | null;
+            /** N Rows */
+            n_rows: number;
+            /** N Tested */
+            n_tested: number;
+            /** N Significant */
+            n_significant: number;
+            /** N Recommendations */
+            n_recommendations: number;
+        };
+        /** AssociationRequest */
+        AssociationRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Variable */
+            variable: string;
+            /** Feature */
+            feature?: string | null;
+            /**
+             * Test
+             * @default auto
+             * @enum {string}
+             */
+            test: "auto" | "default" | "alternative";
+            unit?: components["schemas"]["UnitSpec"];
+            /** Features */
+            features?: string[] | null;
+            /** Feature Class */
+            feature_class?: string[] | null;
+        };
+        /** AssociationResponse */
+        AssociationResponse: {
+            /** Variable */
+            variable: string;
+            /** Feature */
+            feature: string | null;
+            unit: components["schemas"]["UnitSummary"];
+            choice: components["schemas"]["TestChoice"];
+            selected: components["schemas"]["ResultRow"] | null;
+            /** Points */
+            points: components["schemas"]["UnitPoint"][];
+            /** Results */
+            results: components["schemas"]["ResultRow"][];
+        };
+        /** BalanceRequest */
+        BalanceRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Variable */
+            variable: string;
+            /** Other */
+            other: string;
+            /**
+             * Test
+             * @default auto
+             * @enum {string}
+             */
+            test: "auto" | "default" | "alternative";
+            unit?: components["schemas"]["UnitSpec"];
+        };
+        /** BalanceResponse */
+        BalanceResponse: {
+            unit: components["schemas"]["UnitSummary"];
+            choice: components["schemas"]["TestChoice"];
+            table: components["schemas"]["Contingency"];
+        };
+        /**
+         * BinDef
+         * @description VAR-06 bin: continuous → categorical by thresholds or quantiles (`v < t` → lower bin).
+         */
+        BinDef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "bin";
+            /** Name */
+            name: string;
+            /** Source */
+            source: string;
+            /** Thresholds */
+            thresholds?: number[] | null;
+            /** Quantiles */
+            quantiles?: number[] | null;
+            /** Labels */
+            labels?: string[] | null;
+        };
+        /** Body_import_external_api_v1_projects__pid__variables_external_post */
+        Body_import_external_api_v1_projects__pid__variables_external_post: {
+            /**
+             * File
+             * @description CSV or TSV keyed by case_id or patient_id
+             */
+            file: string;
+            /** Key */
+            key?: ("case_id" | "patient_id") | null;
+        };
+        /** Body_import_v2_api_v1_projects__pid__curation_import_v2_post */
+        Body_import_v2_api_v1_projects__pid__curation_import_v2_post: {
+            /**
+             * File
+             * @description v2 `curation_review.csv`
+             */
+            file: string;
+        };
+        /** BoxStats */
+        BoxStats: {
+            /** N */
+            n: number;
+            /** Min */
+            min?: number | null;
+            /** Q1 */
+            q1?: number | null;
+            /** Median */
+            median?: number | null;
+            /** Q3 */
+            q3?: number | null;
+            /** Max */
+            max?: number | null;
+            /** Whisker Low */
+            whisker_low?: number | null;
+            /** Whisker High */
+            whisker_high?: number | null;
+            /** Mean */
+            mean?: number | null;
+            /** Sd */
+            sd?: number | null;
+        };
         /** CaseDetail */
         CaseDetail: {
             case: components["schemas"]["CaseSummary"];
@@ -397,16 +1356,42 @@ export interface components {
             /** Warnings */
             warnings: components["schemas"]["QcWarning"][];
         };
+        /**
+         * CaseState
+         * @description Case rollup = worst over its items and case-target events (CUR-08).
+         */
+        CaseState: {
+            /** Case Id */
+            case_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            /** Reviewer */
+            reviewer: string;
+            /** At */
+            at: string;
+            /** Event Id */
+            event_id: string;
+            /** Last Reviewed At */
+            last_reviewed_at: string;
+            /** N Items Reviewed */
+            n_items_reviewed: number;
+            /**
+             * Targets
+             * @description Case-target keys
+             */
+            targets?: components["schemas"]["TargetState"][];
+        };
         /** CaseSummary */
         CaseSummary: {
             /** Case Id */
             case_id: string;
             /** Patient Id */
             patient_id?: string | null;
-            /** Group */
-            group?: string | null;
             /** Phases */
-            phases?: ("NC" | "CMP" | "NP" | "EP" | "UNK")[];
+            phases?: string[];
             /**
              * N Scans
              * @default 0
@@ -444,6 +1429,68 @@ export interface components {
             curation_status: string;
             /** Last Reviewed At */
             last_reviewed_at?: string | null;
+            /** Thumb Item Id */
+            thumb_item_id?: string | null;
+            /** Variables */
+            variables?: {
+                [key: string]: number | string | null;
+            };
+        };
+        /**
+         * Catalog
+         * @description `variables/catalog.json` (VAR-11) and the API-16 response.
+         */
+        Catalog: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Profiled At */
+            profiled_at?: string | null;
+            /** Import Id */
+            import_id?: string | null;
+            /**
+             * N Items
+             * @default 0
+             */
+            n_items: number;
+            /**
+             * N Cases
+             * @default 0
+             */
+            n_cases: number;
+            /** Variables */
+            variables?: components["schemas"]["Variable"][];
+            /** Excluded */
+            excluded?: components["schemas"]["Excluded"][];
+            /** Derived */
+            derived?: (components["schemas"]["BinDef"] | components["schemas"]["RecodeDef"] | components["schemas"]["DominantDef"])[];
+            /** External */
+            external?: components["schemas"]["ExternalTable"][];
+            /** Overrides */
+            overrides?: {
+                [key: string]: components["schemas"]["VariableOverride"];
+            };
+        };
+        /** Cluster */
+        Cluster: {
+            /** Features */
+            features: string[];
+        };
+        /**
+         * ColorBy
+         * @description DB-07 color/split: a categorical variable, an item attribute, or curation status.
+         */
+        ColorBy: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "variable" | "phase" | "scope" | "side" | "label" | "curation_status";
+            /** Name */
+            name?: string | null;
         };
         /** CommitRequest */
         CommitRequest: {
@@ -457,6 +1504,628 @@ export interface components {
             /** Import Id */
             import_id: string;
         };
+        /** ConsistencyRequest */
+        ConsistencyRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Feature */
+            feature: string;
+            pair?: components["schemas"]["PairSpec"];
+        };
+        /** ConsistencyResponse */
+        ConsistencyResponse: {
+            /** Feature */
+            feature: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "phase" | "side";
+            /** A */
+            a: string;
+            /** B */
+            b: string;
+            /** N Pairs */
+            n_pairs: number;
+            /** Bias */
+            bias: number | null;
+            /** Sd Diff */
+            sd_diff: number | null;
+            /** Loa Low */
+            loa_low: number | null;
+            /** Loa High */
+            loa_high: number | null;
+            /** Rho */
+            rho: number | null;
+            /** Points */
+            points: components["schemas"]["PairPoint"][];
+        };
+        /**
+         * Constraints
+         * @description For list types, `min`/`max`/`enum` apply to each element.
+         */
+        Constraints: {
+            /** Min */
+            min?: number | null;
+            /** Max */
+            max?: number | null;
+            /**
+             * Exclusive Min
+             * @default false
+             */
+            exclusive_min: boolean;
+            /**
+             * Exclusive Max
+             * @default false
+             */
+            exclusive_max: boolean;
+            /** Enum */
+            enum?: string[] | null;
+            /** Min Items */
+            min_items?: number | null;
+            /** Max Items */
+            max_items?: number | null;
+        };
+        /** Contingency */
+        Contingency: {
+            /** Variable */
+            variable: string;
+            /** Other */
+            other: string;
+            /** Rows */
+            rows: string[];
+            /** Cols */
+            cols: string[];
+            /** Cells */
+            cells: components["schemas"]["ContingencyCell"][];
+            /** Excluded Rows */
+            excluded_rows: string[];
+            /** Excluded Cols */
+            excluded_cols: string[];
+            result: components["schemas"]["ResultRow"];
+        };
+        /** ContingencyCell */
+        ContingencyCell: {
+            /** Row */
+            row: string;
+            /** Col */
+            col: string;
+            /** N */
+            n: number;
+            /** Expected */
+            expected?: number | null;
+            /** Item Ids */
+            item_ids: string[];
+            /** Case Ids */
+            case_ids: string[];
+        };
+        /** CorrelationRequest */
+        CorrelationRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Feature Class */
+            feature_class?: string[] | null;
+            /**
+             * Threshold
+             * @default 0.9
+             */
+            threshold: number;
+            /**
+             * Max Features
+             * @default 200
+             */
+            max_features: number;
+        };
+        /** CorrelationResponse */
+        CorrelationResponse: {
+            /**
+             * Method
+             * @default spearman
+             * @constant
+             */
+            method: "spearman";
+            /** Features */
+            features: string[];
+            /** Matrix */
+            matrix: (number | null)[][];
+            /** Threshold */
+            threshold: number;
+            /** Clusters */
+            clusters: components["schemas"]["Cluster"][];
+            /** N Rows */
+            n_rows: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
+         * CurationEvent
+         * @description One append-only decision in `curation/events.jsonl` (CUR-02, schema v1).
+         */
+        CurationEvent: {
+            /** Event Id */
+            event_id: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** At */
+            at: string;
+            /** Reviewer */
+            reviewer: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Item Id */
+            item_id?: string | null;
+            /** Case Id */
+            case_id: string;
+            /** Target */
+            target: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            /**
+             * Priority
+             * @default medium
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high";
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+            /** Proposed Phase */
+            proposed_phase?: string | null;
+            /** Proposed Side */
+            proposed_side?: ("L" | "R") | null;
+            /**
+             * Add To Queue
+             * @default false
+             */
+            add_to_queue: boolean;
+            /** Context */
+            context?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Source
+             * @default ui
+             * @enum {string}
+             */
+            source: "ui" | "v2_import" | "api";
+        };
+        /**
+         * CurationState
+         * @description API-51 response and the `curation/state.json` snapshot (derived, PRJ-10).
+         */
+        CurationState: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Updated At */
+            updated_at: string;
+            /** N Events */
+            n_events: number;
+            /** Items */
+            items: components["schemas"]["ItemState"][];
+            /** Cases */
+            cases: components["schemas"]["CaseState"][];
+        };
+        /**
+         * DescriptiveRow
+         * @description ANA-07 per feature x group.
+         */
+        DescriptiveRow: {
+            /** Feature */
+            feature: string;
+            /** Group */
+            group: string;
+            /** N */
+            n: number;
+            /** Missing */
+            missing: number;
+            /** Median */
+            median?: number | null;
+            /** Q1 */
+            q1?: number | null;
+            /** Q3 */
+            q3?: number | null;
+            /** Iqr */
+            iqr?: number | null;
+            /** Mean */
+            mean?: number | null;
+            /** Sd */
+            sd?: number | null;
+            /**
+             * Excluded
+             * @default false
+             */
+            excluded: boolean;
+        };
+        /** DistGroup */
+        DistGroup: {
+            /** Level */
+            level: string | null;
+            /** N */
+            n: number;
+            /** N Missing */
+            n_missing: number;
+            /** Counts */
+            counts: number[];
+            box: components["schemas"]["BoxStats"];
+        };
+        /** DistPoint */
+        DistPoint: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Label */
+            label: number;
+            /** Status */
+            status: string;
+            /** Color */
+            color?: string | null;
+            /** Value */
+            value: number;
+            /** Bin */
+            bin?: number | null;
+        };
+        /**
+         * DominantDef
+         * @description VAR-06 dominant: name of the largest of N numeric variables (missing if any is missing;
+         *     `tie` when several share the maximum).
+         */
+        DominantDef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "dominant";
+            /** Name */
+            name: string;
+            /** Sources */
+            sources: string[];
+        };
+        /** EmbeddingPoint */
+        EmbeddingPoint: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Label */
+            label: number;
+            /** Status */
+            status: string;
+            /** Color */
+            color?: string | null;
+            /** Coords */
+            coords: number[];
+        };
+        /** EmbeddingRequest */
+        EmbeddingRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Features */
+            features?: string[] | null;
+            /** Feature Class */
+            feature_class?: string[] | null;
+            /**
+             * N Components
+             * @default 2
+             */
+            n_components: number;
+            /**
+             * Method
+             * @default pca
+             * @enum {string}
+             */
+            method: "pca" | "umap";
+            color_by?: components["schemas"]["ColorBy"] | null;
+        };
+        /** EmbeddingResponse */
+        EmbeddingResponse: {
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "pca" | "umap";
+            /** N Components */
+            n_components: number;
+            /** Explained Variance Ratio */
+            explained_variance_ratio: number[];
+            /** Features Used */
+            features_used: string[];
+            /** Top Loadings */
+            top_loadings: components["schemas"]["Loading"][][];
+            /** Color Levels */
+            color_levels: string[];
+            /** Points */
+            points: components["schemas"]["EmbeddingPoint"][];
+        };
+        /** EngineInfo */
+        EngineInfo: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /** EstimateRequest */
+        EstimateRequest: {
+            /** Profile Hash */
+            profile_hash?: string | null;
+            settings?: components["schemas"]["RadiomicsSettings"] | null;
+            selection: components["schemas"]["Selection"];
+        };
+        /** EstimateResult */
+        EstimateResult: {
+            /** N Items */
+            n_items: number;
+            /** N Labels */
+            n_labels: number;
+            /** N Units */
+            n_units: number;
+            /** N Skipped */
+            n_skipped: number;
+            /** Sample Item Ids */
+            sample_item_ids: string[];
+            /** Time Per Item S */
+            time_per_item_s: number | null;
+            /** Time Per Unit S */
+            time_per_unit_s: number | null;
+            /** Workers */
+            workers: number;
+            /** Estimated Total S */
+            estimated_total_s: number | null;
+            /** Sample Errors */
+            sample_errors?: string[];
+        };
+        /**
+         * EventIn
+         * @description API-50 POST body. The server sets `event_id`, `at`, `reviewer`, `schema_version`.
+         */
+        EventIn: {
+            /** Item Id */
+            item_id?: string | null;
+            /**
+             * Case Id
+             * @description Required when target = case; else derived from the item
+             */
+            case_id?: string | null;
+            /**
+             * Target
+             * @example seg
+             * @example label:2
+             * @example case
+             */
+            target: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            /**
+             * Priority
+             * @default medium
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high";
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+            /** Proposed Phase */
+            proposed_phase?: string | null;
+            /** Proposed Side */
+            proposed_side?: ("L" | "R") | null;
+            /**
+             * Add To Queue
+             * @default false
+             */
+            add_to_queue: boolean;
+            /** Context */
+            context?: {
+                [key: string]: unknown;
+            };
+            /** Session Id */
+            session_id?: string | null;
+            /**
+             * Source
+             * @default ui
+             * @enum {string}
+             */
+            source: "ui" | "api";
+        };
+        /**
+         * Excluded
+         * @description VAR-08/09: fields that are never variables, with the reason.
+         */
+        Excluded: {
+            /** Name */
+            name: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "core" | "uid" | "path" | "blob" | "accession" | "reserved";
+        };
+        /**
+         * ExportResult
+         * @description API-53: files written under the project folder's `dir` (CUR-10).
+         */
+        ExportResult: {
+            /**
+             * Dir
+             * @default exports
+             */
+            dir: string;
+            /** Files */
+            files: string[];
+            /** At */
+            at: string;
+        };
+        /** ExternalReport */
+        ExternalReport: {
+            table: components["schemas"]["ExternalTable"];
+            /** N Rows */
+            n_rows: number;
+            /** N Matched */
+            n_matched: number;
+            /** N Unmatched */
+            n_unmatched: number;
+            /** Unmatched Keys */
+            unmatched_keys: string[];
+            /** Duplicate Keys */
+            duplicate_keys: string[];
+            /** Conflicts */
+            conflicts: string[];
+        };
+        /**
+         * ExternalTable
+         * @description VAR-07 external case-keyed table, snapshotted under `variables/external/`.
+         */
+        ExternalTable: {
+            /** Table Id */
+            table_id: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "case_id" | "patient_id";
+            /** Columns */
+            columns: string[];
+            /** Sha256 */
+            sha256: string;
+            /** Imported At */
+            imported_at: string;
+        };
+        /** FeatureClassSpec */
+        FeatureClassSpec: {
+            /** Name */
+            name: string;
+            /** Default Enabled */
+            default_enabled: boolean;
+            /**
+             * Requires 2D
+             * @default false
+             */
+            requires_2d: boolean;
+            /** Features */
+            features: components["schemas"]["FeatureSpec"][];
+        };
+        /** FeatureDistributionRequest */
+        FeatureDistributionRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Feature */
+            feature: string;
+            split?: components["schemas"]["ColorBy"] | null;
+            /**
+             * Log Scale
+             * @default false
+             */
+            log_scale: boolean;
+            /**
+             * Bins
+             * @default 30
+             */
+            bins: number;
+        };
+        /** FeatureDistributionResponse */
+        FeatureDistributionResponse: {
+            /** Feature */
+            feature: string;
+            split: components["schemas"]["ColorBy"] | null;
+            /** Log Scale */
+            log_scale: boolean;
+            /** Edges */
+            edges: number[];
+            /** Groups */
+            groups: components["schemas"]["DistGroup"][];
+            /** Points */
+            points: components["schemas"]["DistPoint"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** FeatureSpec */
+        FeatureSpec: {
+            /** Name */
+            name: string;
+            /** Default Enabled */
+            default_enabled: boolean;
+            /**
+             * Deprecated
+             * @default false
+             */
+            deprecated: boolean;
+            ibsi: components["schemas"]["IbsiInfo"];
+        };
+        /** FeatureVsVolumeRequest */
+        FeatureVsVolumeRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Feature */
+            feature: string;
+            color_by?: components["schemas"]["ColorBy"] | null;
+            /**
+             * Top N
+             * @default 50
+             */
+            top_n: number;
+        };
+        /** FeatureVsVolumeResponse */
+        FeatureVsVolumeResponse: {
+            /** Feature */
+            feature: string;
+            /** Volume Feature */
+            volume_feature: string;
+            /** Rho */
+            rho: number | null;
+            /** P */
+            p: number | null;
+            /** N */
+            n: number;
+            /** Size Driven */
+            size_driven: boolean;
+            /** Color Levels */
+            color_levels: string[];
+            /** Points */
+            points: components["schemas"]["ScatterPoint"][];
+            /** Ranked */
+            ranked: components["schemas"]["RankedFeature"][];
+        };
+        /**
+         * FeaturesTable
+         * @description API-36 JSON: long rows follow the features.parquet schema; wide rows one per item+label.
+         */
+        FeaturesTable: {
+            /** Run Id */
+            run_id: string;
+            /**
+             * Shape
+             * @enum {string}
+             */
+            shape: "long" | "wide";
+            /** Columns */
+            columns: string[];
+            /** Rows */
+            rows: {
+                [key: string]: string | number | null;
+            }[];
+            /** Total */
+            total: number;
+        };
         /** FieldMapping */
         FieldMapping: {
             /** Image */
@@ -467,6 +2136,27 @@ export interface components {
             phase?: string[];
             /** Side */
             side?: string | null;
+        };
+        /** FilterSpec */
+        FilterSpec: {
+            /** Name */
+            name: string;
+            /** Default Enabled */
+            default_enabled: boolean;
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
+            /**
+             * Requires 2D
+             * @default false
+             */
+            requires_2d: boolean;
+            /** Params */
+            params?: components["schemas"]["OptionSpec"][];
         };
         /** FsEntry */
         FsEntry: {
@@ -512,6 +2202,87 @@ export interface components {
             /** Orientation */
             orientation?: string | null;
         };
+        /**
+         * GlobalFilters
+         * @description DB-02 global filters, applied to every view and analysis (AND across fields).
+         *
+         *     `var` uses the VAR-10 syntax: `{name: [values]}`, categorical values OR'ed, numeric
+         *     `min..max` ranges. `status` is the curation status (CUR-08; unreviewed = `not_reviewed`).
+         *     `item_ids` carries a DB-04 selection.
+         */
+        GlobalFilters: {
+            /** Var */
+            var?: {
+                [key: string]: string[];
+            };
+            /** Phase */
+            phase?: string[] | null;
+            /** Scope */
+            scope?: ("complete" | "voi")[] | null;
+            /** Side */
+            side?: ("L" | "R" | "-")[] | null;
+            /** Label */
+            label?: number[] | null;
+            /** Status */
+            status?: string[] | null;
+            /** Item Ids */
+            item_ids?: string[] | null;
+        };
+        /** GroupComparisonRequest */
+        GroupComparisonRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Variable */
+            variable: string;
+            /** Feature */
+            feature?: string | null;
+            /**
+             * Test
+             * @default auto
+             * @enum {string}
+             */
+            test: "auto" | "default" | "alternative";
+            unit?: components["schemas"]["UnitSpec"];
+            /** Features */
+            features?: string[] | null;
+            /** Feature Class */
+            feature_class?: string[] | null;
+        };
+        /** GroupComparisonResponse */
+        GroupComparisonResponse: {
+            /** Variable */
+            variable: string;
+            /** Feature */
+            feature: string | null;
+            unit: components["schemas"]["UnitSummary"];
+            /** Groups */
+            groups: components["schemas"]["GroupInfo"][];
+            choice: components["schemas"]["TestChoice"];
+            selected: components["schemas"]["ResultRow"] | null;
+            /** Boxes */
+            boxes: components["schemas"]["DistGroup"][];
+            /** Points */
+            points: components["schemas"]["UnitPoint"][];
+            /** Results */
+            results: components["schemas"]["ResultRow"][];
+            /** Descriptives */
+            descriptives: components["schemas"]["DescriptiveRow"][];
+        };
+        /** GroupInfo */
+        GroupInfo: {
+            /** Level */
+            level: string;
+            /** N */
+            n: number;
+            /** Excluded */
+            excluded: boolean;
+        };
+        /** GroupSpec */
+        GroupSpec: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -524,6 +2295,20 @@ export interface components {
             /** Version */
             version: string;
             ui_config: components["schemas"]["UiConfig"];
+        };
+        /**
+         * IbsiInfo
+         * @description Metadata only: never shown in the GUI (RADIOMICS.md §Principles).
+         */
+        IbsiInfo: {
+            /** Code */
+            code?: string | null;
+            /**
+             * Status
+             * @default not_defined
+             * @enum {string}
+             */
+            status: "compliant" | "deviates" | "not_defined";
         };
         /** ImportCounts */
         ImportCounts: {
@@ -643,6 +2428,21 @@ export interface components {
             /** Rows */
             rows: number;
         };
+        /** Issue */
+        Issue: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /**
+             * Severity
+             * @default error
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Rule */
+            rule: string;
+        };
         /** Item */
         Item: {
             /** Item Id */
@@ -663,8 +2463,6 @@ export interface components {
             side: "L" | "R" | "-";
             /** Patient Id */
             patient_id?: string | null;
-            /** Group */
-            group?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
             mask?: components["schemas"]["VolumeRef"] | null;
@@ -713,8 +2511,6 @@ export interface components {
             side: "L" | "R" | "-";
             /** Patient Id */
             patient_id?: string | null;
-            /** Group */
-            group?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
             mask?: components["schemas"]["VolumeRef"] | null;
@@ -738,6 +2534,29 @@ export interface components {
             advanced: components["schemas"]["ItemAdvanced"];
             /** Warnings */
             warnings?: components["schemas"]["QcWarning"][];
+        };
+        /**
+         * ItemState
+         * @description Item status = worst over its targets; reviewer/at/event_id of the deciding event.
+         */
+        ItemState: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            /** Reviewer */
+            reviewer: string;
+            /** At */
+            at: string;
+            /** Event Id */
+            event_id: string;
+            /** Targets */
+            targets: components["schemas"]["TargetState"][];
         };
         /**
          * JobInfo
@@ -781,6 +2600,15 @@ export interface components {
             /** Error */
             error?: string | null;
         };
+        /** LabelCount */
+        LabelCount: {
+            /** Label */
+            label: number;
+            /** N Items */
+            n_items: number;
+            /** N Values */
+            n_values: number;
+        };
         /** LabelEntry */
         LabelEntry: {
             /** Value */
@@ -797,10 +2625,203 @@ export interface components {
              */
             visible: boolean;
         };
+        /** LevelCount */
+        LevelCount: {
+            /** Level */
+            level: string;
+            /** N */
+            n: number;
+        };
+        /** Loading */
+        Loading: {
+            /** Feature */
+            feature: string;
+            /** Weight */
+            weight: number;
+        };
+        /** MissingCell */
+        MissingCell: {
+            /** Item */
+            item: number;
+            /** Feature */
+            feature: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "nan" | "inf" | "absent";
+        };
+        /** MissingFeature */
+        MissingFeature: {
+            /** Feature */
+            feature: string;
+            /** Feature Class */
+            feature_class: string;
+            /** N Nan */
+            n_nan: number;
+            /** N Inf */
+            n_inf: number;
+            /** N Absent */
+            n_absent: number;
+        };
+        /** MissingItem */
+        MissingItem: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Label */
+            label: number;
+            /** Status */
+            status: string;
+            /** Color */
+            color?: string | null;
+            /** N Invalid */
+            n_invalid: number;
+        };
+        /** MissingMatrixRequest */
+        MissingMatrixRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /** Feature Class */
+            feature_class?: string[] | null;
+            /**
+             * Max Cells
+             * @default 50000
+             */
+            max_cells: number;
+        };
+        /** MissingMatrixResponse */
+        MissingMatrixResponse: {
+            /** Features */
+            features: components["schemas"]["MissingFeature"][];
+            /** Items */
+            items: components["schemas"]["MissingItem"][];
+            /** Cells */
+            cells: components["schemas"]["MissingCell"][];
+            /** N Items Total */
+            n_items_total: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** OptionSpec */
+        OptionSpec: {
+            /** Name */
+            name: string;
+            /** Group */
+            group: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "bool" | "int" | "float" | "str" | "enum" | "float_list" | "int_list";
+            /** Default */
+            default?: unknown;
+            /**
+             * Nullable
+             * @default false
+             */
+            nullable: boolean;
+            constraints?: components["schemas"]["Constraints"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** OutlierFeature */
+        OutlierFeature: {
+            /** Feature */
+            feature: string;
+            /** Value */
+            value: number | null;
+            /** Z */
+            z: number;
+        };
+        /** OutlierFeatureCount */
+        OutlierFeatureCount: {
+            /** Feature */
+            feature: string;
+            /** N Outlier Items */
+            n_outlier_items: number;
+        };
+        /** OutlierItem */
+        OutlierItem: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Label */
+            label: number;
+            /** Status */
+            status: string;
+            /** Color */
+            color?: string | null;
+            /** Max Abs Z */
+            max_abs_z: number;
+            /** N Outlier Features */
+            n_outlier_features: number;
+            /** Top Features */
+            top_features: components["schemas"]["OutlierFeature"][];
+        };
+        /** OutliersRequest */
+        OutliersRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /**
+             * Threshold
+             * @default 3.5
+             */
+            threshold: number;
+            /**
+             * Top N
+             * @default 50
+             */
+            top_n: number;
+            /**
+             * Top Features
+             * @default 5
+             */
+            top_features: number;
+            /** Feature Class */
+            feature_class?: string[] | null;
+        };
+        /** OutliersResponse */
+        OutliersResponse: {
+            /** Threshold */
+            threshold: number;
+            /** N Items */
+            n_items: number;
+            /** N Flagged */
+            n_flagged: number;
+            /** Items */
+            items: components["schemas"]["OutlierItem"][];
+            /** Features */
+            features: components["schemas"]["OutlierFeatureCount"][];
+        };
         /** Page[CaseSummary] */
         Page_CaseSummary_: {
             /** Items */
             items: components["schemas"]["CaseSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
+        /** Page[CurationEvent] */
+        Page_CurationEvent_: {
+            /** Items */
+            items: components["schemas"]["CurationEvent"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
+        /** Page[Profile] */
+        Page_Profile_: {
+            /** Items */
+            items: components["schemas"]["app__radiomics__models__Profile"][];
             /** Next Cursor */
             next_cursor?: string | null;
             /** Total */
@@ -815,6 +2836,64 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[RunError] */
+        Page_RunError_: {
+            /** Items */
+            items: components["schemas"]["app__radiomics__models__RunError"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
+        /** Page[RunSummary] */
+        Page_RunSummary_: {
+            /** Items */
+            items: components["schemas"]["RunSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
+        /** PairPoint */
+        PairPoint: {
+            /** Case Id */
+            case_id: string;
+            /** Item Id A */
+            item_id_a: string;
+            /** Item Id B */
+            item_id_b: string;
+            /** Label */
+            label: number;
+            /** Status A */
+            status_a: string;
+            /** Status B */
+            status_b: string;
+            /** A */
+            a: number;
+            /** B */
+            b: number;
+            /** Mean */
+            mean: number;
+            /** Diff */
+            diff: number;
+        };
+        /**
+         * PairSpec
+         * @description `phase`: same case/scope/side/label across phases a vs b (default: first two phases
+         *     by priority present). `side`: same scan/label, VOI sides a vs b (default L vs R).
+         */
+        PairSpec: {
+            /**
+             * Kind
+             * @default phase
+             * @enum {string}
+             */
+            kind: "phase" | "side";
+            /** A */
+            a?: string | null;
+            /** B */
+            b?: string | null;
+        };
         /** PathRoot */
         PathRoot: {
             /** Alias */
@@ -824,11 +2903,8 @@ export interface components {
         };
         /** PhaseInfo */
         PhaseInfo: {
-            /**
-             * Canonical
-             * @enum {string}
-             */
-            canonical: "NC" | "CMP" | "NP" | "EP" | "UNK";
+            /** Canonical */
+            canonical: string;
             /** Raw */
             raw?: string | null;
             /**
@@ -849,6 +2925,26 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** ProfileCreate */
+        ProfileCreate: {
+            /** Name */
+            name: string;
+            settings?: components["schemas"]["RadiomicsSettings"];
+        };
+        /** ProfileEngine */
+        ProfileEngine: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Major */
+            major: string;
+        };
+        /** ProfilePatch */
+        ProfilePatch: {
+            /** Name */
+            name: string;
+        };
         /** ProjectCreate */
         ProjectCreate: {
             /** Name */
@@ -858,6 +2954,13 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Preset
+             * @description Study preset (PRJ-12)
+             * @default ccrcc
+             * @enum {string}
+             */
+            preset: "ccrcc" | "generic-ct" | "none";
         };
         /**
          * ProjectDetail
@@ -892,8 +2995,18 @@ export interface components {
             path_roots?: components["schemas"]["PathRoot"][];
             /** Label Map */
             label_map?: components["schemas"]["LabelEntry"][];
+            /**
+             * Preset
+             * @default ccrcc
+             * @enum {string}
+             */
+            preset: "ccrcc" | "generic-ct" | "none";
             /** Phase Vocabulary */
             phase_vocabulary?: string[];
+            /** Phase Mapping */
+            phase_mapping?: {
+                [key: string]: string;
+            };
             /** Phase Priority */
             phase_priority?: string[];
             viewer_defaults?: components["schemas"]["ViewerDefaults"];
@@ -911,6 +3024,12 @@ export interface components {
             description?: string | null;
             /** Label Map */
             label_map?: components["schemas"]["LabelEntry"][] | null;
+            /** Phase Vocabulary */
+            phase_vocabulary?: string[] | null;
+            /** Phase Mapping */
+            phase_mapping?: {
+                [key: string]: string;
+            } | null;
             /** Phase Priority */
             phase_priority?: string[] | null;
             viewer_defaults?: components["schemas"]["ViewerDefaults"] | null;
@@ -968,10 +3087,144 @@ export interface components {
             /** Detected At */
             detected_at: string;
         };
+        /**
+         * QueueRow
+         * @description Correction queue row (CUR-09); fields = CURATION.md §Correction queue CSV columns.
+         */
+        QueueRow: {
+            /** Case Id */
+            case_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Scope */
+            scope?: string | null;
+            /** Side */
+            side?: string | null;
+            /** Phase */
+            phase?: string | null;
+            /** Target */
+            target: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high";
+            /** Comment */
+            comment: string;
+            /** Reviewer */
+            reviewer: string;
+            /** At */
+            at: string;
+            /** Image Path Abs */
+            image_path_abs?: string | null;
+            /** Mask Path Abs */
+            mask_path_abs?: string | null;
+        };
+        /**
+         * RadiomicsSettings
+         * @description Input: omitted sections/keys take engine defaults. Output (normalized): all filled.
+         */
+        RadiomicsSettings: {
+            /** Image Types */
+            image_types?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            /** Features */
+            features?: {
+                [key: string]: string[] | null;
+            } | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** RankedFeature */
+        RankedFeature: {
+            /** Feature */
+            feature: string;
+            /** Rho */
+            rho: number | null;
+            /** N */
+            n: number;
+        };
+        /**
+         * RecodeDef
+         * @description VAR-06 recode: merge/rename categories; unmapped values are kept as they are.
+         */
+        RecodeDef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "recode";
+            /** Name */
+            name: string;
+            /** Source */
+            source: string;
+            /** Map */
+            map: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * Recommendation
+         * @description ANA-08: a triggered rule; `view` + `params` open the view that shows the problem.
+         */
+        Recommendation: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "REC-SMALL-N" | "REC-IMBALANCE" | "REC-MISSING" | "REC-CONFOUNDER" | "REC-VOLUME" | "REC-REDUNDANT" | "REC-NONINDEP" | "REC-NO-SIGNAL" | "REC-MODALITY" | "REC-COMPOSITIONAL";
+            /** Message */
+            message: string;
+            /**
+             * View
+             * @enum {string}
+             */
+            view: "run-overview" | "feature-distribution" | "missing-matrix" | "correlation" | "embedding" | "outliers" | "feature-vs-volume" | "group-comparison" | "association" | "balance" | "phase-side-consistency";
+            /** Params */
+            params?: {
+                [key: string]: string | number | boolean | string[] | null;
+            };
+        };
         /** RelinkResult */
         RelinkResult: {
             root: components["schemas"]["RootInfo"];
             verify: components["schemas"]["VerifyReport"];
+        };
+        /**
+         * ResultRow
+         * @description ANA-05: one tested feature (or the single balance-check row).
+         */
+        ResultRow: {
+            /** Feature */
+            feature: string | null;
+            /** Test */
+            test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher") | null;
+            /** Reason */
+            reason: string;
+            /** Statistic */
+            statistic?: number | null;
+            /** P */
+            p?: number | null;
+            /** Q */
+            q?: number | null;
+            /** Effect */
+            effect?: number | null;
+            /** Effect Name */
+            effect_name?: ("cohens_d" | "rank_biserial_r" | "eta_squared" | "epsilon_squared" | "spearman_rho" | "pearson_r" | "cramers_v") | null;
+            /** N */
+            n: number;
+            /** Groups */
+            groups?: string[];
         };
         /** RootBody */
         RootBody: {
@@ -990,6 +3243,187 @@ export interface components {
             /** Exists */
             exists: boolean;
         };
+        /** RunCounts */
+        RunCounts: {
+            /**
+             * Items
+             * @default 0
+             */
+            items: number;
+            /**
+             * Ok
+             * @default 0
+             */
+            ok: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Features
+             * @default 0
+             */
+            features: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
+        };
+        /** RunDetail */
+        RunDetail: {
+            /** Run Id */
+            run_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer: string;
+            engine: components["schemas"]["RunEngine"];
+            /** Ibsi Map Version */
+            ibsi_map_version: string;
+            /** Profile Hash */
+            profile_hash: string;
+            settings: components["schemas"]["RadiomicsSettings"];
+            selection: components["schemas"]["RunSelection"];
+            /** Inputs */
+            inputs: components["schemas"]["RunInput"][];
+            counts: components["schemas"]["RunCounts"];
+            /** Job Id */
+            job_id?: string | null;
+            /** Error */
+            error?: string | null;
+            progress?: components["schemas"]["RunProgress"] | null;
+        };
+        /** RunEngine */
+        RunEngine: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Deps */
+            deps: {
+                [key: string]: string;
+            };
+        };
+        /** RunInput */
+        RunInput: {
+            /** Item Id */
+            item_id: string;
+            /** Image Fp */
+            image_fp?: string | null;
+            /** Mask Fp */
+            mask_fp?: string | null;
+        };
+        /** RunOverviewRequest */
+        RunOverviewRequest: {
+            filters?: components["schemas"]["GlobalFilters"];
+            /**
+             * Errors Limit
+             * @default 200
+             */
+            errors_limit: number;
+        };
+        /**
+         * RunOverviewResponse
+         * @description Run overview: items ok/failed, per-label counts, runtime, error list → item.
+         */
+        RunOverviewResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Runtime S */
+            runtime_s?: number | null;
+            /** N Items Selected */
+            n_items_selected: number;
+            /** N Items Ok */
+            n_items_ok: number;
+            /** N Items Failed */
+            n_items_failed: number;
+            /** N Features */
+            n_features: number;
+            /** Per Label */
+            per_label: components["schemas"]["LabelCount"][];
+            /** Per Phase */
+            per_phase: components["schemas"]["LevelCount"][];
+            /** Curation */
+            curation: components["schemas"]["LevelCount"][];
+            /** N Errors */
+            n_errors: number;
+            /** Errors */
+            errors: components["schemas"]["app__analytics__models__RunError"][];
+        };
+        /** RunProgress */
+        RunProgress: {
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
+            /** Eta S */
+            eta_s?: number | null;
+        };
+        /** RunRequest */
+        RunRequest: {
+            /** Name */
+            name?: string | null;
+            /** Profile Hash */
+            profile_hash?: string | null;
+            settings?: components["schemas"]["RadiomicsSettings"] | null;
+            selection: components["schemas"]["Selection"];
+        };
+        /** RunSelection */
+        RunSelection: {
+            /** Scope */
+            scope?: ("complete" | "voi") | null;
+            /** Labels */
+            labels: number[];
+            /** Filter */
+            filter?: string | null;
+            /** Item Ids */
+            item_ids: string[];
+        };
+        /** RunSummary */
+        RunSummary: {
+            /** Run Id */
+            run_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer: string;
+            /** Profile Hash */
+            profile_hash: string;
+            selection: components["schemas"]["RunSelection"];
+            counts: components["schemas"]["RunCounts"];
+            /** Job Id */
+            job_id?: string | null;
+        };
         /** ScanGroup */
         ScanGroup: {
             /** Scan Idx */
@@ -998,17 +3432,247 @@ export interface components {
             /** Items */
             items: components["schemas"]["Item"][];
         };
+        /** ScatterPoint */
+        ScatterPoint: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Label */
+            label: number;
+            /** Status */
+            status: string;
+            /** Color */
+            color?: string | null;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * Selection
+         * @description All active items (default) / explicit `item_ids` / `filter`; plus scope and labels.
+         */
+        Selection: {
+            /** Item Ids */
+            item_ids?: string[] | null;
+            filter?: components["schemas"]["SelectionFilter"] | null;
+            /** Scope */
+            scope?: ("complete" | "voi") | null;
+            /** Labels */
+            labels?: number[];
+        };
+        /**
+         * SelectionFilter
+         * @description RAD-05 filter: values OR within a field, AND across fields; `var` as VAR-10.
+         */
+        SelectionFilter: {
+            /** Phase */
+            phase?: string[] | null;
+            /** Side */
+            side?: ("L" | "R" | "-")[] | null;
+            /** Var */
+            var?: {
+                [key: string]: string[];
+            } | null;
+        };
+        /** SettingsSchema */
+        SettingsSchema: {
+            engine: components["schemas"]["EngineInfo"];
+            /** Ibsi Map Version */
+            ibsi_map_version: string;
+            /** Groups */
+            groups: components["schemas"]["GroupSpec"][];
+            /** Options */
+            options: components["schemas"]["OptionSpec"][];
+            /** Filters */
+            filters: components["schemas"]["FilterSpec"][];
+            /** Feature Classes */
+            feature_classes: components["schemas"]["FeatureClassSpec"][];
+            defaults: components["schemas"]["RadiomicsSettings"];
+        };
         /**
          * Severity
          * @enum {string}
          */
         Severity: "error" | "warning" | "info";
+        /**
+         * TargetState
+         * @description Latest event for one `(item_id, target)` (or case-target) key (CUR-08).
+         */
+        TargetState: {
+            /** Target */
+            target: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high";
+            /** Comment */
+            comment: string;
+            /** Reviewer */
+            reviewer: string;
+            /** At */
+            at: string;
+            /** Event Id */
+            event_id: string;
+            /**
+             * Add To Queue
+             * @default false
+             */
+            add_to_queue: boolean;
+            /** Proposed Phase */
+            proposed_phase?: string | null;
+            /** Proposed Side */
+            proposed_side?: ("L" | "R") | null;
+        };
+        /**
+         * TestChoice
+         * @description ANA-04: the rule outcome with a one-line reason.
+         */
+        TestChoice: {
+            /** Default Test */
+            default_test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher") | null;
+            /** Alternative Test */
+            alternative_test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher") | null;
+            /**
+             * Override
+             * @enum {string}
+             */
+            override: "auto" | "default" | "alternative";
+            /** N Default */
+            n_default: number;
+            /** N Alternative */
+            n_alternative: number;
+            /** Reason */
+            reason: string;
+        };
         /** UiConfig */
         UiConfig: {
             /** Viewer Max Loaded */
             viewer_max_loaded: number;
             /** Public Base Url */
             public_base_url: string;
+        };
+        /**
+         * UnitPoint
+         * @description One unit row (ANA-03): representative item + the items it aggregates.
+         */
+        UnitPoint: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Item Ids */
+            item_ids: string[];
+            /** Status */
+            status: string;
+            /** Group */
+            group?: string | null;
+            /** X */
+            x?: number | null;
+            /** Value */
+            value?: number | null;
+        };
+        /**
+         * UnitSpec
+         * @description ANA-03 unit of analysis: one label, one scope, one phase per case.
+         *
+         *     `phase = null` picks, per case, the item whose phase ranks first in the project phase
+         *     priority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then
+         *     scan, side), `mean` (feature means), or `none` (keep every item; triggers REC-NONINDEP).
+         *     `label`/`scope` default to the most frequent in the filtered run.
+         */
+        UnitSpec: {
+            /** Label */
+            label?: number | null;
+            /** Scope */
+            scope?: ("complete" | "voi") | null;
+            /** Phase */
+            phase?: string | null;
+            /**
+             * Aggregate
+             * @default first
+             * @enum {string}
+             */
+            aggregate: "first" | "mean" | "none";
+        };
+        /** UnitSummary */
+        UnitSummary: {
+            /** Label */
+            label: number;
+            /** Scope */
+            scope: string;
+            /** Phase */
+            phase: string | null;
+            /**
+             * Aggregate
+             * @enum {string}
+             */
+            aggregate: "first" | "mean" | "none";
+            /** N Rows */
+            n_rows: number;
+            /** N Cases */
+            n_cases: number;
+            /** N Items */
+            n_items: number;
+            /** Max Items Per Case */
+            max_items_per_case: number;
+            /**
+             * N Variable Missing
+             * @default 0
+             */
+            n_variable_missing: number;
+        };
+        /**
+         * V2ImportReport
+         * @description API-54 result (CUR-13).
+         */
+        V2ImportReport: {
+            /** N Rows */
+            n_rows: number;
+            /** Imported */
+            imported: number;
+            /** Skipped */
+            skipped: components["schemas"]["V2Skipped"][];
+        };
+        /** V2Skipped */
+        V2Skipped: {
+            /** Line */
+            line: number;
+            /** Review Id */
+            review_id?: string | null;
+            /** Reason */
+            reason: string;
+        };
+        /** ValidateRequest */
+        ValidateRequest: {
+            settings?: components["schemas"]["RadiomicsSettings"];
+            /**
+             * Labels
+             * @description Selected labels (optional)
+             */
+            labels?: number[] | null;
+            /**
+             * N Items
+             * @description Selected item count (optional)
+             */
+            n_items?: number | null;
+        };
+        /** ValidateResult */
+        ValidateResult: {
+            /** Ok */
+            ok: boolean;
+            /** Issues */
+            issues: components["schemas"]["Issue"][];
+            settings?: components["schemas"]["RadiomicsSettings"] | null;
+            /** Profile Hash */
+            profile_hash?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1022,6 +3686,69 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** ValueCount */
+        ValueCount: {
+            /** Value */
+            value: string;
+            /** N */
+            n: number;
+        };
+        /** Variable */
+        Variable: {
+            /** Name */
+            name: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "metadata" | "derived" | "external" | "raw";
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "continuous" | "categorical" | "numeric-discrete" | "date" | "identifier" | "text" | "constant";
+            /**
+             * Inferred Type
+             * @enum {string}
+             */
+            inferred_type: "continuous" | "categorical" | "numeric-discrete" | "date" | "identifier" | "text" | "constant";
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "case" | "scan";
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "study" | "acquisition";
+            /** Tags */
+            tags?: ("confounder" | "outcome" | "sensitive")[];
+            /** Visible */
+            visible: boolean;
+            /** Confidence */
+            confidence: number;
+            /** Review */
+            review: boolean;
+            /**
+             * Overridden
+             * @default false
+             */
+            overridden: boolean;
+            profile: components["schemas"]["app__variables__models__Profile"];
+        };
+        /**
+         * VariableOverride
+         * @description API-16 PATCH body; only provided fields change (VAR-03/05).
+         */
+        VariableOverride: {
+            /** Type */
+            type?: ("continuous" | "categorical" | "date" | "identifier" | "text") | null;
+            /** Visible */
+            visible?: boolean | null;
+            /** Tags */
+            tags?: ("confounder" | "outcome" | "sensitive")[] | null;
         };
         /** VerifyReport */
         VerifyReport: {
@@ -1090,6 +3817,78 @@ export interface components {
             format: "nifti" | "npy";
             /** Fp */
             fp?: string | null;
+        };
+        /** RunError */
+        app__analytics__models__RunError: {
+            /** Item Id */
+            item_id?: string | null;
+            /** Case Id */
+            case_id?: string | null;
+            /** Label */
+            label?: number | null;
+            /** Message */
+            message: string;
+        };
+        /** Profile */
+        app__radiomics__models__Profile: {
+            /** Profile Hash */
+            profile_hash: string;
+            /** Name */
+            name: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            engine: components["schemas"]["ProfileEngine"];
+            settings: components["schemas"]["RadiomicsSettings"];
+        };
+        /**
+         * RunError
+         * @description One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.
+         */
+        app__radiomics__models__RunError: {
+            /** Item Id */
+            item_id: string;
+            /** Label */
+            label: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "failed" | "skipped";
+            /** Error */
+            error: string;
+            /** At */
+            at: string;
+        };
+        /**
+         * Profile
+         * @description VAR-01: computed over units of the variable's level (cases or scans).
+         */
+        app__variables__models__Profile: {
+            /** N Units */
+            n_units: number;
+            /** N Missing */
+            n_missing: number;
+            /** Missing Pct */
+            missing_pct: number;
+            /** Distinct */
+            distinct: number;
+            /** Top */
+            top?: components["schemas"]["ValueCount"][];
+            /** Examples */
+            examples?: string[];
+            /**
+             * Numeric Pct
+             * @default 0
+             */
+            numeric_pct: number;
+            /** Min */
+            min?: number | null;
+            /** Max */
+            max?: number | null;
+            /** Median */
+            median?: number | null;
         };
     };
     responses: never;
@@ -1578,13 +4377,181 @@ export interface operations {
             };
         };
     };
+    get_variables_api_v1_projects__pid__variables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_variable_api_v1_projects__pid__variables__name__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariableOverride"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_derived_api_v1_projects__pid__variables_derived_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BinDef"] | components["schemas"]["RecodeDef"] | components["schemas"]["DominantDef"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_derived_api_v1_projects__pid__variables_derived__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_external_api_v1_projects__pid__variables_external_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_external_api_v1_projects__pid__variables_external_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_cases_api_v1_projects__pid__cases_get: {
         parameters: {
             query?: {
                 /** @description Substring of case_id / patient_id */
                 q?: string | null;
-                group?: string | null;
-                phase?: ("NC" | "CMP" | "NP" | "EP" | "UNK") | null;
+                phase?: string | null;
                 /** @description Default hides all-excluded_upstream cases */
                 status?: ("active" | "excluded_upstream" | "missing") | null;
                 warning?: components["schemas"]["QcCode"] | null;
@@ -1817,6 +4784,1236 @@ export interface operations {
             };
         };
     };
+    list_events_api_v1_projects__pid__curation_events_get: {
+        parameters: {
+            query?: {
+                item_id?: string | null;
+                case_id?: string | null;
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CurationEvent_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    append_event_api_v1_projects__pid__curation_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Reviewer name or initials (CUR-01); required for writes */
+                "x-reviewer"?: string | null;
+                /** @description Per-tab id for audit */
+                "x-session-id"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationEvent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_state_api_v1_projects__pid__curation_state_get: {
+        parameters: {
+            query?: {
+                case_id?: string | null;
+                item_id?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_queue_api_v1_projects__pid__curation_queue_get: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON rows, or CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueRow"][];
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_curation_api_v1_projects__pid__curation_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_v2_api_v1_projects__pid__curation_import_v2_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Reviewer name or initials (CUR-01); required for writes */
+                "x-reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_v2_api_v1_projects__pid__curation_import_v2_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["V2ImportReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schema_api_v1_radiomics_schema_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsSchema"];
+                };
+            };
+        };
+    };
+    validate_settings_api_v1_radiomics_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_profiles_api_v1_projects__pid__radiomics_profiles_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Profile_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_profile_api_v1_projects__pid__radiomics_profiles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Identical settings already saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__radiomics__models__Profile"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__radiomics__models__Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_profile_api_v1_projects__pid__radiomics_profiles__phash__delete: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                phash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Profile_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_profile_api_v1_projects__pid__radiomics_profiles__phash__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                phash: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__radiomics__models__Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_api_v1_projects__pid__radiomics_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstimateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_projects__pid__radiomics_runs_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RunSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_run_api_v1_projects__pid__radiomics_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Reviewer name or initials; recorded in run.json (RAD-09) */
+                "x-reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_projects__pid__radiomics_runs__rid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_run_api_v1_projects__pid__radiomics_runs__rid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_run_api_v1_projects__pid__radiomics_runs__rid__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_features_api_v1_projects__pid__radiomics_runs__rid__features_get: {
+        parameters: {
+            query?: {
+                format?: "json" | "parquet" | "csv";
+                shape?: "long" | "wide";
+                /** @description Only this item (Measurements) */
+                item_id?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Features as JSON (FeaturesTable), CSV or Parquet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturesTable"];
+                    "text/csv": unknown;
+                    "application/vnd.apache.parquet": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_errors_api_v1_projects__pid__radiomics_runs__rid__errors_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RunError_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunOverviewRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feature_distribution_api_v1_projects__pid__radiomics_runs__rid__views_feature_distribution_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeatureDistributionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureDistributionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    missing_matrix_api_v1_projects__pid__radiomics_runs__rid__views_missing_matrix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MissingMatrixRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingMatrixResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    correlation_api_v1_projects__pid__radiomics_runs__rid__views_correlation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CorrelationRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrelationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmbeddingRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbeddingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outliers_api_v1_projects__pid__radiomics_runs__rid__views_outliers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OutliersRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutliersResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feature_vs_volume_api_v1_projects__pid__radiomics_runs__rid__views_feature_vs_volume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeatureVsVolumeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureVsVolumeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    group_comparison_api_v1_projects__pid__radiomics_runs__rid__views_group_comparison_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupComparisonRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    association_api_v1_projects__pid__radiomics_runs__rid__views_association_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssociationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssociationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    balance_api_v1_projects__pid__radiomics_runs__rid__views_balance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BalanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    phase_side_consistency_api_v1_projects__pid__radiomics_runs__rid__views_phase_side_consistency_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsistencyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsistencyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_analyses_api_v1_projects__pid__analyses_get: {
+        parameters: {
+            query?: {
+                run_id?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_analysis_api_v1_projects__pid__analyses_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisSpec"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analysis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_analysis_api_v1_projects__pid__analyses__aid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                aid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analysis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_analysis_api_v1_projects__pid__analyses__aid__export_get: {
+        parameters: {
+            query?: {
+                file?: "tidy" | "results" | "descriptives" | "spec";
+            };
+            header?: never;
+            path: {
+                pid: string;
+                aid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description tidy/results/descriptives CSV, or the spec JSON (ANA-09) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_jobs_api_v1_jobs_get: {
         parameters: {
             query?: {
@@ -1933,6 +6130,57 @@ export interface operations {
                 content: {
                     "text/event-stream": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mesh_api_v1_projects__pid__items__iid__mesh__label__get: {
+        parameters: {
+            query?: {
+                smooth?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                iid: string;
+                label: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description gzip MZ3 mesh (world mm) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Mesh job queued or running (`Location` = job) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Not modified (If-None-Match) */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

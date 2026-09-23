@@ -123,3 +123,8 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 
 - Settings → "Simulate a second reviewer" is on by default in the mock build: a fake reviewer posts a decision every 45 s so live-sync toasts (UI-10, CUR-11) can be seen. It does not exist against the real API.
 - The mock API (`frontend/src/api/mock/`) is seeded from `make fixtures` via `npm run mock:seed`; the seed is committed so the prototype runs standalone.
+
+## Implementation notes (P2)
+
+- Project view has a "Columns and colour" menu: extra columns and a colour stripe + legend from any visible case-level variable (VAR-10). The share link is the current deep link.
+- Mock-only defaults ("Simulate a second reviewer", demo projects) exist only with `VITE_API_MODE=mock`; Settings hides them otherwise.

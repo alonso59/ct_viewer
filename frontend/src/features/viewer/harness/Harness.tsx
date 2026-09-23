@@ -5,7 +5,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { DEMO_PID, useCase, useCases, useProject, type ItemRecord } from '../../../api'
+import { useCase, useCases, useProject, type ItemRecord } from '../../../api'
+import { DEMO_PID } from '../../../api/mock/server'
 import { useGlobalKeybindings, useWorkbench } from '../../../shell'
 import { useViewerSync } from '../../../state'
 import { applyTheme } from '../../../theme'
@@ -39,8 +40,8 @@ const REFERENCE: ItemRecord = {
   scope: 'complete',
   side: '-',
   patient_id: 'REF',
-  group: '',
-  phase: { canonical: 'NP', raw: 'NP', source: 'harness' },
+  import_id: 'harness',
+  phase: { canonical: 'NP', raw: 'NP', source: 'none' },
   image: { ref: 'reference/reference_ct.nii.gz', format: 'nifti' },
   mask: { ref: 'reference/reference_seg.nii.gz', format: 'nifti' },
   geometry: { shape: [512, 512, 600], spacing: [0.78, 0.78, 0.8], dtype: 'int16', orientation: 'LPS' },

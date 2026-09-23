@@ -11,7 +11,7 @@ Depends: domain/*.md, API.md, ADR-0002, ADR-0003, ADR-0006.
 | Runtime | Python 3.12, FastAPI, Uvicorn (**1 worker**), Pydantic v2, pydantic-settings |
 | Imaging | nibabel (headers, npy→NIfTI), numpy, scikit-image (marching cubes) |
 | Radiomics | PyRadiomics + SimpleITK + PyWavelets behind an adapter (ADR-0006) |
-| Tabular / analytics | pyarrow (Parquet), DuckDB (dashboard queries), scikit-learn (PCA; UMAP optional), SciPy + statsmodels (tests, FDR; ANA-*) |
+| Tabular / analytics | pyarrow (Parquet), DuckDB (dashboard queries), scikit-learn (PCA; UMAP optional), SciPy (tests, FDR; ANA-*) |
 | Realtime | Server-Sent Events (sse-starlette) |
 | IDs | ULID (`python-ulid`) |
 | Tests | pytest, httpx, hypothesis (parsers) |

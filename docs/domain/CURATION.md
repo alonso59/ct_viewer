@@ -74,3 +74,9 @@ Absolute paths are resolved at export time so the 3D Slicer user can open the fi
 ## Deferred
 
 - Review sessions (start/stop timer, per-session progress): v3.1.
+
+## Implementation notes (P4-BE)
+
+- v2 import target mapping: `SEG→seg`, `VOI_mask→voi_mask`, `phase_issue→phase`, `side_laterality_issue→side`, `{name}_mask→label:{value}` via the label map; rows without `scan_idx` → `target=case`.
+- The correction queue holds item-level entries only. `curation_state.csv` columns = `STATE_COLUMNS` in `backend/app/curation/service.py`.
+- API-50 GET is a page; API-51 filters by `case_id`/`item_id`; API-53/54 return 201; API-54 needs `X-Reviewer`. Imports over 500 events publish one `project.updated {fields: ["curation"]}` instead of per-event SSE.

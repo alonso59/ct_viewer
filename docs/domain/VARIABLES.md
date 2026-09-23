@@ -34,7 +34,7 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 | `categorical` | ≤ 20 distinct (or ≤ 5 % of rows) | `phase`, `manufacturer`, `convolution_kernel` |
 | `numeric-discrete` → Review | numeric with < 10 distinct: user picks continuous or categorical | `sn` (0, 5, 7, 8, 10, 30) |
 | `date` | ISO date/datetime or `YYYYMMDD` | `scan_date` |
-| `identifier` | distinct ≈ rows | `series_uid` |
+| `identifier` | distinct ≈ rows | `acquisition_time` (UIDs are excluded outright, VAR-09) |
 | `text` | anything else | `phase_guess_evidence` |
 | `constant` | 1 distinct value → hidden | `status` |
 
@@ -56,3 +56,12 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 
 172 scans / 77 cases, ~160 fields. No `group` field. `hb`, `lb`, `sn` are case-level numeric (0–100), present for 39/77 cases,
 and `hb + lb ≈ 100` in most cases (compositional). 2 of 172 scans are MRI. 7 manufacturer strings for 4 vendors.
+
+## Implementation notes (P1b)
+
+- Only `metadata.jsonl` rows are profiled; VOI-catalog extras are not. Core phase fields (`phase`, `curated_phase`, `canonical_phase`) are core, not variables.
+- The Acquisition group is the known converter field list in `backend/app/variables/schema.py`.
+- `bin`: a value `v < t` goes to the lower bin; `quantiles` on the wire are cut probabilities in (0, 1) (the UI shows a group count and converts).
+- `dominant`: missing if any source is missing; `tie` on equal maxima.
+- Unconfirmed `numeric-discrete` variables are rejected for tests (422) until the user confirms a type.
+- API-16/17 return the full `Catalog` (`variables, excluded, derived, external, overrides`); profile fields are `distinct` and `top[{value, n}]`. API-18 returns `{table, n_rows, n_matched, n_unmatched, unmatched_keys, duplicate_keys, conflicts}`. Deleting a derived variable in use → 422 `validation`.

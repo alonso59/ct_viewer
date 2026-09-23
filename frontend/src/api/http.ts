@@ -7,6 +7,8 @@ import { ProblemError, toProblemError } from './problem'
 import type { paths } from './schema'
 import type { Api, CaseFilter, ConnectionState } from './surface'
 import type {
+  DerivedDef,
+  ExternalImportResult,
   CaseDetail,
   CaseSummary,
   FsListing,
@@ -66,13 +68,11 @@ type RawCase = paths['/api/v1/projects/{pid}/cases']['get']['responses']['200'][
   Partial<Pick<CaseSummary, 'variables' | 'thumb_item_id' | 'excluded'>>
 
 function normalizeCase(c: RawCase): CaseSummary {
-  const { group: _group, ...rest } = c
-  void _group
   return {
     patient_id: null,
     phases: [],
     last_reviewed_at: null,
-    ...rest,
+    ...c,
     curation_status: (c.curation_status ?? 'not_reviewed') as CaseSummary['curation_status'],
     variables: c.variables ?? {},
     thumb_item_id: c.thumb_item_id ?? null,
@@ -82,7 +82,6 @@ function normalizeCase(c: RawCase): CaseSummary {
 
 const normalizeItem = (i: paths['/api/v1/projects/{pid}/cases/{cid}']['get']['responses']['200']['content']['application/json']['scans'][number]['items'][number]): ItemRecord => ({
   patient_id: null,
-  group: null,
   image: null,
   mask: null,
   geometry: null,
@@ -100,7 +99,63 @@ const normalizeProject = (p: Schemas['ProjectDetail']): Project => ({
   phase_priority: [],
   viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
   ...p,
+  phase_mapping: p.phase_mapping ?? {},
   label_map: p.label_map ?? [],
+})
+
+// API-16..18 return the whole Catalog; the UI works on Variable[] (profile names differ too).
+type Catalog = Schemas['Catalog']
+type ExternalReport = Schemas['ExternalReport']
+
+type WireDerived = NonNullable<Catalog['derived']>[number]
+
+/** UI: `quantiles` = number of groups; API: cut probabilities in (0, 1). */
+function toWireDerived(d: DerivedDef): WireDerived {
+  if (d.op !== 'bin' || d.quantiles == null) return d as WireDerived
+  const n = d.quantiles
+  return { ...d, quantiles: Array.from({ length: n - 1 }, (_, i) => (i + 1) / n) }
+}
+
+function fromWireDerived(d: WireDerived): DerivedDef {
+  if (d.op !== 'bin' || d.quantiles == null) return d as DerivedDef
+  return { ...d, quantiles: d.quantiles.length + 1, thresholds: d.thresholds ?? undefined, labels: d.labels ?? [] }
+}
+
+function catalogToVariables(c: Catalog): Variable[] {
+  const derived = c.derived ?? []
+  return (c.variables ?? []).map((v) => {
+    const p = v.profile
+    return {
+      ...v,
+      tags: v.tags ?? [],
+      profile: {
+        missing_pct: p.missing_pct,
+        n_distinct: p.distinct,
+        examples: p.examples ?? [],
+        min: p.min ?? null,
+        max: p.max ?? null,
+        levels: (p.top ?? []).map((x) => ({ value: x.value, count: x.n })),
+      },
+      definition: (() => {
+        const d = derived.find((x) => x.name === v.name)
+        return d ? fromWireDerived(d) : null
+      })(),
+    }
+  })
+}
+
+function variableFrom(c: Catalog, name: string): Variable {
+  const v = catalogToVariables(c).find((x) => x.name === name)
+  if (!v) throw new Error(`variable ${name} missing from catalog response`)
+  return v
+}
+
+const externalResult = (r: ExternalReport, key: 'case_id' | 'patient_id'): ExternalImportResult => ({
+  key,
+  n_rows: r.n_rows,
+  matched: r.n_matched,
+  unmatched_keys: r.unmatched_keys ?? [],
+  added: r.table.columns ?? [],
 })
 
 const normalizeWarning = (w: Schemas['QcWarning']): QCWarning => ({ case_id: null, field: null, item_id: null, path_ref: null, ...w })
@@ -237,9 +292,18 @@ export const httpApi: Api = {
   },
 
   // API-16..18 (lane/2-backend)
-  listVariables: (pid) => listOrEmpty<Variable>(`/projects/${enc(pid)}/variables`),
-  patchVariable: (pid, name, patch) => send('PATCH', `/projects/${enc(pid)}/variables/${enc(name)}`, patch),
-  createDerived: (pid, def) => send('POST', `/projects/${enc(pid)}/variables/derived`, def),
+  async listVariables(pid) {
+    try {
+      return catalogToVariables(await send<Catalog>('GET', `/projects/${enc(pid)}/variables`))
+    } catch (e) {
+      if (e instanceof ProblemError && (e.status === 404 || e.status === 405)) return []
+      throw e
+    }
+  },
+  patchVariable: async (pid, name, patch) =>
+    variableFrom(await send<Catalog>('PATCH', `/projects/${enc(pid)}/variables/${enc(name)}`, patch), name),
+  createDerived: async (pid, def) =>
+    variableFrom(await send<Catalog>('POST', `/projects/${enc(pid)}/variables/derived`, toWireDerived(def)), def.name),
   async deleteDerived(pid, name) {
     await send('DELETE', `/projects/${enc(pid)}/variables/derived/${enc(name)}`)
   },
@@ -247,7 +311,7 @@ export const httpApi: Api = {
     const fd = new FormData()
     fd.set('file', file)
     fd.set('key', key)
-    return send('POST', `/projects/${enc(pid)}/variables/external`, fd)
+    return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then((r) => externalResult(r, key))
   },
 
   // API-20..26

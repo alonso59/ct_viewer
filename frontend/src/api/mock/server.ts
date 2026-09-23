@@ -96,7 +96,6 @@ function demoFields(item: Seed['items'][number]): Record<string, unknown> {
   const labelled = n % 3 !== 0
   const hb = labelled ? (n * 37) % 101 : ''
   return {
-    group: item.group ?? '',
     hb,
     lb: labelled ? Math.max(0, 100 - Number(hb) - (n % 4)) : '',
     sn: labelled ? [0, 5, 7, 8, 10, 30][n % 6] : '',
@@ -218,6 +217,7 @@ function makeProject(pid: string, name: string, preset: Preset, withData: boolea
       path_roots: withData ? [{ alias: 'DATA', path: DEMO_ROOT }] : [],
       label_map: clone(withData && d.labels.length === 0 ? autoLabels(items) : d.labels),
       phase_vocabulary: d.vocabulary,
+      phase_mapping: {},
       phase_priority: ['NP', 'CMP', 'NC', 'EP', 'UNK'],
       viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
       share_url: `${location.origin}/p/${pid}`,
@@ -862,7 +862,7 @@ export const mockServer: Api = {
     return (itemId ? all.filter((f) => f.item_id === itemId) : all).flatMap((f) => {
       const it = byId.get(f.item_id)
       return it
-        ? [{ ...f, case_id: it.case_id, scan_idx: it.scan_idx, scope: it.scope, side: it.side, phase: it.phase.canonical, group: it.group ?? '' }]
+        ? [{ ...f, case_id: it.case_id, scan_idx: it.scan_idx, scope: it.scope, side: it.side, phase: it.phase.canonical, group: '' }] // FeatureRow.group removed in P6-FE (Step 3)
         : []
     })
   },

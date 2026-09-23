@@ -191,3 +191,18 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - API-25 end to end (UI → backend) not exercised: the router is not mounted in this lane; client polling is unit-tested.
 - NFR-09 with 3 loaded tabs not measured (one tab 0.58 GB heap + GPU textures ≈ 0.5 GB for the reference).
 - Browsers without EXT_texture_norm16 (likely Safari) fall back to R32F (2× GPU memory for int16 CT); not tested on Safari/Firefox.
+
+## 2026-09-24 · Step 2 integration · v3
+
+**Done**
+- Merged `lane/2-backend` (4 commits), `lane/2-shell` (1), `lane/2-viewer` (1). Only conflicts: this file (entries kept).
+- Integration fixes: mounted API-25 mesh router, moved `mesh_test.py` → `backend/tests/test_mesh.py`, contract test exempts binary `…/mesh/{label}`, OpenAPI snapshot + `make gen-api` refreshed.
+- Frontend vs real API: removed `group` handling in `api/http.ts` and the mock; added a Catalog → Variable[] adapter (profile `distinct/top` → `n_distinct/levels`, quantile count ↔ cut probabilities, ExternalReport → ExternalImportResult) with `api/http.variables.test.ts`; `phase_mapping` default; harness imports.
+- Viewer: `vw` strings moved into `en.json` (temporary `features/viewer/i18n.ts` deleted); `configureViewer` wired from API-01 in `App.tsx`; NiiVue lazy-loaded (initial JS 632 → 300 KB gzip, NFR-07); NiiVue pinned to 0.69.0.
+- Docs: implementation notes recorded in VIEWER, VARIABLES, PROJECT_FORMAT, CURATION, RADIOMICS, ANALYSIS, UI_SHELL, FE ARCHITECTURE, DEV_ENV; ADR-0012 and BE stack say SciPy only.
+- `make fixtures && make check` green: 279 backend (3 PyRadiomics modules skipped, extra not installed here) + 76 frontend.
+
+**For Step 3 lanes**
+- P6-FE: remove `group` from `FeatureRow`/dashboard; build on API-38/39.
+- P4-FE / P5-FE: backend contracts in CURATION.md / RADIOMICS.md §Implementation notes; regenerate types with `make gen-api`.
+- Initial bundle is at the 300 KB limit: keep new heavy dependencies behind lazy boundaries.

@@ -13,16 +13,17 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P0 | Documentation & ADRs | ✅ Done (2026-09-23) |
 | P0.5 | UX design system & clickable prototype | 🟨 Built and approved 2026-09-23; curator/researcher walkthrough pending |
 | P1 | Backend core: projects, import, index | ✅ 2026-09-23 (verified on `.fixtures/synthetic`; Dataset820 run deferred to P7 on the remote server, command in LANE_NOTES.md) |
-| P1b | Study variables (backend): profiling, catalog, derived, external table; remove hard-coded `group` | ⬜ |
-| P2 | Frontend shell + explorer | ⬜ |
-| P3 | Viewer (NiiVue) | ⬜ |
-| P4 | Curation + multi-user sync | ⬜ |
-| P5 | Radiomics engine + settings + runs | ⬜ |
-| P6 | Dashboard + guided analysis | ⬜ |
+| P1b | Study variables (backend): profiling, catalog, derived, external table; remove hard-coded `group` | ✅ 2026-09-24 |
+| P2 | Frontend shell + explorer | ✅ 2026-09-24 |
+| P3 | Viewer (NiiVue) | ✅ 2026-09-24 (synthetic reference; Dataset820 in P7) |
+| P4 | Curation + multi-user sync | 🟨 Backend done; frontend in Step 3 |
+| P5 | Radiomics engine + settings + runs | 🟨 Backend done; settings form in Step 3 |
+| P6 | Dashboard + guided analysis | 🟨 Backend done; frontend in Step 3 |
 | P7 | Packaging: Docker + udocker, E2E, performance | ⬜ |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
+Step 1 integrated 2026-09-23 · Step 2 integrated 2026-09-24 (see LANE_NOTES.md).
 
 ## Lanes (parallel work; prompts in ops/AGENT_RUNBOOK.md)
 
@@ -99,6 +100,7 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [x] Engine adapter + schema + IBSI map (RAD-01, 12), validation (RAD-04)
 - [x] Profiles, selection, estimate, runs, resume, outputs (RAD-03, 05..11)
 - [ ] Schema-driven settings form (RAD-01/02)
+- [ ] **Human check:** spot-check `backend/app/radiomics/ibsi_map.json` codes and the extended phantom reference values against the IBSI manual (written from memory by an agent); run the IBSI CT phantom (TST-06 part 2) once the dataset is available
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P6 — Dashboard + guided analysis (ADR-0012)
@@ -107,11 +109,14 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [ ] Measurements panel for the active item (UI-14)
 - [x] Backend `analytics/`: analysis spec, unit (one row per case), test choice, FDR, effect sizes, descriptives, REC rules, export (ANA-01..09, API-39), TST-12
 - [ ] Analysis panel + Group comparison / Association / Balance check views (DB-08/09)
+- [ ] Remove the leftover `group` from `FeatureRow` and the dashboard (mock sets `group: ''` until then); colour/split by variable
+- [ ] End-to-end check of the Variables view against the real API-16..18 (the Catalog adapter in `api/http.ts` is unit-tested only)
 **Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click; a two-group and a three-group comparison on a derived variable return tests matching SciPy, with q-values and at least one triggered recommendation.
 
 ### P7 — Packaging
 - [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*)
 - [ ] TST-05, TST-09, TST-10; README quick start
+- [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12); add `modality` to `ItemRecord` (VW-05 uses `extra.modality`)
 - [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04)
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
 

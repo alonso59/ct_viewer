@@ -73,3 +73,9 @@ frontend/src/
 | FE-09 | Every async surface has loading, empty and error states (problem+json `title`/`detail`). | M |
 | FE-10 | The reviewer name comes from `state/reviewer` and is sent as `X-Reviewer` on writes. | M |
 | FE-11 | No hard-coded UI strings: all text goes through `t()` with keys in `i18n/en.json`. Dates and numbers use `Intl`. A lint rule flags literal JSX text. | M |
+
+## API layer (P2)
+
+- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`), `mock/` implements it for the prototype.
+- Env: `VITE_API_MODE` (`http` | `mock`), `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; it flushes SSE headers so the stream opens immediately).
+- Initial JS is ~300 KB gzip after lazy-loading NiiVue: at the NFR-07 limit, so new eager dependencies need a lazy boundary.

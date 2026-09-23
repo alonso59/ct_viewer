@@ -53,3 +53,10 @@ The user states **what question** they ask; the app picks a sensible test, expla
 ## Storage
 
 `analyses/{analysis_id}/spec.json`, `results.parquet`, `descriptives.parquet`, `recommendations.json`, `exports/`.
+
+## Implementation notes (P6-BE)
+
+- Export: `GET …/analyses/{aid}/export?file=tidy|results|descriptives|spec`; the tidy export omits `sensitive` variables.
+- Unit: `{label, scope, phase, aggregate: first|mean|none}`. Colour/split: `{kind: variable|phase|scope|side|label|curation_status, name}`. Filters body: `{var, phase, scope, side, label, status, item_ids}`.
+- R×C Fisher is a seeded permutation test. Everything uses SciPy (no statsmodels).
+- Views and analyses currently compute in a thread in the API process, not a job worker; fine at fixture scale, revisit near 3,000 cases (BE-12).

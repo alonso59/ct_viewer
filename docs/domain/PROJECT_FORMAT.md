@@ -104,3 +104,8 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
 | Source data | Never opened for writing (R1) |
 
 Single-writer model and locking: BE-05.
+
+## Phase configuration (P1b)
+
+- `phase_mapping` keys are RAW values upper-cased → canonical phase. An empty `phase_vocabulary` (preset `none`) keeps raw values.
+- Phases are strings from `phase_vocabulary` (no fixed enum). A PATCHed phase configuration applies at the next import.

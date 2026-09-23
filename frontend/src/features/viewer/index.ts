@@ -11,7 +11,6 @@ import { useViewerLocal } from './local'
 import { isLayoutId } from './model/layouts'
 import type { ViewerContext } from './model/types'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, WindowPresets } from './Tools'
-import './i18n'
 
 export { PLANE_COLOR } from './Viewport'
 export { configureViewer } from './budget'

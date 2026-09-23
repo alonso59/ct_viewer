@@ -9,7 +9,6 @@ import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
 import { ViewerSurface } from './ViewerSurface'
-import './i18n'
 import './viewer.css'
 
 export interface CaseParams {
