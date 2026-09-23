@@ -44,6 +44,8 @@ LANE RULES
 - Run the lane's checks before every commit. Never commit red.
 - Use sub-agents in parallel for independent modules within your lane.
 - Do not run npm/node outside a container on the remote server (AGENTS R4).
+- Commits are local only. Never git push.
+- Dev servers: port 5173 is taken by VS Code on the dev Mac; use the port given in the lane prompt.
 - When the lane's exit criteria pass: tick the tasks in docs/product/ROADMAP.md
   (only your lines), write a summary in LANE_NOTES.md, commit, and STOP.
 - If a requirement is ambiguous or contradicts another, stop and ask. Do not guess.
