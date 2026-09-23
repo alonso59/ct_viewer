@@ -14,6 +14,7 @@ from app.config import Settings, get_settings
 from app.context import AppContext, build_context
 from app.core.errors import install_handlers
 from app.core.logs import configure
+from app.imaging import thumbnails
 
 log = logging.getLogger("app.main")
 
@@ -49,6 +50,7 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
 
 def wire(ctx: AppContext) -> None:
     """Cross-service hooks (integration point)."""
+    ctx.after_index.append(thumbnails.after_index_hook(ctx.workspace, ctx.index, ctx.jobs))
 
 
 app = create_app()

@@ -91,3 +91,17 @@ class ProjectSummary(BaseModel):
     n_cases: int = 0
     curation_progress: float = 0.0  # 0..1; filled by curation (lane P4)
     share_url: str  # PRJ-03
+
+
+class ProjectDetail(ProjectConfig):
+    """API-03 response: project.json + share link (PRJ-03)."""
+
+    share_url: str
+
+
+class RootInfo(BaseModel):
+    """API-05 alias row."""
+
+    alias: str
+    path: str
+    exists: bool
