@@ -23,6 +23,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Docker / udocker / env vars | `ops/DEPLOYMENT.md` |
 | Local and remote dev loop | `ops/DEV_ENV.md` |
 | Tests and fixtures | `ops/TESTING.md` |
+| (Humans) multi-agent prompts per step | `ops/AGENT_RUNBOOK.md`; agents skip it |
 | Performance, safety, privacy targets | `product/NFR.md` |
 | Why a decision was made | `adr/README.md` → one ADR |
 
