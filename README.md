@@ -2,7 +2,7 @@
 
 Radiology WebUI is a local-first ccRCC CT dataset curation viewer. It combines a FastAPI backend and a React + TypeScript + Vite frontend for database-driven case worklists, MPR slice review, overlay visualization, optional 3D mesh rendering, and state-only medical curation decisions.
 
-See the full requirements in [docs/SRS.md](docs/SRS.md).
+> v3 rewrite in progress. Documentation: [docs/INDEX.md](docs/INDEX.md). This README describes the v2 app until phase P7 (see [docs/product/ROADMAP.md](docs/product/ROADMAP.md)).
 
 ## Environment
 
@@ -13,7 +13,7 @@ See the full requirements in [docs/SRS.md](docs/SRS.md).
 - Frontend auth token storage defaults to in-memory (`frontend/.env.example`)
 
 First-time machine setup guide:
-- [docs/SETUP_PREREQUISITES.md](docs/SETUP_PREREQUISITES.md)
+- [docs/archive/v2/SETUP_PREREQUISITES.md](docs/archive/v2/SETUP_PREREQUISITES.md)
 
 ## Local udocker entrypoints
 
