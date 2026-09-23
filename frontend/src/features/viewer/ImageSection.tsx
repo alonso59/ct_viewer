@@ -15,6 +15,8 @@ export function ImageSection() {
   const [advanced, setAdvanced] = useState(false)
   if (!iid || !it) return <div className="muted" style={{ padding: '4px 16px 8px', fontSize: 'var(--fs-panel)' }}>{t('image.none')}</div>
   const g = it.geometry
+  // API names (API-22 ItemAdvanced); the P0.5 mock called them image_abs/mask_abs
+  const adv = it.advanced as { image_path?: string | null; mask_path?: string | null }
   return (
     <dl className="props">
       <dt>{t('image.item')}</dt>
@@ -32,16 +34,14 @@ export function ImageSection() {
       <dd>{g ? `${g.dtype} · ${g.orientation}` : '—'}</dd>
       <dt>{t('image.mask')}</dt>
       <dd>{it.mask ? t('image.labels', { labels: it.labels_present.join(', ') || '—' }) : t('image.noMask')}</dd>
-      <dt>{t('image.group')}</dt>
-      <dd>{it.group || '—'}</dd>
       {advanced ? (
         <>
           <dt>{t('image.imageRef')}</dt>
-          <dd className="mono" title={it.advanced.image_abs ?? ''}>{it.image?.ref ?? '—'}</dd>
+          <dd className="mono" title={adv.image_path ?? ''}>{it.image?.ref ?? '—'}</dd>
           <dt>{t('image.maskRef')}</dt>
-          <dd className="mono" title={it.advanced.mask_abs ?? ''}>{it.mask?.ref ?? '—'}</dd>
+          <dd className="mono" title={adv.mask_path ?? ''}>{it.mask?.ref ?? '—'}</dd>
           <dt>{t('image.absolute')}</dt>
-          <dd className="mono" title={it.advanced.image_abs ?? ''}>{it.advanced.image_abs ?? '—'}</dd>
+          <dd className="mono" title={adv.image_path ?? ''}>{adv.image_path ?? '—'}</dd>
         </>
       ) : null}
       <dt />

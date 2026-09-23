@@ -1,12 +1,14 @@
-// P0.5 viewport placeholder: one static mid-slice per plane with live W/L, zoom/pan, label overlay,
-// per-plane accent colors and crosshair (VW-04). P3 replaces this with the NiiVue engine.
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+// Viewport frame over the engine canvas: header, slice slider, crosshair lines, corner text
+// (VW-02, 03, 04, 09, 12). The pixels underneath come from the engine; the body is transparent.
+import type { HTMLAttributes } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import type { ItemRecord, LabelDef, Plane, SliceSet } from '../../api'
-import { hexToRgb, renderSlice } from '../../lib'
+import type { LabelDef } from '../../api'
 import { useViewerSync, type ViewportId } from '../../state'
 import { CtIcon, Icon, codicon } from '../../theme'
+import { useViewerLocal } from './local'
+import { CROSS, ORIENTATION, isPlane } from './model/layouts'
+import type { Plane, PlaneView } from './model/types'
 
 export const PLANE_COLOR: Record<ViewportId, string> = {
   axial: 'var(--plane-axial)',
@@ -16,39 +18,24 @@ export const PLANE_COLOR: Record<ViewportId, string> = {
 }
 const PLANE_ICON = { axial: 'plane-axial', sagittal: 'plane-sagittal', coronal: 'plane-coronal', '3d': 'view-3d' } as const
 
-// Which planes cross each 2D view: vertical line, horizontal line (3D Slicer convention)
-const CROSS: Record<Plane, [ViewportId, ViewportId]> = {
-  axial: ['sagittal', 'coronal'],
-  coronal: ['sagittal', 'axial'],
-  sagittal: ['coronal', 'axial'],
-}
-
-function physicalSize(plane: Plane, shape: number[], spacing: number[]): [number, number] {
-  const [nx = 1, ny = 1, nz = 1] = shape
-  const [sx = 1, sy = 1, sz = 1] = spacing
-  if (plane === 'axial') return [nx * sx, ny * sy]
-  if (plane === 'coronal') return [nx * sx, nz * sz]
-  return [ny * sy, nz * sz]
-}
-
-export function sliceIndex(plane: Plane, shape: number[]): [number, number] {
-  const [nx = 1, ny = 1, nz = 1] = shape
-  const n = plane === 'axial' ? nz : plane === 'coronal' ? ny : nx
-  return [(n >> 1) + 1, n]
-}
+export type MeshState = 'idle' | 'building' | 'error'
 
 interface Props {
   id: ViewportId
-  item: ItemRecord
-  /** null = still loading; undefined = no preview for this item */
-  slices: SliceSet | null | undefined
+  plane: PlaneView | null
+  hasMask: boolean
+  /** Labels present in this item (3D legend) */
   labels: LabelDef[]
-  onMaximize: () => void
   maximized: boolean
+  onMaximize: () => void
+  onGoto: (index: number) => void
+  meshState: MeshState
+  bodyProps: HTMLAttributes<HTMLDivElement>
 }
 
-export function Viewport({ id, item, slices, labels, onMaximize, maximized }: Props) {
+export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, onGoto, meshState, bodyProps }: Props) {
   const { t } = useTranslation()
+  const tool = useViewerSync((s) => s.tool)
   const color = PLANE_COLOR[id]
   return (
     <section
@@ -65,178 +52,95 @@ export function Viewport({ id, item, slices, labels, onMaximize, maximized }: Pr
           <CtIcon name={PLANE_ICON[id]} />
         </span>
         <span className="vp-title">{t(`viewer.plane.${id}`)}</span>
-        {id !== '3d' && item.geometry ? (
-          <span className="vp-index num">
-            {t('viewer.sliceOf', { index: sliceIndex(id, item.geometry.shape)[0], total: sliceIndex(id, item.geometry.shape)[1] })}
-          </span>
-        ) : null}
+        {plane ? <span className="vp-index num">{t('viewer.sliceOf', { index: plane.index, total: plane.total })}</span> : null}
+        {id === '3d' && hasMask ? <Render3dControls meshState={meshState} /> : null}
         <button type="button" className="icon-btn vp-max" aria-label={t(maximized ? 'viewer.restore' : 'viewer.maximize')} title={t(maximized ? 'viewer.restore' : 'viewer.maximize')} onClick={onMaximize}>
           <Icon spec={codicon(maximized ? 'screen-normal' : 'screen-full')} />
         </button>
       </header>
-      {id === '3d' ? <View3D item={item} labels={labels} /> : <SliceView plane={id} item={item} slices={slices} labels={labels} />}
+      <div className="vp-body" data-tile={id} data-tool={isPlane(id) ? tool : 'orbit'} {...bodyProps}>
+        {isPlane(id) ? <PlaneOverlay plane={id} view={plane} /> : <Overlay3d hasMask={hasMask} labels={labels} />}
+      </div>
+      {isPlane(id) && plane ? (
+        <input
+          className="vp-slider"
+          type="range"
+          min={1}
+          max={plane.total}
+          value={plane.index}
+          aria-label={t('vw.slice', { index: plane.index, total: plane.total })}
+          style={{ accentColor: color }}
+          onChange={(e) => onGoto(+e.target.value)}
+        />
+      ) : null}
     </section>
   )
 }
 
-function SliceView({ plane, item, slices, labels }: { plane: Plane; item: ItemRecord; slices: SliceSet | null | undefined; labels: LabelDef[] }) {
+function PlaneOverlay({ plane, view }: { plane: Plane; view: PlaneView | null }) {
   const { t } = useTranslation()
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const host = useRef<HTMLDivElement>(null)
-  const [box, setBox] = useState<[number, number]>([0, 0])
-  // Zoom/pan reset when the viewer reset token changes (R)
-  const [view, setView] = useState({ token: -1, zoom: 1, pan: [0, 0] as [number, number] })
-  const drag = useRef<{ x: number; y: number; ww: number; wl: number; pan: [number, number]; mode: 'window' | 'pan' | 'zoom'; zoom: number } | null>(null)
-  const v = useViewerSync()
-  const current = view.token === v.resetToken ? view : { zoom: 1, pan: [0, 0] as [number, number] }
-  const { zoom, pan } = current
-  const setZoom = (f: (z: number) => number) => setView({ token: v.resetToken, pan, zoom: f(zoom) })
-  const setPan = (p: [number, number]) => setView({ token: v.resetToken, zoom, pan: p })
-  const slice = slices?.image[plane]
-  const mask = v.overlay ? slices?.mask?.[plane] : null
-  const geometry = item.geometry
-
-  // Fit the physical aspect ratio inside the viewport (contain)
-  useLayoutEffect(() => {
-    const el = host.current
-    if (!el || !geometry) return
-    const [pw, ph] = physicalSize(plane, geometry.shape, geometry.spacing)
-    const ro = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      const { width, height } = entry.contentRect
-      const s = Math.min(width / pw, height / ph) * 0.94
-      setBox([pw * s, ph * s])
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [plane, geometry])
-
-  useEffect(() => {
-    const ctx = canvas.current?.getContext('2d')
-    if (!ctx || !slice) return
-    const lab = new Map<number, [number, number, number, number]>()
-    for (const l of labels) {
-      const visible = v.labelVisibility[l.value] ?? l.visible
-      if (visible) lab.set(l.value, [...hexToRgb(l.color), Math.min(1, (v.labelOpacity[l.value] ?? l.opacity) * 2 * v.overlayOpacity)])
-    }
-    renderSlice(ctx, { w: slice.w, h: slice.h, image: slice.data, mask: mask?.data, ww: v.ww, wl: v.wl, labels: lab, outline: v.outline })
-  }, [slice, mask, labels, v.ww, v.wl, v.outline, v.labelVisibility, v.labelOpacity, v.overlayOpacity])
-
-  const readout = (e: PointerEvent) => {
-    const el = canvas.current
-    if (!el || !slice || !geometry) return
-    const r = el.getBoundingClientRect()
-    const c = Math.floor(((e.clientX - r.left) / r.width) * slice.w)
-    const row = Math.floor(((e.clientY - r.top) / r.height) * slice.h)
-    if (c < 0 || row < 0 || c >= slice.w || row >= slice.h) {
-      v.set({ cursor: null })
-      return
-    }
-    const [nx = 1, ny = 1, nz = 1] = geometry.shape
-    const ijk: [number, number, number] =
-      plane === 'axial' ? [c, ny - 1 - row, nz >> 1] : plane === 'coronal' ? [c, ny >> 1, nz - 1 - row] : [nx >> 1, c, nz - 1 - row]
-    const [sx = 1, sy = 1, sz = 1] = geometry.spacing
-    const i = row * slice.w + c
-    v.set({
-      cursor: {
-        ijk,
-        ras: [+(ijk[0] * sx).toFixed(1), +(ijk[1] * sy).toFixed(1), +(ijk[2] * sz).toFixed(1)],
-        value: slice.data[i] ?? 0,
-        label: slices?.mask?.[plane].data[i] ?? 0,
-      },
-    })
-  }
-
-  const onDown = (e: PointerEvent) => {
-    const mode =
-      e.button === 2 || (e.button === 0 && v.tool === 'window')
-        ? 'window'
-        : e.button === 1 || (e.button === 0 && v.tool === 'pan')
-          ? 'pan'
-          : e.button === 0 && v.tool === 'zoom'
-            ? 'zoom'
-            : null
-    if (!mode) return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { x: e.clientX, y: e.clientY, ww: v.ww, wl: v.wl, pan, mode, zoom }
-  }
-  const onMove = (e: PointerEvent) => {
-    readout(e)
-    const d = drag.current
-    if (!d) return
-    const dx = e.clientX - d.x
-    const dy = e.clientY - d.y
-    if (d.mode === 'window') v.setWindow(d.ww + dx * 4, d.wl - dy * 2)
-    else if (d.mode === 'pan') setPan([d.pan[0] + dx, d.pan[1] + dy])
-    else setZoom(() => Math.max(0.5, Math.min(8, d.zoom * Math.exp(-dy / 150))))
-  }
-
-  if (!slice || !geometry)
-    return (
-      <div className="vp-body">
-        <div className="vp-message">{slices === null ? t('common.loading') : t('viewer.noPreview')}</div>
-      </div>
-    )
-
-  const [cross1, cross2] = CROSS[plane]
+  const ww = useViewerSync((s) => s.ww)
+  const wl = useViewerSync((s) => s.wl)
+  const crosshair = useViewerSync((s) => s.crosshair)
+  const [left, right, top, bottom] = ORIENTATION[plane]
+  const [vLine, hLine] = CROSS[plane]
   return (
-    <div
-      ref={host}
-      className="vp-body"
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={() => (drag.current = null)}
-      onPointerLeave={() => v.set({ cursor: null })}
-      onContextMenu={(e) => e.preventDefault()}
-      onWheel={(e) => {
-        if (e.ctrlKey || e.metaKey) setZoom((z) => Math.max(0.5, Math.min(8, z * Math.exp(-e.deltaY / 300))))
-      }}
-      data-tool={v.tool}
-    >
-      <div className="vp-stage" style={{ width: box[0], height: box[1], transform: `translate(${pan[0]}px, ${pan[1]}px) scale(${zoom})` }}>
-        <canvas ref={canvas} width={slice.w} height={slice.h} className="vp-canvas" />
-        {v.crosshair ? (
-          <>
-            <span className="vp-cross-v" style={{ background: PLANE_COLOR[cross1] }} />
-            <span className="vp-cross-h" style={{ background: PLANE_COLOR[cross2] }} />
-          </>
-        ) : null}
-      </div>
-      <span className="vp-corner vp-corner-tl num">{t('viewer.wlShort', { ww: v.ww, wl: v.wl })}</span>
-      <span className="vp-corner vp-corner-bl">{t('viewer.placeholderNote')}</span>
-      {zoom !== 1 ? <span className="vp-corner vp-corner-tr num">{t('viewer.zoom', { zoom: Math.round(zoom * 100) })}</span> : null}
+    <div className="vp-overlay">
+      {crosshair && view?.cross ? (
+        <>
+          <span className="vp-cross-v" style={{ left: view.cross[0], background: PLANE_COLOR[vLine] }} />
+          <span className="vp-cross-h" style={{ top: view.cross[1], background: PLANE_COLOR[hLine] }} />
+        </>
+      ) : null}
+      <span className="vp-orient vp-orient-l">{left}</span>
+      <span className="vp-orient vp-orient-r">{right}</span>
+      <span className="vp-orient vp-orient-t">{top}</span>
+      <span className="vp-orient vp-orient-b">{bottom}</span>
+      <span className="vp-corner vp-corner-tl num">{t('viewer.wlShort', { ww, wl })}</span>
+      {view && Math.abs(view.zoom - 1) > 0.01 ? <span className="vp-corner vp-corner-tr num">{t('viewer.zoom', { zoom: Math.round(view.zoom * 100) })}</span> : null}
     </div>
   )
 }
 
-function View3D({ item, labels }: { item: ItemRecord; labels: LabelDef[] }) {
+function Overlay3d({ hasMask, labels }: { hasMask: boolean; labels: LabelDef[] }) {
   const { t } = useTranslation()
-  if (!item.mask)
+  if (!hasMask)
     return (
-      <div className="vp-body">
-        <div className="vp-message">
-          <Icon spec={codicon('circle-slash')} size={20} />
-          {t('viewer.noSegmentation')}
-        </div>
+      <div className="vp-message">
+        <Icon spec={codicon('circle-slash')} size={20} />
+        {t('viewer.noSegmentation')}
       </div>
     )
-  const present = labels.filter((l) => item.labels_present.includes(l.value))
   return (
-    <div className="vp-body">
-      <div className="vp-message">
-        <span style={{ color: 'var(--plane-3d)' }}>
-          <CtIcon name="view-3d" size={48} />
-        </span>
-        <span>{t('viewer.render3dPlaceholder')}</span>
-        <span style={{ display: 'flex', gap: 10 }}>
-          {present.map((l) => (
-            <span key={l.value} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <span className="dot" style={{ background: l.color }} />
-              {l.name}
-            </span>
-          ))}
-        </span>
-      </div>
+    <div className="vp-overlay">
+      <span className="vp-corner vp-corner-bl vp-legend">
+        {labels.map((l) => (
+          <span key={l.value}>
+            <span className="dot" style={{ background: l.color }} />
+            {l.name}
+          </span>
+        ))}
+      </span>
     </div>
+  )
+}
+
+function Render3dControls({ meshState }: { meshState: MeshState }) {
+  const { t } = useTranslation()
+  const volume3d = useViewerLocal((s) => s.volume3d)
+  const surfaces = useViewerLocal((s) => s.surfaces)
+  const blend = useViewerLocal((s) => s.blend)
+  const set = useViewerLocal.setState
+  const meshTitle = meshState === 'building' ? t('vw.meshBuilding') : meshState === 'error' ? t('vw.meshError') : t('vw.render.surfaces')
+  return (
+    <span className="vp-3d-tools">
+      <button type="button" className="icon-btn" aria-pressed={volume3d} title={t('vw.render.volume')} aria-label={t('vw.render.volume')} onClick={() => set({ volume3d: !volume3d })}>
+        <CtIcon name="view-3d" />
+      </button>
+      <button type="button" className="icon-btn" aria-pressed={surfaces} title={meshTitle} aria-label={t('vw.render.surfaces')} onClick={() => set({ surfaces: !surfaces })}>
+        <Icon spec={codicon(meshState === 'building' ? 'loading' : meshState === 'error' ? 'warning' : 'symbol-structure')} />
+      </button>
+      <input className="vp-blend" type="range" min={0} max={1} step={0.05} value={blend} title={t('vw.render.blend')} aria-label={t('vw.render.blend')} onChange={(e) => set({ blend: +e.target.value })} />
+    </span>
   )
 }

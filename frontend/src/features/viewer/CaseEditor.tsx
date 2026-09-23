@@ -1,13 +1,15 @@
-// Case editor tab: item switcher + 2×2 viewer placeholder (VIEWER.md; VW-01, 02, 04, 11, 12, 13).
-import { useEffect, useMemo, useState } from 'react'
+// Case editor tab: item switcher + the NiiVue viewer (VIEWER.md; VW-11, 12, 14).
+import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { loadSlices, useCase, useProject, type ItemRecord, type Phase, type SliceSet } from '../../api'
-import { PhaseChip, Progress, StatusBadge } from '../../lib'
+import { useCase, useProject, type ItemRecord, type Phase } from '../../api'
+import { PhaseChip, StatusBadge } from '../../lib'
 import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
-import { useViewerSync, type LayoutId, type ViewportId } from '../../state'
+import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
-import { Viewport } from './Viewport'
+import { useLoadBudget } from './budget'
+import { ViewerSurface } from './ViewerSurface'
+import './i18n'
 import './viewer.css'
 
 export interface CaseParams {
@@ -16,15 +18,13 @@ export interface CaseParams {
   preview?: boolean
 }
 
-const LAYOUTS: Record<LayoutId, ViewportId[]> = {
-  'four-up': ['axial', 'sagittal', 'coronal', '3d'],
-  conventional: ['axial', 'sagittal', 'coronal', '3d'],
-  'three-mpr': ['axial', 'sagittal', 'coronal'],
-  'one-up-axial': ['axial'],
-  'one-up-sagittal': ['sagittal'],
-  'one-up-coronal': ['coronal'],
-  'one-up-3d': ['3d'],
-}
+/** API-23/24/25 (volumes are streamed as the original bytes, BE-04) */
+const API = '/api/v1'
+export const itemUrl = (pid: string, iid: string, what: 'image' | 'mask') => `${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/${what}`
+export const meshUrlOf = (pid: string, iid: string) => (label: number) => `${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/mesh/${label}?smooth=1`
+
+/** Warning codes that mean the image cannot be opened at all (IMP-08) */
+export const FATAL_CODES = ['missing_path', 'unreadable_file', 'outside_root']
 
 export function defaultItem(items: ItemRecord[]): ItemRecord | undefined {
   const complete = items.filter((i) => i.scope === 'complete' && i.status !== 'excluded_upstream')
@@ -82,37 +82,19 @@ function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current
   )
 }
 
-/** VW-13 loading UI: simulated download progress; remounts per item */
-function LoadBar() {
-  const [progress, setProgress] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setProgress((p) => Math.min(100, p + 25)), 60)
-    return () => clearInterval(id)
-  }, [])
-  if (progress >= 100) return null
-  return (
-    <div className="case-loading">
-      <Progress value={progress} total={100} />
-    </div>
-  )
-}
-
 export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const { data, isLoading, isError, error } = useCase(pid, params.caseId)
   const project = useProject(pid)
-  const layout = useViewerSync((s) => s.layout)
-  const maximized = useViewerSync((s) => s.maximized)
   const set = useViewerSync((s) => s.set)
-  const [slices, setSlices] = useState<Map<string, SliceSet> | null>(null)
+  const loaded = useLoadBudget(panelId, active)
 
   const items = useMemo(() => data?.items ?? [], [data])
   const current = items.find((i) => i.item_id === params.itemId) ?? defaultItem(items)
-
-  useEffect(() => {
-    void loadSlices().then(setSlices)
-  }, [])
+  const iid = current?.item_id ?? ''
+  const meshUrl = useMemo(() => meshUrlOf(pid, iid), [pid, iid])
+  const labels = useMemo(() => project.data?.label_map ?? [], [project.data])
 
   useEffect(() => {
     if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id })
@@ -131,10 +113,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
       </div>
     )
 
-  const labels = project.data?.label_map ?? []
-  const sliceSet = slices ? (slices.get(current.item_id) ?? undefined) : null
-  const viewports = maximized ? [maximized] : LAYOUTS[layout]
-  const fatal = current.warning_codes.find((c) => ['missing_path', 'unreadable_file', 'outside_root'].includes(c))
+  const fatal = current.warning_codes.find((c) => FATAL_CODES.includes(c))
 
   return (
     <div
@@ -160,7 +139,6 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         ) : null}
         <StatusBadge status={data.summary.curation_status} />
       </div>
-      {!fatal ? <LoadBar key={current.item_id} /> : null}
       {fatal || current.status === 'missing' ? (
         <div className="error-card" role="alert" style={{ maxWidth: 560 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -173,19 +151,15 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
           <div className="muted">{t('viewer.fileError', { ref: current.image?.ref ?? '—' })}</div>
         </div>
       ) : (
-        <div className={`vp-grid vp-grid-${maximized ? 'one' : layout}`}>
-          {viewports.map((id) => (
-            <Viewport
-              key={id}
-              id={id}
-              item={current}
-              slices={sliceSet}
-              labels={labels}
-              maximized={maximized === id}
-              onMaximize={() => set({ maximized: maximized === id ? null : id })}
-            />
-          ))}
-        </div>
+        <ViewerSurface
+          item={current}
+          imageUrl={itemUrl(pid, current.item_id, 'image')}
+          maskUrl={current.mask ? itemUrl(pid, current.item_id, 'mask') : undefined}
+          labels={labels}
+          meshUrl={meshUrl}
+          active={active}
+          loaded={loaded}
+        />
       )}
     </div>
   )

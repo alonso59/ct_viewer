@@ -1,4 +1,5 @@
-/* Case editor + viewport placeholders (VIEWER.md). Plane accents come from VW-04 tokens. */
+/* Case editor + viewports (VIEWER.md). Plane accents come from VW-04 tokens. The engine canvas sits
+   under the grid; viewport bodies are transparent windows onto it. */
 
 .case-editor {
   display: flex;
@@ -87,13 +88,33 @@ button.badge[aria-pressed='true'] {
 }
 
 /* Viewport grid (VW-01 layouts) */
+.vp-surface {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.vp-engine-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.vp-engine {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
 .vp-grid {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
   gap: 2px;
   padding: 2px;
-  background: var(--bg-sidebar);
 }
 .vp-grid-four-up {
   grid-template-columns: 1fr 1fr;
@@ -122,7 +143,7 @@ button.badge[aria-pressed='true'] {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--bg-viewport);
+  background: transparent;
   border: 1px solid;
   border-color: inherit;
   color: var(--fg-viewport);
@@ -180,15 +201,91 @@ button.badge[aria-pressed='true'] {
 .vp-body[data-tool='zoom'] {
   cursor: zoom-in;
 }
-.vp-stage {
-  position: relative;
-  transform-origin: center;
+/* Header + slider are opaque; the body shows the engine canvas */
+.vp-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
-.vp-canvas {
+.vp-slider {
+  flex: none;
   width: 100%;
-  height: 100%;
-  display: block;
-  image-rendering: pixelated;
+  height: 14px;
+  margin: 0;
+  background: var(--bg-overlay);
+}
+.vp-orient {
+  position: absolute;
+  font-size: var(--fs-badge);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-viewport-muted);
+  text-shadow: 0 0 2px #000;
+}
+.vp-orient-l {
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.vp-orient-r {
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.vp-orient-t {
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.vp-orient-b {
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.vp-3d-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.vp-3d-tools .icon-btn {
+  width: 20px;
+  height: 20px;
+}
+.vp-3d-tools .icon-btn[aria-pressed='true'] {
+  background: var(--bg-selected);
+}
+.vp-blend {
+  width: 64px;
+}
+.vp-3d-tools + .vp-max {
+  margin-left: 0;
+}
+.vp-legend {
+  display: flex;
+  gap: 10px;
+  font-style: normal;
+}
+.vp-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.vp-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-editor) 70%, transparent);
+  color: var(--fg-muted);
+  font-size: var(--fs-panel);
+}
+.case-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
 }
 .vp-cross-v,
 .vp-cross-h {
@@ -255,4 +352,23 @@ button.badge[aria-pressed='true'] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.vp-notice {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-overlay);
+  color: var(--warning, var(--fg));
+  font-size: var(--fs-panel);
+  z-index: 3;
+}
+.vp-body[data-tool='orbit'] {
+  cursor: move;
 }
