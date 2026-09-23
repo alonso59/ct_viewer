@@ -6,6 +6,7 @@ import { IconButton } from '../../lib'
 import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useLayout, useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
 import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../../theme'
+import { useViewerLocal } from './local'
 
 const useEnabled = () => useWorkbench((s) => s.active?.type === 'case')
 const chord = (id: string) => {
@@ -78,12 +79,14 @@ export function LayoutMenu() {
 export function OverlayToggles() {
   const { t } = useTranslation()
   const { overlay, outline, crosshair, set } = useViewerSync()
+  const linkZoom = useViewerLocal((s) => s.linkZoom)
   const enabled = useEnabled()
   return (
     <>
       <IconButton icon={ct('label-overlay')} label={t('viewer.overlay')} pressed={enabled && overlay} disabled={!enabled} onClick={() => set({ overlay: !overlay })} />
       <IconButton icon={ct('label-outline')} label={t('viewer.outline')} pressed={enabled && outline} disabled={!enabled || !overlay} onClick={() => set({ outline: !outline })} />
       <IconButton icon={ct('crosshair-lines')} label={t('viewer.crosshairToggle')} pressed={enabled && crosshair} disabled={!enabled} onClick={() => set({ crosshair: !crosshair })} />
+      <IconButton icon={codicon('link')} label={t('vw.linkZoom')} pressed={enabled && linkZoom} disabled={!enabled} onClick={() => useViewerLocal.setState({ linkZoom: !linkZoom })} />
       <span className="toolbar-sep" />
     </>
   )
@@ -125,34 +128,22 @@ export function ResetAndSnapshot() {
   return (
     <>
       <IconButton icon={codicon('discard')} label={t('viewer.reset')} shortcut={chord('viewer.reset')} disabled={!enabled} onClick={() => useViewerSync.getState().reset()} />
-      <IconButton icon={codicon('device-camera')} label={t('viewer.screenshot')} disabled={!enabled} onClick={screenshot} />
+      <IconButton icon={codicon('device-camera')} label={t('viewer.screenshot')} disabled={!enabled} onClick={() => void screenshot()} />
       <span style={{ flex: 1 }} />
       <IconButton icon={codicon('layout-sidebar-right')} label={t('cmd.toggleInspector')} shortcut={chord('workbench.toggleInspector')} pressed={inspector} onClick={() => useLayout.getState().toggle('inspectorVisible')} />
     </>
   )
 }
 
-/** VW-10: PNG of the visible 2D viewports, side by side (download, no network) */
-export function screenshot() {
-  const canvases = [...document.querySelectorAll<HTMLCanvasElement>('.vp-canvas')].filter((c) => c.offsetParent)
-  if (!canvases.length) return
-  const scale = 4
-  const w = canvases.reduce((s, c) => s + c.width * scale, 0)
-  const h = Math.max(...canvases.map((c) => c.height * scale))
-  const out = document.createElement('canvas')
-  out.width = w
-  out.height = h
-  const ctx = out.getContext('2d')
-  if (!ctx) return
-  ctx.imageSmoothingEnabled = false
-  let x = 0
-  for (const c of canvases) {
-    ctx.drawImage(c, x, 0, c.width * scale, c.height * scale)
-    x += c.width * scale
-  }
+/** VW-10: PNG of the visible viewports as rendered by the engine (download, no network) */
+export async function screenshot() {
+  const blob = await useViewerLocal.getState().active?.screenshot()
+  if (!blob) return
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = out.toDataURL('image/png')
+  a.href = url
   const { activeItemId } = useViewerSync.getState()
   a.download = `${activeItemId ?? 'viewer'}.png`
   a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

@@ -86,8 +86,8 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** a user creates a project, imports data, browses cases, and shares a link that opens in a second browser.
 
 ### P3 — Viewer
-- [ ] NiiVue wrapper (`ViewerHandle`), layouts, MPR interaction (VW-01..08, 11..14)
-- [ ] 3D + meshes (VW-09, API-25), toolbar (VW-10)
+- [x] NiiVue wrapper (`ViewerHandle`), layouts, MPR interaction (VW-01..08, 11..14)
+- [x] 3D + meshes (VW-09, API-25), toolbar (VW-10)
 **Exit:** NFR-01/02 met on the reference volume; all layouts work; the adaptive states render correctly.
 
 ### P4 — Curation

@@ -1,17 +1,26 @@
-// Viewer: case editor, tools, layouts, overlays (VIEWER.md). NiiVue lives only in ./engine (P3).
+// Viewer: case editor, tools, layouts, overlays (VIEWER.md). NiiVue lives only in ./engine.
 import { keys, queryClient, type Project } from '../../api'
 import { refreshUrl, registry, useWorkbench } from '../../shell'
-import { LAYOUT_CYCLE, useViewerSync, type LayoutId, type ViewerTool } from '../../state'
+import { useViewerSync, type ViewerTool } from '../../state'
 import { codicon, ct } from '../../theme'
 import { CaseEditor, type CaseParams } from './CaseEditor'
 import { ImageSection } from './ImageSection'
 import { LayersSection, WindowSection } from './Inspector'
 import { CursorStatus, WindowStatus } from './StatusItems'
+import { useViewerLocal } from './local'
+import { isLayoutId } from './model/layouts'
+import type { ViewerContext } from './model/types'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, WindowPresets } from './Tools'
+import './i18n'
 
 export { PLANE_COLOR } from './Viewport'
+export { configureViewer } from './budget'
+export type { ViewerContext, ViewerHandle } from './model/types'
 
-const LAYOUTS = new Set<string>([...LAYOUT_CYCLE, 'one-up-sagittal', 'one-up-coronal', 'one-up-3d'])
+/** VW-16: viewer context of the visible case tab, for CUR events (`context.viewer`) */
+export function getViewerContext(): ViewerContext | null {
+  return useViewerLocal.getState().active?.snapshot() ?? null
+}
 
 /** Label map for the 1–9 keys, from the cached project query */
 const projectLabels = (pid: string) => queryClient.getQueryData<Project>(keys.project(pid))?.label_map ?? []
@@ -33,7 +42,7 @@ export function registerViewer() {
       const m = /^\/case\/([^/]+)$/.exec(path)
       if (!m?.[1]) return null
       const layout = sp.get('layout')
-      if (layout && LAYOUTS.has(layout)) useViewerSync.setState({ layout: layout as LayoutId })
+      if (isLayoutId(layout)) useViewerSync.setState({ layout })
       return { caseId: m[1], itemId: sp.get('item') }
     },
   })
@@ -65,7 +74,7 @@ export function registerViewer() {
   registry.command({ id: 'viewer.cycleLayout', title: 'cmd.cycleLayout', category: 'cat.viewer', keybinding: 'l', when: 'viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => useViewerSync.getState().cycleLayout() })
   registry.command({ id: 'viewer.reset', title: 'viewer.reset', category: 'cat.viewer', keybinding: 'r', when: 'viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => useViewerSync.getState().reset() })
   registry.command({ id: 'viewer.restore', title: 'viewer.restore', category: 'cat.viewer', keybinding: 'esc', when: 'viewer', enabled: () => useViewerSync.getState().maximized !== null, run: () => useViewerSync.setState({ maximized: null }) })
-  registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: screenshot })
+  registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => void screenshot() })
   registry.command({ id: 'viewer.toggleOverlay', title: 'viewer.overlay', category: 'cat.viewer', enabled: isCase, run: () => useViewerSync.setState((s) => ({ overlay: !s.overlay })) })
   registry.command({ id: 'viewer.toggleOutline', title: 'viewer.outline', category: 'cat.viewer', enabled: isCase, run: () => useViewerSync.setState((s) => ({ outline: !s.outline })) })
   for (let n = 1; n <= 9; n++)
