@@ -10,7 +10,7 @@ from app.core.ids import Scope, Side
 from app.imaging.header import VolumeFormat
 from app.ingest.codes import QcCode, Severity
 
-Phase = Literal["NC", "CMP", "NP", "EP", "UNK"]
+Phase = str  # a code from the project's phase vocabulary (PRJ-12), or a raw value (`none`)
 PhaseSource = Literal[
     "phase.json", "curated_phase", "canonical_phase", "phase", "phase_guess", "catalog", "none"
 ]
@@ -44,7 +44,6 @@ class Item(BaseModel):
     scope: Scope
     side: Side
     patient_id: str | None = None
-    group: str | None = None
     phase: PhaseInfo
     image: VolumeRef | None = None
     mask: VolumeRef | None = None
@@ -70,7 +69,6 @@ class QcWarning(BaseModel):
 class CaseSummary(BaseModel):
     case_id: str
     patient_id: str | None = None
-    group: str | None = None
     phases: list[Phase] = Field(default_factory=list)
     n_scans: int = 0
     n_items: int = 0
@@ -80,6 +78,10 @@ class CaseSummary(BaseModel):
     n_warnings: int = 0
     curation_status: str = "not_reviewed"  # CUR-08 rollup; filled by curation (lane P4)
     last_reviewed_at: str | None = None
+    # Best item for the case thumbnail (API-26): active `complete` item, by phase priority.
+    thumb_item_id: str | None = None
+    # Case-level visible variables (VAR-02/10) for explorer columns and colour; query-time join.
+    variables: dict[str, float | str | None] = Field(default_factory=dict)
 
 
 class IndexStatus(BaseModel):

@@ -16,10 +16,11 @@ from pydantic import ValidationError
 
 from app.config import Settings
 from app.core.errors import FormatVersionUnsupported, NotFound, ValidationProblem
-from app.core.fsio import atomic_write_json, read_json
+from app.core.fsio import atomic_write_json, iter_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard, PathResolver
+from app.curation.state import case_statuses
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
     FORMAT_VERSION,
@@ -30,7 +31,9 @@ from app.projects.models import (
     ProjectSummary,
     RootInfo,
     WorkspaceEntry,
+    preset_fields,
 )
+from app.projects.presets import DEFAULT_PRESET, PresetName
 
 WORKSPACE_FORMAT: Final = "radiology-workbench-workspace"
 WORKSPACE_FORMAT_VERSION: Final = 1
@@ -120,9 +123,17 @@ class Workspace:
 
     def summary(self, project_id: str) -> ProjectSummary:
         entry = self.entry(project_id)
+        folder = self._folder(entry)
+        case_ids = _case_ids(folder / "index" / "cases.jsonl")
+        reviewed = sum(
+            1
+            for cid, (status, _) in case_statuses(folder).items()
+            if cid in case_ids and status != "not_reviewed"
+        )
         return ProjectSummary(
             **entry.model_dump(),
-            n_cases=_count_lines(self._folder(entry) / "index" / "cases.jsonl"),
+            n_cases=len(case_ids),
+            curation_progress=reviewed / len(case_ids) if case_ids else 0.0,
             share_url=self.share_url(project_id),
         )
 
@@ -192,7 +203,9 @@ class Workspace:
         self._remember(cfg)
         return cfg
 
-    async def create(self, name: str, description: str = "") -> ProjectConfig:
+    async def create(
+        self, name: str, description: str = "", preset: PresetName = DEFAULT_PRESET
+    ) -> ProjectConfig:
         now = utc_now()
         try:
             cfg = ProjectConfig(
@@ -201,6 +214,7 @@ class Workspace:
                 description=description,
                 created_at=now,
                 updated_at=now,
+                **preset_fields(preset),
             )
         except ValidationError as exc:
             raise ValidationProblem("Invalid project", errors=_errors(exc)) from None
@@ -221,12 +235,7 @@ class Workspace:
                 k: v for k, v in patch.model_dump(exclude_unset=True).items() if v is not None
             }
             merged = cur.model_dump() | changes
-            vocab = merged["phase_vocabulary"]
-            if any(p not in vocab for p in merged["phase_priority"]):
-                raise ValidationProblem(
-                    "phase_priority must only use phase_vocabulary values",
-                    errors=[{"loc": ["phase_priority"], "msg": f"allowed: {vocab}"}],
-                )
+            check_phase_config(merged)
             new = ProjectConfig.model_validate(merged)
             if new == cur:
                 return cur
@@ -291,11 +300,23 @@ class Workspace:
             await self._set_entry(entry.model_copy(update={"last_opened_at": utc_now()}))
 
 
-def _count_lines(path: Path) -> int:
-    if not path.exists():
-        return 0
-    with path.open("rb") as fh:
-        return sum(1 for line in fh if line.strip())
+def check_phase_config(cfg: dict[str, Any]) -> None:
+    """Priority and mapping targets must use the vocabulary (an empty vocabulary is open)."""
+    vocab = cfg["phase_vocabulary"]
+    if not vocab:
+        return
+    for key in ("phase_priority", "phase_mapping"):
+        values = cfg[key].values() if key == "phase_mapping" else cfg[key]
+        if any(p not in vocab for p in values):
+            raise ValidationProblem(
+                f"{key} must only use phase_vocabulary values",
+                errors=[{"loc": [key], "msg": f"allowed: {vocab}"}],
+            )
+
+
+def _case_ids(path: Path) -> set[str]:
+    """Case ids in `index/cases.jsonl` (PRJ-02 count and curation-progress denominator)."""
+    return {str(r.get("case_id")) for r in iter_jsonl(path)}
 
 
 def _purge(cache: Path) -> None:

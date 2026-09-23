@@ -6,10 +6,22 @@ from collections import Counter
 from collections.abc import Sequence
 
 from app.ingest.models import CaseSummary, Item, Phase, QcWarning
-from app.ingest.normalize import PHASE_ORDER
+from app.ingest.normalize import CCRCC_RULES, PhaseRules
 
 
-def build_cases(items: Sequence[Item], warnings: Sequence[QcWarning]) -> list[CaseSummary]:
+def _thumb_item(items: Sequence[Item], priority: Sequence[str]) -> str | None:
+    cands = [i for i in items if i.scope == "complete" and i.status == "active" and i.image]
+    rank = {p: n for n, p in enumerate(priority)}
+    cands.sort(key=lambda i: (rank.get(i.phase.canonical, len(rank)), i.scan_idx))
+    return cands[0].item_id if cands else None
+
+
+def build_cases(
+    items: Sequence[Item],
+    warnings: Sequence[QcWarning],
+    rules: PhaseRules = CCRCC_RULES,
+    priority: Sequence[str] = (),
+) -> list[CaseSummary]:
     n_warn = Counter(w.case_id for w in warnings if w.case_id)
     by_case: dict[str, list[Item]] = {}
     for it in items:
@@ -23,14 +35,14 @@ def build_cases(items: Sequence[Item], warnings: Sequence[QcWarning]) -> list[Ca
             CaseSummary(
                 case_id=case_id,
                 patient_id=next((i.patient_id for i in all_items if i.patient_id), None),
-                group=next((i.group for i in all_items if i.group), None),
-                phases=[p for p in PHASE_ORDER if p in phases],
+                phases=rules.order(phases),
                 n_scans=len({i.scan_idx for i in live}),
                 n_items=len(live),
                 has_seg=any(i.scope == "complete" and i.mask is not None for i in live),
                 has_voi_L=any(i.scope == "voi" and i.side == "L" for i in live),
                 has_voi_R=any(i.scope == "voi" and i.side == "R" for i in live),
                 n_warnings=n_warn[case_id],
+                thumb_item_id=_thumb_item(live, priority),
             )
         )
     return out

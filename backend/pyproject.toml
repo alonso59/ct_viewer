@@ -22,6 +22,7 @@ dependencies = [
   "duckdb>=1.1",
   "scikit-learn>=1.5",
   "pillow>=10.4",  # WebP thumbnails (IMP-12)
+  "scipy>=1.15",  # guided statistics (ANA-*): Welch ANOVA needs f_oneway(equal_var=False)
 ]
 
 [project.optional-dependencies]

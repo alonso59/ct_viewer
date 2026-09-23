@@ -70,11 +70,11 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** import the synthetic dataset and Dataset820 via API; warnings match the fixture defects; TST-07 green.
 
 ### P1b — Study variables, backend (ADR-0011)
-- [ ] Remove `group` from the ingest core (`ingest/models.py`, `normalize.py`, `cases.py`, `service.py` filter); keep it only as a variable when present
-- [ ] `variables/`: profiling + type/level inference (VAR-01..04), catalog overrides + tags (VAR-05, VAR-11), derived bin/recode/dominant (VAR-06), raw_metadata allowlist (VAR-08), exclusions (VAR-09)
-- [ ] External case-keyed table import (VAR-07); `index/variables.parquet`; `var.{name}` list filters (API-16..18)
-- [ ] Project presets (PRJ-12): `ccrcc`, `generic-ct`, `none`; phase mapping from `project.json`
-- [ ] Fixtures extended per TESTING §Variables; tests for every inference rule
+- [x] Remove `group` from the ingest core (`ingest/models.py`, `normalize.py`, `cases.py`, `service.py` filter); keep it only as a variable when present
+- [x] `variables/`: profiling + type/level inference (VAR-01..04), catalog overrides + tags (VAR-05, VAR-11), derived bin/recode/dominant (VAR-06), raw_metadata allowlist (VAR-08), exclusions (VAR-09)
+- [x] External case-keyed table import (VAR-07); `index/variables.parquet`; `var.{name}` list filters (API-16..18)
+- [x] Project presets (PRJ-12): `ccrcc`, `generic-ct`, `none`; phase mapping from `project.json`
+- [x] Fixtures extended per TESTING §Variables; tests for every inference rule
 **Exit:** the reference `metadata.jsonl` profiles as documented in VARIABLES.md (hb/lb continuous case-level, sn Review, no `group` assumed), with no code naming `hb/lb/sn`.
 
 ### P2 — Shell + explorer
@@ -91,21 +91,21 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** NFR-01/02 met on the reference volume; all layouts work; the adaptive states render correctly.
 
 ### P4 — Curation
-- [ ] Reviewer identity, events, reducer, inspector form, shortcuts (CUR-01..08, 14, UI-12)
-- [ ] Queue + exports + v2 import (CUR-09, 10, 13), live sync (CUR-11/12)
+- [ ] Reviewer identity, events, reducer, inspector form, shortcuts (CUR-01..08, 14, UI-12) — backend done (API-50/51, lane/2-backend); FE pending
+- [ ] Queue + exports + v2 import (CUR-09, 10, 13), live sync (CUR-11/12) — backend done (API-52..54, SSE); FE + TST-08 pending
 **Exit:** TST-08 green; exported queue CSV opens paths in 3D Slicer.
 
 ### P5 — Radiomics
-- [ ] Engine adapter + schema + IBSI map (RAD-01, 12), validation (RAD-04)
-- [ ] Profiles, selection, estimate, runs, resume, outputs (RAD-03, 05..11)
+- [x] Engine adapter + schema + IBSI map (RAD-01, 12), validation (RAD-04)
+- [x] Profiles, selection, estimate, runs, resume, outputs (RAD-03, 05..11)
 - [ ] Schema-driven settings form (RAD-01/02)
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P6 — Dashboard + guided analysis (ADR-0012)
 - [ ] Not built in P1, schedule with P5/P6: full-hash job (IMP-09, API-15) and project bundles (PRJ-08/09)
-- [ ] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07)
+- [ ] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07) — backend views done (API-38); FE pending
 - [ ] Measurements panel for the active item (UI-14)
-- [ ] Backend `analytics/`: analysis spec, unit (one row per case), test choice, FDR, effect sizes, descriptives, REC rules, export (ANA-01..09, API-39), TST-12
+- [x] Backend `analytics/`: analysis spec, unit (one row per case), test choice, FDR, effect sizes, descriptives, REC rules, export (ANA-01..09, API-39), TST-12
 - [ ] Analysis panel + Group comparison / Association / Balance check views (DB-08/09)
 **Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click; a two-group and a three-group comparison on a derived variable return tests matching SciPy, with q-values and at least one triggered recommendation.
 

@@ -17,12 +17,13 @@ from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json, r
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import validate_alias
+from app.curation.state import case_statuses
 from app.events.bus import EventBus
 from app.ingest import indexer, preview
 from app.ingest.cases import build_cases
 from app.ingest.indexer import ItemProbeResult
 from app.ingest.models import CaseSummary, IndexState, IndexStatus, Item, QcWarning
-from app.ingest.normalize import build_drafts
+from app.ingest.normalize import PhaseRules, build_drafts
 from app.ingest.parsers import FILE_NAMES, FileKind, ParsedInputs, parse_inputs
 from app.ingest.schemas import (
     CaseDetail,
@@ -37,8 +38,10 @@ from app.ingest.store import IndexStore
 from app.ingest.validator import finalize, probes_for
 from app.jobs.manager import JobManager
 from app.jobs.types import JobInfo, JobSpec, WorkUnit
-from app.projects.models import PathRoot
+from app.projects.models import LabelEntry, PathRoot, ProjectPatch
+from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.projects.service import Workspace
+from app.variables.service import VariableService
 
 log = logging.getLogger("app.ingest")
 
@@ -159,7 +162,8 @@ class IngestService:
     async def _start_index(
         self, project_id: str, import_id: str, alias: str, parsed: ParsedInputs
     ) -> str:
-        drafts = build_drafts(parsed, self.workspace.resolver(project_id), alias)
+        rules = self.phase_rules(project_id)
+        drafts = build_drafts(parsed, self.workspace.resolver(project_id), alias, rules)
         units = [WorkUnit(indexer.probe_batch, (b,)) for b in indexer.batches(probes_for(drafts))]
         results: dict[str, ItemProbeResult] = {}
 
@@ -175,7 +179,9 @@ class IngestService:
                 if ok:
                     previous = self.store.load(project_id).by_id
                     items, warnings = finalize(drafts, results, previous, import_id)
-                    self.store.replace(project_id, items, build_cases(items, warnings), warnings)
+                    priority = self.workspace.get(project_id).phase_priority
+                    cases = build_cases(items, warnings, rules, priority)
+                    self.store.replace(project_id, items, cases, warnings)
                     n_items, n_warnings = len(items), len(warnings)
                     st = IndexStatus(
                         state="ready",
@@ -196,6 +202,11 @@ class IngestService:
                 self.store.write_status(project_id, st)
             if not ok:
                 return import_id
+            await self._seed_label_map(project_id)
+            try:
+                await self.variables.rebuild(project_id)  # VAR-01: profile every import
+            except Exception:
+                log.exception("variable profiling failed", extra={"project_id": project_id})
             self.bus.publish(
                 project_id,
                 "index.rebuilt",
@@ -234,6 +245,35 @@ class IngestService:
                 self.store.write_status(project_id, before)
             raise
         return job_id
+
+    @property
+    def variables(self) -> VariableService:
+        return VariableService(self.workspace, self.store, self.locks, self.bus)
+
+    def phase_rules(self, project_id: str) -> PhaseRules:
+        """The project's phase vocabulary + mapping (PRJ-12)."""
+        cfg = self.workspace.get(project_id)
+        return PhaseRules(tuple(cfg.phase_vocabulary), dict(cfg.phase_mapping))
+
+    async def _seed_label_map(self, project_id: str) -> None:
+        """PRJ-07: with no preset labels, name the mask values found as `label_{value}`."""
+        if self.workspace.get(project_id).label_map:
+            return
+        values = sorted({v for i in self.store.load(project_id).items for v in i.labels_present})
+        values = [v for v in values if v > 0]
+        if not values:
+            return
+        labels = [
+            LabelEntry(
+                value=v,
+                name=auto_label_name(v),
+                color=AUTO_LABEL_COLORS[n % len(AUTO_LABEL_COLORS)],
+                opacity=0.2,
+            )
+            for n, v in enumerate(values)
+        ]
+        await self.workspace.update(project_id, ProjectPatch(label_map=labels))
+        self.bus.publish(project_id, "project.updated", {"fields": ["label_map"]})
 
     def imports(self, project_id: str) -> list[ImportRecord]:
         """API-13: import history, newest first."""
@@ -276,14 +316,23 @@ class IngestService:
         project_id: str,
         *,
         q: str | None = None,
-        group: str | None = None,
         phase: str | None = None,
         status: str | None = None,
         warning: str | None = None,
         has_voi: bool | None = None,
         sort: str = "case_id",
+        var_cases: set[str] | None = None,
     ) -> list[CaseSummary]:
-        """API-20. Cases whose items are all `excluded_upstream` show only for that status."""
+        """API-20. Cases whose items are all `excluded_upstream` show only for that status.
+
+        `var_cases`: case ids passing the `var.{name}` filters (VAR-10), or None for no filter.
+        """
+        vocab = self.workspace.get(project_id).phase_vocabulary
+        if phase is not None and vocab and phase not in vocab:
+            raise ValidationProblem(
+                f"Unknown phase {phase!r}",
+                errors=[{"loc": ["query", "phase"], "msg": f"allowed: {vocab}"}],
+            )
         idx = self.store.load(project_id)
         statuses: dict[str, set[str]] = {}
         for it in idx.items:
@@ -303,7 +352,7 @@ class IngestService:
                 return False
             if needle and needle not in f"{c.case_id}\n{c.patient_id or ''}".lower():
                 return False
-            if group is not None and c.group != group:
+            if var_cases is not None and c.case_id not in var_cases:
                 return False
             if phase is not None and phase not in c.phases:
                 return False
@@ -311,7 +360,9 @@ class IngestService:
                 return False
             return has_voi is None or (c.has_voi_L or c.has_voi_R) == has_voi
 
-        out = [c for c in idx.cases if keep(c)]
+        rollup = case_statuses(self.workspace.project_dir(project_id))
+        values = self.variables.case_values(project_id)
+        out = [_with_values(_with_curation(c, rollup), values) for c in idx.cases if keep(c)]
         if sort in ("n_warnings", "-n_warnings"):
             out.sort(key=lambda c: c.case_id)
             out.sort(key=lambda c: c.n_warnings, reverse=sort.startswith("-"))
@@ -324,7 +375,13 @@ class IngestService:
     def case_detail(self, project_id: str, case_id: str) -> CaseDetail:
         """API-21: case + scans → items tree + warnings."""
         idx = self.store.load(project_id)
-        case = self.store.get_case(project_id, case_id)
+        case = _with_values(
+            _with_curation(
+                self.store.get_case(project_id, case_id),
+                case_statuses(self.workspace.project_dir(project_id)),
+            ),
+            self.variables.case_values(project_id),
+        )
         scans: dict[str, list[Item]] = {}
         for it in idx.items:
             if it.case_id == case_id:
@@ -358,3 +415,19 @@ class IngestService:
             ),
             warnings=warnings,
         )
+
+
+def _with_values(
+    case: CaseSummary, values: dict[str, dict[str, float | str | None]]
+) -> CaseSummary:
+    """VAR-10 case-level visible variables onto a (cached, so copied) case summary."""
+    hit = values.get(case.case_id)
+    return case.model_copy(update={"variables": hit}) if hit else case
+
+
+def _with_curation(case: CaseSummary, rollup: dict[str, tuple[str, str | None]]) -> CaseSummary:
+    """CUR-08 rollup onto a (cached, so copied) case summary."""
+    hit = rollup.get(case.case_id)
+    if hit is None:
+        return case
+    return case.model_copy(update={"curation_status": hit[0], "last_reviewed_at": hit[1]})

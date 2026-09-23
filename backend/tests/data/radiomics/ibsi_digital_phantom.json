@@ -1,0 +1,113 @@
+{
+  "source": "IBSI 1 digital phantom (github.com/theibsi/data_sets ibsi_1_digital_phantom), config: no resampling, binWidth 1, texture 3D (GLCM/GLRLM 3D averaged); values as published to 3 significant figures",
+  "tolerance": {
+    "relative": 0.006,
+    "note": "covers 3-significant-figure rounding of the published values"
+  },
+  "roi_voxels": 74,
+  "reference": {
+    "firstorder": {
+      "Mean": 2.15,
+      "Variance": 3.05,
+      "Skewness": 1.08,
+      "Kurtosis": -0.355,
+      "Median": 1,
+      "Minimum": 1,
+      "10Percentile": 1,
+      "90Percentile": 4,
+      "Maximum": 6,
+      "InterquartileRange": 3,
+      "Range": 5,
+      "MeanAbsoluteDeviation": 1.55,
+      "RobustMeanAbsoluteDeviation": 1.11,
+      "Energy": 567,
+      "RootMeanSquared": 2.77,
+      "Entropy": 1.27,
+      "Uniformity": 0.512
+    },
+    "shape": {
+      "MeshVolume": 556,
+      "VoxelVolume": 592,
+      "SurfaceArea": 388,
+      "SurfaceVolumeRatio": 0.698,
+      "Compactness1": 0.0411,
+      "Compactness2": 0.599,
+      "SphericalDisproportion": 1.19,
+      "Sphericity": 0.843,
+      "Maximum3DDiameter": 13.1,
+      "MajorAxisLength": 11.4,
+      "MinorAxisLength": 9.31,
+      "LeastAxisLength": 8.54,
+      "Elongation": 0.816,
+      "Flatness": 0.749
+    },
+    "glcm": {
+      "MaximumProbability": 0.503,
+      "JointAverage": 2.14,
+      "SumSquares": 3.1,
+      "JointEntropy": 2.4,
+      "DifferenceAverage": 1.43,
+      "DifferenceVariance": 3.06,
+      "DifferenceEntropy": 1.56,
+      "SumAverage": 4.29,
+      "ClusterTendency": 7.07,
+      "Contrast": 5.32,
+      "Id": 0.677,
+      "Idn": 0.851,
+      "Idm": 0.618,
+      "Idmn": 0.898,
+      "InverseVariance": 0.0604,
+      "Correlation": 0.157,
+      "Autocorrelation": 5.06,
+      "ClusterShade": 16.6
+    },
+    "glrlm": {
+      "GrayLevelNonUniformityNormalized": 0.43,
+      "RunPercentage": 0.68,
+      "GrayLevelVariance": 3.46,
+      "RunVariance": 0.574,
+      "RunEntropy": 2.43
+    },
+    "glszm": {
+      "SmallAreaEmphasis": 0.255,
+      "LargeAreaEmphasis": 550,
+      "LowGrayLevelZoneEmphasis": 0.253,
+      "HighGrayLevelZoneEmphasis": 15.6,
+      "SmallAreaLowGrayLevelEmphasis": 0.0256,
+      "SmallAreaHighGrayLevelEmphasis": 2.76,
+      "LargeAreaLowGrayLevelEmphasis": 503,
+      "LargeAreaHighGrayLevelEmphasis": 1490,
+      "GrayLevelNonUniformity": 1.4,
+      "GrayLevelNonUniformityNormalized": 0.28,
+      "SizeZoneNonUniformity": 1.0,
+      "SizeZoneNonUniformityNormalized": 0.2,
+      "ZonePercentage": 0.0676,
+      "GrayLevelVariance": 2.64,
+      "ZoneVariance": 331,
+      "ZoneEntropy": 2.32
+    },
+    "gldm": {
+      "SmallDependenceEmphasis": 0.045,
+      "LargeDependenceEmphasis": 109,
+      "LowGrayLevelEmphasis": 0.693,
+      "HighGrayLevelEmphasis": 7.66,
+      "SmallDependenceLowGrayLevelEmphasis": 0.00963,
+      "SmallDependenceHighGrayLevelEmphasis": 0.736,
+      "LargeDependenceLowGrayLevelEmphasis": 102,
+      "LargeDependenceHighGrayLevelEmphasis": 235,
+      "GrayLevelNonUniformity": 37.9,
+      "DependenceNonUniformity": 4.86,
+      "DependenceNonUniformityNormalized": 0.0657,
+      "GrayLevelVariance": 3.05,
+      "DependenceVariance": 22.1,
+      "DependenceEntropy": 4.4
+    },
+    "ngtdm": {
+      "Coarseness": 0.0296,
+      "Contrast": 0.584,
+      "Busyness": 6.54,
+      "Complexity": 13.5,
+      "Strength": 0.763
+    }
+  }
+}

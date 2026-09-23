@@ -229,7 +229,18 @@ def test_cases_filters(
     with_voi = set(ids("has_voi=true"))
     assert {"case_00001", "case_00014", "case_00023"} <= with_voi
     assert not with_voi & set(ids("has_voi=false"))
-    assert set(ids("group=A")) == set(default) and ids("group=Z") == []
+    # No hard-coded `group` (ADR-0011): an unknown query parameter filters nothing.
+    assert set(ids("group=A")) == set(default)
+    # VAR-10 variable filters: categorical value (repeatable = OR) and numeric ranges.
+    cohort = {f"case_{n:05d}" for n in range(30, 62)}
+    assert set(ids("var.patient_sex=F")) | set(ids("var.patient_sex=M")) >= cohort
+    both = set(ids("var.patient_sex=F&var.patient_sex=M"))
+    assert both == set(ids("var.patient_sex=F")) | set(ids("var.patient_sex=M"))
+    low, high = set(ids("var.marker_a=..50")), set(ids("var.marker_a=50.01.."))
+    assert low and high and not low & high and (low | high) < cohort | {"case_00062"}
+    assert set(ids("var.marker_a=..50&var.score=0..")) == low
+    assert client.get(f"{url}?var.nope=1").status_code == 422
+    assert client.get(f"{url}?var.marker_a=abc").status_code == 422
     ranked = pages(client, f"{url}?sort=-n_warnings")
     counts = [c["n_warnings"] for c in ranked]
     assert counts == sorted(counts, reverse=True) and counts[0] > 0
