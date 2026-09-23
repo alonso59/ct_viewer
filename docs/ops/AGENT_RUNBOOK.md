@@ -176,37 +176,54 @@ exit. Commit and STOP.
 
 ## Step 3
 
-### VS Code: P4-FE curation + P6-FE dashboard
+Before starting: `colima start` (Docker daemon for Shell B). Worktrees: `../ct_viewer-lane3-{ui,radiomics,packaging}`.
+
+### VS Code / Terminal 1: P4-FE curation + P6-FE dashboard (port 5174)
 ```text
 [LANE RULES]
-Lane: P4-FE + P6-FE. Branch: lane/3-curation-dashboard.
-Read: docs/domain/CURATION.md, docs/frontend/DASHBOARD.md, docs/domain/ANALYSIS.md,
-docs/frontend/UI_SHELL.md (keybindings, Measurements panel UI-14).
-Owns: frontend/src/features/curation/**, frontend/src/features/dashboard/**.
+Lane: P4-FE + P6-FE. Branch: lane/3-ui (this worktree). Dev server port: 5174.
+Read: frontend/CLAUDE.md, docs/domain/CURATION.md, docs/frontend/DASHBOARD.md,
+docs/domain/ANALYSIS.md, docs/domain/VARIABLES.md (§Implementation notes),
+docs/frontend/UI_SHELL.md (keybindings, Measurements panel UI-14), docs/backend/API.md.
+Owns: frontend/src/features/{curation,dashboard}/**, and the variables/FeatureRow parts
+of frontend/src/api/{types,http,mock}.ts.
+Build the curation UI (CUR-*, UI-12) and the dashboard + Analysis panel (DB-01..09, UI-14)
+on the real API-38/39/50..54. Remove the leftover `group` from FeatureRow and the
+dashboard (colour/split by variable). Run an end-to-end check of the Variables view
+against the real API-16..18 (adapter in api/http.ts) and fix what breaks.
 Checks: make check, TST-08 multi-user test. Exit: ROADMAP P4 + P6 exits. Commit and STOP.
 ```
 
-### Shell A: P5-FE radiomics form
+### Terminal 2: P5-FE radiomics form (port 5175)
 ```text
 [LANE RULES]
-Lane: P5-FE. Branch: lane/3-radiomics-ui in worktree ../ct_viewer-wt/A.
-Read: docs/domain/RADIOMICS.md, API-30..37.
+Lane: P5-FE. Branch: lane/3-radiomics (this worktree). Dev server port: 5175.
+First: VIRTUAL_ENV=backend/.venv uv pip install -e 'backend[radiomics]' (needs a C compiler).
+Read: frontend/CLAUDE.md, docs/domain/RADIOMICS.md (incl. §Implementation notes), API-30..37.
 Owns: frontend/src/features/radiomics/**.
 Build the schema-driven settings form (RAD-01/02/04) with engine defaults shown on open,
-plus profiles, selection, estimate and the runs list. Checks: make check, form unit tests
-for every validation rule. Exit: ROADMAP P5 exit. Commit and STOP.
+plus profiles, selection by any variable (RAD-05), estimate and the runs list with progress.
+Checks: make check, form unit tests for every validation rule, one real run on the fixtures.
+Exit: ROADMAP P5 exit. Commit and STOP.
 ```
 
-### Shell B: P7 prep
+### Terminal 3: P7-prep packaging (Docker)
 ```text
 [LANE RULES]
-Lane: P7-prep. Branch: lane/3-packaging in worktree ../ct_viewer-wt/B.
-Read: docs/ops/DEPLOYMENT.md, docs/adr/0007-single-image-docker-udocker.md.
-Owns: Dockerfile, .dockerignore, docker-compose.yml, scripts/udocker-run.sh, .env.example,
-README.md.
-Build OPS-01..10 and TST-10 for Docker. Checks: image builds, health OK, image size
-≤ 1.5 GB. Exit: docker compose up serves the app. Commit and STOP.
+Lane: P7-prep. Branch: lane/3-packaging (this worktree).
+Read: docs/ops/DEPLOYMENT.md, docs/adr/0007-single-image-docker-udocker.md,
+docs/adr/0006-radiomics-engine-adapter.md, docs/ops/DEV_ENV.md.
+Owns: Dockerfile, .dockerignore, docker-compose.yml, scripts/**, .env.example, README.md,
+backend/app/config.py (+ its test).
+Build OPS-01..10 and TST-10 for Docker. The image installs the `[radiomics]` extra
+(gcc only in the build stage) and runs `tools.spikes.ibsi_phantom_smoke` inside the Linux
+image (deferred from P1). Add a container-mode signal so an empty ALLOWED_DATA_ROOTS
+refuses to start (OPS-04). Write scripts/udocker-run.sh (OPS-09) from the same .env.
+Checks: image builds, health OK, IBSI smoke passes in the image, image size ≤ 1.5 GB,
+make check. Exit: docker compose up serves the app. Commit and STOP.
 ```
+
+**Integrator after Step 3:** merge, reconcile `frontend/package.json` + lockfile, `make gen-api`, `make check`, and report the image size.
 
 ## Step 4: Shell on the remote server (P7)
 
