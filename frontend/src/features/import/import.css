@@ -85,3 +85,13 @@
 .wiz-steps li[data-state='done'] {
   color: var(--ok);
 }
+.upload-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: var(--border-width) solid var(--border-muted);
+  border-radius: var(--radius);
+  font-size: var(--fs-panel);
+}

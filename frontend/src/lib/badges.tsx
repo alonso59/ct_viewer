@@ -72,10 +72,11 @@ export function PhaseChip({ phase, active, onClick }: { phase: Phase; active?: b
   )
 }
 
-export function SeverityIcon({ severity }: { severity: 'error' | 'warning' }) {
+export function SeverityIcon({ severity }: { severity: 'error' | 'warning' | 'info' }) {
+  const tone = severity === 'error' ? 'var(--error)' : severity === 'warning' ? 'var(--warn)' : 'var(--fg-muted)'
   return (
-    <span style={{ color: severity === 'error' ? 'var(--error)' : 'var(--warn)', display: 'inline-flex' }}>
-      <Icon spec={{ codicon: severity === 'error' ? 'error' : 'warning' }} />
+    <span style={{ color: tone, display: 'inline-flex' }}>
+      <Icon spec={{ codicon: severity }} />
     </span>
   )
 }

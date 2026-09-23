@@ -1,15 +1,49 @@
 // Project view (QuPath Project tab): case list with axial thumbnails, badges, expand to items (UI-08).
+// Study variables drive the row columns and colour (VAR-10); nothing here knows a field name.
+import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useCase, useCases, useProject, type CaseSummary, type ItemRecord } from '../../api'
+import {
+  useCase,
+  useCases,
+  useImportHistory,
+  useProject,
+  useThumbItemId,
+  useVariables,
+  type CaseSummary,
+  type ItemRecord,
+  type LabelDef,
+  type Variable,
+} from '../../api'
 import { PhaseChip, SliceThumb, StatusIcon } from '../../lib'
 import { openEditor, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { itemLabel } from './itemLabel'
-import { activeFilterCount, useExplorer } from './store'
+import { activeFilterCount, useExplorer, useExplorerPrefs, usePrefs } from './store'
+import { colorable, columnable, formatValue, levelColor } from './vars'
+import './explorer.css'
+
+function CaseThumb({ pid, c, labels }: { pid: string; c: CaseSummary; labels?: LabelDef[] }) {
+  const itemId = useThumbItemId(pid, c)
+  return <SliceThumb pid={pid} itemId={itemId} labels={labels} size={44} />
+}
+
+/** `name value` chips for the chosen variable columns */
+function VarColumns({ c, columns }: { c: CaseSummary; columns: Variable[] }) {
+  return (
+    <>
+      {columns.map((v) => (
+        <span key={v.name} className="var-chip" title={v.name}>
+          <span className="muted">{v.name}</span>
+          <span className="num">{formatValue(v, c.variables[v.name] ?? null)}</span>
+        </span>
+      ))}
+    </>
+  )
+}
 
 type Row = { kind: 'case'; c: CaseSummary } | { kind: 'item'; item: ItemRecord; caseId: string } | { kind: 'loading'; caseId: string }
 
@@ -34,7 +68,13 @@ export function ProjectView() {
   const activeItemId = useViewerSync((s) => s.activeItemId)
   const activeCaseId = useViewerSync((s) => s.activeCaseId)
   const project = useProject(pid)
+  const index = useImportHistory(pid).data?.index
   const cases = useCases(pid, filter)
+  const variables = useVariables(pid).data ?? []
+  const prefs = usePrefs(pid)
+  const byName = new Map(variables.map((v) => [v.name, v]))
+  const columns = prefs.columns.map((n) => byName.get(n)).filter((v): v is Variable => v !== undefined && v.visible)
+  const colorVar = prefs.colorBy ? byName.get(prefs.colorBy) : undefined
   const [itemsByCase, setItemsByCase] = useState<Record<string, ItemRecord[]>>({})
   const [cursor, setCursor] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -122,6 +162,7 @@ export function ProjectView() {
           </span>
         </div>
       </div>
+      {colorVar ? <ColorLegend v={colorVar} /> : null}
       {activeFilterCount(filter) > 0 ? (
         <div className="muted" style={{ padding: '0 12px 6px', fontSize: 'var(--fs-panel)', display: 'flex', gap: 6 }}>
           {t('explorer.filtersActive', { count: activeFilterCount(filter) })}
@@ -139,7 +180,11 @@ export function ProjectView() {
         style={{ flex: 1, overflow: 'auto', outline: 'none' }}
       >
         {cases.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-        {cases.data?.length === 0 ? <div className="empty">{t(project.data?.n_cases === 0 ? 'explorer.emptyProject' : 'explorer.noCases')}</div> : null}
+        {cases.data?.length === 0 ? (
+          <div className="empty">
+            {t(index?.state === 'running' ? 'explorer.indexing' : index?.state === 'ready' || activeFilterCount(filter) || filter.q ? 'explorer.noCases' : 'explorer.emptyProject')}
+          </div>
+        ) : null}
         <div style={{ height: virt.getTotalSize(), position: 'relative' }}>
           {virt.getVirtualItems().map((v) => {
             const r = rows[v.index]
@@ -181,6 +226,7 @@ export function ProjectView() {
             }
             const c = r.c
             const open = expanded[c.case_id] === true
+            const swatch = colorVar ? levelColor(colorVar, c.variables[colorVar.name] ?? null) : null
             return (
               <div
                 key={c.case_id}
@@ -189,7 +235,15 @@ export function ProjectView() {
                 aria-expanded={open}
                 aria-selected={activeCaseId === c.case_id}
                 className="list-row"
-                style={{ ...style, paddingLeft: 4, gap: 6, boxShadow: focused ? 'inset 0 0 0 1px var(--focus)' : undefined, opacity: c.excluded ? 0.55 : 1 }}
+                style={{
+                  ...style,
+                  paddingLeft: 4,
+                  gap: 6,
+                  // Colour-by variable: a left stripe in the categorical palette
+                  boxShadow: [focused ? 'inset 0 0 0 1px var(--focus)' : '', swatch ? `inset 3px 0 0 ${swatch}` : ''].filter(Boolean).join(', ') || undefined,
+                  opacity: c.excluded ? 0.55 : 1,
+                }}
+                data-color={swatch ? String(c.variables[colorVar?.name ?? '']) : undefined}
                 onClick={() => { setCursor(v.index); activate(r) }}
                 onDoubleClick={() => activate(r, false)}
               >
@@ -202,10 +256,11 @@ export function ProjectView() {
                 >
                   <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
                 </button>
-                {density === 'thumbnails' ? <SliceThumb itemId={c.thumb_item_id} labels={project.data?.label_map} size={44} /> : null}
+                {density === 'thumbnails' ? <CaseThumb pid={pid} c={c} labels={project.data?.label_map} /> : null}
                 <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: 2 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span className="mono" style={{ fontSize: 'var(--fs-panel)' }}>{c.case_id}</span>
+                    {density === 'compact' ? <VarColumns c={c} columns={columns} /> : null}
                     <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
                       {c.n_warnings ? (
                         <span style={{ color: 'var(--warn)', display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 'var(--fs-badge)' }} title={t('explorer.warnings', { count: c.n_warnings })}>
@@ -220,7 +275,7 @@ export function ProjectView() {
                   </span>
                   {density === 'thumbnails' ? (
                     <span className="muted" style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 'var(--fs-badge)', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                      <span style={{ flex: 'none' }}>{t('explorer.group', { group: c.group })}</span>
+                      <VarColumns c={c} columns={columns} />
                       {c.phases.map((p) => (
                         <PhaseChip key={p} phase={p} />
                       ))}
@@ -246,6 +301,66 @@ export function ProjectView() {
   )
 }
 
+/** Header menu: which case-level variables show as columns, and which one colours the rows */
+function ColumnsMenu() {
+  const { t } = useTranslation()
+  const pid = useWorkbench((s) => s.pid) ?? ''
+  const vars = useVariables(pid).data ?? []
+  const prefs = usePrefs(pid)
+  const { toggleColumn, setColorBy } = useExplorerPrefs.getState()
+  const cols = columnable(vars)
+  const colors = colorable(vars)
+  return (
+    <Menu.Root>
+      <Menu.Trigger className="icon-btn" aria-label={t('explorer.columns')} title={t('explorer.columns')}>
+        <Icon spec={codicon('symbol-variable')} />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content className="overlay menu" align="end" sideOffset={2}>
+          <Menu.Label className="menu-label">{t('explorer.showColumns')}</Menu.Label>
+          {cols.length === 0 ? <Menu.Item className="menu-item" disabled>{t('explorer.noVariables')}</Menu.Item> : null}
+          {cols.map((v) => (
+            <Menu.CheckboxItem key={v.name} className="menu-item" checked={prefs.columns.includes(v.name)} onSelect={(e) => e.preventDefault()} onCheckedChange={() => toggleColumn(pid, v.name)}>
+              <Icon spec={codicon(prefs.columns.includes(v.name) ? 'check' : 'blank')} />
+              {v.name}
+            </Menu.CheckboxItem>
+          ))}
+          <Menu.Separator className="menu-sep" />
+          <Menu.Label className="menu-label">{t('explorer.colorBy')}</Menu.Label>
+          <Menu.RadioGroup value={prefs.colorBy ?? ''} onValueChange={(v) => setColorBy(pid, v || null)}>
+            <Menu.RadioItem value="" className="menu-item">
+              <Icon spec={codicon(prefs.colorBy ? 'blank' : 'check')} />
+              {t('common.none')}
+            </Menu.RadioItem>
+            {colors.map((v) => (
+              <Menu.RadioItem key={v.name} value={v.name} className="menu-item">
+                <Icon spec={codicon(prefs.colorBy === v.name ? 'check' : 'blank')} />
+                {v.name}
+              </Menu.RadioItem>
+            ))}
+          </Menu.RadioGroup>
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu.Root>
+  )
+}
+
+/** Legend for the colour-by variable, under the filter box */
+function ColorLegend({ v }: { v: Variable }) {
+  const levels = [...(v.profile.levels ?? [])].sort((a, b) => a.value.localeCompare(b.value, 'en', { numeric: true }))
+  return (
+    <div className="color-legend" aria-label={v.name}>
+      <span className="muted">{v.name}</span>
+      {levels.map((l) => (
+        <span key={l.value} className="color-legend-item">
+          <span className="dot" style={{ background: levelColor(v, l.value) ?? undefined }} />
+          {l.value}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function ProjectViewActions() {
   const { t } = useTranslation()
   const density = useSettings((s) => s.rowDensity)
@@ -253,6 +368,7 @@ export function ProjectViewActions() {
   const { expanded } = useExplorer()
   return (
     <>
+      <ColumnsMenu />
       <button
         type="button"
         className="icon-btn"

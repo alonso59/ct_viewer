@@ -65,10 +65,11 @@
     "panel": "Panel",
     "previewTab": "Preview: double-click the tab to keep it open",
     "restorePanel": "Restore panel size",
-    "shareLinkCopied": "Share link copied",
+    "shareLinkCopied": "Share link copied: {{url}}",
     "statusBar": "Status bar",
     "toolbar": "Tool bar",
-    "unknownEditor": "No editor for “{{type}}”"
+    "unknownEditor": "No editor for “{{type}}”",
+    "shareLinkManual": "Copy this link: {{url}}"
   },
   "palette": {
     "cases": "Cases",
@@ -88,7 +89,8 @@
     "project": "Project",
     "radiomics": "Radiomics",
     "search": "Search",
-    "settings": "Settings"
+    "settings": "Settings",
+    "variables": "Variables"
   },
   "panel": {
     "history": "History",
@@ -121,7 +123,9 @@
     "offline": "offline",
     "offlineHelp": "No connection: changes are not synced",
     "reviewerHelp": "Reviewer name stamped on your decisions. Click to change.",
-    "wl": "W{{ww}} L{{wl}}"
+    "wl": "W{{ww}} L{{wl}}",
+    "connecting": "connecting",
+    "connectingHelp": "Connecting to the server event stream…"
   },
   "statusShort": {
     "not_reviewed": "Not reviewed",
@@ -188,7 +192,9 @@
     "tip1": "Source images and masks are never modified. Everything you do is stored in the project folder.",
     "tip2": "Share a project by copying its link. Anyone on the same server sees the same state.",
     "tip3": "Press Ctrl/Cmd+Shift+P anywhere for all commands.",
-    "tips": "Good to know"
+    "tips": "Good to know",
+    "serverDown": "Cannot reach the server",
+    "noProjects": "No projects yet. Create one to start."
   },
   "projects": {
     "alias": "Alias",
@@ -196,7 +202,7 @@
     "createAndImport": "Create and import",
     "empty": "empty",
     "home": "Workspace home",
-    "meta": "{{cases}} cases · {{items}} items · opened {{ago}}",
+    "meta": "{{cases}} cases · opened {{ago}}",
     "name": "Project name",
     "namePlaceholder": "e.g. ccRCC Dataset820",
     "newHelp": "The project folder holds curation, radiomics and exports. Source data stays read-only.",
@@ -210,8 +216,16 @@
     "reviewed": "{{done}}/{{total}} reviewed",
     "switch": "Switch project",
     "verify": "Verify and relink",
-    "verifyFailed": "No indexed items found under this path (prototype: relink always fails).",
-    "verifying": "Verifying…"
+    "verifyFailed": "Not relinked: {{matched}} of {{sampled}} sampled items match, {{mismatched}} changed, {{missing}} missing.",
+    "verifying": "Verifying…",
+    "notFound": "Project not found",
+    "notFoundHelp": "The link points to a project that does not exist in this workspace, or it was archived.",
+    "preset": "Study preset",
+    "presetEditable": "Seeds the label map and phase vocabulary. You can edit both later.",
+    "relink": "Relink data root…",
+    "relinked": "{{alias}} relinked",
+    "verifyOk": "Verified {{matched}} of {{sampled}} sampled items.",
+    "metaNew": "{{cases}} cases · created {{ago}}"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -231,7 +245,8 @@
     "runs": "radiomics runs",
     "subtitle": "{{cases}} cases · {{items}} items",
     "tab": "Welcome",
-    "warnings": "QC warnings"
+    "warnings": "QC warnings",
+    "indexing": "Indexing is running. Cases appear when it finishes."
   },
   "import": {
     "alias": "Alias",
@@ -241,7 +256,7 @@
     "detectTitle": "Detected input files",
     "detectedCount_one": "{{count}} input file",
     "detectedCount_other": "{{count}} input files",
-    "done": "Import finished: {{items}} items indexed",
+    "done": "Import finished: {{cases}} cases indexed",
     "errors_one": "{{count}} validation error",
     "errors_other": "{{count}} validation errors",
     "errorsHelp": "Rows with errors are indexed with a QC warning; they appear in the Problems panel.",
@@ -250,15 +265,12 @@
     "indexingHelp": "Thumbnails are generated in the background after indexing.",
     "kpiCases": "cases",
     "kpiItems": "items",
-    "kpiRows": "rows",
-    "mapping": "Field mapping",
+    "kpiRows": "scan rows",
     "previewTitle": "Preview",
     "readOnly": "The data root is read-only for this app. Inputs are snapshotted into the project; images and masks are never written.",
     "rootHelp": "Choose the folder that contains metadata.jsonl. It becomes a path alias of this project.",
     "rootTitle": "Data root",
     "row": "row {{n}}",
-    "rows_one": "{{count}} row",
-    "rows_other": "{{count}} rows",
     "scanning": "Scanning for metadata.jsonl, phase.json and voi/voi_catalog.jsonl…",
     "step": {
       "root": "Data root",
@@ -269,7 +281,47 @@
     "steps": "Import steps",
     "title": "Import data",
     "up": "Parent folder",
-    "uploadAlt": "No server access to the files? You can upload the metadata files from the browser instead (images stay on the server)."
+    "uploadAlt": "No server access to the files? You can upload the metadata files from the browser instead (images stay on the server).",
+    "allowedRootsTitle": "Allowed data roots",
+    "noRoots": "No data roots are configured (ALLOWED_DATA_ROOTS).",
+    "emptyFolder": "Empty folder",
+    "hasMetadata": "metadata.jsonl",
+    "truncated": "Listing truncated",
+    "upload": {
+      "metadata": "metadata.jsonl (required)",
+      "phase": "phase.json (optional)",
+      "voi": "voi_catalog.jsonl (optional)"
+    },
+    "uploadToggle": "Upload the metadata files from this computer",
+    "seg": {
+      "seg_path": "seg_path field",
+      "convention": "seg/{filename} (convention)"
+    },
+    "field": {
+      "image": "Image",
+      "mask": "Mask",
+      "phase": "Phase",
+      "side": "Side"
+    },
+    "kpiVoi": "VOI rows",
+    "kpiExcluded": "excluded upstream",
+    "errorsFirst": "Showing the first {{n}}.",
+    "fileLine": "{{file}}:{{n}}",
+    "file": {
+      "metadata": "metadata.jsonl",
+      "phase": "phase.json",
+      "voi_catalog": "voi/voi_catalog.jsonl"
+    },
+    "source": {
+      "detected": "detected",
+      "uploaded": "uploaded"
+    },
+    "notFound": "not found",
+    "noMetadata": "No metadata.jsonl under this root. Pick another folder or upload the file.",
+    "indexFailed": "Indexing did not finish",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows",
+    "mapping": "Field mapping"
   },
   "explorer": {
     "caseCount_one": "{{count}} case",
@@ -283,14 +335,18 @@
     "filterPlaceholder": "Filter cases",
     "filtersActive_one": "{{count}} filter active",
     "filtersActive_other": "{{count}} filters active",
-    "group": "Group {{group}}",
     "missing": "missing",
     "emptyProject": "No data yet. Use File → Import data.",
     "noCases": "No cases match",
     "thumbnailRows": "Rows with thumbnails",
     "voi": "VOI",
     "warnings_one": "{{count}} QC warning",
-    "warnings_other": "{{count}} QC warnings"
+    "warnings_other": "{{count}} QC warnings",
+    "indexing": "Indexing…",
+    "columns": "Columns and colour",
+    "showColumns": "Show as column",
+    "colorBy": "Colour by",
+    "noVariables": "No case-level variables"
   },
   "search": {
     "any": "Any",
@@ -306,10 +362,20 @@
     "status": "Curation status",
     "text": "Case or patient ID",
     "voi": "VOI",
-    "warnings": "QC warnings"
+    "warnings": "QC warnings",
+    "variables": "Study variables",
+    "noVariables": "No visible variables. Use the Variables view to show some.",
+    "rangeHint": "Observed {{min}} – {{max}}",
+    "min": "{{name}} minimum",
+    "max": "{{name}} maximum",
+    "minShort": "min",
+    "maxShort": "max",
+    "to": "to",
+    "levelOption": "{{value}} ({{count}})"
   },
   "problems": {
-    "none": "No problems"
+    "none": "No problems",
+    "projectLevel": "Import (no case)"
   },
   "image": {
     "absolute": "Absolute",
@@ -566,14 +632,23 @@
       "running": "Running",
       "completed": "Completed",
       "failed": "Failed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "succeeded": "Succeeded",
+      "interrupted": "Interrupted"
+    },
+    "kind": {
+      "index": "Indexing",
+      "hash": "Full hash",
+      "thumbnail": "Thumbnails",
+      "radiomics": "Radiomics",
+      "mesh": "Mesh"
     }
   },
   "output": {
     "curation": "[curation] {{reviewer}} → {{id}} {{target}} = {{status}}",
     "empty": "Server events appear here",
     "index": "[index] rebuilt: {{items}} items, {{warnings}} warnings",
-    "job": "[job] {{title}}: {{status}} ({{done}}/{{total}})",
+    "job": "[job] {{title}}: {{status}}",
     "project": "[project] updated: {{fields}}"
   },
   "settings": {
@@ -618,5 +693,158 @@
     "subtitle": "Tokens, type and icons of the P0.5 design system. Theme: {{theme}}.",
     "title": "Design reference",
     "type": "Typography"
+  },
+  "preset": {
+    "ccrcc": {
+      "name": "ccRCC (kidney CT)",
+      "help": "Labels kidney, tumor, cyst · phases NC, CMP, NP, EP"
+    },
+    "generic-ct": {
+      "name": "Generic CT",
+      "help": "Phases NC, ART, PV, DELAYED · labels named from mask values"
+    },
+    "none": {
+      "name": "None",
+      "help": "Raw phase values kept · labels named from mask values"
+    }
+  },
+  "varType": {
+    "continuous": "continuous",
+    "categorical": "categorical",
+    "numeric-discrete": "numeric (few values)",
+    "date": "date",
+    "identifier": "identifier",
+    "text": "text",
+    "constant": "constant"
+  },
+  "variables": {
+    "filter": "Filter variables",
+    "summary_one": "{{count}} variable",
+    "summary_other": "{{count}} variables",
+    "toReview_one": "{{count}} to review",
+    "toReview_other": "{{count}} to review",
+    "none": "No variables yet. They are profiled from the metadata when data is imported.",
+    "section": {
+      "study": "Study",
+      "acquisition": "Acquisition",
+      "derived": "Derived",
+      "external": "External table"
+    },
+    "review": "Review",
+    "reviewDiscrete": "Numeric with few distinct values. Is it a measurement or a set of categories?",
+    "reviewLow": "Inferred as {{type}} with low confidence. Confirm or pick another type.",
+    "useType": "Use {{type}}",
+    "type": "Type",
+    "typeOf": "Type of {{name}}",
+    "inferred": "(inferred {{type}})",
+    "level": "Level",
+    "levelName": {
+      "case": "Case (constant within a case)",
+      "scan": "Scan (varies within a case)"
+    },
+    "levelShort": {
+      "case": "case-level",
+      "scan": "scan-level"
+    },
+    "source": "Source",
+    "sourceName": {
+      "metadata": "metadata.jsonl",
+      "derived": "Derived",
+      "external": "External table",
+      "raw": "raw_metadata tag"
+    },
+    "missing": "Missing",
+    "pct": "{{v}} %",
+    "distinct": "Distinct values",
+    "range": "Range",
+    "rangeValue": "{{min}} – {{max}}",
+    "definition": "Definition",
+    "def": {
+      "binThresholds": "bin {{source}} at {{thresholds}}",
+      "binQuantiles": "bin {{source}} into {{n}} quantiles",
+      "recode": "recode {{source}} ({{n}} levels renamed)",
+      "dominant": "largest of {{sources}}"
+    },
+    "levels": "Levels",
+    "levelCount": "{{value}} · {{count}}",
+    "moreLevels": "+{{n}} more",
+    "examples": "e.g. {{values}}",
+    "tags": "Tags",
+    "tag": {
+      "confounder": "confounder",
+      "outcome": "outcome",
+      "sensitive": "sensitive"
+    },
+    "tagHelp": {
+      "confounder": "Scanner or protocol factor to check in analyses (VAR-05)",
+      "outcome": "A target for analyses",
+      "sensitive": "Hidden from exports unless chosen"
+    },
+    "hide": "Hide {{name}}",
+    "show": "Show {{name}}",
+    "deleteDerived": "Delete derived variable",
+    "newDerived": "New derived variable…",
+    "importTable": "Import variable table…",
+    "create": "Create",
+    "created": "Variable {{name}} created",
+    "name": "Name",
+    "namePlaceholder": "e.g. score_group",
+    "operation": "Operation",
+    "op": {
+      "bin": "Bin",
+      "recode": "Recode",
+      "dominant": "Dominant"
+    },
+    "opHelp": {
+      "bin": "Continuous → categories by thresholds or quantiles.",
+      "recode": "Merge or rename the categories of a variable.",
+      "dominant": "Name of the largest among several numeric variables, per case."
+    },
+    "sourceVar": "Source variable",
+    "pick": "Choose…",
+    "sources": "Numeric variables",
+    "noNumeric": "No numeric variables in this project",
+    "noCategorical": "No categorical variables in this project",
+    "binMode": {
+      "thresholds": "Thresholds",
+      "quantiles": "Quantiles"
+    },
+    "thresholds": "Thresholds",
+    "thresholdsPlaceholder": "e.g. 50 or 10, 50",
+    "quantiles": "Number of quantiles",
+    "labels": "Labels",
+    "labelsHelp": "Comma-separated, one per bin. Leave empty for the suggestion.",
+    "mapping": "Recode mapping",
+    "from": "Value",
+    "to": "New value",
+    "recodeTo": "New value for {{value}}",
+    "err": {
+      "name": "Use a name that starts with a letter: a–z, 0–9, _.",
+      "source": "Choose a source variable.",
+      "sources": "Choose at least two numeric variables.",
+      "map": "Rename at least one value.",
+      "quantiles": "Use 2 to 10 quantiles.",
+      "thresholds": "Give one or more numeric thresholds.",
+      "labels": "Give one label per bin (or leave labels empty)."
+    },
+    "importHelp": "Add variables that are not in metadata.jsonl from a CSV or TSV keyed by case or patient. The file is copied into the project; nothing is written to the source data.",
+    "tableFile": "CSV / TSV file",
+    "keyColumn": "Key column",
+    "importAction": "Import",
+    "importResult": "{{matched}} of {{rows}} rows matched",
+    "importAdded": "Added: {{names}}",
+    "importUnmatched_one": "{{count}} unmatched key: {{keys}}",
+    "importUnmatched_other": "{{count}} unmatched keys: {{keys}}",
+    "newDerivedTitle": "New derived variable",
+    "importTableTitle": "Import variable table"
+  },
+  "varTypeShort": {
+    "continuous": "cont.",
+    "categorical": "cat.",
+    "numeric-discrete": "num?",
+    "date": "date",
+    "identifier": "id",
+    "text": "text",
+    "constant": "const."
   }
 }

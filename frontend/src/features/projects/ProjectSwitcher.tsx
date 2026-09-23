@@ -27,7 +27,7 @@ export function ProjectSwitcher({ pid }: { pid: string }) {
         <Menu.Portal>
           <Menu.Content className="overlay menu" align="start" sideOffset={2}>
             {projects.map((p) => (
-              <Menu.Item key={p.project_id} className="menu-item" disabled={p.roots.some((r) => !r.reachable)} onSelect={() => navigate(`/p/${p.project_id}`)}>
+              <Menu.Item key={p.project_id} className="menu-item" onSelect={() => navigate(`/p/${p.project_id}`)}>
                 <Icon spec={codicon(p.project_id === pid ? 'check' : 'folder')} />
                 {p.name}
                 <span className="kbd">{t('projects.casesShort', { n: p.n_cases })}</span>

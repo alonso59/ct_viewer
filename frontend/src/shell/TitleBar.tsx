@@ -34,6 +34,11 @@ function MenuItems({ menu }: { menu: MenuId }) {
   )
 }
 
+/** Clipboard API needs a secure context; plain-http remote hosts fall back to the toast text */
+function copyText(text: string): Promise<void> {
+  return navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject(new Error('no clipboard'))
+}
+
 export function TitleBar({ brand, shareUrl }: { brand: ReactNode; shareUrl?: string }) {
   const { t } = useTranslation()
   const layout = useLayout()
@@ -65,8 +70,12 @@ export function TitleBar({ brand, shareUrl }: { brand: ReactNode; shareUrl?: str
             icon={codicon('link')}
             label={t('shell.copyShareLink')}
             onClick={() => {
-              void navigator.clipboard?.writeText(shareUrl)
-              toast({ message: t('shell.shareLinkCopied'), tone: 'ok' })
+              // PRJ-03: the project link plus the active tab's deep link (case, item, layout)
+              const url = shareUrl.replace(/\/$/, '') + location.pathname.replace(/^\/p\/[^/]+/, '') + location.search
+              copyText(url).then(
+                () => toast({ message: t('shell.shareLinkCopied', { url }), tone: 'ok' }),
+                () => toast({ message: t('shell.shareLinkManual', { url }), tone: 'info' }),
+              )
             }}
           />
         ) : null}

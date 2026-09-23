@@ -1,63 +1,50 @@
-// Domain payload types (DATA_MODEL, CURATION, RADIOMICS). Hand-written for the P0.5 mock;
-// P2 replaces them with aliases of the generated `schema.d.ts` (FE-03).
+// Domain payload types. Built endpoints alias the generated `schema.d.ts` (FE-03); the HTTP client
+// normalizes payloads into these shapes so features stay independent of wire details.
+// Endpoints not built yet (curation API-50..54, radiomics API-30..38, variables API-16..18) keep
+// hand-written types from the domain docs until their backend lands and `make gen-api` covers them.
+import type { components } from './schema'
 
-export type Phase = 'NC' | 'CMP' | 'NP' | 'EP' | 'UNK'
+type S = components['schemas']
+
+export type Phase = S['PhaseInfo']['canonical']
 export const PHASES: Phase[] = ['NC', 'CMP', 'NP', 'EP', 'UNK']
-export type Scope = 'complete' | 'voi'
-export type Side = 'L' | 'R' | '-' | string
+export type Scope = S['Item']['scope']
+export type Side = S['Item']['side']
+export type QcCode = S['QcCode']
 
-export interface Project {
-  project_id: string
-  name: string
-  created_at: string
-  last_opened_at: string
-  n_cases: number
-  n_items: number
-  progress: { reviewed: number; total: number }
-  roots: { alias: string; path: string; reachable: boolean }[]
-  label_map: LabelDef[]
-  share_url: string
+/** PRJ-12 study presets */
+export const PRESETS = ['ccrcc', 'generic-ct', 'none'] as const
+export type Preset = (typeof PRESETS)[number]
+
+/** API-02 list row */
+export type ProjectSummary = Omit<S['ProjectSummary'], 'last_opened_at'> & { last_opened_at: string | null }
+
+export type LabelDef = Required<S['LabelEntry']>
+export type PathRoot = S['PathRoot']
+export type RootInfo = S['RootInfo']
+export type RelinkResult = S['RelinkResult']
+
+/** API-03 detail */
+export type Project = Omit<Required<S['ProjectDetail']>, 'label_map'> & { label_map: LabelDef[]; preset?: Preset | null }
+
+export type VolumeRef = S['VolumeRef']
+export type Geometry = S['Geometry']
+
+/** API-22 item; server defaults make every field present */
+export type ItemRecord = Required<S['Item']>
+export type ItemDetail = ItemRecord & {
+  /** `image_abs`/`mask_abs` alias the API names for P0.5 code (viewer ImageSection); drop after lane/2-viewer merges */
+  advanced: Required<S['ItemAdvanced']> & { image_abs: string | null; mask_abs: string | null }
+  warnings: QCWarning[]
 }
 
-export interface LabelDef {
-  value: number
-  name: string
-  color: string
-  opacity: number
-  visible: boolean
-}
+export type VariableValue = string | number | null
 
-export interface ItemRecord {
-  item_id: string
-  case_id: string
-  scan_idx: string
-  scope: Scope
-  side: Side
-  patient_id: string
-  group: string
-  phase: { canonical: Phase; raw: string; source: string }
-  image: { ref: string; format: string } | null
-  mask: { ref: string; format: string } | null
-  geometry: { shape: number[]; spacing: number[]; dtype: string; orientation: string } | null
-  labels_present: number[]
-  status: 'active' | 'excluded_upstream' | 'missing'
-  warning_codes: string[]
-  extra: Record<string, unknown>
-}
-
-export interface CaseSummary {
-  case_id: string
-  patient_id: string
-  group: string
-  phases: Phase[]
-  n_scans: number
-  n_items: number
-  has_seg: boolean
-  has_voi_L: boolean
-  has_voi_R: boolean
-  n_warnings: number
+export type CaseSummary = Omit<Required<S['CaseSummary']>, 'group' | 'curation_status'> & {
   curation_status: CurationStatus
-  last_reviewed_at: string | null
+  /** Case-level values of study variables (VAR-02/10); `{}` until the backend sends them */
+  variables: Record<string, VariableValue>
+  /** Item used for the list thumbnail; null = derive it from the case detail */
   thumb_item_id: string | null
   excluded: boolean
 }
@@ -68,14 +55,8 @@ export interface CaseDetail {
   warnings: QCWarning[]
 }
 
-export interface QCWarning {
-  code: string
-  severity: 'error' | 'warning'
-  item_id: string | null
-  case_id: string
-  message: string
-  detected_at: string
-}
+export type QCWarning = Required<S['QcWarning']>
+export type Severity = S['Severity']
 
 export const CURATION_STATUSES = [
   'not_reviewed',
@@ -150,6 +131,8 @@ export interface CurationStateRow {
   add_to_queue: boolean
 }
 
+export type QueueRow = CurationStateRow & { item: ItemRecord | null; image_abs: string | null; mask_abs: string | null }
+
 export type RunStatus =
   | 'queued'
   | 'running'
@@ -188,6 +171,7 @@ export interface FeatureRow extends FeatureValue {
   scope: Scope
   side: Side
   phase: Phase
+  /** Dashboard colouring; moves to study variables in P6-FE (VAR-10) */
   group: string
 }
 
@@ -229,35 +213,96 @@ export interface Issue {
   severity: 'error' | 'warning'
   message: string
 }
-
-export type JobKind = 'indexing' | 'thumbnails' | 'radiomics' | 'mesh' | 'hash'
-export interface Job {
-  job_id: string
-  kind: JobKind
-  title: string
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
-  done: number
-  total: number
-  eta_s: number | null
-  started_at: string
-  ref: string | null
-}
-
-export interface FsEntry {
+export interface Profile {
   name: string
-  path: string
-  kind: 'dir' | 'file'
-  detected?: string[]
+  hash: string
+  settings: Settings
+  saved_at: string
+}
+export interface Estimate {
+  n_items: number
+  n_labels: number
+  n_extractions: number
+  sec_per_item: number
 }
 
-export interface ImportPreview {
+/** API-41 job */
+export type Job = Required<S['JobInfo']>
+export type JobKind = Job['kind']
+export type JobStatus = Job['status']
+/** API-40 `job.progress` / `job.finished` payloads */
+export type JobProgress = Pick<Job, 'job_id' | 'kind' | 'done' | 'total' | 'eta_s'>
+export type JobFinished = Pick<Job, 'job_id' | 'kind' | 'status' | 'ref'>
+
+export type FsEntry = Required<S['FsEntry']>
+export type FsListing = Omit<S['FsListing'], 'entries' | 'truncated'> & { entries: FsEntry[]; truncated: boolean }
+export type ImportPreview = S['ImportPreview']
+export type ImportHistory = S['ImportHistory']
+export type IndexStatus = S['IndexStatus']
+export type CommitResult = S['CommitResult']
+export type Health = S['Health']
+
+/** Import preview request: a server folder (IMP-01/02), optionally with uploaded metadata files */
+export interface PreviewRequest {
   root: string
-  detected: { file: string; found: boolean; rows: number }[]
+  alias: string
+  files?: { metadata: File; phase?: File | null; voi_catalog?: File | null }
+}
+
+// ---- Study variables (VARIABLES.md, API-16..18): proposed wire shape until lane/2-backend lands ----
+export const VARIABLE_TYPES = ['continuous', 'categorical', 'numeric-discrete', 'date', 'identifier', 'text', 'constant'] as const
+export type VariableType = (typeof VARIABLE_TYPES)[number]
+/** Types a user can pick when confirming or overriding an inference (VAR-03) */
+export const OVERRIDE_TYPES: VariableType[] = ['continuous', 'categorical', 'date', 'identifier', 'text']
+export const VARIABLE_TAGS = ['confounder', 'outcome', 'sensitive'] as const
+export type VariableTag = (typeof VARIABLE_TAGS)[number]
+export type VariableSource = 'metadata' | 'derived' | 'external' | 'raw'
+export type VariableGroup = 'study' | 'acquisition'
+
+export interface VariableProfile {
+  missing_pct: number
+  n_distinct: number
+  examples: (string | number)[]
+  /** Continuous only */
+  min?: number | null
+  max?: number | null
+  /** Categorical only: level → count */
+  levels?: { value: string; count: number }[]
+}
+
+export type DerivedDef =
+  | { name: string; op: 'bin'; source: string; thresholds?: number[]; quantiles?: number; labels: string[] }
+  | { name: string; op: 'recode'; source: string; map: Record<string, string> }
+  | { name: string; op: 'dominant'; sources: string[] }
+export type DerivedOp = DerivedDef['op']
+
+export interface Variable {
+  name: string
+  source: VariableSource
+  type: VariableType
+  /** The inference before any override */
+  inferred_type: VariableType
+  level: 'case' | 'scan'
+  group: VariableGroup
+  tags: VariableTag[]
+  visible: boolean
+  /** 0..1 */
+  confidence: number
+  /** Low-confidence inference: the UI shows a "Review" badge until confirmed (VAR-03) */
+  review: boolean
+  overridden: boolean
+  profile: VariableProfile
+  definition?: DerivedDef | null
+}
+
+export type VariablePatch = Partial<Pick<Variable, 'type' | 'visible' | 'tags'>>
+
+export interface ExternalImportResult {
+  key: 'case_id' | 'patient_id'
   n_rows: number
-  n_cases: number
-  n_items: number
-  errors: { row: number; code: string; message: string }[]
-  mapping: { field: string; source: string }[]
+  matched: number
+  unmatched_keys: string[]
+  added: string[]
 }
 
 export interface Problem {
@@ -269,7 +314,7 @@ export interface Problem {
 
 export type ServerEvent =
   | { event: 'curation.appended'; data: CurationEvent }
-  | { event: 'job.progress'; data: Job }
-  | { event: 'job.finished'; data: Job }
+  | { event: 'job.progress'; data: JobProgress }
+  | { event: 'job.finished'; data: JobFinished }
   | { event: 'index.rebuilt'; data: { import_id: string; n_items: number; n_warnings: number } }
   | { event: 'project.updated'; data: { fields: string[] } }

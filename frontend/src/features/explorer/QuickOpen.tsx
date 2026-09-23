@@ -12,7 +12,7 @@ export function QuickOpenCases({ query, close }: { query: string; close: () => v
   const pid = useWorkbench((s) => s.pid) ?? ''
   const { data } = useCases(pid, { showExcluded: true })
   const q = query.trim().toLowerCase().replace(/^case_?/, '')
-  const list = (data ?? []).filter((c) => !q || c.case_id.includes(q) || c.patient_id.toLowerCase().includes(q)).slice(0, 50)
+  const list = (data ?? []).filter((c) => !q || c.case_id.includes(q) || (c.patient_id ?? '').toLowerCase().includes(q)).slice(0, 50)
   return (
     <Command.Group heading={t('palette.cases')}>
       {list.map((c) => (

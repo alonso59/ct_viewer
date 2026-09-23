@@ -1,9 +1,12 @@
-// API layer: client (mock in P0.5), query keys, hooks, domain types (FE-02/03)
+// API layer: client, query keys, hooks, domain types (FE-02/03)
 export * from './hooks'
 export * from './types'
-export { api, ProblemError, DEMO_PID, setReviewerSimulation, type CaseFilter } from './client'
+export { api, API_MODE } from './client'
+export type { Api, CaseFilter, ConnectionState } from './surface'
+export { ProblemError } from './problem'
+export { useConnection } from './connection'
 export { keys } from './keys'
 export { loadSlices, type SliceSet, type Slice, type Plane } from './mock/slices'
 export { defaultSettings, validateSettings } from './mock/schema'
-export { rollup } from './mock/server'
+export { rollup } from './rollup'
 export { queryClient } from './queryClient'

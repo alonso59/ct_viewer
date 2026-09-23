@@ -1,4 +1,4 @@
-import { rollup } from './server'
+import { rollup } from '../rollup'
 import { defaultSettings, validateSettings } from './schema'
 
 const sel = { labels: [2], items: 10 }
