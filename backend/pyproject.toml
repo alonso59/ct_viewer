@@ -21,11 +21,17 @@ dependencies = [
   "pyarrow>=17",
   "duckdb>=1.1",
   "scikit-learn>=1.5",
+  "pillow>=10.4",  # WebP thumbnails (IMP-12)
 ]
 
 [project.optional-dependencies]
-# PyRadiomics on Python 3.12 is verified in the P1 spike (ADR-0006); kept separate until then.
-radiomics = ["pyradiomics", "SimpleITK>=2.3", "PyWavelets>=1.6"]
+# PyPI has no cp312 wheels and its 3.1.0 sdist is broken; the P1 spike (LANE_NOTES, ADR-0006)
+# verified this upstream commit on Python 3.12 against the IBSI digital phantom.
+radiomics = [
+  "pyradiomics @ git+https://github.com/AIM-Harvard/pyradiomics@8ed579383b44806651c463d5e691f3b2b57522ab",
+  "SimpleITK>=2.3",
+  "PyWavelets>=1.6",
+]
 umap = ["umap-learn>=0.5"]
 dev = [
   "pytest>=8",
@@ -35,12 +41,16 @@ dev = [
   "mypy>=1.11",
 ]
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
 
 [tool.ruff]
 line-length = 100
@@ -55,7 +65,10 @@ strict = true
 packages = ["app", "tools"]
 
 [[tool.mypy.overrides]]
-module = ["nibabel.*", "skimage.*", "sklearn.*", "duckdb.*", "pyarrow.*", "sse_starlette.*"]
+module = [
+  "nibabel.*", "skimage.*", "sklearn.*", "duckdb.*", "pyarrow.*", "sse_starlette.*",
+  "radiomics.*", "SimpleITK.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

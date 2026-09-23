@@ -1,0 +1,3333 @@
+{
+ "components": {
+  "schemas": {
+   "CaseDetail": {
+    "properties": {
+     "case": {
+      "$ref": "#/components/schemas/CaseSummary"
+     },
+     "scans": {
+      "items": {
+       "$ref": "#/components/schemas/ScanGroup"
+      },
+      "title": "Scans",
+      "type": "array"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/QcWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "case",
+     "scans",
+     "warnings"
+    ],
+    "title": "CaseDetail",
+    "type": "object"
+   },
+   "CaseSummary": {
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "curation_status": {
+      "default": "not_reviewed",
+      "title": "Curation Status",
+      "type": "string"
+     },
+     "group": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Group"
+     },
+     "has_seg": {
+      "default": false,
+      "title": "Has Seg",
+      "type": "boolean"
+     },
+     "has_voi_L": {
+      "default": false,
+      "title": "Has Voi L",
+      "type": "boolean"
+     },
+     "has_voi_R": {
+      "default": false,
+      "title": "Has Voi R",
+      "type": "boolean"
+     },
+     "last_reviewed_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Reviewed At"
+     },
+     "n_items": {
+      "default": 0,
+      "title": "N Items",
+      "type": "integer"
+     },
+     "n_scans": {
+      "default": 0,
+      "title": "N Scans",
+      "type": "integer"
+     },
+     "n_warnings": {
+      "default": 0,
+      "title": "N Warnings",
+      "type": "integer"
+     },
+     "patient_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Patient Id"
+     },
+     "phases": {
+      "items": {
+       "enum": [
+        "NC",
+        "CMP",
+        "NP",
+        "EP",
+        "UNK"
+       ],
+       "type": "string"
+      },
+      "title": "Phases",
+      "type": "array"
+     }
+    },
+    "required": [
+     "case_id"
+    ],
+    "title": "CaseSummary",
+    "type": "object"
+   },
+   "CommitRequest": {
+    "properties": {
+     "preview_id": {
+      "title": "Preview Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "preview_id"
+    ],
+    "title": "CommitRequest",
+    "type": "object"
+   },
+   "CommitResult": {
+    "properties": {
+     "import_id": {
+      "title": "Import Id",
+      "type": "string"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "job_id",
+     "import_id"
+    ],
+    "title": "CommitResult",
+    "type": "object"
+   },
+   "FieldMapping": {
+    "properties": {
+     "image": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Image"
+     },
+     "phase": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Phase",
+      "type": "array"
+     },
+     "seg": {
+      "anyOf": [
+       {
+        "enum": [
+         "seg_path",
+         "convention"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg"
+     },
+     "side": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Side"
+     }
+    },
+    "title": "FieldMapping",
+    "type": "object"
+   },
+   "FsEntry": {
+    "properties": {
+     "has_metadata": {
+      "default": false,
+      "title": "Has Metadata",
+      "type": "boolean"
+     },
+     "kind": {
+      "enum": [
+       "dir",
+       "file"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     }
+    },
+    "required": [
+     "name",
+     "path",
+     "kind"
+    ],
+    "title": "FsEntry",
+    "type": "object"
+   },
+   "FsListing": {
+    "properties": {
+     "entries": {
+      "items": {
+       "$ref": "#/components/schemas/FsEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Path"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path",
+     "parent",
+     "entries"
+    ],
+    "title": "FsListing",
+    "type": "object"
+   },
+   "Geometry": {
+    "properties": {
+     "dtype": {
+      "title": "Dtype",
+      "type": "string"
+     },
+     "orientation": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Orientation"
+     },
+     "shape": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Shape",
+      "type": "array"
+     },
+     "spacing": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Spacing",
+      "type": "array"
+     }
+    },
+    "required": [
+     "shape",
+     "spacing",
+     "dtype"
+    ],
+    "title": "Geometry",
+    "type": "object"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "Health": {
+    "properties": {
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "ui_config": {
+      "$ref": "#/components/schemas/UiConfig"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "status",
+     "version",
+     "ui_config"
+    ],
+    "title": "Health",
+    "type": "object"
+   },
+   "ImportCounts": {
+    "properties": {
+     "cases": {
+      "default": 0,
+      "title": "Cases",
+      "type": "integer"
+     },
+     "excluded_upstream": {
+      "default": 0,
+      "title": "Excluded Upstream",
+      "type": "integer"
+     },
+     "scan_rows": {
+      "default": 0,
+      "title": "Scan Rows",
+      "type": "integer"
+     },
+     "voi_rows": {
+      "default": 0,
+      "title": "Voi Rows",
+      "type": "integer"
+     }
+    },
+    "title": "ImportCounts",
+    "type": "object"
+   },
+   "ImportHistory": {
+    "properties": {
+     "index": {
+      "$ref": "#/components/schemas/IndexStatus"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/ImportRecord"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total",
+     "index"
+    ],
+    "title": "ImportHistory",
+    "type": "object"
+   },
+   "ImportPreview": {
+    "properties": {
+     "alias": {
+      "title": "Alias",
+      "type": "string"
+     },
+     "counts": {
+      "$ref": "#/components/schemas/ImportCounts"
+     },
+     "errors": {
+      "items": {
+       "$ref": "#/components/schemas/PreviewError"
+      },
+      "title": "Errors",
+      "type": "array"
+     },
+     "field_mapping": {
+      "$ref": "#/components/schemas/FieldMapping"
+     },
+     "files": {
+      "items": {
+       "$ref": "#/components/schemas/InputFile"
+      },
+      "title": "Files",
+      "type": "array"
+     },
+     "n_errors": {
+      "title": "N Errors",
+      "type": "integer"
+     },
+     "preview_id": {
+      "title": "Preview Id",
+      "type": "string"
+     },
+     "root": {
+      "title": "Root",
+      "type": "string"
+     }
+    },
+    "required": [
+     "preview_id",
+     "root",
+     "alias",
+     "files",
+     "counts",
+     "errors",
+     "n_errors",
+     "field_mapping"
+    ],
+    "title": "ImportPreview",
+    "type": "object"
+   },
+   "ImportRecord": {
+    "description": "One line of `sources/imports.jsonl` (IMP-04).",
+    "properties": {
+     "alias": {
+      "title": "Alias",
+      "type": "string"
+     },
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "counts": {
+      "$ref": "#/components/schemas/ImportCounts"
+     },
+     "files": {
+      "items": {
+       "$ref": "#/components/schemas/InputFile"
+      },
+      "title": "Files",
+      "type": "array"
+     },
+     "import_id": {
+      "title": "Import Id",
+      "type": "string"
+     },
+     "root": {
+      "title": "Root",
+      "type": "string"
+     }
+    },
+    "required": [
+     "import_id",
+     "at",
+     "alias",
+     "root",
+     "files",
+     "counts"
+    ],
+    "title": "ImportRecord",
+    "type": "object"
+   },
+   "IndexStatus": {
+    "description": "`index/status.json`: persisted index job state (BE-06).",
+    "properties": {
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "import_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Import Id"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "n_items": {
+      "default": 0,
+      "title": "N Items",
+      "type": "integer"
+     },
+     "n_warnings": {
+      "default": 0,
+      "title": "N Warnings",
+      "type": "integer"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "state": {
+      "default": "empty",
+      "enum": [
+       "empty",
+       "running",
+       "ready",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "title": "IndexStatus",
+    "type": "object"
+   },
+   "InputFile": {
+    "properties": {
+     "kind": {
+      "enum": [
+       "metadata",
+       "phase",
+       "voi_catalog"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "rows": {
+      "title": "Rows",
+      "type": "integer"
+     },
+     "sha256": {
+      "title": "Sha256",
+      "type": "string"
+     },
+     "source": {
+      "enum": [
+       "detected",
+       "uploaded"
+      ],
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "name",
+     "source",
+     "sha256",
+     "rows"
+    ],
+    "title": "InputFile",
+    "type": "object"
+   },
+   "Item": {
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "extra": {
+      "additionalProperties": true,
+      "title": "Extra",
+      "type": "object"
+     },
+     "geometry": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Geometry"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "group": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Group"
+     },
+     "image": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/VolumeRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "import_id": {
+      "title": "Import Id",
+      "type": "string"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "labels_present": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Labels Present",
+      "type": "array"
+     },
+     "mask": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/VolumeRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "patient_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Patient Id"
+     },
+     "phase": {
+      "$ref": "#/components/schemas/PhaseInfo"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "scope": {
+      "enum": [
+       "complete",
+       "voi"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "side": {
+      "enum": [
+       "L",
+       "R",
+       "-"
+      ],
+      "title": "Side",
+      "type": "string"
+     },
+     "status": {
+      "default": "active",
+      "enum": [
+       "active",
+       "excluded_upstream",
+       "missing"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "warning_codes": {
+      "items": {
+       "$ref": "#/components/schemas/QcCode"
+      },
+      "title": "Warning Codes",
+      "type": "array"
+     }
+    },
+    "required": [
+     "item_id",
+     "case_id",
+     "scan_idx",
+     "scope",
+     "side",
+     "phase",
+     "import_id"
+    ],
+    "title": "Item",
+    "type": "object"
+   },
+   "ItemAdvanced": {
+    "properties": {
+     "image_path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Image Path"
+     },
+     "mask_path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mask Path"
+     }
+    },
+    "title": "ItemAdvanced",
+    "type": "object"
+   },
+   "ItemDetail": {
+    "properties": {
+     "advanced": {
+      "$ref": "#/components/schemas/ItemAdvanced"
+     },
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "extra": {
+      "additionalProperties": true,
+      "title": "Extra",
+      "type": "object"
+     },
+     "geometry": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Geometry"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "group": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Group"
+     },
+     "image": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/VolumeRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "import_id": {
+      "title": "Import Id",
+      "type": "string"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "labels_present": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Labels Present",
+      "type": "array"
+     },
+     "mask": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/VolumeRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "patient_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Patient Id"
+     },
+     "phase": {
+      "$ref": "#/components/schemas/PhaseInfo"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "scope": {
+      "enum": [
+       "complete",
+       "voi"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "side": {
+      "enum": [
+       "L",
+       "R",
+       "-"
+      ],
+      "title": "Side",
+      "type": "string"
+     },
+     "status": {
+      "default": "active",
+      "enum": [
+       "active",
+       "excluded_upstream",
+       "missing"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "warning_codes": {
+      "items": {
+       "$ref": "#/components/schemas/QcCode"
+      },
+      "title": "Warning Codes",
+      "type": "array"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/QcWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "item_id",
+     "case_id",
+     "scan_idx",
+     "scope",
+     "side",
+     "phase",
+     "import_id",
+     "advanced"
+    ],
+    "title": "ItemDetail",
+    "type": "object"
+   },
+   "JobInfo": {
+    "description": "API-41 payload.",
+    "properties": {
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "done": {
+      "default": 0,
+      "title": "Done",
+      "type": "integer"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "eta_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Eta S"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "index",
+       "hash",
+       "thumbnail",
+       "radiomics",
+       "mesh"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "project_id": {
+      "title": "Project Id",
+      "type": "string"
+     },
+     "ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ref"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "running",
+       "succeeded",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "total": {
+      "default": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "job_id",
+     "kind",
+     "project_id",
+     "status",
+     "created_at"
+    ],
+    "title": "JobInfo",
+    "type": "object"
+   },
+   "LabelEntry": {
+    "properties": {
+     "color": {
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "title": "Color",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "opacity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Opacity",
+      "type": "number"
+     },
+     "value": {
+      "maximum": 65535.0,
+      "minimum": 0.0,
+      "title": "Value",
+      "type": "integer"
+     },
+     "visible": {
+      "default": true,
+      "title": "Visible",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "value",
+     "name",
+     "color",
+     "opacity"
+    ],
+    "title": "LabelEntry",
+    "type": "object"
+   },
+   "Page_CaseSummary_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/CaseSummary"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[CaseSummary]",
+    "type": "object"
+   },
+   "Page_QcWarning_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/QcWarning"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[QcWarning]",
+    "type": "object"
+   },
+   "PathRoot": {
+    "properties": {
+     "alias": {
+      "title": "Alias",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "alias",
+     "path"
+    ],
+    "title": "PathRoot",
+    "type": "object"
+   },
+   "PhaseInfo": {
+    "properties": {
+     "canonical": {
+      "enum": [
+       "NC",
+       "CMP",
+       "NP",
+       "EP",
+       "UNK"
+      ],
+      "title": "Canonical",
+      "type": "string"
+     },
+     "raw": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Raw"
+     },
+     "source": {
+      "default": "none",
+      "enum": [
+       "phase.json",
+       "curated_phase",
+       "canonical_phase",
+       "phase",
+       "phase_guess",
+       "catalog",
+       "none"
+      ],
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "canonical"
+    ],
+    "title": "PhaseInfo",
+    "type": "object"
+   },
+   "PreviewError": {
+    "properties": {
+     "field": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Field"
+     },
+     "file": {
+      "title": "File",
+      "type": "string"
+     },
+     "line": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Line"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file",
+     "message"
+    ],
+    "title": "PreviewError",
+    "type": "object"
+   },
+   "ProjectCreate": {
+    "properties": {
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "ProjectCreate",
+    "type": "object"
+   },
+   "ProjectDetail": {
+    "description": "API-03 response: project.json + share link (PRJ-03).",
+    "properties": {
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "format": {
+      "const": "radiology-workbench-project",
+      "default": "radiology-workbench-project",
+      "title": "Format",
+      "type": "string"
+     },
+     "format_version": {
+      "default": 1,
+      "title": "Format Version",
+      "type": "integer"
+     },
+     "label_map": {
+      "items": {
+       "$ref": "#/components/schemas/LabelEntry"
+      },
+      "title": "Label Map",
+      "type": "array"
+     },
+     "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "path_roots": {
+      "items": {
+       "$ref": "#/components/schemas/PathRoot"
+      },
+      "title": "Path Roots",
+      "type": "array"
+     },
+     "phase_priority": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Phase Priority",
+      "type": "array"
+     },
+     "phase_vocabulary": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Phase Vocabulary",
+      "type": "array"
+     },
+     "project_id": {
+      "title": "Project Id",
+      "type": "string"
+     },
+     "share_url": {
+      "title": "Share Url",
+      "type": "string"
+     },
+     "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+     },
+     "viewer_defaults": {
+      "$ref": "#/components/schemas/ViewerDefaults"
+     }
+    },
+    "required": [
+     "project_id",
+     "name",
+     "created_at",
+     "updated_at",
+     "share_url"
+    ],
+    "title": "ProjectDetail",
+    "type": "object"
+   },
+   "ProjectPatch": {
+    "description": "API-03 PATCH body: only provided fields change.",
+    "properties": {
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description"
+     },
+     "label_map": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/LabelEntry"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label Map"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "phase_priority": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase Priority"
+     },
+     "viewer_defaults": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ViewerDefaults"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "title": "ProjectPatch",
+    "type": "object"
+   },
+   "ProjectSummary": {
+    "description": "PRJ-02 workspace home row.",
+    "properties": {
+     "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "curation_progress": {
+      "default": 0.0,
+      "title": "Curation Progress",
+      "type": "number"
+     },
+     "last_opened_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Opened At"
+     },
+     "n_cases": {
+      "default": 0,
+      "title": "N Cases",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "project_id": {
+      "title": "Project Id",
+      "type": "string"
+     },
+     "share_url": {
+      "title": "Share Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "project_id",
+     "name",
+     "created_at",
+     "share_url"
+    ],
+    "title": "ProjectSummary",
+    "type": "object"
+   },
+   "QcCode": {
+    "enum": [
+     "missing_path",
+     "unreadable_file",
+     "outside_root",
+     "missing_seg",
+     "missing_voi_image",
+     "missing_voi_mask",
+     "missing_affine",
+     "affine_mismatch",
+     "shape_mismatch",
+     "ambiguous_phase",
+     "ambiguous_side",
+     "duplicate_row_identity",
+     "fingerprint_changed"
+    ],
+    "title": "QcCode",
+    "type": "string"
+   },
+   "QcWarning": {
+    "properties": {
+     "case_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Id"
+     },
+     "code": {
+      "$ref": "#/components/schemas/QcCode"
+     },
+     "detected_at": {
+      "title": "Detected At",
+      "type": "string"
+     },
+     "field": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Field"
+     },
+     "item_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item Id"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     },
+     "path_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Path Ref"
+     },
+     "severity": {
+      "$ref": "#/components/schemas/Severity"
+     }
+    },
+    "required": [
+     "code",
+     "severity",
+     "message",
+     "detected_at"
+    ],
+    "title": "QcWarning",
+    "type": "object"
+   },
+   "RelinkResult": {
+    "properties": {
+     "root": {
+      "$ref": "#/components/schemas/RootInfo"
+     },
+     "verify": {
+      "$ref": "#/components/schemas/VerifyReport"
+     }
+    },
+    "required": [
+     "root",
+     "verify"
+    ],
+    "title": "RelinkResult",
+    "type": "object"
+   },
+   "RootBody": {
+    "properties": {
+     "path": {
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "RootBody",
+    "type": "object"
+   },
+   "RootInfo": {
+    "description": "API-05 alias row.",
+    "properties": {
+     "alias": {
+      "title": "Alias",
+      "type": "string"
+     },
+     "exists": {
+      "title": "Exists",
+      "type": "boolean"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "alias",
+     "path",
+     "exists"
+    ],
+    "title": "RootInfo",
+    "type": "object"
+   },
+   "ScanGroup": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/Item"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "phase": {
+      "$ref": "#/components/schemas/PhaseInfo"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     }
+    },
+    "required": [
+     "scan_idx",
+     "phase",
+     "items"
+    ],
+    "title": "ScanGroup",
+    "type": "object"
+   },
+   "Severity": {
+    "enum": [
+     "error",
+     "warning",
+     "info"
+    ],
+    "title": "Severity",
+    "type": "string"
+   },
+   "UiConfig": {
+    "properties": {
+     "public_base_url": {
+      "title": "Public Base Url",
+      "type": "string"
+     },
+     "viewer_max_loaded": {
+      "title": "Viewer Max Loaded",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "viewer_max_loaded",
+     "public_base_url"
+    ],
+    "title": "UiConfig",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "VerifyReport": {
+    "properties": {
+     "matched": {
+      "default": 0,
+      "title": "Matched",
+      "type": "integer"
+     },
+     "mismatched": {
+      "default": 0,
+      "title": "Mismatched",
+      "type": "integer"
+     },
+     "missing": {
+      "default": 0,
+      "title": "Missing",
+      "type": "integer"
+     },
+     "sampled": {
+      "default": 0,
+      "title": "Sampled",
+      "type": "integer"
+     },
+     "samples": {
+      "items": {
+       "$ref": "#/components/schemas/VerifySample"
+      },
+      "title": "Samples",
+      "type": "array"
+     }
+    },
+    "title": "VerifyReport",
+    "type": "object"
+   },
+   "VerifySample": {
+    "properties": {
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "matched",
+       "mismatched",
+       "missing"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "item_id",
+     "ref",
+     "status"
+    ],
+    "title": "VerifySample",
+    "type": "object"
+   },
+   "ViewerDefaults": {
+    "properties": {
+     "layout": {
+      "default": "four-up",
+      "title": "Layout",
+      "type": "string"
+     },
+     "wl": {
+      "default": 50,
+      "title": "Wl",
+      "type": "number"
+     },
+     "ww": {
+      "default": 400,
+      "title": "Ww",
+      "type": "number"
+     }
+    },
+    "title": "ViewerDefaults",
+    "type": "object"
+   },
+   "VolumeRef": {
+    "properties": {
+     "format": {
+      "default": "nifti",
+      "enum": [
+       "nifti",
+       "npy"
+      ],
+      "title": "Format",
+      "type": "string"
+     },
+     "fp": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fp"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ],
+    "title": "VolumeRef",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "title": "Radiology Workbench",
+  "version": "3.0.0.dev0"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/api/v1/fs/list": {
+   "get": {
+    "operationId": "fs_list_api_v1_fs_list_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Path"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FsListing"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Fs List",
+    "tags": [
+     "fs"
+    ]
+   }
+  },
+  "/api/v1/health": {
+   "get": {
+    "operationId": "health_api_v1_health_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Health"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Health",
+    "tags": [
+     "health"
+    ]
+   }
+  },
+  "/api/v1/jobs": {
+   "get": {
+    "description": "Newest first; `?project=` filters by project id.",
+    "operationId": "list_jobs_api_v1_jobs_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/JobInfo"
+         },
+         "title": "Response List Jobs Api V1 Jobs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Jobs",
+    "tags": [
+     "jobs"
+    ]
+   }
+  },
+  "/api/v1/jobs/{job_id}": {
+   "get": {
+    "operationId": "get_job_api_v1_jobs__job_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Job",
+    "tags": [
+     "jobs"
+    ]
+   }
+  },
+  "/api/v1/jobs/{job_id}/cancel": {
+   "post": {
+    "operationId": "cancel_job_api_v1_jobs__job_id__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel Job",
+    "tags": [
+     "jobs"
+    ]
+   }
+  },
+  "/api/v1/projects": {
+   "get": {
+    "operationId": "list_projects_api_v1_projects_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "archived",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Archived",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ProjectSummary"
+         },
+         "title": "Response List Projects Api V1 Projects Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Projects",
+    "tags": [
+     "projects"
+    ]
+   },
+   "post": {
+    "operationId": "create_project_api_v1_projects_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProjectCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Project",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}": {
+   "get": {
+    "operationId": "get_project_api_v1_projects__pid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Project",
+    "tags": [
+     "projects"
+    ]
+   },
+   "patch": {
+    "operationId": "patch_project_api_v1_projects__pid__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProjectPatch"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Patch Project",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/archive": {
+   "post": {
+    "operationId": "archive_project_api_v1_projects__pid__archive_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectSummary"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Archive Project",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/cases": {
+   "get": {
+    "operationId": "list_cases_api_v1_projects__pid__cases_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Substring of case_id / patient_id",
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Substring of case_id / patient_id",
+       "title": "Q"
+      }
+     },
+     {
+      "in": "query",
+      "name": "group",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group"
+      }
+     },
+     {
+      "in": "query",
+      "name": "phase",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "NC",
+          "CMP",
+          "NP",
+          "EP",
+          "UNK"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phase"
+      }
+     },
+     {
+      "description": "Default hides all-excluded_upstream cases",
+      "in": "query",
+      "name": "status",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "active",
+          "excluded_upstream",
+          "missing"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Default hides all-excluded_upstream cases",
+       "title": "Status"
+      }
+     },
+     {
+      "in": "query",
+      "name": "warning",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/QcCode"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Warning"
+      }
+     },
+     {
+      "in": "query",
+      "name": "has_voi",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Has Voi"
+      }
+     },
+     {
+      "in": "query",
+      "name": "sort",
+      "required": false,
+      "schema": {
+       "default": "case_id",
+       "enum": [
+        "case_id",
+        "-case_id",
+        "n_warnings",
+        "-n_warnings"
+       ],
+       "title": "Sort",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_CaseSummary_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Cases",
+    "tags": [
+     "cases"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/cases/{cid}": {
+   "get": {
+    "operationId": "get_case_api_v1_projects__pid__cases__cid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CaseDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Case",
+    "tags": [
+     "cases"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/events": {
+   "get": {
+    "description": "Realtime stream; resumes from `Last-Event-ID` (header) or `?last_event_id=`.",
+    "operationId": "project_events_api_v1_projects__pid__events_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "last_event_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Last Event Id"
+      }
+     },
+     {
+      "in": "header",
+      "name": "Last-Event-ID",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Last-Event-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "text/event-stream": {}
+      },
+      "description": "SSE stream"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Project Events",
+    "tags": [
+     "events"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/imports": {
+   "get": {
+    "description": "API-13: import history (newest first) plus the current index status.",
+    "operationId": "list_imports_api_v1_projects__pid__imports_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ImportHistory"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Imports",
+    "tags": [
+     "imports"
+    ]
+   },
+   "post": {
+    "description": "IMP-04/05: snapshot + start the index job.",
+    "operationId": "commit_import_api_v1_projects__pid__imports_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CommitRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CommitResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Commit Import",
+    "tags": [
+     "imports"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/imports/preview": {
+   "post": {
+    "description": "IMP-02/03: JSON `{root, detect: true, alias?}` or multipart uploads of the inputs.",
+    "operationId": "preview_import_api_v1_projects__pid__imports_preview_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "description": "API-11 JSON body (IMP-01/02).",
+        "properties": {
+         "alias": {
+          "default": "DATA",
+          "title": "Alias",
+          "type": "string"
+         },
+         "detect": {
+          "default": true,
+          "title": "Detect",
+          "type": "boolean"
+         },
+         "root": {
+          "title": "Root",
+          "type": "string"
+         }
+        },
+        "required": [
+         "root"
+        ],
+        "title": "PreviewRequest",
+        "type": "object"
+       }
+      },
+      "multipart/form-data": {
+       "schema": {
+        "properties": {
+         "alias": {
+          "default": "DATA",
+          "type": "string"
+         },
+         "metadata": {
+          "format": "binary",
+          "type": "string"
+         },
+         "phase": {
+          "format": "binary",
+          "type": "string"
+         },
+         "root": {
+          "type": "string"
+         },
+         "voi_catalog": {
+          "format": "binary",
+          "type": "string"
+         }
+        },
+        "required": [
+         "root",
+         "metadata"
+        ],
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ImportPreview"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Preview Import",
+    "tags": [
+     "imports"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/items/{iid}": {
+   "get": {
+    "description": "Item record + `advanced` absolute paths + its warnings.",
+    "operationId": "get_item_api_v1_projects__pid__items__iid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ItemDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Item",
+    "tags": [
+     "items"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/items/{iid}/image": {
+   "get": {
+    "operationId": "get_image_api_v1_projects__pid__items__iid__image_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/octet-stream": {}
+      },
+      "description": "Original file bytes"
+     },
+     "206": {
+      "description": "Partial content (HTTP Range)"
+     },
+     "304": {
+      "description": "Not modified (If-None-Match)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Image bytes (Range, ETag)",
+    "tags": [
+     "volumes"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/items/{iid}/mask": {
+   "get": {
+    "operationId": "get_mask_api_v1_projects__pid__items__iid__mask_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/octet-stream": {}
+      },
+      "description": "Original file bytes"
+     },
+     "206": {
+      "description": "Partial content (HTTP Range)"
+     },
+     "304": {
+      "description": "Not modified (If-None-Match)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mask bytes (Range, ETag)",
+    "tags": [
+     "volumes"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/items/{iid}/thumbnail": {
+   "get": {
+    "operationId": "get_thumbnail_api_v1_projects__pid__items__iid__thumbnail_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "image/webp": {}
+      },
+      "description": "WebP thumbnail"
+     },
+     "304": {
+      "description": "Not modified (If-None-Match)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "WebP thumbnail (404 until generated)",
+    "tags": [
+     "volumes"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/roots": {
+   "get": {
+    "operationId": "list_roots_api_v1_projects__pid__roots_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/RootInfo"
+         },
+         "title": "Response List Roots Api V1 Projects  Pid  Roots Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Roots",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/roots/{alias}": {
+   "put": {
+    "operationId": "put_root_api_v1_projects__pid__roots__alias__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "alias",
+      "required": true,
+      "schema": {
+       "title": "Alias",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RootBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RelinkResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Root",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/unarchive": {
+   "post": {
+    "operationId": "unarchive_project_api_v1_projects__pid__unarchive_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Unarchive Project",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/warnings": {
+   "get": {
+    "description": "API-14 (IMP-08).",
+    "operationId": "list_warnings_api_v1_projects__pid__warnings_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "code",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/QcCode"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Code"
+      }
+     },
+     {
+      "in": "query",
+      "name": "severity",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/Severity"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Severity"
+      }
+     },
+     {
+      "in": "query",
+      "name": "case_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case Id"
+      }
+     },
+     {
+      "in": "query",
+      "name": "item_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Item Id"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_QcWarning_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Warnings",
+    "tags": [
+     "imports"
+    ]
+   }
+  }
+ }
+}

@@ -79,11 +79,10 @@ def _labels(shape: tuple[int, int, int] = SHAPE) -> NDArray[np.uint8]:
 def _write_nifti(
     path: Path, data: NDArray[Any], affine: NDArray[Any], *, no_affine: bool = False
 ) -> None:
-    img = nib.Nifti1Image(data, affine)
-    if no_affine:
-        img.header.set_sform(None, code=0)
-        img.header.set_qform(None, code=0)
-    else:
+    # With an affine, nibabel re-stamps the sform on save; no affine gives sform/qform code 0.
+    img = nib.Nifti1Image(data, None if no_affine else affine)
+    img.header.set_zooms(SPACING[: data.ndim])
+    if not no_affine:
         img.header.set_sform(affine, code=1)
         img.header.set_qform(affine, code=1)
     raw = img.to_bytes()
