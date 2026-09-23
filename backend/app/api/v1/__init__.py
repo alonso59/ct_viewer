@@ -4,6 +4,8 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     cases,
+    curation,
+    dashboard,
     events,
     fs,
     health,
@@ -11,10 +13,14 @@ from app.api.v1 import (
     items,
     jobs,
     projects,
+    radiomics,
     variables,
     volumes,
 )
 
 router = APIRouter()
-for _module in (health, projects, fs, imports, variables, cases, items, volumes, jobs, events):
+for _module in (
+    health, projects, fs, imports, variables, cases, items, volumes, curation, radiomics,
+    dashboard, jobs, events,
+):  # fmt: skip
     router.include_router(_module.router)
