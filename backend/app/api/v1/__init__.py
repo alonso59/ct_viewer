@@ -1,8 +1,9 @@
-"""API v1 router aggregation. Add one module per resource group (API.md)."""
+"""API v1 router aggregation. One module per resource group (API.md)."""
 
 from fastapi import APIRouter
 
-from app.api.v1 import health
+from app.api.v1 import cases, events, fs, health, imports, items, jobs, projects, volumes
 
 router = APIRouter()
-router.include_router(health.router)
+for _module in (health, projects, fs, imports, cases, items, volumes, jobs, events):
+    router.include_router(_module.router)
