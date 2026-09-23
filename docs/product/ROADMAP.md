@@ -12,7 +12,7 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 |---|---|---|
 | P0 | Documentation & ADRs | ✅ Done (2026-09-23) |
 | P0.5 | UX design system & clickable prototype | ⬜ |
-| P1 | Backend core: projects, import, index | ⬜ |
+| P1 | Backend core: projects, import, index | ✅ 2026-09-23 (verified on `.fixtures/synthetic`; Dataset820 run deferred to P7 on the remote server, command in LANE_NOTES.md) |
 | P2 | Frontend shell + explorer | ⬜ |
 | P3 | Viewer (NiiVue) | ⬜ |
 | P4 | Curation + multi-user sync | ⬜ |
