@@ -5,13 +5,14 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    workspace_root: Path = Path(".workspace")
+    workspace_root: Path = Path("/workspace")
     allowed_data_roots: str = ""
     host: str = "127.0.0.1"
     port: int = 8000
@@ -23,13 +24,36 @@ class Settings(BaseSettings):
     log_level: str = "info"
     static_root: Path = Path("/app/static")
 
+    @field_validator("port")
+    @classmethod
+    def _port_unprivileged(cls, v: int) -> int:
+        if not 1024 <= v <= 65535:
+            raise ValueError("PORT must be in 1024..65535")
+        return v
+
+    @field_validator("job_workers", "project_cache_max", "viewer_max_loaded")
+    @classmethod
+    def _positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("must be >= 1")
+        return v
+
+    @field_validator("allowed_data_roots")
+    @classmethod
+    def _absolute_roots(cls, v: str) -> str:
+        for p in (p for p in v.split(":") if p):
+            if not Path(p).is_absolute():
+                raise ValueError(f"ALLOWED_DATA_ROOTS entries must be absolute: {p!r}")
+        return v
+
     @property
     def allowed_roots(self) -> list[Path]:
-        return [Path(p) for p in self.allowed_data_roots.split(":") if p]
+        """Resolved allowed roots (OPS-04). Empty means unrestricted (local dev only)."""
+        return [Path(p).resolve() for p in self.allowed_data_roots.split(":") if p]
 
     @property
     def base_url(self) -> str:
-        return self.public_base_url or f"http://localhost:{self.port}"
+        return (self.public_base_url or f"http://localhost:{self.port}").rstrip("/")
 
 
 @lru_cache
