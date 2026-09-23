@@ -1,26 +1,33 @@
 # Python
 __pycache__/
 *.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
 
 # Env files
 .env
 
-# Frontend
-frontend/node_modules/
+# Node / frontend
+node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/playwright-report/
+frontend/test-results/
+frontend/src/api/openapi.json
+
+# Dev state and generated data
+.workspace/
+.fixtures/
 .udocker/
-
-# Logs / misc
-*.log
 webui_state/
+LANE_NOTES.local.md
 
-# Archives
+# Logs / archives / OS
+*.log
 *.tar
 *.tar.gz
 *.tgz
-
-# OS/editor noise
 .DS_Store
-
-.webui-run/

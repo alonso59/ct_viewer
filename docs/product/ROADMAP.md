@@ -21,6 +21,29 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P7 | Packaging: Docker + udocker, E2E, performance | ⬜ |
 | P8 | Electron shell | ⬜ |
 
+Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
+
+## Lanes (parallel work; prompts in ops/AGENT_RUNBOOK.md)
+
+A lane edits **only** the paths it owns. Anything it needs elsewhere goes into `LANE_NOTES.md` for the integrator.
+Every lane may also append to `LANE_NOTES.md` and tick its own lines in this file.
+
+| Step | Lane | Branch | Runs in | Owns |
+|---|---|---|---|---|
+| 0 | Bootstrap | `v3` | VS Code | Repo root, skeletons (done) |
+| 1 | P0.5 design + prototype | `lane/1-design` | VS Code | `frontend/**` except `frontend/src/features/viewer/engine/**` |
+| 1 | P1 backend core | `lane/1-backend` | Shell A | `backend/**` |
+| 2 | P2 shell + explorer | `lane/2-shell` | VS Code | `frontend/**` except `features/{viewer,curation,radiomics,dashboard}/**` |
+| 2 | P4-BE + P5-BE + P6-BE | `lane/2-backend` | Shell A | `backend/app/{curation,radiomics,analytics}/**`, their routers in `backend/app/api/v1/`, their tests |
+| 2 | P3 viewer | `lane/2-viewer` | Shell B | `frontend/src/features/viewer/**`, `backend/app/imaging/mesh*` |
+| 3 | P4-FE + P6-FE | `lane/3-curation-dashboard` | VS Code | `frontend/src/features/{curation,dashboard}/**` |
+| 3 | P5-FE radiomics form | `lane/3-radiomics-ui` | Shell A | `frontend/src/features/radiomics/**` |
+| 3 | P7-prep packaging | `lane/3-packaging` | Shell B | `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/udocker-run.sh`, `.env.example`, `README.md` |
+| 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (udocker notes), `LANE_NOTES.md` |
+| 5 | P8 Electron | `lane/5-electron` | VS Code | `desktop/**` |
+
+Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml` dependency list, `frontend/package.json`/lockfile (lanes may add dependencies in their own branch; the integrator resolves lockfile conflicts at merge), `AGENTS.md`, `docs/INDEX.md`.
+
 ## Phases
 
 ### P0 — Documentation
@@ -85,10 +108,10 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 
 | v2 asset | v3 action |
 |---|---|
-| `backend/app/services/converter_metadata.py`, `qc_validator.py`, `path_resolver.py` | Reuse logic in `ingest/` and `core/paths` |
-| `volume_cache`, `slice_renderer`, PNG slice API, `slice_cache` | Remove (replaced by client rendering) |
-| `review_apply.py`, `metadata_sync.py` (source mutation) | Remove (conflicts with R1); keep as a reference for export shapes |
-| `mesh_generator.py` | Reuse in the `imaging/` mesh job |
-| Frontend (MUI pages) | Rewrite; reuse the W/L presets and label palette |
+| `legacy/backend/app/services/converter_metadata.py`, `qc_validator.py`, `path_resolver.py` | Reuse logic in `ingest/` and `core/paths` |
+| `legacy/…/volume_cache`, `slice_renderer`, PNG slice API, `slice_cache` | Remove (replaced by client rendering) |
+| `legacy/…/review_apply.py`, `metadata_sync.py` (source mutation) | Remove (conflicts with R1); keep as a reference for export shapes |
+| `legacy/…/mesh_generator.py` | Reuse in the `imaging/` mesh job |
+| `legacy/frontend` (MUI pages) | Rewrite; reuse the W/L presets and label palette |
 | `.webui/curation_review.csv` | Import via CUR-13 |
-| `docs/archive/v2/*` | Frozen reference only |
+| `docs/archive/v2/*`, `legacy/**` | Frozen reference only; `legacy/` is removed after P7 |

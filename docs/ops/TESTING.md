@@ -20,7 +20,7 @@ Depends: all domain docs.
 
 ## Synthetic fixture dataset (TST-11)
 
-Generated, not committed. It is small (64³–128³ int16 volumes, 3 labels as spheres/ellipsoids) and deterministic (fixed seed).
+Generated, not committed: `make fixtures` writes `.fixtures/synthetic/` (generator `backend/tools/make_fixtures.py`, oracle `expected.json`). It is small (64³–128³ int16 volumes, 3 labels as spheres/ellipsoids) and deterministic (fixed seed).
 It contains `metadata.jsonl`, `phase.json`, `voi/voi_catalog.jsonl` and a legacy `.npy` VOI, plus **deliberate defects**:
 missing SEG, shape mismatch, ambiguous phase, ambiguous side, duplicate identity, missing file.
 Every IMP-08 warning code must be produced by at least one fixture row.

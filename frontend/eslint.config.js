@@ -1,26 +1,23 @@
 import js from '@eslint/js'
-import globals from 'globals'
+import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
+import globals from 'globals'
 import tseslint from 'typescript-eslint'
-import { defineConfig, globalIgnores } from 'eslint/config'
 
-export default defineConfig([
-  globalIgnores(['dist']),
+export default tseslint.config(
+  { ignores: ['dist', 'node_modules', 'playwright-report', 'test-results', 'src/api/schema.d.ts'] },
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
-    ],
-    languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
-    },
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: { ecmaVersion: 2023, globals: globals.browser },
+    plugins: { react, 'react-hooks': reactHooks },
+    settings: { react: { version: 'detect' } },
     rules: {
-      'react-hooks/set-state-in-effect': 'off',
+      ...reactHooks.configs.recommended.rules,
+      '@typescript-eslint/no-explicit-any': 'error', // FE-01
+      // FE-11: all UI text goes through t(); no literal JSX strings.
+      'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
     },
   },
-])
+  { files: ['**/*.test.{ts,tsx}', 'e2e/**'], rules: { 'react/jsx-no-literals': 'off' } },
+)
