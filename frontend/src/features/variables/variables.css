@@ -1,0 +1,127 @@
+/* Variables view (VAR-*) */
+.var-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.var-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 6px;
+  font-size: var(--fs-badge);
+}
+.var-list {
+  flex: 1;
+  overflow: auto;
+}
+.var-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-badge);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.var-section .count {
+  margin-left: auto;
+}
+.var-row {
+  gap: 2px;
+  padding-left: 12px;
+}
+.var-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-panel);
+  text-align: left;
+  cursor: pointer;
+}
+.var-name .mono {
+  flex: 0 1 auto;
+  min-width: 4ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.var-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-badge);
+}
+.var-item[data-open='true'] {
+  background: var(--bg-hover);
+}
+.var-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-3) var(--sp-5);
+  font-size: var(--fs-panel);
+}
+.var-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: var(--sp-2);
+  border: var(--border-width) solid var(--warn);
+  border-radius: var(--radius);
+  color: var(--fg);
+}
+.var-review > .codicon,
+.var-review > span:first-child {
+  color: var(--warn);
+}
+.var-review-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+.var-levels,
+.var-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.var-tag {
+  cursor: pointer;
+  background: transparent;
+}
+.var-examples {
+  overflow-wrap: anywhere;
+}
+.var-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.var-eye[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--fg-muted);
+}
+.var-eye[aria-pressed='false'] {
+  color: var(--fg-subtle, var(--fg-muted));
+  opacity: 0.6;
+}

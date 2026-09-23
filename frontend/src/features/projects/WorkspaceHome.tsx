@@ -1,9 +1,22 @@
-// Workspace home (`/`, UI-04): New Project, Open Recent with thumbnail + progress, share-link copy.
+// Workspace home (`/`, UI-04): New Project (with a study preset, PRJ-12), Open Recent with
+// thumbnail + progress (PRJ-02), share-link copy (PRJ-03), relink (PRJ-05).
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { DEMO_PID, useCreateProject, useProjects, type Project } from '../../api'
+import {
+  PRESETS,
+  pickThumbItem,
+  useCase,
+  useCases,
+  useCreateProject,
+  useProjects,
+  useRelink,
+  useRoots,
+  type Preset,
+  type ProjectSummary,
+  type RelinkResult,
+} from '../../api'
 import { Dialog, IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
 import { toast } from '../../shell'
 import { Icon, codicon, ct } from '../../theme'
@@ -13,10 +26,11 @@ import './projects.css'
 export function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
+  const [preset, setPreset] = useState<Preset>('ccrcc')
   const create = useCreateProject()
   const navigate = useNavigate()
   const submit = async () => {
-    const p = await create.mutateAsync(name.trim())
+    const p = await create.mutateAsync({ name: name.trim(), preset })
     onOpenChange(false)
     setName('')
     navigate(`/p/${p.project_id}`)
@@ -37,58 +51,101 @@ export function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpen
         </>
       }
     >
-      <form className="field" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void submit() }}>
-        <label className="field-label" htmlFor="project-name">{t('projects.name')}</label>
-        <input id="project-name" className="input" autoFocus value={name} placeholder={t('projects.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
-        <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('projects.newHelp')}</span>
+      <form style={{ display: 'flex', flexDirection: 'column', gap: 14 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) void submit() }}>
+        <div className="field">
+          <label className="field-label" htmlFor="project-name">{t('projects.name')}</label>
+          <input id="project-name" className="input" autoFocus value={name} placeholder={t('projects.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
+          <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('projects.newHelp')}</span>
+        </div>
+        <fieldset className="field preset-list" style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend className="field-label">{t('projects.preset')}</legend>
+          {PRESETS.map((p) => (
+            <label key={p} className="preset" data-checked={preset === p}>
+              <input type="radio" name="preset" value={p} checked={preset === p} onChange={() => setPreset(p)} />
+              <span>
+                <strong>{t(`preset.${p}.name`)}</strong>
+                <span className="muted">{t(`preset.${p}.help`)}</span>
+              </span>
+            </label>
+          ))}
+          <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('projects.presetEditable')}</span>
+        </fieldset>
+        {create.isError ? <div className="error-card" style={{ margin: 0 }}>{create.error.message}</div> : null}
       </form>
     </Dialog>
   )
 }
 
-export function RelinkDialog({ project, onOpenChange }: { project: Project | null; onOpenChange: (o: boolean) => void }) {
+/** Relink (PRJ-05, API-05): point an alias at a new root; the server verifies a sample of items */
+export function RelinkDialog({ pid, name, onOpenChange }: { pid: string; name: string; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
+  const roots = useRoots(pid)
+  const relink = useRelink(pid)
+  const [alias, setAlias] = useState<string | null>(null)
   const [path, setPath] = useState('')
-  const [state, setState] = useState<'idle' | 'checking' | 'failed'>('idle')
-  const root = project?.roots[0]
+  const [result, setResult] = useState<RelinkResult | null>(null)
+  const root = roots.data?.find((r) => r.alias === alias) ?? roots.data?.find((r) => !r.exists) ?? roots.data?.[0]
+  const ok = result !== null && result.root.exists && result.verify.mismatched === 0 && result.verify.missing === 0
+  const verify = async () => {
+    if (!root) return
+    const r = await relink.mutateAsync({ alias: root.alias, path: path.trim() })
+    setResult(r)
+    if (r.root.exists && r.verify.mismatched === 0 && r.verify.missing === 0) {
+      void roots.refetch()
+      toast({ message: t('projects.relinked', { alias: root.alias }), tone: 'ok' })
+    }
+  }
   return (
     <Dialog
-      open={project !== null}
-      onOpenChange={(o) => { onOpenChange(o); setState('idle') }}
-      title={t('projects.relinkTitle', { name: project?.name ?? '' })}
+      open
+      onOpenChange={onOpenChange}
+      title={t('projects.relinkTitle', { name })}
       icon={codicon('link')}
       footer={
         <>
-          <button type="button" className="btn" onClick={() => onOpenChange(false)}>{t('common.cancel')}</button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!path.trim() || state === 'checking'}
-            onClick={() => {
-              setState('checking')
-              setTimeout(() => setState('failed'), 900)
-            }}
-          >
-            {state === 'checking' ? t('projects.verifying') : t('projects.verify')}
-          </button>
+          <button type="button" className="btn" onClick={() => onOpenChange(false)}>{t(ok ? 'common.close' : 'common.cancel')}</button>
+          {!ok ? (
+            <button type="button" className="btn btn-primary" disabled={!path.trim() || !root || relink.isPending} onClick={() => void verify()}>
+              {relink.isPending ? t('projects.verifying') : t('projects.verify')}
+            </button>
+          ) : null}
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('projects.relinkHelp')}</div>
+        {roots.data && roots.data.length > 1 ? (
+          <label className="field">
+            <span className="field-label">{t('projects.alias')}</span>
+            <select className="select" value={root?.alias ?? ''} onChange={(e) => { setAlias(e.target.value); setResult(null) }}>
+              {roots.data.map((r) => (
+                <option key={r.alias} value={r.alias}>{r.alias}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="props" style={{ padding: 0 }}>
           <span className="muted">{t('projects.alias')}</span>
-          <span className="mono">{root?.alias}</span>
+          <span className="mono">{root?.alias ?? '—'}</span>
           <span className="muted">{t('projects.oldPath')}</span>
-          <span className="mono">{root?.path}</span>
+          <span className="mono">
+            {root?.path ?? '—'}
+            {root && !root.exists ? <span className="badge" data-tone="error" style={{ marginLeft: 6 }}>{t('projects.offline')}</span> : null}
+          </span>
         </div>
         <label className="field">
           <span className="field-label">{t('projects.newPath')}</span>
-          <input className="input mono" value={path} placeholder={t('projects.newPathPlaceholder')} onChange={(e) => setPath(e.target.value)} />
+          <input className="input mono" value={path} placeholder={root?.path ?? t('projects.newPathPlaceholder')} onChange={(e) => { setPath(e.target.value); setResult(null) }} />
         </label>
-        {state === 'failed' ? (
-          <div className="error-card" style={{ margin: 0 }}>
-            {t('projects.verifyFailed')}
+        {relink.isError ? <div className="error-card" style={{ margin: 0 }}>{relink.error.message}</div> : null}
+        {result ? (
+          <div className={ok ? 'card' : 'error-card'} style={{ margin: 0 }} role="status">
+            {t(ok ? 'projects.verifyOk' : 'projects.verifyFailed', {
+              sampled: result.verify.sampled,
+              matched: result.verify.matched,
+              mismatched: result.verify.mismatched,
+              missing: result.verify.missing,
+            })}
           </div>
         ) : null}
       </div>
@@ -96,36 +153,49 @@ export function RelinkDialog({ project, onOpenChange }: { project: Project | nul
   )
 }
 
-function ProjectCard({ p, onRelink }: { p: Project; onRelink: () => void }) {
+/** Axial thumbnail of the project's first case (Open Recent) */
+function ProjectThumb({ p }: { p: ProjectSummary }) {
+  const first = useCases(p.n_cases > 0 ? p.project_id : '', { limit: 1 }).data?.[0] ?? null
+  const detail = useCase(p.project_id, first && !first.thumb_item_id ? first.case_id : null)
+  const itemId = first?.thumb_item_id ?? (detail.data ? (pickThumbItem(detail.data.items)?.item_id ?? null) : null)
+  return <SliceThumb pid={p.project_id} itemId={itemId} size={56} />
+}
+
+function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const offline = p.roots.some((r) => !r.reachable)
   const empty = p.n_cases === 0
+  const reviewed = Math.round(p.curation_progress * p.n_cases)
   return (
     <div className="home-project" role="listitem">
-      <button type="button" className="home-project-main" onClick={() => (offline ? onRelink() : navigate(`/p/${p.project_id}`))}>
-        <SliceThumb itemId={p.project_id === DEMO_PID ? 'case_00014.01.complete.-' : null} labels={p.label_map} size={56} />
+      <button type="button" className="home-project-main" onClick={() => navigate(`/p/${p.project_id}`)}>
+        <ProjectThumb p={p} />
         <span className="home-project-text">
           <span className="home-project-name">
             {p.name}
-            {offline ? <span className="badge" data-tone="error">{t('projects.offline')}</span> : null}
             {empty ? <span className="badge">{t('projects.empty')}</span> : null}
           </span>
           <span className="muted">
-            {t('projects.meta', { cases: p.n_cases, items: p.n_items, ago: fmtAgo(p.last_opened_at) })}
+            {p.last_opened_at
+              ? t('projects.meta', { cases: p.n_cases, ago: fmtAgo(p.last_opened_at) })
+              : t('projects.metaNew', { cases: p.n_cases, ago: fmtAgo(p.created_at) })}
           </span>
           <span className="home-progress">
-            <Progress value={p.progress.reviewed} total={p.progress.total} />
-            <span className="muted num">{t('projects.reviewed', { done: p.progress.reviewed, total: p.progress.total })}</span>
+            <Progress value={reviewed} total={p.n_cases} />
+            <span className="muted num">{t('projects.reviewed', { done: reviewed, total: p.n_cases })}</span>
           </span>
         </span>
       </button>
+      <IconButton icon={codicon('plug')} label={t('projects.relink')} onClick={onRelink} />
       <IconButton
         icon={codicon('link')}
         label={t('shell.copyShareLink')}
         onClick={() => {
-          void navigator.clipboard?.writeText(p.share_url)
-          toast({ message: t('shell.shareLinkCopied'), tone: 'ok' })
+          const url = p.share_url
+          const done = () => toast({ message: t('shell.shareLinkCopied', { url }), tone: 'ok' })
+          const manual = () => toast({ message: t('shell.shareLinkManual', { url }), tone: 'info' })
+          if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, manual)
+          else manual()
         }}
       />
     </div>
@@ -136,8 +206,10 @@ export function WorkspaceHome() {
   const { t } = useTranslation()
   const projects = useProjects()
   const [creating, setCreating] = useState(false)
-  const [relink, setRelink] = useState<Project | null>(null)
-  const sorted = [...(projects.data ?? [])].sort((a, b) => b.last_opened_at.localeCompare(a.last_opened_at))
+  const [relink, setRelink] = useState<ProjectSummary | null>(null)
+  const sorted = [...(projects.data ?? [])]
+    .filter((p) => !p.archived)
+    .sort((a, b) => (b.last_opened_at ?? b.created_at).localeCompare(a.last_opened_at ?? a.created_at))
   return (
     <div className="home">
       <div className="home-inner">
@@ -177,6 +249,13 @@ export function WorkspaceHome() {
           <section>
             <h2>{t('home.recent')}</h2>
             {projects.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
+            {projects.isError ? (
+              <div className="error-card" role="alert">
+                <strong>{t('home.serverDown')}</strong>
+                <div className="muted">{projects.error.message}</div>
+              </div>
+            ) : null}
+            {projects.data && sorted.length === 0 ? <div className="empty">{t('home.noProjects')}</div> : null}
             <div role="list" className="home-list">
               {sorted.map((p) => (
                 <ProjectCard key={p.project_id} p={p} onRelink={() => setRelink(p)} />
@@ -187,7 +266,7 @@ export function WorkspaceHome() {
         <footer className="home-footer muted">{t('app.tagline')}</footer>
       </div>
       <NewProjectDialog open={creating} onOpenChange={setCreating} />
-      <RelinkDialog project={relink} onOpenChange={(o) => !o && setRelink(null)} />
+      {relink ? <RelinkDialog pid={relink.project_id} name={relink.name} onOpenChange={(o) => !o && setRelink(null)} /> : null}
     </div>
   )
 }

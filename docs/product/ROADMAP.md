@@ -78,11 +78,11 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** the reference `metadata.jsonl` profiles as documented in VARIABLES.md (hb/lb continuous case-level, sn Review, no `group` assumed), with no code naming `hb/lb/sn`.
 
 ### P2 — Shell + explorer
-- [ ] Wire the P0.5 prototype shell to the real API: regions, tool bar, command palette, quick open (UI-01..08, 11, 13)
-- [ ] Workspace home, new project, import wizard (UI-04, IMP-01..03)
-- [ ] Project view with thumbnails (UI-08, IMP-12, API-26), Image/Labels/Search views, Problems panel (UI-09)
-- [ ] Variables view (UI_SHELL, VAR-*): catalog table, Review badges, overrides, derived variables, external table; replace the prototype's `group` filter/column/colour with variable-driven ones (VAR-10)
-- [ ] Project creation offers a study preset (PRJ-12)
+- [x] Wire the P0.5 prototype shell to the real API: regions, tool bar, command palette, quick open (UI-01..08, 11, 13)
+- [x] Workspace home, new project, import wizard (UI-04, IMP-01..03)
+- [x] Project view with thumbnails (UI-08, IMP-12, API-26), Image/Labels/Search views, Problems panel (UI-09)
+- [x] Variables view (UI_SHELL, VAR-*): catalog table, Review badges, overrides, derived variables, external table; replace the prototype's `group` filter/column/colour with variable-driven ones (VAR-10) (built on the mock; the real API-16..18 lands with lane/2-backend, LANE_NOTES)
+- [x] Project creation offers a study preset (PRJ-12)
 **Exit:** a user creates a project, imports data, browses cases, and shares a link that opens in a second browser.
 
 ### P3 — Viewer

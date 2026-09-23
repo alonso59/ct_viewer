@@ -1,7 +1,9 @@
-// API client. P0.5 binds the mock server; P2 swaps in the openapi-fetch client with the
-// same surface (FE-03), so hooks and features do not change.
-import { mockServer } from './mock/server'
+// API client (FE-03): the HTTP binding by default; `VITE_API_MODE=mock` binds the in-memory mock
+// (standalone prototype, unit tests). The mock is imported only in that mode, so its seed data
+// stays out of the production bundle (FE-05).
+import { httpApi } from './http'
+import type { Api } from './surface'
 
-export const api = mockServer
-export type Api = typeof api
-export { ProblemError, DEMO_PID, setReviewerSimulation, type CaseFilter } from './mock/server'
+export const API_MODE: Api['mode'] = import.meta.env.VITE_API_MODE === 'mock' ? 'mock' : 'http'
+
+export const api: Api = API_MODE === 'mock' ? (await import('./mock/server')).mockServer : httpApi

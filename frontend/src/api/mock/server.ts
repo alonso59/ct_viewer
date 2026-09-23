@@ -1,17 +1,17 @@
-// In-memory mock of the HTTP API (backend/API.md) for the P0.5 prototype. No network.
-// Seeded from `make fixtures` output via `npm run mock:seed`. Curation events persist in
-// localStorage so a reload keeps the demo state; Settings → "Reset mock data" clears it.
-import seedJson from './seed.json'
-import { defaultSettings, MOCK_SCHEMA, validateSettings } from './schema'
+// In-memory mock of the HTTP API (backend/API.md), bound with VITE_API_MODE=mock (standalone
+// prototype, unit tests). No network. Seeded from `make fixtures` via `npm run mock:seed`; payloads
+// follow the real shapes (types.ts). Curation events persist in localStorage so a reload keeps the
+// demo state; Settings → "Reset mock data" clears it.
+import { ProblemError } from '../problem'
+import { rollup } from '../rollup'
+import type { Api, CaseFilter } from '../surface'
 import {
   QUEUE_STATUSES,
   STATUS_SEVERITY,
-  type CaseDetail,
   type CaseSummary,
   type CurationEvent,
-  type CurationStateRow,
   type CurationStatus,
-  type FeatureRow,
+  type DerivedDef,
   type FeatureValue,
   type FsEntry,
   type ImportPreview,
@@ -19,18 +19,24 @@ import {
   type Job,
   type LabelDef,
   type NewCurationEvent,
-  type Phase,
+  type Preset,
   type Project,
+  type ProjectSummary,
   type QCWarning,
   type RadiomicsRun,
   type RunError,
   type ServerEvent,
   type Settings,
+  type Variable,
+  type VariableValue,
 } from '../types'
+import { MOCK_SCHEMA, defaultSettings, validateSettings } from './schema'
+import seedJson from './seed.json'
+import { candidateFields, deriveValue, isMissing, parseTable, profileField, validateDerived, type Override, type Row } from './variables'
 
 interface Seed {
-  items: ItemRecord[]
-  warnings: QCWarning[]
+  items: (Omit<ItemRecord, 'import_id' | 'phase'> & { phase: { canonical: ItemRecord['phase']['canonical']; raw: string } })[]
+  warnings: (Omit<QCWarning, 'field' | 'path_ref'> & Partial<QCWarning>)[]
   runs: RadiomicsRun[]
   features: Record<string, FeatureValue[]>
   errors: Record<string, RunError[]>
@@ -40,13 +46,21 @@ const seed = seedJson as unknown as Seed
 export const DEMO_PID = '01JSYNTH900PROJECT00000000'
 const OFFLINE_PID = '01JDATASET820PROJECT000000'
 const LS_EVENTS = 'rw.mock.events.v1'
-const LS_EXTRA = 'rw.mock.projects.v1'
+const LS_EXTRA = 'rw.mock.projects.v2'
+const DEMO_ROOT = '/data/Dataset900'
 
-const LABELS: LabelDef[] = [
+const CCRCC_LABELS: LabelDef[] = [
   { value: 1, name: 'kidney', color: '#00FFFF', opacity: 0.15, visible: true },
   { value: 2, name: 'tumor', color: '#FFFF00', opacity: 0.2, visible: true },
   { value: 3, name: 'cyst', color: '#FF00FF', opacity: 0.15, visible: false },
 ]
+/** PRJ-12 presets: label map + phase vocabulary */
+const PRESET_DEFAULTS: Record<Preset, { labels: LabelDef[]; vocabulary: string[] }> = {
+  ccrcc: { labels: CCRCC_LABELS, vocabulary: ['NC', 'CMP', 'NP', 'EP', 'UNK'] },
+  'generic-ct': { labels: [], vocabulary: ['NC', 'ART', 'PV', 'DELAYED', 'UNK'] },
+  none: { labels: [], vocabulary: [] },
+}
+const AUTO_COLORS = ['#00FFFF', '#FFFF00', '#FF00FF', '#00FF00', '#FF8000', '#0080FF']
 
 // ---- helpers -------------------------------------------------------------
 let ulidCounter = 0
@@ -58,6 +72,7 @@ function ulid(): string {
 }
 const wait = (ms = 140) => new Promise((r) => setTimeout(r, ms + Math.random() * 80))
 const clone = <T>(v: T): T => structuredClone(v)
+const now = () => new Date().toISOString().replace(/\.\d+Z$/, 'Z')
 function readLs<T>(key: string, fallback: T): T {
   try {
     const v = localStorage.getItem(key)
@@ -74,16 +89,33 @@ function writeLs(key: string, v: unknown) {
   }
 }
 
-export class ProblemError extends Error {
-  constructor(
-    public status: number,
-    public type: string,
-    public title: string,
-    public detail?: string,
-  ) {
-    super(title)
+/** Demo study variables per case (design data): the mock only knows them as raw metadata fields */
+function demoFields(item: Seed['items'][number]): Record<string, unknown> {
+  const n = Number(item.case_id.replace(/\D/g, '')) || 0
+  const scan = Number(item.scan_idx) || 1
+  const labelled = n % 3 !== 0
+  const hb = labelled ? (n * 37) % 101 : ''
+  return {
+    group: item.group ?? '',
+    hb,
+    lb: labelled ? Math.max(0, 100 - Number(hb) - (n % 4)) : '',
+    sn: labelled ? [0, 5, 7, 8, 10, 30][n % 6] : '',
+    manufacturer: ['SIEMENS', 'Philips Medical Systems', 'GE MEDICAL SYSTEMS', 'Siemens Healthineers'][n % 4],
+    kvp: [100, 120, 120, 140][(n + scan) % 4],
+    scan_date: `2019${String((n % 12) + 1).padStart(2, '0')}${String((scan * 7) % 28 + 1).padStart(2, '0')}`,
+    ...item.extra,
   }
 }
+
+function seedItems(importId: string): ItemRecord[] {
+  return seed.items.map((i) => ({
+    ...clone(i),
+    import_id: importId,
+    phase: { canonical: i.phase.canonical, raw: i.phase.raw, source: 'phase' },
+    extra: demoFields(i),
+  }))
+}
+const seedWarnings = (): QCWarning[] => seed.warnings.map((w) => ({ field: null, path_ref: null, ...clone(w) }))
 
 // ---- seeded curation history (design data) -------------------------------
 function seededEvents(): CurationEvent[] {
@@ -142,12 +174,21 @@ function seededEvents(): CurationEvent[] {
 // ---- state -----------------------------------------------------------------
 interface ProjectState {
   project: Project
+  last_opened_at: string | null
+  reachable: boolean
   items: ItemRecord[]
   warnings: QCWarning[]
   runs: RadiomicsRun[]
   features: Record<string, FeatureValue[]>
   errors: Record<string, RunError[]>
   profiles: { name: string; hash: string; settings: Settings; saved_at: string }[]
+  overrides: Record<string, Override>
+  derived: DerivedDef[]
+  /** External table values by case_id (VAR-07) */
+  external: Record<string, Record<string, string>>
+  externalFields: string[]
+  previews: Map<string, ImportPreview>
+  imports: { import_id: string; at: string; preview: ImportPreview }[]
 }
 
 const db = new Map<string, ProjectState>()
@@ -160,46 +201,68 @@ function emit(pid: string, e: ServerEvent) {
   for (const l of listeners.get(pid) ?? []) l(e)
 }
 
-function makeProject(pid: string, name: string, withData: boolean): ProjectState {
-  const items = withData ? clone(seed.items) : []
-  const cases = new Set(items.map((i) => i.case_id))
+function makeProject(pid: string, name: string, preset: Preset, withData: boolean): ProjectState {
+  const d = PRESET_DEFAULTS[preset]
+  const items = withData ? seedItems('01JSEEDIMPORT0000000000000') : []
+  const ts = '2026-09-21T15:00:00Z'
   return {
     project: {
+      format: 'radiology-workbench-project',
+      format_version: 1,
       project_id: pid,
       name,
-      created_at: '2026-09-21T15:00:00Z',
-      last_opened_at: new Date().toISOString(),
-      n_cases: cases.size,
-      n_items: items.length,
-      progress: { reviewed: 0, total: cases.size },
-      roots: [{ alias: 'DATA', path: '/data/Dataset900', reachable: true }],
-      label_map: clone(LABELS),
+      description: '',
+      created_at: ts,
+      updated_at: ts,
+      preset,
+      path_roots: withData ? [{ alias: 'DATA', path: DEMO_ROOT }] : [],
+      label_map: clone(withData && d.labels.length === 0 ? autoLabels(items) : d.labels),
+      phase_vocabulary: d.vocabulary,
+      phase_priority: ['NP', 'CMP', 'NC', 'EP', 'UNK'],
+      viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
       share_url: `${location.origin}/p/${pid}`,
     },
+    last_opened_at: withData ? now() : null,
+    reachable: true,
     items,
-    warnings: withData ? clone(seed.warnings) : [],
+    warnings: withData ? seedWarnings() : [],
     runs: withData ? clone(seed.runs) : [],
     features: withData ? clone(seed.features) : {},
     errors: withData ? clone(seed.errors) : {},
     profiles: withData
       ? [{ name: 'Engine defaults', hash: 'sha256:9f2c…e41a', settings: defaultSettings(), saved_at: '2026-09-22T08:00:00Z' }]
       : [],
+    overrides: {},
+    derived: [],
+    external: {},
+    externalFields: [],
+    previews: new Map(),
+    imports: [],
   }
+}
+
+/** PRJ-07: without a preset label map, labels are auto-named from mask values */
+function autoLabels(items: ItemRecord[]): LabelDef[] {
+  const values = [...new Set(items.flatMap((i) => i.labels_present))].sort((a, b) => a - b)
+  return values.map((value, k) => ({ value, name: `label_${value}`, color: AUTO_COLORS[k % AUTO_COLORS.length] ?? '#FFFFFF', opacity: 0.2, visible: true }))
+}
+
+interface Extra {
+  pid: string
+  name: string
+  preset: Preset
+  imported: boolean
 }
 
 function init() {
   db.clear()
-  db.set(DEMO_PID, makeProject(DEMO_PID, 'Dataset900 (synthetic)', true))
-  const offline = makeProject(OFFLINE_PID, 'ccRCC Dataset820', false)
-  offline.project.n_cases = 820
-  offline.project.n_items = 3104
-  offline.project.progress = { reviewed: 412, total: 820 }
-  offline.project.last_opened_at = '2026-09-19T17:40:00Z'
-  offline.project.roots = [{ alias: 'DATA', path: '/mnt/nas/ccRCC/Dataset820', reachable: false }]
+  db.set(DEMO_PID, makeProject(DEMO_PID, 'Dataset900 (synthetic)', 'ccrcc', true))
+  const offline = makeProject(OFFLINE_PID, 'ccRCC Dataset820', 'ccrcc', false)
+  offline.last_opened_at = '2026-09-19T17:40:00Z'
+  offline.reachable = false
+  offline.project.path_roots = [{ alias: 'DATA', path: '/mnt/nas/ccRCC/Dataset820' }]
   db.set(OFFLINE_PID, offline)
-  for (const p of readLs<{ pid: string; name: string; imported: boolean }[]>(LS_EXTRA, [])) {
-    db.set(p.pid, makeProject(p.pid, p.name, p.imported))
-  }
+  for (const p of readLs<Extra[]>(LS_EXTRA, [])) db.set(p.pid, makeProject(p.pid, p.name, p.preset, p.imported))
   events = readLs<Record<string, CurationEvent[]>>(LS_EVENTS, { [DEMO_PID]: seededEvents() })
 }
 init()
@@ -209,47 +272,89 @@ function persistExtraProjects() {
     LS_EXTRA,
     [...db.values()]
       .filter((s) => s.project.project_id !== DEMO_PID && s.project.project_id !== OFFLINE_PID)
-      .map((s) => ({ pid: s.project.project_id, name: s.project.name, imported: s.items.length > 0 })),
+      .map<Extra>((s) => ({ pid: s.project.project_id, name: s.project.name, preset: s.project.preset ?? 'ccrcc', imported: s.items.length > 0 })),
   )
 }
 
-function state(pid: string): ProjectState {
+function exists(pid: string): ProjectState {
   const s = db.get(pid)
   if (!s) throw new ProblemError(404, 'not-found', 'Project not found', pid)
-  if (!s.project.roots.every((r) => r.reachable))
-    throw new ProblemError(409, 'source-missing', 'Data root not reachable', `Alias DATA → ${s.project.roots[0]?.path ?? ''}`)
+  return s
+}
+function state(pid: string): ProjectState {
+  const s = exists(pid)
+  if (!s.reachable)
+    throw new ProblemError(409, 'source-missing', 'Data root not reachable', `Alias DATA → ${s.project.path_roots[0]?.path ?? ''}`)
   return s
 }
 
-// ---- curation reducer (CUR-08) --------------------------------------------
+// ---- variables (VAR-*) ------------------------------------------------------------------------
+function rows(s: ProjectState): Row[] {
+  const base = s.items.map<Row>((i) => ({
+    case_id: i.case_id,
+    patient_id: i.patient_id,
+    values: { ...i.extra, ...(s.external[i.case_id] ?? {}) },
+  }))
+  for (const def of s.derived) for (const r of base) r.values[def.name] = deriveValue(def, r.values, base)
+  return base
+}
+
+function catalog(s: ProjectState, all = rows(s)): Variable[] {
+  const external = new Set(s.externalFields)
+  const derived = new Map(s.derived.map((d) => [d.name, d]))
+  const metadata = candidateFields(all).filter((n) => !external.has(n) && !derived.has(n))
+  return [
+    ...metadata.map((n) => profileField(all, n, 'metadata', s.overrides[n])),
+    ...s.externalFields.map((n) => profileField(all, n, 'external', s.overrides[n])),
+    ...[...derived.values()].map((d) => ({ ...profileField(all, d.name, 'derived', s.overrides[d.name]), definition: d })),
+  ]
+}
+
+function matchesVar(v: unknown, spec: string): boolean {
+  if (isMissing(v)) return false
+  const range = /^(-?[\d.]*)\.\.(-?[\d.]*)$/.exec(spec)
+  if (range) {
+    const x = Number(v)
+    return (range[1] === '' || x >= Number(range[1])) && (range[2] === '' || x <= Number(range[2]))
+  }
+  return String(v) === spec
+}
+
+// ---- cases (CUR-08 rollup) -------------------------------------------------------------------
 function latestState(pid: string): Map<string, CurationEvent> {
   const latest = new Map<string, CurationEvent>()
   for (const e of events[pid] ?? []) latest.set(`${e.item_id ?? e.case_id}|${e.target}`, e)
   return latest
 }
-export function rollup(statuses: CurationStatus[]): CurationStatus {
-  return statuses.reduce<CurationStatus>(
-    (worst, s) => (STATUS_SEVERITY[s] > STATUS_SEVERITY[worst] ? s : worst),
-    'not_reviewed',
-  )
-}
 
 function summaries(pid: string): CaseSummary[] {
   const s = state(pid)
   const latest = [...latestState(pid).values()]
-  const byCase = new Map<string, ItemRecord[]>()
-  for (const it of s.items) byCase.set(it.case_id, [...(byCase.get(it.case_id) ?? []), it])
-  return [...byCase.entries()].map(([case_id, items]) => {
+  const all = rows(s)
+  const caseVars = catalog(s, all).filter((v) => v.level === 'case' && v.visible)
+  const byCase = new Map<string, { items: ItemRecord[]; rows: Row[] }>()
+  s.items.forEach((it, k) => {
+    const e = byCase.get(it.case_id) ?? { items: [], rows: [] }
+    e.items.push(it)
+    const r = all[k]
+    if (r) e.rows.push(r)
+    byCase.set(it.case_id, e)
+  })
+  return [...byCase.entries()].map(([case_id, { items, rows: rs }]) => {
     const evs = latest.filter((e) => e.case_id === case_id)
     const complete = items.filter((i) => i.scope === 'complete')
     const thumb =
       complete.find((i) => i.phase.canonical === 'NP' && i.status === 'active') ??
       complete.find((i) => i.status === 'active')
+    const variables: Record<string, VariableValue> = {}
+    for (const v of caseVars) {
+      const raw = rs[0]?.values[v.name]
+      variables[v.name] = isMissing(raw) ? null : v.type === 'continuous' ? Number(raw) : String(raw)
+    }
     return {
       case_id,
-      patient_id: items[0]?.patient_id ?? '',
-      group: items[0]?.group ?? '',
-      phases: [...new Set(complete.map((i) => i.phase.canonical))] as Phase[],
+      patient_id: items[0]?.patient_id ?? null,
+      phases: [...new Set(complete.map((i) => i.phase.canonical))],
       n_scans: complete.length,
       n_items: items.length,
       has_seg: complete.some((i) => i.mask),
@@ -260,24 +365,16 @@ function summaries(pid: string): CaseSummary[] {
       last_reviewed_at: evs.map((e) => e.at).sort().at(-1) ?? null,
       thumb_item_id: thumb?.item_id ?? null,
       excluded: items.every((i) => i.status === 'excluded_upstream'),
+      variables,
     }
   })
-}
-
-export interface CaseFilter {
-  q?: string
-  group?: string
-  phase?: string
-  status?: string
-  warning?: 'any' | 'none' | ''
-  voi?: 'any' | 'none' | ''
-  showExcluded?: boolean
 }
 
 // ---- simulated jobs ----------------------------------------------------------
 function runJob(pid: string, job: Job, stepMs: number, onDone: () => void) {
   jobs.set(job.job_id, job)
-  emit(pid, { event: 'job.progress', data: clone(job) })
+  const progress = (j: Job) => emit(pid, { event: 'job.progress', data: { job_id: j.job_id, kind: j.kind, done: j.done, total: j.total, eta_s: j.eta_s } })
+  progress(job)
   const timer = setInterval(() => {
     const j = jobs.get(job.job_id)
     if (!j || j.status !== 'running') {
@@ -288,42 +385,29 @@ function runJob(pid: string, job: Job, stepMs: number, onDone: () => void) {
     j.eta_s = Math.round(((j.total - j.done) * stepMs) / 1000)
     if (j.done >= j.total) {
       clearInterval(timer)
-      j.status = 'completed'
+      j.status = 'succeeded'
       j.eta_s = 0
+      j.finished_at = now()
       onDone()
-      emit(pid, { event: 'job.finished', data: clone(j) })
-    } else emit(pid, { event: 'job.progress', data: clone(j) })
+      progress(j)
+      emit(pid, { event: 'job.finished', data: { job_id: j.job_id, kind: j.kind, status: j.status, ref: j.ref } })
+    } else progress(j)
   }, stepMs)
+}
+
+function newJob(pid: string, kind: Job['kind'], total: number, ref: string | null): Job {
+  const ts = now()
+  return { job_id: ulid(), kind, project_id: pid, status: 'running', done: 0, total, eta_s: null, created_at: ts, started_at: ts, finished_at: null, ref, error: null }
 }
 
 // ---- simulated second reviewer (CUR-11 demo) --------------------------------
 let simTimer: ReturnType<typeof setInterval> | null = null
-export function setReviewerSimulation(pid: string | null, on: boolean) {
-  if (simTimer) clearInterval(simTimer)
-  simTimer = null
-  if (!pid || !on || !db.has(pid)) return
-  const s = db.get(pid)
-  if (!s || s.items.length === 0) return
-  simTimer = setInterval(() => {
-    const latest = latestState(pid)
-    const candidates = s.items.filter(
-      (i) => i.scope === 'complete' && i.status === 'active' && !latest.has(`${i.item_id}|seg`),
-    )
-    const it = candidates[Math.floor(Math.random() * candidates.length)]
-    if (!it) return
-    const status: CurationStatus = Math.random() < 0.75 ? 'accepted' : 'needs_minor_correction'
-    appendEventSync(pid, {
-      item_id: it.item_id, case_id: it.case_id, target: 'seg', status, priority: 'medium',
-      comment: status === 'accepted' ? '' : 'Small leak at the upper pole', add_to_queue: false,
-    }, 'Dr. MK', 'sim')
-  }, 45_000)
-}
 
 function appendEventSync(pid: string, ev: NewCurationEvent, reviewer: string, session: string): CurationEvent {
   const full: CurationEvent = {
     event_id: ulid(),
     schema_version: 1,
-    at: new Date().toISOString(),
+    at: now(),
     reviewer,
     session_id: session,
     proposed_phase: null,
@@ -338,17 +422,41 @@ function appendEventSync(pid: string, ev: NewCurationEvent, reviewer: string, se
   return full
 }
 
+const absPath = (ref: string | undefined) => (ref ? ref.replace(/^DATA:/, `${DEMO_ROOT}/`) : null)
+
+// ---- mock file system (API-10) ------------------------------------------------------------------
+const FS: Record<string, FsEntry[]> = {
+  '/data': [
+    { name: 'Dataset900', path: DEMO_ROOT, kind: 'dir', size: null, has_metadata: true },
+    { name: 'Dataset820', path: '/data/Dataset820', kind: 'dir', size: null, has_metadata: true },
+    { name: 'scratch', path: '/data/scratch', kind: 'dir', size: null, has_metadata: false },
+  ],
+  [DEMO_ROOT]: [
+    { name: 'nifti', path: `${DEMO_ROOT}/nifti`, kind: 'dir', size: null, has_metadata: false },
+    { name: 'seg', path: `${DEMO_ROOT}/seg`, kind: 'dir', size: null, has_metadata: false },
+    { name: 'voi', path: `${DEMO_ROOT}/voi`, kind: 'dir', size: null, has_metadata: false },
+    { name: 'metadata.jsonl', path: `${DEMO_ROOT}/metadata.jsonl`, kind: 'file', size: 18_204, has_metadata: false },
+    { name: 'phase.json', path: `${DEMO_ROOT}/phase.json`, kind: 'file', size: 812, has_metadata: false },
+  ],
+}
+
 // ---- API surface -----------------------------------------------------------
 const SESSION_ID = Math.random().toString(36).slice(2, 10)
 
-export const mockServer = {
+export const mockServer: Api = {
+  mode: 'mock',
   sessionId: SESSION_ID,
 
-  subscribe(pid: string, l: Listener): () => void {
+  subscribe(pid, l, onState) {
     const set = listeners.get(pid) ?? new Set<Listener>()
     set.add(l)
     listeners.set(pid, set)
+    onState?.('live')
     return () => set.delete(l)
+  },
+
+  async health() {
+    return { status: 'ok', version: 'mock', ui_config: { viewer_max_loaded: 3, public_base_url: location.origin } }
   },
 
   reset() {
@@ -361,134 +469,257 @@ export const mockServer = {
     init()
   },
 
-  // API-02 / 03
-  async listProjects(): Promise<Project[]> {
+  setReviewerSimulation(pid, on) {
+    if (simTimer) clearInterval(simTimer)
+    simTimer = null
+    if (!pid || !on || !db.has(pid)) return
+    const s = db.get(pid)
+    if (!s || s.items.length === 0) return
+    simTimer = setInterval(() => {
+      const latest = latestState(pid)
+      const candidates = s.items.filter(
+        (i) => i.scope === 'complete' && i.status === 'active' && !latest.has(`${i.item_id}|seg`),
+      )
+      const it = candidates[Math.floor(Math.random() * candidates.length)]
+      if (!it) return
+      const status: CurationStatus = Math.random() < 0.75 ? 'accepted' : 'needs_minor_correction'
+      appendEventSync(pid, {
+        item_id: it.item_id, case_id: it.case_id, target: 'seg', status, priority: 'medium',
+        comment: status === 'accepted' ? '' : 'Small leak at the upper pole', add_to_queue: false,
+      }, 'Dr. MK', 'sim')
+    }, 45_000)
+  },
+
+  // API-02..05
+  async listProjects(): Promise<ProjectSummary[]> {
     await wait()
     return [...db.values()].map((s) => {
-      const p = clone(s.project)
-      if (s.items.length) {
-        const sums = summaries(p.project_id)
-        p.progress = { reviewed: sums.filter((c) => c.curation_status !== 'not_reviewed').length, total: sums.length }
+      const sums = s.reachable && s.items.length ? summaries(s.project.project_id) : []
+      const reviewed = sums.filter((c) => c.curation_status !== 'not_reviewed').length
+      return {
+        project_id: s.project.project_id,
+        name: s.project.name,
+        created_at: s.project.created_at,
+        last_opened_at: s.last_opened_at,
+        archived: false,
+        n_cases: s.project.project_id === OFFLINE_PID ? 820 : sums.length,
+        curation_progress: s.project.project_id === OFFLINE_PID ? 0.5 : sums.length ? reviewed / sums.length : 0,
+        share_url: s.project.share_url,
       }
-      return p
     })
   },
-  async getProject(pid: string): Promise<Project> {
+  async getProject(pid) {
     await wait(60)
-    const s = db.get(pid)
-    if (!s) throw new ProblemError(404, 'not-found', 'Project not found', pid)
-    s.project.last_opened_at = new Date().toISOString()
+    const s = exists(pid)
+    s.last_opened_at = now()
     return clone(s.project)
   },
-  async createProject(name: string): Promise<Project> {
+  async createProject({ name, description = '', preset }) {
     await wait(250)
     const pid = ulid()
-    db.set(pid, makeProject(pid, name, false))
+    const s = makeProject(pid, name, preset, false)
+    s.project.description = description
+    s.project.created_at = s.project.updated_at = now()
+    db.set(pid, s)
     persistExtraProjects()
-    return clone(db.get(pid)?.project as Project)
+    return clone(s.project)
   },
-  async updateLabelMap(pid: string, labels: LabelDef[]): Promise<Project> {
+  async updateLabelMap(pid, labels) {
     await wait(80)
     const s = state(pid)
     s.project.label_map = clone(labels)
     emit(pid, { event: 'project.updated', data: { fields: ['label_map'] } })
     return clone(s.project)
   },
-
-  // API-10 / 11 / 12
-  async fsList(path: string): Promise<FsEntry[]> {
-    await wait(90)
-    const tree: Record<string, FsEntry[]> = {
-      '/': [{ name: 'data', path: '/data', kind: 'dir' }],
-      '/data': [
-        { name: 'Dataset900', path: '/data/Dataset900', kind: 'dir', detected: ['metadata.jsonl', 'phase.json', 'voi/voi_catalog.jsonl'] },
-        { name: 'Dataset820', path: '/data/Dataset820', kind: 'dir', detected: ['metadata.jsonl'] },
-        { name: 'scratch', path: '/data/scratch', kind: 'dir' },
-      ],
-      '/data/Dataset900': [
-        { name: 'nifti', path: '/data/Dataset900/nifti', kind: 'dir' },
-        { name: 'seg', path: '/data/Dataset900/seg', kind: 'dir' },
-        { name: 'voi', path: '/data/Dataset900/voi', kind: 'dir' },
-        { name: 'metadata.jsonl', path: '/data/Dataset900/metadata.jsonl', kind: 'file' },
-        { name: 'phase.json', path: '/data/Dataset900/phase.json', kind: 'file' },
-      ],
-    }
-    return tree[path] ?? []
+  async listRoots(pid) {
+    await wait(60)
+    const s = exists(pid)
+    return s.project.path_roots.map((r) => ({ ...r, exists: s.reachable }))
   },
-  async importPreview(pid: string, root: string): Promise<ImportPreview> {
-    await wait(600)
-    db.get(pid)
-    const cases = new Set(seed.items.map((i) => i.case_id))
-    const errors = seed.warnings
-      .filter((w) => w.severity === 'error')
-      .map((w, i) => ({ row: i * 2 + 3, code: w.code, message: `${w.case_id}: ${w.message}` }))
+  async relinkRoot(pid, alias, path) {
+    await wait(700)
+    const s = exists(pid)
+    const clean = path.replace(/\/$/, '')
+    const found = FS[clean] !== undefined
+    // The demo "offline" project relinks to any existing mock folder
+    if (found) {
+      s.reachable = true
+      s.project.path_roots = s.project.path_roots.map((r) => (r.alias === alias ? { alias, path: clean } : r))
+      if (!s.items.length && s.project.project_id === OFFLINE_PID) {
+        s.items = seedItems('01JSEEDIMPORT0000000000000')
+        s.warnings = seedWarnings()
+      }
+    }
     return {
-      root,
-      detected: [
-        { file: 'metadata.jsonl', found: true, rows: 24 },
-        { file: 'phase.json', found: true, rows: 1 },
-        { file: 'voi/voi_catalog.jsonl', found: true, rows: 10 },
-      ],
-      n_rows: 24,
-      n_cases: cases.size,
-      n_items: seed.items.length,
-      errors,
-      mapping: [
-        { field: 'case_id', source: 'case_id' },
-        { field: 'scan_idx', source: 'scan_idx' },
-        { field: 'image', source: 'relative_path' },
-        { field: 'mask', source: 'seg/{filename} (convention)' },
-        { field: 'phase', source: 'phase.json → phase' },
-        { field: 'group', source: 'group' },
-        { field: 'patient_id', source: 'patient_id' },
-        { field: 'excluded', source: 'status, planned_conversion' },
-      ],
+      root: { alias, path: clean, exists: found },
+      verify: { sampled: found ? 20 : 0, matched: found ? 20 : 0, mismatched: 0, missing: found ? 0 : 20, samples: [] },
     }
-  },
-  async commitImport(pid: string): Promise<{ job_id: string }> {
-    await wait(200)
-    const s = db.get(pid)
-    if (!s) throw new ProblemError(404, 'not-found', 'Project not found')
-    const job: Job = {
-      job_id: ulid(), kind: 'indexing', title: 'Indexing Dataset900', status: 'running',
-      done: 0, total: seed.items.length, eta_s: null, started_at: new Date().toISOString(), ref: null,
-    }
-    runJob(pid, job, 90, () => {
-      const fresh = makeProject(pid, s.project.name, true)
-      s.items = fresh.items
-      s.warnings = fresh.warnings
-      s.project.n_cases = new Set(s.items.map((i) => i.case_id)).size
-      s.project.n_items = s.items.length
-      persistExtraProjects()
-      emit(pid, { event: 'index.rebuilt', data: { import_id: ulid(), n_items: s.items.length, n_warnings: s.warnings.length } })
-    })
-    return { job_id: job.job_id }
   },
 
-  // API-14 / 20 / 21 / 22
-  async listWarnings(pid: string): Promise<QCWarning[]> {
+  // API-10..14
+  async fsList(path) {
+    await wait(90)
+    if (!path) return { path: null, parent: null, entries: [{ name: '/data', path: '/data', kind: 'dir', size: null, has_metadata: false }], truncated: false }
+    const parent = path === '/data' ? null : path.slice(0, path.lastIndexOf('/')) || null
+    return { path, parent, entries: FS[path] ?? [], truncated: false }
+  },
+  async importPreview(pid, req) {
+    await wait(600)
+    const s = exists(pid)
+    const cases = new Set(seed.items.map((i) => i.case_id))
+    const errors = req.root === DEMO_ROOT || req.files ? [] : [{ file: 'metadata.jsonl', line: null, field: null, message: 'metadata.jsonl not found under the root' }]
+    const preview: ImportPreview = {
+      preview_id: ulid(),
+      root: req.root,
+      alias: req.alias,
+      files: errors.length
+        ? []
+        : [
+            { kind: 'metadata', name: req.files?.metadata.name ?? 'metadata.jsonl', source: req.files ? 'uploaded' : 'detected', sha256: 'cd77c5ad…', rows: 24 },
+            { kind: 'phase', name: 'phase.json', source: 'detected', sha256: '634571c4…', rows: 1 },
+            { kind: 'voi_catalog', name: 'voi_catalog.jsonl', source: 'detected', sha256: '2fed5d0f…', rows: 10 },
+          ],
+      counts: { scan_rows: errors.length ? 0 : 24, voi_rows: errors.length ? 0 : 10, cases: errors.length ? 0 : cases.size, excluded_upstream: errors.length ? 0 : 1 },
+      errors,
+      n_errors: errors.length,
+      field_mapping: { image: 'relative_path', seg: 'convention', phase: ['phase.json', 'phase'], side: 'side' },
+    }
+    s.previews.set(preview.preview_id, preview)
+    return preview
+  },
+  async commitImport(pid, previewId) {
+    await wait(200)
+    const s = exists(pid)
+    const preview = s.previews.get(previewId)
+    if (!preview) throw new ProblemError(404, 'not-found', 'Preview not found', previewId)
+    const importId = ulid()
+    const job = newJob(pid, 'index', seed.items.length, importId)
+    runJob(pid, job, 60, () => {
+      s.items = seedItems(importId)
+      s.warnings = seedWarnings()
+      s.project.path_roots = [{ alias: preview.alias, path: preview.root }]
+      if (s.project.label_map.length === 0) s.project.label_map = autoLabels(s.items)
+      s.imports.push({ import_id: importId, at: now(), preview })
+      persistExtraProjects()
+      emit(pid, { event: 'index.rebuilt', data: { import_id: importId, n_items: s.items.length, n_warnings: s.warnings.length } })
+    })
+    return { job_id: job.job_id, import_id: importId }
+  },
+  async importHistory(pid) {
+    await wait(60)
+    const s = exists(pid)
+    const last = s.imports.at(-1)
+    return {
+      items: s.imports.map((i) => ({ import_id: i.import_id, at: i.at, alias: i.preview.alias, root: i.preview.root, files: i.preview.files, counts: i.preview.counts })).reverse(),
+      next_cursor: null,
+      total: s.imports.length,
+      index: {
+        state: s.items.length ? 'ready' : 'empty',
+        import_id: last?.import_id ?? null,
+        job_id: null,
+        started_at: null,
+        finished_at: last?.at ?? null,
+        n_items: s.items.length,
+        n_warnings: s.warnings.length,
+        error: null,
+      },
+    }
+  },
+  async listWarnings(pid) {
     await wait(80)
     return clone(state(pid).warnings)
   },
-  async listCases(pid: string, f: CaseFilter = {}): Promise<CaseSummary[]> {
+
+  // API-16..18
+  async listVariables(pid) {
+    await wait(90)
+    return catalog(state(pid))
+  },
+  async patchVariable(pid, name, patch) {
+    await wait(80)
+    const s = state(pid)
+    if (!catalog(s).some((v) => v.name === name)) throw new ProblemError(404, 'not-found', 'Variable not found', name)
+    s.overrides[name] = { ...s.overrides[name], ...patch }
+    emit(pid, { event: 'project.updated', data: { fields: ['variables'] } })
+    const v = catalog(s).find((x) => x.name === name)
+    if (!v) throw new ProblemError(404, 'not-found', 'Variable not found', name)
+    return v
+  },
+  async createDerived(pid, def) {
+    await wait(120)
+    const s = state(pid)
+    const cat = catalog(s)
+    const err = validateDerived(def, new Set(cat.map((v) => v.name)))
+    if (err) throw new ProblemError(422, 'validation', 'Invalid derived variable', err)
+    s.derived.push(clone(def))
+    emit(pid, { event: 'project.updated', data: { fields: ['variables'] } })
+    const v = catalog(s).find((x) => x.name === def.name)
+    if (!v) throw new ProblemError(500, 'about:blank', 'Derived variable missing')
+    return v
+  },
+  async deleteDerived(pid, name) {
+    await wait(80)
+    const s = state(pid)
+    if (s.derived.some((d) => d.op === 'dominant' ? d.sources.includes(name) : d.source === name))
+      throw new ProblemError(409, 'conflict', 'Variable in use', `Another derived variable uses "${name}"`)
+    s.derived = s.derived.filter((d) => d.name !== name)
+    delete s.overrides[name]
+    emit(pid, { event: 'project.updated', data: { fields: ['variables'] } })
+  },
+  async importExternal(pid, file, key) {
+    await wait(300)
+    const s = state(pid)
+    const { header, rows: table } = parseTable(await file.text())
+    const k = header.indexOf(key)
+    if (k < 0) throw new ProblemError(422, 'validation', 'Key column missing', `The table has no "${key}" column`)
+    const byKey = new Map<string, string>()
+    for (const it of s.items) byKey.set(key === 'case_id' ? it.case_id : (it.patient_id ?? ''), it.case_id)
+    const cols = header.filter((h, i) => i !== k && h !== '')
+    const unmatched: string[] = []
+    let matched = 0
+    for (const r of table) {
+      const cid = byKey.get(r[k] ?? '')
+      if (!cid) {
+        unmatched.push(r[k] ?? '')
+        continue
+      }
+      matched++
+      const vals = s.external[cid] ?? {}
+      header.forEach((h, i) => {
+        if (i !== k && h) vals[h] = r[i] ?? ''
+      })
+      s.external[cid] = vals
+    }
+    s.externalFields = [...new Set([...s.externalFields, ...cols])]
+    emit(pid, { event: 'project.updated', data: { fields: ['variables'] } })
+    return { key, n_rows: table.length, matched, unmatched_keys: unmatched, added: cols }
+  },
+
+  // API-20..26
+  async listCases(pid, f: CaseFilter = {}) {
     await wait(100)
     const s = state(pid)
+    const all = rows(s)
     const q = f.q?.trim().toLowerCase()
-    return summaries(pid).filter((c) => {
-      if (!f.showExcluded && c.excluded) return false
-      if (q && !c.case_id.includes(q) && !c.patient_id.toLowerCase().includes(q)) return false
-      if (f.group && c.group !== f.group) return false
-      if (f.phase && !c.phases.includes(f.phase as Phase)) return false
+    const vars = Object.entries(f.vars ?? {}).filter(([, v]) => v)
+    const list = summaries(pid).filter((c) => {
+      if (c.excluded && !f.showExcluded) return false
+      if (q && !c.case_id.includes(q) && !(c.patient_id ?? '').toLowerCase().includes(q)) return false
+      if (f.phase && !c.phases.includes(f.phase as CaseSummary['phases'][number])) return false
       if (f.status && c.curation_status !== f.status) return false
       if (f.warning === 'any' && c.n_warnings === 0) return false
       if (f.warning === 'none' && c.n_warnings > 0) return false
-      const hasVoi = s.items.some((i) => i.case_id === c.case_id && i.scope === 'voi')
+      const hasVoi = c.has_voi_L || c.has_voi_R
       if (f.voi === 'any' && !hasVoi) return false
       if (f.voi === 'none' && hasVoi) return false
+      // A case matches a variable filter when any of its items does (scan-level variables)
+      for (const [name, spec] of vars)
+        if (!all.some((r) => r.case_id === c.case_id && matchesVar(r.values[name], spec))) return false
       return true
     })
+    return f.limit ? list.slice(0, f.limit) : list
   },
-  async getCase(pid: string, cid: string): Promise<CaseDetail> {
+  async getCase(pid, cid) {
     await wait(90)
     const s = state(pid)
     const summary = summaries(pid).find((c) => c.case_id === cid)
@@ -499,16 +730,26 @@ export const mockServer = {
       warnings: clone(s.warnings.filter((w) => w.case_id === cid)),
     }
   },
-  async getItem(pid: string, iid: string): Promise<ItemRecord & { advanced: { image_abs: string | null; mask_abs: string | null } }> {
+  async getItem(pid, iid) {
     await wait(60)
-    const it = state(pid).items.find((i) => i.item_id === iid)
+    const s = state(pid)
+    const it = s.items.find((i) => i.item_id === iid)
     if (!it) throw new ProblemError(404, 'not-found', 'Item not found', iid)
-    const abs = (ref: string | undefined) => (ref ? ref.replace(/^DATA:/, '/data/Dataset900/') : null)
-    return { ...clone(it), advanced: { image_abs: abs(it.image?.ref), mask_abs: abs(it.mask?.ref) } }
+    return {
+      ...clone(it),
+      advanced: {
+        image_path: absPath(it.image?.ref),
+        mask_path: absPath(it.mask?.ref),
+        image_abs: absPath(it.image?.ref),
+        mask_abs: absPath(it.mask?.ref),
+      },
+      warnings: clone(s.warnings.filter((w) => w.item_id === iid)),
+    }
   },
+  thumbnailUrl: () => null,
 
-  // API-50 / 51 / 52
-  async listEvents(pid: string, f: { item_id?: string; case_id?: string } = {}): Promise<CurationEvent[]> {
+  // API-50..52
+  async listEvents(pid, f = {}) {
     await wait(70)
     state(pid)
     return clone(
@@ -517,13 +758,13 @@ export const mockServer = {
         .reverse(),
     )
   },
-  async appendEvent(pid: string, ev: NewCurationEvent, reviewer: string): Promise<CurationEvent> {
+  async appendEvent(pid, ev, reviewer) {
     await wait(90)
     if (!reviewer) throw new ProblemError(428, 'reviewer-required', 'Reviewer name required')
     state(pid)
     return appendEventSync(pid, ev, reviewer, SESSION_ID)
   },
-  async curationState(pid: string): Promise<CurationStateRow[]> {
+  async curationState(pid) {
     await wait(70)
     state(pid)
     return [...latestState(pid).values()].map((e) => ({
@@ -531,7 +772,7 @@ export const mockServer = {
       comment: e.comment, reviewer: e.reviewer, at: e.at, add_to_queue: e.add_to_queue,
     }))
   },
-  async queue(pid: string): Promise<(CurationStateRow & { item: ItemRecord | null; image_abs: string | null; mask_abs: string | null })[]> {
+  async queue(pid) {
     await wait(90)
     const s = state(pid)
     return [...latestState(pid).values()]
@@ -542,8 +783,7 @@ export const mockServer = {
         return {
           item_id: e.item_id, case_id: e.case_id, target: e.target, status: e.status, priority: e.priority,
           comment: e.comment, reviewer: e.reviewer, at: e.at, add_to_queue: e.add_to_queue, item: clone(item),
-          image_abs: item?.image ? item.image.ref.replace(/^DATA:/, '/data/Dataset900/') : null,
-          mask_abs: item?.mask ? item.mask.ref.replace(/^DATA:/, '/data/Dataset900/') : null,
+          image_abs: absPath(item?.image?.ref), mask_abs: absPath(item?.mask?.ref),
         }
       })
   },
@@ -553,53 +793,50 @@ export const mockServer = {
     await wait(120)
     return clone(MOCK_SCHEMA)
   },
-  async validate(settings: Settings, selection: { labels: number[]; items: number }) {
+  async validate(settings, selection) {
     await wait(40)
     return validateSettings(settings, selection)
   },
-  async estimate(pid: string, selection: { scope: string; labels: number[] }) {
+  async estimate(pid, selection) {
     await wait(700)
     const n = state(pid).items.filter((i) => i.scope === selection.scope && i.status === 'active' && i.mask).length
     return { n_items: n, n_labels: selection.labels.length, n_extractions: n * selection.labels.length, sec_per_item: 2.4 }
   },
-  async listProfiles(pid: string) {
+  async listProfiles(pid) {
     await wait(60)
     return clone(state(pid).profiles)
   },
-  async saveProfile(pid: string, name: string, settings: Settings) {
+  async saveProfile(pid, name, settings) {
     await wait(120)
     const s = state(pid)
     const hash = `sha256:${Math.abs(JSON.stringify(settings).split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(16).padStart(8, '0')}…`
-    s.profiles = [...s.profiles.filter((p) => p.name !== name), { name, hash, settings: clone(settings), saved_at: new Date().toISOString() }]
+    s.profiles = [...s.profiles.filter((p) => p.name !== name), { name, hash, settings: clone(settings), saved_at: now() }]
     return { name, hash }
   },
-  async listRuns(pid: string): Promise<RadiomicsRun[]> {
+  async listRuns(pid) {
     await wait(80)
     return clone(state(pid).runs).reverse()
   },
-  async getRun(pid: string, rid: string): Promise<RadiomicsRun> {
+  async getRun(pid, rid) {
     await wait(60)
     const r = state(pid).runs.find((x) => x.run_id === rid)
     if (!r) throw new ProblemError(404, 'not-found', 'Run not found', rid)
     return clone(r)
   },
-  async startRun(pid: string, name: string, selection: { scope: 'complete' | 'voi'; labels: number[] }, reviewer: string) {
+  async startRun(pid, name, selection, reviewer) {
     await wait(200)
     const s = state(pid)
     const base = s.runs[0]
     const rid = ulid()
     const targets = s.items.filter((i) => i.scope === selection.scope && i.status === 'active' && i.mask)
     const run: RadiomicsRun = {
-      run_id: rid, name, status: 'running', created_at: new Date().toISOString(), started_at: new Date().toISOString(),
+      run_id: rid, name, status: 'running', created_at: now(), started_at: now(),
       finished_at: null, reviewer, engine: MOCK_SCHEMA.engine, profile_hash: 'sha256:9f2c…e41a',
       selection: { ...selection, filter: 'status=active' },
       counts: { items: targets.length, ok: 0, failed: 0, features: 0 },
     }
     s.runs.push(run)
-    const job: Job = {
-      job_id: ulid(), kind: 'radiomics', title: `Radiomics · ${name}`, status: 'running', done: 0,
-      total: Math.max(1, targets.length), eta_s: null, started_at: new Date().toISOString(), ref: rid,
-    }
+    const job = newJob(pid, 'radiomics', Math.max(1, targets.length), rid)
     runJob(pid, job, 350, () => {
       const src = base ? (s.features[base.run_id] ?? []) : []
       s.features[rid] = src
@@ -607,7 +844,7 @@ export const mockServer = {
         .map((f) => ({ ...f, value: +(f.value * (0.98 + Math.random() * 0.04)).toFixed(4) }))
       s.errors[rid] = base ? clone(s.errors[base.run_id] ?? []) : []
       run.status = s.errors[rid].length ? 'completed_with_errors' : 'completed'
-      run.finished_at = new Date().toISOString()
+      run.finished_at = now()
       run.counts = {
         items: targets.length,
         ok: targets.length - s.errors[rid].length,
@@ -617,38 +854,37 @@ export const mockServer = {
     })
     return { run_id: rid, job_id: job.job_id }
   },
-  async runFeatures(pid: string, rid: string, item_id?: string): Promise<FeatureRow[]> {
+  async runFeatures(pid, rid, itemId) {
     await wait(90)
     const s = state(pid)
     const byId = new Map(s.items.map((i) => [i.item_id, i]))
     const all = s.features[rid] ?? []
-    return (item_id ? all.filter((f) => f.item_id === item_id) : all).flatMap((f) => {
+    return (itemId ? all.filter((f) => f.item_id === itemId) : all).flatMap((f) => {
       const it = byId.get(f.item_id)
       return it
-        ? [{ ...f, case_id: it.case_id, scan_idx: it.scan_idx, scope: it.scope, side: it.side, phase: it.phase.canonical, group: it.group }]
+        ? [{ ...f, case_id: it.case_id, scan_idx: it.scan_idx, scope: it.scope, side: it.side, phase: it.phase.canonical, group: it.group ?? '' }]
         : []
     })
   },
-  async runErrors(pid: string, rid: string): Promise<RunError[]> {
+  async runErrors(pid, rid) {
     await wait(60)
     return clone(state(pid).errors[rid] ?? [])
   },
 
   // API-41
-  async listJobs(): Promise<Job[]> {
+  async listJobs(pid) {
     await wait(40)
-    return clone([...jobs.values()]).reverse()
+    return clone([...jobs.values()].filter((j) => !pid || j.project_id === pid)).reverse()
   },
-  async cancelJob(pid: string, jobId: string) {
+  async cancelJob(pid, jobId) {
     await wait(60)
     const j = jobs.get(jobId)
     if (j && j.status === 'running') {
       j.status = 'cancelled'
+      j.finished_at = now()
       const run = db.get(pid)?.runs.find((r) => r.run_id === j.ref)
       if (run) run.status = 'cancelled'
-      emit(pid, { event: 'job.finished', data: clone(j) })
+      emit(pid, { event: 'job.finished', data: { job_id: j.job_id, kind: j.kind, status: j.status, ref: j.ref } })
     }
   },
 }
-
-export type MockServer = typeof mockServer

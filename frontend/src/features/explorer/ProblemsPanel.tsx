@@ -9,7 +9,8 @@ import { openItem } from './ProjectView'
 
 export function groupWarnings(ws: QCWarning[]): [string, QCWarning[]][] {
   const m = new Map<string, QCWarning[]>()
-  for (const w of ws) m.set(w.case_id, [...(m.get(w.case_id) ?? []), w])
+  // Warnings without a case (e.g. a file-level parse error) group under ''
+  for (const w of ws) m.set(w.case_id ?? '', [...(m.get(w.case_id ?? '') ?? []), w])
   return [...m.entries()].sort(([a], [b]) => a.localeCompare(b))
 }
 
@@ -20,7 +21,7 @@ export function nextProblem(ws: QCWarning[]) {
   if (!flat.length) return
   cursor = (cursor + 1) % flat.length
   const w = flat[cursor]
-  if (w) openItem(w.case_id, w.item_id, true)
+  if (w?.case_id) openItem(w.case_id, w.item_id, true)
 }
 
 export function ProblemsPanel() {
@@ -35,11 +36,11 @@ export function ProblemsPanel() {
         <div key={cid} role="group">
           <div className="list-row" style={{ cursor: 'default', paddingLeft: 8 }} role="treeitem" aria-expanded>
             <Icon spec={codicon('chevron-down')} />
-            <span className="mono">{cid}</span>
+            <span className="mono">{cid || t('problems.projectLevel')}</span>
             <span className="count">{list.length}</span>
           </div>
           {list.map((w) => (
-            <button key={`${w.code}-${w.item_id ?? ''}`} type="button" role="treeitem" className="list-row" style={{ paddingLeft: 32 }} onClick={() => openItem(w.case_id, w.item_id, true)}>
+            <button key={`${w.code}-${w.item_id ?? ''}-${w.field ?? ''}`} type="button" role="treeitem" className="list-row" style={{ paddingLeft: 32 }} disabled={!w.case_id} onClick={() => w.case_id && openItem(w.case_id, w.item_id, true)}>
               <SeverityIcon severity={w.severity} />
               <span>{t(`warning.${w.code}`)}</span>
               <span className="muted">{w.message}</span>

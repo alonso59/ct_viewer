@@ -5,7 +5,8 @@ import { codicon } from '../../theme'
 import { LabelsView } from './LabelsView'
 import { WelcomeEditor } from './WelcomeEditor'
 
-export { WorkspaceHome, NewProjectDialog } from './WorkspaceHome'
+export { WorkspaceHome, NewProjectDialog, RelinkDialog } from './WorkspaceHome'
+export { useRootsCheck } from './useRootsCheck'
 export { ProjectSwitcher } from './ProjectSwitcher'
 
 export function registerProjects() {

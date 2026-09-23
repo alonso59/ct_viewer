@@ -99,3 +99,32 @@ Prints preview counts, index time, case count, warnings per code, and `sources_c
 - P2: replace `frontend/src/api/mock` with the generated client behind the same `api` surface.
 - P3: mesh format is gzip MZ3 (VIEWER.md §Decisions); two NiiVue spikes remain (single vs four instances, label rendering).
 - Dev server port: 5173 is taken by VS Code on the dev Mac; lanes used 5174.
+
+## 2026-09-23 · P2 shell + explorer · lane/2-shell
+
+**Done** (ROADMAP §P2 tasks ticked; phase row left to the integrator)
+- `api/`: explicit `Api` surface (`surface.ts`) with two bindings: `http.ts` (default; openapi-fetch for the P1 endpoints, documented paths for the rest) and `mock/` (`VITE_API_MODE=mock`, unit tests; loaded by dynamic import, so the seed is out of the prod bundle: main chunk 291 KB gzip, NFR-07). Domain types alias `schema.d.ts` where the endpoint exists (FE-03); the client normalizes paged lists (follows cursors), `scans[]` → `items`, job kinds/statuses, problem+json → `ProblemError`.
+- SSE (API-40): one `EventSource` per project shared by subscribers; `useProjectSync` patches caches (jobs, index, variables) and drives the status bar live/connecting/offline (UI-07). A finished thumbnail job retries 404'd thumbnails.
+- Home (UI-04, PRJ-02/03): Open Recent with API-26 thumbnail and progress, share-link copy, relink dialog on API-05 (also offered on open when a root does not resolve). New project offers the study preset (PRJ-12). `/p/{unknown}` shows "Project not found".
+- Import wizard (IMP-01..05): allowed-roots browser (API-10), optional metadata upload (multipart), preview counts / field mapping / first 50 errors, commit → index job progress → toast.
+- Explorer (UI-08/09, VAR-10): `group` removed from filters, rows, quick open. Search view filters on any visible variable (`var.{name}=level` or `min..max`); Project view header menu "Columns and colour" picks case-level variables as row columns and one categorical variable as a colour stripe (`--cat-1..8`) with a legend. Per-project prefs in localStorage.
+- Variables view (new `features/variables/`): Study / Derived / External / Acquisition sections, Review badge with "Use categorical/continuous" for numeric-discrete (VAR-03), type override, visibility, tags (VAR-05), derived bin/recode/dominant dialog (VAR-06), external CSV/TSV import with match report (VAR-07). The mock implements the VARIABLES.md inference rules (`api/mock/variables.ts`, tested).
+- Share link copies the active deep link (`/p/{pid}/case/{cid}?item=…`, PRJ-03); falls back to showing the URL when the clipboard is unavailable (plain-http hosts).
+- Tests: 51 vitest (new: inference rules, derived form, explorer variable helpers). Playwright (`frontend/e2e/p2-flow.spec.ts`) against the real backend on `.fixtures/synthetic`: new project → import → browse → share link opened in a second browser context; unknown link. 6/6 on Chromium + Firefox. `make check` green.
+
+**Requests for other paths**
+- lane/2-backend (API-16..18, PRJ-12), proposed contract the frontend codes against (`frontend/src/api/types.ts` §Study variables; please confirm or tell the integrator what differs):
+  - `GET /projects/{pid}/variables` → `Variable[]` or `{items, total}` (both accepted). `Variable = {name, source: metadata|derived|external|raw, type, inferred_type, level: case|scan, group: study|acquisition, tags[], visible, confidence, review, overridden, profile: {missing_pct, n_distinct, examples[], min?, max?, levels?: [{value, count}]}, definition?}`.
+  - `PATCH …/variables/{name}` body `{type?, visible?, tags?}` → `Variable`. `POST …/variables/derived` body = the VARIABLES.md derived JSON → `Variable` (422 `validation` with `detail` on a bad definition). `DELETE …/derived/{name}` → 204 (409 if another derived variable uses it). `POST …/variables/external` multipart `file` + `key` (`case_id|patient_id`) → `{key, n_rows, matched, unmatched_keys[], added[]}`.
+  - `CaseSummary` gains `variables: {name: value}` (case-level visible variables) so the explorer can show columns/colour, and `thumb_item_id` (else the client fetches each visible case's detail to pick one). Catalog changes emit `project.updated {fields: ["variables"]}`.
+  - `ProjectCreate` gains `preset: ccrcc|generic-ct|none` (sent already; P1 ignores it). `ProjectDetail.preset` is read if present.
+- lane/2-viewer (`features/viewer/ImageSection.tsx`): switch `advanced.image_abs/mask_abs` to the API names `image_path/mask_path` (aliases kept in `ItemDetail` until then) and drop the `image.group` row (VAR-10).
+- `docs/frontend/UI_SHELL.md` (integrator): Variables view layout above; Project view "Columns and colour" menu + colour stripe/legend; share link = deep link; §Prototype defaults: the mock and "Simulate a second reviewer" exist only with `VITE_API_MODE=mock` (Settings hides them otherwise).
+- `docs/frontend/ARCHITECTURE.md` / `docs/ops/DEV_ENV.md`: `api/surface.ts` + `http.ts` + `mock/`; env `VITE_API_MODE`, `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; flushes SSE headers, otherwise the stream only opens at the first 15 s ping). `make e2e` starts its own backend (8011) and Vite (5174) with a temp workspace; needs `make fixtures` and a free 5174.
+- `frontend/package.json` (integrator): added `openapi-fetch` ^0.14 (listed in ARCHITECTURE §Stack, was missing).
+
+**Open issues**
+- Presets vs phases: `generic-ct` (NC/ART/PV/DELAYED) cannot be expressed in `PhaseInfo.canonical` (NC/CMP/NP/EP/UNK) or the frontend `PHASES`; the phase filter and chips still use the fixed set. Needs a P1b decision (API enum or `project.phase_vocabulary`).
+- Endpoints not merged yet (curation API-50..54, radiomics API-30..38, variables API-16..18): the HTTP client calls the documented paths; list reads treat 404/405 as empty, so on the P1 backend those views show empty states and the console logs 404s. Their hand-written types stay until `make gen-api` covers them (P4-FE/P5-FE reconcile).
+- The P1 `GET /cases` never lists cases whose items are all excluded upstream, so "Show items excluded upstream" is mock-only.
+- Dashboard `group` (FeatureRow, DashboardEditor) is untouched, as assigned to P6-FE.

@@ -1,7 +1,7 @@
 // Project welcome (empty editor area / Welcome tab): next steps and progress at a glance
 import { useTranslation } from 'react-i18next'
 
-import { useCases, useProject, useQueue, useRuns, useWarnings } from '../../api'
+import { useCases, useImportHistory, useProject, useQueue, useRuns, useWarnings } from '../../api'
 import { Progress } from '../../lib'
 import { formatChord, openEditor, registry, bindingOf, useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
@@ -30,18 +30,20 @@ export function WelcomeEditor() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const project = useProject(pid).data
+  const index = useImportHistory(pid).data?.index
   const cases = useCases(pid).data ?? []
+  const nItems = cases.reduce((n, c) => n + c.n_items, 0)
   const warnings = useWarnings(pid).data ?? []
   const queue = useQueue(pid).data ?? []
   const runs = useRuns(pid).data ?? []
   const reviewed = cases.filter((c) => c.curation_status !== 'not_reviewed').length
   const nextCase = cases.find((c) => c.curation_status === 'not_reviewed')
-  if (project && project.n_cases === 0)
+  if (project && index && index.state !== 'ready' && cases.length === 0)
     return (
       <div className="page">
         <div className="page-inner">
           <h1>{project.name}</h1>
-          <p className="muted">{t('welcome.emptyProject')}</p>
+          <p className="muted">{t(index.state === 'running' ? 'welcome.indexing' : 'welcome.emptyProject')}</p>
           <div className="home-actions" style={{ maxWidth: 420 }}>
             <Action icon={codicon('cloud-download')} title={t('import.title')} detail={t('welcome.importHelp')} onClick={() => useImportWizard.getState().open(pid)} />
           </div>
@@ -52,7 +54,7 @@ export function WelcomeEditor() {
     <div className="page">
       <div className="page-inner">
         <h1>{project?.name}</h1>
-        <p className="muted">{t('welcome.subtitle', { cases: project?.n_cases ?? 0, items: project?.n_items ?? 0 })}</p>
+        <p className="muted">{t('welcome.subtitle', { cases: cases.length, items: nItems })}</p>
         <div className="stat-grid">
           <div className="card">
             <span className="kpi num">{t('welcome.pct', { v: cases.length ? Math.round((reviewed / cases.length) * 100) : 0 })}</span>

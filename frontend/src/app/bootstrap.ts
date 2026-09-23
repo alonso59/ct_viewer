@@ -7,6 +7,7 @@ import { registerImport } from '../features/import'
 import { registerJobs } from '../features/jobs'
 import { registerProjects } from '../features/projects'
 import { registerRadiomics } from '../features/radiomics'
+import { registerVariables } from '../features/variables'
 import { registerViewer } from '../features/viewer'
 import {
   closeActiveEditor,
@@ -34,6 +35,7 @@ export function bootstrap() {
   registerCuration()
   registerRadiomics()
   registerDashboard()
+  registerVariables()
   registerJobs()
 
   registry.view({ id: 'settings', title: 'view.settings', icon: codicon('settings-gear'), order: 100, position: 'bottom', component: SettingsView, hideImageSection: true })
@@ -67,7 +69,7 @@ export function bootstrap() {
     menuGroup: 5,
     run: () => useSettings.getState().set({ theme: useSettings.getState().theme === 'light' ? 'dark' : 'light' }),
   })
-  for (const [id, view, key] of [['project', 'project', 'mod+shift+e'], ['search', 'search', 'mod+shift+f'], ['curation', 'curation', ''], ['radiomics', 'radiomics', '']] as const)
+  for (const [id, view, key] of [['project', 'project', 'mod+shift+e'], ['search', 'search', 'mod+shift+f'], ['curation', 'curation', ''], ['radiomics', 'radiomics', ''], ['variables', 'variables', '']] as const)
     cmd({ id: `view.show.${id}`, title: `view.${view}`, category: 'cat.showView', keybinding: key || undefined, menu: 'view', menuGroup: 6, run: () => useLayout.getState().set({ activeView: view, sidebarVisible: true }) })
   for (const tab of ['measurements', 'problems', 'history', 'output', 'jobs'])
     cmd({ id: `panel.show.${tab}`, title: `panel.${tab}`, category: 'cat.showPanel', run: () => useLayout.getState().showPanelTab(tab) })
