@@ -26,7 +26,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-10 | `GET /fs/list?path=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` | IMP-01 |
 | API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect:true}` → preview | IMP-02/03 |
 | API-12 | `POST /projects/{pid}/imports` | Commit preview → `202 {job_id}` (indexing) | IMP-04/05 |
-| API-13 | `GET /projects/{pid}/imports` | Import history | IMP-04 |
+| API-13 | `GET /projects/{pid}/imports` | Import history + current `index` status | IMP-04 |
 | API-14 | `GET /projects/{pid}/warnings` | QC warnings (filterable) | IMP-08 |
 | API-15 | `POST /projects/{pid}/hash-jobs` | Full SHA-256 job | IMP-09 |
 | API-20 | `GET /projects/{pid}/cases` | Case summaries | DATA_MODEL |
@@ -35,7 +35,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-23 | `GET /projects/{pid}/items/{iid}/image` | Image bytes (Range, ETag) | BE-04 |
 | API-24 | `GET /projects/{pid}/items/{iid}/mask` | Mask bytes (Range, ETag) | BE-04 |
 | API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1` | Mesh (`202` + job if not cached) | VW-09 |
-| API-26 | `GET /projects/{pid}/items/{iid}/thumbnail` | WebP thumbnail (`404` until generated) | IMP-12 |
+| API-26 | `GET /projects/{pid}/items/{iid}/thumbnail` | Lossless WebP thumbnail (`404` until generated) | IMP-12 |
 | API-30 | `GET /radiomics/schema` | Engine options, defaults, constraints | RAD-01 |
 | API-31 | `POST /radiomics/validate` | Settings → issues | RAD-04 |
 | API-32 | `GET·POST /projects/{pid}/radiomics/profiles` · `PATCH·DELETE …/{hash}` | Profiles | RAD-03 |
@@ -72,7 +72,7 @@ Clients reconnect with `Last-Event-ID`; the server replays up to 1,000 recent ev
 | Slug | Status |
 |---|---|
 | `not-found` | 404 |
-| `validation` | 422 (`errors[]` = field issues) |
+| `validation` | 422 (`errors[]` = field issues; also an unconvertible legacy `.npy`) |
 | `path-outside-root` | 403 |
 | `source-missing` | 409 |
 | `format-version-unsupported` | 409 |

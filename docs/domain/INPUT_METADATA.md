@@ -33,7 +33,7 @@ Unknown fields are preserved in `extra` and shown under "Advanced metadata".
 |---|---|---|
 | `case_id` | ✓ | `case_\d{5}` |
 | `scan_idx` | ✓ | Scan index within case (string, e.g. `01`) |
-| `filename` or `relative_path` or `nifti_file` | ✓ | Image location (first non-empty wins; `nifti_file` is absolute legacy) |
+| `filename` or `relative_path` or `nifti_file` | ✓ | Identity: first non-empty of the three. Image location: `relative_path` → `nifti_file` (absolute legacy) → `nifti/{filename}` |
 | `patient_id`, `group`, `dataset_id` | | Display / filters |
 | `study_uid`, `series_uid` | | Provenance (advanced) |
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |

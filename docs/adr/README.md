@@ -11,7 +11,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0003 | Client-side rendering with NiiVue | Accepted |
 | 0004 | No accounts; link sharing; reviewer name stamp | Accepted |
 | 0005 | Register data in place with path aliases | Accepted |
-| 0006 | Radiomics via engine adapter; PyRadiomics default; IBSI reference hidden from the GUI | Accepted (spike pending) |
+| 0006 | Radiomics via engine adapter; PyRadiomics default; IBSI reference hidden from the GUI | Accepted (spike passed; pinned upstream commit) |
 | 0007 | One OCI image for Docker and udocker | Accepted |
 | 0008 | Drop MUI; Radix + tokens + codicons + dockview | Accepted |
 | 0009 | Analytics on Parquet + DuckDB; ECharts for charts | Accepted |

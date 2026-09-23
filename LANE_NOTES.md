@@ -86,3 +86,16 @@ Prints preview counts, index time, case count, warnings per code, and `sources_c
 **Open issues**
 - Port 5173 is held by VS Code on the dev Mac; the lane dev server ran on 5174.
 - P2: replace `api/mock` with the generated client behind the same `api` surface; dashboard sub-panels (DB-01) and brushing (DB-04) are not in the prototype.
+
+## 2026-09-23 · Step 1 integration · v3
+
+**Done**
+- Merged `lane/1-backend` (P1, 4 commits) and `lane/1-design` (P0.5, 1 commit) into `v3`. Only conflict: this file (both entries kept).
+- `make gen-api` regenerated `frontend/src/api/schema.d.ts` for the P1 endpoints. `make fixtures && make check` green: 170 backend + 32 frontend tests.
+- Applied the lane requests: ROADMAP P0.5 tasks ticked (walkthrough still open), ADR-0006 status + spike result, RADIOMICS spike result, VIEWER mesh decision (gzip MZ3), INPUT_METADATA image-location order, API.md (API-13 `index`, API-26 lossless WebP, `.npy` 422).
+- Deferred items now listed in ROADMAP: Dataset820 check, IBSI smoke in the image and OPS-04 container-mode signal (P7); IMP-09/API-15 and PRJ-08/09 (P5/P6).
+
+**For Step 2 lanes**
+- P2: replace `frontend/src/api/mock` with the generated client behind the same `api` surface.
+- P3: mesh format is gzip MZ3 (VIEWER.md §Decisions); two NiiVue spikes remain (single vs four instances, label rendering).
+- Dev server port: 5173 is taken by VS Code on the dev Mac; lanes used 5174.

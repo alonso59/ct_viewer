@@ -59,8 +59,11 @@ interface ViewerHandle {
 
 NiiVue is only imported inside `features/viewer/engine/`. Everything else uses `ViewerHandle`, which keeps the engine swappable.
 
-## Technical spikes (P1, no user decision needed)
+## Technical spikes (P3, no user decision needed)
 
 - Can NiiVue render the 2×2 layout from one instance (multiplanar + render tiles), or does it need four instances sharing one volume? Pick the one with lower memory.
-- Mesh format for API-25 (NiiVue-native, e.g. MZ3/GIfTI/STL/OBJ): pick the smallest that loads fast.
 - Label rendering: NiiVue label colormap vs a custom LUT with outline support.
+
+## Decisions
+
+- Mesh format (API-25, P1 spike): **gzip MZ3**, cached as `cache/meshes/{mask_fp}_{label}_{smooth}.mz3`, vertices in world mm via the NIfTI affine, served as `application/octet-stream`. A 302k-triangle mesh is 2.0 MB and parses in 16 ms in NiiVue 0.69 (GIfTI 2.6 MB, STL 14.8 MB, OBJ 10.4 MB).

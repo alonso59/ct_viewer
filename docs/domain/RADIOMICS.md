@@ -103,9 +103,9 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
 `features.parquet`: `run_id, item_id, case_id, scan_idx, scope, side, phase, group, label, image_type, feature_class, feature, value(float64), ibsi_code, ibsi_status`.
 `diagnostics.parquet`: `run_id, item_id, label, voxel_count, bbox, spacing, image_hash, mask_hash, …` (engine diagnostics, flattened).
 
-## Technical spike (P1, no user decision needed)
+## Spike result
 
-- Pin a PyRadiomics version with Python 3.12 wheels, or fall back to an IBSI-validated alternative such as MIRP? Decide in the P1 spike (ADR-0006).
+- PyRadiomics installed from pinned upstream commit `8ed57938` (no Python 3.12 wheels on PyPI); 20/20 IBSI phantom checks pass. See ADR-0006.
 
 ## Decisions
 

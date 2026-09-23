@@ -11,7 +11,7 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | Phase | Title | Status |
 |---|---|---|
 | P0 | Documentation & ADRs | ✅ Done (2026-09-23) |
-| P0.5 | UX design system & clickable prototype | ⬜ |
+| P0.5 | UX design system & clickable prototype | 🟨 Built and approved 2026-09-23; curator/researcher walkthrough pending |
 | P1 | Backend core: projects, import, index | ✅ 2026-09-23 (verified on `.fixtures/synthetic`; Dataset820 run deferred to P7 on the remote server, command in LANE_NOTES.md) |
 | P2 | Frontend shell + explorer | ⬜ |
 | P3 | Viewer (NiiVue) | ⬜ |
@@ -52,10 +52,10 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** user approves the docs; open questions are resolved or explicitly deferred.
 
 ### P0.5 — UX design system & prototype (ADR-0010)
-- [ ] Design tokens: GitHub Dark + Light (`theme/tokens.css`), typography, spacing, radius (UI-11)
-- [ ] Custom CT icon set drawn to codicon rules (UI-15)
-- [ ] Wireframes: Welcome/home · Import wizard · Workbench with 2×2 case · Radiomics settings form · Dashboard · Correction queue
-- [ ] Clickable prototype: the real shell components (`shell/`) on a mock API layer seeded from the synthetic fixtures, with no backend. It becomes the P2 foundation rather than a throwaway.
+- [x] Design tokens: GitHub Dark + Light (`theme/tokens.css`), typography, spacing, radius (UI-11)
+- [x] Custom CT icon set drawn to codicon rules (UI-15)
+- [x] Wireframes: Welcome/home · Import wizard · Workbench with 2×2 case · Radiomics settings form · Dashboard · Correction queue
+- [x] Clickable prototype: the real shell components (`shell/`) on a mock API layer seeded from the synthetic fixtures, with no backend. It becomes the P2 foundation rather than a throwaway.
 - [ ] Walkthrough with a curator and a researcher: open case → review → mark status → next case; configure → run → open outlier
 **Exit:** user approves the look, layout and the main flows; design changes are reflected in UI_SHELL.md.
 
@@ -91,6 +91,7 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P6 — Dashboard
+- [ ] Not built in P1, schedule with P5/P6: full-hash job (IMP-09, API-15) and project bundles (PRJ-08/09)
 - [ ] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07)
 - [ ] Measurements panel for the active item (UI-14)
 **Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click.
@@ -98,6 +99,7 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 ### P7 — Packaging
 - [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*)
 - [ ] TST-05, TST-09, TST-10; README quick start
+- [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04)
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
 
 ### P8 — Electron
