@@ -1,0 +1,87 @@
+/* Import wizard (IMP-01..05) */
+.wiz-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-5);
+}
+.dialog-body h3 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-ui);
+  font-weight: var(--fw-semibold);
+}
+.dialog-body p {
+  margin: 0 0 var(--sp-2);
+}
+.wiz-note {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  margin-top: var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  font-size: var(--fs-panel);
+  color: var(--fg-muted);
+}
+.fs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.fs-path {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+}
+.fs-list {
+  height: 240px;
+  overflow: auto;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  padding: 4px 0;
+}
+.fs-list .list-row {
+  height: 26px;
+}
+.fs-list .list-row:disabled {
+  color: var(--fg-muted);
+  cursor: default;
+}
+.wiz-steps {
+  display: flex;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-panel);
+  color: var(--fg-muted);
+}
+.wiz-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wiz-steps li[data-state='current'] {
+  color: var(--fg);
+  font-weight: var(--fw-semibold);
+}
+.wiz-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: var(--border-width) solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+}
+.wiz-steps li[data-state='done'] {
+  color: var(--ok);
+}

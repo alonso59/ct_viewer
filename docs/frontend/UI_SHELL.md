@@ -39,7 +39,7 @@ Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010. Viewer internals: VIEWER.
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-AB = activity bar. The left pane has a QuPath-style split: the active view on top, and a compact **Image** properties section below it (collapsible).
+AB = activity bar. The left pane has a QuPath-style split: the active view on top, and a compact **Image** properties section below it (collapsible). Image is also a full activity-bar view; views that need the height (Search, Radiomics, Dashboards, Settings) hide the section.
 An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/Cmd+Alt+B`; it is closed by default to keep the QuPath feel.
 
 ## Left pane views (activity bar)
@@ -70,11 +70,11 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | UI-08 | Project list: 22 px rows (compact) or 56 px rows with thumbnail (default), virtualized, navigable with the keyboard; the badge follows the curation rollup (CUR-08). | M |
 | UI-09 | The Problems panel lists QC warnings (IMP-08) grouped by case; clicking one opens the item. | M |
 | UI-10 | Notifications are toasts at bottom-right, e.g. "case_00042 updated by Dr. AP". | S |
-| UI-11 | GitHub Dark is the default theme and GitHub Light the alternative; all colors come from tokens. | M |
+| UI-11 | GitHub Dark is the default theme and GitHub Light the alternative; all colors come from tokens (`theme/tokens.css`). The Settings choice (`dark`, `light`, `system`) decides; `dark` applies until the user picks another, whatever the OS preference. | M |
 | UI-12 | Keybindings (below) are overridable in Settings and stored in `localStorage`. | S |
 | UI-13 | Layout state (pane sizes, visibility, open tabs) persists per project. | S |
 | UI-14 | Measurements panel: features of the active item from the selected run (API-36 `item_id` filter), with a robust z-score column; outliers are marked. | S |
-| UI-15 | CT-specific icons (axial/sagittal/coronal plane, W/L, crosshair, layout grid, outline, VOI L/R) are a custom SVG set drawn to codicon rules: 16 px grid, `currentColor`, same stroke weight. | M |
+| UI-15 | CT-specific icons (axial/sagittal/coronal plane, W/L, crosshair, layout grid, outline, VOI L/R) are a custom SVG set drawn to codicon rules: 16 px grid, `currentColor`, same stroke weight. Set (`theme/icons/CtIcon.tsx`): plane-axial/sagittal/coronal, view-3d, window-level, crosshair (tool), crosshair-lines (show/hide crosshair), layout-four-up/conventional/three-mpr/one-up, label-overlay, label-outline, voi-left/right, slice-stack. | M |
 | UI-16 | Motion is limited to ≤150 ms fades/slides and respects `prefers-reduced-motion`. | S |
 
 ## Default keybindings
@@ -83,7 +83,7 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 |---|---|---|---|
 | `Ctrl/Cmd+Shift+P` | Command palette | `Ctrl/Cmd+P` | Quick open case |
 | `Ctrl/Cmd+B` | Toggle left pane | `Ctrl/Cmd+J` | Toggle panel |
-| `Ctrl/Cmd+Alt+B` | Toggle inspector | `Ctrl/Cmd+W` | Close tab |
+| `Ctrl/Cmd+Alt+B` | Toggle inspector | `Alt+W` | Close tab (browsers reserve `Ctrl/Cmd+W`; Electron uses `Ctrl/Cmd+W`) |
 | `Alt+↓` / `Alt+↑` | Next / previous case (filtered order) | `F8` | Next problem |
 | `A` | Mark accepted* | `Shift+1` / `Shift+2` | Needs minor / major correction* |
 | `X` | Rejected* | `Q` | Add to correction queue* |
@@ -115,3 +115,10 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 - **Badges:** Primer "Label" pills (outline in the status color, 11 px), used for phase chips and QC status.
 - **Icons:** codicons (VS Code) plus the custom CT set (UI-15). Octicons are not mixed in.
 - Viewport accent colors (per-plane borders and crosshairs) are owned by VW-04.
+- GitHub Light values and the categorical palette (`--cat-1..8`, DB-07) are in `theme/tokens.css`; viewports stay black in both themes.
+- The Design reference tab (Help → Open design reference) shows all tokens, type, badges and icons.
+
+## Prototype defaults (P0.5 → P2)
+
+- Settings → "Simulate a second reviewer" is on by default in the mock build: a fake reviewer posts a decision every 45 s so live-sync toasts (UI-10, CUR-11) can be seen. It does not exist against the real API.
+- The mock API (`frontend/src/api/mock/`) is seeded from `make fixtures` via `npm run mock:seed`; the seed is committed so the prototype runs standalone.
