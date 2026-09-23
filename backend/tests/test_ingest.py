@@ -94,7 +94,7 @@ def test_healthy_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None
     assert (override.canonical, override.source) == ("EP", "phase.json")
     voi = items["case_00001.03.voi.L"]
     assert voi.scope == "voi" and voi.phase == items["case_00001.03.complete.-"].phase
-    assert voi.patient_id == "P001" and voi.group == "A" and voi.geometry is not None
+    assert voi.patient_id == "P001" and "group" not in voi.extra and voi.geometry is not None
     assert voi.geometry.shape == [32, 32, 32] and voi.labels_present
 
 

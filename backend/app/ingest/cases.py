@@ -6,10 +6,12 @@ from collections import Counter
 from collections.abc import Sequence
 
 from app.ingest.models import CaseSummary, Item, Phase, QcWarning
-from app.ingest.normalize import PHASE_ORDER
+from app.ingest.normalize import CCRCC_RULES, PhaseRules
 
 
-def build_cases(items: Sequence[Item], warnings: Sequence[QcWarning]) -> list[CaseSummary]:
+def build_cases(
+    items: Sequence[Item], warnings: Sequence[QcWarning], rules: PhaseRules = CCRCC_RULES
+) -> list[CaseSummary]:
     n_warn = Counter(w.case_id for w in warnings if w.case_id)
     by_case: dict[str, list[Item]] = {}
     for it in items:
@@ -23,8 +25,7 @@ def build_cases(items: Sequence[Item], warnings: Sequence[QcWarning]) -> list[Ca
             CaseSummary(
                 case_id=case_id,
                 patient_id=next((i.patient_id for i in all_items if i.patient_id), None),
-                group=next((i.group for i in all_items if i.group), None),
-                phases=[p for p in PHASE_ORDER if p in phases],
+                phases=rules.order(phases),
                 n_scans=len({i.scan_idx for i in live}),
                 n_items=len(live),
                 has_seg=any(i.scope == "complete" and i.mask is not None for i in live),

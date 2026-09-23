@@ -5,9 +5,18 @@ Layout mirrors a converter/preprocessor dataset (docs/domain/INPUT_METADATA.md):
     <out>/
       Dataset900/                  data root (register-in-place target)
         metadata.jsonl, phase.json, voi/voi_catalog.jsonl
-        nifti/  seg/  voi/images/{group}/{phase}/  voi/mask/{group}/{phase}/
+        nifti/  seg/  voi/images/{subdir}/{phase}/  voi/mask/{subdir}/{phase}/
       outside/                     files that exist but lie outside the data root
       expected.json                every deliberate defect -> expected QC code
+
+Study variables (TESTING.md §Variables; VARIABLES.md): there is no `group` field. A healthy
+cohort (`COHORT` cases, two scans each) carries invented case-level study variables — a
+compositional pair `marker_a + marker_b = 100` present for about half the cases, a
+numeric-discrete `grade`, a continuous `score` — plus scan-level acquisition fields with
+vendor strings that need a recode, one MRI scan, dates, a UID, an accession number, an
+absolute path and a `raw_metadata` blob. Tumor size and intensity depend on the variables,
+so radiomics features differ between groups; one case is a deliberate radiomics outlier.
+Values are synthetic; nothing is copied from real metadata.
 
 Byte output is deterministic: fixed RNG seed, gzip mtime=0, sorted JSON keys.
 """
@@ -34,7 +43,17 @@ SEED = 20260923
 SHAPE = (64, 64, 48)
 SPACING = (0.8, 0.8, 1.5)
 DATASET = "Dataset900"
-GROUP = "A"
+VOI_SUBDIR = "A"  # an upstream folder level; never read as a variable (INPUT_METADATA.md)
+COHORT = range(30, 62)  # healthy cohort case numbers (32 cases, TESTING.md: >= 30)
+OUTLIER_CASE = "case_00062"  # radiomics outlier: oversized, very bright tumor mask
+MRI_SCAN = ("case_00061", "02")
+VENDORS = (  # raw strings that need a recode into 3 vendors (VAR-06)
+    ("SIEMENS", "SOMATOM Force"),
+    ("Siemens Healthineers", "SOMATOM go.Top"),
+    ("Philips Medical Systems", "IQon"),
+    ("PHILIPS", "Brilliance 64"),
+    ("GE MEDICAL SYSTEMS", "Revolution CT"),
+)
 
 
 @dataclass
@@ -63,12 +82,12 @@ def _ct(rng: np.random.Generator, shape: tuple[int, int, int] = SHAPE) -> NDArra
     return np.asarray(np.clip(vol, -1024, 3071), dtype=np.int16)
 
 
-def _labels(shape: tuple[int, int, int] = SHAPE) -> NDArray[np.uint8]:
+def _labels(shape: tuple[int, int, int] = SHAPE, tumor_r: float = 5.0) -> NDArray[np.uint8]:
     """1 kidney (ellipsoid), 2 tumor (sphere inside kidney), 3 cyst (small sphere)."""
     zz, yy, xx = np.indices(shape)
     lab = np.zeros(shape, dtype=np.uint8)
     kidney = ((xx - 20) / 9) ** 2 + ((yy - 32) / 12) ** 2 + ((zz - 24) / 14) ** 2 < 1
-    tumor = (xx - 22) ** 2 + (yy - 36) ** 2 + (zz - 26) ** 2 < 5**2
+    tumor = (xx - 22) ** 2 + (yy - 36) ** 2 + (zz - 26) ** 2 < tumor_r**2
     cyst = (xx - 18) ** 2 + (yy - 26) ** 2 + (zz - 18) ** 2 < 3**2
     lab[kidney] = 1
     lab[cyst & kidney] = 3
@@ -95,19 +114,59 @@ def _write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
     path.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
 
 
+def _acquisition(case: str, idx: str) -> dict[str, Any]:
+    """Scan-level converter fields (VAR-04 Acquisition group), deterministic per scan."""
+    n, i = int(case[-5:]), int(idx)
+    vendor, model = VENDORS[n % len(VENDORS)]
+    day = 1 + (n * 7 + i) % 28
+    return {
+        "manufacturer": vendor,
+        "manufacturer_model": model,
+        "kvp": ("100", "120", "140")[(n + i) % 3],
+        "slice_thickness": ("1", "1.25", "2.5", "5")[n % 4],
+        "convolution_kernel": ("B30f", "Br40", "STANDARD", "FC18")[n % 4],
+        "modality": "MR" if (case, idx) == MRI_SCAN else "CT",
+        "scan_date": f"2021-{1 + n % 12:02d}-{day:02d}",
+        "acquisition_date": f"2021{1 + n % 12:02d}{day:02d}",
+        "xray_tube_current": str(180 + (n * 37 + i * 11) % 240),
+        "study_uid": f"1.2.826.0.2.{n}.{i}",
+        "accession_number": f"ACC{n:05d}{i}",
+        "first_file": f"/dicom/{case}/{idx}/IM000001.dcm",
+        "phase_guess_evidence": f"series {n}-{i}: contrast timing note {(n * i) % 29}",
+        "raw_metadata": {
+            "PatientSex": "F" if n % 2 else "M",
+            "PatientAge": f"{40 + n % 37:03d}Y",
+            "AccessionNumber": f"ACC{n:05d}{i}",
+            "StudyInstanceUID": f"1.2.826.0.2.{n}.{i}",
+        },
+    }
+
+
 def _scan_row(case: str, idx: str, phase: str, **extra: Any) -> dict[str, Any]:
     return {
         "dataset_id": DATASET,
         "case_id": case,
         "patient_id": f"P{case[-3:]}",
         "scan_idx": idx,
-        "group": GROUP,
         "filename": f"{idx}_{case}_0000.nii.gz",
         "relative_path": f"nifti/{idx}_{case}_0000.nii.gz",
         "phase": phase,
         "series_uid": f"1.2.826.0.1.{case[-5:]}.{idx}",
         "status": "converted",
+        **_acquisition(case, idx),
         **extra,
+    }
+
+
+def study_variables(n: int, rng: np.random.Generator) -> dict[str, str]:
+    """Invented case-level study variables (strings, like converter output; '' = missing)."""
+    a = round(float(rng.uniform(5, 95)), 1)
+    present = n % 2 == 0  # about half of the cohort (VAR-01 missing %, REC-MISSING)
+    return {
+        "marker_a": f"{a:g}" if present else "",
+        "marker_b": f"{100 - a:g}" if present else "",
+        "grade": str(1 + n % 4) if n % 5 else "",
+        "score": f"{float(rng.normal(50, 12)):.2f}",
     }
 
 
@@ -133,8 +192,8 @@ def build(out: Path) -> Plan:
         mask: bool = True,
         side_value: str | None = None,
     ) -> None:
-        img_rel = f"voi/images/{GROUP}/{phase}/{idx}_{case}_{side}.nii.gz"
-        msk_rel = f"voi/mask/{GROUP}/{phase}/{idx}_{case}_{side}.nii.gz"
+        img_rel = f"voi/images/{VOI_SUBDIR}/{phase}/{idx}_{case}_{side}.nii.gz"
+        msk_rel = f"voi/mask/{VOI_SUBDIR}/{phase}/{idx}_{case}_{side}.nii.gz"
         crop = (slice(8, 40), slice(16, 48), slice(8, 40))
         if image:
             _write_nifti(root / img_rel, ct[crop], _affine())
@@ -145,7 +204,6 @@ def build(out: Path) -> Plan:
                 "case_id": case,
                 "scan_idx": idx,
                 "side": side_value or side,
-                "group": GROUP,
                 "phase": phase,
                 "image_path": img_rel,
                 "mask_path": msk_rel,
@@ -241,8 +299,8 @@ def build(out: Path) -> Plan:
     )
     c = "case_00023"
     scan(c, "01", "NP")
-    npy_img = f"voi/images/{GROUP}/NP/01_{c}_L.npy"
-    npy_msk = f"voi/mask/{GROUP}/NP/01_{c}_L.npy"
+    npy_img = f"voi/images/{VOI_SUBDIR}/NP/01_{c}_L.npy"
+    npy_msk = f"voi/mask/{VOI_SUBDIR}/NP/01_{c}_L.npy"
     crop = (slice(8, 40), slice(16, 48), slice(8, 40))
     for rel, arr in ((npy_img, ct[crop]), (npy_msk, lab[crop])):
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -252,13 +310,35 @@ def build(out: Path) -> Plan:
             "case_id": c,
             "scan_idx": "01",
             "side": "L",
-            "group": GROUP,
             "phase": "NP",
             "image_path": npy_img,
             "mask_path": npy_msk,
             "spacing": list(SPACING),
         }
     )
+
+    # --- Healthy cohort with study variables (VAR/ANA fixtures), then the radiomics outlier.
+    for n in COHORT:
+        case = f"case_{n:05d}"
+        study = study_variables(n, rng)
+        marker = float(study["marker_a"]) if study["marker_a"] else float(rng.uniform(5, 95))
+        # Tumor grows with `score`; tumor intensity rises with `marker_a` (group signal).
+        radius = float(np.clip(3.5 + (float(study["score"]) - 50) / 12, 2.5, 7.0))
+        lab_n = _labels(tumor_r=radius)
+        for idx, ph in (("01", "NP"), ("02", "ART")):
+            vol = _ct(rng).astype(np.int32)
+            tumor = lab_n == 2
+            vol[tumor] = rng.normal(20 + 0.8 * marker, 12, int(tumor.sum())).astype(np.int32)
+            plan.metadata.append(_scan_row(case, idx, ph, **study))
+            _write_nifti(root / f"nifti/{idx}_{case}_0000.nii.gz", vol.astype(np.int16), _affine())
+            _write_nifti(root / f"seg/{idx}_{case}.nii.gz", lab_n, _affine())
+    c = OUTLIER_CASE
+    vol = _ct(rng).astype(np.int32)
+    lab_o = _labels(tumor_r=11.0)
+    vol[lab_o == 2] = rng.normal(900, 250, int((lab_o == 2).sum())).astype(np.int32)
+    plan.metadata.append(_scan_row(c, "01", "NP", **study_variables(62, rng)))
+    _write_nifti(root / f"nifti/01_{c}_0000.nii.gz", vol.astype(np.int16), _affine())
+    _write_nifti(root / f"seg/01_{c}.nii.gz", lab_o, _affine())
 
     _write_jsonl(root / "metadata.jsonl", plan.metadata)
     _write_jsonl(root / "voi/voi_catalog.jsonl", plan.voi)
@@ -297,6 +377,15 @@ def generate(out: Path) -> Plan:
         "defects": plan.expected,
         "excluded_upstream": ["case_00022"],
         "legacy_npy": ["case_00023"],
+        "cohort": [f"case_{n:05d}" for n in COHORT],
+        "radiomics_outlier": [OUTLIER_CASE],
+        "mri_scan": list(MRI_SCAN),
+        "variables": {
+            "study": ["marker_a", "marker_b", "grade", "score", "patient_sex", "patient_age"],
+            "compositional": ["marker_a", "marker_b"],
+            "numeric_discrete": ["grade"],
+            "excluded": ["study_uid", "series_uid", "accession_number", "first_file"],
+        },
     }
     (out / "expected.json").write_text(
         json.dumps(expected, indent=2, sort_keys=True) + "\n", encoding="utf-8"

@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.v1.deps import Ctx
 from app.projects.models import PathRoot, ProjectDetail, ProjectPatch, ProjectSummary, RootInfo
+from app.projects.presets import DEFAULT_PRESET, PresetName
 from app.projects.relink import VerifyReport, verify_root
 
 router = APIRouter(tags=["projects"])
@@ -16,6 +17,7 @@ router = APIRouter(tags=["projects"])
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
+    preset: PresetName = Field(DEFAULT_PRESET, description="Study preset (PRJ-12)")
 
 
 class RootBody(BaseModel):
@@ -34,7 +36,7 @@ def list_projects(ctx: Ctx, archived: bool = False) -> list[ProjectSummary]:
 
 @router.post("/projects", response_model=ProjectDetail, status_code=201)
 async def create_project(ctx: Ctx, body: ProjectCreate) -> ProjectDetail:
-    cfg = await ctx.workspace.create(body.name, body.description)
+    cfg = await ctx.workspace.create(body.name, body.description, body.preset)
     return ctx.workspace.detail(cfg.project_id)
 
 

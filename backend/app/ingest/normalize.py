@@ -16,18 +16,41 @@ from app.core.ids import Scope, Side, item_id
 from app.core.paths import PathResolver
 from app.imaging.header import VolumeFormat, volume_format
 from app.ingest.codes import QcCode
-from app.ingest.models import ItemStatus, Phase, PhaseInfo, PhaseSource
+from app.ingest.models import ItemStatus, PhaseInfo, PhaseSource
 from app.ingest.parsers import ParsedInputs, PhaseOverrides, Row, is_excluded
+from app.projects.presets import (
+    DEFAULT_PRESET,
+    MISSING_PHASE_VALUES,
+    PRESETS,
+    UNKNOWN_PHASE,
+    normalize_phase_value,
+)
 
 __all__ = ["is_excluded"]
 
-PHASE_ORDER: tuple[Phase, ...] = ("NC", "CMP", "NP", "EP", "UNK")
-PHASE_TABLE: dict[str, Phase] = {
-    **dict.fromkeys(("NC", "NONCONTRAST", "NON-CONTRAST"), "NC"),
-    **dict.fromkeys(("ART", "ARTERIAL", "CMP", "CORTICOMEDULLARY"), "CMP"),
-    **dict.fromkeys(("VEN", "VENOUS", "NP", "NEPHROGRAPHIC", "PORTAL"), "NP"),
-    **dict.fromkeys(("EP", "DELAY", "DELAYED", "EXC", "EXCRETORY"), "EP"),
-    **dict.fromkeys(("", "UNDEFINED", "UNKNOWN", "N/A", "NONE"), "UNK"),
+
+@dataclass(frozen=True)
+class PhaseRules:
+    """The project's phase vocabulary + mapping (PRJ-12); `vocabulary=()` is open (`none`)."""
+
+    vocabulary: tuple[str, ...]
+    mapping: dict[str, str]
+
+    def normalize(self, raw: str | None) -> str:
+        return normalize_phase_value(raw, list(self.vocabulary), self.mapping)
+
+    def order(self, phases: set[str]) -> list[str]:
+        """Vocabulary order first, then any other (open-vocabulary) values sorted."""
+        known = [p for p in self.vocabulary if p in phases]
+        return known + sorted(phases - set(known))
+
+
+_CCRCC = PRESETS[DEFAULT_PRESET]
+CCRCC_RULES = PhaseRules(_CCRCC.phase_vocabulary, _CCRCC.phase_mapping)
+# ccRCC preset table (INPUT_METADATA.md §Phase resolution), incl. the "no phase" row.
+PHASE_TABLE: dict[str, str] = {
+    **_CCRCC.phase_mapping,
+    **dict.fromkeys(MISSING_PHASE_VALUES, UNKNOWN_PHASE),
 }
 PHASE_FIELDS: tuple[PhaseSource, ...] = ("curated_phase", "canonical_phase", "phase", "phase_guess")
 CONFLICT_FIELDS = ("curated_phase", "canonical_phase", "phase")
@@ -39,17 +62,16 @@ _SEG_SUFFIX = re.compile(r"_0000(\.nii(?:\.gz)?)$", re.IGNORECASE)
 
 # Row fields consumed into Item fields (paths never go to `extra`: PRJ-04).
 META_CONSUMED = frozenset(
-    {"case_id", "scan_idx", "patient_id", "group", "filename", "relative_path", "nifti_file",
-     "seg_path"}
-)  # fmt: skip
+    {"case_id", "scan_idx", "patient_id", "filename", "relative_path", "nifti_file", "seg_path"}
+)
 CATALOG_CONSUMED = frozenset(
-    {"case_id", "scan_idx", "patient_id", "group", "side", "image_path", "mask_path"}
+    {"case_id", "scan_idx", "patient_id", "side", "image_path", "mask_path"}
 )
 
 
-def normalize_phase(raw: str | None) -> Phase:
-    """INPUT_METADATA.md §Phase resolution table; unknown strings → UNK."""
-    return PHASE_TABLE.get((raw or "").strip().upper(), "UNK")
+def normalize_phase(raw: str | None, rules: PhaseRules = CCRCC_RULES) -> str:
+    """INPUT_METADATA.md §Phase resolution with the project's rules; unknown strings → UNK."""
+    return rules.normalize(raw)
 
 
 def parse_side(value: str | None) -> Literal["L", "R"] | None:
@@ -82,7 +104,9 @@ def image_path(row: Row) -> str | None:
     return f"nifti/{name}" if name else None
 
 
-def resolve_phase(row: Row, override: str | None) -> tuple[PhaseInfo, bool]:
+def resolve_phase(
+    row: Row, override: str | None, rules: PhaseRules = CCRCC_RULES
+) -> tuple[PhaseInfo, bool]:
     """Returns the phase and whether it is ambiguous (UNK, or conflicting sources)."""
     raw: str | None = None
     source: PhaseSource = "none"
@@ -94,11 +118,11 @@ def resolve_phase(row: Row, override: str | None) -> tuple[PhaseInfo, bool]:
             if v:
                 raw, source = v, f
                 break
-    canonical = normalize_phase(raw)
-    ambiguous = canonical == "UNK"
+    canonical = rules.normalize(raw)
+    ambiguous = canonical == UNKNOWN_PHASE
     if not override:
-        codes = {normalize_phase(row.text(f)) for f in CONFLICT_FIELDS if row.text(f)}
-        ambiguous = ambiguous or len(codes - {"UNK"}) >= 2
+        codes = {rules.normalize(row.text(f)) for f in CONFLICT_FIELDS if row.text(f)}
+        ambiguous = ambiguous or len(codes - {UNKNOWN_PHASE}) >= 2
     return PhaseInfo(canonical=canonical, raw=raw, source=source), ambiguous
 
 
@@ -128,7 +152,6 @@ class Draft:
     scope: Scope
     side: Side
     patient_id: str | None
-    group: str | None
     phase: PhaseInfo
     status: ItemStatus
     extra: dict[str, Any]
@@ -185,9 +208,11 @@ def _spacing(row: Row) -> tuple[float, ...] | None:
     return None
 
 
-def _scan_draft(row: Row, ov: PhaseOverrides, resolver: PathResolver, alias: str) -> Draft:
+def _scan_draft(
+    row: Row, ov: PhaseOverrides, resolver: PathResolver, alias: str, rules: PhaseRules
+) -> Draft:
     fname = identity_filename(row)
-    phase, ambiguous = resolve_phase(row, ov.lookup(row.case_id, row.scan_idx, fname))
+    phase, ambiguous = resolve_phase(row, ov.lookup(row.case_id, row.scan_idx, fname), rules)
     excluded = is_excluded(row)
     d = Draft(
         item_id=item_id(row.case_id, row.scan_idx, "complete", "-"),
@@ -196,7 +221,6 @@ def _scan_draft(row: Row, ov: PhaseOverrides, resolver: PathResolver, alias: str
         scope="complete",
         side="-",
         patient_id=row.text("patient_id"),
-        group=row.text("group"),
         phase=phase,
         status="excluded_upstream" if excluded else "active",
         extra=_extra(row, META_CONSUMED),
@@ -220,15 +244,17 @@ def _scan_draft(row: Row, ov: PhaseOverrides, resolver: PathResolver, alias: str
     return d
 
 
-def _voi_draft(row: Row, parent: Draft | None, resolver: PathResolver, alias: str) -> Draft:
+def _voi_draft(
+    row: Row, parent: Draft | None, resolver: PathResolver, alias: str, rules: PhaseRules
+) -> Draft:
     side = parse_side(row.text("side"))
     if parent is not None:
         phase = parent.phase
         ambiguous = False
     else:
         cat = row.text("phase")
-        phase = PhaseInfo(canonical=normalize_phase(cat), raw=cat, source="catalog")
-        ambiguous = phase.canonical == "UNK"
+        phase = PhaseInfo(canonical=rules.normalize(cat), raw=cat, source="catalog")
+        ambiguous = phase.canonical == UNKNOWN_PHASE
     excluded = parent is not None and parent.status == "excluded_upstream"
     d = Draft(
         item_id=item_id(row.case_id, row.scan_idx, "voi", side or "-"),
@@ -237,7 +263,6 @@ def _voi_draft(row: Row, parent: Draft | None, resolver: PathResolver, alias: st
         scope="voi",
         side=side or "-",
         patient_id=(parent.patient_id if parent else None) or row.text("patient_id"),
-        group=(parent.group if parent else None) or row.text("group"),
         phase=phase,
         status="excluded_upstream" if excluded else "active",
         extra=_extra(row, CATALOG_CONSUMED),
@@ -261,7 +286,9 @@ def _voi_draft(row: Row, parent: Draft | None, resolver: PathResolver, alias: st
     return d
 
 
-def build_drafts(inputs: ParsedInputs, resolver: PathResolver, alias: str) -> list[Draft]:
+def build_drafts(
+    inputs: ParsedInputs, resolver: PathResolver, alias: str, rules: PhaseRules = CCRCC_RULES
+) -> list[Draft]:
     """One `complete` draft per metadata row and one `voi` draft per catalog row (deduped)."""
     out: dict[str, Draft] = {}
     dups: dict[str, list[int]] = {}
@@ -276,18 +303,18 @@ def build_drafts(inputs: ParsedInputs, resolver: PathResolver, alias: str) -> li
 
     parents: dict[tuple[str, str], Draft] = {}
     for row in inputs.metadata:
-        d = _scan_draft(row, inputs.overrides, resolver, alias)
+        d = _scan_draft(row, inputs.overrides, resolver, alias, rules)
         add(d)
         parents.setdefault((d.case_id, d.scan_idx), d)
     by_image: dict[tuple[str, str, str], list[Draft]] = {}
     for row in inputs.catalog:
-        d = _voi_draft(row, parents.get((row.case_id, row.scan_idx)), resolver, alias)
+        d = _voi_draft(row, parents.get((row.case_id, row.scan_idx)), resolver, alias, rules)
         add(d)
         if d.image is not None and d.image.ref and out.get(d.item_id) is d:
             by_image.setdefault((d.case_id, d.scan_idx, d.image.ref), []).append(d)
-    for group in by_image.values():
-        if len(group) > 1:
-            for d in group:
+    for same_image in by_image.values():
+        if len(same_image) > 1:
+            for d in same_image:
                 d.warn(QcCode.AMBIGUOUS_SIDE, "side", "several VOI sides point to the same image")
     for iid, lines in dups.items():
         d = out[iid]

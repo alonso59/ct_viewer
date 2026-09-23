@@ -30,7 +30,9 @@ from app.projects.models import (
     ProjectSummary,
     RootInfo,
     WorkspaceEntry,
+    preset_fields,
 )
+from app.projects.presets import DEFAULT_PRESET, PresetName
 
 WORKSPACE_FORMAT: Final = "radiology-workbench-workspace"
 WORKSPACE_FORMAT_VERSION: Final = 1
@@ -192,7 +194,9 @@ class Workspace:
         self._remember(cfg)
         return cfg
 
-    async def create(self, name: str, description: str = "") -> ProjectConfig:
+    async def create(
+        self, name: str, description: str = "", preset: PresetName = DEFAULT_PRESET
+    ) -> ProjectConfig:
         now = utc_now()
         try:
             cfg = ProjectConfig(
@@ -201,6 +205,7 @@ class Workspace:
                 description=description,
                 created_at=now,
                 updated_at=now,
+                **preset_fields(preset),
             )
         except ValidationError as exc:
             raise ValidationProblem("Invalid project", errors=_errors(exc)) from None
@@ -221,12 +226,7 @@ class Workspace:
                 k: v for k, v in patch.model_dump(exclude_unset=True).items() if v is not None
             }
             merged = cur.model_dump() | changes
-            vocab = merged["phase_vocabulary"]
-            if any(p not in vocab for p in merged["phase_priority"]):
-                raise ValidationProblem(
-                    "phase_priority must only use phase_vocabulary values",
-                    errors=[{"loc": ["phase_priority"], "msg": f"allowed: {vocab}"}],
-                )
+            check_phase_config(merged)
             new = ProjectConfig.model_validate(merged)
             if new == cur:
                 return cur
@@ -289,6 +289,20 @@ class Workspace:
             if entry.archived:
                 raise NotFound(f"Project {project_id!r} is archived")
             await self._set_entry(entry.model_copy(update={"last_opened_at": utc_now()}))
+
+
+def check_phase_config(cfg: dict[str, Any]) -> None:
+    """Priority and mapping targets must use the vocabulary (an empty vocabulary is open)."""
+    vocab = cfg["phase_vocabulary"]
+    if not vocab:
+        return
+    for key in ("phase_priority", "phase_mapping"):
+        values = cfg[key].values() if key == "phase_mapping" else cfg[key]
+        if any(p not in vocab for p in values):
+            raise ValidationProblem(
+                f"{key} must only use phase_vocabulary values",
+                errors=[{"loc": [key], "msg": f"allowed: {vocab}"}],
+            )
 
 
 def _count_lines(path: Path) -> int:

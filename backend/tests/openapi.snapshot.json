@@ -1,6 +1,104 @@
 {
  "components": {
   "schemas": {
+   "BinDef": {
+    "description": "VAR-06 bin: continuous \u2192 categorical by thresholds or quantiles (`v < t` \u2192 lower bin).",
+    "properties": {
+     "labels": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Labels"
+     },
+     "name": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
+      "title": "Name",
+      "type": "string"
+     },
+     "op": {
+      "const": "bin",
+      "default": "bin",
+      "title": "Op",
+      "type": "string"
+     },
+     "quantiles": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quantiles"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "thresholds": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Thresholds"
+     }
+    },
+    "required": [
+     "name",
+     "source"
+    ],
+    "title": "BinDef",
+    "type": "object"
+   },
+   "Body_import_external_api_v1_projects__pid__variables_external_post": {
+    "properties": {
+     "file": {
+      "contentMediaType": "application/octet-stream",
+      "description": "CSV or TSV keyed by case_id or patient_id",
+      "title": "File",
+      "type": "string"
+     },
+     "key": {
+      "anyOf": [
+       {
+        "enum": [
+         "case_id",
+         "patient_id"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Key"
+     }
+    },
+    "required": [
+     "file"
+    ],
+    "title": "Body_import_external_api_v1_projects__pid__variables_external_post",
+    "type": "object"
+   },
    "CaseDetail": {
     "properties": {
      "case": {
@@ -39,17 +137,6 @@
       "default": "not_reviewed",
       "title": "Curation Status",
       "type": "string"
-     },
-     "group": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Group"
      },
      "has_seg": {
       "default": false,
@@ -105,13 +192,6 @@
      },
      "phases": {
       "items": {
-       "enum": [
-        "NC",
-        "CMP",
-        "NP",
-        "EP",
-        "UNK"
-       ],
        "type": "string"
       },
       "title": "Phases",
@@ -122,6 +202,104 @@
      "case_id"
     ],
     "title": "CaseSummary",
+    "type": "object"
+   },
+   "Catalog": {
+    "description": "`variables/catalog.json` (VAR-11) and the API-16 response.",
+    "properties": {
+     "derived": {
+      "items": {
+       "discriminator": {
+        "mapping": {
+         "bin": "#/components/schemas/BinDef",
+         "dominant": "#/components/schemas/DominantDef",
+         "recode": "#/components/schemas/RecodeDef"
+        },
+        "propertyName": "op"
+       },
+       "oneOf": [
+        {
+         "$ref": "#/components/schemas/BinDef"
+        },
+        {
+         "$ref": "#/components/schemas/RecodeDef"
+        },
+        {
+         "$ref": "#/components/schemas/DominantDef"
+        }
+       ]
+      },
+      "title": "Derived",
+      "type": "array"
+     },
+     "excluded": {
+      "items": {
+       "$ref": "#/components/schemas/Excluded"
+      },
+      "title": "Excluded",
+      "type": "array"
+     },
+     "external": {
+      "items": {
+       "$ref": "#/components/schemas/ExternalTable"
+      },
+      "title": "External",
+      "type": "array"
+     },
+     "import_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Import Id"
+     },
+     "n_cases": {
+      "default": 0,
+      "title": "N Cases",
+      "type": "integer"
+     },
+     "n_items": {
+      "default": 0,
+      "title": "N Items",
+      "type": "integer"
+     },
+     "overrides": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/VariableOverride"
+      },
+      "title": "Overrides",
+      "type": "object"
+     },
+     "profiled_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Profiled At"
+     },
+     "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+     },
+     "variables": {
+      "items": {
+       "$ref": "#/components/schemas/Variable"
+      },
+      "title": "Variables",
+      "type": "array"
+     }
+    },
+    "title": "Catalog",
     "type": "object"
    },
    "CommitRequest": {
@@ -153,6 +331,160 @@
      "import_id"
     ],
     "title": "CommitResult",
+    "type": "object"
+   },
+   "DominantDef": {
+    "description": "VAR-06 dominant: name of the largest of N numeric variables (missing if any is missing;\n`tie` when several share the maximum).",
+    "properties": {
+     "name": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
+      "title": "Name",
+      "type": "string"
+     },
+     "op": {
+      "const": "dominant",
+      "default": "dominant",
+      "title": "Op",
+      "type": "string"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 2,
+      "title": "Sources",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "sources"
+    ],
+    "title": "DominantDef",
+    "type": "object"
+   },
+   "Excluded": {
+    "description": "VAR-08/09: fields that are never variables, with the reason.",
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "reason": {
+      "enum": [
+       "core",
+       "uid",
+       "path",
+       "blob",
+       "accession",
+       "reserved"
+      ],
+      "title": "Reason",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "reason"
+    ],
+    "title": "Excluded",
+    "type": "object"
+   },
+   "ExternalReport": {
+    "properties": {
+     "conflicts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Conflicts",
+      "type": "array"
+     },
+     "duplicate_keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Duplicate Keys",
+      "type": "array"
+     },
+     "n_matched": {
+      "title": "N Matched",
+      "type": "integer"
+     },
+     "n_rows": {
+      "title": "N Rows",
+      "type": "integer"
+     },
+     "n_unmatched": {
+      "title": "N Unmatched",
+      "type": "integer"
+     },
+     "table": {
+      "$ref": "#/components/schemas/ExternalTable"
+     },
+     "unmatched_keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unmatched Keys",
+      "type": "array"
+     }
+    },
+    "required": [
+     "table",
+     "n_rows",
+     "n_matched",
+     "n_unmatched",
+     "unmatched_keys",
+     "duplicate_keys",
+     "conflicts"
+    ],
+    "title": "ExternalReport",
+    "type": "object"
+   },
+   "ExternalTable": {
+    "description": "VAR-07 external case-keyed table, snapshotted under `variables/external/`.",
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "filename": {
+      "title": "Filename",
+      "type": "string"
+     },
+     "imported_at": {
+      "title": "Imported At",
+      "type": "string"
+     },
+     "key": {
+      "enum": [
+       "case_id",
+       "patient_id"
+      ],
+      "title": "Key",
+      "type": "string"
+     },
+     "sha256": {
+      "title": "Sha256",
+      "type": "string"
+     },
+     "table_id": {
+      "title": "Table Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "table_id",
+     "filename",
+     "key",
+     "columns",
+     "sha256",
+     "imported_at"
+    ],
+    "title": "ExternalTable",
     "type": "object"
    },
    "FieldMapping": {
@@ -671,17 +1003,6 @@
        }
       ]
      },
-     "group": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Group"
-     },
      "image": {
       "anyOf": [
        {
@@ -833,17 +1154,6 @@
         "type": "null"
        }
       ]
-     },
-     "group": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Group"
      },
      "image": {
       "anyOf": [
@@ -1190,13 +1500,6 @@
    "PhaseInfo": {
     "properties": {
      "canonical": {
-      "enum": [
-       "NC",
-       "CMP",
-       "NP",
-       "EP",
-       "UNK"
-      ],
       "title": "Canonical",
       "type": "string"
      },
@@ -1272,6 +1575,87 @@
     "title": "PreviewError",
     "type": "object"
    },
+   "Profile": {
+    "description": "VAR-01: computed over units of the variable's level (cases or scans).",
+    "properties": {
+     "distinct": {
+      "title": "Distinct",
+      "type": "integer"
+     },
+     "examples": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Examples",
+      "type": "array"
+     },
+     "max": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max"
+     },
+     "median": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Median"
+     },
+     "min": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min"
+     },
+     "missing_pct": {
+      "title": "Missing Pct",
+      "type": "number"
+     },
+     "n_missing": {
+      "title": "N Missing",
+      "type": "integer"
+     },
+     "n_units": {
+      "title": "N Units",
+      "type": "integer"
+     },
+     "numeric_pct": {
+      "default": 0.0,
+      "title": "Numeric Pct",
+      "type": "number"
+     },
+     "top": {
+      "items": {
+       "$ref": "#/components/schemas/ValueCount"
+      },
+      "title": "Top",
+      "type": "array"
+     }
+    },
+    "required": [
+     "n_units",
+     "n_missing",
+     "missing_pct",
+     "distinct"
+    ],
+    "title": "Profile",
+    "type": "object"
+   },
    "ProjectCreate": {
     "properties": {
      "description": {
@@ -1283,6 +1667,17 @@
       "maxLength": 200,
       "minLength": 1,
       "title": "Name",
+      "type": "string"
+     },
+     "preset": {
+      "default": "ccrcc",
+      "description": "Study preset (PRJ-12)",
+      "enum": [
+       "ccrcc",
+       "generic-ct",
+       "none"
+      ],
+      "title": "Preset",
       "type": "string"
      }
     },
@@ -1335,6 +1730,13 @@
       "title": "Path Roots",
       "type": "array"
      },
+     "phase_mapping": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Phase Mapping",
+      "type": "object"
+     },
      "phase_priority": {
       "items": {
        "type": "string"
@@ -1348,6 +1750,16 @@
       },
       "title": "Phase Vocabulary",
       "type": "array"
+     },
+     "preset": {
+      "default": "ccrcc",
+      "enum": [
+       "ccrcc",
+       "generic-ct",
+       "none"
+      ],
+      "title": "Preset",
+      "type": "string"
      },
      "project_id": {
       "title": "Project Id",
@@ -1416,6 +1828,20 @@
       ],
       "title": "Name"
      },
+     "phase_mapping": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase Mapping"
+     },
      "phase_priority": {
       "anyOf": [
        {
@@ -1429,6 +1855,20 @@
        }
       ],
       "title": "Phase Priority"
+     },
+     "phase_vocabulary": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase Vocabulary"
      },
      "viewer_defaults": {
       "anyOf": [
@@ -1588,6 +2028,40 @@
     "title": "QcWarning",
     "type": "object"
    },
+   "RecodeDef": {
+    "description": "VAR-06 recode: merge/rename categories; unmapped values are kept as they are.",
+    "properties": {
+     "map": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Map",
+      "type": "object"
+     },
+     "name": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
+      "title": "Name",
+      "type": "string"
+     },
+     "op": {
+      "const": "recode",
+      "default": "recode",
+      "title": "Op",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "source",
+     "map"
+    ],
+    "title": "RecodeDef",
+    "type": "object"
+   },
    "RelinkResult": {
     "properties": {
      "root": {
@@ -1732,6 +2206,185 @@
      "type"
     ],
     "title": "ValidationError",
+    "type": "object"
+   },
+   "ValueCount": {
+    "properties": {
+     "n": {
+      "title": "N",
+      "type": "integer"
+     },
+     "value": {
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "n"
+    ],
+    "title": "ValueCount",
+    "type": "object"
+   },
+   "Variable": {
+    "properties": {
+     "confidence": {
+      "title": "Confidence",
+      "type": "number"
+     },
+     "group": {
+      "enum": [
+       "study",
+       "acquisition"
+      ],
+      "title": "Group",
+      "type": "string"
+     },
+     "inferred_type": {
+      "enum": [
+       "continuous",
+       "categorical",
+       "numeric-discrete",
+       "date",
+       "identifier",
+       "text",
+       "constant"
+      ],
+      "title": "Inferred Type",
+      "type": "string"
+     },
+     "level": {
+      "enum": [
+       "case",
+       "scan"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "overridden": {
+      "default": false,
+      "title": "Overridden",
+      "type": "boolean"
+     },
+     "profile": {
+      "$ref": "#/components/schemas/Profile"
+     },
+     "review": {
+      "title": "Review",
+      "type": "boolean"
+     },
+     "source": {
+      "enum": [
+       "metadata",
+       "derived",
+       "external",
+       "raw"
+      ],
+      "title": "Source",
+      "type": "string"
+     },
+     "tags": {
+      "items": {
+       "enum": [
+        "confounder",
+        "outcome",
+        "sensitive"
+       ],
+       "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+     },
+     "type": {
+      "enum": [
+       "continuous",
+       "categorical",
+       "numeric-discrete",
+       "date",
+       "identifier",
+       "text",
+       "constant"
+      ],
+      "title": "Type",
+      "type": "string"
+     },
+     "visible": {
+      "title": "Visible",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "source",
+     "type",
+     "inferred_type",
+     "level",
+     "group",
+     "visible",
+     "confidence",
+     "review",
+     "profile"
+    ],
+    "title": "Variable",
+    "type": "object"
+   },
+   "VariableOverride": {
+    "description": "API-16 PATCH body; only provided fields change (VAR-03/05).",
+    "properties": {
+     "tags": {
+      "anyOf": [
+       {
+        "items": {
+         "enum": [
+          "confounder",
+          "outcome",
+          "sensitive"
+         ],
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tags"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "enum": [
+         "continuous",
+         "categorical",
+         "date",
+         "identifier",
+         "text"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type"
+     },
+     "visible": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Visible"
+     }
+    },
+    "title": "VariableOverride",
     "type": "object"
    },
    "VerifyReport": {
@@ -2287,6 +2940,7 @@
   },
   "/api/v1/projects/{pid}/cases": {
    "get": {
+    "description": "Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max` (VAR-10);\na case matches when any of its items matches every variable filter.",
     "operationId": "list_cases_api_v1_projects__pid__cases_get",
     "parameters": [
      {
@@ -2318,34 +2972,11 @@
      },
      {
       "in": "query",
-      "name": "group",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Group"
-      }
-     },
-     {
-      "in": "query",
       "name": "phase",
       "required": false,
       "schema": {
        "anyOf": [
         {
-         "enum": [
-          "NC",
-          "CMP",
-          "NP",
-          "EP",
-          "UNK"
-         ],
          "type": "string"
         },
         {
@@ -3189,6 +3820,287 @@
     "summary": "Unarchive Project",
     "tags": [
      "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/variables": {
+   "get": {
+    "description": "Catalog with profiles (VAR-01..05, 08, 09); profiles lazily after the first index.",
+    "operationId": "get_variables_api_v1_projects__pid__variables_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Catalog"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Variables",
+    "tags": [
+     "variables"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/variables/derived": {
+   "post": {
+    "description": "Bin / recode / dominant (VAR-06).",
+    "operationId": "add_derived_api_v1_projects__pid__variables_derived_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "discriminator": {
+         "mapping": {
+          "bin": "#/components/schemas/BinDef",
+          "dominant": "#/components/schemas/DominantDef",
+          "recode": "#/components/schemas/RecodeDef"
+         },
+         "propertyName": "op"
+        },
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/BinDef"
+         },
+         {
+          "$ref": "#/components/schemas/RecodeDef"
+         },
+         {
+          "$ref": "#/components/schemas/DominantDef"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Catalog"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Derived",
+    "tags": [
+     "variables"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/variables/derived/{name}": {
+   "delete": {
+    "operationId": "delete_derived_api_v1_projects__pid__variables_derived__name__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Catalog"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Derived",
+    "tags": [
+     "variables"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/variables/external": {
+   "post": {
+    "description": "External case-keyed table \u2192 match report (VAR-07).",
+    "operationId": "import_external_api_v1_projects__pid__variables_external_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_import_external_api_v1_projects__pid__variables_external_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExternalReport"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import External",
+    "tags": [
+     "variables"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/variables/{name}": {
+   "patch": {
+    "description": "Confirm or override the type; set visibility and tags (VAR-03/05).",
+    "operationId": "patch_variable_api_v1_projects__pid__variables__name__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VariableOverride"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Catalog"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Patch Variable",
+    "tags": [
+     "variables"
     ]
    }
   },

@@ -70,11 +70,11 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** import the synthetic dataset and Dataset820 via API; warnings match the fixture defects; TST-07 green.
 
 ### P1b — Study variables, backend (ADR-0011)
-- [ ] Remove `group` from the ingest core (`ingest/models.py`, `normalize.py`, `cases.py`, `service.py` filter); keep it only as a variable when present
-- [ ] `variables/`: profiling + type/level inference (VAR-01..04), catalog overrides + tags (VAR-05, VAR-11), derived bin/recode/dominant (VAR-06), raw_metadata allowlist (VAR-08), exclusions (VAR-09)
-- [ ] External case-keyed table import (VAR-07); `index/variables.parquet`; `var.{name}` list filters (API-16..18)
-- [ ] Project presets (PRJ-12): `ccrcc`, `generic-ct`, `none`; phase mapping from `project.json`
-- [ ] Fixtures extended per TESTING §Variables; tests for every inference rule
+- [x] Remove `group` from the ingest core (`ingest/models.py`, `normalize.py`, `cases.py`, `service.py` filter); keep it only as a variable when present
+- [x] `variables/`: profiling + type/level inference (VAR-01..04), catalog overrides + tags (VAR-05, VAR-11), derived bin/recode/dominant (VAR-06), raw_metadata allowlist (VAR-08), exclusions (VAR-09)
+- [x] External case-keyed table import (VAR-07); `index/variables.parquet`; `var.{name}` list filters (API-16..18)
+- [x] Project presets (PRJ-12): `ccrcc`, `generic-ct`, `none`; phase mapping from `project.json`
+- [x] Fixtures extended per TESTING §Variables; tests for every inference rule
 **Exit:** the reference `metadata.jsonl` profiles as documented in VARIABLES.md (hb/lb continuous case-level, sn Review, no `group` assumed), with no code naming `hb/lb/sn`.
 
 ### P2 — Shell + explorer
