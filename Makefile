@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-PROJECT_ROOT := /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui
+PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 UDOCKER := /home/alonso/anaconda3/envs/ccrcc/bin/python $(PROJECT_ROOT)/udocker.py
 SETUP_DOC := $(PROJECT_ROOT)/docs/SETUP_PREREQUISITES.md
 NODE_IMAGE := node:22-slim
@@ -66,14 +66,14 @@ dev-backend:
 
 dev-frontend:
 	$(UDOCKER) run --hostenv \
-		-v /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui/frontend:/app \
+		-v $(PROJECT_ROOT)/frontend:/app \
 		-p 5173:5173 \
 		$(NODE_CONTAINER) \
 		bash -c "cd /app && npm install && npm run dev -- --host 0.0.0.0 --port 5173"
 
 build-frontend:
 	$(UDOCKER) run --hostenv \
-		-v /home/alonso/Documents/radio-ccrcc2/radioccrcc-webui/frontend:/app \
+		-v $(PROJECT_ROOT)/frontend:/app \
 		$(NODE_CONTAINER) \
 		bash -c "cd /app && npm install && npm run build"
 

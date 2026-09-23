@@ -22,3 +22,5 @@ webui_state/
 
 # OS/editor noise
 .DS_Store
+
+.webui-run/
