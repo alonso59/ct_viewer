@@ -1,0 +1,258 @@
+/* Case editor + viewport placeholders (VIEWER.md). Plane accents come from VW-04 tokens. */
+
+.case-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  outline: none;
+  background: var(--bg-editor);
+}
+.case-editor:focus-within .vp {
+  --vp-focus: 1;
+}
+.case-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 34px;
+  padding: 0 var(--sp-3);
+  border-bottom: var(--border-width) solid var(--border);
+  flex: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.case-id {
+  font-weight: var(--fw-semibold);
+  margin-right: var(--sp-2);
+}
+.case-loading {
+  flex: none;
+  padding: 0;
+}
+.case-loading .progress {
+  border-radius: 0;
+  height: 2px;
+}
+
+.switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.switcher-label {
+  font-size: var(--fs-badge);
+  color: var(--fg-muted);
+  margin-right: 2px;
+}
+.switcher-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 var(--sp-1);
+  background: var(--border);
+}
+button.badge {
+  background: transparent;
+  cursor: pointer;
+}
+button.badge[aria-pressed='true'] {
+  background: var(--bg-selected);
+}
+
+/* Segmented control */
+.seg {
+  display: inline-flex;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg button {
+  height: 22px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-panel);
+  cursor: pointer;
+}
+.seg button + button {
+  border-left: var(--border-width) solid var(--border);
+}
+.seg button[aria-pressed='true'] {
+  background: var(--bg-selected);
+  color: var(--fg);
+}
+.seg button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Viewport grid (VW-01 layouts) */
+.vp-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-sidebar);
+}
+.vp-grid-four-up {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.vp-grid-conventional {
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+}
+.vp-grid-conventional > :first-child {
+  grid-row: 1 / span 3;
+}
+.vp-grid-three-mpr {
+  grid-template-columns: repeat(3, 1fr);
+}
+.vp-grid-one,
+.vp-grid-one-up-axial,
+.vp-grid-one-up-sagittal,
+.vp-grid-one-up-coronal,
+.vp-grid-one-up-3d {
+  grid-template-columns: 1fr;
+}
+
+.vp {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-viewport);
+  border: 1px solid;
+  border-color: inherit;
+  color: var(--fg-viewport);
+}
+.vp-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px 0 0;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border-muted);
+  color: var(--fg);
+  font-size: var(--fs-panel);
+  user-select: none;
+  flex: none;
+}
+.vp-swatch {
+  width: 4px;
+  align-self: stretch;
+}
+.vp-title {
+  font-weight: var(--fw-semibold);
+}
+.vp-index {
+  margin-left: auto;
+  color: var(--fg-muted);
+}
+.vp-max {
+  width: 20px;
+  height: 20px;
+}
+.vp-title + .vp-max {
+  margin-left: auto;
+}
+.vp-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+.vp-body[data-tool='crosshair'] {
+  cursor: crosshair;
+}
+.vp-body[data-tool='pan'] {
+  cursor: grab;
+}
+.vp-body[data-tool='window'] {
+  cursor: ns-resize;
+}
+.vp-body[data-tool='zoom'] {
+  cursor: zoom-in;
+}
+.vp-stage {
+  position: relative;
+  transform-origin: center;
+}
+.vp-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+.vp-cross-v,
+.vp-cross-h {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.vp-cross-v {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.vp-cross-h {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.vp-corner {
+  position: absolute;
+  font-size: var(--fs-badge);
+  color: var(--fg-viewport-muted);
+  pointer-events: none;
+  text-shadow: 0 0 2px #000;
+}
+.vp-corner-tl {
+  top: 6px;
+  left: 8px;
+}
+.vp-corner-tr {
+  top: 6px;
+  right: 8px;
+}
+.vp-corner-bl {
+  bottom: 6px;
+  left: 8px;
+  font-style: italic;
+}
+.vp-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--fg-viewport-muted);
+  font-size: var(--fs-panel);
+  text-align: center;
+}
+
+/* Image properties section (left pane, QuPath Image tab) */
+.props {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--sp-3);
+  padding: var(--sp-1) var(--sp-3) var(--sp-2) var(--sp-4);
+  font-size: var(--fs-panel);
+}
+.props dt {
+  color: var(--fg-muted);
+}
+.props dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

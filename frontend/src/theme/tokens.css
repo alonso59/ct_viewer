@@ -1,0 +1,170 @@
+/*
+ * Design tokens (UI-11). GitHub Dark Default is the default theme; GitHub Light
+ * Default is the alternative. Every color in the app comes from these tokens.
+ * Theme selection: <html data-theme="dark|light">, set at bootstrap from the
+ * Settings choice (dark | light | system); dark applies when unset.
+ */
+
+:root {
+  /* Typography */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-ui: 13px;
+  --fs-panel: 12px;
+  --fs-badge: 11px;
+  --fs-title: 20px;
+  --fs-heading: 16px;
+  --lh-ui: 1.4;
+  --fw-normal: 400;
+  --fw-semibold: 600;
+
+  /* Spacing: 4 px grid */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Shape */
+  --radius: 6px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  /* Shell metrics */
+  --h-titlebar: 36px;
+  --h-toolbar: 34px;
+  --w-activitybar: 48px;
+  --h-tab: 35px;
+  --h-statusbar: 22px;
+  --h-row-compact: 22px;
+  --h-row-thumb: 56px;
+
+  /* Motion (UI-16) */
+  --dur-fast: 100ms;
+  --dur-base: 150ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Viewport accents (VW-04): fixed in both themes, viewports stay black */
+  --plane-axial: #F85149;
+  --plane-sagittal: #D29922;
+  --plane-coronal: #3FB950;
+  --plane-3d: #7D8590;
+  --bg-viewport: #000000;
+  --fg-viewport: #E6EDF3;
+  --fg-viewport-muted: #7D8590;
+}
+
+/* GitHub Dark Default */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-editor: #0D1117;
+  --bg-sidebar: #010409;
+  --bg-activitybar: #010409;
+  --bg-panel: #010409;
+  --bg-overlay: #161B22;
+  --bg-tab-active: #0D1117;
+  --bg-tab-inactive: #010409;
+  --bg-statusbar: #0D1117;
+  --bg-hover: #1F2428;
+  --bg-selected: #1F6FEB26;
+  --bg-input: #0D1117;
+  --bg-inset: #010409;
+  --fg: #E6EDF3;
+  --fg-muted: #7D8590;
+  --fg-on-emphasis: #FFFFFF;
+  --border: #30363D;
+  --border-muted: #21262D;
+  --focus: #1F6FEB;
+  --accent: #2F81F7;
+  --tab-active-indicator: #F78166;
+  --btn-primary: #238636;
+  --btn-primary-hover: #2EA043;
+  --btn-secondary: #21262D;
+  --btn-secondary-hover: #30363D;
+  --ok: #3FB950;
+  --warn: #D29922;
+  --error: #F85149;
+  --done: #A371F7;
+  --attention-bg: #BB800926;
+  --danger-bg: #F851491A;
+  --scrim: #01040999;
+  --shadow-overlay: 0 8px 24px #010409CC;
+
+  /* Categorical palette (DB-07) */
+  --cat-1: #2F81F7;
+  --cat-2: #F78166;
+  --cat-3: #3FB950;
+  --cat-4: #D29922;
+  --cat-5: #A371F7;
+  --cat-6: #39C5CF;
+  --cat-7: #DB61A2;
+  --cat-8: #8B949E;
+}
+
+/* GitHub Light Default */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-editor: #FFFFFF;
+  --bg-sidebar: #F6F8FA;
+  --bg-activitybar: #F6F8FA;
+  --bg-panel: #F6F8FA;
+  --bg-overlay: #FFFFFF;
+  --bg-tab-active: #FFFFFF;
+  --bg-tab-inactive: #F6F8FA;
+  --bg-statusbar: #F6F8FA;
+  --bg-hover: #EAEEF2;
+  --bg-selected: #0969DA1A;
+  --bg-input: #FFFFFF;
+  --bg-inset: #F6F8FA;
+  --fg: #1F2328;
+  --fg-muted: #636C76;
+  --fg-on-emphasis: #FFFFFF;
+  --border: #D0D7DE;
+  --border-muted: #D8DEE4;
+  --focus: #0969DA;
+  --accent: #0969DA;
+  --tab-active-indicator: #FD8C73;
+  --btn-primary: #1F883D;
+  --btn-primary-hover: #1A7F37;
+  --btn-secondary: #F6F8FA;
+  --btn-secondary-hover: #EAEEF2;
+  --ok: #1A7F37;
+  --warn: #9A6700;
+  --error: #D1242F;
+  --done: #8250DF;
+  --attention-bg: #FFF8C5;
+  --danger-bg: #FFEBE9;
+  --scrim: #1F232866;
+  --shadow-overlay: 0 8px 24px #8C959F33;
+
+  --cat-1: #0969DA;
+  --cat-2: #BC4C00;
+  --cat-3: #1A7F37;
+  --cat-4: #9A6700;
+  --cat-5: #8250DF;
+  --cat-6: #1B7C83;
+  --cat-7: #BF3989;
+  --cat-8: #6E7781;
+}
+
+/* Curation status → color (CUR §Status). Used by badges and chart color-by. */
+:root {
+  --status-rejected: var(--error);
+  --status-needs_major_correction: var(--error);
+  --status-wrong_phase_suspected: var(--warn);
+  --status-wrong_side_suspected: var(--warn);
+  --status-needs_minor_correction: var(--warn);
+  --status-missing: var(--error);
+  --status-cannot_assess: var(--fg-muted);
+  --status-accepted: var(--ok);
+  --status-not_reviewed: var(--fg-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+  }
+}

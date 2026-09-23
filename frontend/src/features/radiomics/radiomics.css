@@ -1,0 +1,124 @@
+/* Radiomics settings editor (RAD-01/02/04) */
+.rad {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.rad-top {
+  flex: none;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: var(--border-width) solid var(--border);
+}
+.rad-top-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.rad-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 280px;
+}
+.rad-nav {
+  border-right: var(--border-width) solid var(--border);
+  padding: var(--sp-2) 0;
+  overflow: auto;
+  background: var(--bg-sidebar);
+}
+.rad-nav .list-row {
+  height: 28px;
+  gap: var(--sp-2);
+}
+.rad-form {
+  overflow: auto;
+  padding: var(--sp-3) var(--sp-5) var(--sp-6);
+}
+.rad-form h2 {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-heading);
+  font-weight: var(--fw-semibold);
+}
+.rad-opt {
+  padding: 6px 0;
+  border-bottom: var(--border-width) solid var(--border-muted);
+}
+.rad-opt[data-child='true'] {
+  padding-left: var(--sp-5);
+}
+.rad-field {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 360px);
+  align-items: start;
+  gap: var(--sp-3);
+  padding: 6px 0;
+}
+.rad-field > label {
+  padding-top: 4px;
+}
+.rad-help {
+  font-size: var(--fs-badge);
+}
+label.rad-opt {
+  display: flex;
+  flex-wrap: wrap;
+}
+label.rad-opt .rad-help {
+  flex-basis: 100%;
+  padding-left: 22px;
+}
+.rad-classes {
+  display: flex;
+  flex-direction: column;
+}
+.rad-class {
+  border-bottom: var(--border-width) solid var(--border-muted);
+}
+.rad-class-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+}
+.rad-class-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--fg);
+  font-family: var(--font-mono);
+}
+.rad-class-row .num {
+  margin-left: auto;
+  font-size: var(--fs-panel);
+}
+.rad-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px var(--sp-3);
+  padding: 4px 0 var(--sp-3) 28px;
+  font-size: var(--fs-panel);
+}
+.rad-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-left: var(--border-width) solid var(--border);
+  background: var(--bg-sidebar);
+  overflow: auto;
+}
+.rad-issue {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  font-size: var(--fs-panel);
+}
+.rad-issue[data-severity='error'] {
+  color: var(--error);
+}
+.rad-issue[data-severity='warning'] {
+  color: var(--warn);
+}
+.rad-issue[data-severity='ok'] {
+  color: var(--ok);
+}
