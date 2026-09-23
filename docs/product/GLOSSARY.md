@@ -17,6 +17,12 @@ Scope: terms used across docs. Read when a term is unclear.
 | SEG | Multi-label segmentation mask of a full scan |
 | Label map | Project-defined label values → name, color, opacity |
 | Phase | Contrast phase: NC (non-contrast), CMP (corticomedullary), NP (nephrographic), EP (excretory), UNK |
+| Variable | Any non-core metadata field (or external/derived column), typed and levelled (VAR-*) |
+| Level | `case` (constant within a case) or `scan` |
+| Derived variable | Bin, recode or dominant computed from other variables |
+| Confounder | Variable that may bias comparisons (scanner, kernel, kVp) |
+| Unit of analysis | What one analysis row is; default one per case (ANA-03) |
+| q-value | p-value corrected for multiple testing (Benjamini–Hochberg FDR) |
 | Curation event | Append-only reviewer decision record |
 | Rollup | Case status derived from the worst item status |
 | Correction queue | Items needing external (3D Slicer) correction |

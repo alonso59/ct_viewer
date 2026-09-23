@@ -25,7 +25,8 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 
 ## Input files (contract v1, from the v2 converter/preprocessor)
 
-Unknown fields are preserved in `extra` and shown under "Advanced metadata".
+**Core** = the fields below marked ✓ plus `phase`, `seg_path`, `side`, `image_path`, `mask_path`, `modality`. Only core fields have fixed meaning.
+**Every other field** (including `group` if present) is a study variable, profiled and typed on import (VARIABLES.md, ADR-0011).
 
 ### `metadata.jsonl`: one line per converted scan
 
@@ -34,7 +35,7 @@ Unknown fields are preserved in `extra` and shown under "Advanced metadata".
 | `case_id` | ✓ | `case_\d{5}` |
 | `scan_idx` | ✓ | Scan index within case (string, e.g. `01`) |
 | `filename` or `relative_path` or `nifti_file` | ✓ | Identity: first non-empty of the three. Image location: `relative_path` → `nifti_file` (absolute legacy) → `nifti/{filename}` |
-| `patient_id`, `group`, `dataset_id` | | Display / filters |
+| `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD) |
 | `study_uid`, `series_uid` | | Provenance (advanced) |
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |
 | `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}` |
@@ -56,13 +57,13 @@ Unknown fields are preserved in `extra` and shown under "Advanced metadata".
 | `case_id`, `scan_idx` | ✓ | Link to parent scan |
 | `side` | ✓ | `L` / `R` (also accepts `sideL`/`sideR`, `_L`/`_R`) |
 | `image_path`, `mask_path` | ✓ / | VOI image / mask, relative to data root |
-| `group`, `phase` | | Informational; phase is **never** inferred from folders |
+| `phase` | | Informational; phase is **never** inferred from folders. `{group}` path segments are ignored |
 | any metrics | | Kept in `extra` |
 
 ## Phase resolution
 
 Resolution order: `phase.json` override → `curated_phase` → `canonical_phase` → `phase` → `phase_guess`.
-The chosen value is kept as `raw_phase` and normalized to the canonical vocabulary **NC · CMP · NP · EP · UNK** (NC = non-contrast, CMP = corticomedullary, NP = nephrographic, EP = excretory, UNK = unknown):
+The chosen value is kept as `raw_phase` and normalized with the project's `phase_vocabulary` + `phase_mapping` (PRJ-12). Table below = **ccRCC preset**: **NC · CMP · NP · EP · UNK** (NC = non-contrast, CMP = corticomedullary, NP = nephrographic, EP = excretory, UNK = unknown):
 
 | Raw (case-insensitive) | Canonical |
 |---|---|

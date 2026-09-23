@@ -13,11 +13,12 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P0 | Documentation & ADRs | ✅ Done (2026-09-23) |
 | P0.5 | UX design system & clickable prototype | 🟨 Built and approved 2026-09-23; curator/researcher walkthrough pending |
 | P1 | Backend core: projects, import, index | ✅ 2026-09-23 (verified on `.fixtures/synthetic`; Dataset820 run deferred to P7 on the remote server, command in LANE_NOTES.md) |
+| P1b | Study variables (backend): profiling, catalog, derived, external table; remove hard-coded `group` | ⬜ |
 | P2 | Frontend shell + explorer | ⬜ |
 | P3 | Viewer (NiiVue) | ⬜ |
 | P4 | Curation + multi-user sync | ⬜ |
 | P5 | Radiomics engine + settings + runs | ⬜ |
-| P6 | Dashboard | ⬜ |
+| P6 | Dashboard + guided analysis | ⬜ |
 | P7 | Packaging: Docker + udocker, E2E, performance | ⬜ |
 | P8 | Electron shell | ⬜ |
 
@@ -34,7 +35,7 @@ Every lane may also append to `LANE_NOTES.md` and tick its own lines in this fil
 | 1 | P0.5 design + prototype | `lane/1-design` | VS Code | `frontend/**` except `frontend/src/features/viewer/engine/**` |
 | 1 | P1 backend core | `lane/1-backend` | Shell A | `backend/**` |
 | 2 | P2 shell + explorer | `lane/2-shell` | VS Code | `frontend/**` except `features/{viewer,curation,radiomics,dashboard}/**` |
-| 2 | P4-BE + P5-BE + P6-BE | `lane/2-backend` | Shell A | `backend/app/{curation,radiomics,analytics}/**`, their routers in `backend/app/api/v1/`, their tests |
+| 2 | P1b + P4-BE + P5-BE + P6-BE | `lane/2-backend` | Shell A | `backend/app/{variables,ingest,projects,curation,radiomics,analytics}/**`, `backend/tools/make_fixtures.py`, their routers in `backend/app/api/v1/`, their tests |
 | 2 | P3 viewer | `lane/2-viewer` | Shell B | `frontend/src/features/viewer/**`, `backend/app/imaging/mesh*` |
 | 3 | P4-FE + P6-FE | `lane/3-curation-dashboard` | VS Code | `frontend/src/features/{curation,dashboard}/**` |
 | 3 | P5-FE radiomics form | `lane/3-radiomics-ui` | Shell A | `frontend/src/features/radiomics/**` |
@@ -68,10 +69,20 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [x] Fixtures (TST-11), TST-01..03, TST-07
 **Exit:** import the synthetic dataset and Dataset820 via API; warnings match the fixture defects; TST-07 green.
 
+### P1b — Study variables, backend (ADR-0011)
+- [ ] Remove `group` from the ingest core (`ingest/models.py`, `normalize.py`, `cases.py`, `service.py` filter); keep it only as a variable when present
+- [ ] `variables/`: profiling + type/level inference (VAR-01..04), catalog overrides + tags (VAR-05, VAR-11), derived bin/recode/dominant (VAR-06), raw_metadata allowlist (VAR-08), exclusions (VAR-09)
+- [ ] External case-keyed table import (VAR-07); `index/variables.parquet`; `var.{name}` list filters (API-16..18)
+- [ ] Project presets (PRJ-12): `ccrcc`, `generic-ct`, `none`; phase mapping from `project.json`
+- [ ] Fixtures extended per TESTING §Variables; tests for every inference rule
+**Exit:** the reference `metadata.jsonl` profiles as documented in VARIABLES.md (hb/lb continuous case-level, sn Review, no `group` assumed), with no code naming `hb/lb/sn`.
+
 ### P2 — Shell + explorer
 - [ ] Wire the P0.5 prototype shell to the real API: regions, tool bar, command palette, quick open (UI-01..08, 11, 13)
 - [ ] Workspace home, new project, import wizard (UI-04, IMP-01..03)
 - [ ] Project view with thumbnails (UI-08, IMP-12, API-26), Image/Labels/Search views, Problems panel (UI-09)
+- [ ] Variables view (UI_SHELL, VAR-*): catalog table, Review badges, overrides, derived variables, external table; replace the prototype's `group` filter/column/colour with variable-driven ones (VAR-10)
+- [ ] Project creation offers a study preset (PRJ-12)
 **Exit:** a user creates a project, imports data, browses cases, and shares a link that opens in a second browser.
 
 ### P3 — Viewer
@@ -90,11 +101,13 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [ ] Schema-driven settings form (RAD-01/02)
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
-### P6 — Dashboard
+### P6 — Dashboard + guided analysis (ADR-0012)
 - [ ] Not built in P1, schedule with P5/P6: full-hash job (IMP-09, API-15) and project bundles (PRJ-08/09)
 - [ ] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07)
 - [ ] Measurements panel for the active item (UI-14)
-**Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click.
+- [ ] Backend `analytics/`: analysis spec, unit (one row per case), test choice, FDR, effect sizes, descriptives, REC rules, export (ANA-01..09, API-39), TST-12
+- [ ] Analysis panel + Group comparison / Association / Balance check views (DB-08/09)
+**Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click; a two-group and a three-group comparison on a derived variable return tests matching SciPy, with q-values and at least one triggered recommendation.
 
 ### P7 — Packaging
 - [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*)

@@ -17,7 +17,7 @@ Depends: product/ROADMAP.md.
 |---|---|---|---|---|
 | 0 | Bootstrap (sequential) | — | — | Checks green |
 | 1 | P0.5 design + prototype | P1 backend core | — | You approve the prototype; P1 exit |
-| 2 | P2 shell + explorer | P4-BE curation, P5-BE radiomics, P6-BE analytics | P3 viewer | Merge + checks |
+| 2 | P2 shell + explorer (+ Variables view) | P1b variables, P4-BE curation, P5-BE radiomics, P6-BE analytics + stats | P3 viewer | Merge + checks |
 | 3 | P4-FE curation, P6-FE dashboard | P5-FE radiomics form | P7-prep image + scripts | Merge + checks |
 | 4 | Review | P7 on remote server (udocker, Dataset820, perf) | — | NFRs met |
 | 5 | P8 Electron | — | — | Release |
@@ -128,26 +128,33 @@ layer to the real API for the endpoints P1 delivered. Report and STOP.
 [LANE RULES]
 Lane: P2. Branch: lane/2-shell.
 Read: docs/frontend/UI_SHELL.md, docs/frontend/ARCHITECTURE.md, docs/backend/API.md,
-docs/domain/INPUT_METADATA.md (import wizard only).
+docs/domain/INPUT_METADATA.md (import wizard only), docs/domain/VARIABLES.md.
 Owns: frontend/** except frontend/src/features/viewer/**, features/curation/**,
 features/radiomics/**, features/dashboard/**.
-Build ROADMAP P2 against the real API. Checks: make check, Playwright smoke for the
+Build ROADMAP P2 against the real API, including the Variables view and replacing the
+prototype's hard-coded `group` with variable-driven filters/columns/colours. API-16..18
+are built in parallel by lane/2-backend: code against API.md + the mock until the merge.
+The dashboard's `group` usage is left to lane P6-FE (Step 3). Checks: make check, Playwright smoke for the
 new-project → import → browse → share-link flow. Exit: ROADMAP P2 exit. Commit and STOP.
 ```
 
 ### Shell A: backend for curation, radiomics, analytics
 ```text
 [LANE RULES]
-Lane: P4-BE + P5-BE + P6-BE. Branch: lane/2-backend in worktree ../ct_viewer-wt/A.
-Read: docs/domain/CURATION.md, docs/domain/RADIOMICS.md, docs/frontend/DASHBOARD.md
-(views table only), docs/backend/API.md, docs/backend/ARCHITECTURE.md.
-Owns: backend/app/curation/**, backend/app/radiomics/**, backend/app/analytics/**,
-their routers in backend/app/api/v1/, and their tests.
-Parallel sub-agents: (1) curation events, reducer, queue, exports, v2 import, SSE
-publish; (2) radiomics engine adapter, schema, ibsi_map.json, validation, profiles,
-runs, resume, outputs; (3) analytics views for API-38.
-Checks: make check, TST-06 (IBSI), NFR-15 reproducibility. Exit: all listed API-3x/5x
-endpoints pass contract tests. Commit and STOP.
+Lane: P1b + P4-BE + P5-BE + P6-BE. Branch: lane/2-backend in worktree ../ct_viewer-wt/A.
+Read: docs/domain/VARIABLES.md, docs/domain/ANALYSIS.md, docs/domain/CURATION.md,
+docs/domain/RADIOMICS.md, docs/frontend/DASHBOARD.md (views table only),
+docs/backend/API.md, docs/backend/ARCHITECTURE.md, docs/ops/TESTING.md.
+Owns: backend/app/{variables,ingest,projects,curation,radiomics,analytics}/**,
+backend/tools/make_fixtures.py, their routers in backend/app/api/v1/, and their tests.
+Order: (1) P1b first: remove hard-coded `group` from ingest, build variables/ and
+presets, extend fixtures (TESTING §Variables). (2) Then parallel sub-agents:
+curation (events, reducer, queue, exports, v2 import, SSE publish); radiomics (adapter,
+schema, ibsi_map.json, validation, profiles, runs, resume, outputs); analytics
+(API-38 views + API-39 guided statistics, recommendations, TST-12).
+Never name study fields (hb/lb/sn/group) in code.
+Checks: make check, TST-06 (IBSI), TST-12, NFR-15 reproducibility. Exit: all listed
+API-16..18, 3x, 5x endpoints pass contract tests. Commit and STOP.
 ```
 
 ### Shell B: P3 viewer
@@ -171,8 +178,8 @@ exit. Commit and STOP.
 ```text
 [LANE RULES]
 Lane: P4-FE + P6-FE. Branch: lane/3-curation-dashboard.
-Read: docs/domain/CURATION.md, docs/frontend/DASHBOARD.md, docs/frontend/UI_SHELL.md
-(keybindings, Measurements panel UI-14).
+Read: docs/domain/CURATION.md, docs/frontend/DASHBOARD.md, docs/domain/ANALYSIS.md,
+docs/frontend/UI_SHELL.md (keybindings, Measurements panel UI-14).
 Owns: frontend/src/features/curation/**, frontend/src/features/dashboard/**.
 Checks: make check, TST-08 multi-user test. Exit: ROADMAP P4 + P6 exits. Commit and STOP.
 ```

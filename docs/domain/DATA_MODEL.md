@@ -13,6 +13,7 @@ Workspace 1─* Project 1─* PathRoot
                     1─* CurationEvent  *─1 Item | Case
                     1─* RadiomicsProfile 1─* RadiomicsRun 1─* FeatureValue *─1 Item
                     1─* Job
+                    1─* Variable (catalog)   1─* Analysis *─1 RadiomicsRun
 ```
 
 ## Entities
@@ -31,6 +32,8 @@ Workspace 1─* Project 1─* PathRoot
 | RadiomicsProfile | `profile_hash` | `radiomics/profiles/` | Content hash of normalized settings (RAD-03) |
 | RadiomicsRun | `run_id` (ULID) | `radiomics/runs/{run_id}/run.json` | RAD-06 |
 | FeatureValue | `(run_id, item_id, label, feature)` | `features.parquet` | Long format |
+| Variable | `name` | `variables/catalog.json` + `index/variables.parquet` | VAR-* (study-agnostic, replaces a fixed `group`) |
+| Analysis | `analysis_id` (ULID) | `analyses/{analysis_id}/` | ANA-* |
 | Job | `job_id` (ULID) | in memory + `run.json` / index status | BE-06 |
 
 ## `item_id`
@@ -44,7 +47,7 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
 {
   "item_id": "case_00001.01.voi.L",
   "case_id": "case_00001", "scan_idx": "01", "scope": "voi", "side": "L",
-  "patient_id": "…", "group": "A",
+  "patient_id": "…", "modality": "CT",
   "phase": { "canonical": "NP", "raw": "VEN", "source": "phase.json" },
   "image": { "ref": "DATA:voi/images/A/NP/01_case_00001_L.nii.gz", "format": "nifti", "fp": "…" },
   "mask":  { "ref": "DATA:voi/mask/A/NP/01_case_00001_L.nii.gz",  "format": "nifti", "fp": "…" },
@@ -59,8 +62,8 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
 
 ## Case summary (derived)
 
-`{case_id, patient_id, group, phases[], n_scans, n_items, has_seg, has_voi_L, has_voi_R, n_warnings, curation_status, last_reviewed_at}`.
-The `curation_status` rollup is defined in CUR-08.
+`{case_id, patient_id, phases[], n_scans, n_items, has_seg, has_voi_L, has_voi_R, n_warnings, curation_status, last_reviewed_at}`.
+The `curation_status` rollup is defined in CUR-08. Extra columns (e.g. study variables) are chosen by the user (VAR-10).
 
 ## Conventions
 

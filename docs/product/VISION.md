@@ -34,7 +34,8 @@ There are no roles. All users can reach every surface (ADR-0004).
 - Segmentation **visualization only**.
 - Curation: QC status, comments, phase/side proposals, correction queue export (CUR-*).
 - Radiomics: user-configurable extraction run by button, IBSI-aligned, versioned profiles (RAD-*).
-- Radiomics QC dashboard with click-through to the viewer (DB-*).
+- Study-agnostic variables: any metadata field or external table becomes a typed variable for filters and group-by (VAR-*).
+- Radiomics dashboard with click-through to the viewer (DB-*) and simple guided statistics with recommendations (ANA-*).
 - Multi-user access by shared project link, with live updates between browsers.
 - Single OCI image; Docker locally, udocker on remote servers without sudo (OPS-*).
 
@@ -47,7 +48,7 @@ There are no roles. All users can reach every surface (ADR-0004).
 | User accounts, roles, passwords | ADR-0004 |
 | DICOM import, DICOM→NIfTI conversion | Upstream pipeline |
 | Cloud upload, remote storage, PACS | Local filesystem only |
-| In-app inferential statistics (tests, p-values, model training) | Export to Python/R instead |
+| Advanced statistics (multivariable models, ML, survival, mixed models, harmonization) | Export to Python/R; in-app stats stay simple (ADR-0012) |
 | Registration / fusion, volume editing | Future |
 | Electron desktop build | Phase P8, after the web app is stable (ADR-0001) |
 | Clinical use | Research tool, not a medical device |
@@ -60,8 +61,9 @@ There are no roles. All users can reach every surface (ADR-0004).
 4. **Portable projects.** A project folder can be copied to another machine and relinked, as in QuPath.
 5. **Quiet, dense UI.** QuPath workflow + VS Code idioms, keyboard-first, progressive disclosure.
 6. **Same image everywhere.** Docker and udocker run the identical artifact.
+7. **Study-agnostic.** No study-specific field names in code; ccRCC is a preset, not an assumption (ADR-0011).
 
 ## Decisions
 
-- Label map: project-defined, seeded with the ccRCC defaults (PRJ-07).
+- Label map and phase vocabulary: project presets; the ccRCC preset holds the current defaults (PRJ-07, PRJ-12).
 - UI language: English, i18n-ready (FE-11).

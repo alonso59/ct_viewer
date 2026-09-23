@@ -14,6 +14,8 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Entities and relations | `domain/DATA_MODEL.md` |
 | Curation, QC status, correction queue | `domain/CURATION.md` |
 | Radiomics extraction, settings, IBSI | `domain/RADIOMICS.md` |
+| Study variables, types, group-by, derived vars | `domain/VARIABLES.md` |
+| Statistics, test choice, recommendations | `domain/ANALYSIS.md` |
 | Backend modules, jobs, concurrency | `backend/ARCHITECTURE.md` |
 | HTTP endpoints / contracts | `backend/API.md` |
 | Frontend structure, state, libraries | `frontend/ARCHITECTURE.md` |
@@ -35,6 +37,8 @@ Read only the files routed for your task. Each file declares its scope in its he
 | `IMP-` | domain/INPUT_METADATA.md | Import and indexing |
 | `CUR-` | domain/CURATION.md | Curation workflow |
 | `RAD-` | domain/RADIOMICS.md | Radiomics engine |
+| `VAR-` | domain/VARIABLES.md | Study variables |
+| `ANA-`, `REC-` | domain/ANALYSIS.md | Guided statistics |
 | `API-` | backend/API.md | Endpoints |
 | `BE-` | backend/ARCHITECTURE.md | Backend internals |
 | `FE-` | frontend/ARCHITECTURE.md | Frontend internals |

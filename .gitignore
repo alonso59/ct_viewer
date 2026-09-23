@@ -31,3 +31,9 @@ LANE_NOTES.local.md
 *.tar.gz
 *.tgz
 .DS_Store
+
+# Real dataset descriptors: never commit (may contain age/sex/dates/accession numbers)
+/metadata.jsonl
+**/metadata.jsonl
+!backend/tests/**/metadata.jsonl
+**/raw_metadata*.json

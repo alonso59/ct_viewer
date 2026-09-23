@@ -9,7 +9,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 - Base path `/api/v1`. JSON bodies; `snake_case`; UTC `Z` timestamps.
 - `{pid}` = `project_id`, `{iid}` = `item_id`, `{cid}` = `case_id`, `{rid}` = `run_id`.
 - Lists: `?cursor=&limit=` (default 200, max 2000) → `{items, next_cursor, total}`.
-- Filters on lists: `?q=&group=&phase=&status=&warning=&has_voi=&scope=&sort=`.
+- Filters on lists: `?q=&phase=&status=&warning=&has_voi=&scope=&sort=` plus `var.{name}=` (categorical value) or `var.{name}=min..max` (continuous).
 - No auth headers (ADR-0004). Writes that record authorship require the `X-Reviewer` header (CUR-01).
 - Long operations return `202 {job_id}`; progress arrives via SSE (API-40).
 
@@ -29,6 +29,9 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-13 | `GET /projects/{pid}/imports` | Import history + current `index` status | IMP-04 |
 | API-14 | `GET /projects/{pid}/warnings` | QC warnings (filterable) | IMP-08 |
 | API-15 | `POST /projects/{pid}/hash-jobs` | Full SHA-256 job | IMP-09 |
+| API-16 | `GET /projects/{pid}/variables` · `PATCH …/variables/{name}` | Catalog with profile; override type/visibility/tags | VAR-01..05 |
+| API-17 | `POST /projects/{pid}/variables/derived` · `DELETE …/derived/{name}` | Bin / recode / dominant | VAR-06 |
+| API-18 | `POST /projects/{pid}/variables/external` | CSV/TSV keyed by case_id or patient_id → match report | VAR-07 |
 | API-20 | `GET /projects/{pid}/cases` | Case summaries | DATA_MODEL |
 | API-21 | `GET /projects/{pid}/cases/{cid}` | Case + items tree + warnings | |
 | API-22 | `GET /projects/{pid}/items/{iid}` | Item record (+ `advanced` with absolute paths) | |
@@ -45,6 +48,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-36 | `GET …/runs/{rid}/features?format=json\|parquet\|csv&shape=long\|wide&item_id=` | Export; the `item_id` filter + JSON feeds the Measurements panel | RAD-10, UI-14 |
 | API-37 | `GET …/runs/{rid}/errors` | Per-item failures | RAD-07 |
 | API-38 | `POST …/runs/{rid}/views/{view}` | Dashboard computation (body = view params) | DB-* |
+| API-39 | `POST /projects/{pid}/analyses` · `GET …/analyses[/{aid}]` · `GET …/analyses/{aid}/export` | Create+run / list / results + recommendations / tidy CSV + spec | ANA-* |
 | API-40 | `GET /projects/{pid}/events` (SSE) | Realtime stream | CUR-11 |
 | API-41 | `GET /jobs?project={pid}` · `POST /jobs/{job_id}/cancel` | Jobs panel | BE-06 |
 | API-50 | `GET·POST /projects/{pid}/curation/events` | History (filter by `item_id`/`case_id`) / append | CUR-02/14 |

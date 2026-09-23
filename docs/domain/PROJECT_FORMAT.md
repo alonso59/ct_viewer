@@ -20,11 +20,12 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
 | PRJ-04 | Items store image paths as `ALIAS:relative/posix/path`, never as absolute paths. | M |
 | PRJ-05 | "Relink" edits an alias's root path and verifies it on a sample of items via quick fingerprint. | M |
 | PRJ-06 | Rename and archive a project (archive moves it to `projects/.archive/` and purges `cache/`). The UI and API **never** delete a project permanently; an admin removes archived folders on the filesystem. | M |
-| PRJ-07 | Label map is project-level and editable (name, value, color, default opacity/visibility); seeded with ccRCC defaults. | S |
+| PRJ-07 | Label map is project-level and editable (name, value, color, default opacity/visibility); seeded from the project preset, or auto-named `label_{value}` from mask values when no preset applies. | S |
 | PRJ-08 | Export a project bundle (`.zip` of the project folder without `cache/`, and never image data). | S |
 | PRJ-09 | Import a bundle; the relink dialog opens if any alias fails to resolve. | S |
 | PRJ-10 | Everything under `index/` and `cache/` is derived and rebuildable; deleting `cache/` is always safe. | M |
 | PRJ-11 | `format_version` is checked on open; older versions migrate forward with a backup copy of `project.json`. | M |
+| PRJ-12 | Study presets seed the label map, phase vocabulary and phase mapping at project creation: `ccrcc` (current defaults), `generic-ct` (NC, ART, PV, DELAYED, UNK), `none` (raw values kept). Editable afterwards. | M |
 
 ## Folder layout
 
@@ -45,6 +46,9 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
         ├── curation/
         │   ├── events.jsonl       # append-only decisions — SOURCE OF TRUTH (CUR-*)
         │   └── state.json         # DERIVED latest-state snapshot
+        ├── variables/
+        │   └── catalog.json       # variable types/levels/tags overrides + derived definitions (VAR-11)
+        ├── analyses/{analysis_id}/ # spec.json, results/descriptives parquet, recommendations.json (ANA-01)
         ├── radiomics/
         │   ├── profiles/{profile_hash}.json
         │   └── runs/{run_id}/     # run.json, parts/*.parquet, features.parquet, errors.jsonl, run.log
@@ -72,7 +76,9 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
     { "value": 2, "name": "tumor",  "color": "#FFFF00", "opacity": 0.20, "visible": true },
     { "value": 3, "name": "cyst",   "color": "#FF00FF", "opacity": 0.15, "visible": false }
   ],
+  "preset": "ccrcc",                         // PRJ-12
   "phase_vocabulary": ["NC", "CMP", "NP", "EP", "UNK"],
+  "phase_mapping": { "ART": "CMP", "VEN": "NP", "DELAY": "EP" },   // + aliases, see INPUT_METADATA
   "phase_priority":   ["NP", "CMP", "NC", "EP", "UNK"],
   "viewer_defaults":  { "ww": 400, "wl": 50, "layout": "four-up" }
 }

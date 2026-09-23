@@ -11,7 +11,7 @@ Depends: domain/*.md, API.md, ADR-0002, ADR-0003, ADR-0006.
 | Runtime | Python 3.12, FastAPI, Uvicorn (**1 worker**), Pydantic v2, pydantic-settings |
 | Imaging | nibabel (headers, npy→NIfTI), numpy, scikit-image (marching cubes) |
 | Radiomics | PyRadiomics + SimpleITK + PyWavelets behind an adapter (ADR-0006) |
-| Tabular / analytics | pyarrow (Parquet), DuckDB (dashboard queries), scikit-learn (PCA; UMAP optional) |
+| Tabular / analytics | pyarrow (Parquet), DuckDB (dashboard queries), scikit-learn (PCA; UMAP optional), SciPy + statsmodels (tests, FDR; ANA-*) |
 | Realtime | Server-Sent Events (sse-starlette) |
 | IDs | ULID (`python-ulid`) |
 | Tests | pytest, httpx, hypothesis (parsers) |
@@ -31,12 +31,13 @@ backend/app/
 ├── imaging/         # header reader, fingerprint, npy→nii, mesh builder, file streaming
 ├── curation/        # event store, reducer (derived state), queue, exports
 ├── radiomics/       # engine protocol, pyradiomics adapter, schema builder, ibsi_map.json, runner
-├── analytics/       # DuckDB queries backing dashboard views (DB-*)
+├── variables/       # profiling, type inference, catalog overrides, derived + external variables (VAR-*)
+├── analytics/       # DuckDB queries for dashboard views (DB-*) + guided statistics and recommendations (ANA-*)
 ├── jobs/            # job manager, process pool, progress relay
 └── events/          # in-process pub/sub → SSE fan-out
 ```
 
-**Layering:** `api → services (projects|ingest|imaging|curation|radiomics|analytics) → core`.
+**Layering:** `api → services (projects|ingest|variables|imaging|curation|radiomics|analytics) → core`.
 Services never import `api`. All filesystem I/O goes through `core.fsio` or `core.paths`.
 
 ## Requirements

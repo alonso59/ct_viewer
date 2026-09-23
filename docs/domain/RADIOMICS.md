@@ -18,7 +18,7 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-02 | Filters (image types) and feature classes are checkboxes, and each class expands to per-feature checkboxes. Parameters use number, text, list or select inputs. | M |
 | RAD-03 | Profiles: save, load, rename, duplicate. `profile_hash` = SHA-256 of canonical JSON (sorted keys, normalized numbers) of settings + engine name + engine major version. | M |
 | RAD-04 | Validation (§Rules) runs live in the UI and authoritatively on the server; the Run button is disabled while errors exist. | M |
-| RAD-05 | Selection: items (all active / current Explorer filter / explicit list), scope (`complete`, `voi`), labels (multi-select from label map, one extraction per label). | M |
+| RAD-05 | Selection: items (all active / current Explorer filter on any variable (VAR-10) / explicit list), scope (`complete`, `voi`), labels (multi-select from label map, one extraction per label). | M |
 | RAD-06 | Run is a background job (BE-06): per-item progress, ETA, cancel. | M |
 | RAD-07 | Per-item failures are logged to `errors.jsonl` and do not stop the run; the final status is `completed_with_errors`. | M |
 | RAD-08 | Interrupted runs can resume, skipping items that already have a part file. | S |
@@ -100,7 +100,8 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
 
 ## Output schema
 
-`features.parquet`: `run_id, item_id, case_id, scan_idx, scope, side, phase, group, label, image_type, feature_class, feature, value(float64), ibsi_code, ibsi_status`.
+`features.parquet`: `run_id, item_id, case_id, scan_idx, scope, side, phase, label, image_type, feature_class, feature, value(float64), ibsi_code, ibsi_status`.
+Study variables are **not** copied into features; they are joined at analysis time from `index/variables.parquet` (ANA-03).
 `diagnostics.parquet`: `run_id, item_id, label, voxel_count, bbox, spacing, image_hash, mask_hash, …` (engine diagnostics, flattened).
 
 ## Spike result
@@ -110,3 +111,4 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
 ## Decisions
 
 - No built-in presets beyond engine defaults; users save their own profiles.
+- Engine defaults assume CT (HU; `binWidth=25`). When the selection contains non-CT modality, the form warns and the analysis raises REC-MODALITY.

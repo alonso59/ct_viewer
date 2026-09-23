@@ -27,7 +27,7 @@ Depends: ADR-0003, frontend/ARCHITECTURE.md, API-23/24/25.
 | VW-02 | Maximize a viewport by double-clicking its header or pressing the maximize button; `Esc` restores the layout. | M |
 | VW-03 | Scroll = slice step; `Shift`+scroll = 10 slices; a slider per viewport shows index / total. | M |
 | VW-04 | Linked crosshair across the 2D views; click or drag sets the position. Accent colors follow 3D Slicer: axial **red** `#F85149`, sagittal **yellow** `#D29922`, coronal **green** `#3FB950`, 3D `#7D8590` (GitHub Dark tones). | M |
-| VW-05 | Window/level: right-drag (horizontal = width, vertical = level), numeric inputs, and presets (Soft tissue 400/50, Bone 1800/400, Lung 1500/−600, Brain 80/40, Kidney 500/100). | M |
+| VW-05 | Window/level: right-drag (horizontal = width, vertical = level), numeric inputs, and presets (Soft tissue 400/50, Bone 1800/400, Lung 1500/−600, Brain 80/40, Kidney 500/100). HU presets only when `modality = CT`; otherwise the default window is the 1st–99th percentile. | M |
 | VW-06 | Pan (middle-drag or `Space`+drag) and zoom (`Ctrl/Cmd`+scroll, or pinch); `R` resets; zoom can be linked across views (toggle). | M |
 | VW-07 | Multi-label overlay using the project label map colors (PRJ-07): per-label visibility and opacity, outline-only toggle, global overlay opacity. | M |
 | VW-08 | Cursor readout: ijk, RAS mm, image value (HU), label value under the cursor → status bar (UI-07). | M |

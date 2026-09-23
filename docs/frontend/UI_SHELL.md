@@ -52,8 +52,9 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | Labels | `tag` | Classes list | Project label map: swatch, visibility, opacity, hotkey |
 | History | `history` | Workflow | Curation event log for the case (CUR-14) |
 | Radiomics | `beaker` | — | Profiles, runs, "New run" |
-| Dashboards | `graph` | — | Completed runs → dashboard tab |
-| Search | `search` | — | Advanced filters (group, phase, status, warnings, VOI) |
+| Dashboards | `graph` | — | Completed runs → dashboard tab (views + Analysis panel, DB-08) |
+| Search | `search` | — | Advanced filters on any visible variable, phase, status, warnings, VOI |
+| Variables | `symbol-variable` | — | Variable catalog (VAR-*): type/level/missing %, Review badges, visibility, tags, derived variables, external table import |
 | Settings *(bottom)* | `settings-gear` | Preferences | Theme, reviewer name, keybindings |
 
 ## Requirements

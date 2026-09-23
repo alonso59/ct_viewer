@@ -16,3 +16,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0008 | Drop MUI; Radix + tokens + codicons + dockview | Accepted |
 | 0009 | Analytics on Parquet + DuckDB; ECharts for charts | Accepted |
 | 0010 | QuPath-style layout in a VS Code shell, GitHub Dark theme | Accepted |
+| 0011 | Study-agnostic variable catalog | Accepted |
+| 0012 | Simple guided statistics in-app (supersedes QC-only dashboard) | Accepted |

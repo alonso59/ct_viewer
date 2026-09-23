@@ -17,6 +17,7 @@ Depends: all domain docs.
 | TST-09 | Performance | scripted bench | NFR-01..05 on the reference volume |
 | TST-10 | Container smoke | script | Image boots under Docker and udocker; health OK; one item viewable |
 | TST-11 | Fixtures | `make fixtures` | Synthetic dataset (below) |
+| TST-12 | Statistics | pytest vs SciPy/statsmodels reference | ANA test choice, p/q/effect sizes, each REC rule triggered by a fixture |
 
 ## Synthetic fixture dataset (TST-11)
 
@@ -24,6 +25,7 @@ Generated, not committed: `make fixtures` writes `.fixtures/synthetic/` (generat
 It contains `metadata.jsonl`, `phase.json`, `voi/voi_catalog.jsonl` and a legacy `.npy` VOI, plus **deliberate defects**:
 missing SEG, shape mismatch, ambiguous phase, ambiguous side, duplicate identity, missing file.
 Every IMP-08 warning code must be produced by at least one fixture row.
+Variables (VAR/ANA): no `group` field; case-level numeric study variables with ~50 % missing and one compositional pair; a `numeric-discrete` variable; vendor strings needing recode; one MRI scan; enough healthy cases (≥ 30) for group tests. Never copy values from real metadata into fixtures.
 
 ## CI gates
 
