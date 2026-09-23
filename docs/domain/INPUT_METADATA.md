@@ -72,6 +72,8 @@ The chosen value is kept as `raw_phase` and normalized to the canonical vocabula
 | `EP`, `DELAY`, `DELAYED`, `EXC`, `EXCRETORY` | `EP` |
 | empty, `UNDEFINED`, `UNKNOWN`, `N/A`, `NONE` | `UNK` |
 
+Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (2026-09-23).
+
 `phase_source` records which field won. Curator phase proposals do **not** change the index (CUR-06).
 
 ## QC warning codes
