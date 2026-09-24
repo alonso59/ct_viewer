@@ -49,7 +49,7 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
   "case_id": "case_00001", "scan_idx": "01", "scope": "voi", "side": "L",
   "patient_id": "…", "modality": "CT",
   "phase": { "canonical": "NP", "raw": "VEN", "source": "phase.json" },
-  "image": { "ref": "DATA:voi/images/A/NP/01_case_00001_L.nii.gz", "format": "nifti", "fp": "…" },
+  "image": { "ref": "DATA:voi/images/A/NP/01_case_00001_L.nii.gz", "format": "nifti", "fp": "…", "sha256": null },
   "mask":  { "ref": "DATA:voi/mask/A/NP/01_case_00001_L.nii.gz",  "format": "nifti", "fp": "…" },
   "geometry": { "shape": [128,128,96], "spacing": [0.8,0.8,1.0], "dtype": "int16", "orientation": "RAS" },
   "labels_present": [1, 2],
@@ -59,6 +59,8 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
   "extra": { }                     // unknown input fields, preserved
 }
 ```
+
+`modality` comes from the input `modality` field (VOIs inherit the scan's value) and is null when absent. `sha256` is null until the full-hash job ran (IMP-09).
 
 ## Case summary (derived)
 

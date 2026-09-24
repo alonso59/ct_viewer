@@ -18,7 +18,7 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 | IMP-06 | Re-import creates a new snapshot and rebuilds the index. `item_id` is deterministic, so curation events stay attached. | M |
 | IMP-07 | Items that were skipped or excluded upstream are indexed as `excluded_upstream` and hidden by default. | S |
 | IMP-08 | Validation writes `index/qc_warnings.jsonl` (codes below); warnings show in the Problems panel (UI-09). | M |
-| IMP-09 | Optional "Compute full hashes" job adds SHA-256 per file. | C |
+| IMP-09 | Optional "Compute full hashes" job adds SHA-256 per file, stored in `index/hashes.json` keyed by ref + quick fingerprint (a changed file loses its hash); `force` rehashes all. | C |
 | IMP-10 | Legacy `.npy` VOIs are accepted; they are converted to NIfTI in `cache/` on first view, using catalog spacing. | S |
 | IMP-11 | Metadata-only mode: a project may be indexed without a seg or VOI catalog; the viewer adapts (VW-12). | M |
 | IMP-12 | Thumbnail job (after indexing, in workers): a 128 px mid-axial slice at the default W/L for each `complete` item, with a mask outline if one exists; stored in `cache/thumbs/{image_fp}.webp` (UI-08). | S |
@@ -35,7 +35,7 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 | `case_id` | ✓ | `case_\d{5}` |
 | `scan_idx` | ✓ | Scan index within case (string, e.g. `01`) |
 | `filename` or `relative_path` or `nifti_file` | ✓ | Identity: first non-empty of the three. Image location: `relative_path` → `nifti_file` (absolute legacy) → `nifti/{filename}` |
-| `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD) |
+| `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD); parsed into `Item.modality` and also kept in `extra` |
 | `study_uid`, `series_uid` | | Provenance (advanced) |
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |
 | `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}` |

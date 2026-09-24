@@ -22,13 +22,13 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-03 | `GET·PATCH /projects/{pid}` | Read / rename / edit label map, defaults | PRJ-06/07 |
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report) | PRJ-05 |
-| API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export / import bundle | PRJ-08/09 |
+| API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
 | API-10 | `GET /fs/list?path=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` | IMP-01 |
 | API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect:true}` → preview | IMP-02/03 |
 | API-12 | `POST /projects/{pid}/imports` | Commit preview → `202 {job_id}` (indexing) | IMP-04/05 |
 | API-13 | `GET /projects/{pid}/imports` | Import history + current `index` status | IMP-04 |
 | API-14 | `GET /projects/{pid}/warnings` | QC warnings (filterable) | IMP-08 |
-| API-15 | `POST /projects/{pid}/hash-jobs` | Full SHA-256 job | IMP-09 |
+| API-15 | `POST /projects/{pid}/hash-jobs` | Full SHA-256 job: body `{force?}` → `202 {job_id, n_files, n_skipped}`; results appear as `image.sha256` / `mask.sha256` on API-21/22 | IMP-09 |
 | API-16 | `GET /projects/{pid}/variables` · `PATCH …/variables/{name}` | Catalog with profile; override type/visibility/tags | VAR-01..05 |
 | API-17 | `POST /projects/{pid}/variables/derived` · `DELETE …/derived/{name}` | Bin / recode / dominant | VAR-06 |
 | API-18 | `POST /projects/{pid}/variables/external` | CSV/TSV keyed by case_id or patient_id → match report | VAR-07 |
@@ -67,7 +67,14 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | `index.rebuilt` | `{import_id, n_items, n_warnings}` |
 | `project.updated` | `{fields[]}` |
 
+The stream opens with a `: open` comment and `retry: 3000`, so clients (Firefox) see it live at once.
 Clients reconnect with `Last-Event-ID`; the server replays up to 1,000 recent events per project.
+
+## Bundles (API-06)
+
+Import answers `201 {project: ProjectDetail, source_project_id, id_changed, roots: [{root: {alias, path, exists}, verify: VerifyReport}], needs_relink}`.
+`exists` is false when the directory is missing or outside `ALLOWED_DATA_ROOTS`; `needs_relink` is true if any root is missing or any verify sample is missing or mismatched, and the client then opens relink (API-05).
+Errors: `validation` (not a zip, unsafe entry, no/invalid `project.json`), `format-version-unsupported`. Bundle rules: PROJECT_FORMAT §Bundles.
 
 ## Errors (RFC 9457)
 

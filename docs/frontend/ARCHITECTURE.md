@@ -76,7 +76,7 @@ frontend/src/
 
 ## API layer (P2)
 
-- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`), `mock/` implements it for the prototype.
+- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`), `mock/` implements it for the prototype. Every feature goes through it, radiomics included (API-30..37, types from `schema.d.ts`; validation key `keys.validation`). The mock's radiomics members lazily load the live schema fixture and the form's validation rules. The http client resolves `fetch` per call so tests can stub it.
 - Env: `VITE_API_MODE` (`http` | `mock`), `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; it flushes SSE headers so the stream opens immediately).
 - Initial JS is ~300 KB gzip after lazy-loading NiiVue: at the NFR-07 limit, so new eager dependencies need a lazy boundary.
 

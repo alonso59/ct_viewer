@@ -26,8 +26,8 @@ backend/app/
 │   └── health, projects, fs, imports, cases, items, volumes, curation,
 │       radiomics, dashboard, jobs, events
 ├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks
-├── projects/        # workspace.json + project.json service, migrations (PRJ-11)
-├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator
+├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
+├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, full-hash job (IMP-09)
 ├── imaging/         # header reader, fingerprint, npy→nii, mesh builder, file streaming
 ├── curation/        # event store, reducer (derived state), queue, exports
 ├── radiomics/       # engine protocol, pyradiomics adapter, schema builder, ibsi_map.json, runner

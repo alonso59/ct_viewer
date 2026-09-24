@@ -42,7 +42,7 @@ Depends: ADR-0007, backend/ARCHITECTURE.md.
 # docker-compose.yml (sketch)
 services:
   app:
-    image: radiology-workbench:3.0.0
+    image: radiology-workbench:${RW_VERSION}
     build: .
     ports: ["127.0.0.1:${PORT:-8000}:8000"]
     env_file: .env
@@ -56,9 +56,9 @@ services:
 udocker cannot build images. Build with Docker elsewhere, then transfer the tar or pull from a registry:
 
 ```bash
-docker save radiology-workbench:3.0.0 -o rw-3.0.0.tar      # on the build machine
-udocker load -i rw-3.0.0.tar                               # on the server
-udocker create --name=rw radiology-workbench:3.0.0
+docker save radiology-workbench:{version} -o rw-{version}.tar  # on the build machine
+udocker load -i rw-{version}.tar                               # on the server
+udocker create --name=rw radiology-workbench:{version}
 ./scripts/udocker-run.sh                                   # wraps: udocker run --volume=… --env=… rw
 ```
 
@@ -78,7 +78,8 @@ The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or
 
 - Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker).
 - Image: 947 MB uncompressed rootfs (265 MB compressed) on linux/arm64; the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
-- Entry point `scripts/container_app.py` mounts the SPA and runs uvicorn (to be folded into `app/main.py`).
+- `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
+- Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).
 - Build for the server's architecture: `make image PLATFORM=linux/amd64` on an Apple Silicon Mac.
 - colima on the dev Mac has no host mounts by default (`$HOME` contains a space), so bind mounts appear empty; start it with `colima start --mount '<path>:w'` to use real data under Docker.
 - If Docker Desktop is not running, a CLI config with `credsStore: desktop` makes pulls hang; use a `DOCKER_CONFIG` without a creds store.

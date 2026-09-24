@@ -32,6 +32,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
 ```text
 {WORKSPACE_ROOT}/
 ├── workspace.json                 # registry: [{project_id, name, created_at, last_opened_at}]
+├── .staging/                      # scratch for bundle export/import (PRJ-08/09)
 └── projects/
     ├── .archive/
     └── {project_id}/
@@ -42,7 +43,8 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
         ├── index/                 # DERIVED from sources + project.json
         │   ├── items.jsonl        # normalized viewable items (DATA_MODEL §Item)
         │   ├── cases.jsonl        # case summaries
-        │   └── qc_warnings.jsonl  # validation results (IMP-08)
+        │   ├── qc_warnings.jsonl  # validation results (IMP-08)
+        │   └── hashes.json        # full SHA-256 per file ref, keyed with its quick fp (IMP-09)
         ├── curation/
         │   ├── events.jsonl       # append-only decisions — SOURCE OF TRUTH (CUR-*)
         │   └── state.json         # DERIVED latest-state snapshot
@@ -104,6 +106,17 @@ Depends: ADR-0002, ADR-0004, ADR-0005.
 | Source data | Never opened for writing (R1) |
 
 Single-writer model and locking: BE-05.
+
+## Bundles (PRJ-08/09)
+
+| Rule | Detail |
+|---|---|
+| Layout | One zip with one top-level folder `{project_id}/` |
+| Excluded | `cache/`, `.lock`, `.*.tmp`, symlinks, and image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) anywhere |
+| Export | Built under the project lock in `WORKSPACE_ROOT/.staging/`, deleted after sending |
+| Import id | Keeps the bundle's `project_id` unless the workspace already uses it (active or archived); then a new ULID is written to `project.json` |
+| Import guards | Zip-slip, symlinks, ≤ 1M entries, ≤ 50 GiB uncompressed; extracted in `.staging/` then renamed into `projects/`; migrations run on open (PRJ-11) |
+| Relink | Each alias is resolved and verified (PRJ-05); failures open the relink dialog (API-06 `needs_relink`) |
 
 ## Phase configuration (P1b)
 
