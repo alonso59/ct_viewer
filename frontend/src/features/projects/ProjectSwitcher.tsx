@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { useProjects } from '../../api'
-import { Icon, codicon, ct } from '../../theme'
+import { BrandMark, Icon, codicon } from '../../theme'
 import { NewProjectDialog } from './WorkspaceHome'
 
 export function ProjectSwitcher({ pid }: { pid: string }) {
@@ -18,9 +18,7 @@ export function ProjectSwitcher({ pid }: { pid: string }) {
     <>
       <Menu.Root>
         <Menu.Trigger className="titlebar-brand" aria-label={t('projects.switch')}>
-          <span style={{ color: 'var(--accent)', display: 'inline-flex' }}>
-            <Icon spec={ct('layout-four-up')} />
-          </span>
+          <BrandMark size={18} />
           {current?.name ?? t('common.loading')}
           <Icon spec={codicon('chevron-down')} />
         </Menu.Trigger>

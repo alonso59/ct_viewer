@@ -86,4 +86,4 @@ frontend/src/
 - `CaseFilter.itemIds` (DB-04) is applied client-side on API-20 results (the case id is the `item_id` prefix); `features/explorer` exports a read-only `useExplorerFilter()` and `showItemsInExplorer(ids)`.
 
 - i18n is split: `i18n/en.json` (eager) and `i18n/en.lazy.json`, loaded by `i18n/lazy.ts` from lazy chunks (dashboard, analysis, curation, queue, radiomics settings). Put strings used only in a lazy chunk into `en.lazy.json` (NFR-07). The key-coverage tests merge both files.
-- Initial JS after Step 3: 299.5 KB gzip, still at the NFR-07 limit.
+- Initial JS after P7b: 295.1 KB gzip (same method). The import wizard is its own chunk (`features/import/LazyImportWizard.tsx`); its store and `FolderBrowser` stay eager. Brand images are static files (`public/brand/`, UI-21), never imported into JS.

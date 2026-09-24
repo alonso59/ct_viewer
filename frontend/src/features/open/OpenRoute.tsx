@@ -10,7 +10,7 @@ import { NewProjectDialog } from '../projects'
 import { FolderBrowser } from '../import'
 import { StandaloneViewer } from '../viewer'
 import { useViewerSync } from '../../state'
-import { Icon, codicon } from '../../theme'
+import { BrandMark, Icon, codicon } from '../../theme'
 import { attachedTo, autoLabels, toItemRecord } from './model'
 import { AddDialog } from './AddDialog'
 import { SaveDialog } from './SaveDialog'
@@ -99,8 +99,8 @@ export default function OpenRoute() {
     <div className="page">
       <div className="page-inner" style={{ maxWidth: 'none', display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
         <header style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button type="button" className="btn" onClick={() => navigate('/')} title={t('open.home')}>
-            <Icon spec={codicon('home')} />
+          <button type="button" className="btn btn-brand" onClick={() => navigate('/')} title={t('open.home')} aria-label={t('open.home')}>
+            <BrandMark size={18} />
           </button>
           <h1 style={{ margin: 0, fontSize: 'var(--fs-title)' }}>{t('open.title')}</h1>
           <span className="mono muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={path ?? ''}>{path}</span>

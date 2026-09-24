@@ -478,3 +478,17 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Step 4 (udocker, remote checks, image rebuild with P7b changes), then P8 Electron.
 - Owner decisions: PHI in un-anonymized converter rows travelling in bundles (Wave 3); deleting `legacy/` (fully ported); the legacy VOI axis-order check (no VOI writer in `legacy/convert/`).
 - Initial JS is at 298 of 300 KB: the next UI work should move the import wizard into a lazy chunk.
+
+## 2026-09-24 · P7b follow-ups (owner decisions) · v3
+
+**Done**
+- PHI in bundles (owner: apply the recommended option): bundle export applies the converter's `basic` profile to DICOM-derived rows that were not anonymized at conversion: `sources/*/metadata.jsonl`, `index/items.jsonl`, `index/cases.jsonl` (`patient_id`), `sources/identity.json` (keys hashed like anonymized runs; series UIDs in scan keys replaced). The project folder is unchanged. Rule in `plugins/dicom/sidecar.py` (`scrub_for_sharing`, `hash_identity_key`, shared with the pipeline); applied in `app/projects/bundle.py`. Docs: DCM-05, PROJECT_FORMAT §Bundles. Test: `test_bundle.py::test_export_scrubs_unanonymized_dicom_rows`.
+- NFR-07 headroom: the import wizard is a lazy chunk (`LazyImportWizard.tsx`; `store.ts` and `FolderBrowser.tsx` stay eager). Initial JS 298.1 → 295.1 KB gzip.
+- Brand (UI-21, UI_SHELL §Brand): master `docs/brand/logo-master.png`; `frontend/public/brand/logo-{32,64,128,180}.png`; favicon + Apple touch icon; `theme/BrandMark` in the title-bar project switcher, the home header (replaces the `layout-four-up` placeholder) and the Open-mode home button.
+
+**Results**: `make fixtures && make check` green: 438 backend + 200 frontend; Playwright 24/24 (Chromium + Firefox).
+
+**Pending (owner decisions 2026-09-24)**
+- VOI extractor plugin from a segmentation (reference code to come); it settles the legacy `.npy` VOI axis order (ROADMAP §P7b).
+- `legacy/` deletion (fully ported; kept for now).
+- Continuous ranges in radiomics selection (API-33/34) vs "bin first": still open.

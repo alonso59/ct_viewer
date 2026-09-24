@@ -533,3 +533,14 @@ kbd.key {
 .dv-rw .dv-inactive-group .dv-tab.dv-active-tab {
   box-shadow: inset 0 2px 0 var(--border);
 }
+
+/* App logo (UI-21): shown as is; no filters, shadows or recolouring */
+.brand-mark {
+  display: block;
+  flex: none;
+  object-fit: contain;
+  user-select: none;
+}
+.btn-brand {
+  padding: 0 var(--sp-1);
+}

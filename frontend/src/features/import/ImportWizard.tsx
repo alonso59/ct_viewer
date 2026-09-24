@@ -5,13 +5,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { create } from 'zustand'
 
 import {
   api,
   useCommitImport,
   useDetect,
-  useFsList,
   useImportPreview,
   useJobs,
   type DetectCandidate,
@@ -19,103 +17,20 @@ import {
   type ImportPreview,
   type NiftiOptions,
   type PreviewRequest,
-  type RootRole,
 } from '../../api'
 import { Dialog, ProblemCard, Progress } from '../../lib'
 import { toast } from '../../shell'
 import { useReviewer } from '../../state'
 import { DerivedRootDialog } from './DerivedRootDialog'
+import { ACCEPTED, FolderBrowser } from './FolderBrowser'
+import { useImportWizard, type WizardPrefill } from './store'
 import { Icon, codicon } from '../../theme'
 import './import.css'
-
-export interface WizardPrefill {
-  path: string
-  adapter?: string
-  /** SRC-15 "Add to project…": keep the project's other sources */
-  add?: boolean
-}
-
-interface WizardState {
-  pid: string | null
-  prefill: WizardPrefill | null
-  open: (pid: string, prefill?: WizardPrefill) => void
-  close: () => void
-}
-export const useImportWizard = create<WizardState>()((set) => ({
-  pid: null,
-  prefill: null,
-  open: (pid, prefill) => set({ pid, prefill: prefill ?? null }),
-  close: () => set({ pid: null, prefill: null }),
-}))
 
 const STEPS = ['root', 'detect', 'preview', 'index'] as const
 type Step = (typeof STEPS)[number]
 const MAX_ERRORS = 50
-/** SRC-02: files the browser lets you pick (folders are always navigable) */
-const ACCEPTED = /\.(nii|nii\.gz|npy|dcm)$/i
 const IMPORTABLE = new Set<string>(['metadata-v1', 'nifti-files'])
-
-/** IMP-01: browse folders under ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
-export function FolderBrowser({
-  path,
-  onPath,
-  selected,
-  onSelectFile,
-  role = 'source',
-}: {
-  path: string | null
-  onPath: (p: string | null) => void
-  /** Highlighted file (single-file selection, SRC-05) */
-  selected?: string | null
-  /** Makes accepted files clickable */
-  onSelectFile?: (p: string) => void
-  role?: RootRole
-}) {
-  const { t } = useTranslation()
-  const { data, isLoading, isError, error } = useFsList(path, role)
-  return (
-    <div className="fs">
-      <div className="fs-path mono" title={path ?? ''}>
-        <Icon spec={codicon('folder-opened')} />
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'rtl', textAlign: 'left' }}>
-          {path ?? t('import.allowedRootsTitle')}
-        </span>
-      </div>
-      <div className="fs-list" role="listbox" aria-label={t('import.folders')}>
-        {path !== null ? (
-          <button type="button" className="list-row" onClick={() => onPath(data?.parent ?? null)}>
-            <Icon spec={codicon('arrow-up')} />
-            {t('import.up')}
-          </button>
-        ) : null}
-        {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-        {isError ? <ProblemCard error={error} /> : null}
-        {data && data.entries.length === 0 ? <div className="empty">{t(path === null ? 'import.noRoots' : 'import.emptyFolder')}</div> : null}
-        {data?.entries.map((e) => {
-          const pickable = e.kind === 'file' && !!onSelectFile && ACCEPTED.test(e.name)
-          return (
-            <button
-              key={e.path}
-              type="button"
-              className="list-row"
-              aria-selected={selected === e.path}
-              disabled={e.kind === 'file' && !pickable}
-              onClick={() => (e.kind === 'dir' ? onPath(e.path) : onSelectFile?.(e.path))}
-              title={e.path}
-            >
-              <Icon spec={codicon(e.kind === 'dir' ? 'folder' : 'file')} />
-              <span>{e.name}</span>
-              {e.has_metadata ? <span className="badge" data-tone="ok" style={{ marginLeft: 'auto' }}>{t('import.hasMetadata')}</span> : null}
-              {selected === e.path ? <Icon spec={codicon('check')} style={{ marginLeft: 'auto' }} /> : null}
-            </button>
-          )
-        })}
-        {data?.truncated ? <div className="muted" style={{ padding: '4px 12px' }}>{t('import.truncated')}</div> : null}
-      </div>
-      <div className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t(role === 'derived' ? 'import.allowedDerived' : 'import.allowedRoots')}</div>
-    </div>
-  )
-}
 
 type Uploads = NonNullable<PreviewRequest['files']>
 
@@ -253,15 +168,9 @@ function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value:
   )
 }
 
-export function ImportWizard() {
-  const pid = useImportWizard((s) => s.pid)
-  const prefill = useImportWizard((s) => s.prefill)
-  return pid ? <Wizard key={pid} pid={pid} prefill={prefill} /> : null
-}
-
 const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 
-function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }) {
+export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const close = useImportWizard((s) => s.close)

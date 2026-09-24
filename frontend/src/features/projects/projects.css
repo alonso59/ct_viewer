@@ -24,7 +24,6 @@
   margin: 4px 0 0;
 }
 .home-logo {
-  color: var(--accent);
   display: inline-flex;
 }
 .home h2,

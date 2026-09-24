@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, keys } from '../../api'
 import { Dialog, ProblemCard } from '../../lib'
-import { FolderBrowser } from './ImportWizard'
+import { FolderBrowser } from './FolderBrowser'
 import { codicon } from '../../theme'
 
 export function DerivedRootDialog({ pid, onClose }: { pid: string; onClose: (ok: boolean) => void }) {

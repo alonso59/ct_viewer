@@ -19,7 +19,7 @@ import {
 } from '../../api'
 import { Dialog, IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
 import { toast } from '../../shell'
-import { Icon, codicon, ct } from '../../theme'
+import { BrandMark, Icon, codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from '../import'
 import { useOpenDialog } from '../open'
 import { exportBundle } from './actions'
@@ -223,7 +223,7 @@ export function WorkspaceHome() {
     <div className="home">
       <div className="home-inner">
         <header className="home-hero">
-          <span className="home-logo"><Icon spec={ct('layout-four-up')} size={40} /></span>
+          <span className="home-logo"><BrandMark size={48} /></span>
           <div>
             <h1>{t('app.title')}</h1>
             <p className="muted">{t('home.subtitle')}</p>

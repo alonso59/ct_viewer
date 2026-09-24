@@ -82,6 +82,7 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | UI-18 | Every error shows its cause (`detail`) and its next actions (`actions[]`) as buttons (SRC-11); a bare "Validation failed" is a bug. | M |
 | UI-19 | Requirements are asked when a task needs them, not at import: a task's settings tab shows the preflight (TSK-04) with counts and one-click suggested tasks; a task that writes volumes asks for the `DERIVED` folder on first use (PRJ-13). | M |
 | UI-20 | Every task uses the same tab: Selection · Settings (schema form) · Preflight/Estimate · Run; outputs appear as a segmentation set, a features run, an import or annotations. | M |
+| UI-21 | The app logo (§Brand) appears only as identity, never as decoration: browser tab icon, title-bar project switcher, workspace home header, Open-mode home button. | S |
 
 Implementation (P7b Wave 3): the Tasks view (activity bar) lists every task by kind with runner status and the recent runs; a task tab (`/p/{pid}/tasks/{task_id}`) has Selection (all active / current Explorer filter / item list; a segmentation set when the task reads masks; a folder or file for source tasks), Settings (the schema form), Preflight (counts, reasons, suggested tasks, the derived-folder prompt of UI-19), Estimate, Run, and the task's runs with their outputs (annotation runs can be activated per field). The Image view shows DICOM tags on demand. Open mode has Save as NIfTI… and Add to project…; the import wizard runs `dicom.convert` for DICOM sources.
 
@@ -101,6 +102,19 @@ Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home a
 | `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset view* |
 
 \* Only active while the viewer has focus. Curation keys target the active item and the default target `seg`.
+
+## Brand (UI-21)
+
+| Rule | Detail |
+|---|---|
+| Master | `docs/brand/logo-master.png` (1254 px, transparent); derivatives in `frontend/public/brand/` (`logo-32/64/128/180.png`), generated from the master with `sips -z` |
+| Placements | Favicon 32/64 + Apple touch icon 180 (`index.html`); title bar 18 px next to the project name; home header 48 px next to the app name; Open-mode home button 18 px. Nowhere else (no viewer, dialogs, loaders or watermarks) |
+| Use | `theme/BrandMark` (`<img>`, 1×/2× source by size); decorative, so `alt=""` next to the visible app or project name |
+| Integrity | Shown as is: no recolouring, filters, shadows, cropping, rotation or stretching; square aspect kept |
+| Minimum size | 16 px; below 24 px the detail is lost, so use it only with the text name beside it |
+| Clear space | At least `--sp-2` around it; never overlapping other content |
+| Themes | The same artwork on GitHub Dark and Light (transparent background); no light/dark variants |
+| Later | Electron (P8) app icons are derived from the master |
 
 ## Theme tokens: GitHub Dark (Primer)
 
