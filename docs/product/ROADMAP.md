@@ -114,10 +114,10 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click; a two-group and a three-group comparison on a derived variable return tests matching SciPy, with q-values and at least one triggered recommendation.
 
 ### P7 — Packaging
-- [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*)
-- [ ] TST-05, TST-09, TST-10; README quick start
+- [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*) — Dockerfile, compose, `udocker-run.sh` done (lane/3-packaging); execution-mode benchmark on the remote server (Step 4)
+- [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done (lane/3-packaging); TST-10 under udocker, TST-05, TST-09 in Step 4
 - [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12); add `modality` to `ItemRecord` (VW-05 uses `extra.modality`)
-- [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04)
+- [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done (lane/3-packaging); Dataset820 check in Step 4
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
 
 ### P8 — Electron

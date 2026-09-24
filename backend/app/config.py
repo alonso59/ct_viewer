@@ -5,13 +5,15 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Set by the image (`ENV CONTAINER_MODE=1` in the Dockerfile); unset in local dev (OPS-04).
+    container_mode: bool = False
     workspace_root: Path = Path("/workspace")
     allowed_data_roots: str = ""
     host: str = "127.0.0.1"
@@ -45,6 +47,12 @@ class Settings(BaseSettings):
             if not Path(p).is_absolute():
                 raise ValueError(f"ALLOWED_DATA_ROOTS entries must be absolute: {p!r}")
         return v
+
+    @model_validator(mode="after")
+    def _roots_required_in_container(self) -> Settings:
+        if self.container_mode and not self.allowed_roots:
+            raise ValueError("ALLOWED_DATA_ROOTS must not be empty in container mode (OPS-04)")
+        return self
 
     @property
     def allowed_roots(self) -> list[Path]:
