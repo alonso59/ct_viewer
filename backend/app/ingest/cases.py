@@ -38,7 +38,7 @@ def build_cases(
                 phases=rules.order(phases),
                 n_scans=len({i.scan_idx for i in live}),
                 n_items=len(live),
-                has_seg=any(i.scope == "complete" and i.mask is not None for i in live),
+                has_seg=any(i.scope == "complete" and bool(i.masks) for i in live),
                 has_voi_L=any(i.scope == "voi" and i.side == "L" for i in live),
                 has_voi_R=any(i.scope == "voi" and i.side == "R" for i in live),
                 n_warnings=n_warn[case_id],

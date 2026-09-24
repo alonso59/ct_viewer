@@ -362,7 +362,7 @@ def test_http_errors(env: Env) -> None:
     r = c.get(env.url(SEG_ITEM, 7))
     assert r.status_code == 404 and r.json()["type"] == "/problems/not-found"
     r = c.get(env.url(NOMASK_ITEM, 1))
-    assert r.status_code == 404 and r.json()["detail"] == "item has no mask"
+    assert r.status_code == 404 and r.json()["detail"].startswith("item has no mask")
     r = c.get(env.url(GONE_ITEM, 1))
     assert r.status_code == 409 and r.json()["type"] == "/problems/source-missing"
     r = c.get(env.url("case_09999.01.complete.-", 1))

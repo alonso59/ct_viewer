@@ -36,14 +36,22 @@ _MESH_RESPONSES: dict[int | str, dict[str, Any]] = {
     summary="Surface mesh of one mask label (202 + job if not cached)",
 )
 async def get_mesh(
-    pid: str, iid: str, label: int, request: Request, ctx: Ctx, smooth: int = 1
+    pid: str,
+    iid: str,
+    label: int,
+    request: Request,
+    ctx: Ctx,
+    smooth: int = 1,
+    seg: str | None = None,
 ) -> Response:
+    """`seg` = segmentation set (ADR-0015); default `default_seg`."""
     mesh.check_params(label, smooth)
     item = ctx.index.get_item(pid, iid)
-    vol = item.mask
+    seg_id = seg or ctx.workspace.get(pid).default_seg
+    vol = item.masks.get(seg_id)
     if vol is None:
-        raise NotFound("item has no mask")
-    if item.labels_present and label not in item.labels_present:
+        raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
+    if seg_id == "imported" and item.labels_present and label not in item.labels_present:
         raise NotFound(f"label {label} is not present in the mask")
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
     if not path.is_file():

@@ -11,6 +11,8 @@ from app.ingest.indexer import FileProbe, FileResult, ItemProbe, ItemProbeResult
 from app.ingest.models import Geometry, Item, QcWarning, VolumeRef
 from app.ingest.normalize import Draft, FileDraft
 
+IMPORTED = "imported"  # the segmentation set of masks found at import (ADR-0015 §3)
+
 
 def probes_for(drafts: Sequence[Draft]) -> list[ItemProbe]:
     """Worker inputs for every non-excluded draft with at least one resolved file."""
@@ -105,7 +107,8 @@ def _finalize_one(
                 warn(QcCode.MISSING_PATH, "mask", "seg_path does not exist", d.mask.ref)
             warn(QcCode.MISSING_SEG, "mask", "scan has no SEG", d.mask.ref)
     if prev is not None:
-        for role, new, old in (("image", image, prev.image), ("mask", mask, prev.mask)):
+        old_mask = prev.masks.get(IMPORTED)
+        for role, new, old in (("image", image, prev.image), ("mask", mask, old_mask)):
             if new and old and new.fp and old.fp and new.fp != old.fp and new.ref == old.ref:
                 warn(QcCode.FINGERPRINT_CHANGED, role, f"{role} changed since last index", new.ref)
     item = Item(
@@ -118,7 +121,7 @@ def _finalize_one(
         modality=d.modality,
         phase=d.phase,
         image=image,
-        mask=mask,
+        masks={IMPORTED: mask} if mask is not None else {},
         geometry=geometry,
         labels_present=labels,
         status=status,

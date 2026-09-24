@@ -43,7 +43,7 @@ def create(client: TestClient, name: str = "Demo") -> dict[str, Any]:
 def test_create_list_get(client: TestClient) -> None:
     body = create(client)
     pid = body["project_id"]
-    assert body["name"] == "Demo" and body["format_version"] == 1
+    assert body["name"] == "Demo" and body["format_version"] == 2
     assert body["share_url"].endswith(f"/p/{pid}")
     rows = client.get(f"{API}/projects").json()
     assert [r["project_id"] for r in rows] == [pid]
@@ -117,10 +117,11 @@ def test_roots_put_and_errors(client: TestClient, data_root: Path, fixtures_copy
     url = f"{API}/projects/{pid}/roots/DATA"
     res = client.put(url, json={"path": str(data_root)})
     assert res.status_code == 200, res.text
-    assert res.json()["root"] == {"alias": "DATA", "path": str(data_root), "exists": True}
+    expected = {"alias": "DATA", "path": str(data_root), "exists": True, "role": "source"}
+    assert res.json()["root"] == expected
     assert res.json()["verify"]["sampled"] == 0
     rows = client.get(f"{API}/projects/{pid}/roots").json()
-    assert rows == [{"alias": "DATA", "path": str(data_root), "exists": True}]
+    assert rows == [expected]
     outside = fixtures_copy / "outside"
     assert_problem(client.put(url, json={"path": str(outside)}), 403, "path-outside-root")
     assert_problem(client.put(url, json={"path": "rel/path"}), 422, "validation")

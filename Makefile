@@ -64,7 +64,7 @@ gen-api: ## Regenerate frontend API types from OpenAPI (FE-03)
 	$(NODE) npm run gen:api
 
 lint: ## ruff + eslint
-	cd backend && $(BPY) -m ruff check . ../scripts && $(BPY) -m ruff format --check . ../scripts
+	cd backend && $(BPY) -m ruff check . ../scripts ../plugins && $(BPY) -m ruff format --check . ../scripts ../plugins
 	$(NODE) npm run lint
 
 typecheck: ## mypy (strict) + tsc (strict)

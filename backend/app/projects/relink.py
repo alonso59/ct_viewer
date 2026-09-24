@@ -36,7 +36,7 @@ def _alias_of(ref: str) -> str | None:
 
 
 def _candidate(item: Item, alias: str) -> VolumeRef | None:
-    for vol in (item.image, item.mask):
+    for vol in item.volumes():
         if vol is not None and vol.fp and _alias_of(vol.ref) == alias:
             return vol
     return None

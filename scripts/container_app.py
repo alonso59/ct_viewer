@@ -20,7 +20,8 @@ def main() -> None:
     try:
         settings = get_settings()  # invalid config stops here, before binding the port
     except ValidationError as e:
-        sys.exit("refusing to start: " + "; ".join(err["msg"] for err in e.errors()))
+        msgs = (str(err["msg"]).removeprefix("Value error, ") for err in e.errors())
+        sys.exit("refusing to start: " + "; ".join(msgs))
 
     import uvicorn
 

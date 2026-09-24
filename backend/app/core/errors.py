@@ -25,16 +25,30 @@ SLUGS: dict[str, tuple[int, str]] = {
     "job-conflict": (409, "Conflicting job"),
     "reviewer-required": (428, "Reviewer required"),
     "server-busy": (503, "Server busy"),
+    "unsupported-format": (415, "Unsupported format"),
+    "ambiguous-axis-order": (422, "Ambiguous axis order"),
+    "geometry-mismatch": (422, "Geometry mismatch"),
+    "derived-root-required": (409, "Derived root required"),
+    "roots-overlap": (409, "Roots overlap"),
 }
 
 
 class Problem(Exception):
+    """`actions`: next steps the UI offers, e.g. `import_as:nifti-files` (SRC-11)."""
+
     slug = "server-busy"
 
-    def __init__(self, detail: str = "", *, errors: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        detail: str = "",
+        *,
+        errors: list[dict[str, Any]] | None = None,
+        actions: list[str] | None = None,
+    ) -> None:
         super().__init__(detail or self.slug)
         self.detail = detail
         self.errors = errors
+        self.actions = actions
 
     @property
     def status(self) -> int:
@@ -77,8 +91,32 @@ class ServerBusy(Problem):
     slug = "server-busy"
 
 
+class UnsupportedFormat(Problem):
+    slug = "unsupported-format"
+
+
+class AmbiguousAxisOrder(Problem):
+    slug = "ambiguous-axis-order"
+
+
+class GeometryMismatch(Problem):
+    slug = "geometry-mismatch"
+
+
+class DerivedRootRequired(Problem):
+    slug = "derived-root-required"
+
+
+class RootsOverlap(Problem):
+    slug = "roots-overlap"
+
+
 def problem_body(
-    slug: str, detail: str, instance: str, errors: list[dict[str, Any]] | None = None
+    slug: str,
+    detail: str,
+    instance: str,
+    errors: list[dict[str, Any]] | None = None,
+    actions: list[str] | None = None,
 ) -> dict[str, Any]:
     status, title = SLUGS[slug]
     body: dict[str, Any] = {
@@ -90,6 +128,8 @@ def problem_body(
     }
     if errors is not None:
         body["errors"] = errors
+    if actions is not None:
+        body["actions"] = actions
     return body
 
 
@@ -100,7 +140,9 @@ def _response(body: dict[str, Any]) -> JSONResponse:
 def install_handlers(app: FastAPI) -> None:
     async def on_problem(request: Request, exc: Exception) -> JSONResponse:
         assert isinstance(exc, Problem)
-        return _response(problem_body(exc.slug, exc.detail, request.url.path, exc.errors))
+        return _response(
+            problem_body(exc.slug, exc.detail, request.url.path, exc.errors, exc.actions)
+        )
 
     async def on_validation(request: Request, exc: Exception) -> JSONResponse:
         assert isinstance(exc, RequestValidationError)

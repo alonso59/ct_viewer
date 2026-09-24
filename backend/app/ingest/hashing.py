@@ -102,7 +102,7 @@ async def start_hash_job(
     tasks: dict[str, HashTask] = {}
     skipped = 0
     for item in items:
-        for vol in (item.image, item.mask):
+        for vol in item.volumes():
             if vol is None or vol.fp is None or vol.ref in tasks:
                 continue
             known = current.get(vol.ref)

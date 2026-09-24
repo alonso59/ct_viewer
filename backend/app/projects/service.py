@@ -17,11 +17,17 @@ from typing import IO, Any, Final
 from pydantic import ValidationError
 
 from app.config import Settings
-from app.core.errors import FormatVersionUnsupported, NotFound, ValidationProblem
+from app.core.errors import (
+    DerivedRootRequired,
+    FormatVersionUnsupported,
+    NotFound,
+    RootsOverlap,
+    ValidationProblem,
+)
 from app.core.fsio import atomic_write_json, iter_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
-from app.core.paths import PathGuard, PathResolver
+from app.core.paths import PathGuard, PathResolver, is_within, realpath
 from app.curation.state import case_statuses
 from app.projects.bundle import extract_bundle, write_bundle
 from app.projects.migrations import check_version, migrate
@@ -33,6 +39,7 @@ from app.projects.models import (
     ProjectPatch,
     ProjectSummary,
     RootInfo,
+    SegmentationSet,
     WorkspaceEntry,
     preset_fields,
 )
@@ -48,15 +55,27 @@ SUBDIRS: Final = (
     "curation",
     "radiomics/profiles",
     "radiomics/runs",
+    "tasks/runs",
+    "derived",
     "exports",
     "cache",
 )
 
 
 class Workspace:
-    def __init__(self, settings: Settings, guard: PathGuard, locks: ProjectLocks) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        guard: PathGuard,
+        locks: ProjectLocks,
+        derived_guard: PathGuard | None = None,
+    ) -> None:
         self.settings = settings
         self.guard = guard
+        # ALLOWED_DERIVED_ROOTS (OPS-11); empty allows no derived root at all.
+        self.derived_guard = derived_guard or PathGuard(
+            settings.derived_roots, name="ALLOWED_DERIVED_ROOTS", strict=True
+        )
         self.locks = locks
         self.root = Path(settings.workspace_root)
         self.projects_dir = self.root / "projects"
@@ -169,7 +188,23 @@ class Workspace:
 
     def resolver(self, project_id: str) -> PathResolver:
         cfg = self.get(project_id)
-        return PathResolver({r.alias: r.path for r in cfg.path_roots}, self.guard)
+        return PathResolver(
+            {r.alias: r.path for r in cfg.path_roots},
+            self.guard,
+            roles={r.alias: r.role for r in cfg.path_roots},
+            derived_guard=self.derived_guard,
+        )
+
+    def derived_root(self, project_id: str) -> PathRoot:
+        """PRJ-13: the registered derived root, or `derived-root-required` with the next step."""
+        root = self.get(project_id).derived_root()
+        if root is None:
+            raise DerivedRootRequired(
+                "This task writes volumes: choose a derived folder for the project first "
+                "(inside ALLOWED_DERIVED_ROOTS)",
+                actions=["choose_derived_root"],
+            )
+        return root
 
     def invalidate(self, project_id: str) -> None:
         self._cache.pop(project_id, None)
@@ -241,7 +276,10 @@ class Workspace:
             }
             merged = cur.model_dump() | changes
             check_phase_config(merged)
-            new = ProjectConfig.model_validate(merged)
+            try:
+                new = ProjectConfig.model_validate(merged)
+            except ValidationError as exc:
+                raise ValidationProblem("Invalid project update", errors=_errors(exc)) from None
             if new == cur:
                 return cur
             new = new.model_copy(update={"updated_at": utc_now()})
@@ -252,13 +290,26 @@ class Workspace:
             return new
 
     async def set_root(self, project_id: str, root: PathRoot) -> ProjectConfig:
-        """Add or relink an alias (PRJ-05). Path must pass the guard (OPS-04)."""
+        """Add or relink an alias (PRJ-05, PRJ-13).
+
+        `source` roots must pass ALLOWED_DATA_ROOTS (OPS-04); the single `derived` root must be
+        inside ALLOWED_DERIVED_ROOTS (OPS-11) and must not overlap any source root (ADR-0014).
+        """
         path = Path(root.path)
         if not path.is_absolute():
             raise ValidationProblem(
                 "Root path must be absolute", errors=[{"loc": ["path"], "msg": "not absolute"}]
             )
-        self.guard.check(path)
+        if root.role == "derived":
+            if not self.derived_guard.allowed_roots:
+                raise DerivedRootRequired(
+                    "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder "
+                    "(OPS-11)",
+                    actions=["configure:ALLOWED_DERIVED_ROOTS"],
+                )
+            self.derived_guard.check(path)
+        else:
+            self.guard.check(path)
         if not path.is_dir():
             raise ValidationProblem(
                 "Root path must be an existing directory",
@@ -266,9 +317,46 @@ class Workspace:
             )
         async with self.locks(project_id):
             cur = self.get(project_id)
-            roots = [r for r in cur.path_roots if r.alias != root.alias] + [root]
-            roots.sort(key=lambda r: r.alias)
+            others = [r for r in cur.path_roots if r.alias != root.alias]
+            if root.role == "derived" and any(r.role == "derived" for r in others):
+                raise ValidationProblem(
+                    "The project already has a derived root (PRJ-13); relink that alias instead",
+                    errors=[{"loc": ["alias"], "msg": "one derived root per project"}],
+                )
+            real = realpath(path)
+            for r in others:
+                if r.role == root.role:
+                    continue
+                o = realpath(Path(r.path))
+                if is_within(real, o) or is_within(o, real):
+                    raise RootsOverlap(
+                        f"{root.alias} ({root.role}) overlaps {r.alias} ({r.role}): source and "
+                        "derived folders must be separate (ADR-0014)"
+                    )
+            roots = sorted([*others, root], key=lambda r: r.alias)
             new = cur.model_copy(update={"path_roots": roots, "updated_at": utc_now()})
+            return self._save(new)
+
+    async def put_segmentation(self, project_id: str, seg: SegmentationSet) -> ProjectConfig:
+        """Add or replace one segmentation set (ADR-0015; task outputs, API-27 PATCH)."""
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            sets = [s for s in cur.segmentations if s.seg_id != seg.seg_id]
+            pos = next(
+                (i for i, s in enumerate(cur.segmentations) if s.seg_id == seg.seg_id), len(sets)
+            )
+            sets.insert(pos, seg)
+            new = cur.model_copy(update={"segmentations": sets, "updated_at": utc_now()})
+            return self._save(new)
+
+    async def set_annotation_source(
+        self, project_id: str, field: str, run_id: str | None
+    ) -> ProjectConfig:
+        """ANZ-04: activate (or clear) the annotation run for one field."""
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            sources = {**cur.annotation_sources, field: run_id}
+            new = cur.model_copy(update={"annotation_sources": sources, "updated_at": utc_now()})
             return self._save(new)
 
     async def archive(self, project_id: str) -> None:
@@ -388,7 +476,9 @@ def _purge(cache: Path) -> None:
 
 
 def _root_info(root: PathRoot) -> RootInfo:
-    return RootInfo(alias=root.alias, path=root.path, exists=Path(root.path).is_dir())
+    return RootInfo(
+        alias=root.alias, path=root.path, exists=Path(root.path).is_dir(), role=root.role
+    )
 
 
 def _errors(exc: ValidationError) -> list[dict[str, Any]]:

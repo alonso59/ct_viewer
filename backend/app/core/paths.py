@@ -1,7 +1,8 @@
 """Path aliases and guards (BE-02, PRJ-04, PROJECT_FORMAT.md §Path aliases).
 
 Every access to referenced data goes through `PathResolver.resolve(ref)`: the real path
-(symlinks followed) must stay inside the alias root **and** inside `ALLOWED_DATA_ROOTS`.
+(symlinks followed) must stay inside the alias root **and** inside `ALLOWED_DATA_ROOTS`
+(`source` roots) or `ALLOWED_DERIVED_ROOTS` (`derived` roots, ADR-0014, OPS-12).
 Source files are opened read-only through `open_source` (BE-03, R1).
 """
 
@@ -13,7 +14,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Literal
 
 from app.core.errors import NotFound, PathOutsideRoot, ValidationProblem
 
@@ -69,14 +70,25 @@ def realpath(path: Path | str) -> Path:
 
 
 class PathGuard:
-    """`ALLOWED_DATA_ROOTS` containment (OPS-04). An empty list is unrestricted (dev only)."""
+    """`ALLOWED_DATA_ROOTS` containment (OPS-04). An empty list is unrestricted (dev only).
 
-    def __init__(self, allowed_roots: Sequence[Path]) -> None:
+    `strict=True` (the derived guard, OPS-11): an empty list allows nothing.
+    """
+
+    def __init__(
+        self,
+        allowed_roots: Sequence[Path],
+        *,
+        name: str = "ALLOWED_DATA_ROOTS",
+        strict: bool = False,
+    ) -> None:
         self.allowed_roots = [realpath(p) for p in allowed_roots]
+        self.name = name
+        self.strict = strict
 
     @property
     def restricted(self) -> bool:
-        return bool(self.allowed_roots)
+        return bool(self.allowed_roots) or self.strict
 
     def is_allowed(self, path: Path) -> bool:
         real = realpath(path)
@@ -86,16 +98,36 @@ class PathGuard:
         """Return the real path, or raise `path-outside-root`."""
         real = realpath(path)
         if self.restricted and not any(is_within(real, r) for r in self.allowed_roots):
-            raise PathOutsideRoot("Path is outside ALLOWED_DATA_ROOTS")
+            raise PathOutsideRoot(f"Path is outside {self.name}")
         return real
 
 
-class PathResolver:
-    """Resolve `ALIAS:rel` refs for one project (BE-02)."""
+RootRole = Literal["source", "derived"]
 
-    def __init__(self, roots: Mapping[str, Path | str], guard: PathGuard) -> None:
+
+class PathResolver:
+    """Resolve `ALIAS:rel` refs for one project (BE-02); `derived` aliases use `derived_guard`."""
+
+    def __init__(
+        self,
+        roots: Mapping[str, Path | str],
+        guard: PathGuard,
+        *,
+        roles: Mapping[str, RootRole] | None = None,
+        derived_guard: PathGuard | None = None,
+    ) -> None:
         self.roots = {a: Path(p) for a, p in roots.items()}
         self.guard = guard
+        self.roles: dict[str, RootRole] = dict(roles or {})
+        self.derived_guard = derived_guard or PathGuard(
+            [], name="ALLOWED_DERIVED_ROOTS", strict=True
+        )
+
+    def role(self, alias: str) -> RootRole:
+        return self.roles.get(alias, "source")
+
+    def guard_for(self, alias: str) -> PathGuard:
+        return self.derived_guard if self.role(alias) == "derived" else self.guard
 
     def root(self, alias: str) -> Path:
         try:
@@ -109,7 +141,7 @@ class PathResolver:
         cand = realpath(root_real / r.rel)
         if not is_within(cand, root_real):
             raise PathOutsideRoot(f"{r.alias}: path escapes its alias root")
-        return self.guard.check(cand)
+        return self.guard_for(r.alias).check(cand)
 
     def to_ref(self, alias: str, raw: str) -> str:
         """Turn an input path (relative to the alias root, or absolute legacy) into a ref.

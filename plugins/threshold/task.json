@@ -1,0 +1,24 @@
+{
+  "manifest": 1,
+  "id": "segment.threshold",
+  "version": "0.1.0",
+  "title": "Threshold segmentation (test)",
+  "description": "Fake segmentation for CI: voxels above a threshold become one label (TST-14).",
+  "kind": "segmentation",
+  "input": "items",
+  "outputs": ["masks"],
+  "requires": { "modality": ["CT"] },
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "threshold": { "type": "number", "default": 0, "x-help": "HU; voxels above become the label" },
+      "label": { "type": "integer", "minimum": 1, "maximum": 255, "default": 1 },
+      "seg_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+      "delay_s": { "type": "number", "minimum": 0, "maximum": 30, "default": 0, "x-advanced": true }
+    }
+  },
+  "runtime": { "type": "external", "command": ["{python}", "run.py", "{job_dir}"], "env_hint": "any Python with numpy + nibabel" },
+  "resources": { "gpu": "none", "seconds_per_item": 1 },
+  "labels": { "names": { "1": "foreground" } },
+  "test_only": true
+}

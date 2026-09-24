@@ -3801,6 +3801,24 @@
     "title": "InputFile",
     "type": "object"
    },
+   "InvalidManifest": {
+    "properties": {
+     "error": {
+      "title": "Error",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "error"
+    ],
+    "title": "InvalidManifest",
+    "type": "object"
+   },
    "Issue": {
     "properties": {
      "loc": {
@@ -3898,6 +3916,13 @@
         "type": "null"
        }
       ]
+     },
+     "masks": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/VolumeRef"
+      },
+      "title": "Masks",
+      "type": "object"
      },
      "modality": {
       "anyOf": [
@@ -4061,6 +4086,13 @@
         "type": "null"
        }
       ]
+     },
+     "masks": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/VolumeRef"
+      },
+      "title": "Masks",
+      "type": "object"
      },
      "modality": {
       "anyOf": [
@@ -4253,13 +4285,26 @@
       "title": "Job Id",
       "type": "string"
      },
+     "key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Key"
+     },
      "kind": {
       "enum": [
        "index",
        "hash",
        "thumbnail",
        "radiomics",
-       "mesh"
+       "mesh",
+       "task",
+       "open-convert"
       ],
       "title": "Kind",
       "type": "string"
@@ -4293,6 +4338,7 @@
      "status": {
       "enum": [
        "queued",
+       "waiting_for_runner",
        "running",
        "succeeded",
        "failed",
@@ -5124,6 +5170,15 @@
      "path": {
       "title": "Path",
       "type": "string"
+     },
+     "role": {
+      "default": "source",
+      "enum": [
+       "source",
+       "derived"
+      ],
+      "title": "Role",
+      "type": "string"
      }
     },
     "required": [
@@ -5169,6 +5224,67 @@
      "canonical"
     ],
     "title": "PhaseInfo",
+    "type": "object"
+   },
+   "PreflightRequest": {
+    "properties": {
+     "selection": {
+      "$ref": "#/components/schemas/TaskSelection"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     }
+    },
+    "title": "PreflightRequest",
+    "type": "object"
+   },
+   "PreflightResult": {
+    "description": "TSK-04: items that aren't ready are skipped, never failed.",
+    "properties": {
+     "derived_root_required": {
+      "default": false,
+      "title": "Derived Root Required",
+      "type": "boolean"
+     },
+     "missing": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Missing",
+      "type": "object"
+     },
+     "n_ready": {
+      "title": "N Ready",
+      "type": "integer"
+     },
+     "n_selected": {
+      "title": "N Selected",
+      "type": "integer"
+     },
+     "ready_item_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Ready Item Ids",
+      "type": "array"
+     },
+     "suggestions": {
+      "items": {
+       "$ref": "#/components/schemas/Suggestion"
+      },
+      "title": "Suggestions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "n_selected",
+     "n_ready",
+     "missing",
+     "suggestions"
+    ],
+    "title": "PreflightResult",
     "type": "object"
    },
    "PreviewError": {
@@ -5301,8 +5417,27 @@
    "ProjectDetail": {
     "description": "API-03 response: project.json + share link (PRJ-03).",
     "properties": {
+     "annotation_sources": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Annotation Sources",
+      "type": "object"
+     },
      "created_at": {
       "title": "Created At",
+      "type": "string"
+     },
+     "default_seg": {
+      "default": "imported",
+      "title": "Default Seg",
       "type": "string"
      },
      "description": {
@@ -5317,7 +5452,7 @@
       "type": "string"
      },
      "format_version": {
-      "default": 1,
+      "default": 2,
       "title": "Format Version",
       "type": "integer"
      },
@@ -5376,6 +5511,13 @@
       "title": "Project Id",
       "type": "string"
      },
+     "segmentations": {
+      "items": {
+       "$ref": "#/components/schemas/SegmentationSet"
+      },
+      "title": "Segmentations",
+      "type": "array"
+     },
      "share_url": {
       "title": "Share Url",
       "type": "string"
@@ -5401,6 +5543,17 @@
    "ProjectPatch": {
     "description": "API-03 PATCH body: only provided fields change.",
     "properties": {
+     "default_seg": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default Seg"
+     },
      "description": {
       "anyOf": [
        {
@@ -5975,6 +6128,88 @@
     "title": "RelinkResult",
     "type": "object"
    },
+   "Requires": {
+    "properties": {
+     "channels": {
+      "anyOf": [
+       {
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Channels"
+     },
+     "modality": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modality"
+     },
+     "seg": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SegRequirement"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "title": "Requires",
+    "type": "object"
+   },
+   "Resources": {
+    "properties": {
+     "gpu": {
+      "default": "none",
+      "enum": [
+       "none",
+       "optional",
+       "required"
+      ],
+      "title": "Gpu",
+      "type": "string"
+     },
+     "max_batch": {
+      "anyOf": [
+       {
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Batch"
+     },
+     "seconds_per_item": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seconds Per Item"
+     }
+    },
+    "title": "Resources",
+    "type": "object"
+   },
    "ResultRow": {
     "description": "ANA-05: one tested feature (or the single balance-check row).",
     "properties": {
@@ -6105,6 +6340,22 @@
       "minLength": 1,
       "title": "Path",
       "type": "string"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "enum": [
+         "source",
+         "derived"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Default: the alias's role, else source",
+      "title": "Role"
      }
     },
     "required": [
@@ -6126,6 +6377,15 @@
      },
      "path": {
       "title": "Path",
+      "type": "string"
+     },
+     "role": {
+      "default": "source",
+      "enum": [
+       "source",
+       "derived"
+      ],
+      "title": "Role",
       "type": "string"
      }
     },
@@ -6690,6 +6950,111 @@
     "title": "RunSummary",
     "type": "object"
    },
+   "RunnerInfo": {
+    "properties": {
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "fresh": {
+      "title": "Fresh",
+      "type": "boolean"
+     },
+     "gpu": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Gpu"
+     },
+     "pid": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pid"
+     },
+     "runner_id": {
+      "title": "Runner Id",
+      "type": "string"
+     },
+     "tasks": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Tasks",
+      "type": "array"
+     }
+    },
+    "required": [
+     "runner_id",
+     "at",
+     "fresh"
+    ],
+    "title": "RunnerInfo",
+    "type": "object"
+   },
+   "RuntimeSpec": {
+    "properties": {
+     "command": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Command"
+     },
+     "entry": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entry"
+     },
+     "env_hint": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Env Hint"
+     },
+     "type": {
+      "enum": [
+       "builtin",
+       "external"
+      ],
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "type"
+    ],
+    "title": "RuntimeSpec",
+    "type": "object"
+   },
    "ScanGroup": {
     "properties": {
      "items": {
@@ -6762,6 +7127,213 @@
      "y"
     ],
     "title": "ScatterPoint",
+    "type": "object"
+   },
+   "SegProducer": {
+    "description": "The task run that produced a segmentation set (ADR-0015).",
+    "properties": {
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "settings_hash": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Settings Hash"
+     },
+     "task_id": {
+      "title": "Task Id",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "task_id",
+     "version",
+     "run_id"
+    ],
+    "title": "SegProducer",
+    "type": "object"
+   },
+   "SegRequirement": {
+    "properties": {
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     }
+    },
+    "title": "SegRequirement",
+    "type": "object"
+   },
+   "SegmentationInfo": {
+    "properties": {
+     "created_at": {
+      "default": "",
+      "title": "Created At",
+      "type": "string"
+     },
+     "is_default": {
+      "default": false,
+      "title": "Is Default",
+      "type": "boolean"
+     },
+     "kind": {
+      "default": "imported",
+      "enum": [
+       "imported",
+       "task",
+       "manual"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "label_mapping": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Label Mapping",
+      "type": "object"
+     },
+     "n_items": {
+      "default": 0,
+      "title": "N Items",
+      "type": "integer"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "producer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SegProducer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "seg_id": {
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Seg Id",
+      "type": "string"
+     },
+     "unmatched": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Unmatched",
+      "type": "array"
+     }
+    },
+    "required": [
+     "seg_id"
+    ],
+    "title": "SegmentationInfo",
+    "type": "object"
+   },
+   "SegmentationPatch": {
+    "properties": {
+     "label_mapping": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "integer"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label Mapping"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     }
+    },
+    "title": "SegmentationPatch",
+    "type": "object"
+   },
+   "SegmentationSet": {
+    "description": "`project.json.segmentations[]` (ADR-0015): one mask per item, per set.",
+    "properties": {
+     "created_at": {
+      "default": "",
+      "title": "Created At",
+      "type": "string"
+     },
+     "kind": {
+      "default": "imported",
+      "enum": [
+       "imported",
+       "task",
+       "manual"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "label_mapping": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Label Mapping",
+      "type": "object"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "producer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SegProducer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "seg_id": {
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Seg Id",
+      "type": "string"
+     },
+     "unmatched": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Unmatched",
+      "type": "array"
+     }
+    },
+    "required": [
+     "seg_id"
+    ],
+    "title": "SegmentationSet",
     "type": "object"
    },
    "Selection": {
@@ -6874,6 +7446,48 @@
     "title": "SelectionFilter",
     "type": "object"
    },
+   "SettingsIssue": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Loc",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Msg",
+      "type": "string"
+     },
+     "rule": {
+      "title": "Rule",
+      "type": "string"
+     },
+     "severity": {
+      "default": "error",
+      "enum": [
+       "error",
+       "warning"
+      ],
+      "title": "Severity",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "rule"
+    ],
+    "title": "SettingsIssue",
+    "type": "object"
+   },
    "SettingsSchema": {
     "properties": {
      "defaults": {
@@ -6935,6 +7549,24 @@
     ],
     "title": "Severity",
     "type": "string"
+   },
+   "Suggestion": {
+    "properties": {
+     "reason": {
+      "title": "Reason",
+      "type": "string"
+     },
+     "task_id": {
+      "title": "Task Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "task_id",
+     "reason"
+    ],
+    "title": "Suggestion",
+    "type": "object"
    },
    "TargetState": {
     "description": "Latest event for one `(item_id, target)` (or case-target) key (CUR-08).",
@@ -7025,6 +7657,1063 @@
      "event_id"
     ],
     "title": "TargetState",
+    "type": "object"
+   },
+   "TaskEstimate": {
+    "description": "TSK-05.",
+    "properties": {
+     "basis": {
+      "enum": [
+       "sample",
+       "manifest",
+       "unknown"
+      ],
+      "title": "Basis",
+      "type": "string"
+     },
+     "estimated_total_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated Total S"
+     },
+     "n_skipped": {
+      "title": "N Skipped",
+      "type": "integer"
+     },
+     "n_units": {
+      "title": "N Units",
+      "type": "integer"
+     },
+     "output_bytes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Output Bytes"
+     },
+     "sample_errors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sample Errors",
+      "type": "array"
+     },
+     "sample_item_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sample Item Ids",
+      "type": "array"
+     },
+     "seconds_per_item": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seconds Per Item"
+     }
+    },
+    "required": [
+     "n_units",
+     "n_skipped",
+     "seconds_per_item",
+     "estimated_total_s",
+     "basis"
+    ],
+    "title": "TaskEstimate",
+    "type": "object"
+   },
+   "TaskInfo": {
+    "description": "API-42 row: a loaded manifest plus where it came from and whether it can run now.",
+    "properties": {
+     "available": {
+      "default": true,
+      "title": "Available",
+      "type": "boolean"
+     },
+     "manifest": {
+      "$ref": "#/components/schemas/TaskManifest"
+     },
+     "manifest_hash": {
+      "title": "Manifest Hash",
+      "type": "string"
+     },
+     "runner_online": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Runner Online"
+     },
+     "settings_schema_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Settings Schema Url"
+     },
+     "source": {
+      "enum": [
+       "builtin",
+       "plugins_root"
+      ],
+      "title": "Source",
+      "type": "string"
+     },
+     "unavailable_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unavailable Reason"
+     }
+    },
+    "required": [
+     "manifest",
+     "source",
+     "manifest_hash"
+    ],
+    "title": "TaskInfo",
+    "type": "object"
+   },
+   "TaskItemError": {
+    "properties": {
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "message": {
+      "default": "",
+      "title": "Message",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "ok",
+       "failed",
+       "skipped"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "item_id",
+     "status"
+    ],
+    "title": "TaskItemError",
+    "type": "object"
+   },
+   "TaskList": {
+    "properties": {
+     "invalid": {
+      "items": {
+       "$ref": "#/components/schemas/InvalidManifest"
+      },
+      "title": "Invalid",
+      "type": "array"
+     },
+     "runners": {
+      "items": {
+       "$ref": "#/components/schemas/RunnerInfo"
+      },
+      "title": "Runners",
+      "type": "array"
+     },
+     "tasks": {
+      "items": {
+       "$ref": "#/components/schemas/TaskInfo"
+      },
+      "title": "Tasks",
+      "type": "array"
+     }
+    },
+    "required": [
+     "tasks",
+     "invalid",
+     "runners"
+    ],
+    "title": "TaskList",
+    "type": "object"
+   },
+   "TaskManifest": {
+    "additionalProperties": false,
+    "description": "`task.json` (TSK-01). Unknown keys are refused so typos surface as invalid manifests.",
+    "properties": {
+     "defaults": {
+      "additionalProperties": true,
+      "title": "Defaults",
+      "type": "object"
+     },
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "id": {
+      "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)+$",
+      "title": "Id",
+      "type": "string"
+     },
+     "input": {
+      "enum": [
+       "items",
+       "rows",
+       "source"
+      ],
+      "title": "Input",
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "conversion",
+       "analyzer",
+       "features",
+       "segmentation"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "labels": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Labels"
+     },
+     "manifest": {
+      "const": 1,
+      "default": 1,
+      "title": "Manifest",
+      "type": "integer"
+     },
+     "outputs": {
+      "items": {
+       "enum": [
+        "images",
+        "masks",
+        "features",
+        "metadata",
+        "annotations"
+       ],
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Outputs",
+      "type": "array"
+     },
+     "requires": {
+      "$ref": "#/components/schemas/Requires"
+     },
+     "resources": {
+      "$ref": "#/components/schemas/Resources"
+     },
+     "runtime": {
+      "$ref": "#/components/schemas/RuntimeSpec"
+     },
+     "settings_schema": {
+      "additionalProperties": true,
+      "title": "Settings Schema",
+      "type": "object"
+     },
+     "test_only": {
+      "default": false,
+      "title": "Test Only",
+      "type": "boolean"
+     },
+     "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+     },
+     "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "version",
+     "title",
+     "kind",
+     "input",
+     "outputs",
+     "runtime"
+    ],
+    "title": "TaskManifest",
+    "type": "object"
+   },
+   "TaskRef": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "manifest_hash": {
+      "title": "Manifest Hash",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "version",
+     "manifest_hash"
+    ],
+    "title": "TaskRef",
+    "type": "object"
+   },
+   "TaskRunCounts": {
+    "properties": {
+     "failed": {
+      "default": 0,
+      "title": "Failed",
+      "type": "integer"
+     },
+     "items": {
+      "default": 0,
+      "title": "Items",
+      "type": "integer"
+     },
+     "ok": {
+      "default": 0,
+      "title": "Ok",
+      "type": "integer"
+     },
+     "skipped": {
+      "default": 0,
+      "title": "Skipped",
+      "type": "integer"
+     }
+    },
+    "title": "TaskRunCounts",
+    "type": "object"
+   },
+   "TaskRunDetail": {
+    "properties": {
+     "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+     },
+     "counts": {
+      "$ref": "#/components/schemas/TaskRunCounts"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "detail_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail Url"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "inputs": {
+      "items": {
+       "$ref": "#/components/schemas/TaskRunInput"
+      },
+      "title": "Inputs",
+      "type": "array"
+     },
+     "item_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Item Ids",
+      "type": "array"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "output_dir": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Output Dir"
+     },
+     "outputs": {
+      "items": {
+       "$ref": "#/components/schemas/TaskRunOutput"
+      },
+      "title": "Outputs",
+      "type": "array"
+     },
+     "progress": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskRunProgress"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "runtime": {
+      "enum": [
+       "builtin",
+       "external"
+      ],
+      "title": "Runtime",
+      "type": "string"
+     },
+     "selection": {
+      "$ref": "#/components/schemas/TaskSelection"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     },
+     "settings_hash": {
+      "title": "Settings Hash",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "waiting_for_runner",
+       "running",
+       "completed",
+       "completed_with_errors",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "task": {
+      "$ref": "#/components/schemas/TaskRef"
+     },
+     "versions": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Versions",
+      "type": "object"
+     }
+    },
+    "required": [
+     "run_id",
+     "task",
+     "name",
+     "status",
+     "created_at",
+     "runtime",
+     "settings",
+     "settings_hash",
+     "selection"
+    ],
+    "title": "TaskRunDetail",
+    "type": "object"
+   },
+   "TaskRunInput": {
+    "properties": {
+     "image_fp": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Image Fp"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "mask_fp": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mask Fp"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     }
+    },
+    "required": [
+     "item_id"
+    ],
+    "title": "TaskRunInput",
+    "type": "object"
+   },
+   "TaskRunOutput": {
+    "description": "A registered output (TSK-09).",
+    "properties": {
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "item_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item Id"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ref"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     },
+     "sha256": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sha256"
+     }
+    },
+    "required": [
+     "kind"
+    ],
+    "title": "TaskRunOutput",
+    "type": "object"
+   },
+   "TaskRunProgress": {
+    "properties": {
+     "done": {
+      "title": "Done",
+      "type": "integer"
+     },
+     "eta_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Eta S"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "done",
+     "total"
+    ],
+    "title": "TaskRunProgress",
+    "type": "object"
+   },
+   "TaskRunRequest": {
+    "properties": {
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "selection": {
+      "$ref": "#/components/schemas/TaskSelection"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     },
+     "task_id": {
+      "title": "Task Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "task_id"
+    ],
+    "title": "TaskRunRequest",
+    "type": "object"
+   },
+   "TaskRunStarted": {
+    "properties": {
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "waiting_for_runner",
+       "running",
+       "completed",
+       "completed_with_errors",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "run_id",
+     "job_id",
+     "status"
+    ],
+    "title": "TaskRunStarted",
+    "type": "object"
+   },
+   "TaskRunSummary": {
+    "properties": {
+     "counts": {
+      "$ref": "#/components/schemas/TaskRunCounts"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "waiting_for_runner",
+       "running",
+       "completed",
+       "completed_with_errors",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "task": {
+      "$ref": "#/components/schemas/TaskRef"
+     }
+    },
+    "required": [
+     "run_id",
+     "task",
+     "name",
+     "status",
+     "created_at"
+    ],
+    "title": "TaskRunSummary",
+    "type": "object"
+   },
+   "TaskSelection": {
+    "description": "TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels.",
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskSelectionFilter"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "item_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item Ids"
+     },
+     "labels": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "scope": {
+      "anyOf": [
+       {
+        "enum": [
+         "complete",
+         "voi"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scope"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source"
+     }
+    },
+    "title": "TaskSelection",
+    "type": "object"
+   },
+   "TaskSelectionFilter": {
+    "properties": {
+     "phase": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase"
+     },
+     "side": {
+      "anyOf": [
+       {
+        "items": {
+         "enum": [
+          "L",
+          "R",
+          "-"
+         ],
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Side"
+     },
+     "var": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Var"
+     }
+    },
+    "title": "TaskSelectionFilter",
+    "type": "object"
+   },
+   "TaskValidateRequest": {
+    "properties": {
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     }
+    },
+    "title": "TaskValidateRequest",
+    "type": "object"
+   },
+   "TaskValidateResult": {
+    "properties": {
+     "issues": {
+      "items": {
+       "$ref": "#/components/schemas/SettingsIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "settings": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Settings"
+     },
+     "settings_hash": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Settings Hash"
+     }
+    },
+    "required": [
+     "ok",
+     "issues"
+    ],
+    "title": "TaskValidateResult",
     "type": "object"
    },
    "TestChoice": {
@@ -7998,6 +9687,7 @@
  "paths": {
   "/api/v1/fs/list": {
    "get": {
+    "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.",
     "operationId": "fs_list_api_v1_fs_list_get",
     "parameters": [
      {
@@ -8014,6 +9704,20 @@
         }
        ],
        "title": "Path"
+      }
+     },
+     {
+      "in": "query",
+      "name": "role",
+      "required": false,
+      "schema": {
+       "default": "source",
+       "enum": [
+        "source",
+        "derived"
+       ],
+       "title": "Role",
+       "type": "string"
       }
      }
     ],
@@ -9918,6 +11622,22 @@
        "title": "Iid",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "seg",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Seg"
+      }
      }
     ],
     "responses": {
@@ -9944,7 +11664,7 @@
       "description": "Validation Error"
      }
     },
-    "summary": "Mask bytes (Range, ETag)",
+    "summary": "Mask bytes of one segmentation set (Range, ETag; default `default_seg`)",
     "tags": [
      "volumes"
     ]
@@ -9952,6 +11672,7 @@
   },
   "/api/v1/projects/{pid}/items/{iid}/mesh/{label}": {
    "get": {
+    "description": "`seg` = segmentation set (ADR-0015); default `default_seg`.",
     "operationId": "get_mesh_api_v1_projects__pid__items__iid__mesh__label__get",
     "parameters": [
      {
@@ -9989,6 +11710,22 @@
        "default": 1,
        "title": "Smooth",
        "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "seg",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Seg"
       }
      }
     ],
@@ -11713,6 +13450,626 @@
     ]
    }
   },
+  "/api/v1/projects/{pid}/segmentations": {
+   "get": {
+    "operationId": "list_segmentations_api_v1_projects__pid__segmentations_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/SegmentationInfo"
+         },
+         "title": "Response List Segmentations Api V1 Projects  Pid  Segmentations Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Segmentations",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/segmentations/{seg}": {
+   "patch": {
+    "operationId": "patch_segmentation_api_v1_projects__pid__segmentations__seg__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seg",
+      "required": true,
+      "schema": {
+       "title": "Seg",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SegmentationPatch"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SegmentationInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Patch Segmentation",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs": {
+   "get": {
+    "operationId": "list_runs_api_v1_projects__pid__task_runs_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "task",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Task"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TaskRunSummary"
+         },
+         "title": "Response List Runs Api V1 Projects  Pid  Task Runs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Runs",
+    "tags": [
+     "tasks"
+    ]
+   },
+   "post": {
+    "operationId": "start_run_api_v1_projects__pid__task_runs_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TaskRunRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}": {
+   "get": {
+    "operationId": "get_run_api_v1_projects__pid__task_runs__rid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}/cancel": {
+   "post": {
+    "operationId": "cancel_run_api_v1_projects__pid__task_runs__rid__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}/errors": {
+   "get": {
+    "operationId": "run_errors_api_v1_projects__pid__task_runs__rid__errors_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TaskItemError"
+         },
+         "title": "Response Run Errors Api V1 Projects  Pid  Task Runs  Rid  Errors Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Run Errors",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}/outputs": {
+   "get": {
+    "operationId": "run_outputs_api_v1_projects__pid__task_runs__rid__outputs_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TaskRunOutput"
+         },
+         "title": "Response Run Outputs Api V1 Projects  Pid  Task Runs  Rid  Outputs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Run Outputs",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}/resume": {
+   "post": {
+    "operationId": "resume_run_api_v1_projects__pid__task_runs__rid__resume_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Resume Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/tasks/{tid}/estimate": {
+   "post": {
+    "operationId": "estimate_api_v1_projects__pid__tasks__tid__estimate_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PreflightRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskEstimate"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Estimate",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/tasks/{tid}/preflight": {
+   "post": {
+    "operationId": "preflight_api_v1_projects__pid__tasks__tid__preflight_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PreflightRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PreflightResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Preflight",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}/unarchive": {
    "post": {
     "operationId": "unarchive_project_api_v1_projects__pid__unarchive_post",
@@ -12234,6 +14591,121 @@
     "summary": "Validate Settings",
     "tags": [
      "radiomics"
+    ]
+   }
+  },
+  "/api/v1/tasks": {
+   "get": {
+    "operationId": "list_tasks_api_v1_tasks_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Tasks",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/tasks/{tid}": {
+   "get": {
+    "operationId": "get_task_api_v1_tasks__tid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Task",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/tasks/{tid}/validate": {
+   "post": {
+    "operationId": "validate_task_api_v1_tasks__tid__validate_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TaskValidateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskValidateResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Validate Task",
+    "tags": [
+     "tasks"
     ]
    }
   }

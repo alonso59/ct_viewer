@@ -58,7 +58,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
         ├── radiomics/
         │   ├── profiles/{profile_hash}.json
         │   └── runs/{run_id}/     # run.json, parts/*.parquet, features.parquet, errors.jsonl, run.log
-        ├── tasks/runs/{run_id}/   # other task runs: run.json, annotations.jsonl, features, errors (TSK-10)
+        ├── tasks/runs/{run_id}/   # other task runs: run.json, items.jsonl, log.jsonl, masks.jsonl, annotations.jsonl (TSK-10)
         ├── derived/runs.jsonl     # ledger of files written to the DERIVED root: run, task, refs, sha256 (ADR-0014)
         ├── exports/               # user-requested outputs (CSV/Parquet/phase.json proposals)
         ├── cache/                 # DISPOSABLE: meshes, npy→nii conversions
@@ -91,7 +91,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
   "phase_priority":   ["NP", "CMP", "NC", "EP", "UNK"],
   "viewer_defaults":  { "ww": 400, "wl": 50, "layout": "four-up" },
   "segmentations": [                          // ADR-0015
-    { "seg_id": "imported", "kind": "imported", "producer": null, "label_mapping": { "1": 1, "2": 2, "3": 3 }, "created_at": "…" }
+    { "seg_id": "imported", "name": "", "kind": "imported", "producer": null, "label_mapping": { "1": 1, "2": 2, "3": 3 }, "unmatched": [], "created_at": "…" }
   ],
   "default_seg": "imported",
   "annotation_sources": { "phase": null }     // active analyzer run per field (ANZ-04)

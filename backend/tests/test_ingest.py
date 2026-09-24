@@ -82,8 +82,8 @@ def test_healthy_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None
     it = items["case_00001.01.complete.-"]
     assert it.status == "active" and it.phase.canonical == "NC" and it.phase.source == "phase"
     assert it.image is not None and it.image.ref == "DATA:nifti/01_case_00001_0000.nii.gz"
-    assert it.mask is not None and it.mask.ref == "DATA:seg/01_case_00001.nii.gz"
-    assert it.image.fp and it.mask.fp
+    assert it.masks["imported"].ref == "DATA:seg/01_case_00001.nii.gz"
+    assert it.image.fp and it.masks["imported"].fp
     assert it.geometry is not None and it.geometry.shape == [64, 64, 48]
     assert it.geometry.orientation == "RAS"
     assert it.labels_present == [1, 2, 3]
@@ -125,9 +125,9 @@ def test_defect_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None:
     assert items["case_00010.01.complete.-"].status == "missing"
     outside = items["case_00012.01.complete.-"]
     assert outside.status == "missing" and outside.image is None
-    assert items["case_00013.01.complete.-"].mask is None
+    assert items["case_00013.01.complete.-"].masks == {}
     assert items["case_00014.01.voi.L"].status == "missing"
-    assert items["case_00014.01.voi.R"].mask is None
+    assert items["case_00014.01.voi.R"].masks == {}
     assert items["case_00015.01.complete.-"].geometry is not None
     assert items["case_00019.01.voi.-"].side == "-"
     dup = items["case_00020.01.complete.-"]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator, model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     container_mode: bool = False
     workspace_root: Path = Path("/workspace")
     allowed_data_roots: str = ""
+    # Writable roots for `derived` path roots (OPS-11, ADR-0014); empty = no derived root.
+    allowed_derived_roots: str = ""
+    # Read-only dir of external task manifests `*/task.json` (TSK-01); empty = none.
+    plugins_root: Path | None = None
+    # Builtin plugins (`plugins/` next to `backend/`, `/app/plugins` in the image).
+    builtin_plugins_root: Path = Path(__file__).resolve().parents[2] / "plugins"
     host: str = "127.0.0.1"
     port: int = 8000
     public_base_url: str = ""
@@ -40,12 +46,12 @@ class Settings(BaseSettings):
             raise ValueError("must be >= 1")
         return v
 
-    @field_validator("allowed_data_roots")
+    @field_validator("allowed_data_roots", "allowed_derived_roots")
     @classmethod
-    def _absolute_roots(cls, v: str) -> str:
+    def _absolute_roots(cls, v: str, info: ValidationInfo) -> str:
         for p in (p for p in v.split(":") if p):
             if not Path(p).is_absolute():
-                raise ValueError(f"ALLOWED_DATA_ROOTS entries must be absolute: {p!r}")
+                raise ValueError(f"{str(info.field_name).upper()} entries must be absolute: {p!r}")
         return v
 
     @model_validator(mode="after")
@@ -54,10 +60,27 @@ class Settings(BaseSettings):
             raise ValueError("ALLOWED_DATA_ROOTS must not be empty in container mode (OPS-04)")
         return self
 
+    @model_validator(mode="after")
+    def _roots_must_not_overlap(self) -> Settings:
+        """OPS-12 / BE-15: a derived root inside a data root (or vice versa) is refused."""
+        for d in self.derived_roots:
+            for s in self.allowed_roots:
+                if d == s or s in d.parents or d in s.parents:
+                    raise ValueError(
+                        f"roots-overlap: ALLOWED_DERIVED_ROOTS entry {str(d)!r} overlaps "
+                        f"ALLOWED_DATA_ROOTS entry {str(s)!r} (OPS-12)"
+                    )
+        return self
+
     @property
     def allowed_roots(self) -> list[Path]:
         """Resolved allowed roots (OPS-04). Empty means unrestricted (local dev only)."""
         return [Path(p).resolve() for p in self.allowed_data_roots.split(":") if p]
+
+    @property
+    def derived_roots(self) -> list[Path]:
+        """Resolved writable derived roots (OPS-11). Empty means no derived root is allowed."""
+        return [Path(p).resolve() for p in self.allowed_derived_roots.split(":") if p]
 
     @property
     def base_url(self) -> str:

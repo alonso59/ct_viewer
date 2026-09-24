@@ -43,3 +43,9 @@ test('listCases applies the item-id filter on the client (API-20 has none)', asy
   const out = await httpApi.listCases('P1', { itemIds: ['case_3.01.voi.L', 'case_1.01.complete.-'] })
   expect(out.map((x) => x.case_id)).toEqual(['case_1', 'case_3'])
 })
+
+test('maskUrl carries the segmentation set (API-24 ?seg=)', () => {
+  expect(httpApi.maskUrl('P1', 'case_1.01.complete.-')).toMatch(/\/projects\/P1\/items\/case_1\.01\.complete\.-\/mask$/)
+  expect(httpApi.maskUrl('P1', 'i', 'thr a')).toMatch(/\/mask\?seg=thr%20a$/)
+})
+

@@ -153,7 +153,7 @@ def test_errors(env: Env) -> None:
     r = c.get(env.url(NOMASK_ITEM, "mask"))
     assert r.status_code == 404
     assert r.json()["type"] == "/problems/not-found"
-    assert r.json()["detail"] == "item has no mask"
+    assert r.json()["detail"].startswith("item has no mask")
 
     r = c.get(env.url("case_09999.01.complete.-", "image"))
     assert r.status_code == 404

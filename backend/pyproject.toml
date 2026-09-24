@@ -23,6 +23,7 @@ dependencies = [
   "scikit-learn>=1.5",
   "pillow>=10.4",  # WebP thumbnails (IMP-12)
   "scipy>=1.15",  # guided statistics (ANA-*): Welch ANOVA needs f_oneway(equal_var=False)
+  "pydicom>=3.0",  # DICOM headers + sidecars (DCM-*); SimpleITK comes with [radiomics]
 ]
 
 [project.optional-dependencies]
@@ -50,6 +51,7 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", ".."]  # `..` makes the repo-level `plugins/` package importable
 addopts = "-q"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
 
@@ -63,7 +65,8 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["app", "tools"]
+packages = ["app", "tools", "plugins"]
+mypy_path = ".."
 
 [[tool.mypy.overrides]]
 module = [
@@ -74,5 +77,5 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # nibabel ships partial type hints; allow calls to its untyped API.
-module = ["app.*", "tools.*"]
+module = ["app.*", "tools.*", "plugins.*"]
 disallow_untyped_calls = false

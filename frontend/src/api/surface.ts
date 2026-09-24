@@ -43,7 +43,22 @@ import type {
   RunExportShape,
   RunSummary,
   Selection,
+  PreflightResult,
+  RootRole,
+  SegmentationInfo,
+  SegmentationPatch,
   ServerEvent,
+  TaskEstimate,
+  TaskInfo,
+  TaskItemError,
+  TaskList,
+  TaskRunDetail,
+  TaskRunOutput,
+  TaskRunRequest,
+  TaskRunStarted,
+  TaskRunSummary,
+  TaskSelection,
+  TaskValidateResult,
   SettingsSchema,
   StartRunBody,
   V2ImportReport,
@@ -96,13 +111,18 @@ export interface Api {
   updateLabelMap(pid: string, labels: LabelDef[]): Promise<Project>
   listRoots(pid: string): Promise<RootInfo[]>
   relinkRoot(pid: string, alias: string, path: string): Promise<RelinkResult>
+  /** PRJ-13: register the project's derived folder (inside ALLOWED_DERIVED_ROOTS; ADR-0014) */
+  setDerivedRoot(pid: string, path: string, alias?: string): Promise<RelinkResult>
+  /** ADR-0015: the set shown and used when none is picked (API-03) */
+  setDefaultSeg(pid: string, segId: string): Promise<Project>
   /** API-06 export (PRJ-08): project folder without `cache/`, never image data */
   exportBundle(pid: string): Promise<ProjectBundle>
   /** API-06 import (PRJ-09): multipart field `bundle`; `needs_relink` → relink dialog (PRJ-05) */
   importBundle(file: File): Promise<BundleImportResult>
 
   // Import (API-10..14)
-  fsList(path: string | null): Promise<FsListing>
+  /** `role: 'derived'` browses ALLOWED_DERIVED_ROOTS (PRJ-13) */
+  fsList(path: string | null, role?: RootRole): Promise<FsListing>
   importPreview(pid: string, req: PreviewRequest): Promise<ImportPreview>
   commitImport(pid: string, previewId: string): Promise<CommitResult>
   importHistory(pid: string): Promise<ImportHistory>
@@ -123,6 +143,26 @@ export interface Api {
   getItem(pid: string, iid: string): Promise<ItemDetail>
   /** API-26 URL, or null when the binding renders thumbnails itself (mock) */
   thumbnailUrl(pid: string, iid: string): string | null
+
+  // Segmentation sets (API-24/27, ADR-0015)
+  listSegmentations(pid: string): Promise<SegmentationInfo[]>
+  patchSegmentation(pid: string, segId: string, patch: SegmentationPatch): Promise<SegmentationInfo>
+  /** API-24 URL of one set's mask (`seg` omitted = `default_seg`) */
+  maskUrl(pid: string, iid: string, segId?: string): string | null
+
+  // Tasks (API-42..47, TSK-*)
+  listTasks(): Promise<TaskList>
+  getTask(taskId: string): Promise<TaskInfo>
+  validateTask(taskId: string, settings: Record<string, unknown>): Promise<TaskValidateResult>
+  preflightTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<PreflightResult>
+  estimateTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<TaskEstimate>
+  startTaskRun(pid: string, body: TaskRunRequest, reviewer?: string): Promise<TaskRunStarted>
+  listTaskRuns(pid: string, taskId?: string): Promise<TaskRunSummary[]>
+  getTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
+  cancelTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
+  resumeTaskRun(pid: string, rid: string): Promise<TaskRunStarted>
+  taskRunErrors(pid: string, rid: string): Promise<TaskItemError[]>
+  taskRunOutputs(pid: string, rid: string): Promise<TaskRunOutput[]>
 
   // Curation (API-50..54)
   /** Newest first (CUR-14) */

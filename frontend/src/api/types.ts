@@ -350,5 +350,26 @@ export type ServerEvent =
   | { event: 'curation.appended'; data: CurationEvent }
   | { event: 'job.progress'; data: JobProgress }
   | { event: 'job.finished'; data: JobFinished }
+  | { event: 'job.status'; data: Pick<Job, 'job_id' | 'status'> }
   | { event: 'index.rebuilt'; data: { import_id: string; n_items: number; n_warnings: number } }
   | { event: 'project.updated'; data: { fields: string[] } }
+
+// ---- P7b: tasks (API-42..47, TSK-*) and segmentation sets (API-27, ADR-0015) --------------------
+export type RootRole = S['PathRoot']['role']
+export type SegmentationSet = S['SegmentationSet']
+export type SegmentationInfo = S['SegmentationInfo']
+export type SegmentationPatch = S['SegmentationPatch']
+export type TaskManifest = S['TaskManifest']
+export type TaskInfo = S['TaskInfo']
+export type TaskList = S['TaskList']
+export type TaskSelection = S['TaskSelection']
+export type TaskValidateResult = S['TaskValidateResult']
+export type PreflightResult = S['PreflightResult']
+export type TaskEstimate = S['TaskEstimate']
+export type TaskRunRequest = S['TaskRunRequest']
+export type TaskRunStarted = S['TaskRunStarted']
+export type TaskRunSummary = S['TaskRunSummary']
+export type TaskRunDetail = S['TaskRunDetail']
+export type TaskRunStatus = TaskRunSummary['status']
+export type TaskItemError = S['TaskItemError']
+export type TaskRunOutput = S['TaskRunOutput']

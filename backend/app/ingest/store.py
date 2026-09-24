@@ -10,7 +10,6 @@ from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from app.core.errors import NotFound
 from app.core.fsio import atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
@@ -30,9 +29,15 @@ class ProjectIndex:
 
 
 class IndexStore:
-    def __init__(self, project_dir: Callable[[str], Path], cache_max: int = 4) -> None:
+    def __init__(
+        self,
+        project_dir: Callable[[str], Path],
+        cache_max: int = 4,
+        default_seg: Callable[[str], str] | None = None,
+    ) -> None:
         self._project_dir = project_dir
         self._cache_max = cache_max
+        self._default_seg = default_seg or (lambda _pid: "imported")
         self._cache: OrderedDict[str, ProjectIndex] = OrderedDict()
 
     def index_dir(self, project_id: str) -> Path:
@@ -45,9 +50,12 @@ class IndexStore:
             return hit
         d = self.index_dir(project_id)
         items = [Item.model_validate(r) for r in iter_jsonl(d / ITEMS)]
+        default = self._default_seg(project_id)
+        for it in items:
+            it.mask = it.masks.get(default)  # deprecated alias (ADR-0015 §6)
         hashes = load_hashes(d).files
         if hashes:
-            for vol in (v for it in items for v in (it.image, it.mask) if v is not None):
+            for vol in (v for it in items for v in it.volumes()):
                 h = hashes.get(vol.ref)
                 vol.sha256 = h.sha256 if h is not None and h.fp == vol.fp else None
         cases = [CaseSummary.model_validate(r) for r in iter_jsonl(d / CASES)]
@@ -92,7 +100,13 @@ class IndexStore:
         d = self.index_dir(project_id)
         write_jsonl_atomic(d / WARNINGS, (w.model_dump(mode="json") for w in warnings))
         write_jsonl_atomic(d / CASES, (c.model_dump(mode="json") for c in cases))
-        # `sha256` lives in hashes.json only (one fact, one place).
-        no_hash: dict[str, Any] = {"image": {"sha256"}, "mask": {"sha256"}}
-        write_jsonl_atomic(d / ITEMS, (i.model_dump(mode="json", exclude=no_hash) for i in items))
+        # `sha256` lives in hashes.json only (one fact, one place); `mask` is never stored.
+        rows = []
+        for i in items:
+            row = i.model_dump(mode="json", exclude={"mask"})
+            for vol in (row.get("image"), *row["masks"].values()):
+                if vol is not None:
+                    vol.pop("sha256", None)
+            rows.append(row)
+        write_jsonl_atomic(d / ITEMS, rows)
         self.invalidate(project_id)

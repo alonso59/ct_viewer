@@ -29,6 +29,8 @@ FROM python:3.12-slim AS runtime
 COPY --from=build /opt/venv /opt/venv
 COPY backend/app /app/backend/app
 COPY backend/tools /app/backend/tools
+# Builtin task plugins (TSK-01; BUILTIN_PLUGINS_ROOT = /app/plugins): converter, analyzers.
+COPY plugins /app/plugins
 COPY scripts/container_app.py /app/scripts/container_app.py
 COPY --from=web /src/frontend/dist /app/static
 # OPS-02: no fixed UID; any user may write /workspace when it is not mounted, HOME is /tmp.

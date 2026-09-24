@@ -34,6 +34,7 @@ from app.ingest.schemas import (
     ItemDetail,
     ScanGroup,
 )
+from app.ingest.segsets import apply_task_masks, task_masks
 from app.ingest.store import IndexStore
 from app.ingest.validator import finalize, probes_for
 from app.jobs.manager import JobManager
@@ -179,6 +180,8 @@ class IngestService:
                 if ok:
                     previous = self.store.load(project_id).by_id
                     items, warnings = finalize(drafts, results, previous, import_id)
+                    cfg = self.workspace.get(project_id)
+                    apply_task_masks(items, task_masks(self.workspace.project_dir(project_id), cfg))
                     priority = self.workspace.get(project_id).phase_priority
                     cases = build_cases(items, warnings, rules, priority)
                     self.store.replace(project_id, items, cases, warnings)
@@ -245,6 +248,26 @@ class IngestService:
                 self.store.write_status(project_id, before)
             raise
         return job_id
+
+    async def reapply_segmentations(self, project_id: str) -> None:
+        """Re-join task segmentation sets into the derived index (ADR-0015, TSK-09)."""
+        async with self.locks(project_id):
+            idx = self.store.load(project_id)
+            if not idx.items:
+                return
+            cfg = self.workspace.get(project_id)
+            items = [i.model_copy(deep=True) for i in idx.items]
+            for it in items:
+                it.masks = {k: v for k, v in it.masks.items() if k == "imported"}
+            apply_task_masks(items, task_masks(self.workspace.project_dir(project_id), cfg))
+            rules = self.phase_rules(project_id)
+            cases = build_cases(items, idx.warnings, rules, cfg.phase_priority)
+            self.store.replace(project_id, items, cases, idx.warnings)
+        self.bus.publish(
+            project_id,
+            "index.rebuilt",
+            {"import_id": None, "n_items": len(items), "n_warnings": len(idx.warnings)},
+        )
 
     @property
     def variables(self) -> VariableService:

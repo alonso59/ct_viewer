@@ -172,7 +172,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fs List */
+        /**
+         * Fs List
+         * @description `role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.
+         */
         get: operations["fs_list_api_v1_fs_list_get"];
         put?: never;
         post?: never;
@@ -448,7 +451,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Mask bytes (Range, ETag) */
+        /** Mask bytes of one segmentation set (Range, ETag; default `default_seg`) */
         get: operations["get_mask_api_v1_projects__pid__items__iid__mask_get"];
         put?: never;
         post?: never;
@@ -473,6 +476,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/segmentations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Segmentations */
+        get: operations["list_segmentations_api_v1_projects__pid__segmentations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/segmentations/{seg}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Segmentation */
+        patch: operations["patch_segmentation_api_v1_projects__pid__segmentations__seg__patch"];
         trace?: never;
     };
     "/api/v1/projects/{pid}/curation/events": {
@@ -807,6 +844,194 @@ export interface paths {
          * @description API-37 (RAD-07): per-item failures and label-absent skips.
          */
         get: operations["get_errors_api_v1_projects__pid__radiomics_runs__rid__errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tasks */
+        get: operations["list_tasks_api_v1_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{tid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Task */
+        get: operations["get_task_api_v1_tasks__tid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{tid}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Task */
+        post: operations["validate_task_api_v1_tasks__tid__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/tasks/{tid}/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preflight */
+        post: operations["preflight_api_v1_projects__pid__tasks__tid__preflight_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/tasks/{tid}/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate */
+        post: operations["estimate_api_v1_projects__pid__tasks__tid__estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_projects__pid__task_runs_get"];
+        put?: never;
+        /** Start Run */
+        post: operations["start_run_api_v1_projects__pid__task_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_projects__pid__task_runs__rid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Run */
+        post: operations["cancel_run_api_v1_projects__pid__task_runs__rid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Run */
+        post: operations["resume_run_api_v1_projects__pid__task_runs__rid__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run Errors */
+        get: operations["run_errors_api_v1_projects__pid__task_runs__rid__errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}/outputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run Outputs */
+        get: operations["run_outputs_api_v1_projects__pid__task_runs__rid__outputs_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1181,7 +1406,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Surface mesh of one mask label (202 + job if not cached) */
+        /**
+         * Surface mesh of one mask label (202 + job if not cached)
+         * @description `seg` = segmentation set (ADR-0015); default `default_seg`.
+         */
         get: operations["get_mesh_api_v1_projects__pid__items__iid__mesh__label__get"];
         put?: never;
         post?: never;
@@ -2540,6 +2768,13 @@ export interface components {
             /** Rows */
             rows: number;
         };
+        /** InvalidManifest */
+        InvalidManifest: {
+            /** Path */
+            path: string;
+            /** Error */
+            error: string;
+        };
         /** Issue */
         Issue: {
             /** Loc */
@@ -2579,6 +2814,10 @@ export interface components {
             modality?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
+            /** Masks */
+            masks?: {
+                [key: string]: components["schemas"]["VolumeRef"];
+            };
             mask?: components["schemas"]["VolumeRef"] | null;
             geometry?: components["schemas"]["Geometry"] | null;
             /** Labels Present */
@@ -2629,6 +2868,10 @@ export interface components {
             modality?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
+            /** Masks */
+            masks?: {
+                [key: string]: components["schemas"]["VolumeRef"];
+            };
             mask?: components["schemas"]["VolumeRef"] | null;
             geometry?: components["schemas"]["Geometry"] | null;
             /** Labels Present */
@@ -2685,14 +2928,14 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "index" | "hash" | "thumbnail" | "radiomics" | "mesh";
+            kind: "index" | "hash" | "thumbnail" | "radiomics" | "mesh" | "task" | "open-convert";
             /** Project Id */
             project_id: string;
             /**
              * Status
              * @enum {string}
              */
-            status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+            status: "queued" | "waiting_for_runner" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
             /**
              * Done
              * @default 0
@@ -2715,6 +2958,8 @@ export interface components {
             ref?: string | null;
             /** Error */
             error?: string | null;
+            /** Key */
+            key?: string | null;
         };
         /** LabelCount */
         LabelCount: {
@@ -3016,6 +3261,12 @@ export interface components {
             alias: string;
             /** Path */
             path: string;
+            /**
+             * Role
+             * @default source
+             * @enum {string}
+             */
+            role: "source" | "derived";
         };
         /** PhaseInfo */
         PhaseInfo: {
@@ -3029,6 +3280,37 @@ export interface components {
              * @enum {string}
              */
             source: "phase.json" | "curated_phase" | "canonical_phase" | "phase" | "phase_guess" | "catalog" | "none";
+        };
+        /** PreflightRequest */
+        PreflightRequest: {
+            selection?: components["schemas"]["TaskSelection"];
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * PreflightResult
+         * @description TSK-04: items that aren't ready are skipped, never failed.
+         */
+        PreflightResult: {
+            /** N Selected */
+            n_selected: number;
+            /** N Ready */
+            n_ready: number;
+            /** Missing */
+            missing: {
+                [key: string]: number;
+            };
+            /** Suggestions */
+            suggestions: components["schemas"]["Suggestion"][];
+            /**
+             * Derived Root Required
+             * @default false
+             */
+            derived_root_required: boolean;
+            /** Ready Item Ids */
+            ready_item_ids?: string[];
         };
         /** PreviewError */
         PreviewError: {
@@ -3091,7 +3373,7 @@ export interface components {
             format: "radiology-workbench-project";
             /**
              * Format Version
-             * @default 1
+             * @default 2
              */
             format_version: number;
             /** Project Id */
@@ -3126,6 +3408,17 @@ export interface components {
             /** Phase Priority */
             phase_priority?: string[];
             viewer_defaults?: components["schemas"]["ViewerDefaults"];
+            /** Segmentations */
+            segmentations?: components["schemas"]["SegmentationSet"][];
+            /**
+             * Default Seg
+             * @default imported
+             */
+            default_seg: string;
+            /** Annotation Sources */
+            annotation_sources?: {
+                [key: string]: string | null;
+            };
             /** Share Url */
             share_url: string;
         };
@@ -3149,6 +3442,8 @@ export interface components {
             /** Phase Priority */
             phase_priority?: string[] | null;
             viewer_defaults?: components["schemas"]["ViewerDefaults"] | null;
+            /** Default Seg */
+            default_seg?: string | null;
         };
         /**
          * ProjectSummary
@@ -3316,6 +3611,27 @@ export interface components {
             root: components["schemas"]["RootInfo"];
             verify: components["schemas"]["VerifyReport"];
         };
+        /** Requires */
+        Requires: {
+            /** Modality */
+            modality?: string[] | null;
+            /** Channels */
+            channels?: number | null;
+            seg?: components["schemas"]["SegRequirement"] | null;
+        };
+        /** Resources */
+        Resources: {
+            /**
+             * Gpu
+             * @default none
+             * @enum {string}
+             */
+            gpu: "none" | "optional" | "required";
+            /** Max Batch */
+            max_batch?: number | null;
+            /** Seconds Per Item */
+            seconds_per_item?: number | null;
+        };
         /**
          * ResultRow
          * @description ANA-05: one tested feature (or the single balance-check row).
@@ -3346,6 +3662,11 @@ export interface components {
         RootBody: {
             /** Path */
             path: string;
+            /**
+             * Role
+             * @description Default: the alias's role, else source
+             */
+            role?: ("source" | "derived") | null;
         };
         /**
          * RootInfo
@@ -3358,6 +3679,12 @@ export interface components {
             path: string;
             /** Exists */
             exists: boolean;
+            /**
+             * Role
+             * @default source
+             * @enum {string}
+             */
+            role: "source" | "derived";
         };
         /** RunCounts */
         RunCounts: {
@@ -3540,6 +3867,35 @@ export interface components {
             /** Job Id */
             job_id?: string | null;
         };
+        /** RunnerInfo */
+        RunnerInfo: {
+            /** Runner Id */
+            runner_id: string;
+            /** Tasks */
+            tasks?: string[];
+            /** Gpu */
+            gpu?: string | null;
+            /** Pid */
+            pid?: number | null;
+            /** At */
+            at: string;
+            /** Fresh */
+            fresh: boolean;
+        };
+        /** RuntimeSpec */
+        RuntimeSpec: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "builtin" | "external";
+            /** Entry */
+            entry?: string | null;
+            /** Command */
+            command?: string[] | null;
+            /** Env Hint */
+            env_hint?: string | null;
+        };
         /** ScanGroup */
         ScanGroup: {
             /** Scan Idx */
@@ -3564,6 +3920,103 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /**
+         * SegProducer
+         * @description The task run that produced a segmentation set (ADR-0015).
+         */
+        SegProducer: {
+            /** Task Id */
+            task_id: string;
+            /** Version */
+            version: string;
+            /** Run Id */
+            run_id: string;
+            /** Settings Hash */
+            settings_hash?: string | null;
+        };
+        /** SegRequirement */
+        SegRequirement: {
+            /** Labels */
+            labels?: string[];
+        };
+        /** SegmentationInfo */
+        SegmentationInfo: {
+            /** Seg Id */
+            seg_id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Kind
+             * @default imported
+             * @enum {string}
+             */
+            kind: "imported" | "task" | "manual";
+            producer?: components["schemas"]["SegProducer"] | null;
+            /** Label Mapping */
+            label_mapping?: {
+                [key: string]: number;
+            };
+            /** Unmatched */
+            unmatched?: number[];
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /**
+             * N Items
+             * @default 0
+             */
+            n_items: number;
+            /**
+             * Is Default
+             * @default false
+             */
+            is_default: boolean;
+        };
+        /** SegmentationPatch */
+        SegmentationPatch: {
+            /** Name */
+            name?: string | null;
+            /** Label Mapping */
+            label_mapping?: {
+                [key: string]: number;
+            } | null;
+        };
+        /**
+         * SegmentationSet
+         * @description `project.json.segmentations[]` (ADR-0015): one mask per item, per set.
+         */
+        SegmentationSet: {
+            /** Seg Id */
+            seg_id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Kind
+             * @default imported
+             * @enum {string}
+             */
+            kind: "imported" | "task" | "manual";
+            producer?: components["schemas"]["SegProducer"] | null;
+            /** Label Mapping */
+            label_mapping?: {
+                [key: string]: number;
+            };
+            /** Unmatched */
+            unmatched?: number[];
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
         };
         /**
          * Selection
@@ -3592,6 +4045,21 @@ export interface components {
                 [key: string]: string[];
             } | null;
         };
+        /** SettingsIssue */
+        SettingsIssue: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Rule */
+            rule: string;
+            /**
+             * Severity
+             * @default error
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+        };
         /** SettingsSchema */
         SettingsSchema: {
             engine: components["schemas"]["EngineInfo"];
@@ -3612,6 +4080,13 @@ export interface components {
          * @enum {string}
          */
         Severity: "error" | "warning" | "info";
+        /** Suggestion */
+        Suggestion: {
+            /** Task Id */
+            task_id: string;
+            /** Reason */
+            reason: string;
+        };
         /**
          * TargetState
          * @description Latest event for one `(item_id, target)` (or case-target) key (CUR-08).
@@ -3646,6 +4121,361 @@ export interface components {
             proposed_phase?: string | null;
             /** Proposed Side */
             proposed_side?: ("L" | "R") | null;
+        };
+        /**
+         * TaskEstimate
+         * @description TSK-05.
+         */
+        TaskEstimate: {
+            /** N Units */
+            n_units: number;
+            /** N Skipped */
+            n_skipped: number;
+            /** Seconds Per Item */
+            seconds_per_item: number | null;
+            /** Estimated Total S */
+            estimated_total_s: number | null;
+            /** Output Bytes */
+            output_bytes?: number | null;
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "sample" | "manifest" | "unknown";
+            /** Sample Item Ids */
+            sample_item_ids?: string[];
+            /** Sample Errors */
+            sample_errors?: string[];
+        };
+        /**
+         * TaskInfo
+         * @description API-42 row: a loaded manifest plus where it came from and whether it can run now.
+         */
+        TaskInfo: {
+            manifest: components["schemas"]["TaskManifest"];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "builtin" | "plugins_root";
+            /** Manifest Hash */
+            manifest_hash: string;
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
+            /** Runner Online */
+            runner_online?: boolean | null;
+            /** Settings Schema Url */
+            settings_schema_url?: string | null;
+        };
+        /** TaskItemError */
+        TaskItemError: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "failed" | "skipped";
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+        };
+        /** TaskList */
+        TaskList: {
+            /** Tasks */
+            tasks: components["schemas"]["TaskInfo"][];
+            /** Invalid */
+            invalid: components["schemas"]["InvalidManifest"][];
+            /** Runners */
+            runners: components["schemas"]["RunnerInfo"][];
+        };
+        /**
+         * TaskManifest
+         * @description `task.json` (TSK-01). Unknown keys are refused so typos surface as invalid manifests.
+         */
+        TaskManifest: {
+            /**
+             * Manifest
+             * @default 1
+             * @constant
+             */
+            manifest: 1;
+            /** Id */
+            id: string;
+            /** Version */
+            version: string;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "conversion" | "analyzer" | "features" | "segmentation";
+            /**
+             * Input
+             * @enum {string}
+             */
+            input: "items" | "rows" | "source";
+            /** Outputs */
+            outputs: ("images" | "masks" | "features" | "metadata" | "annotations")[];
+            requires?: components["schemas"]["Requires"];
+            /** Settings Schema */
+            settings_schema?: {
+                [key: string]: unknown;
+            };
+            /** Defaults */
+            defaults?: {
+                [key: string]: unknown;
+            };
+            runtime: components["schemas"]["RuntimeSpec"];
+            resources?: components["schemas"]["Resources"];
+            /** Labels */
+            labels?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Test Only
+             * @default false
+             */
+            test_only: boolean;
+        };
+        /** TaskRef */
+        TaskRef: {
+            /** Id */
+            id: string;
+            /** Version */
+            version: string;
+            /** Manifest Hash */
+            manifest_hash: string;
+        };
+        /** TaskRunCounts */
+        TaskRunCounts: {
+            /**
+             * Items
+             * @default 0
+             */
+            items: number;
+            /**
+             * Ok
+             * @default 0
+             */
+            ok: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
+        };
+        /** TaskRunDetail */
+        TaskRunDetail: {
+            /** Run Id */
+            run_id: string;
+            task: components["schemas"]["TaskRef"];
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            counts?: components["schemas"]["TaskRunCounts"];
+            /** Error */
+            error?: string | null;
+            /**
+             * Runtime
+             * @enum {string}
+             */
+            runtime: "builtin" | "external";
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            /** Settings Hash */
+            settings_hash: string;
+            selection: components["schemas"]["TaskSelection"];
+            /** Item Ids */
+            item_ids?: string[];
+            /** Inputs */
+            inputs?: components["schemas"]["TaskRunInput"][];
+            /** Versions */
+            versions?: {
+                [key: string]: string;
+            };
+            /** Output Dir */
+            output_dir?: string | null;
+            /** Outputs */
+            outputs?: components["schemas"]["TaskRunOutput"][];
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            progress?: components["schemas"]["TaskRunProgress"] | null;
+            /** Detail Url */
+            detail_url?: string | null;
+        };
+        /** TaskRunInput */
+        TaskRunInput: {
+            /** Item Id */
+            item_id: string;
+            /** Image Fp */
+            image_fp?: string | null;
+            /** Seg Id */
+            seg_id?: string | null;
+            /** Mask Fp */
+            mask_fp?: string | null;
+        };
+        /**
+         * TaskRunOutput
+         * @description A registered output (TSK-09).
+         */
+        TaskRunOutput: {
+            /** Kind */
+            kind: string;
+            /** Item Id */
+            item_id?: string | null;
+            /** Ref */
+            ref?: string | null;
+            /** Seg Id */
+            seg_id?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Detail */
+            detail?: string | null;
+        };
+        /** TaskRunProgress */
+        TaskRunProgress: {
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
+            /** Eta S */
+            eta_s?: number | null;
+        };
+        /** TaskRunRequest */
+        TaskRunRequest: {
+            /** Task Id */
+            task_id: string;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            selection?: components["schemas"]["TaskSelection"];
+            /** Name */
+            name?: string | null;
+        };
+        /** TaskRunStarted */
+        TaskRunStarted: {
+            /** Run Id */
+            run_id: string;
+            /** Job Id */
+            job_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+        };
+        /** TaskRunSummary */
+        TaskRunSummary: {
+            /** Run Id */
+            run_id: string;
+            task: components["schemas"]["TaskRef"];
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            counts?: components["schemas"]["TaskRunCounts"];
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * TaskSelection
+         * @description TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels.
+         */
+        TaskSelection: {
+            /** Item Ids */
+            item_ids?: string[] | null;
+            filter?: components["schemas"]["TaskSelectionFilter"] | null;
+            /** Scope */
+            scope?: ("complete" | "voi") | null;
+            /** Seg Id */
+            seg_id?: string | null;
+            /** Labels */
+            labels?: number[];
+            /** Source */
+            source?: string | null;
+        };
+        /** TaskSelectionFilter */
+        TaskSelectionFilter: {
+            /** Phase */
+            phase?: string[] | null;
+            /** Side */
+            side?: ("L" | "R" | "-")[] | null;
+            /** Var */
+            var?: {
+                [key: string]: string[];
+            } | null;
+        };
+        /** TaskValidateRequest */
+        TaskValidateRequest: {
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+        };
+        /** TaskValidateResult */
+        TaskValidateResult: {
+            /** Ok */
+            ok: boolean;
+            /** Issues */
+            issues: components["schemas"]["SettingsIssue"][];
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
+            /** Settings Hash */
+            settings_hash?: string | null;
         };
         /**
          * TestChoice
@@ -4364,6 +5194,7 @@ export interface operations {
         parameters: {
             query?: {
                 path?: string | null;
+                role?: "source" | "derived";
             };
             header?: never;
             path?: never;
@@ -4918,7 +5749,9 @@ export interface operations {
     };
     get_mask_api_v1_projects__pid__items__iid__mask_get: {
         parameters: {
-            query?: never;
+            query?: {
+                seg?: string | null;
+            };
             header?: never;
             path: {
                 pid: string;
@@ -4989,6 +5822,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_segmentations_api_v1_projects__pid__segmentations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentationInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_segmentation_api_v1_projects__pid__segmentations__seg__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                seg: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentationPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentationInfo"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -5698,6 +6598,394 @@ export interface operations {
             };
         };
     };
+    list_tasks_api_v1_tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskList"];
+                };
+            };
+        };
+    };
+    get_task_api_v1_tasks__tid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_task_api_v1_tasks__tid__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskValidateResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preflight_api_v1_projects__pid__tasks__tid__preflight_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreflightRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreflightResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_api_v1_projects__pid__tasks__tid__estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreflightRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEstimate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_projects__pid__task_runs_get: {
+        parameters: {
+            query?: {
+                task?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_run_api_v1_projects__pid__task_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_projects__pid__task_runs__rid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_run_api_v1_projects__pid__task_runs__rid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_run_api_v1_projects__pid__task_runs__rid__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_errors_api_v1_projects__pid__task_runs__rid__errors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskItemError"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_outputs_api_v1_projects__pid__task_runs__rid__outputs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunOutput"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post: {
         parameters: {
             query?: never;
@@ -6363,6 +7651,7 @@ export interface operations {
         parameters: {
             query?: {
                 smooth?: number;
+                seg?: string | null;
             };
             header?: never;
             path: {

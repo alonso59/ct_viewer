@@ -44,6 +44,7 @@ const REFERENCE: ItemRecord = {
   import_id: 'harness',
   phase: { canonical: 'NP', raw: 'NP', source: 'none' },
   image: { ref: 'reference/reference_ct.nii.gz', format: 'nifti' },
+  masks: { imported: { ref: 'reference/reference_seg.nii.gz', format: 'nifti' } },
   mask: { ref: 'reference/reference_seg.nii.gz', format: 'nifti' },
   geometry: { shape: [512, 512, 600], spacing: [0.78, 0.78, 0.8], dtype: 'int16', orientation: 'LPS' },
   labels_present: [1, 2, 3],

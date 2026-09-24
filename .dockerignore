@@ -5,6 +5,7 @@
 !backend/tools/
 !frontend/
 !scripts/container_app.py
+!plugins/
 
 **/__pycache__
 **/*.py[cod]

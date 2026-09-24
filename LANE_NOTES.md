@@ -359,3 +359,26 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - The owner's converter is kept as read-only reference in `legacy/convert/`. `legacy/` is now git-ignored, `chmod -R a-w` and untracked (115 v2 files removed from the index; tag `legacy-reference` = last commit that tracks them; R9 in AGENTS.md). P7b Wave 3 ports it to `plugins/dicom/` + `plugins/analyzers/`. The CLI emits modality `MRI`; DCM-12 requires `MR`.
 - Phase order (user decision): P7b → P7 remote part (Step 4, udocker) → P8 Electron.
 - P7b runs in one sequential Claude shell session (prompt in AGENT_RUNBOOK §P7b). `plugins/nnunet/` is deferred until the amendments are stable (user decision 2026-09-24); the external runtime is proven with the fake `segment.threshold` plugin.
+
+## 2026-09-24 · P7b Wave 1 (contracts) · v3
+
+**Done** (ROADMAP §P7b Wave 1 ticked)
+- `project.json` format_version 2 + migration 1 → 2 with `project.json.v1.bak` (PRJ-11): `path_roots[].role`, `segmentations` (one `imported` set, identity mapping over the label map), `default_seg`, `annotation_sources`. A v1 index record (`mask`) reads as `masks.imported`; items are stored with `masks` only.
+- `Item.masks {seg_id: VolumeRef}`; the deprecated `mask` = `masks[default_seg]`, filled on load, never stored (kept for the whole phase). `?seg=` on API-24 (+HEAD) and API-25; API-27 list (with `n_items`, `is_default`) / PATCH (`name`, `label_mapping`); `default_seg` via API-03.
+- Derived roots: `ALLOWED_DERIVED_ROOTS` (strict guard: empty allows none), startup refusal on overlap with `ALLOWED_DATA_ROOTS` (OPS-12, BE-15); PRJ-13 via API-05 `role: derived` (one per project, inside the derived guard, no overlap with the project's source roots → `roots-overlap`); API-10 `?role=derived`. Role-aware `PathResolver` (BE-02). Bundle root check uses the right guard.
+- Problems carry `actions[]` (SRC-11); new slugs `unsupported-format`, `ambiguous-axis-order`, `geometry-mismatch`, `derived-root-required`, `roots-overlap`. `container_app.py` strips pydantic's `Value error, ` prefix (open issue from Step 3b).
+- Task framework `app/tasks/` (TSK-01..10, API-42..47): manifest model (unknown keys refused), registry (builtin `app/radiomics/task.json` + `plugins/*/task*.json` with the builtin runtime; `PLUGINS_ROOT/*/task.json` external only; invalid ones listed), JSON-Schema-subset settings validation with defaults + `settings_hash`, selection (TSK-03), preflight with reasons and suggestions (TSK-04), estimate (builtin: 3-item sample in `.scratch/estimates/`, disposable; external: `seconds_per_item`), run protocol (`plugins/protocol.py` task side, `app/tasks/protocol.py` backend side), builtin runtime = the job manager's new *driver* jobs (a coroutine tails `progress.jsonl`; cancel = flag file; `waiting_for_runner` status + `job.status` SSE ready for Wave 4), run record `tasks/runs/{run_id}/run.json` + `items.jsonl`, resume skipping `ok` items, TSK-12 one run per (project, task), mask outputs → segmentation set (label mapping by name, unmatched → new label entries), `derived/runs.jsonl` ledger with sha256, index re-join of task sets on every rebuild. `radiomics.pyradiomics` served behind API-42..47 by an adapter over the radiomics service (RAD-13); API-30..37 unchanged.
+- Fake plugin `plugins/threshold/` (`segment.threshold`, external manifest, `test_only`); Wave 1 tests run it through the builtin runtime.
+- FE API layer: regenerated `schema.d.ts`; `Item.masks`, v2 project fields, `RootInfo.role`, `job.status`; `Api` gains `setDerivedRoot`, `setDefaultSeg`, `fsList(path, role)`, `listSegmentations`, `patchSegmentation`, `maskUrl(pid, iid, seg?)`, and the task members (`listTasks` … `taskRunOutputs`); the mock implements them (`mock/tasks.ts`: radiomics + threshold, a simulated segmentation run that registers a set).
+- Image: `plugins/` copied to `/app/plugins` (`.dockerignore` allowlist); `pydicom` added to the dependencies for Wave 3.
+
+**Results**: `make fixtures && make check` green: 327 backend (3 PyRadiomics modules skipped) + 192 frontend vitest (new `mock/tasks.test.ts`, one `maskUrl` test). Playwright 14/14 (Chromium 7, Firefox 7). Initial JS 289.5 KB gzip (entry + modulepreload set, gzip -9).
+
+**Decisions**
+- Plugins never import `app`; builtin and external tasks share one protocol. `plugins/` is importable through `pythonpath = ["..", "."]` (pytest), `mypy_path = ".."`, and `registry.ensure_importable` at startup (spawned workers inherit `sys.path`).
+- `seg_id` slugs are lower-case `[a-z0-9][a-z0-9_-]{0,63}`; the default task set id is `{task-short}-{run_id[:8]}` lower-cased.
+- Unknown modality (null) does not block `requires.modality` (v1 inputs often lack it).
+- The builtin threshold variant is injected in tests (a manifest copy with `runtime: builtin`); only its external manifest ships.
+
+**Open issues**
+- Radiomics through API-45 ignores `selection.seg_id` until RAD-05 (Wave 4). The mock does not simulate resume of task runs.

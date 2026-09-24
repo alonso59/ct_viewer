@@ -21,11 +21,11 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-02 | `GET /projects` · `POST /projects` | List / create | PRJ-01/02 |
 | API-03 | `GET·PATCH /projects/{pid}` | Read / rename / edit label map, defaults | PRJ-06/07 |
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
-| API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report) | PRJ-05 |
+| API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report); body `{path, role?}`, `role: derived` registers the derived root (PRJ-13; default = the alias's current role, else `source`) | PRJ-05/13 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
 | API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `{sid, items[]}` (headers only; DICOM/NumPy converted into `.scratch/`) | SRC-09 |
 | API-08 | `GET /open/{sid}/items/{n}/image` · `POST /open/{sid}/items/{n}/attach` | Open-mode bytes (Range) / attach a segmentation `{path}` → geometry check (`geometry-mismatch`) | SRC-10 |
-| API-10 | `GET /fs/list?path=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` | IMP-01 |
+| API-10 | `GET /fs/list?path=&role=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` (`role=derived`: `ALLOWED_DERIVED_ROOTS`, `derived-root-required` when empty) | IMP-01, PRJ-13 |
 | API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect:true}` → preview | IMP-02/03 |
 | API-12 | `POST /projects/{pid}/imports` | Commit preview → `202 {job_id}` (indexing) | IMP-04/05 |
 | API-13 | `GET /projects/{pid}/imports` | Import history + current `index` status | IMP-04 |
@@ -40,7 +40,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-22 | `GET /projects/{pid}/items/{iid}` | Item record (+ `advanced` with absolute paths) | |
 | API-23 | `GET /projects/{pid}/items/{iid}/image` | Image bytes (Range, ETag) | BE-04 |
 | API-24 | `GET /projects/{pid}/items/{iid}/mask?seg=` | Mask bytes of one segmentation set (default `default_seg`; Range, ETag) | BE-04, ADR-0015 |
-| API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1` | Mesh (`202` + job if not cached) | VW-09 |
+| API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1&seg=` | Mesh of one set's label (`202` + job if not cached) | VW-09 |
 | API-26 | `GET /projects/{pid}/items/{iid}/thumbnail` | Lossless WebP thumbnail (`404` until generated) | IMP-12 |
 | API-27 | `GET /projects/{pid}/segmentations` · `PATCH …/segmentations/{seg}` | Sets with producer + counts / rename, label mapping; `default_seg` via API-03 | ADR-0015 |
 | API-30 | `GET /radiomics/schema` | Engine options, defaults, constraints | RAD-01 |
@@ -55,10 +55,10 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-39 | `POST /projects/{pid}/analyses` · `GET …/analyses[/{aid}]` · `GET …/analyses/{aid}/export` | Create+run / list / results + recommendations / tidy CSV + spec | ANA-* |
 | API-40 | `GET /projects/{pid}/events` (SSE) | Realtime stream | CUR-11 |
 | API-41 | `GET /jobs?project={pid}` · `POST /jobs/{job_id}/cancel` | Jobs panel | BE-06 |
-| API-42 | `GET /tasks` · `GET /tasks/{tid}` | Manifests (builtin + `PLUGINS_ROOT`), availability, invalid manifests with errors, runner status | TSK-01, TSK-11 |
+| API-42 | `GET /tasks` · `GET /tasks/{tid}` | `{tasks: [{manifest, source, manifest_hash, available, unavailable_reason, runner_online, settings_schema_url}], invalid: [{path, error}], runners[]}` | TSK-01, TSK-11 |
 | API-43 | `POST /tasks/{tid}/validate` | Settings → issues | TSK-02 |
 | API-44 | `POST /projects/{pid}/tasks/{tid}/preflight` · `…/estimate` | Selection → readiness + suggestions / estimate | TSK-04/05 |
-| API-45 | `POST·GET /projects/{pid}/task-runs` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection}` → `202`) / list / detail | TSK-06/10 |
+| API-45 | `POST·GET /projects/{pid}/task-runs?task=` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection, name?}`, optional `X-Reviewer` → `202 {run_id, job_id, status}`) / list (radiomics runs included) / detail | TSK-06/10 |
 | API-46 | `POST …/task-runs/{rid}/cancel` · `POST …/task-runs/{rid}/resume` | Control | TSK-07 |
 | API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09 |
 | API-48 | `GET /projects/{pid}/annotations?field=&run=` · `PUT /projects/{pid}/annotation-sources/{field}` | Annotations with confidence/evidence / activate a run (`{run_id\|null}`, reindexes) | ANZ-01/04 |

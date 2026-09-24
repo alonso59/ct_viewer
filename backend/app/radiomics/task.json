@@ -1,0 +1,14 @@
+{
+  "manifest": 1,
+  "id": "radiomics.pyradiomics",
+  "version": "1.0.0",
+  "title": "Radiomics features (PyRadiomics)",
+  "description": "IBSI-mapped PyRadiomics features per item and label (RADIOMICS.md). Settings: API-30.",
+  "kind": "features",
+  "input": "items",
+  "outputs": ["features"],
+  "requires": { "seg": { "labels": [] } },
+  "settings_schema": { "type": "object", "additionalProperties": true },
+  "runtime": { "type": "builtin", "entry": "app.radiomics.worker:extract_unit" },
+  "resources": { "gpu": "none" }
+}

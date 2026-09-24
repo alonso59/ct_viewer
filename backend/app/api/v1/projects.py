@@ -13,7 +13,14 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.v1.deps import Ctx
 from app.context import AppContext
-from app.projects.models import PathRoot, ProjectDetail, ProjectPatch, ProjectSummary, RootInfo
+from app.projects.models import (
+    PathRoot,
+    ProjectDetail,
+    ProjectPatch,
+    ProjectSummary,
+    RootInfo,
+    RootRole,
+)
 from app.projects.presets import DEFAULT_PRESET, PresetName
 from app.projects.relink import VerifyReport, verify_root
 
@@ -28,6 +35,10 @@ class ProjectCreate(BaseModel):
 
 class RootBody(BaseModel):
     path: str = Field(min_length=1)
+    # `derived` (PRJ-13): the task output folder, inside ALLOWED_DERIVED_ROOTS (ADR-0014).
+    role: RootRole | None = Field(
+        default=None, description="Default: the alias's role, else source"
+    )
 
 
 class RelinkResult(BaseModel):
@@ -58,6 +69,8 @@ async def patch_project(ctx: Ctx, pid: str, patch: ProjectPatch) -> ProjectDetai
     before = ctx.workspace.get(pid)
     after = await ctx.workspace.update(pid, patch)
     fields = [f for f in sorted(patch.model_fields_set) if getattr(before, f) != getattr(after, f)]
+    if "default_seg" in fields:
+        ctx.index.invalidate(pid)  # the deprecated `mask` alias follows default_seg
     if fields:
         ctx.bus.publish(pid, "project.updated", {"fields": fields})
     return ctx.workspace.detail(pid)
@@ -85,7 +98,9 @@ def list_roots(ctx: Ctx, pid: str) -> list[RootInfo]:
 @router.put("/projects/{pid}/roots/{alias}", response_model=RelinkResult)
 async def put_root(ctx: Ctx, pid: str, alias: str, body: RootBody) -> RelinkResult:
     ctx.workspace.project_dir(pid)  # 404 before validating the body against the filesystem
-    root = PathRoot(alias=alias, path=body.path)
+    current = next((r for r in ctx.workspace.get(pid).path_roots if r.alias == alias), None)
+    role = body.role or (current.role if current else "source")
+    root = PathRoot(alias=alias, path=body.path, role=role)
     await ctx.workspace.set_root(pid, root)
     ctx.index.invalidate(pid)
     items = ctx.index.load(pid).items
@@ -153,7 +168,8 @@ def _check_roots(ctx: AppContext, pid: str) -> list[BundleRoot]:
     resolver = ctx.workspace.resolver(pid)
     out: list[BundleRoot] = []
     for info in ctx.workspace.roots(pid):
-        exists = info.exists and ctx.guard.is_allowed(Path(info.path))
+        guard = ctx.workspace.derived_guard if info.role == "derived" else ctx.guard
+        exists = info.exists and guard.is_allowed(Path(info.path))
         out.append(
             BundleRoot(
                 root=info.model_copy(update={"exists": exists}),

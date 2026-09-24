@@ -98,11 +98,11 @@ class JobManager:
             ex.shutdown(wait=False, cancel_futures=True)
 
     def submit(self, spec: JobSpec) -> JobInfo:
-        """Schedule; raises JobConflict if `spec.exclusive` and (project, kind) is active."""
+        """Schedule; raises JobConflict if `spec.exclusive` and (project, kind[, key]) is active."""
         if self._closing or self._executor is None:
             raise ServerBusy("Job manager is not accepting jobs")
         if spec.exclusive:
-            cur = self.active(spec.project_id, spec.kind)
+            cur = self.active(spec.project_id, spec.kind, spec.key)
             if cur is not None:
                 raise JobConflict(f"A {spec.kind} job is already active: {cur.job_id}")
         job_id = spec.job_id or new_ulid()
@@ -115,6 +115,7 @@ class JobManager:
             status="queued",
             total=len(spec.units),
             created_at=utc_now(),
+            key=spec.key,
         )
         job = _Job(spec=spec, info=info)
         self._jobs[job_id] = job
@@ -136,10 +137,11 @@ class JobManager:
             if project_id is None or j.info.project_id == project_id
         ]
 
-    def active(self, project_id: str, kind: JobKind) -> JobInfo | None:
+    def active(self, project_id: str, kind: JobKind, key: str | None = None) -> JobInfo | None:
         for j in self._jobs.values():
             i = j.info
-            if i.project_id == project_id and i.kind == kind and i.status not in TERMINAL:
+            live = i.project_id == project_id and i.kind == kind and i.status not in TERMINAL
+            if live and (key is None or i.key == key):
                 return i
         return None
 
@@ -178,7 +180,10 @@ class JobManager:
                 info.started_at = utc_now()
                 job.started_mono = time.monotonic()
                 self._progress(job)
-                await self._execute(job)
+                if spec.driver is not None:
+                    await self._drive(job)
+                else:
+                    await self._execute(job)
             if info.status not in TERMINAL:
                 self._set_terminal(job, "succeeded")
             self._progress(job, force=True)
@@ -236,6 +241,24 @@ class JobManager:
                 )
             self._halt(job)
 
+    async def _drive(self, job: _Job) -> None:
+        assert job.spec.driver is not None
+        try:
+            await job.spec.driver(_Handle(self, job))
+        except Exception as e:
+            if job.info.status not in TERMINAL:
+                self._set_terminal(job, "failed")
+                job.info.error = _err(e)
+                log.warning("job driver failed", extra={"job_id": job.info.job_id})
+
+    def _set_status(self, job: _Job, status: JobStatus) -> None:
+        if job.info.status in TERMINAL or job.info.status == status:
+            return
+        job.info.status = status
+        self.bus.publish(
+            job.info.project_id, "job.status", {"job_id": job.info.job_id, "status": status}
+        )
+
     def _halt(self, job: _Job) -> None:
         job.stop = True
         for fut in job.inflight:
@@ -289,3 +312,30 @@ class JobManager:
         self._terminal.append(info.job_id)
         while len(self._terminal) > KEEP_TERMINAL:
             self._jobs.pop(self._terminal.popleft(), None)
+
+
+class _Handle:
+    """`JobHandle` for driver jobs (see `JobSpec.driver`)."""
+
+    def __init__(self, manager: JobManager, job: _Job) -> None:
+        self._m = manager
+        self._job = job
+
+    @property
+    def stopped(self) -> bool:
+        return self._job.stop
+
+    def set_total(self, total: int) -> None:
+        self._job.info.total = total
+        self._m._progress(self._job, force=True)
+
+    def set_done(self, done: int) -> None:
+        if done != self._job.info.done:
+            self._job.info.done = done
+            self._m._progress(self._job)
+
+    def set_status(self, status: JobStatus) -> None:
+        self._m._set_status(self._job, status)
+
+    async def run_in_worker(self, fn: Callable[..., Any], *args: Any) -> Any:
+        return await self._m.run_in_worker(fn, *args)

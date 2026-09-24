@@ -28,12 +28,16 @@ import {
   type RunDetail,
   type RunError,
   type ServerEvent,
+  type SegmentationInfo,
+  type TaskRunDetail,
+  type TaskSelection,
   type Variable,
   type VariableValue,
 } from '../types'
 import { mockDashboardView } from './dashboard'
 import { engineOf, loadEngine, profileHash, selectItems, toSummary } from './radiomics'
 import seedJson from './seed.json'
+import { MOCK_TASKS, preflight, validateSettings } from './tasks'
 import { candidateFields, deriveValue, isMissing, parseTable, profileField, validateDerived, type Override, type Row } from './variables'
 
 /** Seed feature value; `feature` is `{class}_{name}` */
@@ -151,6 +155,7 @@ function seedItems(importId: string): ItemRecord[] {
   return seed.items.map((i) => ({
     ...clone(i),
     modality: seedModality(i),
+    masks: i.mask ? { imported: clone(i.mask) } : ({} as ItemRecord['masks']),
     import_id: importId,
     phase: { canonical: i.phase.canonical, raw: i.phase.raw, source: 'phase' },
     extra: demoFields(i),
@@ -231,6 +236,7 @@ interface ProjectState {
   externalFields: string[]
   previews: Map<string, ImportPreview>
   imports: { import_id: string; at: string; preview: ImportPreview }[]
+  taskRuns: TaskRunDetail[]
 }
 
 const db = new Map<string, ProjectState>()
@@ -250,19 +256,22 @@ function makeProject(pid: string, name: string, preset: Preset, withData: boolea
   return {
     project: {
       format: 'radiology-workbench-project',
-      format_version: 1,
+      format_version: 2,
       project_id: pid,
       name,
       description: '',
       created_at: ts,
       updated_at: ts,
       preset,
-      path_roots: withData ? [{ alias: 'DATA', path: DEMO_ROOT }] : [],
+      path_roots: withData ? [{ alias: 'DATA', path: DEMO_ROOT, role: 'source' }] : [],
       label_map: clone(withData && d.labels.length === 0 ? autoLabels(items) : d.labels),
       phase_vocabulary: d.vocabulary,
       phase_mapping: {},
       phase_priority: ['NP', 'CMP', 'NC', 'EP', 'UNK'],
       viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
+      segmentations: [{ seg_id: 'imported', name: '', kind: 'imported', producer: null, label_mapping: { '1': 1, '2': 2, '3': 3 }, unmatched: [], created_at: ts }],
+      default_seg: 'imported',
+      annotation_sources: {},
       share_url: `${location.origin}/p/${pid}`,
     },
     last_opened_at: withData ? now() : null,
@@ -279,6 +288,7 @@ function makeProject(pid: string, name: string, preset: Preset, withData: boolea
     externalFields: [],
     previews: new Map(),
     imports: [],
+    taskRuns: [],
   }
 }
 
@@ -301,7 +311,7 @@ function init() {
   const offline = makeProject(OFFLINE_PID, 'ccRCC Dataset820', 'ccrcc', false)
   offline.last_opened_at = '2026-09-19T17:40:00Z'
   offline.reachable = false
-  offline.project.path_roots = [{ alias: 'DATA', path: '/mnt/nas/ccRCC/Dataset820' }]
+  offline.project.path_roots = [{ alias: 'DATA', path: '/mnt/nas/ccRCC/Dataset820', role: 'source' }]
   db.set(OFFLINE_PID, offline)
   for (const p of readLs<Extra[]>(LS_EXTRA, [])) db.set(p.pid, makeProject(p.pid, p.name, p.preset, p.imported))
   events = readLs<Record<string, CurationEvent[]>>(LS_EVENTS, { [DEMO_PID]: seededEvents() })
@@ -438,7 +448,7 @@ function runJob(pid: string, job: Job, stepMs: number, onDone: () => void) {
 
 function newJob(pid: string, kind: Job['kind'], total: number, ref: string | null): Job {
   const ts = now()
-  return { job_id: ulid(), kind, project_id: pid, status: 'running', done: 0, total, eta_s: null, created_at: ts, started_at: ts, finished_at: null, ref, error: null }
+  return { job_id: ulid(), kind, project_id: pid, status: 'running', done: 0, total, eta_s: null, created_at: ts, started_at: ts, finished_at: null, ref, error: null, key: null }
 }
 
 // ---- simulated second reviewer (CUR-11 demo) --------------------------------
@@ -581,6 +591,51 @@ function featuresCsv(rows: FeatureRow[], shape: 'long' | 'wide'): string {
   return [[...meta, ...features].join(','), ...lines].join('\n')
 }
 
+// ---- tasks (API-42..47) ------------------------------------------------------
+function taskOf(tid: string) {
+  const t = MOCK_TASKS.find((x) => x.manifest.id === tid)
+  if (!t) throw new ProblemError(404, 'not-found', 'Task not found', tid)
+  return t
+}
+
+function taskItems(s: ProjectState, sel: TaskSelection): ItemRecord[] {
+  let items = s.items.filter((i) => i.status === 'active')
+  if (sel.item_ids) {
+    const wanted = new Set(sel.item_ids)
+    items = items.filter((i) => wanted.has(i.item_id))
+  }
+  if (sel.filter?.phase?.length) items = items.filter((i) => sel.filter?.phase?.includes(i.phase.canonical))
+  if (sel.scope) items = items.filter((i) => i.scope === sel.scope)
+  return items
+}
+
+function taskRunOf(s: ProjectState, rid: string): TaskRunDetail {
+  const r = s.taskRuns.find((x) => x.run_id === rid)
+  if (!r) throw new ProblemError(404, 'not-found', 'Task run not found', rid)
+  return r
+}
+
+/** A simulated segmentation run: the "masks" reuse the imported files (nothing is computed) */
+function executeTask(pid: string, s: ProjectState, run: TaskRunDetail, ready: ItemRecord[]) {
+  const job = newJob(pid, 'task', ready.length, run.run_id)
+  run.job_id = job.job_id
+  run.status = 'running'
+  run.started_at = now()
+  runJob(pid, job, 250, () => {
+    const segId = (run.settings.seg_id as string | undefined) ?? `threshold-${run.run_id.slice(0, 8).toLowerCase()}`
+    for (const it of ready) if (it.image) it.masks = { ...it.masks, [segId]: { ref: it.masks.imported?.ref ?? it.image.ref, format: 'nifti' } }
+    s.project.segmentations = [
+      ...s.project.segmentations,
+      { seg_id: segId, name: run.name, kind: 'task', producer: { task_id: run.task.id, version: run.task.version, run_id: run.run_id, settings_hash: run.settings_hash }, label_mapping: { '1': 1 }, unmatched: [], created_at: now() },
+    ]
+    run.status = 'completed'
+    run.finished_at = now()
+    run.counts = { items: ready.length, failed: 0, skipped: run.counts?.skipped ?? 0, ok: ready.length }
+    run.outputs = [{ kind: 'segmentation_set', seg_id: segId, item_id: null, ref: null, sha256: null, detail: null }]
+    emit(pid, { event: 'project.updated', data: { fields: ['segmentations'] } })
+  })
+}
+
 // ---- API surface -----------------------------------------------------------
 const SESSION_ID = Math.random().toString(36).slice(2, 10)
 
@@ -685,14 +740,14 @@ export const mockServer: Api = {
     // The demo "offline" project relinks to any existing mock folder
     if (found) {
       s.reachable = true
-      s.project.path_roots = s.project.path_roots.map((r) => (r.alias === alias ? { alias, path: clean } : r))
+      s.project.path_roots = s.project.path_roots.map((r) => (r.alias === alias ? { ...r, path: clean } : r))
       if (!s.items.length && s.project.project_id === OFFLINE_PID) {
         s.items = seedItems('01JSEEDIMPORT0000000000000')
         s.warnings = seedWarnings()
       }
     }
     return {
-      root: { alias, path: clean, exists: found },
+      root: { alias, path: clean, exists: found, role: s.project.path_roots.find((r) => r.alias === alias)?.role ?? 'source' },
       verify: { sampled: found ? 20 : 0, matched: found ? 20 : 0, mismatched: 0, missing: found ? 0 : 20, samples: [] },
     }
   },
@@ -709,6 +764,117 @@ export const mockServer: Api = {
   },
 
   // API-10..14
+  async setDerivedRoot(pid, path, alias = 'DERIVED') {
+    await wait(200)
+    const s = exists(pid)
+    s.project.path_roots = [...s.project.path_roots.filter((r) => r.role !== 'derived'), { alias, path, role: 'derived' }]
+    return { root: { alias, path, exists: true, role: 'derived' }, verify: { sampled: 0, matched: 0, mismatched: 0, missing: 0, samples: [] } }
+  },
+  async setDefaultSeg(pid, segId) {
+    await wait(60)
+    const s = exists(pid)
+    if (!s.project.segmentations.some((x) => x.seg_id === segId)) throw new ProblemError(422, 'validation', 'Unknown segmentation set', segId)
+    s.project.default_seg = segId
+    for (const it of s.items) it.mask = it.masks[segId] ?? null
+    return clone(s.project)
+  },
+  async listSegmentations(pid) {
+    await wait(60)
+    const s = exists(pid)
+    return s.project.segmentations.map((x): SegmentationInfo => ({ ...clone(x), n_items: s.items.filter((i) => x.seg_id in i.masks).length, is_default: x.seg_id === s.project.default_seg }))
+  },
+  async patchSegmentation(pid, segId, patch) {
+    await wait(60)
+    const s = exists(pid)
+    const seg = s.project.segmentations.find((x) => x.seg_id === segId)
+    if (!seg) throw new ProblemError(404, 'not-found', 'Segmentation set not found', segId)
+    if (patch.name != null) seg.name = patch.name
+    if (patch.label_mapping != null) seg.label_mapping = patch.label_mapping
+    return { ...clone(seg), n_items: s.items.filter((i) => segId in i.masks).length, is_default: segId === s.project.default_seg }
+  },
+  maskUrl: () => null,
+  async listTasks() {
+    await wait(60)
+    return { tasks: clone(MOCK_TASKS), invalid: [], runners: [{ runner_id: 'mock-runner', tasks: ['segment.threshold'], gpu: null, pid: 1, at: now(), fresh: true }] }
+  },
+  async getTask(tid) {
+    await wait(40)
+    return clone(taskOf(tid))
+  },
+  async validateTask(tid, settings) {
+    await wait(40)
+    return validateSettings(taskOf(tid).manifest, settings)
+  },
+  async preflightTask(pid, tid, selection) {
+    await wait(80)
+    const s = exists(pid)
+    return preflight(taskOf(tid).manifest, taskItems(s, selection), selection, s.project.default_seg, s.project.path_roots.some((r) => r.role === 'derived'))
+  },
+  async estimateTask(pid, tid, selection) {
+    await wait(120)
+    const s = exists(pid)
+    const m = taskOf(tid).manifest
+    const pre = preflight(m, taskItems(s, selection), selection, s.project.default_seg, true)
+    const spi = m.resources?.seconds_per_item ?? null
+    return { n_units: pre.n_ready, n_skipped: pre.n_selected - pre.n_ready, seconds_per_item: spi, estimated_total_s: spi == null ? null : spi * pre.n_ready, output_bytes: null, basis: spi == null ? 'unknown' : 'manifest', sample_item_ids: [], sample_errors: [] }
+  },
+  async startTaskRun(pid, body, reviewer) {
+    await wait(150)
+    const s = exists(pid)
+    const t = taskOf(body.task_id)
+    if (t.manifest.id === 'radiomics.pyradiomics') throw new ProblemError(422, 'validation', 'Use the radiomics settings tab in the mock', t.manifest.id)
+    const v = validateSettings(t.manifest, body.settings ?? {})
+    if (!v.ok || !v.settings) throw new ProblemError(422, 'validation', 'Invalid settings', v.issues.map((i) => i.msg).join('; '))
+    if (!s.project.path_roots.some((r) => r.role === 'derived')) throw new ProblemError(409, 'derived-root-required', 'Choose a derived folder first', 'PRJ-13')
+    const sel = body.selection ?? {}
+    const items = taskItems(s, sel)
+    const pre = preflight(t.manifest, items, sel, s.project.default_seg, true)
+    const ready = items.filter((i) => (pre.ready_item_ids ?? []).includes(i.item_id))
+    const ts = now()
+    const run: TaskRunDetail = {
+      run_id: ulid(), task: { id: t.manifest.id, version: t.manifest.version, manifest_hash: t.manifest_hash }, name: body.name ?? `${t.manifest.title} ${ts}`,
+      status: 'queued', created_at: ts, started_at: null, finished_at: null, reviewer: reviewer ?? null, job_id: null,
+      counts: { items: ready.length, ok: 0, failed: 0, skipped: items.length - ready.length }, error: null,
+      runtime: t.manifest.runtime.type, settings: v.settings, settings_hash: v.settings_hash ?? '', selection: sel,
+      item_ids: ready.map((i) => i.item_id), inputs: [], versions: {}, output_dir: null, outputs: [], attempts: 1, progress: null, detail_url: null,
+    }
+    s.taskRuns.push(run)
+    executeTask(pid, s, run, ready)
+    return { run_id: run.run_id, job_id: run.job_id ?? null, status: run.status }
+  },
+  async listTaskRuns(pid, tid) {
+    await wait(60)
+    const runs = state(pid).taskRuns.filter((r) => !tid || r.task.id === tid)
+    return clone(runs).reverse()
+  },
+  async getTaskRun(pid, rid) {
+    await wait(40)
+    return clone(taskRunOf(state(pid), rid))
+  },
+  async cancelTaskRun(pid, rid) {
+    await wait(60)
+    const run = taskRunOf(state(pid), rid)
+    const j = run.job_id ? jobs.get(run.job_id) : undefined
+    if (j && j.status === 'running') j.status = 'cancelled'
+    if (run.status === 'running' || run.status === 'queued') {
+      run.status = 'cancelled'
+      run.finished_at = now()
+    }
+    return clone(run)
+  },
+  async resumeTaskRun(pid, rid) {
+    await wait(60)
+    const run = taskRunOf(state(pid), rid)
+    throw new ProblemError(409, 'job-conflict', 'Resume is not simulated in the mock', run.run_id)
+  },
+  async taskRunErrors() {
+    await wait(40)
+    return []
+  },
+  async taskRunOutputs(pid, rid) {
+    await wait(40)
+    return clone(taskRunOf(state(pid), rid).outputs ?? [])
+  },
   async fsList(path) {
     await wait(90)
     if (!path) return { path: null, parent: null, entries: [{ name: '/data', path: '/data', kind: 'dir', size: null, has_metadata: false }], truncated: false }
@@ -749,7 +915,7 @@ export const mockServer: Api = {
     runJob(pid, job, 60, () => {
       s.items = seedItems(importId)
       s.warnings = seedWarnings()
-      s.project.path_roots = [{ alias: preview.alias, path: preview.root }]
+      s.project.path_roots = [{ alias: preview.alias, path: preview.root, role: 'source' }]
       if (s.project.label_map.length === 0) s.project.label_map = autoLabels(s.items)
       s.imports.push({ import_id: importId, at: now(), preview })
       persistExtraProjects()

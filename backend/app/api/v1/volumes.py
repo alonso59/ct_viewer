@@ -27,12 +27,23 @@ _THUMB_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 async def _serve(
-    ctx: AppContext, pid: str, iid: str, kind: Literal["image", "mask"], request: Request
+    ctx: AppContext,
+    pid: str,
+    iid: str,
+    kind: Literal["image", "mask"],
+    request: Request,
+    seg: str | None = None,
 ) -> Response:
     item = ctx.index.get_item(pid, iid)
-    vol = item.image if kind == "image" else item.mask
-    if vol is None:
-        raise NotFound(f"item has no {kind}")
+    if kind == "image":
+        vol = item.image
+        if vol is None:
+            raise NotFound("item has no image")
+    else:
+        seg_id = seg or ctx.workspace.get(pid).default_seg  # ADR-0015
+        vol = item.masks.get(seg_id)
+        if vol is None:
+            raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
     if not path.is_file():
         raise SourceMissing(f"{kind} file is missing")
@@ -67,15 +78,19 @@ async def head_image(pid: str, iid: str, request: Request, ctx: Ctx) -> Response
     "/projects/{pid}/items/{iid}/mask",
     response_class=Response,
     responses=_VOLUME_RESPONSES,
-    summary="Mask bytes (Range, ETag)",
+    summary="Mask bytes of one segmentation set (Range, ETag; default `default_seg`)",
 )
-async def get_mask(pid: str, iid: str, request: Request, ctx: Ctx) -> Response:
-    return await _serve(ctx, pid, iid, "mask", request)
+async def get_mask(
+    pid: str, iid: str, request: Request, ctx: Ctx, seg: str | None = None
+) -> Response:
+    return await _serve(ctx, pid, iid, "mask", request, seg)
 
 
 @router.head("/projects/{pid}/items/{iid}/mask", include_in_schema=False)
-async def head_mask(pid: str, iid: str, request: Request, ctx: Ctx) -> Response:
-    return await _serve(ctx, pid, iid, "mask", request)
+async def head_mask(
+    pid: str, iid: str, request: Request, ctx: Ctx, seg: str | None = None
+) -> Response:
+    return await _serve(ctx, pid, iid, "mask", request, seg)
 
 
 @router.get(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.core.ids import Scope, Side
 from app.imaging.header import VolumeFormat
@@ -50,6 +50,9 @@ class Item(BaseModel):
     modality: str | None = None
     phase: PhaseInfo
     image: VolumeRef | None = None
+    # seg_id → mask (ADR-0015); `imported` holds the masks found at import.
+    masks: dict[str, VolumeRef] = Field(default_factory=dict)
+    # Deprecated for P7b (ADR-0015 §6): `masks[default_seg]`, filled on load, never stored.
     mask: VolumeRef | None = None
     geometry: Geometry | None = None
     labels_present: list[int] = Field(default_factory=list)
@@ -57,6 +60,22 @@ class Item(BaseModel):
     warning_codes: list[QcCode] = Field(default_factory=list)
     import_id: str
     extra: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _v1_mask(cls, raw: Any) -> Any:
+        """A format_version 1 index record: `mask` → `masks.imported` (PRJ-11)."""
+        if isinstance(raw, dict) and "masks" not in raw and raw.get("mask") is not None:
+            raw = {**raw, "masks": {"imported": raw["mask"]}}
+        return raw
+
+    def mask_for(self, seg_id: str | None) -> VolumeRef | None:
+        """The mask of one set; None = the deprecated default (`mask`)."""
+        return self.mask if seg_id is None else self.masks.get(seg_id)
+
+    def volumes(self) -> list[VolumeRef]:
+        """Image and every mask (hashing, relink)."""
+        return [v for v in (self.image, *self.masks.values()) if v is not None]
 
 
 class QcWarning(BaseModel):

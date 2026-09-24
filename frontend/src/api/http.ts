@@ -105,6 +105,7 @@ const normalizeItem = (i: paths['/api/v1/projects/{pid}/cases/{cid}']['get']['re
   patient_id: null,
   modality: null,
   image: null,
+  masks: {},
   mask: null,
   geometry: null,
   labels_present: [],
@@ -120,6 +121,8 @@ const normalizeProject = (p: Schemas['ProjectDetail']): Project => ({
   phase_vocabulary: [],
   phase_priority: [],
   viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
+  segmentations: [],
+  annotation_sources: {},
   ...p,
   phase_mapping: p.phase_mapping ?? {},
   label_map: p.label_map ?? [],
@@ -193,6 +196,7 @@ const normalizeJob = (j: Schemas['JobInfo']): Job => ({
   finished_at: null,
   ref: null,
   error: null,
+  key: null,
   ...j,
 })
 
@@ -286,7 +290,7 @@ async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
 }
 
 // ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
-const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'job.progress', 'job.finished', 'index.rebuilt', 'project.updated']
+const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated']
 interface Stream {
   es: EventSource
   listeners: Set<(e: ServerEvent) => void>
@@ -362,6 +366,10 @@ export const httpApi: Api = {
   listRoots: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/roots', { params: { path: { pid } } })),
   relinkRoot: (pid, alias, path) =>
     unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path } })),
+  setDerivedRoot: (pid, path, alias = 'DERIVED') =>
+    unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path, role: 'derived' } })),
+  setDefaultSeg: (pid, default_seg) =>
+    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid } }, body: { default_seg } })).then(normalizeProject),
   async exportBundle(pid) {
     const r = await fetch(`${V1}/projects/${enc(pid)}/bundle`, { method: 'POST' })
     if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
@@ -374,7 +382,8 @@ export const httpApi: Api = {
   },
 
   // API-10..14
-  fsList: (path) => unwrap(client.GET('/api/v1/fs/list', { params: { query: path ? { path } : {} } })).then(normalizeFs),
+  fsList: (path, role = 'source') =>
+    unwrap(client.GET('/api/v1/fs/list', { params: { query: { ...(path ? { path } : {}), role } } })).then(normalizeFs),
   importPreview(pid, req) {
     if (!req.files) return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true })
     const fd = new FormData()
@@ -543,6 +552,35 @@ export const httpApi: Api = {
   createAnalysis: (pid, spec, reviewer) =>
     unwrap(client.POST('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body: spec })),
   exportAnalysis: (pid, aid, file) => blob(`/projects/${enc(pid)}/analyses/${enc(aid)}/export?file=${file}`),
+
+  // API-24/27
+  listSegmentations: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid } } })),
+  patchSegmentation: (pid, seg, body) =>
+    unwrap(client.PATCH('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } }, body })),
+  maskUrl: (pid, iid, seg) => `${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`,
+
+  // API-42..47
+  listTasks: () => unwrap(client.GET('/api/v1/tasks')),
+  getTask: (tid) => unwrap(client.GET('/api/v1/tasks/{tid}', { params: { path: { tid } } })),
+  validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),
+  preflightTask: (pid, tid, selection, settings = {}) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/preflight', { params: { path: { pid, tid } }, body: { selection, settings } })),
+  estimateTask: (pid, tid, selection, settings = {}) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/estimate', { params: { path: { pid, tid } }, body: { selection, settings } })),
+  startTaskRun: (pid, body, reviewer) =>
+    unwrap(
+      client.POST('/api/v1/projects/{pid}/task-runs', {
+        params: { path: { pid }, header: reviewer ? { 'X-Reviewer': reviewer } : {} },
+        body,
+      }),
+    ),
+  listTaskRuns: (pid, task) =>
+    unwrap(client.GET('/api/v1/projects/{pid}/task-runs', { params: { path: { pid }, query: task ? { task } : {} } })),
+  getTaskRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}', { params: { path: { pid, rid } } })),
+  cancelTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/cancel', { params: { path: { pid, rid } } })),
+  resumeTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } })),
+  taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
+  taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),
 
   // API-41
   listJobs: async (pid) => (await unwrap(client.GET('/api/v1/jobs', { params: { query: pid ? { project: pid } : {} } }))).map(normalizeJob),

@@ -7,7 +7,12 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 EventType = Literal[
-    "curation.appended", "job.progress", "job.finished", "index.rebuilt", "project.updated"
+    "curation.appended",
+    "job.progress",
+    "job.finished",
+    "job.status",
+    "index.rebuilt",
+    "project.updated",
 ]
 REPLAY_MAX = 1000
 
