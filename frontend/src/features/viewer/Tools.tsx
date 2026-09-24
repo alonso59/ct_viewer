@@ -7,6 +7,7 @@ import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useLayout, useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
 import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../../theme'
 import { useViewerLocal } from './local'
+import { ModalityChip } from './ModalityChip'
 
 const useEnabled = () => useWorkbench((s) => s.active?.type === 'case')
 const chord = (id: string) => {
@@ -116,6 +117,7 @@ export function WindowPresets() {
           </Menu.Content>
         </Menu.Portal>
       </Menu.Root>
+      <ModalityChip />
       <span className="toolbar-sep" />
     </>
   )

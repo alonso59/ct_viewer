@@ -7,6 +7,23 @@ export function isCt(item: Pick<ItemRecord, 'modality'>): boolean {
   return typeof m !== 'string' || m.trim() === '' || m.trim().toUpperCase() === 'CT'
 }
 
+/** Modalities the user can pick when the item has none (VW-05); `OT` = other (percentile window) */
+export const MODALITY_CHOICES = ['CT', 'MR', 'OT'] as const
+
+/** Identity of an item for the display-only modality choice (Open-mode ids repeat across sessions) */
+export const modalityKey = (item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image'>): string =>
+  `${item.case_id}|${item.item_id}|${item.image?.ref ?? ''}`
+
+/** VW-05: a known modality wins; an unknown one is the user's choice, else assumed CT */
+export function effectiveModality(
+  item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image' | 'modality'>,
+  overrides: Record<string, string>,
+): { value: string; assumed: boolean } {
+  const known = typeof item.modality === 'string' && item.modality.trim() !== '' ? item.modality.trim().toUpperCase() : null
+  if (known) return { value: known, assumed: false }
+  return { value: overrides[modalityKey(item)] ?? 'CT', assumed: true }
+}
+
 /** Right-drag: horizontal = width, vertical = level (up = brighter → lower level) */
 export function dragWindow(start: [number, number], dx: number, dy: number, range: number): [number, number] {
   // Scale with the data range so MR (0..4000) and CT (−1024..3071) both feel natural

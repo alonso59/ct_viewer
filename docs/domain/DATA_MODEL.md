@@ -70,7 +70,7 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
 }
 ```
 
-`modality` comes from the input `modality` field (VOIs inherit the scan's value) and is null when absent. `sha256` is null until the full-hash job ran (IMP-09).
+`modality` comes from the input `modality` field (VOIs inherit the scan's value) and is null when absent (unknown: the viewer assumes CT, VW-05). `sha256` is null until the full-hash job ran (IMP-09).
 `masks` is empty when no segmentation exists (IMP-11). For one phase the API also returns `mask` = `masks[default_seg]` (deprecated, ADR-0015). `case_id` is a slug (SRC-08).
 
 ## Case summary (derived)

@@ -50,7 +50,12 @@ interface ViewerSyncState {
   labelOpacity: Record<number, number>
   cursor: CursorReadout | null
   resetToken: number
+  /** VW-05: display-only modality chosen for items without one, keyed by `modalityKey(item)` */
+  modalityOverride: Record<string, string>
+  /** VW-05: modality of the visible viewer's item; `assumed` = the item has none (selector shown) */
+  activeModality: { key: string; value: string; assumed: boolean } | null
   set: (patch: Partial<ViewerSyncState>) => void
+  setModality: (key: string, modality: string) => void
   setPreset: (p: keyof typeof WL_PRESETS) => void
   setWindow: (ww: number, wl: number) => void
   cycleLayout: () => void
@@ -77,7 +82,14 @@ export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
   labelOpacity: {},
   cursor: null,
   resetToken: 0,
+  modalityOverride: {},
+  activeModality: null,
   set: (patch) => set(patch),
+  setModality: (key, modality) =>
+    set((s) => ({
+      modalityOverride: { ...s.modalityOverride, [key]: modality },
+      activeModality: s.activeModality?.key === key ? { ...s.activeModality, value: modality } : s.activeModality,
+    })),
   setPreset: (p) => set({ preset: p, ww: WL_PRESETS[p][0], wl: WL_PRESETS[p][1] }),
   setWindow: (ww, wl) => set({ ww: Math.max(1, Math.round(ww)), wl: Math.round(wl), preset: 'custom' }),
   cycleLayout: () => {

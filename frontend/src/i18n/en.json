@@ -511,7 +511,15 @@
     "wlHint": "Right-drag in a view: horizontal = width, vertical = level.",
     "wlShort": "W {{ww}}  L {{wl}}",
     "wlValues": "{{ww}} / {{wl}}",
-    "zoom": "{{zoom}} %"
+    "zoom": "{{zoom}} %",
+    "modality": {
+      "label": "Modality",
+      "help": "This image carries no modality, so CT is assumed. Change it if it is not a CT: other modalities open on a percentile window.",
+      "assumed": "{{modality}} (assumed)",
+      "CT": "CT",
+      "MR": "MR",
+      "OT": "Other"
+    }
   },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",

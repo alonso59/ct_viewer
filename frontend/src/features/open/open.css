@@ -1,0 +1,23 @@
+/* Open mode (UI-17): title row + one left-aligned action row above the viewer */
+.open-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.open-title h1 {
+  margin: 0;
+  font-size: var(--fs-title);
+}
+.open-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.open-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}

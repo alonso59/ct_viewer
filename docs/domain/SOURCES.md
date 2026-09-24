@@ -74,7 +74,7 @@ Each import has a `source_key`: `{adapter}:{alias}` by default (a re-import of t
 
 - `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry. Sessions live in the API process memory (LRU of 32; gone after a restart); a folder lists at most 500 accepted files. Headers and the label-map check (integer dtype and ≤ 256 values in the middle slice) run in a job worker.
 - DICOM and NumPy are converted into `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, which is disposable, LRU-purged with `CACHE_MAX_GB`, and never a source for projects.
-- Viewer: all layouts. W/L uses HU presets only if DICOM says CT; otherwise the percentiles (VW-05). A label map opened alone is shown with auto colours `label_{value}` over a black background.
+- Viewer: all layouts. Modality from DICOM when present; otherwise CT is assumed and the user can change it (VW-05). A label map opened alone is shown with auto colours `label_{value}` over a black background.
 - Curation, tasks and share links are disabled. Open mode offers exactly three actions: **Save as NIfTI…** (SRC-14), **Add to project…** (SRC-15) and **Create project from this** (the import wizard with the path and the detected adapter). No rename, delete or edit; tasks still require a project.
 - Attach (SRC-10) takes a NIfTI or NumPy label map from inside the opened folder; outside it the refusal offers `open_folder`.
 

@@ -492,3 +492,16 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - VOI extractor plugin from a segmentation (reference code to come); it settles the legacy `.npy` VOI axis order (ROADMAP §P7b).
 - `legacy/` deletion (fully ported; kept for now).
 - Continuous ranges in radiomics selection (API-33/34) vs "bin first": still open.
+
+## 2026-09-24 · Open mode UX: assumed CT + left-aligned actions · v3
+
+**Done**
+- VW-05 (owner decision): a known modality (DICOM, metadata, import option) is used as is; an unknown one is assumed CT, with a "CT (assumed) ▾" selector (CT · MR · Other) next to W/L in the case toolbar and in the Open action row. Display-only, per item in memory (`viewerSync.modalityOverride`); a changed choice re-windows (CT → soft tissue, other → percentiles) and travels as the `nifti-files` `modality` option into Add to project… / Create project from this. Open records no longer force `OT`.
+- UI-17: Open mode has a title row and one left-aligned action row above the viewer (Create project from this · Add to project… · Save as NIfTI… │ Attach segmentation… │ modality). Docs: VIEWER VW-05/21, UI_SHELL UI-17, SOURCES, DATA_MODEL.
+- Dev servers restarted for the owner: backend 8000 (`--reload`, `ALLOWED_DATA_ROOTS=/Volumes/Mac/Mac external/Documents`, `ALLOWED_DERIVED_ROOTS=/Volumes/Mac/Mac external/rw-derived`), Vite 5176 → 8000. The stale 08:04 backend (pre-P7b, 404 on `/open`) was the cause of "Not Found".
+
+**Results**: `make check` green (438 + 200). Playwright 23/24: `tasks-dicom.spec.ts` "single DICOM file … saves as NIfTI" is flaky on Chromium (fails the first cold run at the 30 s toast wait, passes after); reproduced on the previous commit too, so not caused by this change.
+
+**Open issues**
+- Open mode lacks the viewer's minimum CT controls (W/L presets, layout, overlay, reset): next step (owner request).
+- The flaky cold-run DICOM save E2E above.

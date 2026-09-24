@@ -10,7 +10,7 @@ const item = (over: Partial<OpenItem>): OpenItem => ({
 
 test('unknown modality uses percentiles (not CT presets); a label alone overlays itself', () => {
   const r = toItemRecord(item({}), null)
-  expect(r.modality).toBe('OT')
+  expect(r.modality).toBeNull()
   expect(r.mask).toBeNull()
   const l = toItemRecord(item({ kind: 'label' }), null)
   expect(l.mask?.ref).toBe('a.nii.gz')

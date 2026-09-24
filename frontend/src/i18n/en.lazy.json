@@ -520,7 +520,8 @@
     "projects": "Projects",
     "cases_one": "{{count}} case",
     "cases_other": "{{count}} cases",
-    "noProjects": "No projects yet"
+    "noProjects": "No projects yet",
+    "actions": "Open-mode actions"
   },
   "tasks": {
     "kind": {

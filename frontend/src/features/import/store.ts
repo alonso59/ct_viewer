@@ -6,6 +6,8 @@ export interface WizardPrefill {
   adapter?: string
   /** SRC-15 "Add to project…": keep the project's other sources */
   add?: boolean
+  /** VW-05: the modality chosen in Open mode for a file without one → `nifti-files` option */
+  modality?: string
 }
 
 interface WizardState {

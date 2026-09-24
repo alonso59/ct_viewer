@@ -11,7 +11,7 @@ import { useViewerLocal } from './local'
 import { fetchMesh } from './meshes'
 import { isPlane, visibleViewports } from './model/layouts'
 import type { LabelStyle, LoadProgress, Plane, TileRect, Vec3, ViewerHandle, ViewportId, ViewState } from './model/types'
-import { dragWindow, isCt } from './model/wl'
+import { dragWindow, effectiveModality, isCt, modalityKey } from './model/wl'
 import { Viewport, type MeshState } from './Viewport'
 
 export interface SurfaceProps {
@@ -100,7 +100,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         onImage: () => {
           // VW-15: same geometry → keep crosshair and W/L; otherwise start centred
           if (keep) handle.setCrosshair(keep)
-          else if (!isCt(item)) {
+          else if (!isCt({ modality: effectiveModality(item, useViewerSync.getState().modalityOverride).value })) {
             const [dw, dl] = handle.defaultWindow()
             useViewerSync.getState().setWindow(dw, dl)
           }
@@ -119,6 +119,32 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     // loadKey covers handle/item/urls
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadKey])
+
+  // VW-05: publish the visible item's modality (the selector shows only when it is assumed), and
+  // re-window when the user changes an assumed modality: CT → soft tissue, other → percentiles
+  const mKey = modalityKey(item)
+  const override = useViewerSync((s) => s.modalityOverride[mKey])
+  const modality = effectiveModality(item, override ? { [mKey]: override } : {})
+  useEffect(() => {
+    if (!active) return
+    useViewerSync.setState({ activeModality: { key: mKey, value: modality.value, assumed: modality.assumed } })
+    return () => {
+      if (useViewerSync.getState().activeModality?.key === mKey) useViewerSync.setState({ activeModality: null })
+    }
+  }, [active, mKey, modality.value, modality.assumed])
+  const windowedFor = useRef<{ key: string; value: string } | null>(null)
+  useEffect(() => {
+    if (!handle || load.phase !== 'ready') return
+    const w = windowedFor.current
+    windowedFor.current = { key: mKey, value: modality.value }
+    // A new item keeps the window onImage chose (VW-15); only a changed choice re-windows
+    if (!w || w.key !== mKey || w.value === modality.value) return
+    if (isCt({ modality: modality.value })) useViewerSync.getState().setPreset('soft_tissue')
+    else {
+      const [dw, dl] = handle.defaultWindow()
+      useViewerSync.getState().setWindow(dw, dl)
+    }
+  }, [handle, load.phase, mKey, modality.value])
 
   // Remember geometry + crosshair for VW-15 on the next item
   useEffect(() => {

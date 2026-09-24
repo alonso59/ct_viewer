@@ -14,7 +14,7 @@ export function addPath(session: OpenSession, item: OpenItem): string {
   return item.format === 'dicom' && (item.files?.length ?? 0) > 1 ? file.slice(0, file.lastIndexOf('/')) : file
 }
 
-export function AddDialog({ session, item, onClose }: { session: OpenSession; item: OpenItem; onClose: () => void }) {
+export function AddDialog({ session, item, modality, onClose }: { session: OpenSession; item: OpenItem; modality?: string; onClose: () => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const projects = useProjects().data ?? []
@@ -23,7 +23,7 @@ export function AddDialog({ session, item, onClose }: { session: OpenSession; it
     if (!pid) return
     onClose()
     navigate(`/p/${pid}`)
-    useImportWizard.getState().open(pid, { path: addPath(session, item), adapter: item.format === 'dicom' ? 'dicom.convert' : 'nifti-files', add: true })
+    useImportWizard.getState().open(pid, { path: addPath(session, item), adapter: item.format === 'dicom' ? 'dicom.convert' : 'nifti-files', add: true, modality })
   }
   return (
     <Dialog

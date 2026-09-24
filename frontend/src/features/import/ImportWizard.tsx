@@ -181,7 +181,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [upload, setUpload] = useState(false)
   const [files, setFiles] = useState<Partial<Uploads>>({})
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
-  const [options, setOptions] = useState<NiftiOptions>({})
+  const [options, setOptions] = useState<NiftiOptions>(prefill?.modality ? { modality: prefill.modality } : {})
   const [jobId, setJobId] = useState<string | null>(null)
   const [convertError, setConvertError] = useState<unknown>(null)
   const [askDerived, setAskDerived] = useState(false)

@@ -8,7 +8,7 @@ import { api, useAttachOpen, useOpenSession, type AxisOrder, type OpenItem, type
 import { Dialog, ProblemCard } from '../../lib'
 import { NewProjectDialog } from '../projects'
 import { FolderBrowser } from '../import'
-import { StandaloneViewer } from '../viewer'
+import { ModalityChip, StandaloneViewer } from '../viewer'
 import { useViewerSync } from '../../state'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { attachedTo, autoLabels, toItemRecord } from './model'
@@ -16,6 +16,7 @@ import { AddDialog } from './AddDialog'
 import { SaveDialog } from './SaveDialog'
 import { useOpenDialog } from './store'
 import '../import/import.css'
+import './open.css'
 
 const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 
@@ -77,6 +78,9 @@ export default function OpenRoute() {
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
   const openDialog = useOpenDialog((s) => s.show)
+  // VW-05: an assumed modality the user changed travels into the import (SRC-14/15)
+  const active = useViewerSync((s) => s.activeModality)
+  const modality = active?.assumed ? active.value : undefined
 
   const items = session?.items ?? []
   const viewable = items.filter((i) => i.attached_to == null)
@@ -98,31 +102,35 @@ export default function OpenRoute() {
   return (
     <div className="page">
       <div className="page-inner" style={{ maxWidth: 'none', display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
-        <header style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <header className="open-title">
           <button type="button" className="btn btn-brand" onClick={() => navigate('/')} title={t('open.home')} aria-label={t('open.home')}>
             <BrandMark size={18} />
           </button>
-          <h1 style={{ margin: 0, fontSize: 'var(--fs-title)' }}>{t('open.title')}</h1>
-          <span className="mono muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={path ?? ''}>{path}</span>
-          <span style={{ flex: 1 }} />
+          <h1>{t('open.title')}</h1>
+          <span className="mono muted open-path" title={path ?? ''}>{path}</span>
           <span className="badge" data-tone="accent">{t('open.noProject')}</span>
-          <button type="button" className="btn" disabled={!current || current.kind === 'label'} onClick={() => setAttaching(true)}>
-            <Icon spec={codicon('layers')} />
-            {t('open.attachAction')}
-          </button>
-          <button type="button" className="btn" disabled={!current || !!current.error || needsOrder} onClick={() => setSaving(true)}>
-            <Icon spec={codicon('save')} />
-            {t('open.saveAction')}
+        </header>
+        {/* UI-17: one left-aligned action row, in workflow order, right above the viewer */}
+        <div className="open-actions" role="toolbar" aria-label={t('open.actions')}>
+          <button type="button" className="btn btn-primary" disabled={!path} onClick={() => setCreating(true)}>
+            <Icon spec={codicon('new-folder')} />
+            {t('open.createProject')}
           </button>
           <button type="button" className="btn" disabled={!current || !!current.error || current.format === 'npy'} onClick={() => setAdding(true)}>
             <Icon spec={codicon('add')} />
             {t('open.addAction')}
           </button>
-          <button type="button" className="btn btn-primary" disabled={!path} onClick={() => setCreating(true)}>
-            <Icon spec={codicon('new-folder')} />
-            {t('open.createProject')}
+          <button type="button" className="btn" disabled={!current || !!current.error || needsOrder} onClick={() => setSaving(true)}>
+            <Icon spec={codicon('save')} />
+            {t('open.saveAction')}
           </button>
-        </header>
+          <span className="toolbar-sep" />
+          <button type="button" className="btn" disabled={!current || current.kind === 'label'} onClick={() => setAttaching(true)}>
+            <Icon spec={codicon('layers')} />
+            {t('open.attachAction')}
+          </button>
+          <ModalityChip />
+        </div>
         {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
         {error ? <ProblemCard error={error} onAction={onAction} /> : null}
         {session ? (
@@ -183,9 +191,9 @@ export default function OpenRoute() {
           onPick={(file) => attach.mutate({ sid: session.sid, n: current.n, file }, { onSuccess: () => setAttaching(false) })}
         />
       ) : null}
-      {path ? <NewProjectDialog open={creating} onOpenChange={setCreating} prefill={{ path }} /> : null}
+      {path ? <NewProjectDialog open={creating} onOpenChange={setCreating} prefill={{ path, modality }} /> : null}
       {saving && session && current ? <SaveDialog session={session} item={current} axisOrder={order ?? null} onClose={() => setSaving(false)} /> : null}
-      {adding && session && current ? <AddDialog session={session} item={current} onClose={() => setAdding(false)} /> : null}
+      {adding && session && current ? <AddDialog session={session} item={current} modality={modality} onClose={() => setAdding(false)} /> : null}
     </div>
   )
 }

@@ -7,8 +7,8 @@ export const autoLabels = (n = 16): LabelDef[] =>
   Array.from({ length: n }, (_, k) => ({ value: k + 1, name: `label_${k + 1}`, color: AUTO[k % AUTO.length] ?? '#FFFFFF', opacity: 0.35, visible: true }))
 
 /**
- * `modality`: Open mode knows it only from DICOM; otherwise `OT` so W/L uses percentiles, not HU
- * presets (VW-05). A label shown alone is its own image and overlay (VW-21).
+ * `modality`: Open mode knows it only from DICOM; otherwise `null`, which the viewer assumes to be CT
+ * and lets the user change (VW-05). A label shown alone is its own image and overlay (VW-21).
  */
 export function toItemRecord(it: OpenItem, mask: OpenItem | null): ItemRecord {
   const g = it.geometry
@@ -21,7 +21,7 @@ export function toItemRecord(it: OpenItem, mask: OpenItem | null): ItemRecord {
     scope: 'complete',
     side: '-',
     patient_id: null,
-    modality: it.modality ?? 'OT',
+    modality: it.modality ?? null,
     phase: { canonical: 'UNK', raw: null, source: 'none' },
     image: ref,
     masks: maskRef ? { open: maskRef } : {},
