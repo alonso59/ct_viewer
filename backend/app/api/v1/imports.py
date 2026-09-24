@@ -1,4 +1,4 @@
-"""API-11..14 import preview/commit/history, warnings (IMP-*)."""
+"""API-11..15 import preview/commit/history, warnings, full-hash job (IMP-*)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from app.api.v1.deps import Ctx
 from app.api.v1.paging import Page, Paging, paginate
 from app.core.errors import ValidationProblem
 from app.ingest.codes import QcCode, Severity
+from app.ingest.hashing import HashJobRequest, HashJobStarted, start_hash_job
 from app.ingest.models import QcWarning
 from app.ingest.parsers import FileKind
 from app.ingest.schemas import (
@@ -128,3 +129,23 @@ def list_warnings(
         pid, code=code, severity=severity, case_id=case_id, item_id=item_id
     )
     return paginate(rows, paging)
+
+
+@router.post("/projects/{pid}/hash-jobs", response_model=HashJobStarted, status_code=202)
+async def start_hash(pid: str, ctx: Ctx, body: HashJobRequest | None = None) -> HashJobStarted:
+    """API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.
+
+    Results land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item
+    records (API-21/22). One `hash` job per project (`job-conflict`).
+    """
+    ctx.workspace.project_dir(pid)  # 404 for unknown or archived projects
+    return await start_hash_job(
+        project_id=pid,
+        index_dir=ctx.index.index_dir(pid),
+        items=ctx.index.load(pid).items,
+        resolve=ctx.workspace.resolver(pid).resolve,
+        jobs=ctx.jobs,
+        locks=ctx.locks,
+        on_written=lambda: ctx.index.invalidate(pid),
+        force=body.force if body is not None else False,
+    )

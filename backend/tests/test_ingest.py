@@ -98,6 +98,28 @@ def test_healthy_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None
     assert voi.geometry.shape == [32, 32, 32] and voi.labels_present
 
 
+def test_modality_is_a_typed_field(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None:
+    """DATA_MODEL §Item `modality` from the input field; VOIs inherit their scan's value."""
+    items, _ = indexed
+    ct = items["case_00001.01.complete.-"]
+    assert ct.modality == "CT" and ct.extra["modality"] == "CT"  # extra kept for variables
+    assert items["case_00061.02.complete.-"].modality == "MR"
+    assert items["case_00001.03.voi.L"].modality == "CT"
+    assert "modality" in Item.model_validate(ct.model_dump()).model_dump()
+
+
+def test_modality_absent_is_null(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    _write(root / "nifti/01_case_00001_0000.nii.gz", np.zeros((4, 4, 4), dtype=np.int16))
+    meta = _rows(
+        {"case_id": "case_00001", "scan_idx": "01", "filename": "01_case_00001_0000.nii.gz"}
+    )
+    items, _ = run_index(build_drafts(parse_inputs({"metadata": meta}), resolver_for(root), "DATA"))
+    assert items[0].modality is None and "modality" not in items[0].extra
+    legacy = items[0].model_dump(exclude={"modality"})  # index written before the field
+    assert Item.model_validate(legacy).modality is None
+
+
 def test_defect_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None:
     items, warnings = indexed
     assert items["case_00010.01.complete.-"].status == "missing"

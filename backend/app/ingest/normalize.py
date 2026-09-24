@@ -155,6 +155,7 @@ class Draft:
     phase: PhaseInfo
     status: ItemStatus
     extra: dict[str, Any]
+    modality: str | None = None
     image: FileDraft | None = None
     mask: FileDraft | None = None
     spacing: tuple[float, ...] | None = None
@@ -224,6 +225,7 @@ def _scan_draft(
         phase=phase,
         status="excluded_upstream" if excluded else "active",
         extra=_extra(row, META_CONSUMED),
+        modality=row.text("modality"),
         line=row.line,
     )
     if excluded:
@@ -266,6 +268,7 @@ def _voi_draft(
         phase=phase,
         status="excluded_upstream" if excluded else "active",
         extra=_extra(row, CATALOG_CONSUMED),
+        modality=(parent.modality if parent else None) or row.text("modality"),
         spacing=_spacing(row),
         line=row.line,
     )
