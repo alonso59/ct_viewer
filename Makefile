@@ -5,7 +5,8 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 HOST ?= 127.0.0.1
-VERSION ?= 3.0.0
+# Image tag = the backend package version (single source: backend/pyproject.toml).
+VERSION ?= $(shell sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml)
 FIXTURES ?= .fixtures/synthetic
 PYTHON_VERSION ?= 3.12
 # Python env: a venv by default; on remote servers pass VENV=$$CONDA_PREFIX (conda env `rw`).

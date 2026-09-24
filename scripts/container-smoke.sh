@@ -4,16 +4,17 @@
 #   empty ALLOWED_DATA_ROOTS refuses to start (OPS-04) · runs as an arbitrary UID (OPS-02)
 #   health, SPA, import + one item viewable (TST-10) · source files unchanged (R1)
 #
-#   make fixtures && docker build -t radiology-workbench:3.0.0 . && scripts/container-smoke.sh
+#   make fixtures && make image && scripts/container-smoke.sh
 #
 # udocker (remote): start with scripts/udocker-run.sh, then
 #   python3 scripts/container_smoke.py --url http://127.0.0.1:$PORT --root $DATA_HOST
-# Env: IMAGE (default radiology-workbench:3.0.0), DATA_ROOT (default the synthetic fixtures),
+# Env: IMAGE (default radiology-workbench:<backend/pyproject.toml version>), DATA_ROOT (default the synthetic fixtures),
 # SMOKE_PORT (default 8099), SMOKE_UID (default 12345).
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-image="${IMAGE:-radiology-workbench:3.0.0}"
+version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/backend/pyproject.toml")"
+image="${IMAGE:-radiology-workbench:$version}"
 root="${DATA_ROOT:-$repo/.fixtures/synthetic/Dataset900}"
 port="${SMOKE_PORT:-8099}"
 max_bytes=1500000000

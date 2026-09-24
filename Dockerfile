@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Radiology Workbench: one image for Docker and udocker (ADR-0007, docs/ops/DEPLOYMENT.md).
-#   docker build -t radiology-workbench:3.0.0 .
+#   make image   # = docker build -t radiology-workbench:<backend/pyproject.toml version> .
 # Stages: web (node:22-slim) -> build (python:3.12-slim + gcc) -> runtime (python:3.12-slim).
 
 FROM node:22-slim AS web

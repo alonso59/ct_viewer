@@ -15,14 +15,23 @@ from app.events.bus import EventBus
 router = APIRouter(tags=["events"])
 
 PING_S = 15
+RETRY_MS = 3000
+# Sent right after subscribing so clients (Firefox) report the stream open before the first ping.
+OPEN_MESSAGE: dict[str, str | int] = {"comment": "open", "retry": RETRY_MS}
 
 
 async def sse_messages(
-    bus: EventBus, project_id: str, last_event_id: int | None
-) -> AsyncIterator[dict[str, str]]:
-    """Bus events as SSE messages; ends when the bus closes, unsubscribes on disconnect."""
+    bus: EventBus, project_id: str, last_event_id: int | None, *, opening: bool = False
+) -> AsyncIterator[dict[str, str | int]]:
+    """Bus events as SSE messages; ends when the bus closes, unsubscribes on disconnect.
+
+    `opening=True` first yields `OPEN_MESSAGE` (`: open` + `retry:`), after subscribing, so no
+    event published in between is lost.
+    """
     sub = bus.subscribe(project_id, last_event_id)
     try:
+        if opening:
+            yield OPEN_MESSAGE
         async for ev in sub:
             yield {"id": str(ev.id), "event": ev.event, "data": json.dumps(ev.data)}
     finally:
@@ -53,4 +62,4 @@ async def project_events(
     ctx.workspace.project_dir(pid)  # NotFound for unknown projects
     header_id = _parse_id(last_event_id_header)
     start = header_id if header_id is not None else last_event_id
-    return EventSourceResponse(sse_messages(ctx.bus, pid, start), ping=PING_S)
+    return EventSourceResponse(sse_messages(ctx.bus, pid, start, opening=True), ping=PING_S)
