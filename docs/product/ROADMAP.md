@@ -19,7 +19,7 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P4 | Curation + multi-user sync | ✅ 2026-09-24 (human check pending: queue CSV in 3D Slicer) |
 | P5 | Radiomics engine + settings + runs | ✅ 2026-09-24 (human check pending: IBSI map vs manual) |
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
-| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64, 947 MB); udocker + remote checks in Step 4 |
+| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64, 947 MB); udocker + remote checks in Step 4 — ⛔ blocked: remote server in maintenance (2026-09-24) |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
