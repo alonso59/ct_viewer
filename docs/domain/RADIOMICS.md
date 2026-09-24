@@ -128,3 +128,4 @@ Study variables are **not** copied into features; they are joined at analysis ti
 - Default label = first visible label. Client rules only pre-flag; the server validation (API-31) is authoritative once it answers for the current form.
 - Selection by variable sends level lists only; continuous variables must be binned into a derived variable first (VAR-06) until API-33/34 accept ranges (open decision, ROADMAP P7).
 - Draft settings live in memory; a reload reopens on the engine defaults (profiles persist).
+- "Use the current Explorer filter" (RAD-05) maps phase and variable levels to `filter`, or an Explorer item list to `item_ids` (API-33/34 take one or the other, so the list wins and sets the scope when all items share one). Not sent, and listed in the form: text search, curation status, warnings, has-VOI, show-excluded, continuous ranges. The Explorer's phase filter matches cases; the run selection's matches items.

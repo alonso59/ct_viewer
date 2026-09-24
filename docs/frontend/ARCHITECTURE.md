@@ -30,7 +30,7 @@ frontend/src/
 ├── app/          # providers, router, bootstrap, error boundary
 ├── shell/        # ActivityBar, SideBar, EditorArea(dockview), Panel, StatusBar, CommandPalette, keybindings
 ├── features/
-│   ├── projects/   # workspace home, new project, relink, bundle
+│   ├── projects/   # workspace home, new project, relink, bundle export/import (lazy report), full-hash action
 │   ├── import/     # import wizard (IMP-*)
 │   ├── explorer/   # case tree, filters, quick open
 │   ├── viewer/     # NiiVue wrapper, layouts, tools, overlays, 3D (VW-*)
@@ -78,7 +78,8 @@ frontend/src/
 
 - `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`), `mock/` implements it for the prototype. Every feature goes through it, radiomics included (API-30..37, types from `schema.d.ts`; validation key `keys.validation`). The mock's radiomics members lazily load the live schema fixture and the form's validation rules. The http client resolves `fetch` per call so tests can stub it.
 - Env: `VITE_API_MODE` (`http` | `mock`), `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; it flushes SSE headers so the stream opens immediately).
-- Initial JS is ~300 KB gzip after lazy-loading NiiVue: at the NFR-07 limit, so new eager dependencies need a lazy boundary.
+- Initial JS is 289 KB gzip (Step 3b; gzip -9 of the entry script in `dist/index.html` plus its static-import closure, i.e. the `modulepreload` set); NFR-07 allows 300 KB, so new eager dependencies need a lazy boundary.
+- `CaseFilter.itemIds` (DB-04) is applied client-side on API-20 results (the case id is the `item_id` prefix); `features/explorer` exports a read-only `useExplorerFilter()` and `showItemsInExplorer(ids)`.
 
 - i18n is split: `i18n/en.json` (eager) and `i18n/en.lazy.json`, loaded by `i18n/lazy.ts` from lazy chunks (dashboard, analysis, curation, queue, radiomics settings). Put strings used only in a lazy chunk into `en.lazy.json` (NFR-07). The key-coverage tests merge both files.
 - Initial JS after Step 3: 299.5 KB gzip, still at the NFR-07 limit.

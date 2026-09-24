@@ -322,3 +322,28 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Not done (listed in ROADMAP §P7)**
 - SPA mount into `app/main.py`; radiomics `api.ts` into the `Api` surface + mock; `e2e/p2-flow.spec.ts` counts; SSE opening comment; explorer item-id filter / `useExplorerFilter()`; amd64 image; version alignment.
+
+## 2026-09-24 · Step 3b integration · v3 (orchestrator + sub-agents A/B/C/D)
+
+**Done** (ROADMAP §P6 hash/bundle line and §P7 Step 3 follow-ups ticked)
+- A · backend: SPA served from `app/main.py` (`/assets`, `index.html` fallback, `/api/*` → 404); `scripts/container_app.py` only validates config (OPS-04 refusal) and runs uvicorn. SSE opens with `: open` + `retry: 3000` (API-40). `Item.modality` from input `modality` (VOIs inherit). Full-hash job API-15 → `index/hashes.json`, `image/mask.sha256` on API-21/22 (IMP-09). Bundles API-06 export (zip) / import (report, `needs_relink`) (PRJ-08/09, rules in PROJECT_FORMAT §Bundles). One version source: `backend/pyproject.toml` `3.0.0.dev0`; Makefile, compose, `.env.example`, udocker script follow it (`tests/test_version.py`). OpenAPI snapshot refreshed.
+- B · radiomics API-30..37 on the shared `Api` surface (types from `schema.d.ts`, `keys.validation`); `features/radiomics/api.ts` and the prototype radiomics members deleted; mock serves the live schema, validation, profiles, estimate and runs, so the settings tab works with `VITE_API_MODE=mock`.
+- C · Explorer item-id filter (`CaseFilter.itemIds`, "N items" chip) so "Send to Explorer" filters for real (DB-04); `useExplorerFilter()` + "Use the current Explorer filter" in the run selection (RAD-05, no ranges); viewer reads `item.modality` (VW-05); bundle export/import + "Compute full hashes" in the Projects view/Welcome/palette; `e2e/p2-flow` counts 50/89; new `e2e/projects-bundle.spec.ts`.
+- D · `make image PLATFORM=linux/amd64` (qemu under colima, 234 s): IBSI 20/20 in the build; `make container-smoke` all checks pass (OPS-02/04/07/08, SPA + fallback, `/api` 404, import in workers, Range 206, R1 188 files unchanged). amd64 image 935 MB uncompressed, 277 MB compressed (arm64 947/265 MB).
+- Integration fixes: `modality: null` default in `normalizeItem` (typed `Required<Item>`), harness reference item.
+- Results on the v3 tip: `make fixtures && make check` green, 306 backend (3 PyRadiomics modules skipped in this venv) + 189 frontend vitest. Playwright 14/14 (Chromium 7, Firefox 7). Initial JS 289.1 KB gzip (gzip -9 of entry + static-import closure = the `modulepreload` set; 287.7 KB at 207e51f by the same method; the older 299.5 KB figure used a different method).
+- Docs: API, DATA_MODEL, PROJECT_FORMAT, INPUT_METADATA, DEPLOYMENT, ADR-0006 (amd64 verified), BE/FE ARCHITECTURE, VIEWER, DASHBOARD, UI_SHELL, RADIOMICS, TESTING.
+
+**Still open (unchanged scope)**
+- Step 4 on the remote server (in maintenance): udocker, TST-10 under udocker, exec-mode benchmark, Dataset820, `docker save` → udocker, TST-05/09.
+- Human checks: IBSI map vs manual; queue CSV in 3D Slicer; real v2 `curation_review.csv` import.
+- User decision: continuous ranges in radiomics selection (API-33/34) vs "bin first".
+- BE-12 (analytics views to job workers if slow at 3,000 cases).
+
+**Open issues / follow-ups**
+- Bundle import with a new `project_id` rewrites only `project.json`; other files that store the old id (e.g. radiomics `run.json`) were not audited.
+- Bundle export zips in the API thread pool under the project lock; large `radiomics/runs` block writes to that project meanwhile.
+- The OPS-04 refusal still carries pydantic's `Value error, ` prefix.
+- Image tag has no architecture: building arm64 and amd64 locally under the same version overwrites the tag; `container-smoke.sh` has no `--platform`.
+- DB-04 → Explorer is covered by vitest only (E2E needs a PyRadiomics run). Mock seed has no MR item and no bundles (503). Vite HMR re-registering shell registries logs duplicate-key warnings during E2E editing (not on clean runs).
+- `SelectionForm.test.tsx` imports `features/explorer/store` directly (test-only boundary exception).

@@ -27,6 +27,10 @@ missing SEG, shape mismatch, ambiguous phase, ambiguous side, duplicate identity
 Every IMP-08 warning code must be produced by at least one fixture row.
 Variables (VAR/ANA): no `group` field; case-level numeric study variables with ~50 % missing and one compositional pair; a `numeric-discrete` variable; vendor strings needing recode; one MRI scan; enough healthy cases (≥ 30) for group tests. Never copy values from real metadata into fixtures.
 
+## E2E specs (Playwright, Chromium + Firefox)
+
+`smoke`, `p2-flow` (50 cases / 89 scan rows on the fixtures), `variables` (API-16..18), `tst08-multiuser` (TST-08), `projects-bundle` (IMP-09 hash job, PRJ-08/09 export → import). Ports: `E2E_API_PORT`, `E2E_WEB_PORT`.
+
 ## CI gates
 
 Lint + typecheck · TST-01..04 · OpenAPI/TS types up to date · TST-07 · image build.

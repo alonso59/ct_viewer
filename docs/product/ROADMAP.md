@@ -19,11 +19,11 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P4 | Curation + multi-user sync | ✅ 2026-09-24 (human check pending: queue CSV in 3D Slicer) |
 | P5 | Radiomics engine + settings + runs | ✅ 2026-09-24 (human check pending: IBSI map vs manual) |
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
-| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64, 947 MB); udocker + remote checks in Step 4 — ⛔ blocked: remote server in maintenance (2026-09-24) |
+| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks in Step 4 — ⛔ blocked: remote server in maintenance (2026-09-24) |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
-Step 1 integrated 2026-09-23 · Step 2 and Step 3 integrated 2026-09-24 (see LANE_NOTES.md).
+Step 1 integrated 2026-09-23 · Step 2, Step 3 and Step 3b integrated 2026-09-24 (see LANE_NOTES.md).
 
 ## Lanes (parallel work; prompts in ops/AGENT_RUNBOOK.md)
 
@@ -104,8 +104,8 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P6 — Dashboard + guided analysis (ADR-0012)
-- [ ] Not built in P1, schedule with P5/P6: full-hash job (IMP-09, API-15) and project bundles (PRJ-08/09)
-- [x] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07) — FE lane/3-ui (DB-04 "send to Explorer" copies ids until the explorer has an item filter, LANE_NOTES)
+- [x] Not built in P1, schedule with P5/P6: full-hash job (IMP-09, API-15) and project bundles (PRJ-08/09) — Step 3b (backend + Projects view UI, `e2e/projects-bundle.spec.ts`)
+- [x] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07) — FE lane/3-ui (DB-04 "send to Explorer" filters the explorer by item id since Step 3b)
 - [x] Measurements panel for the active item (UI-14)
 - [x] Backend `analytics/`: analysis spec, unit (one row per case), test choice, FDR, effect sizes, descriptives, REC rules, export (ANA-01..09, API-39), TST-12
 - [x] Analysis panel + Group comparison / Association / Balance check views (DB-08/09)
@@ -116,10 +116,10 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 ### P7 — Packaging
 - [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*) — Dockerfile, compose, `udocker-run.sh` done (lane/3-packaging); execution-mode benchmark on the remote server (Step 4)
 - [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done (lane/3-packaging); TST-10 under udocker, TST-05, TST-09 in Step 4
-- [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12); add `modality` to `ItemRecord` (VW-05 uses `extra.modality`)
+- [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12) — `Item.modality` done in Step 3b (VW-05 reads it); BE-12 still open
 - [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done (lane/3-packaging); Dataset820 check in Step 4
-- [ ] Build the image for the server's architecture (`make image PLATFORM=linux/amd64` if the server is amd64), rerun `make container-smoke`, then `docker save` → udocker
-- [ ] Follow-ups from Step 3 (LANE_NOTES.md): move the SPA mount from `scripts/container_app.py` into `app/main.py` (BE ARCHITECTURE); move `features/radiomics/api.ts` into the `Api` surface and update the mock; update `e2e/p2-flow.spec.ts` counts (50 cases / 89 scans); SSE sends a comment right after opening (Firefox "live" delay); explorer item-id filter for DB-04 and an exported `useExplorerFilter()` for RAD-05; align `pyproject` version with the image tag
+- [ ] Build the image for the server's architecture (`make image PLATFORM=linux/amd64` if the server is amd64), rerun `make container-smoke`, then `docker save` → udocker — amd64 build + TST-10 under Docker done (Step 3b, IBSI 20/20); `docker save` → udocker in Step 4
+- [x] Follow-ups from Step 3 (LANE_NOTES.md), done in Step 3b: move the SPA mount from `scripts/container_app.py` into `app/main.py` (BE ARCHITECTURE); move `features/radiomics/api.ts` into the `Api` surface and update the mock; update `e2e/p2-flow.spec.ts` counts (50 cases / 89 scans); SSE sends a comment right after opening (Firefox "live" delay); explorer item-id filter for DB-04 and an exported `useExplorerFilter()` for RAD-05; align `pyproject` version with the image tag
 - [ ] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-33/34, or keep "bin into a derived variable first"
 - [ ] **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
