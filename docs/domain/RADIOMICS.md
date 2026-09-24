@@ -18,7 +18,7 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-02 | Filters (image types) and feature classes are checkboxes, and each class expands to per-feature checkboxes. Parameters use number, text, list or select inputs. | M |
 | RAD-03 | Profiles: save, load, rename, duplicate. `profile_hash` = SHA-256 of canonical JSON (sorted keys, normalized numbers) of settings + engine name + engine major version. | M |
 | RAD-04 | Validation (§Rules) runs live in the UI and authoritatively on the server; the Run button is disabled while errors exist. | M |
-| RAD-05 | Selection: items (all active / current Explorer filter on any variable (VAR-10) / explicit list), scope (`complete`, `voi`), labels (multi-select from label map, one extraction per label). | M |
+| RAD-05 | Selection: items (all active / current Explorer filter on any variable (VAR-10) / explicit list), scope (`complete`, `voi`), labels (multi-select from label map, one extraction per label), segmentation set `seg_id` (default `default_seg`; ADR-0015). | M |
 | RAD-06 | Run is a background job (BE-06): per-item progress, ETA, cancel. | M |
 | RAD-07 | Per-item failures are logged to `errors.jsonl` and do not stop the run; the final status is `completed_with_errors`. | M |
 | RAD-08 | Interrupted runs can resume, skipping items that already have a part file. | S |
@@ -26,6 +26,7 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-10 | Outputs: `features.parquet` (long) + `diagnostics.parquet`; CSV export in long or wide shape. | M |
 | RAD-11 | Pre-run estimate: `n_items × n_labels` and time per item measured on a 3-item sample. | S |
 | RAD-12 | Engine adapter interface allows replacing the engine without UI changes (ADR-0006). | S |
+| RAD-13 | Radiomics runs as the builtin task `radiomics.pyradiomics` (TSK-*, ADR-0016). API-30..37 stay as aliases of the task endpoints during P7b; run records stay in `radiomics/runs/`. | M |
 | RAD-13 | Voxel-based feature maps. | C (v3.1) |
 
 ## Engine adapter
@@ -93,8 +94,8 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
               "deps": { "SimpleITK": "…", "numpy": "…", "PyWavelets": "…" } },
   "ibsi_map_version": "1",
   "profile_hash": "sha256:…", "settings": { /* full normalized snapshot */ },
-  "selection": { "scope": "complete", "labels": [2], "filter": "phase=NP", "item_ids": ["…"] },
-  "inputs": [ { "item_id": "…", "image_fp": "…", "mask_fp": "…" } ],
+  "selection": { "scope": "complete", "seg_id": "imported", "labels": [2], "filter": "phase=NP", "item_ids": ["…"] },
+  "inputs": [ { "item_id": "…", "image_fp": "…", "seg_id": "imported", "mask_fp": "…" } ],
   "counts": { "items": 320, "ok": 318, "failed": 2, "features": 107 } }
 ```
 

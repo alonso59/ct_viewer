@@ -31,11 +31,13 @@ frontend/src/
 ├── shell/        # ActivityBar, SideBar, EditorArea(dockview), Panel, StatusBar, CommandPalette, keybindings
 ├── features/
 │   ├── projects/   # workspace home, new project, relink, bundle export/import (lazy report), full-hash action
-│   ├── import/     # import wizard (IMP-*)
+│   ├── import/     # import wizard: adapter detect, NIfTI pattern preview, identity (IMP-*, SRC-*)
+│   ├── open/       # Open mode: file/folder → viewer without a project; NumPy axis dialog (SRC-09..12)
+│   ├── tasks/      # generic schema form, selection, preflight, estimate, runs, annotations (TSK-*, ANZ-*)
 │   ├── explorer/   # case tree, filters, quick open
 │   ├── viewer/     # NiiVue wrapper, layouts, tools, overlays, 3D (VW-*)
 │   ├── curation/   # inspector form, history, queue (CUR-*)
-│   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*)
+│   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*); shares selection/runs with tasks/
 │   ├── dashboard/  # views (DB-*)
 │   └── jobs/
 ├── api/          # generated schema.d.ts, client, query keys, useProjectEvents (SSE)
@@ -57,6 +59,8 @@ frontend/src/
 | `/p/:pid/case/:cid?item=&layout=` | Workbench + case editor tab |
 | `/p/:pid/run/:rid?view=` | Workbench + dashboard tab |
 | `/p/:pid/radiomics` | Workbench + radiomics settings tab |
+| `/p/:pid/task/:tid` | Workbench + task settings tab |
+| `/open?path=` | Open mode viewer (no project) |
 
 ## Requirements
 

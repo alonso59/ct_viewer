@@ -347,3 +347,15 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Image tag has no architecture: building arm64 and amd64 locally under the same version overwrites the tag; `container-smoke.sh` has no `--platform`.
 - DB-04 → Explorer is covered by vitest only (E2E needs a PyRadiomics run). Mock seed has no MR item and no bundles (503). Vite HMR re-registering shell registries logs duplicate-key warnings during E2E editing (not on clean runs).
 - `SelectionForm.test.tsx` imports `features/explorer/store` directly (test-only boundary exception).
+
+## 2026-09-24 · P7b docs (amendments ADR-0013..0017) · v3
+
+**Done** (docs only, no code)
+- ADR-0013 sources + Open mode + identity policy; ADR-0014 source/derived roots (R1 reworded in AGENTS.md; derived folder chosen by the user); ADR-0015 segmentation sets; ADR-0016 tasks/plugins (builtin + external runner through a file queue); ADR-0017 DICOM converter as a task + metadata analyzers. ADR-0002/0005/0006/0007 marked as amended.
+- New owners: `domain/SOURCES.md` (SRC-), `domain/TASKS.md` (TSK-), `domain/DICOM_CONVERTER.md` (DCM-), `domain/ANALYZERS.md` (ANZ-). Updated: INDEX, VISION, GLOSSARY, NFR (17/18), INPUT_METADATA, DATA_MODEL, PROJECT_FORMAT (format_version 2, PRJ-13), RADIOMICS (RAD-13), CURATION (CUR-15, `seg_id`), VARIABLES, API (API-07/08/19/27/42..48/55, `actions[]`), BE/FE ARCHITECTURE, UI_SHELL (UI-17..20), VIEWER (VW-19..21), DASHBOARD, DEPLOYMENT (OPS-11..14), TESTING (TST-13..16), ROADMAP §P7b.
+
+**Open issues**
+- `backend/app/imaging/npy_convert.py` reads legacy `.npy` VOIs as `xyz` (`affine = diag(spacing)`, no transpose). If the v2 VOI writer saved SimpleITK arrays (`zyx`), today's conversion swaps axes: verify in P7b Wave 2 (SRC-12, IMP-10).
+- The owner's converter is kept as read-only reference in `legacy/convert/`. `legacy/` is now git-ignored, `chmod -R a-w` and untracked (115 v2 files removed from the index; tag `legacy-reference` = last commit that tracks them; R9 in AGENTS.md). P7b Wave 3 ports it to `plugins/dicom/` + `plugins/analyzers/`. The CLI emits modality `MRI`; DCM-12 requires `MR`.
+- Phase order (user decision): P7b → P7 remote part (Step 4, udocker) → P8 Electron.
+- P7b runs in one sequential Claude shell session (prompt in AGENT_RUNBOOK §P7b). `plugins/nnunet/` is deferred until the amendments are stable (user decision 2026-09-24); the external runtime is proven with the fake `segment.threshold` plugin.

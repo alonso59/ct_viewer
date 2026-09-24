@@ -2,7 +2,7 @@
 
 Scope: OCI image, Docker (local), udocker (remote, no sudo), configuration, upgrades.
 Read when: building or running the image, or changing env vars.
-Depends: ADR-0007, backend/ARCHITECTURE.md.
+Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 
 ## Requirements
 
@@ -18,6 +18,10 @@ Depends: ADR-0007, backend/ARCHITECTURE.md.
 | OPS-08 | Image size ≤ 1.5 GB (NFR-10). | S |
 | OPS-09 | `scripts/udocker-run.sh` reads the same `.env` file as compose and runs the equivalent command. | M |
 | OPS-10 | Upgrade = new image + restart; project `format_version` migrations run on open (PRJ-11). | M |
+| OPS-11 | Derived roots are a third, **writable**, mirror-mounted mount (`DERIVED_HOST`), listed in `ALLOWED_DERIVED_ROOTS` (ADR-0014). | M |
+| OPS-12 | Startup refuses a derived root that overlaps a data root, or vice versa (`roots-overlap`). | M |
+| OPS-13 | External tasks run through `scripts/rw-runner.py` on the host (Docker or udocker alike), in the plugin's own environment; `WORKSPACE_HOST`, the data and the derived roots must be visible to it at the same paths as in the container, except the workspace, which the runner addresses by its host path (TSK-11). | M |
+| OPS-14 | Builtin tasks (converter, analyzers, radiomics) stay in the image within OPS-08; heavy plugins (torch, GPU) never go into the image. | M |
 
 ## Config (env vars)
 
@@ -35,6 +39,8 @@ Depends: ADR-0007, backend/ARCHITECTURE.md.
 | `LOG_LEVEL` | `info` | |
 | `CONTAINER_MODE` | `1` in the image | With `1`, an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) |
 | `STATIC_ROOT` | `/app/static` | SPA build |
+| `ALLOWED_DERIVED_ROOTS` | *(empty = no derived root; tasks that write volumes are unavailable)* | `:`-separated absolute writable dirs for `derived` roots (OPS-11) |
+| `PLUGINS_ROOT` | *(empty)* | Read-only dir of external task manifests (TSK-01); the runner uses the same dir on the host |
 
 ## Docker (local machine)
 
@@ -49,6 +55,8 @@ services:
     volumes:
       - ${WORKSPACE_HOST:-./workspace}:/workspace
       - ${DATA_HOST}:${DATA_HOST}:ro        # mirror mount (OPS-05)
+      - ${DERIVED_HOST}:${DERIVED_HOST}     # writable mirror mount (OPS-11)
+      - ${PLUGINS_HOST}:${PLUGINS_HOST}:ro  # optional: external task manifests
 ```
 
 ## udocker (remote server, no sudo)
@@ -69,6 +77,7 @@ udocker create --name=rw radiology-workbench:{version}
 | Execution mode affects I/O speed (`P1` default vs `F3`) | Benchmark in P7; document the chosen mode in the run script |
 | No compose | `udocker-run.sh` is the single source of the run command (OPS-09) |
 | Runs as the invoking user | `WORKSPACE_ROOT` must be writable by that user |
+| External tasks | Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
 
 ## Electron (phase P8)
 
@@ -76,7 +85,7 @@ The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or
 
 ## Implementation notes (P7-prep)
 
-- Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker).
+- Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker); P7b adds `DERIVED_HOST`, `PLUGINS_HOST`.
 - Image: 947 MB uncompressed rootfs (265 MB compressed) on linux/arm64; 935 MB (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
 - Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).

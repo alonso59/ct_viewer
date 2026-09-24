@@ -10,16 +10,17 @@ Agent entry point. Keep this file short; details live in `docs/`.
 
 ## Product in one line
 
-Local-first, browser-based CT workbench: inspect NIfTI volumes, visualize
-segmentations (read-only), curate datasets, extract radiomics, and review
-feature QC in a dashboard. QuPath-style layout in a VS Code shell (GitHub Dark,
+Local-first, browser-based CT workbench: inspect NIfTI and DICOM volumes (single
+files open without a project), visualize segmentations (never edited in place),
+curate datasets, run tasks (DICOM conversion, metadata analyzers, radiomics,
+segmentation models such as nnU-Net), and review feature QC in a dashboard. QuPath-style layout in a VS Code shell (GitHub Dark,
 codicons) with a 3D Slicer-style 2×2 CT viewer.
 
 ## Hard rules
 
 | # | Rule |
 |---|---|
-| R1 | Never write to referenced source data (images, masks, input metadata). All state lives in the project folder. See ADR-0002. |
+| R1 | Never write to `source` roots (images, masks, input metadata). App state lives in the project folder; task outputs are written only into `derived` roots. See ADR-0002, ADR-0014. |
 | R2 | No accounts, no passwords. Reviewer name is a free-text stamp. See ADR-0004. |
 | R3 | One OCI image must run on Docker (local) **and** udocker (remote, no sudo). No compose-only features. See ADR-0007. |
 | R4 | No sudo, apt, brew, or system installs on remote servers. Node runs only inside a container there. |
@@ -27,6 +28,7 @@ codicons) with a 3D Slicer-style 2×2 CT viewer.
 | R6 | Web app first. Electron starts only after roadmap phase P7 is done. See ADR-0001. |
 | R7 | Do not suggest SSH tunnel commands; VS Code Remote handles port forwarding. |
 | R8 | One fact, one place. Reference requirement IDs (e.g. `CUR-04`) instead of restating them. |
+| R9 | `legacy/**` is read-only reference (git-ignored, `chmod a-w`; tag `legacy-reference`). Never import, build, lint, test or edit it; no code or doc may depend on it, so it can be deleted at any time. Read it only when a task says to port from it (e.g. `legacy/convert/` in P7b Wave 3). |
 
 ## Workflow
 

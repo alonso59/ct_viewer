@@ -8,11 +8,23 @@ Scope: terms used across docs. Read when a term is unclear.
 | Project | Folder with `project.json`, index, curation and radiomics state; references data by alias |
 | Path alias / root | `ALIAS:rel/path` reference; the alias maps to an absolute root directory |
 | Relink | Changing an alias root when data moves (QuPath "update URIs") |
+| Source root / derived root | Alias role: `source` is read-only input; `derived` receives task outputs (ADR-0014) |
+| Adapter | Turns a source (metadata-v1, NIfTI files, DICOM via the converter) into contract v1 rows (SRC-*) |
+| Open mode | Viewing a file or folder without a project (SRC-09) |
+| Identity policy | How `case_id` / `scan_idx` are assigned and kept stable (SRC-07) |
+| Segmentation set | One named set of masks per project (imported, or produced by a task), `seg_id` (ADR-0015) |
+| Task | A manifest-described job over a selection with typed outputs (TSK-*) |
+| Plugin | A task outside the core: builtin in the image or external under `PLUGINS_ROOT` |
+| Runner | Host process that executes external tasks through `WORKSPACE_ROOT/queue/` |
+| Analyzer | Metadata-only task that proposes values (phase, organ focus, readiness) (ANZ-*) |
+| Annotation | An analyzer's per-item proposal with confidence and evidence; never overwrites data |
+| Sidecar | Per-series DICOM JSON file with the full header (DCM-04); may contain PHI |
 | Quick fingerprint | `size` + SHA-256 of the first and last 64 KiB of a file |
 | Case | All data for one `case_id` |
 | Scan | One acquisition `(case_id, scan_idx)`, usually one contrast phase |
 | Item | Viewable unit: scan × scope × side; target of curation and radiomics |
 | Scope | `complete` (full CT + SEG) or `voi` (cropped VOI + VOI mask) |
+| Axis order | NumPy memory order: `xyz` (nibabel) or `zyx` (SimpleITK arrays); spacing is always listed x, y, z (SOURCES §NumPy) |
 | VOI | Volume of interest: a crop around a kidney/lesion, per side L/R |
 | SEG | Multi-label segmentation mask of a full scan |
 | Label map | Project-defined label values → name, color, opacity |

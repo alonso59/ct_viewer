@@ -2,11 +2,12 @@
 
 Scope: case editor viewports, layouts, MPR interaction, overlays, 3D, memory.
 Read when: working on `features/viewer`.
-Depends: ADR-0003, frontend/ARCHITECTURE.md, API-23/24/25.
+Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md (Open mode).
 
 ## Model
 
-- One **case editor tab** has one active item: image + optional mask loaded once from API-23/24.
+- One **case editor tab** has one active item: image + zero or more segmentation sets (ADR-0015), each loaded once from API-23/24 (`?seg=`).
+- Open mode (SRC-09) uses the same viewer over API-07/08, with curation and tasks hidden.
 - NiiVue renders every viewport on the GPU. Slice scrolling, W/L and overlays never call the server.
 - Orientation comes from the NIfTI affine and is displayed in RAS world space; nothing is resampled or rewritten.
 
@@ -27,7 +28,7 @@ Depends: ADR-0003, frontend/ARCHITECTURE.md, API-23/24/25.
 | VW-02 | Maximize a viewport by double-clicking its header or pressing the maximize button; `Esc` restores the layout. | M |
 | VW-03 | Scroll = slice step; `Shift`+scroll = 10 slices; a slider per viewport shows index / total. | M |
 | VW-04 | Linked crosshair across the 2D views; click or drag sets the position. Accent colors follow 3D Slicer: axial **red** `#F85149`, sagittal **yellow** `#D29922`, coronal **green** `#3FB950`, 3D `#7D8590` (GitHub Dark tones). | M |
-| VW-05 | Window/level: right-drag (horizontal = width, vertical = level), numeric inputs, and presets (Soft tissue 400/50, Bone 1800/400, Lung 1500/−600, Brain 80/40, Kidney 500/100). HU presets only when `item.modality = CT` (missing = CT); otherwise the default window is the 1st–99th percentile. | M |
+| VW-05 | Window/level: right-drag (horizontal = width, vertical = level), numeric inputs, and presets (Soft tissue 400/50, Bone 1800/400, Lung 1500/−600, Brain 80/40, Kidney 500/100). HU presets only when `item.modality = CT` (missing = CT in projects; missing = percentiles in Open mode); otherwise the default window is the 1st–99th percentile. | M |
 | VW-06 | Pan (middle-drag or `Space`+drag) and zoom (`Ctrl/Cmd`+scroll, or pinch); `R` resets; zoom can be linked across views (toggle). | M |
 | VW-07 | Multi-label overlay using the project label map colors (PRJ-07): per-label visibility and opacity, outline-only toggle, global overlay opacity. | M |
 | VW-08 | Cursor readout: ijk, RAS mm, image value (HU), label value under the cursor → status bar (UI-07). | M |
@@ -41,6 +42,9 @@ Depends: ADR-0003, frontend/ARCHITECTURE.md, API-23/24/25.
 | VW-16 | Curation context (axis, slice, W/L) is attached to each event (CUR event `context.viewer`). | S |
 | VW-17 | Measurements (distance, ROI stats) are read-only helpers and are not persisted. | C (v3.1) |
 | VW-18 | Compare two items side by side with linked crosshair, e.g. NC vs NP. | C (v3.1) |
+| VW-19 | Segmentation set selector in the Layers section: one overlay per visible set, each with the label map through its `label_mapping`; the active set is the curation target (`seg_id`). Default `default_seg`. | M |
+| VW-20 | Two sets shown together: second set as outline-only in a contrasting style (e.g. ground truth vs nnU-Net). | C |
+| VW-21 | Open mode: a label map opened alone renders with auto `label_{value}` colours; a 1-slice volume shows 2D tiles only; attaching a segmentation checks geometry first (SRC-10). | M |
 
 ## Wrapper contract (`features/viewer`)
 

@@ -11,6 +11,10 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Unknown term | `product/GLOSSARY.md` |
 | Project folder, IDs, path aliases | `domain/PROJECT_FORMAT.md` |
 | Importing `metadata.jsonl` / VOI catalog | `domain/INPUT_METADATA.md` |
+| File formats, NIfTI/DICOM/NumPy sources, Open mode, case identity | `domain/SOURCES.md` |
+| Tasks, plugins, runner, run protocol | `domain/TASKS.md` |
+| DICOM → NIfTI converter | `domain/DICOM_CONVERTER.md` |
+| Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
 | Entities and relations | `domain/DATA_MODEL.md` |
 | Curation, QC status, correction queue | `domain/CURATION.md` |
 | Radiomics extraction, settings, IBSI | `domain/RADIOMICS.md` |
@@ -35,6 +39,10 @@ Read only the files routed for your task. Each file declares its scope in its he
 |---|---|---|
 | `PRJ-` | domain/PROJECT_FORMAT.md | Projects, folders, aliases, sharing |
 | `IMP-` | domain/INPUT_METADATA.md | Import and indexing |
+| `SRC-` | domain/SOURCES.md | Formats, adapters, Open mode, identity |
+| `TSK-` | domain/TASKS.md | Tasks, plugins, runtimes |
+| `DCM-` | domain/DICOM_CONVERTER.md | DICOM conversion |
+| `ANZ-` | domain/ANALYZERS.md | Metadata analyzers |
 | `CUR-` | domain/CURATION.md | Curation workflow |
 | `RAD-` | domain/RADIOMICS.md | Radiomics engine |
 | `VAR-` | domain/VARIABLES.md | Study variables |

@@ -39,3 +39,6 @@ LANE_NOTES.local.md
 **/metadata.jsonl
 !backend/tests/**/metadata.jsonl
 **/raw_metadata*.json
+
+# Legacy code: reference only, read-only, safe to delete (tag legacy-reference keeps the tracked v2 copy)
+/legacy/

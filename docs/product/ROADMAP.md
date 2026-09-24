@@ -5,6 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
+Order from 2026-09-24 (user decision): **P7b → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
 
 ## Progress
 
@@ -19,7 +20,8 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P4 | Curation + multi-user sync | ✅ 2026-09-24 (human check pending: queue CSV in 3D Slicer) |
 | P5 | Radiomics engine + settings + runs | ✅ 2026-09-24 (human check pending: IBSI map vs manual) |
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
-| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks in Step 4 — ⛔ blocked: remote server in maintenance (2026-09-24) |
+| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
+| P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | 🟨 Docs done 2026-09-24; code next |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
@@ -42,6 +44,7 @@ Every lane may also append to `LANE_NOTES.md` and tick its own lines in this fil
 | 3 | P5-FE radiomics form | `lane/3-radiomics-ui` | Shell A | `frontend/src/features/radiomics/**` |
 | 3 | P7-prep packaging | `lane/3-packaging` | Shell B | `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/udocker-run.sh`, `.env.example`, `README.md` |
 | 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (udocker notes), `LANE_NOTES.md` |
+| P7b | Waves 1–4, sequential | `v3` | one Claude shell session (user decision 2026-09-24) | per wave, see §P7b |
 | 5 | P8 Electron | `lane/5-electron` | VS Code | `desktop/**` |
 
 Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml` dependency list, `frontend/package.json`/lockfile (lanes may add dependencies in their own branch; the integrator resolves lockfile conflicts at merge), `AGENTS.md`, `docs/INDEX.md`.
@@ -124,6 +127,16 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [ ] **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
 
+### P7b — Sources, derived data, tasks & plugins (ADR-0013..0017)
+- [x] ADR-0013..0017 accepted; contracts in SOURCES, TASKS, DICOM_CONVERTER, ANALYZERS and the owning docs; R1 reworded (2026-09-24)
+- [ ] Wave 1 · contracts: `format_version` 2 migration (`path_roots.role`, `masks`, `segmentations`, `default_seg`, `annotation_sources`); `ALLOWED_DERIVED_ROOTS` + overlap check (OPS-11/12, BE-15); PRJ-13; generic task framework (manifests, protocol, builtin runtime, TSK-01..10) with radiomics as `radiomics.pyradiomics` + API-30..37 aliases (RAD-13); `?seg=` on API-24, API-27; FE API layer
+- [ ] Wave 2 · sources: detect (API-19), `nifti-files` adapter, single-file import, identity registry (SRC-01..08); Open mode (API-07/08, VW-21); NumPy axis rules (SRC-12) and a check of the legacy VOI axis order (IMP-10); `actions[]` on every refusal (SRC-11, UI-18); FE import wizard + Open
+- [ ] Wave 3 · converter + analyzers: port `legacy/convert/` (reference only, R9) → `plugins/dicom/`, split `plugins/analyzers/` (phase, target, readiness); task wrappers; sidecars + `anonymize` (DCM-04/05, NFR-17); incremental dataset (DCM-07); CUR-15; annotations + activation (ANZ-04, API-48); generic Tasks view + preflight (UI-17..20); TST-13, TST-16
+- [ ] Wave 4 · external runtime: queue + `scripts/rw-runner.py` (TSK-11, BE-14); fake `segment.threshold` plugin (TST-14, CI); segmentation-set selector (VW-19) and `seg_id` in radiomics selection (RAD-05) and curation
+- [ ] **Deferred until the P7b amendments are stable (user decision 2026-09-24):** `plugins/nnunet/` (`dataset.json` labels, `_0000` staging, batches; ADR-0016 §6) and its human check on a GPU host (one item and a batch)
+- [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
+**Exit:** a NIfTI folder, a single NIfTI, a single DICOM file and a standalone segmentation open in Open mode; a DICOM folder converts into a project with sidecars and active phase annotations; the fake plugin (CI) adds a segmentation set through the external runner; a radiomics run on a chosen `seg_id` records it; TST-07/13/14/15/16 green.
+
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
 **Exit:** the desktop app connects to a local Docker backend and a forwarded remote one.
@@ -138,4 +151,4 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 | `legacy/…/mesh_generator.py` | Reuse in the `imaging/` mesh job |
 | `legacy/frontend` (MUI pages) | Rewrite; reuse the W/L presets and label palette |
 | `.webui/curation_review.csv` | Import via CUR-13 |
-| `docs/archive/v2/*`, `legacy/**` | Frozen reference only; `legacy/` is removed after P7 |
+| `docs/archive/v2/*`, `legacy/**` | Frozen reference only; `legacy/` is git-ignored and read-only since tag `legacy-reference` (R9); delete it after P7b Wave 3 has ported `legacy/convert/` |

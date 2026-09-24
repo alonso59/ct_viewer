@@ -28,10 +28,12 @@ There are no roles. All users can reach every surface (ADR-0004).
 ## In scope (v3)
 
 - Projects in the QuPath style: a folder that references image data by path alias and never copies it (PRJ-*).
-- Import of `metadata.jsonl` (+ optional `phase.json`, `voi_catalog.jsonl`) and a data root path (IMP-*).
+- Import of `metadata.jsonl` (+ optional `phase.json`, `voi_catalog.jsonl`) and a data root path (IMP-*), or of any compatible NIfTI / DICOM / NumPy source through adapters (SRC-*).
+- Open mode: a single file or folder (image, segmentation, DICOM) opens in the viewer without a project (SRC-09).
 - Case-first explorer: case → phase → scan → VOI L/R.
 - 2×2 MPR + 3D viewer, rendered client-side with NiiVue; multi-label overlays (VW-*).
-- Segmentation **visualization only**.
+- Segmentations are **never edited** in the app; tasks (e.g. nnU-Net) add new segmentation sets next to the imported ones (ADR-0015).
+- Tasks and plugins: DICOM→NIfTI conversion with faithful metadata, metadata analyzers (phase, organ focus, readiness), radiomics and segmentation models share one contract (TSK-*, ADR-0016/0017).
 - Curation: QC status, comments, phase/side proposals, correction queue export (CUR-*).
 - Radiomics: user-configurable extraction run by button, IBSI-aligned, versioned profiles (RAD-*).
 - Study-agnostic variables: any metadata field or external table becomes a typed variable for filters and group-by (VAR-*).
@@ -44,9 +46,9 @@ There are no roles. All users can reach every surface (ADR-0004).
 | Excluded | Note |
 |---|---|
 | Mask editing, painting, voxel writes | Use 3D Slicer; hand off via the correction queue |
-| Writing to source data or input metadata | Exports only (R1) |
+| Writing to source data or input metadata | `source` roots are read-only; task outputs go to a user-chosen `derived` root (R1, ADR-0014) |
 | User accounts, roles, passwords | ADR-0004 |
-| DICOM import, DICOM→NIfTI conversion | Upstream pipeline |
+| PACS / DICOM networking (C-STORE, DICOMweb), DICOM SEG writing | Files only; DICOM SEG reading is a later item (DCM-11) |
 | Cloud upload, remote storage, PACS | Local filesystem only |
 | Advanced statistics (multivariable models, ML, survival, mixed models, harmonization) | Export to Python/R; in-app stats stay simple (ADR-0012) |
 | Registration / fusion, volume editing | Future |
@@ -56,7 +58,7 @@ There are no roles. All users can reach every surface (ADR-0004).
 ## Principles
 
 1. **Case, not file.** Users pick cases and scans; paths stay hidden unless asked for.
-2. **Source is sacred.** Referenced data is opened read-only; project state is separate.
+2. **Source is sacred.** Referenced data is opened read-only; project state is separate; generated volumes go to a derived root.
 3. **Everything is reproducible.** Radiomics runs record their profile hash, engine versions and input fingerprints.
 4. **Portable projects.** A project folder can be copied to another machine and relinked, as in QuPath.
 5. **Quiet, dense UI.** QuPath workflow + VS Code idioms, keyboard-first, progressive disclosure.

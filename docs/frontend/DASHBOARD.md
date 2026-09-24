@@ -1,6 +1,6 @@
 # Radiomics Dashboard
 
-Scope: QC-oriented visual analytics over a radiomics run; click-through to the viewer.
+Scope: QC-oriented visual analytics over a radiomics run (or any task run with `features` output, TSK-09); click-through to the viewer.
 Read when: working on `features/dashboard` or `analytics/`.
 Depends: domain/RADIOMICS.md, domain/ANALYSIS.md, domain/VARIABLES.md, API-38/39, ADR-0009, ADR-0012.
 

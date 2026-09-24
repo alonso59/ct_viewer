@@ -21,7 +21,7 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 | VAR-05 | Tags the user can set: `confounder` (scanner, kernel, kVp…), `outcome`, `sensitive`. Default `confounder` on `manufacturer`, `manufacturer_model`, `convolution_kernel`, `kvp`, `slice_thickness`, `spacing_z`, `contrast_agent`, `modality`. | S |
 | VAR-06 | Derived variables, three operations only: **bin** (continuous → categorical by thresholds or quantiles), **recode** (merge/rename categories), **dominant** (name of the largest among N numeric variables). | M |
 | VAR-07 | External table: import a CSV/TSV keyed by `case_id` (or `patient_id`) to add variables not in `metadata.jsonl`. Unmatched keys are reported. | S |
-| VAR-08 | `raw_metadata` is not a variable. An allowlist of useful tags is flattened: `PatientSex` → categorical, `PatientAge` → continuous years. All other raw tags are ignored. | S |
+| VAR-08 | `raw_metadata` and DICOM sidecars (DCM-04) are not variables. An allowlist of useful tags is flattened: `PatientSex` → categorical, `PatientAge` → continuous years. All other raw tags are ignored. Converter extras in the row (DICOM_CONVERTER §Row fields) and analyzer `target_match` / `readiness` (ANZ) are ordinary fields and are profiled. | S |
 | VAR-09 | Never exposed as variables: absolute paths, UIDs, `AccessionNumber`, blobs. `patient_id` and dates are `sensitive` (hidden from exports unless chosen). | M |
 | VAR-10 | Variables drive: Explorer filters and columns (UI-08), radiomics selection (RAD-05), analysis grouping/targets (ANA-*). | M |
 | VAR-11 | Catalog overrides and derived definitions live in the project (`variables/catalog.json`); source files are never changed (R1). | M |

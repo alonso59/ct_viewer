@@ -7,7 +7,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 ## Conventions
 
 - Base path `/api/v1`. JSON bodies; `snake_case`; UTC `Z` timestamps.
-- `{pid}` = `project_id`, `{iid}` = `item_id`, `{cid}` = `case_id`, `{rid}` = `run_id`.
+- `{pid}` = `project_id`, `{iid}` = `item_id`, `{cid}` = `case_id`, `{rid}` = `run_id`, `{sid}` = Open-mode session, `{tid}` = task id, `{seg}` = `seg_id`.
 - Lists: `?cursor=&limit=` (default 200, max 2000) → `{items, next_cursor, total}`.
 - Filters on lists: `?q=&phase=&status=&warning=&has_voi=&scope=&sort=` plus `var.{name}=` (categorical value) or `var.{name}=min..max` (continuous).
 - No auth headers (ADR-0004). Writes that record authorship require the `X-Reviewer` header (CUR-01).
@@ -23,6 +23,8 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report) | PRJ-05 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
+| API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `{sid, items[]}` (headers only; DICOM/NumPy converted into `.scratch/`) | SRC-09 |
+| API-08 | `GET /open/{sid}/items/{n}/image` · `POST /open/{sid}/items/{n}/attach` | Open-mode bytes (Range) / attach a segmentation `{path}` → geometry check (`geometry-mismatch`) | SRC-10 |
 | API-10 | `GET /fs/list?path=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` | IMP-01 |
 | API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect:true}` → preview | IMP-02/03 |
 | API-12 | `POST /projects/{pid}/imports` | Commit preview → `202 {job_id}` (indexing) | IMP-04/05 |
@@ -32,13 +34,15 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-16 | `GET /projects/{pid}/variables` · `PATCH …/variables/{name}` | Catalog with profile; override type/visibility/tags | VAR-01..05 |
 | API-17 | `POST /projects/{pid}/variables/derived` · `DELETE …/derived/{name}` | Bin / recode / dominant | VAR-06 |
 | API-18 | `POST /projects/{pid}/variables/external` | CSV/TSV keyed by case_id or patient_id → match report | VAR-07 |
+| API-19 | `POST /sources/detect` | `{path}` (folder or file) → candidate adapters `[{adapter, reason, counts, confidence}]`; API-11 preview then takes `{adapter, options}` | SRC-01..06 |
 | API-20 | `GET /projects/{pid}/cases` | Case summaries | DATA_MODEL |
 | API-21 | `GET /projects/{pid}/cases/{cid}` | Case + items tree + warnings | |
 | API-22 | `GET /projects/{pid}/items/{iid}` | Item record (+ `advanced` with absolute paths) | |
 | API-23 | `GET /projects/{pid}/items/{iid}/image` | Image bytes (Range, ETag) | BE-04 |
-| API-24 | `GET /projects/{pid}/items/{iid}/mask` | Mask bytes (Range, ETag) | BE-04 |
+| API-24 | `GET /projects/{pid}/items/{iid}/mask?seg=` | Mask bytes of one segmentation set (default `default_seg`; Range, ETag) | BE-04, ADR-0015 |
 | API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1` | Mesh (`202` + job if not cached) | VW-09 |
 | API-26 | `GET /projects/{pid}/items/{iid}/thumbnail` | Lossless WebP thumbnail (`404` until generated) | IMP-12 |
+| API-27 | `GET /projects/{pid}/segmentations` · `PATCH …/segmentations/{seg}` | Sets with producer + counts / rename, label mapping; `default_seg` via API-03 | ADR-0015 |
 | API-30 | `GET /radiomics/schema` | Engine options, defaults, constraints | RAD-01 |
 | API-31 | `POST /radiomics/validate` | Settings → issues | RAD-04 |
 | API-32 | `GET·POST /projects/{pid}/radiomics/profiles` · `PATCH·DELETE …/{hash}` | Profiles | RAD-03 |
@@ -51,11 +55,21 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-39 | `POST /projects/{pid}/analyses` · `GET …/analyses[/{aid}]` · `GET …/analyses/{aid}/export` | Create+run / list / results + recommendations / tidy CSV + spec | ANA-* |
 | API-40 | `GET /projects/{pid}/events` (SSE) | Realtime stream | CUR-11 |
 | API-41 | `GET /jobs?project={pid}` · `POST /jobs/{job_id}/cancel` | Jobs panel | BE-06 |
+| API-42 | `GET /tasks` · `GET /tasks/{tid}` | Manifests (builtin + `PLUGINS_ROOT`), availability, invalid manifests with errors, runner status | TSK-01, TSK-11 |
+| API-43 | `POST /tasks/{tid}/validate` | Settings → issues | TSK-02 |
+| API-44 | `POST /projects/{pid}/tasks/{tid}/preflight` · `…/estimate` | Selection → readiness + suggestions / estimate | TSK-04/05 |
+| API-45 | `POST·GET /projects/{pid}/task-runs` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection}` → `202`) / list / detail | TSK-06/10 |
+| API-46 | `POST …/task-runs/{rid}/cancel` · `POST …/task-runs/{rid}/resume` | Control | TSK-07 |
+| API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09 |
+| API-48 | `GET /projects/{pid}/annotations?field=&run=` · `PUT /projects/{pid}/annotation-sources/{field}` | Annotations with confidence/evidence / activate a run (`{run_id\|null}`, reindexes) | ANZ-01/04 |
 | API-50 | `GET·POST /projects/{pid}/curation/events` | History (filter by `item_id`/`case_id`) / append (`X-Reviewer`, optional `X-Session-Id`) | CUR-02/14 |
 | API-51 | `GET /projects/{pid}/curation/state` | Derived latest state | CUR-08 |
 | API-52 | `GET /projects/{pid}/curation/queue?format=json\|csv` | Correction queue | CUR-09 |
 | API-53 | `POST /projects/{pid}/curation/exports` | Write CUR-10 files to `exports/` | CUR-10 |
 | API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` | CUR-13 |
+| API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` | CUR-15 |
+
+API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
 
 ## SSE event types (API-40)
 
@@ -64,6 +78,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | `curation.appended` | CurationEvent |
 | `job.progress` | `{job_id, kind, done, total, eta_s}` |
 | `job.finished` | `{job_id, kind, status, ref}` |
+| `job.status` | `{job_id, status}`, e.g. `waiting_for_runner` → `running` (TSK-06) |
 | `index.rebuilt` | `{import_id, n_items, n_warnings}` |
 | `project.updated` | `{fields[]}` |
 
@@ -78,7 +93,7 @@ Errors: `validation` (not a zip, unsafe entry, no/invalid `project.json`), `form
 
 ## Errors (RFC 9457)
 
-`{type, title, status, detail, instance, errors?[]}`, where `type` is a slug under `/problems/`:
+`{type, title, status, detail, instance, errors?[], actions?[]}`, where `type` is a slug under `/problems/` and `actions[]` lists next steps the UI offers (SRC-11):
 
 | Slug | Status |
 |---|---|
@@ -90,3 +105,8 @@ Errors: `validation` (not a zip, unsafe entry, no/invalid `project.json`), `form
 | `job-conflict` | 409 |
 | `reviewer-required` | 428 |
 | `server-busy` | 503 |
+| `unsupported-format` | 415 |
+| `ambiguous-axis-order` | 422 |
+| `geometry-mismatch` | 422 |
+| `derived-root-required` | 409 |
+| `roots-overlap` | 409 |

@@ -8,3 +8,5 @@ Status: Accepted · Date: 2026-09-23
 **Consequences.** + No copying, instant import, portable projects. − Projects break if data moves until relinked; − the file-changed-underneath case is detected by fingerprint (IMP `fingerprint_changed`), not prevented.
 
 **Rejected.** Managed store with copy/upload (duplicates TBs). Storing blobs in a DB (see ADR-0002).
+
+**Amended by ADR-0014.** Each alias has a role: `source` (read-only, as here) or `derived` (task outputs only).

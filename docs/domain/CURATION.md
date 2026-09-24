@@ -22,6 +22,7 @@ Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004.
 | CUR-12 | Conflict policy: last-writer-wins on derived state; history shows every event. | M |
 | CUR-13 | Import v2 `curation_review.csv` as events (`source: "v2_import"`). | S |
 | CUR-14 | History panel per item and per case, newest first. | M |
+| CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_phase`, `curated_quality`, `notes` map to status, `proposed_phase` and comment (DCM-08). | S |
 
 ## Status
 
@@ -41,6 +42,7 @@ Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004.
 
 `seg` (whole mask) · `label:{value}` (e.g. `label:2`, tumor) · `voi_mask` · `phase` · `side` · `case`.
 Targets follow the project label map (PRJ-07), so no label names are hard-coded.
+Mask targets (`seg`, `label:*`, `voi_mask`) also carry `seg_id` (ADR-0015); a missing `seg_id` means `imported`. The derived state key is `(item_id, target, seg_id)`.
 
 ## Event schema (v1)
 
@@ -53,6 +55,7 @@ Targets follow the project label map (PRJ-07), so no label names are hard-coded.
   "item_id": "case_00001.01.complete.-", // or null when target = case
   "case_id": "case_00001",
   "target": "label:2",
+  "seg_id": "imported",                  // mask targets only (ADR-0015); null otherwise
   "status": "needs_minor_correction",
   "priority": "medium",
   "comment": "Tumor boundary leaks into renal sinus on slices 110–118",
@@ -62,7 +65,7 @@ Targets follow the project label map (PRJ-07), so no label names are hard-coded.
     "image_fp": "…", "mask_fp": "…", "phase": "NP", "import_id": "01J…",
     "viewer": { "axis": "axial", "slice": 114, "ww": 400, "wl": 50 }
   },
-  "source": "ui"                          // ui | v2_import | api
+  "source": "ui"                          // ui | v2_import | converter_import | analyzer | api
 }
 ```
 

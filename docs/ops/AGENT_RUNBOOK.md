@@ -19,7 +19,9 @@ Depends: product/ROADMAP.md.
 | 1 | P0.5 design + prototype | P1 backend core | — | You approve the prototype; P1 exit |
 | 2 | P2 shell + explorer (+ Variables view) | P1b variables, P4-BE curation, P5-BE radiomics, P6-BE analytics + stats | P3 viewer | Merge + checks |
 | 3 | P4-FE curation, P6-FE dashboard | P5-FE radiomics form | P7-prep image + scripts | Merge + checks |
-| 4 | Review | P7 on remote server (udocker, Dataset820, perf) | — | NFRs met |
+| 3b | Orchestrator + sub-agents (one terminal) | — | — | Checks green |
+| P7b | — | One sequential session (all waves) | — | Your check after Wave 1; P7b exit |
+| 4 | Review | P7 on remote server (udocker, Dataset820, perf), after P7b | — | NFRs met |
 | 5 | P8 Electron | — | — | Release |
 
 ## Worktree setup (run once per step, from the repo root)
@@ -284,6 +286,40 @@ LANE_NOTES.md with results (tests, initial JS size, amd64 image size if built).
 Commit locally and STOP. If make check cannot be made green, leave the work on a branch
 step3b-wip, keep v3 at its last green commit, and explain.
 ```
+
+## P7b: one Claude shell session, sequential (no sub-agents, no udocker, no Electron, no nnU-Net)
+
+Open one Claude terminal in the main checkout (`ct_viewer`, branch `v3`) and paste:
+
+```text
+You implement phase P7b of this repo alone, sequentially, on branch v3. Never git push.
+Read AGENTS.md (note R1 and R9), docs/INDEX.md, docs/product/ROADMAP.md §P7b, ADR-0013..0017,
+and the last LANE_NOTES.md entry. Per wave, read only the docs INDEX routes for it. Do NOT read
+docs/archive/**; read legacy/** only in Wave 3, and only legacy/convert/ (read-only reference).
+
+Before Wave 1: if the working tree holds the uncommitted P7b docs (ADR-0013..0017, new domain docs,
+legacy/ untracked + .gitignore), commit them first as "docs: P7b amendments (ADR-0013..0017)".
+
+Out of scope, keep listed as open: plugins/nnunet (deferred), udocker / Step 4, P8 Electron,
+the human checks.
+
+Work the ROADMAP §P7b waves in order (1 contracts → 2 sources → 3 converter + analyzers →
+4 external runtime with the fake segment.threshold plugin). For each wave:
+- Plan the wave in a short list first, then implement backend before frontend
+  (make gen-api after backend API changes). Keep the deprecated `mask` alias working all phase.
+- Tests for every new requirement ID you implement (TST-13..16 where they apply).
+- Gate: make fixtures && make check green; Playwright (Chromium + Firefox) when the frontend
+  changed; initial JS ≤ 300 KB gzip (NFR-07; lazy-only strings in i18n/en.lazy.json).
+- Update the owning doc when behavior differs from it (one fact, one place), tick ROADMAP lines,
+  append one "P7b Wave N" entry to LANE_NOTES.md (done, results, open issues, decisions you took).
+- Commit locally (conventional messages). Never commit red: if a wave cannot be made green,
+  move the work to branch p7b-wip, reset v3 to its last green commit, explain, and STOP.
+STOP after Wave 1 for my confirmation (format_version 2 migration). Then continue Waves 2–4
+without stopping unless a gate fails, and STOP at the end with a summary of the P7b exit.
+Between waves, if the context is long, rely on LANE_NOTES.md + ROADMAP as your state.
+```
+
+To resume in a new session: same prompt plus "Continue from the first unticked wave in ROADMAP §P7b; LANE_NOTES.md has the state."
 
 ## Step 4: Shell on the remote server (P7)
 

@@ -2,16 +2,17 @@
 
 Scope: accepted input files, import wizard, normalization into items, QC warnings.
 Read when: building import, indexing, phase resolution, or validation.
-Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
+Depends: PROJECT_FORMAT.md, DATA_MODEL.md, SOURCES.md (adapters, formats, identity), ANALYZERS.md (phase annotations).
 
 "Upload" means registering **metadata plus a data root path**. Image bytes are never uploaded or copied (ADR-0005).
+Contract v1 below is the only internal form: other sources (NIfTI files, DICOM via `dicom.convert`) are turned into v1 rows by adapters (SOURCES.md, ADR-0013).
 
 ## Requirements
 
 | ID | Requirement | Pri |
 |---|---|---|
 | IMP-01 | The import wizard picks a data root through a server-side folder browser limited to `ALLOWED_DATA_ROOTS`. The root becomes alias `DATA`, which the user can rename. | M |
-| IMP-02 | Auto-detect `metadata.jsonl`, `phase.json`, and `voi/voi_catalog.jsonl` under the root; alternatively upload them from the browser (multipart, metadata only). | M |
+| IMP-02 | Auto-detect `metadata.jsonl`, `phase.json`, and `voi/voi_catalog.jsonl` under the root; alternatively upload them from the browser (multipart, metadata only). Other sources: adapter detection (SRC-01..05). | M |
 | IMP-03 | Preview before commit: row counts, case count, and the first 50 parse/validation errors, plus a detected field mapping. | M |
 | IMP-04 | Commit snapshots the inputs to `sources/{import_id}/` with SHA-256 and appends to `imports.jsonl`. | M |
 | IMP-05 | Indexing runs as a job (progress, cancel) and builds `index/items.jsonl`, `index/cases.jsonl`, and the quick fingerprints. | M |
@@ -19,7 +20,7 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 | IMP-07 | Items that were skipped or excluded upstream are indexed as `excluded_upstream` and hidden by default. | S |
 | IMP-08 | Validation writes `index/qc_warnings.jsonl` (codes below); warnings show in the Problems panel (UI-09). | M |
 | IMP-09 | Optional "Compute full hashes" job adds SHA-256 per file, stored in `index/hashes.json` keyed by ref + quick fingerprint (a changed file loses its hash); `force` rehashes all. | C |
-| IMP-10 | Legacy `.npy` VOIs are accepted; they are converted to NIfTI in `cache/` on first view, using catalog spacing. | S |
+| IMP-10 | Legacy `.npy` VOIs are accepted; they are converted to NIfTI in `cache/` on first view, using catalog spacing and axis order (SOURCES §NumPy). | S |
 | IMP-11 | Metadata-only mode: a project may be indexed without a seg or VOI catalog; the viewer adapts (VW-12). | M |
 | IMP-12 | Thumbnail job (after indexing, in workers): a 128 px mid-axial slice at the default W/L for each `complete` item, with a mask outline if one exists; stored in `cache/thumbs/{image_fp}.webp` (UI-08). | S |
 
@@ -32,7 +33,7 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 
 | Field | Req | Use |
 |---|---|---|
-| `case_id` | ✓ | `case_\d{5}` |
+| `case_id` | ✓ | URL-safe slug (SRC-08); `case_\d{5}` is the default identity template |
 | `scan_idx` | ✓ | Scan index within case (string, e.g. `01`) |
 | `filename` or `relative_path` or `nifti_file` | ✓ | Identity: first non-empty of the three. Image location: `relative_path` → `nifti_file` (absolute legacy) → `nifti/{filename}` |
 | `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD); parsed into `Item.modality` and also kept in `extra` |
@@ -40,6 +41,8 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |
 | `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}` |
 | `status`, `planned_conversion`, `curated_keep` | | Upstream skip/exclude (IMP-07) |
+| `dicom_sidecar` *(v1.1)* | | Ref to the DICOM JSON sidecar (DCM-04) |
+| `source_kind` *(v1.1)* | | `dicom` \| `nifti` \| `npy`; set by adapters and the converter |
 
 ### `phase.json`: optional phase overrides
 
@@ -62,7 +65,7 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md.
 
 ## Phase resolution
 
-Resolution order: `phase.json` override → `curated_phase` → `canonical_phase` → `phase` → `phase_guess`.
+Resolution order: `phase.json` override → `curated_phase` → `canonical_phase` → `phase` → active `analyzer.phase` run (ANZ-04) → `phase_guess` → `UNK`.
 The chosen value is kept as `raw_phase` and normalized with the project's `phase_vocabulary` + `phase_mapping` (PRJ-12). Table below = **ccRCC preset**: **NC · CMP · NP · EP · UNK** (NC = non-contrast, CMP = corticomedullary, NP = nephrographic, EP = excretory, UNK = unknown):
 
 | Raw (case-insensitive) | Canonical |
@@ -92,5 +95,7 @@ Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (20
 | `ambiguous_side` | warning | Side unparseable, or both sides map to the same file |
 | `duplicate_row_identity` | error | Two rows produce the same `item_id` |
 | `fingerprint_changed` | warning | File changed since indexing |
+| `unsupported_format` | info | File ignored: not an accepted format (SRC-02) |
+| `ambiguous_axis_order` | error | NumPy array without a decisive axis order (SRC-12) |
 
-Warning record: `{code, severity, item_id?, case_id?, field?, path_ref?, message, detected_at}`.
+Warning record: `{code, severity, item_id?, case_id?, seg_id?, field?, path_ref?, message, detected_at}`. Mask warnings (`missing_seg`, `shape_mismatch`, `affine_mismatch`, …) carry the segmentation set (ADR-0015).

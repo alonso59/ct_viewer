@@ -4,7 +4,7 @@ Local-first, browser-based CT workbench for dataset inspection, segmentation vis
 curation and radiomics. QuPath-style layout in a VS Code shell (GitHub Dark) with a 3D Slicer-style 2×2 viewer.
 
 > **Status:** v3 rewrite in progress; see [docs/product/ROADMAP.md](docs/product/ROADMAP.md).
-> Documentation starts at [docs/INDEX.md](docs/INDEX.md). The v2 app is frozen in [legacy/](legacy/).
+> Documentation starts at [docs/INDEX.md](docs/INDEX.md). The v2 app and the original DICOM converter are kept locally in `legacy/` as read-only reference (not in git after tag `legacy-reference`).
 
 ## Quick start (development)
 

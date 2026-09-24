@@ -52,6 +52,7 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | Labels | `tag` | Classes list | Project label map: swatch, visibility, opacity, hotkey |
 | History | `history` | Workflow | Curation event log for the case (CUR-14) |
 | Radiomics | `beaker` | — | Profiles, runs, "New run" |
+| Tasks | `tools` | Run analysis / scripts | Every task (TSK-01) with availability; runs with status (incl. `waiting_for_runner` + how to start the runner), outputs; annotation runs with Activate (ANZ-04) |
 | Dashboards | `graph` | — | Completed runs → dashboard tab (views + Analysis panel, DB-08) |
 | Search | `search` | — | Advanced filters on any visible variable, phase, status, warnings, VOI |
 | Variables | `symbol-variable` | — | Variable catalog (VAR-*): type/level/missing %, Review badges, visibility, tags, derived variables, external table import |
@@ -77,6 +78,10 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | UI-14 | Measurements panel: features of the active item from the selected run (API-36 `item_id` filter), with a robust z-score column; outliers are marked. | S |
 | UI-15 | CT-specific icons (axial/sagittal/coronal plane, W/L, crosshair, layout grid, outline, VOI L/R) are a custom SVG set drawn to codicon rules: 16 px grid, `currentColor`, same stroke weight. Set (`theme/icons/CtIcon.tsx`): plane-axial/sagittal/coronal, view-3d, window-level, crosshair (tool), crosshair-lines (show/hide crosshair), layout-four-up/conventional/three-mpr/one-up, label-overlay, label-outline, voi-left/right, slice-stack. | M |
 | UI-16 | Motion is limited to ≤150 ms fades/slides and respects `prefers-reduced-motion`. | S |
+| UI-17 | Three entry levels, no more: **Open** (a file or folder → viewer, no project, SRC-09), **Project** (a study), **Tasks** (act on a selection). Welcome and the palette offer "Open file or folder…" next to "New project". | M |
+| UI-18 | Every error shows its cause (`detail`) and its next actions (`actions[]`) as buttons (SRC-11); a bare "Validation failed" is a bug. | M |
+| UI-19 | Requirements are asked when a task needs them, not at import: a task's settings tab shows the preflight (TSK-04) with counts and one-click suggested tasks; a task that writes volumes asks for the `DERIVED` folder on first use (PRJ-13). | M |
+| UI-20 | Every task uses the same tab: Selection · Settings (schema form) · Preflight/Estimate · Run; outputs appear as a segmentation set, a features run, an import or annotations. | M |
 
 ## Default keybindings
 

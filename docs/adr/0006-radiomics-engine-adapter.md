@@ -12,3 +12,5 @@ Status: Accepted (P1 spike passed 2026-09-23; installed from a pinned upstream c
 **Rejected.** A hard-coded settings form (drifts from the engine). Showing IBSI codes in the GUI (user preference).
 
 **Spike result (2026-09-23).** PyPI `pyradiomics` 3.1.0 has no Python 3.12 wheels and its sdist does not build. Upstream `AIM-Harvard/pyradiomics@8ed57938` builds on 3.12 and passes 20/20 IBSI digital-phantom checks (first-order and shape). The `[radiomics]` extra pins that commit. MIRP fallback not needed. Risks: a C compiler is needed at build time, and an unreleased commit must be re-evaluated before each upgrade. Verified inside the Linux image (the image build runs the phantom smoke): linux/arm64 (P7-prep, 2026-09-24) and linux/amd64 (Step 3b, 2026-09-24, 20/20). Note for the IBSI map (P5): PyRadiomics reports non-excess kurtosis (IBSI = value − 3).
+
+**Amended by ADR-0016.** Radiomics runs as the builtin task `radiomics.pyradiomics`; the engine adapter and IBSI rules here are unchanged.

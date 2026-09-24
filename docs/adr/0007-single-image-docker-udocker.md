@@ -8,3 +8,5 @@ Status: Accepted · Date: 2026-09-23
 **Consequences.** + Identical artifact everywhere. − No multi-container patterns (queues, DB) without revisiting this ADR. − udocker-specific notes (bind address, ro mounts, exec mode) must be kept in DEPLOYMENT.md.
 
 **Rejected.** Separate images for API, workers and DB (incompatible with the simplicity needed for udocker). Native install without containers on servers (dependency drift).
+
+**Amended by ADR-0014 and ADR-0016.** A third, writable mount holds the derived root; heavy plugins run outside the image through a host runner and a file queue, and the image stays the one core artifact.
