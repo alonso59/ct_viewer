@@ -1,17 +1,32 @@
 // Inspector sections contributed by the viewer: layers (VW-07) and window/level (VW-05)
 import { useTranslation } from 'react-i18next'
 
-import { useProject } from '../../api'
+import { useProject, useSegmentations } from '../../api'
 import { useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
 
 export function LayersSection() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const labels = useProject(pid).data?.label_map ?? []
+  const project = useProject(pid).data
+  const labels = project?.label_map ?? []
+  const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
+  const active = v.activeSeg ?? project?.default_seg ?? 'imported'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-panel)' }}>
+      {sets.length > 1 ? (
+        <label className="field">
+          <span className="field-label">{t('layers.segSet')}</span>
+          <select className="select input-sm" value={active} onChange={(e) => v.set({ activeSeg: e.target.value })}>
+            {sets.map((s) => (
+              <option key={s.seg_id} value={s.seg_id}>
+                {t('layers.segOption', { name: s.name || s.seg_id, n: s.n_items })}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="check">
         <input type="checkbox" checked={v.overlay} onChange={(e) => v.set({ overlay: e.target.checked })} />
         {t('viewer.overlay')}

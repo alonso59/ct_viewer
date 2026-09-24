@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { PHASES, useProject, useVariables, type Variable } from '../../api'
+import { PHASES, useProject, useSegmentations, useVariables, type Variable } from '../../api'
 import { IconButton } from '../../lib'
 import { codicon } from '../../theme'
 import { explorerSelection, useExplorerFilter, type ExplorerSelection } from '../explorer'
@@ -44,6 +44,7 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
   const { t } = useTranslation()
   const project = useProject(pid).data
   const variables = useVariables(pid).data ?? []
+  const sets = useSegmentations(pid).data ?? []
   const [adding, setAdding] = useState('')
   const explorerFilter = useExplorerFilter()
   const fromExplorer = explorerSelection(explorerFilter, variables)
@@ -183,6 +184,17 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
           ))}
         </div>
       </div>
+
+      {sets.length > 1 ? (
+        <div className="rad-field">
+          <label className="rad-label" htmlFor="rad-seg">{t('rad.segSet')}</label>
+          <select id="rad-seg" className="select" value={sel.seg ?? project?.default_seg ?? 'imported'} onChange={(e) => onChange({ seg: e.target.value })}>
+            {sets.map((s) => (
+              <option key={s.seg_id} value={s.seg_id}>{s.name || s.seg_id}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       <div className="rad-field">
         <span className="rad-label">{t('rad.labels')}</span>

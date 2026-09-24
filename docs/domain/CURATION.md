@@ -42,7 +42,7 @@ Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004.
 
 `seg` (whole mask) · `label:{value}` (e.g. `label:2`, tumor) · `voi_mask` · `phase` · `side` · `case`.
 Targets follow the project label map (PRJ-07), so no label names are hard-coded.
-Mask targets (`seg`, `label:*`, `voi_mask`) also carry `seg_id` (ADR-0015); a missing `seg_id` means `imported`. The derived state key is `(item_id, target, seg_id)`.
+Mask targets (`seg`, `label:*`, `voi_mask`) also carry `seg_id` (ADR-0015); a missing `seg_id` means `imported`. The derived state key is `(item_id, target, seg_id)`. API-50 fills `seg_id` with `default_seg` when a mask decision omits it, refuses it on other targets, and the viewer sends the set on screen (VW-19); the correction-queue CSV points at that set's mask file.
 
 ## Event schema (v1)
 

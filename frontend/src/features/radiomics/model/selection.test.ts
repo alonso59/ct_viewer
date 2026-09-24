@@ -67,3 +67,8 @@ describe('criteriaCount', () => {
 test('emptySelection defaults', () => {
   expect(emptySelection()).toEqual({ mode: 'all', scope: 'complete', labels: [], phase: [], side: [], vars: {}, list: '' })
 })
+
+test('RAD-05: the chosen segmentation set goes into the selection', () => {
+  expect(toSelection({ ...emptySelection([2]), seg: 'thr' })).toEqual({ scope: 'complete', labels: [2], seg_id: 'thr' })
+  expect(toSelection({ ...emptySelection([2]), seg: null })).toEqual({ scope: 'complete', labels: [2] })
+})

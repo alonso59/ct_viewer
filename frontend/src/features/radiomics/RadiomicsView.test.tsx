@@ -27,7 +27,7 @@ const run = (over: Partial<RunSummary>): RunSummary => ({
   created_at: '2026-09-24T10:00:00Z',
   reviewer: 'AP',
   profile_hash: 'sha256:aa',
-  selection: { scope: 'complete', labels: [2], item_ids: [] },
+  selection: { scope: 'complete', labels: [2], item_ids: [], seg_id: 'imported' },
   counts: { items: 10, ok: 10, failed: 0, features: 107, skipped: 0 },
   job_id: null,
   ...over,

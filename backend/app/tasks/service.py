@@ -103,6 +103,7 @@ ANNOTATIONS: Final = "annotations.jsonl"
 PRESET_TARGET: Final = {"ccrcc": "kidneys", "generic-ct": "generic"}
 POLL_S: Final = 0.2
 CANCEL_GRACE_S: Final = 30.0
+RUNNER_LOST_S: Final = 60.0  # a claimed job whose runner has no fresh heartbeat for this long
 SAMPLE_ITEMS: Final = 3
 REVIEWER_MAX: Final = 100
 _SEG_RE = re.compile(SEG_ID_RE)
@@ -775,7 +776,10 @@ class TaskService:
         n_todo = len([i for i in items if i.item_id not in set(skip)])
 
         async def driver(h: JobHandle) -> None:
-            await self._drive(h, live, n_todo)
+            if m.runtime.type == "external":
+                await self._drive_external(h, live, n_todo)
+            else:
+                await self._drive(h, live, n_todo)
 
         async def on_finish(info: JobInfo) -> str | None:
             await self._finish(live, info)
@@ -850,6 +854,52 @@ class TaskService:
                         f"task exited with code {exit_code}: "
                         + protocol.log_tail(live.job_dir)[-500:]
                     )
+        await self._on_lines(live, tail.read())
+        h.set_done(live.done)
+
+    async def _drive_external(self, h: JobHandle, live: _Live, total: int) -> None:
+        """External: the host runner claims `queue/{job_id}` (TSK-11, BE-14); we only tail it."""
+        h.set_total(total)
+        live.set_total = h.set_total
+        tail = protocol.Tail(live.job_dir / protocol.PROGRESS)
+        task_id = live.manifest.id
+        claimed_by: str | None = None
+        lost_since: float | None = None
+        stop_at: float | None = None
+        while True:
+            await self._on_lines(live, tail.read())
+            h.set_done(live.done)
+            if (live.job_dir / protocol.RESULT).is_file() or (
+                live.job_dir / protocol.EXIT
+            ).is_file():
+                break
+            claim = protocol.read_claim(live.job_dir)
+            if claim is None:
+                waiting = not registry.runner_online(self.queue_dir, task_id)
+                status: TaskRunStatus = "waiting_for_runner" if waiting else "queued"
+                h.set_status("waiting_for_runner" if waiting else "queued")
+                await self._set_status(live, status)
+            elif claimed_by is None:
+                claimed_by = str(claim.get("runner_id") or "")
+                h.set_status("running")
+                await self._set_status(live, "running")
+            if claimed_by is not None:
+                alive = any(
+                    r.runner_id == claimed_by and r.fresh for r in registry.runners(self.queue_dir)
+                )
+                lost_since = None if alive else (lost_since or time.monotonic())
+                if lost_since is not None and time.monotonic() - lost_since > RUNNER_LOST_S:
+                    raise RuntimeError(f"runner {claimed_by} stopped sending heartbeats")
+            if h.stopped:
+                if not live.cancel_sent:
+                    protocol.request_cancel(live.job_dir)
+                    live.cancel_sent = True
+                    stop_at = time.monotonic()
+                if claimed_by is None:
+                    break  # never claimed: the runner skips cancelled jobs
+                if stop_at is not None and time.monotonic() - stop_at > CANCEL_GRACE_S + 10:
+                    break
+            await asyncio.sleep(POLL_S)
         await self._on_lines(live, tail.read())
         h.set_done(live.done)
 
@@ -1013,7 +1063,9 @@ class TaskService:
                 status, rec.error = "failed", info.error
             elif result is None:
                 status = "failed"
-                rec.error = "task wrote no result.json: " + protocol.log_tail(live.job_dir)[-500:]
+                code = (protocol.read_exit(live.job_dir) or {}).get("code")
+                why = f"exited with code {code}" if code is not None else "wrote no result.json"
+                rec.error = f"task {why}: " + protocol.log_tail(live.job_dir)[-500:]
             else:
                 raw = str(result.get("status"))
                 status = raw if raw in TERMINAL_TASK_RUN else "failed"  # type: ignore[assignment]

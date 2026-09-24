@@ -12,7 +12,7 @@ Depends: all domain docs.
 | TST-04 | Frontend unit | Vitest + Testing Library | features, stores, schema-driven form (RAD-01/04) |
 | TST-05 | E2E | Playwright (Chromium, Firefox) | import → explore → view → curate → radiomics → dashboard |
 | TST-06 | IBSI compliance | pytest | Engine output vs IBSI digital phantom + CT phantom reference values, within the IBSI-published tolerances; results stored with `ibsi_map_version` |
-| TST-07 | Source immutability | pytest / E2E hook | SHA-256 of every fixture source file before and after the full E2E suite must match (R1); derived writes only inside run folders / append-only datasets |
+| TST-07 | Source immutability | pytest / E2E hook | SHA-256 of every fixture source file before and after the full E2E suite must match (R1); derived writes only inside run folders / append-only datasets. E2E: `e2e/tst07.ts` (global setup) + `e2e/tst07-teardown.ts` |
 | TST-08 | Multi-user | Playwright (2 contexts) | CUR-11 SSE sync, CUR-12 last-writer-wins |
 | TST-09 | Performance | scripted bench | NFR-01..05 on the reference volume |
 | TST-10 | Container smoke | `scripts/container-smoke.sh` (Docker), `scripts/container_smoke.py --url … --root …` (udocker) | Image boots under Docker and udocker; health OK; one item viewable |
@@ -22,6 +22,8 @@ Depends: all domain docs.
 | TST-14 | Task protocol | pytest | Builtin and external runtimes on the fake `segment.threshold` plugin: queue, runner claim, progress, cancel, resume, `waiting_for_runner`, mask registration as a segmentation set |
 | TST-15 | Sources | pytest + hypothesis | `nifti-files` patterns, single-file import, identity registry stability across incremental imports, Open mode (NIfTI, DICOM file, label map, attach mismatch), refusal `actions[]` |
 | TST-16 | Analyzers | pytest | Phase text/timing/conflict cases, target profiles, readiness codes, activation reindex (ANZ-*) |
+
+P7b files (Wave 4): TST-14 external half in `tests/test_runner.py` (the real `scripts/rw-runner.py` as a subprocess: waiting → claim → progress → set registration, SIGTERM cancel, resume, a crashing task, a lost runner, single claim); `e2e/runner.spec.ts` runs the fake plugin through the runner from the Tasks tab (the E2E backend gets `PLUGINS_ROOT` = a temp dir with a symlink to `plugins/threshold/`). RAD-05 and curation `seg_id` in `tests/test_tasks.py`. PyRadiomics is not thread-safe, so tests that run it in inline (threaded) mode use one unit at a time.
 
 P7b files (Wave 3): TST-13 DICOM half + converter, sidecars, anonymize, incremental runs, activation, CUR-15, Open DICOM, Save as NIfTI (TST-15), Add to project in `tests/test_dicom.py` (synthetic series from `tools/dicom_fixtures.py`); TST-16 in `tests/test_analyzers.py`; `e2e/tasks-dicom.spec.ts` (Open a DICOM file + save; convert a DICOM folder from the Tasks tab). The fixtures add `.fixtures/synthetic/dicom/` (2 patients, 3 series, seeded UIDs). The E2E backend gets a temporary `ALLOWED_DERIVED_ROOTS`.
 

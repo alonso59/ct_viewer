@@ -178,6 +178,7 @@ function seededEvents(): CurationEvent[] {
     at,
     reviewer,
     session_id: 'seed',
+    seg_id: target === 'seg' || target.startsWith('label:') ? 'imported' : null,
     item_id,
     case_id: (item_id ?? extra.case_id ?? '').split('.')[0] ?? '',
     target,
@@ -460,6 +461,7 @@ function appendEventSync(pid: string, ev: NewCurationEvent, reviewer: string, se
     schema_version: 1,
     at: now(),
     reviewer,
+    seg_id: ev.seg_id ?? (ev.target === 'seg' || ev.target === 'voi_mask' || ev.target.startsWith('label:') ? 'imported' : null),
     session_id: session,
     proposed_phase: null,
     proposed_side: null,
@@ -1261,8 +1263,8 @@ export const mockServer: Api = {
     const run: RunDetail = {
       run_id: ulid(), name: body.name, status: 'queued', created_at: now(), started_at: null, finished_at: null, reviewer,
       engine: { ...e.schema.engine, deps: {} }, ibsi_map_version: e.schema.ibsi_map_version, profile_hash: profileHash(settings), settings,
-      selection: { scope: body.selection.scope ?? 'complete', labels, filter: body.selection.filter ? JSON.stringify(body.selection.filter) : null, item_ids: items.map((i) => i.item_id) },
-      inputs: items.map((i) => ({ item_id: i.item_id, image_fp: null, mask_fp: null })),
+      selection: { scope: body.selection.scope ?? 'complete', labels, filter: body.selection.filter ? JSON.stringify(body.selection.filter) : null, item_ids: items.map((i) => i.item_id), seg_id: body.selection.seg_id ?? 'imported' },
+      inputs: items.map((i) => ({ item_id: i.item_id, image_fp: null, seg_id: body.selection.seg_id ?? 'imported', mask_fp: null })),
       counts: { items: items.length, ok: 0, failed: 0, features: 0, skipped: 0 },
       job_id: null, error: null, progress: null,
     }

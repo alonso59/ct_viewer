@@ -68,6 +68,7 @@ def _selection(sel: TaskSelection) -> Selection:
         filter=SelectionFilter(phase=f.phase, side=f.side, var=f.var) if f else None,
         scope=sel.scope,
         labels=sel.labels,
+        seg_id=sel.seg_id,
     )
 
 
@@ -157,12 +158,12 @@ class RadiomicsTask(RadiomicsService):
                 item_ids=d.selection.item_ids,
                 scope=d.selection.scope,
                 labels=d.selection.labels,
-                seg_id="imported",
+                seg_id=d.selection.seg_id,
             ),
             item_ids=d.selection.item_ids,
             inputs=[
                 TaskRunInput(
-                    item_id=i.item_id, image_fp=i.image_fp, seg_id="imported", mask_fp=i.mask_fp
+                    item_id=i.item_id, image_fp=i.image_fp, seg_id=i.seg_id, mask_fp=i.mask_fp
                 )
                 for i in d.inputs
             ],

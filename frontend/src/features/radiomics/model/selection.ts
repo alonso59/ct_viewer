@@ -15,6 +15,8 @@ export interface SelectionForm {
   vars: Record<string, string[]>
   /** List mode: item ids separated by newlines, commas or spaces */
   list: string
+  /** RAD-05: segmentation set whose masks are read; null = the project's default_seg */
+  seg?: string | null
 }
 
 export const emptySelection = (labels: number[] = []): SelectionForm => ({
@@ -48,6 +50,7 @@ export function toSelection(s: SelectionForm): Selection {
     if (f) out.filter = f
   }
   if (s.mode === 'list') out.item_ids = parseItemIds(s.list)
+  if (s.seg) out.seg_id = s.seg
   return out
 }
 

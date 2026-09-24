@@ -43,6 +43,7 @@ from app.ingest.models import Item
 from app.ingest.store import IndexStore
 from app.jobs.manager import JobManager
 from app.jobs.types import TERMINAL, JobInfo, JobSpec, WorkUnit
+from app.projects.models import SegmentationSet
 from app.projects.service import Workspace
 from app.radiomics import ibsi, worker
 from app.radiomics import settings as st
@@ -385,6 +386,17 @@ class RadiomicsService:
 
     # -- selection (RAD-05) ---------------------------------------------------------------
 
+    def seg_of(self, pid: str, sel: Selection) -> SegmentationSet:
+        """RAD-05: the selection's segmentation set (default `default_seg`)."""
+        cfg = self.workspace.get(pid)
+        seg = cfg.segmentation(sel.seg_id or cfg.default_seg)
+        if seg is None:
+            raise ValidationProblem(
+                f"Unknown segmentation set {sel.seg_id!r}",
+                errors=[{"loc": ["body", "selection", "seg_id"], "msg": "unknown seg_id"}],
+            )
+        return seg
+
     async def select(self, pid: str, sel: Selection) -> list[Item]:
         issues: list[Issue] = []
         if not sel.labels:
@@ -458,15 +470,34 @@ class RadiomicsService:
 
     @staticmethod
     def plan(
-        items: Sequence[Item], labels: Sequence[int]
+        items: Sequence[Item], labels: Sequence[int], seg: SegmentationSet | None = None
     ) -> tuple[list[dict[str, Any]], list[RunError]]:
-        """(item, label) units; labels absent from `labels_present` are skipped (recorded)."""
+        """(item, label) units; labels absent from the mask are skipped (recorded).
+
+        `seg` (RAD-05): masks come from that set; project labels map to its values through the
+        set's `label_mapping` (ADR-0015). `labels_present` describes the `imported` set only.
+        """
         units: list[dict[str, Any]] = []
         skips: list[RunError] = []
         now = utc_now()
+        seg_id = seg.seg_id if seg is not None else "imported"
+        inverse = {v: int(k) for k, v in (seg.label_mapping if seg else {}).items() if k.isdigit()}
         for it in items:
             for lab in sorted(set(labels)):
-                if it.labels_present and lab not in it.labels_present:
+                mask_label = inverse.get(lab, lab)
+                if seg_id != "imported" and seg is not None and inverse and lab not in inverse:
+                    skips.append(
+                        RunError(
+                            item_id=it.item_id,
+                            label=lab,
+                            kind="skipped",
+                            error=f"label not in segmentation set {seg_id}",
+                            at=now,
+                        )
+                    )
+                    continue
+                present = it.labels_present if seg_id == "imported" else []
+                if present and lab not in present:
                     skips.append(
                         RunError(
                             item_id=it.item_id,
@@ -489,8 +520,12 @@ class RadiomicsService:
                             "phase": it.phase.canonical,
                         },
                         "label": lab,
+                        "mask_label": mask_label,
+                        "seg_id": seg_id,
                         "image": it.image.model_dump(mode="json") if it.image else None,
-                        "mask": it.mask.model_dump(mode="json") if it.mask else None,
+                        "mask": (
+                            it.masks[seg_id].model_dump(mode="json") if seg_id in it.masks else None
+                        ),
                         "spacing": it.geometry.spacing if it.geometry else [1.0, 1.0, 1.0],
                         "axis_order": npy_convert.axis_order_of(it.extra.get("axis_order"))
                         or "xyz",
@@ -556,6 +591,7 @@ class RadiomicsService:
                     "engine": engine_name,
                     "item": u["item"],
                     "label": u["label"],
+                    "mask_label": u.get("mask_label", u["label"]),
                     "image_path": image,
                     "mask_path": mask,
                     "settings": snap,
@@ -569,7 +605,7 @@ class RadiomicsService:
         eng = self.engine()
         norm, _, _ = self._settings_for(pid, eng, req.settings, req.profile_hash)
         items = await self.select(pid, req.selection)
-        units, skips = self.plan(items, req.selection.labels)
+        units, skips = self.plan(items, req.selection.labels, self.seg_of(pid, req.selection))
         sample_ids: list[str] = []
         for u in units:
             iid = u["item"]["item_id"]
@@ -644,7 +680,8 @@ class RadiomicsService:
         eng = self.engine()
         norm, phash, prof = self._settings_for(pid, eng, req.settings, req.profile_hash)
         items = await self.select(pid, req.selection)
-        units, skips = self.plan(items, req.selection.labels)
+        seg = self.seg_of(pid, req.selection)
+        units, skips = self.plan(items, req.selection.labels, seg)
         if not units:
             raise ValidationProblem(
                 "Selected labels are absent from every selected item",
@@ -672,12 +709,14 @@ class RadiomicsService:
                 labels=sorted(set(req.selection.labels)),
                 filter=self.filter_text(req.selection),
                 item_ids=[i.item_id for i in items],
+                seg_id=seg.seg_id,
             ),
             inputs=[
                 RunInput(
                     item_id=i.item_id,
                     image_fp=i.image.fp if i.image else None,
-                    mask_fp=i.mask.fp if i.mask else None,
+                    seg_id=seg.seg_id,
+                    mask_fp=i.masks[seg.seg_id].fp if seg.seg_id in i.masks else None,
                 )
                 for i in items
             ],

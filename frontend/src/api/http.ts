@@ -251,6 +251,7 @@ const normalizeEvent = (e: Schemas['CurationEvent']): CurationEvent => ({
   proposed_side: e.proposed_side ?? null,
   add_to_queue: e.add_to_queue ?? false,
   source: e.source ?? 'ui',
+  seg_id: e.seg_id ?? null,
   context: (e.context ?? {}) as CurationEvent['context'],
 })
 

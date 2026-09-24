@@ -19,6 +19,9 @@ interface Draft {
   set: (p: Partial<Omit<Draft, 'set' | 'reset'>>) => void
   reset: () => void
 }
+/** Mask targets carry `seg_id` (CURATION §Targets) */
+export const isMaskTarget = (t: string) => t === 'seg' || t === 'voi_mask' || t.startsWith('label:')
+
 export const useDraft = create<Draft>()((set) => ({
   target: 'seg',
   priority: 'medium',
@@ -68,6 +71,8 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
         add_to_queue: over.addToQueue ?? d.addToQueue,
         proposed_phase: target === 'phase' && d.proposedPhase ? d.proposedPhase : null,
         proposed_side: target === 'side' && d.proposedSide ? d.proposedSide : null,
+        // ADR-0015: mask decisions name the set on screen (VW-19); the server defaults to default_seg
+        ...(isMaskTarget(target) && useViewerSync.getState().activeSeg ? { seg_id: useViewerSync.getState().activeSeg } : {}),
         context: viewerContext(),
       },
       reviewer,

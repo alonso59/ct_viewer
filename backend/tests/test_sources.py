@@ -183,7 +183,11 @@ def test_options_are_validated() -> None:
 @settings(max_examples=60, deadline=None)
 @given(
     names=st.lists(
-        st.text(alphabet=string.ascii_letters + string.digits + " _-.()", min_size=1, max_size=14),
+        st.text(
+            alphabet=string.ascii_letters + string.digits + " _-.()", min_size=1, max_size=14
+        ).filter(
+            lambda n: not n.startswith(".")  # hidden files are skipped by design
+        ),
         min_size=1,
         max_size=8,
         unique=True,

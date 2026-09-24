@@ -1834,6 +1834,17 @@
       "title": "Schema Version",
       "type": "integer"
      },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     },
      "session_id": {
       "anyOf": [
        {
@@ -2600,6 +2611,18 @@
        }
       ],
       "title": "Proposed Side"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Mask targets: default `default_seg`",
+      "title": "Seg Id"
      },
      "session_id": {
       "anyOf": [
@@ -7277,6 +7300,11 @@
        }
       ],
       "title": "Mask Fp"
+     },
+     "seg_id": {
+      "default": "imported",
+      "title": "Seg Id",
+      "type": "string"
      }
     },
     "required": [
@@ -7519,6 +7547,11 @@
        }
       ],
       "title": "Scope"
+     },
+     "seg_id": {
+      "default": "imported",
+      "title": "Seg Id",
+      "type": "string"
      }
     },
     "required": [
@@ -8121,6 +8154,17 @@
        }
       ],
       "title": "Scope"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
      }
     },
     "title": "Selection",
@@ -8380,6 +8424,17 @@
      "reviewer": {
       "title": "Reviewer",
       "type": "string"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
      },
      "status": {
       "enum": [

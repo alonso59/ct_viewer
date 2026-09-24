@@ -348,3 +348,104 @@ def test_unknown_run_and_items(env: TestClient, proj: str) -> None:
     )
     body = {**run_body(), "selection": {"item_ids": ["nope.01.complete.-"]}}
     assert_problem(env.post(f"{API}/projects/{proj}/task-runs", json=body), "validation")
+
+
+def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_path: Path) -> None:
+    """RAD-05 / NFR-15: a run on a chosen `seg_id` records it; API-45 is an alias (RAD-13)."""
+    pytest.importorskip("radiomics")
+    # Inline jobs run units in threads; PyRadiomics' settings loader is not thread-safe
+    # (production runs each unit in a worker process), so one unit at a time here.
+    ctx_of(env).jobs.workers = 1
+    with_derived(env, proj, tmp_path)
+    seg = finish(
+        env, proj, env.post(f"{API}/projects/{proj}/task-runs", json=run_body(seg_id="thr")).json()
+    )
+    assert seg["status"] == "completed"
+    fg = next(
+        e["value"]
+        for e in env.get(f"{API}/projects/{proj}").json()["label_map"]
+        if e["name"] == "foreground"
+    )
+    body = {
+        "selection": {"item_ids": ITEMS[:2], "labels": [fg], "seg_id": "thr"},
+        "settings": {"settings": {"binWidth": 25}},
+    }
+    r = env.post(f"{API}/projects/{proj}/radiomics/runs", json=body, headers={"X-Reviewer": "T"})
+    assert r.status_code == 202, r.text
+    wait(env, r.json()["job_id"])
+    run = env.get(f"{API}/projects/{proj}/radiomics/runs/{r.json()['run_id']}").json()
+    errs = env.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/errors").json()
+    assert run["status"] == "completed", errs
+    assert run["selection"]["seg_id"] == "thr" and {i["seg_id"] for i in run["inputs"]} == {"thr"}
+    idx = ctx_of(env).index.load(proj)
+    assert run["inputs"][0]["mask_fp"] == idx.by_id[ITEMS[0]].masks["thr"].fp
+    feats = env.get(
+        f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/features", params={"format": "json"}
+    ).json()
+    assert feats["total"] > 0 and {row["label"] for row in feats["rows"]} == {fg}
+    # the same run through the generic task endpoints (API-45..47 alias the radiomics service)
+    alias = {
+        "task_id": "radiomics.pyradiomics",
+        "settings": {"settings": {"binWidth": 25}},
+        "selection": body["selection"],
+    }
+    r = env.post(f"{API}/projects/{proj}/task-runs", json=alias, headers={"X-Reviewer": "T"})
+    assert r.status_code == 202, r.text
+    wait(env, r.json()["job_id"])
+    t = env.get(f"{API}/projects/{proj}/task-runs/{r.json()['run_id']}").json()
+    assert t["task"]["id"] == "radiomics.pyradiomics" and t["selection"]["seg_id"] == "thr"
+    assert t["detail_url"].endswith(f"/radiomics/runs/{r.json()['run_id']}")
+    assert {
+        o["kind"] for o in env.get(f"{API}/projects/{proj}/task-runs/{t['run_id']}/outputs").json()
+    } == {"features"}
+    listed = {
+        x["run_id"]: x["task"]["id"] for x in env.get(f"{API}/projects/{proj}/task-runs").json()
+    }
+    assert listed[t["run_id"]] == "radiomics.pyradiomics"
+    assert_problem(
+        env.post(
+            f"{API}/projects/{proj}/radiomics/runs",
+            json={**body, "selection": {**body["selection"], "seg_id": "nope"}},
+            headers={"X-Reviewer": "T"},
+        ),
+        "validation",
+    )
+
+
+def test_curation_decisions_per_segmentation_set(
+    env: TestClient, proj: str, tmp_path: Path
+) -> None:
+    """CURATION §Targets: mask targets carry `seg_id`; the state key is (item, target, seg_id)."""
+    with_derived(env, proj, tmp_path)
+    finish(
+        env, proj, env.post(f"{API}/projects/{proj}/task-runs", json=run_body(seg_id="thr")).json()
+    )
+    who = {"X-Reviewer": "T"}
+    base = {"item_id": ITEMS[0], "target": "seg"}
+    r1 = env.post(
+        f"{API}/projects/{proj}/curation/events", json={**base, "status": "accepted"}, headers=who
+    )
+    r2 = env.post(
+        f"{API}/projects/{proj}/curation/events",
+        json={**base, "status": "needs_major_correction", "seg_id": "thr"},
+        headers=who,
+    )
+    assert r1.status_code == 201 and r1.json()["seg_id"] == "imported", r1.text
+    assert r2.status_code == 201 and r2.json()["seg_id"] == "thr"
+    state = env.get(f"{API}/projects/{proj}/curation/state").json()
+    targets = next(i for i in state["items"] if i["item_id"] == ITEMS[0])["targets"]
+    assert {(t["target"], t["seg_id"], t["status"]) for t in targets} == {
+        ("seg", "imported", "accepted"),
+        ("seg", "thr", "needs_major_correction"),
+    }
+    queue = env.get(f"{API}/projects/{proj}/curation/queue").json()
+    row = next(q for q in queue if q["item_id"] == ITEMS[0])
+    assert "/segment.threshold/runs/" in row["mask_path_abs"]  # the thr set's file
+    bad = {**base, "status": "accepted", "seg_id": "nope"}
+    assert_problem(
+        env.post(f"{API}/projects/{proj}/curation/events", json=bad, headers=who), "validation"
+    )
+    phase = {"item_id": ITEMS[0], "target": "phase", "status": "accepted", "seg_id": "thr"}
+    assert_problem(
+        env.post(f"{API}/projects/{proj}/curation/events", json=phase, headers=who), "validation"
+    )

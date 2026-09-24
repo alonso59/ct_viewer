@@ -76,6 +76,8 @@ class CurationEvent(BaseModel):
     item_id: str | None = None  # null when target = case (CUR-03)
     case_id: str
     target: str
+    # Mask targets (seg, label:*, voi_mask): the segmentation set (ADR-0015); null = imported
+    seg_id: str | None = None
     status: Status
     priority: Priority = "medium"
     comment: str = ""
@@ -84,6 +86,13 @@ class CurationEvent(BaseModel):
     add_to_queue: bool = False
     context: dict[str, Any] = Field(default_factory=dict)  # audit snapshot; not used for logic
     source: Source = "ui"
+
+    @property
+    def seg_key(self) -> str | None:
+        """State key part: mask targets without `seg_id` mean `imported` (PRJ-11)."""
+        if self.target in ("seg", "voi_mask") or self.target.startswith("label:"):
+            return self.seg_id or "imported"
+        return None
 
 
 class EventIn(BaseModel):
@@ -96,6 +105,7 @@ class EventIn(BaseModel):
         default=None, description="Required when target = case; else derived from the item"
     )
     target: Target
+    seg_id: str | None = Field(default=None, description="Mask targets: default `default_seg`")
     status: Status
     priority: Priority = "medium"
     comment: str = Field(default="", max_length=10_000)
@@ -111,6 +121,7 @@ class TargetState(BaseModel):
     """Latest event for one `(item_id, target)` (or case-target) key (CUR-08)."""
 
     target: str
+    seg_id: str | None = None  # mask targets (ADR-0015)
     status: Status
     priority: Priority
     comment: str

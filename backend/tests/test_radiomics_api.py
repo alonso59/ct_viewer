@@ -218,7 +218,9 @@ def test_run_end_to_end_outputs(
     assert rec["engine"]["name"] == "pyradiomics" and set(rec["engine"]["deps"]) >= {
         "SimpleITK", "numpy", "PyWavelets",
     }  # fmt: skip
-    assert rec["selection"] == {"scope": None, "labels": [2], "filter": None, "item_ids": ITEMS}
+    assert rec["selection"] == {
+        "scope": None, "labels": [2], "filter": None, "item_ids": ITEMS, "seg_id": "imported"
+    }  # fmt: skip
     assert [i["item_id"] for i in rec["inputs"]] == ITEMS and rec["inputs"][0]["image_fp"]
     assert all(not str(v).startswith("/") for i in rec["inputs"] for v in i.values())
     assert rec["counts"] == {"items": 3, "ok": 3, "failed": 0, "features": 107, "skipped": 0}

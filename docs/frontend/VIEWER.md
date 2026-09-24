@@ -42,7 +42,7 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 | VW-16 | Curation context (axis, slice, W/L) is attached to each event (CUR event `context.viewer`). | S |
 | VW-17 | Measurements (distance, ROI stats) are read-only helpers and are not persisted. | C (v3.1) |
 | VW-18 | Compare two items side by side with linked crosshair, e.g. NC vs NP. | C (v3.1) |
-| VW-19 | Segmentation set selector in the Layers section: one overlay per visible set, each with the label map through its `label_mapping`; the active set is the curation target (`seg_id`). Default `default_seg`. | M |
+| VW-19 | Segmentation set selector in the Layers section: one overlay per visible set, each with the label map through its `label_mapping`; the active set is the curation target (`seg_id`). Default `default_seg`. Implemented (P7b Wave 4) with one visible set at a time: the selector switches the overlay, meshes (`?seg=`) and label colours (set values → project labels); two sets at once is VW-20. | M |
 | VW-20 | Two sets shown together: second set as outline-only in a contrasting style (e.g. ground truth vs nnU-Net). | C |
 | VW-21 | Open mode: a label map opened alone renders with auto `label_{value}` colours; a 1-slice volume shows 2D tiles only; attaching a segmentation checks geometry first (SRC-10). The Open toolbar holds the three actions of UI-17 (Save as NIfTI…, Add to project…, Create project from this) and nothing that edits files. Implemented by the viewer's `StandaloneViewer` (same surface as a case tab, no curation or tasks); Open records use modality `OT` unless DICOM says otherwise, so W/L starts at the percentiles. | M |
 

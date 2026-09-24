@@ -11,13 +11,14 @@ from typing import Any
 from app.core.fsio import atomic_write_json
 
 PROTOCOL = 1
-JOB, PROGRESS, RESULT, CANCEL, CLAIM, LOG = (
+JOB, PROGRESS, RESULT, CANCEL, CLAIM, LOG, EXIT = (
     "job.json",
     "progress.jsonl",
     "result.json",
     "cancel",
     "claim",
     "task.log",
+    "exit.json",  # the runner's record of the exit code (external runtime)
 )
 LOG_TAIL = 4000
 
@@ -80,3 +81,23 @@ def log_tail(job_dir: Path) -> str:
         return p.read_text(encoding="utf-8", errors="replace")[-LOG_TAIL:]
     except OSError:
         return ""
+
+
+def _json(path: Path) -> dict[str, Any] | None:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
+def read_claim(job_dir: Path) -> dict[str, Any] | None:
+    """`claim` (runner_id, pid, at); `{}` while the runner is still writing it."""
+    p = job_dir / CLAIM
+    if not p.exists():
+        return None
+    return _json(p) or {}
+
+
+def read_exit(job_dir: Path) -> dict[str, Any] | None:
+    return _json(job_dir / EXIT)

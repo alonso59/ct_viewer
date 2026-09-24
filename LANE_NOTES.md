@@ -433,3 +433,48 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - `anonymize: basic` covers a subset of Table E.1-1; the PHI review of a sidecar stays a human check.
 - `legacy/` is now fully ported and can be deleted by the owner (not done here).
 - Initial JS 297.7 of 300 KB: Wave 4 (VW-19 in the viewer) must keep new UI lazy or move the import wizard into a lazy chunk.
+
+## 2026-09-24 · P7b Wave 4 (external runtime) · v3
+
+**Done** (ROADMAP §P7b Wave 4 ticked)
+- External runtime (TSK-11, BE-14): jobs in `WORKSPACE_ROOT/queue/{job_id}/`; the driver reports `waiting_for_runner` (job + run, `job.status` SSE) until a runner claims, then `running`; it tails `progress.jsonl`, ends on `result.json` or the runner's `exit.json`, writes `cancel` (a never-claimed job stops at once), and fails a claimed job whose runner has sent no heartbeat for 60 s. Queue folders stay for audit.
+- `scripts/rw-runner.py` (stdlib only, mypy strict): heartbeat every 10 s, `O_EXCL` claim, the manifest command in the plugin folder with `{python}` / `{job_dir}`, `task.log`, `exit.json`, SIGTERM → SIGKILL after 30 s on cancel, `--tasks`, `--concurrency`, `--poll`, `--once`; SIGTERM stops it cleanly.
+- TST-14 external half (`tests/test_runner.py`, real runner subprocess) and CI E2E `e2e/runner.spec.ts` (Tasks tab → waiting for runner → runner started → completed → segmentation set).
+- RAD-05: radiomics selection `seg_id` (default `default_seg`), project labels mapped to the set's values, `run.json` `selection.seg_id` + `inputs[].seg_id`; the API-45 alias passes it through (RAD-13).
+- Curation: `seg_id` on mask decisions (default `default_seg`, refused on other targets), state key `(item, target, seg_id)`, queue CSV points at the set's mask.
+- VW-19: Layers section set selector (`activeSeg` in the viewer store); overlay, meshes (`?seg=`) and label colours follow the set; the curation form sends the set on screen; radiomics form set chooser.
+- Compose: `DERIVED_HOST` writable mirror mount + `ALLOWED_DERIVED_ROOTS`, `PLUGINS_HOST` → `/plugins` (`PLUGINS_ROOT`); `.env.example` documents them and the runner command.
+- TST-07 E2E hook: fixture hashes before/after the whole Playwright suite.
+- PyRadiomics (pinned commit) installed in the dev venv, so the radiomics suites run here too (no skips).
+
+**Results**: `make fixtures && make check` green: 437 backend (0 skipped) + 200 frontend vitest. Playwright 24/24 twice (Chromium 12, Firefox 12). Initial JS 298.1 KB gzip.
+
+**Decisions**
+- VW-19 shows one set at a time (switchable); two sets together stays VW-20 (C).
+- A runner-crash without `result.json` is `failed` with the exit code and the log tail; a lost runner (claim, no heartbeat for 60 s) fails the run so it can be resumed.
+- PyRadiomics is not thread-safe: tests that run it with inline (threaded) jobs use one unit at a time; production runs units in worker processes.
+- `tasks-dicom.spec` waits up to 30 s for the Save toast (the conversion can queue behind other projects' thumbnails).
+
+**Open issues**
+- `scripts/udocker-run.sh` has no derived/plugins mounts yet (Step 4, out of scope). The image was not rebuilt in P7b (new: `plugins/` copy, pydicom + SimpleITK as core deps); rerun `make image` + `make container-smoke` in Step 4.
+
+## 2026-09-24 · P7b integration · v3
+
+**Exit criterion, point by point**
+- A NIfTI folder opens in Open mode: `test_sources.py::test_open_folder_and_attach` (+ attach and mismatch refusal).
+- A single NIfTI opens: `test_open_nifti_file_and_label_map`; E2E `open-mode.spec.ts` (Chromium + Firefox).
+- A single DICOM file opens: `test_dicom.py::test_open_dicom_folder_and_single_file` (classic slice → 1-slice volume); E2E `tasks-dicom.spec.ts` (opens and saves as NIfTI).
+- A standalone segmentation opens: a label map opened alone is `kind: label` and overlays itself (`test_open_nifti_file_and_label_map`, `features/open/model.test.ts`).
+- A DICOM folder converts into a project with sidecars and active phase annotations: `test_converter_task_end_to_end` (sidecars in `dataset/sidecars/`, `dicom_sidecar` refs, phase source `analyzer:{run_id}`); E2E from the Tasks tab.
+- The fake plugin (CI) adds a segmentation set through the external runner: `test_runner.py` and E2E `runner.spec.ts`.
+- A radiomics run on a chosen `seg_id` records it: `test_tasks.py::test_radiomics_on_a_task_segmentation_set` (`run.json` `selection.seg_id`, `inputs[].seg_id`, mask fingerprints of that set).
+- TST-07 (`test_e2e_import.py`, `test_hash_job.py`, R1 checks in the converter/Open/save tests, and the new E2E hook), TST-13 (DICOM marker at RAS in `test_dicom.py`; NumPy xyz/zyx in `test_sources.py`), TST-14 (`test_tasks.py` builtin, `test_runner.py` external), TST-15 (`test_sources.py`, `test_dicom.py` save/add), TST-16 (`test_analyzers.py`): all green.
+
+**Totals at the P7b tip**: 437 backend + 200 frontend unit tests, 24 Playwright tests (2 browsers), initial JS 298.1 KB gzip (budget 300 KB).
+
+**Still pending (unchanged scope)**
+- Deferred by the user: `plugins/nnunet/` and its GPU check.
+- Human checks: a converted series next to the original in 3D Slicer (orientation); PHI review of an anonymized sidecar.
+- Step 4 (udocker, remote checks, image rebuild with P7b changes), then P8 Electron.
+- Owner decisions: PHI in un-anonymized converter rows travelling in bundles (Wave 3); deleting `legacy/` (fully ported); the legacy VOI axis-order check (no VOI writer in `legacy/convert/`).
+- Initial JS is at 298 of 300 KB: the next UI work should move the import wizard into a lazy chunk.

@@ -2280,6 +2280,8 @@ export interface components {
             case_id: string;
             /** Target */
             target: string;
+            /** Seg Id */
+            seg_id?: string | null;
             /**
              * Status
              * @enum {string}
@@ -2550,6 +2552,11 @@ export interface components {
              * @example case
              */
             target: string;
+            /**
+             * Seg Id
+             * @description Mask targets: default `default_seg`
+             */
+            seg_id?: string | null;
             /**
              * Status
              * @enum {string}
@@ -4236,6 +4243,11 @@ export interface components {
             item_id: string;
             /** Image Fp */
             image_fp?: string | null;
+            /**
+             * Seg Id
+             * @default imported
+             */
+            seg_id: string;
             /** Mask Fp */
             mask_fp?: string | null;
         };
@@ -4310,6 +4322,11 @@ export interface components {
             filter?: string | null;
             /** Item Ids */
             item_ids: string[];
+            /**
+             * Seg Id
+             * @default imported
+             */
+            seg_id: string;
         };
         /** RunSummary */
         RunSummary: {
@@ -4528,6 +4545,8 @@ export interface components {
             scope?: ("complete" | "voi") | null;
             /** Labels */
             labels?: number[];
+            /** Seg Id */
+            seg_id?: string | null;
         };
         /**
          * SelectionFilter
@@ -4597,6 +4616,8 @@ export interface components {
         TargetState: {
             /** Target */
             target: string;
+            /** Seg Id */
+            seg_id?: string | null;
             /**
              * Status
              * @enum {string}

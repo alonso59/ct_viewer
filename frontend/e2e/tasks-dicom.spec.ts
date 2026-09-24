@@ -21,7 +21,8 @@ test('a single DICOM file opens without a project and saves as NIfTI', async ({ 
   const dialog = page.getByRole('dialog', { name: /Save IM0007/ })
   await expect(dialog.getByText(/_open\/\d{4}-\d{2}-\d{2}/)).toBeVisible()
   await dialog.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: /Saved .*ct_np(-\d+)?\.nii\.gz/ })).toBeVisible()
+  // the series converts in a job worker, which may queue behind thumbnails of other projects
+  await expect(page.getByRole('status').filter({ hasText: /Saved .*ct_np(-\d+)?\.nii\.gz/ })).toBeVisible({ timeout: 30_000 })
 })
 
 test('a DICOM folder converts into a project from the Tasks tab', async ({ page }) => {

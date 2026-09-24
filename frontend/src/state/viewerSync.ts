@@ -33,6 +33,8 @@ export interface CursorReadout {
 interface ViewerSyncState {
   activeCaseId: string | null
   activeItemId: string | null
+  /** VW-19: the segmentation set shown and curated; null = the project's `default_seg` */
+  activeSeg: string | null
   viewerFocused: boolean
   tool: ViewerTool
   layout: LayoutId
@@ -59,6 +61,7 @@ interface ViewerSyncState {
 export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
   activeCaseId: null,
   activeItemId: null,
+  activeSeg: null,
   viewerFocused: false,
   tool: 'crosshair',
   layout: 'four-up',

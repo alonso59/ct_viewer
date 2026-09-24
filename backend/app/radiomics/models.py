@@ -176,6 +176,8 @@ class Selection(BaseModel):
     filter: SelectionFilter | None = None
     scope: Scope | None = None
     labels: list[int] = Field(default_factory=list)
+    # RAD-05 / ADR-0015: the segmentation set whose masks are read (default `default_seg`)
+    seg_id: str | None = None
 
 
 class EstimateRequest(BaseModel):
@@ -215,11 +217,13 @@ class RunSelection(BaseModel):
     labels: list[int]
     filter: str | None = None
     item_ids: list[str]
+    seg_id: str = "imported"  # recorded in run.json (RAD-05, NFR-15); older runs: imported
 
 
 class RunInput(BaseModel):
     item_id: str
     image_fp: str | None = None
+    seg_id: str = "imported"
     mask_fp: str | None = None
 
 

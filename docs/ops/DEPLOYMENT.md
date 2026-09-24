@@ -78,7 +78,7 @@ udocker create --name=rw radiology-workbench:{version}
 | Execution mode affects I/O speed (`P1` default vs `F3`) | Benchmark in P7; document the chosen mode in the run script |
 | No compose | `udocker-run.sh` is the single source of the run command (OPS-09) |
 | Runs as the invoking user | `WORKSPACE_ROOT` must be writable by that user |
-| External tasks | Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
+| External tasks | Compose mounts `PLUGINS_HOST` read-only at `/plugins` (`PLUGINS_ROOT`) and `DERIVED_HOST` writable at the same path. Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
 
 ## Electron (phase P8)
 

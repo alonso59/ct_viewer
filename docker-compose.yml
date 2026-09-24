@@ -12,10 +12,16 @@ services:
       PORT: "8000"
       WORKSPACE_ROOT: /workspace
       ALLOWED_DATA_ROOTS: ${ALLOWED_DATA_ROOTS:-${DATA_HOST:?set DATA_HOST in .env}}
+      # Task outputs (OPS-11): writable, mirror-mounted below; must not overlap the data (OPS-12)
+      ALLOWED_DERIVED_ROOTS: ${ALLOWED_DERIVED_ROOTS:-${DERIVED_HOST:-/derived}}
+      # External task manifests (TSK-01), read-only; the host runner reads the same folder
+      PLUGINS_ROOT: /plugins
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${PORT:-8000}}
     user: ${RUN_AS:-0:0}
     ports: ["127.0.0.1:${PORT:-8000}:8000"]
     volumes:
       - ${WORKSPACE_HOST:-./workspace}:/workspace
       - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:ro # mirror mount (OPS-05)
+      - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived} # writable mirror mount (OPS-11)
+      - ${PLUGINS_HOST:-./plugins-external}:/plugins:ro
     restart: unless-stopped

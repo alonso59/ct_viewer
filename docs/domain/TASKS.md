@@ -67,6 +67,7 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
   `python scripts/rw-runner.py --workspace <WORKSPACE_HOST> --plugins <PLUGINS_ROOT> [--tasks segment.nnunet] [--concurrency 1]`.
 - Heartbeat: `queue/runners/{runner_id}.json` `{tasks[], gpu, pid, at}` every 10 s. With no fresh heartbeat for the task, a job shows `waiting_for_runner` (not an error) and the UI shows how to start the runner.
 - Writers: the backend writes only `job.json` and `cancel`, and the runner/task writes the rest. `queue/` is the only workspace directory with a second writer; project files keep the single writer (BE-05).
+- Implementation (P7b Wave 4): the runner substitutes `{python}` (its own interpreter) and `{job_dir}` in `runtime.command`, runs it in the plugin folder with output to `task.log`, and writes `exit.json {code, at, runner_id}` when the process ends (a crash without `result.json` becomes `failed` with the code and the log tail). A job cancelled before its claim is never claimed. A claimed job whose runner sends no heartbeat for 60 s fails ("runner stopped sending heartbeats"). Queue folders are kept after the run for audit. Options: `--tasks`, `--concurrency`, `--poll`, `--once` (tests); SIGTERM stops it cleanly (children terminated, heartbeat removed).
 
 ## Outputs
 

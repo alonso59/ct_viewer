@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,12 +19,19 @@ process.env.E2E_WORKSPACE = workspace
 // Writable derived root for task outputs (OPS-11); never inside the fixtures (OPS-12)
 const derived = process.env.E2E_DERIVED ?? mkdtempSync(join(tmpdir(), 'rw-e2e-derived-'))
 process.env.E2E_DERIVED = derived
+// External manifests (TSK-01): the CI plugin only, never `plugins/` itself (TESTING.md)
+const plugins = process.env.E2E_PLUGINS ?? mkdtempSync(join(tmpdir(), 'rw-e2e-plugins-'))
+process.env.E2E_PLUGINS = plugins
+if (!existsSync(join(plugins, 'threshold'))) symlinkSync(resolve(here, '../plugins/threshold'), join(plugins, 'threshold'))
 
 /** Single-quote for the shell: the repo path may contain spaces */
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 
 export default defineConfig({
   testDir: './e2e',
+  // TST-07 (R1): fixture sources must be byte-identical after the suite
+  globalSetup: './e2e/tst07.ts',
+  globalTeardown: './e2e/tst07-teardown.ts',
   timeout: 60_000,
   // One backend workspace shared by all tests: run serially
   workers: 1,
@@ -32,7 +39,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        `cd ${q(backend)} && WORKSPACE_ROOT=${q(workspace)} ALLOWED_DATA_ROOTS=${q(fixtures)} ALLOWED_DERIVED_ROOTS=${q(derived)} ` +
+        `cd ${q(backend)} && WORKSPACE_ROOT=${q(workspace)} ALLOWED_DATA_ROOTS=${q(fixtures)} ALLOWED_DERIVED_ROOTS=${q(derived)} PLUGINS_ROOT=${q(plugins)} ` +
         `PUBLIC_BASE_URL=http://127.0.0.1:${WEB_PORT} .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/api/v1/health`,
       reuseExistingServer: false,

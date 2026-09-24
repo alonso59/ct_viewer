@@ -465,7 +465,8 @@
         "phase": "Not sent with an item list: the phase filter.",
         "vars": "Not sent with an item list: the variable filters."
       }
-    }
+    },
+    "segSet": "Segmentation set"
   },
   "bundle": {
     "title": "Import project bundle",

@@ -69,7 +69,9 @@ def _write_part(run_dir: Path, key: str, table: pa.Table) -> None:
 
 def _extract(task: dict[str, Any]) -> tuple[pa.Table, dict[str, Any]]:
     engine = get_engine(task["engine"])
-    res = engine.extract(task["image_path"], task["mask_path"], task["label"], task["settings"])
+    # `label` is the project label; `mask_label` the value in this set's mask (ADR-0015 mapping)
+    value = int(task.get("mask_label", task["label"]))
+    res = engine.extract(task["image_path"], task["mask_path"], value, task["settings"])
     item = task["item"]
     rows: dict[str, list[Any]] = {n: [] for n in FEATURE_SCHEMA.names}
     for f in res.features:

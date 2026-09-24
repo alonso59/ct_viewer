@@ -515,7 +515,9 @@
   },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",
-    "opacity": "{{name}} opacity"
+    "opacity": "{{name}} opacity",
+    "segSet": "Segmentation set",
+    "segOption": "{{name}} ({{n}} items)"
   },
   "labels": {
     "color": "{{name}} color",

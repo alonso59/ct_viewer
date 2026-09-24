@@ -117,7 +117,7 @@ export type NewCurationEvent = Pick<
   CurationEvent,
   'item_id' | 'case_id' | 'target' | 'status' | 'priority' | 'comment' | 'add_to_queue'
 > &
-  Partial<Pick<CurationEvent, 'proposed_phase' | 'proposed_side' | 'context'>>
+  Partial<Pick<CurationEvent, 'proposed_phase' | 'proposed_side' | 'context' | 'seg_id'>>
 
 /** CUR-08 derived state, one row per `(item_id, target)`; `item_id = null` for case targets.
  *  Flattened from API-51 `CurationState` (items[].targets, cases[].targets). */

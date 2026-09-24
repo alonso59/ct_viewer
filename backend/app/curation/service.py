@@ -32,7 +32,7 @@ from app.curation.models import (
     V2ImportReport,
 )
 from app.events.bus import EventBus
-from app.ingest.models import Item
+from app.ingest.models import Item, VolumeRef
 from app.ingest.store import IndexStore
 from app.projects.service import Workspace
 
@@ -133,6 +133,9 @@ class CurationService:
             values = {entry.value for entry in cfg.label_map}
             if int(body.target.removeprefix("label:")) not in values:
                 raise _invalid("target", f"label value not in label map: {sorted(values)}")
+        mask_target = body.target in ("seg", "voi_mask") or body.target.startswith("label:")
+        if body.seg_id is not None and (not mask_target or cfg.segmentation(body.seg_id) is None):
+            raise _invalid("seg_id", "seg_id must name a segmentation set, on mask targets only")
         if body.proposed_phase is not None:
             vocab = cfg.phase_vocabulary
             if vocab and body.proposed_phase not in vocab:
@@ -163,6 +166,9 @@ class CurationService:
             item_id=body.item_id if item is not None else None,
             case_id=case_id,
             target=body.target,
+            seg_id=(body.seg_id or self.workspace.get(project_id).default_seg)
+            if body.target in ("seg", "voi_mask") or body.target.startswith("label:")
+            else None,
             status=body.status,
             priority=body.priority,
             comment=body.comment,
@@ -270,7 +276,7 @@ class CurationService:
                     reviewer=e.reviewer,
                     at=e.at,
                     image_path_abs=absolute(item.image.ref if item and item.image else None),
-                    mask_path_abs=absolute(item.mask.ref if item and item.mask else None),
+                    mask_path_abs=absolute(mask.ref if (mask := _mask_of(item, e)) else None),
                 )
             )
         return rows
@@ -368,6 +374,14 @@ class CurationService:
                 self._append_locked(pdir, events)
         self._publish(project_id, events)
         return V2ImportReport(n_rows=len(rows), imported=len(events), skipped=skipped)
+
+
+def _mask_of(item: Item | None, ev: CurationEvent) -> VolumeRef | None:
+    """The decision's segmentation set (ADR-0015); other targets show the default mask."""
+    if item is None:
+        return None
+    seg = ev.seg_key
+    return item.masks.get(seg) if seg is not None else item.mask
 
 
 def _item_cols(item_id: str | None, item: Item | None) -> tuple[str | None, str | None, str | None]:
