@@ -12,6 +12,8 @@ interface ExplorerState {
   /** Set one `var.{name}` filter; empty removes it (VAR-10) */
   setVarFilter: (name: string, value: string) => void
   clearFilter: () => void
+  /** DB-04: only these items (and their cases); null clears */
+  setItemIds: (ids: string[] | null) => void
   toggle: (cid: string, open?: boolean) => void
   setOrder: (ids: string[]) => void
 }
@@ -29,12 +31,18 @@ export const useExplorer = create<ExplorerState>()((set) => ({
       return { filter: { ...s.filter, vars } }
     }),
   clearFilter: () => set({ filter: {} }),
+  setItemIds: (ids) =>
+    set((s) => {
+      const { itemIds: _drop, ...rest } = s.filter
+      void _drop
+      return { filter: ids ? { ...rest, itemIds: [...new Set(ids)] } : rest }
+    }),
   toggle: (cid, open) => set((s) => ({ expanded: { ...s.expanded, [cid]: open ?? !s.expanded[cid] } })),
   setOrder: (order) => set({ order }),
 }))
 
 export const activeFilterCount = (f: CaseFilter) =>
-  [f.phase, f.status, f.warning, f.voi, f.showExcluded].filter(Boolean).length +
+  [f.phase, f.status, f.warning, f.voi, f.showExcluded, f.itemIds].filter(Boolean).length +
   Object.values(f.vars ?? {}).filter(Boolean).length
 
 /** Variable-driven columns and colour of the case list, per project (VAR-10, UI-13) */

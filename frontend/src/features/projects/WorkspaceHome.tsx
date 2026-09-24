@@ -1,6 +1,6 @@
 // Workspace home (`/`, UI-04): New Project (with a study preset, PRJ-12), Open Recent with
-// thumbnail + progress (PRJ-02), share-link copy (PRJ-03), relink (PRJ-05).
-import { useState } from 'react'
+// thumbnail + progress (PRJ-02), share-link copy (PRJ-03), relink (PRJ-05), bundles (PRJ-08/09).
+import { lazy, Suspense, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -21,7 +21,11 @@ import { Dialog, IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
 import { toast } from '../../shell'
 import { Icon, codicon, ct } from '../../theme'
 import { useImportWizard } from '../import'
+import { exportBundle } from './actions'
 import './projects.css'
+
+// The import report dialog and its strings load once a bundle is picked (NFR-07)
+const BundleImport = lazy(() => import('./BundleImport'))
 
 export function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
@@ -187,6 +191,7 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
         </span>
       </button>
       <IconButton icon={codicon('plug')} label={t('projects.relink')} onClick={onRelink} />
+      <IconButton icon={codicon('package')} label={t('projects.bundle.export')} onClick={() => void exportBundle(p.project_id)} />
       <IconButton
         icon={codicon('link')}
         label={t('shell.copyShareLink')}
@@ -207,6 +212,8 @@ export function WorkspaceHome() {
   const projects = useProjects()
   const [creating, setCreating] = useState(false)
   const [relink, setRelink] = useState<ProjectSummary | null>(null)
+  const [bundle, setBundle] = useState<File | null>(null)
+  const picker = useRef<HTMLInputElement>(null)
   const sorted = [...(projects.data ?? [])]
     .filter((p) => !p.archived)
     .sort((a, b) => (b.last_opened_at ?? b.created_at).localeCompare(a.last_opened_at ?? a.created_at))
@@ -231,13 +238,25 @@ export function WorkspaceHome() {
                   <span className="muted">{t('home.newProjectHelp')}</span>
                 </span>
               </button>
-              <button type="button" className="home-action" onClick={() => toast({ message: t('home.bundleSoon'), tone: 'info' })}>
+              <button type="button" className="home-action" onClick={() => picker.current?.click()}>
                 <Icon spec={codicon('package')} size={20} />
                 <span>
                   <strong>{t('home.importBundle')}</strong>
                   <span className="muted">{t('home.importBundleHelp')}</span>
                 </span>
               </button>
+              <input
+                ref={picker}
+                type="file"
+                accept=".zip,application/zip"
+                hidden
+                aria-label={t('home.importBundle')}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) setBundle(f)
+                }}
+              />
             </div>
             <h2>{t('home.tips')}</h2>
             <ul className="home-tips muted">
@@ -266,6 +285,11 @@ export function WorkspaceHome() {
         <footer className="home-footer muted">{t('app.tagline')}</footer>
       </div>
       <NewProjectDialog open={creating} onOpenChange={setCreating} />
+      {bundle ? (
+        <Suspense fallback={null}>
+          <BundleImport file={bundle} onClose={() => setBundle(null)} />
+        </Suspense>
+      ) : null}
       {relink ? <RelinkDialog pid={relink.project_id} name={relink.name} onOpenChange={(o) => !o && setRelink(null)} /> : null}
     </div>
   )

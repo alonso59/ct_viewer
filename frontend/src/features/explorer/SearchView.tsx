@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { API_MODE, CURATION_STATUSES, PHASES, useCases, useVariables, type Variable } from '../../api'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
+import { ItemFilterChip } from './ProjectView'
 import { activeFilterCount, useExplorer } from './store'
 import { filterable, isCategorical, parseRange, rangeValue } from './vars'
 
@@ -53,6 +54,7 @@ export function SearchView() {
   const vars = filterable(useVariables(pid).data ?? [])
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px 12px' }}>
+      {filter.itemIds ? <ItemFilterChip ids={filter.itemIds} /> : null}
       <label className="field">
         <span className="field-label">{t('search.text')}</span>
         <input className="input" value={filter.q ?? ''} placeholder={t('explorer.filterPlaceholder')} onChange={(e) => setFilter({ q: e.target.value })} />

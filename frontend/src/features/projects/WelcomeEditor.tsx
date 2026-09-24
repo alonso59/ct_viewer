@@ -7,6 +7,7 @@ import { formatChord, openEditor, registry, bindingOf, useWorkbench } from '../.
 import { useLayout } from '../../state'
 import { Icon, codicon, type IconSpec } from '../../theme'
 import { useImportWizard } from '../import'
+import { computeHashes, exportBundle } from './actions'
 
 function Action({ icon, title, detail, onClick, chord }: { icon: IconSpec; title: string; detail: string; onClick: () => void; chord?: string }) {
   return (
@@ -82,6 +83,8 @@ export function WelcomeEditor() {
           <Action icon={codicon('search')} title={t('welcome.goTo')} detail={t('welcome.goToHelp')} onClick={() => useWorkbench.getState().openPalette('quickopen')} chord={chordOf('workbench.quickOpen')} />
           <Action icon={codicon('beaker')} title={t('radiomics.newRun')} detail={t('welcome.radiomicsHelp')} onClick={() => openEditor('radiomics', {})} />
           <Action icon={codicon('checklist')} title={t('curation.openQueue')} detail={t('welcome.queueHelp')} onClick={() => openEditor('queue', {})} />
+          <Action icon={codicon('shield')} title={t('projects.hash.compute')} detail={t('welcome.hashHelp')} onClick={() => void computeHashes(pid)} />
+          <Action icon={codicon('package')} title={t('projects.bundle.export')} detail={t('welcome.bundleHelp')} onClick={() => void exportBundle(pid)} />
           <Action icon={codicon('terminal')} title={t('welcome.commands')} detail={t('welcome.commandsHelp')} onClick={() => useWorkbench.getState().openPalette('commands')} chord={chordOf('workbench.commandPalette')} />
         </div>
       </div>

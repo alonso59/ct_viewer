@@ -21,6 +21,15 @@ export type LabelDef = Required<S['LabelEntry']>
 export type PathRoot = S['PathRoot']
 export type RootInfo = S['RootInfo']
 export type RelinkResult = S['RelinkResult']
+/** API-06 import report (PRJ-09): the new project and a per-alias resolve check */
+export type BundleImportResult = S['BundleImportResult']
+/** API-06 export: the `.zip` and its server-chosen file name (PRJ-08) */
+export interface ProjectBundle {
+  blob: Blob
+  filename: string
+}
+/** API-15 `202` (IMP-09): progress arrives as `job.*` events of kind `hash` */
+export type HashJobStarted = S['HashJobStarted']
 
 /** API-03 detail */
 export type Project = Omit<Required<S['ProjectDetail']>, 'label_map'> & { label_map: LabelDef[]; preset?: Preset | null }
@@ -156,8 +165,6 @@ export type Profile = S['app__radiomics__models__Profile']
 export type RunSummary = S['RunSummary']
 export type RunDetail = S['RunDetail']
 export type RunStatus = RunSummary['status']
-/** @deprecated use `RunSummary` (kept for `features/dashboard`) */
-export type RadiomicsRun = RunSummary
 /** API-37 per-item failure (RAD-07) */
 export type RunError = S['app__radiomics__models__RunError']
 /** API-34 start body */

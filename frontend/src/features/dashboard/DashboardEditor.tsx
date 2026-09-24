@@ -9,7 +9,7 @@ import i18n from '../../i18n'
 import { useRun } from '../../api'
 import { toast, type EditorProps } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { openItem } from '../explorer'
+import { showItemsInExplorer } from '../explorer'
 import '../../i18n/lazy'
 import { RUN_TONE } from '../radiomics'
 import { FilterBar } from './FilterBar'
@@ -109,13 +109,10 @@ function SelectionChip({ runId }: { runId: string }) {
   const selection = useRunDashboard(runId).selection
   const select = useDashboardStore((s) => s.select)
   if (!selection.length) return null
-  // The Explorer has no item-id filter yet: copy the ids and open the first item
+  // DB-04: the selection becomes the Explorer's item-id filter
   const send = () => {
-    const first = selection[0] ?? ''
-    const done = () => toast({ message: t('dashboard.selection.sent', { count: selection.length }), tone: 'ok' })
-    if (navigator.clipboard) navigator.clipboard.writeText(selection.join('\n')).then(done, done)
-    else done()
-    openItem(first.split('.')[0] ?? '', first, true)
+    showItemsInExplorer(selection)
+    toast({ message: t('dashboard.selection.sent', { count: selection.length }), tone: 'ok' })
   }
   return (
     <span className="db-chip" data-active="true">

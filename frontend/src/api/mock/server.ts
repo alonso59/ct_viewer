@@ -4,7 +4,7 @@
 // demo state; Settings → "Reset mock data" clears it.
 import { ProblemError } from '../problem'
 import { rollup } from '../rollup'
-import type { Api, CaseFilter } from '../surface'
+import { filterByItems, type Api, type CaseFilter } from '../surface'
 import {
   QUEUE_STATUSES,
   STATUS_SEVERITY,
@@ -141,9 +141,16 @@ function demoFields(item: Seed['items'][number]): Record<string, unknown> {
   }
 }
 
+/** Item modality (VW-05): the seed's own value, else its `extra.modality`, else CT */
+function seedModality(i: Seed['items'][number]): string {
+  const m = (i as { modality?: unknown }).modality ?? i.extra.modality
+  return typeof m === 'string' && m.trim() ? m : 'CT'
+}
+
 function seedItems(importId: string): ItemRecord[] {
   return seed.items.map((i) => ({
     ...clone(i),
+    modality: seedModality(i),
     import_id: importId,
     phase: { canonical: i.phase.canonical, raw: i.phase.raw, source: 'phase' },
     extra: demoFields(i),
@@ -690,6 +697,17 @@ export const mockServer: Api = {
     }
   },
 
+  // API-06: bundles need the project folder on a server
+  async exportBundle(pid) {
+    await wait(60)
+    exists(pid)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Project bundles need the backend (API-06)')
+  },
+  async importBundle() {
+    await wait(60)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Project bundles need the backend (API-06)')
+  },
+
   // API-10..14
   async fsList(path) {
     await wait(90)
@@ -762,6 +780,17 @@ export const mockServer: Api = {
   async listWarnings(pid) {
     await wait(80)
     return clone(state(pid).warnings)
+  },
+  /** API-15: a simulated `hash` job over the image + mask files; nothing is hashed in the mock */
+  async startHashJob(pid) {
+    await wait(80)
+    const s = state(pid)
+    if ([...jobs.values()].some((j) => j.project_id === pid && j.kind === 'hash' && j.status === 'running'))
+      throw new ProblemError(409, 'job-conflict', 'A hash job is already running', pid)
+    const files = new Set(s.items.flatMap((i) => [i.image?.ref, i.mask?.ref]).filter(Boolean)).size
+    const job = newJob(pid, 'hash', Math.max(1, files), null)
+    runJob(pid, job, 40, () => undefined)
+    return { job_id: job.job_id, n_files: files, n_skipped: 0 }
   },
 
   // API-16..18
@@ -863,7 +892,8 @@ export const mockServer: Api = {
         if (!all.some((r) => r.case_id === c.case_id && matchesVar(r.values[name], spec))) return false
       return true
     })
-    return f.limit ? list.slice(0, f.limit) : list
+    const byItems = filterByItems(list, f.itemIds)
+    return f.limit ? byItems.slice(0, f.limit) : byItems
   },
   async getCase(pid, cid) {
     await wait(90)

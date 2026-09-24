@@ -61,9 +61,9 @@ describe('layouts (VW-01/02/04)', () => {
 
 describe('window / level (VW-05)', () => {
   test('HU presets only for CT; missing modality counts as CT', () => {
-    expect(isCt({ extra: {} })).toBe(true)
-    expect(isCt({ extra: { modality: 'ct' } })).toBe(true)
-    expect(isCt({ extra: { modality: 'MR' } })).toBe(false)
+    expect(isCt({ modality: null })).toBe(true)
+    expect(isCt({ modality: 'ct' })).toBe(true)
+    expect(isCt({ modality: 'MR' })).toBe(false)
   })
 
   test('drag: right = wider, up = higher level; width never below 1', () => {

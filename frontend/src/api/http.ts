@@ -5,8 +5,9 @@ import createClient from 'openapi-fetch'
 
 import { ProblemError, toProblemError } from './problem'
 import type { paths } from './schema'
-import type { Api, CaseFilter, ConnectionState } from './surface'
+import { filterByItems, type Api, type CaseFilter, type ConnectionState } from './surface'
 import type {
+  BundleImportResult,
   CurationEvent,
   CurationStateRow,
   DerivedDef,
@@ -67,6 +68,21 @@ async function allPages<T>(get: (cursor: string | undefined) => Promise<{ items:
 }
 
 const enc = encodeURIComponent
+
+/** `Content-Disposition` file name (RFC 6266: `filename*=UTF-8''…` wins over `filename=`) */
+export function attachmentName(header: string | null): string | null {
+  if (!header) return null
+  const star = /filename\*\s*=\s*(?:UTF-8|utf-8)''([^;]+)/.exec(header)
+  if (star?.[1]) {
+    try {
+      return decodeURIComponent(star[1].trim())
+    } catch {
+      // malformed escape: fall back to the plain parameter
+    }
+  }
+  const plain = /filename\s*=\s*"([^"]*)"|filename\s*=\s*([^;]+)/.exec(header)
+  return (plain?.[1] ?? plain?.[2])?.trim() || null
+}
 const reviewerHeader = (reviewer: string) => ({ 'X-Reviewer': reviewer })
 
 type RawCase = paths['/api/v1/projects/{pid}/cases']['get']['responses']['200']['content']['application/json']['items'][number] &
@@ -346,6 +362,16 @@ export const httpApi: Api = {
   listRoots: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/roots', { params: { path: { pid } } })),
   relinkRoot: (pid, alias, path) =>
     unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path } })),
+  async exportBundle(pid) {
+    const r = await fetch(`${V1}/projects/${enc(pid)}/bundle`, { method: 'POST' })
+    if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
+    return { blob: await r.blob(), filename: attachmentName(r.headers.get('content-disposition')) ?? `${pid}.zip` }
+  },
+  importBundle(file) {
+    const fd = new FormData()
+    fd.set('bundle', file)
+    return send<BundleImportResult>('POST', '/projects/import-bundle', fd)
+  },
 
   // API-10..14
   fsList: (path) => unwrap(client.GET('/api/v1/fs/list', { params: { query: path ? { path } : {} } })).then(normalizeFs),
@@ -362,6 +388,8 @@ export const httpApi: Api = {
   commitImport: (pid, preview_id) =>
     unwrap(client.POST('/api/v1/projects/{pid}/imports', { params: { path: { pid } }, body: { preview_id } })),
   importHistory: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/imports', { params: { path: { pid } } })),
+  startHashJob: (pid, force = false) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/hash-jobs', { params: { path: { pid } }, body: { force } })),
   async listWarnings(pid) {
     const out: QCWarning[] = []
     let cursor: string | undefined
@@ -411,10 +439,11 @@ export const httpApi: Api = {
       out.push(...page.items.map(normalizeCase))
       cursor = f.limit ? undefined : (page.next_cursor ?? undefined)
     } while (cursor)
-    // The server filters `warning` by QC code; "any/none" is applied here
-    if (f.warning === 'any') return out.filter((c) => c.n_warnings > 0)
-    if (f.warning === 'none') return out.filter((c) => c.n_warnings === 0)
-    return out
+    // The server filters `warning` by QC code; "any/none" and the item list are applied here
+    const byItems = filterByItems(out, f.itemIds)
+    if (f.warning === 'any') return byItems.filter((c) => c.n_warnings > 0)
+    if (f.warning === 'none') return byItems.filter((c) => c.n_warnings === 0)
+    return byItems
   },
   async getCase(pid, cid): Promise<CaseDetail> {
     const d = await unwrap(client.GET('/api/v1/projects/{pid}/cases/{cid}', { params: { path: { pid, cid } } }))
