@@ -414,3 +414,7 @@ export type PluginManifest = S['PluginManifest']
 export type PluginInfo = S['PluginInfo']
 export type PluginList = S['PluginList']
 export type PluginStatus = PluginInfo['status']
+/** API-62 workspace tasks (TSK-13) and API-59 layers (ADR-0020) */
+export type WorkspaceRun = S['WorkspaceRun']
+export type WorkspaceRunRequest = S['WorkspaceRunRequest']
+export type LayerInfo = S['LayerInfo']

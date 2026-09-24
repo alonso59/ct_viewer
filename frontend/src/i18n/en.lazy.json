@@ -521,7 +521,8 @@
     "cases_one": "{{count}} case",
     "cases_other": "{{count}} cases",
     "noProjects": "No projects yet",
-    "actions": "Open-mode actions"
+    "actions": "Open-mode actions",
+    "convertAction": "Convert DICOM…"
   },
   "tasks": {
     "kind": {
@@ -715,6 +716,76 @@
     "applied": "applied",
     "packApplied": "{{name}} applied",
     "installed": "Installed plugins",
-    "openLibrary": "Open the Plugin Library"
+    "openLibrary": "Open the Plugin Library",
+    "layers": "Metadata layers",
+    "layersHelp": "Plugin data joined onto the imported rows (analyzers, curation, labeling); metadata.jsonl itself is never rewritten. The dataset table merges both, one column per layer.",
+    "layerField": "Field",
+    "layerPlugin": "Plugin",
+    "layerSource": "Source",
+    "noLayers": "No active layers yet.",
+    "exportCsv": "Download dataset table (CSV)",
+    "exportParquet": "Download dataset table (Parquet)"
+  },
+  "conv": {
+    "title": "Convert DICOM",
+    "steps": "Converter steps",
+    "step": {
+      "source": "Source",
+      "settings": "Settings",
+      "estimate": "Dry run",
+      "run": "Run",
+      "result": "Result"
+    },
+    "sourceHelp": "Choose a DICOM folder (patients or series below it) or one DICOM file. It is only read; nothing is written next to it.",
+    "noSource": "No source chosen",
+    "next": "Next",
+    "source": "Source",
+    "change": "Change…",
+    "output": "Output",
+    "intoProject": "Into {{name}}",
+    "asDataset": "As a dataset (no project)",
+    "name": "Dataset name",
+    "nameHelp": "A new folder under the server's derived folder (_datasets/); it is written once and never modified.",
+    "profile": "Organ focus",
+    "profileHelp": "Ranks the series: those that do not match the organ are not converted.",
+    "profiles": {
+      "generic": "Generic",
+      "kidneys": "Kidneys",
+      "pancreas": "Pancreas",
+      "lung": "Lung",
+      "brain": "Brain",
+      "heart": "Heart"
+    },
+    "phase": "Run the phase analyzer after conversion (the phase becomes a layer, not a file field)",
+    "anonymize": "Anonymize (PS3.15 Basic Profile subset: sidecars and rows)",
+    "phiNotice": "DICOM headers can contain patient data. Sidecars stay in the derived folder; anonymize before sharing.",
+    "needsDerived": "This project has no derived folder for the converted volumes yet.",
+    "chooseDerived": "Choose derived folder…",
+    "dryRun": "Dry run",
+    "scanning": "Scanning headers…",
+    "found": "series found",
+    "selected": "to convert",
+    "skipped": "skipped",
+    "storage": "estimated size",
+    "back": "Back",
+    "run": "Convert {{n}} series",
+    "status": {
+      "running": "Converting…",
+      "completed": "Completed",
+      "completed_with_errors": "Completed with errors",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted"
+    },
+    "showResult": "Show the result",
+    "datasetReady": "Dataset {{name}} is ready.",
+    "datasetPartial": "Dataset {{name}} finished with problems.",
+    "datasetHelp": "metadata.jsonl, NIfTI volumes, DICOM sidecars and the analyzer layers. Open it, make a project from it, or add it to an existing project.",
+    "open": "Open",
+    "createProject": "Create project from this",
+    "addTo": "Add to project",
+    "pickProject": "Choose a project…",
+    "projectDone": "The converted series were imported into the project.",
+    "close": "Close"
   }
 }

@@ -35,7 +35,7 @@ class FsListing(BaseModel):
 
 
 def _roots(guard: PathGuard) -> list[Path]:
-    return guard.allowed_roots or [realpath(Path.home())]
+    return [r for r in guard.allowed_roots if r.is_dir()] or [realpath(Path.home())]
 
 
 def _dir_entry(path: Path, name: str | None = None) -> FsEntry:

@@ -9,7 +9,15 @@ from fastapi.testclient import TestClient
 from app.core.errors import SLUGS
 from tools.openapi_snapshot import SNAPSHOT, current, render
 
-STREAMING = {"image", "mask", "thumbnail", "events", "bundle", "preview"}  # bundle: API-06 zip
+STREAMING = {
+    "image",
+    "mask",
+    "thumbnail",
+    "events",
+    "bundle",
+    "preview",
+    "dataset-table",
+}  # bundle: API-06 zip
 # Binary bodies identified by the segment before a path parameter (API-25 mesh: .../mesh/{label})
 BINARY_PARENTS = {"mesh"}
 

@@ -82,6 +82,14 @@ export interface InspectorSectionContribution extends ItemContribution {
   writes?: boolean
 }
 
+/** Modal work windows launched by a button (PLG `overlays`, e.g. the converter, UI-25); rendered
+ *  on every route, so the component must render nothing until it is opened. */
+export interface OverlayContribution {
+  id: string
+  component: ComponentType
+  writes?: boolean
+}
+
 /** Quick open (Ctrl/Cmd+P) sources: a component that renders cmdk items for the query */
 export interface QuickOpenProvider {
   id: string
@@ -99,6 +107,7 @@ class Registry {
   readonly inspectorSections: InspectorSectionContribution[] = []
   readonly quickOpen: QuickOpenProvider[] = []
   readonly imageSection: ItemContribution[] = []
+  readonly overlays: OverlayContribution[] = []
   /** UI-26: set by the workbench of a view-only link; contributions with `writes` are hidden */
   readOnly = false
 
@@ -139,6 +148,9 @@ class Registry {
   quickOpenProvider(p: QuickOpenProvider) {
     this.quickOpen.push(p)
     this.quickOpen.sort((a, b) => a.order - b.order)
+  }
+  overlay(o: OverlayContribution) {
+    this.overlays.push(o)
   }
   imageSectionContent(s: ItemContribution) {
     this.imageSection.push(s)

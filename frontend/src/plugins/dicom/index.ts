@@ -1,13 +1,28 @@
-// DICOM converter plugin (plugins/dicom, DCM-*): the `dicom.convert` task and its command.
-import { openEditor } from '../../shell'
-import type { FrontendPlugin } from '../host'
+// DICOM converter plugin (plugins/dicom, DCM-*): the `dicom.convert` task, its command and the
+// converter overlay window (UI-25), which loads with its strings on first open (NFR-07).
+import { createElement, lazy, Suspense } from 'react'
 
-const openConverter = () => openEditor('task', { taskId: 'dicom.convert' })
+import { useWorkbench } from '../../shell'
+import type { FrontendPlugin } from '../host'
+import { useConverter } from './store'
+
+export { useConverter } from './store'
+
+const Overlay = lazy(() => Promise.all([import('./ConverterOverlay'), import('../../i18n/lazy')]).then(([m]) => m))
+
+function ConverterHost() {
+  const open = useConverter((s) => s.open)
+  return open ? createElement(Suspense, { fallback: null }, createElement(Overlay)) : null
+}
+
+/** Opens the converter; inside a project it can convert into that project (DCM-14). */
+export const openConverter = (source?: string | null) => useConverter.getState().show({ source, pid: useWorkbench.getState().pid })
 
 export const plugin: FrontendPlugin = {
   id: 'dicom',
   activate: ({ registry }) => {
-    registry.command({ id: 'tasks.convertDicom', writes: true, title: 'cmd.convertDicom', category: 'cat.project', menu: 'project', menuGroup: 2, run: openConverter })
+    registry.overlay({ id: 'dicom.converter', component: ConverterHost })
+    registry.command({ id: 'tasks.convertDicom', writes: true, title: 'cmd.convertDicom', category: 'cat.project', menu: 'project', menuGroup: 2, run: () => openConverter() })
   },
-  open: openConverter,
+  open: () => openConverter(),
 }

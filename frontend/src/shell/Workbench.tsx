@@ -11,6 +11,7 @@ import { ReviewerPrompt } from './ReviewerPrompt'
 import { SideBar } from './SideBar'
 import { StatusBar } from './StatusBar'
 import { TitleBar } from './TitleBar'
+import { registry } from './registry'
 import { Toasts } from './Toasts'
 import { ToolBar } from './ToolBar'
 import { useWorkbench } from './workbenchStore'
@@ -51,6 +52,7 @@ export function ShellOverlays() {
     <>
       <Toasts />
       <ReviewerPrompt />
+      {registry.overlays.filter((o) => registry.allowed(o)).map(({ id, component: C }) => <C key={id} />)}
     </>
   )
 }

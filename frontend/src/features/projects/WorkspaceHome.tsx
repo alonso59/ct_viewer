@@ -22,6 +22,7 @@ import { toast } from '../../shell'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from '../import'
 import { useOpenDialog } from '../open'
+import { useConverter } from '../../plugins/dicom/store'
 import { exportBundle } from './actions'
 import './projects.css'
 
@@ -241,6 +242,13 @@ export function WorkspaceHome() {
                 <span>
                   <strong>{t('home.openPath')}</strong>
                   <span className="muted">{t('home.openPathHelp')}</span>
+                </span>
+              </button>
+              <button type="button" className="home-action" onClick={() => useConverter.getState().show({ pid: null })}>
+                <Icon spec={codicon('file-binary')} size={20} />
+                <span>
+                  <strong>{t('home.convertDicom')}</strong>
+                  <span className="muted">{t('home.convertDicomHelp')}</span>
                 </span>
               </button>
               <button type="button" className="home-action" onClick={() => picker.current?.click()}>

@@ -22,7 +22,21 @@ from plugins.dicom import convert, rows, scan, sidecar
 from plugins.dicom.identity import Identity
 from plugins.text import value_to_text
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+# DCM-13 / ADR-0020: `metadata.jsonl` holds contract-v1 fields and DICOM facts only. Guesses,
+# selection results and human decisions are analyzer or curation layers, never row fields.
+STUDY_FIELDS = frozenset(
+    {"target_match_level", "output_role", "include_guess", "exclude_reason",
+     "analysis_readiness", "group", "notes"}
+)  # fmt: skip
+STUDY_PREFIXES = ("phase_guess", "curated_", "target_match")
+
+
+def clean_row(row: dict[str, Any]) -> dict[str, Any]:
+    """A converter row without study logic (also strips legacy rows carried over by DCM-07)."""
+    return {
+        k: v for k, v in row.items() if k not in STUDY_FIELDS and not k.startswith(STUDY_PREFIXES)
+    }
 
 
 @dataclass
@@ -365,7 +379,8 @@ def run(
     current = [g.row for g in found]
     merged = {_key(r): r for r in previous}
     merged.update({_key(r): r for r in current})  # DCM-07: the full current row set
-    return Result(list(merged.values()), annotations, diagnostics, counts, storage, outputs)
+    rows_out = [clean_row(r) for r in merged.values()]
+    return Result(rows_out, annotations, diagnostics, counts, storage, outputs)
 
 
 def write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:

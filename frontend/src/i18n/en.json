@@ -199,7 +199,9 @@
     "serverDown": "Cannot reach the server",
     "noProjects": "No projects yet. Create one to start.",
     "openPath": "Open file or folder…",
-    "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project"
+    "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project",
+    "convertDicom": "Convert DICOM…",
+    "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed"
   },
   "projects": {
     "alias": "Alias",

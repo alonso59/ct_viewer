@@ -4913,6 +4913,54 @@
     "title": "LabelEntry",
     "type": "object"
    },
+   "LayerInfo": {
+    "properties": {
+     "column": {
+      "title": "Column",
+      "type": "string"
+     },
+     "field": {
+      "title": "Field",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "level": {
+      "enum": [
+       "item",
+       "case",
+       "scan"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "n_values": {
+      "title": "N Values",
+      "type": "integer"
+     },
+     "plugin": {
+      "title": "Plugin",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "column",
+     "id",
+     "plugin",
+     "field",
+     "level",
+     "source",
+     "n_values"
+    ],
+    "title": "LayerInfo",
+    "type": "object"
+   },
    "LevelCount": {
     "properties": {
      "level": {
@@ -9241,6 +9289,15 @@
      "runtime": {
       "$ref": "#/components/schemas/RuntimeSpec"
      },
+     "scope": {
+      "default": "project",
+      "enum": [
+       "project",
+       "workspace"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
      "settings_schema": {
       "additionalProperties": true,
       "title": "Settings Schema",
@@ -10829,6 +10886,184 @@
      "wl"
     ],
     "title": "WlPreset",
+    "type": "object"
+   },
+   "WorkspaceEstimateRequest": {
+    "properties": {
+     "selection": {
+      "$ref": "#/components/schemas/TaskSelection"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     }
+    },
+    "required": [
+     "selection"
+    ],
+    "title": "WorkspaceEstimateRequest",
+    "type": "object"
+   },
+   "WorkspaceRun": {
+    "description": "`plugins/{plugin}/runs/{run_id}/run.json` and the API-62 payload.",
+    "properties": {
+     "counts": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Counts",
+      "type": "object"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "dataset_dir": {
+      "title": "Dataset Dir",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "plugin": {
+      "title": "Plugin",
+      "type": "string"
+     },
+     "progress": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Progress",
+      "type": "object"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     },
+     "settings_hash": {
+      "title": "Settings Hash",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "waiting_for_runner",
+       "running",
+       "completed",
+       "completed_with_errors",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "task": {
+      "$ref": "#/components/schemas/TaskRef"
+     }
+    },
+    "required": [
+     "run_id",
+     "task",
+     "plugin",
+     "name",
+     "status",
+     "created_at",
+     "source",
+     "dataset_dir",
+     "settings",
+     "settings_hash"
+    ],
+    "title": "WorkspaceRun",
+    "type": "object"
+   },
+   "WorkspaceRunRequest": {
+    "properties": {
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 120,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "selection": {
+      "$ref": "#/components/schemas/TaskSelection"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     },
+     "task_id": {
+      "title": "Task Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "task_id",
+     "selection"
+    ],
+    "title": "WorkspaceRunRequest",
     "type": "object"
    },
    "app__analytics__models__RunError": {
@@ -13360,6 +13595,59 @@
     ]
    }
   },
+  "/api/v1/projects/{pid}/exports/dataset-table": {
+   "get": {
+    "operationId": "dataset_table_api_v1_projects__pid__exports_dataset_table_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "format",
+      "required": false,
+      "schema": {
+       "default": "csv",
+       "enum": [
+        "csv",
+        "parquet"
+       ],
+       "title": "Format",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/vnd.apache.parquet": {},
+       "text/csv": {}
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Dataset Table",
+    "tags": [
+     "layers"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}/hash-jobs": {
    "post": {
     "description": "API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.\n\nResults land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item\nrecords (API-21/22). One `hash` job per project (`job-conflict`).",
@@ -13493,7 +13781,7 @@
     ]
    },
    "post": {
-    "description": "IMP-04/05: snapshot + start the index job.",
+    "description": "IMP-04/05: snapshot + start the index job. A workspace dataset (SRC-16) brings its analyzer\nannotations along as a completed run, active where no run is (ANZ-04).",
     "operationId": "commit_import_api_v1_projects__pid__imports_post",
     "parameters": [
      {
@@ -14044,6 +14332,52 @@
     "summary": "WebP thumbnail (404 until generated)",
     "tags": [
      "volumes"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/layers": {
+   "get": {
+    "operationId": "list_layers_api_v1_projects__pid__layers_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/LayerInfo"
+         },
+         "title": "Response List Layers Api V1 Projects  Pid  Layers Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Layers",
+    "tags": [
+     "layers"
     ]
    }
   },
@@ -16996,6 +17330,154 @@
     ]
    }
   },
+  "/api/v1/task-runs": {
+   "get": {
+    "operationId": "list_workspace_runs_api_v1_task_runs_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/WorkspaceRun"
+         },
+         "title": "Response List Workspace Runs Api V1 Task Runs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Workspace Runs",
+    "tags": [
+     "tasks"
+    ]
+   },
+   "post": {
+    "operationId": "start_workspace_run_api_v1_task_runs_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorkspaceRunRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Workspace Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/task-runs/{rid}": {
+   "get": {
+    "operationId": "get_workspace_run_api_v1_task_runs__rid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorkspaceRun"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Workspace Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/task-runs/{rid}/cancel": {
+   "post": {
+    "operationId": "cancel_workspace_run_api_v1_task_runs__rid__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorkspaceRun"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel Workspace Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
   "/api/v1/tasks": {
    "get": {
     "operationId": "list_tasks_api_v1_tasks_get",
@@ -17054,6 +17536,59 @@
      }
     },
     "summary": "Get Task",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/tasks/{tid}/estimate": {
+   "post": {
+    "description": "The converter's dry run without a project (DCM-06, UI-25 step 3).",
+    "operationId": "workspace_estimate_api_v1_tasks__tid__estimate_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorkspaceEstimateRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskEstimate"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Workspace Estimate",
     "tags": [
      "tasks"
     ]

@@ -24,6 +24,8 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-12 | One run per `(project, task)` at a time; the runner caps concurrency (default 1 per GPU). | S |
 | TSK-13 | `scope: workspace` tasks (e.g. `dicom.convert`) run without a project (API-62): inputs come from a source path, outputs go to `{derived root}/_datasets/{name}/` (write-once), run records to `WORKSPACE_ROOT/plugins/{plugin}/runs/`. Project-bound tasks keep `scope: project`. | M |
 
+Implementation (P7c Wave 3, TSK-13): the manifest key `scope` (`project` default, `workspace` = may also run without a project; only builtin `input: source` tasks, today `dicom.convert`). API-62: `POST /tasks/{tid}/estimate` (dry run), `POST /task-runs` `{task_id, settings, selection: {source}, name?}` → `202`, `GET /task-runs[/{rid}]`, `POST /task-runs/{rid}/cancel`. The dataset folder name is a slug of `name` (default: the source folder), with `-1`, `-2` … when taken; the job runs under the JobManager key `_workspace`, one per task at a time. Importing a dataset into a project (API-12) first records its `annotations.jsonl` as a completed run of the project and activates each field that has no active run (ANZ-04), so the index is built with the phase layer.
+
 ## Manifest (`task.json`)
 
 ```jsonc

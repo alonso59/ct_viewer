@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,15 @@ def run(job_dir: str) -> int:
         "identity": identity.as_dict(),
         "estimate": {**result.counts, **result.storage},
     }
+    annotations = result.annotations
+    if not job.settings.get("phase_analyzer", True):  # DCM-14: the phase layer is optional
+        annotations = [a for a in annotations if a.get("field") != "phase"]
+    workspace = bool(spec.get("workspace"))
+    if workspace:  # TSK-13: rows relative to the dataset root, which is imported as-is (SRC-16)
+        for r in result.rows:
+            r["relative_path"] = f"nifti/{r.get('filename', '')}"
+            if r.get("dicom_sidecar"):
+                r["dicom_sidecar"] = f"sidecars/{r['filename']}.dicom.json"
     if not dry:
         pipeline.write_jsonl(out_dir / "metadata.jsonl", result.rows)
         pipeline.write_jsonl(
@@ -83,7 +93,20 @@ def run(job_dir: str) -> int:
         (out_dir / "summary.json").write_text(
             json.dumps(summary, indent=2) + "\n", encoding="utf-8"
         )
-        pipeline.write_jsonl(job.rel("annotations.jsonl"), result.annotations)
+        pipeline.write_jsonl(job.rel("annotations.jsonl"), annotations)
+        if workspace:
+            pipeline.write_jsonl(out_dir / "annotations.jsonl", annotations)
+            manifest = {
+                "dataset": 1,
+                "name": out_dir.name,
+                "task": {"id": "dicom.convert", "version": pipeline.VERSION},
+                "run_id": spec.get("run_id"),
+                "source": str(source),
+                "settings": job.settings,
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "counts": result.counts,
+            }
+            (out_dir / "dataset.json").write_text(json.dumps(manifest, indent=2) + "\n")
         job.outputs_manifest += [
             {"kind": "metadata", "path": str(out_dir / "metadata.jsonl")},
             {"kind": "annotations", "path": "annotations.jsonl"},

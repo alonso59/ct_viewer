@@ -1,12 +1,14 @@
-"""Standalone converter CLI (DCM-09): the legacy YAML config, its own resume registry and
-`curation.csv`; its output folder is imported into the app as a `source` root (metadata-v1).
+"""Standalone converter CLI (DCM-09): the legacy YAML config and its own resume registry. It
+writes the same clean `metadata.jsonl` as the app (DCM-13: no phase guesses, curation or
+selection fields, no `curation.csv`); its output folder is imported into the app as a `source`
+root (metadata-v1). An existing `curation.csv` from an older run is left untouched and can be
+imported once as curation events (CUR-15).
 
     python -m plugins.dicom.cli config/converter.yaml
 """
 
 from __future__ import annotations
 
-import csv
 import json
 import sys
 from pathlib import Path
@@ -14,14 +16,6 @@ from typing import Any
 
 from plugins.dicom import pipeline
 from plugins.dicom.identity import Identity
-
-CURATION_COLUMNS = [
-    "case_id", "scan_idx", "patient_id", "patient_folder", "filename", "modality", "scan_date",
-    "series_description", "protocol_name", "dicom_category", "scan_type", "include_guess",
-    "output_role", "exclude_reason", "curated_keep", "curated_role", "curated_phase",
-    "curated_quality", "notes",
-]  # fmt: skip
-MANUAL = ("curated_keep", "curated_role", "curated_phase", "curated_quality", "notes")
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -49,7 +43,6 @@ def main(argv: list[str]) -> int:
         patient_pattern=str(cfg.get("patient_pattern") or "*"),
         patient_limit=cfg.get("patient_limit"),
         include_modality_prefix=bool(outs.get("include_modality_prefix", True)),
-        phase_vocabulary=["NC", "CMP", "NP", "EP", "UNK"],
     )
     registry_path = out / ".rw_identity.json"
     identity = Identity.from_dict(
@@ -70,39 +63,9 @@ def main(argv: list[str]) -> int:
         r["relative_path"] = f"{nifti}/{r.get('filename', '')}"
         if r.get("dicom_sidecar"):
             r["dicom_sidecar"] = f"sidecars/{r['filename']}.dicom.json"
-        # the CLI emits the legacy phase guess (the app uses analyzer annotations instead)
-    phases = {a["item_id"]: a for a in result.annotations if a["field"] == "phase"}
-    manual: dict[str, dict[str, str]] = {}
-    cur_path = out / str(outs.get("curation_file") or "curation.csv")
-    if cur_path.is_file():
-        with cur_path.open(encoding="utf-8") as fh:
-            for row in csv.DictReader(fh):
-                manual[f"{row.get('case_id')}|{row.get('scan_idx')}"] = {
-                    k: row.get(k, "") for k in MANUAL
-                }
-    for r in result.rows:
-        a = phases.get(f"{r.get('case_id')}.{r.get('scan_idx')}.complete.-")
-        if a is not None:
-            r["phase_guess"], r["phase_guess_confidence"], r["phase_guess_evidence"] = (
-                a["value"],
-                a["confidence"],
-                a["evidence"],
-            )
-        r.update(
-            {
-                k: v
-                for k, v in manual.get(f"{r.get('case_id')}|{r.get('scan_idx')}", {}).items()
-                if v
-            }
-        )
     if cfg.get("mode") != "dry_run":
         pipeline.write_jsonl(meta_path, result.rows)
         registry_path.write_text(json.dumps(identity.as_dict(), indent=2))
-        with cur_path.open("w", newline="", encoding="utf-8") as fh:
-            w = csv.DictWriter(fh, fieldnames=CURATION_COLUMNS, extrasaction="ignore")
-            w.writeheader()
-            for r in result.rows:
-                w.writerow({c: r.get(c, "") for c in CURATION_COLUMNS})
     print(json.dumps({"counts": result.counts, "storage": result.storage}, indent=2))
     return 0
 

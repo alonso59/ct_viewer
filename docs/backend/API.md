@@ -75,10 +75,10 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-56 | `GET·POST /plugins/labeling/projects/{pid}/tables` · `PATCH …/tables/{tid}` | Label tables and column schemas | LBL-01/02 |
 | API-57 | `GET·POST /plugins/labeling/projects/{pid}/tables/{tid}/cells` | Cell state (paged, filterable) / append cell events (`X-Reviewer`) | LBL-03..05 |
 | API-58 | `POST …/tables/{tid}/import` · `GET …/tables/{tid}/export?format=csv\|parquet` | CSV import with a match report / export | LBL-07 |
-| API-59 | `GET /projects/{pid}/exports/dataset-table?format=csv\|parquet` | Merged metadata table (rows + active layers), one column per layer with its source | ADR-0020 |
+| API-59 | `GET /projects/{pid}/exports/dataset-table?format=csv\|parquet` · `GET /projects/{pid}/layers` | Merged metadata table (rows + active layers; attachment, not stored), layer columns named `{field}@{layer id}`, Parquet schema metadata `layers` = provenance / the active layers `{column, id, plugin, field, level, source, n_values}` | ADR-0020 |
 | API-60 | `GET /view/{token}/…` | Read-only mirror of the project GET endpoints for a view-only link; never exposes `project_id`; writes do not exist on this path | PRJ-17 |
 | API-61 | `POST·DELETE /projects/{pid}/view-token` | Create/rotate → `{view_token, view_url}` / revoke (`204`) the view-only link | PRJ-17 |
-| API-62 | `POST·GET /task-runs` · `GET /task-runs/{rid}` | Workspace tasks (`scope: workspace`, e.g. `dicom.convert` without a project) → `{derived}/_datasets/{name}/` | TSK-13 |
+| API-62 | `POST·GET /task-runs` · `GET /task-runs/{rid}` · `POST /task-runs/{rid}/cancel` · `POST /tasks/{tid}/estimate` | Workspace tasks (`scope: workspace`, e.g. `dicom.convert` without a project) → `{derived}/_datasets/{name}/`; the estimate is the dry run | TSK-13 |
 
 API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
 

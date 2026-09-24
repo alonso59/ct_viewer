@@ -25,6 +25,12 @@ from app.tasks.models import (
     TaskValidateResult,
 )
 from app.tasks.service import TaskService
+from app.tasks.workspace_runs import (
+    WorkspaceEstimateRequest,
+    WorkspaceRun,
+    WorkspaceRunRequest,
+    WorkspaceTasks,
+)
 
 router = APIRouter(tags=["tasks"])
 Reviewer = Annotated[str | None, Header(alias="X-Reviewer")]
@@ -98,3 +104,36 @@ def run_errors(ctx: Ctx, pid: str, rid: str) -> list[TaskItemError]:
 @router.get("/projects/{pid}/task-runs/{rid}/outputs", response_model=list[TaskRunOutput])
 def run_outputs(ctx: Ctx, pid: str, rid: str) -> list[TaskRunOutput]:
     return svc(ctx).outputs(pid, rid)
+
+
+# -- API-62 workspace tasks (TSK-13): `scope: workspace` tasks without a project ------------------
+
+
+def wsvc(ctx: AppContext) -> WorkspaceTasks:
+    return WorkspaceTasks(ctx.settings, ctx.registry, ctx.guard, ctx.jobs, ctx.plugins.task_owner())
+
+
+@router.post("/tasks/{tid}/estimate", response_model=TaskEstimate)
+async def workspace_estimate(ctx: Ctx, tid: str, body: WorkspaceEstimateRequest) -> TaskEstimate:
+    """The converter's dry run without a project (DCM-06, UI-25 step 3)."""
+    return await wsvc(ctx).estimate(tid, body)
+
+
+@router.post("/task-runs", response_model=TaskRunStarted, status_code=202)
+async def start_workspace_run(ctx: Ctx, body: WorkspaceRunRequest) -> TaskRunStarted:
+    return await wsvc(ctx).start(body)
+
+
+@router.get("/task-runs", response_model=list[WorkspaceRun])
+def list_workspace_runs(ctx: Ctx) -> list[WorkspaceRun]:
+    return wsvc(ctx).list()
+
+
+@router.get("/task-runs/{rid}", response_model=WorkspaceRun)
+def get_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
+    return wsvc(ctx).get(rid)
+
+
+@router.post("/task-runs/{rid}/cancel", response_model=WorkspaceRun)
+def cancel_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
+    return wsvc(ctx).cancel(rid)

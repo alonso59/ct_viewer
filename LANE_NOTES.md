@@ -553,3 +553,21 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Open issues**
 - VW-25 (viewer applies `display`: layout, W/L, interpolation, convention) and the project `default_modality` for items without one land with the CT tools in Wave 4.
+
+## 2026-09-25 · P7c Wave 3 (converter & metadata) · v3
+
+**Done** (ROADMAP §P7c Wave 3 ticked)
+- DCM-13: `pipeline.clean_row` strips study fields (`target_match*`, `output_role`, `include_guess`, `exclude_reason`, `analysis_readiness`, `group`, `notes`, `phase_guess*`, `curated_*`) from every emitted row, legacy carried-over rows included; the CLI writes the same clean rows and no `curation.csv`. Legacy files with those fields still import (phase resolution reads them, `group` is a variable). Converter 1.1.0 with the `phase_analyzer` setting (DCM-14).
+- Layers (ADR-0020): `app/layers/` providers (active analyzer fields, curation status/reviewer; labeling registers in Wave 5); `GET /projects/{pid}/layers`; API-59 dataset table (CSV/Parquet attachment, layer columns `{field}@{layer id}`, Parquet `layers` provenance metadata; not stored).
+- Workspace tasks (TSK-13, API-62): manifest `scope`; `dicom.convert` is `workspace`; `POST /tasks/{tid}/estimate`, `POST·GET /task-runs`, `GET /task-runs/{rid}`, cancel; write-once `{derived}/_datasets/{name}/` with `metadata.jsonl` (dataset-relative paths), `nifti/`, `sidecars/`, `annotations.jsonl`, `dataset.json`; records in `WORKSPACE_ROOT/plugins/dicom/runs/`. Datasets are readable as sources (source guard + `{derived}/_datasets`; overlap exception with the project `DERIVED` root). Importing a dataset registers its annotations as a completed run and activates free fields before indexing, so the phase layer is there at once.
+- FE: shell `overlays` contribution point; the `dicom` plugin's converter overlay (UI-25) from Welcome, Open mode on DICOM, the Library, Project › Convert DICOM (and the Data tab), with "Into project" / "As a dataset" inside a project; the Data tab lists active layers and downloads the dataset table. Folder-browser rows keep long names on one line (the new `_datasets` root's path spilled over the next row and blocked clicks in Firefox).
+
+**Results**: `make fixtures && make check` green: 457 backend + 211 frontend. Playwright 28/28 (Chromium 14, Firefox 14; new `e2e/converter.spec.ts`). Initial JS 298.2 KB gzip.
+
+**Decisions**
+- The dataset table is a download (GET, nothing written), so a view-only link can read it too; `exports/dataset_table.*` is not created.
+- Workspace runs are builtin-only and one per task at a time; progress is polled from `GET /task-runs/{rid}` (no project SSE stream exists without a project).
+- A workspace dataset imports as a `source` alias; its analyzer annotations become a project run named "Dataset {name}".
+
+**Open issues**
+- Initial JS 298.2 of 300 KB: Wave 4/5 UI must stay lazy (new strings in `en.lazy.json`).

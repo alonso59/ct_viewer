@@ -60,6 +60,9 @@ import type {
   SegmentationPatch,
   ServerEvent,
   PluginList,
+  LayerInfo,
+  WorkspaceRun,
+  WorkspaceRunRequest,
   TaskEstimate,
   TaskInfo,
   TaskItemError,
@@ -188,6 +191,16 @@ export interface Api {
 
   /** API-49 Plugin Library (PLG-05/06); `pid` adds the project-dependent status */
   listPlugins(pid?: string): Promise<PluginList>
+
+  /** API-62 (TSK-13): workspace tasks without a project; estimate = the converter dry run */
+  estimateWorkspaceTask(taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<TaskEstimate>
+  startWorkspaceRun(body: WorkspaceRunRequest): Promise<TaskRunStarted>
+  listWorkspaceRuns(): Promise<WorkspaceRun[]>
+  getWorkspaceRun(rid: string): Promise<WorkspaceRun>
+  cancelWorkspaceRun(rid: string): Promise<WorkspaceRun>
+  /** API-59 (ADR-0020): active layers and the dataset table download URL */
+  listLayers(pid: string): Promise<LayerInfo[]>
+  datasetTableUrl(pid: string, format: 'csv' | 'parquet'): string
 
   // Tasks (API-42..47, TSK-*)
   listTasks(): Promise<TaskList>

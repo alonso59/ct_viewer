@@ -244,6 +244,14 @@ export function useUpdateProject(pid: string) {
   })
 }
 
+export const useWorkspaceRun = (rid: string | null) =>
+  useQuery({
+    queryKey: keys.workspaceRun(rid ?? ''),
+    queryFn: () => api.getWorkspaceRun(rid ?? ''),
+    enabled: !!rid,
+    refetchInterval: (q) => (q.state.data && !['queued', 'running'].includes(q.state.data.status) ? false : 800),
+  })
+export const useLayers = (pid: string) => useQuery({ queryKey: keys.layers(pid), queryFn: () => api.listLayers(pid), enabled: enabled(pid) })
 export const usePacks = () => useQuery({ queryKey: keys.packs(), queryFn: () => api.listPacks(), staleTime: 60_000 })
 
 export function useApplyPack(pid: string) {

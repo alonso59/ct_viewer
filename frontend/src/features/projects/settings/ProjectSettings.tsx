@@ -5,12 +5,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
+  api,
   MODALITIES,
   ProblemError,
   useApplyPack,
   usePacks,
   usePlugins,
   useProject,
+  useLayers,
   useRoots,
   useSegmentations,
   useUpdateProject,
@@ -288,6 +290,7 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
 function Data({ pid, project }: { pid: string; project: Project }) {
   const { t } = useTranslation()
   const roots = useRoots(pid).data ?? []
+  const layers = useLayers(pid).data ?? []
   const [relink, setRelink] = useState(false)
   return (
     <div className="psettings-form">
@@ -311,6 +314,22 @@ function Data({ pid, project }: { pid: string; project: Project }) {
         {roots.length ? <button type="button" className="btn btn-sm" onClick={() => setRelink(true)}>{t('projects.relink')}</button> : null}
       </div>
       {relink ? <RelinkDialog pid={pid} name={project.name} onOpenChange={(o) => setRelink(o)} /> : null}
+      <h3>{t('psettings.layers')}</h3>
+      <p className="muted psettings-help">{t('psettings.layersHelp')}</p>
+      {layers.length ? (
+        <table className="psettings-table">
+          <thead><tr><th>{t('psettings.layerField')}</th><th>{t('psettings.layerPlugin')}</th><th>{t('psettings.layerSource')}</th></tr></thead>
+          <tbody>
+            {layers.map((l) => (
+              <tr key={l.column}><td className="mono">{l.field}</td><td>{l.plugin}</td><td className="muted">{l.source}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="muted">{t('psettings.noLayers')}</p>}
+      <div className="psettings-row">
+        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'csv')} download>{t('psettings.exportCsv')}</a>
+        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'parquet')} download>{t('psettings.exportParquet')}</a>
+      </div>
     </div>
   )
 }

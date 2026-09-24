@@ -31,7 +31,7 @@ READ_ONLY = re.compile(
     r"|curation/(?:state|events|queue)"
     r"|radiomics/runs(?:/[^/]+(?:/(?:features|errors))?)?"
     r"|task-runs(?:/[^/]+)?"
-    r"|exports/dataset-table"
+    r"|exports/dataset-table|layers"
     r")$"
 )
 # Labeling (LBL-05) lives under the plugin prefix: `/plugins/labeling/projects/{pid}/…`.

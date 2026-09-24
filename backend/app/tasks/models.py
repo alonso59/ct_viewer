@@ -81,6 +81,8 @@ class TaskManifest(BaseModel):
     labels: dict[str, Any] | None = None
     # Hidden from the Tasks view (CI plugins such as segment.threshold, TST-14).
     test_only: bool = False
+    # TSK-13: `workspace` tasks can also run without a project (API-62); `project` ones cannot.
+    scope: Literal["project", "workspace"] = "project"
 
 
 class TaskInfo(BaseModel):

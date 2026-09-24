@@ -19,6 +19,7 @@ import {
   type ItemRecord,
   type Job,
   type LabelDef,
+  type WorkspaceRun,
   type NewCurationEvent,
   type Project,
   type ProjectSummary,
@@ -100,6 +101,7 @@ const PACKS: Record<PackId, { title: string; labels: LabelDef[]; vocabulary: str
   'generic-ct': { title: 'Generic CT phases', labels: [], vocabulary: ['NC', 'ART', 'PV', 'DELAYED', 'UNK'], target: 'generic' },
 }
 const isPack = (id: string): id is PackId => id in PACKS
+const workspaceRuns = new Map<string, WorkspaceRun>()
 /** PRJ-15: the mock's ETag changes with every settings write */
 let etagCounter = 0
 const nextEtag = () => `"mock-${++etagCounter}"`
@@ -858,6 +860,39 @@ export const mockServer: Api = {
     await wait(40)
     return { plugins: clone(MOCK_PLUGINS), invalid: [] }
   },
+  async estimateWorkspaceTask() {
+    await wait(300)
+    return { n_units: 2, n_skipped: 1, seconds_per_item: null, estimated_total_s: null, output_bytes: 2_400_000, basis: 'sample', sample_item_ids: [], sample_errors: [], detail: { series: 3, selected: 2, skipped: 1, nifti_gz_estimated_bytes: 2_400_000 } }
+  },
+  async startWorkspaceRun(body) {
+    await wait(150)
+    const rid = ulid()
+    const name = (body.name ?? '').trim() || (body.selection.source ?? 'dataset').split('/').filter(Boolean).pop() || 'dataset'
+    const at = now()
+    workspaceRuns.set(rid, {
+      run_id: rid, task: { id: body.task_id, version: '1.1.0', manifest_hash: 'mock' }, plugin: 'dicom', name, status: 'completed', created_at: at, started_at: at, finished_at: at,
+      source: body.selection.source ?? '', dataset_dir: `/mock/derived/_datasets/${name}`, settings: body.settings ?? {}, settings_hash: 'mock', counts: { series: 3, selected: 2, converted: 2 }, progress: { done: 3, total: 3 }, error: null, job_id: null,
+    })
+    return { run_id: rid, job_id: null, status: 'completed' as const }
+  },
+  async listWorkspaceRuns() {
+    await wait(40)
+    return clone([...workspaceRuns.values()])
+  },
+  async getWorkspaceRun(rid) {
+    await wait(40)
+    const r = workspaceRuns.get(rid)
+    if (!r) throw new ProblemError(404, 'not-found', 'Workspace task run not found', rid)
+    return clone(r)
+  },
+  async cancelWorkspaceRun(rid) {
+    return this.getWorkspaceRun(rid)
+  },
+  async listLayers() {
+    await wait(40)
+    return []
+  },
+  datasetTableUrl: () => '#',
   async listTasks() {
     await wait(60)
     return { tasks: clone(MOCK_TASKS), invalid: [], runners: [{ runner_id: 'mock-runner', tasks: ['segment.threshold'], gpu: null, pid: 1, at: now(), fresh: true }] }

@@ -389,10 +389,13 @@ class Workspace:
                     errors=[{"loc": ["alias"], "msg": "one derived root per project"}],
                 )
             real = realpath(path)
+            datasets = [realpath(d) for d in self.settings.dataset_roots]
             for r in others:
                 if r.role == root.role:
                     continue
                 o = realpath(Path(r.path))
+                if any(is_within(p, d) for p in (real, o) for d in datasets):
+                    continue  # a write-once dataset: project tasks never write under `_datasets/`
                 if is_within(real, o) or is_within(o, real):
                     raise RootsOverlap(
                         f"{root.alias} ({root.role}) overlaps {r.alias} ({r.role}): source and "

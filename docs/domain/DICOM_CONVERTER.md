@@ -71,6 +71,12 @@ Case identity is **not** a converter setting in the app: it comes from `sources/
 
 Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as variables per VAR-08): `patient_folder`, `study_uid`, `series_uid`, `series_number`, `series_description`, `protocol_name`, `body_part`, `dicom_category`, `scan_type`, dates and times, geometry status and codes, `contrast_delay_*`, `spacing_quality`, `dicom_sidecar`. No study guesses or selection results (`output_role`, `exclude_reason` are readiness-analyzer layers; DCM-13).
 
+## Implementation notes (P7c Wave 3)
+
+- Rows are cleaned at the end of `pipeline.run` (`clean_row`: `STUDY_FIELDS` = `target_match_level`, `output_role`, `include_guess`, `exclude_reason`, `analysis_readiness`, `group`, `notes`, plus every `phase_guess*`, `curated_*`, `target_match*` key), also for legacy rows carried over from a previous run (DCM-07). The analyzers still run in-process for selection; their results leave only as annotations. Converter version 1.1.0.
+- Setting `phase_analyzer` (default on): off drops the phase annotations (DCM-14). The CLI writes the same clean `metadata.jsonl` and `.rw_identity.json`; it no longer writes `curation.csv` (an old one is left untouched for CUR-15).
+- Workspace runs (`scope: workspace`, TSK-13): output `{first ALLOWED_DERIVED_ROOTS}/_datasets/{name}/` = `metadata.jsonl` (paths relative to the dataset: `nifti/…`, `sidecars/…`), `nifti/`, `sidecars/`, `diagnostics.jsonl`, `summary.json`, `annotations.jsonl` (the analyzer layers) and `dataset.json` (`{dataset: 1, name, task, run_id, source, settings, created_at, counts}`). Identity starts empty (`case_00000`, …); `anonymize` salts with an empty project id.
+
 ## Implementation notes (P7b Wave 3)
 
 - Code: `plugins/dicom/{scan,rows,convert,sidecar,pipeline,identity,task,cli}.py` (pydicom + SimpleITK, both core dependencies); analyzers from `plugins/analyzers/` run in-process. Nothing imports `app`.

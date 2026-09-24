@@ -107,7 +107,7 @@ def test_converter_task_end_to_end(
     pid = project(dc, tmp_path)
     run = convert(dc, pid, root)
     assert run["status"] == "completed", run
-    assert run["versions"]["dicom.convert"] == "1.0.0" and run["versions"]["pydicom"]
+    assert run["versions"]["dicom.convert"] == "1.1.0" and run["versions"]["pydicom"]
     kinds = {o["kind"] for o in run["outputs"]}
     assert {"image", "sidecar", "annotations", "import"} <= kinds
     # DCM-01: derived writes only in dataset/ and runs/{run_id}/ (ADR-0014); sources untouched (R1)

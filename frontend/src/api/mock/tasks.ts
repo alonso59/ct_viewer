@@ -25,6 +25,7 @@ const threshold: TaskManifest = {
   resources: { gpu: 'none', max_batch: null, seconds_per_item: 1 },
   labels: { names: { '1': 'foreground' } },
   test_only: true,
+  scope: 'project',
 }
 
 const radiomics: TaskManifest = {
@@ -43,6 +44,7 @@ const radiomics: TaskManifest = {
   resources: { gpu: 'none', max_batch: null, seconds_per_item: null },
   labels: null,
   test_only: false,
+  scope: 'project',
 }
 
 export const MOCK_TASKS: TaskInfo[] = [

@@ -413,7 +413,8 @@ export interface paths {
         put?: never;
         /**
          * Commit Import
-         * @description IMP-04/05: snapshot + start the index job.
+         * @description IMP-04/05: snapshot + start the index job. A workspace dataset (SRC-16) brings its analyzer
+         *     annotations along as a completed run, active where no run is (ANZ-04).
          */
         post: operations["commit_import_api_v1_projects__pid__imports_post"];
         delete?: never;
@@ -910,6 +911,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/layers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Layers */
+        get: operations["list_layers_api_v1_projects__pid__layers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/exports/dataset-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dataset Table */
+        get: operations["dataset_table_api_v1_projects__pid__exports_dataset_table_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/radiomics/schema": {
         parameters: {
             query?: never;
@@ -1324,6 +1359,78 @@ export interface paths {
         get: operations["run_outputs_api_v1_projects__pid__task_runs__rid__outputs_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{tid}/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Workspace Estimate
+         * @description The converter's dry run without a project (DCM-06, UI-25 step 3).
+         */
+        post: operations["workspace_estimate_api_v1_tasks__tid__estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Workspace Runs */
+        get: operations["list_workspace_runs_api_v1_task_runs_get"];
+        put?: never;
+        /** Start Workspace Run */
+        post: operations["start_workspace_run_api_v1_task_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-runs/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workspace Run */
+        get: operations["get_workspace_run_api_v1_task_runs__rid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-runs/{rid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Workspace Run */
+        post: operations["cancel_workspace_run_api_v1_task_runs__rid__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3541,6 +3648,26 @@ export interface components {
              */
             visible: boolean;
         };
+        /** LayerInfo */
+        LayerInfo: {
+            /** Column */
+            column: string;
+            /** Id */
+            id: string;
+            /** Plugin */
+            plugin: string;
+            /** Field */
+            field: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "item" | "case" | "scan";
+            /** Source */
+            source: string;
+            /** N Values */
+            n_values: number;
+        };
         /** LevelCount */
         LevelCount: {
             /** Level */
@@ -5107,6 +5234,12 @@ export interface components {
              * @default false
              */
             test_only: boolean;
+            /**
+             * Scope
+             * @default project
+             * @enum {string}
+             */
+            scope: "project" | "workspace";
         };
         /** TaskRef */
         TaskRef: {
@@ -5627,6 +5760,72 @@ export interface components {
             ww: number;
             /** Wl */
             wl: number;
+        };
+        /** WorkspaceEstimateRequest */
+        WorkspaceEstimateRequest: {
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            selection: components["schemas"]["TaskSelection"];
+        };
+        /**
+         * WorkspaceRun
+         * @description `plugins/{plugin}/runs/{run_id}/run.json` and the API-62 payload.
+         */
+        WorkspaceRun: {
+            /** Run Id */
+            run_id: string;
+            task: components["schemas"]["TaskRef"];
+            /** Plugin */
+            plugin: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Source */
+            source: string;
+            /** Dataset Dir */
+            dataset_dir: string;
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            /** Settings Hash */
+            settings_hash: string;
+            /** Counts */
+            counts?: {
+                [key: string]: number;
+            };
+            /** Progress */
+            progress?: {
+                [key: string]: number;
+            };
+            /** Error */
+            error?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+        };
+        /** WorkspaceRunRequest */
+        WorkspaceRunRequest: {
+            /** Task Id */
+            task_id: string;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            selection: components["schemas"]["TaskSelection"];
+            /** Name */
+            name?: string | null;
         };
         /** RunError */
         app__analytics__models__RunError: {
@@ -7566,6 +7765,71 @@ export interface operations {
             };
         };
     };
+    list_layers_api_v1_projects__pid__layers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayerInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dataset_table_api_v1_projects__pid__exports_dataset_table_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "parquet";
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                    "application/vnd.apache.parquet": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_schema_api_v1_radiomics_schema_get: {
         parameters: {
             query?: never;
@@ -8424,6 +8688,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskRunOutput"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workspace_estimate_api_v1_tasks__tid__estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceEstimateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEstimate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_workspace_runs_api_v1_task_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceRun"][];
+                };
+            };
+        };
+    };
+    start_workspace_run_api_v1_task_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workspace_run_api_v1_task_runs__rid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_workspace_run_api_v1_task_runs__rid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceRun"];
                 };
             };
             /** @description Validation Error */

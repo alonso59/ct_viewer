@@ -37,7 +37,7 @@ class AppContext:
 
 
 def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContext:
-    guard = PathGuard(settings.allowed_roots)
+    guard = PathGuard(settings.readable_roots)
     derived_guard = PathGuard(settings.derived_roots, name="ALLOWED_DERIVED_ROOTS", strict=True)
     locks = ProjectLocks()
     bus = EventBus()

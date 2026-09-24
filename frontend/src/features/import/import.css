@@ -49,6 +49,14 @@
 }
 .fs-list .list-row {
   height: 26px;
+  overflow: hidden;
+}
+/* Long names (roots are absolute paths) stay on one line instead of spilling over the next row */
+.fs-list .list-row > span:not(.badge) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .fs-list .list-row:disabled {
   color: var(--fg-muted);

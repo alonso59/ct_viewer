@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
@@ -11,6 +12,7 @@ from starlette.datastructures import UploadFile
 from app.api.v1.deps import Ctx
 from app.api.v1.paging import Page, Paging, paginate
 from app.core.errors import ValidationProblem
+from app.core.ids import new_ulid
 from app.ingest.codes import QcCode, Severity
 from app.ingest.hashing import HashJobRequest, HashJobStarted, start_hash_job
 from app.ingest.models import QcWarning
@@ -24,6 +26,7 @@ from app.ingest.schemas import (
     PreviewRequest,
 )
 from app.ingest.service import IngestService
+from app.tasks import workspace_runs
 
 router = APIRouter(tags=["imports"])
 
@@ -99,8 +102,22 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
 
 @router.post("/projects/{pid}/imports", response_model=CommitResult, status_code=202)
 async def commit_import(pid: str, body: CommitRequest, ctx: Ctx) -> CommitResult:
-    """IMP-04/05: snapshot + start the index job."""
-    return await ingest_service(ctx).commit(pid, body.preview_id)
+    """IMP-04/05: snapshot + start the index job. A workspace dataset (SRC-16) brings its analyzer
+    annotations along as a completed run, active where no run is (ANZ-04)."""
+    svc = ingest_service(ctx)
+    pv = svc.preview_of(pid, body.preview_id)
+    found = workspace_runs.dataset_annotations(Path(pv.root)) if pv.root else None
+    if found is not None and found[1]:
+        meta, rows = found
+        rid = new_ulid()
+        async with ctx.locks(pid):
+            run_dir = ctx.workspace.project_dir(pid) / "tasks" / "runs" / rid
+            workspace_runs.write_imported_run(run_dir, meta, rows)
+        cfg = ctx.workspace.get(pid)
+        for f in sorted({str(r["field"]) for r in rows}):
+            if not cfg.annotation_sources.get(f):
+                await ctx.workspace.set_annotation_source(pid, f, rid)
+    return await svc.commit(pid, body.preview_id)
 
 
 @router.get("/projects/{pid}/imports", response_model=ImportHistory)

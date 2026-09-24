@@ -17,6 +17,7 @@ import { SaveDialog } from './SaveDialog'
 import { useOpenDialog } from './store'
 import '../import/import.css'
 import './open.css'
+import { useConverter } from '../../plugins/dicom/store'
 
 const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 
@@ -124,6 +125,12 @@ export default function OpenRoute() {
             <Icon spec={codicon('save')} />
             {t('open.saveAction')}
           </button>
+          {items.some((i) => i.format === 'dicom') && path ? (
+            <button type="button" className="btn" onClick={() => useConverter.getState().show({ source: path, pid: null })}>
+              <Icon spec={codicon('file-binary')} />
+              {t('open.convertAction')}
+            </button>
+          ) : null}
           <span className="toolbar-sep" />
           <button type="button" className="btn" disabled={!current || current.kind === 'label'} onClick={() => setAttaching(true)}>
             <Icon spec={codicon('layers')} />

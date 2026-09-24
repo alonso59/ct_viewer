@@ -132,6 +132,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 | `source` roots | Never opened for writing (R1) |
 | `derived` roots | Written only by task runs, inside `{project_id}/{task_id}/runs/{run_id}/` or the task's append-only `dataset/`; finished files are never rewritten; deleted only by a confirmed user action (ADR-0014) |
 | `{derived root}/_open/` | Open-mode "Save as NIfTI…" only (SRC-14): new files, never overwritten (`-1`, `-2` … suffixes), never modified afterwards; not part of any project |
+| `{derived root}/_datasets/{name}/` | Workspace task outputs only (TSK-13): a new folder per run (`-1`, `-2` … when taken), never modified afterwards. It is readable like a source root (the source guard includes every `{ALLOWED_DERIVED_ROOTS}/_datasets`), so it opens in Open mode and imports as a `source` alias; such an alias may sit under the project's `DERIVED` root because project tasks never write under `_datasets/` |
 
 Single-writer model and locking: BE-05.
 

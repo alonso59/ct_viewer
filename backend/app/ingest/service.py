@@ -233,6 +233,9 @@ class IngestService:
             data[f.kind] = (d / FILE_NAMES[f.kind]).read_bytes()
         return pv, data
 
+    def preview_of(self, project_id: str, preview_id: str) -> ImportPreview:
+        return self._load_preview(self.workspace.project_dir(project_id), preview_id)[0]
+
     async def commit(self, project_id: str, preview_id: str) -> CommitResult:
         """IMP-04/05/06: snapshot inputs, record the import, set the root, start indexing."""
         pdir = self.workspace.project_dir(project_id)

@@ -78,6 +78,18 @@ class Settings(BaseSettings):
         return [Path(p).resolve() for p in self.allowed_data_roots.split(":") if p]
 
     @property
+    def dataset_roots(self) -> list[Path]:
+        """Write-once workspace datasets `{derived}/_datasets/` (TSK-13), readable as sources."""
+        return [d / "_datasets" for d in self.derived_roots]
+
+    @property
+    def readable_roots(self) -> list[Path]:
+        """Source guard roots: ALLOWED_DATA_ROOTS plus the workspace datasets (SRC-16); empty =
+        unrestricted (dev), so datasets are only added to a restricted list."""
+        roots = self.allowed_roots
+        return [*roots, *self.dataset_roots] if roots else []
+
+    @property
     def derived_roots(self) -> list[Path]:
         """Resolved writable derived roots (OPS-11). Empty means no derived root is allowed."""
         return [Path(p).resolve() for p in self.allowed_derived_roots.split(":") if p]

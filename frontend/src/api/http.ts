@@ -601,6 +601,14 @@ export const httpApi: Api = {
   // API-42..47
   listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
   listTasks: () => unwrap(client.GET('/api/v1/tasks')),
+  estimateWorkspaceTask: (tid, selection, settings = {}) =>
+    unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid } }, body: { selection, settings } })),
+  startWorkspaceRun: (body) => unwrap(client.POST('/api/v1/task-runs', { body })),
+  listWorkspaceRuns: () => unwrap(client.GET('/api/v1/task-runs')),
+  getWorkspaceRun: (rid) => unwrap(client.GET('/api/v1/task-runs/{rid}', { params: { path: { rid } } })),
+  cancelWorkspaceRun: (rid) => unwrap(client.POST('/api/v1/task-runs/{rid}/cancel', { params: { path: { rid } } })),
+  listLayers: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/layers', { params: { path: { pid } } })),
+  datasetTableUrl: (pid, format) => viewPath(`${V1}/projects/${enc(pid)}/exports/dataset-table?format=${format}`),
   getTask: (tid) => unwrap(client.GET('/api/v1/tasks/{tid}', { params: { path: { tid } } })),
   validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),
   preflightTask: (pid, tid, selection, settings = {}) =>
