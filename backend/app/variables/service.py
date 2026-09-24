@@ -20,7 +20,9 @@ from app.core.fsio import atomic_write_bytes, atomic_write_json, read_json
 from app.core.ids import new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.events.bus import EventBus
+from app.ingest.models import Item
 from app.ingest.store import IndexStore
+from app.labeling import state as labeling_state
 from app.projects.service import Workspace
 from app.variables import build as builder
 from app.variables import external as ext_mod
@@ -31,6 +33,7 @@ from app.variables.models import (
     ExternalReport,
     ExternalTable,
     VariableOverride,
+    VarType,
 )
 from app.variables.schema import RESERVED_NAMES
 
@@ -38,6 +41,21 @@ CATALOG = Path("variables") / "catalog.json"
 EXTERNAL_DIR = Path("variables") / "external"
 TABLE = Path("index") / "variables.parquet"
 LIST_CAP = 50
+
+
+# LBL-02 column types → variable types (VAR-02)
+LAYER_TYPES: dict[str, VarType] = {
+    "bool": "categorical", "category": "categorical", "number": "continuous", "text": "text",
+    "date": "date",
+}  # fmt: skip
+
+
+def _layer_text(v: object) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    return str(v)
 
 
 class VariableService:
@@ -85,8 +103,39 @@ class VariableService:
             overrides=base.overrides if overrides is None else overrides,
             derived=base.derived if derived is None else derived,
             external=self._external_data(project_id, base) if external is None else external,
+            layers=self._layer_data(project_id, items),
             strict=strict,
         )
+
+    def _layer_data(self, project_id: str, items: Sequence[Item]) -> list[builder.LayerData]:
+        """LBL-06 / VAR-12: label columns as `lbl.{table}.{column}` at their table's level
+        (scan and item tables share the scan unit; an item value lands on its scan)."""
+        pdir = self._pdir(project_id)
+        cells = labeling_state.cell_state(pdir)
+        out: list[builder.LayerData] = []
+        for t in labeling_state.load_tables(pdir).tables:
+            for c in t.columns:
+                if c.hidden:
+                    continue
+                ld = builder.LayerData(
+                    f"lbl.{t.slug}.{c.slug}", "case" if t.level == "case" else "scan",
+                    LAYER_TYPES[c.type],
+                )  # fmt: skip
+                values = {tg: e.get("value") for (tid, cid, tg), e in cells.items()
+                          if tid == t.table_id and cid == c.column_id}  # fmt: skip
+                text = {k: _layer_text(v) for k, v in values.items()}
+                for it in items:
+                    if it.status == "excluded_upstream":
+                        continue
+                    if t.level == "case":
+                        ld.by_case[it.case_id] = text.get(it.case_id)
+                        continue
+                    key = f"{it.case_id}.{it.scan_idx}" if t.level == "scan" else it.item_id
+                    sk = (it.case_id, it.scan_idx)
+                    if ld.by_scan.get(sk) is None:
+                        ld.by_scan[sk] = text.get(key)
+                out.append(ld)
+        return out
 
     def _save(self, project_id: str, built: builder.Built) -> Catalog:
         cat = built.catalog.model_copy(

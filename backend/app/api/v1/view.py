@@ -35,7 +35,9 @@ READ_ONLY = re.compile(
     r")$"
 )
 # Labeling (LBL-05) lives under the plugin prefix: `/plugins/labeling/projects/{pid}/…`.
-PLUGIN_READ_ONLY = re.compile(r"^/plugins/labeling/(?:tables(?:/[^/]+(?:/cells|/export)?)?)$")
+PLUGIN_READ_ONLY = re.compile(
+    r"^/plugins/labeling/(?:tables(?:/[^/]+(?:/cells|/export|/history)?)?)$"
+)
 
 
 def view_pid(token: str) -> str:

@@ -1068,5 +1068,65 @@
       "orphans_other": "{{count}} masks have no image"
     },
     "converted": "DICOM converted; the converted series are being indexed"
+  },
+  "lbl": {
+    "newTable": "New label table",
+    "empty": "No label tables yet. A table has rows per patient, CT scan or item and typed columns; every column becomes a study variable.",
+    "level": {
+      "case": "Patient",
+      "scan": "CT scan",
+      "item": "Item"
+    },
+    "levelLabel": "One row per",
+    "levelHelp": {
+      "case": "one row per case (patient)",
+      "scan": "one row per CT scan (acquisition)",
+      "item": "one row per viewable item (scan × scope × side)"
+    },
+    "summary": "{{rows}} rows · {{cols}} columns · {{filled}} of {{total}} cells filled",
+    "colProgress": "{{name}}: {{filled}} / {{total}}",
+    "tableName": "Table name",
+    "columns": "Columns",
+    "colName": "Column name (or a project label)",
+    "colType": "Type",
+    "type": {
+      "bool": "Yes / no",
+      "category": "Category",
+      "number": "Number",
+      "text": "Text",
+      "date": "Date"
+    },
+    "levels": "Levels",
+    "levelsHint": "Levels, comma-separated",
+    "unit": "Unit",
+    "removeCol": "Remove column",
+    "addCol": "Add column",
+    "create": "Create table",
+    "toolbar": "Label table actions",
+    "findRow": "Find a row",
+    "rowsShown": "{{n}} of {{total}} rows",
+    "readOnly": "Read only",
+    "fill": "Fill selection",
+    "fillTitle": "Fill {{n}} cells",
+    "fillValue": "Value",
+    "fillHelp": "Empty clears the cells. Values are checked against each column's type.",
+    "import": "Import CSV…",
+    "export": "Export CSV",
+    "filter": "Filter",
+    "filterCol": "Filter {{name}}",
+    "openViewer": "Open {{target}} in the viewer",
+    "lastBy": "Last set by {{reviewer}}",
+    "empty_value": "(empty)",
+    "history": "Cell history",
+    "historyOf": "{{col}} · {{target}}",
+    "cleared": "(cleared)",
+    "by": "{{reviewer}} · {{at}}",
+    "noHistory": "No changes yet.",
+    "importTitle": "Import report",
+    "importReport": "{{matched}} of {{n}} rows matched by {{key}}; {{events}} cells written.",
+    "importCols": "Columns: {{list}}",
+    "importIgnored": "Ignored columns: {{list}}",
+    "importUnmatched": "Not found: {{list}}",
+    "importErrors": "Invalid values: {{list}}"
   }
 }

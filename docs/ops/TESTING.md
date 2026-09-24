@@ -27,6 +27,8 @@ Depends: all domain docs.
 | TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
+P7c files (Wave 5): TST-19 in `tests/test_labeling.py` (levels, progress, typed cells, LWW, history, rename/hide, `lbl.*` variables and layers, CSV import report, export, view-only, live events); Vitest `plugins/labeling/{model,TableEditor}.test.ts(x)`; Playwright `e2e/labeling.spec.ts` (two browsers, live sync, variable, view-only read-only).
+
 P7c files (Wave 4): `tests/test_ct_tools.py` (Open-mode DICOM window + tags, converter window facts); Vitest `features/viewer/model/measure.test.ts`, `features/viewer/display.test.ts`, `api/liveState.test.ts`; Playwright `e2e/ct-tools.spec.ts` (the tool set in Open mode on DICOM and in a case tab, header info with DICOM tags, measurements, Close for both).
 
 P7c files (Wave 3): TST-20 in `tests/test_metadata_ownership.py` (app converter rows and the CLI without study fields and without `curation.csv`; legacy `curated_phase`/`phase_guess`/`group` still resolve; dataset table joins the analyzer and curation layers, Parquet provenance; workspace run → `_datasets/` → neutral project with the phase layer, write-once; workspace task errors); `tests/test_open_convert_once.py` (the flaky E2E's root cause); Vitest `plugins/dicom/ConverterOverlay.test.tsx`; Playwright `e2e/converter.spec.ts` (overlay → dataset → Create project from this).

@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from app.core.fsio import iter_jsonl, read_json
 from app.curation import state as curation_state
+from app.labeling import state as labeling_state
 
 Level = Literal["item", "case", "scan"]
 
@@ -90,7 +91,22 @@ def curation_layers(ctx: LayerContext) -> list[Layer]:
     ]  # fmt: skip
 
 
-PROVIDERS: list[Provider] = [annotation_layers, curation_layers]
+def labeling_layers(ctx: LayerContext) -> list[Layer]:
+    """LBL-06: every visible label column, keyed by case, `case.scan` or item."""
+    cells = labeling_state.cell_state(ctx.project_dir)
+    out: list[Layer] = []
+    for t in labeling_state.load_tables(ctx.project_dir).tables:
+        for c in t.columns:
+            if c.hidden:
+                continue
+            values = {tg: e.get("value") for (tid, cid, tg), e in cells.items()
+                      if tid == t.table_id and cid == c.column_id}  # fmt: skip
+            out.append(Layer(f"labeling:{t.slug}", "labeling", f"lbl.{t.slug}.{c.slug}", t.level,
+                             f"label table {t.name!r}, column {c.name!r}", values))  # fmt: skip
+    return out
+
+
+PROVIDERS: list[Provider] = [annotation_layers, curation_layers, labeling_layers]
 
 
 def active_layers(ctx: LayerContext) -> list[Layer]:

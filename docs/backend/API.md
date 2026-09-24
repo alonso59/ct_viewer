@@ -72,7 +72,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` | CUR-13 |
 | API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` (multipart `file`, `X-Reviewer`) → `201` report as API-54 | CUR-15 |
 
-| API-56 | `GET·POST /plugins/labeling/projects/{pid}/tables` · `PATCH …/tables/{tid}` | Label tables and column schemas | LBL-01/02 |
+| API-56 | `GET·POST /plugins/labeling/projects/{pid}/tables` · `PATCH …/tables/{tid}` · `GET …/tables/{tid}/history?target=&column_id=` | Label tables and column schemas (list rows carry `n_rows` + per-column `progress`) / cell history, newest first | LBL-01/02/04/08 |
 | API-57 | `GET·POST /plugins/labeling/projects/{pid}/tables/{tid}/cells` | Cell state (paged, filterable) / append cell events (`X-Reviewer`) | LBL-03..05 |
 | API-58 | `POST …/tables/{tid}/import` · `GET …/tables/{tid}/export?format=csv\|parquet` | CSV import with a match report / export | LBL-07 |
 | API-59 | `GET /projects/{pid}/exports/dataset-table?format=csv\|parquet` · `GET /projects/{pid}/layers` | Merged metadata table (rows + active layers; attachment, not stored), layer columns named `{field}@{layer id}`, Parquet schema metadata `layers` = provenance / the active layers `{column, id, plugin, field, level, source, n_values}` | ADR-0020 |
@@ -87,6 +87,7 @@ API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD
 | `event` | `data` |
 |---|---|
 | `curation.appended` | CurationEvent |
+| `labeling.appended` | CellEvent (LBL-04); a batch over 500 cells sends `project.updated {fields: [labeling]}` instead |
 | `job.progress` | `{job_id, kind, done, total, eta_s}` |
 | `job.finished` | `{job_id, kind, status, ref}` |
 | `job.status` | `{job_id, status}`, e.g. `waiting_for_runner` → `running` (TSK-06) |

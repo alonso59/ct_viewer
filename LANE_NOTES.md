@@ -592,3 +592,20 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 **Open issues**
 - Open mode's tool bar wraps to a second line below ~1300 px width.
 - VW-24 (cine, histogram, MR colour maps) stays Could.
+
+## 2026-09-25 · P7c Wave 5 (event store, curation, labeling) · v3
+
+**Done** (ROADMAP §P7c Wave 5 ticked)
+- Core event store `app/eventstore/` (ADR-0022 §1): `events/{namespace}.jsonl` (curation keeps `curation/events.jsonl`), shared reviewer rule, stamps (`event_id`, `at`, reviewer, `session_id`), `{namespace}.appended` SSE (large batches → `project.updated`), LWW helper. Curation appends through it: same file, same records (no data change); its tests unchanged and green.
+- Labeling table plugin (LBL-01..08): `plugins/labeling/plugin.json`, backend `app/labeling/` + API-56..58 (+ history), tables at case / scan / item level with typed columns (slug kept on rename, hide keeps events), all-or-nothing validated cell events, LWW state, history, CSV/TSV import report, CSV/Parquet export, per-column progress; columns as layers (dataset table) and `lbl.{table}.{column}` variables (source `layer`, typed, rebuilt 1 s after writes); view-only links read tables and cells (API-60 allowlist) and cannot write.
+- FE `src/plugins/labeling/` (lazy): Labeling view with progress and New table (columns free or from project labels); spreadsheet tab with keyboard editing, type-aware editors, Space toggle, Delete, selection, TSV paste, Fill selection, filters/sort, open in viewer, history panel, import/export; live updates through SSE; read-only on view links.
+
+**Results**: `make fixtures && make check` green: 467 backend + 221 frontend. Playwright 34/34 (Chromium 17, Firefox 17; new `e2e/labeling.spec.ts`). Initial JS 297.9 KB gzip.
+
+**Decisions**
+- Scan- and item-level label columns share the variables' scan unit (an item value lands on its scan; the first non-empty wins for VOIs).
+- A cell write is all-or-nothing: one invalid cell refuses the batch with every error listed (paste/fill stay consistent).
+- Labeling state is derived from the event file on each read (no snapshot); fine at 3,000 cases × a few columns.
+
+**Open issues**
+- No per-table delete (tables are kept like events); column type changes need a new column (by design, LBL-02).

@@ -60,6 +60,14 @@ import type {
   SegmentationPatch,
   ServerEvent,
   PluginList,
+  LabelCellEvent,
+  LabelCellIn,
+  LabelCellsPage,
+  LabelImportReport,
+  LabelTable,
+  LabelTableCreate,
+  LabelTableInfo,
+  LabelTablePatch,
   LayerInfo,
   WorkspaceRun,
   WorkspaceRunRequest,
@@ -203,6 +211,16 @@ export interface Api {
   /** API-59 (ADR-0020): active layers and the dataset table download URL */
   listLayers(pid: string): Promise<LayerInfo[]>
   datasetTableUrl(pid: string, format: 'csv' | 'parquet'): string
+
+  /** API-56..58 Labeling table plugin (LBL-*) */
+  listLabelTables(pid: string): Promise<LabelTableInfo[]>
+  createLabelTable(pid: string, body: LabelTableCreate): Promise<LabelTable>
+  patchLabelTable(pid: string, tid: string, body: LabelTablePatch): Promise<LabelTable>
+  labelCells(pid: string, tid: string): Promise<LabelCellsPage>
+  writeLabelCells(pid: string, tid: string, cells: LabelCellIn[], reviewer: string): Promise<{ n_events: number }>
+  labelHistory(pid: string, tid: string, target?: string, columnId?: string): Promise<LabelCellEvent[]>
+  importLabelTable(pid: string, tid: string, file: File, reviewer: string): Promise<LabelImportReport>
+  labelExportUrl(pid: string, tid: string, format: 'csv' | 'parquet'): string
 
   // Tasks (API-42..47, TSK-*)
   listTasks(): Promise<TaskList>

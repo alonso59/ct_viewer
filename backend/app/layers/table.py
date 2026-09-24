@@ -44,7 +44,9 @@ def rows(items: Sequence[Item], layers: Sequence[Layer]) -> tuple[list[str], lis
         for k in extra_keys:
             r[k] = _cell(i.extra.get(k))
         for layer in layers:
-            key = i.case_id if layer.level == "case" else i.item_id
+            key = {"case": i.case_id, "scan": f"{i.case_id}.{i.scan_idx}"}.get(
+                layer.level, i.item_id
+            )
             r[layer.column] = _cell(layer.values.get(key))
         out.append(r)
     return header, out

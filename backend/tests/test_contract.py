@@ -17,6 +17,7 @@ STREAMING = {
     "bundle",
     "preview",
     "dataset-table",
+    "export",  # API-58 CSV/Parquet
 }  # bundle: API-06 zip
 # Binary bodies identified by the segment before a path parameter (API-25 mesh: .../mesh/{label})
 BINARY_PARENTS = {"mesh"}

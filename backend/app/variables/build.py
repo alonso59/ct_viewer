@@ -88,6 +88,17 @@ class ExternalData:
 
 
 @dataclass
+class LayerData:
+    """A plugin layer as a typed variable (ADR-0020, VAR-12), e.g. `lbl.{table}.{column}`."""
+
+    name: str
+    level: Level
+    type: VarType
+    by_case: dict[str, str | None] = field(default_factory=dict)
+    by_scan: dict[ScanKey, str | None] = field(default_factory=dict)
+
+
+@dataclass
 class Built:
     catalog: Catalog
     columns: list[Column]
@@ -455,6 +466,7 @@ def build(
     overrides: Mapping[str, VariableOverride] | None = None,
     derived: Sequence[DerivedDef] = (),
     external: Sequence[ExternalData] = (),
+    layers: Sequence[LayerData] = (),
     strict: bool = False,
 ) -> tuple[Built, dict[str, list[str]]]:
     """Build the catalog. Returns it with `{"conflicts": [...], "derived_errors": [...]}`.
@@ -472,6 +484,13 @@ def build(
         for c in new:
             by_name[c.var.name] = c
             cols.append(c)
+    for ld in layers:  # VAR-12: the layer's own type, no inference
+        units = list(ld.by_case.values() if ld.level == "case" else ld.by_scan.values())
+        var = _make_variable(ld.name, "layer", "study", ld.level, units,
+                             Inference(ld.type, 1.0, False), ov.get(ld.name))  # fmt: skip
+        col = Column(var, dict(ld.by_case), dict(ld.by_scan))
+        by_name[ld.name] = col
+        cols.append(col)
     derived_errors: list[str] = []
     for d in derived:
         try:

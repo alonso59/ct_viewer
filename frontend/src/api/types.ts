@@ -378,6 +378,7 @@ export interface Problem {
 
 export type ServerEvent =
   | { event: 'curation.appended'; data: CurationEvent }
+  | { event: 'labeling.appended'; data: LabelCellEvent }
   | { event: 'job.progress'; data: JobProgress }
   | { event: 'job.finished'; data: JobFinished }
   | { event: 'job.status'; data: Pick<Job, 'job_id' | 'status'> }
@@ -418,3 +419,16 @@ export type PluginStatus = PluginInfo['status']
 export type WorkspaceRun = S['WorkspaceRun']
 export type WorkspaceRunRequest = S['WorkspaceRunRequest']
 export type LayerInfo = S['LayerInfo']
+
+// ---- P7c: labeling tables (API-56..58, LBL-*) -------------------------------------------------
+export type LabelTable = S['LabelTable']
+export type LabelTableInfo = S['TableInfo']
+export type LabelColumn = S['LabelColumn']
+export type LabelColumnIn = S['ColumnIn']
+export type LabelTableCreate = S['TableCreate']
+export type LabelTablePatch = S['TablePatch']
+export type LabelCellsPage = S['CellsPage']
+export type LabelCellRow = S['CellRow']
+export type LabelCellIn = S['CellIn']
+export type LabelCellEvent = S['CellEvent']
+export type LabelImportReport = S['ImportReport']

@@ -4,9 +4,10 @@ import { plugin as analyzers } from './analyzers'
 import { plugin as curation } from './curation'
 import { plugin as dashboard } from './dashboard'
 import { plugin as dicom } from './dicom'
+import { plugin as labeling } from './labeling'
 import type { FrontendPlugin } from './host'
 import { plugin as radiomics } from './radiomics'
 
-export const FIRST_PARTY: FrontendPlugin[] = [dicom, analyzers, curation, radiomics, dashboard]
+export const FIRST_PARTY: FrontendPlugin[] = [dicom, analyzers, curation, labeling, radiomics, dashboard]
 export { activatePlugins, isActive, openerOf, revealView, type FrontendPlugin, type PluginContext } from './host'
 export { useCurationRuntime } from './curation'

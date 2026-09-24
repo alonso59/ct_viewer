@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 EventType = Literal[
     "curation.appended",
+    "labeling.appended",
     "job.progress",
     "job.finished",
     "job.status",

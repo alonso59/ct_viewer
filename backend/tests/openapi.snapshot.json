@@ -726,6 +726,20 @@
     "title": "Body_import_external_api_v1_projects__pid__variables_external_post",
     "type": "object"
    },
+   "Body_import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post": {
+    "properties": {
+     "file": {
+      "contentMediaType": "application/octet-stream",
+      "title": "File",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file"
+    ],
+    "title": "Body_import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post",
+    "type": "object"
+   },
    "Body_import_v2_api_v1_projects__pid__curation_import_v2_post": {
     "properties": {
      "file": {
@@ -1256,6 +1270,194 @@
     "title": "Catalog",
     "type": "object"
    },
+   "CellEvent": {
+    "description": "LBL-04: one line of `events/labeling.jsonl`.",
+    "properties": {
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "column_id": {
+      "title": "Column Id",
+      "type": "string"
+     },
+     "event_id": {
+      "title": "Event Id",
+      "type": "string"
+     },
+     "reviewer": {
+      "title": "Reviewer",
+      "type": "string"
+     },
+     "session_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session Id"
+     },
+     "table_id": {
+      "title": "Table Id",
+      "type": "string"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value"
+     }
+    },
+    "required": [
+     "event_id",
+     "at",
+     "reviewer",
+     "table_id",
+     "column_id",
+     "target"
+    ],
+    "title": "CellEvent",
+    "type": "object"
+   },
+   "CellIn": {
+    "properties": {
+     "column_id": {
+      "title": "Column Id",
+      "type": "string"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value"
+     }
+    },
+    "required": [
+     "column_id",
+     "target"
+    ],
+    "title": "CellIn",
+    "type": "object"
+   },
+   "CellRow": {
+    "description": "API-57 row: a target of the table's level with its current values.",
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "item_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item Id"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "updated": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Updated",
+      "type": "object"
+     },
+     "values": {
+      "additionalProperties": true,
+      "title": "Values",
+      "type": "object"
+     }
+    },
+    "required": [
+     "target",
+     "case_id"
+    ],
+    "title": "CellRow",
+    "type": "object"
+   },
+   "CellsPage": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/CellRow"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "next_cursor",
+     "total"
+    ],
+    "title": "CellsPage",
+    "type": "object"
+   },
+   "CellsWrite": {
+    "properties": {
+     "cells": {
+      "items": {
+       "$ref": "#/components/schemas/CellIn"
+      },
+      "maxItems": 20000,
+      "minItems": 1,
+      "title": "Cells",
+      "type": "array"
+     }
+    },
+    "required": [
+     "cells"
+    ],
+    "title": "CellsWrite",
+    "type": "object"
+   },
+   "CellsWritten": {
+    "properties": {
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/CellEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "n_events": {
+      "title": "N Events",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "n_events",
+     "events"
+    ],
+    "title": "CellsWritten",
+    "type": "object"
+   },
    "Cluster": {
     "properties": {
      "features": {
@@ -1303,6 +1505,141 @@
      "kind"
     ],
     "title": "ColorBy",
+    "type": "object"
+   },
+   "ColumnIn": {
+    "description": "A new column (no `column_id`) or an edit of an existing one (with it).",
+    "properties": {
+     "column_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Column Id"
+     },
+     "default": {
+      "title": "Default"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description"
+     },
+     "hidden": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hidden"
+     },
+     "levels": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Levels"
+     },
+     "max": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max"
+     },
+     "min": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min"
+     },
+     "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "enum": [
+         "bool",
+         "category",
+         "number",
+         "text",
+         "date"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type"
+     },
+     "unit": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unit"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "ColumnIn",
+    "type": "object"
+   },
+   "ColumnProgress": {
+    "properties": {
+     "column_id": {
+      "title": "Column Id",
+      "type": "string"
+     },
+     "filled": {
+      "title": "Filled",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "column_id",
+     "filled"
+    ],
+    "title": "ColumnProgress",
     "type": "object"
    },
    "CommitRequest": {
@@ -4143,6 +4480,63 @@
     "title": "ImportRecord",
     "type": "object"
    },
+   "ImportReport": {
+    "description": "LBL-07 match report (as VAR-07).",
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "errors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Errors",
+      "type": "array"
+     },
+     "ignored_columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Ignored Columns",
+      "type": "array"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "matched": {
+      "title": "Matched",
+      "type": "integer"
+     },
+     "n_events": {
+      "default": 0,
+      "title": "N Events",
+      "type": "integer"
+     },
+     "n_rows": {
+      "title": "N Rows",
+      "type": "integer"
+     },
+     "unmatched": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unmatched",
+      "type": "array"
+     }
+    },
+    "required": [
+     "key",
+     "n_rows",
+     "matched"
+    ],
+    "title": "ImportReport",
+    "type": "object"
+   },
    "IndexStatus": {
     "description": "`index/status.json`: persisted index job state (BE-06).",
     "properties": {
@@ -4852,6 +5246,98 @@
     "title": "JobInfo",
     "type": "object"
    },
+   "LabelColumn": {
+    "description": "LBL-02: a rename keeps `column_id` and `slug` (the variable name); delete = hidden.",
+    "properties": {
+     "column_id": {
+      "title": "Column Id",
+      "type": "string"
+     },
+     "default": {
+      "title": "Default"
+     },
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "hidden": {
+      "default": false,
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "levels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Levels",
+      "type": "array"
+     },
+     "max": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max"
+     },
+     "min": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min"
+     },
+     "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "slug": {
+      "pattern": "^[a-z][a-z0-9_]{0,39}$",
+      "title": "Slug",
+      "type": "string"
+     },
+     "type": {
+      "enum": [
+       "bool",
+       "category",
+       "number",
+       "text",
+       "date"
+      ],
+      "title": "Type",
+      "type": "string"
+     },
+     "unit": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unit"
+     }
+    },
+    "required": [
+     "column_id",
+     "slug",
+     "name",
+     "type"
+    ],
+    "title": "LabelColumn",
+    "type": "object"
+   },
    "LabelCount": {
     "properties": {
      "label": {
@@ -4911,6 +5397,59 @@
      "opacity"
     ],
     "title": "LabelEntry",
+    "type": "object"
+   },
+   "LabelTable": {
+    "properties": {
+     "columns": {
+      "items": {
+       "$ref": "#/components/schemas/LabelColumn"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "level": {
+      "enum": [
+       "case",
+       "scan",
+       "item"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "slug": {
+      "pattern": "^[a-z][a-z0-9_]{0,39}$",
+      "title": "Slug",
+      "type": "string"
+     },
+     "table_id": {
+      "title": "Table Id",
+      "type": "string"
+     },
+     "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "table_id",
+     "slug",
+     "name",
+     "level",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "LabelTable",
     "type": "object"
    },
    "LayerInfo": {
@@ -8902,6 +9441,137 @@
     "title": "Suggestion",
     "type": "object"
    },
+   "TableCreate": {
+    "properties": {
+     "columns": {
+      "items": {
+       "$ref": "#/components/schemas/ColumnIn"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "level": {
+      "enum": [
+       "case",
+       "scan",
+       "item"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "level"
+    ],
+    "title": "TableCreate",
+    "type": "object"
+   },
+   "TableInfo": {
+    "description": "API-56 row with LBL-08 progress.",
+    "properties": {
+     "columns": {
+      "items": {
+       "$ref": "#/components/schemas/LabelColumn"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "level": {
+      "enum": [
+       "case",
+       "scan",
+       "item"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "n_rows": {
+      "title": "N Rows",
+      "type": "integer"
+     },
+     "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "progress": {
+      "items": {
+       "$ref": "#/components/schemas/ColumnProgress"
+      },
+      "title": "Progress",
+      "type": "array"
+     },
+     "slug": {
+      "pattern": "^[a-z][a-z0-9_]{0,39}$",
+      "title": "Slug",
+      "type": "string"
+     },
+     "table_id": {
+      "title": "Table Id",
+      "type": "string"
+     },
+     "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "table_id",
+     "slug",
+     "name",
+     "level",
+     "created_at",
+     "updated_at",
+     "n_rows"
+    ],
+    "title": "TableInfo",
+    "type": "object"
+   },
+   "TablePatch": {
+    "properties": {
+     "columns": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/ColumnIn"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Columns"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 120,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     }
+    },
+    "title": "TablePatch",
+    "type": "object"
+   },
    "TargetState": {
     "description": "Latest event for one `(item_id, target)` (or case-target) key (CUR-08).",
     "properties": {
@@ -10615,7 +11285,8 @@
        "metadata",
        "derived",
        "external",
-       "raw"
+       "raw",
+       "layer"
       ],
       "title": "Source",
       "type": "string"
@@ -12010,6 +12681,593 @@
     "summary": "List Plugins",
     "tags": [
      "plugins"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables": {
+   "get": {
+    "operationId": "list_tables_api_v1_plugins_labeling_projects__pid__tables_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TableInfo"
+         },
+         "title": "Response List Tables Api V1 Plugins Labeling Projects  Pid  Tables Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Tables",
+    "tags": [
+     "labeling"
+    ]
+   },
+   "post": {
+    "operationId": "create_table_api_v1_plugins_labeling_projects__pid__tables_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TableCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LabelTable"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Table",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}": {
+   "patch": {
+    "operationId": "patch_table_api_v1_plugins_labeling_projects__pid__tables__tid__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TablePatch"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LabelTable"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Patch Table",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells": {
+   "get": {
+    "operationId": "get_cells_api_v1_plugins_labeling_projects__pid__tables__tid__cells_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CellsPage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cells",
+    "tags": [
+     "labeling"
+    ]
+   },
+   "post": {
+    "operationId": "write_cells_api_v1_plugins_labeling_projects__pid__tables__tid__cells_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Session-Id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CellsWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CellsWritten"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Write Cells",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/export": {
+   "get": {
+    "operationId": "export_table_api_v1_plugins_labeling_projects__pid__tables__tid__export_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "format",
+      "required": false,
+      "schema": {
+       "default": "csv",
+       "enum": [
+        "csv",
+        "parquet"
+       ],
+       "title": "Format",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/vnd.apache.parquet": {},
+       "text/csv": {}
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Export Table",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/history": {
+   "get": {
+    "operationId": "cell_history_api_v1_plugins_labeling_projects__pid__tables__tid__history_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "target",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Target"
+      }
+     },
+     {
+      "in": "query",
+      "name": "column_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Column Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CellEvent"
+         },
+         "title": "Response Cell History Api V1 Plugins Labeling Projects  Pid  Tables  Tid  History Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cell History",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/import": {
+   "post": {
+    "operationId": "import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Session-Id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ImportReport"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Table",
+    "tags": [
+     "labeling"
     ]
    }
   },

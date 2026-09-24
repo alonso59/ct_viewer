@@ -14,7 +14,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from app.core.errors import Problem, ReviewerRequired, ValidationProblem
+from app.core.errors import Problem, ValidationProblem
 from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json
 from app.core.ids import new_ulid, parse_item_id, utc_now
 from app.core.locks import ProjectLocks
@@ -32,6 +32,7 @@ from app.curation.models import (
     V2ImportReport,
 )
 from app.events.bus import EventBus
+from app.eventstore.store import namespace_path, require_reviewer
 from app.ingest.models import Item, VolumeRef
 from app.ingest.store import IndexStore
 from app.projects.service import Workspace
@@ -60,21 +61,7 @@ STATE_COLUMNS: Final = (
     "event_id",
     "source",
 )
-REVIEWER_MAX: Final = 100
 SSE_EVENT_MAX: Final = 500  # larger v2 imports publish one `project.updated` instead
-
-
-def require_reviewer(reviewer: str | None) -> str:
-    """CUR-01: writes that record authorship need a non-empty `X-Reviewer` header."""
-    name = (reviewer or "").strip()
-    if not name:
-        raise ReviewerRequired("Set the X-Reviewer header (reviewer name or initials)")
-    if len(name) > REVIEWER_MAX:
-        raise ValidationProblem(
-            "Reviewer name too long",
-            errors=[{"loc": ["header", "X-Reviewer"], "msg": f"max {REVIEWER_MAX} chars"}],
-        )
-    return name
 
 
 def _invalid(field: str, msg: str) -> ValidationProblem:
@@ -188,7 +175,8 @@ class CurationService:
 
     def _append_locked(self, pdir: Path, events: Sequence[CurationEvent]) -> None:
         """Caller holds the project lock (BE-05)."""
-        append_jsonl(pdir / st.EVENTS, (e.model_dump(mode="json") for e in events))
+        # The core event store namespace `curation` keeps `curation/events.jsonl` (ADR-0022)
+        append_jsonl(namespace_path(pdir, "curation"), (e.model_dump(mode="json") for e in events))
         self._write_snapshot(pdir)
 
     def _publish(self, project_id: str, events: Sequence[CurationEvent]) -> None:

@@ -27,6 +27,7 @@ SHIPPED = {
     "voi",
     "ccrcc",
     "generic-ct",
+    "labeling",
 }
 
 

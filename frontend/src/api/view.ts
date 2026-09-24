@@ -3,4 +3,7 @@
 export const VIEW_PREFIX = 'view-'
 export const viewPid = (token: string) => `${VIEW_PREFIX}${token}`
 export const isViewPid = (pid: string | null | undefined) => !!pid && pid.startsWith(VIEW_PREFIX)
-export const viewPath = (url: string) => url.replace(/\/api\/v1\/projects\/view-([A-Za-z0-9_-]+)(?=\/|\?|$)/, '/api/v1/view/$1')
+export const viewPath = (url: string) =>
+  url
+    .replace(/\/api\/v1\/projects\/view-([A-Za-z0-9_-]+)(?=\/|\?|$)/, '/api/v1/view/$1')
+    .replace(/\/api\/v1\/plugins\/labeling\/projects\/view-([A-Za-z0-9_-]+)\//, '/api/v1/view/$1/plugins/labeling/')

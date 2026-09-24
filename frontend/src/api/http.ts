@@ -311,7 +311,7 @@ async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
 }
 
 // ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
-const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated']
+const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated']
 interface Stream {
   es: EventSource
   listeners: Set<(e: ServerEvent) => void>
@@ -602,6 +602,30 @@ export const httpApi: Api = {
   // API-42..47
   listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
   listTasks: () => unwrap(client.GET('/api/v1/tasks')),
+  listLabelTables: (pid) => unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid } } })),
+  createLabelTable: (pid, body) => unwrap(client.POST('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid } }, body })),
+  patchLabelTable: (pid, tid, body) => unwrap(client.PATCH('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}', { params: { path: { pid, tid } }, body })),
+  async labelCells(pid, tid) {
+    const items = await allPages((cursor) =>
+      unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', { params: { path: { pid, tid }, query: { cursor, limit: PAGE } } })),
+    )
+    return { items, next_cursor: null, total: items.length }
+  },
+  writeLabelCells: (pid, tid, cells, reviewer) =>
+    unwrap(
+      client.POST('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', {
+        params: { path: { pid, tid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
+        body: { cells },
+      }),
+    ),
+  labelHistory: (pid, tid, target, column_id) =>
+    unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/history', { params: { path: { pid, tid }, query: { target, column_id } } })),
+  importLabelTable(pid, tid, file, reviewer) {
+    const fd = new FormData()
+    fd.set('file', file)
+    return send('POST', `/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/import`, fd, { ...reviewerHeader(reviewer), 'X-Session-Id': SESSION_ID })
+  },
+  labelExportUrl: (pid, tid, format) => viewPath(`${V1}/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}`),
   estimateWorkspaceTask: (tid, selection, settings = {}) =>
     unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid } }, body: { selection, settings } })),
   startWorkspaceRun: (body) => unwrap(client.POST('/api/v1/task-runs', { body })),

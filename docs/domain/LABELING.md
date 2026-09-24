@@ -24,6 +24,13 @@ Depends: ADR-0020, ADR-0022, PLUGINS.md, VARIABLES.md, CURATION.md (event rules)
 {project}/events/labeling.jsonl          # append-only cell events (LBL-04)
 ```
 
+## Implementation (P7c Wave 5)
+
+- Backend `app/labeling/` (+ `app/api/v1/labeling.py`, API-56..58, also `GET …/tables/{tid}/history`), plugin manifest `plugins/labeling/plugin.json`. Tables and columns get a `slug` from their first name (unique; kept on rename), which names the variable `lbl.{table}.{column}`. Cell writes validate all cells first (422 lists every bad one), then append one event each through the core event store; `null` clears a cell. Types: `bool` (yes/no, true/false, 1/0), `category` (a level, case-insensitive), `number` (`,` decimal accepted, min/max), `text` (≤ 2000), `date` (ISO). Rows: active cases / `case.scan` / items in index order; the row's viewer item is its complete-scope item.
+- LBL-06: a layer provider (dataset table column `lbl.{t}.{c}@labeling:{t}`) and variables of source `layer` with the column's type (`bool`/`category` → categorical, `number` → continuous); scan and item tables use the scan unit (an item value lands on its scan). The catalog is rebuilt 1 s after the last write (coalesced).
+- LBL-07: CSV/TSV import keyed by `case_id`, `patient_id`, `scan`, `item_id` or `target`; columns matched by name or slug; report = matched / unmatched keys, matched and ignored columns, invalid values, events written. Export CSV / Parquet (`target, case_id, columns…`).
+- UI (`frontend/src/plugins/labeling/`, lazy): the Labeling view (tables with per-column progress, New table with columns named freely or from the project labels), the table tab `/p/{pid}/labeling/{tid}`: virtualized grid, arrow/Tab/Enter navigation, typing or Enter/F2 edits (type-aware editors), Space toggles yes/no, Delete clears the selection, Shift+click / Shift+arrows select, paste of a TSV block at the active cell, "Fill selection", per-column filters (`-` = empty) and sort, open the row in the viewer, cell history panel, CSV import report, export. Live sync: `labeling.appended` (or `project.updated` with `labeling`) refreshes the table. View-only links show the view and tab with a "Read only" badge and no editing.
+
 ## Relation to Curation & QC
 
 Curation records **QC decisions** about images and masks (status, queue, targets with `seg_id`). Labeling records **study annotations** as typed columns. Both use the same event store and sync (ADR-0022) and never write to `metadata.jsonl` (ADR-0020).

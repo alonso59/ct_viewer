@@ -39,6 +39,34 @@ const MANIFESTS: PluginManifest[] = [
   },
   {
     "plugin": 1,
+    "id": "ccrcc",
+    "version": "1.0.0",
+    "title": "Study pack ccRCC",
+    "description": "Kidney CT study pack: label map, phase vocabulary and mapping, organ focus for the analyzers (PRJ-16).",
+    "icon": "package",
+    "scope": "project",
+    "contributes": {
+      "tasks": [],
+      "views": [],
+      "editors": [],
+      "overlays": [],
+      "panels": [],
+      "commands": [],
+      "columns": [],
+      "packs": [
+        "ccrcc"
+      ]
+    },
+    "requires": {
+      "core": ">=3.0",
+      "plugins": [],
+      "capabilities": []
+    },
+    "pending": false,
+    "hidden": false
+  },
+  {
+    "plugin": 1,
     "id": "curation",
     "version": "1.0.0",
     "title": "Curation & QC",
@@ -138,6 +166,70 @@ const MANIFESTS: PluginManifest[] = [
       "plugins": [],
       "capabilities": [
         "derived_root"
+      ]
+    },
+    "pending": false,
+    "hidden": false
+  },
+  {
+    "plugin": 1,
+    "id": "generic-ct",
+    "version": "1.0.0",
+    "title": "Study pack Generic CT",
+    "description": "Generic CT phase vocabulary and mapping (PRJ-16).",
+    "icon": "package",
+    "scope": "project",
+    "contributes": {
+      "tasks": [],
+      "views": [],
+      "editors": [],
+      "overlays": [],
+      "panels": [],
+      "commands": [],
+      "columns": [],
+      "packs": [
+        "generic-ct"
+      ]
+    },
+    "requires": {
+      "core": ">=3.0",
+      "plugins": [],
+      "capabilities": []
+    },
+    "pending": false,
+    "hidden": false
+  },
+  {
+    "plugin": 1,
+    "id": "labeling",
+    "version": "1.0.0",
+    "title": "Labeling table",
+    "description": "User-defined label tables at patient, CT or item level with typed columns, spreadsheet editing, live multi-user sync; every column is a layer and a study variable (LABELING.md).",
+    "icon": "table",
+    "scope": "project",
+    "contributes": {
+      "tasks": [],
+      "views": [
+        "labeling"
+      ],
+      "editors": [
+        "labeling"
+      ],
+      "overlays": [],
+      "panels": [],
+      "commands": [
+        "labeling.newTable"
+      ],
+      "columns": [
+        "lbl.*"
+      ],
+      "packs": []
+    },
+    "requires": {
+      "core": ">=3.0",
+      "plugins": [],
+      "capabilities": [
+        "event_store"
       ]
     },
     "pending": false,

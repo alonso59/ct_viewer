@@ -4,6 +4,7 @@
 // demo state; Settings → "Reset mock data" clears it.
 import { ProblemError } from '../problem'
 import { MOCK_PLUGINS } from './plugins'
+import { mockLabeling } from './labeling'
 import { rollup } from '../rollup'
 import { filterByItems, type Api, type CaseFilter } from '../surface'
 import {
@@ -893,6 +894,39 @@ export const mockServer: Api = {
     return []
   },
   datasetTableUrl: () => '#',
+  async listLabelTables(pid) {
+    await wait(40)
+    return mockLabeling.list(pid, exists(pid).items)
+  },
+  async createLabelTable(pid, body) {
+    await wait(60)
+    exists(pid)
+    return mockLabeling.create(pid, body)
+  },
+  async patchLabelTable(pid, tid, body) {
+    await wait(60)
+    return mockLabeling.patch(pid, tid, body)
+  },
+  async labelCells(pid, tid) {
+    await wait(60)
+    const items = mockLabeling.cells(pid, tid, exists(pid).items)
+    return { items, next_cursor: null, total: items.length }
+  },
+  async writeLabelCells(pid, tid, cells, reviewer) {
+    await wait(60)
+    const events = mockLabeling.write(pid, tid, cells, reviewer, SESSION_ID)
+    for (const e of events) emit(pid, { event: 'labeling.appended', data: e })
+    return { n_events: events.length }
+  },
+  async labelHistory(pid, tid, target, col) {
+    await wait(40)
+    return mockLabeling.history(pid, tid, target, col)
+  },
+  async importLabelTable() {
+    await wait(60)
+    return { key: 'case_id', n_rows: 0, matched: 0, unmatched: [], columns: [], ignored_columns: [], n_events: 0, errors: [] }
+  },
+  labelExportUrl: () => '#',
   async listTasks() {
     await wait(60)
     return { tasks: clone(MOCK_TASKS), invalid: [], runners: [{ runner_id: 'mock-runner', tasks: ['segment.threshold'], gpu: null, pid: 1, at: now(), fresh: true }] }

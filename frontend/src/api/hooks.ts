@@ -254,6 +254,16 @@ export const useWorkspaceRun = (rid: string | null) =>
     refetchInterval: (q) => (q.state.data && !['queued', 'running'].includes(q.state.data.status) ? false : 800),
   })
 export const useLayers = (pid: string) => useQuery({ queryKey: keys.layers(pid), queryFn: () => api.listLayers(pid), enabled: enabled(pid) })
+export const useLabelTables = (pid: string) =>
+  useQuery({ queryKey: keys.labelTables(pid), queryFn: () => api.listLabelTables(pid), enabled: enabled(pid) })
+export const useLabelCells = (pid: string, tid: string) =>
+  useQuery({ queryKey: keys.labelCells(pid, tid), queryFn: () => api.labelCells(pid, tid), enabled: enabled(pid, tid) })
+export const useLabelHistory = (pid: string, tid: string, target: string | null, col: string | null) =>
+  useQuery({
+    queryKey: keys.labelHistory(pid, tid, target ?? '', col ?? ''),
+    queryFn: () => api.labelHistory(pid, tid, target ?? undefined, col ?? undefined),
+    enabled: enabled(pid, tid) && !!target && !!col,
+  })
 export const usePacks = () => useQuery({ queryKey: keys.packs(), queryFn: () => api.listPacks(), staleTime: 60_000 })
 
 export function useApplyPack(pid: string) {
@@ -410,6 +420,9 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
 
 /** Apply one API-40 event to the query cache */
 export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
+  // LBL-05: other reviewers' cell edits (or a large batch announced as project.updated)
+  if (e.event === 'labeling.appended' || (e.event === 'project.updated' && e.data.fields.includes('labeling')))
+    void qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
   if (e.event === 'curation.appended') {
     // CUR-11: show the decision at once from the event (server order = last-writer-wins, CUR-12);
     // the refetch below confirms it, but can queue behind other requests on a busy server

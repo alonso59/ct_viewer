@@ -1491,6 +1491,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/labeling/projects/{pid}/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tables */
+        get: operations["list_tables_api_v1_plugins_labeling_projects__pid__tables_get"];
+        put?: never;
+        /** Create Table */
+        post: operations["create_table_api_v1_plugins_labeling_projects__pid__tables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Table */
+        patch: operations["patch_table_api_v1_plugins_labeling_projects__pid__tables__tid__patch"];
+        trace?: never;
+    };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cells */
+        get: operations["get_cells_api_v1_plugins_labeling_projects__pid__tables__tid__cells_get"];
+        put?: never;
+        /** Write Cells */
+        post: operations["write_cells_api_v1_plugins_labeling_projects__pid__tables__tid__cells_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cell History */
+        get: operations["cell_history_api_v1_plugins_labeling_projects__pid__tables__tid__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Table */
+        post: operations["import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Table */
+        get: operations["export_table_api_v1_plugins_labeling_projects__pid__tables__tid__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/run-overview": {
         parameters: {
             query?: never;
@@ -2143,6 +2247,11 @@ export interface components {
             /** Key */
             key?: ("case_id" | "patient_id") | null;
         };
+        /** Body_import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post */
+        Body_import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post: {
+            /** File */
+            file: string;
+        };
         /** Body_import_v2_api_v1_projects__pid__curation_import_v2_post */
         Body_import_v2_api_v1_projects__pid__curation_import_v2_post: {
             /**
@@ -2347,6 +2456,78 @@ export interface components {
                 [key: string]: components["schemas"]["VariableOverride"];
             };
         };
+        /**
+         * CellEvent
+         * @description LBL-04: one line of `events/labeling.jsonl`.
+         */
+        CellEvent: {
+            /** Event Id */
+            event_id: string;
+            /** At */
+            at: string;
+            /** Reviewer */
+            reviewer: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Table Id */
+            table_id: string;
+            /** Column Id */
+            column_id: string;
+            /** Target */
+            target: string;
+            /** Value */
+            value?: unknown;
+        };
+        /** CellIn */
+        CellIn: {
+            /** Column Id */
+            column_id: string;
+            /** Target */
+            target: string;
+            /** Value */
+            value?: unknown;
+        };
+        /**
+         * CellRow
+         * @description API-57 row: a target of the table's level with its current values.
+         */
+        CellRow: {
+            /** Target */
+            target: string;
+            /** Case Id */
+            case_id: string;
+            /** Item Id */
+            item_id?: string | null;
+            /** Values */
+            values?: {
+                [key: string]: unknown;
+            };
+            /** Updated */
+            updated?: {
+                [key: string]: string;
+            };
+        };
+        /** CellsPage */
+        CellsPage: {
+            /** Items */
+            items: components["schemas"]["CellRow"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Total */
+            total: number;
+        };
+        /** CellsWrite */
+        CellsWrite: {
+            /** Cells */
+            cells: components["schemas"]["CellIn"][];
+        };
+        /** CellsWritten */
+        CellsWritten: {
+            /** N Events */
+            n_events: number;
+            /** Events */
+            events: components["schemas"]["CellEvent"][];
+        };
         /** Cluster */
         Cluster: {
             /** Features */
@@ -2364,6 +2545,39 @@ export interface components {
             kind: "variable" | "phase" | "scope" | "side" | "label" | "curation_status";
             /** Name */
             name?: string | null;
+        };
+        /**
+         * ColumnIn
+         * @description A new column (no `column_id`) or an edit of an existing one (with it).
+         */
+        ColumnIn: {
+            /** Column Id */
+            column_id?: string | null;
+            /** Name */
+            name: string;
+            /** Type */
+            type?: ("bool" | "category" | "number" | "text" | "date") | null;
+            /** Levels */
+            levels?: string[] | null;
+            /** Unit */
+            unit?: string | null;
+            /** Min */
+            min?: number | null;
+            /** Max */
+            max?: number | null;
+            /** Description */
+            description?: string | null;
+            /** Default */
+            default?: unknown;
+            /** Hidden */
+            hidden?: boolean | null;
+        };
+        /** ColumnProgress */
+        ColumnProgress: {
+            /** Column Id */
+            column_id: string;
+            /** Filled */
+            filled: number;
         };
         /** CommitRequest */
         CommitRequest: {
@@ -3393,6 +3607,31 @@ export interface components {
             source_key?: string | null;
         };
         /**
+         * ImportReport
+         * @description LBL-07 match report (as VAR-07).
+         */
+        ImportReport: {
+            /** Key */
+            key: string;
+            /** N Rows */
+            n_rows: number;
+            /** Matched */
+            matched: number;
+            /** Unmatched */
+            unmatched?: string[];
+            /** Columns */
+            columns?: string[];
+            /** Ignored Columns */
+            ignored_columns?: string[];
+            /**
+             * N Events
+             * @default 0
+             */
+            n_events: number;
+            /** Errors */
+            errors?: string[];
+        };
+        /**
          * IndexStatus
          * @description `index/status.json`: persisted index job state (BE-06).
          */
@@ -3643,6 +3882,43 @@ export interface components {
             /** Key */
             key?: string | null;
         };
+        /**
+         * LabelColumn
+         * @description LBL-02: a rename keeps `column_id` and `slug` (the variable name); delete = hidden.
+         */
+        LabelColumn: {
+            /** Column Id */
+            column_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "bool" | "category" | "number" | "text" | "date";
+            /** Levels */
+            levels?: string[];
+            /** Unit */
+            unit?: string | null;
+            /** Min */
+            min?: number | null;
+            /** Max */
+            max?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Default */
+            default?: unknown;
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
+        };
         /** LabelCount */
         LabelCount: {
             /** Label */
@@ -3667,6 +3943,26 @@ export interface components {
              * @default true
              */
             visible: boolean;
+        };
+        /** LabelTable */
+        LabelTable: {
+            /** Table Id */
+            table_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "case" | "scan" | "item";
+            /** Columns */
+            columns?: components["schemas"]["LabelColumn"][];
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
         };
         /** LayerInfo */
         LayerInfo: {
@@ -5085,6 +5381,52 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** TableCreate */
+        TableCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "case" | "scan" | "item";
+            /** Columns */
+            columns?: components["schemas"]["ColumnIn"][];
+        };
+        /**
+         * TableInfo
+         * @description API-56 row with LBL-08 progress.
+         */
+        TableInfo: {
+            /** Table Id */
+            table_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "case" | "scan" | "item";
+            /** Columns */
+            columns?: components["schemas"]["LabelColumn"][];
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** N Rows */
+            n_rows: number;
+            /** Progress */
+            progress?: components["schemas"]["ColumnProgress"][];
+        };
+        /** TablePatch */
+        TablePatch: {
+            /** Name */
+            name?: string | null;
+            /** Columns */
+            columns?: components["schemas"]["ColumnIn"][] | null;
+        };
         /**
          * TargetState
          * @description Latest event for one `(item_id, target)` (or case-target) key (CUR-08).
@@ -5660,7 +6002,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "metadata" | "derived" | "external" | "raw";
+            source: "metadata" | "derived" | "external" | "raw" | "layer";
             /**
              * Type
              * @enum {string}
@@ -8958,6 +9300,293 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PluginInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tables_api_v1_plugins_labeling_projects__pid__tables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_table_api_v1_plugins_labeling_projects__pid__tables_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TableCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelTable"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_table_api_v1_plugins_labeling_projects__pid__tables__tid__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TablePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelTable"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cells_api_v1_plugins_labeling_projects__pid__tables__tid__cells_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CellsPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_cells_api_v1_plugins_labeling_projects__pid__tables__tid__cells_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+                "X-Session-Id"?: string | null;
+            };
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CellsWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CellsWritten"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cell_history_api_v1_plugins_labeling_projects__pid__tables__tid__history_get: {
+        parameters: {
+            query?: {
+                target?: string | null;
+                column_id?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CellEvent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+                "X-Session-Id"?: string | null;
+            };
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_table_api_v1_plugins_labeling_projects__pid__tables__tid__import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_table_api_v1_plugins_labeling_projects__pid__tables__tid__export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "parquet";
+            };
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                    "application/vnd.apache.parquet": unknown;
                 };
             };
             /** @description Validation Error */

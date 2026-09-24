@@ -95,7 +95,8 @@
     "settings": "Settings",
     "variables": "Variables",
     "tasks": "Tasks",
-    "library": "Plugin Library"
+    "library": "Plugin Library",
+    "labeling": "Labeling"
   },
   "panel": {
     "history": "History",

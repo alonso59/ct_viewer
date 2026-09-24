@@ -1,0 +1,28 @@
+{
+  "plugin": 1,
+  "id": "labeling",
+  "version": "1.0.0",
+  "title": "Labeling table",
+  "description": "User-defined label tables at patient, CT or item level with typed columns, spreadsheet editing, live multi-user sync; every column is a layer and a study variable (LABELING.md).",
+  "icon": "table",
+  "scope": "project",
+  "contributes": {
+    "views": [
+      "labeling"
+    ],
+    "editors": [
+      "labeling"
+    ],
+    "columns": [
+      "lbl.*"
+    ],
+    "commands": [
+      "labeling.newTable"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "event_store"
+    ]
+  }
+}
