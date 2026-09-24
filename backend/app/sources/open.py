@@ -187,11 +187,16 @@ def build_session(path: Path, rows: list[dict[str, Any]], scan: formats.Scan) ->
     items: list[OpenItem] = []
     for n, r in enumerate(rows):
         geo = OpenGeometry.model_validate(r["geometry"]) if r.get("geometry") else None
+        rel = Path(r["rel"])
+        name = rel.name
+        if r["format"] == "dicom" and len(r.get("files") or []) > 1:
+            # A series is named by its description or folder, not by its first file
+            name = r.get("description") or rel.parent.name or rel.name
         items.append(
             OpenItem(
                 n=n,
                 item_id=f"open.{n}",
-                name=Path(r["rel"]).name,
+                name=name,
                 rel=r["rel"],
                 format=r["format"],
                 kind="label" if r.get("label") else "image",

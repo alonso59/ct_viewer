@@ -324,6 +324,7 @@ def test_open_dicom_folder_and_single_file(
     s = dc.post(f"{API}/open", json={"path": str(root / "P001")}).json()
     dcm = [i for i in s["items"] if i["format"] == "dicom"]
     assert len(dcm) == 2 and {i["modality"] for i in dcm} == {"CT"}  # one item per series
+    assert len({i["name"] for i in dcm}) == 2  # series named by description/folder, not IM0000
     ct = next(i for i in dcm if len(i["files"]) == 14)
     r = dc.get(f"{API}/open/{s['sid']}/items/{ct['n']}/image")
     assert r.status_code == 200
