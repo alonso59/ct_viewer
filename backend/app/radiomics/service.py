@@ -492,11 +492,15 @@ class RadiomicsService:
                         "image": it.image.model_dump(mode="json") if it.image else None,
                         "mask": it.mask.model_dump(mode="json") if it.mask else None,
                         "spacing": it.geometry.spacing if it.geometry else [1.0, 1.0, 1.0],
+                        "axis_order": npy_convert.axis_order_of(it.extra.get("axis_order"))
+                        or "xyz",
                     }
                 )
         return units, skips
 
-    async def _path(self, pid: str, vol: dict[str, Any] | None, spacing: list[float]) -> str:
+    async def _path(
+        self, pid: str, vol: dict[str, Any] | None, spacing: list[float], order: str = "xyz"
+    ) -> str:
         """Absolute read path for a volume ref (BE-02); legacy `.npy` → cached NIfTI (IMP-10)."""
         if vol is None:
             raise SourceMissingError("volume missing")
@@ -505,8 +509,9 @@ class RadiomicsService:
             raise SourceMissingError("source file missing")
         if vol.get("format") == "npy":
             fp = await asyncio.to_thread(quick_fingerprint, path)
-            dst = npy_convert.cache_path(self.workspace.project_dir(pid), fp)
-            path = await npy_convert.ensure_nifti(self.jobs, path, dst, spacing)
+            axis = npy_convert.axis_order_of(order) or "xyz"
+            dst = npy_convert.cache_path(self.workspace.project_dir(pid), fp, axis)
+            path = await npy_convert.ensure_nifti(self.jobs, path, dst, spacing, axis)
         return str(path)
 
     async def tasks(
@@ -528,8 +533,9 @@ class RadiomicsService:
                     raise SourceMissingError("item has no image")
                 if u["mask"] is None:
                     raise SourceMissingError("item has no mask")
-                image = await self._path(pid, u["image"], u["spacing"])
-                mask = await self._path(pid, u["mask"], u["spacing"])
+                order = u.get("axis_order", "xyz")
+                image = await self._path(pid, u["image"], u["spacing"], order)
+                mask = await self._path(pid, u["mask"], u["spacing"], order)
             except (Problem, SourceMissingError, OSError) as exc:
                 detail = exc.detail if isinstance(exc, Problem) else str(exc)
                 errors.append(

@@ -139,7 +139,9 @@ def _check_ids(row: Row, file: str, errors: list[ParseError]) -> bool:
         errors.append(ParseError(file, row.line, "case_id", "required field missing"))
         ok = False
     elif not CASE_ID_RE.match(case_id):
-        errors.append(ParseError(file, row.line, "case_id", r"must match case_\d{5}"))
+        errors.append(
+            ParseError(file, row.line, "case_id", r"must be a slug [A-Za-z0-9_-]{1,64} (SRC-08)")
+        )
         ok = False
     if scan_idx is None:
         errors.append(ParseError(file, row.line, "scan_idx", "required field missing"))

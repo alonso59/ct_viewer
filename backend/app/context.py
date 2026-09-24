@@ -12,6 +12,7 @@ from app.events.bus import EventBus
 from app.ingest.store import IndexStore
 from app.jobs.manager import JobManager
 from app.projects.service import Workspace
+from app.sources.open import OpenSessions
 from app.tasks.registry import Registry, build_registry
 
 IndexHook = Callable[[str], Awaitable[None]]
@@ -28,6 +29,7 @@ class AppContext:
     index: IndexStore
     server_lock: FileLock
     registry: Registry
+    open_sessions: OpenSessions = field(default_factory=OpenSessions)
     # Called with project_id after a successful index rebuild (e.g. thumbnails, IMP-12).
     after_index: list[IndexHook] = field(default_factory=list)
 

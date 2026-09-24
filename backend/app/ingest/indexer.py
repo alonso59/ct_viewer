@@ -25,6 +25,7 @@ class FileProbe:
     path: str
     spacing: tuple[float, ...] | None = None
     labels: bool = False  # decode voxels for `labels_present` (masks)
+    axis_order: str = "xyz"  # `.npy` only (SRC-12, IMP-10)
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,7 @@ def probe_file(probe: FileProbe) -> FileResult:
     except OSError as exc:
         return FileResult(exists=True, error=f"{type(exc).__name__}: {exc}")
     try:
-        header = read_header(path, spacing=probe.spacing)
+        header = read_header(path, spacing=probe.spacing, axis_order=probe.axis_order)
     except HeaderError as exc:
         return FileResult(exists=True, fp=fp, error=str(exc))
     labels: tuple[int, ...] = ()

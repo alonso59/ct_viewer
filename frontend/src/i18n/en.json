@@ -193,7 +193,9 @@
     "tip3": "Press Ctrl/Cmd+Shift+P anywhere for all commands.",
     "tips": "Good to know",
     "serverDown": "Cannot reach the server",
-    "noProjects": "No projects yet. Create one to start."
+    "noProjects": "No projects yet. Create one to start.",
+    "openPath": "Open file or folder…",
+    "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project"
   },
   "projects": {
     "alias": "Alias",
@@ -269,7 +271,7 @@
     "aliasHelp": "Items store paths as {{alias}}:relative/path, so the project survives a move.",
     "allowedRoots": "Only folders under ALLOWED_DATA_ROOTS are listed.",
     "commit": "Import and index",
-    "detectTitle": "Detected input files",
+    "detectTitle": "Detected source",
     "detectedCount_one": "{{count}} input file",
     "detectedCount_other": "{{count}} input files",
     "done": "Import finished: {{cases}} cases indexed",
@@ -284,10 +286,10 @@
     "kpiRows": "scan rows",
     "previewTitle": "Preview",
     "readOnly": "The data root is read-only for this app. Inputs are snapshotted into the project; images and masks are never written.",
-    "rootHelp": "Choose the folder that contains metadata.jsonl. It becomes a path alias of this project.",
+    "rootHelp": "Choose a folder (with metadata.jsonl, NIfTI or DICOM files) or one NIfTI file. The folder becomes a path alias of this project.",
     "rootTitle": "Data root",
     "row": "row {{n}}",
-    "scanning": "Scanning for metadata.jsonl, phase.json and voi/voi_catalog.jsonl…",
+    "scanning": "Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…",
     "step": {
       "root": "Data root",
       "detect": "Detect",
@@ -330,14 +332,51 @@
     },
     "source": {
       "detected": "detected",
-      "uploaded": "uploaded"
+      "uploaded": "uploaded",
+      "generated": "built from file names"
     },
     "notFound": "not found",
     "noMetadata": "No metadata.jsonl under this root. Pick another folder or upload the file.",
     "indexFailed": "Indexing did not finish",
     "rows_one": "{{count}} row",
     "rows_other": "{{count}} rows",
-    "mapping": "Field mapping"
+    "mapping": "Field mapping",
+    "allowedDerived": "Only folders under ALLOWED_DERIVED_ROOTS are listed.",
+    "adapterTitle": "Import as",
+    "adapter": {
+      "metadata-v1": "Contract v1 (metadata.jsonl)",
+      "nifti-files": "NIfTI files",
+      "dicom_convert": "DICOM → NIfTI conversion",
+      "open": "Open without a project"
+    },
+    "confidence": {
+      "high": "best match",
+      "medium": "possible",
+      "low": "also possible"
+    },
+    "openInstead": "Open",
+    "singleFile": "One file: {{name}} (a one-item project)",
+    "ignored": "Ignored (not NIfTI, DICOM or NumPy): {{list}}",
+    "nifti": {
+      "pattern": "File name pattern",
+      "patternDefault": "nnU-Net style: {scan_idx}_{MOD}_{case_id}_{channel}",
+      "patternHelp": "A regular expression on the file name without extension; named groups case_id, scan_idx, channel, modality, phase, side. Unmatched names become one case per file.",
+      "caseIdFrom": "Case id from",
+      "from": {
+        "pattern": "the pattern",
+        "stem": "the file name",
+        "sequential": "numbering (case_00001 …)"
+      },
+      "modality": "Modality",
+      "file": "File",
+      "case": "Case",
+      "scan": "Scan",
+      "sampleTitle": "Parsed file names (first 50)",
+      "unmatched_one": "{{count}} name did not match the pattern: {{names}}",
+      "unmatched_other": "{{count}} names did not match the pattern: {{names}}",
+      "orphans_one": "{{count}} mask has no image",
+      "orphans_other": "{{count}} masks have no image"
+    }
   },
   "explorer": {
     "caseCount_one": "{{count}} case",
@@ -843,5 +882,17 @@
     "runFailed_other": "{{count}} failed",
     "runSkipped_one": "{{count}} skipped",
     "runSkipped_other": "{{count}} skipped"
+  },
+  "problemAction": {
+    "import_as": "Import as {{arg}}",
+    "open": "Open without a project",
+    "choose_another_path": "Choose another file or folder",
+    "choose_derived_root": "Choose the derived folder",
+    "configure": "Ask the admin to set {{arg}}",
+    "axis_order": "Use axis order {{arg}}",
+    "open_folder": "Open the folder instead"
+  },
+  "open": {
+    "command": "Open file or folder…"
   }
 }

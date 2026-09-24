@@ -83,6 +83,7 @@ class QcWarning(BaseModel):
     severity: Severity
     item_id: str | None = None
     case_id: str | None = None
+    seg_id: str | None = None  # mask warnings: the segmentation set (ADR-0015)
     field: str | None = None
     path_ref: str | None = None
     message: str

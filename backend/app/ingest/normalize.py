@@ -59,6 +59,7 @@ SIDES: dict[str, Literal["L", "R"]] = {
     **dict.fromkeys(("r", "right", "sider", "_r"), "R"),
 }
 _SEG_SUFFIX = re.compile(r"_0000(\.nii(?:\.gz)?)$", re.IGNORECASE)
+ACCEPTED_EXT = re.compile(r"\.(nii|nii\.gz|npy)$", re.IGNORECASE)  # SRC-02 (DICOM: converter)
 
 # Row fields consumed into Item fields (paths never go to `extra`: PRJ-04).
 META_CONSUMED = frozenset(
@@ -159,6 +160,7 @@ class Draft:
     image: FileDraft | None = None
     mask: FileDraft | None = None
     spacing: tuple[float, ...] | None = None
+    axis_order: str = "xyz"  # catalog `axis_order` for `.npy` VOIs (IMP-10, SRC-12)
     line: int = 0
     warnings: list[PendingWarning] = field(default_factory=list)
 
@@ -178,6 +180,12 @@ def _file(
     d: Draft, resolver: PathResolver, alias: str, raw: str, role: str, *, explicit: bool = True
 ) -> FileDraft | None:
     """Resolve one path; emits `outside_root` / `missing_path` (invalid) and returns None."""
+    if not ACCEPTED_EXT.search(raw.strip()):
+        ext = posixpath.splitext(raw.strip())[1] or "(none)"
+        d.warn(
+            QcCode.UNSUPPORTED_FORMAT, role, f"{role} ignored: {ext} is not NIfTI or NumPy (SRC-02)"
+        )
+        return None
     try:
         ref = resolver.to_ref(alias, raw)
     except PathOutsideRoot:
@@ -207,6 +215,18 @@ def _spacing(row: Row) -> tuple[float, ...] | None:
         if all(s > 0 for s in sp):
             return sp
     return None
+
+
+def _axis_order(row: Row) -> str:
+    v = row.extra.get("axis_order", row.data.get("axis_order"))
+    return v if v in ("xyz", "zyx") else "xyz"
+
+
+def _check_axis_order(d: Draft, row: Row) -> None:
+    """SRC-12: a declared order must be xyz or zyx; legacy VOIs without one read as xyz."""
+    v = row.extra.get("axis_order", row.data.get("axis_order"))
+    if v is not None and v not in ("xyz", "zyx"):
+        d.warn(QcCode.AMBIGUOUS_AXIS_ORDER, "axis_order", f"axis_order {v!r} is not xyz or zyx")
 
 
 def _scan_draft(
@@ -270,12 +290,14 @@ def _voi_draft(
         extra=_extra(row, CATALOG_CONSUMED),
         modality=(parent.modality if parent else None) or row.text("modality"),
         spacing=_spacing(row),
+        axis_order=_axis_order(row),
         line=row.line,
     )
     if excluded:
         return d
     if side is None:
         d.warn(QcCode.AMBIGUOUS_SIDE, "side", f"side {row.text('side')!r} is not L or R")
+    _check_axis_order(d, row)
     if ambiguous:
         d.warn(QcCode.AMBIGUOUS_PHASE, "phase", f"catalog phase {phase.raw!r} is unknown")
     raw = row.text("image_path")

@@ -92,7 +92,9 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
             "JSON previews require detect=true; upload files as multipart instead",
             errors=[{"loc": ["body", "detect"], "msg": "must be true"}],
         )
-    return await svc.preview(pid, body.root, alias=body.alias)
+    return await svc.preview(
+        pid, body.root, alias=body.alias, adapter=body.adapter, options=body.options
+    )
 
 
 @router.post("/projects/{pid}/imports", response_model=CommitResult, status_code=202)

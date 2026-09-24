@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.core.errors import SLUGS
 from tools.openapi_snapshot import SNAPSHOT, current, render
 
-STREAMING = {"image", "mask", "thumbnail", "events", "bundle"}  # bundle: API-06 zip
+STREAMING = {"image", "mask", "thumbnail", "events", "bundle", "preview"}  # bundle: API-06 zip
 # Binary bodies identified by the segment before a path parameter (API-25 mesh: .../mesh/{label})
 BINARY_PARENTS = {"mesh"}
 
@@ -29,6 +29,8 @@ def test_every_operation_is_versioned_and_typed() -> None:
         for method, op in ops.items():
             ok = [c for c in op["responses"] if c.startswith("2")]
             assert ok, f"{method} {path}: no 2xx response"
+            if ok[0] == "204":
+                continue  # no body by definition
             segments = path.rsplit("/", 2)
             if segments[-1] in STREAMING or segments[-2] in BINARY_PARENTS:
                 continue

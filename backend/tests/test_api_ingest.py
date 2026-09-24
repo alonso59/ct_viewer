@@ -75,7 +75,7 @@ def test_preview_detect(client: TestClient, pid: str, data_root: Path) -> None:
     assert pv["alias"] == "DATA" and pv["n_errors"] == 0 and pv["errors"] == []
     assert pv["counts"]["excluded_upstream"] == 1 and pv["counts"]["cases"] >= 16
     assert pv["field_mapping"]["image"] == "relative_path"
-    assert pv["field_mapping"]["seg"] == "convention"
+    assert pv["field_mapping"]["seg"] == "seg_path"  # case_00013 names a .mha seg (SRC-02 fixture)
     assert pv["field_mapping"]["phase"] == ["phase.json", "phase"]
     pdir = ctx_of(client).workspace.project_dir(pid)
     cached = pdir / "cache/previews" / pv["preview_id"]
@@ -107,7 +107,7 @@ def test_preview_multipart_and_errors(client: TestClient, pid: str, data_root: P
     [
         ({"root": "/"}, 403, "path-outside-root"),
         ({"root": "relative/path"}, 422, "validation"),
-        ({"root": "__FILE__"}, 422, "validation"),
+        ({"root": "__FILE__"}, 415, "unsupported-format"),  # a file root must be NIfTI (SRC-05)
         ({"root": "__ROOT__", "detect": False}, 422, "validation"),
         ({"root": "__ROOT__", "alias": "bad alias"}, 422, "validation"),
         ({}, 422, "validation"),
@@ -268,7 +268,7 @@ def test_case_detail(
         "case_00001.03.voi.R",
     ]
     d = client.get(f"{API}/projects/{pid}/cases/case_00013").json()
-    assert {w["code"] for w in d["warnings"]} == {"missing_seg"}
+    assert {w["code"] for w in d["warnings"]} == {"missing_seg", "unsupported_format"}
     assert client.get(f"{API}/projects/{pid}/cases/case_99999").status_code == 404
 
 

@@ -239,7 +239,10 @@ def build(out: Path) -> Plan:
 
     c = "case_00013"
     scan(c, "01", "NP", seg=False)
+    plan.metadata[-1]["seg_path"] = f"seg/01_{c}.mha"  # not an accepted format (SRC-02)
+    (root / f"seg/01_{c}.mha").write_bytes(b"ObjectType = Image\n")
     plan.expect(QcCode.MISSING_SEG, c, "no seg file", scan_idx="01")
+    plan.expect(QcCode.UNSUPPORTED_FORMAT, c, "seg_path is a .mha file", scan_idx="01")
 
     c = "case_00014"
     scan(c, "01", "NP")
@@ -316,6 +319,23 @@ def build(out: Path) -> Plan:
             "spacing": list(SPACING),
         }
     )
+    # The R crop declares an axis order that is neither xyz nor zyx (SRC-12).
+    npy_img_r, npy_msk_r = npy_img.replace("_L.npy", "_R.npy"), npy_msk.replace("_L.npy", "_R.npy")
+    for rel, arr in ((npy_img_r, ct[crop]), (npy_msk_r, lab[crop])):
+        np.save(root / rel, arr)
+    plan.voi.append(
+        {
+            "case_id": c,
+            "scan_idx": "01",
+            "side": "R",
+            "phase": "NP",
+            "image_path": npy_img_r,
+            "mask_path": npy_msk_r,
+            "spacing": list(SPACING),
+            "axis_order": "yxz",
+        }
+    )
+    plan.expect(QcCode.AMBIGUOUS_AXIS_ORDER, c, "catalog axis_order 'yxz'", scan_idx="01", side="R")
 
     # --- Healthy cohort with study variables (VAR/ANA fixtures), then the radiomics outlier.
     for n in COHORT:

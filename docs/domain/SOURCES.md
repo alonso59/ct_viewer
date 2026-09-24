@@ -46,6 +46,8 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 
 Preview shows the parsed columns for the first 50 files and every unmatched name.
 
+Implementation notes (P7b Wave 2): the adapter reads file names only (headers are read by the index job) and writes v1 rows with `relative_path`, `seg_path`, `modality`, `source_kind: nifti`, `source_name`. Only channel `0000` (or no channel) becomes an item; other channels of the same case/scan are listed in the row's `channels`. `scan_idx` comes from the pattern, else from the registry. A mask file with no image is reported in `orphan_masks`. With one file chosen explicitly, that file is the item even if it looks like a mask.
+
 ## Identity (SRC-07)
 
 ```jsonc
@@ -54,7 +56,7 @@ Preview shows the parsed columns for the first 50 files and every unmatched name
   "template": "case_{n:05d}",            // {n} = case index; {key} = the identity key slug
   "start": 0, "next_index": 83,
   "cases": { "<identity key>": 50 },     // identity key → case index; never reused or renumbered
-  "scans": { "<identity key>|<series_uid or file>": "001" } }
+  "scans": { "<identity key>|<series_uid or file>": "01" } }   // 01, 02, … per case, first-seen order
 ```
 
 - `table`: a CSV `key,case_id` supplied by the user, which takes precedence over the template.
@@ -64,10 +66,11 @@ Preview shows the parsed columns for the first 50 files and every unmatched name
 
 ## Open mode (SRC-09/10)
 
-- `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry.
+- `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry. Sessions live in the API process memory (LRU of 32; gone after a restart); a folder lists at most 500 accepted files. Headers and the label-map check (integer dtype and ≤ 256 values in the middle slice) run in a job worker.
 - DICOM and NumPy are converted into `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, which is disposable, LRU-purged with `CACHE_MAX_GB`, and never a source for projects.
 - Viewer: all layouts. W/L uses HU presets only if DICOM says CT; otherwise the percentiles (VW-05). A label map opened alone is shown with auto colours `label_{value}` over a black background.
 - Curation, tasks and share links are disabled. "Create project from this" opens the import wizard with the path and the detected adapter.
+- Attach (SRC-10) takes a NIfTI or NumPy label map from inside the opened folder; outside it the refusal offers `open_folder`.
 
 ## NumPy geometry and axis order (SRC-12)
 
@@ -82,7 +85,7 @@ An array has no geometry. The adapter needs all of the following from a sidecar 
 
 Rules:
 - Conversion to NIfTI: `zyx` is transposed `(2,1,0)` before writing, then the affine is applied. Spacing is never permuted, because it is already in x, y, z. `bool` becomes `uint8`.
-- Missing `axis_order` with no decisive `reference_ref`: refused (SRC-11). In Open mode the dialog shows the middle slice in both orders and the user picks.
+- Missing `axis_order` with no decisive `reference_ref`: refused (SRC-11, `ambiguous-axis-order` with actions `axis_order:xyz`, `axis_order:zyx`). In Open mode the dialog shows the middle slice in both orders (API-08 `…/preview?axis_order=`) and the user picks; the volume is then served with `?axis_order=`.
 - The chosen order and geometry go into `source.json` / the item's `extra.array_geometry`, so every conversion is reproducible.
-- Legacy VOIs (IMP-10) are read as `xyz` with catalog spacing, which is today's behaviour. This must be checked against the v2 VOI writer; if it wrote `zyx`, the catalog gets `axis_order: zyx`.
+- Legacy VOIs (IMP-10) are read as `xyz` with catalog spacing, which is today's behaviour. A catalog row may declare `axis_order` (`xyz` | `zyx`); any other value is the QC warning `ambiguous_axis_order` and the row stays `xyz`. The check against the v2 VOI writer needs `legacy/` and is done in P7b Wave 3 (R9); if it wrote `zyx`, the catalog gets `axis_order: zyx`.
 - Writing arrays back to NumPy is out of scope.

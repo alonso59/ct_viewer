@@ -875,6 +875,28 @@ export const mockServer: Api = {
     await wait(40)
     return clone(taskRunOf(state(pid), rid).outputs ?? [])
   },
+  async detectSource(path) {
+    await wait(150)
+    const counts = { nifti: 0, dicom: 0, npy: 0, ignored: 0 }
+    if (path === DEMO_ROOT)
+      return { path, kind: 'folder', root: path, candidates: [{ adapter: 'metadata-v1', reason: 'metadata.jsonl found (contract v1)', counts, confidence: 'high', options: {}, available: true, unavailable_reason: null }], counts, ignored: {}, truncated: false }
+    throw new ProblemError(415, 'unsupported-format', 'No accepted file in the mock', 'The mock only knows the demo dataset', ['choose_another_path'])
+  },
+  async openPath() {
+    await wait(60)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Open mode needs the backend (API-07)')
+  },
+  async getOpen(sid) {
+    await wait(20)
+    throw new ProblemError(404, 'not-found', 'Open session not found', sid)
+  },
+  async closeOpen() {},
+  openImageUrl: () => null,
+  openPreviewUrl: () => null,
+  async attachOpen() {
+    await wait(20)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Open mode needs the backend (API-08)')
+  },
   async fsList(path) {
     await wait(90)
     if (!path) return { path: null, parent: null, entries: [{ name: '/data', path: '/data', kind: 'dir', size: null, has_metadata: false }], truncated: false }
@@ -901,6 +923,12 @@ export const mockServer: Api = {
       errors,
       n_errors: errors.length,
       field_mapping: { image: 'relative_path', seg: 'convention', phase: ['phase.json', 'phase'], side: 'side' },
+      adapter: req.adapter ?? 'metadata-v1',
+      options: {},
+      sample: [],
+      unmatched: [],
+      orphan_masks: [],
+      ignored: {},
     }
     s.previews.set(preview.preview_id, preview)
     return preview
@@ -928,7 +956,7 @@ export const mockServer: Api = {
     const s = exists(pid)
     const last = s.imports.at(-1)
     return {
-      items: s.imports.map((i) => ({ import_id: i.import_id, at: i.at, alias: i.preview.alias, root: i.preview.root, files: i.preview.files, counts: i.preview.counts })).reverse(),
+      items: s.imports.map((i) => ({ import_id: i.import_id, at: i.at, alias: i.preview.alias, root: i.preview.root, files: i.preview.files, counts: i.preview.counts, adapter: i.preview.adapter ?? 'metadata-v1' })).reverse(),
       next_cursor: null,
       total: s.imports.length,
       index: {

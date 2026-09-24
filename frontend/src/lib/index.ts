@@ -4,3 +4,4 @@ export { StatusBadge, StatusIcon, PhaseChip, SeverityIcon, STATUS_TONE } from '.
 export { fmtNum, fmt1, fmtInt, fmtDate, fmtAgo, fmtDuration, robustZ } from './format'
 export { renderSlice, hexToRgb, type SliceRender } from './slice'
 export { SliceThumb } from './SliceThumb'
+export { ProblemCard, type ActionHandlers } from './ProblemCard'

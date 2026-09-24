@@ -9,6 +9,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from app.core.ids import CASE_ID_RE
 from app.ingest.normalize import (
     PHASE_TABLE,
     normalize_phase,
@@ -46,7 +47,7 @@ def test_metadata_line_numbered_errors() -> None:
         "{not json",
         "[1, 2]",
         {"scan_idx": "01", "filename": "a.nii.gz"},
-        {"case_id": "case_1", "scan_idx": "01", "filename": "a.nii.gz"},
+        {"case_id": "case.1", "scan_idx": "01", "filename": "a.nii.gz"},  # `.` breaks item_id
         {"case_id": "case_00002", "scan_idx": "0 1", "filename": "a.nii.gz"},
         {"case_id": "case_00002", "scan_idx": "01"},
         '{"case_id": "case_00003", "scan_idx": "01", "filename": "a", "x": NaN}',
@@ -101,7 +102,7 @@ def test_phase_json_both_forms_and_errors() -> None:
                 "schema_version": 1,
                 "phases": [
                     {"case_id": "case_00001", "scan_idx": "01", "phase": "NP"},
-                    {"case_id": "bad", "scan_idx": "01", "phase": "NP"},
+                    {"case_id": "bad id", "scan_idx": "01", "phase": "NP"},
                     "x",
                 ],
                 "phase_by_filename": {"01_case_00002_0000.nii.gz": "ART", "y": 3},
@@ -256,6 +257,6 @@ def test_parsers_never_crash(lines: list[bytes]) -> None:
         rows, errors = parse(data)
         assert all(e.line is not None and e.line >= 1 for e in errors)
         assert len(rows) <= n_lines
-        assert all(r.case_id.startswith("case_") for r in rows)
+        assert all(CASE_ID_RE.match(r.case_id) for r in rows)  # SRC-08 slug
     ov, errors = parse_phase_json(data)
     assert isinstance(len(ov), int)

@@ -18,6 +18,7 @@ import type {
   NewCurationEvent,
   Preset,
   PreviewRequest,
+  RootRole,
   RadiomicsSettings,
   Selection,
   ServerEvent,
@@ -96,8 +97,20 @@ export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labe
     staleTime: Infinity,
   })
 }
-export const useFsList = (path: string | null) =>
-  useQuery({ queryKey: keys.fs(path), queryFn: () => api.fsList(path), placeholderData: (p) => p })
+export const useFsList = (path: string | null, role: RootRole = 'source') =>
+  useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
+/** API-19 (SRC-01): candidate adapters for a folder or file */
+export const useDetect = () => useMutation({ mutationFn: (path: string) => api.detectSource(path) })
+/** API-07: an Open-mode session for a path (SRC-09); refetching re-opens */
+export const useOpenSession = (path: string | null) =>
+  useQuery({ queryKey: keys.open(path ?? ''), queryFn: () => api.openPath(path ?? ''), enabled: enabled(path), staleTime: Infinity, retry: false })
+export function useAttachOpen(path: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sid, n, file }: { sid: string; n: number; file: string }) => api.attachOpen(sid, n, file),
+    onSuccess: (s) => qc.setQueryData(keys.open(path), s),
+  })
+}
 
 /** Complete item that represents a case in lists: the summary's, else derived from the case detail */
 export function pickThumbItem(items: ItemRecord[], priority: string[] = ['NP', 'CMP', 'NC', 'EP', 'UNK']): ItemRecord | null {
@@ -346,6 +359,13 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
         void qc.invalidateQueries({ queryKey: ['project', pid, 'run'] })
       }
       if (e.data.kind === 'thumbnail') useConnection.getState().bumpThumbs()
+      // TSK-09: a finished task run may have registered a segmentation set, annotations or an import
+      if (e.data.kind === 'task') {
+        void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
+        void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
+        void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
+        void qc.invalidateQueries({ queryKey: ['project', pid, 'item'] })
+      }
       if (e.data.kind === 'index') void qc.invalidateQueries({ queryKey: keys.imports(pid) })
       // API-15 results are `image.sha256` / `mask.sha256` on item records
       if (e.data.kind === 'hash') {
@@ -353,6 +373,11 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
         void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
       }
     }
+  }
+  if (e.event === 'job.status') {
+    // TSK-06: `waiting_for_runner` ↔ `running`
+    qc.setQueryData(keys.jobs(pid), (old: Job[] | undefined) => old?.map((j) => (j.job_id === e.data.job_id ? { ...j, status: e.data.status } : j)))
+    void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
   }
   if (e.event === 'index.rebuilt') {
     void qc.invalidateQueries({ queryKey: ['project', pid] })
@@ -383,3 +408,12 @@ export function useProjectSync(pid: string | null) {
     return api.subscribe(pid, (e) => applyServerEvent(qc, pid, e), setState)
   }, [pid, qc])
 }
+
+// ---- P7b: tasks (API-42..47) and segmentation sets (API-27) --------------------------------------
+export const useTasks = () => useQuery({ queryKey: keys.tasks(), queryFn: () => api.listTasks(), staleTime: 30_000 })
+export const useSegmentations = (pid: string) =>
+  useQuery({ queryKey: keys.segmentations(pid), queryFn: () => api.listSegmentations(pid), enabled: enabled(pid) })
+export const useTaskRuns = (pid: string) =>
+  useQuery({ queryKey: keys.taskRuns(pid), queryFn: () => api.listTaskRuns(pid), enabled: enabled(pid) })
+export const useTaskRun = (pid: string, rid: string | null) =>
+  useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid) })

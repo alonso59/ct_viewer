@@ -46,10 +46,18 @@ def volume_format(path: Path | str) -> VolumeFormat:
     return "npy" if str(path).lower().endswith(".npy") else "nifti"
 
 
-def read_header(path: Path, *, spacing: tuple[float, ...] | None = None) -> HeaderInfo:
-    """Read geometry without decoding voxels. `spacing` is used for `.npy` (catalog spacing)."""
+def read_header(
+    path: Path, *, spacing: tuple[float, ...] | None = None, axis_order: str = "xyz"
+) -> HeaderInfo:
+    """Read geometry without decoding voxels. `spacing` / `axis_order` apply to `.npy` (SRC-12):
+    a `zyx` array reports the NIfTI (x, y, z) shape it converts to."""
     if volume_format(path) == "npy":
-        return _read_npy(path, spacing)
+        info = _read_npy(path, spacing)
+        if axis_order == "zyx":
+            info = HeaderInfo(
+                "npy", tuple(reversed(info.shape)), info.spacing, info.dtype, None, None
+            )
+        return info
     try:
         img: Any = nib.load(path)
         hdr = img.header

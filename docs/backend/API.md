@@ -23,10 +23,10 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report); body `{path, role?}`, `role: derived` registers the derived root (PRJ-13; default = the alias's current role, else `source`) | PRJ-05/13 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
-| API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `{sid, items[]}` (headers only; DICOM/NumPy converted into `.scratch/`) | SRC-09 |
-| API-08 | `GET /open/{sid}/items/{n}/image` · `POST /open/{sid}/items/{n}/attach` | Open-mode bytes (Range) / attach a segmentation `{path}` → geometry check (`geometry-mismatch`) | SRC-10 |
+| API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `201 {sid, path, root, kind, items[], truncated, ignored}` (headers only; DICOM/NumPy converted into `.scratch/`); DELETE → `204` | SRC-09 |
+| API-08 | `GET /open/{sid}/items/{n}/image?axis_order=` · `GET …/items/{n}/preview?axis_order=` · `POST /open/{sid}/items/{n}/attach` | Open-mode bytes (Range; NumPy needs a decided or given `axis_order`, else `ambiguous-axis-order`) / NumPy middle slice PNG / attach a segmentation `{path}` → the session with the new label item, or `geometry-mismatch` | SRC-10/12 |
 | API-10 | `GET /fs/list?path=&role=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` (`role=derived`: `ALLOWED_DERIVED_ROOTS`, `derived-root-required` when empty) | IMP-01, PRJ-13 |
-| API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect:true}` → preview | IMP-02/03 |
+| API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect: true, adapter?, options?}` → preview (`adapter`: `metadata-v1` default, `nifti-files`; a NIfTI file as `root` = single-file import, SRC-05). The preview adds `adapter`, `options`, `sample`, `unmatched`, `orphan_masks`, `ignored` | IMP-02/03, SRC-03..06 |
 | API-12 | `POST /projects/{pid}/imports` | Commit preview → `202 {job_id}` (indexing) | IMP-04/05 |
 | API-13 | `GET /projects/{pid}/imports` | Import history + current `index` status | IMP-04 |
 | API-14 | `GET /projects/{pid}/warnings` | QC warnings (filterable) | IMP-08 |
@@ -34,7 +34,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-16 | `GET /projects/{pid}/variables` · `PATCH …/variables/{name}` | Catalog with profile; override type/visibility/tags | VAR-01..05 |
 | API-17 | `POST /projects/{pid}/variables/derived` · `DELETE …/derived/{name}` | Bin / recode / dominant | VAR-06 |
 | API-18 | `POST /projects/{pid}/variables/external` | CSV/TSV keyed by case_id or patient_id → match report | VAR-07 |
-| API-19 | `POST /sources/detect` | `{path}` (folder or file) → candidate adapters `[{adapter, reason, counts, confidence}]`; API-11 preview then takes `{adapter, options}` | SRC-01..06 |
+| API-19 | `POST /sources/detect` | `{path}` (folder or file) → `{path, kind, root, candidates: [{adapter, reason, counts, confidence, options, available, unavailable_reason}], counts, ignored}`; adapters `metadata-v1`, `nifti-files`, `dicom.convert`, `open`; nothing accepted → `unsupported-format` | SRC-01..06 |
 | API-20 | `GET /projects/{pid}/cases` | Case summaries | DATA_MODEL |
 | API-21 | `GET /projects/{pid}/cases/{cid}` | Case + items tree + warnings | |
 | API-22 | `GET /projects/{pid}/items/{iid}` | Item record (+ `advanced` with absolute paths) | |

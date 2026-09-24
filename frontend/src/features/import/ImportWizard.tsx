@@ -1,35 +1,73 @@
-// Import wizard (IMP-01..05): data root (server folder browser, API-10) → detected or uploaded
-// input files (API-11) → preview → commit (API-12) + indexing job (SSE progress, API-40).
+// Import wizard (IMP-01..05, SRC-01..06): a folder or one file (server browser, API-10) → detected
+// source adapters (API-19) → preview (API-11; `nifti-files` options with a live parse) → commit
+// (API-12) + indexing job (SSE progress, API-40). Refusals show their cause and next actions (UI-18).
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 import { create } from 'zustand'
 
-import { useCommitImport, useFsList, useImportPreview, useJobs, type ImportPreview, type PreviewRequest } from '../../api'
-import { Dialog, Progress } from '../../lib'
+import {
+  useCommitImport,
+  useDetect,
+  useFsList,
+  useImportPreview,
+  useJobs,
+  type DetectCandidate,
+  type ImportAdapter,
+  type ImportPreview,
+  type NiftiOptions,
+  type PreviewRequest,
+  type RootRole,
+} from '../../api'
+import { Dialog, ProblemCard, Progress } from '../../lib'
 import { toast } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import './import.css'
 
+export interface WizardPrefill {
+  path: string
+  adapter?: string
+}
+
 interface WizardState {
   pid: string | null
-  open: (pid: string) => void
+  prefill: WizardPrefill | null
+  open: (pid: string, prefill?: WizardPrefill) => void
   close: () => void
 }
 export const useImportWizard = create<WizardState>()((set) => ({
   pid: null,
-  open: (pid) => set({ pid }),
-  close: () => set({ pid: null }),
+  prefill: null,
+  open: (pid, prefill) => set({ pid, prefill: prefill ?? null }),
+  close: () => set({ pid: null, prefill: null }),
 }))
 
 const STEPS = ['root', 'detect', 'preview', 'index'] as const
 type Step = (typeof STEPS)[number]
 const MAX_ERRORS = 50
+/** SRC-02: files the browser lets you pick (folders are always navigable) */
+const ACCEPTED = /\.(nii|nii\.gz|npy|dcm)$/i
+const IMPORTABLE = new Set<string>(['metadata-v1', 'nifti-files'])
 
-/** IMP-01: browse folders under ALLOWED_DATA_ROOTS; `null` lists the allowed roots themselves */
-function FolderBrowser({ path, onPath }: { path: string | null; onPath: (p: string | null) => void }) {
+/** IMP-01: browse folders under ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
+export function FolderBrowser({
+  path,
+  onPath,
+  selected,
+  onSelectFile,
+  role = 'source',
+}: {
+  path: string | null
+  onPath: (p: string | null) => void
+  /** Highlighted file (single-file selection, SRC-05) */
+  selected?: string | null
+  /** Makes accepted files clickable */
+  onSelectFile?: (p: string) => void
+  role?: RootRole
+}) {
   const { t } = useTranslation()
-  const { data, isLoading, isError, error } = useFsList(path)
+  const { data, isLoading, isError, error } = useFsList(path, role)
   return (
     <div className="fs">
       <div className="fs-path mono" title={path ?? ''}>
@@ -46,18 +84,30 @@ function FolderBrowser({ path, onPath }: { path: string | null; onPath: (p: stri
           </button>
         ) : null}
         {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-        {isError ? <div className="error-card">{error.message}</div> : null}
+        {isError ? <ProblemCard error={error} /> : null}
         {data && data.entries.length === 0 ? <div className="empty">{t(path === null ? 'import.noRoots' : 'import.emptyFolder')}</div> : null}
-        {data?.entries.map((e) => (
-          <button key={e.path} type="button" className="list-row" disabled={e.kind === 'file'} onClick={() => onPath(e.path)} title={e.path}>
-            <Icon spec={codicon(e.kind === 'dir' ? 'folder' : 'file')} />
-            <span>{e.name}</span>
-            {e.has_metadata ? <span className="badge" data-tone="ok" style={{ marginLeft: 'auto' }}>{t('import.hasMetadata')}</span> : null}
-          </button>
-        ))}
+        {data?.entries.map((e) => {
+          const pickable = e.kind === 'file' && !!onSelectFile && ACCEPTED.test(e.name)
+          return (
+            <button
+              key={e.path}
+              type="button"
+              className="list-row"
+              aria-selected={selected === e.path}
+              disabled={e.kind === 'file' && !pickable}
+              onClick={() => (e.kind === 'dir' ? onPath(e.path) : onSelectFile?.(e.path))}
+              title={e.path}
+            >
+              <Icon spec={codicon(e.kind === 'dir' ? 'folder' : 'file')} />
+              <span>{e.name}</span>
+              {e.has_metadata ? <span className="badge" data-tone="ok" style={{ marginLeft: 'auto' }}>{t('import.hasMetadata')}</span> : null}
+              {selected === e.path ? <Icon spec={codicon('check')} style={{ marginLeft: 'auto' }} /> : null}
+            </button>
+          )
+        })}
         {data?.truncated ? <div className="muted" style={{ padding: '4px 12px' }}>{t('import.truncated')}</div> : null}
       </div>
-      <div className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('import.allowedRoots')}</div>
+      <div className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t(role === 'derived' ? 'import.allowedDerived' : 'import.allowedRoots')}</div>
     </div>
   )
 }
@@ -110,25 +160,123 @@ function Mapping({ preview }: { preview: ImportPreview }) {
   )
 }
 
-export function ImportWizard() {
-  const pid = useImportWizard((s) => s.pid)
-  return pid ? <Wizard key={pid} pid={pid} /> : null
+/** SRC-04 options: pattern (nnU-Net style by default), case id source, modality */
+function NiftiOptionsForm({ value, onChange }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+      <label className="field">
+        <span className="field-label">{t('import.nifti.pattern')}</span>
+        <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
+        <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('import.nifti.patternHelp')}</span>
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <label className="field">
+          <span className="field-label">{t('import.nifti.caseIdFrom')}</span>
+          <select className="select" value={value.case_id_from ?? 'pattern'} onChange={(e) => onChange({ ...value, case_id_from: e.target.value as NiftiOptions['case_id_from'] })}>
+            {(['pattern', 'stem', 'sequential'] as const).map((k) => (
+              <option key={k} value={k}>{t(`import.nifti.from.${k}`)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">{t('import.nifti.modality')}</span>
+          <input className="input mono" value={value.modality ?? 'CT'} onChange={(e) => onChange({ ...value, modality: e.target.value.toUpperCase() })} />
+        </label>
+      </div>
+    </div>
+  )
 }
 
-function Wizard({ pid }: { pid: string }) {
+function NiftiSample({ p }: { p: ImportPreview }) {
   const { t } = useTranslation()
+  return (
+    <>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>{t('import.nifti.file')}</th>
+            <th>{t('import.nifti.case')}</th>
+            <th>{t('import.nifti.scan')}</th>
+            <th>{t('import.nifti.modality')}</th>
+            <th>{t('import.field.mask')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(p.sample ?? []).map((r) => (
+            <tr key={r.file}>
+              <td className="mono" title={r.file}>{r.matched ? null : <Icon spec={codicon('warning')} />} {r.file}</td>
+              <td className="mono">{r.case_id}</td>
+              <td className="mono">{r.scan_idx}</td>
+              <td className="mono">{r.modality ?? '—'}</td>
+              <td className="mono" title={r.mask ?? ''}>{r.mask ? <Icon spec={codicon('check')} /> : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {p.unmatched?.length ? (
+        <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.nifti.unmatched', { count: p.unmatched.length, names: p.unmatched.slice(0, 5).join(', ') })}</p>
+      ) : null}
+      {p.orphan_masks?.length ? (
+        <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.nifti.orphans', { count: p.orphan_masks.length })}</p>
+      ) : null}
+      {Object.keys(p.ignored ?? {}).length ? (
+        <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>
+          {t('import.ignored', { list: Object.entries(p.ignored ?? {}).map(([ext, n]) => `${n} ${ext}`).join(', ') })}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value: string | null; onPick: (a: string) => void }) {
+  const { t } = useTranslation()
+  return (
+    <fieldset className="field preset-list" style={{ border: 0, padding: 0, margin: 0 }}>
+      <legend className="field-label">{t('import.adapterTitle')}</legend>
+      {cands.map((c) => (
+        <label key={c.adapter} className="preset" data-checked={value === c.adapter} aria-disabled={!c.available}>
+          <input type="radio" name="adapter" value={c.adapter} disabled={!c.available} checked={value === c.adapter} onChange={() => onPick(c.adapter)} />
+          <span>
+            <strong>{t(`import.adapter.${c.adapter.replace('.', '_')}`)}</strong>
+            <span className="muted">{c.reason}{c.unavailable_reason ? ` — ${c.unavailable_reason}` : ''}</span>
+          </span>
+          <span className="badge" style={{ marginLeft: 'auto' }}>{t(`import.confidence.${c.confidence}`)}</span>
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
+export function ImportWizard() {
+  const pid = useImportWizard((s) => s.pid)
+  const prefill = useImportWizard((s) => s.prefill)
+  return pid ? <Wizard key={pid} pid={pid} prefill={prefill} /> : null
+}
+
+const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
+
+function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
   const close = useImportWizard((s) => s.close)
-  const [step, setStep] = useState<Step>('root')
-  const [path, setPath] = useState<string | null>(null)
+  const [step, setStep] = useState<Step>(prefill ? 'detect' : 'root')
+  const [dir, setDir] = useState<string | null>(prefill ? (ACCEPTED.test(prefill.path) ? parentOf(prefill.path) : prefill.path) : null)
+  const [file, setFile] = useState<string | null>(prefill && ACCEPTED.test(prefill.path) ? prefill.path : null)
   const [alias, setAlias] = useState('DATA')
   const [upload, setUpload] = useState(false)
   const [files, setFiles] = useState<Partial<Uploads>>({})
+  const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
+  const [options, setOptions] = useState<NiftiOptions>({})
   const [jobId, setJobId] = useState<string | null>(null)
+  const detect = useDetect()
   const preview = useImportPreview(pid)
   const commit = useCommitImport(pid)
   const job = (useJobs(pid).data ?? []).find((j) => j.job_id === jobId)
   const qc = useQueryClient()
   const p = preview.data
+  const path = file ?? dir
+  const cands = detect.data?.candidates ?? []
 
   useEffect(() => {
     if (job?.status === 'succeeded') {
@@ -139,30 +287,74 @@ function Wizard({ pid }: { pid: string }) {
     }
   }, [job?.status, qc, close, t, p?.counts.cases, pid])
 
+  const pickAdapter = (d: { candidates: DetectCandidate[] }) => {
+    const want = prefill?.adapter
+    const first = d.candidates.find((c) => c.available && (want ? c.adapter === want : IMPORTABLE.has(c.adapter))) ?? d.candidates.find((c) => c.available)
+    setAdapter(first?.adapter ?? null)
+  }
+  const runDetect = (target: string) => {
+    setStep('detect')
+    preview.reset()
+    detect.mutate(target, { onSuccess: pickAdapter })
+  }
+  // "Create project from this" (Open mode) arrives with the path: detect at once
+  useEffect(() => {
+    if (prefill) detect.mutate(prefill.path, { onSuccess: pickAdapter })
+    // once per mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const runPreview = (a: ImportAdapter) => {
+    if (!path) return
+    const req: PreviewRequest = { root: path, alias, adapter: a }
+    if (a === 'nifti-files') req.options = options
+    preview.mutate(req, { onSuccess: () => setStep('preview') })
+  }
+
   const i = STEPS.indexOf(step)
   const hasMetadata = p?.files.some((f) => f.kind === 'metadata') ?? false
   const canNext =
     step === 'root'
       ? path !== null && alias !== '' && (!upload || files.metadata != null)
       : step === 'detect'
-        ? hasMetadata
+        ? adapter !== null && !preview.isPending && (adapter === 'open' || IMPORTABLE.has(adapter))
         : step === 'preview'
           ? hasMetadata && !commit.isPending
           : false
   const next = async () => {
     if (step === 'root' && path) {
-      setStep('detect')
-      const req: PreviewRequest = { root: path, alias }
-      if (upload && files.metadata) req.files = { metadata: files.metadata, phase: files.phase ?? null, voi_catalog: files.voi_catalog ?? null }
-      preview.mutate(req)
-    } else if (step === 'detect') setStep('preview')
-    else if (step === 'preview' && p) {
+      if (upload && files.metadata) {
+        setStep('detect')
+        setAdapter('metadata-v1')
+        preview.mutate(
+          { root: path, alias, files: { metadata: files.metadata, phase: files.phase ?? null, voi_catalog: files.voi_catalog ?? null } },
+          { onSuccess: () => setStep('preview') },
+        )
+      } else runDetect(path)
+    } else if (step === 'detect' && adapter) {
+      if (adapter === 'open') {
+        close()
+        navigate(`/open?path=${encodeURIComponent(path ?? '')}`)
+      } else runPreview(adapter as ImportAdapter)
+    } else if (step === 'preview' && p) {
       const r = await commit.mutateAsync(p.preview_id)
       setJobId(r.job_id)
       setStep('index')
     }
   }
   const failed = job && (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted')
+  const onAction = {
+    import_as: (a: string | null) => {
+      if (!a) return
+      setAdapter(a)
+      if (IMPORTABLE.has(a)) runPreview(a as ImportAdapter)
+    },
+    open: () => {
+      close()
+      navigate(`/open?path=${encodeURIComponent(path ?? '')}`)
+    },
+    choose_another_path: () => setStep('root'),
+  }
 
   return (
     <Dialog
@@ -190,7 +382,7 @@ function Wizard({ pid }: { pid: string }) {
           ) : null}
           {step !== 'index' ? (
             <button type="button" className="btn btn-primary" disabled={!canNext} onClick={() => void next()}>
-              {step === 'preview' ? t('import.commit') : t('common.next')}
+              {step === 'preview' ? t('import.commit') : step === 'detect' && adapter === 'open' ? t('import.openInstead') : t('common.next')}
             </button>
           ) : null}
         </>
@@ -201,6 +393,11 @@ function Wizard({ pid }: { pid: string }) {
           <div>
             <h3>{t('import.rootTitle')}</h3>
             <p className="muted">{t('import.rootHelp')}</p>
+            {file ? (
+              <p className="mono" style={{ fontSize: 'var(--fs-panel)' }}>
+                <Icon spec={codicon('file')} /> {t('import.singleFile', { name: file.slice(file.lastIndexOf('/') + 1) })}
+              </p>
+            ) : null}
             <label className="field" style={{ marginTop: 12 }}>
               <span className="field-label">{t('import.alias')}</span>
               <input className="input mono" value={alias} onChange={(e) => setAlias(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} />
@@ -216,45 +413,42 @@ function Wizard({ pid }: { pid: string }) {
               {t('import.readOnly')}
             </div>
           </div>
-          <FolderBrowser path={path} onPath={setPath} />
+          <FolderBrowser
+            path={dir}
+            onPath={(d) => {
+              setDir(d)
+              setFile(null)
+            }}
+            selected={file}
+            onSelectFile={(f) => setFile(file === f ? null : f)}
+          />
         </div>
       ) : null}
       {step === 'detect' ? (
         <div>
           <h3>{t('import.detectTitle')}</h3>
           <p className="muted mono">{path}</p>
-          {preview.isPending ? (
+          {detect.isPending || preview.isPending ? (
             <div className="empty">
               <Icon spec={codicon('loading')} className="codicon-modifier-spin" />
               {t('import.scanning')}
             </div>
           ) : null}
-          {preview.isError ? (
-            <div className="error-card" role="alert">
-              <strong>{preview.error.message}</strong>
+          {detect.isError ? <ProblemCard error={detect.error} onAction={onAction} /> : null}
+          {preview.isError ? <ProblemCard error={preview.error} onAction={onAction} /> : null}
+          {cands.length ? (
+            <div className="wiz-grid" style={{ marginTop: 8 }}>
+              <Candidates cands={cands} value={adapter} onPick={setAdapter} />
+              <div>
+                {adapter === 'nifti-files' ? <NiftiOptionsForm value={options} onChange={setOptions} /> : null}
+                {detect.data && Object.keys(detect.data.ignored).length ? (
+                  <p className="muted" style={{ fontSize: 'var(--fs-panel)', marginTop: 8 }}>
+                    {t('import.ignored', { list: Object.entries(detect.data.ignored).map(([ext, n]) => `${n} ${ext}`).join(', ') })}
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
-          {p ? (
-            <>
-              <table className="table" style={{ maxWidth: 560 }}>
-                <tbody>
-                  {(['metadata', 'phase', 'voi_catalog'] as const).map((kind) => {
-                    const f = p.files.find((x) => x.kind === kind)
-                    return (
-                      <tr key={kind}>
-                        <td style={{ color: f ? 'var(--ok)' : 'var(--fg-muted)' }}><Icon spec={codicon(f ? 'pass' : 'circle-large-outline')} /></td>
-                        <td className="mono">{f?.name ?? t(`import.file.${kind}`)}</td>
-                        <td className="muted">{f ? t(`import.source.${f.source}`) : t('import.notFound')}</td>
-                        <td className="num muted">{f ? t('import.rows', { count: f.rows }) : ''}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              {!hasMetadata ? <div className="error-card">{t('import.noMetadata')}</div> : null}
-            </>
-          ) : null}
-          <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.uploadAlt')}</p>
         </div>
       ) : null}
       {step === 'preview' && p ? (
@@ -267,10 +461,32 @@ function Wizard({ pid }: { pid: string }) {
               <div className="card"><span className="kpi num">{p.counts.voi_rows}</span><span className="muted">{t('import.kpiVoi')}</span></div>
               <div className="card"><span className="kpi num">{p.counts.excluded_upstream}</span><span className="muted">{t('import.kpiExcluded')}</span></div>
             </div>
-            <h3 style={{ marginTop: 16 }}>{t('import.mapping')}</h3>
-            <Mapping preview={p} />
+            {p.adapter === 'nifti-files' ? null : (
+              <>
+                <h3 style={{ marginTop: 16 }}>{t('import.mapping')}</h3>
+                <Mapping preview={p} />
+                <table className="table" style={{ marginTop: 12 }}>
+                  <tbody>
+                    {p.files.map((f) => (
+                      <tr key={f.kind}>
+                        <td style={{ color: 'var(--ok)' }}><Icon spec={codicon('pass')} /></td>
+                        <td className="mono">{f.name}</td>
+                        <td className="muted">{t(`import.source.${f.source}`)}</td>
+                        <td className="num muted">{t('import.rows', { count: f.rows })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
           <div>
+            {p.adapter === 'nifti-files' ? (
+              <>
+                <h3>{t('import.nifti.sampleTitle')}</h3>
+                <NiftiSample p={p} />
+              </>
+            ) : null}
             <h3>{t('import.errors', { count: p.n_errors })}</h3>
             <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.errorsHelp')}</p>
             {p.n_errors > MAX_ERRORS ? <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.errorsFirst', { n: MAX_ERRORS })}</p> : null}

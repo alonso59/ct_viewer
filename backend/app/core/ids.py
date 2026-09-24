@@ -11,9 +11,10 @@ from ulid import ULID
 Scope = Literal["complete", "voi"]
 Side = Literal["L", "R", "-"]
 
-CASE_ID_RE = re.compile(r"^case_\d{5}$")
+# SRC-08: a URL-safe slug without `.` (the item_id separator); `case_\d{5}` is only a template.
+CASE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
-ITEM_ID_RE = re.compile(r"^(case_\d{5})\.([A-Za-z0-9_-]+)\.(complete|voi)\.(L|R|-)$")
+ITEM_ID_RE = re.compile(r"^([A-Za-z0-9_-]{1,64})\.([A-Za-z0-9_-]+)\.(complete|voi)\.(L|R|-)$")
 
 
 def new_ulid() -> str:

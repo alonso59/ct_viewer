@@ -216,7 +216,27 @@ export interface PreviewRequest {
   root: string
   alias: string
   files?: { metadata: File; phase?: File | null; voi_catalog?: File | null }
+  /** SRC-03/04: `nifti-files` builds v1 rows from file names; `root` may be one NIfTI file (SRC-05) */
+  adapter?: ImportAdapter
+  options?: NiftiOptions
 }
+export type ImportAdapter = NonNullable<S['ImportPreview']['adapter']>
+/** `nifti-files` options (SOURCES §NIfTI files) */
+export interface NiftiOptions {
+  pattern?: string
+  case_id_from?: 'pattern' | 'stem' | 'sequential'
+  modality?: string
+  include?: string[] | null
+  mask_conventions?: string[]
+}
+export type ParsedFile = S['ParsedFile']
+/** API-19 */
+export type DetectResult = S['DetectResult']
+export type DetectCandidate = S['Candidate']
+/** API-07/08 Open mode (SRC-09/10) */
+export type OpenSession = S['OpenSession']
+export type OpenItem = S['OpenItem']
+export type AxisOrder = 'xyz' | 'zyx'
 
 // ---- Study variables (VARIABLES.md, API-16..18) -----------------------------------------------
 // Enums come from the generated schema (FE-03). The UI works on `Variable`, adapted from the

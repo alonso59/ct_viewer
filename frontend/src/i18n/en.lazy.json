@@ -478,5 +478,30 @@
     "check": "Check",
     "verify": "{{matched}}/{{sampled}} sampled items match · {{mismatched}} changed · {{missing}} missing",
     "needsRelink": "Some data roots do not resolve on this server. Use Relink to point them at the data."
+  },
+  "open": {
+    "title": "Open",
+    "home": "Workspace home",
+    "noProject": "No project: nothing is saved",
+    "items": "Files",
+    "truncated": "Only the first 500 files are listed",
+    "attachAction": "Attach segmentation…",
+    "attachTitle": "Attach a segmentation",
+    "attachHelp": "Pick a label map with the same shape and orientation as the image. It is never resampled.",
+    "attach": "Attach",
+    "createProject": "Create project from this",
+    "axisTitle": "Axis order of {{name}}",
+    "axisHelp": "A NumPy array has no geometry. Pick the order in which the middle slice looks right.",
+    "axisOption": "Middle slice read as {{order}}",
+    "axis": {
+      "xyz": "nibabel: arr[i, j, k], i → x",
+      "zyx": "SimpleITK GetArrayFromImage: arr[k, j, i]"
+    },
+    "axisNeeded": "The axis order of this array is unknown (no sidecar, no reference image).",
+    "axisChoose": "Choose the axis order…",
+    "dialogTitle": "Open file or folder",
+    "dialogHelp": "Pick a folder, or a NIfTI, NumPy or DICOM file. Nothing is written to any project.",
+    "openFile": "Open file",
+    "openFolder": "Open folder"
   }
 }

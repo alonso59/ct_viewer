@@ -62,7 +62,9 @@ test('live sync and last-writer-wins between two reviewers', async ({ browser })
   await quick(a, /^Accept/).click()
   await expect(segRow(a)).toContainText('Accepted')
   await expect(b.getByRole('status').filter({ hasText: `${CASE} updated by Dr. A: Accepted` })).toBeVisible()
-  await expect(segRow(b)).toContainText('Accepted')
+  // The toast proves the SSE event arrived; the row follows B's refetch, which can queue behind
+  // the thumbnail job right after indexing (seen flaky at the 5 s default on Chromium)
+  await expect(segRow(b)).toContainText('Accepted', { timeout: 15_000 })
   // A's own event does not toast "updated by" in A's tab (same session)
   await expect(a.getByRole('status').filter({ hasText: 'updated by' })).toHaveCount(0)
 

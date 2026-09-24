@@ -83,6 +83,8 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | UI-19 | Requirements are asked when a task needs them, not at import: a task's settings tab shows the preflight (TSK-04) with counts and one-click suggested tasks; a task that writes volumes asks for the `DERIVED` folder on first use (PRJ-13). | M |
 | UI-20 | Every task uses the same tab: Selection · Settings (schema form) · Preflight/Estimate · Run; outputs appear as a segmentation set, a features run, an import or annotations. | M |
 
+Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home and in the palette (File menu) and leads to `/open?path=`. `lib/ProblemCard` shows `detail` and `actions[]` as buttons where the screen has a handler (labels `problemAction.*`; e.g. `configure:…` stays a hint). The import wizard's detect step lists the API-19 candidates, preselects the best available one, and shows the `nifti-files` options next to it; a NIfTI file can be picked in the folder browser (SRC-05).
+
 ## Default keybindings
 
 | Keys | Command | Keys | Command |

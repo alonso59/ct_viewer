@@ -784,6 +784,63 @@
     "title": "BundleRoot",
     "type": "object"
    },
+   "Candidate": {
+    "properties": {
+     "adapter": {
+      "title": "Adapter",
+      "type": "string"
+     },
+     "available": {
+      "default": true,
+      "title": "Available",
+      "type": "boolean"
+     },
+     "confidence": {
+      "enum": [
+       "high",
+       "medium",
+       "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+     },
+     "counts": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Counts",
+      "type": "object"
+     },
+     "options": {
+      "additionalProperties": true,
+      "title": "Options",
+      "type": "object"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string"
+     },
+     "unavailable_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unavailable Reason"
+     }
+    },
+    "required": [
+     "adapter",
+     "reason",
+     "counts",
+     "confidence"
+    ],
+    "title": "Candidate",
+    "type": "object"
+   },
    "CaseDetail": {
     "properties": {
      "case": {
@@ -1847,6 +1904,62 @@
      "missing"
     ],
     "title": "DescriptiveRow",
+    "type": "object"
+   },
+   "DetectResult": {
+    "properties": {
+     "candidates": {
+      "items": {
+       "$ref": "#/components/schemas/Candidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+     },
+     "counts": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Counts",
+      "type": "object"
+     },
+     "ignored": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Ignored",
+      "type": "object"
+     },
+     "kind": {
+      "enum": [
+       "file",
+       "folder"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "root": {
+      "title": "Root",
+      "type": "string"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path",
+     "kind",
+     "root",
+     "candidates",
+     "counts",
+     "ignored"
+    ],
+    "title": "DetectResult",
     "type": "object"
    },
    "DistGroup": {
@@ -3583,6 +3696,15 @@
    },
    "ImportPreview": {
     "properties": {
+     "adapter": {
+      "default": "metadata-v1",
+      "enum": [
+       "metadata-v1",
+       "nifti-files"
+      ],
+      "title": "Adapter",
+      "type": "string"
+     },
      "alias": {
       "title": "Alias",
       "type": "string"
@@ -3607,9 +3729,28 @@
       "title": "Files",
       "type": "array"
      },
+     "ignored": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Ignored",
+      "type": "object"
+     },
      "n_errors": {
       "title": "N Errors",
       "type": "integer"
+     },
+     "options": {
+      "additionalProperties": true,
+      "title": "Options",
+      "type": "object"
+     },
+     "orphan_masks": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Orphan Masks",
+      "type": "array"
      },
      "preview_id": {
       "title": "Preview Id",
@@ -3618,6 +3759,20 @@
      "root": {
       "title": "Root",
       "type": "string"
+     },
+     "sample": {
+      "items": {
+       "$ref": "#/components/schemas/ParsedFile"
+      },
+      "title": "Sample",
+      "type": "array"
+     },
+     "unmatched": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unmatched",
+      "type": "array"
      }
     },
     "required": [
@@ -3636,6 +3791,15 @@
    "ImportRecord": {
     "description": "One line of `sources/imports.jsonl` (IMP-04).",
     "properties": {
+     "adapter": {
+      "default": "metadata-v1",
+      "enum": [
+       "metadata-v1",
+       "nifti-files"
+      ],
+      "title": "Adapter",
+      "type": "string"
+     },
      "alias": {
       "title": "Alias",
       "type": "string"
@@ -3785,7 +3949,8 @@
      "source": {
       "enum": [
        "detected",
-       "uploaded"
+       "uploaded",
+       "generated"
       ],
       "title": "Source",
       "type": "string"
@@ -4638,6 +4803,242 @@
     "title": "MissingMatrixResponse",
     "type": "object"
    },
+   "OpenGeometry": {
+    "properties": {
+     "affine": {
+      "anyOf": [
+       {
+        "items": {
+         "items": {
+          "type": "number"
+         },
+         "type": "array"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Affine"
+     },
+     "dtype": {
+      "title": "Dtype",
+      "type": "string"
+     },
+     "orientation": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Orientation"
+     },
+     "shape": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Shape",
+      "type": "array"
+     },
+     "spacing": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Spacing",
+      "type": "array"
+     }
+    },
+    "required": [
+     "shape",
+     "spacing",
+     "dtype"
+    ],
+    "title": "OpenGeometry",
+    "type": "object"
+   },
+   "OpenItem": {
+    "description": "An item-like record (`item_id` = `open.{n}`) from headers only.",
+    "properties": {
+     "attached_to": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attached To"
+     },
+     "axis_order": {
+      "anyOf": [
+       {
+        "enum": [
+         "xyz",
+         "zyx"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Axis Order"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "format": {
+      "enum": [
+       "nifti",
+       "npy",
+       "dicom"
+      ],
+      "title": "Format",
+      "type": "string"
+     },
+     "geometry": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OpenGeometry"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "kind": {
+      "default": "image",
+      "enum": [
+       "image",
+       "label"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "modality": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modality"
+     },
+     "n": {
+      "title": "N",
+      "type": "integer"
+     },
+     "n_slices": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "N Slices"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "needs_axis_order": {
+      "default": false,
+      "title": "Needs Axis Order",
+      "type": "boolean"
+     },
+     "rel": {
+      "title": "Rel",
+      "type": "string"
+     }
+    },
+    "required": [
+     "n",
+     "item_id",
+     "name",
+     "rel",
+     "format"
+    ],
+    "title": "OpenItem",
+    "type": "object"
+   },
+   "OpenSession": {
+    "properties": {
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "ignored": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Ignored",
+      "type": "object"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/OpenItem"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "kind": {
+      "enum": [
+       "file",
+       "folder"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "root": {
+      "title": "Root",
+      "type": "string"
+     },
+     "sid": {
+      "title": "Sid",
+      "type": "string"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "sid",
+     "path",
+     "root",
+     "kind",
+     "created_at",
+     "items"
+    ],
+    "title": "OpenSession",
+    "type": "object"
+   },
    "OptionSpec": {
     "properties": {
      "constraints": {
@@ -5159,6 +5560,93 @@
      }
     },
     "title": "PairSpec",
+    "type": "object"
+   },
+   "ParsedFile": {
+    "description": "`nifti-files` preview row (SRC-04).",
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "channel": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Channel"
+     },
+     "file": {
+      "title": "File",
+      "type": "string"
+     },
+     "mask": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mask"
+     },
+     "matched": {
+      "title": "Matched",
+      "type": "boolean"
+     },
+     "modality": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modality"
+     },
+     "phase": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file",
+     "case_id",
+     "scan_idx",
+     "matched"
+    ],
+    "title": "ParsedFile",
+    "type": "object"
+   },
+   "PathBody": {
+    "properties": {
+     "path": {
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "PathBody",
     "type": "object"
    },
    "PathRoot": {
@@ -5717,7 +6205,9 @@
      "ambiguous_phase",
      "ambiguous_side",
      "duplicate_row_identity",
-     "fingerprint_changed"
+     "fingerprint_changed",
+     "unsupported_format",
+     "ambiguous_axis_order"
     ],
     "title": "QcCode",
     "type": "string"
@@ -5778,6 +6268,17 @@
        }
       ],
       "title": "Path Ref"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
      },
      "severity": {
       "$ref": "#/components/schemas/Severity"
@@ -9908,6 +10409,317 @@
     ]
    }
   },
+  "/api/v1/open": {
+   "post": {
+    "description": "API-07: a file or folder \u2192 an ephemeral session, headers only (SRC-09).",
+    "operationId": "open_path_api_v1_open_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PathBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OpenSession"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Path",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
+  "/api/v1/open/{sid}": {
+   "delete": {
+    "operationId": "close_open_api_v1_open__sid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Close Open",
+    "tags": [
+     "sources"
+    ]
+   },
+   "get": {
+    "operationId": "get_open_api_v1_open__sid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OpenSession"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Open",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
+  "/api/v1/open/{sid}/items/{n}/attach": {
+   "post": {
+    "description": "API-08 attach (SRC-10): a segmentation for item n, only if the geometry matches.",
+    "operationId": "open_attach_api_v1_open__sid__items__n__attach_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PathBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OpenSession"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Attach",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
+  "/api/v1/open/{sid}/items/{n}/image": {
+   "get": {
+    "description": "API-08. NumPy without a decisive order \u2192 `ambiguous-axis-order` (SRC-12).",
+    "operationId": "open_image_api_v1_open__sid__items__n__image_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "axis_order",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "xyz",
+          "zyx"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Axis Order"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/octet-stream": {}
+      },
+      "description": "NIfTI bytes"
+     },
+     "206": {
+      "description": "Partial content (HTTP Range)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open-mode volume bytes (NIfTI; NumPy converted into .scratch/)",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
+  "/api/v1/open/{sid}/items/{n}/preview": {
+   "get": {
+    "operationId": "open_preview_api_v1_open__sid__items__n__preview_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "axis_order",
+      "required": false,
+      "schema": {
+       "default": "xyz",
+       "enum": [
+        "xyz",
+        "zyx"
+       ],
+       "title": "Axis Order",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "image/png": {}
+      },
+      "description": "Middle axial slice"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "NumPy middle slice in one axis order (the Open dialog, SRC-12)",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
   "/api/v1/projects": {
    "get": {
     "operationId": "list_projects_api_v1_projects_get",
@@ -11411,8 +12223,23 @@
      "content": {
       "application/json": {
        "schema": {
-        "description": "API-11 JSON body (IMP-01/02).",
+        "description": "API-11 JSON body (IMP-01/02; SRC-01..06). `root` may be one file (SRC-05).",
         "properties": {
+         "adapter": {
+          "anyOf": [
+           {
+            "enum": [
+             "metadata-v1",
+             "nifti-files"
+            ],
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "title": "Adapter"
+         },
          "alias": {
           "default": "DATA",
           "title": "Alias",
@@ -11422,6 +12249,11 @@
           "default": true,
           "title": "Detect",
           "type": "boolean"
+         },
+         "options": {
+          "additionalProperties": true,
+          "title": "Options",
+          "type": "object"
          },
          "root": {
           "title": "Root",
@@ -14591,6 +15423,48 @@
     "summary": "Validate Settings",
     "tags": [
      "radiomics"
+    ]
+   }
+  },
+  "/api/v1/sources/detect": {
+   "post": {
+    "description": "API-19: candidate adapters with reasons, counts and confidence (SRC-01/02).",
+    "operationId": "detect_source_api_v1_sources_detect_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PathBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DetectResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Detect Source",
+    "tags": [
+     "sources"
     ]
    }
   },

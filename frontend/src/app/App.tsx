@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
 
 import { queryClient, useHealth } from '../api'
+import { OpenDialogHost, OpenRoute } from '../features/open'
 import { WorkspaceHome } from '../features/projects'
 import { configureViewer } from '../features/viewer'
 import { ShellOverlays, ShellProviders, useGlobalKeybindings } from '../shell'
@@ -48,8 +49,10 @@ export function App() {
           <Theme />
           <Keys />
           <ViewerConfig />
+          <OpenDialogHost />
           <Routes>
             <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
+            <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
             <Route path="/p/:pid/*" element={<ProjectRoute />} />
           </Routes>
         </BrowserRouter>

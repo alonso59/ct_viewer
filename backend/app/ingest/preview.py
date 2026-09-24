@@ -24,7 +24,7 @@ DETECT_PATHS: dict[FileKind, str] = {
 class InputBlob:
     kind: FileKind
     name: str
-    source: Literal["detected", "uploaded"]
+    source: Literal["detected", "uploaded", "generated"]
     data: bytes
 
     @property

@@ -43,6 +43,9 @@ import type {
   RunExportShape,
   RunSummary,
   Selection,
+  AxisOrder,
+  DetectResult,
+  OpenSession,
   PreflightResult,
   RootRole,
   SegmentationInfo,
@@ -119,6 +122,19 @@ export interface Api {
   exportBundle(pid: string): Promise<ProjectBundle>
   /** API-06 import (PRJ-09): multipart field `bundle`; `needs_relink` → relink dialog (PRJ-05) */
   importBundle(file: File): Promise<BundleImportResult>
+
+  // Sources and Open mode (API-19, API-07/08; SRC-*)
+  /** API-19: candidate adapters for a folder or one file; refusals carry `actions[]` */
+  detectSource(path: string): Promise<DetectResult>
+  openPath(path: string): Promise<OpenSession>
+  getOpen(sid: string): Promise<OpenSession>
+  closeOpen(sid: string): Promise<void>
+  /** Volume URL; NumPy needs `axisOrder` unless the session decided it (SRC-12) */
+  openImageUrl(sid: string, n: number, axisOrder?: AxisOrder | null): string | null
+  /** Middle slice of a NumPy array in one axis order (the Open dialog) */
+  openPreviewUrl(sid: string, n: number, axisOrder: AxisOrder): string | null
+  /** SRC-10: attach a segmentation to item n; `geometry-mismatch` when it does not fit */
+  attachOpen(sid: string, n: number, path: string): Promise<OpenSession>
 
   // Import (API-10..14)
   /** `role: 'derived'` browses ALLOWED_DERIVED_ROOTS (PRJ-13) */

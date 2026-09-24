@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,18 +12,32 @@ from app.ingest.parsers import FileKind
 DEFAULT_ALIAS = "DATA"
 
 
+Adapter = Literal["metadata-v1", "nifti-files"]
+
+
 class PreviewRequest(BaseModel):
-    """API-11 JSON body (IMP-01/02)."""
+    """API-11 JSON body (IMP-01/02; SRC-01..06). `root` may be one file (SRC-05)."""
 
     root: str
     detect: bool = True
     alias: str = DEFAULT_ALIAS
+    adapter: Adapter | None = None  # None: metadata-v1, or nifti-files for one NIfTI file
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceInfo(BaseModel):
+    """`sources/{import_id}/source.json` (SRC-06)."""
+
+    adapter: Adapter
+    adapter_version: str
+    options: dict[str, Any] = Field(default_factory=dict)
+    detected_at: str
 
 
 class InputFile(BaseModel):
     kind: FileKind
     name: str
-    source: Literal["detected", "uploaded"]
+    source: Literal["detected", "uploaded", "generated"]
     sha256: str
     rows: int
 
@@ -49,6 +63,19 @@ class FieldMapping(BaseModel):
     side: str | None = None
 
 
+class ParsedFile(BaseModel):
+    """`nifti-files` preview row (SRC-04)."""
+
+    file: str
+    case_id: str
+    scan_idx: str
+    modality: str | None = None
+    phase: str | None = None
+    channel: str | None = None
+    mask: str | None = None
+    matched: bool
+
+
 class ImportPreview(BaseModel):
     preview_id: str
     root: str
@@ -58,6 +85,14 @@ class ImportPreview(BaseModel):
     errors: list[PreviewError]
     n_errors: int
     field_mapping: FieldMapping
+    adapter: Adapter = "metadata-v1"
+    options: dict[str, Any] = Field(default_factory=dict)
+    # nifti-files: parsed columns of the first 50 files, names the pattern missed, masks
+    # without an image, ignored extensions (SRC-02/04)
+    sample: list[ParsedFile] = Field(default_factory=list)
+    unmatched: list[str] = Field(default_factory=list)
+    orphan_masks: list[str] = Field(default_factory=list)
+    ignored: dict[str, int] = Field(default_factory=dict)
 
 
 class CommitRequest(BaseModel):
@@ -78,6 +113,7 @@ class ImportRecord(BaseModel):
     root: str
     files: list[InputFile]
     counts: ImportCounts
+    adapter: Adapter = "metadata-v1"
 
 
 class ImportHistory(BaseModel):

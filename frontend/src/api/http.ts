@@ -188,7 +188,7 @@ const externalResult = (r: ExternalReport): ExternalImportResult => ({
   added: (r.table.columns ?? []).filter((c) => !(r.conflicts ?? []).includes(c)),
 })
 
-const normalizeWarning = (w: Schemas['QcWarning']): QCWarning => ({ case_id: null, field: null, item_id: null, path_ref: null, ...w })
+const normalizeWarning = (w: Schemas['QcWarning']): QCWarning => ({ case_id: null, field: null, item_id: null, path_ref: null, seg_id: null, ...w })
 
 const normalizeJob = (j: Schemas['JobInfo']): Job => ({
   eta_s: null,
@@ -384,8 +384,18 @@ export const httpApi: Api = {
   // API-10..14
   fsList: (path, role = 'source') =>
     unwrap(client.GET('/api/v1/fs/list', { params: { query: { ...(path ? { path } : {}), role } } })).then(normalizeFs),
+  detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
+  openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),
+  getOpen: (sid) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid } } })),
+  async closeOpen(sid) {
+    await send('DELETE', `/open/${enc(sid)}`)
+  },
+  openImageUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/image${axisOrder ? `?axis_order=${axisOrder}` : ''}`,
+  openPreviewUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/preview?axis_order=${axisOrder}`,
+  attachOpen: (sid, n, path) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/attach', { params: { path: { sid, n } }, body: { path } })),
   importPreview(pid, req) {
-    if (!req.files) return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true })
+    if (!req.files)
+      return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true, adapter: req.adapter, options: req.options ?? {} })
     const fd = new FormData()
     fd.set('root', req.root)
     fd.set('alias', req.alias)

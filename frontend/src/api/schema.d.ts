@@ -185,6 +185,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sources/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detect Source
+         * @description API-19: candidate adapters with reasons, counts and confidence (SRC-01/02).
+         */
+        post: operations["detect_source_api_v1_sources_detect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Path
+         * @description API-07: a file or folder → an ephemeral session, headers only (SRC-09).
+         */
+        post: operations["open_path_api_v1_open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/{sid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Open */
+        get: operations["get_open_api_v1_open__sid__get"];
+        put?: never;
+        post?: never;
+        /** Close Open */
+        delete: operations["close_open_api_v1_open__sid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/{sid}/items/{n}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open-mode volume bytes (NIfTI; NumPy converted into .scratch/)
+         * @description API-08. NumPy without a decisive order → `ambiguous-axis-order` (SRC-12).
+         */
+        get: operations["open_image_api_v1_open__sid__items__n__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/{sid}/items/{n}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** NumPy middle slice in one axis order (the Open dialog, SRC-12) */
+        get: operations["open_preview_api_v1_open__sid__items__n__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/open/{sid}/items/{n}/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Attach
+         * @description API-08 attach (SRC-10): a segmentation for item n, only if the geometry matches.
+         */
+        post: operations["open_attach_api_v1_open__sid__items__n__attach_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/imports/preview": {
         parameters: {
             query?: never;
@@ -1667,6 +1782,33 @@ export interface components {
             root: components["schemas"]["RootInfo"];
             verify: components["schemas"]["VerifyReport"];
         };
+        /** Candidate */
+        Candidate: {
+            /** Adapter */
+            adapter: string;
+            /** Reason */
+            reason: string;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
+        };
         /** CaseDetail */
         CaseDetail: {
             case: components["schemas"]["CaseSummary"];
@@ -2068,6 +2210,33 @@ export interface components {
              * @default false
              */
             excluded: boolean;
+        };
+        /** DetectResult */
+        DetectResult: {
+            /** Path */
+            path: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "file" | "folder";
+            /** Root */
+            root: string;
+            /** Candidates */
+            candidates: components["schemas"]["Candidate"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Ignored */
+            ignored: {
+                [key: string]: number;
+            };
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
         };
         /** DistGroup */
         DistGroup: {
@@ -2699,6 +2868,26 @@ export interface components {
             /** N Errors */
             n_errors: number;
             field_mapping: components["schemas"]["FieldMapping"];
+            /**
+             * Adapter
+             * @default metadata-v1
+             * @enum {string}
+             */
+            adapter: "metadata-v1" | "nifti-files";
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
+            /** Sample */
+            sample?: components["schemas"]["ParsedFile"][];
+            /** Unmatched */
+            unmatched?: string[];
+            /** Orphan Masks */
+            orphan_masks?: string[];
+            /** Ignored */
+            ignored?: {
+                [key: string]: number;
+            };
         };
         /**
          * ImportRecord
@@ -2716,6 +2905,12 @@ export interface components {
             /** Files */
             files: components["schemas"]["InputFile"][];
             counts: components["schemas"]["ImportCounts"];
+            /**
+             * Adapter
+             * @default metadata-v1
+             * @enum {string}
+             */
+            adapter: "metadata-v1" | "nifti-files";
         };
         /**
          * IndexStatus
@@ -2762,7 +2957,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "detected" | "uploaded";
+            source: "detected" | "uploaded" | "generated";
             /** Sha256 */
             sha256: string;
             /** Rows */
@@ -3067,6 +3262,87 @@ export interface components {
              */
             truncated: boolean;
         };
+        /** OpenGeometry */
+        OpenGeometry: {
+            /** Shape */
+            shape: number[];
+            /** Spacing */
+            spacing: number[];
+            /** Dtype */
+            dtype: string;
+            /** Orientation */
+            orientation?: string | null;
+            /** Affine */
+            affine?: number[][] | null;
+        };
+        /**
+         * OpenItem
+         * @description An item-like record (`item_id` = `open.{n}`) from headers only.
+         */
+        OpenItem: {
+            /** N */
+            n: number;
+            /** Item Id */
+            item_id: string;
+            /** Name */
+            name: string;
+            /** Rel */
+            rel: string;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "nifti" | "npy" | "dicom";
+            /**
+             * Kind
+             * @default image
+             * @enum {string}
+             */
+            kind: "image" | "label";
+            geometry?: components["schemas"]["OpenGeometry"] | null;
+            /** Modality */
+            modality?: string | null;
+            /** N Slices */
+            n_slices?: number | null;
+            /** Attached To */
+            attached_to?: number | null;
+            /** Axis Order */
+            axis_order?: ("xyz" | "zyx") | null;
+            /**
+             * Needs Axis Order
+             * @default false
+             */
+            needs_axis_order: boolean;
+            /** Error */
+            error?: string | null;
+        };
+        /** OpenSession */
+        OpenSession: {
+            /** Sid */
+            sid: string;
+            /** Path */
+            path: string;
+            /** Root */
+            root: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "file" | "folder";
+            /** Created At */
+            created_at: string;
+            /** Items */
+            items: components["schemas"]["OpenItem"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /** Ignored */
+            ignored?: {
+                [key: string]: number;
+            };
+        };
         /** OptionSpec */
         OptionSpec: {
             /** Name */
@@ -3254,6 +3530,33 @@ export interface components {
             a?: string | null;
             /** B */
             b?: string | null;
+        };
+        /**
+         * ParsedFile
+         * @description `nifti-files` preview row (SRC-04).
+         */
+        ParsedFile: {
+            /** File */
+            file: string;
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /** Modality */
+            modality?: string | null;
+            /** Phase */
+            phase?: string | null;
+            /** Channel */
+            channel?: string | null;
+            /** Mask */
+            mask?: string | null;
+            /** Matched */
+            matched: boolean;
+        };
+        /** PathBody */
+        PathBody: {
+            /** Path */
+            path: string;
         };
         /** PathRoot */
         PathRoot: {
@@ -3480,7 +3783,7 @@ export interface components {
          * QcCode
          * @enum {string}
          */
-        QcCode: "missing_path" | "unreadable_file" | "outside_root" | "missing_seg" | "missing_voi_image" | "missing_voi_mask" | "missing_affine" | "affine_mismatch" | "shape_mismatch" | "ambiguous_phase" | "ambiguous_side" | "duplicate_row_identity" | "fingerprint_changed";
+        QcCode: "missing_path" | "unreadable_file" | "outside_root" | "missing_seg" | "missing_voi_image" | "missing_voi_mask" | "missing_affine" | "affine_mismatch" | "shape_mismatch" | "ambiguous_phase" | "ambiguous_side" | "duplicate_row_identity" | "fingerprint_changed" | "unsupported_format" | "ambiguous_axis_order";
         /** QcWarning */
         QcWarning: {
             code: components["schemas"]["QcCode"];
@@ -3489,6 +3792,8 @@ export interface components {
             item_id?: string | null;
             /** Case Id */
             case_id?: string | null;
+            /** Seg Id */
+            seg_id?: string | null;
             /** Field */
             field?: string | null;
             /** Path Ref */
@@ -5222,6 +5527,243 @@ export interface operations {
             };
         };
     };
+    detect_source_api_v1_sources_detect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PathBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_path_api_v1_open_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PathBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_open_api_v1_open__sid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_open_api_v1_open__sid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_image_api_v1_open__sid__items__n__image_get: {
+        parameters: {
+            query?: {
+                axis_order?: ("xyz" | "zyx") | null;
+            };
+            header?: never;
+            path: {
+                sid: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description NIfTI bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Partial content (HTTP Range) */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_preview_api_v1_open__sid__items__n__preview_get: {
+        parameters: {
+            query?: {
+                axis_order?: "xyz" | "zyx";
+            };
+            header?: never;
+            path: {
+                sid: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Middle axial slice */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_attach_api_v1_open__sid__items__n__attach_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PathBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_import_api_v1_projects__pid__imports_preview_post: {
         parameters: {
             query?: never;
@@ -5246,6 +5788,12 @@ export interface operations {
                      * @default DATA
                      */
                     alias?: string;
+                    /** Adapter */
+                    adapter?: ("metadata-v1" | "nifti-files") | null;
+                    /** Options */
+                    options?: {
+                        [key: string]: unknown;
+                    };
                 };
                 "multipart/form-data": {
                     root: string;

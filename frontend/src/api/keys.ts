@@ -29,5 +29,10 @@ export const keys = {
   schema: () => ['radiomics', 'schema'] as const,
   /** API-31; `body` is the serialized request, so equal settings share one answer */
   validation: (body: string) => ['radiomics', 'schema', 'validate', body] as const,
-  fs: (path: string | null) => ['fs', path ?? ''] as const,
+  fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
+  open: (path: string) => ['open', path] as const,
+  tasks: () => ['tasks'] as const,
+  segmentations: (pid: string) => ['project', pid, 'segmentations'] as const,
+  taskRuns: (pid: string) => ['project', pid, 'task-runs'] as const,
+  taskRun: (pid: string, rid: string) => ['project', pid, 'task-runs', rid] as const,
 }

@@ -25,6 +25,8 @@ class QcCode(StrEnum):
     AMBIGUOUS_SIDE = "ambiguous_side"
     DUPLICATE_ROW_IDENTITY = "duplicate_row_identity"
     FINGERPRINT_CHANGED = "fingerprint_changed"
+    UNSUPPORTED_FORMAT = "unsupported_format"
+    AMBIGUOUS_AXIS_ORDER = "ambiguous_axis_order"
 
 
 SEVERITY: dict[QcCode, Severity] = {
@@ -41,4 +43,6 @@ SEVERITY: dict[QcCode, Severity] = {
     QcCode.AMBIGUOUS_SIDE: Severity.WARNING,
     QcCode.DUPLICATE_ROW_IDENTITY: Severity.ERROR,
     QcCode.FINGERPRINT_CHANGED: Severity.WARNING,
+    QcCode.UNSUPPORTED_FORMAT: Severity.INFO,
+    QcCode.AMBIGUOUS_AXIS_ORDER: Severity.ERROR,
 }

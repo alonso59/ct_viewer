@@ -95,7 +95,7 @@ Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (20
 | `ambiguous_side` | warning | Side unparseable, or both sides map to the same file |
 | `duplicate_row_identity` | error | Two rows produce the same `item_id` |
 | `fingerprint_changed` | warning | File changed since indexing |
-| `unsupported_format` | info | File ignored: not an accepted format (SRC-02) |
-| `ambiguous_axis_order` | error | NumPy array without a decisive axis order (SRC-12) |
+| `unsupported_format` | info | File ignored: a row names a file that is not NIfTI or NumPy (e.g. `.mha`); the image or mask counts as absent (SRC-02) |
+| `ambiguous_axis_order` | error | NumPy array without a decisive axis order: a catalog `axis_order` other than `xyz`/`zyx` (SRC-12) |
 
 Warning record: `{code, severity, item_id?, case_id?, seg_id?, field?, path_ref?, message, detected_at}`. Mask warnings (`missing_seg`, `shape_mismatch`, `affine_mismatch`, …) carry the segmentation set (ADR-0015).

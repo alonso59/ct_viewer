@@ -6,13 +6,17 @@ writes project files, always under the project lock (BE-05); workers only read (
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import os
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import Any
 
-from app.core.errors import JobConflict, NotFound, Problem, ValidationProblem
+from pydantic import ValidationError as PydanticValidationError
+
+from app.core.errors import JobConflict, NotFound, Problem, UnsupportedFormat, ValidationProblem
 from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json, read_json, read_jsonl
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
@@ -26,6 +30,7 @@ from app.ingest.models import CaseSummary, IndexState, IndexStatus, Item, QcWarn
 from app.ingest.normalize import PhaseRules, build_drafts
 from app.ingest.parsers import FILE_NAMES, FileKind, ParsedInputs, parse_inputs
 from app.ingest.schemas import (
+    Adapter,
     CaseDetail,
     CommitResult,
     ImportPreview,
@@ -33,6 +38,7 @@ from app.ingest.schemas import (
     ItemAdvanced,
     ItemDetail,
     ScanGroup,
+    SourceInfo,
 )
 from app.ingest.segsets import apply_task_masks, task_masks
 from app.ingest.store import IndexStore
@@ -42,6 +48,9 @@ from app.jobs.types import JobInfo, JobSpec, WorkUnit
 from app.projects.models import LabelEntry, PathRoot, ProjectPatch
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.projects.service import Workspace
+from app.sources import detect, formats, identity, nifti_files
+from app.sources.identity import IdentityRegistry
+from app.sources.nifti_files import NiftiOptions
 from app.variables.service import VariableService
 
 log = logging.getLogger("app.ingest")
@@ -50,6 +59,7 @@ IndexHook = Callable[[str], Awaitable[None]]
 PREVIEWS = Path("cache") / "previews"
 SOURCES = "sources"
 IMPORTS = "imports.jsonl"
+SAMPLE_NAMES = 200
 
 
 class IngestService:
@@ -78,20 +88,73 @@ class IngestService:
         *,
         alias: str = "DATA",
         uploads: dict[FileKind, tuple[str, bytes]] | None = None,
+        adapter: Adapter | None = None,
+        options: dict[str, Any] | None = None,
     ) -> ImportPreview:
-        """IMP-02/03. `uploads=None` auto-detects the input files under `root`."""
+        """IMP-02/03, SRC-03..06. `uploads=None` auto-detects the input files under `root`.
+
+        `root` may be a single NIfTI file: the parent folder becomes the root and the import
+        keeps an include list (SRC-05).
+        """
         pdir = self.workspace.project_dir(project_id)
         validate_alias(alias)
+        options = dict(options or {})
         if not os.path.isabs(root):
             raise ValidationProblem(
                 "Data root must be an absolute path", errors=[{"loc": ["root"], "msg": "relative"}]
             )
         real = self.workspace.guard.check(Path(root))
+        if real.is_file() and uploads is None:
+            kind = formats.classify(real)
+            if kind != "nifti" or adapter == "metadata-v1":
+                raise UnsupportedFormat(
+                    f"{real.name} is not a NIfTI file; single files import only as NIfTI (SRC-05)",
+                    actions=["open"] if kind else ["choose_another_path"],
+                )
+            adapter = "nifti-files"
+            options["include"] = [real.name]
+            real = real.parent
+            root = str(Path(root).parent)
         if not real.is_dir():
             raise ValidationProblem(
                 "Data root is not a directory", errors=[{"loc": ["root"], "msg": "not a directory"}]
             )
-        if uploads is None:
+        adapter = adapter or "metadata-v1"
+        extra: dict[str, Any] = {}
+        draft_registry: IdentityRegistry | None = None
+        if adapter == "nifti-files":
+            if uploads is not None:
+                raise ValidationProblem("nifti-files takes no uploaded files")
+            try:
+                opts = NiftiOptions.model_validate(options)
+            except PydanticValidationError as exc:
+                raise ValidationProblem(
+                    "Invalid nifti-files options",
+                    errors=[
+                        {"loc": ["body", "options", *e["loc"]], "msg": e["msg"]}
+                        for e in exc.errors()
+                    ],
+                ) from None
+            reg = identity.load(pdir / SOURCES)
+            plan = await asyncio.to_thread(nifti_files.plan, real, opts, reg)
+            if not plan.rows:
+                raise UnsupportedFormat(
+                    "No NIfTI image under the root (masks found by convention are not items)",
+                    actions=["choose_another_path"],
+                )
+            data = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in plan.rows).encode()
+            blobs: dict[FileKind, preview.InputBlob] = {
+                "metadata": preview.InputBlob("metadata", FILE_NAMES["metadata"], "generated", data)
+            }
+            options = opts.model_dump(mode="json")
+            draft_registry = plan.registry
+            extra = {
+                "sample": plan.sample,
+                "unmatched": plan.unmatched[:SAMPLE_NAMES],
+                "orphan_masks": plan.orphan_masks[:SAMPLE_NAMES],
+                "ignored": dict(formats.scan(real, opts.include).ignored),
+            }
+        elif uploads is None:
             blobs = preview.detect_inputs(real)
         else:
             blobs = {
@@ -99,9 +162,11 @@ class IngestService:
                 for k, (name, data) in uploads.items()
             }
         if "metadata" not in blobs:
+            detail, actions = await asyncio.to_thread(detect.suggest_for, real)
             raise ValidationProblem(
-                "metadata.jsonl not found",
+                detail,
                 errors=[{"loc": ["metadata"], "msg": "required input file missing"}],
+                actions=actions,
             )
         parsed = parse_inputs({k: b.data for k, b in blobs.items()})
         pv = ImportPreview(
@@ -113,11 +178,16 @@ class IngestService:
             errors=preview.errors(parsed),
             n_errors=len(parsed.errors),
             field_mapping=preview.field_mapping(parsed),
+            adapter=adapter,
+            options=options,
+            **extra,
         )
         d = pdir / PREVIEWS / pv.preview_id
         async with self.locks(project_id):
             for b in blobs.values():
                 atomic_write_bytes(d / FILE_NAMES[b.kind], b.data)
+            if draft_registry is not None:
+                identity.save(d, draft_registry)
             atomic_write_json(d / "preview.json", pv.model_dump(mode="json"))
         return pv
 
@@ -146,10 +216,24 @@ class IngestService:
             root=pv.root,
             files=pv.files,
             counts=pv.counts,
+            adapter=pv.adapter,
         )
+        source = SourceInfo(
+            adapter=pv.adapter,
+            adapter_version=nifti_files.VERSION if pv.adapter == "nifti-files" else "1",
+            options=pv.options,
+            detected_at=record.at,
+        )
+        draft = pdir / PREVIEWS / preview_id / identity.IDENTITY
         async with self.locks(project_id):
             for kind, blob in data.items():
                 atomic_write_bytes(pdir / SOURCES / import_id / FILE_NAMES[kind], blob)
+            atomic_write_json(
+                pdir / SOURCES / import_id / "source.json", source.model_dump(mode="json")
+            )
+            if draft.is_file():  # SRC-07: append-only merge, keys never renumbered
+                merged = identity.load(pdir / SOURCES).merge(identity.load(draft.parent))
+                identity.save(pdir / SOURCES, merged)
             append_jsonl(pdir / SOURCES / IMPORTS, [record.model_dump(mode="json")])
         await self.workspace.set_root(project_id, PathRoot(alias=pv.alias, path=pv.root))
         job_id = await self._start_index(project_id, import_id, pv.alias, parse_inputs(data))

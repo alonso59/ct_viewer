@@ -32,11 +32,13 @@ test('new project → import → browse → share link', async ({ page, browser,
   await dataset.click()
   await wizard.getByRole('button', { name: 'Next' }).click()
 
-  // Detect: the three input files
-  for (const f of ['metadata.jsonl', 'phase.json', 'voi_catalog.jsonl']) await expect(wizard.getByRole('cell', { name: f, exact: true })).toBeVisible()
+  // Detect (API-19): contract v1 is the best match, NIfTI files also possible (SRC-01)
+  await expect(wizard.getByRole('radio', { name: /Contract v1/ })).toBeChecked()
+  await expect(wizard.getByRole('radio', { name: /NIfTI files/ })).toBeVisible()
   await wizard.getByRole('button', { name: 'Next' }).click()
 
-  // Preview: counts from the fixtures
+  // Preview: the three input files and the counts from the fixtures
+  for (const f of ['metadata.jsonl', 'phase.json', 'voi_catalog.jsonl']) await expect(wizard.getByRole('cell', { name: f, exact: true })).toBeVisible()
   const kpi = (label: string) => wizard.locator('.card', { hasText: label }).locator('.kpi')
   await expect(kpi('cases')).toHaveText('50')
   await expect(kpi('scan rows')).toHaveText('89')

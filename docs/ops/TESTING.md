@@ -23,11 +23,13 @@ Depends: all domain docs.
 | TST-15 | Sources | pytest + hypothesis | `nifti-files` patterns, single-file import, identity registry stability across incremental imports, Open mode (NIfTI, DICOM file, label map, attach mismatch), refusal `actions[]` |
 | TST-16 | Analyzers | pytest | Phase text/timing/conflict cases, target profiles, readiness codes, activation reindex (ANZ-*) |
 
+P7b files: TST-14 builtin half and the task framework `tests/test_tasks.py` (the external half with the runner in Wave 4); TST-15 `tests/test_sources.py` + `e2e/open-mode.spec.ts`; TST-13 NumPy half in `tests/test_sources.py`; format v2 / derived roots `tests/test_format_v2.py`. External-runtime tests point `PLUGINS_ROOT` at a temp dir with a symlink to `plugins/threshold/` (never at `plugins/` itself).
+
 ## Synthetic fixture dataset (TST-11)
 
 Generated, not committed: `make fixtures` writes `.fixtures/synthetic/` (generator `backend/tools/make_fixtures.py`, oracle `expected.json`). It is small (64³–128³ int16 volumes, 3 labels as spheres/ellipsoids) and deterministic (fixed seed).
 It contains `metadata.jsonl`, `phase.json`, `voi/voi_catalog.jsonl` and a legacy `.npy` VOI, plus **deliberate defects**:
-missing SEG, shape mismatch, ambiguous phase, ambiguous side, duplicate identity, missing file.
+missing SEG, shape mismatch, ambiguous phase, ambiguous side, duplicate identity, missing file, a `.mha` seg (`unsupported_format`), a VOI with `axis_order: yxz` (`ambiguous_axis_order`).
 Every IMP-08 warning code must be produced by at least one fixture row.
 P7b fixtures (generated, no real data): a synthetic DICOM series (pydicom, CT, with study/series descriptions and contrast times for the phase rules; one PHI-looking fake name to test anonymization), one Enhanced multi-frame file, a NIfTI-only folder in nnU-Net naming with a `labelsTr/` mask, a standalone label map, and NumPy pairs in `xyz` and `zyx` with sidecars.
 Variables (VAR/ANA): no `group` field; case-level numeric study variables with ~50 % missing and one compositional pair; a `numeric-discrete` variable; vendor strings needing recode; one MRI scan; enough healthy cases (≥ 30) for group tests. Never copy values from real metadata into fixtures.

@@ -14,6 +14,7 @@ import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, Wi
 
 export { PLANE_COLOR } from './Viewport'
 export { configureViewer } from './budget'
+export { StandaloneViewer } from './StandaloneViewer'
 export type { ViewerContext, ViewerHandle } from './model/types'
 
 /** VW-16: viewer context of the visible case tab, for CUR events (`context.viewer`) */

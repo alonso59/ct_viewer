@@ -20,8 +20,17 @@ def probes_for(drafts: Sequence[Draft]) -> list[ItemProbe]:
     for d in drafts:
         if d.status == "excluded_upstream":
             continue
-        img = FileProbe(d.image.path, d.spacing) if d.image and d.image.path else None
-        msk = FileProbe(d.mask.path, d.spacing, labels=True) if d.mask and d.mask.path else None
+        order = d.axis_order
+        img = (
+            FileProbe(d.image.path, d.spacing, axis_order=order)
+            if d.image and d.image.path
+            else None
+        )
+        msk = (
+            FileProbe(d.mask.path, d.spacing, labels=True, axis_order=order)
+            if d.mask and d.mask.path
+            else None
+        )
         if img or msk:
             out.append(ItemProbe(d.item_id, img, msk))
     return out
@@ -60,6 +69,7 @@ def _finalize_one(
                 severity=SEVERITY[code],
                 item_id=d.item_id,
                 case_id=d.case_id,
+                seg_id=IMPORTED if field == "mask" else None,
                 field=field,
                 path_ref=path_ref,
                 message=message,

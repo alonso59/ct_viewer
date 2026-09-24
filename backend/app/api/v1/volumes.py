@@ -54,8 +54,9 @@ async def _serve(
         if streaming.is_not_modified(request, fp):
             return streaming.not_modified(streaming.quote_etag(fp))
         spacing = item.geometry.spacing if item.geometry is not None else [1.0, 1.0, 1.0]
-        dst = npy_convert.cache_path(ctx.workspace.project_dir(pid), fp)
-        path = await npy_convert.ensure_nifti(ctx.jobs, path, dst, spacing)
+        order = npy_convert.axis_order_of(item.extra.get("axis_order")) or "xyz"  # IMP-10
+        dst = npy_convert.cache_path(ctx.workspace.project_dir(pid), fp, order)
+        path = await npy_convert.ensure_nifti(ctx.jobs, path, dst, spacing, order)
     return streaming.volume_response(path, fp, name, request)
 
 

@@ -382,3 +382,27 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Open issues**
 - Radiomics through API-45 ignores `selection.seg_id` until RAD-05 (Wave 4). The mock does not simulate resume of task runs.
+
+## 2026-09-24 · P7b Wave 2 (sources) · v3
+
+**Done** (ROADMAP §P7b Wave 2 ticked)
+- `app/sources/`: formats (NIfTI, DICOM by `.dcm` or the `DICM` magic, NumPy; `.npz` refused with a reason), `detect` (API-19: candidates `metadata-v1` / `nifti-files` / `dicom.convert` / `open` with reason, counts, confidence, availability; nothing accepted → `unsupported-format` + `choose_another_path`), identity registry `sources/identity.json` (append-only merge; `table` strategy; slug rule), `nifti-files` adapter (pattern with named groups, `case_id_from` pattern/stem/sequential, mask conventions `seg/`, `labelsTr/`, `_seg`/`_mask`, modality, include list; channel 0000 only, `MRI` → `MR`).
+- API-11 takes `{adapter, options}`; a NIfTI file as `root` = single-file import (SRC-05); `source.json` per snapshot (SRC-06); the preview adds `sample`, `unmatched`, `orphan_masks`, `ignored`; commit merges the draft registry. A folder without `metadata.jsonl` is refused with "No metadata.jsonl under the root; N NIfTI files found" and `actions: [import_as:nifti-files, open]` (SRC-11).
+- SRC-08: `case_id` is a slug `[A-Za-z0-9_-]{1,64}` (parser, `item_id` regex).
+- NumPy (SRC-12): sidecar `{name}.npy.json`, `reference_ref` decision, `zyx` transposed `(2,1,0)` before writing, spacing never permuted; `read_header(axis_order=)`; project VOIs honour a catalog `axis_order` (cache keyed by order); `ambiguous_axis_order` for other values.
+- Open mode (API-07/08): in-memory sessions (LRU 32), worker probes (headers + label-map check), NIfTI streamed as-is, NumPy converted into `.scratch/open/{fp}.{order}/` (LRU purge at `CACHE_MAX_GB`), NumPy middle-slice PNG for the axis dialog, attach with shape + affine check (`geometry-mismatch` showing both geometries). DICOM items show "opens with the converter" until Wave 3.
+- QC codes `unsupported_format` (a row names a non-NIfTI/NumPy file) and `ambiguous_axis_order` are emitted and covered by fixtures (case_00013 seg `.mha`; new VOI `case_00023.01.voi.R` with `axis_order: yxz`); warnings carry `seg_id` for mask codes.
+- FE: `ProblemError.actions`, `lib/ProblemCard` (UI-18); import wizard with API-19 candidates, `nifti-files` options + parsed-name preview, file selection, prefill; `features/open` (lazy route `/open?path=`, "Open file or folder…" dialog on the home page and in the palette, axis-order dialog, attach, "Create project from this" → new project + prefilled wizard); viewer exports `StandaloneViewer`; task/segmentation hooks and SSE handling for `job.status` and `task` jobs.
+
+**Results**: `make fixtures && make check` green: 345 backend (3 PyRadiomics modules skipped) + 196 frontend vitest. Playwright 18/18 (Chromium 9, Firefox 9; new `e2e/open-mode.spec.ts`, `p2-flow` detect step updated). Initial JS 296.2 KB gzip.
+
+**Decisions**
+- Registry scan indices are two digits (`01`), matching the fixtures and item ids (SOURCES example changed from `001`).
+- Open-mode records use modality `OT` unless DICOM says otherwise (VW-05 percentiles); a label map alone is its own image and overlay with auto `label_{n}` colours.
+- An import root that is a non-NIfTI file is `unsupported-format` (415) instead of `validation`.
+- `tst08-multiuser` waits 15 s for B's refetched row (the SSE toast already proved delivery); it flaked 1/3 on Chromium at the 5 s default while thumbnails run after indexing.
+
+**Open issues**
+- Legacy VOI axis order vs the v2 VOI writer: needs `legacy/`, done in Wave 3 (R9).
+- Initial JS is 296 KB of 300: the Tasks view (Wave 3) must be lazy; the import wizard could move to a lazy chunk if needed.
+- Open sessions are lost on a server restart (the page shows `not-found`; reopening works).

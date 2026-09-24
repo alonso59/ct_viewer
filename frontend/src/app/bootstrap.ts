@@ -4,6 +4,7 @@ import { registerCuration } from '../features/curation'
 import { registerDashboard } from '../features/dashboard'
 import { registerExplorer } from '../features/explorer'
 import { registerImport } from '../features/import'
+import { registerOpen } from '../features/open'
 import { registerJobs } from '../features/jobs'
 import { registerProjects } from '../features/projects'
 import { registerRadiomics } from '../features/radiomics'
@@ -30,6 +31,7 @@ export function bootstrap() {
   done = true
   registerProjects()
   registerImport()
+  registerOpen()
   registerExplorer()
   registerViewer()
   registerCuration()

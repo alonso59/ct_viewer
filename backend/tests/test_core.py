@@ -103,7 +103,8 @@ def test_item_id_roundtrip() -> None:
     iid = item_id("case_00001", "01", "voi", "L")
     assert iid == "case_00001.01.voi.L"
     assert parse_item_id(iid) == ("case_00001", "01", "voi", "L")
-    assert parse_item_id("case_1.01.voi.L") is None
+    assert parse_item_id("P-7_b.01.voi.L") == ("P-7_b", "01", "voi", "L")  # slug ids (SRC-08)
+    assert parse_item_id("case 1.01.voi.L") is None
     assert len(new_ulid()) == 26 and utc_now().endswith("Z")
 
 

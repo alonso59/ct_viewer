@@ -20,14 +20,16 @@ import {
 import { Dialog, IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
 import { toast } from '../../shell'
 import { Icon, codicon, ct } from '../../theme'
-import { useImportWizard } from '../import'
+import { useImportWizard, type WizardPrefill } from '../import'
+import { useOpenDialog } from '../open'
 import { exportBundle } from './actions'
 import './projects.css'
 
 // The import report dialog and its strings load once a bundle is picked (NFR-07)
 const BundleImport = lazy(() => import('./BundleImport'))
 
-export function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+/** `prefill`: "Create project from this" (Open mode) starts the import wizard on that path */
+export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [preset, setPreset] = useState<Preset>('ccrcc')
@@ -38,7 +40,7 @@ export function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpen
     onOpenChange(false)
     setName('')
     navigate(`/p/${p.project_id}`)
-    useImportWizard.getState().open(p.project_id)
+    useImportWizard.getState().open(p.project_id, prefill)
   }
   return (
     <Dialog
@@ -236,6 +238,13 @@ export function WorkspaceHome() {
                 <span>
                   <strong>{t('home.newProject')}</strong>
                   <span className="muted">{t('home.newProjectHelp')}</span>
+                </span>
+              </button>
+              <button type="button" className="home-action" onClick={() => useOpenDialog.getState().show()}>
+                <Icon spec={codicon('folder-opened')} size={20} />
+                <span>
+                  <strong>{t('home.openPath')}</strong>
+                  <span className="muted">{t('home.openPathHelp')}</span>
                 </span>
               </button>
               <button type="button" className="home-action" onClick={() => picker.current?.click()}>
