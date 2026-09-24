@@ -225,6 +225,66 @@ make check. Exit: docker compose up serves the app. Commit and STOP.
 
 **Integrator after Step 3:** merge, reconcile `frontend/package.json` + lockfile, `make gen-api`, `make check`, and report the image size.
 
+## Step 3b: close pending items from one terminal with sub-agents (no udocker)
+
+Open one Claude terminal in the main checkout (`ct_viewer`, branch `v3`) and paste:
+
+```text
+You are the orchestrator for "Step 3b" of this repo. Work locally on branch v3; never git push.
+Read AGENTS.md, docs/INDEX.md, docs/product/ROADMAP.md (§P6, §P7) and the last three
+"Step 3" entries of LANE_NOTES.md. Do NOT read docs/archive/** or legacy/**.
+
+Goal: close the pending engineering items below. Out of scope (leave untouched, keep them
+listed as open): anything needing the remote server or udocker (Step 4, Dataset820, TST-10
+under udocker, exec-mode benchmark), the human checks (IBSI map vs manual, queue CSV in 3D
+Slicer, real v2 import), and the user decision on continuous ranges in radiomics selection.
+
+Use sub-agents (Agent tool, isolation "worktree", run in background) with disjoint file
+ownership. Give each sub-agent: its task list, the docs to read, the paths it owns, and the
+rule "run make check before committing; never commit red; commit locally on your branch;
+write a short summary for the orchestrator". Waves:
+
+Wave 1 (parallel)
+- A · backend (owns backend/**, scripts/**, Dockerfile, docker-compose.yml, Makefile VERSION):
+  1. Mount the SPA in app/main.py when STATIC_ROOT/index.html exists (/assets static,
+     index.html fallback for client routes, /api/* never falls back); keep
+     scripts/container_app.py only as the entry that prints the OPS-04 refusal, or drop it.
+  2. SSE (API-40): send a comment line right after the stream opens (Firefox "live" delay).
+  3. Add `modality` to the item record (DATA_MODEL Item) from metadata `modality`.
+  4. IMP-09 / API-15 full-hash job, and PRJ-08/09 project bundle export/import (API-06).
+  5. One source for the version: backend/pyproject.toml; Makefile VERSION and compose
+     RW_VERSION read it. Refresh the OpenAPI snapshot.
+- B · frontend API layer for radiomics (owns frontend/src/api/** radiomics parts,
+  frontend/src/features/radiomics/api.ts, hooks.ts): move features/radiomics/api.ts into the
+  Api surface (surface.ts/http.ts/types.ts/hooks.ts/keys.ts) with generated types, add a
+  validation query key, update the mock so the settings tab works with VITE_API_MODE=mock,
+  delete the obsolete prototype radiomics members.
+
+Wave 2 (after merging A and B into v3 and running make gen-api)
+- C · frontend features (owns frontend/src/features/{explorer,projects,dashboard,viewer}/**,
+  frontend/src/features/radiomics/SelectionForm.tsx, frontend/e2e/**, i18n additions):
+  1. Explorer item-id filter (CaseFilter + Project view) so dashboard "Send to Explorer"
+     (DB-04) filters for real; export a read-only useExplorerFilter() and offer
+     "Use the current Explorer filter" in the radiomics selection (RAD-05).
+  2. Viewer reads item.modality (drop the extra.modality fallback) for VW-05.
+  3. UI for bundles (export/import in the Projects view) and "Compute full hashes".
+  4. Update e2e/p2-flow.spec.ts to the current fixture counts; run the Playwright suite
+     (Chromium + Firefox) and fix what fails in C's paths.
+- D · optional, in parallel with C (owns nothing in git): if the Docker daemon is up,
+  build the image for linux/amd64 (`make image PLATFORM=linux/amd64`) and run
+  `make container-smoke` against it. If emulation makes it take > 60 min, stop and report.
+
+Integration after each wave (you do this yourself, not a sub-agent): merge with --no-ff,
+keep all LANE_NOTES.md entries on conflict, use the docs as the authority for other
+conflicts, npm install, make gen-api, make fixtures && make check. Keep initial JS
+≤ 300 KB gzip (NFR-07; strings used only in lazy chunks go to i18n/en.lazy.json).
+Update the owning docs (API.md, DATA_MODEL.md, PROJECT_FORMAT.md, DEPLOYMENT.md,
+VIEWER.md, FE/BE ARCHITECTURE) and tick ROADMAP lines. Write one "Step 3b" entry in
+LANE_NOTES.md with results (tests, initial JS size, amd64 image size if built).
+Commit locally and STOP. If make check cannot be made green, leave the work on a branch
+step3b-wip, keep v3 at its last green commit, and explain.
+```
+
 ## Step 4: Shell on the remote server (P7)
 
 ```text
