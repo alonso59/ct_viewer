@@ -4,12 +4,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ReviewerCancelled, useProject, useVariables } from '../../api'
+import { ReviewerCancelled, useEstimate, useProfiles, useProject, useRadiomicsSchema, useStartRun, useVariables } from '../../api'
 import { fmtDuration } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { FeatureClassesForm, FiltersForm } from './GroupForms'
-import { useEstimate, useRadProfiles, useRadSchema, useServerValidation, useStartRun } from './hooks'
+import { useServerValidation } from './hooks'
 import { useIssueMessage } from './IssueText'
 import { OptionField } from './OptionField'
 import { ProfileBar } from './ProfileBar'
@@ -27,10 +27,10 @@ export function SettingsEditor() {
   const { t } = useTranslation()
   const msg = useIssueMessage()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const schema = useRadSchema()
+  const schema = useRadiomicsSchema()
   const project = useProject(pid)
   const variables = useVariables(pid)
-  const profiles = useRadProfiles(pid)
+  const profiles = useProfiles(pid)
   const draft = useDraft()
   const estimate = useEstimate(pid)
   const startRun = useStartRun(pid)

@@ -13,7 +13,6 @@ import {
   type CurationStatus,
   type DerivedDef,
   type FeatureRow,
-  type FeatureValue,
   type FsEntry,
   type ImportPreview,
   type ItemRecord,
@@ -25,26 +24,59 @@ import {
   type ProjectSummary,
   type QCWarning,
   type QueueRow,
-  type RadiomicsRun,
+  type Profile,
+  type RunDetail,
   type RunError,
   type ServerEvent,
-  type Settings,
   type Variable,
   type VariableValue,
 } from '../types'
 import { mockDashboardView } from './dashboard'
-import { MOCK_SCHEMA, defaultSettings, validateSettings } from './schema'
+import { engineOf, loadEngine, profileHash, selectItems, toSummary } from './radiomics'
 import seedJson from './seed.json'
 import { candidateFields, deriveValue, isMissing, parseTable, profileField, validateDerived, type Override, type Row } from './variables'
 
+/** Seed feature value; `feature` is `{class}_{name}` */
+interface FeatureValue {
+  item_id: string
+  label: number
+  feature_class: string
+  feature: string
+  value: number
+}
+/** `npm run mock:seed` output: runs and errors in their pre-API-34 shapes, completed at load */
+type SeedRun = Omit<RunDetail, 'engine' | 'ibsi_map_version' | 'settings' | 'inputs' | 'selection' | 'counts'> & {
+  engine: { name: string; version: string }
+  selection: Omit<RunDetail['selection'], 'item_ids'>
+  counts: Omit<RunDetail['counts'], 'skipped'>
+}
 interface Seed {
   items: (Omit<ItemRecord, 'import_id' | 'phase'> & { phase: { canonical: ItemRecord['phase']['canonical']; raw: string } })[]
   warnings: (Omit<QCWarning, 'field' | 'path_ref'> & Partial<QCWarning>)[]
-  runs: RadiomicsRun[]
+  runs: SeedRun[]
   features: Record<string, FeatureValue[]>
-  errors: Record<string, RunError[]>
+  errors: Record<string, Pick<RunError, 'item_id' | 'label' | 'error'>[]>
 }
 const seed = seedJson as unknown as Seed
+
+const seedRuns = (): RunDetail[] =>
+  seed.runs.map((r) => ({
+    ...r,
+    engine: { ...r.engine, deps: {} },
+    ibsi_map_version: 'mock',
+    settings: {},
+    inputs: [],
+    selection: { ...r.selection, item_ids: [] },
+    counts: { ...r.counts, skipped: 0 },
+    job_id: null,
+  }))
+const seedErrors = (): Record<string, RunError[]> =>
+  Object.fromEntries(
+    Object.entries(seed.errors).map(([rid, list]) => [
+      rid,
+      list.map((e) => ({ ...e, kind: 'failed' as const, at: seed.runs.find((r) => r.run_id === rid)?.finished_at ?? '2026-09-23T10:06:41Z' })),
+    ]),
+  )
 
 export const DEMO_PID = '01JSYNTH900PROJECT00000000'
 const OFFLINE_PID = '01JDATASET820PROJECT000000'
@@ -180,10 +212,11 @@ interface ProjectState {
   reachable: boolean
   items: ItemRecord[]
   warnings: QCWarning[]
-  runs: RadiomicsRun[]
+  runs: RunDetail[]
   features: Record<string, FeatureValue[]>
   errors: Record<string, RunError[]>
-  profiles: { name: string; hash: string; settings: Settings; saved_at: string }[]
+  /** null until first read: the demo "Engine defaults" profile needs the lazily loaded schema */
+  profiles: Profile[] | null
   overrides: Record<string, Override>
   derived: DerivedDef[]
   /** External table values by case_id (VAR-07) */
@@ -229,12 +262,10 @@ function makeProject(pid: string, name: string, preset: Preset, withData: boolea
     reachable: true,
     items,
     warnings: withData ? seedWarnings() : [],
-    runs: withData ? clone(seed.runs) : [],
+    runs: withData ? seedRuns() : [],
     features: withData ? clone(seed.features) : {},
-    errors: withData ? clone(seed.errors) : {},
-    profiles: withData
-      ? [{ name: 'Engine defaults', hash: 'sha256:9f2c…e41a', settings: defaultSettings(), saved_at: '2026-09-22T08:00:00Z' }]
-      : [],
+    errors: withData ? seedErrors() : {},
+    profiles: withData ? null : [],
     overrides: {},
     derived: [],
     external: {},
@@ -474,6 +505,73 @@ function featureRows(s: ProjectState, rid: string, itemId?: string): FeatureRow[
         }]
       : []
   })
+}
+
+// ---- radiomics (API-30..37) -------------------------------------------------------------------
+async function profilesOf(s: ProjectState): Promise<Profile[]> {
+  if (s.profiles) return s.profiles
+  const e = await loadEngine()
+  const settings = e.normalize(e.schema.defaults)
+  const at = '2026-09-22T08:00:00Z'
+  s.profiles ??= [{ profile_hash: profileHash(settings), name: 'Engine defaults', created_at: at, updated_at: at, engine: engineOf(e.schema), settings }]
+  return s.profiles
+}
+
+/** Study variable value of an item for selection filters (metadata `extra` + external tables) */
+const valueOf =
+  (s: ProjectState) =>
+  (i: ItemRecord, name: string): unknown =>
+    s.external[i.case_id]?.[name] ?? i.extra[name]
+
+function runOf(s: ProjectState, rid: string): RunDetail {
+  const r = s.runs.find((x) => x.run_id === rid)
+  if (!r) throw new ProblemError(404, 'not-found', 'Run not found', rid)
+  return r
+}
+
+/** Simulated extraction: one job step per unit; values jittered from the seed run's features */
+function execute(pid: string, s: ProjectState, run: RunDetail) {
+  const base = s.runs.find((r) => r !== run && s.features[r.run_id]?.length)
+  const ids = new Set(run.selection.item_ids)
+  const labels = run.selection.labels
+  const job = newJob(pid, 'radiomics', Math.max(1, ids.size * labels.length), run.run_id)
+  run.job_id = job.job_id
+  run.status = 'running'
+  run.started_at = now()
+  runJob(pid, job, 250, () => {
+    const features = (base ? (s.features[base.run_id] ?? []) : [])
+      .filter((f) => ids.has(f.item_id) && labels.includes(f.label))
+      .map((f) => ({ ...f, value: +(f.value * (0.98 + Math.random() * 0.04)).toFixed(4) }))
+    const errors = (base ? (s.errors[base.run_id] ?? []) : []).filter((e) => ids.has(e.item_id) && labels.includes(e.label))
+    const failed = new Set(errors.map((e) => e.item_id)).size
+    s.features[run.run_id] = features
+    s.errors[run.run_id] = errors.map((e) => ({ ...e, at: now() }))
+    run.status = errors.length ? 'completed_with_errors' : 'completed'
+    run.finished_at = now()
+    run.counts = { items: ids.size, ok: ids.size - failed, failed, features: new Set(features.map((f) => f.feature)).size, skipped: 0 }
+  })
+}
+
+/** API-36 CSV, long (one row per value) or wide (one row per item × label) */
+function featuresCsv(rows: FeatureRow[], shape: 'long' | 'wide'): string {
+  const cell = (v: unknown) => (v == null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"', '""')}"` : String(v))
+  const meta = ['item_id', 'case_id', 'scan_idx', 'scope', 'side', 'phase', 'label'] as const
+  if (shape === 'long') {
+    const cols = [...meta, 'image_type', 'feature_class', 'feature', 'value'] as const
+    return [cols.join(','), ...rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\n')
+  }
+  const features = [...new Set(rows.map((r) => r.feature))]
+  const byUnit = new Map<string, FeatureRow[]>()
+  for (const r of rows) {
+    const k = `${r.item_id}|${r.label}`
+    byUnit.set(k, [...(byUnit.get(k) ?? []), r])
+  }
+  const lines = [...byUnit.values()].map((list) => {
+    const first = list[0] as FeatureRow
+    const val = new Map(list.map((r) => [r.feature, r.value]))
+    return [...meta.map((c) => cell(first[c])), ...features.map((f) => cell(val.get(f)))].join(',')
+  })
+  return [[...meta, ...features].join(','), ...lines].join('\n')
 }
 
 // ---- API surface -----------------------------------------------------------
@@ -843,79 +941,127 @@ export const mockServer: Api = {
     throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'v2 import needs the backend (API-54)')
   },
 
-  // API-30..38
-  async schema() {
+  // API-30..37
+  async radiomicsSchema() {
     await wait(120)
-    return clone(MOCK_SCHEMA)
+    return clone((await loadEngine()).schema)
   },
-  async validate(settings, selection) {
+  async validateRadiomics(settings, labels, nItems) {
     await wait(40)
-    return validateSettings(settings, selection)
-  },
-  async estimate(pid, selection) {
-    await wait(700)
-    const n = state(pid).items.filter((i) => i.scope === selection.scope && i.status === 'active' && i.mask).length
-    return { n_items: n, n_labels: selection.labels.length, n_extractions: n * selection.labels.length, sec_per_item: 2.4 }
+    return (await loadEngine()).validate(settings, labels, nItems)
   },
   async listProfiles(pid) {
     await wait(60)
-    return clone(state(pid).profiles)
+    return clone(await profilesOf(state(pid)))
   },
   async saveProfile(pid, name, settings) {
     await wait(120)
     const s = state(pid)
-    const hash = `sha256:${Math.abs(JSON.stringify(settings).split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(16).padStart(8, '0')}…`
-    s.profiles = [...s.profiles.filter((p) => p.name !== name), { name, hash, settings: clone(settings), saved_at: now() }]
-    return { name, hash }
+    const list = await profilesOf(s)
+    const e = await loadEngine()
+    const norm = e.normalize(settings)
+    const hash = profileHash(norm)
+    const known = list.find((p) => p.profile_hash === hash)
+    if (known) return clone(known)
+    const p: Profile = { profile_hash: hash, name, created_at: now(), updated_at: now(), engine: engineOf(e.schema), settings: norm }
+    list.push(p)
+    return clone(p)
+  },
+  async renameProfile(pid, hash, name) {
+    await wait(80)
+    const p = (await profilesOf(state(pid))).find((x) => x.profile_hash === hash)
+    if (!p) throw new ProblemError(404, 'not-found', 'Profile not found', hash)
+    p.name = name
+    p.updated_at = now()
+    return clone(p)
+  },
+  async deleteProfile(pid, hash) {
+    await wait(80)
+    const s = state(pid)
+    const list = await profilesOf(s)
+    if (!list.some((x) => x.profile_hash === hash)) throw new ProblemError(404, 'not-found', 'Profile not found', hash)
+    s.profiles = list.filter((x) => x.profile_hash !== hash)
+    return clone(s.profiles)
+  },
+  async estimate(pid, _settings, selection) {
+    await wait(500)
+    const s = state(pid)
+    const items = selectItems(s.items, selection, valueOf(s))
+    const labels = selection.labels ?? []
+    const n_units = items.length * labels.length
+    const n_skipped = items.filter((i) => labels.some((l) => !i.labels_present.includes(l))).length
+    return {
+      n_items: items.length, n_labels: labels.length, n_units, n_skipped,
+      sample_item_ids: items.slice(0, 3).map((i) => i.item_id),
+      time_per_item_s: 2.4, time_per_unit_s: 1.2, workers: 2,
+      estimated_total_s: Math.round((n_units * 1.2) / 2), sample_errors: [],
+    }
   },
   async listRuns(pid) {
     await wait(80)
-    return clone(state(pid).runs).reverse()
+    return state(pid).runs.map(toSummary).reverse()
   },
   async getRun(pid, rid) {
     await wait(60)
-    const r = state(pid).runs.find((x) => x.run_id === rid)
-    if (!r) throw new ProblemError(404, 'not-found', 'Run not found', rid)
-    return clone(r)
+    return clone(runOf(state(pid), rid))
   },
-  async startRun(pid, name, selection, reviewer) {
+  async startRun(pid, body, reviewer) {
     await wait(200)
     const s = state(pid)
-    const base = s.runs[0]
-    const rid = ulid()
-    const targets = s.items.filter((i) => i.scope === selection.scope && i.status === 'active' && i.mask)
-    const run: RadiomicsRun = {
-      run_id: rid, name, status: 'running', created_at: now(), started_at: now(),
-      finished_at: null, reviewer, engine: MOCK_SCHEMA.engine, profile_hash: 'sha256:9f2c…e41a',
-      selection: { ...selection, filter: 'status=active' },
-      counts: { items: targets.length, ok: 0, failed: 0, features: 0 },
+    const e = await loadEngine()
+    const settings = e.normalize(body.settings)
+    const items = selectItems(s.items, body.selection, valueOf(s))
+    const labels = body.selection.labels ?? []
+    const run: RunDetail = {
+      run_id: ulid(), name: body.name, status: 'queued', created_at: now(), started_at: null, finished_at: null, reviewer,
+      engine: { ...e.schema.engine, deps: {} }, ibsi_map_version: e.schema.ibsi_map_version, profile_hash: profileHash(settings), settings,
+      selection: { scope: body.selection.scope ?? 'complete', labels, filter: body.selection.filter ? JSON.stringify(body.selection.filter) : null, item_ids: items.map((i) => i.item_id) },
+      inputs: items.map((i) => ({ item_id: i.item_id, image_fp: null, mask_fp: null })),
+      counts: { items: items.length, ok: 0, failed: 0, features: 0, skipped: 0 },
+      job_id: null, error: null, progress: null,
     }
     s.runs.push(run)
-    const job = newJob(pid, 'radiomics', Math.max(1, targets.length), rid)
-    runJob(pid, job, 350, () => {
-      const src = base ? (s.features[base.run_id] ?? []) : []
-      s.features[rid] = src
-        .filter((f) => selection.labels.includes(f.label))
-        .map((f) => ({ ...f, value: +(f.value * (0.98 + Math.random() * 0.04)).toFixed(4) }))
-      s.errors[rid] = base ? clone(s.errors[base.run_id] ?? []) : []
-      run.status = s.errors[rid].length ? 'completed_with_errors' : 'completed'
-      run.finished_at = now()
-      run.counts = {
-        items: targets.length,
-        ok: targets.length - s.errors[rid].length,
-        failed: s.errors[rid].length,
-        features: new Set(s.features[rid].map((f) => f.feature)).size,
-      }
-    })
-    return { run_id: rid, job_id: job.job_id }
+    execute(pid, s, run)
+    return clone(run)
+  },
+  async cancelRun(pid, rid) {
+    await wait(60)
+    const run = runOf(state(pid), rid)
+    if (run.status !== 'queued' && run.status !== 'running') throw new ProblemError(409, 'conflict', 'Run is not active', rid)
+    const j = run.job_id ? jobs.get(run.job_id) : undefined
+    run.status = 'cancelled'
+    run.finished_at = now()
+    if (j && j.status === 'running') {
+      j.status = 'cancelled'
+      j.finished_at = now()
+      emit(pid, { event: 'job.finished', data: { job_id: j.job_id, kind: j.kind, status: j.status, ref: j.ref } })
+    }
+    return clone(run)
+  },
+  async resumeRun(pid, rid) {
+    await wait(60)
+    const s = state(pid)
+    const run = runOf(s, rid)
+    if (run.status !== 'interrupted' && run.status !== 'cancelled') throw new ProblemError(409, 'conflict', 'Run cannot be resumed', rid)
+    run.status = 'queued'
+    run.finished_at = null
+    execute(pid, s, run)
+    return clone(run)
   },
   async runFeatures(pid, rid, itemId) {
     await wait(90)
     return featureRows(state(pid), rid, itemId)
   },
+  runExportUrl(pid, rid, format, shape) {
+    const s = db.get(pid)
+    if (!s || format !== 'csv') return 'data:text/plain,Not%20available%20in%20the%20mock'
+    return `data:text/csv;charset=utf-8,${encodeURIComponent(featuresCsv(featureRows(s, rid), shape))}`
+  },
   async runErrors(pid, rid) {
     await wait(60)
-    return clone(state(pid).errors[rid] ?? [])
+    const s = state(pid)
+    runOf(s, rid)
+    return clone(s.errors[rid] ?? [])
   },
 
   // API-38/39 (mockDashboardView covers the QC views; the guided statistics need the backend)

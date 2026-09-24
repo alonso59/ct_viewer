@@ -13,14 +13,13 @@ import type {
   CurationStateRow,
   DashboardView,
   DerivedDef,
-  Estimate,
+  EstimateResult,
   ExternalImportResult,
   FeatureRow,
   FsListing,
   Health,
   ImportHistory,
   ImportPreview,
-  Issue,
   ItemDetail,
   Job,
   LabelDef,
@@ -32,14 +31,20 @@ import type {
   ProjectSummary,
   QCWarning,
   QueueRow,
-  RadiomicsRun,
+  RadiomicsSettings,
   RelinkResult,
   RootInfo,
+  RunDetail,
   RunError,
+  RunExportFormat,
+  RunExportShape,
+  RunSummary,
+  Selection,
   ServerEvent,
-  Settings,
   SettingsSchema,
+  StartRunBody,
   V2ImportReport,
+  ValidateResult,
   Variable,
   VariablePatch,
   ViewRequest,
@@ -112,20 +117,31 @@ export interface Api {
   importV2(pid: string, file: File, reviewer: string): Promise<V2ImportReport>
 
   // Radiomics (API-30..37)
-  schema(): Promise<SettingsSchema>
-  validate(settings: Settings, selection: { labels: number[]; items: number }): Promise<Issue[]>
-  estimate(pid: string, selection: { scope: string; labels: number[] }): Promise<Estimate>
+  /** API-30: engine options, defaults, constraints (RAD-01) */
+  radiomicsSchema(): Promise<SettingsSchema>
+  /** API-31: authoritative validation (RAD-04); `nItems = null` skips the empty-selection check */
+  validateRadiomics(settings: RadiomicsSettings, labels: number[] | null, nItems: number | null): Promise<ValidateResult>
+  /** API-32 (RAD-03); all pages */
   listProfiles(pid: string): Promise<Profile[]>
-  saveProfile(pid: string, name: string, settings: Settings): Promise<{ name: string; hash: string }>
-  listRuns(pid: string): Promise<RadiomicsRun[]>
-  getRun(pid: string, rid: string): Promise<RadiomicsRun>
-  startRun(
-    pid: string,
-    name: string,
-    selection: { scope: 'complete' | 'voi'; labels: number[] },
-    reviewer: string,
-  ): Promise<{ run_id: string; job_id: string }>
+  /** Saving settings that hash to an existing profile returns that profile */
+  saveProfile(pid: string, name: string, settings: RadiomicsSettings): Promise<Profile>
+  renameProfile(pid: string, hash: string, name: string): Promise<Profile>
+  /** Returns the remaining profiles */
+  deleteProfile(pid: string, hash: string): Promise<Profile[]>
+  /** API-33 (RAD-11) */
+  estimate(pid: string, settings: RadiomicsSettings, selection: Selection): Promise<EstimateResult>
+  /** API-34; all pages, newest first */
+  listRuns(pid: string): Promise<RunSummary[]>
+  getRun(pid: string, rid: string): Promise<RunDetail>
+  startRun(pid: string, body: StartRunBody, reviewer: string): Promise<RunDetail>
+  /** API-35 (RAD-06/08) */
+  cancelRun(pid: string, rid: string): Promise<RunDetail>
+  resumeRun(pid: string, rid: string): Promise<RunDetail>
+  /** API-36 JSON long rows (Measurements panel, UI-14) */
   runFeatures(pid: string, rid: string, itemId?: string): Promise<FeatureRow[]>
+  /** API-36 file download URL (RAD-10) */
+  runExportUrl(pid: string, rid: string, format: RunExportFormat, shape: RunExportShape): string
+  /** API-37 (RAD-07); all pages */
   runErrors(pid: string, rid: string): Promise<RunError[]>
 
   // Dashboard (API-38) and guided analysis (API-39)

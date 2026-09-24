@@ -1,6 +1,5 @@
 // Domain payload types. Built endpoints alias the generated `schema.d.ts` (FE-03); the HTTP client
 // normalizes payloads into these shapes so features stay independent of wire details.
-// Radiomics runs/settings (API-30..37) still use hand-written types (P5-FE reconciles them).
 import type { components } from './schema'
 
 type S = components['schemas']
@@ -135,36 +134,40 @@ export type CurationExport = S['ExportResult']
 /** API-54 report */
 export type V2ImportReport = S['V2ImportReport']
 
-export type RunStatus =
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'completed_with_errors'
-  | 'failed'
-  | 'cancelled'
-  | 'interrupted'
-
-export interface RadiomicsRun {
-  run_id: string
+// ---- radiomics (API-30..37), from the generated schema ----------------------------------------
+/** API-30 engine schema (RAD-01) */
+export type SettingsSchema = S['SettingsSchema']
+export type OptionSpec = S['OptionSpec']
+export type FilterSpec = S['FilterSpec']
+export type FeatureClassSpec = S['FeatureClassSpec']
+/** Engine settings snapshot sent to API-31/33/34 and stored in profiles */
+export type RadiomicsSettings = S['RadiomicsSettings']
+/** API-31 finding; `loc` is the path into `RadiomicsSettings` (or `labels`, `n_items`) */
+export type ValidationIssue = S['Issue']
+export type ValidateResult = S['ValidateResult']
+/** API-33/34 item selection (RAD-05) */
+export type Selection = S['Selection']
+export type SelectionFilter = S['SelectionFilter']
+/** API-33 pre-run estimate (RAD-11) */
+export type EstimateResult = S['EstimateResult']
+/** API-32 profile; identified by `profile_hash` (RAD-03) */
+export type Profile = S['app__radiomics__models__Profile']
+/** API-34 list row and detail */
+export type RunSummary = S['RunSummary']
+export type RunDetail = S['RunDetail']
+export type RunStatus = RunSummary['status']
+/** @deprecated use `RunSummary` (kept for `features/dashboard`) */
+export type RadiomicsRun = RunSummary
+/** API-37 per-item failure (RAD-07) */
+export type RunError = S['app__radiomics__models__RunError']
+/** API-34 start body */
+export interface StartRunBody {
   name: string
-  status: RunStatus
-  created_at: string
-  started_at: string | null
-  finished_at: string | null
-  reviewer: string
-  engine: { name: string; version: string }
-  profile_hash: string
-  selection: { scope: Scope; labels: number[]; filter: string }
-  counts: { items: number; ok: number; failed: number; features: number }
+  settings: RadiomicsSettings
+  selection: Selection
 }
-
-export interface FeatureValue {
-  item_id: string
-  label: number
-  feature_class: string
-  feature: string
-  value: number
-}
+export type RunExportFormat = 'csv' | 'parquet'
+export type RunExportShape = 'long' | 'wide'
 
 /** API-36 long rows (RAD §Output schema). `feature` is the full column name used by API-38/39
  *  (`{image_type}_{feature_class}_{name}`, e.g. `original_firstorder_Mean`). */
@@ -183,57 +186,6 @@ export interface FeatureRow {
   value: number | null
   ibsi_code: string | null
   ibsi_status: 'compliant' | 'deviates' | 'not_defined' | null
-}
-
-export interface RunError {
-  item_id: string
-  label: number
-  error: string
-}
-
-// API-30 settings schema (RAD-01): every option with type, default, constraints and group
-export type OptionType = 'bool' | 'int' | 'float' | 'text' | 'select' | 'float_list' | 'int_list'
-export interface SettingsOption {
-  key: string
-  title: string
-  type: OptionType
-  default: unknown
-  help?: string
-  min?: number
-  max?: number
-  choices?: string[]
-  nullable?: boolean
-  /** Only shown/enabled when this boolean option is on (e.g. LoG → sigma) */
-  parent?: string
-}
-export interface SettingsGroup {
-  id: string
-  title: string
-  options: SettingsOption[]
-  /** Feature classes: per-feature checkboxes (RAD-02) */
-  features?: Record<string, string[]>
-}
-export interface SettingsSchema {
-  engine: { name: string; version: string }
-  groups: SettingsGroup[]
-}
-export type Settings = Record<string, unknown>
-export interface Issue {
-  field: string | null
-  severity: 'error' | 'warning'
-  message: string
-}
-export interface Profile {
-  name: string
-  hash: string
-  settings: Settings
-  saved_at: string
-}
-export interface Estimate {
-  n_items: number
-  n_labels: number
-  n_extractions: number
-  sec_per_item: number
 }
 
 /** API-41 job */

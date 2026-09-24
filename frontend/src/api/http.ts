@@ -1,6 +1,6 @@
 // HTTP binding of the API surface (backend/API.md). Most endpoints go through the typed
-// openapi-fetch client (FE-03); a few use `send` on the documented paths (multipart, radiomics
-// types still hand-written for P5-FE), whose list reads treat a missing route as empty.
+// openapi-fetch client (FE-03); a few use `send` on the documented paths (multipart, the
+// variables catalog).
 import createClient from 'openapi-fetch'
 
 import { ProblemError, toProblemError } from './problem'
@@ -30,7 +30,8 @@ const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 const V1 = `${BASE}/api/v1`
 const PAGE = 2000
 
-const client = createClient<paths>({ baseUrl: BASE })
+// `fetch` is looked up per call (like `send`), so tests can stub it after this module loads
+const client = createClient<paths>({ baseUrl: BASE, fetch: (req) => globalThis.fetch(req) })
 
 type Res<T> = { data?: T; error?: unknown; response: Response }
 
@@ -53,15 +54,16 @@ async function send<T>(method: string, path: string, body?: unknown, headers: Re
   return json as T
 }
 
-/** List reads of endpoints that may not exist yet: a missing route is an empty list */
-async function listOrEmpty<T>(path: string): Promise<T[]> {
-  try {
-    const v = await send<T[] | { items: T[] }>('GET', path)
-    return Array.isArray(v) ? v : v.items
-  } catch (e) {
-    if (e instanceof ProblemError && (e.status === 404 || e.status === 405)) return []
-    throw e
-  }
+/** Every page of a cursor-paged list (API §Pagination) */
+async function allPages<T>(get: (cursor: string | undefined) => Promise<{ items: T[]; next_cursor?: string | null }>): Promise<T[]> {
+  const out: T[] = []
+  let cursor: string | undefined
+  do {
+    const page = await get(cursor)
+    out.push(...page.items)
+    cursor = page.next_cursor ?? undefined
+  } while (cursor)
+  return out
 }
 
 const enc = encodeURIComponent
@@ -466,16 +468,27 @@ export const httpApi: Api = {
     return send('POST', `/projects/${enc(pid)}/curation/import-v2`, fd, reviewerHeader(reviewer))
   },
 
-  // API-30..37 (P5 backend)
-  schema: () => send('GET', '/radiomics/schema'),
-  validate: (settings, selection) => send('POST', '/radiomics/validate', { settings, selection }),
-  estimate: (pid, selection) => send('POST', `/projects/${enc(pid)}/radiomics/estimate`, { selection }),
-  listProfiles: (pid) => listOrEmpty(`/projects/${enc(pid)}/radiomics/profiles`),
-  saveProfile: (pid, name, settings) => send('POST', `/projects/${enc(pid)}/radiomics/profiles`, { name, settings }),
-  listRuns: (pid) => listOrEmpty(`/projects/${enc(pid)}/radiomics/runs`),
-  getRun: (pid, rid) => send('GET', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}`),
-  startRun: (pid, name, selection, reviewer) =>
-    send('POST', `/projects/${enc(pid)}/radiomics/runs`, { name, selection }, reviewerHeader(reviewer)),
+  // API-30..37
+  radiomicsSchema: () => unwrap(client.GET('/api/v1/radiomics/schema')),
+  validateRadiomics: (settings, labels, nItems) =>
+    unwrap(client.POST('/api/v1/radiomics/validate', { body: { settings, labels, n_items: nItems } })),
+  listProfiles: (pid) =>
+    allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
+  saveProfile: (pid, name, settings) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid } }, body: { name, settings } })),
+  renameProfile: (pid, phash, name) =>
+    unwrap(client.PATCH('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash } }, body: { name } })),
+  deleteProfile: async (pid, phash) =>
+    (await unwrap(client.DELETE('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash }, query: { limit: PAGE } } }))).items,
+  estimate: (pid, settings, selection) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/radiomics/estimate', { params: { path: { pid } }, body: { settings, selection } })),
+  listRuns: (pid) =>
+    allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
+  getRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}', { params: { path: { pid, rid } } })),
+  startRun: (pid, body, reviewer) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body })),
+  cancelRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel', { params: { path: { pid, rid } } })),
+  resumeRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/resume', { params: { path: { pid, rid } } })),
   runFeatures: async (pid, rid, itemId) =>
     featureRows(
       await unwrap(
@@ -484,7 +497,11 @@ export const httpApi: Api = {
         }),
       ) as Schemas['FeaturesTable'],
     ),
-  runErrors: (pid, rid) => listOrEmpty(`/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/errors`),
+  runExportUrl: (pid, rid, format, shape) => `${V1}/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=${format}&shape=${shape}`,
+  runErrors: (pid, rid) =>
+    allPages((cursor) =>
+      unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/errors', { params: { path: { pid, rid }, query: { limit: PAGE, cursor } } })),
+    ),
 
   // API-38/39
   dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),

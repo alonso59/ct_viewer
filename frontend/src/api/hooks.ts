@@ -1,5 +1,5 @@
 // Server state through TanStack Query only (FE-02). Writes stamp the reviewer (FE-10).
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 import { requireReviewer } from '../state'
@@ -18,8 +18,10 @@ import type {
   NewCurationEvent,
   Preset,
   PreviewRequest,
+  RadiomicsSettings,
+  Selection,
   ServerEvent,
-  Settings,
+  StartRunBody,
   VariablePatch,
   ViewRequest,
 } from './types'
@@ -52,8 +54,8 @@ export const useQueue = (pid: string) =>
   useQuery({ queryKey: keys.queue(pid), queryFn: () => api.queue(pid), enabled: enabled(pid) })
 export const useRuns = (pid: string) =>
   useQuery({ queryKey: keys.runs(pid), queryFn: () => api.listRuns(pid), enabled: enabled(pid) })
-export const useRun = (pid: string, rid: string) =>
-  useQuery({ queryKey: keys.run(pid, rid), queryFn: () => api.getRun(pid, rid), enabled: enabled(pid, rid) })
+export const useRun = (pid: string, rid: string | null) =>
+  useQuery({ queryKey: keys.run(pid, rid ?? ''), queryFn: () => api.getRun(pid, rid ?? ''), enabled: enabled(pid, rid) })
 export const useFeatures = (pid: string, rid: string | null | undefined, iid?: string | null) =>
   useQuery({
     // `iid = null` (no active item) is disabled and must not share the whole-run key
@@ -61,8 +63,8 @@ export const useFeatures = (pid: string, rid: string | null | undefined, iid?: s
     queryFn: () => api.runFeatures(pid, rid ?? '', iid ?? undefined),
     enabled: enabled(pid, rid) && iid !== null,
   })
-export const useRunErrors = (pid: string, rid: string) =>
-  useQuery({ queryKey: keys.runErrors(pid, rid), queryFn: () => api.runErrors(pid, rid), enabled: enabled(pid, rid) })
+export const useRunErrors = (pid: string, rid: string | null) =>
+  useQuery({ queryKey: keys.runErrors(pid, rid ?? ''), queryFn: () => api.runErrors(pid, rid ?? ''), enabled: enabled(pid, rid) })
 /** API-38 view; the previous result stays visible while new params load. `body = null` disables it. */
 export const useDashboardView = <V extends DashboardView>(pid: string, rid: string, view: V, body: ViewRequest<V> | null) =>
   useQuery({
@@ -81,7 +83,19 @@ export const useProfiles = (pid: string) =>
 /** API-41; without a project, all jobs */
 export const useJobs = (pid?: string | null) =>
   useQuery({ queryKey: keys.jobs(pid ?? undefined), queryFn: () => api.listJobs(pid ?? undefined) })
-export const useSchema = () => useQuery({ queryKey: keys.schema(), queryFn: () => api.schema(), staleTime: Infinity })
+/** API-30; the engine schema does not change while the server runs */
+export const useRadiomicsSchema = () => useQuery({ queryKey: keys.schema(), queryFn: () => api.radiomicsSchema(), staleTime: Infinity, retry: 1 })
+/** API-31 for one request; `body = null` disables it. The previous answer stays while a new one loads. */
+export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labels: number[] | null; nItems: number | null } | null) {
+  const key = body ? JSON.stringify(body) : ''
+  return useQuery({
+    queryKey: keys.validation(key),
+    queryFn: () => api.validateRadiomics(body?.settings ?? {}, body?.labels ?? null, body?.nItems ?? null),
+    enabled: body !== null,
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
+  })
+}
 export const useFsList = (path: string | null) =>
   useQuery({ queryKey: keys.fs(path), queryFn: () => api.fsList(path), placeholderData: (p) => p })
 
@@ -219,26 +233,62 @@ export function useImportExternal(pid: string) {
   })
 }
 
+// ---- radiomics writes (API-32..35) ---------------------------------------------------------------
+/** API-32; saving settings that match a profile returns that profile */
 export function useSaveProfile(pid: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (p: { name: string; settings: Settings }) => api.saveProfile(pid, p.name, p.settings),
+    mutationFn: (p: { name: string; settings: RadiomicsSettings }) => api.saveProfile(pid, p.name, p.settings),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.profiles(pid) }),
   })
 }
 
+export function useRenameProfile(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { hash: string; name: string }) => api.renameProfile(pid, p.hash, p.name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.profiles(pid) }),
+  })
+}
+
+export function useDeleteProfile(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (hash: string) => api.deleteProfile(pid, hash),
+    onSuccess: (rest) => qc.setQueryData(keys.profiles(pid), rest),
+  })
+}
+
+/** API-33 (RAD-11) */
+export function useEstimate(pid: string) {
+  return useMutation({ mutationFn: (p: { settings: RadiomicsSettings; selection: Selection }) => api.estimate(pid, p.settings, p.selection) })
+}
+
+function invalidateRuns(qc: QueryClient, pid: string) {
+  void qc.invalidateQueries({ queryKey: keys.runs(pid) })
+  void qc.invalidateQueries({ queryKey: ['project', pid, 'run'] })
+  void qc.invalidateQueries({ queryKey: ['jobs'] })
+}
+
+/** API-34 (RAD-06), stamped with the reviewer; the Run button is the only trigger (RADIOMICS §Principles) */
 export function useStartRun(pid: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (p: { name: string; scope: 'complete' | 'voi'; labels: number[] }) => {
+    mutationFn: async (body: StartRunBody) => {
       const reviewer = await requireReviewer()
       if (!reviewer) throw new ReviewerCancelled()
-      return api.startRun(pid, p.name, { scope: p.scope, labels: p.labels }, reviewer)
+      return api.startRun(pid, body, reviewer)
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: keys.runs(pid) })
-      void qc.invalidateQueries({ queryKey: ['jobs'] })
-    },
+    onSuccess: () => invalidateRuns(qc, pid),
+  })
+}
+
+/** API-35 cancel / resume (RAD-06/08) */
+export function useRunControl(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { rid: string; action: 'cancel' | 'resume' }) => (p.action === 'cancel' ? api.cancelRun(pid, p.rid) : api.resumeRun(pid, p.rid)),
+    onSuccess: () => invalidateRuns(qc, pid),
   })
 }
 

@@ -13,6 +13,10 @@ import { useReviewer } from '../../state'
 import schemaJson from './model/fixtures/schema.json'
 import type { SettingsSchema } from './model/types'
 
+// Bind the HTTP client (unit tests default to the mock) against the fake fetch below
+vi.hoisted(() => vi.stubEnv('VITE_API_BASE', 'http://api.test'))
+vi.mock('../../api/client', async () => ({ api: (await import('../../api/http')).httpApi, API_MODE: 'http' }))
+
 const schema = schemaJson as unknown as SettingsSchema
 const PID = 'p1'
 

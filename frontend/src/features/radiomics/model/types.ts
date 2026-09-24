@@ -1,23 +1,21 @@
-// Radiomics wire types (API-30..37), taken from the generated OpenAPI schema (FE-03).
-import type { components } from '../../../api/schema'
-
-type S = components['schemas']
-
-export type SettingsSchema = S['SettingsSchema']
-export type OptionSpec = S['OptionSpec']
-export type FilterSpec = S['FilterSpec']
-export type FeatureClassSpec = S['FeatureClassSpec']
-export type WireSettings = S['RadiomicsSettings']
-export type ServerIssue = S['Issue']
-export type ValidateResult = S['ValidateResult']
-export type Selection = S['Selection']
-export type SelectionFilter = S['SelectionFilter']
-export type EstimateResult = S['EstimateResult']
-export type Profile = S['app__radiomics__models__Profile']
-export type RunSummary = S['RunSummary']
-export type RunDetail = S['RunDetail']
-export type RunStatus = RunSummary['status']
-export type RunError = S['Page_RunError_']['items'][number]
+// Radiomics wire types (API-30..37) from the shared API layer, under the names this feature uses.
+export type {
+  EstimateResult,
+  FeatureClassSpec,
+  FilterSpec,
+  OptionSpec,
+  Profile,
+  RunDetail,
+  RunError,
+  RunStatus,
+  RunSummary,
+  Selection,
+  SelectionFilter,
+  SettingsSchema,
+  ValidateResult,
+  RadiomicsSettings as WireSettings,
+  ValidationIssue as ServerIssue,
+} from '../../../api/types'
 
 /** A form value: every option type the schema declares (bool, int, float, str, enum, lists) */
 export type Value = boolean | number | string | number[] | null
