@@ -125,6 +125,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Bundle
+         * @description API-06 export: `.zip` of the project folder without `cache/` and never image data.
+         */
+        post: operations["export_bundle_api_v1_projects__pid__bundle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/import-bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Bundle
+         * @description API-06 import (PRJ-09): new project from a bundle, plus a per-alias resolve report.
+         */
+        post: operations["import_bundle_api_v1_projects_import_bundle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fs/list": {
         parameters: {
             query?: never;
@@ -200,6 +240,29 @@ export interface paths {
         get: operations["list_warnings_api_v1_projects__pid__warnings_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/hash-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Hash
+         * @description API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.
+         *
+         *     Results land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item
+         *     records (API-21/22). One `hash` job per project (`job-conflict`).
+         */
+        post: operations["start_hash_api_v1_projects__pid__hash_jobs_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1307,6 +1370,14 @@ export interface components {
             /** Labels */
             labels?: string[] | null;
         };
+        /** Body_import_bundle_api_v1_projects_import_bundle_post */
+        Body_import_bundle_api_v1_projects_import_bundle_post: {
+            /**
+             * Bundle
+             * @description A PRJ-08 bundle .zip
+             */
+            bundle: string;
+        };
         /** Body_import_external_api_v1_projects__pid__variables_external_post */
         Body_import_external_api_v1_projects__pid__variables_external_post: {
             /**
@@ -1347,6 +1418,26 @@ export interface components {
             mean?: number | null;
             /** Sd */
             sd?: number | null;
+        };
+        /** BundleImportResult */
+        BundleImportResult: {
+            project: components["schemas"]["ProjectDetail"];
+            /** Source Project Id */
+            source_project_id: string;
+            /** Id Changed */
+            id_changed: boolean;
+            /** Roots */
+            roots: components["schemas"]["BundleRoot"][];
+            /** Needs Relink */
+            needs_relink: boolean;
+        };
+        /**
+         * BundleRoot
+         * @description One alias of the imported project, checked on this server (PRJ-09).
+         */
+        BundleRoot: {
+            root: components["schemas"]["RootInfo"];
+            verify: components["schemas"]["VerifyReport"];
         };
         /** CaseDetail */
         CaseDetail: {
@@ -2288,6 +2379,27 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HashJobRequest */
+        HashJobRequest: {
+            /**
+             * Force
+             * @description Re-hash files that already have a current hash
+             * @default false
+             */
+            force: boolean;
+        };
+        /**
+         * HashJobStarted
+         * @description API-15 `202`: progress and completion arrive as `job.*` SSE events (API-40).
+         */
+        HashJobStarted: {
+            /** Job Id */
+            job_id: string;
+            /** N Files */
+            n_files: number;
+            /** N Skipped */
+            n_skipped: number;
+        };
         /** Health */
         Health: {
             /** Status */
@@ -2463,6 +2575,8 @@ export interface components {
             side: "L" | "R" | "-";
             /** Patient Id */
             patient_id?: string | null;
+            /** Modality */
+            modality?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
             mask?: components["schemas"]["VolumeRef"] | null;
@@ -2511,6 +2625,8 @@ export interface components {
             side: "L" | "R" | "-";
             /** Patient Id */
             patient_id?: string | null;
+            /** Modality */
+            modality?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
             mask?: components["schemas"]["VolumeRef"] | null;
@@ -3817,6 +3933,8 @@ export interface components {
             format: "nifti" | "npy";
             /** Fp */
             fp?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
         };
         /** RunError */
         app__analytics__models__RunError: {
@@ -4178,6 +4296,70 @@ export interface operations {
             };
         };
     };
+    export_bundle_api_v1_projects__pid__bundle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project bundle (PRJ-08) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_bundle_api_v1_projects_import_bundle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_bundle_api_v1_projects_import_bundle_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     fs_list_api_v1_fs_list_get: {
         parameters: {
             query?: {
@@ -4364,6 +4546,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_QcWarning_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_hash_api_v1_projects__pid__hash_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["HashJobRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HashJobStarted"];
                 };
             };
             /** @description Validation Error */

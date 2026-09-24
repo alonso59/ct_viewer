@@ -40,6 +40,7 @@ const REFERENCE: ItemRecord = {
   scope: 'complete',
   side: '-',
   patient_id: 'REF',
+  modality: 'CT',
   import_id: 'harness',
   phase: { canonical: 'NP', raw: 'NP', source: 'none' },
   image: { ref: 'reference/reference_ct.nii.gz', format: 'nifti' },

@@ -87,6 +87,7 @@ function normalizeCase(c: RawCase): CaseSummary {
 
 const normalizeItem = (i: paths['/api/v1/projects/{pid}/cases/{cid}']['get']['responses']['200']['content']['application/json']['scans'][number]['items'][number]): ItemRecord => ({
   patient_id: null,
+  modality: null,
   image: null,
   mask: null,
   geometry: null,
