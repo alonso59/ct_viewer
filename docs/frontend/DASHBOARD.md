@@ -46,3 +46,8 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 ## Decisions
 
 - UMAP is an optional extra (`pip install .[umap]`); PCA is the default embedding.
+
+## Implementation notes (P6-FE)
+
+- Views are dockview sub-panels per run (layout in localStorage); the Analysis panel is one of them. Mock mode serves only the QC views.
+- "Send to Explorer" copies the item ids and opens the first item until the explorer supports an item-id filter.

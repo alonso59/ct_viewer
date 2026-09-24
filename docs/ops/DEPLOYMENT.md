@@ -33,6 +33,7 @@ Depends: ADR-0007, backend/ARCHITECTURE.md.
 | `CACHE_MAX_GB` | `20` | Per-project `cache/` cap; LRU purge |
 | `VIEWER_MAX_LOADED` | `3` | Loaded viewer tabs (VW-14) |
 | `LOG_LEVEL` | `info` | |
+| `CONTAINER_MODE` | `1` in the image | With `1`, an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) |
 | `STATIC_ROOT` | `/app/static` | SPA build |
 
 ## Docker (local machine)
@@ -72,3 +73,12 @@ udocker create --name=rw radiology-workbench:3.0.0
 ## Electron (phase P8)
 
 The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or a forwarded remote). It adds native folder dialogs through a preload bridge. The backend packaging is unchanged (ADR-0001).
+
+## Implementation notes (P7-prep)
+
+- Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker).
+- Image: 947 MB uncompressed rootfs (265 MB compressed) on linux/arm64; the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
+- Entry point `scripts/container_app.py` mounts the SPA and runs uvicorn (to be folded into `app/main.py`).
+- Build for the server's architecture: `make image PLATFORM=linux/amd64` on an Apple Silicon Mac.
+- colima on the dev Mac has no host mounts by default (`$HOME` contains a space), so bind mounts appear empty; start it with `colima start --mount '<path>:w'` to use real data under Docker.
+- If Docker Desktop is not running, a CLI config with `credsStore: desktop` makes pulls hang; use a `DOCKER_CONFIG` without a creds store.

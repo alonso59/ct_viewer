@@ -121,3 +121,10 @@ Study variables are **not** copied into features; they are joined at analysis ti
 - Engine schema differs from the design table: `sigma` has no default; extra `label_channel` (mask handling); 107 default features. LBP3D is unavailable unless `trimesh` is added to `[radiomics]`.
 - TST-06: IBSI digital phantom, 85 features compliant + 4 deviating within 0.6 %. **The IBSI codes and extended reference values were written by the implementing agent from memory and must be spot-checked against the IBSI manual**; the IBSI CT phantom (TST-06 part 2) has not been run.
 - Without PyRadiomics installed, engine endpoints return 503 `server-busy` and its tests are skipped.
+
+## Implementation notes (P5-FE)
+
+- The form opens on `schema.defaults`; "Engine defaults" restores them. Duplicate = load a profile's settings and pre-fill "<name> copy". Saving unchanged settings keeps the existing profile (same hash).
+- Default label = first visible label. Client rules only pre-flag; the server validation (API-31) is authoritative once it answers for the current form.
+- Selection by variable sends level lists only; continuous variables must be binned into a derived variable first (VAR-06) until API-33/34 accept ranges (open decision, ROADMAP P7).
+- Draft settings live in memory; a reload reopens on the engine defaults (profiles persist).

@@ -20,6 +20,7 @@ import { SELECTION, fieldOf, fromServer, groupOf, hasErrors, validateForm } from
 import type { EstimateResult, FormState, Issue } from './model/types'
 import { errorMessage } from './errors'
 import { useDraft } from './store'
+import '../../i18n/lazy'
 import './radiomics.css'
 
 export function SettingsEditor() {

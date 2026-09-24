@@ -21,6 +21,7 @@ frontend/src/api/openapi.json
 
 # Dev state and generated data
 .workspace/
+/workspace/
 .fixtures/
 .udocker/
 webui_state/

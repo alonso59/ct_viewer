@@ -5,6 +5,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 HOST ?= 127.0.0.1
+VERSION ?= 3.0.0
 FIXTURES ?= .fixtures/synthetic
 PYTHON_VERSION ?= 3.12
 # Python env: a venv by default; on remote servers pass VENV=$$CONDA_PREFIX (conda env `rw`).
@@ -26,7 +27,7 @@ else
 endif
 
 .PHONY: help setup setup-backend setup-frontend setup-node dev-backend dev-frontend fixtures \
-        gen-api lint typecheck test check e2e image udocker-run
+        gen-api lint typecheck test check e2e image udocker-run container-smoke
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -62,11 +63,11 @@ gen-api: ## Regenerate frontend API types from OpenAPI (FE-03)
 	$(NODE) npm run gen:api
 
 lint: ## ruff + eslint
-	cd backend && $(BPY) -m ruff check . && $(BPY) -m ruff format --check .
+	cd backend && $(BPY) -m ruff check . ../scripts && $(BPY) -m ruff format --check . ../scripts
 	$(NODE) npm run lint
 
 typecheck: ## mypy (strict) + tsc (strict)
-	cd backend && $(BPY) -m mypy
+	cd backend && $(BPY) -m mypy && $(BPY) -m mypy --strict ../scripts/*.py
 	$(NODE) npm run typecheck
 
 test: ## Unit tests: pytest + vitest
@@ -78,8 +79,11 @@ check: lint typecheck test ## Lint, type check and unit tests for both sides (CI
 e2e: ## Playwright (needs `npx playwright install` once)
 	$(NODE) npm run e2e
 
-image: ## Build the OCI image (lane P7)
-	@echo "Not implemented yet: lane P7 (docs/ops/DEPLOYMENT.md)"; exit 1
+image: ## Build the OCI image radiology-workbench:VERSION (Docker; add PLATFORM=linux/amd64 for the server)
+	docker build $(if $(PLATFORM),--platform $(PLATFORM),) -t radiology-workbench:$(VERSION) .
 
-udocker-run: ## Run the image under udocker (lane P7)
-	@echo "Not implemented yet: lane P7, scripts/udocker-run.sh (OPS-09)"; exit 1
+container-smoke: ## TST-10 against the built image (Docker)
+	scripts/container-smoke.sh
+
+udocker-run: ## Run the image under udocker from .env (OPS-09)
+	scripts/udocker-run.sh

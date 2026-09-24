@@ -79,3 +79,6 @@ frontend/src/
 - `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`), `mock/` implements it for the prototype.
 - Env: `VITE_API_MODE` (`http` | `mock`), `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; it flushes SSE headers so the stream opens immediately).
 - Initial JS is ~300 KB gzip after lazy-loading NiiVue: at the NFR-07 limit, so new eager dependencies need a lazy boundary.
+
+- i18n is split: `i18n/en.json` (eager) and `i18n/en.lazy.json`, loaded by `i18n/lazy.ts` from lazy chunks (dashboard, analysis, curation, queue, radiomics settings). Put strings used only in a lazy chunk into `en.lazy.json` (NFR-07). The key-coverage tests merge both files.
+- Initial JS after Step 3: 299.5 KB gzip, still at the NFR-07 limit.

@@ -311,3 +311,14 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - v2 import (API-54) is wired and typed but not exercised with a real v2 `curation_review.csv`.
 - On the synthetic fixtures the outlier view flags every item at |z| 3.5 (near-constant features → tiny MAD); that's backend behaviour, fine for the exit criterion.
 - Mock mode ignores `var` filters and variable colouring in the dashboard.
+
+## 2026-09-24 · Step 3 integration · v3 (autopilot)
+
+**Done**
+- Merged `lane/3-packaging`, `lane/3-radiomics`, `lane/3-ui` into `v3`. Only conflicts: this file (entries kept).
+- `npm install`, `make gen-api` (no diff), `make fixtures && make check` green: 288 backend (3 PyRadiomics modules skipped here) + 177 frontend.
+- Applied small requests: radiomics strings moved from `features/radiomics/i18n.ts` into `en.json` (sidebar keys) and `en.lazy.json` (settings-form keys, loaded with the lazy chunk); unused `radiomics.*`, `search.group`, `image.group` removed; initial JS 299.5 KB gzip. Makefile `image` (VERSION, PLATFORM), `container-smoke`, `udocker-run`; lint + mypy now cover `scripts/*.py`; `/workspace/` ignored.
+- Docs: DEPLOYMENT (`CONTAINER_MODE`, host keys, image size, colima/amd64 notes), TESTING TST-10 scripts, ADR-0006 (verified in the arm64 image), RADIOMICS/DASHBOARD/CURATION/API/UI_SHELL/FE ARCHITECTURE implementation notes; ROADMAP P4/P5/P6 ✅, P7 🟨 with follow-ups.
+
+**Not done (listed in ROADMAP §P7)**
+- SPA mount into `app/main.py`; radiomics `api.ts` into the `Api` surface + mock; `e2e/p2-flow.spec.ts` counts; SSE opening comment; explorer item-id filter / `useExplorerFilter()`; amd64 image; version alignment.

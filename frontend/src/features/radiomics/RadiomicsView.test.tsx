@@ -59,7 +59,8 @@ beforeAll(async () => {
   vi.stubEnv('VITE_API_BASE', 'http://api.test')
   vi.stubGlobal('fetch', fakeFetch)
   View = (await import('./RadiomicsView')).RadiomicsView
-  RAD_EN = (await import('./i18n')).RAD_EN
+  // Strings split between the eager and lazy bundles (NFR-07); both are loaded in the app
+  RAD_EN = { ...(await import('../../i18n/en.json')).default.rad, ...(await import('../../i18n/en.lazy.json')).default.rad }
 })
 afterAll(() => {
   vi.unstubAllGlobals()

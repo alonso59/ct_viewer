@@ -1,5 +1,4 @@
 // Radiomics: schema-driven settings, profiles, runs (RAD-*)
-import './i18n'
 
 import i18n from '../../i18n'
 import { openEditor, registry } from '../../shell'

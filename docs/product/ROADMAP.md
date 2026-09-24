@@ -16,14 +16,14 @@ Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmati
 | P1b | Study variables (backend): profiling, catalog, derived, external table; remove hard-coded `group` | ✅ 2026-09-24 |
 | P2 | Frontend shell + explorer | ✅ 2026-09-24 |
 | P3 | Viewer (NiiVue) | ✅ 2026-09-24 (synthetic reference; Dataset820 in P7) |
-| P4 | Curation + multi-user sync | 🟨 Backend done; frontend in Step 3 |
-| P5 | Radiomics engine + settings + runs | 🟨 Backend done; settings form in Step 3 |
-| P6 | Dashboard + guided analysis | 🟨 Backend done; frontend in Step 3 |
-| P7 | Packaging: Docker + udocker, E2E, performance | ⬜ |
+| P4 | Curation + multi-user sync | ✅ 2026-09-24 (human check pending: queue CSV in 3D Slicer) |
+| P5 | Radiomics engine + settings + runs | ✅ 2026-09-24 (human check pending: IBSI map vs manual) |
+| P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
+| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64, 947 MB); udocker + remote checks in Step 4 |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
-Step 1 integrated 2026-09-23 · Step 2 integrated 2026-09-24 (see LANE_NOTES.md).
+Step 1 integrated 2026-09-23 · Step 2 and Step 3 integrated 2026-09-24 (see LANE_NOTES.md).
 
 ## Lanes (parallel work; prompts in ops/AGENT_RUNBOOK.md)
 
@@ -118,6 +118,10 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done (lane/3-packaging); TST-10 under udocker, TST-05, TST-09 in Step 4
 - [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12); add `modality` to `ItemRecord` (VW-05 uses `extra.modality`)
 - [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done (lane/3-packaging); Dataset820 check in Step 4
+- [ ] Build the image for the server's architecture (`make image PLATFORM=linux/amd64` if the server is amd64), rerun `make container-smoke`, then `docker save` → udocker
+- [ ] Follow-ups from Step 3 (LANE_NOTES.md): move the SPA mount from `scripts/container_app.py` into `app/main.py` (BE ARCHITECTURE); move `features/radiomics/api.ts` into the `Api` surface and update the mock; update `e2e/p2-flow.spec.ts` counts (50 cases / 89 scans); SSE sends a comment right after opening (Firefox "live" delay); explorer item-id filter for DB-04 and an exported `useExplorerFilter()` for RAD-05; align `pyproject` version with the image tag
+- [ ] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-33/34, or keep "bin into a derived variable first"
+- [ ] **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
 
 ### P8 — Electron

@@ -56,7 +56,6 @@ beforeAll(async () => {
   vi.stubEnv('VITE_API_BASE', 'http://api.test')
   vi.stubGlobal('fetch', fakeFetch)
   Editor = (await import('./SettingsEditor')).SettingsEditor
-  await import('./i18n')
 })
 afterAll(() => {
   vi.unstubAllGlobals()
