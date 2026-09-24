@@ -1,5 +1,5 @@
 // Dashboard: run views, measurements panel (DB-*, UI-14)
-import { lazy } from 'react'
+import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../../i18n'
 import { keys, queryClient, type RadiomicsRun } from '../../api'
@@ -7,10 +7,12 @@ import { registry, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import type { RunParams } from './DashboardEditor'
 import { DashboardsView } from './DashboardsView'
-import { MeasurementsPanel } from './MeasurementsPanel'
 
 // ECharts stays out of the initial bundle (FE-05)
 const DashboardEditor = lazy(() => import('./DashboardEditor').then((m) => ({ default: m.DashboardEditor })))
+// Kept out of the initial chunk too (NFR-07); the panel has no Suspense boundary of its own
+const MeasurementsLazy = lazy(() => import('./MeasurementsPanel').then((m) => ({ default: m.MeasurementsPanel })))
+const MeasurementsPanel = () => createElement(Suspense, { fallback: null }, createElement(MeasurementsLazy))
 
 export function registerDashboard() {
   registry.view({ id: 'dashboards', title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })

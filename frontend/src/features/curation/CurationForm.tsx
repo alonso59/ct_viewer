@@ -2,46 +2,15 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { create } from 'zustand'
 
-import i18n from '../../i18n'
-import {
-  api,
-  PHASES,
-  useCurationState,
-  useItem,
-  useProject,
-  type CurationStatus,
-  type ItemRecord,
-  type Phase,
-  type Priority,
-} from '../../api'
+import { useCurationState, useItem, useProject, type CurationStatus, type Priority } from '../../api'
 import { StatusBadge, StatusIcon, fmtAgo } from '../../lib'
-import { bindingOf, formatChord, registry, toast, useWorkbench } from '../../shell'
-import { requireReviewer, useViewerSync } from '../../state'
+import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
+import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
-
-// Draft shared by the left view, the inspector and the keyboard shortcuts
-interface Draft {
-  target: string
-  priority: Priority
-  comment: string
-  addToQueue: boolean
-  proposedPhase: Phase | ''
-  proposedSide: 'L' | 'R' | ''
-  set: (p: Partial<Omit<Draft, 'set' | 'reset'>>) => void
-  reset: () => void
-}
-export const useDraft = create<Draft>()((set) => ({
-  target: 'seg',
-  priority: 'medium',
-  comment: '',
-  addToQueue: false,
-  proposedPhase: '',
-  proposedSide: '',
-  set: (p) => set(p),
-  reset: () => set({ comment: '', addToQueue: false, proposedPhase: '', proposedSide: '' }),
-}))
+import { submitDecision, useDraft } from './decision'
+import { decisionsFor, phaseOptions, targetsFor } from './model'
+import '../../i18n/lazy'
 
 export const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
   { status: 'accepted', cmd: 'curation.accept', tone: 'ok' },
@@ -56,62 +25,20 @@ const chord = (id: string) => {
   return c ? formatChord(bindingOf(c)) : ''
 }
 
-/** Append a decision for the active item using the current draft. Used by buttons and shortcuts.
- *  Caches refresh through the `curation.appended` server event (useProjectEvents). */
-export async function submitDecision(status: CurationStatus, over: { addToQueue?: boolean } = {}) {
-  const t = i18n.t.bind(i18n)
-  const pid = useWorkbench.getState().pid
-  const { activeItemId, activeCaseId, ww, wl } = useViewerSync.getState()
-  const d = useDraft.getState()
-  if (!pid || !activeCaseId) return
-  const caseTarget = d.target === 'case'
-  try {
-    const reviewer = await requireReviewer()
-    if (!reviewer) return
-    await api.appendEvent(
-      pid,
-      {
-        item_id: caseTarget ? null : activeItemId,
-        case_id: activeCaseId,
-        target: d.target,
-        status,
-        priority: d.priority,
-        comment: d.comment,
-        add_to_queue: over.addToQueue ?? d.addToQueue,
-        proposed_phase: d.proposedPhase || null,
-        proposed_side: d.proposedSide || null,
-        context: { viewer: { axis: 'axial', slice: 24, ww, wl } },
-      },
-      reviewer,
-    )
-    d.reset()
-    toast({ message: t('curation.saved', { status: t(`status.${status}`), target: d.target, id: activeItemId ?? activeCaseId }), tone: 'ok' })
-  } catch {
-    toast({ message: t('common.saveFailed'), tone: 'error' })
-  }
-}
-
-function targets(item: ItemRecord | undefined, labels: { value: number; name: string }[]) {
-  const out = [{ v: 'seg', l: 'curation.target.seg' }]
-  for (const l of labels) out.push({ v: `label:${l.value}`, l: `label:${l.name}` })
-  if (item?.scope === 'voi') out.push({ v: 'voi_mask', l: 'curation.target.voi_mask' })
-  out.push({ v: 'phase', l: 'curation.target.phase' }, { v: 'side', l: 'curation.target.side' }, { v: 'case', l: 'curation.target.case' })
-  return out
-}
-
 export function CurationForm({ compact }: { compact?: boolean }) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const iid = useViewerSync((s) => s.activeItemId)
   const cid = useViewerSync((s) => s.activeCaseId)
   const item = useItem(pid, iid).data
-  const labels = useProject(pid).data?.label_map ?? []
-  const state = useCurationState(pid).data ?? []
+  const project = useProject(pid).data
+  const labels = project?.label_map ?? []
+  const stateQ = useCurationState(pid)
   const d = useDraft()
   const [busy, setBusy] = useState(false)
   if (!cid) return <div className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('curation.noActive')}</div>
 
-  const mine = state.filter((s) => (s.item_id === iid && iid) || (s.item_id === null && s.case_id === cid))
+  const mine = decisionsFor(stateQ.data ?? [], iid, cid)
   const go = async (s: CurationStatus) => {
     setBusy(true)
     await submitDecision(s)
@@ -125,9 +52,9 @@ export function CurationForm({ compact }: { compact?: boolean }) {
       <label className="field">
         <span className="field-label">{t('curation.target.label')}</span>
         <select className="select input-sm" value={d.target} onChange={(e) => d.set({ target: e.target.value })}>
-          {targets(item, labels).map((o) => (
-            <option key={o.v} value={o.v}>
-              {o.l.startsWith('label:') ? t('curation.target.labelName', { name: o.l.slice(6) }) : t(o.l)}
+          {targetsFor(item, labels).map((o) => (
+            <option key={o.value} value={o.value} disabled={o.value !== 'case' && !iid}>
+              {o.label.startsWith('label:') ? t('curation.target.labelName', { name: o.label.slice(6) }) : t(o.label)}
             </option>
           ))}
         </select>
@@ -160,10 +87,10 @@ export function CurationForm({ compact }: { compact?: boolean }) {
       {showPhase ? (
         <label className="field">
           <span className="field-label">{t('curation.proposedPhase')}</span>
-          <select className="select input-sm" value={d.proposedPhase} onChange={(e) => d.set({ proposedPhase: e.target.value as Phase | '' })}>
+          <select className="select input-sm" value={d.proposedPhase} onChange={(e) => d.set({ proposedPhase: e.target.value })}>
             <option value="">{t('common.none')}</option>
-            {PHASES.map((p) => (
-              <option key={p} value={p}>{t('search.phaseOption', { code: p, name: t(`phase.${p}`) })}</option>
+            {phaseOptions(project?.phase_vocabulary).map((p) => (
+              <option key={p} value={p}>{t('search.phaseOption', { code: p, name: t(`phase.${p}`, { defaultValue: p }) })}</option>
             ))}
           </select>
         </label>
@@ -197,13 +124,17 @@ export function CurationForm({ compact }: { compact?: boolean }) {
         {t('curation.addToQueue')}
         <span className="kbd" style={{ marginLeft: 'auto' }}>{chord('curation.queue')}</span>
       </label>
+      {stateQ.isError ? <div className="error-card">{t('curation.stateError')}</div> : null}
       {mine.length ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} role="list" aria-label={t('curation.current')}>
           <div className="section-title" style={{ padding: 0 }}>{t('curation.current')}</div>
           {mine.map((s) => (
-            <div key={`${s.item_id}|${s.target}`} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div key={`${s.item_id ?? s.case_id}|${s.target}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
               <span className="mono muted">{s.target}</span>
               <StatusBadge status={s.status} />
+              {s.proposed_phase ? <span className="muted">{t('history.proposedPhase', { phase: s.proposed_phase })}</span> : null}
+              {s.proposed_side ? <span className="muted">{t('history.proposedSide', { side: s.proposed_side })}</span> : null}
+              {s.add_to_queue ? <span className="muted" title={t('history.queued')}><Icon spec={codicon('checklist')} /></span> : null}
               <span className="muted" style={{ marginLeft: 'auto', fontSize: 'var(--fs-badge)' }}>
                 {t('curation.byAt', { reviewer: s.reviewer, ago: fmtAgo(s.at) })}
               </span>

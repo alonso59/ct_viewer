@@ -1,7 +1,6 @@
 // Domain payload types. Built endpoints alias the generated `schema.d.ts` (FE-03); the HTTP client
 // normalizes payloads into these shapes so features stay independent of wire details.
-// Endpoints not built yet (curation API-50..54, radiomics API-30..38, variables API-16..18) keep
-// hand-written types from the domain docs until their backend lands and `make gen-api` covers them.
+// Radiomics runs/settings (API-30..37) still use hand-written types (P5-FE reconciles them).
 import type { components } from './schema'
 
 type S = components['schemas']
@@ -94,24 +93,17 @@ export const QUEUE_STATUSES: CurationStatus[] = [
 
 export type Priority = 'low' | 'medium' | 'high'
 
-export interface CurationEvent {
-  event_id: string
-  schema_version: 1
-  at: string
-  reviewer: string
-  session_id: string
-  item_id: string | null
-  case_id: string
-  target: string
-  status: CurationStatus
-  priority: Priority
-  comment: string
-  proposed_phase: Phase | null
-  proposed_side: 'L' | 'R' | null
-  add_to_queue: boolean
-  context: { viewer?: { axis: string; slice: number; ww: number; wl: number }; phase?: Phase }
-  source: 'ui' | 'v2_import' | 'api'
+/** CUR §Event schema: audit snapshot; the server adds fingerprints, phase and import id */
+export interface CurationContext {
+  viewer?: { axis: string; slice: number; ww: number; wl: number }
+  image_fp?: string
+  mask_fp?: string
+  phase?: string
+  import_id?: string
 }
+
+/** API-50 event (CUR §Event schema) */
+export type CurationEvent = Omit<Required<S['CurationEvent']>, 'context'> & { context: CurationContext }
 
 export type NewCurationEvent = Pick<
   CurationEvent,
@@ -119,6 +111,8 @@ export type NewCurationEvent = Pick<
 > &
   Partial<Pick<CurationEvent, 'proposed_phase' | 'proposed_side' | 'context'>>
 
+/** CUR-08 derived state, one row per `(item_id, target)`; `item_id = null` for case targets.
+ *  Flattened from API-51 `CurationState` (items[].targets, cases[].targets). */
 export interface CurationStateRow {
   item_id: string | null
   case_id: string
@@ -128,10 +122,18 @@ export interface CurationStateRow {
   comment: string
   reviewer: string
   at: string
+  event_id: string
   add_to_queue: boolean
+  proposed_phase: string | null
+  proposed_side: 'L' | 'R' | null
 }
 
-export type QueueRow = CurationStateRow & { item: ItemRecord | null; image_abs: string | null; mask_abs: string | null }
+/** API-52 row (CUR §Correction queue CSV columns); absolute paths resolved by the server */
+export type QueueRow = Required<S['QueueRow']>
+/** API-53 result: files written into the project's `exports/` */
+export type CurationExport = S['ExportResult']
+/** API-54 report */
+export type V2ImportReport = S['V2ImportReport']
 
 export type RunStatus =
   | 'queued'
@@ -164,15 +166,23 @@ export interface FeatureValue {
   value: number
 }
 
-/** API-36 JSON rows carry the item columns of the output schema (RAD §Output schema) */
-export interface FeatureRow extends FeatureValue {
+/** API-36 long rows (RAD §Output schema). `feature` is the full column name used by API-38/39
+ *  (`{image_type}_{feature_class}_{name}`, e.g. `original_firstorder_Mean`). */
+export interface FeatureRow {
+  item_id: string
   case_id: string
   scan_idx: string
   scope: Scope
   side: Side
-  phase: Phase
-  /** Dashboard colouring; moves to study variables in P6-FE (VAR-10) */
-  group: string
+  phase: string
+  label: number
+  image_type: string
+  feature_class: string
+  feature: string
+  /** null = NaN/inf in the output */
+  value: number | null
+  ibsi_code: string | null
+  ibsi_status: 'compliant' | 'deviates' | 'not_defined' | null
 }
 
 export interface RunError {
@@ -249,24 +259,29 @@ export interface PreviewRequest {
   files?: { metadata: File; phase?: File | null; voi_catalog?: File | null }
 }
 
-// ---- Study variables (VARIABLES.md, API-16..18): proposed wire shape until lane/2-backend lands ----
-export const VARIABLE_TYPES = ['continuous', 'categorical', 'numeric-discrete', 'date', 'identifier', 'text', 'constant'] as const
-export type VariableType = (typeof VARIABLE_TYPES)[number]
-/** Types a user can pick when confirming or overriding an inference (VAR-03) */
-export const OVERRIDE_TYPES: VariableType[] = ['continuous', 'categorical', 'date', 'identifier', 'text']
-export const VARIABLE_TAGS = ['confounder', 'outcome', 'sensitive'] as const
+// ---- Study variables (VARIABLES.md, API-16..18) -----------------------------------------------
+// Enums come from the generated schema (FE-03). The UI works on `Variable`, adapted from the
+// API-16/17 `Catalog` in http.ts (profile `distinct`/`top` → `n_distinct`/`levels`, derived
+// definitions joined in, bin `quantiles` as a group count instead of cut probabilities).
+type WireVariable = S['Variable']
+export const VARIABLE_TYPES = ['continuous', 'categorical', 'numeric-discrete', 'date', 'identifier', 'text', 'constant'] as const satisfies readonly WireVariable['type'][]
+export type VariableType = WireVariable['type']
+/** Types a user can pick when confirming or overriding an inference (VAR-03; API `VariableOverride.type`) */
+export const OVERRIDE_TYPES = ['continuous', 'categorical', 'date', 'identifier', 'text'] as const satisfies readonly NonNullable<S['VariableOverride']['type']>[]
+export type OverrideType = (typeof OVERRIDE_TYPES)[number]
+export const VARIABLE_TAGS = ['confounder', 'outcome', 'sensitive'] as const satisfies readonly NonNullable<WireVariable['tags']>[number][]
 export type VariableTag = (typeof VARIABLE_TAGS)[number]
-export type VariableSource = 'metadata' | 'derived' | 'external' | 'raw'
-export type VariableGroup = 'study' | 'acquisition'
+export type VariableSource = WireVariable['source']
+export type VariableGroup = WireVariable['group']
 
 export interface VariableProfile {
   missing_pct: number
   n_distinct: number
-  examples: (string | number)[]
-  /** Continuous only */
+  examples: string[]
+  /** Numeric values only */
   min?: number | null
   max?: number | null
-  /** Categorical only: level → count */
+  /** Level-like types only (categorical, numeric-discrete, constant): most frequent levels → count */
   levels?: { value: string; count: number }[]
 }
 
@@ -282,7 +297,7 @@ export interface Variable {
   type: VariableType
   /** The inference before any override */
   inferred_type: VariableType
-  level: 'case' | 'scan'
+  level: WireVariable['level']
   group: VariableGroup
   tags: VariableTag[]
   visible: boolean
@@ -295,15 +310,75 @@ export interface Variable {
   definition?: DerivedDef | null
 }
 
-export type VariablePatch = Partial<Pick<Variable, 'type' | 'visible' | 'tags'>>
+/** API-16 PATCH body (`VariableOverride`) */
+export interface VariablePatch {
+  type?: OverrideType
+  visible?: boolean
+  tags?: VariableTag[]
+}
 
+/** API-18 match report (`ExternalReport`), in UI terms */
 export interface ExternalImportResult {
   key: 'case_id' | 'patient_id'
   n_rows: number
   matched: number
   unmatched_keys: string[]
+  /** Keys that occur more than once in the table (the first row wins) */
+  duplicate_keys: string[]
+  /** Columns skipped because the name is already taken */
+  conflicts: string[]
+  /** Columns added as variables */
   added: string[]
 }
+
+// ---- Dashboard views (API-38) and guided analysis (API-39): generated types (FE-03) ----------
+export type GlobalFilters = S['GlobalFilters']
+export type ColorBy = S['ColorBy']
+export type UnitSpec = S['UnitSpec']
+export type UnitSummary = S['UnitSummary']
+export type TestChoice = S['TestChoice']
+export type ResultRow = S['ResultRow']
+export type DescriptiveRow = S['DescriptiveRow']
+export type Recommendation = S['Recommendation']
+export type AnalysisSpec = S['AnalysisSpec']
+export type Analysis = S['Analysis']
+export type AnalysisSummary = S['AnalysisSummary']
+export type AnalysisQuestion = AnalysisSpec['question']
+export type AnalysisExportFile = 'tidy' | 'results' | 'descriptives' | 'spec'
+
+/** Request body: fields with a server default are optional (openapi-typescript marks them required) */
+type Body<T, K extends keyof T = never> = Partial<T> & Pick<T, K>
+
+/** API-38 `{view}` → request body / response (DASHBOARD §Views) */
+export interface DashboardViews {
+  'run-overview': { req: Body<S['RunOverviewRequest']>; res: S['RunOverviewResponse'] }
+  'feature-distribution': { req: Body<S['FeatureDistributionRequest'], 'feature'>; res: S['FeatureDistributionResponse'] }
+  'missing-matrix': { req: Body<S['MissingMatrixRequest']>; res: S['MissingMatrixResponse'] }
+  correlation: { req: Body<S['CorrelationRequest']>; res: S['CorrelationResponse'] }
+  embedding: { req: Body<S['EmbeddingRequest']>; res: S['EmbeddingResponse'] }
+  outliers: { req: Body<S['OutliersRequest']>; res: S['OutliersResponse'] }
+  'feature-vs-volume': { req: Body<S['FeatureVsVolumeRequest'], 'feature'>; res: S['FeatureVsVolumeResponse'] }
+  'group-comparison': { req: Body<S['GroupComparisonRequest'], 'variable'>; res: S['GroupComparisonResponse'] }
+  association: { req: Body<S['AssociationRequest'], 'variable'>; res: S['AssociationResponse'] }
+  balance: { req: Body<S['BalanceRequest'], 'variable' | 'other'>; res: S['BalanceResponse'] }
+  'phase-side-consistency': { req: Body<S['ConsistencyRequest'], 'feature'>; res: S['ConsistencyResponse'] }
+}
+export type DashboardView = keyof DashboardViews
+export const DASHBOARD_VIEWS = [
+  'run-overview',
+  'feature-distribution',
+  'missing-matrix',
+  'correlation',
+  'embedding',
+  'outliers',
+  'feature-vs-volume',
+  'group-comparison',
+  'association',
+  'balance',
+  'phase-side-consistency',
+] as const satisfies readonly DashboardView[]
+export type ViewRequest<V extends DashboardView> = DashboardViews[V]['req']
+export type ViewResponse<V extends DashboardView> = DashboardViews[V]['res']
 
 export interface Problem {
   type: string

@@ -208,6 +208,12 @@ function ExternalDialog({ pid }: { pid: string }) {
           <div className="card" role="status" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <strong>{t('variables.importResult', { matched: result.matched, rows: result.n_rows })}</strong>
             <span>{t('variables.importAdded', { names: result.added.join(', ') || '—' })}</span>
+            {result.duplicate_keys.length ? (
+              <span className="muted">{t('variables.importDuplicates', { count: result.duplicate_keys.length, keys: result.duplicate_keys.slice(0, 20).join(', ') })}</span>
+            ) : null}
+            {result.conflicts.length ? (
+              <span style={{ color: 'var(--warn)' }}>{t('variables.importConflicts', { names: result.conflicts.join(', ') })}</span>
+            ) : null}
             {result.unmatched_keys.length ? (
               <span className="muted">
                 {t('variables.importUnmatched', { count: result.unmatched_keys.length, keys: result.unmatched_keys.slice(0, 20).join(', ') })}

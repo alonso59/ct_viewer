@@ -1,11 +1,17 @@
 // The API surface every backend binding implements: the HTTP client (default) and the in-memory
 // mock (VITE_API_MODE=mock, the standalone prototype and unit tests). Hooks only see this interface.
 import type {
+  Analysis,
+  AnalysisExportFile,
+  AnalysisSpec,
+  AnalysisSummary,
   CaseDetail,
   CaseSummary,
   CommitResult,
   CurationEvent,
+  CurationExport,
   CurationStateRow,
+  DashboardView,
   DerivedDef,
   Estimate,
   ExternalImportResult,
@@ -33,8 +39,11 @@ import type {
   ServerEvent,
   Settings,
   SettingsSchema,
+  V2ImportReport,
   Variable,
   VariablePatch,
+  ViewRequest,
+  ViewResponse,
 } from './types'
 
 export interface CaseFilter {
@@ -89,11 +98,18 @@ export interface Api {
   /** API-26 URL, or null when the binding renders thumbnails itself (mock) */
   thumbnailUrl(pid: string, iid: string): string | null
 
-  // Curation (API-50..52)
+  // Curation (API-50..54)
+  /** Newest first (CUR-14) */
   listEvents(pid: string, f?: { item_id?: string; case_id?: string }): Promise<CurationEvent[]>
   appendEvent(pid: string, ev: NewCurationEvent, reviewer: string): Promise<CurationEvent>
   curationState(pid: string): Promise<CurationStateRow[]>
   queue(pid: string): Promise<QueueRow[]>
+  /** API-52 `format=csv`: the server resolves absolute paths for 3D Slicer (CUR-09) */
+  queueCsv(pid: string): Promise<Blob>
+  /** API-53: write CUR-10 files into the project's `exports/` */
+  curationExports(pid: string): Promise<CurationExport>
+  /** API-54: v2 `curation_review.csv` → events (CUR-13) */
+  importV2(pid: string, file: File, reviewer: string): Promise<V2ImportReport>
 
   // Radiomics (API-30..37)
   schema(): Promise<SettingsSchema>
@@ -111,6 +127,13 @@ export interface Api {
   ): Promise<{ run_id: string; job_id: string }>
   runFeatures(pid: string, rid: string, itemId?: string): Promise<FeatureRow[]>
   runErrors(pid: string, rid: string): Promise<RunError[]>
+
+  // Dashboard (API-38) and guided analysis (API-39)
+  dashboardView<V extends DashboardView>(pid: string, rid: string, view: V, body: ViewRequest<V>): Promise<ViewResponse<V>>
+  listAnalyses(pid: string, rid?: string): Promise<AnalysisSummary[]>
+  getAnalysis(pid: string, aid: string): Promise<Analysis>
+  createAnalysis(pid: string, spec: AnalysisSpec, reviewer: string): Promise<Analysis>
+  exportAnalysis(pid: string, aid: string, file: AnalysisExportFile): Promise<Blob>
 
   // Jobs (API-41)
   listJobs(pid?: string): Promise<Job[]>

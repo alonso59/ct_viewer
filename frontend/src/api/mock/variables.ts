@@ -93,7 +93,7 @@ export function profileField(rows: Row[], name: string, source: Variable['source
     profile: {
       missing_pct: unit.length ? +((100 * (unit.length - present.length)) / unit.length).toFixed(1) : 0,
       n_distinct: counts.size,
-      examples: [...counts.keys()].slice(0, 5).map((v) => (isNum(v) ? Number(v) : v)),
+      examples: [...counts.keys()].slice(0, 5),
       ...(nums.length ? { min: Math.min(...nums), max: Math.max(...nums) } : {}),
       ...(type === 'categorical' || type === 'numeric-discrete'
         ? { levels: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([value, count]) => ({ value, count })) }

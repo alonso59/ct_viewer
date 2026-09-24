@@ -260,3 +260,54 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Draft settings are in memory only: a page reload reopens on the engine defaults (by design; profiles persist).
 - The runs list relies on `job.finished` SSE to refresh a run's status; progress comes from the jobs cache (`useJobs`).
 - IBSI map / extended phantom values still need the human spot-check (ROADMAP §P5); IBSI CT phantom not run.
+## 2026-09-24 · P4-FE + P6-FE · lane/3-ui
+
+**Done** (ROADMAP P4 both tasks, P6 FE tasks ticked; phase rows left to the integrator)
+- Ownership (user decision, 2026-09-24): besides `features/{curation,dashboard}/**` and the variables/FeatureRow parts, this lane also owned the **curation (API-50..54) and analytics (API-38/39) sections** of `api/{types,surface,hooks,keys,http,mock}.ts`. Radiomics sections were left alone.
+- `api/`: curation types from `schema.d.ts`; API-51 `CurationState` is flattened to `CurationStateRow[]` (item and case targets); events are paged, newest first; `X-Session-Id` + `session_id` go on writes; `queueCsv` (API-52 csv), `curationExports` (API-53), `importV2` (API-54). `FeatureRow` has no `group`; the API-36 `FeaturesTable` is adapted, and `feature` = full column name (`original_firstorder_Mean`), as API-38 uses. `dashboardView` (11 typed views), `listAnalyses/getAnalysis/createAnalysis/exportAnalysis`. SSE invalidates the dashboard views on curation/variable changes and on `project.updated {fields:["curation"]}`. Mock: 7 QC views from the seed (`api/mock/dashboard.ts`); the guided statistics, v2 import and analyses answer 503/404 in mock mode.
+- Curation UI (CUR-01..14, UI-12):
+  - The form's targets come from the label map; proposed phase comes from `phase_vocabulary`; `context.viewer` comes from `getViewerContext()` (VW-16).
+  - History shows priority, source and proposal.
+  - The queue editor shows absolute paths and downloads the server CSV; it can also write exports and import v2 CSVs, with a report.
+  - The curation panels and queue are lazy; shortcuts use `curation/decision.ts`.
+- Dashboard (DB-01..09, UI-14):
+  - Dockview sub-panels per run, layout persisted in localStorage, with a Views menu.
+  - Filter bar on visible variables, phase, scope, side, label and status.
+  - Colour by variable, phase, scope, side, label or status, from palette tokens.
+  - Brush selection is linked across views.
+  - Every view exports PNG and CSV.
+  - Item context menu: open, add to queue (CUR event), copy id.
+  - Analysis panel: question → variable → confounder, unit and test override; shows test + reason, results (q, effect), descriptives, recommendations and ANA-09 exports. Result rows and recommendations focus their view (DB-09). The Measurements panel is lazy.
+- Variables E2E vs the real API-16..18 (`e2e/variables.spec.ts`):
+  - Continuous fields no longer show `top` as levels.
+  - Problem `detail` is now shown in toasts.
+  - The external report shows `duplicate_keys` and `conflicts`.
+  - Types derive from the schema.
+- Checks:
+  - `make check` green: 318 backend + 90 frontend tests.
+  - Playwright on Chromium + Firefox: TST-08 (`tst08-multiuser`), variables and smoke pass. `p2-flow` fails, see Open issues.
+  - P6 exit checked in the browser on the fixtures run: `case_00062` is the top outlier and opens in one click. A 2-group (`score_bin`, Mann–Whitney) and a 3-group (`score3`, Kruskal–Wallis) comparison return q-values, with REC-VOLUME and REC-REDUNDANT triggered. The SciPy match itself is asserted by the backend TST-12.
+  - NFR-07: initial JS 299.97 KB gzip. That's at the limit, but only thanks to lazy strings; see below.
+
+**Requests for other paths (integrator)**
+- `features/variables/**` (lane/2-shell code, changed here while fixing the E2E):
+  - `VariablesView.tsx`: `isOverrideType` guard, error toasts carry the problem detail, and the dialogs are lazy (NFR-07).
+  - `Dialogs.tsx`: the report shows duplicate keys and skipped columns.
+- `i18n/`: new `en.lazy.json` + `lazy.ts`. Strings used only inside lazy chunks (dashboard, analysis, queue editor, curation form, history) load with them via `addResourceBundle`. `keys.test.ts` merges both files. Please record this in FE ARCHITECTURE §API layer or FE-11.
+- `frontend/playwright.config.ts`: ports can be overridden (`E2E_API_PORT`, `E2E_WEB_PORT`) so lanes can run E2E side by side. New specs: `e2e/tst08-multiuser.spec.ts`, `e2e/variables.spec.ts`.
+- `e2e/p2-flow.spec.ts` (lane/2-shell): it expects the old fixture counts (17 cases / 24 scan rows); the Step 2 fixtures give 50 / 89. It fails on the v3 HEAD as well. Please update the expected numbers.
+- Backend `app/api/v1/events.py` (SSE): Firefox reports the stream "live" only at the first 15 s ping. Send a comment or `retry:` line right after opening, so events in the first seconds aren't missed. TST-08 waits for "live" to work around it.
+- Explorer (DB-04): "Send to Explorer" needs an item-id filter in the explorer (`CaseFilter` / Project view). Until then it copies the ids and opens the first item.
+- `api/hooks.ts` `useFeatures` fixed here: `iid = null` used the whole-run cache key.
+- Unused i18n keys from the removed `group` UI: `search.group`, `image.group` (explorer/viewer namespaces).
+- Docs for the owners:
+  - DASHBOARD.md: views are dockview sub-panels with the Analysis panel as one of them. Mock mode serves only the QC views.
+  - CURATION.md: the queue CSV comes from API-52 (not client-built).
+  - API.md: API-50 POST accepts `X-Session-Id`.
+
+**Open issues**
+- NFR-07 has no headroom: HEAD was one 299.7 KB chunk; now entry + shared `shell` + `i18n` chunks = 299.97 KB. The next eager dependency needs a lazy boundary or a `manualChunks`/Rolldown chunking rule in `vite.config.ts` (integrator).
+- P4 exit "exported queue CSV opens paths in 3D Slicer" is a human check. The CSV carries absolute image/mask paths (verified), but it hasn't been opened in Slicer.
+- v2 import (API-54) is wired and typed but not exercised with a real v2 `curation_review.csv`.
+- On the synthetic fixtures the outlier view flags every item at |z| 3.5 (near-constant features → tiny MAD); that's backend behaviour, fine for the exit criterion.
+- Mock mode ignores `var` filters and variable colouring in the dashboard.
