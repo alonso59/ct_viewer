@@ -1,0 +1,27 @@
+{
+  "plugin": 1,
+  "id": "dashboard",
+  "version": "1.0.0",
+  "title": "Dashboard & analysis",
+  "icon": "graph",
+  "description": "Feature QC views, click-through to the viewer and guided statistics on any features run (DASHBOARD.md, ANALYSIS.md).",
+  "contributes": {
+    "views": [
+      "dashboards"
+    ],
+    "editors": [
+      "run"
+    ],
+    "panels": [
+      "measurements"
+    ]
+  },
+  "requires": {
+    "plugins": [
+      "radiomics"
+    ],
+    "capabilities": [
+      "features_run"
+    ]
+  }
+}

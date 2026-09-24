@@ -410,6 +410,8 @@ export function useProjectSync(pid: string | null) {
 }
 
 // ---- P7b: tasks (API-42..47) and segmentation sets (API-27) --------------------------------------
+export const usePlugins = (pid: string | null) =>
+  useQuery({ queryKey: keys.plugins(pid), queryFn: () => api.listPlugins(pid ?? undefined), staleTime: 15_000 })
 export const useTasks = () => useQuery({ queryKey: keys.tasks(), queryFn: () => api.listTasks(), staleTime: 30_000 })
 export const useSegmentations = (pid: string) =>
   useQuery({ queryKey: keys.segmentations(pid), queryFn: () => api.listSegmentations(pid), enabled: enabled(pid) })

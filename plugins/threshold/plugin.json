@@ -1,0 +1,19 @@
+{
+  "plugin": 1,
+  "id": "threshold",
+  "version": "0.1.0",
+  "title": "Threshold segmentation (test)",
+  "icon": "beaker",
+  "hidden": true,
+  "description": "CI plugin for the task protocol (TST-14).",
+  "contributes": {
+    "tasks": [
+      "segment.threshold"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "runner"
+    ]
+  }
+}

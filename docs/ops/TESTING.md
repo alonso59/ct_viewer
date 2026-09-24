@@ -27,6 +27,8 @@ Depends: all domain docs.
 | TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
+P7c files (Wave 1): TST-17 in `tests/test_plugins.py` (shipped manifests valid, validation errors, status reasons, API-49 with and without `?project=`, `PLUGINS_ROOT` first-party only) and Vitest `src/plugins/host.test.ts`, `src/features/library/LibraryView.test.tsx`.
+
 P7b files (Wave 4): TST-14 external half in `tests/test_runner.py` (the real `scripts/rw-runner.py` as a subprocess: waiting → claim → progress → set registration, SIGTERM cancel, resume, a crashing task, a lost runner, single claim); `e2e/runner.spec.ts` runs the fake plugin through the runner from the Tasks tab (the E2E backend gets `PLUGINS_ROOT` = a temp dir with a symlink to `plugins/threshold/`). RAD-05 and curation `seg_id` in `tests/test_tasks.py`. PyRadiomics is not thread-safe, so tests that run it in inline (threaded) mode use one unit at a time.
 
 P7b files (Wave 3): TST-13 DICOM half + converter, sidecars, anonymize, incremental runs, activation, CUR-15, Open DICOM, Save as NIfTI (TST-15), Add to project in `tests/test_dicom.py` (synthetic series from `tools/dicom_fixtures.py`); TST-16 in `tests/test_analyzers.py`; `e2e/tasks-dicom.spec.ts` (Open a DICOM file + save; convert a DICOM folder from the Tasks tab). The fixtures add `.fixtures/synthetic/dicom/` (2 patients, 3 series, seeded UIDs). The E2E backend gets a temporary `ALLOWED_DERIVED_ROOTS`.

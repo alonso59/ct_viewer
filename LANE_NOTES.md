@@ -516,3 +516,20 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 - ADR-0018..0022 accepted by the owner; amended notes on ADR-0004/0014/0016/0017; owner docs updated (list in ROADMAP §P7c Docs line). Added on request: UI-24 Close (project and Open session). Converter rows also drop `output_role` / `exclude_reason` (readiness layer).
 - P7c single-session prompt: AGENT_RUNBOOK §P7c.
+
+## 2026-09-25 · P7c Wave 1 (plugin platform) · v3
+
+**Done** (ROADMAP §P7c Wave 1 ticked)
+- `plugins/<id>/plugin.json` (PLG-02) for `dicom`, `analyzers`, `radiomics`, `dashboard`, `curation`, `threshold` (`hidden`, CI), and `pending` entries `nnunet` and `voi` (manifest only, PLG-09). `app/plugins/` loads them (invalid manifests listed), maps task → plugin (`TaskInfo.plugin`, TSK-01) and computes status from `requires.capabilities` (PLG-06). API-49 `GET /plugins[?project=]`, `GET /plugins/{id}`.
+- `PLUGINS_ROOT` manifests load only when a `plugin.json` contributes their id (the runner test registers its `test.crash` manifest explicitly).
+- FE: `src/plugins/host.ts` (`FrontendPlugin {id, activate, open}`, `activatePlugins`, `openerOf`); `features/{curation,radiomics,dashboard}` moved to `src/plugins/` unchanged; new `plugins/dicom` (the Convert DICOM command moved out of `features/tasks`) and `plugins/analyzers`; bootstrap activates `FIRST_PARTY`. Plugin Library view (`features/library`, lazy, strings in `en.lazy.json`), palette "Show Plugin Library".
+
+**Results**: `make check` green: 443 backend + 203 frontend. Playwright 24/24 (Chromium 12, Firefox 12). Initial JS 296.3 KB gzip.
+
+**Decisions**
+- API status values are snake_case (`needs_runner`, `needs_derived_root`, `needs_segmentation`); the UI shows them with spaces.
+- `needs_segmentation` is judged only with `?project=` (no item with a mask); outside a project a segmentation requirement reads `ready`.
+- Backend-less plugins (curation, radiomics, dashboard) keep their code and routes in `app/` (PLG-08) and only declare themselves in `plugin.json`.
+
+**Open issues**
+- Initial JS 296.3 of 300 KB: later waves keep new strings in `en.lazy.json` and new UI lazy.

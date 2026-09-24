@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 
 import { api, ProblemError, useProject, useProjectEvents, useProjectSync, type ServerEvent } from '../api'
-import { useCurationRuntime } from '../features/curation'
+import { useCurationRuntime } from '../plugins'
 import { ImportWizard } from '../features/import'
 import { logEvent } from '../features/jobs'
 import { ProjectSwitcher, RelinkDialog, useRootsCheck } from '../features/projects'

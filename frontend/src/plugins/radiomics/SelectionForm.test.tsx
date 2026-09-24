@@ -7,7 +7,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import '../../i18n'
 import '../../i18n/lazy'
 import { DEMO_PID } from '../../api/mock/server'
-import { useExplorer } from '../explorer/store'
+import { useExplorer } from '../../features/explorer/store'
 import { emptySelection, type SelectionForm as Sel } from './model/selection'
 import { SelectionForm } from './SelectionForm'
 

@@ -1,0 +1,20 @@
+{
+  "plugin": 1,
+  "id": "analyzers",
+  "version": "1.0.0",
+  "title": "Metadata analyzers",
+  "icon": "symbol-property",
+  "description": "Phase, organ target and readiness from DICOM metadata, as annotation layers (ANALYZERS.md).",
+  "contributes": {
+    "tasks": [
+      "analyzer.phase",
+      "analyzer.target",
+      "analyzer.readiness"
+    ],
+    "columns": [
+      "phase",
+      "target",
+      "readiness"
+    ]
+  }
+}

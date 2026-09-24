@@ -3,10 +3,17 @@
 import i18n from '../../i18n'
 import { openEditor, registry } from '../../shell'
 import { codicon } from '../../theme'
+import { revealView, type FrontendPlugin } from '../host'
 import { LazySettingsEditor } from './LazySettingsEditor'
 import { RadiomicsView } from './RadiomicsView'
 
 export { RUN_TONE } from './runs'
+
+export const plugin: FrontendPlugin = {
+  id: 'radiomics',
+  activate: () => registerRadiomics(),
+  open: () => revealView('radiomics'),
+}
 
 export function registerRadiomics() {
   registry.view({ id: 'radiomics', title: 'view.radiomics', icon: codicon('beaker'), order: 60, component: RadiomicsView, hideImageSection: true })

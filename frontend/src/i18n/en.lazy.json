@@ -605,5 +605,36 @@
     "derivedTitle": "Choose the derived folder",
     "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here, never next to your data (ADR-0014). Only folders under ALLOWED_DERIVED_ROOTS are listed.",
     "derivedUse": "Use this folder"
+  },
+  "library": {
+    "status": {
+      "ready": "ready",
+      "needs_runner": "needs runner",
+      "needs_derived_root": "needs derived root",
+      "needs_segmentation": "needs segmentation",
+      "pending": "pending"
+    },
+    "point": {
+      "tasks_one": "{{count}} task",
+      "tasks_other": "{{count}} tasks",
+      "views_one": "{{count}} view",
+      "views_other": "{{count}} views",
+      "editors_one": "{{count}} editor",
+      "editors_other": "{{count}} editors",
+      "overlays_one": "{{count}} window",
+      "overlays_other": "{{count}} windows",
+      "panels_one": "{{count}} panel",
+      "panels_other": "{{count}} panels",
+      "commands_one": "{{count}} command",
+      "commands_other": "{{count}} commands",
+      "columns_one": "{{count}} column layer",
+      "columns_other": "{{count}} column layers",
+      "packs_one": "{{count}} study pack",
+      "packs_other": "{{count}} study packs"
+    },
+    "adds": "Adds: {{list}}",
+    "openNamed": "Open {{name}}",
+    "invalid_one": "{{count}} invalid plugin manifest (see API-49)",
+    "invalid_other": "{{count}} invalid plugin manifests (see API-49)"
   }
 }

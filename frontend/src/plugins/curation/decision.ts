@@ -6,7 +6,7 @@ import i18n from '../../i18n'
 import { api, keys, ProblemError, queryClient, type CurationContext, type CurationStatus, type Priority } from '../../api'
 import { toast, useWorkbench } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
-import { getViewerContext } from '../viewer'
+import { getViewerContext } from '../../features/viewer'
 
 // Draft shared by the left view, the inspector and the keyboard shortcuts
 interface Draft {

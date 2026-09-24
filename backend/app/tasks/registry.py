@@ -1,8 +1,9 @@
-"""Task manifest registry (TSK-01): builtin manifests + admin-installed `PLUGINS_ROOT/*/task.json`.
+"""Task manifest registry (TSK-01): every task belongs to a first-party plugin (PLG-01).
 
 Builtin: `app/radiomics/task.json` and every `{builtin_plugins_root}/*/task*.json` whose runtime
 is `builtin` (external manifests shipped next to them, e.g. the CI `segment.threshold`, are for
-`PLUGINS_ROOT`). External: `PLUGINS_ROOT/*/task.json`, which must use the external runtime.
+`PLUGINS_ROOT`). External: `PLUGINS_ROOT/*/task.json`, the host runner's copy of first-party
+plugins; it must use the external runtime and its id must be contributed by a `plugin.json`.
 Invalid manifests are listed with their error and never loaded.
 """
 
@@ -71,6 +72,8 @@ class Registry:
     tasks: dict[str, TaskInfo] = field(default_factory=dict)
     paths: dict[str, Path] = field(default_factory=dict)
     invalid: list[InvalidManifest] = field(default_factory=list)
+    # Task id -> owning plugin id, from the plugin manifests (None = no ownership check).
+    owners: dict[str, str] | None = None
 
     def add(
         self,
@@ -98,6 +101,7 @@ class Registry:
             available=reason is None,
             unavailable_reason=reason,
             settings_schema_url="/api/v1/radiomics/schema" if m.id == RADIOMICS_TASK else None,
+            plugin=(self.owners or {}).get(m.id),
         )
         if path is not None:
             self.paths[m.id] = path
@@ -108,6 +112,10 @@ class Registry:
                 m, h = parse_manifest(p)
                 if source == "plugins_root" and m.runtime.type != "external":
                     raise ValueError("manifests under PLUGINS_ROOT must use the external runtime")
+                if source == "plugins_root" and self.owners is not None and m.id not in self.owners:
+                    raise ValueError(
+                        f"task {m.id!r} is not contributed by a first-party plugin (PLG-01)"
+                    )
             except (OSError, ValueError) as exc:
                 self.invalid.append(InvalidManifest(path=str(p), error=str(exc)))
                 continue
@@ -126,9 +134,11 @@ class Registry:
         return p.parent if p is not None else None
 
 
-def build_registry(builtin_root: Path, plugins_root: Path | None) -> Registry:
+def build_registry(
+    builtin_root: Path, plugins_root: Path | None, owners: dict[str, str] | None = None
+) -> Registry:
     ensure_importable(builtin_root)
-    reg = Registry()
+    reg = Registry(owners=owners)
     reg.load([RADIOMICS_MANIFEST], "builtin")
     if builtin_root.is_dir():
         reg.load(builtin_root.glob("*/task*.json"), "builtin")

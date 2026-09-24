@@ -1,0 +1,27 @@
+{
+  "plugin": 1,
+  "id": "radiomics",
+  "version": "1.0.0",
+  "title": "Radiomics",
+  "icon": "beaker",
+  "description": "PyRadiomics features on a segmentation set with profiles, estimate and resumable runs (RADIOMICS.md).",
+  "contributes": {
+    "tasks": [
+      "radiomics.pyradiomics"
+    ],
+    "views": [
+      "radiomics"
+    ],
+    "editors": [
+      "radiomics"
+    ],
+    "commands": [
+      "radiomics.new"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "segmentation"
+    ]
+  }
+}

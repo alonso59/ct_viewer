@@ -7,7 +7,8 @@ import { api, keys, ProblemError, queryClient, useProjectEvents, type CurationSt
 import { registry, toast, useWorkbench, openEditor } from '../../shell'
 import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
-import { openItem } from '../explorer'
+import { openItem } from '../../features/explorer'
+import { revealView, type FrontendPlugin } from '../host'
 import { submitDecision, useDraft } from './decision'
 import { statusOf } from './model'
 
@@ -53,6 +54,12 @@ async function writeExports() {
   } catch (e) {
     toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.error'), tone: 'error' })
   }
+}
+
+export const plugin: FrontendPlugin = {
+  id: 'curation',
+  activate: () => registerCuration(),
+  open: () => revealView('curation'),
 }
 
 const hasItem = () => useWorkbench.getState().active?.type === 'case' && useViewerSync.getState().activeCaseId !== null

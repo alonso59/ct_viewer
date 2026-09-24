@@ -1,16 +1,15 @@
 // One-time registration of all contributions (UI-02). Order = activity bar / panel order is by `order`.
 import i18n from '../i18n'
-import { registerCuration } from '../features/curation'
-import { registerDashboard } from '../features/dashboard'
 import { registerExplorer } from '../features/explorer'
 import { registerImport } from '../features/import'
 import { registerOpen } from '../features/open'
 import { registerTasks } from '../features/tasks'
 import { registerJobs } from '../features/jobs'
+import { registerLibrary } from '../features/library'
 import { registerProjects } from '../features/projects'
-import { registerRadiomics } from '../features/radiomics'
 import { registerVariables } from '../features/variables'
 import { registerViewer } from '../features/viewer'
+import { activatePlugins, FIRST_PARTY } from '../plugins'
 import {
   closeActiveEditor,
   closeOtherEditors,
@@ -36,11 +35,10 @@ export function bootstrap() {
   registerTasks()
   registerExplorer()
   registerViewer()
-  registerCuration()
-  registerRadiomics()
-  registerDashboard()
+  activatePlugins(FIRST_PARTY) // PLG-04: every shipped plugin, enabled by default
   registerVariables()
   registerJobs()
+  registerLibrary()
 
   registry.view({ id: 'settings', title: 'view.settings', icon: codicon('settings-gear'), order: 100, position: 'bottom', component: SettingsView, hideImageSection: true })
   registry.editor({ type: 'design', component: DesignReference, id: () => 'design', title: () => i18n.t('design.title'), icon: () => codicon('symbol-color') })
@@ -73,7 +71,7 @@ export function bootstrap() {
     menuGroup: 5,
     run: () => useSettings.getState().set({ theme: useSettings.getState().theme === 'light' ? 'dark' : 'light' }),
   })
-  for (const [id, view, key] of [['project', 'project', 'mod+shift+e'], ['search', 'search', 'mod+shift+f'], ['curation', 'curation', ''], ['radiomics', 'radiomics', ''], ['variables', 'variables', '']] as const)
+  for (const [id, view, key] of [['project', 'project', 'mod+shift+e'], ['search', 'search', 'mod+shift+f'], ['curation', 'curation', ''], ['radiomics', 'radiomics', ''], ['variables', 'variables', ''], ['library', 'library', '']] as const)
     cmd({ id: `view.show.${id}`, title: `view.${view}`, category: 'cat.showView', keybinding: key || undefined, menu: 'view', menuGroup: 6, run: () => useLayout.getState().set({ activeView: view, sidebarVisible: true }) })
   for (const tab of ['measurements', 'problems', 'history', 'output', 'jobs'])
     cmd({ id: `panel.show.${tab}`, title: `panel.${tab}`, category: 'cat.showPanel', run: () => useLayout.getState().showPanelTab(tab) })

@@ -1,0 +1,19 @@
+{
+  "plugin": 1,
+  "id": "nnunet",
+  "version": "0.0.0",
+  "title": "nnU-Net segmentation",
+  "icon": "layers",
+  "pending": true,
+  "description": "Segmentation with a trained nnU-Net model on a GPU host through the external runner; outputs a segmentation set.",
+  "contributes": {
+    "tasks": [
+      "segment.nnunet"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "runner"
+    ]
+  }
+}

@@ -573,6 +573,7 @@ export const httpApi: Api = {
   maskUrl: (pid, iid, seg) => `${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`,
 
   // API-42..47
+  listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
   listTasks: () => unwrap(client.GET('/api/v1/tasks')),
   getTask: (tid) => unwrap(client.GET('/api/v1/tasks/{tid}', { params: { path: { tid } } })),
   validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),

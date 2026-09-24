@@ -2,7 +2,7 @@
 // strings (NFR-07).
 import { createElement, lazy, Suspense } from 'react'
 
-import { openEditor, registry } from '../../shell'
+import { registry } from '../../shell'
 import { codicon } from '../../theme'
 import type { TaskParams } from './TaskEditor'
 
@@ -31,5 +31,4 @@ export function registerTasks() {
       return m?.[1] ? { taskId: decodeURIComponent(m[1]) } : null
     },
   })
-  registry.command({ id: 'tasks.convertDicom', title: 'cmd.convertDicom', category: 'cat.project', menu: 'project', menuGroup: 2, run: () => openEditor('task', { taskId: 'dicom.convert' }) })
 }

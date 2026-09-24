@@ -1272,6 +1272,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plugins */
+        get: operations["list_plugins_api_v1_plugins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{plugin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plugin */
+        get: operations["get_plugin_api_v1_plugins__plugin_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/run-overview": {
         parameters: {
             query?: never;
@@ -2215,6 +2249,28 @@ export interface components {
             /** Case Ids */
             case_ids: string[];
         };
+        /**
+         * Contributes
+         * @description Contribution points (PLUGINS.md §Contribution points). Values are ids.
+         */
+        Contributes: {
+            /** Tasks */
+            tasks?: string[];
+            /** Views */
+            views?: string[];
+            /** Editors */
+            editors?: string[];
+            /** Overlays */
+            overlays?: string[];
+            /** Panels */
+            panels?: string[];
+            /** Commands */
+            commands?: string[];
+            /** Columns */
+            columns?: string[];
+            /** Packs */
+            packs?: string[];
+        };
         /** CorrelationRequest */
         CorrelationRequest: {
             filters?: components["schemas"]["GlobalFilters"];
@@ -3137,6 +3193,13 @@ export interface components {
             /** Error */
             error: string;
         };
+        /** InvalidPlugin */
+        InvalidPlugin: {
+            /** Path */
+            path: string;
+            /** Error */
+            error: string;
+        };
         /** Issue */
         Issue: {
             /** Loc */
@@ -3755,6 +3818,87 @@ export interface components {
              * @default none
              */
             source: string;
+        };
+        /**
+         * PluginInfo
+         * @description API-49 row: the manifest plus the computed status (PLG-05/06).
+         */
+        PluginInfo: {
+            manifest: components["schemas"]["PluginManifest"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "needs_runner" | "needs_derived_root" | "needs_segmentation" | "pending";
+            /** Reason */
+            reason?: string | null;
+            /** Actions */
+            actions?: string[];
+        };
+        /** PluginList */
+        PluginList: {
+            /** Plugins */
+            plugins: components["schemas"]["PluginInfo"][];
+            /** Invalid */
+            invalid: components["schemas"]["InvalidPlugin"][];
+        };
+        /**
+         * PluginManifest
+         * @description `plugins/<id>/plugin.json` (PLG-02). Unknown keys are refused like task manifests.
+         */
+        PluginManifest: {
+            /**
+             * Plugin
+             * @default 1
+             * @constant
+             */
+            plugin: 1;
+            /** Id */
+            id: string;
+            /** Version */
+            version: string;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Icon
+             * @default extensions
+             */
+            icon: string;
+            /**
+             * Scope
+             * @default project
+             * @enum {string}
+             */
+            scope: "workspace" | "project";
+            contributes?: components["schemas"]["Contributes"];
+            requires?: components["schemas"]["PluginRequires"];
+            /**
+             * Pending
+             * @default false
+             */
+            pending: boolean;
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
+        };
+        /** PluginRequires */
+        PluginRequires: {
+            /**
+             * Core
+             * @default >=3.0
+             */
+            core: string;
+            /** Plugins */
+            plugins?: string[];
+            /** Capabilities */
+            capabilities?: ("derived_root" | "runner" | "segmentation" | "event_store" | "features_run")[];
         };
         /** PreflightRequest */
         PreflightRequest: {
@@ -4688,6 +4832,8 @@ export interface components {
             source: "builtin" | "plugins_root";
             /** Manifest Hash */
             manifest_hash: string;
+            /** Plugin */
+            plugin?: string | null;
             /**
              * Available
              * @default true
@@ -7959,6 +8105,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskRunOutput"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plugins_api_v1_plugins_get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plugin_api_v1_plugins__plugin_id__get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: never;
+            path: {
+                plugin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInfo"];
                 };
             };
             /** @description Validation Error */

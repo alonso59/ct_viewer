@@ -36,12 +36,14 @@ frontend/src/
 │   ├── tasks/      # generic schema form, selection, preflight, estimate, runs, annotations (TSK-*, ANZ-*)
 │   ├── explorer/   # case tree, filters, quick open
 │   ├── viewer/     # NiiVue wrapper, layouts, tools, overlays, 3D (VW-*)
-│   ├── curation/   # inspector form, history, queue (CUR-*)
-│   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*); shares selection/runs with tasks/
-│   ├── dashboard/  # views (DB-*)
-│   └── …           # features move behind plugin boundaries in P7c (ADR-0018)
-├── plugins/<id>/   # first-party plugin UI: activate(ctx) registers contributions; heavy code lazy (PLG-03)
+│   ├── library/    # Plugin Library view (UI-22, PLG-05)
 │   └── jobs/
+├── plugins/        # host.ts (FrontendPlugin, activatePlugins, openerOf) + index.ts (FIRST_PARTY)
+│   ├── curation/   # inspector form, history, queue (CUR-*)
+│   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*)
+│   ├── dashboard/  # views (DB-*)
+│   ├── dicom/      # converter command (overlay: P7c Wave 3)
+│   └── analyzers/  # opens the analyzer task tabs
 ├── api/          # generated schema.d.ts, client, query keys, useProjectEvents (SSE)
 ├── state/        # cross-feature stores: reviewer, layout, viewerSync
 ├── i18n/         # en.json (all UI strings); other locales later
@@ -49,7 +51,7 @@ frontend/src/
 └── lib/
 ```
 
-**Boundaries:** a feature exposes only its `index.ts`. Features never import another feature's internals.
+**Boundaries:** a feature or plugin exposes only its `index.ts` (plugins export `plugin: FrontendPlugin`). Features and plugins never import another one's internals; plugins may use feature `index.ts` exports.
 `shell/` holds no domain logic; features register views and commands through a registry (UI-02).
 
 ## Routes

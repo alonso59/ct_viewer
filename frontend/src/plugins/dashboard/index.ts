@@ -5,6 +5,7 @@ import i18n from '../../i18n'
 import { keys, queryClient, type RunSummary } from '../../api'
 import { registry, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
+import { revealView, type FrontendPlugin } from '../host'
 import type { RunParams } from './DashboardEditor'
 import { DashboardsView } from './DashboardsView'
 
@@ -13,6 +14,12 @@ const DashboardEditor = lazy(() => import('./DashboardEditor').then((m) => ({ de
 // Kept out of the initial chunk too (NFR-07); the panel has no Suspense boundary of its own
 const MeasurementsLazy = lazy(() => import('./MeasurementsPanel').then((m) => ({ default: m.MeasurementsPanel })))
 const MeasurementsPanel = () => createElement(Suspense, { fallback: null }, createElement(MeasurementsLazy))
+
+export const plugin: FrontendPlugin = {
+  id: 'dashboard',
+  activate: () => registerDashboard(),
+  open: () => revealView('dashboards'),
+}
 
 export function registerDashboard() {
   registry.view({ id: 'dashboards', title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })

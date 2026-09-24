@@ -1,0 +1,29 @@
+{
+  "plugin": 1,
+  "id": "curation",
+  "version": "1.0.0",
+  "title": "Curation & QC",
+  "icon": "checklist",
+  "description": "QC status per item and mask, correction queue, exports, v2 and converter imports, live multi-user sync (CURATION.md).",
+  "contributes": {
+    "views": [
+      "curation",
+      "history"
+    ],
+    "editors": [
+      "queue"
+    ],
+    "panels": [
+      "history"
+    ],
+    "commands": [
+      "curation.openQueue",
+      "curation.writeExports"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "event_store"
+    ]
+  }
+}

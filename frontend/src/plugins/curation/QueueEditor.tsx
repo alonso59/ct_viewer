@@ -7,7 +7,7 @@ import { api, ProblemError, QUEUE_STATUSES, ReviewerCancelled, useCurationExport
 import { Dialog, PhaseChip, StatusBadge, fmtAgo } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { openItem } from '../explorer'
+import { openItem } from '../../features/explorer'
 import '../../i18n/lazy'
 
 const problemText = (e: unknown, fallback: string) => (e instanceof ProblemError ? (e.detail ?? e.title) : fallback)

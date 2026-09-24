@@ -15,9 +15,9 @@ let engine: Promise<MockEngine> | null = null
 
 export function loadEngine(): Promise<MockEngine> {
   engine ??= Promise.all([
-    import('../../features/radiomics/model/fixtures/schema.json'),
-    import('../../features/radiomics/model/settings'),
-    import('../../features/radiomics/model/validate'),
+    import('../../plugins/radiomics/model/fixtures/schema.json'),
+    import('../../plugins/radiomics/model/settings'),
+    import('../../plugins/radiomics/model/validate'),
   ]).then(([json, settings, rules]) => {
     const schema = json.default as unknown as SettingsSchema
     const normalize = (s: RadiomicsSettings) => settings.toWire(schema, settings.fromWire(schema, s))

@@ -3,6 +3,7 @@
 // follow the real shapes (types.ts). Curation events persist in localStorage so a reload keeps the
 // demo state; Settings → "Reset mock data" clears it.
 import { ProblemError } from '../problem'
+import { MOCK_PLUGINS } from './plugins'
 import { rollup } from '../rollup'
 import { filterByItems, type Api, type CaseFilter } from '../surface'
 import {
@@ -795,6 +796,10 @@ export const mockServer: Api = {
     return { ...clone(seg), n_items: s.items.filter((i) => segId in i.masks).length, is_default: segId === s.project.default_seg }
   },
   maskUrl: () => null,
+  async listPlugins() {
+    await wait(40)
+    return { plugins: clone(MOCK_PLUGINS), invalid: [] }
+  },
   async listTasks() {
     await wait(60)
     return { tasks: clone(MOCK_TASKS), invalid: [], runners: [{ runner_id: 'mock-runner', tasks: ['segment.threshold'], gpu: null, pid: 1, at: now(), fresh: true }] }

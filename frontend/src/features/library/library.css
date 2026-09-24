@@ -1,0 +1,8 @@
+.library-view { padding: 0 8px 12px; font-size: var(--fs-panel); }
+.plugin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.plugin-card { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.plugin-card[data-status='pending'] { opacity: 0.75; }
+.plugin-card-head { display: flex; align-items: center; gap: 6px; }
+.plugin-card-head .badge { margin-left: auto; }
+.plugin-card p { margin: 0; }
+.plugin-card-adds, .plugin-card-reason { font-size: var(--fs-badge); }

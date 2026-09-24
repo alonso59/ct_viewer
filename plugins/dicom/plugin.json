@@ -1,0 +1,22 @@
+{
+  "plugin": 1,
+  "id": "dicom",
+  "version": "1.0.0",
+  "title": "DICOM converter",
+  "icon": "file-binary",
+  "scope": "workspace",
+  "description": "Converts a DICOM folder or file to NIfTI with JSON sidecars and a metadata.jsonl artifact (DICOM_CONVERTER.md).",
+  "contributes": {
+    "tasks": [
+      "dicom.convert"
+    ],
+    "commands": [
+      "tasks.convertDicom"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "derived_root"
+    ]
+  }
+}

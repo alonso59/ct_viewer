@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import create_app
 from app.tasks import service as task_service
+from app.tasks.registry import parse_manifest
 from tests.test_api_ingest import ctx_of, do_import, wait
 from tools.make_fixtures import DATASET
 
@@ -70,6 +71,12 @@ def env(tmp_path: Path, fixtures_copy: Path, plugins: Path) -> Iterator[tuple[Te
         _env_file=None,  # type: ignore[call-arg]
     )
     with TestClient(create_app(s, inline_jobs=True)) as c:
+        # `test.crash` belongs to no plugin.json (PLG-01), so the registry refuses it; the test
+        # registers it as if a first-party plugin contributed it.
+        reg = ctx_of(c).registry
+        crash = plugins / "crash" / "task.json"
+        m, h = parse_manifest(crash)
+        reg.add(m, h, "plugins_root", crash)
         pid = str(c.post(f"{API}/projects", json={"name": "ext"}).json()["project_id"])
         do_import(c, pid, fixtures_copy / DATASET)
         r = c.put(

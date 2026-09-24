@@ -55,6 +55,7 @@ import type {
   SegmentationInfo,
   SegmentationPatch,
   ServerEvent,
+  PluginList,
   TaskEstimate,
   TaskInfo,
   TaskItemError,
@@ -171,6 +172,9 @@ export interface Api {
   patchSegmentation(pid: string, segId: string, patch: SegmentationPatch): Promise<SegmentationInfo>
   /** API-24 URL of one set's mask (`seg` omitted = `default_seg`) */
   maskUrl(pid: string, iid: string, segId?: string): string | null
+
+  /** API-49 Plugin Library (PLG-05/06); `pid` adds the project-dependent status */
+  listPlugins(pid?: string): Promise<PluginList>
 
   // Tasks (API-42..47, TSK-*)
   listTasks(): Promise<TaskList>

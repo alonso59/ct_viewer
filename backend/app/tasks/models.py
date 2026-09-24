@@ -89,6 +89,8 @@ class TaskInfo(BaseModel):
     manifest: TaskManifest
     source: Literal["builtin", "plugins_root"]
     manifest_hash: str
+    # The first-party plugin that contributes this task (TSK-01, PLG-01).
+    plugin: str | None = None
     available: bool = True
     unavailable_reason: str | None = None
     # External tasks: a fresh runner heartbeat lists this task (TSK-11).

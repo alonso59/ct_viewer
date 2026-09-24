@@ -23,7 +23,7 @@ import {
 } from '../../../api'
 import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon, token } from '../../../theme'
-import { openItem } from '../../explorer'
+import { openItem } from '../../../features/explorer'
 import { palette, type ChartInstance } from '../Chart'
 import { useDashboardStore, useRunDashboard } from '../store'
 

@@ -32,6 +32,7 @@ export const keys = {
   fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
   open: (path: string) => ['open', path] as const,
   tasks: () => ['tasks'] as const,
+  plugins: (pid: string | null) => ['plugins', pid] as const,
   segmentations: (pid: string) => ['project', pid, 'segmentations'] as const,
   taskRuns: (pid: string) => ['project', pid, 'task-runs'] as const,
   taskRun: (pid: string, rid: string) => ['project', pid, 'task-runs', rid] as const,

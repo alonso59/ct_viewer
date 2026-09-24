@@ -1647,6 +1647,70 @@
     "title": "ContingencyCell",
     "type": "object"
    },
+   "Contributes": {
+    "additionalProperties": false,
+    "description": "Contribution points (PLUGINS.md \u00a7Contribution points). Values are ids.",
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "commands": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Commands",
+      "type": "array"
+     },
+     "editors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Editors",
+      "type": "array"
+     },
+     "overlays": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Overlays",
+      "type": "array"
+     },
+     "packs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Packs",
+      "type": "array"
+     },
+     "panels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Panels",
+      "type": "array"
+     },
+     "tasks": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Tasks",
+      "type": "array"
+     },
+     "views": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Views",
+      "type": "array"
+     }
+    },
+    "title": "Contributes",
+    "type": "object"
+   },
    "CorrelationRequest": {
     "properties": {
      "feature_class": {
@@ -4152,6 +4216,24 @@
     "title": "InvalidManifest",
     "type": "object"
    },
+   "InvalidPlugin": {
+    "properties": {
+     "error": {
+      "title": "Error",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "error"
+    ],
+    "title": "InvalidPlugin",
+    "type": "object"
+   },
    "Issue": {
     "properties": {
      "loc": {
@@ -5900,6 +5982,175 @@
      "canonical"
     ],
     "title": "PhaseInfo",
+    "type": "object"
+   },
+   "PluginInfo": {
+    "description": "API-49 row: the manifest plus the computed status (PLG-05/06).",
+    "properties": {
+     "actions": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "manifest": {
+      "$ref": "#/components/schemas/PluginManifest"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "status": {
+      "enum": [
+       "ready",
+       "needs_runner",
+       "needs_derived_root",
+       "needs_segmentation",
+       "pending"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "manifest",
+     "status"
+    ],
+    "title": "PluginInfo",
+    "type": "object"
+   },
+   "PluginList": {
+    "properties": {
+     "invalid": {
+      "items": {
+       "$ref": "#/components/schemas/InvalidPlugin"
+      },
+      "title": "Invalid",
+      "type": "array"
+     },
+     "plugins": {
+      "items": {
+       "$ref": "#/components/schemas/PluginInfo"
+      },
+      "title": "Plugins",
+      "type": "array"
+     }
+    },
+    "required": [
+     "plugins",
+     "invalid"
+    ],
+    "title": "PluginList",
+    "type": "object"
+   },
+   "PluginManifest": {
+    "additionalProperties": false,
+    "description": "`plugins/<id>/plugin.json` (PLG-02). Unknown keys are refused like task manifests.",
+    "properties": {
+     "contributes": {
+      "$ref": "#/components/schemas/Contributes"
+     },
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "hidden": {
+      "default": false,
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "icon": {
+      "default": "extensions",
+      "title": "Icon",
+      "type": "string"
+     },
+     "id": {
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+      "title": "Id",
+      "type": "string"
+     },
+     "pending": {
+      "default": false,
+      "title": "Pending",
+      "type": "boolean"
+     },
+     "plugin": {
+      "const": 1,
+      "default": 1,
+      "title": "Plugin",
+      "type": "integer"
+     },
+     "requires": {
+      "$ref": "#/components/schemas/PluginRequires"
+     },
+     "scope": {
+      "default": "project",
+      "enum": [
+       "workspace",
+       "project"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+     },
+     "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "version",
+     "title"
+    ],
+    "title": "PluginManifest",
+    "type": "object"
+   },
+   "PluginRequires": {
+    "additionalProperties": false,
+    "properties": {
+     "capabilities": {
+      "items": {
+       "enum": [
+        "derived_root",
+        "runner",
+        "segmentation",
+        "event_store",
+        "features_run"
+       ],
+       "type": "string"
+      },
+      "title": "Capabilities",
+      "type": "array"
+     },
+     "core": {
+      "default": ">=3.0",
+      "title": "Core",
+      "type": "string"
+     },
+     "plugins": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Plugins",
+      "type": "array"
+     }
+    },
+    "title": "PluginRequires",
     "type": "object"
    },
    "PreflightRequest": {
@@ -8566,6 +8817,17 @@
       "title": "Manifest Hash",
       "type": "string"
      },
+     "plugin": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plugin"
+     },
      "runner_online": {
       "anyOf": [
        {
@@ -11092,6 +11354,113 @@
     "summary": "Open Save",
     "tags": [
      "sources"
+    ]
+   }
+  },
+  "/api/v1/plugins": {
+   "get": {
+    "operationId": "list_plugins_api_v1_plugins_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PluginList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Plugins",
+    "tags": [
+     "plugins"
+    ]
+   }
+  },
+  "/api/v1/plugins/{plugin_id}": {
+   "get": {
+    "operationId": "get_plugin_api_v1_plugins__plugin_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plugin_id",
+      "required": true,
+      "schema": {
+       "title": "Plugin Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PluginInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Plugin",
+    "tags": [
+     "plugins"
     ]
    }
   },

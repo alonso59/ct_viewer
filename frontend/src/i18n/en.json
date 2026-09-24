@@ -51,7 +51,8 @@
     "toggleSidebar": "Toggle side bar",
     "toggleTheme": "Toggle light / dark theme",
     "welcome": "Welcome",
-    "convertDicom": "Convert DICOM to NIfTI…"
+    "convertDicom": "Convert DICOM to NIfTI…",
+    "runPhaseAnalyzer": "Run the phase analyzer…"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -92,7 +93,8 @@
     "search": "Search",
     "settings": "Settings",
     "variables": "Variables",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "library": "Plugin Library"
   },
   "panel": {
     "history": "History",

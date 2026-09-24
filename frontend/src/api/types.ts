@@ -400,3 +400,9 @@ export type AnnotationSources = S['AnnotationSources']
 /** API-09 (SRC-14) */
 export type SaveOpenBody = S['SaveBody']
 export type SavedOpen = S['Saved']
+
+// ---- P7c: plugins (API-49, PLG-*) ------------------------------------------------------------------
+export type PluginManifest = S['PluginManifest']
+export type PluginInfo = S['PluginInfo']
+export type PluginList = S['PluginList']
+export type PluginStatus = PluginInfo['status']
