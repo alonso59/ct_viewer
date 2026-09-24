@@ -1,0 +1,2246 @@
+{
+ "defaults": {
+  "features": {
+   "firstorder": [
+    "10Percentile",
+    "90Percentile",
+    "Energy",
+    "Entropy",
+    "InterquartileRange",
+    "Kurtosis",
+    "Maximum",
+    "Mean",
+    "MeanAbsoluteDeviation",
+    "Median",
+    "Minimum",
+    "Range",
+    "RobustMeanAbsoluteDeviation",
+    "RootMeanSquared",
+    "Skewness",
+    "TotalEnergy",
+    "Uniformity",
+    "Variance"
+   ],
+   "glcm": [
+    "Autocorrelation",
+    "ClusterProminence",
+    "ClusterShade",
+    "ClusterTendency",
+    "Contrast",
+    "Correlation",
+    "DifferenceAverage",
+    "DifferenceEntropy",
+    "DifferenceVariance",
+    "Id",
+    "Idm",
+    "Idmn",
+    "Idn",
+    "Imc1",
+    "Imc2",
+    "InverseVariance",
+    "JointAverage",
+    "JointEnergy",
+    "JointEntropy",
+    "MCC",
+    "MaximumProbability",
+    "SumAverage",
+    "SumEntropy",
+    "SumSquares"
+   ],
+   "gldm": [
+    "DependenceEntropy",
+    "DependenceNonUniformity",
+    "DependenceNonUniformityNormalized",
+    "DependenceVariance",
+    "GrayLevelNonUniformity",
+    "GrayLevelVariance",
+    "HighGrayLevelEmphasis",
+    "LargeDependenceEmphasis",
+    "LargeDependenceHighGrayLevelEmphasis",
+    "LargeDependenceLowGrayLevelEmphasis",
+    "LowGrayLevelEmphasis",
+    "SmallDependenceEmphasis",
+    "SmallDependenceHighGrayLevelEmphasis",
+    "SmallDependenceLowGrayLevelEmphasis"
+   ],
+   "glrlm": [
+    "GrayLevelNonUniformity",
+    "GrayLevelNonUniformityNormalized",
+    "GrayLevelVariance",
+    "HighGrayLevelRunEmphasis",
+    "LongRunEmphasis",
+    "LongRunHighGrayLevelEmphasis",
+    "LongRunLowGrayLevelEmphasis",
+    "LowGrayLevelRunEmphasis",
+    "RunEntropy",
+    "RunLengthNonUniformity",
+    "RunLengthNonUniformityNormalized",
+    "RunPercentage",
+    "RunVariance",
+    "ShortRunEmphasis",
+    "ShortRunHighGrayLevelEmphasis",
+    "ShortRunLowGrayLevelEmphasis"
+   ],
+   "glszm": [
+    "GrayLevelNonUniformity",
+    "GrayLevelNonUniformityNormalized",
+    "GrayLevelVariance",
+    "HighGrayLevelZoneEmphasis",
+    "LargeAreaEmphasis",
+    "LargeAreaHighGrayLevelEmphasis",
+    "LargeAreaLowGrayLevelEmphasis",
+    "LowGrayLevelZoneEmphasis",
+    "SizeZoneNonUniformity",
+    "SizeZoneNonUniformityNormalized",
+    "SmallAreaEmphasis",
+    "SmallAreaHighGrayLevelEmphasis",
+    "SmallAreaLowGrayLevelEmphasis",
+    "ZoneEntropy",
+    "ZonePercentage",
+    "ZoneVariance"
+   ],
+   "ngtdm": [
+    "Busyness",
+    "Coarseness",
+    "Complexity",
+    "Contrast",
+    "Strength"
+   ],
+   "shape": [
+    "Elongation",
+    "Flatness",
+    "LeastAxisLength",
+    "MajorAxisLength",
+    "Maximum2DDiameterColumn",
+    "Maximum2DDiameterRow",
+    "Maximum2DDiameterSlice",
+    "Maximum3DDiameter",
+    "MeshVolume",
+    "MinorAxisLength",
+    "Sphericity",
+    "SurfaceArea",
+    "SurfaceVolumeRatio",
+    "VoxelVolume"
+   ]
+  },
+  "image_types": {
+   "Original": {}
+  },
+  "settings": {
+   "additionalInfo": true,
+   "binCount": null,
+   "binWidth": 25.0,
+   "correctMask": false,
+   "distances": [
+    1
+   ],
+   "force2D": false,
+   "force2Ddimension": 0,
+   "geometryTolerance": null,
+   "gldm_a": 0,
+   "interpolator": "sitkBSpline",
+   "label_channel": 0,
+   "minimumROIDimensions": 2,
+   "minimumROISize": null,
+   "normalize": false,
+   "normalizeScale": 1.0,
+   "padDistance": 5,
+   "preCrop": false,
+   "removeOutliers": null,
+   "resampledPixelSpacing": null,
+   "resegmentMode": "absolute",
+   "resegmentRange": null,
+   "resegmentShape": false,
+   "symmetricalGLCM": true,
+   "voxelArrayShift": 0,
+   "weightingNorm": null
+  }
+ },
+ "engine": {
+  "name": "pyradiomics",
+  "version": "3.1.1.dev111+g8ed579383"
+ },
+ "feature_classes": [
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "QG58",
+      "status": "compliant"
+     },
+     "name": "10Percentile"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "8DWT",
+      "status": "compliant"
+     },
+     "name": "90Percentile"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "N8CA",
+      "status": "compliant"
+     },
+     "name": "Energy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "TLU2",
+      "status": "compliant"
+     },
+     "name": "Entropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "SALO",
+      "status": "compliant"
+     },
+     "name": "InterquartileRange"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "IPH6",
+      "status": "deviates"
+     },
+     "name": "Kurtosis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "84IY",
+      "status": "compliant"
+     },
+     "name": "Maximum"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "Q4LE",
+      "status": "compliant"
+     },
+     "name": "Mean"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "4FUA",
+      "status": "compliant"
+     },
+     "name": "MeanAbsoluteDeviation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "Y12H",
+      "status": "compliant"
+     },
+     "name": "Median"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "1GSF",
+      "status": "compliant"
+     },
+     "name": "Minimum"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "2OJQ",
+      "status": "compliant"
+     },
+     "name": "Range"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "1128",
+      "status": "compliant"
+     },
+     "name": "RobustMeanAbsoluteDeviation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "5ZWQ",
+      "status": "compliant"
+     },
+     "name": "RootMeanSquared"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "KE2A",
+      "status": "compliant"
+     },
+     "name": "Skewness"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "StandardDeviation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "TotalEnergy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "BJ5W",
+      "status": "compliant"
+     },
+     "name": "Uniformity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "ECT3",
+      "status": "compliant"
+     },
+     "name": "Variance"
+    }
+   ],
+   "name": "firstorder",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "QWB0",
+      "status": "compliant"
+     },
+     "name": "Autocorrelation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "AE86",
+      "status": "not_defined"
+     },
+     "name": "ClusterProminence"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "7NFM",
+      "status": "compliant"
+     },
+     "name": "ClusterShade"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "DG8W",
+      "status": "compliant"
+     },
+     "name": "ClusterTendency"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "ACUI",
+      "status": "compliant"
+     },
+     "name": "Contrast"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "NI2N",
+      "status": "compliant"
+     },
+     "name": "Correlation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "TF7R",
+      "status": "compliant"
+     },
+     "name": "DifferenceAverage"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "NTRS",
+      "status": "compliant"
+     },
+     "name": "DifferenceEntropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "D3YU",
+      "status": "compliant"
+     },
+     "name": "DifferenceVariance"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Dissimilarity"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Homogeneity1"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Homogeneity2"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "IB1Z",
+      "status": "compliant"
+     },
+     "name": "Id"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "WF0Z",
+      "status": "compliant"
+     },
+     "name": "Idm"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "1QCO",
+      "status": "compliant"
+     },
+     "name": "Idmn"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "NDRX",
+      "status": "compliant"
+     },
+     "name": "Idn"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "R8DG",
+      "status": "not_defined"
+     },
+     "name": "Imc1"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "JN9H",
+      "status": "not_defined"
+     },
+     "name": "Imc2"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "E8JP",
+      "status": "compliant"
+     },
+     "name": "InverseVariance"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "60VM",
+      "status": "compliant"
+     },
+     "name": "JointAverage"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "8ZQL",
+      "status": "not_defined"
+     },
+     "name": "JointEnergy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "TU9B",
+      "status": "compliant"
+     },
+     "name": "JointEntropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "MCC"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "GYBY",
+      "status": "compliant"
+     },
+     "name": "MaximumProbability"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "ZGXS",
+      "status": "compliant"
+     },
+     "name": "SumAverage"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "P6QZ",
+      "status": "not_defined"
+     },
+     "name": "SumEntropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "UR99",
+      "status": "compliant"
+     },
+     "name": "SumSquares"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "SumVariance"
+    }
+   ],
+   "name": "glcm",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "FCBV",
+      "status": "compliant"
+     },
+     "name": "DependenceEntropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "Z87G",
+      "status": "compliant"
+     },
+     "name": "DependenceNonUniformity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "OKJI",
+      "status": "compliant"
+     },
+     "name": "DependenceNonUniformityNormalized"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "DependencePercentage"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "DNX2",
+      "status": "compliant"
+     },
+     "name": "DependenceVariance"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "FP8K",
+      "status": "compliant"
+     },
+     "name": "GrayLevelNonUniformity"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "GrayLevelNonUniformityNormalized"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "1PFV",
+      "status": "compliant"
+     },
+     "name": "GrayLevelVariance"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "OAE7",
+      "status": "compliant"
+     },
+     "name": "HighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "IMOQ",
+      "status": "compliant"
+     },
+     "name": "LargeDependenceEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "9QMG",
+      "status": "compliant"
+     },
+     "name": "LargeDependenceHighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "NBZI",
+      "status": "compliant"
+     },
+     "name": "LargeDependenceLowGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "TL9H",
+      "status": "compliant"
+     },
+     "name": "LowGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "SODN",
+      "status": "compliant"
+     },
+     "name": "SmallDependenceEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "JA6D",
+      "status": "compliant"
+     },
+     "name": "SmallDependenceHighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "EQ3F",
+      "status": "compliant"
+     },
+     "name": "SmallDependenceLowGrayLevelEmphasis"
+    }
+   ],
+   "name": "gldm",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "R5YN",
+      "status": "not_defined"
+     },
+     "name": "GrayLevelNonUniformity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "OVBL",
+      "status": "compliant"
+     },
+     "name": "GrayLevelNonUniformityNormalized"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "8CE5",
+      "status": "compliant"
+     },
+     "name": "GrayLevelVariance"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "G3QZ",
+      "status": "not_defined"
+     },
+     "name": "HighGrayLevelRunEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "W4KF",
+      "status": "not_defined"
+     },
+     "name": "LongRunEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "3KUM",
+      "status": "not_defined"
+     },
+     "name": "LongRunHighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "IVPO",
+      "status": "not_defined"
+     },
+     "name": "LongRunLowGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "V3SW",
+      "status": "not_defined"
+     },
+     "name": "LowGrayLevelRunEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "HJ9O",
+      "status": "compliant"
+     },
+     "name": "RunEntropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "W92Y",
+      "status": "not_defined"
+     },
+     "name": "RunLengthNonUniformity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "IC23",
+      "status": "not_defined"
+     },
+     "name": "RunLengthNonUniformityNormalized"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "9ZK5",
+      "status": "compliant"
+     },
+     "name": "RunPercentage"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "SXLW",
+      "status": "compliant"
+     },
+     "name": "RunVariance"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "22OV",
+      "status": "not_defined"
+     },
+     "name": "ShortRunEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "GD3A",
+      "status": "not_defined"
+     },
+     "name": "ShortRunHighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "HTZT",
+      "status": "not_defined"
+     },
+     "name": "ShortRunLowGrayLevelEmphasis"
+    }
+   ],
+   "name": "glrlm",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "JNSA",
+      "status": "compliant"
+     },
+     "name": "GrayLevelNonUniformity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "Y1RO",
+      "status": "compliant"
+     },
+     "name": "GrayLevelNonUniformityNormalized"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "BYLV",
+      "status": "compliant"
+     },
+     "name": "GrayLevelVariance"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "5GN9",
+      "status": "compliant"
+     },
+     "name": "HighGrayLevelZoneEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "48P8",
+      "status": "compliant"
+     },
+     "name": "LargeAreaEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "J17V",
+      "status": "compliant"
+     },
+     "name": "LargeAreaHighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "YH51",
+      "status": "compliant"
+     },
+     "name": "LargeAreaLowGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "XMSY",
+      "status": "compliant"
+     },
+     "name": "LowGrayLevelZoneEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "4JP3",
+      "status": "compliant"
+     },
+     "name": "SizeZoneNonUniformity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "VB3A",
+      "status": "compliant"
+     },
+     "name": "SizeZoneNonUniformityNormalized"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "5QRC",
+      "status": "compliant"
+     },
+     "name": "SmallAreaEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "HW1V",
+      "status": "compliant"
+     },
+     "name": "SmallAreaHighGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "5RAI",
+      "status": "compliant"
+     },
+     "name": "SmallAreaLowGrayLevelEmphasis"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "GU8N",
+      "status": "compliant"
+     },
+     "name": "ZoneEntropy"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "P30P",
+      "status": "compliant"
+     },
+     "name": "ZonePercentage"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "3NSA",
+      "status": "compliant"
+     },
+     "name": "ZoneVariance"
+    }
+   ],
+   "name": "glszm",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "NQ30",
+      "status": "compliant"
+     },
+     "name": "Busyness"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "QCDE",
+      "status": "compliant"
+     },
+     "name": "Coarseness"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "HDEZ",
+      "status": "compliant"
+     },
+     "name": "Complexity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "65HE",
+      "status": "compliant"
+     },
+     "name": "Contrast"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "1X9X",
+      "status": "compliant"
+     },
+     "name": "Strength"
+    }
+   ],
+   "name": "ngtdm",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": true,
+   "features": [
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": "SKGS",
+      "status": "compliant"
+     },
+     "name": "Compactness1"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": "BQWJ",
+      "status": "compliant"
+     },
+     "name": "Compactness2"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "Q3CK",
+      "status": "compliant"
+     },
+     "name": "Elongation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "N17B",
+      "status": "compliant"
+     },
+     "name": "Flatness"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "7J51",
+      "status": "deviates"
+     },
+     "name": "LeastAxisLength"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "TDIC",
+      "status": "deviates"
+     },
+     "name": "MajorAxisLength"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Maximum2DDiameterColumn"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Maximum2DDiameterRow"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Maximum2DDiameterSlice"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "L0JK",
+      "status": "compliant"
+     },
+     "name": "Maximum3DDiameter"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "RNU0",
+      "status": "compliant"
+     },
+     "name": "MeshVolume"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "P9VJ",
+      "status": "deviates"
+     },
+     "name": "MinorAxisLength"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": "KRCK",
+      "status": "compliant"
+     },
+     "name": "SphericalDisproportion"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "QCFX",
+      "status": "compliant"
+     },
+     "name": "Sphericity"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "C0JK",
+      "status": "compliant"
+     },
+     "name": "SurfaceArea"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "2PR5",
+      "status": "compliant"
+     },
+     "name": "SurfaceVolumeRatio"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": "YEKZ",
+      "status": "compliant"
+     },
+     "name": "VoxelVolume"
+    }
+   ],
+   "name": "shape",
+   "requires_2d": false
+  },
+  {
+   "default_enabled": false,
+   "features": [
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Elongation"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "MajorAxisLength"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "MaximumDiameter"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "MeshSurface"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "MinorAxisLength"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Perimeter"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "PerimeterSurfaceRatio"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "PixelSurface"
+    },
+    {
+     "default_enabled": false,
+     "deprecated": true,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "SphericalDisproportion"
+    },
+    {
+     "default_enabled": true,
+     "deprecated": false,
+     "ibsi": {
+      "code": null,
+      "status": "not_defined"
+     },
+     "name": "Sphericity"
+    }
+   ],
+   "name": "shape2D",
+   "requires_2d": true
+  }
+ ],
+ "filters": [
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "Exponential",
+   "params": [],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "Gradient",
+   "params": [
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": null,
+      "min_items": null
+     },
+     "default": true,
+     "description": "Use image spacing for the gradient",
+     "group": "filters",
+     "name": "gradientUseSpacing",
+     "nullable": false,
+     "type": "bool"
+    }
+   ],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "LBP2D",
+   "params": [
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": true,
+      "max": null,
+      "max_items": null,
+      "min": 0.0,
+      "min_items": null
+     },
+     "default": 1.0,
+     "description": "LBP radius (mm)",
+     "group": "filters",
+     "name": "lbp2DRadius",
+     "nullable": false,
+     "type": "float"
+    },
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": 1.0,
+      "min_items": null
+     },
+     "default": 8,
+     "description": "LBP sample points",
+     "group": "filters",
+     "name": "lbp2DSamples",
+     "nullable": false,
+     "type": "int"
+    },
+    {
+     "constraints": {
+      "enum": [
+       "default",
+       "ror",
+       "uniform",
+       "var"
+      ],
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": null,
+      "min_items": null
+     },
+     "default": "uniform",
+     "description": "LBP method",
+     "group": "filters",
+     "name": "lbp2DMethod",
+     "nullable": false,
+     "type": "enum"
+    }
+   ],
+   "requires_2d": true,
+   "unavailable_reason": null
+  },
+  {
+   "available": false,
+   "default_enabled": false,
+   "name": "LBP3D",
+   "params": [
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": 1.0,
+      "min_items": null
+     },
+     "default": 2,
+     "description": "Spherical harmonics levels",
+     "group": "filters",
+     "name": "lbp3DLevels",
+     "nullable": false,
+     "type": "int"
+    },
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": true,
+      "max": null,
+      "max_items": null,
+      "min": 0.0,
+      "min_items": null
+     },
+     "default": 1.0,
+     "description": "Icosphere radius (mm)",
+     "group": "filters",
+     "name": "lbp3DIcosphereRadius",
+     "nullable": false,
+     "type": "float"
+    },
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": 0.0,
+      "min_items": null
+     },
+     "default": 1,
+     "description": "Icosphere subdivisions",
+     "group": "filters",
+     "name": "lbp3DIcosphereSubdivision",
+     "nullable": false,
+     "type": "int"
+    }
+   ],
+   "requires_2d": false,
+   "unavailable_reason": "needs optional packages scipy.special.sph_harm and trimesh (No module named 'trimesh')"
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "LoG",
+   "params": [
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": true,
+      "max": null,
+      "max_items": null,
+      "min": 0.0,
+      "min_items": null
+     },
+     "default": [],
+     "description": "Gaussian sigma values in mm",
+     "group": "filters",
+     "name": "sigma",
+     "nullable": false,
+     "type": "float_list"
+    }
+   ],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "Logarithm",
+   "params": [],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": true,
+   "name": "Original",
+   "params": [],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "Square",
+   "params": [],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "SquareRoot",
+   "params": [],
+   "requires_2d": false,
+   "unavailable_reason": null
+  },
+  {
+   "available": true,
+   "default_enabled": false,
+   "name": "Wavelet",
+   "params": [
+    {
+     "constraints": {
+      "enum": [
+       "bior1.1",
+       "bior1.3",
+       "bior1.5",
+       "bior2.2",
+       "bior2.4",
+       "bior2.6",
+       "bior2.8",
+       "bior3.1",
+       "bior3.3",
+       "bior3.5",
+       "bior3.7",
+       "bior3.9",
+       "bior4.4",
+       "bior5.5",
+       "bior6.8",
+       "coif1",
+       "coif2",
+       "coif3",
+       "coif4",
+       "coif5",
+       "coif6",
+       "coif7",
+       "coif8",
+       "coif9",
+       "coif10",
+       "coif11",
+       "coif12",
+       "coif13",
+       "coif14",
+       "coif15",
+       "coif16",
+       "coif17",
+       "db1",
+       "db2",
+       "db3",
+       "db4",
+       "db5",
+       "db6",
+       "db7",
+       "db8",
+       "db9",
+       "db10",
+       "db11",
+       "db12",
+       "db13",
+       "db14",
+       "db15",
+       "db16",
+       "db17",
+       "db18",
+       "db19",
+       "db20",
+       "db21",
+       "db22",
+       "db23",
+       "db24",
+       "db25",
+       "db26",
+       "db27",
+       "db28",
+       "db29",
+       "db30",
+       "db31",
+       "db32",
+       "db33",
+       "db34",
+       "db35",
+       "db36",
+       "db37",
+       "db38",
+       "dmey",
+       "haar",
+       "rbio1.1",
+       "rbio1.3",
+       "rbio1.5",
+       "rbio2.2",
+       "rbio2.4",
+       "rbio2.6",
+       "rbio2.8",
+       "rbio3.1",
+       "rbio3.3",
+       "rbio3.5",
+       "rbio3.7",
+       "rbio3.9",
+       "rbio4.4",
+       "rbio5.5",
+       "rbio6.8",
+       "sym2",
+       "sym3",
+       "sym4",
+       "sym5",
+       "sym6",
+       "sym7",
+       "sym8",
+       "sym9",
+       "sym10",
+       "sym11",
+       "sym12",
+       "sym13",
+       "sym14",
+       "sym15",
+       "sym16",
+       "sym17",
+       "sym18",
+       "sym19",
+       "sym20"
+      ],
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": null,
+      "min_items": null
+     },
+     "default": "coif1",
+     "description": "Wavelet family",
+     "group": "filters",
+     "name": "wavelet",
+     "nullable": false,
+     "type": "enum"
+    },
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": false,
+      "max": null,
+      "max_items": null,
+      "min": 0.0,
+      "min_items": null
+     },
+     "default": 0,
+     "description": "First decomposition level",
+     "group": "filters",
+     "name": "start_level",
+     "nullable": false,
+     "type": "int"
+    },
+    {
+     "constraints": {
+      "enum": null,
+      "exclusive_max": false,
+      "exclusive_min": true,
+      "max": null,
+      "max_items": null,
+      "min": 0.0,
+      "min_items": null
+     },
+     "default": 1,
+     "description": "Number of decomposition levels",
+     "group": "filters",
+     "name": "level",
+     "nullable": false,
+     "type": "int"
+    }
+   ],
+   "requires_2d": false,
+   "unavailable_reason": null
+  }
+ ],
+ "groups": [
+  {
+   "id": "filters",
+   "label": "Filters"
+  },
+  {
+   "id": "feature_classes",
+   "label": "Feature classes"
+  },
+  {
+   "id": "discretization",
+   "label": "Discretization"
+  },
+  {
+   "id": "resampling",
+   "label": "Resampling"
+  },
+  {
+   "id": "intensity",
+   "label": "Intensity"
+  },
+  {
+   "id": "resegmentation",
+   "label": "Re-segmentation"
+  },
+  {
+   "id": "mask",
+   "label": "Mask handling"
+  },
+  {
+   "id": "two_d",
+   "label": "2D"
+  },
+  {
+   "id": "texture",
+   "label": "Texture"
+  },
+  {
+   "id": "output",
+   "label": "Output"
+  },
+  {
+   "id": "other",
+   "label": "Other"
+  }
+ ],
+ "ibsi_map_version": "1",
+ "options": [
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": 3.0,
+    "max_items": null,
+    "min": 1.0,
+    "min_items": null
+   },
+   "default": 2,
+   "description": "Minimum number of dimensions the ROI must span",
+   "group": "mask",
+   "name": "minimumROIDimensions",
+   "nullable": false,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": null,
+   "description": "Minimum number of ROI voxels",
+   "group": "mask",
+   "name": "minimumROISize",
+   "nullable": true,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": null,
+   "description": "Tolerance when image and mask geometry differ",
+   "group": "mask",
+   "name": "geometryTolerance",
+   "nullable": true,
+   "type": "float"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": false,
+   "description": "Resample the mask onto the image grid when geometry differs",
+   "group": "mask",
+   "name": "correctMask",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": true,
+   "description": "Record diagnostics (versions, hashes, ROI geometry)",
+   "group": "output",
+   "name": "additionalInfo",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": 0,
+   "description": "Channel of a vector-valued mask",
+   "group": "mask",
+   "name": "label_channel",
+   "nullable": false,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": 25.0,
+   "description": "Fixed bin width (intensity units)",
+   "group": "discretization",
+   "name": "binWidth",
+   "nullable": true,
+   "type": "float"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": null,
+   "description": "Fixed number of bins",
+   "group": "discretization",
+   "name": "binCount",
+   "nullable": true,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": false,
+   "description": "Normalize intensities (z-score) before extraction",
+   "group": "intensity",
+   "name": "normalize",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": 1.0,
+   "description": "Scale applied after normalization",
+   "group": "intensity",
+   "name": "normalizeScale",
+   "nullable": false,
+   "type": "float"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": null,
+   "description": "Remove intensities beyond n standard deviations after normalization",
+   "group": "intensity",
+   "name": "removeOutliers",
+   "nullable": true,
+   "type": "float"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": 3,
+    "min": 0.0,
+    "min_items": 3
+   },
+   "default": null,
+   "description": "Target spacing [x, y, z] in mm; 0 keeps that axis",
+   "group": "resampling",
+   "name": "resampledPixelSpacing",
+   "nullable": true,
+   "type": "float_list"
+  },
+  {
+   "constraints": {
+    "enum": [
+     "sitkNearestNeighbor",
+     "sitkLinear",
+     "sitkBSpline",
+     "sitkGaussian",
+     "sitkLabelGaussian",
+     "sitkHammingWindowedSinc",
+     "sitkCosineWindowedSinc",
+     "sitkWelchWindowedSinc",
+     "sitkLanczosWindowedSinc",
+     "sitkBlackmanWindowedSinc"
+    ],
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": "sitkBSpline",
+   "description": "Image interpolator used for resampling",
+   "group": "resampling",
+   "name": "interpolator",
+   "nullable": false,
+   "type": "enum"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": 5,
+   "description": "Voxels kept around the ROI when cropping before resampling",
+   "group": "resampling",
+   "name": "padDistance",
+   "nullable": false,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": true,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": 1
+   },
+   "default": [
+    1
+   ],
+   "description": "Neighbour distances for texture matrices",
+   "group": "texture",
+   "name": "distances",
+   "nullable": false,
+   "type": "int_list"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": false,
+   "description": "Extract texture per slice (2D)",
+   "group": "two_d",
+   "name": "force2D",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": 2.0,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": 0,
+   "description": "Axis treated as out-of-plane in 2D mode",
+   "group": "two_d",
+   "name": "force2Ddimension",
+   "nullable": false,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": 2,
+    "min": null,
+    "min_items": 1
+   },
+   "default": null,
+   "description": "Intensity range kept in the ROI [min, max]",
+   "group": "resegmentation",
+   "name": "resegmentRange",
+   "nullable": true,
+   "type": "float_list"
+  },
+  {
+   "constraints": {
+    "enum": [
+     "absolute",
+     "relative",
+     "sigma"
+    ],
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": "absolute",
+   "description": "How the range is interpreted",
+   "group": "resegmentation",
+   "name": "resegmentMode",
+   "nullable": false,
+   "type": "enum"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": false,
+   "description": "Also use the re-segmented ROI for shape features",
+   "group": "resegmentation",
+   "name": "resegmentShape",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": false,
+   "description": "Crop to the ROI before resampling",
+   "group": "resampling",
+   "name": "preCrop",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": 0,
+   "description": "Shift added to intensities for first-order energy features",
+   "group": "intensity",
+   "name": "voxelArrayShift",
+   "nullable": false,
+   "type": "int"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": true,
+   "description": "Count co-occurrences in both directions",
+   "group": "texture",
+   "name": "symmetricalGLCM",
+   "nullable": false,
+   "type": "bool"
+  },
+  {
+   "constraints": {
+    "enum": [
+     "euclidean",
+     "manhattan",
+     "infinity",
+     "no_weighting"
+    ],
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": null,
+    "min_items": null
+   },
+   "default": null,
+   "description": "Distance weighting of GLCM directions",
+   "group": "texture",
+   "name": "weightingNorm",
+   "nullable": true,
+   "type": "enum"
+  },
+  {
+   "constraints": {
+    "enum": null,
+    "exclusive_max": false,
+    "exclusive_min": false,
+    "max": null,
+    "max_items": null,
+    "min": 0.0,
+    "min_items": null
+   },
+   "default": 0,
+   "description": "Dependence threshold for GLDM",
+   "group": "texture",
+   "name": "gldm_a",
+   "nullable": false,
+   "type": "int"
+  }
+ ]
+}

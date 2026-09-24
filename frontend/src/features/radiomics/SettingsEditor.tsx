@@ -1,171 +1,112 @@
-// Radiomics settings tab: generated from the engine schema (RAD-01/02), live validation (RAD-04),
-// profiles (RAD-03), selection (RAD-05), estimate (RAD-11) and the Run button. Nothing runs automatically.
-import { useMemo, useState } from 'react'
+// Radiomics settings tab: generated from the engine schema (RAD-01/02) and opened on the engine
+// defaults, live + server validation (RAD-04), profiles (RAD-03), selection (RAD-05), estimate
+// (RAD-11) and the Run button. Nothing runs automatically.
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  api,
-  defaultSettings,
-  useProfiles,
-  useProject,
-  useSaveProfile,
-  useSchema,
-  useStartRun,
-  validateSettings,
-  ReviewerCancelled,
-  type Settings,
-  type SettingsGroup,
-  type SettingsOption,
-} from '../../api'
+import { ReviewerCancelled, useProject, useVariables } from '../../api'
 import { fmtDuration } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
-import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
+import { FeatureClassesForm, FiltersForm } from './GroupForms'
+import { useEstimate, useRadProfiles, useRadSchema, useServerValidation, useStartRun } from './hooks'
+import { useIssueMessage } from './IssueText'
+import { OptionField } from './OptionField'
+import { ProfileBar } from './ProfileBar'
+import { SelectionForm } from './SelectionForm'
+import { criteriaCount, knownEmpty, toSelection } from './model/selection'
+import { defaultForm, featureCount, optionsByGroup, setOption, toWire } from './model/settings'
+import { SELECTION, fieldOf, fromServer, groupOf, hasErrors, validateForm } from './model/validate'
+import type { EstimateResult, FormState, Issue } from './model/types'
+import { errorMessage } from './errors'
+import { useDraft } from './store'
 import './radiomics.css'
-
-function parseList(v: string, int: boolean): number[] | null {
-  if (!v.trim()) return null
-  return v
-    .split(/[,\s]+/)
-    .filter(Boolean)
-    .map((x) => (int ? parseInt(x, 10) : parseFloat(x)))
-    .filter((x) => Number.isFinite(x))
-}
-
-function OptionInput({ o, value, onChange, error, disabled }: { o: SettingsOption; value: unknown; onChange: (v: unknown) => void; error?: string; disabled?: boolean }) {
-  const { t } = useTranslation()
-  const id = `opt-${o.key}`
-  if (o.type === 'bool')
-    return (
-      <label className="check rad-opt" htmlFor={id} data-child={o.parent ? 'true' : undefined}>
-        <input id={id} type="checkbox" checked={value === true} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-        <span>{o.title}</span>
-        {o.help ? <span className="muted rad-help">{o.help}</span> : null}
-        {error ? <span className="field-error">{error}</span> : null}
-      </label>
-    )
-  const common = { id, disabled, 'aria-invalid': error ? true : undefined, className: 'input input-sm' }
-  let input
-  if (o.type === 'select')
-    input = (
-      <select {...common} className="select input-sm" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
-        {o.choices?.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
-    )
-  else if (o.type === 'int' || o.type === 'float')
-    input = (
-      <input
-        {...common}
-        type="number"
-        step={o.type === 'int' ? 1 : 'any'}
-        min={o.min}
-        max={o.max}
-        value={value === null || value === undefined ? '' : String(value)}
-        placeholder={o.nullable ? t('radiomics.none') : undefined}
-        onChange={(e) => onChange(e.target.value === '' ? null : o.type === 'int' ? parseInt(e.target.value, 10) : parseFloat(e.target.value))}
-      />
-    )
-  else if (o.type === 'float_list' || o.type === 'int_list')
-    input = (
-      <input
-        {...common}
-        type="text"
-        value={Array.isArray(value) ? value.join(', ') : ''}
-        placeholder={o.nullable ? t('radiomics.none') : t('radiomics.listPlaceholder')}
-        onChange={(e) => onChange(parseList(e.target.value, o.type === 'int_list'))}
-      />
-    )
-  else input = <input {...common} type="text" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
-  return (
-    <div className="rad-opt rad-field" data-child={o.parent ? 'true' : undefined}>
-      <label htmlFor={id}>{o.title}</label>
-      <div className="field">
-        {input}
-        {o.help ? <span className="muted rad-help">{o.help}</span> : null}
-        {error ? <span className="field-error">{error}</span> : null}
-      </div>
-    </div>
-  )
-}
-
-function FeatureClasses({ g, s, set }: { g: SettingsGroup; s: Settings; set: (patch: Settings) => void }) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState<string | null>(null)
-  return (
-    <div className="rad-classes">
-      {g.options.map((o) => {
-        const cls = o.key.slice('featureClass.'.length)
-        const all = g.features?.[cls] ?? []
-        const picked = (s[`features.${cls}`] as string[] | undefined) ?? []
-        const on = s[o.key] === true
-        return (
-          <div key={o.key} className="rad-class">
-            <div className="rad-class-row">
-              <input type="checkbox" aria-label={cls} checked={on} onChange={(e) => set({ [o.key]: e.target.checked })} />
-              <button type="button" className="link rad-class-name" onClick={() => setOpen(open === cls ? null : cls)}>
-                <Icon spec={codicon(open === cls ? 'chevron-down' : 'chevron-right')} />
-                {cls}
-              </button>
-              <span className="muted num">{t('radiomics.featureCount', { n: on ? picked.length : 0, total: all.length })}</span>
-            </div>
-            {open === cls ? (
-              <div className="rad-features">
-                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8 }}>
-                  <button type="button" className="link" onClick={() => set({ [`features.${cls}`]: [...all] })}>{t('radiomics.all')}</button>
-                  <button type="button" className="link" onClick={() => set({ [`features.${cls}`]: [] })}>{t('radiomics.noneSel')}</button>
-                </div>
-                {all.map((f) => (
-                  <label key={f} className="check">
-                    <input
-                      type="checkbox"
-                      disabled={!on}
-                      checked={picked.includes(f)}
-                      onChange={(e) => set({ [`features.${cls}`]: e.target.checked ? [...picked, f] : picked.filter((x) => x !== f) })}
-                    />
-                    <span className="mono">{f}</span>
-                  </label>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 export function SettingsEditor() {
   const { t } = useTranslation()
+  const msg = useIssueMessage()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const schema = useSchema()
+  const schema = useRadSchema()
   const project = useProject(pid)
-  const profiles = useProfiles(pid)
-  const saveProfile = useSaveProfile(pid)
+  const variables = useVariables(pid)
+  const profiles = useRadProfiles(pid)
+  const draft = useDraft()
+  const estimate = useEstimate(pid)
   const startRun = useStartRun(pid)
-  const [s, setS] = useState<Settings>(() => defaultSettings())
-  const [openGroup, setOpenGroup] = useState<string>('filters')
-  const [scope, setScope] = useState<'complete' | 'voi'>('complete')
-  const [labels, setLabels] = useState<number[]>([2])
-  const [name, setName] = useState(() => t('radiomics.defaultRunName'))
-  const [profileName, setProfileName] = useState('')
-  const [estimate, setEstimate] = useState<{ n_extractions: number; sec_per_item: number } | null>(null)
-  const set = (patch: Settings) => setS((prev) => ({ ...prev, ...patch }))
-  const issues = useMemo(() => validateSettings(s, { labels, items: 1 }), [s, labels])
+  const [group, setGroup] = useState<string>(SELECTION)
+  const [est, setEst] = useState<{ key: string; result: EstimateResult } | null>(null)
+
+  // Open on the engine defaults (RADIOMICS §Principles), once per project
+  const s = schema.data
+  const labelMap = project.data?.label_map
+  useEffect(() => {
+    if (!s || !labelMap) return
+    const d = useDraft.getState()
+    const first = labelMap.find((l) => l.visible) ?? labelMap[0]
+    if (d.pid !== pid || !d.form) d.reset(pid, defaultForm(s), first ? [first.value] : [])
+  }, [s, pid, labelMap])
+
+  const form = draft.pid === pid ? draft.form : null
+  const wire = useMemo(() => (s && form ? toWire(s, form) : null), [s, form])
+  const selection = useMemo(() => toSelection(draft.selection), [draft.selection])
+  const estKey = JSON.stringify({ wire, selection })
+  const currentEst = est?.key === estKey ? est.result : null
+  const nItems = knownEmpty(draft.selection) ? 0 : (currentEst?.n_items ?? null)
+  const labels = draft.selection.labels
+
+  const clientIssues = useMemo(() => (s && form ? validateForm(s, form, { labels, nItems }) : []), [s, form, labels, nItems])
+  const server = useServerValidation(wire, labels, nItems)
+  // The server is authoritative once its answer matches the form; until then the live rules show
+  const serverNow = server.isCurrent && server.data ? server.data : null
+  const issues: Issue[] = serverNow ? serverNow.issues.map(fromServer) : clientIssues
+  const blocked = serverNow ? !serverNow.ok : hasErrors(clientIssues)
+  const matching = serverNow ? profiles.data?.find((p) => p.profile_hash === serverNow.profile_hash) : undefined
+
+  if (schema.isLoading || (s && !form && !project.error)) return <div className="empty">{t('common.loading')}</div>
+  if (!s || !form)
+    return (
+      <div className="error-card" role="alert">
+        <strong>{t('rad.schemaError')}</strong>
+        <span>{errorMessage(schema.error ?? project.error, t('common.error'))}</span>
+      </div>
+    )
+
+  const setForm = (f: FormState) => draft.setForm(f)
+  const byField = new Map<string, Issue[]>()
+  for (const i of issues) {
+    const k = fieldOf(i.loc)
+    byField.set(k, [...(byField.get(k) ?? []), i])
+  }
+  const issuesAt = (field: string) => byField.get(field) ?? []
+  const errorsIn = (g: string) => issues.filter((i) => i.severity === 'error' && groupOf(s, i) === g).length
+  const groups = optionsByGroup(s)
+  const navGroups = s.groups.filter((g) => g.id === 'filters' || g.id === 'feature_classes' || (groups.get(g.id)?.length ?? 0) > 0)
   const errors = issues.filter((i) => i.severity === 'error')
-  const byField = new Map(issues.filter((i) => i.field).map((i) => [i.field, i.message]))
+  const runName = draft.runName.trim() || t('rad.defaultRunName', { profile: draft.loadedFrom ?? t('rad.engineDefaults') })
+  // RADIOMICS §Decisions: defaults assume CT; warn when the selection may contain another modality
+  const modalityLevels = variables.data?.find((v) => v.name === 'modality')?.profile.levels?.map((l) => l.value) ?? []
+  const nonCt = modalityLevels.filter((m) => m !== 'CT')
+  const pickedModality = draft.selection.mode === 'filter' ? (draft.selection.vars.modality ?? []) : []
+  const mayHaveNonCt = nonCt.length > 0 && (pickedModality.length === 0 || pickedModality.some((m) => m !== 'CT'))
 
-  if (schema.isLoading) return <div className="empty">{t('common.loading')}</div>
-  if (!schema.data) return <div className="error-card">{t('common.error')}</div>
-
-  const groupErrors = (g: SettingsGroup) => g.options.filter((o) => byField.has(o.key)).length
-  const run = async () => {
+  const doEstimate = async () => {
+    if (!wire) return
     try {
-      await startRun.mutateAsync({ name, scope, labels })
-      toast({ message: t('radiomics.started', { name }), tone: 'info', action: { label: t('radiomics.showJobs'), run: () => useLayout.getState().showPanelTab('jobs') } })
+      const result = await estimate.mutateAsync({ settings: wire, selection })
+      setEst({ key: estKey, result })
     } catch (e) {
-      if (!(e instanceof ReviewerCancelled)) toast({ message: t('common.saveFailed'), tone: 'error' })
+      toast({ message: errorMessage(e, t('common.error')), tone: 'error' })
+    }
+  }
+  const run = async () => {
+    if (!wire) return
+    try {
+      const r = await startRun.mutateAsync({ name: runName, settings: wire, selection })
+      toast({ message: t('rad.started', { name: r.name }), tone: 'info' })
+      draft.setRunName('')
+    } catch (e) {
+      if (e instanceof ReviewerCancelled) return
+      toast({ message: errorMessage(e, t('common.error')), tone: 'error' })
     }
   }
 
@@ -174,148 +115,106 @@ export function SettingsEditor() {
       <div className="rad-top">
         <div className="rad-top-row">
           <Icon spec={codicon('beaker')} />
-          <strong>{t('radiomics.title')}</strong>
-          <span className="muted">{t('radiomics.engine', { name: schema.data.engine.name, version: schema.data.engine.version })}</span>
+          <strong>{t('rad.title')}</strong>
+          <span className="muted">{t('rad.engine', { name: s.engine.name, version: s.engine.version })}</span>
+          {matching ? <span className="badge" data-tone="accent">{t('rad.matchesProfile', { name: matching.name })}</span> : null}
           <span style={{ flex: 1 }} />
-          <select
-            className="select input-sm"
-            aria-label={t('radiomics.loadProfile')}
-            value=""
-            onChange={(e) => {
-              const p = profiles.data?.find((x) => x.name === e.target.value)
-              if (p) setS({ ...p.settings })
-            }}
-          >
-            <option value="">{t('radiomics.loadProfile')}</option>
-            {profiles.data?.map((p) => (
-              <option key={p.name} value={p.name}>{t('radiomics.profileOption', { name: p.name, hash: p.hash })}</option>
-            ))}
-          </select>
-          <button type="button" className="btn btn-sm" onClick={() => setS(defaultSettings(schema.data))}>
-            {t('radiomics.resetDefaults')}
+          <ProfileBar pid={pid} schema={s} wire={wire} />
+          <button type="button" className="btn btn-sm" onClick={() => draft.setForm(defaultForm(s), null)}>
+            <Icon spec={codicon('discard')} />
+            {t('rad.resetDefaults')}
           </button>
         </div>
       </div>
       <div className="rad-body">
-        <nav className="rad-nav" aria-label={t('radiomics.groups')}>
-          <button type="button" className="list-row" aria-selected={openGroup === 'selection'} onClick={() => setOpenGroup('selection')}>
-            <Icon spec={codicon('filter')} />
-            {t('radiomics.selection')}
-          </button>
-          {schema.data.groups.map((g) => (
-            <button key={g.id} type="button" className="list-row" aria-selected={openGroup === g.id} onClick={() => setOpenGroup(g.id)}>
-              <Icon spec={codicon('settings')} />
-              {g.title}
-              {groupErrors(g) ? <span className="count" style={{ marginLeft: 'auto', background: 'var(--error)', color: 'var(--fg-on-emphasis)' }}>{groupErrors(g)}</span> : null}
+        <nav className="rad-nav" aria-label={t('rad.groups')}>
+          {[{ id: SELECTION, label: t('rad.selection') }, ...navGroups].map((g) => (
+            <button key={g.id} type="button" className="list-row" aria-current={group === g.id || undefined} onClick={() => setGroup(g.id)}>
+              <Icon spec={codicon(g.id === SELECTION ? 'filter' : g.id === 'filters' ? 'symbol-color' : g.id === 'feature_classes' ? 'symbol-class' : 'settings')} />
+              {g.label}
+              {errorsIn(g.id) ? <span className="count rad-err-count">{errorsIn(g.id)}</span> : null}
             </button>
           ))}
         </nav>
         <div className="rad-form">
-          {openGroup === 'selection' ? (
+          {group === SELECTION ? (
+            <SelectionForm pid={pid} sel={draft.selection} onChange={draft.setSelection} issues={issues} />
+          ) : (
             <section>
-              <h2>{t('radiomics.selection')}</h2>
-              <div className="rad-field">
-                <label>{t('radiomics.items')}</label>
-                <select className="select input-sm" defaultValue="active">
-                  <option value="active">{t('radiomics.itemsActive')}</option>
-                  <option value="filter">{t('radiomics.itemsFilter')}</option>
-                  <option value="list">{t('radiomics.itemsList')}</option>
-                </select>
-              </div>
-              <div className="rad-field">
-                <label>{t('radiomics.scope')}</label>
-                <div className="seg" role="group">
-                  <button type="button" aria-pressed={scope === 'complete'} onClick={() => { setScope('complete'); setEstimate(null) }}>{t('item.full')}</button>
-                  <button type="button" aria-pressed={scope === 'voi'} onClick={() => { setScope('voi'); setEstimate(null) }}>{t('item.voi')}</button>
-                </div>
-              </div>
-              <div className="rad-field">
-                <label>{t('radiomics.labels')}</label>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {project.data?.label_map.map((l) => (
-                    <label key={l.value} className="check">
-                      <input type="checkbox" checked={labels.includes(l.value)} onChange={(e) => { setLabels(e.target.checked ? [...labels, l.value] : labels.filter((x) => x !== l.value)); setEstimate(null) }} />
-                      <span className="dot" style={{ background: l.color }} />
-                      {l.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <h2>{s.groups.find((g) => g.id === group)?.label}</h2>
+              {group === 'filters' ? <FiltersForm schema={s} form={form} onChange={setForm} issuesAt={issuesAt} /> : null}
+              {group === 'feature_classes' ? <FeatureClassesForm schema={s} form={form} onChange={setForm} issuesAt={issuesAt} /> : null}
+              {(groups.get(group) ?? []).map((o) => (
+                <OptionField key={o.name} o={o} value={form.options[o.name] ?? null} issues={issuesAt(`settings.${o.name}`)} onChange={(v) => setForm(setOption(form, o.name, v))} />
+              ))}
             </section>
-          ) : null}
-          {schema.data.groups
-            .filter((g) => g.id === openGroup)
-            .map((g) => (
-              <section key={g.id}>
-                <h2>{g.title}</h2>
-                {g.features ? (
-                  <FeatureClasses g={g} s={s} set={set} />
-                ) : (
-                  g.options.map((o) => (
-                    <OptionInput
-                      key={o.key}
-                      o={o}
-                      value={s[o.key]}
-                      error={byField.get(o.key)}
-                      disabled={o.parent ? s[o.parent] !== true : false}
-                      onChange={(v) => set({ [o.key]: v })}
-                    />
-                  ))
-                )}
-              </section>
-            ))}
+          )}
         </div>
-        <aside className="rad-side">
-          <div className="section-title" style={{ padding: 0 }}>{t('radiomics.validation')}</div>
+        <aside className="rad-side" aria-label={t('rad.run')}>
+          <div className="section-title rad-side-title">{t('rad.validation')}</div>
           {issues.length === 0 ? (
             <div className="rad-issue" data-severity="ok">
               <Icon spec={codicon('pass')} />
-              {t('radiomics.valid')}
+              {t('rad.valid')}
             </div>
           ) : (
             issues.map((i) => (
-              <div key={`${i.field}-${i.message}`} className="rad-issue" data-severity={i.severity}>
+              <button key={`${i.rule}-${i.loc.join('.')}`} type="button" className="rad-issue" data-severity={i.severity} onClick={() => setGroup(groupOf(s, i))}>
                 <Icon spec={codicon(i.severity === 'error' ? 'error' : 'warning')} />
-                <span>{i.message}</span>
-              </div>
+                <span>
+                  <span className="mono muted">{fieldOf(i.loc)}</span>
+                  <span>{msg(i)}</span>
+                </span>
+              </button>
             ))
           )}
-          <div className="section-title" style={{ padding: 0, marginTop: 12 }}>{t('radiomics.profile')}</div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input className="input input-sm" style={{ flex: 1 }} value={profileName} placeholder={t('radiomics.profileName')} onChange={(e) => setProfileName(e.target.value)} />
-            <button
-              type="button"
-              className="btn btn-sm"
-              disabled={!profileName.trim()}
-              onClick={() => void saveProfile.mutateAsync({ name: profileName.trim(), settings: s }).then((p) => toast({ message: t('radiomics.profileSaved', { name: p.name, hash: p.hash }), tone: 'ok' }))}
-            >
-              {t('common.save')}
-            </button>
-          </div>
-          <div className="section-title" style={{ padding: 0, marginTop: 12 }}>{t('radiomics.run')}</div>
-          <label className="field">
-            <span className="field-label">{t('radiomics.runName')}</span>
-            <input className="input input-sm" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={errors.length > 0}
-            onClick={() => void api.estimate(pid, { scope, labels }).then(setEstimate)}
-          >
-            <Icon spec={codicon('dashboard')} />
-            {t('radiomics.estimate')}
-          </button>
-          {estimate ? (
-            <div className="muted" style={{ fontSize: 'var(--fs-panel)' }}>
-              {t('radiomics.estimateResult', { n: estimate.n_extractions, time: fmtDuration(estimate.n_extractions * estimate.sec_per_item) })}
+          {mayHaveNonCt ? (
+            <div className="rad-issue" data-severity="warning">
+              <Icon spec={codicon('warning')} />
+              <span>{t('rad.nonCt', { modalities: nonCt.join(', ') })}</span>
             </div>
           ) : null}
-          <button type="button" className="btn btn-primary" disabled={errors.length > 0 || !name.trim() || startRun.isPending} onClick={() => void run()}>
-            <Icon spec={codicon('play')} />
-            {t('radiomics.runButton')}
+          <span className="muted rad-help">{serverNow ? t('rad.checkedByServer') : server.isError ? t('rad.serverCheckFailed') : t('rad.checking')}</span>
+
+          <div className="section-title rad-side-title">{t('rad.summary')}</div>
+          <dl className="rad-summary">
+            <dt>{t('rad.items')}</dt>
+            <dd>{draft.selection.mode === 'filter' ? t('rad.criteria', { count: criteriaCount(draft.selection) }) : t(`rad.itemsMode.${draft.selection.mode}`)}</dd>
+            <dt>{t('rad.filtersEnabled')}</dt>
+            <dd>{Object.values(form.filters).filter((f) => f.enabled).length}</dd>
+            <dt>{t('rad.featuresSelected')}</dt>
+            <dd>{featureCount(form)}</dd>
+            <dt>{t('rad.labels')}</dt>
+            <dd>{labels.length}</dd>
+          </dl>
+
+          <button type="button" className="btn btn-sm" disabled={blocked || estimate.isPending} onClick={() => void doEstimate()}>
+            <Icon spec={codicon(estimate.isPending ? 'loading' : 'dashboard')} />
+            {t('rad.estimate')}
           </button>
-          {errors.length ? <span className="field-error">{t('radiomics.fixErrors', { count: errors.length })}</span> : null}
+          {currentEst ? (
+            <div className="rad-estimate" data-testid="estimate">
+              <span>{t('rad.estimateUnits', { items: currentEst.n_items, labels: currentEst.n_labels, units: currentEst.n_units })}</span>
+              {currentEst.estimated_total_s !== null ? <span>{t('rad.estimateTime', { time: fmtDuration(currentEst.estimated_total_s), workers: currentEst.workers })}</span> : null}
+              {currentEst.n_skipped ? <span className="field-warning">{t('rad.estimateSkipped', { count: currentEst.n_skipped })}</span> : null}
+              {(currentEst.sample_errors ?? []).map((e) => (
+                <span key={e} className="field-warning">{e}</span>
+              ))}
+            </div>
+          ) : est ? (
+            <span className="muted rad-help">{t('rad.estimateStale')}</span>
+          ) : null}
+
+          <div className="section-title rad-side-title">{t('rad.run')}</div>
+          <label className="field">
+            <span className="field-label">{t('rad.runName')}</span>
+            <input className="input input-sm" value={draft.runName} placeholder={runName} onChange={(e) => draft.setRunName(e.target.value)} />
+          </label>
+          <button type="button" className="btn btn-primary" disabled={blocked || startRun.isPending} onClick={() => void run()}>
+            <Icon spec={codicon('play')} />
+            {t('rad.runButton')}
+          </button>
+          {errors.length ? <span className="field-error">{t('rad.fixErrors', { count: errors.length })}</span> : null}
         </aside>
       </div>
     </div>

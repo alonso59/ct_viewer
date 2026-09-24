@@ -99,7 +99,7 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 ### P5 — Radiomics
 - [x] Engine adapter + schema + IBSI map (RAD-01, 12), validation (RAD-04)
 - [x] Profiles, selection, estimate, runs, resume, outputs (RAD-03, 05..11)
-- [ ] Schema-driven settings form (RAD-01/02)
+- [x] Schema-driven settings form (RAD-01/02), engine defaults on open, live + server validation (RAD-04), profiles, selection by any variable (RAD-05), estimate, runs list with progress (lane/3-radiomics, LANE_NOTES)
 - [ ] **Human check:** spot-check `backend/app/radiomics/ibsi_map.json` codes and the extended phantom reference values against the IBSI manual (written from memory by an agent); run the IBSI CT phantom (TST-06 part 2) once the dataset is available
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
