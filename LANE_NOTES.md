@@ -571,3 +571,24 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Open issues**
 - Initial JS 298.2 of 300 KB: Wave 4/5 UI must stay lazy (new strings in `en.lazy.json`).
+
+## 2026-09-25 · P7c Wave 4 (CT tools, Close) · v3
+
+**Done** (ROADMAP §P7c Wave 4 ticked)
+- VW-22 Must, identical in the case tab and Open mode: W/L presets + numeric W/L + DICOM header window (converter rows `window_center/width`, Open items `window`, `display.use_dicom_window`), layout, zoom/pan, crosshair, slice slider, reset, screenshot, HU probe overlay, header info (geometry + DICOM tags: API-22 or the new `GET /open/{sid}/items/{n}/dicom-tags`), modality selector. Tools/commands are enabled whenever a viewer is visible, so Open mode gets the shortcuts.
+- VW-23 Should: slab MIP / MinIP / average with a thickness in mm and invert in the slice shader; distance, angle and circular ROI mean/SD (VW-17, in memory only).
+- VW-25: project display (CT window, presets, DICOM-window flag, interpolation, convention, default modality, first-open layout) applied to the viewer; Open mode uses the defaults.
+- UI-24: File › Close project; Open-mode Close (`DELETE /open/{sid}`).
+- Flaky cold-run `tasks-dicom.spec.ts`: root cause fixed in Wave 2 (single-flight conversion). Here TST-08 missed once in the full suite (B's state refetch queued on a busy server although the SSE toast had arrived); `curation.appended` now updates the cached state row from the event at once (then refetches), so live sync no longer depends on that refetch.
+- NFR-07: the new tools are a lazy chunk; the Variables view, the design reference and the import wizard's strings moved behind lazy boundaries (301.0 → 297.3 KB).
+
+**Results**: `make check` green: 460 backend + 216 frontend. Playwright 32/32 (Chromium 16, Firefox 16; new `e2e/ct-tools.spec.ts`). Initial JS 297.3 KB gzip. Screenshots checked by eye: invert + MIP render, no console errors.
+
+**Decisions**
+- The slab uses at most 64 samples on each side of the slice (a 100 mm slab on 0.7 mm voxels is sub-sampled at the voxel step only up to that count); labels stay those of the centre slice.
+- Measurements are per visible item and never persisted, also in projects (VW-17 read-only helpers).
+- Close project reloads to `/` so every GPU/CPU volume is released for sure (VW-14).
+
+**Open issues**
+- Open mode's tool bar wraps to a second line below ~1300 px width.
+- VW-24 (cine, histogram, MR colour maps) stays Could.

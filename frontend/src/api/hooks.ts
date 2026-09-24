@@ -16,6 +16,8 @@ import type {
   Job,
   LabelDef,
   NewCurationEvent,
+  CurationEvent,
+  CurationStateRow,
   Project,
   ProjectModality,
   ProjectPatch,
@@ -386,9 +388,34 @@ function invalidateCuration(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ queryKey: keys.projects() })
 }
 
+/** The derived CUR-08 row of one event, replacing the row of the same (item, target) */
+export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): CurationStateRow[] {
+  const row: CurationStateRow = {
+    item_id: ev.item_id ?? null,
+    case_id: ev.case_id,
+    target: ev.target,
+    status: ev.status,
+    priority: ev.priority,
+    comment: ev.comment ?? '',
+    reviewer: ev.reviewer,
+    at: ev.at,
+    event_id: ev.event_id,
+    add_to_queue: ev.add_to_queue ?? false,
+    proposed_phase: ev.proposed_phase ?? null,
+    proposed_side: ev.proposed_side ?? null,
+  }
+  const same = (r: CurationStateRow) => r.item_id === row.item_id && r.case_id === row.case_id && r.target === row.target
+  return rows.some((r) => r.event_id === row.event_id) ? rows : [...rows.filter((r) => !same(r)), row]
+}
+
 /** Apply one API-40 event to the query cache */
 export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
-  if (e.event === 'curation.appended') invalidateCuration(qc, pid)
+  if (e.event === 'curation.appended') {
+    // CUR-11: show the decision at once from the event (server order = last-writer-wins, CUR-12);
+    // the refetch below confirms it, but can queue behind other requests on a busy server
+    qc.setQueryData<CurationStateRow[]>(keys.curationState(pid), (old) => (old ? upsertStateRow(old, e.data) : old))
+    invalidateCuration(qc, pid)
+  }
   if (e.event === 'job.progress' || e.event === 'job.finished') {
     let known = false
     qc.setQueryData(keys.jobs(pid), (old: Job[] | undefined) =>

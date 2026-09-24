@@ -50,12 +50,20 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 | VW-24 | ADR-0021 **Could**: cine loop, histogram, MR colour maps. | C |
 | VW-25 | Display settings (PRJ-18) set the initial layout, W/L per modality, interpolation (linear / nearest) and the radiological (patient right on screen left, default) or neurological convention. | M |
 
+## Implementation (P7c Wave 4)
+
+- One tool set (VW-22/23): the basic tool bar items (tools, layout, overlay, W/L presets, reset, screenshot) plus the lazy `CtTools.tsx` chunk (measurements, numeric W/L + the DICOM header window, slab MIP/MinIP/average with thickness, invert, header info). The case tab shows them in the shell tool bar; Open mode renders the same components as `CtToolbar`. Tools and viewer commands are enabled whenever a viewer is visible (`useViewerLocal.active`), so the shortcuts work in Open mode too.
+- Engine: `setDisplay({invert, slab, interpolation, convention})` (slice-shader uniforms `rwInvert`, `rwSlabMode`, `rwSlabHalf`: up to 64 samples each side along the plane normal, labels from the centre slice; interpolation switches the image texture filter; convention sets NiiVue's radiological flag and flips horizontal pan), `worldAt`, `canvasAt`, `roiStats` (voxels of the full-resolution image within the radius on the tile's slice).
+- HU probe: an overlay readout of the cursor value, voxel and label over the viewer (VW-08 values). Measurements: distance (2 clicks), angle (3, at the middle point), circular ROI (centre + edge: mean, SD, n, area); drawn in canvas space, shown on the slice they were made on, kept in memory for the visible item, cleared on a new item or with "Clear measurements" (VW-17).
+- DICOM window: converter rows carry `window_center` / `window_width` (first values); Open-mode DICOM items carry `window` `[width, center]`; with `display.use_dicom_window` a new item opens on it, and a "DICOM" button re-applies it. Header info: geometry of the item and, on demand, the DICOM tags (API-22, or `GET /open/{sid}/items/{n}/dicom-tags`).
+- VW-25: `applyProjectDisplay` puts the project's CT window (also the `R` reset target), presets (they replace the built-in list), DICOM-window flag, interpolation, convention and `default_modality` (assumed modality for items without one; `mixed` assumes CT) into the viewer store; the layout only on the first open when the URL has none. Open mode resets to the defaults.
+
 ## Wrapper contract (`features/viewer`)
 
 Source of truth: `frontend/src/features/viewer/model/types.ts` (`ViewerHandle`). Summary:
 `load(item, {imageUrl, maskUrl?, onProgress, onImage, signal})`, `maskError`, `setTiles`, `setWindow`, `defaultWindow`,
 `setLabels`, `setOverlay`, `setLinkedZoom`, `setRender`, `setMeshes`, `setCrosshair`, `step/goto/pick/hover/pan/zoom/orbit`,
-`resetView`, `onView`, `onCursor`, `screenshot`, `stats`, `dispose`. `getViewerContext()` gives CUR `context.viewer`; its `slice` is the 1-based index shown in the viewport header.
+`resetView`, `onView`, `onCursor`, `screenshot`, `setDisplay`, `worldAt`, `canvasAt`, `roiStats`, `stats`, `dispose`. `getViewerContext()` gives CUR `context.viewer`; its `slice` is the 1-based index shown in the viewport header.
 
 NiiVue is only imported inside `features/viewer/engine/`, and **lazily** (`createViewer` is async), so it stays out of the initial bundle (FE-05). Everything else uses `ViewerHandle`, which keeps the engine swappable.
 

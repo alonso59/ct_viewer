@@ -60,6 +60,8 @@ class OpenItem(BaseModel):
     files: list[str] = Field(default_factory=list)
     series_uid: str | None = None
     description: str | None = None
+    # VW-22: the DICOM header window `[width, center]` (first values), when present
+    window: list[float] | None = None
 
 
 class OpenSession(BaseModel):
@@ -209,6 +211,7 @@ def build_session(path: Path, rows: list[dict[str, Any]], scan: formats.Scan) ->
                 series_uid=r.get("series_uid"),
                 description=r.get("description"),
                 modality=r.get("modality"),
+                window=r.get("window"),
             )
         )
     return OpenSession(

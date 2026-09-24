@@ -11,10 +11,21 @@ import { useViewerLocal } from './local'
 import { isLayoutId } from './model/layouts'
 import type { ViewerContext } from './model/types'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, WindowPresets } from './Tools'
+import { createElement, lazy, Suspense, type ComponentType } from 'react'
+
+// The CT tools beyond the basics load with their strings on first render (NFR-07, VW-22/23)
+const ctTools = () => Promise.all([import('./CtTools'), import('../../i18n/lazy')]).then(([m]) => m)
+const lazyTool = (pick: (m: Awaited<ReturnType<typeof ctTools>>) => ComponentType): ComponentType => {
+  const C = lazy(() => ctTools().then((m) => ({ default: pick(m) })))
+  return () => createElement(Suspense, { fallback: null }, createElement(C))
+}
+/** VW-22: the whole CT tool bar, for Open mode */
+export const CtToolbar = lazyTool((m) => m.default)
 
 export { PLANE_COLOR } from './Viewport'
 export { configureViewer } from './budget'
 export { StandaloneViewer } from './StandaloneViewer'
+export { applyProjectDisplay, resetDisplay } from './display'
 export { ModalityChip } from './ModalityChip'
 export type { ViewerContext, ViewerHandle } from './model/types'
 
@@ -49,10 +60,14 @@ export function registerViewer() {
   })
 
   registry.tool({ id: 'viewer.tools', order: 10, component: ToolGroup })
+  registry.tool({ id: 'viewer.measure', order: 15, component: lazyTool((m) => m.MeasureTools) })
   registry.tool({ id: 'viewer.layout', order: 20, component: LayoutMenu })
   registry.tool({ id: 'viewer.overlay', order: 30, component: OverlayToggles })
   registry.tool({ id: 'viewer.wl', order: 40, component: WindowPresets })
-  registry.tool({ id: 'viewer.reset', order: 90, component: ResetAndSnapshot })
+  registry.tool({ id: 'viewer.wlInputs', order: 45, component: lazyTool((m) => m.WindowInputs) })
+  registry.tool({ id: 'viewer.slab', order: 50, component: lazyTool((m) => m.SlabControls) })
+  registry.tool({ id: 'viewer.header', order: 85, component: lazyTool((m) => m.HeaderInfo) })
+  registry.tool({ id: 'viewer.reset', order: 90, component: () => createElement(ResetAndSnapshot) })
 
   registry.view({ id: 'image', title: 'view.image', icon: codicon('info'), order: 20, component: ImageSection, hideImageSection: true })
   registry.imageSectionContent({ id: 'viewer.image', order: 10, component: ImageSection })
@@ -61,7 +76,8 @@ export function registerViewer() {
   registry.status({ id: 'viewer.cursor', align: 'right', order: 10, component: CursorStatus })
   registry.status({ id: 'viewer.wl', align: 'right', order: 20, component: WindowStatus })
 
-  const isCase = () => useWorkbench.getState().active?.type === 'case'
+  // A viewer is visible: a case tab or Open mode (VW-22: shortcuts work in both)
+  const isCase = () => useViewerLocal.getState().active !== null
   const tools: [ViewerTool, string][] = [['pan', 'm'], ['window', 'w'], ['crosshair', 'c'], ['zoom', 'z']]
   for (const [tool, key] of tools)
     registry.command({

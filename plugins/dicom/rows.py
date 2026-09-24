@@ -18,6 +18,11 @@ from plugins.text import (
 MODALITY_CODES = {"MRI": "MR"}  # DCM-12: DICOM codes
 
 
+def first_value(text: str) -> str:
+    """`40\\400` → `40` (DICOM multi-values are backslash-separated)."""
+    return text.split("\\")[0].strip()
+
+
 def _t(ds: Any, keyword: str) -> str:
     return value_to_text(getattr(ds, keyword, ""))
 
@@ -88,6 +93,9 @@ def header_row(ds: Any, series: Series, patient_folder: str, insp: Inspection) -
         "rescale_intercept": _t(ds, "RescaleIntercept"),
         "rescale_slope": _t(ds, "RescaleSlope"),
         "rescale_type": _t(ds, "RescaleType"),
+        # VW-22: the header's display window (first value when multi-valued)
+        "window_center": first_value(_t(ds, "WindowCenter")),
+        "window_width": first_value(_t(ds, "WindowWidth")),
         "repetition_time": _t(ds, "RepetitionTime"),
         "echo_time": _t(ds, "EchoTime"),
         "magnetic_field_strength": _t(ds, "MagneticFieldStrength"),

@@ -4,6 +4,8 @@ Scope: reviewer identity, curation events, statuses, rollups, correction queue, 
 Read when: building curation UI/API, audit, or multi-user sync.
 Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004, ADR-0022.
 
+Live sync (P7c Wave 4): a `curation.appended` event updates the cached state row of its `(item, target)` at once, then the state is refetched (CUR-11/12).
+
 Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event store, namespace `curation`; view-only links (PRJ-17) see it read-only.
 
 ## Requirements

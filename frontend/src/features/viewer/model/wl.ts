@@ -14,14 +14,23 @@ export const MODALITY_CHOICES = ['CT', 'MR', 'OT'] as const
 export const modalityKey = (item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image'>): string =>
   `${item.case_id}|${item.item_id}|${item.image?.ref ?? ''}`
 
-/** VW-05: a known modality wins; an unknown one is the user's choice, else assumed CT */
+/** VW-05: a known modality wins; an unknown one is the user's choice, else the project default
+ *  (PRJ-14; `mixed` assumes CT), else assumed CT */
 export function effectiveModality(
   item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image' | 'modality'>,
   overrides: Record<string, string>,
+  fallback = 'CT',
 ): { value: string; assumed: boolean } {
   const known = typeof item.modality === 'string' && item.modality.trim() !== '' ? item.modality.trim().toUpperCase() : null
   if (known) return { value: known, assumed: false }
-  return { value: overrides[modalityKey(item)] ?? 'CT', assumed: true }
+  return { value: overrides[modalityKey(item)] ?? (fallback === 'MR' ? 'MR' : 'CT'), assumed: true }
+}
+
+/** VW-22: the DICOM header window `[ww, wl]` of an item (converter row facts or Open-mode probe) */
+export function dicomWindowOf(item: Pick<ItemRecord, 'extra'>): [number, number] | null {
+  const ww = Number(item.extra?.window_width)
+  const wl = Number(item.extra?.window_center)
+  return Number.isFinite(ww) && ww > 0 && Number.isFinite(wl) && item.extra?.window_width !== '' ? [ww, wl] : null
 }
 
 /** Right-drag: horizontal = width, vertical = level (up = brighter → lower level) */

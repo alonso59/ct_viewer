@@ -321,6 +321,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/open/{sid}/items/{n}/dicom-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Dicom Tags
+         * @description Header info for a DICOM item (VW-22): its first file's DICOM JSON, never PixelData.
+         */
+        get: operations["open_dicom_tags_api_v1_open__sid__items__n__dicom_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/open/{sid}/items/{n}/preview": {
         parameters: {
             query?: never;
@@ -3808,6 +3828,8 @@ export interface components {
             series_uid?: string | null;
             /** Description */
             description?: string | null;
+            /** Window */
+            window?: number[] | null;
         };
         /** OpenSession */
         OpenSession: {
@@ -6569,6 +6591,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_dicom_tags_api_v1_open__sid__items__n__dicom_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Validation Error */
             422: {

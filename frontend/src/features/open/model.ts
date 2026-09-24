@@ -31,7 +31,8 @@ export function toItemRecord(it: OpenItem, mask: OpenItem | null): ItemRecord {
     status: 'active',
     warning_codes: [],
     import_id: 'open',
-    extra: {},
+    // VW-22: the DICOM header window, read by the viewer like converter row facts
+    extra: it.window ? { window_width: it.window[0], window_center: it.window[1] } : {},
   }
 }
 

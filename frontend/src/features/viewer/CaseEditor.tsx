@@ -2,7 +2,7 @@
 import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
+import { api, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
 import { PhaseChip, StatusBadge } from '../../lib'
 import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { useViewerSync } from '../../state'
@@ -175,6 +175,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
           meshUrl={meshUrl}
           active={active}
           loaded={loaded}
+          tags={current.extra.dicom_sidecar ? () => api.dicomTags(pid, current.item_id) : undefined}
         />
       )}
     </div>

@@ -10,7 +10,8 @@ export type LayoutId =
   | 'one-up-coronal'
   | 'one-up-3d'
 export const LAYOUT_CYCLE: LayoutId[] = ['four-up', 'conventional', 'three-mpr', 'one-up-axial']
-export type ViewerTool = 'pan' | 'window' | 'crosshair' | 'zoom'
+/** VW-06 tools + VW-17 measurements */
+export type ViewerTool = 'pan' | 'window' | 'crosshair' | 'zoom' | 'distance' | 'angle' | 'roi'
 export type ViewportId = 'axial' | 'sagittal' | 'coronal' | '3d'
 
 // VW-05 presets (ww / wl)
@@ -22,6 +23,20 @@ export const WL_PRESETS = {
   kidney: [500, 100],
 } as const
 export type WlPreset = keyof typeof WL_PRESETS | 'custom'
+
+/** VW-22/23/25 display options of the 2D tiles (project `display` or Open-mode defaults) */
+export interface ViewerDisplay {
+  invert: boolean
+  slab: { mode: 'none' | 'mip' | 'minip' | 'avg'; mm: number }
+  interpolation: 'linear' | 'nearest'
+  convention: 'radiological' | 'neurological'
+}
+
+export interface WindowPreset {
+  name: string
+  ww: number
+  wl: number
+}
 
 export interface CursorReadout {
   ijk: [number, number, number]
@@ -54,6 +69,17 @@ interface ViewerSyncState {
   modalityOverride: Record<string, string>
   /** VW-05: modality of the visible viewer's item; `assumed` = the item has none (selector shown) */
   activeModality: { key: string; value: string; assumed: boolean } | null
+  display: ViewerDisplay
+  /** VW-25: initial CT window (project `display.wl.CT`, else soft tissue) */
+  ctWindow: [number, number]
+  /** VW-25: project W/L presets (`display.wl_presets`); empty = the built-in presets */
+  customPresets: WindowPreset[]
+  /** VW-22: open on the DICOM header window when the item has one */
+  useDicomWindow: boolean
+  /** PRJ-14: the modality assumed for items without one */
+  defaultModality: string
+  /** VW-17: bumping it clears the measurements of the visible viewer */
+  measureClear: number
   set: (patch: Partial<ViewerSyncState>) => void
   setModality: (key: string, modality: string) => void
   setPreset: (p: keyof typeof WL_PRESETS) => void
@@ -84,6 +110,12 @@ export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
   resetToken: 0,
   modalityOverride: {},
   activeModality: null,
+  display: { invert: false, slab: { mode: 'none', mm: 10 }, interpolation: 'linear', convention: 'radiological' },
+  ctWindow: [400, 50],
+  customPresets: [],
+  useDicomWindow: true,
+  defaultModality: 'CT',
+  measureClear: 0,
   set: (patch) => set(patch),
   setModality: (key, modality) =>
     set((s) => ({
@@ -98,5 +130,9 @@ export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
   },
   toggleLabel: (value, fallback) =>
     set((s) => ({ labelVisibility: { ...s.labelVisibility, [value]: !(s.labelVisibility[value] ?? fallback) } })),
-  reset: () => set((s) => ({ resetToken: s.resetToken + 1, maximized: null, ww: 400, wl: 50, preset: 'soft_tissue' })),
+  reset: () =>
+    set((s) => {
+      const soft = s.ctWindow[0] === WL_PRESETS.soft_tissue[0] && s.ctWindow[1] === WL_PRESETS.soft_tissue[1]
+      return { resetToken: s.resetToken + 1, maximized: null, ww: s.ctWindow[0], wl: s.ctWindow[1], preset: soft ? 'soft_tissue' : 'custom' }
+    }),
 }))

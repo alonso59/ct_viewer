@@ -62,6 +62,27 @@ export interface LoadOptions {
   signal?: AbortSignal
 }
 
+/** VW-23: slab projection over a thickness in mm (2D tiles) */
+export type SlabMode = 'none' | 'mip' | 'minip' | 'avg'
+
+/** VW-22/23/25 display options of the 2D tiles */
+export interface DisplayOptions {
+  invert: boolean
+  slab: { mode: SlabMode; mm: number }
+  interpolation: 'linear' | 'nearest'
+  convention: 'radiological' | 'neurological'
+}
+
+/** VW-17: in-plane circular ROI statistics in physical units (HU for CT) */
+export interface RoiStats {
+  n: number
+  mean: number
+  sd: number
+  min: number
+  max: number
+  areaMm2: number
+}
+
 export interface MeshSpec {
   label: number
   color: string
@@ -104,6 +125,14 @@ export interface ViewerHandle {
   defaultWindow(): [number, number]
   onView(cb: (s: ViewState) => void): Unsubscribe
   screenshot(): Promise<Blob | null>
+  /** VW-22/23/25: invert, slab MIP/MinIP/average, interpolation, orientation convention */
+  setDisplay(p: Partial<DisplayOptions>): void
+  /** VW-17: the RAS mm point under a canvas position on a 2D tile */
+  worldAt(x: number, y: number): { tile: Plane; ras: Vec3 } | null
+  /** VW-17: canvas CSS px of a RAS point on a 2D tile (null when that tile is not shown) */
+  canvasAt(ras: Vec3, tile: Plane): [number, number] | null
+  /** VW-17: statistics of the image voxels within `radiusMm` of `center` on the tile's slice */
+  roiStats(tile: Plane, center: Vec3, radiusMm: number): RoiStats | null
   /** Frame counter and cost of the last frame in ms; `sync` waits for the GPU (TST-09 bench) */
   readonly stats: { frames: number; lastFrameMs: number; sync: boolean }
 }

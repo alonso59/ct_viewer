@@ -148,6 +148,8 @@ export interface Api {
   /** API-19: candidate adapters for a folder or one file; refusals carry `actions[]` */
   detectSource(path: string): Promise<DetectResult>
   openPath(path: string): Promise<OpenSession>
+  /** VW-22 header info of an Open-mode DICOM item */
+  openDicomTags(sid: string, n: number): Promise<Record<string, unknown>>
   getOpen(sid: string): Promise<OpenSession>
   closeOpen(sid: string): Promise<void>
   /** Volume URL; NumPy needs `axisOrder` unless the session decided it (SRC-12) */

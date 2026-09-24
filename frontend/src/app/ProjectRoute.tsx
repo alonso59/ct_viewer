@@ -1,6 +1,6 @@
 // /p/:pid/* — the workbench for one project, with runtime hooks (cache sync, live state, output log,
 // mock simulation). Share links land here (PRJ-03), so an unknown project gets its own page.
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 
@@ -9,6 +9,7 @@ import { useCurationRuntime } from '../plugins'
 import { ImportWizard } from '../features/import'
 import { logEvent } from '../features/jobs'
 import { ProjectSwitcher, RelinkDialog, useRootsCheck } from '../features/projects'
+import { applyProjectDisplay } from '../features/viewer'
 import { registry, ShellOverlays, Workbench } from '../shell'
 import { BrandMark } from '../theme'
 import { useSettings } from '../state'
@@ -50,6 +51,14 @@ export function ProjectRoute() {
   const simulate = useSettings((s) => s.simulateReviewer)
   const relink = useRootsCheck(readOnly ? '' : pid)
   useProjectSync(pid)
+  // VW-25: the project's display settings; the initial layout once per project unless the URL has one
+  const displayed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!project.data) return
+    const first = displayed.current !== pid
+    displayed.current = pid
+    applyProjectDisplay(project.data, first && !new URLSearchParams(location.search).has('layout'))
+  }, [project.data, pid])
   useCurationRuntime(pid)
   useProjectEvents(pid, useCallback((e: ServerEvent) => logEvent(e), []))
   useEffect(() => {

@@ -24,6 +24,9 @@ uniform vec2 rwRange;
 uniform float rwOverlay;
 uniform int rwHasLabel;
 uniform vec3 rwStep;
+uniform int rwInvert;
+uniform int rwSlabMode;
+uniform vec3 rwSlabHalf;
 in vec3 texPos;
 out vec4 color;
 
@@ -34,10 +37,38 @@ uint labelAt(vec3 p) {
   return texelFetch(rwLabel, clamp(ivec3(t * vec3(d)), ivec3(0), d - 1), 0).r;
 }
 
+float imageAt(vec3 p) {
+  vec3 t = (rwImgMtx * vec4(p, 1.0)).xyz;
+  return texture(rwImage, t).r * rwScale.x + rwScale.y;
+}
+
 void main(void) {
-  vec3 t = (rwImgMtx * vec4(texPos, 1.0)).xyz;
-  float v = texture(rwImage, t).r * rwScale.x + rwScale.y;
+  float v = imageAt(texPos);
+  // VW-23 slab: max / min / mean along the plane normal over ± half the thickness
+  if (rwSlabMode > 0) {
+    vec3 dir = axCorSag == 0 ? vec3(0.0, 0.0, 1.0) : (axCorSag == 1 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0));
+    float st = max(dot(dir, rwStep), 1e-6);
+    int n = int(min(64.0, floor(dot(dir, rwSlabHalf) / st)));
+    float acc = v;
+    float lo = v;
+    float hi = v;
+    float cnt = 1.0;
+    for (int k = 1; k <= 64; k++) {
+      if (k > n) break;
+      for (int s = -1; s <= 1; s += 2) {
+        vec3 p = texPos + dir * (float(k) * st * float(s));
+        if (any(lessThan(p, vec3(0.0))) || any(greaterThan(p, vec3(1.0)))) continue;
+        float w = imageAt(p);
+        acc += w;
+        lo = min(lo, w);
+        hi = max(hi, w);
+        cnt += 1.0;
+      }
+    }
+    v = rwSlabMode == 1 ? hi : (rwSlabMode == 2 ? lo : acc / cnt);
+  }
   float g = clamp((v - rwRange.x) / max(1e-6, rwRange.y - rwRange.x), 0.0, 1.0);
+  if (rwInvert == 1) g = 1.0 - g;
   color = vec4(g, g, g, 1.0);
   if (rwHasLabel == 0 || rwOverlay <= 0.0) return;
   uint idx = labelAt(texPos);
@@ -81,6 +112,9 @@ export class SliceRenderer {
   private imgMtx: Mat4 = new Float32Array(16)
   private labMtx: Mat4 = new Float32Array(16)
   private step: [number, number, number] = [0, 0, 0]
+  private invert = false
+  private slab: { mode: number; half: [number, number, number] } = { mode: 0, half: [0, 0, 0] }
+  private linear = true
   hasLabel = false
 
   constructor(private gl: WebGL2RenderingContext) {}
@@ -117,8 +151,10 @@ export class SliceRenderer {
       gl.texImage3D(gl.TEXTURE_3D, 0, gl.R32F, nx, ny, nz, 0, gl.RED, gl.FLOAT, f)
       if (!floatLinear) filter = gl.NEAREST
     }
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, filter)
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, filter)
+    this.filterable = filter === gl.LINEAR
+    const f = this.linear && this.filterable ? gl.LINEAR : gl.NEAREST
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, f)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, f)
     for (const w of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, w, gl.CLAMP_TO_EDGE)
     this.image = tex
     // stored value × k = raw; raw × slope + inter = physical value
@@ -163,6 +199,30 @@ export class SliceRenderer {
     this.overlay = opacity
   }
 
+  private filterable = true
+
+  /** VW-25: linear or nearest-neighbour sampling of the image (labels are always exact) */
+  setInterpolation(linear: boolean) {
+    this.linear = linear
+    if (!this.image) return
+    const gl = this.gl
+    const f = linear && this.filterable ? gl.LINEAR : gl.NEAREST
+    gl.activeTexture(gl.TEXTURE0 + UNIT.image)
+    gl.bindTexture(gl.TEXTURE_3D, this.image)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, f)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, f)
+    gl.activeTexture(gl.TEXTURE0)
+  }
+
+  setInvert(on: boolean) {
+    this.invert = on
+  }
+
+  /** VW-23: `mode` 0 none, 1 MIP, 2 MinIP, 3 mean; `half` = half thickness in texPos fraction */
+  setSlab(mode: number, half: [number, number, number]) {
+    this.slab = { mode, half }
+  }
+
   /** Maps from NiiVue's RAS texture fraction (texPos) to each volume's native texture coords */
   setMatrices(img: Mat4, lab: Mat4 | null, step: [number, number, number]) {
     this.imgMtx = img
@@ -194,6 +254,9 @@ export class SliceRenderer {
     gl.uniform1f(u('rwOverlay'), this.overlay)
     gl.uniform1i(u('rwHasLabel'), this.hasLabel && this.label && this.lut ? 1 : 0)
     gl.uniform3f(u('rwStep'), ...this.step)
+    gl.uniform1i(u('rwInvert'), this.invert ? 1 : 0)
+    gl.uniform1i(u('rwSlabMode'), this.slab.mode)
+    gl.uniform3f(u('rwSlabHalf'), ...this.slab.half)
     gl.useProgram(prev)
   }
 

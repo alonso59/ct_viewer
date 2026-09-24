@@ -8,6 +8,8 @@ export {
   LAYOUT_CYCLE,
   type LayoutId,
   type ViewerTool,
+  type ViewerDisplay,
+  type WindowPreset,
   type ViewportId,
   type WlPreset,
   type CursorReadout,

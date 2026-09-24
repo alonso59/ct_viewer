@@ -413,6 +413,7 @@ export const httpApi: Api = {
   fsList: (path, role = 'source') =>
     unwrap(client.GET('/api/v1/fs/list', { params: { query: { ...(path ? { path } : {}), role } } })).then(normalizeFs),
   detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
+  openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
   openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),
   getOpen: (sid) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid } } })),
   async closeOpen(sid) {

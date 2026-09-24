@@ -3,7 +3,7 @@ import { Suspense, lazy } from 'react'
 
 import { useImportWizard } from './store'
 
-const Wizard = lazy(() => import('./ImportWizard'))
+const Wizard = lazy(() => Promise.all([import('./ImportWizard'), import('../../i18n/lazy')]).then(([m]) => m))
 
 export function ImportWizard() {
   const pid = useImportWizard((s) => s.pid)

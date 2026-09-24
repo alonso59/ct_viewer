@@ -11,7 +11,9 @@ import { useViewerLocal } from './local'
 import { fetchMesh } from './meshes'
 import { isPlane, visibleViewports } from './model/layouts'
 import type { LabelStyle, LoadProgress, Plane, TileRect, Vec3, ViewerHandle, ViewportId, ViewState } from './model/types'
-import { dragWindow, effectiveModality, isCt, modalityKey } from './model/wl'
+import { dicomWindowOf, dragWindow, effectiveModality, isCt, modalityKey } from './model/wl'
+import { MeasureLayer } from './Measurements'
+import { NEEDED, type MeasureKind, type Measurement } from './model/measure'
 import { Viewport, type MeshState } from './Viewport'
 
 export interface SurfaceProps {
@@ -25,6 +27,16 @@ export interface SurfaceProps {
   active: boolean
   /** VW-14: false = volumes released */
   loaded: boolean
+  /** VW-22 header info: the item's DICOM tags, when it has them (API-22 or the Open-mode tags) */
+  tags?: () => Promise<Record<string, unknown>>
+}
+
+/** VW-25: the initial CT window of the store (a preset name when it matches one) */
+function applyCtWindow() {
+  const s = useViewerSync.getState()
+  const [ww, wl] = s.ctWindow
+  if (ww === 400 && wl === 50) s.setPreset('soft_tissue')
+  else s.setWindow(ww, wl)
 }
 
 /** Keyed by the load it belongs to, so a new load starts as "loading" without a reset render */
@@ -42,7 +54,7 @@ interface Drag {
 const sameGeometry = (a: ItemRecord['geometry'], b: ItemRecord['geometry']) =>
   !!a && !!b && a.shape.join() === b.shape.join() && a.spacing.every((s, i) => Math.abs(s - (b.spacing[i] ?? NaN)) < 1e-4)
 
-export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded }: SurfaceProps) {
+export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded, tags }: SurfaceProps) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const canvasHost = useRef<HTMLDivElement>(null)
@@ -100,9 +112,16 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         onImage: () => {
           // VW-15: same geometry → keep crosshair and W/L; otherwise start centred
           if (keep) handle.setCrosshair(keep)
-          else if (!isCt({ modality: effectiveModality(item, useViewerSync.getState().modalityOverride).value })) {
-            const [dw, dl] = handle.defaultWindow()
-            useViewerSync.getState().setWindow(dw, dl)
+          else {
+            // VW-22/25: the DICOM header window first (when enabled), else the modality default
+            const s = useViewerSync.getState()
+            const header = s.useDicomWindow ? dicomWindowOf(item) : null
+            if (header) s.setWindow(header[0], header[1])
+            else if (isCt({ modality: effectiveModality(item, s.modalityOverride, s.defaultModality).value })) applyCtWindow()
+            else {
+              const [dw, dl] = handle.defaultWindow()
+              s.setWindow(dw, dl)
+            }
           }
           update({ phase: 'ready' })
         },
@@ -124,7 +143,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   // re-window when the user changes an assumed modality: CT → soft tissue, other → percentiles
   const mKey = modalityKey(item)
   const override = useViewerSync((s) => s.modalityOverride[mKey])
-  const modality = effectiveModality(item, override ? { [mKey]: override } : {})
+  const fallback = useViewerSync((s) => s.defaultModality)
+  const modality = effectiveModality(item, override ? { [mKey]: override } : {}, fallback)
   useEffect(() => {
     if (!active) return
     useViewerSync.setState({ activeModality: { key: mKey, value: modality.value, assumed: modality.assumed } })
@@ -139,7 +159,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     windowedFor.current = { key: mKey, value: modality.value }
     // A new item keeps the window onImage chose (VW-15); only a changed choice re-windows
     if (!w || w.key !== mKey || w.value === modality.value) return
-    if (isCt({ modality: modality.value })) useViewerSync.getState().setPreset('soft_tissue')
+    if (isCt({ modality: modality.value })) applyCtWindow()
     else {
       const [dw, dl] = handle.defaultWindow()
       useViewerSync.getState().setWindow(dw, dl)
@@ -163,6 +183,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
 
   // Store → engine
   useEffect(() => handle?.setWindow(v.ww, v.wl), [handle, v.ww, v.wl])
+  useEffect(() => handle?.setDisplay(v.display), [handle, v.display])
   const styles = useMemo<LabelStyle[]>(
     () => labels.map((l) => ({ value: l.value, color: l.color, visible: v.labelVisibility[l.value] ?? l.visible, opacity: Math.min(1, (v.labelOpacity[l.value] ?? l.opacity) * 2), outline: v.outline })),
     [labels, v.labelVisibility, v.labelOpacity, v.outline],
@@ -179,12 +200,31 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   }, [handle, v.resetToken, active])
   useEffect(() => {
     if (active && handle) {
-      useViewerLocal.setState({ active: handle })
+      useViewerLocal.setState({ active: handle, info: { item, tags } })
       return () => {
-        if (useViewerLocal.getState().active === handle) useViewerLocal.setState({ active: null })
+        if (useViewerLocal.getState().active === handle) useViewerLocal.setState({ active: null, info: null })
       }
     }
-  }, [active, handle])
+  }, [active, handle, item, tags])
+
+  // VW-17 measurements: in memory for the visible item; cleared on a new item or on request
+  const measureSeq = useRef(0)
+  const [measures, setMeasures] = useState<{ key: string; items: Measurement[]; draft: Measurement | null }>({ key: '', items: [], draft: null })
+  const mine = measures.key === `${loadKey}|${v.measureClear}` ? measures : { key: `${loadKey}|${v.measureClear}`, items: [], draft: null }
+  const addPoint = (kind: MeasureKind, x: number, y: number) => {
+    const hit = handle?.worldAt(x, y)
+    const index = hit ? view?.planes[hit.tile]?.index : undefined
+    if (!handle || !hit || !index) return
+    const cur = mine.draft && mine.draft.kind === kind && mine.draft.tile === hit.tile ? mine.draft : { id: ++measureSeq.current, kind, tile: hit.tile, slice: index, points: [] }
+    const draft: Measurement = { ...cur, points: [...cur.points, hit.ras] }
+    if (draft.points.length < NEEDED[kind]) return setMeasures({ ...mine, draft })
+    if (kind === 'roi') {
+      const [c, e] = draft.points as [Vec3, Vec3]
+      const r = Math.hypot(...([0, 1, 2].map((a) => e[a]! - c[a]!) as [number, number, number]))
+      draft.stats = handle.roiStats(hit.tile, c, r)
+    }
+    setMeasures({ ...mine, items: [...mine.items, draft], draft: null })
+  }
 
   // VW-09 surfaces: fetch meshes (API-25) once requested
   const wantMeshes = !!handle && local.surfaces && !!meshUrl && hasMask && load.phase === 'ready'
@@ -257,7 +297,11 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     let mode: Drag['mode'] | null = null
     if (e.button === 2) mode = tile === '3d' ? 'zoom' : 'window'
     else if (e.button === 1 || (e.button === 0 && (space.current || tool === 'pan'))) mode = 'pan'
-    else if (e.button === 0) mode = tile === '3d' ? 'orbit' : tool === 'window' ? 'window' : tool === 'zoom' ? 'zoom' : 'pick'
+    else if (e.button === 0 && tile !== '3d' && (tool === 'distance' || tool === 'angle' || tool === 'roi')) {
+      e.preventDefault()
+      addPoint(tool, ...local2canvas(e))
+      return
+    } else if (e.button === 0) mode = tile === '3d' ? 'orbit' : tool === 'window' ? 'window' : tool === 'zoom' ? 'zoom' : 'pick'
     if (!mode) return
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -350,6 +394,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
           />
         ))}
       </div>
+      <MeasureLayer handle={handle} view={view} items={mine.items} draft={mine.draft} />
+      {load.phase === 'ready' && active ? <ProbeReadout /> : null}
       {load.maskError ? (
         <div className="vp-notice" role="status">
           <Icon spec={codicon('warning')} />
@@ -372,6 +418,20 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
           </div>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/** VW-22 HU probe: the value under the cursor (and its voxel and label) over the viewer */
+function ProbeReadout() {
+  const { t } = useTranslation()
+  const cursor = useViewerSync((s) => s.cursor)
+  if (!cursor) return null
+  return (
+    <div className="vp-probe mono" role="status" aria-label={t('vw.probe')}>
+      {t('vw.probeValue', { v: cursor.value })}
+      <span className="muted">{t('vw.probeIjk', { ijk: cursor.ijk.join(', ') })}</span>
+      {cursor.label ? <span className="muted">{t('vw.probeLabel', { label: cursor.label })}</span> : null}
     </div>
   )
 }

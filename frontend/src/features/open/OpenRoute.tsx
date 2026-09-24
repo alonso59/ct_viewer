@@ -8,7 +8,7 @@ import { api, useAttachOpen, useOpenSession, type AxisOrder, type OpenItem, type
 import { Dialog, ProblemCard } from '../../lib'
 import { NewProjectDialog } from '../projects'
 import { FolderBrowser } from '../import'
-import { ModalityChip, StandaloneViewer } from '../viewer'
+import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
 import { useViewerSync } from '../../state'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { attachedTo, autoLabels, toItemRecord } from './model'
@@ -79,6 +79,11 @@ export default function OpenRoute() {
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
   const openDialog = useOpenDialog((s) => s.show)
+  useEffect(() => resetDisplay(), [])
+  const close = async () => {
+    if (session) await api.closeOpen(session.sid).catch(() => undefined)
+    navigate('/')
+  }
   // VW-05: an assumed modality the user changed travels into the import (SRC-14/15)
   const active = useViewerSync((s) => s.activeModality)
   const modality = active?.assumed ? active.value : undefined
@@ -137,7 +142,14 @@ export default function OpenRoute() {
             {t('open.attachAction')}
           </button>
           <ModalityChip />
+          <span className="toolbar-sep" />
+          {/* UI-24: Close drops the session and releases the volumes; nothing is deleted */}
+          <button type="button" className="btn" onClick={() => void close()}>
+            <Icon spec={codicon('close')} />
+            {t('open.close')}
+          </button>
         </div>
+        <CtToolbar />
         {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
         {error ? <ProblemCard error={error} onAction={onAction} /> : null}
         {session ? (
@@ -170,6 +182,7 @@ export default function OpenRoute() {
                   imageUrl={api.openImageUrl(session.sid, current.n, order) ?? ''}
                   maskUrl={(mask ? api.openImageUrl(session.sid, mask.n, mask.axis_order) : current.kind === 'label' ? api.openImageUrl(session.sid, current.n, order) : null) ?? undefined}
                   labels={autoLabels()}
+                  tags={current.format === 'dicom' ? () => api.openDicomTags(session.sid, current.n) : undefined}
                 />
               ) : null}
             </div>

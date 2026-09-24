@@ -16,7 +16,7 @@ import { NVImage, NVMesh, Niivue, SLICE_TYPE } from '@niivue/niivue'
 import type { ItemRecord } from '../../../api'
 import { hexToRgb, lutRows, lutWidth, niivueLut } from '../model/labels'
 import { PLANE_AXIS, PLANES } from '../model/layouts'
-import type { CursorReadout, LabelStyle, LoadOptions, MeshSpec, Plane, PlaneView, TileRect, Unsubscribe, ViewerContext, ViewerHandle, ViewportId, ViewState } from '../model/types'
+import type { CursorReadout, DisplayOptions, LabelStyle, LoadOptions, MeshSpec, Plane, PlaneView, RoiStats, TileRect, Unsubscribe, ViewerContext, ViewerHandle, ViewportId, ViewState } from '../model/types'
 import { percentileWindow, windowToRange } from '../model/wl'
 import { fetchVolume } from './fetchVolume'
 import { SLICE_FRAG, SliceRenderer } from './sliceRenderer'
@@ -109,6 +109,9 @@ export class NiivueViewer implements ViewerHandle {
   private maskMax = 0
   /** RAS dims of the full-resolution image (slice stepping, indices) */
   private dimsRAS: Vec3 = [1, 1, 1]
+  /** RAS voxel size in mm of the rendered volume (slab thickness → texture fraction) */
+  private pixRAS: Vec3 = [1, 1, 1]
+  private display: DisplayOptions = { invert: false, slab: { mode: 'none', mm: 10 }, interpolation: 'linear', convention: 'radiological' }
   private proxy: NVImage | null = null
   private proxyMask: NVImage | null = null
   private labels: LabelStyle[] = []
@@ -182,6 +185,8 @@ export class NiivueViewer implements ViewerHandle {
     this.image = f
     const d = img.dimsRAS
     this.dimsRAS = d ? [d[1] ?? 1, d[2] ?? 1, d[3] ?? 1] : f.dims
+    const px = img.pixDimsRAS
+    this.pixRAS = px ? [px[1] ?? 1, px[2] ?? 1, px[3] ?? 1] : [1, 1, 1]
 
     // 3D proxy: NiiVue renders this one; the full volume goes to the slice shader
     const grid = proxyGrid(f.dims, f.affine, PROXY_VOXELS)
@@ -193,6 +198,7 @@ export class NiivueViewer implements ViewerHandle {
     this.proxy = proxy
     this.slices!.setImage({ data: f.data, dims: f.dims, slope: f.slope, inter: f.inter })
     this.slices!.setWindow(lo, hi)
+    this.applyDisplay()
     this.nv.addVolume(proxy)
     this.updateMatrices()
     this.resetView()
@@ -395,6 +401,83 @@ export class NiivueViewer implements ViewerHandle {
     this.schedule('draw')
   }
 
+  // ---- display options (VW-22/23/25) -----------------------------------------------------------
+
+  setDisplay(p: Partial<DisplayOptions>): void {
+    this.display = { ...this.display, ...p, slab: { ...this.display.slab, ...p.slab } }
+    this.applyDisplay()
+  }
+
+  private applyDisplay() {
+    const s = this.slices
+    if (!s) return
+    const d = this.display
+    s.setInvert(d.invert)
+    s.setInterpolation(d.interpolation === 'linear')
+    const mode = { none: 0, mip: 1, minip: 2, avg: 3 }[d.slab.mode]
+    const half = [0, 1, 2].map((a) => d.slab.mm / 2 / Math.max(1e-6, this.dimsRAS[a as 0 | 1 | 2] * this.pixRAS[a as 0 | 1 | 2])) as Vec3
+    s.setSlab(mode, half)
+    const radiological = d.convention === 'radiological'
+    if (this.nv.opts.isRadiologicalConvention !== radiological) this.nv.opts.isRadiologicalConvention = radiological
+    this.schedule('draw')
+  }
+
+  // ---- measurements (VW-17) -----------------------------------------------------------------
+
+  worldAt(x: number, y: number): { tile: Plane; ras: Vec3 } | null {
+    const t = this.tileAt(x, y)
+    if (!t || t.id === '3d') return null
+    const f = this.fracAt(x, y)
+    if (!f) return null
+    const mm = this.nv.frac2mm(f, 0, true)
+    return { tile: t.id, ras: [mm[0] ?? 0, mm[1] ?? 0, mm[2] ?? 0] }
+  }
+
+  canvasAt(ras: Vec3, tile: Plane): [number, number] | null {
+    if (!this.image || !this.tiles.some((t) => t.id === tile)) return null
+    const frac = [...this.nv.mm2frac(ras, 0, true)] as Vec3
+    const hit = this.nv.frac2canvasPosWithTile(frac, SLICE[tile])
+    if (!hit) return null
+    const k = this.dpr()
+    return [hit.pos[0]! / k, hit.pos[1]! / k]
+  }
+
+  roiStats(tile: Plane, center: Vec3, radiusMm: number): RoiStats | null {
+    const v = this.image
+    if (!v?.inv || radiusMm <= 0) return null
+    const r = Math.min(radiusMm, 150)
+    const axis = PLANE_AXIS[tile]
+    // Voxel size per native axis (column norms of the affine)
+    const size = [0, 1, 2].map((c) => Math.hypot(v.affine[0]![c]!, v.affine[1]![c]!, v.affine[2]![c]!) || 1)
+    const c = apply(v.inv, center)
+    const lo = [0, 1, 2].map((a) => Math.max(0, Math.floor(c[a]! - r / size[a]! - 1)))
+    const hi = [0, 1, 2].map((a) => Math.min(v.dims[a]! - 1, Math.ceil(c[a]! + r / size[a]! + 1)))
+    const halfSlice = this.pixRAS[axis] / 2
+    let n = 0
+    let sum = 0
+    let sq = 0
+    let min = Infinity
+    let max = -Infinity
+    for (let k = lo[2]!; k <= hi[2]!; k++)
+      for (let j = lo[1]!; j <= hi[1]!; j++)
+        for (let i = lo[0]!; i <= hi[0]!; i++) {
+          const p = apply(v.affine, [i, j, k])
+          if (Math.abs(p[axis] - center[axis]) > halfSlice) continue
+          const d2 = [0, 1, 2].reduce((s, a) => (a === axis ? s : s + (p[a]! - center[a]!) ** 2), 0)
+          if (d2 > r * r) continue
+          const val = sample(v, [i, j, k])
+          if (val === null) continue
+          n++
+          sum += val
+          sq += val * val
+          if (val < min) min = val
+          if (val > max) max = val
+        }
+    if (!n) return null
+    const mean = sum / n
+    return { n, mean, sd: Math.sqrt(Math.max(0, sq / n - mean * mean)), min, max, areaMm2: Math.PI * r * r }
+  }
+
   // ---- navigation (full-resolution voxel centres) -------------------------------------------
 
   private get crosshair(): Vec3 {
@@ -500,7 +583,9 @@ export class NiivueViewer implements ViewerHandle {
     // right is −R (axial, coronal) or −A (sagittal), and screen down is −A (axial) or −S.
     const h = tile === 'sagittal' ? 1 : 0
     const v = tile === 'axial' ? 1 : 2
-    p[h] -= dx * mmPerPx
+    // Neurological convention flips the horizontal axis of the axial and coronal tiles (VW-25)
+    const flip = tile !== 'sagittal' && this.display.convention === 'neurological' ? -1 : 1
+    p[h] -= dx * mmPerPx * flip
     p[v] -= dy * mmPerPy
     this.setPan(tile, p)
   }

@@ -3,13 +3,14 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 
 import { IconButton } from '../../lib'
-import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
+import { bindingOf, formatChord, registry } from '../../shell'
 import { useLayout, useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
 import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../../theme'
 import { useViewerLocal } from './local'
 import { ModalityChip } from './ModalityChip'
 
-const useEnabled = () => useWorkbench((s) => s.active?.type === 'case')
+// Enabled while a viewer is visible: a case tab or Open mode (VW-22: one tool set)
+const useEnabled = () => useViewerLocal((s) => s.active !== null)
 const chord = (id: string) => {
   const c = registry.commands.get(id)
   return c ? formatChord(bindingOf(c)) : undefined
@@ -95,25 +96,34 @@ export function OverlayToggles() {
 
 export function WindowPresets() {
   const { t } = useTranslation()
-  const { preset, ww, wl, setPreset } = useViewerSync()
+  const { preset, ww, wl, setPreset, customPresets, setWindow } = useViewerSync()
   const enabled = useEnabled()
+  const custom = customPresets.find((p) => p.ww === ww && p.wl === wl)
   return (
     <>
       <span className="toolbar-label">{t('viewer.wl')}</span>
       <Menu.Root>
         <Menu.Trigger className="toolbar-select" disabled={!enabled}>
           <CtIcon name="window-level" />
-          {preset === 'custom' ? t('viewer.wlCustom', { ww, wl }) : t(`viewer.preset.${preset}`)}
+          {custom ? custom.name : preset === 'custom' ? t('viewer.wlCustom', { ww, wl }) : t(`viewer.preset.${preset}`)}
           <Icon spec={codicon('chevron-down')} />
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Content className="overlay menu" sideOffset={4} align="start">
-            {(Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).map((p) => (
-              <Menu.Item key={p} className="menu-item" onSelect={() => setPreset(p)}>
-                {t(`viewer.preset.${p}`)}
-                <span className="kbd">{t('viewer.wlValues', { ww: WL_PRESETS[p][0], wl: WL_PRESETS[p][1] })}</span>
-              </Menu.Item>
-            ))}
+            {/* VW-25: the project's own presets replace the built-in list when it has some */}
+            {customPresets.length
+              ? customPresets.map((p) => (
+                  <Menu.Item key={p.name} className="menu-item" onSelect={() => setWindow(p.ww, p.wl)}>
+                    {p.name}
+                    <span className="kbd">{t('viewer.wlValues', { ww: p.ww, wl: p.wl })}</span>
+                  </Menu.Item>
+                ))
+              : (Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).map((p) => (
+                  <Menu.Item key={p} className="menu-item" onSelect={() => setPreset(p)}>
+                    {t(`viewer.preset.${p}`)}
+                    <span className="kbd">{t('viewer.wlValues', { ww: WL_PRESETS[p][0], wl: WL_PRESETS[p][1] })}</span>
+                  </Menu.Item>
+                ))}
           </Menu.Content>
         </Menu.Portal>
       </Menu.Root>
@@ -123,7 +133,7 @@ export function WindowPresets() {
   )
 }
 
-export function ResetAndSnapshot() {
+export function ResetAndSnapshot({ standalone = false }: { standalone?: boolean }) {
   const { t } = useTranslation()
   const enabled = useEnabled()
   const inspector = useLayout((s) => s.inspectorVisible)
@@ -131,8 +141,12 @@ export function ResetAndSnapshot() {
     <>
       <IconButton icon={codicon('discard')} label={t('viewer.reset')} shortcut={chord('viewer.reset')} disabled={!enabled} onClick={() => useViewerSync.getState().reset()} />
       <IconButton icon={codicon('device-camera')} label={t('viewer.screenshot')} disabled={!enabled} onClick={() => void screenshot()} />
-      <span style={{ flex: 1 }} />
-      <IconButton icon={codicon('layout-sidebar-right')} label={t('cmd.toggleInspector')} shortcut={chord('workbench.toggleInspector')} pressed={inspector} onClick={() => useLayout.getState().toggle('inspectorVisible')} />
+      {standalone ? null : (
+        <>
+          <span style={{ flex: 1 }} />
+          <IconButton icon={codicon('layout-sidebar-right')} label={t('cmd.toggleInspector')} shortcut={chord('workbench.toggleInspector')} pressed={inspector} onClick={() => useLayout.getState().toggle('inspectorVisible')} />
+        </>
+      )}
     </>
   )
 }

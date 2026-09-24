@@ -5370,6 +5370,20 @@
        }
       ],
       "title": "Series Uid"
+     },
+     "window": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Window"
      }
     },
     "required": [
@@ -11672,6 +11686,60 @@
      }
     },
     "summary": "Open Attach",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
+  "/api/v1/open/{sid}/items/{n}/dicom-tags": {
+   "get": {
+    "description": "Header info for a DICOM item (VW-22): its first file's DICOM JSON, never PixelData.",
+    "operationId": "open_dicom_tags_api_v1_open__sid__items__n__dicom_tags_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Open Dicom Tags Api V1 Open  Sid  Items  N  Dicom Tags Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Dicom Tags",
     "tags": [
      "sources"
     ]

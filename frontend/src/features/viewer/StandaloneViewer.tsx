@@ -3,10 +3,10 @@ import type { ItemRecord, LabelDef } from '../../api'
 import { ViewerSurface } from './ViewerSurface'
 import './viewer.css'
 
-export function StandaloneViewer({ item, imageUrl, maskUrl, labels }: { item: ItemRecord; imageUrl: string; maskUrl?: string; labels: LabelDef[] }) {
+export function StandaloneViewer({ item, imageUrl, maskUrl, labels, tags }: { item: ItemRecord; imageUrl: string; maskUrl?: string; labels: LabelDef[]; tags?: () => Promise<Record<string, unknown>> }) {
   return (
     <div className="case-editor" tabIndex={-1}>
-      <ViewerSurface item={item} imageUrl={imageUrl} maskUrl={maskUrl} labels={labels} active loaded />
+      <ViewerSurface item={item} imageUrl={imageUrl} maskUrl={maskUrl} labels={labels} tags={tags} active loaded />
     </div>
   )
 }

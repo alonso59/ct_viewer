@@ -1,6 +1,7 @@
 // Viewer-only UI state that no other feature reads (the shared part is state/viewerSync).
 import { create } from 'zustand'
 
+import type { ItemRecord } from '../../api'
 import type { ViewerHandle } from './model/types'
 
 interface LocalState {
@@ -12,6 +13,8 @@ interface LocalState {
   blend: number
   /** Handle of the visible case tab (screenshot, VW-16 context) */
   active: ViewerHandle | null
+  /** VW-22 header info of the visible viewer's item */
+  info: { item: ItemRecord; tags?: () => Promise<Record<string, unknown>> } | null
 }
 
 export const useViewerLocal = create<LocalState>()(() => ({
@@ -20,4 +23,5 @@ export const useViewerLocal = create<LocalState>()(() => ({
   surfaces: false,
   blend: 1,
   active: null,
+  info: null,
 }))

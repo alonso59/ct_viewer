@@ -171,6 +171,19 @@ async def open_image(
     return streaming.volume_response(path, etag, name, request)
 
 
+@router.get("/open/{sid}/items/{n}/dicom-tags", response_model=dict[str, Any])
+async def open_dicom_tags(ctx: Ctx, sid: str, n: int) -> dict[str, Any]:
+    """Header info for a DICOM item (VW-22): its first file's DICOM JSON, never PixelData."""
+    s = ctx.open_sessions.get(sid)
+    it = open_mode.item(s, n)
+    if it.format != "dicom":
+        raise NotFound(f"{it.name} has no DICOM header")
+    src = open_mode.source_path(s, it)
+    ctx.guard.check(src)
+    tags: dict[str, Any] = await ctx.jobs.run_in_worker(dicom_stage.dicom_tags, s.root, it.rel)
+    return tags
+
+
 @router.get(
     "/open/{sid}/items/{n}/preview",
     response_class=Response,

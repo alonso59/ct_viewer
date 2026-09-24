@@ -982,6 +982,10 @@ export const mockServer: Api = {
       return { path, kind: 'folder', root: path, candidates: [{ adapter: 'metadata-v1', reason: 'metadata.jsonl found (contract v1)', counts, confidence: 'high', options: {}, available: true, unavailable_reason: null }], counts, ignored: {}, truncated: false }
     throw new ProblemError(415, 'unsupported-format', 'No accepted file in the mock', 'The mock only knows the demo dataset', ['choose_another_path'])
   },
+  async openDicomTags() {
+    await wait(40)
+    return {}
+  },
   async openPath() {
     await wait(60)
     throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Open mode needs the backend (API-07)')

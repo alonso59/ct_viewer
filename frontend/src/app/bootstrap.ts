@@ -1,4 +1,6 @@
 // One-time registration of all contributions (UI-02). Order = activity bar / panel order is by `order`.
+import { createElement, lazy } from 'react'
+
 import i18n from '../i18n'
 import { registerExplorer } from '../features/explorer'
 import { registerImport } from '../features/import'
@@ -20,9 +22,12 @@ import {
 } from '../shell'
 import { changeReviewer, useLayout, useSettings } from '../state'
 import { codicon } from '../theme'
-import { DesignReference } from './DesignReference'
 import { SettingsView } from './Settings'
 import { LiveStatus, ProjectStatus, ReviewerStatus } from './StatusItems'
+
+// The design reference tab and its strings load on first open (NFR-07)
+const Design = lazy(() => Promise.all([import('./DesignReference'), import('../i18n/lazy')]).then(([m]) => ({ default: m.DesignReference })))
+const DesignReference = () => createElement(Design)
 
 let done = false
 
@@ -61,6 +66,8 @@ export function bootstrap() {
   cmd({ id: 'workbench.welcome', title: 'cmd.welcome', category: 'cat.help', menu: 'help', menuGroup: 1, run: () => openEditor('welcome', {}) })
   cmd({ id: 'workbench.design', title: 'design.open', category: 'cat.help', menu: 'help', menuGroup: 1, run: () => openEditor('design', {}) })
   cmd({ id: 'workbench.home', title: 'projects.home', category: 'cat.project', menu: 'file', menuGroup: 1, run: () => location.assign('/') })
+  // UI-24: back to the workspace home; the page change releases every loaded volume (VW-14)
+  cmd({ id: 'project.close', title: 'cmd.closeProject', category: 'cat.project', menu: 'file', menuGroup: 9, enabled: () => useWorkbench.getState().pid !== null, run: () => location.assign('/') })
   cmd({ id: 'workbench.settings', title: 'view.settings', category: 'cat.view', keybinding: 'mod+,', menu: 'file', menuGroup: 8, run: () => useLayout.getState().showView('settings') })
   cmd({ id: 'workbench.reviewer', writes: true, title: 'cmd.changeReviewer', category: 'cat.curation', menu: 'edit', menuGroup: 1, run: () => void changeReviewer() })
   cmd({

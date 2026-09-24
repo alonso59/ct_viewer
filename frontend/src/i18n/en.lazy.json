@@ -522,7 +522,8 @@
     "cases_other": "{{count}} cases",
     "noProjects": "No projects yet",
     "actions": "Open-mode actions",
-    "convertAction": "Convert DICOM…"
+    "convertAction": "Convert DICOM…",
+    "close": "Close"
   },
   "tasks": {
     "kind": {
@@ -787,5 +788,285 @@
     "pickProject": "Choose a project…",
     "projectDone": "The converted series were imported into the project.",
     "close": "Close"
+  },
+  "ct": {
+    "w": "W",
+    "l": "L",
+    "ww": "Window width",
+    "wlLevel": "Window level",
+    "dicomWindow": "DICOM",
+    "dicomWindowHelp": "The window stored in the DICOM header: W {{ww}} L {{wl}}",
+    "slab": "Slab projection",
+    "slabMode": {
+      "none": "Slice",
+      "mip": "MIP",
+      "minip": "MinIP",
+      "avg": "Average"
+    },
+    "thickness": "Slab thickness in mm",
+    "mm": "mm",
+    "invert": "Invert",
+    "measure": {
+      "distance": "Distance",
+      "angle": "Angle",
+      "roi": "ROI mean / SD"
+    },
+    "clearMeasures": "Clear measurements",
+    "header": "Header info",
+    "headerTitle": "Header · {{name}}",
+    "modality": "Modality",
+    "shape": "Shape (voxels)",
+    "spacing": "Spacing (mm)",
+    "dtype": "Data type",
+    "orientation": "Orientation",
+    "loadTags": "Show DICOM tags",
+    "noTags": "No DICOM header for this item.",
+    "phi": "DICOM tags can contain patient data; they are shown here only, never exported."
+  },
+  "variables": {
+    "filter": "Filter variables",
+    "summary_one": "{{count}} variable",
+    "summary_other": "{{count}} variables",
+    "toReview_one": "{{count}} to review",
+    "toReview_other": "{{count}} to review",
+    "none": "No variables yet. They are profiled from the metadata when data is imported.",
+    "section": {
+      "study": "Study",
+      "acquisition": "Acquisition",
+      "derived": "Derived",
+      "external": "External table"
+    },
+    "review": "Review",
+    "reviewDiscrete": "Numeric with few distinct values. Is it a measurement or a set of categories?",
+    "reviewLow": "Inferred as {{type}} with low confidence. Confirm or pick another type.",
+    "useType": "Use {{type}}",
+    "type": "Type",
+    "typeOf": "Type of {{name}}",
+    "inferred": "(inferred {{type}})",
+    "level": "Level",
+    "levelName": {
+      "case": "Case (constant within a case)",
+      "scan": "Scan (varies within a case)"
+    },
+    "levelShort": {
+      "case": "case-level",
+      "scan": "scan-level"
+    },
+    "source": "Source",
+    "sourceName": {
+      "metadata": "metadata.jsonl",
+      "derived": "Derived",
+      "external": "External table",
+      "raw": "raw_metadata tag"
+    },
+    "missing": "Missing",
+    "pct": "{{v}} %",
+    "distinct": "Distinct values",
+    "range": "Range",
+    "rangeValue": "{{min}} – {{max}}",
+    "definition": "Definition",
+    "def": {
+      "binThresholds": "bin {{source}} at {{thresholds}}",
+      "binQuantiles": "bin {{source}} into {{n}} quantiles",
+      "recode": "recode {{source}} ({{n}} levels renamed)",
+      "dominant": "largest of {{sources}}"
+    },
+    "levels": "Levels",
+    "levelCount": "{{value}} · {{count}}",
+    "moreLevels": "+{{n}} more",
+    "examples": "e.g. {{values}}",
+    "tags": "Tags",
+    "tag": {
+      "confounder": "confounder",
+      "outcome": "outcome",
+      "sensitive": "sensitive"
+    },
+    "tagHelp": {
+      "confounder": "Scanner or protocol factor to check in analyses (VAR-05)",
+      "outcome": "A target for analyses",
+      "sensitive": "Hidden from exports unless chosen"
+    },
+    "hide": "Hide {{name}}",
+    "show": "Show {{name}}",
+    "deleteDerived": "Delete derived variable",
+    "create": "Create",
+    "created": "Variable {{name}} created",
+    "name": "Name",
+    "namePlaceholder": "e.g. score_group",
+    "operation": "Operation",
+    "op": {
+      "bin": "Bin",
+      "recode": "Recode",
+      "dominant": "Dominant"
+    },
+    "opHelp": {
+      "bin": "Continuous → categories by thresholds or quantiles.",
+      "recode": "Merge or rename the categories of a variable.",
+      "dominant": "Name of the largest among several numeric variables, per case."
+    },
+    "sourceVar": "Source variable",
+    "pick": "Choose…",
+    "sources": "Numeric variables",
+    "noNumeric": "No numeric variables in this project",
+    "noCategorical": "No categorical variables in this project",
+    "binMode": {
+      "thresholds": "Thresholds",
+      "quantiles": "Quantiles"
+    },
+    "thresholds": "Thresholds",
+    "thresholdsPlaceholder": "e.g. 50 or 10, 50",
+    "quantiles": "Number of quantiles",
+    "labels": "Labels",
+    "labelsHelp": "Comma-separated, one per bin. Leave empty for the suggestion.",
+    "mapping": "Recode mapping",
+    "from": "Value",
+    "to": "New value",
+    "recodeTo": "New value for {{value}}",
+    "err": {
+      "name": "Use a name that starts with a letter: a–z, 0–9, _.",
+      "source": "Choose a source variable.",
+      "sources": "Choose at least two numeric variables.",
+      "map": "Rename at least one value.",
+      "quantiles": "Use 2 to 10 quantiles.",
+      "thresholds": "Give one or more numeric thresholds.",
+      "labels": "Give one label per bin (or leave labels empty)."
+    },
+    "importHelp": "Add variables that are not in metadata.jsonl from a CSV or TSV keyed by case or patient. The file is copied into the project; nothing is written to the source data.",
+    "tableFile": "CSV / TSV file",
+    "keyColumn": "Key column",
+    "importAction": "Import",
+    "importResult": "{{matched}} of {{rows}} rows matched",
+    "importAdded": "Added: {{names}}",
+    "importUnmatched_one": "{{count}} unmatched key: {{keys}}",
+    "importUnmatched_other": "{{count}} unmatched keys: {{keys}}",
+    "importDuplicates_one": "{{count}} duplicate key (first row kept): {{keys}}",
+    "importDuplicates_other": "{{count}} duplicate keys (first row kept): {{keys}}",
+    "importConflicts": "Skipped, name already taken: {{names}}",
+    "newDerivedTitle": "New derived variable",
+    "importTableTitle": "Import variable table"
+  },
+  "design": {
+    "badges": "Badges",
+    "codicons": "Codicons used by the shell",
+    "colors": "Color tokens",
+    "controls": "Controls",
+    "ctIcons": "CT icon set (UI-15)",
+    "ctIconsHelp": "16 px grid · currentColor · 1 px stroke · 40 % tint for planes. Shown at 16, 32 and 64 px.",
+    "disabled": "Disabled",
+    "input": "Input",
+    "pressed": "Pressed tool",
+    "primary": "Primary",
+    "sampleHeading": "Heading 16 · Case case_00042",
+    "sampleMono": "ijk 212,188,114 · HU 38 · W400 L50",
+    "samplePanel": "Panel 12 · firstorder_Mean 38.2",
+    "sampleTitle": "Title 20 · Radiology Workbench",
+    "sampleUi": "UI 13 · The quick brown fox reviews a kidney",
+    "secondary": "Secondary",
+    "small": "Small",
+    "subtitle": "Tokens, type and icons of the P0.5 design system. Theme: {{theme}}.",
+    "type": "Typography"
+  },
+  "import": {
+    "alias": "Alias",
+    "aliasHelp": "Items store paths as {{alias}}:relative/path, so the project survives a move.",
+    "commit": "Import and index",
+    "detectTitle": "Detected source",
+    "detectedCount_one": "{{count}} input file",
+    "detectedCount_other": "{{count}} input files",
+    "done": "Import finished: {{cases}} cases indexed",
+    "errors_one": "{{count}} validation error",
+    "errors_other": "{{count}} validation errors",
+    "errorsHelp": "Rows with errors are indexed with a QC warning; they appear in the Problems panel.",
+    "indexing": "Indexing…",
+    "indexingHelp": "Thumbnails are generated in the background after indexing.",
+    "kpiCases": "cases",
+    "kpiItems": "items",
+    "kpiRows": "scan rows",
+    "previewTitle": "Preview",
+    "readOnly": "The data root is read-only for this app. Inputs are snapshotted into the project; images and masks are never written.",
+    "rootHelp": "Choose a folder (with metadata.jsonl, NIfTI or DICOM files) or one NIfTI file. The folder becomes a path alias of this project.",
+    "rootTitle": "Data root",
+    "row": "row {{n}}",
+    "scanning": "Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…",
+    "step": {
+      "root": "Data root",
+      "detect": "Detect",
+      "preview": "Preview",
+      "index": "Index"
+    },
+    "steps": "Import steps",
+    "uploadAlt": "No server access to the files? You can upload the metadata files from the browser instead (images stay on the server).",
+    "upload": {
+      "metadata": "metadata.jsonl (required)",
+      "phase": "phase.json (optional)",
+      "voi": "voi_catalog.jsonl (optional)"
+    },
+    "uploadToggle": "Upload the metadata files from this computer",
+    "seg": {
+      "seg_path": "seg_path field",
+      "convention": "seg/{filename} (convention)"
+    },
+    "field": {
+      "image": "Image",
+      "mask": "Mask",
+      "phase": "Phase",
+      "side": "Side"
+    },
+    "kpiVoi": "VOI rows",
+    "kpiExcluded": "excluded upstream",
+    "errorsFirst": "Showing the first {{n}}.",
+    "fileLine": "{{file}}:{{n}}",
+    "file": {
+      "metadata": "metadata.jsonl",
+      "phase": "phase.json",
+      "voi_catalog": "voi/voi_catalog.jsonl"
+    },
+    "source": {
+      "detected": "detected",
+      "uploaded": "uploaded",
+      "generated": "built from file names"
+    },
+    "notFound": "not found",
+    "noMetadata": "No metadata.jsonl under this root. Pick another folder or upload the file.",
+    "indexFailed": "Indexing did not finish",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows",
+    "mapping": "Field mapping",
+    "adapterTitle": "Import as",
+    "adapter": {
+      "metadata-v1": "Contract v1 (metadata.jsonl)",
+      "nifti-files": "NIfTI files",
+      "dicom_convert": "DICOM → NIfTI conversion",
+      "open": "Open without a project"
+    },
+    "confidence": {
+      "high": "best match",
+      "medium": "possible",
+      "low": "also possible"
+    },
+    "openInstead": "Open",
+    "singleFile": "One file: {{name}} (a one-item project)",
+    "ignored": "Ignored (not NIfTI, DICOM or NumPy): {{list}}",
+    "nifti": {
+      "pattern": "File name pattern",
+      "patternDefault": "nnU-Net style: {scan_idx}_{MOD}_{case_id}_{channel}",
+      "patternHelp": "A regular expression on the file name without extension; named groups case_id, scan_idx, channel, modality, phase, side. Unmatched names become one case per file.",
+      "caseIdFrom": "Case id from",
+      "from": {
+        "pattern": "the pattern",
+        "stem": "the file name",
+        "sequential": "numbering (case_00001 …)"
+      },
+      "modality": "Modality",
+      "file": "File",
+      "case": "Case",
+      "scan": "Scan",
+      "sampleTitle": "Parsed file names (first 50)",
+      "unmatched_one": "{{count}} name did not match the pattern: {{names}}",
+      "unmatched_other": "{{count}} names did not match the pattern: {{names}}",
+      "orphans_one": "{{count}} mask has no image",
+      "orphans_other": "{{count}} masks have no image"
+    },
+    "converted": "DICOM converted; the converted series are being indexed"
   }
 }

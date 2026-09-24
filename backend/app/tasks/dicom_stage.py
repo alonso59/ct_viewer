@@ -37,6 +37,7 @@ def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
             "series_uid": uid,
             "modality": value_to_text(getattr(ds, "Modality", "")).upper() or None,
             "description": value_to_text(getattr(ds, "SeriesDescription", "")),
+            "window": _window(ds),
         }
         if sop == scan.DICOM_SEG_SOP_CLASS_UID:
             rec["error"] = "DICOM SEG is not supported yet (DCM-11)"
@@ -57,6 +58,26 @@ def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
         }
         out.append(rec)
     return out + errors
+
+
+def _window(ds: Any) -> list[float] | None:
+    """VW-22: `[width, center]` from the header (first value of each), or None."""
+    from plugins.text import split_multi_value
+
+    try:
+        c = split_multi_value(getattr(ds, "WindowCenter", ""))
+        w = split_multi_value(getattr(ds, "WindowWidth", ""))
+        width, center = float(w[0]), float(c[0])
+    except (ValueError, IndexError, TypeError):
+        return None
+    return [width, center] if width > 0 else None
+
+
+def dicom_tags(root: str, rel: str) -> dict[str, Any]:
+    """Worker: the DICOM JSON model of one file's header (no PixelData, DCM-04) for header info."""
+    from plugins.dicom import scan, sidecar
+
+    return sidecar.to_json_model(scan.read_header(Path(root) / rel))
 
 
 def convert_series(root: str, files: list[str], dst: str) -> str | None:
