@@ -203,3 +203,41 @@ def write_sidecar(ds: Any, out: Path) -> str:
     with os.fdopen(fd, "wb") as fh:
         fh.write(data)
     return hashlib.sha256(data).hexdigest()
+
+
+def hash_identity_key(raw: str, salt: str) -> str:
+    """The identity key form of anonymized runs (pipeline) and shared bundles."""
+    if raw.startswith("sha256:"):
+        return raw
+    return "sha256:" + hashlib.sha256(f"{salt}|{raw}".encode()).hexdigest()[:24]
+
+
+def scrub_for_sharing(record: dict[str, Any], salt: str) -> bool:
+    """Bundle export (DCM-05, NFR-17): apply `basic` to one converter row or index record.
+
+    Works on a metadata row or an index record (fields at the top or under `extra`). Records
+    that are not DICOM-derived or were anonymized at conversion are left as they are.
+    Returns True when the record changed.
+    """
+    raw_extra = record.get("extra")
+    extra: dict[str, Any] = raw_extra if isinstance(raw_extra, dict) else {}
+    kind = record.get("source_kind") or extra.get("source_kind")
+    if kind != "dicom" or (record.get("anonymized") or extra.get("anonymized")) == "basic":
+        return False
+    case_id = str(record.get("case_id") or "")
+    for target in (record, extra):
+        if not target:
+            continue
+        for key in ROW_PHI:
+            if key in target:
+                target[key] = ""
+        for key in ("study_uid", "series_uid"):
+            if target.get(key):
+                target[key] = anon_uid(str(target[key]), salt)
+        if target.get("case_identity_key"):
+            target["case_identity_key"] = hash_identity_key(str(target["case_identity_key"]), salt)
+        if "patient_id" in target:
+            target["patient_id"] = case_id
+    target_anon = extra if extra else record
+    target_anon["anonymized"] = "basic"
+    return True

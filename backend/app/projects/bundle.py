@@ -53,12 +53,101 @@ def _walk(folder: Path) -> Iterator[tuple[Path, str]]:
         yield p, rel
 
 
+# Files that can carry DICOM-derived PHI in un-anonymized converter rows (DCM-05, NFR-17).
+ROW_FILES: Final = ("index/items.jsonl",)
+CASE_FILES: Final = ("index/cases.jsonl",)
+IDENTITY_FILE: Final = "sources/identity.json"
+
+
+def _is_source_rows(rel: str) -> bool:
+    parts = rel.split("/")
+    return len(parts) == 3 and parts[0] == "sources" and parts[2] == "metadata.jsonl"
+
+
+def _jsonl(data: bytes) -> list[Any]:
+    return [json.loads(line) for line in data.decode("utf-8").splitlines() if line.strip()]
+
+
+def _dump_jsonl(rows: list[Any]) -> bytes:
+    return "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows).encode("utf-8")
+
+
+class _Scrubber:
+    """Applies the converter's `basic` profile to what a bundle carries (PROJECT_FORMAT)."""
+
+    def __init__(self, salt: str) -> None:
+        from plugins.dicom.sidecar import anon_uid, hash_identity_key, scrub_for_sharing
+
+        self.salt = salt
+        self._scrub = scrub_for_sharing
+        self._hash = hash_identity_key
+        self._uid = anon_uid
+        self.cases: set[str] = set()
+
+    def rows(self, data: bytes) -> bytes | None:
+        rows = _jsonl(data)
+        changed = False
+        for r in rows:
+            if isinstance(r, dict) and self._scrub(r, self.salt):
+                self.cases.add(str(r.get("case_id") or ""))
+                changed = True
+        return _dump_jsonl(rows) if changed else None
+
+    def case_rows(self, data: bytes) -> bytes | None:
+        rows = _jsonl(data)
+        changed = False
+        for r in rows:
+            if isinstance(r, dict) and r.get("case_id") in self.cases and r.get("patient_id"):
+                r["patient_id"] = r["case_id"]
+                changed = True
+        return _dump_jsonl(rows) if changed else None
+
+    def identity(self, data: bytes) -> bytes | None:
+        reg = json.loads(data)
+        if not self.cases or reg.get("strategy") != "dicom_patient_id":
+            return None
+        reg["cases"] = {self._hash(k, self.salt): v for k, v in reg.get("cases", {}).items()}
+        scans: dict[str, Any] = {}
+        for k, v in reg.get("scans", {}).items():
+            key, sep, rest = k.partition("|")
+            # A key hashed at conversion already comes with anonymized series UIDs
+            uid = rest if key.startswith("sha256:") or not rest else self._uid(rest, self.salt)
+            scans[self._hash(key, self.salt) + sep + uid] = v
+        reg["scans"] = scans
+        return json.dumps(reg, indent=1).encode("utf-8")
+
+
 def write_bundle(folder: Path, project_id: str, out: Path) -> int:
-    """Zip the project folder into `out` (outside `folder`'s bundled part); returns entries."""
+    """Zip the project folder into `out` (outside `folder`'s bundled part); returns entries.
+
+    DICOM-derived rows that were not anonymized at conversion leave with the `basic` profile
+    applied (DCM-05, NFR-17); the project folder itself is not changed.
+    """
+    entries = list(_walk(folder))
+    scrub = _Scrubber(salt=project_id)
+    replaced: dict[str, bytes] = {}
+    # Rows first (they decide which cases carried PHI), then case summaries and the registry.
+    for path, rel in entries:
+        if _is_source_rows(rel) or rel in ROW_FILES:
+            new = scrub.rows(path.read_bytes())
+            if new is not None:
+                replaced[rel] = new
+    for path, rel in entries:
+        if rel in CASE_FILES:
+            new = scrub.case_rows(path.read_bytes())
+        elif rel == IDENTITY_FILE:
+            new = scrub.identity(path.read_bytes())
+        else:
+            continue
+        if new is not None:
+            replaced[rel] = new
     n = 0
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        for path, rel in _walk(folder):
-            zf.write(path, f"{project_id}/{rel}")
+        for path, rel in entries:
+            if rel in replaced:
+                zf.writestr(f"{project_id}/{rel}", replaced[rel])
+            else:
+                zf.write(path, f"{project_id}/{rel}")
             n += 1
     return n
 

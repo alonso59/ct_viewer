@@ -131,6 +131,7 @@ Single-writer model and locking: BE-05.
 | Import id | Keeps the bundle's `project_id` unless the workspace already uses it (active or archived); then a new ULID is written to `project.json` |
 | Import guards | Zip-slip, symlinks, ≤ 1M entries, ≤ 50 GiB uncompressed; extracted in `.staging/` then renamed into `projects/`; migrations run on open (PRJ-11) |
 | Relink | Each alias is resolved and verified (PRJ-05); failures open the relink dialog (API-06 `needs_relink`) |
+| PHI | DICOM-derived rows not anonymized at conversion leave with the `basic` profile applied (DCM-05): `sources/*/metadata.jsonl`, `index/items.jsonl` (PHI fields blanked, `patient_id` → `case_id`, UIDs replaced deterministically per project), `index/cases.jsonl` (`patient_id`) and `sources/identity.json` (identity keys hashed as in anonymized runs). The project folder is not changed; an imported copy that converts more data numbers new patients from `next_index` |
 
 ## Migration 1 → 2 (PRJ-11)
 

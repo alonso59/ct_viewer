@@ -156,3 +156,95 @@ def test_rejects_bad_bundles(
     assert_problem(_import(client, _zip({"a/project.json": foreign})), "format-version-unsupported")
     assert len(client.get(f"{API}/projects").json()) == 1  # nothing half-imported
     assert_problem(client.post(f"{API}/projects/01JAAAAAAAAAAAAAAAAAAAAAAA/bundle"), "not-found")
+
+
+def test_export_scrubs_unanonymized_dicom_rows(tmp_path: Path) -> None:
+    """DCM-05, NFR-17: converter rows leave with `basic` applied; the rest stays as is."""
+    from app.projects.bundle import write_bundle
+
+    pid = "01JTESTPROJECT0000000000AB"
+    folder = tmp_path / pid
+    dicom = {
+        "case_id": "case_00000",
+        "scan_idx": "01",
+        "patient_id": "MRN-4711",
+        "case_identity_key": "MRN-4711",
+        "patient_folder": "DOE^JANE",
+        "institution": "St. Example",
+        "study_date": "20240102",
+        "protocol_name": "ABD CT",
+        "study_uid": "1.2.3.4",
+        "series_uid": "1.2.3.4.5",
+        "source_kind": "dicom",
+        "modality": "CT",
+    }
+    anon = dict(
+        dicom,
+        case_id="case_00001",
+        patient_id="case_00001",
+        anonymized="basic",
+        case_identity_key="sha256:0123456789abcdef01234567",
+        patient_folder="",
+        institution="",
+        study_date="",
+        study_uid="2.25.1",
+        series_uid="2.25.2",
+    )
+    nifti = {
+        "case_id": "case_00002",
+        "patient_id": "P2",
+        "study_date": "20240102",
+        "source_kind": "nifti",
+    }
+    item = {
+        "item_id": "case_00000.01.complete.-",
+        "case_id": "case_00000",
+        "patient_id": "MRN-4711",
+        "extra": {"source_kind": "dicom", "institution": "St. Example", "series_uid": "1.2.3.4.5"},
+    }
+    files: dict[str, str] = {
+        "project.json": json.dumps({"project_id": pid}),
+        "sources/01JIMPORT/metadata.jsonl": "".join(
+            json.dumps(r) + "\n" for r in (dicom, anon, nifti)
+        ),
+        "index/items.jsonl": json.dumps(item) + "\n",
+        "index/cases.jsonl": json.dumps({"case_id": "case_00000", "patient_id": "MRN-4711"})
+        + "\n"
+        + json.dumps({"case_id": "case_00002", "patient_id": "P2"})
+        + "\n",
+        "sources/identity.json": json.dumps(
+            {
+                "strategy": "dicom_patient_id",
+                "cases": {"MRN-4711": 0},
+                "scans": {"MRN-4711|1.2.3.4.5": "01"},
+            }
+        ),
+    }
+    for rel, text in files.items():
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_text(text)
+    before = sha_tree(folder)
+
+    out = tmp_path / "b.zip"
+    write_bundle(folder, pid, out)
+
+    assert sha_tree(folder) == before  # the project itself is untouched
+    with zipfile.ZipFile(out) as zf:
+        blob = b"".join(zf.read(n) for n in zf.namelist())
+        rows = [
+            json.loads(x) for x in zf.read(f"{pid}/sources/01JIMPORT/metadata.jsonl").splitlines()
+        ]
+        items = [json.loads(x) for x in zf.read(f"{pid}/index/items.jsonl").splitlines()]
+        cases = [json.loads(x) for x in zf.read(f"{pid}/index/cases.jsonl").splitlines()]
+        reg = json.loads(zf.read(f"{pid}/sources/identity.json"))
+    for secret in (b"MRN-4711", b"DOE^JANE", b"St. Example", b"1.2.3.4.5"):
+        assert secret not in blob
+    assert rows[0]["patient_id"] == "case_00000" and rows[0]["anonymized"] == "basic"
+    assert rows[0]["study_date"] == "" and rows[0]["modality"] == "CT"
+    assert rows[1] == anon  # anonymized at conversion: as is
+    assert rows[2] == nifti  # not DICOM-derived: as is
+    assert items[0]["patient_id"] == "case_00000" and items[0]["extra"]["institution"] == ""
+    assert items[0]["extra"]["series_uid"] == rows[0]["series_uid"]  # same replacement everywhere
+    assert [c["patient_id"] for c in cases] == ["case_00000", "P2"]
+    assert list(reg["cases"]) == [rows[0]["case_identity_key"]]
+    assert all(k.startswith("sha256:") for k in reg["scans"])

@@ -8,7 +8,6 @@ Sources are opened read-only (R1); volumes and sidecars go only into the append-
 from __future__ import annotations
 
 import fnmatch
-import hashlib
 import json
 import math
 from collections.abc import Callable
@@ -182,11 +181,7 @@ def run(
     by_case: dict[str, list[Series]] = {}
     for f in found:
         raw_key = f.row["patient_id"]
-        key = (
-            "sha256:" + hashlib.sha256(f"{salt}|{raw_key}".encode()).hexdigest()[:24]
-            if anonymize
-            else raw_key
-        )
+        key = sidecar.hash_identity_key(raw_key, salt) if anonymize else raw_key
         f.row["case_identity_key"] = key
         by_case.setdefault(key, []).append(f)
 
