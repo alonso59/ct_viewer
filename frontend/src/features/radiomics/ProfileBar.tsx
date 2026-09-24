@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useDeleteProfile, useProfiles, useRenameProfile, useSaveProfile } from '../../api'
 import { Dialog, IconButton, fmtAgo } from '../../lib'
 import { toast } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { errorMessage } from './errors'
-import { useDeleteProfile, useRadProfiles, useRenameProfile, useSaveProfile } from './hooks'
 import { fromWire } from './model/settings'
 import type { Profile, SettingsSchema, WireSettings } from './model/types'
 import { useDraft } from './store'
@@ -16,7 +16,7 @@ const shortHash = (h: string) => h.replace(/^sha256:/, '').slice(0, 8)
 
 export function ProfileBar({ pid, schema, wire }: { pid: string; schema: SettingsSchema; wire: WireSettings | null }) {
   const { t } = useTranslation()
-  const profiles = useRadProfiles(pid)
+  const profiles = useProfiles(pid)
   const save = useSaveProfile(pid)
   const rename = useRenameProfile(pid)
   const del = useDeleteProfile(pid)

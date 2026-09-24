@@ -27,5 +27,7 @@ export const keys = {
   profiles: (pid: string) => ['project', pid, 'profiles'] as const,
   jobs: (pid?: string) => ['jobs', pid ?? '*'] as const,
   schema: () => ['radiomics', 'schema'] as const,
+  /** API-31; `body` is the serialized request, so equal settings share one answer */
+  validation: (body: string) => ['radiomics', 'schema', 'validate', body] as const,
   fs: (path: string | null) => ['fs', path ?? ''] as const,
 }

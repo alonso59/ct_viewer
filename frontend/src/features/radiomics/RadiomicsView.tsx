@@ -3,13 +3,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useJobs, type Job } from '../../api'
+import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
 import { Dialog, IconButton, Progress, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { radApi } from './api'
 import { errorMessage } from './errors'
-import { useRadProfiles, useRadRunErrors, useRadRuns, useRadSchema, useRunControl } from './hooks'
 import { ACTIVE, DONE, RESUMABLE, RUN_TONE, runProgress } from './runs'
 import { fromWire } from './model/settings'
 import type { RunSummary } from './model/types'
@@ -17,7 +15,7 @@ import { useDraft } from './store'
 
 function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onClose: () => void }) {
   const { t } = useTranslation()
-  const errors = useRadRunErrors(pid, run.run_id)
+  const errors = useRunErrors(pid, run.run_id)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('rad.errorsTitle', { name: run.name })} icon={codicon('warning')} size="lg">
       {errors.isLoading ? <div className="muted">{t('common.loading')}</div> : null}
@@ -88,10 +86,10 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
         {c.failed || c.skipped ? <IconButton label={t('rad.showErrors')} icon={codicon('warning')} onClick={onErrors} /> : null}
         {done ? (
           <>
-            <a className="icon-btn" href={radApi.exportUrl(pid, run.run_id, 'csv', 'long')} download aria-label={t('rad.exportLong')} title={t('rad.exportLong')}>
+            <a className="icon-btn" href={api.runExportUrl(pid, run.run_id, 'csv', 'long')} download aria-label={t('rad.exportLong')} title={t('rad.exportLong')}>
               <Icon spec={codicon('cloud-download')} />
             </a>
-            <a className="icon-btn" href={radApi.exportUrl(pid, run.run_id, 'csv', 'wide')} download aria-label={t('rad.exportWide')} title={t('rad.exportWide')}>
+            <a className="icon-btn" href={api.runExportUrl(pid, run.run_id, 'csv', 'wide')} download aria-label={t('rad.exportWide')} title={t('rad.exportWide')}>
               <Icon spec={codicon('table')} />
             </a>
           </>
@@ -104,9 +102,9 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
 export function RadiomicsView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const runs = useRadRuns(pid)
-  const profiles = useRadProfiles(pid)
-  const schema = useRadSchema()
+  const runs = useRuns(pid)
+  const profiles = useProfiles(pid)
+  const schema = useRadiomicsSchema()
   const jobs = useJobs(pid).data ?? []
   const [errorsOf, setErrorsOf] = useState<RunSummary | null>(null)
   const list = [...(runs.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at))

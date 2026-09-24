@@ -3,12 +3,12 @@
 // statistics (group comparison, association, balance, phase/side consistency) need the backend (SciPy).
 import { robustZ } from '../../lib/format'
 import { ProblemError } from '../problem'
-import type { ColorBy, CurationStatus, DashboardView, FeatureRow, GlobalFilters, RadiomicsRun, RunError, ViewRequest, ViewResponse } from '../types'
+import type { ColorBy, CurationStatus, DashboardView, FeatureRow, GlobalFilters, RunError, RunSummary, ViewRequest, ViewResponse } from '../types'
 
 export interface MockRunData {
   rows: FeatureRow[]
   errors: RunError[]
-  run: RadiomicsRun | undefined
+  run: RunSummary | undefined
   /** CUR-08 case rollup */
   statusOf: Map<string, CurationStatus>
 }

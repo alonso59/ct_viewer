@@ -10,6 +10,10 @@ import { keys, type Job } from '../../api'
 import { useWorkbench } from '../../shell'
 import type { RunSummary } from './model/types'
 
+// Bind the HTTP client (unit tests default to the mock) against the fake fetch below
+vi.hoisted(() => vi.stubEnv('VITE_API_BASE', 'http://api.test'))
+vi.mock('../../api/client', async () => ({ api: (await import('../../api/http')).httpApi, API_MODE: 'http' }))
+
 const PID = 'p1'
 const posted: string[] = []
 
