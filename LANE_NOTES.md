@@ -206,3 +206,29 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - P6-FE: remove `group` from `FeatureRow`/dashboard; build on API-38/39.
 - P4-FE / P5-FE: backend contracts in CURATION.md / RADIOMICS.md §Implementation notes; regenerate types with `make gen-api`.
 - Initial bundle is at the 300 KB limit: keep new heavy dependencies behind lazy boundaries.
+
+## 2026-09-24 · P7-prep packaging · lane/3-packaging
+
+**Done** (ROADMAP §P7 lines annotated; the remote parts stay for Step 4)
+- `Dockerfile` (OPS-01/02/07): `node:22-slim` build → `python:3.12-slim` + `gcc`/`git` building `backend[radiomics]` into `/opt/venv` → `python:3.12-slim` runtime (no compiler). App source at `/app/backend` (`PYTHONPATH`), SPA at `/app/static`, `/workspace` mode 1777, `HOME=/tmp`, no fixed UID, `HEALTHCHECK` on API-01. The build runs `tools.spikes.ibsi_phantom_smoke` in the runtime stage, so a build only succeeds if PyRadiomics passes the IBSI phantom on Linux (ADR-0006): 20/20 on arm64.
+- OPS-04: `Settings.container_mode` (`CONTAINER_MODE=1`, set by the image). Empty `ALLOWED_DATA_ROOTS` fails validation at startup, so the container exits 1 with `refusing to start: … (OPS-04)`. Tests: `backend/tests/test_config.py`.
+- `scripts/container_app.py`: the container entry point. It mounts the SPA on `app.main.app` (`/assets` static, `index.html` fallback for client routes, `/api/*` never falls back) and runs uvicorn with HOST/PORT/LOG_LEVEL.
+- `docker-compose.yml`, `.env.example`: one `.env`; compose pins the container-side HOST/PORT/WORKSPACE_ROOT and mirror-mounts `DATA_HOST` read-only (OPS-05). `ALLOWED_DATA_ROOTS` defaults to `DATA_HOST`; `RUN_AS` sets an optional UID:GID.
+- `scripts/udocker-run.sh` (OPS-09): parses the same `.env` without eval (bash 3.2+), passes every key like `env_file`, applies the same overrides (HOST defaults to `127.0.0.1`), creates container `rw` on the first run, applies optional `UDOCKER_EXECMODE`, and has `--dry-run`. No `:ro` on udocker volumes (DEPLOYMENT udocker notes).
+- TST-10: `scripts/container-smoke.sh` (Docker) and `scripts/container_smoke.py` (stdlib HTTP only; the same check for udocker via `--url`). Result on this Mac (colima, arm64): image 947 MB uncompressed (265 MB compressed; OPS-08 ≤ 1.5 GB); IBSI pass; OPS-04 refusal; runs as uid 12345; health; SPA and fallback; unknown `/api` path gives 404; import of the synthetic fixtures (index job in worker processes, 49 cases); one item's image with a Range 206 NIfTI header; Docker HEALTHCHECK healthy; 188 source files unchanged (R1). `docker compose up` served health, SPA and assets on 127.0.0.1:8097.
+- `README.md`: Docker and udocker quick start.
+
+**Requests for other paths (integrator)**
+- `backend/app/main.py`: move the SPA mount from `scripts/container_app.py` (`mount_spa`) into the app factory (BE ARCHITECTURE says `main.py` owns SPA static serving), mount it when `STATIC_ROOT/index.html` exists, then point the Dockerfile `CMD` at `python -m uvicorn app.main:app` or keep the wrapper for its clean OPS-04 message.
+- `Makefile`: `image: ; docker build -t radiology-workbench:$(VERSION) .` (VERSION default 3.0.0) and `udocker-run: ; scripts/udocker-run.sh`. Optionally add `container-smoke: ; scripts/container-smoke.sh`. `make lint`/`typecheck` don't cover `scripts/*.py`; I ran them by hand (ruff + `mypy --strict` pass), so consider adding `../scripts` to the backend ruff/mypy calls.
+- `.gitignore`: add `/workspace/` (compose's default `WORKSPACE_HOST=./workspace`).
+- `docs/ops/DEPLOYMENT.md` §Config: add `CONTAINER_MODE` (image sets `1`; empty `ALLOWED_DATA_ROOTS` then refuses to start, OPS-04). Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION`, `RUN_AS` (Docker), `UDOCKER_EXECMODE` (udocker). The image size is measured uncompressed (`du` of the rootfs), because `docker image inspect .Size` under the containerd store is the compressed size.
+- `docs/ops/TESTING.md` TST-10: scripts `scripts/container-smoke.sh` (Docker) / `scripts/container_smoke.py --url … --root …` (udocker).
+- ADR-0006: the "Not yet verified inside the Linux image" risk is resolved (linux/arm64). Re-check linux/amd64 on the build machine used for the server tar.
+- `pyproject.toml` version is `3.0.0.dev0`, while the image tag is `3.0.0` (compose default `RW_VERSION`). Align when cutting the release.
+
+**Open issues**
+- Only linux/arm64 was built here. The remote server is likely amd64: build with `docker build --platform linux/amd64` (or on an amd64 host) before `docker save`, then rerun `scripts/container-smoke.sh`.
+- This Mac's colima VM has no host mounts (`mounts: []`; `$HOME` contains a space), so Docker bind mounts of host paths show up as empty directories. The smoke therefore seeds named volumes with `docker cp`. `docker compose up` still serves the app, but DATA_HOST appears empty inside the container until colima mounts that path (`colima start --mount '<path>:w'`; user decision, not changed).
+- The Docker CLI config here uses `credsStore: desktop` without Docker Desktop running, so pulls hang. I used a scratch `DOCKER_CONFIG` without a creds store for the builds (the user's config was not changed).
+- udocker not exercised (Step 4): TST-10 under udocker, the execution-mode benchmark (P1 vs F3), whether udocker applies the image `ENV`/`WORKDIR`, and the `HOME` handling. The script passes `CONTAINER_MODE`/`HOST`/`PORT`/`WORKSPACE_ROOT` explicitly, so those don't depend on image ENV.

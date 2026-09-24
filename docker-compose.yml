@@ -1,0 +1,21 @@
+# Local Docker run (docs/ops/DEPLOYMENT.md). udocker equivalent: scripts/udocker-run.sh (OPS-09).
+#   cp .env.example .env   # set DATA_HOST and ALLOWED_DATA_ROOTS
+#   docker compose up --build
+services:
+  app:
+    image: radiology-workbench:${RW_VERSION:-3.0.0}
+    build: .
+    env_file: .env
+    # These win over .env: container-side paths and bind address are fixed by the image contract.
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      WORKSPACE_ROOT: /workspace
+      ALLOWED_DATA_ROOTS: ${ALLOWED_DATA_ROOTS:-${DATA_HOST:?set DATA_HOST in .env}}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${PORT:-8000}}
+    user: ${RUN_AS:-0:0}
+    ports: ["127.0.0.1:${PORT:-8000}:8000"]
+    volumes:
+      - ${WORKSPACE_HOST:-./workspace}:/workspace
+      - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:ro # mirror mount (OPS-05)
+    restart: unless-stopped
