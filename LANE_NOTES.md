@@ -486,7 +486,7 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - NFR-07 headroom: the import wizard is a lazy chunk (`LazyImportWizard.tsx`; `store.ts` and `FolderBrowser.tsx` stay eager). Initial JS 298.1 → 295.1 KB gzip.
 - Brand (UI-21, UI_SHELL §Brand): master `docs/brand/logo-master.png`; `frontend/public/brand/logo-{32,64,128,180}.png`; favicon + Apple touch icon; `theme/BrandMark` in the title-bar project switcher, the home header (replaces the `layout-four-up` placeholder) and the Open-mode home button.
 
-**Results**: `make fixtures && make check` green: 438 backend + 200 frontend; Playwright 24/24 (Chromium + Firefox).
+**Results**: `make fixtures && make check` green: 438 backend + 200 frontend; Playwright 24/24 (Chromium + Firefox). Image rebuilt with all P7b changes (linux/arm64, `radiology-workbench:3.0.0.dev0`): 956 MB uncompressed (OPS-08 ≤ 1.5 GB), IBSI phantom smoke in the build, `make container-smoke` all checks pass (OPS-02/04/07, SPA + fallback, `/api` 404, import in workers, Range 206, 191 source files unchanged). amd64 rebuild + udocker stay in Step 4.
 
 **Pending (owner decisions 2026-09-24)**
 - VOI extractor plugin from a segmentation (reference code to come); it settles the legacy `.npy` VOI axis order (ROADMAP §P7b).
