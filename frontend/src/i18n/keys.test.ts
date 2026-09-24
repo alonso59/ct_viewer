@@ -2,9 +2,20 @@
 import { CURATION_STATUSES, PHASES } from '../api/types'
 import { WL_PRESETS } from '../state/viewerSync'
 import en from './en.json'
+import enLazy from './en.lazy.json'
 
 type Tree = { [k: string]: string | Tree }
-const tree = en as Tree
+// en.lazy.json is deep-merged at runtime by the lazy chunks (i18n/lazy.ts)
+const tree = merge(en as Tree, enLazy as Tree)
+
+function merge(a: Tree, b: Tree): Tree {
+  const out: Tree = { ...a }
+  for (const [k, v] of Object.entries(b)) {
+    const cur = out[k]
+    out[k] = typeof v === 'object' && typeof cur === 'object' ? merge(cur, v) : v
+  }
+  return out
+}
 
 function has(key: string): boolean {
   let node: string | Tree | undefined = tree

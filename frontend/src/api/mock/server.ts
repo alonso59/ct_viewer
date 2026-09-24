@@ -12,6 +12,7 @@ import {
   type CurationEvent,
   type CurationStatus,
   type DerivedDef,
+  type FeatureRow,
   type FeatureValue,
   type FsEntry,
   type ImportPreview,
@@ -23,6 +24,7 @@ import {
   type Project,
   type ProjectSummary,
   type QCWarning,
+  type QueueRow,
   type RadiomicsRun,
   type RunError,
   type ServerEvent,
@@ -30,6 +32,7 @@ import {
   type Variable,
   type VariableValue,
 } from '../types'
+import { mockDashboardView } from './dashboard'
 import { MOCK_SCHEMA, defaultSettings, validateSettings } from './schema'
 import seedJson from './seed.json'
 import { candidateFields, deriveValue, isMissing, parseTable, profileField, validateDerived, type Override, type Row } from './variables'
@@ -440,6 +443,39 @@ const FS: Record<string, FsEntry[]> = {
   ],
 }
 
+function queueRows(pid: string): QueueRow[] {
+  const s = state(pid)
+  return [...latestState(pid).values()]
+    .filter((e) => e.item_id && (QUEUE_STATUSES.includes(e.status) || e.add_to_queue))
+    .sort((a, b) => STATUS_SEVERITY[b.status] - STATUS_SEVERITY[a.status] || b.at.localeCompare(a.at))
+    .map((e) => {
+      const item = s.items.find((i) => i.item_id === e.item_id)
+      return {
+        case_id: e.case_id, item_id: e.item_id ?? '', scope: item?.scope ?? null, side: item?.side ?? null,
+        phase: item?.phase.canonical ?? null, target: e.target, status: e.status, priority: e.priority,
+        comment: e.comment, reviewer: e.reviewer, at: e.at,
+        image_path_abs: absPath(item?.image?.ref), mask_path_abs: absPath(item?.mask?.ref),
+      }
+    })
+}
+
+/** API-36 long rows; the seed stores `{class}_{name}`, the wire name adds the image type */
+function featureRows(s: ProjectState, rid: string, itemId?: string): FeatureRow[] {
+  const byId = new Map(s.items.map((i) => [i.item_id, i]))
+  const all = s.features[rid] ?? []
+  return (itemId ? all.filter((f) => f.item_id === itemId) : all).flatMap((f) => {
+    const it = byId.get(f.item_id)
+    const name = f.feature.startsWith(`${f.feature_class}_`) ? f.feature.slice(f.feature_class.length + 1) : f.feature
+    return it
+      ? [{
+          item_id: f.item_id, case_id: it.case_id, scan_idx: it.scan_idx, scope: it.scope, side: it.side, phase: it.phase.canonical,
+          label: f.label, image_type: 'original', feature_class: f.feature_class, feature: `original_${f.feature_class}_${name}`,
+          value: Number.isFinite(f.value) ? f.value : null, ibsi_code: null, ibsi_status: null,
+        }]
+      : []
+  })
+}
+
 // ---- API surface -----------------------------------------------------------
 const SESSION_ID = Math.random().toString(36).slice(2, 10)
 
@@ -674,25 +710,37 @@ export const mockServer: Api = {
     if (k < 0) throw new ProblemError(422, 'validation', 'Key column missing', `The table has no "${key}" column`)
     const byKey = new Map<string, string>()
     for (const it of s.items) byKey.set(key === 'case_id' ? it.case_id : (it.patient_id ?? ''), it.case_id)
+    // Same rules as the backend: columns whose name is taken are skipped; the first row per key wins
+    const taken = new Set(catalog(s).filter((v) => v.source !== 'external').map((v) => v.name))
     const cols = header.filter((h, i) => i !== k && h !== '')
+    const conflicts = cols.filter((c) => taken.has(c))
+    const added = cols.filter((c) => !taken.has(c))
     const unmatched: string[] = []
+    const seen = new Set<string>()
+    const duplicates = new Set<string>()
     let matched = 0
     for (const r of table) {
-      const cid = byKey.get(r[k] ?? '')
+      const rk = r[k] ?? ''
+      if (seen.has(rk)) {
+        duplicates.add(rk)
+        continue
+      }
+      seen.add(rk)
+      const cid = byKey.get(rk)
       if (!cid) {
-        unmatched.push(r[k] ?? '')
+        unmatched.push(rk)
         continue
       }
       matched++
       const vals = s.external[cid] ?? {}
       header.forEach((h, i) => {
-        if (i !== k && h) vals[h] = r[i] ?? ''
+        if (added.includes(h)) vals[h] = r[i] ?? ''
       })
       s.external[cid] = vals
     }
-    s.externalFields = [...new Set([...s.externalFields, ...cols])]
+    s.externalFields = [...new Set([...s.externalFields, ...added])]
     emit(pid, { event: 'project.updated', data: { fields: ['variables'] } })
-    return { key, n_rows: table.length, matched, unmatched_keys: unmatched, added: cols }
+    return { key, n_rows: table.length, matched, unmatched_keys: unmatched, duplicate_keys: [...duplicates], conflicts, added }
   },
 
   // API-20..26
@@ -769,23 +817,30 @@ export const mockServer: Api = {
     state(pid)
     return [...latestState(pid).values()].map((e) => ({
       item_id: e.item_id, case_id: e.case_id, target: e.target, status: e.status, priority: e.priority,
-      comment: e.comment, reviewer: e.reviewer, at: e.at, add_to_queue: e.add_to_queue,
+      comment: e.comment, reviewer: e.reviewer, at: e.at, event_id: e.event_id, add_to_queue: e.add_to_queue,
+      proposed_phase: e.proposed_phase, proposed_side: e.proposed_side,
     }))
   },
   async queue(pid) {
     await wait(90)
-    const s = state(pid)
-    return [...latestState(pid).values()]
-      .filter((e) => QUEUE_STATUSES.includes(e.status) || e.add_to_queue)
-      .sort((a, b) => STATUS_SEVERITY[b.status] - STATUS_SEVERITY[a.status] || b.at.localeCompare(a.at))
-      .map((e) => {
-        const item = s.items.find((i) => i.item_id === e.item_id) ?? null
-        return {
-          item_id: e.item_id, case_id: e.case_id, target: e.target, status: e.status, priority: e.priority,
-          comment: e.comment, reviewer: e.reviewer, at: e.at, add_to_queue: e.add_to_queue, item: clone(item),
-          image_abs: absPath(item?.image?.ref), mask_abs: absPath(item?.mask?.ref),
-        }
-      })
+    return queueRows(pid)
+  },
+  async queueCsv(pid) {
+    await wait(60)
+    const cols = ['case_id', 'item_id', 'scope', 'side', 'phase', 'target', 'status', 'priority', 'comment', 'reviewer', 'at', 'image_path_abs', 'mask_path_abs'] as const
+    const esc = (v: unknown) => (/[",\n]/.test(String(v ?? '')) ? `"${String(v).replaceAll('"', '""')}"` : String(v ?? ''))
+    const lines = [cols.join(','), ...queueRows(pid).map((r) => cols.map((c) => esc(r[c])).join(','))]
+    return new Blob([`${lines.join('\n')}\n`], { type: 'text/csv' })
+  },
+  async curationExports(pid) {
+    await wait(200)
+    state(pid)
+    return { dir: 'exports', files: ['curation_state.csv', 'events.jsonl', 'phase_proposals.json'], at: now() }
+  },
+  async importV2(pid) {
+    await wait(200)
+    state(pid)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'v2 import needs the backend (API-54)')
   },
 
   // API-30..38
@@ -856,19 +911,38 @@ export const mockServer: Api = {
   },
   async runFeatures(pid, rid, itemId) {
     await wait(90)
-    const s = state(pid)
-    const byId = new Map(s.items.map((i) => [i.item_id, i]))
-    const all = s.features[rid] ?? []
-    return (itemId ? all.filter((f) => f.item_id === itemId) : all).flatMap((f) => {
-      const it = byId.get(f.item_id)
-      return it
-        ? [{ ...f, case_id: it.case_id, scan_idx: it.scan_idx, scope: it.scope, side: it.side, phase: it.phase.canonical, group: '' }] // FeatureRow.group removed in P6-FE (Step 3)
-        : []
-    })
+    return featureRows(state(pid), rid, itemId)
   },
   async runErrors(pid, rid) {
     await wait(60)
     return clone(state(pid).errors[rid] ?? [])
+  },
+
+  // API-38/39 (mockDashboardView covers the QC views; the guided statistics need the backend)
+  async dashboardView(pid, rid, view, body) {
+    await wait(160)
+    const s = state(pid)
+    if (!s.runs.some((r) => r.run_id === rid)) throw new ProblemError(404, 'not-found', 'Run not found', rid)
+    const statusOf = new Map(summaries(pid).map((c) => [c.case_id, c.curation_status]))
+    return mockDashboardView(view, body, { rows: featureRows(s, rid), errors: s.errors[rid] ?? [], run: s.runs.find((r) => r.run_id === rid), statusOf })
+  },
+  async listAnalyses(pid) {
+    await wait(60)
+    state(pid)
+    return []
+  },
+  async getAnalysis(pid, aid) {
+    await wait(60)
+    state(pid)
+    throw new ProblemError(404, 'not-found', 'Analysis not found', aid)
+  },
+  async createAnalysis() {
+    await wait(120)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Guided statistics need the backend (API-39)')
+  },
+  async exportAnalysis(_pid, aid) {
+    await wait(60)
+    throw new ProblemError(404, 'not-found', 'Analysis not found', aid)
   },
 
   // API-41

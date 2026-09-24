@@ -92,8 +92,8 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 **Exit:** NFR-01/02 met on the reference volume; all layouts work; the adaptive states render correctly.
 
 ### P4 — Curation
-- [ ] Reviewer identity, events, reducer, inspector form, shortcuts (CUR-01..08, 14, UI-12) — backend done (API-50/51, lane/2-backend); FE pending
-- [ ] Queue + exports + v2 import (CUR-09, 10, 13), live sync (CUR-11/12) — backend done (API-52..54, SSE); FE + TST-08 pending
+- [x] Reviewer identity, events, reducer, inspector form, shortcuts (CUR-01..08, 14, UI-12) — backend API-50/51 (lane/2-backend), FE lane/3-ui
+- [x] Queue + exports + v2 import (CUR-09, 10, 13), live sync (CUR-11/12) — backend API-52..54 + SSE, FE + TST-08 (`e2e/tst08-multiuser.spec.ts`) lane/3-ui
 **Exit:** TST-08 green; exported queue CSV opens paths in 3D Slicer.
 
 ### P5 — Radiomics
@@ -105,12 +105,12 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 
 ### P6 — Dashboard + guided analysis (ADR-0012)
 - [ ] Not built in P1, schedule with P5/P6: full-hash job (IMP-09, API-15) and project bundles (PRJ-08/09)
-- [ ] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07) — backend views done (API-38); FE pending
-- [ ] Measurements panel for the active item (UI-14)
+- [x] Analytics views (API-38), dashboard tab, filters, click-through, linked selection (DB-01..07) — FE lane/3-ui (DB-04 "send to Explorer" copies ids until the explorer has an item filter, LANE_NOTES)
+- [x] Measurements panel for the active item (UI-14)
 - [x] Backend `analytics/`: analysis spec, unit (one row per case), test choice, FDR, effect sizes, descriptives, REC rules, export (ANA-01..09, API-39), TST-12
-- [ ] Analysis panel + Group comparison / Association / Balance check views (DB-08/09)
-- [ ] Remove the leftover `group` from `FeatureRow` and the dashboard (mock sets `group: ''` until then); colour/split by variable
-- [ ] End-to-end check of the Variables view against the real API-16..18 (the Catalog adapter in `api/http.ts` is unit-tested only)
+- [x] Analysis panel + Group comparison / Association / Balance check views (DB-08/09)
+- [x] Remove the leftover `group` from `FeatureRow` and the dashboard; colour/split by variable
+- [x] End-to-end check of the Variables view against the real API-16..18 (`e2e/variables.spec.ts`)
 **Exit:** an injected fixture defect is visible as an outlier and opens in the viewer in one click; a two-group and a three-group comparison on a derived variable return tests matching SciPy, with q-values and at least one triggered recommendation.
 
 ### P7 — Packaging

@@ -1,17 +1,24 @@
 // Curation: decisions, history, correction queue, live sync (CUR-*)
-import { useCallback } from 'react'
+import { createElement, lazy, Suspense, useCallback, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
-import { api, keys, queryClient, useProjectEvents, type CurationStateRow, type CurationStatus, type ServerEvent } from '../../api'
+import { api, keys, ProblemError, queryClient, useProjectEvents, type CurationStateRow, type CurationStatus, type ServerEvent } from '../../api'
 import { registry, toast, useWorkbench, openEditor } from '../../shell'
 import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { openItem } from '../explorer'
-import { InspectorCuration, submitDecision, useDraft } from './CurationForm'
-import { CurationView } from './CurationView'
-import { HistoryPanel, HistoryView } from './History'
-import { QueueEditor } from './QueueEditor'
+import { submitDecision, useDraft } from './decision'
+import { statusOf } from './model'
+
+// Curation UI stays out of the initial bundle (FE-05, NFR-07); shortcuts only need ./decision.
+// Editors render inside the editor area's Suspense; views and panel tabs get their own boundary.
+const QueueEditor = lazy(() => import('./QueueEditor').then((m) => ({ default: m.QueueEditor })))
+const suspended = (C: ComponentType) => () => createElement(Suspense, { fallback: null }, createElement(C))
+const CurationView = suspended(lazy(() => import('./CurationView').then((m) => ({ default: m.CurationView }))))
+const InspectorCuration = suspended(lazy(() => import('./CurationForm').then((m) => ({ default: m.InspectorCuration }))))
+const HistoryView = suspended(lazy(() => import('./History').then((m) => ({ default: m.HistoryView }))))
+const HistoryPanel = suspended(lazy(() => import('./History').then((m) => ({ default: m.HistoryPanel }))))
 
 /** Mount once in the workbench: shows "updated by" toasts for other reviewers' events (CUR-11). */
 export function useCurationRuntime(pid: string) {
@@ -31,10 +38,21 @@ export function useCurationRuntime(pid: string) {
 
 function currentStatus() {
   const pid = useWorkbench.getState().pid ?? ''
-  const { activeItemId } = useViewerSync.getState()
-  const target = useDraft.getState().target
+  const { activeItemId, activeCaseId } = useViewerSync.getState()
   const rows = queryClient.getQueryData<CurationStateRow[]>(keys.curationState(pid)) ?? []
-  return rows.find((r) => r.item_id === activeItemId && r.target === target)?.status ?? 'not_reviewed'
+  return statusOf(rows, activeItemId, activeCaseId, useDraft.getState().target)
+}
+
+/** CUR-10: write curation_state.csv, events.jsonl and phase_proposals.json into `exports/` */
+async function writeExports() {
+  const pid = useWorkbench.getState().pid
+  if (!pid) return
+  try {
+    const r = await api.curationExports(pid)
+    toast({ message: i18n.t('queue.exportsWritten', { dir: r.dir ?? 'exports', files: r.files.join(', ') }), tone: 'ok' })
+  } catch (e) {
+    toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.error'), tone: 'error' })
+  }
 }
 
 const hasItem = () => useWorkbench.getState().active?.type === 'case' && useViewerSync.getState().activeCaseId !== null
@@ -81,6 +99,15 @@ export function registerCuration() {
     run: () => void submitDecision(currentStatus(), { addToQueue: true }),
   })
   registry.command({ id: 'curation.openQueue', title: 'curation.openQueue', category: 'cat.curation', menu: 'project', menuGroup: 2, run: () => openEditor('queue', {}) })
+  registry.command({
+    id: 'curation.writeExports',
+    title: 'queue.writeExports',
+    category: 'cat.curation',
+    menu: 'project',
+    menuGroup: 2,
+    enabled: () => useWorkbench.getState().pid !== null,
+    run: () => void writeExports(),
+  })
   registry.command({
     id: 'curation.clearDraft',
     title: 'curation.clearDraft',

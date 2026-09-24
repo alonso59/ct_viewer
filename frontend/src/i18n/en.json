@@ -467,22 +467,10 @@
   },
   "curation": {
     "addToQueue": "Add to correction queue",
-    "byAt": "{{reviewer}} · {{ago}}",
     "clearDraft": "Clear curation draft",
-    "comment": "Comment",
-    "commentPlaceholder": "What is wrong, and where (slices)?",
-    "current": "Current decisions",
-    "more": "More statuses",
-    "noActive": "Open a case to curate it.",
     "openQueue": "Open correction queue",
-    "priority": "Priority",
-    "progress": "Project progress",
-    "progressCount": "{{done}}/{{total}} cases",
-    "proposedPhase": "Proposed phase",
-    "proposedSide": "Proposed side",
+    "saveFailedDetail": "Could not save: {{detail}}",
     "saved": "{{status}} · {{target}} · {{id}}",
-    "sideL": "Left",
-    "sideR": "Right",
     "target": {
       "case": "Whole case",
       "label": "Target",
@@ -494,33 +482,10 @@
     },
     "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}"
   },
-  "history": {
-    "case": "Case {{id}}",
-    "empty": "No decisions yet",
-    "item": "This item",
-    "noActive": "Open a case to see its history.",
-    "proposedPhase": "Proposed phase: {{phase}}",
-    "queued": "Added to correction queue",
-    "scope": "History scope"
-  },
   "queue": {
-    "allStatuses": "All statuses",
-    "col": {
-      "case": "Case",
-      "comment": "Comment",
-      "item": "Item",
-      "phase": "Phase",
-      "priority": "Priority",
-      "reviewer": "Reviewer",
-      "status": "Status",
-      "target": "Target"
-    },
-    "empty": "The correction queue is empty",
-    "exportCsv": "Export CSV for 3D Slicer",
-    "exported_one": "Exported {{count}} row",
-    "exported_other": "Exported {{count}} rows",
-    "subtitle": "Latest decision per item and target",
-    "title": "Correction queue"
+    "exportsWritten": "Wrote {{files}} to {{dir}}/",
+    "title": "Correction queue",
+    "writeExports": "Write curation exports"
   },
   "reviewer": {
     "help": "Shown next to your decisions. No account or password.",
@@ -571,47 +536,18 @@
     "validation": "Validation"
   },
   "dashboard": {
-    "by": {
-      "phase": "Phase",
-      "group": "Group",
-      "status": "Status"
-    },
-    "colorBy": "Color by",
-    "count": "items",
-    "exportCsv": "Export CSV",
-    "exportPng": "Export PNG",
-    "feature": "Feature",
-    "filters": "Dashboard filters",
-    "kpi": {
-      "failed": "failed",
-      "features": "features",
-      "items": "items",
-      "ok": "ok",
-      "runtime": "runtime"
-    },
-    "label": "Label",
-    "meta": "{{engine}} · {{hash}}",
-    "nItems_one": "{{count}} item",
-    "nItems_other": "{{count}} items",
-    "noOutliers": "No item above the threshold",
     "noRuns": "No completed runs yet. Start one from Radiomics.",
-    "openInViewer": "Open in viewer",
-    "tabTitle": "Dashboard",
-    "threshold": "|z| ≥",
-    "view": {
-      "correlation": "Correlation (Spearman)",
-      "distribution": "Feature distribution",
-      "embedding": "PCA embedding ({{a}} % · {{b}} %)",
-      "outliers": "Outliers (robust z)",
-      "overview": "Run overview",
-      "vsVolume": "Feature vs volume"
-    },
-    "z": "robust z"
+    "tabTitle": "Dashboard"
   },
   "measurements": {
+    "class": "Class",
+    "invalid": "NaN / inf",
     "noItem": "Open a case to see its measurements",
     "none": "This item has no features in the selected run",
     "noRuns": "No completed radiomics run yet",
+    "outlier": "Outlier (|z| ≥ 3.5)",
+    "outliers_one": "{{count}} outlier",
+    "outliers_other": "{{count}} outliers",
     "run": "Run",
     "value": "Value"
   },
@@ -832,6 +768,9 @@
     "importAdded": "Added: {{names}}",
     "importUnmatched_one": "{{count}} unmatched key: {{keys}}",
     "importUnmatched_other": "{{count}} unmatched keys: {{keys}}",
+    "importDuplicates_one": "{{count}} duplicate key (first row kept): {{keys}}",
+    "importDuplicates_other": "{{count}} duplicate keys (first row kept): {{keys}}",
+    "importConflicts": "Skipped, name already taken: {{names}}",
     "newDerivedTitle": "New derived variable",
     "importTableTitle": "Import variable table"
   },

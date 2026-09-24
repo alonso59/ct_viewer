@@ -8,7 +8,9 @@ import { useConnection } from './connection'
 import { keys } from './keys'
 import type { CaseFilter } from './surface'
 import type {
+  AnalysisSpec,
   CaseSummary,
+  DashboardView,
   DerivedDef,
   ItemRecord,
   Job,
@@ -19,6 +21,7 @@ import type {
   ServerEvent,
   Settings,
   VariablePatch,
+  ViewRequest,
 } from './types'
 
 const enabled = (...v: (string | null | undefined)[]) => v.every(Boolean)
@@ -53,12 +56,26 @@ export const useRun = (pid: string, rid: string) =>
   useQuery({ queryKey: keys.run(pid, rid), queryFn: () => api.getRun(pid, rid), enabled: enabled(pid, rid) })
 export const useFeatures = (pid: string, rid: string | null | undefined, iid?: string | null) =>
   useQuery({
-    queryKey: keys.features(pid, rid ?? '', iid ?? undefined),
+    // `iid = null` (no active item) is disabled and must not share the whole-run key
+    queryKey: iid === null ? keys.features(pid, rid ?? '', '-') : keys.features(pid, rid ?? '', iid),
     queryFn: () => api.runFeatures(pid, rid ?? '', iid ?? undefined),
     enabled: enabled(pid, rid) && iid !== null,
   })
 export const useRunErrors = (pid: string, rid: string) =>
   useQuery({ queryKey: keys.runErrors(pid, rid), queryFn: () => api.runErrors(pid, rid), enabled: enabled(pid, rid) })
+/** API-38 view; the previous result stays visible while new params load. `body = null` disables it. */
+export const useDashboardView = <V extends DashboardView>(pid: string, rid: string, view: V, body: ViewRequest<V> | null) =>
+  useQuery({
+    queryKey: keys.view(pid, rid, view, body),
+    queryFn: () => api.dashboardView(pid, rid, view, body as ViewRequest<V>),
+    enabled: enabled(pid, rid) && body !== null,
+    placeholderData: (p) => p,
+    staleTime: 30_000,
+  })
+export const useAnalyses = (pid: string, rid?: string) =>
+  useQuery({ queryKey: keys.analyses(pid, rid), queryFn: () => api.listAnalyses(pid, rid), enabled: enabled(pid) })
+export const useAnalysis = (pid: string, aid: string | null) =>
+  useQuery({ queryKey: keys.analysis(pid, aid ?? ''), queryFn: () => api.getAnalysis(pid, aid ?? ''), enabled: enabled(pid, aid), staleTime: Infinity })
 export const useProfiles = (pid: string) =>
   useQuery({ queryKey: keys.profiles(pid), queryFn: () => api.listProfiles(pid), enabled: enabled(pid) })
 /** API-41; without a project, all jobs */
@@ -92,6 +109,40 @@ export function useAppendEvent(pid: string) {
       const reviewer = await requireReviewer()
       if (!reviewer) throw new ReviewerCancelled()
       return api.appendEvent(pid, ev, reviewer)
+    },
+    onSuccess: () => invalidateCuration(qc, pid),
+  })
+}
+
+/** API-39: create + run an analysis (ANA-01), stamped with the reviewer */
+export function useCreateAnalysis(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (spec: AnalysisSpec) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.createAnalysis(pid, spec, reviewer)
+    },
+    onSuccess: (a) => {
+      qc.setQueryData(keys.analysis(pid, a.analysis_id), a)
+      void qc.invalidateQueries({ queryKey: ['project', pid, 'analyses'] })
+    },
+  })
+}
+
+/** API-53 (CUR-10) */
+export function useCurationExports(pid: string) {
+  return useMutation({ mutationFn: () => api.curationExports(pid) })
+}
+
+/** API-54 (CUR-13) */
+export function useImportV2(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.importV2(pid, file, reviewer)
     },
     onSuccess: () => invalidateCuration(qc, pid),
   })
@@ -140,6 +191,7 @@ export function useUpdateLabels(pid: string) {
 }
 
 function invalidateVariables(qc: QueryClient, pid: string) {
+  invalidateViews(qc, pid)
   void qc.invalidateQueries({ queryKey: keys.variables(pid) })
   void qc.invalidateQueries({ queryKey: ['project', pid, 'cases'] })
 }
@@ -198,7 +250,15 @@ export function useCancelJob(pid: string) {
   })
 }
 
+/** Dashboard views of every run (colour/filter by curation status or variables) */
+const isViewKey = (k: readonly unknown[]) => k[0] === 'project' && k[2] === 'run' && k[4] === 'view'
+
+function invalidateViews(qc: QueryClient, pid: string) {
+  void qc.invalidateQueries({ predicate: (q) => isViewKey(q.queryKey) && q.queryKey[1] === pid })
+}
+
 function invalidateCuration(qc: QueryClient, pid: string) {
+  invalidateViews(qc, pid)
   void qc.invalidateQueries({ queryKey: ['project', pid, 'cases'] })
   void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
   void qc.invalidateQueries({ queryKey: ['project', pid, 'events'] })
@@ -237,6 +297,8 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   if (e.event === 'project.updated') {
     void qc.invalidateQueries({ queryKey: keys.project(pid) })
     if (e.data.fields.includes('variables')) invalidateVariables(qc, pid)
+    // Bulk curation imports (> 500 events) publish one `project.updated` instead of per-event SSE
+    if (e.data.fields.includes('curation')) invalidateCuration(qc, pid)
   }
 }
 

@@ -1,5 +1,6 @@
 // Central query keys (FE-02)
 import type { CaseFilter } from './surface'
+import type { DashboardView } from './types'
 
 export const keys = {
   health: () => ['health'] as const,
@@ -19,6 +20,10 @@ export const keys = {
   run: (pid: string, rid: string) => ['project', pid, 'run', rid] as const,
   features: (pid: string, rid: string, iid?: string) => ['project', pid, 'run', rid, 'features', iid ?? '*'] as const,
   runErrors: (pid: string, rid: string) => ['project', pid, 'run', rid, 'errors'] as const,
+  /** API-38; the body is part of the key. `['project', pid, 'run', rid, 'view']` prefixes all views of a run */
+  view: (pid: string, rid: string, view: DashboardView, body: unknown) => ['project', pid, 'run', rid, 'view', view, body] as const,
+  analyses: (pid: string, rid?: string) => ['project', pid, 'analyses', rid ?? '*'] as const,
+  analysis: (pid: string, aid: string) => ['project', pid, 'analysis', aid] as const,
   profiles: (pid: string) => ['project', pid, 'profiles'] as const,
   jobs: (pid?: string) => ['jobs', pid ?? '*'] as const,
   schema: () => ['radiomics', 'schema'] as const,

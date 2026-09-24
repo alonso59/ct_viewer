@@ -1,13 +1,16 @@
-// HTTP binding of the API surface (backend/API.md). Built endpoints go through the typed
-// openapi-fetch client (FE-03); endpoints whose backend is not merged yet use the documented paths
-// with hand-written types (types.ts), and their list reads treat a missing route as empty.
+// HTTP binding of the API surface (backend/API.md). Most endpoints go through the typed
+// openapi-fetch client (FE-03); a few use `send` on the documented paths (multipart, radiomics
+// types still hand-written for P5-FE), whose list reads treat a missing route as empty.
 import createClient from 'openapi-fetch'
 
 import { ProblemError, toProblemError } from './problem'
 import type { paths } from './schema'
 import type { Api, CaseFilter, ConnectionState } from './surface'
 import type {
+  CurationEvent,
+  CurationStateRow,
   DerivedDef,
+  FeatureRow,
   ExternalImportResult,
   CaseDetail,
   CaseSummary,
@@ -121,6 +124,9 @@ function fromWireDerived(d: WireDerived): DerivedDef {
   return { ...d, quantiles: d.quantiles.length + 1, thresholds: d.thresholds ?? undefined, labels: d.labels ?? [] }
 }
 
+/** `top` holds the most frequent values of every field; the UI shows them as levels only for these */
+const LEVEL_TYPES = new Set<Variable['type']>(['categorical', 'numeric-discrete', 'constant'])
+
 function catalogToVariables(c: Catalog): Variable[] {
   const derived = c.derived ?? []
   return (c.variables ?? []).map((v) => {
@@ -134,7 +140,7 @@ function catalogToVariables(c: Catalog): Variable[] {
         examples: p.examples ?? [],
         min: p.min ?? null,
         max: p.max ?? null,
-        levels: (p.top ?? []).map((x) => ({ value: x.value, count: x.n })),
+        levels: LEVEL_TYPES.has(v.type) ? (p.top ?? []).map((x) => ({ value: x.value, count: x.n })) : [],
       },
       definition: (() => {
         const d = derived.find((x) => x.name === v.name)
@@ -150,12 +156,14 @@ function variableFrom(c: Catalog, name: string): Variable {
   return v
 }
 
-const externalResult = (r: ExternalReport, key: 'case_id' | 'patient_id'): ExternalImportResult => ({
-  key,
+const externalResult = (r: ExternalReport): ExternalImportResult => ({
+  key: r.table.key,
   n_rows: r.n_rows,
   matched: r.n_matched,
   unmatched_keys: r.unmatched_keys ?? [],
-  added: r.table.columns ?? [],
+  duplicate_keys: r.duplicate_keys ?? [],
+  conflicts: r.conflicts ?? [],
+  added: (r.table.columns ?? []).filter((c) => !(r.conflicts ?? []).includes(c)),
 })
 
 const normalizeWarning = (w: Schemas['QcWarning']): QCWarning => ({ case_id: null, field: null, item_id: null, path_ref: null, ...w })
@@ -183,6 +191,79 @@ function caseQuery(f: CaseFilter): Record<string, string> {
   if (f.voi) q.has_voi = String(f.voi === 'any')
   for (const [name, v] of Object.entries(f.vars ?? {})) if (v) q[`var.${name}`] = v
   return q
+}
+
+// ---- curation (API-50..54) -------------------------------------------------------------------
+/** API-51 → one row per (item_id, target); case targets have `item_id = null` */
+function stateRows(st: Schemas['CurationState']): CurationStateRow[] {
+  const row = (item_id: string | null, case_id: string, x: Schemas['TargetState']): CurationStateRow => ({
+    item_id,
+    case_id,
+    target: x.target,
+    status: x.status,
+    priority: x.priority,
+    comment: x.comment,
+    reviewer: x.reviewer,
+    at: x.at,
+    event_id: x.event_id,
+    add_to_queue: x.add_to_queue ?? false,
+    proposed_phase: x.proposed_phase ?? null,
+    proposed_side: x.proposed_side ?? null,
+  })
+  return [
+    ...st.items.flatMap((i) => i.targets.map((x) => row(i.item_id, i.case_id, x))),
+    ...st.cases.flatMap((c) => (c.targets ?? []).map((x) => row(null, c.case_id, x))),
+  ]
+}
+
+const normalizeEvent = (e: Schemas['CurationEvent']): CurationEvent => ({
+  ...e,
+  schema_version: 1,
+  session_id: e.session_id ?? null,
+  item_id: e.item_id ?? null,
+  priority: e.priority ?? 'medium',
+  comment: e.comment ?? '',
+  proposed_phase: e.proposed_phase ?? null,
+  proposed_side: e.proposed_side ?? null,
+  add_to_queue: e.add_to_queue ?? false,
+  source: e.source ?? 'ui',
+  context: (e.context ?? {}) as CurationEvent['context'],
+})
+
+// ---- radiomics features (API-36) --------------------------------------------------------------
+type Cell = string | number | null | undefined
+const str = (v: Cell) => (v == null ? '' : String(v))
+const num = (v: Cell) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/** Long `FeaturesTable` rows → FeatureRow; `feature` becomes the full column name API-38 uses */
+function featureRows(t: Schemas['FeaturesTable']): FeatureRow[] {
+  return t.rows.map((r) => {
+    const imageType = str(r.image_type) || 'original'
+    const cls = str(r.feature_class)
+    const name = str(r.feature)
+    const status = str(r.ibsi_status)
+    return {
+      item_id: str(r.item_id),
+      case_id: str(r.case_id),
+      scan_idx: str(r.scan_idx),
+      scope: str(r.scope) as FeatureRow['scope'],
+      side: str(r.side) as FeatureRow['side'],
+      phase: str(r.phase),
+      label: Number(r.label),
+      image_type: imageType,
+      feature_class: cls,
+      feature: `${imageType}_${cls}_${name}`,
+      value: num(r.value),
+      ibsi_code: r.ibsi_code == null ? null : str(r.ibsi_code),
+      ibsi_status: status === 'compliant' || status === 'deviates' || status === 'not_defined' ? status : null,
+    }
+  })
+}
+
+async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
+  const r = await fetch(`${V1}${path}`, init)
+  if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
+  return r.blob()
 }
 
 // ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
@@ -311,7 +392,7 @@ export const httpApi: Api = {
     const fd = new FormData()
     fd.set('file', file)
     fd.set('key', key)
-    return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then((r) => externalResult(r, key))
+    return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then(externalResult)
   },
 
   // API-20..26
@@ -344,14 +425,46 @@ export const httpApi: Api = {
   },
   thumbnailUrl: (pid, iid) => `${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`,
 
-  // API-50..52 (P4 backend)
-  listEvents(pid, f = {}) {
-    const q = new URLSearchParams(Object.entries(f).filter((e): e is [string, string] => !!e[1]))
-    return listOrEmpty(`/projects/${enc(pid)}/curation/events?${q}`)
+  // API-50..54
+  async listEvents(pid, f = {}) {
+    const out: CurationEvent[] = []
+    let cursor: string | undefined
+    do {
+      const page = await unwrap(
+        client.GET('/api/v1/projects/{pid}/curation/events', { params: { path: { pid }, query: { ...f, limit: PAGE, cursor } } }),
+      )
+      out.push(...page.items.map(normalizeEvent))
+      cursor = page.next_cursor ?? undefined
+    } while (cursor)
+    // The server pages in append order; CUR-14 shows newest first
+    return out.sort((a, b) => b.at.localeCompare(a.at) || b.event_id.localeCompare(a.event_id))
   },
-  appendEvent: (pid, ev, reviewer) => send('POST', `/projects/${enc(pid)}/curation/events`, { ...ev, session_id: SESSION_ID }, reviewerHeader(reviewer)),
-  curationState: (pid) => listOrEmpty(`/projects/${enc(pid)}/curation/state`),
-  queue: (pid) => listOrEmpty(`/projects/${enc(pid)}/curation/queue?format=json`),
+  appendEvent: async (pid, ev, reviewer) =>
+    normalizeEvent(
+      await unwrap(
+        client.POST('/api/v1/projects/{pid}/curation/events', {
+          params: { path: { pid }, header: { 'x-reviewer': reviewer, 'x-session-id': SESSION_ID } },
+          body: { ...ev, context: { ...ev.context }, session_id: SESSION_ID, source: 'ui' },
+        }),
+      ),
+    ),
+  curationState: async (pid) => stateRows(await unwrap(client.GET('/api/v1/projects/{pid}/curation/state', { params: { path: { pid } } }))),
+  queue: async (pid) =>
+    ((await unwrap(client.GET('/api/v1/projects/{pid}/curation/queue', { params: { path: { pid }, query: { format: 'json' } } }))) as Schemas['QueueRow'][]).map((r) => ({
+      scope: null,
+      side: null,
+      phase: null,
+      image_path_abs: null,
+      mask_path_abs: null,
+      ...r,
+    })),
+  queueCsv: (pid) => blob(`/projects/${enc(pid)}/curation/queue?format=csv`),
+  curationExports: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/curation/exports', { params: { path: { pid } } })),
+  importV2(pid, file, reviewer) {
+    const fd = new FormData()
+    fd.set('file', file)
+    return send('POST', `/projects/${enc(pid)}/curation/import-v2`, fd, reviewerHeader(reviewer))
+  },
 
   // API-30..37 (P5 backend)
   schema: () => send('GET', '/radiomics/schema'),
@@ -363,9 +476,26 @@ export const httpApi: Api = {
   getRun: (pid, rid) => send('GET', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}`),
   startRun: (pid, name, selection, reviewer) =>
     send('POST', `/projects/${enc(pid)}/radiomics/runs`, { name, selection }, reviewerHeader(reviewer)),
-  runFeatures: (pid, rid, itemId) =>
-    listOrEmpty(`/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=json&shape=long${itemId ? `&item_id=${enc(itemId)}` : ''}`),
+  runFeatures: async (pid, rid, itemId) =>
+    featureRows(
+      await unwrap(
+        client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/features', {
+          params: { path: { pid, rid }, query: { format: 'json', shape: 'long', ...(itemId ? { item_id: itemId } : {}) } },
+        }),
+      ) as Schemas['FeaturesTable'],
+    ),
   runErrors: (pid, rid) => listOrEmpty(`/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/errors`),
+
+  // API-38/39
+  dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),
+  async listAnalyses(pid, rid) {
+    const r = await unwrap(client.GET('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, query: rid ? { run_id: rid } : {} } }))
+    return r.items
+  },
+  getAnalysis: (pid, aid) => unwrap(client.GET('/api/v1/projects/{pid}/analyses/{aid}', { params: { path: { pid, aid } } })),
+  createAnalysis: (pid, spec, reviewer) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body: spec })),
+  exportAnalysis: (pid, aid, file) => blob(`/projects/${enc(pid)}/analyses/${enc(aid)}/export?file=${file}`),
 
   // API-41
   listJobs: async (pid) => (await unwrap(client.GET('/api/v1/jobs', { params: { query: pid ? { project: pid } : {} } }))).map(normalizeJob),

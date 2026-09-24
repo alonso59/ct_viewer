@@ -6,6 +6,7 @@ import { Progress } from '../../lib'
 import { openEditor, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { CurationForm } from './CurationForm'
+import '../../i18n/lazy'
 
 export function CurationView() {
   const { t } = useTranslation()

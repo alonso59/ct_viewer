@@ -1,0 +1,91 @@
+// TST-08 (ops/TESTING.md): two reviewers in two browser contexts on the same case.
+// CUR-11: a decision by A reaches B over SSE ("updated by" toast + new state).
+// CUR-12: concurrent writes to the same (item, target) → last writer wins everywhere; history keeps both.
+// Real backend on the synthetic fixtures (playwright.config.ts starts it); setup goes through the API.
+import { resolve } from 'node:path'
+
+import { expect, test, type Browser, type Page } from '@playwright/test'
+
+const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
+const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
+const CASE = 'case_00002'
+const ITEM = 'case_00002.01.complete.-'
+
+async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
+  return (await r.json()) as T
+}
+
+interface TargetState { target: string; status: string; reviewer: string }
+interface CurationState { n_events: number; items: { item_id: string; targets: TargetState[] }[] }
+
+let pid = ''
+
+async function newProject() {
+  const p = await api<{ project_id: string }>('POST', '/projects', { name: `TST-08 ${Date.now()}`, preset: 'ccrcc' })
+  pid = p.project_id
+  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
+  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
+  await expect
+    .poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 })
+    .toBe('ready')
+}
+
+/** A browser context with a preset reviewer name (CUR-01 stamp in localStorage) on the case */
+async function reviewer(browser: Browser, name: string): Promise<Page> {
+  const ctx = await browser.newContext()
+  await ctx.addInitScript((n) => {
+    localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: n }, version: 0 }))
+  }, name)
+  const page = await ctx.newPage()
+  await page.goto(`/p/${pid}/case/${CASE}?item=${encodeURIComponent(ITEM)}`)
+  await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Curation' }).click()
+  await expect(page.getByRole('complementary', { name: 'Curation' }).getByText(ITEM, { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('contentinfo', { name: 'Status bar' }).getByText('live', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+  return page
+}
+// Firefox fires EventSource `open` only on the first body bytes, i.e. the first 15 s ping (open issue)
+test.setTimeout(120_000)
+
+const form = (page: Page) => page.getByRole('complementary', { name: 'Curation' })
+const decisions = (page: Page) => form(page).getByRole('list', { name: 'Current decisions' })
+const segRow = (page: Page) => decisions(page).getByRole('listitem').filter({ hasText: /^seg/ })
+const quick = (page: Page, label: RegExp) => form(page).getByRole('button', { name: label })
+
+test('live sync and last-writer-wins between two reviewers', async ({ browser }) => {
+  await newProject()
+  const a = await reviewer(browser, 'Dr. A')
+  const b = await reviewer(browser, 'Dr. B')
+
+  // CUR-11: A accepts the segmentation; B gets the toast and the new state without reloading
+  await quick(a, /^Accept/).click()
+  await expect(segRow(a)).toContainText('Accepted')
+  await expect(b.getByRole('status').filter({ hasText: `${CASE} updated by Dr. A: Accepted` })).toBeVisible()
+  await expect(segRow(b)).toContainText('Accepted')
+  // A's own event does not toast "updated by" in A's tab (same session)
+  await expect(a.getByRole('status').filter({ hasText: 'updated by' })).toHaveCount(0)
+
+  // CUR-12: both write the same (item, target) at once; the server keeps the last one
+  await Promise.all([quick(a, /^Minor/).click(), quick(b, /^Reject/).click()])
+  // Wait until both writes are in (3 events), then read the derived winner
+  await expect.poll(async () => (await api<{ n_events: number }>('GET', `/projects/${pid}/curation/state`)).n_events).toBe(3)
+  const st = await api<CurationState>('GET', `/projects/${pid}/curation/state`)
+  const last = st.items.find((i) => i.item_id === ITEM)?.targets.find((x) => x.target === 'seg')
+  expect(last?.status).toMatch(/needs_minor_correction|rejected/)
+  const shown = last?.status === 'rejected' ? 'Rejected' : 'Needs minor correction'
+  for (const page of [a, b]) await expect(segRow(page)).toContainText(shown)
+  expect(last?.reviewer).toBe(last?.status === 'rejected' ? 'Dr. B' : 'Dr. A')
+
+  // History (CUR-14) shows every event, newest first, in both tabs
+  for (const page of [a, b]) {
+    await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'History' }).click()
+    const events = page.getByRole('list', { name: 'Curation events' }).getByRole('listitem')
+    await expect(events).toHaveCount(3)
+    await expect(events.first()).toContainText(shown)
+    await expect(events.filter({ hasText: 'Dr. A' })).toHaveCount(2)
+    await expect(events.filter({ hasText: 'Dr. B' })).toHaveCount(1)
+  }
+  await a.context().close()
+  await b.context().close()
+})

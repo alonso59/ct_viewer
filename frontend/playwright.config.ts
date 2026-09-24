@@ -10,8 +10,9 @@ import { defineConfig, devices } from '@playwright/test'
 const here = dirname(fileURLToPath(import.meta.url))
 const backend = resolve(here, '../backend')
 const fixtures = resolve(here, '../.fixtures/synthetic')
-const API_PORT = 8011
-const WEB_PORT = 5174
+// Ports can be overridden so two lanes/agents can run E2E side by side
+const API_PORT = Number(process.env.E2E_API_PORT ?? 8011)
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5174)
 // Fresh workspace per run (workers re-evaluate this file, so the path is passed on via env)
 const workspace = process.env.E2E_WORKSPACE ?? mkdtempSync(join(tmpdir(), 'rw-e2e-'))
 process.env.E2E_WORKSPACE = workspace
