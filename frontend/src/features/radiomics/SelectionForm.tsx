@@ -1,11 +1,12 @@
-// Run selection (RAD-05): items (all active / filter on any variable (VAR-10) / explicit list),
-// scope and labels (one extraction per label).
+// Run selection (RAD-05): items (all active / filter on any variable (VAR-10) / explicit list,
+// or the current Explorer filter), scope and labels (one extraction per label).
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PHASES, useProject, useVariables, type Variable } from '../../api'
 import { IconButton } from '../../lib'
 import { codicon } from '../../theme'
+import { explorerSelection, useExplorerFilter, type ExplorerSelection } from '../explorer'
 import { SIDES, parseItemIds, type ItemsMode, type SelectionForm as Sel } from './model/selection'
 import { fieldOf } from './model/validate'
 import type { Issue } from './model/types'
@@ -18,11 +19,42 @@ function toggle<T>(list: T[], v: T, on: boolean): T[] {
   return on ? (list.includes(v) ? list : [...list, v]) : list.filter((x) => x !== v)
 }
 
+/** "Use the current Explorer filter": what was applied, and what could not be sent */
+function ExplorerNote({ applied }: { applied: ExplorerSelection }) {
+  const { t } = useTranslation()
+  const notes = [
+    ...applied.dropped.map((d) => t(`rad.fromExplorer.dropped.${d}`)),
+    ...(applied.ranges.length ? [t('rad.fromExplorer.ranges', { names: applied.ranges.join(', ') })] : []),
+  ]
+  return (
+    <div className="muted rad-help" role="status">
+      {t(applied.itemIds ? 'rad.fromExplorer.appliedList' : 'rad.fromExplorer.appliedFilter', { count: applied.itemIds?.length ?? 0 })}
+      {notes.length ? (
+        <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+          {notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
 export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel: Sel; onChange: (patch: Partial<Sel>) => void; issues: Issue[] }) {
   const { t } = useTranslation()
   const project = useProject(pid).data
   const variables = useVariables(pid).data ?? []
   const [adding, setAdding] = useState('')
+  const explorerFilter = useExplorerFilter()
+  const fromExplorer = explorerSelection(explorerFilter, variables)
+  const explorerEmpty = !fromExplorer.itemIds && !fromExplorer.phase.length && !Object.keys(fromExplorer.vars).length && !fromExplorer.ranges.length && !fromExplorer.dropped.length
+  const [applied, setApplied] = useState<ExplorerSelection | null>(null)
+  const applyExplorer = () => {
+    const x = fromExplorer
+    if (x.itemIds) onChange({ mode: 'list', list: x.itemIds.join('\n'), ...(x.scope ? { scope: x.scope } : {}) })
+    else onChange({ mode: 'filter', phase: x.phase, side: [], vars: x.vars })
+    setApplied(x)
+  }
   const phases = project?.phase_vocabulary.length ? project.phase_vocabulary : PHASES
   const levelVars = variables.filter(filterable)
   const continuous = variables.filter((v) => v.type === 'continuous')
@@ -44,6 +76,12 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
             ))}
           </div>
           <span className="muted rad-help">{t(`rad.itemsHelp.${sel.mode}`)}</span>
+          <div>
+            <button type="button" className="btn btn-sm" disabled={explorerEmpty} title={t(explorerEmpty ? 'rad.fromExplorer.empty' : 'rad.fromExplorer.hint')} onClick={applyExplorer}>
+              {t('rad.fromExplorer.use')}
+            </button>
+          </div>
+          {applied ? <ExplorerNote applied={applied} /> : null}
         </div>
       </div>
 

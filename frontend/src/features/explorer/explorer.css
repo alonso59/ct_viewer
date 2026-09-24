@@ -32,3 +32,9 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+.item-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

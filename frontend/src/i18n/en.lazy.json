@@ -241,9 +241,9 @@
       "count_one": "{{count}} item selected",
       "count_other": "{{count}} items selected",
       "send": "Send to Explorer",
-      "sendHint": "Copies the item ids and opens the first item",
-      "sent_one": "Copied {{count}} item id",
-      "sent_other": "Copied {{count}} item ids"
+      "sendHint": "Filters the Explorer to the selected items",
+      "sent_one": "Explorer filtered to {{count}} item",
+      "sent_other": "Explorer filtered to {{count}} items"
     },
     "side": {
       "L": "Left",
@@ -447,6 +447,36 @@
     "rename": "Rename",
     "duplicate": "Duplicate (load and name a copy)",
     "copyOf": "{{name}} copy",
-    "delete": "Delete"
+    "delete": "Delete",
+    "fromExplorer": {
+      "use": "Use the current Explorer filter",
+      "hint": "Copy the Explorer filter (phase, variable levels, or a dashboard item list) into this selection",
+      "empty": "The Explorer has no filter",
+      "appliedFilter": "Explorer filter applied.",
+      "appliedList_one": "Explorer item list applied ({{count}} item).",
+      "appliedList_other": "Explorer item list applied ({{count}} items).",
+      "ranges": "Not sent: ranges on {{names}}. Bin continuous variables into a derived variable (Variables view) to select by level.",
+      "dropped": {
+        "text": "Not sent: the case/patient text search.",
+        "status": "Not sent: the curation status filter.",
+        "warning": "Not sent: the QC warnings filter.",
+        "voi": "Not sent: the has-VOI filter (use Scope instead).",
+        "showExcluded": "Not sent: items excluded upstream are never extracted.",
+        "phase": "Not sent with an item list: the phase filter.",
+        "vars": "Not sent with an item list: the variable filters."
+      }
+    }
+  },
+  "bundle": {
+    "title": "Import project bundle",
+    "open": "Open project",
+    "importing": "Importing…",
+    "failed": "Bundle not imported",
+    "imported": "Imported {{name}}.",
+    "idChanged": "This workspace already had project {{from}}, so the import is {{to}}.",
+    "path": "Path on this server",
+    "check": "Check",
+    "verify": "{{matched}}/{{sampled}} sampled items match · {{mismatched}} changed · {{missing}} missing",
+    "needsRelink": "Some data roots do not resolve on this server. Use Relink to point them at the data."
   }
 }

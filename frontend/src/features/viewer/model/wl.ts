@@ -1,9 +1,9 @@
 // Window/level math (VW-05). Presets live in state/viewerSync (WL_PRESETS).
 import type { ItemRecord } from '../../../api'
 
-/** HU presets apply only to CT. A missing modality counts as CT (this is a CT workbench). */
-export function isCt(item: Pick<ItemRecord, 'extra'>): boolean {
-  const m = item.extra?.modality
+/** HU presets apply only to CT (`item.modality`). A missing modality counts as CT (this is a CT workbench). */
+export function isCt(item: Pick<ItemRecord, 'modality'>): boolean {
+  const m = item.modality
   return typeof m !== 'string' || m.trim() === '' || m.trim().toUpperCase() === 'CT'
 }
 

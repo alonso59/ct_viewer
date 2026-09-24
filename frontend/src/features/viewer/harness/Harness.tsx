@@ -49,7 +49,7 @@ const REFERENCE: ItemRecord = {
   labels_present: [1, 2, 3],
   status: 'active',
   warning_codes: [],
-  extra: { modality: 'CT' },
+  extra: {},
 }
 
 function Keys() {

@@ -1,7 +1,7 @@
 // Explorer: case tree, filters, quick open, problems (UI-05, UI-08, UI-09)
-import { api, keys, queryClient, type CaseSummary, type QCWarning } from '../../api'
+import { api, keys, queryClient, type CaseFilter, type CaseSummary, type QCWarning } from '../../api'
 import { registry, useWorkbench } from '../../shell'
-import { useViewerSync } from '../../state'
+import { useLayout, useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { nextProblem, ProblemsPanel, useProblemsBadge } from './ProblemsPanel'
 import { openItem, ProjectView, ProjectViewActions } from './ProjectView'
@@ -11,6 +11,16 @@ import { activeFilterCount, useExplorer } from './store'
 
 export { openItem } from './ProjectView'
 export { itemLabel } from './itemLabel'
+export { explorerSelection, type DroppedCriterion, type ExplorerSelection } from './selection'
+
+/** Read-only view of the current Explorer filter (RAD-05 "Use the current Explorer filter") */
+export const useExplorerFilter = (): Readonly<CaseFilter> => useExplorer((s) => s.filter)
+
+/** DB-04: filter the Explorer to these items (and their cases) and show the Project view */
+export function showItemsInExplorer(itemIds: string[]) {
+  useExplorer.getState().setItemIds(itemIds.length ? itemIds : null)
+  useLayout.getState().showView('project')
+}
 
 function stepCase(delta: 1 | -1) {
   const order = useExplorer.getState().order

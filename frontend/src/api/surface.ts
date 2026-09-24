@@ -5,6 +5,7 @@ import type {
   AnalysisExportFile,
   AnalysisSpec,
   AnalysisSummary,
+  BundleImportResult,
   CaseDetail,
   CaseSummary,
   CommitResult,
@@ -17,6 +18,7 @@ import type {
   ExternalImportResult,
   FeatureRow,
   FsListing,
+  HashJobStarted,
   Health,
   ImportHistory,
   ImportPreview,
@@ -28,6 +30,7 @@ import type {
   PreviewRequest,
   Profile,
   Project,
+  ProjectBundle,
   ProjectSummary,
   QCWarning,
   QueueRow,
@@ -63,6 +66,18 @@ export interface CaseFilter {
   showExcluded?: boolean
   /** First N cases only (one page), e.g. for a project thumbnail */
   limit?: number
+  /** Only these items (DB-04 "Send to Explorer"); cases are the items' cases. Client-side: API-20 has no item filter */
+  itemIds?: string[]
+}
+
+/** Case of an item: `item_id` is `{case_id}.{scan_idx}.{scope}.{side}` (DATA_MODEL §item_id) */
+export const caseOfItem = (itemId: string): string => itemId.split('.').slice(0, -3).join('.') || itemId
+
+/** Cases holding at least one of `itemIds`, in list order; no list = all */
+export function filterByItems<C extends { case_id: string }>(cases: C[], itemIds: string[] | undefined): C[] {
+  if (!itemIds) return cases
+  const wanted = new Set(itemIds.map(caseOfItem))
+  return cases.filter((c) => wanted.has(c.case_id))
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'offline'
@@ -81,6 +96,10 @@ export interface Api {
   updateLabelMap(pid: string, labels: LabelDef[]): Promise<Project>
   listRoots(pid: string): Promise<RootInfo[]>
   relinkRoot(pid: string, alias: string, path: string): Promise<RelinkResult>
+  /** API-06 export (PRJ-08): project folder without `cache/`, never image data */
+  exportBundle(pid: string): Promise<ProjectBundle>
+  /** API-06 import (PRJ-09): multipart field `bundle`; `needs_relink` → relink dialog (PRJ-05) */
+  importBundle(file: File): Promise<BundleImportResult>
 
   // Import (API-10..14)
   fsList(path: string | null): Promise<FsListing>
@@ -88,6 +107,8 @@ export interface Api {
   commitImport(pid: string, previewId: string): Promise<CommitResult>
   importHistory(pid: string): Promise<ImportHistory>
   listWarnings(pid: string): Promise<QCWarning[]>
+  /** API-15 (IMP-09): full SHA-256 job; 409 `job-conflict` while one runs */
+  startHashJob(pid: string, force?: boolean): Promise<HashJobStarted>
 
   // Variables (API-16..18)
   listVariables(pid: string): Promise<Variable[]>

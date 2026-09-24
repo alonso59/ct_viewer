@@ -2,7 +2,7 @@
 import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../../i18n'
-import { keys, queryClient, type RadiomicsRun } from '../../api'
+import { keys, queryClient, type RunSummary } from '../../api'
 import { registry, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import type { RunParams } from './DashboardEditor'
@@ -23,7 +23,7 @@ export function registerDashboard() {
     id: (p) => `run:${p.runId}`,
     title: (p) => {
       const pid = useWorkbench.getState().pid ?? ''
-      const run = queryClient.getQueryData<RadiomicsRun[]>(keys.runs(pid))?.find((r) => r.run_id === p.runId)
+      const run = queryClient.getQueryData<RunSummary[]>(keys.runs(pid))?.find((r) => r.run_id === p.runId)
       return run?.name ?? i18n.t('dashboard.tabTitle')
     },
     icon: () => codicon('graph'),

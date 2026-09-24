@@ -181,7 +181,6 @@
     "voiSide": "VOI {{side}}"
   },
   "home": {
-    "bundleSoon": "Project bundles arrive in a later phase (PRJ-09)",
     "importBundle": "Import project bundle…",
     "importBundleHelp": "Open a .zip exported from another workspace",
     "newProject": "New project…",
@@ -225,7 +224,22 @@
     "relink": "Relink data root…",
     "relinked": "{{alias}} relinked",
     "verifyOk": "Verified {{matched}} of {{sampled}} sampled items.",
-    "metaNew": "{{cases}} cases · created {{ago}}"
+    "metaNew": "{{cases}} cases · created {{ago}}",
+    "bundle": {
+      "export": "Export project bundle",
+      "exported": "Bundle saved as {{name}}",
+      "exportFailed": "Bundle export failed: {{detail}}"
+    },
+    "hash": {
+      "compute": "Compute full hashes",
+      "recompute": "Recompute all full hashes",
+      "started_one": "Hashing {{count}} file ({{skipped}} already current). Progress is in the Jobs panel.",
+      "started_other": "Hashing {{count}} files ({{skipped}} already current). Progress is in the Jobs panel.",
+      "upToDate_one": "Full hashes are up to date ({{count}} file).",
+      "upToDate_other": "Full hashes are up to date ({{count}} files).",
+      "running": "A full-hash job is already running; see the Jobs panel.",
+      "failed": "Could not start hashing: {{detail}}"
+    }
   },
   "welcome": {
     "commands": "Show all commands",
@@ -246,7 +260,9 @@
     "subtitle": "{{cases}} cases · {{items}} items",
     "tab": "Welcome",
     "warnings": "QC warnings",
-    "indexing": "Indexing is running. Cases appear when it finishes."
+    "indexing": "Indexing is running. Cases appear when it finishes.",
+    "hashHelp": "SHA-256 of every image and mask file, for provenance",
+    "bundleHelp": "A .zip of the project folder, without image data"
   },
   "import": {
     "alias": "Alias",
@@ -346,7 +362,10 @@
     "columns": "Columns and colour",
     "showColumns": "Show as column",
     "colorBy": "Colour by",
-    "noVariables": "No case-level variables"
+    "noVariables": "No case-level variables",
+    "itemFilter_one": "{{count}} item",
+    "itemFilter_other": "{{count}} items",
+    "clearItemFilter": "Clear the item filter"
   },
   "search": {
     "any": "Any",

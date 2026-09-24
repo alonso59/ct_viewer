@@ -181,6 +181,15 @@ export function useRelink(pid: string) {
   })
 }
 
+/** API-06 import (PRJ-09) */
+export function useImportBundle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => api.importBundle(file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.projects() }),
+  })
+}
+
 export function useImportPreview(pid: string) {
   return useMutation({ mutationFn: (req: PreviewRequest) => api.importPreview(pid, req) })
 }
@@ -338,6 +347,11 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
       }
       if (e.data.kind === 'thumbnail') useConnection.getState().bumpThumbs()
       if (e.data.kind === 'index') void qc.invalidateQueries({ queryKey: keys.imports(pid) })
+      // API-15 results are `image.sha256` / `mask.sha256` on item records
+      if (e.data.kind === 'hash') {
+        void qc.invalidateQueries({ queryKey: ['project', pid, 'item'] })
+        void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
+      }
     }
   }
   if (e.event === 'index.rebuilt') {

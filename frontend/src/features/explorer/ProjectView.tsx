@@ -88,18 +88,21 @@ export function ProjectView() {
     if (cases.data) setOrder(cases.data.map((c) => c.case_id))
   }, [cases.data, setOrder])
 
+  const itemIds = filter.itemIds
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
+    // DB-04 item filter: an expanded case lists only the chosen items
+    const only = itemIds ? new Set(itemIds) : null
     for (const c of cases.data ?? []) {
       out.push({ kind: 'case', c })
       if (expanded[c.case_id]) {
         const items = itemsByCase[c.case_id]
         if (!items) out.push({ kind: 'loading', caseId: c.case_id })
-        else for (const item of items) out.push({ kind: 'item', item, caseId: c.case_id })
+        else for (const item of items) if (!only || only.has(item.item_id)) out.push({ kind: 'item', item, caseId: c.case_id })
       }
     }
     return out
-  }, [cases.data, expanded, itemsByCase])
+  }, [cases.data, expanded, itemsByCase, itemIds])
 
   const caseH = density === 'thumbnails' ? 56 : 22
   // TanStack Virtual is not React-compiler compatible yet; the compiler skips this component, which is fine here
@@ -163,6 +166,7 @@ export function ProjectView() {
         </div>
       </div>
       {colorVar ? <ColorLegend v={colorVar} /> : null}
+      {itemIds ? <ItemFilterChip ids={itemIds} /> : null}
       {activeFilterCount(filter) > 0 ? (
         <div className="muted" style={{ padding: '0 12px 6px', fontSize: 'var(--fs-panel)', display: 'flex', gap: 6 }}>
           {t('explorer.filtersActive', { count: activeFilterCount(filter) })}
@@ -297,6 +301,29 @@ export function ProjectView() {
       <div className="muted" style={{ padding: '4px 12px', fontSize: 'var(--fs-badge)', borderTop: '1px solid var(--border-muted)' }}>
         {t('explorer.caseCount', { count: cases.data?.length ?? 0 })}
       </div>
+    </div>
+  )
+}
+
+/** DB-04: the Explorer shows only the items sent from a dashboard selection; clearable */
+export function ItemFilterChip({ ids }: { ids: string[] }) {
+  const { t } = useTranslation()
+  return (
+    <div style={{ padding: '0 8px 6px' }}>
+      <span className="badge item-filter-chip" data-tone="accent" title={ids.join('\n')}>
+        <Icon spec={codicon('filter')} />
+        {t('explorer.itemFilter', { count: ids.length })}
+        <button
+          type="button"
+          className="icon-btn"
+          style={{ width: 14, height: 14 }}
+          aria-label={t('explorer.clearItemFilter')}
+          title={t('explorer.clearItemFilter')}
+          onClick={() => useExplorer.getState().setItemIds(null)}
+        >
+          <Icon spec={codicon('close')} />
+        </button>
+      </span>
     </div>
   )
 }

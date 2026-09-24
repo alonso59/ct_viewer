@@ -38,8 +38,8 @@ test('new project → import → browse → share link', async ({ page, browser,
 
   // Preview: counts from the fixtures
   const kpi = (label: string) => wizard.locator('.card', { hasText: label }).locator('.kpi')
-  await expect(kpi('cases')).toHaveText('17')
-  await expect(kpi('scan rows')).toHaveText('24')
+  await expect(kpi('cases')).toHaveText('50')
+  await expect(kpi('scan rows')).toHaveText('89')
   await wizard.getByRole('button', { name: 'Import and index' }).click()
 
   // Indexing job → wizard closes with a toast
