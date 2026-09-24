@@ -505,3 +505,9 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 **Open issues**
 - Open mode lacks the viewer's minimum CT controls (W/L presets, layout, overlay, reset): next step (owner request).
 - The flaky cold-run DICOM save E2E above.
+
+## 2026-09-24 · P7c drafts (ADR-0018..0022, proposed) · v3
+
+- Drafts only, no code: ADR-0018 first-party plugin platform + Library; ADR-0019 neutral projects, packs, `If-Match`, view-only link; ADR-0020 converter owns `metadata.jsonl`, plugin data in layers; ADR-0021 projectless CT tools, workspace tasks, converter overlay; ADR-0022 event store, Curation & QC and Labeling as plugins. New draft owners `domain/PLUGINS.md` (PLG-), `domain/LABELING.md` (LBL-). ROADMAP §P7c + "Pending plugins" (VOI extractor requires a segmentation set; nnU-Net).
+- The earlier shell prompt (Open-mode CT controls + flaky E2E) is absorbed by P7c Wave 4; do not run it separately.
+- Still pending, unchanged: VOI extractor and nnU-Net plugins, deleting `legacy/`, continuous ranges in radiomics selection, human checks, Step 4 (udocker), P8 (Electron).

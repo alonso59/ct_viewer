@@ -23,3 +23,8 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0015 | Segmentation sets per item | Accepted |
 | 0016 | Tasks and plugins: one contract, builtin and external runtimes | Accepted |
 | 0017 | DICOM converter as a task; metadata analyzers as separate, composable tasks | Accepted |
+| 0018 | First-party plugin platform and Plugin Library | Proposed |
+| 0019 | Neutral projects, study packs, view-only links | Proposed |
+| 0020 | `metadata.jsonl` belongs to the converter; plugin data lives in layers | Proposed |
+| 0021 | CT tools without a project; workspace tasks; the converter overlay | Proposed |
+| 0022 | Shared event store; Curation & QC and Labeling table as plugins | Proposed |

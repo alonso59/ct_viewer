@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order from 2026-09-24 (user decision): **P7b → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
+Order from 2026-09-24 (user decision): **P7b → P7c → pending plugins (VOI extractor, nnU-Net) → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
 
 ## Progress
 
@@ -22,6 +22,7 @@ Order from 2026-09-24 (user decision): **P7b → P7 remote part (Step 4: udocker
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
 | P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (Waves 1–4, exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
+| P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | 📝 Drafts proposed 2026-09-24; awaiting owner approval |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
@@ -137,6 +138,20 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [ ] **Pending (user decision 2026-09-24):** a VOI extractor plugin that crops VOIs from a segmentation (reference code to be provided); it also settles the legacy `.npy` VOI axis order (IMP-10, SRC-12; default `xyz` until then). Keep `legacy/` until the owner decides to delete it (fully ported otherwise)
 - [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 **Exit:** a NIfTI folder, a single NIfTI, a single DICOM file and a standalone segmentation open in Open mode; a DICOM folder converts into a project with sidecars and active phase annotations; the fake plugin (CI) adds a segmentation set through the external runner; a radiomics run on a chosen `seg_id` records it; TST-07/13/14/15/16 green.
+
+### P7c — Plugin platform & neutral projects (ADR-0018..0022, proposed 2026-09-24)
+Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` is the converter's artifact (contract v1, no phase/curation/group fields), plugin data in layers; plugins installed per workspace and enabled by default (management later); projectless converter output in `{derived}/_datasets/{name}/`; default modality per project and a view-only link: yes.
+- [ ] Docs: accept ADR-0018..0022; PLUGINS.md and LABELING.md become owners; update TASKS, PROJECT_FORMAT, API, INPUT_METADATA, DICOM_CONVERTER, ANALYZERS, VARIABLES, CURATION, VIEWER, UI_SHELL, FE/BE ARCHITECTURE, DATA_MODEL, VISION, GLOSSARY
+- [ ] Wave 1 · platform: `plugin.json` + registry activation (PLG-01..08), Plugin Library view, repackage converter, analyzers, radiomics, dashboard/analysis and curation as plugins (no behaviour change); `PLUGINS_ROOT` limited to the host runner of first-party plugins
+- [ ] Wave 2 · neutral projects: New project = name (+ optional default modality); packs (ccRCC pack) applied from Project settings; settings tabs (General, Display incl. DICOM window and convention, Labels incl. `.ctbl` / ITK-SNAP / `dataset.json` import, Data, Plugins); `If-Match` on API-03; view-only link `/v/{token}`; `format_version` 3 migration
+- [ ] Wave 3 · converter & metadata: clean converter output in the app and the CLI (no `phase_guess`, `curated_*`, `group`, `curation.csv`); legacy fields still accepted on import; layers model + dataset table export; converter overlay window; workspace tasks and `_datasets/`; phase analyzer chained by default
+- [ ] Wave 4 · CT tools in the case tab and Open mode (ADR-0021 Must + Should), including numeric W/L, DICOM header window, HU probe, header info, slab MIP/MinIP, distance/angle/ROI; fix the flaky cold-run E2E `tasks-dicom.spec.ts` (LANE_NOTES)
+- [ ] Wave 5 · core event store; Curation & QC plugin on it (no data change); Labeling table plugin (LBL-01..08)
+**Exit:** a user converts a DICOM folder without a project from the converter overlay, opens the dataset with the full CT tool set, creates a neutral project from it, applies the ccRCC pack, labels cases in a patient-level table and a CT-level table, curates items, and shares a view-only link that cannot write; every plugin is reachable from the Library; `make check`, Playwright and NFR-07 green.
+
+### Pending plugins (after P7c, before Step 4)
+- [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10)
+- [ ] nnU-Net segmentation plugin (`plugins/nnunet/`, external runtime, GPU), deferred from P7b
 
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
