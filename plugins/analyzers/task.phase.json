@@ -1,0 +1,12 @@
+{
+  "manifest": 1,
+  "id": "analyzer.phase",
+  "version": "1.0.0",
+  "title": "Phase from DICOM metadata",
+  "description": "Proposes a contrast phase from descriptions and contrast timing (ANALYZERS.md). Never overwrites data; activate the run to use it (ANZ-04).",
+  "kind": "analyzer",
+  "input": "rows",
+  "outputs": ["annotations"],
+  "settings_schema": { "type": "object", "properties": {} },
+  "runtime": { "type": "builtin", "entry": "plugins.analyzers.task:run_phase" }
+}

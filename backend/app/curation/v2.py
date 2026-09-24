@@ -52,7 +52,11 @@ def item_context(item: Item) -> dict[str, Any]:
     }
 
 
-def parse_rows(data: bytes) -> list[tuple[int, dict[str, str]]]:
+def parse_rows(
+    data: bytes,
+    required: Sequence[str] = REQUIRED_COLUMNS,
+    what: str = "Not a v2 curation_review.csv",
+) -> list[tuple[int, dict[str, str]]]:
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -61,10 +65,10 @@ def parse_rows(data: bytes) -> list[tuple[int, dict[str, str]]]:
         ) from None
     reader = csv.DictReader(io.StringIO(text, newline=""))
     cols = [c.strip() for c in (reader.fieldnames or [])]
-    missing = [c for c in REQUIRED_COLUMNS if c not in cols]
+    missing = [c for c in required if c not in cols]
     if missing:
         raise ValidationProblem(
-            "Not a v2 curation_review.csv",
+            what,
             errors=[{"loc": ["file"], "msg": f"missing columns: {missing}"}],
         )
     rows: list[tuple[int, dict[str, str]]] = []

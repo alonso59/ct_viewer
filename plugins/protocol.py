@@ -55,10 +55,14 @@ class Job:
         if self.spec.get("protocol") != PROTOCOL:
             raise ValueError(f"unsupported protocol {self.spec.get('protocol')!r}")
         self.settings: dict[str, Any] = self.spec.get("settings") or {}
+        # Project context the backend adds (phase vocabulary, preset target profile, ANZ-05)
+        self.context: dict[str, Any] = self.spec.get("context") or {}
         self.items: list[dict[str, Any]] = self.spec.get("items") or []
         self.rows: list[dict[str, Any]] = self.spec.get("rows") or []
         out = self.spec.get("output_dir")
         self.output_dir: Path | None = Path(out) if out else None
+        ds = self.spec.get("dataset_dir")
+        self.dataset_dir: Path | None = Path(ds) if ds else None  # append-only (ADR-0014)
         self.skip: set[str] = set((self.spec.get("resume") or {}).get("skip") or [])
         self.mode: str = self.spec.get("mode", "run")  # run | estimate
         self.counts = {"items": 0, "ok": 0, "failed": 0, "skipped": 0}
@@ -88,6 +92,10 @@ class Job:
 
     def log(self, message: str, level: str = "info") -> None:
         self._line({"t": "log", "level": level, "message": message})
+
+    def total(self, n: int) -> None:
+        """Unit count once known (source tasks discover theirs, e.g. DICOM series)."""
+        self._line({"t": "total", "n": int(n)})
 
     def heartbeat(self) -> None:
         self._line({"t": "heartbeat"})
@@ -129,6 +137,7 @@ class Job:
         versions: dict[str, str] | None = None,
         status: str | None = None,
         error: str | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if status is None:
             if self.cancelled():
@@ -149,6 +158,7 @@ class Job:
         }
         if error:
             result["error"] = error
+        result.update(extra or {})  # e.g. the converter's identity registry, a dry-run estimate
         self._fh.close()
         write_json_atomic(self.dir / RESULT, result)
         return result

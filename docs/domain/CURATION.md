@@ -22,7 +22,7 @@ Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004.
 | CUR-12 | Conflict policy: last-writer-wins on derived state; history shows every event. | M |
 | CUR-13 | Import v2 `curation_review.csv` as events (`source: "v2_import"`). | S |
 | CUR-14 | History panel per item and per case, newest first. | M |
-| CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_phase`, `curated_quality`, `notes` map to status, `proposed_phase` and comment (DCM-08). | S |
+| CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_phase`, `curated_quality`, `notes` map to status, `proposed_phase` and comment (DCM-08). Mapping: `curated_phase` → target `phase` (`wrong_phase_suspected` if it differs from the indexed phase, else `accepted`); else target `seg`: keep false → `rejected`, quality poor/bad/low → major, fair/medium → minor correction, keep true or quality good → `accepted`. One import per `case_id|scan_idx`. | S |
 
 ## Status
 

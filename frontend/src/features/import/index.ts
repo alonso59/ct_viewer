@@ -2,6 +2,7 @@
 import { registry, useWorkbench } from '../../shell'
 
 export { FolderBrowser, ImportWizard, useImportWizard, type WizardPrefill } from './ImportWizard'
+export { DerivedRootDialog } from './DerivedRootDialog'
 import { useImportWizard } from './ImportWizard'
 
 export function registerImport() {

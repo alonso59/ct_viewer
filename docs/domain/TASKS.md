@@ -51,12 +51,14 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 |---|---|---|
 | `job.json` | backend | `{protocol: 1, job_id, run_id, mode: run\|estimate, task: {id, version}, settings, items[] \| rows[], output_dir, identity?, resume: {skip[]}, batch: {size}}`. Each item has `item_id`, `case_id`, `image {path, format}`, `masks {seg_id: {path, format}}` (only the selected set when the task reads masks), `geometry`, `meta` (scan_idx, scope, side, modality, phase, phase_raw, patient_id, labels_present, extra). `mode: estimate` = the TSK-05 sample run into a disposable `output_dir` |
 | `claim` | runner | Created with `O_EXCL`; `{runner_id, pid, at}` (external only) |
-| `progress.jsonl` | task | `{t: "item", item_id, status: ok\|failed\|skipped, outputs: [{kind, path, seg_id?, labels?}], message}` · `{t: "log", level, message}` · `{t: "heartbeat"}` |
+| `progress.jsonl` | task | `{t: "item", item_id, status: ok\|failed\|skipped, outputs: [{kind, path, seg_id?, labels?, sha256?}], message}` · `{t: "total", n}` (a source task's unit count once known) · `{t: "log", level, message}` · `{t: "heartbeat"}` |
 | `result.json` | task | `{status, counts, outputs_manifest[], versions, started_at, finished_at, error?}`; written last, atomically |
 | `cancel` | backend | Presence = cancel. Builtin: checked between items. External: the runner sends SIGTERM, then SIGKILL after 30 s |
 
 - Paths: data and derived roots are absolute and mirror-mounted (OPS-05), so they are the same inside the container and on the host. Workspace files are referenced **relative to the job dir**, because the workspace path differs across the container boundary.
 - Exit code 0 = see `result.json`; non-zero or no `result.json` = `failed`, with the tail of the log kept.
+- `job.json` also carries `context` (phase vocabulary, preset, preset target profile), `project_id`, and for tasks with volume outputs `dataset_dir` + `dataset_ref` (the append-only `dataset/`); `input: source` tasks get `source {path}`; tasks with `metadata` outputs get `identity` and `previous_metadata`. `result.json` may add `identity` (merged into `sources/identity.json`, append-only) and `estimate`.
+- Output kinds in item lines: `mask`, `image`, `sidecar` (files inside `output_dir` or `dataset/`, recorded with sha256 in the ledger); `result.outputs_manifest`: `annotations` (a job-dir file, copied to the run) and `metadata` (a file in `output_dir`, imported as the source `task:{task_id}`).
 - The API process tails `progress.jsonl` (every 0.2 s) and keeps, in `tasks/runs/{run_id}/`: `run.json` (TSK-10), `items.jsonl` (one outcome line per item and attempt; the last one wins; resume skips `ok` items), `log.jsonl`, and `masks.jsonl` for mask outputs. A mask output must be a file inside `output_dir`, else the item becomes `failed`. Builtin job dirs are deleted when the run ends.
 
 ## External runtime

@@ -117,6 +117,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
 | Run outputs | Written by workers only inside their own `runs/{run_id}/`; committed by renaming `run.json.tmp` |
 | `source` roots | Never opened for writing (R1) |
 | `derived` roots | Written only by task runs, inside `{project_id}/{task_id}/runs/{run_id}/` or the task's append-only `dataset/`; finished files are never rewritten; deleted only by a confirmed user action (ADR-0014) |
+| `{derived root}/_open/` | Open-mode "Save as NIfTI…" only (SRC-14): new files, never overwritten (`-1`, `-2` … suffixes), never modified afterwards; not part of any project |
 
 Single-writer model and locking: BE-05.
 

@@ -18,7 +18,7 @@ Status = Literal[
     "not_reviewed",
 ]
 Priority = Literal["low", "medium", "high"]
-Source = Literal["ui", "v2_import", "api"]
+Source = Literal["ui", "v2_import", "converter_import", "analyzer", "api"]
 ProposedSide = Literal["L", "R"]
 
 # CURATION.md §Status: rollup severity (high → low) and the correction-queue set (CUR-08/09).

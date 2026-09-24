@@ -300,6 +300,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/open/{sid}/items/{n}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Save
+         * @description SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once.
+         */
+        post: operations["open_save_api_v1_open__sid__items__n__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/imports/preview": {
         parameters: {
             query?: never;
@@ -542,6 +562,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/items/{iid}/dicom-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dicom Tags
+         * @description The item's DICOM JSON sidecar (DCM-04), read on demand only (DCM-05: PHI stays here).
+         */
+        get: operations["get_dicom_tags_api_v1_projects__pid__items__iid__dicom_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/items/{iid}/image": {
         parameters: {
             query?: never;
@@ -729,6 +769,83 @@ export interface paths {
          *     `X-Reviewer` is required (CUR-01) and used for rows without a reviewer.
          */
         post: operations["import_v2_api_v1_projects__pid__curation_import_v2_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/curation/import-converter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Converter
+         * @description API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08).
+         */
+        post: operations["import_converter_api_v1_projects__pid__curation_import_converter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Annotations
+         * @description Annotations with confidence and evidence; `active` = the run is the field's source.
+         */
+        get: operations["list_annotations_api_v1_projects__pid__annotations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/annotation-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Sources */
+        get: operations["get_sources_api_v1_projects__pid__annotation_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/annotation-sources/{field}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description ANZ-04: activate a run for one field (or `null`), then rebuild the index.
+         */
+        put: operations["put_source_api_v1_projects__pid__annotation_sources__field__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1638,6 +1755,37 @@ export interface components {
             /** N Recommendations */
             n_recommendations: number;
         };
+        /** AnnotationRow */
+        AnnotationRow: {
+            /** Run Id */
+            run_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Field */
+            field: string;
+            /** Value */
+            value?: string | null;
+            /** Confidence */
+            confidence?: string | null;
+            /** Evidence */
+            evidence?: string | null;
+            /** Rules Version */
+            rules_version?: string | null;
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+        };
+        /** AnnotationSources */
+        AnnotationSources: {
+            /** Annotation Sources */
+            annotation_sources: {
+                [key: string]: string | null;
+            };
+            /** Job Id */
+            job_id?: string | null;
+        };
         /** AssociationRequest */
         AssociationRequest: {
             filters?: components["schemas"]["GlobalFilters"];
@@ -1720,6 +1868,14 @@ export interface components {
              * @description A PRJ-08 bundle .zip
              */
             bundle: string;
+        };
+        /** Body_import_converter_api_v1_projects__pid__curation_import_converter_post */
+        Body_import_converter_api_v1_projects__pid__curation_import_converter_post: {
+            /**
+             * File
+             * @description The converter CLI's `curation.csv`
+             */
+            file: string;
         };
         /** Body_import_external_api_v1_projects__pid__variables_external_post */
         Body_import_external_api_v1_projects__pid__variables_external_post: {
@@ -2158,7 +2314,7 @@ export interface components {
              * @default ui
              * @enum {string}
              */
-            source: "ui" | "v2_import" | "api";
+            source: "ui" | "v2_import" | "converter_import" | "analyzer" | "api";
         };
         /**
          * CurationState
@@ -2888,6 +3044,8 @@ export interface components {
             ignored?: {
                 [key: string]: number;
             };
+            /** Source Key */
+            source_key?: string | null;
         };
         /**
          * ImportRecord
@@ -2911,6 +3069,8 @@ export interface components {
              * @enum {string}
              */
             adapter: "metadata-v1" | "nifti-files";
+            /** Source Key */
+            source_key?: string | null;
         };
         /**
          * IndexStatus
@@ -3315,6 +3475,12 @@ export interface components {
             needs_axis_order: boolean;
             /** Error */
             error?: string | null;
+            /** Files */
+            files?: string[];
+            /** Series Uid */
+            series_uid?: string | null;
+            /** Description */
+            description?: string | null;
         };
         /** OpenSession */
         OpenSession: {
@@ -3580,9 +3746,8 @@ export interface components {
             /**
              * Source
              * @default none
-             * @enum {string}
              */
-            source: "phase.json" | "curated_phase" | "canonical_phase" | "phase" | "phase_guess" | "catalog" | "none";
+            source: string;
         };
         /** PreflightRequest */
         PreflightRequest: {
@@ -4201,6 +4366,34 @@ export interface components {
             /** Env Hint */
             env_hint?: string | null;
         };
+        /**
+         * SaveBody
+         * @description API-09 (SRC-14).
+         */
+        SaveBody: {
+            /** Dest Dir */
+            dest_dir?: string | null;
+            /**
+             * Sidecar
+             * @default true
+             */
+            sidecar: boolean;
+            /**
+             * Anonymize
+             * @default none
+             * @enum {string}
+             */
+            anonymize: "none" | "basic";
+            /** Axis Order */
+            axis_order?: ("xyz" | "zyx") | null;
+        };
+        /** Saved */
+        Saved: {
+            /** Path */
+            path: string;
+            /** Sidecar Path */
+            sidecar_path?: string | null;
+        };
         /** ScanGroup */
         ScanGroup: {
             /** Scan Idx */
@@ -4385,6 +4578,11 @@ export interface components {
          * @enum {string}
          */
         Severity: "error" | "warning" | "info";
+        /** SourceBody */
+        SourceBody: {
+            /** Run Id */
+            run_id?: string | null;
+        };
         /** Suggestion */
         Suggestion: {
             /** Task Id */
@@ -4451,6 +4649,10 @@ export interface components {
             sample_item_ids?: string[];
             /** Sample Errors */
             sample_errors?: string[];
+            /** Detail */
+            detail?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * TaskInfo
@@ -5764,6 +5966,42 @@ export interface operations {
             };
         };
     };
+    open_save_api_v1_open__sid__items__n__save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Saved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_import_api_v1_projects__pid__imports_preview_post: {
         parameters: {
             query?: never;
@@ -5794,6 +6032,11 @@ export interface operations {
                     options?: {
                         [key: string]: unknown;
                     };
+                    /**
+                     * Add
+                     * @default false
+                     */
+                    add?: boolean;
                 };
                 "multipart/form-data": {
                     root: string;
@@ -6249,6 +6492,40 @@ export interface operations {
             };
         };
     };
+    get_dicom_tags_api_v1_projects__pid__items__iid__dicom_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                iid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_image_api_v1_projects__pid__items__iid__image_get: {
         parameters: {
             query?: never;
@@ -6650,6 +6927,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["V2ImportReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_converter_api_v1_projects__pid__curation_import_converter_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Reviewer name or initials (CUR-01); required for writes */
+                "x-reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_converter_api_v1_projects__pid__curation_import_converter_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["V2ImportReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_annotations_api_v1_projects__pid__annotations_get: {
+        parameters: {
+            query?: {
+                field?: string | null;
+                run?: string | null;
+                item_id?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnotationRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sources_api_v1_projects__pid__annotation_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnotationSources"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_source_api_v1_projects__pid__annotation_sources__field__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                field: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnotationSources"];
                 };
             };
             /** @description Validation Error */

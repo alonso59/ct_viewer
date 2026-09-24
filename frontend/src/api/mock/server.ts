@@ -893,6 +893,28 @@ export const mockServer: Api = {
   async closeOpen() {},
   openImageUrl: () => null,
   openPreviewUrl: () => null,
+  async saveOpen() {
+    await wait(20)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Open mode needs the backend (API-09)')
+  },
+  async listAnnotations() {
+    await wait(40)
+    return []
+  },
+  async setAnnotationSource(pid, field, runId) {
+    await wait(40)
+    const s = exists(pid)
+    s.project.annotation_sources = { ...s.project.annotation_sources, [field]: runId }
+    return { annotation_sources: clone(s.project.annotation_sources), job_id: null }
+  },
+  async dicomTags(_pid, iid) {
+    await wait(20)
+    throw new ProblemError(404, 'not-found', 'No DICOM sidecar in the mock', iid)
+  },
+  async importConverterCuration() {
+    await wait(20)
+    throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'API-55 needs the backend')
+  },
   async attachOpen() {
     await wait(20)
     throw new ProblemError(503, 'server-busy', 'Not available in the mock', 'Open mode needs the backend (API-08)')

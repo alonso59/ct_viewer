@@ -7,6 +7,7 @@ Layout mirrors a converter/preprocessor dataset (docs/domain/INPUT_METADATA.md):
         metadata.jsonl, phase.json, voi/voi_catalog.jsonl
         nifti/  seg/  voi/images/{subdir}/{phase}/  voi/mask/{subdir}/{phase}/
       outside/                     files that exist but lie outside the data root
+      dicom/                       small DICOM source (2 patients, 3 series): converter, Open mode
       expected.json                every deliberate defect -> expected QC code
 
 Study variables (TESTING.md §Variables; VARIABLES.md): there is no `group` field. A healthy
@@ -407,10 +408,24 @@ def generate(out: Path) -> Plan:
             "excluded": ["study_uid", "series_uid", "accession_number", "first_file"],
         },
     }
+    _dicom(out / "dicom")
+    expected["dicom"] = {"patients": ["P900", "P901"], "series": 3, "folder": "dicom"}
     (out / "expected.json").write_text(
         json.dumps(expected, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return plan
+
+
+def _dicom(root: Path) -> None:
+    """A small DICOM source for `dicom.convert` and Open mode (SRC-13): 2 patients, 3 series."""
+    from tools.dicom_fixtures import write_series
+
+    info = write_series(root / "P900" / "ct_np", patient_id="P900", seed="fx")
+    write_series(
+        root / "P900" / "scout", patient_id="P900", description="SCOUT", shape=(12, 10, 3),
+        study_uid=info["study_uid"], series_number=9, seed="fx",
+    )  # fmt: skip
+    write_series(root / "P901" / "ct_nc", patient_id="P901", description="NON CONTRAST", seed="fx")
 
 
 def main() -> None:

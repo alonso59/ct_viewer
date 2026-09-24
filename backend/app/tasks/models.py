@@ -185,6 +185,7 @@ class TaskEstimate(BaseModel):
     basis: Literal["sample", "manifest", "unknown"]
     sample_item_ids: list[str] = Field(default_factory=list)
     sample_errors: list[str] = Field(default_factory=list)
+    detail: dict[str, Any] = Field(default_factory=dict)  # e.g. the converter's dry run (DCM-06)
 
 
 class TaskRunRequest(BaseModel):

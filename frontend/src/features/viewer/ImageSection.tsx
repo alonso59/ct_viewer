@@ -1,11 +1,46 @@
 // QuPath "Image" section under the left pane: properties of the active item (UI_SHELL §Left pane views)
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useItem } from '../../api'
-import { PhaseChip } from '../../lib'
+import { api, useItem } from '../../api'
+import { PhaseChip, ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
+
+/** `00100020` → `0010,0020` */
+const tagName = (k: string) => [k.slice(0, 4), k.slice(4)].join(',')
+
+/** DICOM JSON Model element → a short text value */
+const tagText = (v: unknown): string => {
+  const vals = (v as { Value?: unknown[] } | null)?.Value ?? []
+  return vals
+    .map((x) => (typeof x === 'object' && x !== null ? ((x as { Alphabetic?: string }).Alphabetic ?? JSON.stringify(x)) : String(x)))
+    .join('\\')
+    .slice(0, 120)
+}
+
+/** DCM-05: DICOM tags only on demand (they can hold PHI) */
+function DicomTags({ pid, iid }: { pid: string; iid: string }) {
+  const { t } = useTranslation()
+  const q = useQuery({ queryKey: ['project', pid, 'item', iid, 'dicom-tags'], queryFn: () => api.dicomTags(pid, iid), retry: false })
+  if (q.error) return <ProblemCard error={q.error} />
+  if (!q.data) return <span className="muted">{t('common.loading')}</span>
+  const rows = Object.entries(q.data).filter(([k]) => /^[0-9A-F]{8}$/.test(k))
+  return (
+    <table className="table mono" style={{ fontSize: 'var(--fs-badge)' }}>
+      <tbody>
+        {rows.map(([k, v]) => (
+          <tr key={k}>
+            <td>{tagName(k)}</td>
+            <td>{(v as { vr?: string }).vr ?? ''}</td>
+            <td>{tagText(v)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
 
 export function ImageSection() {
   const { t } = useTranslation()
@@ -13,6 +48,7 @@ export function ImageSection() {
   const iid = useViewerSync((s) => s.activeItemId)
   const { data: it } = useItem(pid, iid)
   const [advanced, setAdvanced] = useState(false)
+  const [tags, setTags] = useState(false)
   if (!iid || !it) return <div className="muted" style={{ padding: '4px 16px 8px', fontSize: 'var(--fs-panel)' }}>{t('image.none')}</div>
   const g = it.geometry
   // API names (API-22 ItemAdvanced); the P0.5 mock called them image_abs/mask_abs
@@ -50,6 +86,21 @@ export function ImageSection() {
           {t(advanced ? 'image.hidePaths' : 'image.showPaths')}
         </button>
       </dd>
+      {it.extra?.dicom_sidecar ? (
+        <>
+          <dt />
+          <dd>
+            <button type="button" className="link" style={{ fontSize: 'var(--fs-badge)' }} onClick={() => setTags(!tags)}>
+              {t(tags ? 'image.hideTags' : 'image.showTags')}
+            </button>
+          </dd>
+          {tags ? (
+            <dd style={{ gridColumn: '1 / -1' }}>
+              <DicomTags pid={pid} iid={it.item_id} />
+            </dd>
+          ) : null}
+        </>
+      ) : null}
     </dl>
   )
 }

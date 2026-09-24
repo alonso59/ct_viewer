@@ -50,7 +50,8 @@
     "togglePanel": "Toggle panel",
     "toggleSidebar": "Toggle side bar",
     "toggleTheme": "Toggle light / dark theme",
-    "welcome": "Welcome"
+    "welcome": "Welcome",
+    "convertDicom": "Convert DICOM to NIfTI…"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -90,7 +91,8 @@
     "radiomics": "Radiomics",
     "search": "Search",
     "settings": "Settings",
-    "variables": "Variables"
+    "variables": "Variables",
+    "tasks": "Tasks"
   },
   "panel": {
     "history": "History",
@@ -376,7 +378,8 @@
       "unmatched_other": "{{count}} names did not match the pattern: {{names}}",
       "orphans_one": "{{count}} mask has no image",
       "orphans_other": "{{count}} masks have no image"
-    }
+    },
+    "converted": "DICOM converted; the converted series are being indexed"
   },
   "explorer": {
     "caseCount_one": "{{count}} case",
@@ -450,7 +453,9 @@
     "showPaths": "Show paths (advanced)",
     "size": "Size",
     "spacing": "Spacing",
-    "type": "Type"
+    "type": "Type",
+    "showTags": "Show DICOM tags (may contain patient data)",
+    "hideTags": "Hide DICOM tags"
   },
   "viewer": {
     "caseNotFound": "Case not found",

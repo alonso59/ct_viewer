@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
+import shutil
+import uuid
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -10,11 +14,18 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from app.api.v1.deps import Ctx
-from app.core.errors import NotFound, SourceMissing, UnsupportedFormat, ValidationProblem
+from app.core.errors import (
+    DerivedRootRequired,
+    NotFound,
+    SourceMissing,
+    UnsupportedFormat,
+    ValidationProblem,
+)
 from app.imaging import npy_convert, streaming
 from app.sources import formats
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult, detect
+from app.tasks import dicom_stage
 
 router = APIRouter(tags=["sources"])
 
@@ -93,6 +104,19 @@ async def _nifti_path(ctx: Ctx, sid: str, n: int, axis_order: str | None) -> tup
     fp = await asyncio.to_thread(open_mode.fingerprint, src)
     if it.format == "nifti":
         return src, fp
+    if it.format == "dicom":  # SRC-13: the convert stage into `.scratch/` only
+        dst = open_mode.scratch_dir(ctx.settings.workspace_root, fp, "dicom") / "volume.nii.gz"
+        if not dst.is_file():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            err = await ctx.jobs.run_in_worker(
+                dicom_stage.convert_series, s.root, it.files or [it.rel], str(dst)
+            )
+            if err is not None or not dst.is_file():
+                raise UnsupportedFormat(f"{it.name}: cannot convert ({err})")
+            await asyncio.to_thread(
+                open_mode.purge_scratch, ctx.settings.workspace_root, ctx.settings.cache_max_gb
+            )
+        return dst, f"{fp}.dicom"
     order = open_mode.need_axis_order(it, axis_order)
     geo = it.geometry
     spacing = geo.spacing if geo else [1.0, 1.0, 1.0]
@@ -184,3 +208,73 @@ async def open_attach(ctx: Ctx, sid: str, n: int, body: PathBody) -> open_mode.O
     )
     s.items.append(new)
     return s
+
+
+class SaveBody(BaseModel):
+    """API-09 (SRC-14)."""
+
+    dest_dir: str | None = None  # default: {first ALLOWED_DERIVED_ROOTS}/_open/{YYYY-MM-DD}/
+    sidecar: bool = True  # DICOM only (DCM-04)
+    anonymize: Literal["none", "basic"] = "none"  # sidecar (DCM-05, NFR-17)
+    axis_order: Literal["xyz", "zyx"] | None = None  # NumPy without a decided order
+
+
+class Saved(BaseModel):
+    path: str
+    sidecar_path: str | None = None
+
+
+@router.post("/open/{sid}/items/{n}/save", response_model=Saved, status_code=201)
+async def open_save(ctx: Ctx, sid: str, n: int, body: SaveBody) -> Saved:
+    """SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
+    guard = ctx.workspace.derived_guard
+    if not guard.allowed_roots:
+        raise DerivedRootRequired(
+            "ALLOWED_DERIVED_ROOTS is empty: there is no folder to save into (OPS-11)",
+            actions=["configure:ALLOWED_DERIVED_ROOTS"],
+        )
+    if body.dest_dir:
+        dest = Path(body.dest_dir)
+        if not dest.is_absolute():
+            raise ValidationProblem("dest_dir must be absolute")
+    else:
+        dest = guard.allowed_roots[0] / "_open" / date.today().isoformat()
+    dest_real = guard.check(dest)  # inside ALLOWED_DERIVED_ROOTS, never next to a source (R1)
+    s = ctx.open_sessions.get(sid)
+    it = open_mode.item(s, n)
+    volume, _ = await _nifti_path(ctx, sid, n, body.axis_order)
+    await asyncio.to_thread(dest_real.mkdir, parents=True, exist_ok=True)
+    series_dir = (Path(s.root) / it.rel).parent.name
+    stem = formats.stem(it.name) if it.format != "dicom" else series_dir or "dicom"
+    stem = "".join(c if c.isalnum() or c in "-_." else "_" for c in stem) or "volume"
+    tmp = dest_real / f".{uuid.uuid4().hex}.tmp"
+    await asyncio.to_thread(_gz_copy, volume, tmp)
+    out = await asyncio.to_thread(dicom_stage.link_new, tmp, dest_real, stem, ".nii.gz")
+    side: str | None = None
+    if it.format == "dicom" and body.sidecar:
+        side_tmp = dest_real / f".{uuid.uuid4().hex}.json.tmp"
+        src = Path(s.root) / (it.files[0] if it.files else it.rel)
+        err = await ctx.jobs.run_in_worker(
+            dicom_stage.write_sidecar, str(src), str(side_tmp), body.anonymize == "basic", stem
+        )
+        if err is not None:
+            raise UnsupportedFormat(f"sidecar: {err}")
+        name = out.name[: -len(".nii.gz")]
+        side_path = await asyncio.to_thread(
+            dicom_stage.link_new, side_tmp, dest_real, name, ".dicom.json"
+        )
+        side = str(side_path)
+    return Saved(path=str(out), sidecar_path=side)
+
+
+def _gz_copy(src: Path, dst: Path) -> None:
+    """`.nii.gz` bytes as-is; a plain `.nii` is gzipped (never modifies the source, R1)."""
+    with src.open("rb") as fh:
+        head = fh.read(2)
+        fh.seek(0)
+        with dst.open("xb") as out:
+            if head == b"\x1f\x8b":
+                shutil.copyfileobj(fh, out)
+            else:
+                with gzip.GzipFile(fileobj=out, mode="wb", mtime=0) as gz:
+                    shutil.copyfileobj(fh, gz)

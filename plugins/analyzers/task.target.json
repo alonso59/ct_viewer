@@ -1,0 +1,17 @@
+{
+  "manifest": 1,
+  "id": "analyzer.target",
+  "version": "1.0.0",
+  "title": "Organ focus (target match)",
+  "description": "Matches descriptions and body part against a target profile (ANALYZERS.md).",
+  "kind": "analyzer",
+  "input": "rows",
+  "outputs": ["annotations"],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "target_profile": { "type": "string", "enum": ["generic", "kidneys", "pancreas", "lung", "brain", "heart"] }
+    }
+  },
+  "runtime": { "type": "builtin", "entry": "plugins.analyzers.task:run_target" }
+}

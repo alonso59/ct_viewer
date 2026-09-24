@@ -17,7 +17,14 @@ from typing import Any
 from pydantic import ValidationError as PydanticValidationError
 
 from app.core.errors import JobConflict, NotFound, Problem, UnsupportedFormat, ValidationProblem
-from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json, read_json, read_jsonl
+from app.core.fsio import (
+    append_jsonl,
+    atomic_write_bytes,
+    atomic_write_json,
+    iter_jsonl,
+    read_json,
+    read_jsonl,
+)
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import validate_alias
@@ -27,7 +34,14 @@ from app.ingest import indexer, preview
 from app.ingest.cases import build_cases
 from app.ingest.indexer import ItemProbeResult
 from app.ingest.models import CaseSummary, IndexState, IndexStatus, Item, QcWarning
-from app.ingest.normalize import PhaseRules, build_drafts
+from app.ingest.normalize import (
+    Annotation,
+    Annotations,
+    Draft,
+    PhaseRules,
+    build_drafts,
+    merge_sources,
+)
 from app.ingest.parsers import FILE_NAMES, FileKind, ParsedInputs, parse_inputs
 from app.ingest.schemas import (
     Adapter,
@@ -59,6 +73,7 @@ IndexHook = Callable[[str], Awaitable[None]]
 PREVIEWS = Path("cache") / "previews"
 SOURCES = "sources"
 IMPORTS = "imports.jsonl"
+ANNOTATIONS = "annotations.jsonl"
 SAMPLE_NAMES = 200
 
 
@@ -90,6 +105,8 @@ class IngestService:
         uploads: dict[FileKind, tuple[str, bytes]] | None = None,
         adapter: Adapter | None = None,
         options: dict[str, Any] | None = None,
+        add: bool = False,
+        source_key: str | None = None,
     ) -> ImportPreview:
         """IMP-02/03, SRC-03..06. `uploads=None` auto-detects the input files under `root`.
 
@@ -103,7 +120,15 @@ class IngestService:
             raise ValidationProblem(
                 "Data root must be an absolute path", errors=[{"loc": ["root"], "msg": "relative"}]
             )
-        real = self.workspace.guard.check(Path(root))
+        existing = next(
+            (r for r in self.workspace.get(project_id).path_roots if r.alias == alias), None
+        )
+        guard = (
+            self.workspace.derived_guard
+            if existing is not None and existing.role == "derived"
+            else self.workspace.guard
+        )
+        real = guard.check(Path(root))
         if real.is_file() and uploads is None:
             kind = formats.classify(real)
             if kind != "nifti" or adapter == "metadata-v1":
@@ -121,6 +146,10 @@ class IngestService:
             )
         adapter = adapter or "metadata-v1"
         extra: dict[str, Any] = {}
+        if add:  # SRC-15: next to the other sources, under its own alias when the root differs
+            alias = self._free_alias(project_id, alias, os.path.normpath(root))
+            include = ",".join(options.get("include") or [])
+            source_key = f"add:{alias}:{include}"
         draft_registry: IdentityRegistry | None = None
         if adapter == "nifti-files":
             if uploads is not None:
@@ -180,6 +209,7 @@ class IngestService:
             field_mapping=preview.field_mapping(parsed),
             adapter=adapter,
             options=options,
+            source_key=source_key,
             **extra,
         )
         d = pdir / PREVIEWS / pv.preview_id
@@ -217,6 +247,7 @@ class IngestService:
             files=pv.files,
             counts=pv.counts,
             adapter=pv.adapter,
+            source_key=pv.source_key,
         )
         source = SourceInfo(
             adapter=pv.adapter,
@@ -235,20 +266,99 @@ class IngestService:
                 merged = identity.load(pdir / SOURCES).merge(identity.load(draft.parent))
                 identity.save(pdir / SOURCES, merged)
             append_jsonl(pdir / SOURCES / IMPORTS, [record.model_dump(mode="json")])
-        await self.workspace.set_root(project_id, PathRoot(alias=pv.alias, path=pv.root))
-        job_id = await self._start_index(project_id, import_id, pv.alias, parse_inputs(data))
+        current = next(
+            (r for r in self.workspace.get(project_id).path_roots if r.alias == pv.alias), None
+        )
+        if current is None or os.path.normpath(current.path) != pv.root:
+            role = current.role if current is not None else "source"
+            await self.workspace.set_root(
+                project_id, PathRoot(alias=pv.alias, path=pv.root, role=role)
+            )
+        job_id = await self._start_index(project_id, import_id)
         return CommitResult(job_id=job_id, import_id=import_id)
+
+    def _free_alias(self, project_id: str, alias: str, root: str) -> str:
+        """The alias if it is free or already points at `root`; else DATA2, DATA3 … (SRC-15)."""
+        roots = {
+            r.alias: os.path.normpath(r.path) for r in self.workspace.get(project_id).path_roots
+        }
+        if roots.get(alias) in (None, root):
+            return alias
+        for r_alias, path in roots.items():
+            if path == root:
+                return r_alias
+        n = 2
+        while f"{alias}{n}"[:16] in roots:
+            n += 1
+        return f"{alias}{n}"[:16]
+
+    def latest_sources(self, project_id: str) -> list[ImportRecord]:
+        """The latest import of every source key, oldest first (SOURCES §Imports, IMP-06)."""
+        records = list(reversed(self.imports(project_id)))
+        latest: dict[str, ImportRecord] = {}
+        for rec in records:
+            latest.pop(rec.key, None)
+            latest[rec.key] = rec
+        return list(latest.values())
+
+    def _snapshot(self, pdir: Path, rec: ImportRecord) -> ParsedInputs:
+        data: dict[FileKind, bytes] = {}
+        for f in rec.files:
+            data[f.kind] = (pdir / SOURCES / rec.import_id / FILE_NAMES[f.kind]).read_bytes()
+        return parse_inputs(data)
+
+    def annotations(self, project_id: str) -> Annotations:
+        """Active annotation runs per field (ANZ-04) → field → item_id → annotation."""
+        pdir = self.workspace.project_dir(project_id)
+        out: Annotations = {}
+        for field_name, run_id in self.workspace.get(project_id).annotation_sources.items():
+            if not run_id:
+                continue
+            by_item: dict[str, Annotation] = {}
+            for row in iter_jsonl(pdir / "tasks" / "runs" / run_id / ANNOTATIONS):
+                if row.get("field") == field_name and row.get("item_id"):
+                    by_item[str(row["item_id"])] = Annotation(
+                        str(row.get("value") or ""), run_id, str(row.get("confidence") or "")
+                    )
+            out[field_name] = by_item
+        return out
+
+    async def reindex(self, project_id: str) -> str | None:
+        """Rebuild the index from the current snapshots (annotation activation, ANZ-04)."""
+        latest = self.latest_sources(project_id)
+        if not latest:
+            return None
+        self._check_no_index_job(project_id)
+        return await self._start_index(project_id, latest[-1].import_id)
+
+    async def import_generated(
+        self, project_id: str, metadata: bytes, *, root: str, alias: str, source_key: str
+    ) -> CommitResult:
+        """A task's `metadata.jsonl` as a new snapshot of its own source (DCM-07, TSK-09)."""
+        uploads: dict[FileKind, tuple[str, bytes]] = {"metadata": ("metadata.jsonl", metadata)}
+        pv = await self.preview(
+            project_id, root, alias=alias, uploads=uploads, source_key=source_key
+        )
+        return await self.commit(project_id, pv.preview_id)
 
     def _check_no_index_job(self, project_id: str) -> None:
         cur = self.jobs.active(project_id, "index")
         if cur is not None:
             raise JobConflict(f"An index job is already active: {cur.job_id}")
 
-    async def _start_index(
-        self, project_id: str, import_id: str, alias: str, parsed: ParsedInputs
-    ) -> str:
+    async def _start_index(self, project_id: str, import_id: str) -> str:
+        """Index the latest snapshot of every source (IMP-05/06) with active annotations."""
         rules = self.phase_rules(project_id)
-        drafts = build_drafts(parsed, self.workspace.resolver(project_id), alias, rules)
+        pdir = self.workspace.project_dir(project_id)
+        resolver = self.workspace.resolver(project_id)
+        anns = self.annotations(project_id)
+        per_source: list[list[Draft]] = []
+        for rec in self.latest_sources(project_id):
+            ds = build_drafts(self._snapshot(pdir, rec), resolver, rec.alias, rules, anns)
+            for d in ds:
+                d.import_id = rec.import_id
+            per_source.append(ds)
+        drafts = merge_sources(per_source)
         units = [WorkUnit(indexer.probe_batch, (b,)) for b in indexer.batches(probes_for(drafts))]
         results: dict[str, ItemProbeResult] = {}
 

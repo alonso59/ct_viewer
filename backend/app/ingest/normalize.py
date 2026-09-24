@@ -106,15 +106,25 @@ def image_path(row: Row) -> str | None:
 
 
 def resolve_phase(
-    row: Row, override: str | None, rules: PhaseRules = CCRCC_RULES
+    row: Row,
+    override: str | None,
+    rules: PhaseRules = CCRCC_RULES,
+    annotation: Annotation | None = None,
 ) -> tuple[PhaseInfo, bool]:
-    """Returns the phase and whether it is ambiguous (UNK, or conflicting sources)."""
+    """Returns the phase and whether it is ambiguous (UNK, or conflicting sources).
+
+    INPUT_METADATA §Phase resolution: phase.json → curated_phase → canonical_phase → phase →
+    active analyzer.phase run (ANZ-04) → phase_guess → UNK.
+    """
     raw: str | None = None
     source: PhaseSource = "none"
     if override:
         raw, source = override, "phase.json"
     else:
         for f in PHASE_FIELDS:
+            if f == "phase_guess" and annotation is not None and annotation.value:
+                raw, source = annotation.value, f"analyzer:{annotation.run_id}"
+                break
             v = row.text(f)
             if v:
                 raw, source = v, f
@@ -125,6 +135,19 @@ def resolve_phase(
         codes = {rules.normalize(row.text(f)) for f in CONFLICT_FIELDS if row.text(f)}
         ambiguous = ambiguous or len(codes - {UNKNOWN_PHASE}) >= 2
     return PhaseInfo(canonical=canonical, raw=raw, source=source), ambiguous
+
+
+@dataclass(frozen=True)
+class Annotation:
+    """An active analyzer annotation for one item and field (ANZ-04)."""
+
+    value: str
+    run_id: str
+    confidence: str = "unknown"
+
+
+# field → item_id → annotation
+Annotations = dict[str, dict[str, Annotation]]
 
 
 @dataclass(frozen=True)
@@ -157,6 +180,7 @@ class Draft:
     status: ItemStatus
     extra: dict[str, Any]
     modality: str | None = None
+    import_id: str | None = None  # the snapshot this draft comes from (several sources, IMP-06)
     image: FileDraft | None = None
     mask: FileDraft | None = None
     spacing: tuple[float, ...] | None = None
@@ -230,13 +254,21 @@ def _check_axis_order(d: Draft, row: Row) -> None:
 
 
 def _scan_draft(
-    row: Row, ov: PhaseOverrides, resolver: PathResolver, alias: str, rules: PhaseRules
+    row: Row,
+    ov: PhaseOverrides,
+    resolver: PathResolver,
+    alias: str,
+    rules: PhaseRules,
+    annotations: Annotations | None = None,
 ) -> Draft:
     fname = identity_filename(row)
-    phase, ambiguous = resolve_phase(row, ov.lookup(row.case_id, row.scan_idx, fname), rules)
+    iid = item_id(row.case_id, row.scan_idx, "complete", "-")
+    anns = annotations or {}
+    ann = anns.get("phase", {}).get(iid)
+    phase, ambiguous = resolve_phase(row, ov.lookup(row.case_id, row.scan_idx, fname), rules, ann)
     excluded = is_excluded(row)
     d = Draft(
-        item_id=item_id(row.case_id, row.scan_idx, "complete", "-"),
+        item_id=iid,
         case_id=row.case_id,
         scan_idx=row.scan_idx,
         scope="complete",
@@ -248,6 +280,10 @@ def _scan_draft(
         modality=row.text("modality"),
         line=row.line,
     )
+    for field_name, by_item in anns.items():  # other fields become study variables (ANALYZERS.md)
+        a = by_item.get(iid)
+        if field_name != "phase" and a is not None:
+            d.extra[field_name] = a.value
     if excluded:
         return d  # IMP-07: no file checks, no warnings
     if ambiguous:
@@ -312,7 +348,11 @@ def _voi_draft(
 
 
 def build_drafts(
-    inputs: ParsedInputs, resolver: PathResolver, alias: str, rules: PhaseRules = CCRCC_RULES
+    inputs: ParsedInputs,
+    resolver: PathResolver,
+    alias: str,
+    rules: PhaseRules = CCRCC_RULES,
+    annotations: Annotations | None = None,
 ) -> list[Draft]:
     """One `complete` draft per metadata row and one `voi` draft per catalog row (deduped)."""
     out: dict[str, Draft] = {}
@@ -328,7 +368,7 @@ def build_drafts(
 
     parents: dict[tuple[str, str], Draft] = {}
     for row in inputs.metadata:
-        d = _scan_draft(row, inputs.overrides, resolver, alias, rules)
+        d = _scan_draft(row, inputs.overrides, resolver, alias, rules, annotations)
         add(d)
         parents.setdefault((d.case_id, d.scan_idx), d)
     by_image: dict[tuple[str, str, str], list[Draft]] = {}
@@ -348,4 +388,20 @@ def build_drafts(
             "scan_idx" if d.scope == "complete" else "side",
             f"{len(lines)} rows produce {iid} (lines {', '.join(map(str, lines))}); kept the first",
         )
+    return list(out.values())
+
+
+def merge_sources(sources: list[list[Draft]]) -> list[Draft]:
+    """Several snapshots (oldest first): a later source wins an `item_id` (SOURCES §Imports)."""
+    out: dict[str, Draft] = {}
+    for drafts in sources:
+        for d in drafts:
+            prev = out.get(d.item_id)
+            if prev is not None:
+                d.warn(
+                    QcCode.DUPLICATE_ROW_IDENTITY,
+                    "import",
+                    f"{d.item_id} also comes from import {prev.import_id}; the later import wins",
+                )
+            out[d.item_id] = d
     return list(out.values())

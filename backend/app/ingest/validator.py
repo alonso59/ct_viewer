@@ -136,7 +136,7 @@ def _finalize_one(
         labels_present=labels,
         status=status,
         warning_codes=list(dict.fromkeys(w.code for w in warnings)),
-        import_id=import_id,
+        import_id=d.import_id or import_id,
         extra=d.extra,
     )
     return item, warnings

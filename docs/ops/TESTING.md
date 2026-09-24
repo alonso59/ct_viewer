@@ -23,6 +23,8 @@ Depends: all domain docs.
 | TST-15 | Sources | pytest + hypothesis | `nifti-files` patterns, single-file import, identity registry stability across incremental imports, Open mode (NIfTI, DICOM file, label map, attach mismatch), refusal `actions[]` |
 | TST-16 | Analyzers | pytest | Phase text/timing/conflict cases, target profiles, readiness codes, activation reindex (ANZ-*) |
 
+P7b files (Wave 3): TST-13 DICOM half + converter, sidecars, anonymize, incremental runs, activation, CUR-15, Open DICOM, Save as NIfTI (TST-15), Add to project in `tests/test_dicom.py` (synthetic series from `tools/dicom_fixtures.py`); TST-16 in `tests/test_analyzers.py`; `e2e/tasks-dicom.spec.ts` (Open a DICOM file + save; convert a DICOM folder from the Tasks tab). The fixtures add `.fixtures/synthetic/dicom/` (2 patients, 3 series, seeded UIDs). The E2E backend gets a temporary `ALLOWED_DERIVED_ROOTS`.
+
 P7b files: TST-14 builtin half and the task framework `tests/test_tasks.py` (the external half with the runner in Wave 4); TST-15 `tests/test_sources.py` + `e2e/open-mode.spec.ts`; TST-13 NumPy half in `tests/test_sources.py`; format v2 / derived roots `tests/test_format_v2.py`. External-runtime tests point `PLUGINS_ROOT` at a temp dir with a symlink to `plugins/threshold/` (never at `plugins/` itself).
 
 ## Synthetic fixture dataset (TST-11)

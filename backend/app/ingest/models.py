@@ -11,9 +11,9 @@ from app.imaging.header import VolumeFormat
 from app.ingest.codes import QcCode, Severity
 
 Phase = str  # a code from the project's phase vocabulary (PRJ-12), or a raw value (`none`)
-PhaseSource = Literal[
-    "phase.json", "curated_phase", "canonical_phase", "phase", "phase_guess", "catalog", "none"
-]
+# "phase.json" | "curated_phase" | "canonical_phase" | "phase" | "analyzer:{run_id}" (ANZ-04)
+# | "phase_guess" | "catalog" | "none"
+PhaseSource = str
 ItemStatus = Literal["active", "excluded_upstream", "missing"]
 IndexState = Literal["empty", "running", "ready", "failed", "cancelled", "interrupted"]
 

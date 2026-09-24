@@ -23,6 +23,7 @@ import type {
   ProjectSummary,
   QCWarning,
   ServerEvent,
+  V2ImportReport,
   Variable,
 } from './types'
 
@@ -392,10 +393,11 @@ export const httpApi: Api = {
   },
   openImageUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/image${axisOrder ? `?axis_order=${axisOrder}` : ''}`,
   openPreviewUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/preview?axis_order=${axisOrder}`,
+  saveOpen: (sid, n, body) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/save', { params: { path: { sid, n } }, body })),
   attachOpen: (sid, n, path) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/attach', { params: { path: { sid, n } }, body: { path } })),
   importPreview(pid, req) {
     if (!req.files)
-      return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true, adapter: req.adapter, options: req.options ?? {} })
+      return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true, adapter: req.adapter, options: req.options ?? {}, add: req.add ?? false })
     const fd = new FormData()
     fd.set('root', req.root)
     fd.set('alias', req.alias)
@@ -591,6 +593,16 @@ export const httpApi: Api = {
   resumeTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } })),
   taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
   taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),
+
+  listAnnotations: (pid, f = {}) => unwrap(client.GET('/api/v1/projects/{pid}/annotations', { params: { path: { pid }, query: f } })),
+  setAnnotationSource: (pid, field, run_id) =>
+    unwrap(client.PUT('/api/v1/projects/{pid}/annotation-sources/{field}', { params: { path: { pid, field } }, body: { run_id } })),
+  dicomTags: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/dicom-tags', { params: { path: { pid, iid } } })),
+  importConverterCuration(pid, file, reviewer) {
+    const fd = new FormData()
+    fd.set('file', file)
+    return send<V2ImportReport>('POST', `/projects/${enc(pid)}/curation/import-converter`, fd, reviewerHeader(reviewer))
+  },
 
   // API-41
   listJobs: async (pid) => (await unwrap(client.GET('/api/v1/jobs', { params: { query: pid ? { project: pid } : {} } }))).map(normalizeJob),

@@ -23,6 +23,8 @@ class PreviewRequest(BaseModel):
     alias: str = DEFAULT_ALIAS
     adapter: Adapter | None = None  # None: metadata-v1, or nifti-files for one NIfTI file
     options: dict[str, Any] = Field(default_factory=dict)
+    # SRC-15 "Add to project…": kept next to the project's other sources (SOURCES §Imports)
+    add: bool = False
 
 
 class SourceInfo(BaseModel):
@@ -93,6 +95,7 @@ class ImportPreview(BaseModel):
     unmatched: list[str] = Field(default_factory=list)
     orphan_masks: list[str] = Field(default_factory=list)
     ignored: dict[str, int] = Field(default_factory=dict)
+    source_key: str | None = None  # None: `{adapter}:{alias}` (SOURCES §Imports)
 
 
 class CommitRequest(BaseModel):
@@ -114,6 +117,12 @@ class ImportRecord(BaseModel):
     files: list[InputFile]
     counts: ImportCounts
     adapter: Adapter = "metadata-v1"
+    source_key: str | None = None
+
+    @property
+    def key(self) -> str:
+        """The index keeps the latest snapshot per key (SOURCES §Imports)."""
+        return self.source_key or f"{self.adapter}:{self.alias}"
 
 
 class ImportHistory(BaseModel):

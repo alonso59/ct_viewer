@@ -43,7 +43,11 @@ import type {
   RunExportShape,
   RunSummary,
   Selection,
+  AnnotationRow,
+  AnnotationSources,
   AxisOrder,
+  SaveOpenBody,
+  SavedOpen,
   DetectResult,
   OpenSession,
   PreflightResult,
@@ -135,6 +139,8 @@ export interface Api {
   openPreviewUrl(sid: string, n: number, axisOrder: AxisOrder): string | null
   /** SRC-10: attach a segmentation to item n; `geometry-mismatch` when it does not fit */
   attachOpen(sid: string, n: number, path: string): Promise<OpenSession>
+  /** API-09 (SRC-14): a new .nii.gz under ALLOWED_DERIVED_ROOTS; never overwrites */
+  saveOpen(sid: string, n: number, body: SaveOpenBody): Promise<SavedOpen>
 
   // Import (API-10..14)
   /** `role: 'derived'` browses ALLOWED_DERIVED_ROOTS (PRJ-13) */
@@ -179,6 +185,14 @@ export interface Api {
   resumeTaskRun(pid: string, rid: string): Promise<TaskRunStarted>
   taskRunErrors(pid: string, rid: string): Promise<TaskItemError[]>
   taskRunOutputs(pid: string, rid: string): Promise<TaskRunOutput[]>
+  /** API-48 (ANZ-01/04) */
+  listAnnotations(pid: string, f?: { field?: string; run?: string; item_id?: string }): Promise<AnnotationRow[]>
+  /** Activate a run for one field (`null` = none); the server reindexes */
+  setAnnotationSource(pid: string, field: string, runId: string | null): Promise<AnnotationSources>
+  /** DCM-04/05: the item's DICOM JSON sidecar, on demand only */
+  dicomTags(pid: string, iid: string): Promise<Record<string, unknown>>
+  /** API-55 (CUR-15): the converter CLI's curation.csv, once */
+  importConverterCuration(pid: string, file: File, reviewer: string): Promise<V2ImportReport>
 
   // Curation (API-50..54)
   /** Newest first (CUR-14) */

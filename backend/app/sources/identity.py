@@ -61,6 +61,8 @@ class IdentityRegistry(BaseModel):
     def merge(self, other: IdentityRegistry) -> IdentityRegistry:
         """Append-only merge of a task's returned registry (existing keys never change)."""
         out = self.model_copy(deep=True)
+        if not self.cases:  # the first source decides the strategy
+            out.strategy = other.strategy
         for k, n in other.cases.items():
             out.cases.setdefault(k, n)
         for k, v in other.scans.items():

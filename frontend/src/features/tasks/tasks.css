@@ -1,0 +1,19 @@
+/* Tasks view and task tab (UI-17..20) */
+.tasks-view { padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-2); }
+.tasks-kind { margin: var(--sp-2) 0 var(--sp-1); font-size: var(--fs-badge); text-transform: uppercase; color: var(--fg-muted); }
+.tasks-list { list-style: none; margin: 0; padding: 0; }
+.task-tab { padding: var(--sp-4) var(--sp-5); max-width: 880px; display: flex; flex-direction: column; gap: var(--sp-3); overflow: auto; height: 100%; }
+.task-tab h1 { margin: 0; font-size: var(--fs-title); }
+.task-section { border-top: var(--border-width) solid var(--border); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.task-section h2 { margin: 0; font-size: var(--fs-ui); font-weight: var(--fw-semibold); }
+.task-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--sp-3); align-items: start; }
+.task-field { display: flex; flex-direction: column; gap: 4px; }
+.task-help { font-size: var(--fs-badge); }
+.task-runs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.task-run { border: var(--border-width) solid var(--border); border-radius: var(--radius); padding: var(--sp-2); display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-panel); }
+.task-run-head { display: flex; align-items: center; gap: var(--sp-2); }
+.task-run-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-run-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.task-outputs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.task-outputs li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.task-estimate { display: flex; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-panel); }

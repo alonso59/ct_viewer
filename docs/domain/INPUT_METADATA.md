@@ -16,7 +16,7 @@ Contract v1 below is the only internal form: other sources (NIfTI files, DICOM v
 | IMP-03 | Preview before commit: row counts, case count, and the first 50 parse/validation errors, plus a detected field mapping. | M |
 | IMP-04 | Commit snapshots the inputs to `sources/{import_id}/` with SHA-256 and appends to `imports.jsonl`. | M |
 | IMP-05 | Indexing runs as a job (progress, cancel) and builds `index/items.jsonl`, `index/cases.jsonl`, and the quick fingerprints. | M |
-| IMP-06 | Re-import creates a new snapshot and rebuilds the index. `item_id` is deterministic, so curation events stay attached. | M |
+| IMP-06 | Re-import creates a new snapshot and rebuilds the index. `item_id` is deterministic, so curation events stay attached. The index joins the latest snapshot of each source (SOURCES §Imports). | M |
 | IMP-07 | Items that were skipped or excluded upstream are indexed as `excluded_upstream` and hidden by default. | S |
 | IMP-08 | Validation writes `index/qc_warnings.jsonl` (codes below); warnings show in the Problems panel (UI-09). | M |
 | IMP-09 | Optional "Compute full hashes" job adds SHA-256 per file, stored in `index/hashes.json` keyed by ref + quick fingerprint (a changed file loses its hash); `force` rehashes all. | C |

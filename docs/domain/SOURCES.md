@@ -23,6 +23,8 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | SRC-11 | Every refusal is a problem (API §Errors) with `detail` = the cause and `actions[]` = the suggested next steps, e.g. `{"detail": "No metadata.jsonl under the root; 11 NIfTI files found", "actions": ["import_as:nifti-files"]}`. The UI shows both, and never a bare "Validation failed". | M |
 | SRC-12 | NumPy arrays are read only with explicit geometry and axis order (§NumPy). There is no silent default. | S |
 | SRC-13 | DICOM sources are converted by the task `dicom.convert` (DCM-*). In Open mode, the same convert stage writes to `.scratch/` only. | M |
+| SRC-14 | "Save as NIfTI…" in Open mode (API-09) writes the open volume (converted from DICOM/NumPy, or the NIfTI itself) as `.nii.gz` (+ its DICOM JSON sidecar for DICOM, DCM-04) to `{first ALLOWED_DERIVED_ROOTS}/_open/{YYYY-MM-DD}/` by default; the user may change the folder once (remembered in the browser). The destination must be inside `ALLOWED_DERIVED_ROOTS` (never next to the source, R1); names never overwrite (`-1`, `-2` …); an optional `anonymize: basic` checkbox comes with a PHI notice (NFR-17). Written once, never modified. | M |
+| SRC-15 | "Add to project…" imports the open file into an existing project as a new import (`nifti-files` for NIfTI, `dicom.convert` for a single DICOM file); it is added next to the project's other sources (§Imports). | S |
 
 ## Formats
 
@@ -48,6 +50,10 @@ Preview shows the parsed columns for the first 50 files and every unmatched name
 
 Implementation notes (P7b Wave 2): the adapter reads file names only (headers are read by the index job) and writes v1 rows with `relative_path`, `seg_path`, `modality`, `source_kind: nifti`, `source_name`. Only channel `0000` (or no channel) becomes an item; other channels of the same case/scan are listed in the row's `channels`. `scan_idx` comes from the pattern, else from the registry. A mask file with no image is reported in `orphan_masks`. With one file chosen explicitly, that file is the item even if it looks like a mask.
 
+## Imports (several sources per project)
+
+Each import has a `source_key`: `{adapter}:{alias}` by default (a re-import of the same root replaces its previous snapshot, IMP-06), `dicom.convert` for converter runs, `add:{alias}:{file}` for SRC-15. The index is the union of the latest snapshot of every source key; when two sources produce the same `item_id`, the later import wins and the item gets `duplicate_row_identity`.
+
 ## Identity (SRC-07)
 
 ```jsonc
@@ -69,7 +75,7 @@ Implementation notes (P7b Wave 2): the adapter reads file names only (headers ar
 - `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry. Sessions live in the API process memory (LRU of 32; gone after a restart); a folder lists at most 500 accepted files. Headers and the label-map check (integer dtype and ≤ 256 values in the middle slice) run in a job worker.
 - DICOM and NumPy are converted into `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, which is disposable, LRU-purged with `CACHE_MAX_GB`, and never a source for projects.
 - Viewer: all layouts. W/L uses HU presets only if DICOM says CT; otherwise the percentiles (VW-05). A label map opened alone is shown with auto colours `label_{value}` over a black background.
-- Curation, tasks and share links are disabled. "Create project from this" opens the import wizard with the path and the detected adapter.
+- Curation, tasks and share links are disabled. Open mode offers exactly three actions: **Save as NIfTI…** (SRC-14), **Add to project…** (SRC-15) and **Create project from this** (the import wizard with the path and the detected adapter). No rename, delete or edit; tasks still require a project.
 - Attach (SRC-10) takes a NIfTI or NumPy label map from inside the opened folder; outside it the refusal offers `open_folder`.
 
 ## NumPy geometry and axis order (SRC-12)

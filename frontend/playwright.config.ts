@@ -16,6 +16,9 @@ const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5174)
 // Fresh workspace per run (workers re-evaluate this file, so the path is passed on via env)
 const workspace = process.env.E2E_WORKSPACE ?? mkdtempSync(join(tmpdir(), 'rw-e2e-'))
 process.env.E2E_WORKSPACE = workspace
+// Writable derived root for task outputs (OPS-11); never inside the fixtures (OPS-12)
+const derived = process.env.E2E_DERIVED ?? mkdtempSync(join(tmpdir(), 'rw-e2e-derived-'))
+process.env.E2E_DERIVED = derived
 
 /** Single-quote for the shell: the repo path may contain spaces */
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
@@ -29,7 +32,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        `cd ${q(backend)} && WORKSPACE_ROOT=${q(workspace)} ALLOWED_DATA_ROOTS=${q(fixtures)} ` +
+        `cd ${q(backend)} && WORKSPACE_ROOT=${q(workspace)} ALLOWED_DATA_ROOTS=${q(fixtures)} ALLOWED_DERIVED_ROOTS=${q(derived)} ` +
         `PUBLIC_BASE_URL=http://127.0.0.1:${WEB_PORT} .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/api/v1/health`,
       reuseExistingServer: false,

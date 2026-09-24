@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router'
 import { create } from 'zustand'
 
 import {
+  api,
   useCommitImport,
   useDetect,
   useFsList,
@@ -22,12 +23,16 @@ import {
 } from '../../api'
 import { Dialog, ProblemCard, Progress } from '../../lib'
 import { toast } from '../../shell'
+import { useReviewer } from '../../state'
+import { DerivedRootDialog } from './DerivedRootDialog'
 import { Icon, codicon } from '../../theme'
 import './import.css'
 
 export interface WizardPrefill {
   path: string
   adapter?: string
+  /** SRC-15 "Add to project…": keep the project's other sources */
+  add?: boolean
 }
 
 interface WizardState {
@@ -269,6 +274,9 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
   const [options, setOptions] = useState<NiftiOptions>({})
   const [jobId, setJobId] = useState<string | null>(null)
+  const [convertError, setConvertError] = useState<unknown>(null)
+  const [askDerived, setAskDerived] = useState(false)
+  const reviewer = useReviewer((s) => s.name)
   const detect = useDetect()
   const preview = useImportPreview(pid)
   const commit = useCommitImport(pid)
@@ -282,7 +290,8 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
     if (job?.status === 'succeeded') {
       void qc.invalidateQueries({ queryKey: ['project', pid] })
       void qc.invalidateQueries({ queryKey: ['projects'] })
-      toast({ message: t('import.done', { cases: p?.counts.cases ?? 0 }), tone: 'ok' })
+      const cases = p?.counts.cases
+      toast({ message: cases == null ? t('import.converted') : t('import.done', { cases }), tone: 'ok' })
       close()
     }
   }, [job?.status, qc, close, t, p?.counts.cases, pid])
@@ -306,7 +315,7 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
 
   const runPreview = (a: ImportAdapter) => {
     if (!path) return
-    const req: PreviewRequest = { root: path, alias, adapter: a }
+    const req: PreviewRequest = { root: path, alias, adapter: a, add: prefill?.add ?? false }
     if (a === 'nifti-files') req.options = options
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
@@ -317,7 +326,7 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
     step === 'root'
       ? path !== null && alias !== '' && (!upload || files.metadata != null)
       : step === 'detect'
-        ? adapter !== null && !preview.isPending && (adapter === 'open' || IMPORTABLE.has(adapter))
+        ? adapter !== null && !preview.isPending && (adapter === 'open' || adapter === 'dicom.convert' || IMPORTABLE.has(adapter))
         : step === 'preview'
           ? hasMetadata && !commit.isPending
           : false
@@ -335,11 +344,23 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
       if (adapter === 'open') {
         close()
         navigate(`/open?path=${encodeURIComponent(path ?? '')}`)
-      } else runPreview(adapter as ImportAdapter)
+      } else if (adapter === 'dicom.convert') void runConvert()
+      else runPreview(adapter as ImportAdapter)
     } else if (step === 'preview' && p) {
       const r = await commit.mutateAsync(p.preview_id)
       setJobId(r.job_id)
       setStep('index')
+    }
+  }
+  // DICOM sources go through the converter task (SRC-13, DCM-*); its rows are imported on success
+  const runConvert = async () => {
+    setConvertError(null)
+    try {
+      const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings: {}, selection: { source: path } }, reviewer || undefined)
+      setJobId(r.job_id)
+      setStep('index')
+    } catch (e) {
+      setConvertError(e)
     }
   }
   const failed = job && (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted')
@@ -354,6 +375,7 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
       navigate(`/open?path=${encodeURIComponent(path ?? '')}`)
     },
     choose_another_path: () => setStep('root'),
+    choose_derived_root: () => setAskDerived(true),
   }
 
   return (
@@ -436,6 +458,16 @@ function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }
           ) : null}
           {detect.isError ? <ProblemCard error={detect.error} onAction={onAction} /> : null}
           {preview.isError ? <ProblemCard error={preview.error} onAction={onAction} /> : null}
+          {convertError ? <ProblemCard error={convertError} onAction={onAction} /> : null}
+          {askDerived ? (
+            <DerivedRootDialog
+              pid={pid}
+              onClose={(ok) => {
+                setAskDerived(false)
+                if (ok) void runConvert()
+              }}
+            />
+          ) : null}
           {cands.length ? (
             <div className="wiz-grid" style={{ marginTop: 8 }}>
               <Candidates cands={cands} value={adapter} onPick={setAdapter} />

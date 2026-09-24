@@ -12,6 +12,8 @@ import { StandaloneViewer } from '../viewer'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { attachedTo, autoLabels, toItemRecord } from './model'
+import { AddDialog } from './AddDialog'
+import { SaveDialog } from './SaveDialog'
 import { useOpenDialog } from './store'
 import '../import/import.css'
 
@@ -72,6 +74,8 @@ export default function OpenRoute() {
   const [askOrder, setAskOrder] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [adding, setAdding] = useState(false)
   const openDialog = useOpenDialog((s) => s.show)
 
   const items = session?.items ?? []
@@ -105,6 +109,14 @@ export default function OpenRoute() {
           <button type="button" className="btn" disabled={!current || current.kind === 'label'} onClick={() => setAttaching(true)}>
             <Icon spec={codicon('layers')} />
             {t('open.attachAction')}
+          </button>
+          <button type="button" className="btn" disabled={!current || !!current.error || needsOrder} onClick={() => setSaving(true)}>
+            <Icon spec={codicon('save')} />
+            {t('open.saveAction')}
+          </button>
+          <button type="button" className="btn" disabled={!current || !!current.error || current.format === 'npy'} onClick={() => setAdding(true)}>
+            <Icon spec={codicon('add')} />
+            {t('open.addAction')}
           </button>
           <button type="button" className="btn btn-primary" disabled={!path} onClick={() => setCreating(true)}>
             <Icon spec={codicon('new-folder')} />
@@ -172,6 +184,8 @@ export default function OpenRoute() {
         />
       ) : null}
       {path ? <NewProjectDialog open={creating} onOpenChange={setCreating} prefill={{ path }} /> : null}
+      {saving && session && current ? <SaveDialog session={session} item={current} axisOrder={order ?? null} onClose={() => setSaving(false)} /> : null}
+      {adding && session && current ? <AddDialog session={session} item={current} onClose={() => setAdding(false)} /> : null}
     </div>
   )
 }

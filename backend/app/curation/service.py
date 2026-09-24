@@ -18,8 +18,8 @@ from app.core.errors import Problem, ReviewerRequired, ValidationProblem
 from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json
 from app.core.ids import new_ulid, parse_item_id, utc_now
 from app.core.locks import ProjectLocks
+from app.curation import converter_csv, v2
 from app.curation import state as st
-from app.curation import v2
 from app.curation.models import (
     CASE_TARGET,
     QUEUE_COLUMNS,
@@ -336,6 +336,34 @@ class CurationService:
                 fallback_reviewer=name,
             )
             events, skipped = v2.convert(rows, ctx)
+            if events:
+                self._append_locked(pdir, events)
+        self._publish(project_id, events)
+        return V2ImportReport(n_rows=len(rows), imported=len(events), skipped=skipped)
+
+    async def import_converter(
+        self, project_id: str, data: bytes, *, reviewer: str | None
+    ) -> V2ImportReport:
+        """CUR-15: the converter CLI's `curation.csv` → `source: "converter_import"` events."""
+        name = require_reviewer(reviewer)
+        pdir = self._pdir(project_id)
+        rows = converter_csv.parse(data)
+        cfg = self.workspace.get(project_id)
+        idx = self.store.load(project_id)
+        async with self.locks(project_id):
+            imported = frozenset(
+                str(e.context["converter_key"])
+                for e in st.load_events(pdir)
+                if e.source == "converter_import" and e.context.get("converter_key")
+            )
+            ctx = converter_csv.ConverterContext(
+                items=idx.by_id,
+                vocabulary=tuple(cfg.phase_vocabulary),
+                mapping=dict(cfg.phase_mapping),
+                imported=imported,
+                reviewer=name,
+            )
+            events, skipped = converter_csv.convert(rows, ctx)
             if events:
                 self._append_locked(pdir, events)
         self._publish(project_id, events)

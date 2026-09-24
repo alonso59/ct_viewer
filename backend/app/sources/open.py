@@ -56,6 +56,10 @@ class OpenItem(BaseModel):
     axis_order: Literal["xyz", "zyx"] | None = None  # NumPy (SRC-12)
     needs_axis_order: bool = False
     error: str | None = None
+    # DICOM: one item per series (SRC-13); files relative to the session root
+    files: list[str] = Field(default_factory=list)
+    series_uid: str | None = None
+    description: str | None = None
 
 
 class OpenSession(BaseModel):
@@ -125,10 +129,15 @@ def probe(root: str, rels: list[str]) -> list[dict[str, Any]]:
                 row["geometry"] = {**h.geometry(), "affine": h.affine}
                 row["label"] = _is_label(path, "nifti", "xyz")
             else:
-                row["error"] = "DICOM opens with the DICOM converter (dicom.convert, SRC-13)"
+                continue  # DICOM files are grouped into series below
         except (HeaderError, OSError, ValueError) as exc:
             row["error"] = f"{type(exc).__name__}: {exc}"
         out.append(row)
+    dicom = [r for r in rels if formats.classify(Path(root) / r) == "dicom"]
+    if dicom:
+        from app.tasks.dicom_stage import probe_series
+
+        out += probe_series(root, dicom)
     return out
 
 
@@ -191,6 +200,10 @@ def build_session(path: Path, rows: list[dict[str, Any]], scan: formats.Scan) ->
                 axis_order=r.get("axis_order"),
                 needs_axis_order=bool(r.get("needs_axis_order")),
                 error=r.get("error"),
+                files=list(r.get("files") or []),
+                series_uid=r.get("series_uid"),
+                description=r.get("description"),
+                modality=r.get("modality"),
             )
         )
     return OpenSession(

@@ -93,7 +93,7 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
             errors=[{"loc": ["body", "detect"], "msg": "must be true"}],
         )
     return await svc.preview(
-        pid, body.root, alias=body.alias, adapter=body.adapter, options=body.options
+        pid, body.root, alias=body.alias, adapter=body.adapter, options=body.options, add=body.add
     )
 
 

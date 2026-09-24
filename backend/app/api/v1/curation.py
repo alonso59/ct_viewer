@@ -107,3 +107,17 @@ async def import_v2(
     """
     data = await file.read()
     return await curation_service(ctx).import_v2(pid, data, reviewer=x_reviewer)
+
+
+@router.post(
+    "/projects/{pid}/curation/import-converter", response_model=V2ImportReport, status_code=201
+)
+async def import_converter(
+    pid: str,
+    ctx: Ctx,
+    file: Annotated[UploadFile, File(description="The converter CLI's `curation.csv`")],
+    x_reviewer: Reviewer = None,
+) -> V2ImportReport:
+    """API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08)."""
+    data = await file.read()
+    return await curation_service(ctx).import_converter(pid, data, reviewer=x_reviewer)

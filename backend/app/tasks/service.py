@@ -16,7 +16,7 @@ import re
 import shutil
 import time
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -28,7 +28,13 @@ from app.core.errors import (
     Problem,
     ValidationProblem,
 )
-from app.core.fsio import append_jsonl, atomic_write_json, iter_jsonl, read_json
+from app.core.fsio import (
+    append_jsonl,
+    atomic_write_json,
+    iter_jsonl,
+    read_json,
+    write_jsonl_atomic,
+)
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import is_within, realpath
@@ -49,6 +55,7 @@ from app.projects.models import (
 )
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.projects.service import Workspace
+from app.sources import identity as identity_store
 from app.tasks import protocol, registry
 from app.tasks.builtin import run_entry
 from app.tasks.models import (
@@ -91,6 +98,9 @@ RUN_JSON: Final = "run.json"
 ITEMS: Final = "items.jsonl"  # per-item outcomes of every attempt (last line per item wins)
 LOGS: Final = "log.jsonl"
 LEDGER: Final = Path("derived") / "runs.jsonl"
+ANNOTATIONS: Final = "annotations.jsonl"
+# ANZ-05: presets configure the analyzers' target profile
+PRESET_TARGET: Final = {"ccrcc": "kidneys", "generic-ct": "generic"}
 POLL_S: Final = 0.2
 CANCEL_GRACE_S: Final = 30.0
 SAMPLE_ITEMS: Final = 3
@@ -162,6 +172,8 @@ class _Live:
     registered: bool = False
     outputs: list[TaskRunOutput] = field(default_factory=list)
     cancel_sent: bool = False
+    dataset_dir: Path | None = None
+    set_total: Callable[[int], None] | None = None
 
 
 class TaskService:
@@ -319,10 +331,14 @@ class TaskService:
         cfg = self.workspace.get(pid)
         needs_derived = bool(VOLUME_OUTPUTS & set(m.outputs)) and cfg.derived_root() is None
         if m.input == "source":
+            ok = False
+            if req.selection.source:
+                self._source(req.selection)
+                ok = True
             return PreflightResult(
-                n_selected=1 if req.selection.source else 0,
-                n_ready=1 if req.selection.source else 0,
-                missing={} if req.selection.source else {"no source folder": 1},
+                n_selected=1 if ok else 0,
+                n_ready=1 if ok else 0,
+                missing={} if ok else {"no source folder": 1},
                 suggestions=[],
                 derived_root_required=needs_derived,
             )
@@ -391,6 +407,105 @@ class TaskService:
         root = self.workspace.derived_root(pid)  # derived-root-required (PRJ-13)
         return Path(root.path) / pid / m.id / "runs" / rid
 
+    def _dataset(self, pid: str, m: TaskManifest) -> tuple[Path, str] | None:
+        """The task's append-only `dataset/` and its `ALIAS:rel` (ADR-0014 §4)."""
+        if not VOLUME_OUTPUTS & set(m.outputs):
+            return None
+        root = self.workspace.derived_root(pid)
+        return Path(root.path) / pid / m.id / "dataset", f"{root.alias}:{pid}/{m.id}/dataset"
+
+    def _rows(self, items: Sequence[Item]) -> list[dict[str, Any]]:
+        """`input: rows` (analyzers, ANZ-02): metadata only, never files."""
+        return [
+            {
+                **it.extra,
+                "item_id": it.item_id,
+                "case_id": it.case_id,
+                "scan_idx": it.scan_idx,
+                "modality": it.modality,
+            }
+            for it in items
+        ]
+
+    def _job_spec(
+        self,
+        pid: str,
+        m: TaskManifest,
+        *,
+        settings: dict[str, Any],
+        items: Sequence[Item],
+        seg_id: str | None,
+        output_dir: str | None,
+        source: str | None,
+        scratch: Path | None = None,
+    ) -> dict[str, Any]:
+        """`scratch`: an estimate's disposable dir (no derived root needed, TSK-05)."""
+        cfg = self.workspace.get(pid)
+        spec: dict[str, Any] = {
+            "task": {"id": m.id, "version": m.version},
+            "settings": settings,
+            # ANZ-05: the project preset configures the analyzers
+            "context": {
+                "phase_vocabulary": list(cfg.phase_vocabulary),
+                "preset": cfg.preset,
+                "target_profile": PRESET_TARGET.get(cfg.preset, "generic"),
+            },
+            "items": self._job_items(pid, items, seg_id) if m.input == "items" else [],
+            "rows": self._rows(items) if m.input == "rows" else [],
+            "output_dir": output_dir,
+            "project_id": pid,
+        }
+        if scratch is not None:
+            if VOLUME_OUTPUTS & set(m.outputs):
+                spec["dataset_dir"], spec["dataset_ref"] = (
+                    str(scratch / "dataset"),
+                    "SCRATCH:dataset",
+                )
+        else:
+            ds = self._dataset(pid, m)
+            if ds is not None:
+                spec["dataset_dir"], spec["dataset_ref"] = str(ds[0]), ds[1]
+        if source is not None:
+            spec["source"] = {"path": source}
+        if "metadata" in m.outputs:  # SRC-07 registry + DCM-07 previous rows
+            reg = identity_store.load(self.workspace.project_dir(pid) / "sources")
+            if not reg.cases:
+                reg.strategy = "dicom_patient_id"
+            spec["identity"] = reg.model_dump(mode="json")
+            spec["previous_metadata"] = self._previous_metadata(pid, m.id)
+        return spec
+
+    def _previous_metadata(self, pid: str, task_id: str) -> str | None:
+        """The last completed run's `metadata.jsonl` of this task (DCM-07)."""
+        d = self._runs_dir(pid)
+        if not d.is_dir():
+            return None
+        for run_dir in sorted(d.iterdir(), key=lambda p: p.name, reverse=True):
+            if not (run_dir / RUN_JSON).is_file():
+                continue
+            rec = _read_run(run_dir)
+            if rec.task.id != task_id or rec.status not in ("completed", "completed_with_errors"):
+                continue
+            if rec.output_dir and (Path(rec.output_dir) / "metadata.jsonl").is_file():
+                return str(Path(rec.output_dir) / "metadata.jsonl")
+        return None
+
+    def _source(self, sel: TaskSelection) -> str:
+        """`input: source`: a folder or file inside ALLOWED_DATA_ROOTS (DCM-01, SRC-13)."""
+        if not sel.source:
+            raise ValidationProblem(
+                "Choose the DICOM folder or file to convert",
+                errors=[{"loc": ["body", "selection", "source"], "msg": "required"}],
+                actions=["choose_source"],
+            )
+        path = Path(sel.source)
+        if not path.is_absolute():
+            raise ValidationProblem("source must be an absolute path")
+        real = self.workspace.guard.check(path)
+        if not real.exists():
+            raise NotFound("Source path not found")
+        return str(real)
+
     # -- estimate (TSK-05, API-44) ----------------------------------------------------------
 
     async def estimate(self, pid: str, task_id: str, req: PreflightRequest) -> TaskEstimate:
@@ -401,7 +516,9 @@ class TaskService:
         pre = await self.preflight(pid, task_id, req)
         n_units = pre.n_ready
         skipped = pre.n_selected - pre.n_ready
-        if m.runtime.type == "external" or m.input == "source":
+        if m.input == "source" and m.runtime.type == "builtin":
+            return await self._dry_run(pid, m, req)
+        if m.runtime.type == "external":
             spi = m.resources.seconds_per_item
             return TaskEstimate(
                 n_units=n_units,
@@ -425,17 +542,23 @@ class TaskService:
         sample = [idx.by_id[i] for i in sample_ids]
         job_dir = self.settings.workspace_root / ".scratch" / "estimates" / new_ulid()
         out_dir = job_dir / "out"
+        spec = self._job_spec(
+            pid,
+            m,
+            settings=settings,
+            items=sample,
+            seg_id=seg_id,
+            output_dir=str(out_dir) if VOLUME_OUTPUTS & set(m.outputs) else None,
+            source=None,
+            scratch=job_dir,
+        )
         protocol.write_job(
             job_dir,
             {
+                **spec,
                 "job_id": job_dir.name,
                 "run_id": "estimate",
                 "mode": "estimate",
-                "task": {"id": m.id, "version": m.version},
-                "settings": settings,
-                "items": self._job_items(pid, sample, seg_id),
-                "rows": [],
-                "output_dir": str(out_dir) if VOLUME_OUTPUTS & set(m.outputs) else None,
                 "resume": {"skip": []},
                 "batch": {"size": m.resources.max_batch or len(sample)},
             },
@@ -472,6 +595,39 @@ class TaskService:
             sample_errors=errors,
         )
 
+    async def _dry_run(self, pid: str, m: TaskManifest, req: PreflightRequest) -> TaskEstimate:
+        """A source task's estimate = its dry run (DCM-06): counts and storage, nothing written."""
+        settings, _ = self._settings(m, req.settings)
+        source = self._source(req.selection)
+        job_dir = self.settings.workspace_root / ".scratch" / "estimates" / new_ulid()
+        spec = self._job_spec(
+            pid, m, settings=settings, items=[], seg_id=None, output_dir=str(job_dir / "out"),
+            source=source, scratch=job_dir,
+        )  # fmt: skip
+        protocol.write_job(
+            job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
+        )
+        t0 = time.monotonic()
+        try:
+            assert m.runtime.entry is not None
+            await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
+            result = protocol.read_result(job_dir) or {}
+        finally:
+            shutil.rmtree(job_dir, ignore_errors=True)
+        est = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
+        assert isinstance(est, dict)
+        selected = int(est.get("selected", 0))
+        return TaskEstimate(
+            n_units=selected,
+            n_skipped=int(est.get("series", 0)) - selected,
+            seconds_per_item=None,
+            estimated_total_s=None,
+            output_bytes=int(est.get("nifti_gz_estimated_bytes", 0)) or None,
+            basis="sample",
+            sample_errors=[str(result["error"])] if result.get("error") else [],
+            detail={**est, "scan_s": round(time.monotonic() - t0, 3)},
+        )
+
     # -- runs (TSK-06..10, API-45/46) --------------------------------------------------------
 
     def _runs_dir(self, pid: str) -> Path:
@@ -506,13 +662,12 @@ class TaskService:
             raise ValidationProblem(f"Task {m.id} is unavailable: {info.unavailable_reason}")
         who = _reviewer(reviewer)
         settings, shash = self._settings(m, req.settings)
-        if m.input == "source":
-            raise ValidationProblem(f"Task {m.id} reads a source folder; use its import flow")
         cfg = self.workspace.get(pid)
-        items = await self.select(pid, req.selection)
+        source = self._source(req.selection) if m.input == "source" else None
+        items = [] if source is not None else await self.select(pid, req.selection)
         seg_id = self._seg_id(cfg, m, req.selection)
         ready = [i for i in items if self._not_ready(cfg, m, i, seg_id) is None]
-        if not ready:
+        if not ready and source is None:
             raise ValidationProblem(
                 "No selected item is ready for this task",
                 errors=[{"loc": ["body", "selection"], "msg": "Nothing to run"}],
@@ -542,7 +697,7 @@ class TaskService:
             runtime=m.runtime.type,
             settings=settings,
             settings_hash=shash,
-            selection=req.selection.model_copy(update={"seg_id": seg_id}),
+            selection=req.selection.model_copy(update={"seg_id": seg_id, "source": source}),
             item_ids=[i.item_id for i in ready],
             inputs=[
                 TaskRunInput(
@@ -591,22 +746,28 @@ class TaskService:
         rec = _read_run(run_dir)
         job_id = new_ulid()
         job_dir = self.job_dir(m, job_id)
+        spec = self._job_spec(
+            pid,
+            m,
+            settings=rec.settings,
+            items=items,
+            seg_id=seg_id,
+            output_dir=rec.output_dir,
+            source=rec.selection.source,
+        )
         protocol.write_job(
             job_dir,
             {
+                **spec,
                 "job_id": job_id,
                 "run_id": rid,
                 "mode": "run",
-                "task": {"id": m.id, "version": m.version},
-                "settings": rec.settings,
-                "items": self._job_items(pid, items, seg_id),
-                "rows": [],
-                "output_dir": rec.output_dir,
                 "resume": {"skip": list(skip)},
                 "batch": {"size": m.resources.max_batch or max(1, len(items))},
             },
         )
         live = _Live(pid, rid, run_dir, job_dir, m, rec.selection.seg_id)
+        live.dataset_dir = Path(spec["dataset_dir"]) if "dataset_dir" in spec else None
         live.registered = any(
             s.producer is not None and s.producer.run_id == rid
             for s in self.workspace.get(pid).segmentations
@@ -620,7 +781,7 @@ class TaskService:
             await self._finish(live, info)
             return rid
 
-        spec = JobSpec(
+        job_spec = JobSpec(
             project_id=pid,
             kind="task",
             units=[],
@@ -637,7 +798,7 @@ class TaskService:
             rec.attempts += 1
             _write_run(run_dir, rec)
         try:
-            self.jobs.submit(spec)
+            self.jobs.submit(job_spec)
         except Problem as exc:
             async with self.locks(pid):
                 rec = _read_run(run_dir)
@@ -660,6 +821,7 @@ class TaskService:
     async def _drive(self, h: JobHandle, live: _Live, total: int) -> None:
         """Builtin: run the entry in a worker and tail its progress (TSK-07)."""
         h.set_total(total)
+        live.set_total = h.set_total
         tail = protocol.Tail(live.job_dir / protocol.PROGRESS)
         entry = live.manifest.runtime.entry
         assert entry is not None
@@ -699,7 +861,9 @@ class TaskService:
         masks: list[dict[str, Any]] = []
         for line in lines:
             t = line.get("t")
-            if t == "log":
+            if t == "total" and live.set_total is not None:
+                live.set_total(int(line.get("n") or 0))
+            elif t == "log":
                 logs.append(
                     {
                         "at": utc_now(),
@@ -741,6 +905,9 @@ class TaskService:
         rows: list[dict[str, Any]] = []
         for o in outputs:
             kind = o.get("kind")
+            if kind in ("image", "sidecar"):
+                await self._volume_output(live, item_id, str(kind), o)
+                continue
             if kind != "mask":
                 continue
             if "masks" not in live.manifest.outputs:
@@ -776,6 +943,21 @@ class TaskService:
                 )
             )
         return rows
+
+    async def _volume_output(self, live: _Live, item_id: str, kind: str, o: dict[str, Any]) -> None:
+        """A converted volume or sidecar: inside `output_dir` or `dataset/` → the ledger."""
+        if "images" not in live.manifest.outputs:
+            raise ValueError("task declared no image outputs")
+        path = realpath(Path(str(o.get("path", ""))))
+        roots = [
+            realpath(Path(p)) for p in (_read_run(live.run_dir).output_dir, live.dataset_dir) if p
+        ]
+        if not path.is_file() or not any(is_within(path, r) for r in roots):
+            raise ValueError(f"{kind} is not a file inside the run's output_dir or dataset/")
+        root = self.workspace.derived_root(live.pid)
+        ref = f"{root.alias}:{path.relative_to(realpath(Path(root.path))).as_posix()}"
+        sha = o.get("sha256") or await asyncio.to_thread(_sha256, path)
+        live.outputs.append(TaskRunOutput(kind=kind, item_id=item_id, ref=ref, sha256=str(sha)))
 
     def _target_seg(self, live: _Live) -> str:
         rec_settings = _read_run(live.run_dir).settings
@@ -866,8 +1048,82 @@ class TaskService:
                 )
         if live.registered:
             await self._reindex_masks(live.pid)
+        if result is not None and status in ("completed", "completed_with_errors"):
+            try:
+                await self._register_tabular(live, result)
+            except Exception as exc:  # the run is done; a registration failure is recorded
+                log.exception("task output registration failed", extra={"run_id": live.rid})
+                async with self.locks(live.pid):
+                    rec = _read_run(live.run_dir)
+                    rec.error = f"output registration: {type(exc).__name__}: {exc}"
+                    _write_run(live.run_dir, rec)
         if live.manifest.runtime.type == "builtin":
             shutil.rmtree(live.job_dir, ignore_errors=True)  # disposable scratch (PRJ layout)
+
+    async def _register_tabular(self, live: _Live, result: dict[str, Any]) -> None:
+        """TSK-09: identity (SRC-07), annotations (ANZ-04), images + metadata → an import."""
+        from app.ingest.service import IngestService
+
+        pid, rid, m = live.pid, live.rid, live.manifest
+        pdir = self.workspace.project_dir(pid)
+        ingest = IngestService(self.workspace, self.store, self.jobs, self.bus, self.locks)
+        if isinstance(result.get("identity"), dict):
+            returned = identity_store.IdentityRegistry.model_validate(result["identity"])
+            async with self.locks(pid):
+                merged = identity_store.load(pdir / "sources").merge(returned)
+                identity_store.save(pdir / "sources", merged)
+        manifest = [o for o in result.get("outputs_manifest") or [] if isinstance(o, dict)]
+        new_outputs: list[TaskRunOutput] = []
+        activated = False
+        for o in manifest:
+            if o.get("kind") == "annotations" and "annotations" in m.outputs:
+                src = (live.job_dir / str(o.get("path", ""))).resolve()
+                if not src.is_file() or not src.is_relative_to(live.job_dir.resolve()):
+                    continue
+                rows = [r for r in iter_jsonl(src) if r.get("item_id") and r.get("field")]
+                async with self.locks(pid):
+                    write_jsonl_atomic(live.run_dir / ANNOTATIONS, rows)
+                fields = sorted({str(r["field"]) for r in rows})
+                cfg = self.workspace.get(pid)
+                for f in fields:  # ANZ-04: a new run is active only where none is
+                    if not cfg.annotation_sources.get(f):
+                        await self.workspace.set_annotation_source(pid, f, rid)
+                        activated = True
+                new_outputs.append(
+                    TaskRunOutput(
+                        kind="annotations",
+                        ref=f"tasks/runs/{rid}/{ANNOTATIONS}",
+                        detail=",".join(fields),
+                    )
+                )
+        imported = False
+        try:
+            for o in manifest:
+                if o.get("kind") != "metadata" or "metadata" not in m.outputs:
+                    continue
+                path = realpath(Path(str(o.get("path", ""))))
+                out_dir = _read_run(live.run_dir).output_dir
+                if out_dir is None or not is_within(path, realpath(Path(out_dir))):
+                    raise ValueError("metadata.jsonl must be inside the run's output_dir")
+                root = self.workspace.derived_root(pid)
+                data = await asyncio.to_thread(path.read_bytes)
+                commit = await ingest.import_generated(
+                    pid, data, root=root.path, alias=root.alias, source_key=f"task:{m.id}"
+                )
+                imported = True
+                new_outputs.append(
+                    TaskRunOutput(kind="import", ref=commit.import_id, detail=commit.job_id)
+                )
+        finally:
+            if new_outputs:
+                async with self.locks(pid):
+                    rec = _read_run(live.run_dir)
+                    rec.outputs = [*rec.outputs, *new_outputs]
+                    _write_run(live.run_dir, rec)
+        if activated and not imported:
+            await ingest.reindex(pid)
+        if activated:
+            self.bus.publish(pid, "project.updated", {"fields": ["annotation_sources"]})
 
     async def _reindex_masks(self, pid: str) -> None:
         from app.ingest.service import IngestService

@@ -25,6 +25,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
 | API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `201 {sid, path, root, kind, items[], truncated, ignored}` (headers only; DICOM/NumPy converted into `.scratch/`); DELETE → `204` | SRC-09 |
 | API-08 | `GET /open/{sid}/items/{n}/image?axis_order=` · `GET …/items/{n}/preview?axis_order=` · `POST /open/{sid}/items/{n}/attach` | Open-mode bytes (Range; NumPy needs a decided or given `axis_order`, else `ambiguous-axis-order`) / NumPy middle slice PNG / attach a segmentation `{path}` → the session with the new label item, or `geometry-mismatch` | SRC-10/12 |
+| API-09 | `POST /open/{sid}/items/{n}/save` | SRC-14: `{dest_dir?, sidecar, anonymize}` → `201 {path, sidecar_path}`; `dest_dir` inside `ALLOWED_DERIVED_ROOTS` (default `{first}/_open/{YYYY-MM-DD}/`), never overwrites; `derived-root-required` when `ALLOWED_DERIVED_ROOTS` is empty | SRC-14 |
 | API-10 | `GET /fs/list?path=&role=` | Server folder browser, limited to `ALLOWED_DATA_ROOTS` (`role=derived`: `ALLOWED_DERIVED_ROOTS`, `derived-root-required` when empty) | IMP-01, PRJ-13 |
 | API-11 | `POST /projects/{pid}/imports/preview` | Multipart files or `{root, detect: true, adapter?, options?}` → preview (`adapter`: `metadata-v1` default, `nifti-files`; a NIfTI file as `root` = single-file import, SRC-05). The preview adds `adapter`, `options`, `sample`, `unmatched`, `orphan_masks`, `ignored` | IMP-02/03, SRC-03..06 |
 | API-12 | `POST /projects/{pid}/imports` | Commit preview → `202 {job_id}` (indexing) | IMP-04/05 |
@@ -37,7 +38,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-19 | `POST /sources/detect` | `{path}` (folder or file) → `{path, kind, root, candidates: [{adapter, reason, counts, confidence, options, available, unavailable_reason}], counts, ignored}`; adapters `metadata-v1`, `nifti-files`, `dicom.convert`, `open`; nothing accepted → `unsupported-format` | SRC-01..06 |
 | API-20 | `GET /projects/{pid}/cases` | Case summaries | DATA_MODEL |
 | API-21 | `GET /projects/{pid}/cases/{cid}` | Case + items tree + warnings | |
-| API-22 | `GET /projects/{pid}/items/{iid}` | Item record (+ `advanced` with absolute paths) | |
+| API-22 | `GET /projects/{pid}/items/{iid}` · `GET …/items/{iid}/dicom-tags` | Item record (+ `advanced` with absolute paths) / its DICOM JSON sidecar, on demand (`not-found` without one) | DCM-04/05 |
 | API-23 | `GET /projects/{pid}/items/{iid}/image` | Image bytes (Range, ETag) | BE-04 |
 | API-24 | `GET /projects/{pid}/items/{iid}/mask?seg=` | Mask bytes of one segmentation set (default `default_seg`; Range, ETag) | BE-04, ADR-0015 |
 | API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1&seg=` | Mesh of one set's label (`202` + job if not cached) | VW-09 |
@@ -61,13 +62,13 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-45 | `POST·GET /projects/{pid}/task-runs?task=` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection, name?}`, optional `X-Reviewer` → `202 {run_id, job_id, status}`) / list (radiomics runs included) / detail | TSK-06/10 |
 | API-46 | `POST …/task-runs/{rid}/cancel` · `POST …/task-runs/{rid}/resume` | Control | TSK-07 |
 | API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09 |
-| API-48 | `GET /projects/{pid}/annotations?field=&run=` · `PUT /projects/{pid}/annotation-sources/{field}` | Annotations with confidence/evidence / activate a run (`{run_id\|null}`, reindexes) | ANZ-01/04 |
+| API-48 | `GET /projects/{pid}/annotations?field=&run=&item_id=` · `GET …/annotation-sources` · `PUT …/annotation-sources/{field}` | Annotations with confidence/evidence and `active` / active runs / activate a run (`{run_id\|null}` → `{annotation_sources, job_id}`, the reindex job) | ANZ-01/04 |
 | API-50 | `GET·POST /projects/{pid}/curation/events` | History (filter by `item_id`/`case_id`) / append (`X-Reviewer`, optional `X-Session-Id`) | CUR-02/14 |
 | API-51 | `GET /projects/{pid}/curation/state` | Derived latest state | CUR-08 |
 | API-52 | `GET /projects/{pid}/curation/queue?format=json\|csv` | Correction queue | CUR-09 |
 | API-53 | `POST /projects/{pid}/curation/exports` | Write CUR-10 files to `exports/` | CUR-10 |
 | API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` | CUR-13 |
-| API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` | CUR-15 |
+| API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` (multipart `file`, `X-Reviewer`) → `201` report as API-54 | CUR-15 |
 
 API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
 

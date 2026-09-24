@@ -406,3 +406,30 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Legacy VOI axis order vs the v2 VOI writer: needs `legacy/`, done in Wave 3 (R9).
 - Initial JS is 296 KB of 300: the Tasks view (Wave 3) must be lazy; the import wizard could move to a lazy chunk if needed.
 - Open sessions are lost on a server restart (the page shows `not-found`; reopening works).
+
+## 2026-09-24 · P7b Wave 3 (converter + analyzers) · v3
+
+**Done** (ROADMAP §P7b Wave 3 ticked)
+- Docs first for the owner addendum: SRC-14 (Save as NIfTI…), SRC-15 (Add to project…), the three Open actions (SOURCES, UI-17, VW-21), API-09, ADR-0014 §4 line for `{derived root}/_open/`, PROJECT_FORMAT write rule; plus SOURCES §Imports (several sources per project).
+- `legacy/convert/` (read-only) ported to `plugins/dicom/` (scan with geometry/advanced/MRI inspection, header rows, series → NIfTI through the ITK writer with `DICOMOrient(RAS)`, DICOM JSON sidecars without PixelData and > 64 KiB bulk, `anonymize: basic`, incremental `dataset/` with never-rewritten files, `MR` codes, single-file → 1-slice volume, standalone CLI) and `plugins/analyzers/` (phase, target, readiness; pure `analyze(rows, config)`, vocabulary mapping, compound/conflict → UNK low). Manifests `dicom.convert`, `analyzer.phase|target|readiness` (builtin).
+- Task framework: `source` and `rows` inputs, job `context` (vocabulary, preset target profile), `dataset_dir`, `{t: total}` lines, image/sidecar outputs in the ledger, annotations copied to the run and activated where none is (ANZ-04), `metadata` outputs imported as source `task:{task_id}`, identity merged back (SRC-07), converter dry run as the estimate (DCM-06, `detail`).
+- Index: the latest snapshot per `source_key` (SOURCES §Imports; plain re-imports unchanged), active annotations joined into phase resolution (`analyzer:{run_id}` after `phase`, before `phase_guess`) and into `extra` for other fields; reindex job on activation (API-48). Commit keeps an alias's role; previews use the derived guard for derived aliases.
+- API: API-48 (annotations, sources, PUT activation), API-55 (CUR-15 mapping in CURATION), API-22 `dicom-tags`, API-09 (Save as NIfTI: default `{first derived root}/_open/{date}/`, `os.link` publish with `-1`, `-2` … so nothing is overwritten, optional anonymized sidecar), Open mode DICOM (one item per series, converted into `.scratch/open/`), API-11 `add` for SRC-15.
+- FE: `features/tasks` (lazy Tasks view + task tab: selection, schema form, preflight with suggestions and the derived-folder prompt, estimate, run, runs with outputs and annotation activation); Image view DICOM tags on demand; Open toolbar Save as NIfTI… / Add to project… / Create project from this; wizard runs `dicom.convert` for DICOM sources and passes `add`.
+- Fixtures: `.fixtures/synthetic/dicom/` (2 patients, 3 series, seeded UIDs, outside `Dataset900` so counts are unchanged); `tools/dicom_fixtures.py` also serves the tests.
+
+**Results**: `make fixtures && make check` green: 391 backend (3 PyRadiomics modules skipped) + 198 frontend vitest. Playwright 22/22 (Chromium 11, Firefox 11; new `e2e/tasks-dicom.spec.ts`). Initial JS 297.7 KB gzip. TST-13 DICOM: the marker lands at RAS (−x, −y, z) of its LPS position (`tests/test_dicom.py`), NumPy half in Wave 2.
+
+**Decisions**
+- Several sources per project through `source_key` (needed for converter runs and SRC-15); the later import wins a duplicate `item_id` with `duplicate_row_identity`.
+- In-app converter rows carry no `phase_guess`; the analyzers' annotations replace it (the CLI still writes the legacy fields). Case indices start at 0 like the CLI.
+- `anonymize: basic` hashes identity keys, so `sources/identity.json` never holds PatientIDs for anonymized runs.
+- SimpleITK moved to the core dependencies (the converter is builtin); PyYAML stays a CLI-only dependency.
+- CUR-15 target mapping: `phase` for `curated_phase`, `seg` otherwise (documented in CURATION).
+
+**Open issues**
+- The legacy VOI axis-order check (IMP-10, SRC-12) cannot be done: `legacy/convert/` has no VOI writer and the task allows reading only that folder. Default stays `xyz`; a catalog `axis_order` overrides it.
+- Without `anonymize`, converter rows (institution, dates, …) are snapshotted into `sources/` and `index/` and therefore travel in bundles, which conflicts with DCM-05's "never in bundles" for rows. Owner decision: strip PHI fields at bundle export, or require `anonymize` for projects that are shared.
+- `anonymize: basic` covers a subset of Table E.1-1; the PHI review of a sidecar stays a human check.
+- `legacy/` is now fully ported and can be deleted by the owner (not done here).
+- Initial JS 297.7 of 300 KB: Wave 4 (VW-19 in the viewer) must keep new UI lazy or move the import wizard into a lazy chunk.

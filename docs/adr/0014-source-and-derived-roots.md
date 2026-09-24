@@ -11,6 +11,7 @@ Amends: AGENTS.md R1, ADR-0002, ADR-0005 (aliases gain a role), ADR-0007 (a thir
 4. **Layout** (under `{DERIVED}/{project_id}/{task_id}/`):
    - **Runs** go to `runs/{run_id}/`. Each is written by its task only and never modified once finished; a rerun is a new `run_id`.
    - **Accumulating datasets** go to `dataset/`, for incremental tasks such as the converter. They are append-only: new files are added and existing files are never rewritten.
+   - **Open-mode exports** (SRC-14, owner addendum 2026-09-24) go to `{derived root}/_open/`, the only derived location outside a project; files there are written once and never modified.
 5. **Deletion** happens only by an explicit, confirmed user action ("Delete run outputs"). Nothing is deleted automatically.
 6. **Provenance.**
    - The project keeps `derived/runs.jsonl` (run, task, version, settings hash, outputs with sha256).

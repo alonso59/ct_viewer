@@ -23,7 +23,8 @@ dependencies = [
   "scikit-learn>=1.5",
   "pillow>=10.4",  # WebP thumbnails (IMP-12)
   "scipy>=1.15",  # guided statistics (ANA-*): Welch ANOVA needs f_oneway(equal_var=False)
-  "pydicom>=3.0",  # DICOM headers + sidecars (DCM-*); SimpleITK comes with [radiomics]
+  "pydicom>=3.0",  # DICOM headers + sidecars (DCM-*)
+  "SimpleITK>=2.3",  # DICOM series → NIfTI with geometry (DCM-02); also used by [radiomics]
 ]
 
 [project.optional-dependencies]
@@ -71,7 +72,7 @@ mypy_path = ".."
 [[tool.mypy.overrides]]
 module = [
   "nibabel.*", "skimage.*", "sklearn.*", "duckdb.*", "pyarrow.*", "sse_starlette.*",
-  "radiomics.*", "SimpleITK.*",
+  "radiomics.*", "SimpleITK.*", "yaml.*",
 ]
 ignore_missing_imports = true
 

@@ -68,3 +68,13 @@ Case identity is **not** a converter setting in the app: it comes from `sources/
 ## Row fields (contract v1 + converter extras)
 
 Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as variables per VAR-08): `patient_folder`, `study_uid`, `series_uid`, `series_number`, `series_description`, `protocol_name`, `body_part`, `dicom_category`, `scan_type`, dates and times, geometry status and codes, `output_role`, `include_guess`, `exclude_reason`, `target_match_*`, `phase_guess*`, `contrast_delay_*`, `spacing_quality`, `dicom_sidecar`.
+
+## Implementation notes (P7b Wave 3)
+
+- Code: `plugins/dicom/{scan,rows,convert,sidecar,pipeline,identity,task,cli}.py` (pydicom + SimpleITK, both core dependencies); analyzers from `plugins/analyzers/` run in-process. Nothing imports `app`.
+- `job.json` extras: `source {path}`, `dataset_dir`, `dataset_ref` (`DERIVED:{project_id}/dicom.convert/dataset`), `identity` (the project registry), `previous_metadata` (the last completed run's rows), `project_id`, `context` (phase vocabulary and preset target profile, ANZ-05). `result.json` adds `identity` (merged back, append-only) and `estimate` (the dry run's counts and storage, DCM-06; API-44 `detail`).
+- The run's rows are imported as the source `task:dicom.convert` (SOURCES §Imports), so a converted DICOM folder sits next to other imports. Case indices start at 0 (`case_00000`) like the CLI; scan indices are two digits per case in series order (study time, series number, UID).
+- Series the readiness analyzer marks `EXCLUDED` (localizer, intervention, < 10 slices, wrong anatomy or modality) are rows with `status: skipped` → `excluded_upstream` items (IMP-07). DICOM SEG series are skipped with the diagnostic `DICOM_SEG_NOT_SUPPORTED` (DCM-11).
+- `anonymize: basic` covers a subset of PS3.15 Table E.1-1 (listed in `plugins/dicom/sidecar.py`): identifying and date attributes removed, private tags removed, UIDs replaced by deterministic `2.25.` UIDs (salted with the project id, so reruns keep identity), `PatientID`/`PatientName` = `case_id`; identity keys in `sources/identity.json` become salted hashes. The PHI review of a sidecar remains a human check (ROADMAP §P7b).
+- Without `anonymize`, the imported rows (snapshots in `sources/`, extras in `index/`) keep header values such as institution and dates; bundles carry them (open issue for the owner, LANE_NOTES "P7b Wave 3").
+- The CLI (`python -m plugins.dicom.cli config.yaml`, needs PyYAML) keeps `.rw_identity.json`, `metadata.jsonl` and `curation.csv` (manual columns preserved) in its output folder; the app imports that folder with `metadata-v1` and its `curation.csv` with API-55 (CUR-15).

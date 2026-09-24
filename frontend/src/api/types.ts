@@ -219,6 +219,8 @@ export interface PreviewRequest {
   /** SRC-03/04: `nifti-files` builds v1 rows from file names; `root` may be one NIfTI file (SRC-05) */
   adapter?: ImportAdapter
   options?: NiftiOptions
+  /** SRC-15: keep the project's other sources (SOURCES §Imports) */
+  add?: boolean
 }
 export type ImportAdapter = NonNullable<S['ImportPreview']['adapter']>
 /** `nifti-files` options (SOURCES §NIfTI files) */
@@ -393,3 +395,8 @@ export type TaskRunDetail = S['TaskRunDetail']
 export type TaskRunStatus = TaskRunSummary['status']
 export type TaskItemError = S['TaskItemError']
 export type TaskRunOutput = S['TaskRunOutput']
+export type AnnotationRow = S['AnnotationRow']
+export type AnnotationSources = S['AnnotationSources']
+/** API-09 (SRC-14) */
+export type SaveOpenBody = S['SaveBody']
+export type SavedOpen = S['Saved']

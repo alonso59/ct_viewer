@@ -33,3 +33,9 @@ Code and term lists: `plugins/analyzers/` (ported from `legacy/convert/policy.py
 - Phase resolution (INPUT_METADATA): `phase.json` → `curated_phase` → `canonical_phase` → `phase` → **active `analyzer.phase` run** → `phase_guess` → `UNK`. `phase_source` names the winner (`analyzer:{run_id}`).
 - `target_match` and `readiness` become study variables (VAR-*), usable in filters and task selection (TSK-03).
 - The Image view shows each annotation with confidence and evidence; Search can filter "low-confidence phase".
+
+## Implementation notes (P7b Wave 3)
+
+- Values: `target_match` ∈ `strong`, `compatible`, `weak`, `excluded`, `none`; `output_role` ∈ `PRIMARY`, `SECONDARY`, `EXCLUDED` (evidence = the reason, e.g. `localizer`); `readiness` ∈ `ready`, `ready_with_warning`, `review_required`, `unsuitable`, `unknown` (evidence = the codes or reasons). Phase guesses map to the vocabulary: NC → `NC`; CMP → `CMP` or `ART`; NP → `NP` or `PV`; excretory/delayed → `EP` or `DELAYED`; anything else → `UNK`.
+- Tasks `analyzer.phase|target|readiness` (`input: rows`): rows are the items' `extra` plus `item_id`, `case_id`, `scan_idx`, `modality`. `target_profile` defaults to the preset's (`ccrcc` → `kidneys`, `generic-ct` → `generic`) through the job's `context`.
+- Annotations are stored as `tasks/runs/{run_id}/annotations.jsonl` lines `{item_id, field, value, confidence, evidence, rules_version}`. Activation and deactivation (API-48 PUT) start a reindex job; active non-phase fields are joined into the items' `extra` (study variables).
