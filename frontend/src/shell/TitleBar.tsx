@@ -14,7 +14,7 @@ const MENUS: MenuId[] = ['file', 'edit', 'view', 'project', 'radiomics', 'help']
 function MenuItems({ menu }: { menu: MenuId }) {
   const { t } = useTranslation()
   const cmds = [...registry.commands.values()]
-    .filter((c) => c.menu === menu)
+    .filter((c) => c.menu === menu && registry.allowed(c))
     .sort((a, b) => (a.menuGroup ?? 0) - (b.menuGroup ?? 0))
   return (
     <>

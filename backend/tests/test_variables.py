@@ -9,7 +9,7 @@ import pytest
 
 from app.core.errors import ValidationProblem
 from app.ingest.models import Item, PhaseInfo
-from app.projects.presets import PRESETS, normalize_phase_value
+from app.projects.presets import Pack, load_packs, normalize_phase_value
 from app.variables.build import ExternalData, build, match_report
 from app.variables.external import parse_table
 from app.variables.models import (
@@ -339,7 +339,9 @@ def test_parse_and_match_var_filters() -> None:
 
 
 def test_preset_phase_normalization() -> None:
-    cc, gen, none = PRESETS["ccrcc"], PRESETS["generic-ct"], PRESETS["none"]
+    packs = load_packs()
+    cc, gen = packs["ccrcc"], packs["generic-ct"]
+    none = Pack("none", "none", (), (), {}, ("UNK",))  # no pack: open vocabulary
 
     def norm(p: Any, raw: str | None) -> str:
         return normalize_phase_value(raw, list(p.phase_vocabulary), p.phase_mapping)

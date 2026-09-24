@@ -1,0 +1,13 @@
+{
+  "plugin": 1,
+  "id": "generic-ct",
+  "version": "1.0.0",
+  "title": "Study pack Generic CT",
+  "description": "Generic CT phase vocabulary and mapping (PRJ-16).",
+  "icon": "package",
+  "contributes": {
+    "packs": [
+      "generic-ct"
+    ]
+  }
+}

@@ -19,7 +19,9 @@ ITEM = "case_00001.01.complete.-"
 
 
 def _project(client: TestClient, data_root: Path) -> str:
-    pid: str = client.post(f"{API}/projects", json={"name": "hash"}).json()["project_id"]
+    pid: str = client.post(f"{API}/projects", json={"name": "hash", "packs": ["ccrcc"]}).json()[
+        "project_id"
+    ]
     import_root(client, pid, data_root)
     return pid
 
@@ -82,7 +84,9 @@ def test_changed_file_loses_its_hash_until_reindexed(client: TestClient, data_ro
 
 def test_hash_job_errors(client: TestClient, data_root: Path) -> None:
     assert_problem(client.post(f"{API}/projects/01JAAAAAAAAAAAAAAAAAAAAAAA/hash-jobs"), "not-found")
-    pid = client.post(f"{API}/projects", json={"name": "empty"}).json()["project_id"]
+    pid = client.post(f"{API}/projects", json={"name": "empty", "packs": ["ccrcc"]}).json()[
+        "project_id"
+    ]
     empty = client.post(f"{API}/projects/{pid}/hash-jobs").json()
     assert empty["n_files"] == 0
     assert wait_job(client, empty["job_id"])["status"] == "succeeded"

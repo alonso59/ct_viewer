@@ -20,7 +20,6 @@ import {
   type Job,
   type LabelDef,
   type NewCurationEvent,
-  type Preset,
   type Project,
   type ProjectSummary,
   type QCWarning,
@@ -94,12 +93,16 @@ const CCRCC_LABELS: LabelDef[] = [
   { value: 2, name: 'tumor', color: '#FFFF00', opacity: 0.2, visible: true },
   { value: 3, name: 'cyst', color: '#FF00FF', opacity: 0.15, visible: false },
 ]
-/** PRJ-12 presets: label map + phase vocabulary */
-const PRESET_DEFAULTS: Record<Preset, { labels: LabelDef[]; vocabulary: string[] }> = {
-  ccrcc: { labels: CCRCC_LABELS, vocabulary: ['NC', 'CMP', 'NP', 'EP', 'UNK'] },
-  'generic-ct': { labels: [], vocabulary: ['NC', 'ART', 'PV', 'DELAYED', 'UNK'] },
-  none: { labels: [], vocabulary: [] },
+/** PRJ-16 study packs (the shipped pack.json files, abridged) */
+type PackId = 'ccrcc' | 'generic-ct'
+const PACKS: Record<PackId, { title: string; labels: LabelDef[]; vocabulary: string[]; target: string }> = {
+  ccrcc: { title: 'ccRCC (kidney CT)', labels: CCRCC_LABELS, vocabulary: ['NC', 'CMP', 'NP', 'EP', 'UNK'], target: 'kidneys' },
+  'generic-ct': { title: 'Generic CT phases', labels: [], vocabulary: ['NC', 'ART', 'PV', 'DELAYED', 'UNK'], target: 'generic' },
 }
+const isPack = (id: string): id is PackId => id in PACKS
+/** PRJ-15: the mock's ETag changes with every settings write */
+let etagCounter = 0
+const nextEtag = () => `"mock-${++etagCounter}"`
 const AUTO_COLORS = ['#00FFFF', '#FFFF00', '#FF00FF', '#00FF00', '#FF8000', '#0080FF']
 
 // ---- helpers -------------------------------------------------------------
@@ -251,26 +254,31 @@ function emit(pid: string, e: ServerEvent) {
   for (const l of listeners.get(pid) ?? []) l(e)
 }
 
-function makeProject(pid: string, name: string, preset: Preset, withData: boolean): ProjectState {
-  const d = PRESET_DEFAULTS[preset]
+function makeProject(pid: string, name: string, packs: PackId[], withData: boolean): ProjectState {
+  const d = packs[0] ? PACKS[packs[0]] : { labels: [], vocabulary: [] }
   const items = withData ? seedItems('01JSEEDIMPORT0000000000000') : []
   const ts = '2026-09-21T15:00:00Z'
   return {
     project: {
       format: 'radiology-workbench-project',
-      format_version: 2,
+      format_version: 3,
       project_id: pid,
       name,
       description: '',
       created_at: ts,
       updated_at: ts,
-      preset,
+      packs,
+      default_modality: 'CT',
+      view_token: null,
+      view_url: null,
+      read_only: false,
+      etag: nextEtag(),
       path_roots: withData ? [{ alias: 'DATA', path: DEMO_ROOT, role: 'source' }] : [],
       label_map: clone(withData && d.labels.length === 0 ? autoLabels(items) : d.labels),
       phase_vocabulary: d.vocabulary,
       phase_mapping: {},
-      phase_priority: ['NP', 'CMP', 'NC', 'EP', 'UNK'],
-      viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
+      phase_priority: d.vocabulary.length ? ['NP', 'CMP', 'NC', 'EP', 'UNK'] : ['UNK'],
+      display: { layout: 'four-up', wl: { CT: { ww: 400, wl: 50 }, MR: 'percentile' }, use_dicom_window: true, wl_presets: null, interpolation: 'linear', convention: 'radiological' },
       segmentations: [{ seg_id: 'imported', name: '', kind: 'imported', producer: null, label_mapping: { '1': 1, '2': 2, '3': 3 }, unmatched: [], created_at: ts }],
       default_seg: 'imported',
       annotation_sources: {},
@@ -303,19 +311,19 @@ function autoLabels(items: ItemRecord[]): LabelDef[] {
 interface Extra {
   pid: string
   name: string
-  preset: Preset
+  packs?: PackId[]
   imported: boolean
 }
 
 function init() {
   db.clear()
-  db.set(DEMO_PID, makeProject(DEMO_PID, 'Dataset900 (synthetic)', 'ccrcc', true))
-  const offline = makeProject(OFFLINE_PID, 'ccRCC Dataset820', 'ccrcc', false)
+  db.set(DEMO_PID, makeProject(DEMO_PID, 'Dataset900 (synthetic)', ['ccrcc'], true))
+  const offline = makeProject(OFFLINE_PID, 'ccRCC Dataset820', ['ccrcc'], false)
   offline.last_opened_at = '2026-09-19T17:40:00Z'
   offline.reachable = false
   offline.project.path_roots = [{ alias: 'DATA', path: '/mnt/nas/ccRCC/Dataset820', role: 'source' }]
   db.set(OFFLINE_PID, offline)
-  for (const p of readLs<Extra[]>(LS_EXTRA, [])) db.set(p.pid, makeProject(p.pid, p.name, p.preset, p.imported))
+  for (const p of readLs<Extra[]>(LS_EXTRA, [])) db.set(p.pid, makeProject(p.pid, p.name, p.packs ?? [], p.imported))
   events = readLs<Record<string, CurationEvent[]>>(LS_EVENTS, { [DEMO_PID]: seededEvents() })
 }
 init()
@@ -325,8 +333,13 @@ function persistExtraProjects() {
     LS_EXTRA,
     [...db.values()]
       .filter((s) => s.project.project_id !== DEMO_PID && s.project.project_id !== OFFLINE_PID)
-      .map<Extra>((s) => ({ pid: s.project.project_id, name: s.project.name, preset: s.project.preset ?? 'ccrcc', imported: s.items.length > 0 })),
+      .map<Extra>((s) => ({ pid: s.project.project_id, name: s.project.name, packs: s.project.packs.filter(isPack), imported: s.items.length > 0 })),
   )
+}
+
+function checkEtag(s: ProjectState, etag: string) {
+  if (etag !== s.project.etag && etag !== '*')
+    throw new ProblemError(412, 'precondition-failed', 'Precondition failed', 'The project settings were changed by someone else: reload and reapply', ['reload'])
 }
 
 function exists(pid: string): ProjectState {
@@ -713,22 +726,66 @@ export const mockServer: Api = {
     s.last_opened_at = now()
     return clone(s.project)
   },
-  async createProject({ name, description = '', preset }) {
+  async createProject({ name, description = '', default_modality = 'CT' }) {
     await wait(250)
     const pid = ulid()
-    const s = makeProject(pid, name, preset, false)
+    const s = makeProject(pid, name, [], false)
     s.project.description = description
+    s.project.default_modality = default_modality
     s.project.created_at = s.project.updated_at = now()
     db.set(pid, s)
     persistExtraProjects()
     return clone(s.project)
   },
-  async updateLabelMap(pid, labels) {
+  async updateProject(pid, patch, etag) {
     await wait(80)
-    const s = state(pid)
-    s.project.label_map = clone(labels)
-    emit(pid, { event: 'project.updated', data: { fields: ['label_map'] } })
+    const s = exists(pid)
+    checkEtag(s, etag)
+    const fields = Object.keys(patch).filter((k) => patch[k as keyof typeof patch] != null)
+    Object.assign(s.project, clone(Object.fromEntries(fields.map((k) => [k, patch[k as keyof typeof patch]]))))
+    s.project.etag = nextEtag()
+    s.project.updated_at = now()
+    emit(pid, { event: 'project.updated', data: { fields } })
+    if (fields.includes('name')) persistExtraProjects()
     return clone(s.project)
+  },
+  async updateLabelMap(pid, labels, etag) {
+    return this.updateProject(pid, { label_map: labels }, etag)
+  },
+  async listPacks() {
+    await wait(40)
+    return Object.entries(PACKS).map(([pack_id, p]) => ({ pack_id, plugin: pack_id, title: p.title, description: '', labels: p.labels.map((l) => l.name), phase_vocabulary: p.vocabulary, target_profile: p.target }))
+  },
+  async applyPack(pid, packId) {
+    await wait(120)
+    const s = exists(pid)
+    if (!isPack(packId)) throw new ProblemError(404, 'not-found', 'Study pack not found', packId)
+    const p = PACKS[packId]
+    const byValue = new Map(s.project.label_map.map((l) => [l.value, l]))
+    for (const l of p.labels) byValue.set(l.value, clone(l))
+    s.project.label_map = [...byValue.values()].sort((a, b) => a.value - b.value)
+    s.project.phase_vocabulary = [...p.vocabulary]
+    s.project.packs = [...s.project.packs.filter((x) => x !== packId), packId]
+    s.project.etag = nextEtag()
+    persistExtraProjects()
+    emit(pid, { event: 'project.updated', data: { fields: ['packs', 'label_map', 'phase_vocabulary'] } })
+    return { project: clone(s.project), job_id: null }
+  },
+  async createViewToken(pid) {
+    await wait(60)
+    const s = exists(pid)
+    const token = Math.random().toString(36).slice(2).padEnd(20, 'x')
+    s.project.view_token = token
+    s.project.view_url = `${location.origin}/v/${token}`
+    s.project.etag = nextEtag()
+    return { view_token: token, view_url: s.project.view_url }
+  },
+  async revokeViewToken(pid) {
+    await wait(60)
+    const s = exists(pid)
+    s.project.view_token = null
+    s.project.view_url = null
+    s.project.etag = nextEtag()
   },
   async listRoots(pid) {
     await wait(60)
@@ -773,9 +830,10 @@ export const mockServer: Api = {
     s.project.path_roots = [...s.project.path_roots.filter((r) => r.role !== 'derived'), { alias, path, role: 'derived' }]
     return { root: { alias, path, exists: true, role: 'derived' }, verify: { sampled: 0, matched: 0, mismatched: 0, missing: 0, samples: [] } }
   },
-  async setDefaultSeg(pid, segId) {
+  async setDefaultSeg(pid, segId, etag) {
     await wait(60)
     const s = exists(pid)
+    checkEtag(s, etag)
     if (!s.project.segmentations.some((x) => x.seg_id === segId)) throw new ProblemError(422, 'validation', 'Unknown segmentation set', segId)
     s.project.default_seg = segId
     for (const it of s.items) it.mask = it.masks[segId] ?? null

@@ -56,7 +56,7 @@ export const useWorkbench = create<WorkbenchState>()((set) => ({
 export function openEditor(type: string, params: Record<string, unknown> = {}, opts: { preview?: boolean } = {}) {
   const dock = useWorkbench.getState().dock
   const contrib = registry.getEditor<Record<string, unknown>>(type)
-  if (!dock || !contrib) return
+  if (!dock || !contrib || !registry.allowed(contrib)) return
   const id = contrib.id(params)
   const existing = dock.getPanel(id)
   if (existing) {

@@ -20,7 +20,7 @@ let name = ''
 
 test.beforeAll(async () => {
   name = `Bundle ${Date.now()}`
-  pid = (await api<{ project_id: string }>('POST', '/projects', { name, preset: 'ccrcc' })).project_id
+  pid = (await api<{ project_id: string }>('POST', '/projects', { name, packs: ['ccrcc'] })).project_id
   const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
   await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
   await expect

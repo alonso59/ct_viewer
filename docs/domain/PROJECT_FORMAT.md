@@ -100,7 +100,8 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
   "phase_mapping": { "ART": "CMP", "VEN": "NP", "DELAY": "EP" },   // + aliases, see INPUT_METADATA
   "phase_priority":   ["NP", "CMP", "NC", "EP", "UNK"],
   "display": {                               // PRJ-18 (was viewer_defaults)
-    "layout": "four-up", "wl": { "CT": { "ww": 400, "wl": 50 }, "MR": "percentile" },
+    "layout": "four-up",                     // four-up | conventional | three-mpr | one-up-{axial,sagittal,coronal,3d}
+    "wl": { "CT": { "ww": 400, "wl": 50 }, "MR": "percentile" },
     "use_dicom_window": true, "wl_presets": null, "interpolation": "linear", "convention": "radiological"
   },
   "segmentations": [                          // ADR-0015
@@ -146,13 +147,24 @@ Single-writer model and locking: BE-05.
 | Relink | Each alias is resolved and verified (PRJ-05); failures open the relink dialog (API-06 `needs_relink`) |
 | PHI | DICOM-derived rows not anonymized at conversion leave with the `basic` profile applied (DCM-05): `sources/*/metadata.jsonl`, `index/items.jsonl` (PHI fields blanked, `patient_id` → `case_id`, UIDs replaced deterministically per project), `index/cases.jsonl` (`patient_id`) and `sources/identity.json` (identity keys hashed as in anonymized runs). The project folder is not changed; an imported copy that converts more data numbers new patients from `next_index` |
 
+## Neutral projects, packs, If-Match, view-only links (P7c Wave 2)
+
+| Rule | Detail |
+|---|---|
+| New project | Neutral defaults: `label_map: []`, `phase_vocabulary: []`, `phase_mapping: {}`, `phase_priority: ["UNK"]`, `packs: []`. API-02 also takes `packs` (scripts, tests); the UI never sends it (PRJ-14) |
+| Packs | `plugins/<id>/pack.json` next to a `plugin.json` that lists the id in `contributes.packs`: `label_map`, `phase_vocabulary`, `phase_aliases` (canonical → raw values), `phase_priority`, `target_profile`, `radiomics_profile`. Shipped: `ccrcc`, `generic-ct` |
+| Applying a pack | Pack labels replace the entries with the same value, other labels stay; the vocabulary and priority become the pack's, the mapping is merged; the `imported` set maps the new values; `packs[]` records it once; if the phase rules changed a reindex job starts (API-28 returns its `job_id`) |
+| ETag | Strong, over the whole `project.json`; also in the body as `etag`. `If-Match` missing → `428 precondition-required`; stale → `412 precondition-failed` with `actions: ["reload"]`; `*` matches any |
+| View token | `secrets.token_urlsafe(24)`; rotation replaces it (the old link is dead at once); bundles reset it to `null` |
+| View mirror (API-60) | `/view/{token}` returns the project with `project_id: "view-{token}"`, `read_only: true` and blank root paths; `/view/{token}/{path}` forwards only the read routes listed in `app/api/v1/view.py` (cases, items + image/mask/thumbnail/dicom-tags/mesh, warnings, segmentations, variables, annotations, curation state/events/queue, radiomics and task runs, events, labeling tables) to `/projects/{pid}/…`; anything else is 404, other methods 405 |
+
 ## Migration 2 → 3 (PRJ-11)
 
 | Change | Rule |
 |---|---|
-| `preset` | Becomes `packs: [preset]` (`none` → `[]`) |
+| `preset` | Becomes `packs: [preset]` (`none` → `[]`); a file without `preset` meant ccRCC, and fields it left to the old model defaults (labels, phase rules) are filled from that pack |
 | `default_modality` | `CT` |
-| `viewer_defaults` | Moves into `display` with the other keys at their defaults |
+| `viewer_defaults` | Moves into `display` with the other keys at their defaults (`one-up` → `one-up-axial`, unknown layouts → `four-up`) |
 | `view_token` | `null` until the user creates a view-only link |
 
 ## Migration 1 → 2 (PRJ-11)

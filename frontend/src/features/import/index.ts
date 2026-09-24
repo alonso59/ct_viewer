@@ -9,7 +9,7 @@ import { useImportWizard } from './store'
 
 export function registerImport() {
   registry.command({
-    id: 'import.open',
+    id: 'import.open', writes: true,
     title: 'import.title',
     category: 'cat.project',
     menu: 'file',

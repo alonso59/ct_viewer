@@ -159,29 +159,3 @@
   border-radius: 3px;
 }
 /* New project: study preset choice (PRJ-12) */
-.preset-list {
-  gap: var(--sp-1);
-}
-.preset {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border: var(--border-width) solid var(--border-muted);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-.preset[data-checked='true'] {
-  border-color: var(--accent);
-}
-.preset > span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.preset strong {
-  font-weight: var(--fw-semibold);
-}
-.preset .muted {
-  font-size: var(--fs-panel);
-}

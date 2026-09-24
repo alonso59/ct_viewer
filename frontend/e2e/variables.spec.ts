@@ -9,7 +9,7 @@ const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
 const dataset = resolve(dirname(fileURLToPath(import.meta.url)), '../../.fixtures/synthetic/Dataset900')
 
 async function importedProject(request: APIRequestContext, name: string): Promise<string> {
-  const p = await (await request.post(`${API}/projects`, { data: { name, preset: 'ccrcc' } })).json()
+  const p = await (await request.post(`${API}/projects`, { data: { name, packs: ['ccrcc'] } })).json()
   const pid = p.project_id as string
   const preview = await (await request.post(`${API}/projects/${pid}/imports/preview`, { data: { root: dataset, alias: 'DATA', detect: true } })).json()
   expect((await request.post(`${API}/projects/${pid}/imports`, { data: { preview_id: preview.preview_id } })).status()).toBe(202)

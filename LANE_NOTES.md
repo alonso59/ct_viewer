@@ -533,3 +533,23 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Open issues**
 - Initial JS 296.3 of 300 KB: later waves keep new strings in `en.lazy.json` and new UI lazy.
+
+## 2026-09-25 · P7c Wave 2 (neutral projects) · v3
+
+**Done** (ROADMAP §P7c Wave 2 ticked)
+- `format_version` 3: `packs`, `default_modality`, `display` (layout, W/L per modality, `use_dicom_window`, presets, interpolation, convention), `view_token`; migration 2 → 3 (a v2 file without `preset` meant ccRCC: missing label/phase fields are filled from that pack; `one-up` → `one-up-axial`); bundles migrate on read and never carry the token.
+- Neutral New project (PRJ-14): empty labels, raw phases; API-02 takes `default_modality` and `packs` (scripts/tests only). Packs are plugin files `plugins/{ccrcc,generic-ct}/pack.json` (loader `app/projects/presets.py`); API-28 `GET /packs`, `POST /projects/{pid}/packs` (merge by label value, phase rules replaced, reindex job when they changed; ANZ-05 target profile from the packs).
+- PRJ-15: strong ETag over `project.json` (header + `etag` field); PATCH without `If-Match` → 428 `precondition-required`, stale → 412 `precondition-failed` with `actions: ["reload"]`.
+- PRJ-17: API-61 create/rotate/revoke; API-60 `/view/{token}` (project with `project_id: view-{token}`, blank root paths, `read_only`) and a forwarding catch-all limited to the read routes in `app/api/v1/view.py`; other methods 405.
+- FE: New project = name + CT/MR/Mixed; Project settings tab (`/p/{pid}/settings`, lazy) with General (name, description, modality, links incl. view-only create/rotate/revoke), Display, Labels (table, `.ctbl`/ITK-SNAP/`dataset.json` import merged by value, default set), Data (roots, import, convert, relink), Plugins (packs apply, installed plugins); saves send only changed fields with the loaded ETag; 412 → "Reload and reapply" / "Discard my changes". View-only: `/v/{token}` → `/p/view-{token}`; the HTTP client rewrites those URLs to API-60; registry `writes` flag hides write views, editors, inspector sections, commands and shortcuts (UI-26); title bar shows "View only".
+- Flaky cold-run `tasks-dicom.spec.ts` (Wave 4 item, fixed here because it gated every run): root cause = the viewer's image request and Save converted the same DICOM concurrently into one scratch temp file; the loser's rename failed (`FileNotFoundError`). Fix: single-flight conversion per scratch target in the API process (`_convert_once`) and unique temp names in `write_nifti`; regression tests in `tests/test_open_convert_once.py`. 3 consecutive cold runs green.
+
+**Results**: `make check` green: 451 backend + 210 frontend. Playwright 26/26 (Chromium 13, Firefox 13; new `e2e/view-only.spec.ts`). Initial JS 297.6 KB gzip.
+
+**Decisions**
+- Tests that relied on the old ccRCC default now create projects with `packs: ["ccrcc"]`.
+- View-only hides the Curation, Tasks, Radiomics, Dashboards (their views are POST), Variables, Labels and Library views; Project, Search, Image, History, viewer tools and panels stay.
+- The API-60 mirror forwards to the real routes instead of duplicating handlers, so it cannot drift from them.
+
+**Open issues**
+- VW-25 (viewer applies `display`: layout, W/L, interpolation, convention) and the project `default_modality` for items without one land with the CT tools in Wave 4.

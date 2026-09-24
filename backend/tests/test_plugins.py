@@ -17,7 +17,17 @@ from tools.make_fixtures import DATASET
 
 API = "/api/v1"
 REPO = Path(__file__).resolve().parents[2]
-SHIPPED = {"dicom", "analyzers", "radiomics", "dashboard", "curation", "nnunet", "voi"}
+SHIPPED = {
+    "dicom",
+    "analyzers",
+    "radiomics",
+    "dashboard",
+    "curation",
+    "nnunet",
+    "voi",
+    "ccrcc",
+    "generic-ct",
+}
 
 
 def write(root: Path, pid: str, **fields: object) -> Path:
@@ -96,7 +106,9 @@ def test_library_api(tmp_path: Path, fixtures_copy: Path) -> None:
         assert rows["curation"]["status"] == "ready"
         assert rows["radiomics"]["manifest"]["contributes"]["tasks"] == ["radiomics.pyradiomics"]
         assert body["invalid"] == []
-        pid = str(c.post(f"{API}/projects", json={"name": "p"}).json()["project_id"])
+        pid = str(
+            c.post(f"{API}/projects", json={"name": "p", "packs": ["ccrcc"]}).json()["project_id"]
+        )
         empty = c.get(f"{API}/plugins/radiomics", params={"project": pid}).json()
         assert empty["status"] == "needs_segmentation"
         do_import(c, pid, fixtures_copy / DATASET)

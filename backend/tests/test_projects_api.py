@@ -34,7 +34,9 @@ def assert_problem(res: Any, status: int, slug: str) -> None:
 
 
 def create(client: TestClient, name: str = "Demo") -> dict[str, Any]:
-    res = client.post(f"{API}/projects", json={"name": name, "description": "d"})
+    res = client.post(
+        f"{API}/projects", json={"name": name, "description": "d", "packs": ["ccrcc"]}
+    )
     assert res.status_code == 201, res.text
     body: dict[str, Any] = res.json()
     return body
@@ -43,7 +45,7 @@ def create(client: TestClient, name: str = "Demo") -> dict[str, Any]:
 def test_create_list_get(client: TestClient) -> None:
     body = create(client)
     pid = body["project_id"]
-    assert body["name"] == "Demo" and body["format_version"] == 2
+    assert body["name"] == "Demo" and body["format_version"] == 3
     assert body["share_url"].endswith(f"/p/{pid}")
     rows = client.get(f"{API}/projects").json()
     assert [r["project_id"] for r in rows] == [pid]
@@ -51,6 +53,12 @@ def test_create_list_get(client: TestClient) -> None:
     got = client.get(f"{API}/projects/{pid}")
     assert got.status_code == 200 and got.json()["project_id"] == pid
     assert client.get(f"{API}/projects").json()[0]["last_opened_at"] is not None
+
+
+def patch_project(c: TestClient, pid: str, body: dict[str, Any]) -> Any:
+    """API-03 PATCH with the current ETag (PRJ-15)."""
+    etag = c.get(f"{API}/projects/{pid}").headers.get("ETag", "")
+    return c.patch(f"{API}/projects/{pid}", json=body, headers={"If-Match": etag})
 
 
 def test_create_validation(client: TestClient) -> None:
@@ -61,7 +69,11 @@ def test_create_validation(client: TestClient) -> None:
 def test_not_found(client: TestClient) -> None:
     for pid in (new_ulid(), "not-a-ulid"):
         assert_problem(client.get(f"{API}/projects/{pid}"), 404, "not-found")
-        assert_problem(client.patch(f"{API}/projects/{pid}", json={}), 404, "not-found")
+        assert_problem(
+            client.patch(f"{API}/projects/{pid}", json={}, headers={"If-Match": "*"}),
+            404,
+            "not-found",
+        )
         assert_problem(client.post(f"{API}/projects/{pid}/archive"), 404, "not-found")
         assert_problem(client.get(f"{API}/projects/{pid}/roots"), 404, "not-found")
 
@@ -76,16 +88,14 @@ def test_patch_publishes_changed_fields(
     client: TestClient, published: list[tuple[str, str, dict[str, Any]]]
 ) -> None:
     pid = create(client)["project_id"]
-    res = client.patch(
-        f"{API}/projects/{pid}",
-        json={"name": "Renamed", "description": "d", "viewer_defaults": {"ww": 350}},
-    )
+    display = {"layout": "one-up-axial", "wl": {"CT": {"ww": 350, "wl": 40}}}
+    res = patch_project(client, pid, {"name": "Renamed", "description": "d", "display": display})
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["name"] == "Renamed" and body["viewer_defaults"]["ww"] == 350
-    assert published == [(pid, "project.updated", {"fields": ["name", "viewer_defaults"]})]
+    assert body["name"] == "Renamed" and body["display"]["wl"]["CT"]["ww"] == 350
+    assert published == [(pid, "project.updated", {"fields": ["display", "name"]})]
     assert client.get(f"{API}/projects").json()[0]["name"] == "Renamed"
-    bad = client.patch(f"{API}/projects/{pid}", json={"label_map": [{"value": 1}]})
+    bad = patch_project(client, pid, {"label_map": [{"value": 1}]})
     assert_problem(bad, 422, "validation")
 
 

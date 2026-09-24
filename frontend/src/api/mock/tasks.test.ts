@@ -41,7 +41,7 @@ test('a segmentation run needs a derived root, then registers a segmentation set
   expect(run.status).toBe('completed')
   const sets = await settle(api.listSegmentations(DEMO_PID))
   expect(sets.find((s) => s.seg_id === 'thr-demo')).toMatchObject({ kind: 'task', n_items: 1, is_default: false })
-  const project = await settle(api.setDefaultSeg(DEMO_PID, 'thr-demo'))
+  const project = await settle(api.setDefaultSeg(DEMO_PID, 'thr-demo', '*'))
   expect(project.default_seg).toBe('thr-demo')
   const item = await settle(api.getItem(DEMO_PID, 'case_00001.01.complete.-'))
   expect(item.mask).toEqual(item.masks['thr-demo'])

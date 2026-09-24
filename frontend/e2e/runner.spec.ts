@@ -24,7 +24,7 @@ test.afterEach(() => {
 
 test('the fake segmentation plugin adds a set through the host runner', async ({ page }) => {
   test.setTimeout(120_000)
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Runner ${Date.now()}`, preset: 'ccrcc' })
+  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Runner ${Date.now()}`, packs: ['ccrcc'] })
   const pid = p.project_id
   const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
   await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })

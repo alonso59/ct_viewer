@@ -48,7 +48,9 @@ def exported(
 ) -> tuple[str, bytes, dict[str, str]]:
     """A project with an index, hashes, a curation event and junk that must stay out."""
     before = sha_tree(data_root)
-    pid = client.post(f"{API}/projects", json={"name": "Bundle me / ccRCC"}).json()["project_id"]
+    pid = client.post(
+        f"{API}/projects", json={"name": "Bundle me / ccRCC", "packs": ["ccrcc"]}
+    ).json()["project_id"]
     import_root(client, pid, data_root)
     wait_job(client, client.post(f"{API}/projects/{pid}/hash-jobs").json()["job_id"])
     forbid_source_writes(monkeypatch, data_root)

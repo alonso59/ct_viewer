@@ -67,7 +67,8 @@ def dc(tmp_path: Path, src: tuple[Path, dict[str, Any]]) -> Iterator[TestClient]
 
 
 def project(c: TestClient, tmp_path: Path, preset: str = "ccrcc") -> str:
-    pid = str(c.post(f"{API}/projects", json={"name": "d", "preset": preset}).json()["project_id"])
+    packs = [] if preset == "none" else [preset]
+    pid = str(c.post(f"{API}/projects", json={"name": "d", "packs": packs}).json()["project_id"])
     r = c.put(
         f"{API}/projects/{pid}/roots/DERIVED",
         json={"path": str(tmp_path / "derived"), "role": "derived"},

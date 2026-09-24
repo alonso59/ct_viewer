@@ -91,7 +91,7 @@ def env(client: TestClient, data_root: Path, fixtures_copy: Path) -> Env:
     ctx: AppContext = client.app.state.ctx  # type: ignore[attr-defined]
     portal = client.portal
     assert portal is not None
-    cfg = portal.call(ctx.workspace.create, "volumes")
+    cfg = portal.call(ctx.workspace.create, "volumes", "", "CT", ["ccrcc"])
     pid = cfg.project_id
     portal.call(ctx.workspace.set_root, pid, PathRoot(alias="DATA", path=str(data_root)))
     # symlink inside the root pointing outside ALLOWED_DATA_ROOTS (test copy only)

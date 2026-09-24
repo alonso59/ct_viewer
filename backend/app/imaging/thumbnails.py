@@ -153,7 +153,7 @@ async def schedule_thumbnails(
     cfg = workspace.get(project_id)
     pdir = workspace.project_dir(project_id)
     resolver = workspace.resolver(project_id)
-    ww, wl = float(cfg.viewer_defaults.ww), float(cfg.viewer_defaults.wl)
+    ww, wl = cfg.display.ct_window()
     colors = {e.value: hex_to_rgb(e.color) for e in cfg.label_map}
     tasks: dict[str, RenderTask] = {}
     for item in store.load(project_id).items:

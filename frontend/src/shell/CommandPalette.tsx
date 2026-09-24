@@ -38,7 +38,7 @@ export function CommandPalette() {
       <Command.List>
         <Command.Empty>{t('palette.empty')}</Command.Empty>
         {commands
-          ? [...registry.commands.values()]
+          ? [...registry.commands.values()].filter((c) => registry.allowed(c))
               .filter((c) => !c.enabled || c.enabled())
               .map((c) => (
                 <Command.Item

@@ -18,9 +18,10 @@ function LazyEditor(props: { params: TaskParams; panelId: string; active: boolea
 }
 
 export function registerTasks() {
-  registry.view({ id: 'tasks', title: 'view.tasks', icon: codicon('run-all'), order: 55, component: LazyView, hideImageSection: true })
+  registry.view({ id: 'tasks', writes: true, title: 'view.tasks', icon: codicon('run-all'), order: 55, component: LazyView, hideImageSection: true })
   registry.editor<TaskParams>({
     type: 'task',
+    writes: true,
     component: LazyEditor,
     id: (p) => `task:${p.taskId}`,
     title: (p) => p.taskId,

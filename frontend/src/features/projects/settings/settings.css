@@ -1,0 +1,19 @@
+.psettings .page-inner { max-width: 820px; }
+.psettings-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.psettings-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--fg-muted); padding: 6px 12px; cursor: pointer; font: inherit; }
+.psettings-tab[aria-selected='true'] { color: var(--fg); border-bottom-color: var(--tab-active-indicator); }
+.psettings-form { display: flex; flex-direction: column; gap: 14px; }
+.psettings-form h3 { margin: 8px 0 0; font-size: var(--fs-heading); }
+.psettings-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.psettings-inline { display: inline-flex; align-items: center; gap: 6px; }
+.psettings-inline input { width: 90px; }
+.psettings-check { display: flex; align-items: center; gap: 8px; }
+.psettings-help { font-size: var(--fs-badge); }
+.psettings-url { overflow-wrap: anywhere; font-size: var(--fs-panel); }
+.psettings-save { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.psettings-table { border-collapse: collapse; font-size: var(--fs-panel); }
+.psettings-table th, .psettings-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border-muted); }
+.psettings-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.psettings-list li { display: flex; align-items: center; gap: 8px; }
+.psettings-list li > div { flex: 1; }
+.view-only-brand { display: inline-flex; align-items: center; gap: 8px; padding: 0 8px; }

@@ -22,6 +22,7 @@ from app.tasks.schema import normalize
 from tests.test_api_ingest import ctx_of, do_import, wait
 from tests.test_contract import assert_problem
 from tests.test_format_v2 import derived_settings
+from tests.test_projects_api import patch_project
 from tools.make_fixtures import DATASET
 
 API = "/api/v1"
@@ -72,7 +73,9 @@ def env(tmp_path: Path, fixtures_copy: Path, plugins_root: Path) -> Iterator[Tes
 
 @pytest.fixture
 def proj(env: TestClient, data_root: Path, tmp_path: Path) -> str:
-    pid = str(env.post(f"{API}/projects", json={"name": "t"}).json()["project_id"])
+    pid = str(
+        env.post(f"{API}/projects", json={"name": "t", "packs": ["ccrcc"]}).json()["project_id"]
+    )
     do_import(env, pid, data_root)
     return pid
 
@@ -263,7 +266,7 @@ def test_builtin_run_registers_segmentation_set(
     mask = env.get(f"{API}/projects/{proj}/items/{ITEMS[0]}/mask", params={"seg": seg_id})
     assert mask.status_code == 200 and mask.content == (out_dir / f"{ITEMS[0]}.nii.gz").read_bytes()
     # default_seg switches the deprecated alias
-    assert env.patch(f"{API}/projects/{proj}", json={"default_seg": seg_id}).status_code == 200
+    assert patch_project(env, proj, {"default_seg": seg_id}).status_code == 200
     item = env.get(f"{API}/projects/{proj}/items/{ITEMS[0]}").json()
     assert item["mask"] == item["masks"][seg_id]
     # outputs + ledger

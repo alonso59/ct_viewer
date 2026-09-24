@@ -1,11 +1,11 @@
-// Workspace home (`/`, UI-04): New Project (with a study preset, PRJ-12), Open Recent with
+// Workspace home (`/`, UI-04): New Project (name + optional default modality, PRJ-14), Open Recent with
 // thumbnail + progress (PRJ-02), share-link copy (PRJ-03), relink (PRJ-05), bundles (PRJ-08/09).
 import { lazy, Suspense, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import {
-  PRESETS,
+  MODALITIES,
   pickThumbItem,
   useCase,
   useCases,
@@ -13,7 +13,7 @@ import {
   useProjects,
   useRelink,
   useRoots,
-  type Preset,
+  type ProjectModality,
   type ProjectSummary,
   type RelinkResult,
 } from '../../api'
@@ -32,11 +32,11 @@ const BundleImport = lazy(() => import('./BundleImport'))
 export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
-  const [preset, setPreset] = useState<Preset>('ccrcc')
+  const [modality, setModality] = useState<ProjectModality>('CT')
   const create = useCreateProject()
   const navigate = useNavigate()
   const submit = async () => {
-    const p = await create.mutateAsync({ name: name.trim(), preset })
+    const p = await create.mutateAsync({ name: name.trim(), default_modality: modality })
     onOpenChange(false)
     setName('')
     navigate(`/p/${p.project_id}`)
@@ -63,19 +63,15 @@ export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolea
           <input id="project-name" className="input" autoFocus value={name} placeholder={t('projects.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
           <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('projects.newHelp')}</span>
         </div>
-        <fieldset className="field preset-list" style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="field-label">{t('projects.preset')}</legend>
-          {PRESETS.map((p) => (
-            <label key={p} className="preset" data-checked={preset === p}>
-              <input type="radio" name="preset" value={p} checked={preset === p} onChange={() => setPreset(p)} />
-              <span>
-                <strong>{t(`preset.${p}.name`)}</strong>
-                <span className="muted">{t(`preset.${p}.help`)}</span>
-              </span>
-            </label>
-          ))}
-          <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('projects.presetEditable')}</span>
-        </fieldset>
+        <div className="field">
+          <span className="field-label">{t('projects.modality')}</span>
+          <div className="seg" role="group" aria-label={t('projects.modality')}>
+            {MODALITIES.map((m) => (
+              <button key={m} type="button" aria-pressed={modality === m} onClick={() => setModality(m)}>{t(`projects.modalities.${m}`)}</button>
+            ))}
+          </div>
+          <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('projects.modalityHelp')}</span>
+        </div>
         {create.isError ? <div className="error-card" style={{ margin: 0 }}>{create.error.message}</div> : null}
       </form>
     </Dialog>

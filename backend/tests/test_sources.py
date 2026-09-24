@@ -77,7 +77,9 @@ def sclient(tmp_path: Path, src: Path) -> Iterator[TestClient]:
 
 
 def project(c: TestClient) -> str:
-    return str(c.post(f"{API}/projects", json={"name": "s"}).json()["project_id"])
+    return str(
+        c.post(f"{API}/projects", json={"name": "s", "packs": ["ccrcc"]}).json()["project_id"]
+    )
 
 
 def tree(root: Path) -> dict[str, str]:

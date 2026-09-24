@@ -19,10 +19,10 @@ from app.ingest.codes import QcCode
 from app.ingest.models import ItemStatus, PhaseInfo, PhaseSource
 from app.ingest.parsers import ParsedInputs, PhaseOverrides, Row, is_excluded
 from app.projects.presets import (
-    DEFAULT_PRESET,
+    CCRCC,
     MISSING_PHASE_VALUES,
-    PRESETS,
     UNKNOWN_PHASE,
+    load_packs,
     normalize_phase_value,
 )
 
@@ -31,7 +31,7 @@ __all__ = ["is_excluded"]
 
 @dataclass(frozen=True)
 class PhaseRules:
-    """The project's phase vocabulary + mapping (PRJ-12); `vocabulary=()` is open (`none`)."""
+    """The project's phase vocabulary + mapping (PRJ-16); `vocabulary=()` is open (no pack)."""
 
     vocabulary: tuple[str, ...]
     mapping: dict[str, str]
@@ -45,9 +45,9 @@ class PhaseRules:
         return known + sorted(phases - set(known))
 
 
-_CCRCC = PRESETS[DEFAULT_PRESET]
+_CCRCC = load_packs()[CCRCC]
 CCRCC_RULES = PhaseRules(_CCRCC.phase_vocabulary, _CCRCC.phase_mapping)
-# ccRCC preset table (INPUT_METADATA.md §Phase resolution), incl. the "no phase" row.
+# ccRCC pack table (INPUT_METADATA.md §Phase resolution), incl. the "no phase" row.
 PHASE_TABLE: dict[str, str] = {
     **_CCRCC.phase_mapping,
     **dict.fromkeys(MISSING_PHASE_VALUES, UNKNOWN_PHASE),

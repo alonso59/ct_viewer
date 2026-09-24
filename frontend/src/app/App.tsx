@@ -1,8 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router'
 
-import { queryClient, useHealth } from '../api'
+import { queryClient, useHealth, viewPid } from '../api'
 import { OpenDialogHost, OpenRoute } from '../features/open'
 import { WorkspaceHome } from '../features/projects'
 import { configureViewer } from '../features/viewer'
@@ -41,6 +41,12 @@ function Keys() {
   return null
 }
 
+/** PRJ-17: `/v/{token}` is the view-only workbench of pseudo project `view-{token}` */
+function ViewLink() {
+  const { token = '' } = useParams()
+  return <Navigate to={`/p/${viewPid(token)}`} replace />
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -53,6 +59,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
             <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
+            <Route path="/v/:token" element={<ViewLink />} />
             <Route path="/p/:pid/*" element={<ProjectRoute />} />
           </Routes>
         </BrowserRouter>

@@ -30,7 +30,9 @@ def test_outlier_and_group_comparisons_on_real_run(
     client: TestClient, data_root: Path, fixtures_copy: Path
 ) -> None:
     expected = json.loads((fixtures_copy / "expected.json").read_text())
-    pid = client.post(f"{API}/projects", json={"name": "e2e"}).json()["project_id"]
+    pid = client.post(f"{API}/projects", json={"name": "e2e", "packs": ["ccrcc"]}).json()[
+        "project_id"
+    ]
     do_import(client, pid, data_root)
     cases = [*expected["cohort"], *expected["radiomics_outlier"]]
     items = [f"{c}.01.complete.-" for c in cases]
@@ -106,7 +108,9 @@ def _check_against_scipy(csv: bytes, var: str, row: dict[str, Any], n_groups: in
 
 def test_features_parquet_long_schema(client: TestClient, data_root: Path) -> None:
     """RAD-10 output columns (no study variables copied into features)."""
-    pid = client.post(f"{API}/projects", json={"name": "cols"}).json()["project_id"]
+    pid = client.post(f"{API}/projects", json={"name": "cols", "packs": ["ccrcc"]}).json()[
+        "project_id"
+    ]
     do_import(client, pid, data_root)
     body = {"selection": {"item_ids": ["case_00030.01.complete.-"], "labels": [TUMOR]}}
     run = client.post(f"{API}/projects/{pid}/radiomics/runs", json=body, headers=WHO).json()

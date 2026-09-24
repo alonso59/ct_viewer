@@ -84,6 +84,7 @@ function matchLocation(pid: string, pathname: string, search: string): EditorPar
   const rest = pathname.slice(`/p/${pid}`.length) || '/'
   const sp = new URLSearchParams(search)
   for (const e of registry.editors.values()) {
+    if (!registry.allowed(e)) continue
     const m = (e as unknown as { match?: (p: string, s: URLSearchParams) => Record<string, unknown> | null }).match?.(rest, sp)
     if (m) return { type: e.type, ...m }
   }

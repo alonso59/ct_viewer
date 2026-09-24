@@ -1,0 +1,13 @@
+{
+  "plugin": 1,
+  "id": "ccrcc",
+  "version": "1.0.0",
+  "title": "Study pack ccRCC",
+  "description": "Kidney CT study pack: label map, phase vocabulary and mapping, organ focus for the analyzers (PRJ-16).",
+  "icon": "package",
+  "contributes": {
+    "packs": [
+      "ccrcc"
+    ]
+  }
+}

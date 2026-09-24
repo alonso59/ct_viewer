@@ -1,15 +1,16 @@
 """`project.json` forward migrations (PRJ-11).
 
-`MIGRATIONS[v]` turns a raw v`v` document into v`v+1` (PROJECT_FORMAT.md §Migration 1 → 2).
+`MIGRATIONS[v]` turns a raw v`v` document into v`v+1` (PROJECT_FORMAT.md §Migration).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, get_args
 
 from app.core.errors import FormatVersionUnsupported
-from app.projects.models import FORMAT, FORMAT_VERSION, IMPORTED_SEG
+from app.projects.models import FORMAT, FORMAT_VERSION, IMPORTED_SEG, Layout
+from app.projects.presets import get_pack, pack_fields
 
 Migration = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -37,7 +38,39 @@ def _v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
-MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2}
+def _layout(v2: object) -> str:
+    """v2 `viewer_defaults.layout` → a v3 layout id (unknown values fall back to four-up)."""
+    known = get_args(Layout)
+    v = {"one-up": "one-up-axial"}.get(str(v2), str(v2))
+    return v if v in known else "four-up"
+
+
+def _v2_to_v3(raw: dict[str, Any]) -> dict[str, Any]:
+    """ADR-0019: `preset` → `packs`, `viewer_defaults` → `display`, default modality CT.
+
+    Files without `preset` predate presets and meant ccRCC; fields a v2 file left to the old
+    (ccRCC) model defaults are filled from that pack so nothing changes meaning.
+    """
+    preset = raw.pop("preset", "ccrcc")
+    raw["packs"] = [] if preset in (None, "none") else [str(preset)]
+    pack = get_pack(str(preset)) if preset not in (None, "none") else None
+    if pack is not None:
+        for key, value in pack_fields(pack).items():
+            raw.setdefault(key, value)
+    raw.setdefault("default_modality", "CT")
+    vd = raw.pop("viewer_defaults", None) or {}
+    raw.setdefault(
+        "display",
+        {
+            "layout": _layout(vd.get("layout")),
+            "wl": {"CT": {"ww": vd.get("ww", 400), "wl": vd.get("wl", 50)}, "MR": "percentile"},
+        },
+    )
+    raw.setdefault("view_token", None)
+    return raw
+
+
+MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3}
 
 
 def check_version(raw: object) -> int:

@@ -29,8 +29,8 @@ function Item({ v }: { v: ViewContribution }) {
 // Hooks inside items need a stable list; views register once at bootstrap.
 export function ActivityBar() {
   const { t } = useTranslation()
-  const top = registry.views.filter((v) => v.position !== 'bottom')
-  const bottom = registry.views.filter((v) => v.position === 'bottom')
+  const top = registry.views.filter((v) => v.position !== 'bottom' && registry.allowed(v))
+  const bottom = registry.views.filter((v) => v.position === 'bottom' && registry.allowed(v))
   return (
     <nav className="activitybar" aria-label={t('shell.activityBar')}>
       {top.map((v) => (

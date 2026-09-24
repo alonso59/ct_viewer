@@ -225,8 +225,6 @@
     "verifying": "Verifying…",
     "notFound": "Project not found",
     "notFoundHelp": "The link points to a project that does not exist in this workspace, or it was archived.",
-    "preset": "Study preset",
-    "presetEditable": "Seeds the label map and phase vocabulary. You can edit both later.",
     "relink": "Relink data root…",
     "relinked": "{{alias}} relinked",
     "verifyOk": "Verified {{matched}} of {{sampled}} sampled items.",
@@ -245,7 +243,14 @@
       "upToDate_other": "Full hashes are up to date ({{count}} files).",
       "running": "A full-hash job is already running; see the Jobs panel.",
       "failed": "Could not start hashing: {{detail}}"
-    }
+    },
+    "modality": "Default modality",
+    "modalities": {
+      "CT": "CT",
+      "MR": "MR",
+      "mixed": "Mixed"
+    },
+    "modalityHelp": "Only used for items without a modality. Study packs (labels, phases) are applied later from Project settings."
   },
   "welcome": {
     "commands": "Show all commands",
@@ -268,7 +273,8 @@
     "warnings": "QC warnings",
     "indexing": "Indexing is running. Cases appear when it finishes.",
     "hashHelp": "SHA-256 of every image and mask file, for provenance",
-    "bundleHelp": "A .zip of the project folder, without image data"
+    "bundleHelp": "A .zip of the project folder, without image data",
+    "settingsHelp": "Name, display defaults, labels, data roots, study packs and the view-only link"
   },
   "import": {
     "alias": "Alias",
@@ -663,20 +669,6 @@
     "title": "Design reference",
     "type": "Typography"
   },
-  "preset": {
-    "ccrcc": {
-      "name": "ccRCC (kidney CT)",
-      "help": "Labels kidney, tumor, cyst · phases NC, CMP, NP, EP"
-    },
-    "generic-ct": {
-      "name": "Generic CT",
-      "help": "Phases NC, ART, PV, DELAYED · labels named from mask values"
-    },
-    "none": {
-      "name": "None",
-      "help": "Raw phase values kept · labels named from mask values"
-    }
-  },
   "varType": {
     "continuous": "continuous",
     "categorical": "categorical",
@@ -911,5 +903,12 @@
   },
   "open": {
     "command": "Open file or folder…"
+  },
+  "psettings": {
+    "open": "Project settings"
+  },
+  "viewOnly": {
+    "badge": "View only",
+    "help": "Opened from a view-only link: nothing can be changed here (PRJ-17)."
   }
 }

@@ -25,7 +25,7 @@ def ctx_of(c: TestClient) -> AppContext:
 
 @pytest.fixture
 def pid(client: TestClient) -> str:
-    cfg = client.portal.call(ctx_of(client).workspace.create, "ingest")  # type: ignore[union-attr]
+    cfg = client.portal.call(ctx_of(client).workspace.create, "ingest", "", "CT", ["ccrcc"])  # type: ignore[union-attr]
     return str(cfg.project_id)
 
 

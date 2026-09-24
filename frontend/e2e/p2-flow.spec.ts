@@ -12,12 +12,12 @@ test('new project → import → browse → share link', async ({ page, browser,
   const errors = collectErrors(page)
   const name = `E2E ${browserName} ${Date.now()}`
 
-  // Workspace home → New project (default preset ccRCC)
+  // Workspace home → New project: a name and the default modality only (PRJ-14)
   await page.goto('/')
   await page.getByRole('button', { name: /New project/ }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Project name').fill(name)
-  await expect(dialog.getByRole('radio', { name: /ccRCC/ })).toBeChecked()
+  await expect(dialog.getByRole('button', { name: 'CT', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await dialog.getByRole('button', { name: 'Create and import' }).click()
 
   // Import wizard on /p/{pid}

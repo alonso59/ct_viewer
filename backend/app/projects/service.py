@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+import hashlib
+import json
 import re
+import secrets
 import shutil
 from collections import OrderedDict
 from pathlib import Path
@@ -21,6 +24,8 @@ from app.core.errors import (
     DerivedRootRequired,
     FormatVersionUnsupported,
     NotFound,
+    PreconditionFailed,
+    PreconditionRequired,
     RootsOverlap,
     ValidationProblem,
 )
@@ -33,6 +38,8 @@ from app.projects.bundle import extract_bundle, write_bundle
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
     FORMAT_VERSION,
+    LabelEntry,
+    Modality,
     PathRoot,
     ProjectConfig,
     ProjectDetail,
@@ -41,9 +48,8 @@ from app.projects.models import (
     RootInfo,
     SegmentationSet,
     WorkspaceEntry,
-    preset_fields,
 )
-from app.projects.presets import DEFAULT_PRESET, PresetName
+from app.projects.presets import get_pack, pack_fields
 
 WORKSPACE_FORMAT: Final = "radiology-workbench-workspace"
 WORKSPACE_FORMAT_VERSION: Final = 1
@@ -179,9 +185,42 @@ class Workspace:
         self._remember(cfg)
         return cfg
 
+    def view_url(self, token: str) -> str:
+        return f"{self.settings.base_url}/v/{token}"
+
     def detail(self, project_id: str) -> ProjectDetail:
         cfg = self.get(project_id)
-        return ProjectDetail(**cfg.model_dump(), share_url=self.share_url(project_id))
+        return ProjectDetail(
+            **cfg.model_dump(),
+            share_url=self.share_url(project_id),
+            etag=etag_of(cfg),
+            view_url=self.view_url(cfg.view_token) if cfg.view_token else None,
+        )
+
+    def check_etag(self, project_id: str, if_match: str | None) -> None:
+        """PRJ-15: settings writes need `If-Match` with the current ETag."""
+        if not if_match:
+            raise PreconditionRequired(
+                "Settings writes need If-Match with the project ETag (PRJ-15)",
+                actions=["reload"],
+            )
+        current = etag_of(self.get(project_id))
+        if if_match.strip() not in (current, f"W/{current}", "*"):
+            raise PreconditionFailed(
+                "The project settings were changed by someone else: reload and reapply",
+                actions=["reload"],
+            )
+
+    def by_view_token(self, token: str) -> str:
+        """PRJ-17: the active project whose `view_token` is `token`; NotFound otherwise."""
+        if token and VIEW_TOKEN_RE.fullmatch(token):
+            for e in self._entries().values():
+                if e.archived:
+                    continue
+                t = self.get(e.project_id).view_token
+                if t is not None and secrets.compare_digest(t, token):
+                    return e.project_id
+        raise NotFound("Unknown or revoked view-only link")
 
     def roots(self, project_id: str) -> builtins.list[RootInfo]:
         return [_root_info(r) for r in self.get(project_id).path_roots]
@@ -244,8 +283,13 @@ class Workspace:
         return cfg
 
     async def create(
-        self, name: str, description: str = "", preset: PresetName = DEFAULT_PRESET
+        self,
+        name: str,
+        description: str = "",
+        default_modality: Modality = "CT",
+        packs: builtins.list[str] | None = None,
     ) -> ProjectConfig:
+        """PRJ-14: neutral; `packs` (scripts, tests) are applied as by API-28."""
         now = utc_now()
         try:
             cfg = ProjectConfig(
@@ -254,8 +298,15 @@ class Workspace:
                 description=description,
                 created_at=now,
                 updated_at=now,
-                **preset_fields(preset),
+                default_modality=default_modality,
             )
+            for pack_id in packs or []:
+                if get_pack(pack_id) is None:
+                    raise ValidationProblem(
+                        f"Unknown study pack {pack_id!r}",
+                        errors=[{"loc": ["body", "packs"], "msg": f"unknown pack {pack_id!r}"}],
+                    )
+                cfg = with_pack(cfg, pack_id)
         except ValidationError as exc:
             raise ValidationProblem("Invalid project", errors=_errors(exc)) from None
         folder = self.projects_dir / cfg.project_id
@@ -288,6 +339,20 @@ class Workspace:
                 entry = self.entry(project_id)
                 await self._set_entry(entry.model_copy(update={"name": new.name}))
             return new
+
+    async def apply_pack(self, project_id: str, pack_id: str) -> ProjectConfig:
+        """PRJ-16: merge a pack's labels and phase rules; records it in `packs[]`."""
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            new = with_pack(cur, pack_id).model_copy(update={"updated_at": utc_now()})
+            return self._save(new)
+
+    async def set_view_token(self, project_id: str, create: bool) -> ProjectConfig:
+        """PRJ-17: create/rotate (a new random token revokes the old one) or revoke."""
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            token = secrets.token_urlsafe(24) if create else None
+            return self._save(cur.model_copy(update={"view_token": token, "updated_at": utc_now()}))
 
     async def set_root(self, project_id: str, root: PathRoot) -> ProjectConfig:
         """Add or relink an alias (PRJ-05, PRJ-13).
@@ -483,3 +548,46 @@ def _root_info(root: PathRoot) -> RootInfo:
 
 def _errors(exc: ValidationError) -> list[dict[str, Any]]:
     return [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
+
+
+VIEW_TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{16,64}")
+
+
+def etag_of(cfg: ProjectConfig) -> str:
+    """PRJ-15: a strong ETag over the whole `project.json` content."""
+    raw = json.dumps(cfg.model_dump(mode="json"), sort_keys=True).encode()
+    return '"' + hashlib.sha256(raw).hexdigest()[:20] + '"'
+
+
+def with_pack(cfg: ProjectConfig, pack_id: str) -> ProjectConfig:
+    """PRJ-16: pack labels replace entries with the same value, others are kept; the phase
+    vocabulary, priority and mapping become the pack's (mapping merged); nothing is deleted."""
+    pack = get_pack(pack_id)
+    if pack is None:
+        raise NotFound(f"Study pack {pack_id!r} not found")
+    fields = pack_fields(pack)
+    labels = {e.value: e for e in cfg.label_map}
+    for raw in fields["label_map"]:
+        labels[raw["value"]] = LabelEntry.model_validate(raw)
+    label_map = sorted(labels.values(), key=lambda e: e.value)
+    imported = [
+        s.model_copy(
+            update={"label_mapping": {**{str(e.value): e.value for e in label_map},
+                                      **s.label_mapping}}
+        )
+        if s.kind == "imported"
+        else s
+        for s in cfg.segmentations
+    ]  # fmt: skip
+    update: dict[str, Any] = {
+        "label_map": label_map,
+        "segmentations": imported,
+        "packs": [*[p for p in cfg.packs if p != pack_id], pack_id],
+    }
+    if pack.phase_vocabulary:
+        update |= {
+            "phase_vocabulary": fields["phase_vocabulary"],
+            "phase_mapping": {**cfg.phase_mapping, **fields["phase_mapping"]},
+            "phase_priority": fields["phase_priority"],
+        }
+    return ProjectConfig.model_validate(cfg.model_copy(update=update).model_dump())

@@ -17,6 +17,7 @@ from app.config import Settings
 from app.main import create_app
 from tests.test_api_ingest import ctx_of, do_import
 from tests.test_contract import assert_problem
+from tests.test_projects_api import patch_project
 from tools.make_fixtures import DATASET
 
 API = "/api/v1"
@@ -48,7 +49,7 @@ def dclient(tmp_path: Path, fixtures_copy: Path, derived_dir: Path) -> Iterator[
 
 
 def new_project(c: TestClient, name: str = "p") -> str:
-    r = c.post(f"{API}/projects", json={"name": name})
+    r = c.post(f"{API}/projects", json={"name": name, "packs": ["ccrcc"]})
     assert r.status_code == 201, r.text
     return str(r.json()["project_id"])
 
@@ -100,7 +101,7 @@ def test_v1_project_and_index_migrate(dclient: TestClient, data_root: Path) -> N
     ctx_of(dclient).index.invalidate(pid)
 
     body = dclient.get(f"{API}/projects/{pid}").json()
-    assert body["format_version"] == 2
+    assert body["format_version"] == 3
     assert body["path_roots"][0]["role"] == "source"
     assert body["default_seg"] == "imported" and body["annotation_sources"] == {}
     assert [s["seg_id"] for s in body["segmentations"]] == ["imported"]
@@ -191,7 +192,7 @@ def test_segmentations_endpoints_and_default(dclient: TestClient, data_root: Pat
         "validation",
     )
     assert_problem(dclient.patch(f"{API}/projects/{pid}/segmentations/nope", json={}), "not-found")
-    assert_problem(dclient.patch(f"{API}/projects/{pid}", json={"default_seg": "x"}), "validation")
+    assert_problem(patch_project(dclient, pid, {"default_seg": "x"}), "validation")
     # API-24: `?seg=` picks the set; an unknown set is 404.
     ok = dclient.get(f"{API}/projects/{pid}/items/{ITEM}/mask", params={"seg": "imported"})
     assert (

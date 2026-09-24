@@ -26,7 +26,7 @@ test('a single DICOM file opens without a project and saves as NIfTI', async ({ 
 })
 
 test('a DICOM folder converts into a project from the Tasks tab', async ({ page }) => {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `DICOM ${Date.now()}`, preset: 'ccrcc' })
+  const p = await api<{ project_id: string }>('POST', '/projects', { name: `DICOM ${Date.now()}`, packs: ['ccrcc'] })
   await api('PUT', `/projects/${p.project_id}/roots/DERIVED`, { path: process.env.E2E_DERIVED, role: 'derived' })
   await page.goto(`/p/${p.project_id}/tasks/dicom.convert`)
   await expect(page.getByRole('heading', { name: 'DICOM → NIfTI' })).toBeVisible()

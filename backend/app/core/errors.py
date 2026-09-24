@@ -30,6 +30,8 @@ SLUGS: dict[str, tuple[int, str]] = {
     "geometry-mismatch": (422, "Geometry mismatch"),
     "derived-root-required": (409, "Derived root required"),
     "roots-overlap": (409, "Roots overlap"),
+    "precondition-failed": (412, "Precondition failed"),
+    "precondition-required": (428, "Precondition required"),
 }
 
 
@@ -109,6 +111,14 @@ class DerivedRootRequired(Problem):
 
 class RootsOverlap(Problem):
     slug = "roots-overlap"
+
+
+class PreconditionFailed(Problem):
+    slug = "precondition-failed"
+
+
+class PreconditionRequired(Problem):
+    slug = "precondition-required"
 
 
 def problem_body(

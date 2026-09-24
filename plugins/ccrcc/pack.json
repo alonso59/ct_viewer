@@ -1,0 +1,72 @@
+{
+  "pack": 1,
+  "id": "ccrcc",
+  "title": "ccRCC (kidney CT)",
+  "description": "Kidney / tumor / cyst labels, NC \u00b7 CMP \u00b7 NP \u00b7 EP phases with their aliases, organ focus kidneys.",
+  "label_map": [
+    {
+      "value": 1,
+      "name": "kidney",
+      "color": "#00FFFF",
+      "opacity": 0.15,
+      "visible": true
+    },
+    {
+      "value": 2,
+      "name": "tumor",
+      "color": "#FFFF00",
+      "opacity": 0.2,
+      "visible": true
+    },
+    {
+      "value": 3,
+      "name": "cyst",
+      "color": "#FF00FF",
+      "opacity": 0.15,
+      "visible": false
+    }
+  ],
+  "phase_vocabulary": [
+    "NC",
+    "CMP",
+    "NP",
+    "EP",
+    "UNK"
+  ],
+  "phase_aliases": {
+    "NC": [
+      "NC",
+      "NONCONTRAST",
+      "NON-CONTRAST"
+    ],
+    "CMP": [
+      "ART",
+      "ARTERIAL",
+      "CMP",
+      "CORTICOMEDULLARY"
+    ],
+    "NP": [
+      "VEN",
+      "VENOUS",
+      "NP",
+      "NEPHROGRAPHIC",
+      "PORTAL"
+    ],
+    "EP": [
+      "EP",
+      "DELAY",
+      "DELAYED",
+      "EXC",
+      "EXCRETORY"
+    ]
+  },
+  "phase_priority": [
+    "NP",
+    "CMP",
+    "NC",
+    "EP",
+    "UNK"
+  ],
+  "target_profile": "kidneys",
+  "radiomics_profile": null
+}

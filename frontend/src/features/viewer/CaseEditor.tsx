@@ -2,7 +2,7 @@
 import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useCase, useProject, useSegmentations, type ItemRecord, type LabelDef, type Phase } from '../../api'
+import { useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
 import { PhaseChip, StatusBadge } from '../../lib'
 import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { useViewerSync } from '../../state'
@@ -19,9 +19,9 @@ export interface CaseParams {
 
 /** API-23/24/25 (volumes are streamed as the original bytes, BE-04) */
 const API = '/api/v1'
-export const itemUrl = (pid: string, iid: string, what: 'image' | 'mask') => `${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/${what}`
+export const itemUrl = (pid: string, iid: string, what: 'image' | 'mask') => viewPath(`${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/${what}`)
 export const meshUrlOf = (pid: string, iid: string, seg?: string) => (label: number) =>
-  `${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/mesh/${label}?smooth=1${seg ? `&seg=${encodeURIComponent(seg)}` : ''}`
+  viewPath(`${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/mesh/${label}?smooth=1${seg ? `&seg=${encodeURIComponent(seg)}` : ''}`)
 
 /** VW-19: overlay labels for a set: its values coloured by the project labels they map to */
 export function setLabels(labels: LabelDef[], mapping: Record<string, number> | undefined): LabelDef[] {

@@ -112,7 +112,9 @@ def test_import_synthetic_matches_expected(
     root = synthetic / DATASET
     app = create_app(make_settings(tmp_path, [root]), inline_jobs=True)
     with TestClient(app) as c:
-        pid = c.post(f"{API}/projects", json={"name": "synthetic"}).json()["project_id"]
+        pid = c.post(f"{API}/projects", json={"name": "synthetic", "packs": ["ccrcc"]}).json()[
+            "project_id"
+        ]
         preview = import_root(c, pid, root)
         assert preview["counts"]["cases"] >= 16
 
@@ -184,7 +186,9 @@ def test_fingerprint_changed_after_mutation(
     defect = next(d for d in expected["defects"] if d["code"] == "fingerprint_changed")
     app = create_app(make_settings(tmp_path, [data_root]), inline_jobs=True)
     with TestClient(app) as c:
-        pid = c.post(f"{API}/projects", json={"name": "fp"}).json()["project_id"]
+        pid = c.post(f"{API}/projects", json={"name": "fp", "packs": ["ccrcc"]}).json()[
+            "project_id"
+        ]
         import_root(c, pid, data_root)
         target = data_root / defect["mutate_after_index"]
         data = bytearray(target.read_bytes())

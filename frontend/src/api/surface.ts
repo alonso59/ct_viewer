@@ -26,7 +26,11 @@ import type {
   Job,
   LabelDef,
   NewCurationEvent,
-  Preset,
+  PackApplied,
+  PackInfo,
+  ProjectModality,
+  ProjectPatch,
+  ViewToken,
   PreviewRequest,
   Profile,
   Project,
@@ -115,14 +119,23 @@ export interface Api {
   // Projects (API-02..05)
   listProjects(): Promise<ProjectSummary[]>
   getProject(pid: string): Promise<Project>
-  createProject(p: { name: string; description?: string; preset: Preset }): Promise<Project>
-  updateLabelMap(pid: string, labels: LabelDef[]): Promise<Project>
+  /** PRJ-14: neutral; a name and an optional default modality */
+  createProject(p: { name: string; description?: string; default_modality?: ProjectModality }): Promise<Project>
+  /** API-03 PATCH with `If-Match: etag` (PRJ-15); a stale etag rejects with 412 `precondition-failed` */
+  updateProject(pid: string, patch: ProjectPatch, etag: string): Promise<Project>
+  updateLabelMap(pid: string, labels: LabelDef[], etag: string): Promise<Project>
+  /** API-28 (PRJ-16) */
+  listPacks(): Promise<PackInfo[]>
+  applyPack(pid: string, packId: string): Promise<PackApplied>
+  /** API-61 (PRJ-17): create/rotate, revoke */
+  createViewToken(pid: string): Promise<ViewToken>
+  revokeViewToken(pid: string): Promise<void>
   listRoots(pid: string): Promise<RootInfo[]>
   relinkRoot(pid: string, alias: string, path: string): Promise<RelinkResult>
   /** PRJ-13: register the project's derived folder (inside ALLOWED_DERIVED_ROOTS; ADR-0014) */
   setDerivedRoot(pid: string, path: string, alias?: string): Promise<RelinkResult>
   /** ADR-0015: the set shown and used when none is picked (API-03) */
-  setDefaultSeg(pid: string, segId: string): Promise<Project>
+  setDefaultSeg(pid: string, segId: string, etag: string): Promise<Project>
   /** API-06 export (PRJ-08): project folder without `cache/`, never image data */
   exportBundle(pid: string): Promise<ProjectBundle>
   /** API-06 import (PRJ-09): multipart field `bundle`; `needs_relink` → relink dialog (PRJ-05) */

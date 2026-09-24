@@ -62,7 +62,7 @@ export function bootstrap() {
   cmd({ id: 'workbench.design', title: 'design.open', category: 'cat.help', menu: 'help', menuGroup: 1, run: () => openEditor('design', {}) })
   cmd({ id: 'workbench.home', title: 'projects.home', category: 'cat.project', menu: 'file', menuGroup: 1, run: () => location.assign('/') })
   cmd({ id: 'workbench.settings', title: 'view.settings', category: 'cat.view', keybinding: 'mod+,', menu: 'file', menuGroup: 8, run: () => useLayout.getState().showView('settings') })
-  cmd({ id: 'workbench.reviewer', title: 'cmd.changeReviewer', category: 'cat.curation', menu: 'edit', menuGroup: 1, run: () => void changeReviewer() })
+  cmd({ id: 'workbench.reviewer', writes: true, title: 'cmd.changeReviewer', category: 'cat.curation', menu: 'edit', menuGroup: 1, run: () => void changeReviewer() })
   cmd({
     id: 'workbench.toggleTheme',
     title: 'cmd.toggleTheme',
@@ -72,7 +72,7 @@ export function bootstrap() {
     run: () => useSettings.getState().set({ theme: useSettings.getState().theme === 'light' ? 'dark' : 'light' }),
   })
   for (const [id, view, key] of [['project', 'project', 'mod+shift+e'], ['search', 'search', 'mod+shift+f'], ['curation', 'curation', ''], ['radiomics', 'radiomics', ''], ['variables', 'variables', ''], ['library', 'library', '']] as const)
-    cmd({ id: `view.show.${id}`, title: `view.${view}`, category: 'cat.showView', keybinding: key || undefined, menu: 'view', menuGroup: 6, run: () => useLayout.getState().set({ activeView: view, sidebarVisible: true }) })
+    cmd({ id: `view.show.${id}`, title: `view.${view}`, category: 'cat.showView', keybinding: key || undefined, menu: 'view', menuGroup: 6, writes: !['project', 'search'].includes(id), run: () => useLayout.getState().set({ activeView: view, sidebarVisible: true }) })
   for (const tab of ['measurements', 'problems', 'history', 'output', 'jobs'])
     cmd({ id: `panel.show.${tab}`, title: `panel.${tab}`, category: 'cat.showPanel', run: () => useLayout.getState().showPanelTab(tab) })
 }

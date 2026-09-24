@@ -44,7 +44,8 @@ def write_nifti(series: Series, out: Path) -> Converted:
 
     image = sitk.DICOMOrient(read_image(series), "RAS")
     out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_name(f".{out.name}.tmp.nii.gz")
+    # unique per writer: two processes converting the same series never share a temp file
+    tmp = out.with_name(f".{out.name}.{os.getpid()}.{os.urandom(4).hex()}.tmp.nii.gz")
     sitk.WriteImage(image, str(tmp), True)
     if out.exists():
         tmp.unlink(missing_ok=True)

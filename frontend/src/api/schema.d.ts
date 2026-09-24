@@ -57,6 +57,64 @@ export interface paths {
         patch: operations["patch_project_api_v1_projects__pid__patch"];
         trace?: never;
     };
+    "/api/v1/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Packs */
+        get: operations["list_packs_api_v1_packs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Pack
+         * @description PRJ-16: never deletes data; the index is rebuilt with the new phase rules.
+         */
+        post: operations["apply_pack_api_v1_projects__pid__packs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/view-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create View Token
+         * @description PRJ-17 / API-61: create or rotate; the previous link stops working at once.
+         */
+        post: operations["create_view_token_api_v1_projects__pid__view_token_post"];
+        /** Revoke View Token */
+        delete: operations["revoke_view_token_api_v1_projects__pid__view_token_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/archive": {
         parameters: {
             query?: never;
@@ -1665,6 +1723,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/view/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Project
+         * @description The project as a view-only link sees it: no `project_id`, no server paths.
+         */
+        get: operations["view_project_api_v1_view__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/view/{token}/{rest}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** View Read */
+        get: operations["view_read_api_v1_view__token___rest__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/items/{iid}/mesh/{label}": {
         parameters: {
             query?: never;
@@ -2451,6 +2546,41 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /**
+         * Display
+         * @description `project.json.display` (PRJ-18, VW-25); was `viewer_defaults` before format 3.
+         */
+        Display: {
+            /**
+             * Layout
+             * @default four-up
+             * @enum {string}
+             */
+            layout: "four-up" | "conventional" | "three-mpr" | "one-up-axial" | "one-up-sagittal" | "one-up-coronal" | "one-up-3d";
+            /** Wl */
+            wl?: {
+                [key: string]: components["schemas"]["WindowLevel"] | "percentile";
+            };
+            /**
+             * Use Dicom Window
+             * @default true
+             */
+            use_dicom_window: boolean;
+            /** Wl Presets */
+            wl_presets?: components["schemas"]["WlPreset"][] | null;
+            /**
+             * Interpolation
+             * @default linear
+             * @enum {string}
+             */
+            interpolation: "linear" | "nearest";
+            /**
+             * Convention
+             * @default radiological
+             * @enum {string}
+             */
+            convention: "radiological" | "neurological";
         };
         /** DistGroup */
         DistGroup: {
@@ -3673,6 +3803,37 @@ export interface components {
             /** Features */
             features: components["schemas"]["OutlierFeatureCount"][];
         };
+        /** PackApplied */
+        PackApplied: {
+            project: components["schemas"]["ProjectDetail"];
+            /** Job Id */
+            job_id?: string | null;
+        };
+        /** PackApply */
+        PackApply: {
+            /** Pack Id */
+            pack_id: string;
+        };
+        /**
+         * PackInfo
+         * @description API-28 row: a study pack contributed by a plugin (PRJ-16).
+         */
+        PackInfo: {
+            /** Pack Id */
+            pack_id: string;
+            /** Plugin */
+            plugin: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Labels */
+            labels: string[];
+            /** Phase Vocabulary */
+            phase_vocabulary: string[];
+            /** Target Profile */
+            target_profile: string;
+        };
         /** Page[CaseSummary] */
         Page_CaseSummary_: {
             /** Items */
@@ -3962,7 +4123,10 @@ export interface components {
             /** Name */
             name: string;
         };
-        /** ProjectCreate */
+        /**
+         * ProjectCreate
+         * @description PRJ-14: a name and an optional default modality; `packs` is for scripts (PRJ-16).
+         */
         ProjectCreate: {
             /** Name */
             name: string;
@@ -3972,16 +4136,20 @@ export interface components {
              */
             description: string;
             /**
-             * Preset
-             * @description Study preset (PRJ-12)
-             * @default ccrcc
+             * Default Modality
+             * @default CT
              * @enum {string}
              */
-            preset: "ccrcc" | "generic-ct" | "none";
+            default_modality: "CT" | "MR" | "mixed";
+            /**
+             * Packs
+             * @description Study packs to apply (API-28)
+             */
+            packs?: string[];
         };
         /**
          * ProjectDetail
-         * @description API-03 response: project.json + share link (PRJ-03).
+         * @description API-03 response: project.json + share link (PRJ-03) + the `ETag` value (PRJ-15).
          */
         ProjectDetail: {
             /**
@@ -3992,7 +4160,7 @@ export interface components {
             format: "radiology-workbench-project";
             /**
              * Format Version
-             * @default 2
+             * @default 3
              */
             format_version: number;
             /** Project Id */
@@ -4013,11 +4181,15 @@ export interface components {
             /** Label Map */
             label_map?: components["schemas"]["LabelEntry"][];
             /**
-             * Preset
-             * @default ccrcc
+             * Default Modality
+             * @default CT
              * @enum {string}
              */
-            preset: "ccrcc" | "generic-ct" | "none";
+            default_modality: "CT" | "MR" | "mixed";
+            /** Packs */
+            packs?: string[];
+            /** View Token */
+            view_token?: string | null;
             /** Phase Vocabulary */
             phase_vocabulary?: string[];
             /** Phase Mapping */
@@ -4026,7 +4198,7 @@ export interface components {
             };
             /** Phase Priority */
             phase_priority?: string[];
-            viewer_defaults?: components["schemas"]["ViewerDefaults"];
+            display?: components["schemas"]["Display"];
             /** Segmentations */
             segmentations?: components["schemas"]["SegmentationSet"][];
             /**
@@ -4040,6 +4212,15 @@ export interface components {
             };
             /** Share Url */
             share_url: string;
+            /** Etag */
+            etag: string;
+            /** View Url */
+            view_url?: string | null;
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
         };
         /**
          * ProjectPatch
@@ -4060,7 +4241,9 @@ export interface components {
             } | null;
             /** Phase Priority */
             phase_priority?: string[] | null;
-            viewer_defaults?: components["schemas"]["ViewerDefaults"] | null;
+            /** Default Modality */
+            default_modality?: ("CT" | "MR" | "mixed") | null;
+            display?: components["schemas"]["Display"] | null;
             /** Default Seg */
             default_seg?: string | null;
         };
@@ -5407,23 +5590,12 @@ export interface components {
              */
             status: "matched" | "mismatched" | "missing";
         };
-        /** ViewerDefaults */
-        ViewerDefaults: {
-            /**
-             * Ww
-             * @default 400
-             */
-            ww: number;
-            /**
-             * Wl
-             * @default 50
-             */
-            wl: number;
-            /**
-             * Layout
-             * @default four-up
-             */
-            layout: string;
+        /** ViewToken */
+        ViewToken: {
+            /** View Token */
+            view_token: string | null;
+            /** View Url */
+            view_url: string | null;
         };
         /** VolumeRef */
         VolumeRef: {
@@ -5439,6 +5611,22 @@ export interface components {
             fp?: string | null;
             /** Sha256 */
             sha256?: string | null;
+        };
+        /** WindowLevel */
+        WindowLevel: {
+            /** Ww */
+            ww: number;
+            /** Wl */
+            wl: number;
+        };
+        /** WlPreset */
+        WlPreset: {
+            /** Name */
+            name: string;
+            /** Ww */
+            ww: number;
+            /** Wl */
+            wl: number;
         };
         /** RunError */
         app__analytics__models__RunError: {
@@ -5639,7 +5827,9 @@ export interface operations {
     patch_project_api_v1_projects__pid__patch: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
             path: {
                 pid: string;
             };
@@ -5659,6 +5849,135 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProjectDetail"];
                 };
+            };
+            /** @description Stale If-Match (PRJ-15) */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No If-Match */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_packs_api_v1_packs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackInfo"][];
+                };
+            };
+        };
+    };
+    apply_pack_api_v1_projects__pid__packs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackApplied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_view_token_api_v1_projects__pid__view_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewToken"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_view_token_api_v1_projects__pid__view_token_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -8831,6 +9150,76 @@ export interface operations {
                 content: {
                     "text/event-stream": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_project_api_v1_view__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_read_api_v1_view__token___rest__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+                rest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not a read route */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

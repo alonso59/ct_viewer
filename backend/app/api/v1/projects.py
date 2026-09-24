@@ -5,15 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Header, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from app.api.v1.deps import Ctx
+from app.api.v1.imports import ingest_service
 from app.context import AppContext
+from app.core.errors import JobConflict
 from app.projects.models import (
+    Modality,
     PathRoot,
     ProjectDetail,
     ProjectPatch,
@@ -21,16 +24,45 @@ from app.projects.models import (
     RootInfo,
     RootRole,
 )
-from app.projects.presets import DEFAULT_PRESET, PresetName
+from app.projects.presets import load_packs
 from app.projects.relink import VerifyReport, verify_root
 
 router = APIRouter(tags=["projects"])
 
 
 class ProjectCreate(BaseModel):
+    """PRJ-14: a name and an optional default modality; `packs` is for scripts (PRJ-16)."""
+
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
-    preset: PresetName = Field(DEFAULT_PRESET, description="Study preset (PRJ-12)")
+    default_modality: Modality = "CT"
+    packs: list[str] = Field(default_factory=list, description="Study packs to apply (API-28)")
+
+
+class PackInfo(BaseModel):
+    """API-28 row: a study pack contributed by a plugin (PRJ-16)."""
+
+    pack_id: str
+    plugin: str
+    title: str
+    description: str
+    labels: list[str]
+    phase_vocabulary: list[str]
+    target_profile: str
+
+
+class PackApply(BaseModel):
+    pack_id: str = Field(min_length=1)
+
+
+class PackApplied(BaseModel):
+    project: ProjectDetail
+    job_id: str | None = None  # the reindex job (phase rules changed)
+
+
+class ViewToken(BaseModel):
+    view_token: str | None
+    view_url: str | None
 
 
 class RootBody(BaseModel):
@@ -53,19 +85,34 @@ def list_projects(ctx: Ctx, archived: bool = False) -> list[ProjectSummary]:
 
 @router.post("/projects", response_model=ProjectDetail, status_code=201)
 async def create_project(ctx: Ctx, body: ProjectCreate) -> ProjectDetail:
-    cfg = await ctx.workspace.create(body.name, body.description, body.preset)
+    cfg = await ctx.workspace.create(body.name, body.description, body.default_modality, body.packs)
     return ctx.workspace.detail(cfg.project_id)
 
 
 @router.get("/projects/{pid}", response_model=ProjectDetail)
-async def get_project(ctx: Ctx, pid: str) -> ProjectDetail:
-    detail = ctx.workspace.detail(pid)
+async def get_project(ctx: Ctx, pid: str, response: Response) -> ProjectDetail:
     await ctx.workspace.touch_opened(pid)
+    detail = ctx.workspace.detail(pid)
+    response.headers["ETag"] = detail.etag  # PRJ-15
     return detail
 
 
-@router.patch("/projects/{pid}", response_model=ProjectDetail)
-async def patch_project(ctx: Ctx, pid: str, patch: ProjectPatch) -> ProjectDetail:
+@router.patch(
+    "/projects/{pid}",
+    response_model=ProjectDetail,
+    responses={
+        412: {"description": "Stale If-Match (PRJ-15)"},
+        428: {"description": "No If-Match"},
+    },
+)
+async def patch_project(
+    ctx: Ctx,
+    pid: str,
+    patch: ProjectPatch,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> ProjectDetail:
+    ctx.workspace.check_etag(pid, if_match)
     before = ctx.workspace.get(pid)
     after = await ctx.workspace.update(pid, patch)
     fields = [f for f in sorted(patch.model_fields_set) if getattr(before, f) != getattr(after, f)]
@@ -73,7 +120,60 @@ async def patch_project(ctx: Ctx, pid: str, patch: ProjectPatch) -> ProjectDetai
         ctx.index.invalidate(pid)  # the deprecated `mask` alias follows default_seg
     if fields:
         ctx.bus.publish(pid, "project.updated", {"fields": fields})
-    return ctx.workspace.detail(pid)
+    detail = ctx.workspace.detail(pid)
+    response.headers["ETag"] = detail.etag
+    return detail
+
+
+@router.get("/packs", response_model=list[PackInfo])
+def list_packs() -> list[PackInfo]:
+    return [
+        PackInfo(
+            pack_id=p.id,
+            plugin=p.plugin,
+            title=p.title,
+            description=p.description,
+            labels=[s.name for s in p.label_map],
+            phase_vocabulary=list(p.phase_vocabulary),
+            target_profile=p.target_profile,
+        )
+        for p in load_packs().values()
+    ]
+
+
+@router.post("/projects/{pid}/packs", response_model=PackApplied)
+async def apply_pack(ctx: Ctx, pid: str, body: PackApply) -> PackApplied:
+    """PRJ-16: never deletes data; the index is rebuilt with the new phase rules."""
+    before = ctx.workspace.get(pid)
+    after = await ctx.workspace.apply_pack(pid, body.pack_id)
+    job_id = None
+    if (before.phase_vocabulary, before.phase_mapping) != (
+        after.phase_vocabulary,
+        after.phase_mapping,
+    ):
+        try:
+            job_id = await ingest_service(ctx).reindex(pid)
+        except JobConflict:
+            job_id = None  # an index job is running; the next rebuild uses the new rules
+    ctx.index.invalidate(pid)
+    ctx.bus.publish(pid, "project.updated", {"fields": ["packs", "label_map", "phase_vocabulary"]})
+    return PackApplied(project=ctx.workspace.detail(pid), job_id=job_id)
+
+
+@router.post("/projects/{pid}/view-token", response_model=ViewToken)
+async def create_view_token(ctx: Ctx, pid: str) -> ViewToken:
+    """PRJ-17 / API-61: create or rotate; the previous link stops working at once."""
+    cfg = await ctx.workspace.set_view_token(pid, create=True)
+    ctx.bus.publish(pid, "project.updated", {"fields": ["view_token"]})
+    token = cfg.view_token or ""
+    return ViewToken(view_token=token, view_url=ctx.workspace.view_url(token))
+
+
+@router.delete("/projects/{pid}/view-token", status_code=204)
+async def revoke_view_token(ctx: Ctx, pid: str) -> Response:
+    await ctx.workspace.set_view_token(pid, create=False)
+    ctx.bus.publish(pid, "project.updated", {"fields": ["view_token"]})
+    return Response(status_code=204)
 
 
 @router.post("/projects/{pid}/archive", response_model=ProjectSummary)

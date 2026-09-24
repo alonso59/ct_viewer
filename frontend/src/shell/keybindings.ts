@@ -65,7 +65,7 @@ export function useGlobalKeybindings() {
       const typing = inTextField(e.target)
       const viewerFocused = useViewerSync.getState().viewerFocused
       for (const c of registry.commands.values()) {
-        if (bindingOf(c) !== chord) continue
+        if (bindingOf(c) !== chord || !registry.allowed(c)) continue
         if (c.when === 'viewer' && (!viewerFocused || typing)) continue
         // Plain keys never fire while typing; chords with a modifier or F-keys do
         if (typing && !/mod|alt|ctrl|^f\d/.test(chord)) continue
@@ -83,5 +83,5 @@ export function useGlobalKeybindings() {
 
 export function runCommand(id: string) {
   const c = registry.commands.get(id)
-  if (c && (!c.enabled || c.enabled())) c.run()
+  if (c && registry.allowed(c) && (!c.enabled || c.enabled())) c.run()
 }

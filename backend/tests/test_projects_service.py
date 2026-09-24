@@ -47,7 +47,9 @@ def test_create_layout_and_registry(ws: Workspace) -> None:
     assert raw["format"] == "radiology-workbench-project"
     assert raw["format_version"] == FORMAT_VERSION
     assert raw["name"] == "Demo" and raw["description"] == "desc"
-    assert [lm["name"] for lm in raw["label_map"]] == ["kidney", "tumor", "cyst"]
+    # PRJ-14: neutral (no labels, raw phases, no pack, CT default)
+    assert raw["label_map"] == [] and raw["packs"] == [] and raw["phase_vocabulary"] == []
+    assert raw["default_modality"] == "CT" and raw["view_token"] is None
     reg = read_json(ws.root / "workspace.json")["projects"]
     assert reg == [
         {
@@ -101,7 +103,7 @@ def test_update_patch_and_rename(ws: Workspace) -> None:
 
 
 def test_update_rejects_unknown_phase(ws: Workspace) -> None:
-    cfg = run(ws.create("P"))
+    cfg = run(ws.create("P", packs=["ccrcc"]))
     with pytest.raises(ValidationProblem):
         run(ws.update(cfg.project_id, ProjectPatch(phase_priority=["NP", "XX"])))
 

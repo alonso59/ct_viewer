@@ -18,8 +18,8 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | ID | Method & path | Purpose | Ref |
 |---|---|---|---|
 | API-01 | `GET /health` | Liveness, versions, UI runtime config (`VIEWER_MAX_LOADED`, `PUBLIC_BASE_URL`) | OPS-03/07 |
-| API-02 | `GET /projects` · `POST /projects` | List / create | PRJ-01/02 |
-| API-03 | `GET·PATCH /projects/{pid}` | Read (with `ETag`) / rename / edit label map, `default_modality`, `display`; PATCH needs `If-Match` → `412 precondition-failed` when stale | PRJ-06/07/14/15/18 |
+| API-02 | `GET /projects` · `POST /projects` | List / create `{name, description?, default_modality?, packs?}` (neutral; `packs` for scripts) | PRJ-01/02/14 |
+| API-03 | `GET·PATCH /projects/{pid}` | Read (with `ETag`) / rename / edit label map, `default_modality`, `display`; PATCH needs `If-Match` → `428 precondition-required` when missing, `412 precondition-failed` when stale | PRJ-06/07/14/15/18 |
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report); body `{path, role?}`, `role: derived` registers the derived root (PRJ-13; default = the alias's current role, else `source`) | PRJ-05/13 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
@@ -43,7 +43,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-24 | `GET /projects/{pid}/items/{iid}/mask?seg=` | Mask bytes of one segmentation set (default `default_seg`; Range, ETag) | BE-04, ADR-0015 |
 | API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1&seg=` | Mesh of one set's label (`202` + job if not cached) | VW-09 |
 | API-26 | `GET /projects/{pid}/items/{iid}/thumbnail` | Lossless WebP thumbnail (`404` until generated) | IMP-12 |
-| API-28 | `GET /packs` · `POST /projects/{pid}/packs` `{pack_id}` | Study packs available (from plugins) / apply one (records `packs[]`, never deletes data) | PRJ-16 |
+| API-28 | `GET /packs` · `POST /projects/{pid}/packs` `{pack_id}` | Study packs available (from plugins) / apply one → `{project, job_id}` (records `packs[]`, never deletes data; `job_id` = the reindex when phase rules changed) | PRJ-16 |
 | API-27 | `GET /projects/{pid}/segmentations` · `PATCH …/segmentations/{seg}` | Sets with producer + counts / rename, label mapping; `default_seg` via API-03 | ADR-0015 |
 | API-30 | `GET /radiomics/schema` | Engine options, defaults, constraints | RAD-01 |
 | API-31 | `POST /radiomics/validate` | Settings → issues | RAD-04 |
@@ -77,7 +77,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-58 | `POST …/tables/{tid}/import` · `GET …/tables/{tid}/export?format=csv\|parquet` | CSV import with a match report / export | LBL-07 |
 | API-59 | `GET /projects/{pid}/exports/dataset-table?format=csv\|parquet` | Merged metadata table (rows + active layers), one column per layer with its source | ADR-0020 |
 | API-60 | `GET /view/{token}/…` | Read-only mirror of the project GET endpoints for a view-only link; never exposes `project_id`; writes do not exist on this path | PRJ-17 |
-| API-61 | `POST·DELETE /projects/{pid}/view-token` | Create/rotate / revoke the view-only link | PRJ-17 |
+| API-61 | `POST·DELETE /projects/{pid}/view-token` | Create/rotate → `{view_token, view_url}` / revoke (`204`) the view-only link | PRJ-17 |
 | API-62 | `POST·GET /task-runs` · `GET /task-runs/{rid}` | Workspace tasks (`scope: workspace`, e.g. `dicom.convert` without a project) → `{derived}/_datasets/{name}/` | TSK-13 |
 
 API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
@@ -115,6 +115,7 @@ Errors: `validation` (not a zip, unsafe entry, no/invalid `project.json`), `form
 | `format-version-unsupported` | 409 |
 | `job-conflict` | 409 |
 | `precondition-failed` | 412 |
+| `precondition-required` | 428 |
 | `reviewer-required` | 428 |
 | `server-busy` | 503 |
 | `unsupported-format` | 415 |

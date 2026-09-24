@@ -10,9 +10,9 @@ export type Scope = S['Item']['scope']
 export type Side = S['Item']['side']
 export type QcCode = S['QcCode']
 
-/** PRJ-12 study presets */
-export const PRESETS = ['ccrcc', 'generic-ct', 'none'] as const
-export type Preset = (typeof PRESETS)[number]
+/** PRJ-14 default modality of a neutral project */
+export const MODALITIES = ['CT', 'MR', 'mixed'] as const
+export type ProjectModality = (typeof MODALITIES)[number]
 
 /** API-02 list row */
 export type ProjectSummary = Omit<S['ProjectSummary'], 'last_opened_at'> & { last_opened_at: string | null }
@@ -32,7 +32,15 @@ export interface ProjectBundle {
 export type HashJobStarted = S['HashJobStarted']
 
 /** API-03 detail */
-export type Project = Omit<Required<S['ProjectDetail']>, 'label_map'> & { label_map: LabelDef[]; preset?: Preset | null }
+export type Project = Omit<Required<S['ProjectDetail']>, 'label_map'> & { label_map: LabelDef[] }
+/** API-03 PATCH body (PRJ-15: sent with `If-Match`) */
+export type ProjectPatch = S['ProjectPatch']
+export type DisplaySettings = S['Display']
+/** API-28 study packs (PRJ-16) */
+export type PackInfo = S['PackInfo']
+export type PackApplied = S['PackApplied']
+/** API-61 view-only link (PRJ-17) */
+export type ViewToken = S['ViewToken']
 
 export type VolumeRef = S['VolumeRef']
 export type Geometry = S['Geometry']

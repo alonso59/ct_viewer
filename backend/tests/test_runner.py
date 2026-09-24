@@ -77,7 +77,9 @@ def env(tmp_path: Path, fixtures_copy: Path, plugins: Path) -> Iterator[tuple[Te
         crash = plugins / "crash" / "task.json"
         m, h = parse_manifest(crash)
         reg.add(m, h, "plugins_root", crash)
-        pid = str(c.post(f"{API}/projects", json={"name": "ext"}).json()["project_id"])
+        pid = str(
+            c.post(f"{API}/projects", json={"name": "ext", "packs": ["ccrcc"]}).json()["project_id"]
+        )
         do_import(c, pid, fixtures_copy / DATASET)
         r = c.put(
             f"{API}/projects/{pid}/roots/DERIVED", json={"path": str(derived), "role": "derived"}

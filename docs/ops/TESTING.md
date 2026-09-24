@@ -27,6 +27,8 @@ Depends: all domain docs.
 | TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
+P7c files (Wave 2): `tests/test_projects_v3.py` (neutral create, If-Match 428/412, packs list/apply/reindex without data loss, TST-18 view mirror + rotation + revoke, bundle without token, migration 2 → 3); Vitest `features/projects/settings/{labelFiles,ProjectSettings}.test.ts(x)` (label imports, conflict → reload and reapply, packs, view link) and `shell/registry.test.ts` (UI-26 filtering); Playwright `e2e/view-only.spec.ts` (TST-18 UI half). Tests that relied on the old ccRCC default create projects with `packs: ["ccrcc"]`.
+
 P7c files (Wave 1): TST-17 in `tests/test_plugins.py` (shipped manifests valid, validation errors, status reasons, API-49 with and without `?project=`, `PLUGINS_ROOT` first-party only) and Vitest `src/plugins/host.test.ts`, `src/features/library/LibraryView.test.tsx`.
 
 P7b files (Wave 4): TST-14 external half in `tests/test_runner.py` (the real `scripts/rw-runner.py` as a subprocess: waiting → claim → progress → set registration, SIGTERM cancel, resume, a crashing task, a lost runner, single claim); `e2e/runner.spec.ts` runs the fake plugin through the runner from the Tasks tab (the E2E backend gets `PLUGINS_ROOT` = a temp dir with a symlink to `plugins/threshold/`). RAD-05 and curation `seg_id` in `tests/test_tasks.py`. PyRadiomics is not thread-safe, so tests that run it in inline (threaded) mode use one unit at a time.

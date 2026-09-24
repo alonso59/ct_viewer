@@ -288,7 +288,7 @@ def env(tmp_path: Path) -> Iterator[Env]:
         ctx: AppContext = client.app.state.ctx  # type: ignore[attr-defined]
         portal = client.portal
         assert portal is not None
-        pid = portal.call(ctx.workspace.create, "meshes").project_id
+        pid = portal.call(ctx.workspace.create, "meshes", "", "CT", ["ccrcc"]).project_id
         portal.call(ctx.workspace.set_root, pid, PathRoot(alias="DATA", path=str(data_root)))
         seg, npy = data_root / SEG, data_root / NPY_MSK
         items = [

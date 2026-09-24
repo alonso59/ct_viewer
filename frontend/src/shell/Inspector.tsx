@@ -19,7 +19,7 @@ export function Inspector() {
         onDrag={(d) => layout.set({ inspectorWidth: Math.min(560, Math.max(240, start.current - d)) })}
       />
       <aside className="inspector" style={{ width: layout.inspectorWidth }} aria-label={t('shell.inspector')}>
-        {registry.inspectorSections.map(({ id, title, component: C }) => (
+        {registry.inspectorSections.filter((s) => registry.allowed(s)).map(({ id, title, component: C }) => (
           <section key={id} className="inspector-section">
             <div className="section-title">{t(title)}</div>
             <div className="inspector-body">

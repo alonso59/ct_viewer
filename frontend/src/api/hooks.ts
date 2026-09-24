@@ -16,7 +16,9 @@ import type {
   Job,
   LabelDef,
   NewCurationEvent,
-  Preset,
+  Project,
+  ProjectModality,
+  ProjectPatch,
   PreviewRequest,
   RootRole,
   RadiomicsSettings,
@@ -178,7 +180,7 @@ export function useImportV2(pid: string) {
 export function useCreateProject() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (p: { name: string; preset: Preset }) => api.createProject(p),
+    mutationFn: (p: { name: string; default_modality?: ProjectModality }) => api.createProject(p),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.projects() }),
   })
 }
@@ -218,12 +220,50 @@ export function useCommitImport(pid: string) {
   })
 }
 
+/** The ETag of the project version on screen (PRJ-15): a write based on it fails with 412 if
+ *  someone else changed the settings since. */
+const shownEtag = (qc: QueryClient, pid: string) => qc.getQueryData<Project>(keys.project(pid))?.etag ?? ''
+
 export function useUpdateLabels(pid: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (labels: LabelDef[]) => api.updateLabelMap(pid, labels),
+    mutationFn: (labels: LabelDef[]) => api.updateLabelMap(pid, labels, shownEtag(qc, pid)),
     onSuccess: (p) => qc.setQueryData(keys.project(pid), p),
   })
+}
+
+/** API-03 settings write (UI-23): `etag` = the version the form was loaded from */
+export function useUpdateProject(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ patch, etag }: { patch: ProjectPatch; etag?: string }) => api.updateProject(pid, patch, etag ?? shownEtag(qc, pid)),
+    onSuccess: (p) => {
+      qc.setQueryData(keys.project(pid), p)
+      void qc.invalidateQueries({ queryKey: keys.projects() })
+    },
+  })
+}
+
+export const usePacks = () => useQuery({ queryKey: keys.packs(), queryFn: () => api.listPacks(), staleTime: 60_000 })
+
+export function useApplyPack(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (packId: string) => api.applyPack(pid, packId),
+    onSuccess: (r) => {
+      qc.setQueryData(keys.project(pid), r.project)
+      void qc.invalidateQueries({ queryKey: ['project', pid] })
+    },
+  })
+}
+
+export function useViewToken(pid: string) {
+  const qc = useQueryClient()
+  const done = () => qc.invalidateQueries({ queryKey: keys.project(pid) })
+  return {
+    create: useMutation({ mutationFn: () => api.createViewToken(pid), onSuccess: done }),
+    revoke: useMutation({ mutationFn: () => api.revokeViewToken(pid), onSuccess: done }),
+  }
 }
 
 function invalidateVariables(qc: QueryClient, pid: string) {

@@ -16,6 +16,8 @@ export interface ViewContribution {
   /** Hide the QuPath-style Image section under this view */
   hideImageSection?: boolean
   useBadge?: () => number | null
+  /** Needs write routes: hidden on a view-only link (UI-26) */
+  writes?: boolean
 }
 
 export interface EditorProps<P> {
@@ -35,6 +37,8 @@ export interface EditorContribution<P extends object = object> {
   path?: (pid: string, params: P) => string
   /** Parse a URL into params, for deep links */
   match?: (pathname: string, search: URLSearchParams) => P | null
+  /** Needs write routes: not opened on a view-only link (UI-26) */
+  writes?: boolean
 }
 
 export interface PanelTabContribution {
@@ -59,6 +63,8 @@ export interface Command {
   menuGroup?: number
   enabled?: () => boolean
   run: () => void
+  /** Changes data: hidden and disabled on a view-only link (UI-26) */
+  writes?: boolean
 }
 
 export interface ItemContribution {
@@ -73,6 +79,7 @@ export interface StatusItemContribution extends ItemContribution {
 
 export interface InspectorSectionContribution extends ItemContribution {
   title: string
+  writes?: boolean
 }
 
 /** Quick open (Ctrl/Cmd+P) sources: a component that renders cmdk items for the query */
@@ -92,6 +99,16 @@ class Registry {
   readonly inspectorSections: InspectorSectionContribution[] = []
   readonly quickOpen: QuickOpenProvider[] = []
   readonly imageSection: ItemContribution[] = []
+  /** UI-26: set by the workbench of a view-only link; contributions with `writes` are hidden */
+  readOnly = false
+
+  setReadOnly(on: boolean) {
+    this.readOnly = on
+  }
+
+  allowed(c: { writes?: boolean }): boolean {
+    return !(this.readOnly && c.writes)
+  }
 
   view(v: ViewContribution) {
     this.views.push(v)

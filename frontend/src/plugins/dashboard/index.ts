@@ -22,10 +22,11 @@ export const plugin: FrontendPlugin = {
 }
 
 export function registerDashboard() {
-  registry.view({ id: 'dashboards', title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })
+  registry.view({ id: 'dashboards', writes: true, title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })
   registry.panelTab({ id: 'measurements', title: 'panel.measurements', order: 10, component: MeasurementsPanel })
   registry.editor<RunParams>({
     type: 'run',
+    writes: true,
     component: DashboardEditor,
     id: (p) => `run:${p.runId}`,
     title: (p) => {

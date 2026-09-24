@@ -2160,6 +2160,79 @@
     "title": "DetectResult",
     "type": "object"
    },
+   "Display": {
+    "description": "`project.json.display` (PRJ-18, VW-25); was `viewer_defaults` before format 3.",
+    "properties": {
+     "convention": {
+      "default": "radiological",
+      "enum": [
+       "radiological",
+       "neurological"
+      ],
+      "title": "Convention",
+      "type": "string"
+     },
+     "interpolation": {
+      "default": "linear",
+      "enum": [
+       "linear",
+       "nearest"
+      ],
+      "title": "Interpolation",
+      "type": "string"
+     },
+     "layout": {
+      "default": "four-up",
+      "enum": [
+       "four-up",
+       "conventional",
+       "three-mpr",
+       "one-up-axial",
+       "one-up-sagittal",
+       "one-up-coronal",
+       "one-up-3d"
+      ],
+      "title": "Layout",
+      "type": "string"
+     },
+     "use_dicom_window": {
+      "default": true,
+      "title": "Use Dicom Window",
+      "type": "boolean"
+     },
+     "wl": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/WindowLevel"
+        },
+        {
+         "const": "percentile",
+         "type": "string"
+        }
+       ]
+      },
+      "title": "Wl",
+      "type": "object"
+     },
+     "wl_presets": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/WlPreset"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Wl Presets"
+     }
+    },
+    "title": "Display",
+    "type": "object"
+   },
    "DistGroup": {
     "properties": {
      "box": {
@@ -5553,6 +5626,93 @@
     "title": "OutliersResponse",
     "type": "object"
    },
+   "PackApplied": {
+    "properties": {
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "project": {
+      "$ref": "#/components/schemas/ProjectDetail"
+     }
+    },
+    "required": [
+     "project"
+    ],
+    "title": "PackApplied",
+    "type": "object"
+   },
+   "PackApply": {
+    "properties": {
+     "pack_id": {
+      "minLength": 1,
+      "title": "Pack Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "pack_id"
+    ],
+    "title": "PackApply",
+    "type": "object"
+   },
+   "PackInfo": {
+    "description": "API-28 row: a study pack contributed by a plugin (PRJ-16).",
+    "properties": {
+     "description": {
+      "title": "Description",
+      "type": "string"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "pack_id": {
+      "title": "Pack Id",
+      "type": "string"
+     },
+     "phase_vocabulary": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Phase Vocabulary",
+      "type": "array"
+     },
+     "plugin": {
+      "title": "Plugin",
+      "type": "string"
+     },
+     "target_profile": {
+      "title": "Target Profile",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "pack_id",
+     "plugin",
+     "title",
+     "description",
+     "labels",
+     "phase_vocabulary",
+     "target_profile"
+    ],
+    "title": "PackInfo",
+    "type": "object"
+   },
    "Page_CaseSummary_": {
     "properties": {
      "items": {
@@ -6311,7 +6471,18 @@
     "type": "object"
    },
    "ProjectCreate": {
+    "description": "PRJ-14: a name and an optional default modality; `packs` is for scripts (PRJ-16).",
     "properties": {
+     "default_modality": {
+      "default": "CT",
+      "enum": [
+       "CT",
+       "MR",
+       "mixed"
+      ],
+      "title": "Default Modality",
+      "type": "string"
+     },
      "description": {
       "default": "",
       "title": "Description",
@@ -6323,16 +6494,13 @@
       "title": "Name",
       "type": "string"
      },
-     "preset": {
-      "default": "ccrcc",
-      "description": "Study preset (PRJ-12)",
-      "enum": [
-       "ccrcc",
-       "generic-ct",
-       "none"
-      ],
-      "title": "Preset",
-      "type": "string"
+     "packs": {
+      "description": "Study packs to apply (API-28)",
+      "items": {
+       "type": "string"
+      },
+      "title": "Packs",
+      "type": "array"
      }
     },
     "required": [
@@ -6342,7 +6510,7 @@
     "type": "object"
    },
    "ProjectDetail": {
-    "description": "API-03 response: project.json + share link (PRJ-03).",
+    "description": "API-03 response: project.json + share link (PRJ-03) + the `ETag` value (PRJ-15).",
     "properties": {
      "annotation_sources": {
       "additionalProperties": {
@@ -6362,6 +6530,16 @@
       "title": "Created At",
       "type": "string"
      },
+     "default_modality": {
+      "default": "CT",
+      "enum": [
+       "CT",
+       "MR",
+       "mixed"
+      ],
+      "title": "Default Modality",
+      "type": "string"
+     },
      "default_seg": {
       "default": "imported",
       "title": "Default Seg",
@@ -6372,6 +6550,13 @@
       "title": "Description",
       "type": "string"
      },
+     "display": {
+      "$ref": "#/components/schemas/Display"
+     },
+     "etag": {
+      "title": "Etag",
+      "type": "string"
+     },
      "format": {
       "const": "radiology-workbench-project",
       "default": "radiology-workbench-project",
@@ -6379,7 +6564,7 @@
       "type": "string"
      },
      "format_version": {
-      "default": 2,
+      "default": 3,
       "title": "Format Version",
       "type": "integer"
      },
@@ -6395,6 +6580,13 @@
       "minLength": 1,
       "title": "Name",
       "type": "string"
+     },
+     "packs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Packs",
+      "type": "array"
      },
      "path_roots": {
       "items": {
@@ -6424,19 +6616,14 @@
       "title": "Phase Vocabulary",
       "type": "array"
      },
-     "preset": {
-      "default": "ccrcc",
-      "enum": [
-       "ccrcc",
-       "generic-ct",
-       "none"
-      ],
-      "title": "Preset",
-      "type": "string"
-     },
      "project_id": {
       "title": "Project Id",
       "type": "string"
+     },
+     "read_only": {
+      "default": false,
+      "title": "Read Only",
+      "type": "boolean"
      },
      "segmentations": {
       "items": {
@@ -6453,8 +6640,27 @@
       "title": "Updated At",
       "type": "string"
      },
-     "viewer_defaults": {
-      "$ref": "#/components/schemas/ViewerDefaults"
+     "view_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "View Token"
+     },
+     "view_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "View Url"
      }
     },
     "required": [
@@ -6462,7 +6668,8 @@
      "name",
      "created_at",
      "updated_at",
-     "share_url"
+     "share_url",
+     "etag"
     ],
     "title": "ProjectDetail",
     "type": "object"
@@ -6470,6 +6677,22 @@
    "ProjectPatch": {
     "description": "API-03 PATCH body: only provided fields change.",
     "properties": {
+     "default_modality": {
+      "anyOf": [
+       {
+        "enum": [
+         "CT",
+         "MR",
+         "mixed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default Modality"
+     },
      "default_seg": {
       "anyOf": [
        {
@@ -6491,6 +6714,16 @@
        }
       ],
       "title": "Description"
+     },
+     "display": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Display"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "label_map": {
       "anyOf": [
@@ -6560,16 +6793,6 @@
        }
       ],
       "title": "Phase Vocabulary"
-     },
-     "viewer_defaults": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/ViewerDefaults"
-       },
-       {
-        "type": "null"
-       }
-      ]
      }
     },
     "title": "ProjectPatch",
@@ -10487,25 +10710,36 @@
     "title": "VerifySample",
     "type": "object"
    },
-   "ViewerDefaults": {
+   "ViewToken": {
     "properties": {
-     "layout": {
-      "default": "four-up",
-      "title": "Layout",
-      "type": "string"
+     "view_token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "View Token"
      },
-     "wl": {
-      "default": 50,
-      "title": "Wl",
-      "type": "number"
-     },
-     "ww": {
-      "default": 400,
-      "title": "Ww",
-      "type": "number"
+     "view_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "View Url"
      }
     },
-    "title": "ViewerDefaults",
+    "required": [
+     "view_token",
+     "view_url"
+    ],
+    "title": "ViewToken",
     "type": "object"
    },
    "VolumeRef": {
@@ -10550,6 +10784,51 @@
      "ref"
     ],
     "title": "VolumeRef",
+    "type": "object"
+   },
+   "WindowLevel": {
+    "properties": {
+     "wl": {
+      "title": "Wl",
+      "type": "number"
+     },
+     "ww": {
+      "exclusiveMinimum": 0.0,
+      "title": "Ww",
+      "type": "number"
+     }
+    },
+    "required": [
+     "ww",
+     "wl"
+    ],
+    "title": "WindowLevel",
+    "type": "object"
+   },
+   "WlPreset": {
+    "properties": {
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "wl": {
+      "title": "Wl",
+      "type": "number"
+     },
+     "ww": {
+      "exclusiveMinimum": 0.0,
+      "title": "Ww",
+      "type": "number"
+     }
+    },
+    "required": [
+     "name",
+     "ww",
+     "wl"
+    ],
+    "title": "WlPreset",
     "type": "object"
    },
    "app__analytics__models__RunError": {
@@ -11357,6 +11636,31 @@
     ]
    }
   },
+  "/api/v1/packs": {
+   "get": {
+    "operationId": "list_packs_api_v1_packs_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PackInfo"
+         },
+         "title": "Response List Packs Api V1 Packs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Packs",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
   "/api/v1/plugins": {
    "get": {
     "operationId": "list_plugins_api_v1_plugins_get",
@@ -11644,6 +11948,22 @@
        "title": "Pid",
        "type": "string"
       }
+     },
+     {
+      "in": "header",
+      "name": "If-Match",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "If-Match"
+      }
      }
     ],
     "requestBody": {
@@ -11667,6 +11987,9 @@
       },
       "description": "Successful Response"
      },
+     "412": {
+      "description": "Stale If-Match (PRJ-15)"
+     },
      "422": {
       "content": {
        "application/json": {
@@ -11676,6 +11999,9 @@
        }
       },
       "description": "Validation Error"
+     },
+     "428": {
+      "description": "No If-Match"
      }
     },
     "summary": "Patch Project",
@@ -13718,6 +14044,59 @@
     "summary": "WebP thumbnail (404 until generated)",
     "tags": [
      "volumes"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/packs": {
+   "post": {
+    "description": "PRJ-16: never deletes data; the index is rebuilt with the new phase rules.",
+    "operationId": "apply_pack_api_v1_projects__pid__packs_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PackApply"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PackApplied"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Apply Pack",
+    "tags": [
+     "projects"
     ]
    }
   },
@@ -16298,6 +16677,82 @@
     ]
    }
   },
+  "/api/v1/projects/{pid}/view-token": {
+   "delete": {
+    "operationId": "revoke_view_token_api_v1_projects__pid__view_token_delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Revoke View Token",
+    "tags": [
+     "projects"
+    ]
+   },
+   "post": {
+    "description": "PRJ-17 / API-61: create or rotate; the previous link stops working at once.",
+    "operationId": "create_view_token_api_v1_projects__pid__view_token_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ViewToken"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create View Token",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}/warnings": {
    "get": {
     "description": "API-14 (IMP-08).",
@@ -16653,6 +17108,101 @@
     "summary": "Validate Task",
     "tags": [
      "tasks"
+    ]
+   }
+  },
+  "/api/v1/view/{token}": {
+   "get": {
+    "description": "The project as a view-only link sees it: no `project_id`, no server paths.",
+    "operationId": "view_project_api_v1_view__token__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Project",
+    "tags": [
+     "view"
+    ]
+   }
+  },
+  "/api/v1/view/{token}/{rest}": {
+   "get": {
+    "operationId": "view_read_api_v1_view__token___rest__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rest",
+      "required": true,
+      "schema": {
+       "title": "Rest",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "404": {
+      "description": "Not a read route"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Read",
+    "tags": [
+     "view"
     ]
    }
   }

@@ -10,7 +10,8 @@ export function SideBar() {
   const { t } = useTranslation()
   const layout = useLayout()
   const start = useRef(layout.sidebarWidth)
-  const view = registry.views.find((v) => v.id === layout.activeView) ?? registry.views[0]
+  const views = registry.views.filter((v) => registry.allowed(v))
+  const view = views.find((v) => v.id === layout.activeView) ?? views[0]
   if (!layout.sidebarVisible || !view) return null
   const { component: View, actions: Actions } = view
   return (

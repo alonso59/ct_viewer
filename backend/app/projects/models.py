@@ -1,16 +1,16 @@
-"""`workspace.json` and `project.json` schemas (PROJECT_FORMAT.md, format_version 2)."""
+"""`workspace.json` and `project.json` schemas (PROJECT_FORMAT.md, format_version 3)."""
 
 from __future__ import annotations
 
-from typing import Any, Final, Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.paths import validate_alias
-from app.projects.presets import DEFAULT_PRESET, PRESETS, PresetName
+from app.projects.presets import UNKNOWN_PHASE
 
 FORMAT: Final = "radiology-workbench-project"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 SEG_ID_RE = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 IMPORTED_SEG: Final = "imported"
 DERIVED_ALIAS: Final = "DERIVED"
@@ -37,10 +37,47 @@ class LabelEntry(BaseModel):
     visible: bool = True
 
 
-class ViewerDefaults(BaseModel):
-    ww: float = 400
-    wl: float = 50
-    layout: str = "four-up"
+Modality = Literal["CT", "MR", "mixed"]
+Layout = Literal[
+    "four-up",
+    "conventional",
+    "three-mpr",
+    "one-up-axial",
+    "one-up-sagittal",
+    "one-up-coronal",
+    "one-up-3d",
+]
+
+
+class WindowLevel(BaseModel):
+    ww: float = Field(gt=0)
+    wl: float
+
+
+class WlPreset(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    ww: float = Field(gt=0)
+    wl: float
+
+
+def _default_wl() -> dict[str, WindowLevel | Literal["percentile"]]:
+    return {"CT": WindowLevel(ww=400, wl=50), "MR": "percentile"}
+
+
+class Display(BaseModel):
+    """`project.json.display` (PRJ-18, VW-25); was `viewer_defaults` before format 3."""
+
+    layout: Layout = "four-up"
+    # Initial window per modality: HU numbers, or `percentile` (1st-99th, VW-05).
+    wl: dict[str, WindowLevel | Literal["percentile"]] = Field(default_factory=_default_wl)
+    use_dicom_window: bool = True  # the DICOM `WindowCenter/Width` first when present (VW-22)
+    wl_presets: list[WlPreset] | None = None  # null = the built-in presets (VW-05)
+    interpolation: Literal["linear", "nearest"] = "linear"
+    convention: Literal["radiological", "neurological"] = "radiological"
+
+    def ct_window(self) -> tuple[float, float]:
+        w = self.wl.get("CT")
+        return (w.ww, w.wl) if isinstance(w, WindowLevel) else (400.0, 50.0)
 
 
 class SegProducer(BaseModel):
@@ -76,30 +113,6 @@ def imported_set(label_map: list[LabelEntry], created_at: str) -> SegmentationSe
     )
 
 
-def preset_fields(name: PresetName) -> dict[str, Any]:
-    """`project.json` fields seeded by a study preset (PRJ-12)."""
-    p = PRESETS[name]
-    return {
-        "preset": name,
-        "label_map": [
-            LabelEntry(
-                value=s.value, name=s.name, color=s.color, opacity=s.opacity, visible=s.visible
-            )
-            for s in p.label_map
-        ],
-        "phase_vocabulary": list(p.phase_vocabulary),
-        "phase_mapping": dict(p.phase_mapping),
-        "phase_priority": list(p.phase_priority),
-    }
-
-
-_DEFAULTS = preset_fields(DEFAULT_PRESET)
-DEFAULT_LABEL_MAP: list[LabelEntry] = _DEFAULTS["label_map"]  # PRJ-07 ccRCC seed
-DEFAULT_PHASE_VOCABULARY: list[str] = _DEFAULTS["phase_vocabulary"]
-DEFAULT_PHASE_MAPPING: dict[str, str] = _DEFAULTS["phase_mapping"]
-DEFAULT_PHASE_PRIORITY: list[str] = _DEFAULTS["phase_priority"]
-
-
 class ProjectConfig(BaseModel):
     """`project.json` (source of truth for config)."""
 
@@ -111,13 +124,16 @@ class ProjectConfig(BaseModel):
     created_at: str
     updated_at: str
     path_roots: list[PathRoot] = Field(default_factory=list)
-    label_map: list[LabelEntry] = Field(default_factory=lambda: list(DEFAULT_LABEL_MAP))
-    preset: PresetName = DEFAULT_PRESET  # PRJ-12; files without it predate presets (= ccrcc)
-    phase_vocabulary: list[str] = Field(default_factory=lambda: list(DEFAULT_PHASE_VOCABULARY))
+    # Neutral by default (PRJ-14): no labels (auto-named from masks, PRJ-07), raw phases.
+    label_map: list[LabelEntry] = Field(default_factory=list)
+    default_modality: Modality = "CT"  # PRJ-14: viewer default for items without one (VW-05)
+    packs: list[str] = Field(default_factory=list)  # applied study packs (PRJ-16)
+    view_token: str | None = None  # PRJ-17
+    phase_vocabulary: list[str] = Field(default_factory=list)
     # RAW (upper-case) -> canonical; see INPUT_METADATA.md §Phase resolution.
-    phase_mapping: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_PHASE_MAPPING))
-    phase_priority: list[str] = Field(default_factory=lambda: list(DEFAULT_PHASE_PRIORITY))
-    viewer_defaults: ViewerDefaults = Field(default_factory=ViewerDefaults)
+    phase_mapping: dict[str, str] = Field(default_factory=dict)
+    phase_priority: list[str] = Field(default_factory=lambda: [UNKNOWN_PHASE])
+    display: Display = Field(default_factory=Display)
     segmentations: list[SegmentationSet] = Field(default_factory=list)  # ADR-0015
     default_seg: str = IMPORTED_SEG
     # Active analyzer run per field (ANZ-04); null = none active.
@@ -153,7 +169,8 @@ class ProjectPatch(BaseModel):
     phase_vocabulary: list[str] | None = None  # applies at the next import (re-index)
     phase_mapping: dict[str, str] | None = None
     phase_priority: list[str] | None = None
-    viewer_defaults: ViewerDefaults | None = None
+    default_modality: Modality | None = None  # PRJ-14
+    display: Display | None = None  # PRJ-18
     default_seg: str | None = None  # must name an existing segmentation set (ADR-0015)
 
 
@@ -179,9 +196,13 @@ class ProjectSummary(BaseModel):
 
 
 class ProjectDetail(ProjectConfig):
-    """API-03 response: project.json + share link (PRJ-03)."""
+    """API-03 response: project.json + share link (PRJ-03) + the `ETag` value (PRJ-15)."""
 
     share_url: str
+    etag: str
+    # PRJ-17: the view-only link when a token exists; true on the read-only mirror (API-60).
+    view_url: str | None = None
+    read_only: bool = False
 
 
 class RootInfo(BaseModel):

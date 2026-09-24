@@ -55,7 +55,7 @@ class Job:
         if self.spec.get("protocol") != PROTOCOL:
             raise ValueError(f"unsupported protocol {self.spec.get('protocol')!r}")
         self.settings: dict[str, Any] = self.spec.get("settings") or {}
-        # Project context the backend adds (phase vocabulary, preset target profile, ANZ-05)
+        # Project context the backend adds (phase vocabulary, packs, target profile, ANZ-05)
         self.context: dict[str, Any] = self.spec.get("context") or {}
         self.items: list[dict[str, Any]] = self.spec.get("items") or []
         self.rows: list[dict[str, Any]] = self.spec.get("rows") or []

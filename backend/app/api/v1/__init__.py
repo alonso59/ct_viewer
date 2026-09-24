@@ -20,6 +20,7 @@ from app.api.v1 import (
     sources,
     tasks,
     variables,
+    view,
     volumes,
 )
 from app.imaging import mesh_api
@@ -27,7 +28,7 @@ from app.imaging import mesh_api
 router = APIRouter()
 for _module in (
     health, projects, fs, sources, imports, variables, cases, items, volumes, segmentations,
-    curation, annotations, radiomics, tasks, plugins, dashboard, jobs, events,
+    curation, annotations, radiomics, tasks, plugins, dashboard, jobs, events, view,
 ):  # fmt: skip
     router.include_router(_module.router)
 router.include_router(mesh_api.router)  # API-25 (lane P3)

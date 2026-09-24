@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from app.core.errors import ValidationProblem
 from app.core.fsio import atomic_write_json
 from app.core.ids import is_ulid, new_ulid, utc_now
-from app.projects.migrations import check_version
+from app.projects.migrations import check_version, migrate
 from app.projects.models import ProjectConfig
 
 EXCLUDED_DIRS: Final = frozenset({"cache"})
@@ -117,6 +117,15 @@ class _Scrubber:
         return json.dumps(reg, indent=1).encode("utf-8")
 
 
+def _without_view_token(data: bytes) -> bytes | None:
+    """PRJ-17: a bundle never carries the view-only token (reset to null)."""
+    raw = json.loads(data)
+    if not isinstance(raw, dict) or not raw.get("view_token"):
+        return None
+    raw["view_token"] = None
+    return json.dumps(raw, indent=2).encode("utf-8")
+
+
 def write_bundle(folder: Path, project_id: str, out: Path) -> int:
     """Zip the project folder into `out` (outside `folder`'s bundled part); returns entries.
 
@@ -133,7 +142,9 @@ def write_bundle(folder: Path, project_id: str, out: Path) -> int:
             if new is not None:
                 replaced[rel] = new
     for path, rel in entries:
-        if rel in CASE_FILES:
+        if rel == "project.json":
+            new = _without_view_token(path.read_bytes())
+        elif rel in CASE_FILES:
             new = scrub.case_rows(path.read_bytes())
         elif rel == IDENTITY_FILE:
             new = scrub.identity(path.read_bytes())
@@ -197,9 +208,9 @@ def read_config(zf: zipfile.ZipFile, top: str) -> ProjectConfig:
         raise ValidationProblem("Bundle has no project.json") from None
     except (UnicodeDecodeError, ValueError):
         raise ValidationProblem("Bundle project.json is not valid JSON") from None
-    check_version(raw)  # format-version-unsupported for foreign or newer documents
+    version = check_version(raw)  # format-version-unsupported for foreign or newer documents
     try:
-        return ProjectConfig.model_validate(raw)
+        return ProjectConfig.model_validate(migrate(raw, version))
     except ValidationError as exc:
         raise ValidationProblem(
             "Bundle project.json is invalid",

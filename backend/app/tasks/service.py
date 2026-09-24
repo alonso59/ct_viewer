@@ -53,7 +53,7 @@ from app.projects.models import (
     SegmentationSet,
     SegProducer,
 )
-from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
+from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name, target_profile
 from app.projects.service import Workspace
 from app.sources import identity as identity_store
 from app.tasks import protocol, registry
@@ -99,8 +99,6 @@ ITEMS: Final = "items.jsonl"  # per-item outcomes of every attempt (last line pe
 LOGS: Final = "log.jsonl"
 LEDGER: Final = Path("derived") / "runs.jsonl"
 ANNOTATIONS: Final = "annotations.jsonl"
-# ANZ-05: presets configure the analyzers' target profile
-PRESET_TARGET: Final = {"ccrcc": "kidneys", "generic-ct": "generic"}
 POLL_S: Final = 0.2
 CANCEL_GRACE_S: Final = 30.0
 RUNNER_LOST_S: Final = 60.0  # a claimed job whose runner has no fresh heartbeat for this long
@@ -445,11 +443,11 @@ class TaskService:
         spec: dict[str, Any] = {
             "task": {"id": m.id, "version": m.version},
             "settings": settings,
-            # ANZ-05: the project preset configures the analyzers
+            # ANZ-05: the project's study packs configure the analyzers
             "context": {
                 "phase_vocabulary": list(cfg.phase_vocabulary),
-                "preset": cfg.preset,
-                "target_profile": PRESET_TARGET.get(cfg.preset, "generic"),
+                "packs": list(cfg.packs),
+                "target_profile": target_profile(cfg.packs),
             },
             "items": self._job_items(pid, items, seg_id) if m.input == "items" else [],
             "rows": self._rows(items) if m.input == "rows" else [],

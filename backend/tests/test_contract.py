@@ -34,6 +34,8 @@ def test_every_operation_is_versioned_and_typed() -> None:
             segments = path.rsplit("/", 2)
             if segments[-1] in STREAMING or segments[-2] in BINARY_PARENTS:
                 continue
+            if path.endswith("/view/{token}/{rest}"):
+                continue  # API-60 forwards to one of the typed project GET routes
             content: dict[str, Any] = op["responses"][ok[0]].get("content", {})
             schema = content.get("application/json", {}).get("schema", {})
             assert schema, f"{method} {path}: untyped 2xx response"
@@ -54,7 +56,9 @@ def test_problem_slugs_on_real_endpoints(client: TestClient) -> None:
     assert_problem(client.post(f"{api}/projects", json={"name": ""}), "validation")
     assert_problem(client.get(f"{api}/fs/list", params={"path": "/"}), "path-outside-root")
     assert_problem(client.get(f"{api}/jobs/01JAAAAAAAAAAAAAAAAAAAAAAA"), "not-found")
-    pid = client.post(f"{api}/projects", json={"name": "c"}).json()["project_id"]
+    pid = client.post(f"{api}/projects", json={"name": "c", "packs": ["ccrcc"]}).json()[
+        "project_id"
+    ]
     assert_problem(client.get(f"{api}/projects/{pid}/cases/case_99999"), "not-found")
     assert_problem(client.get(f"{api}/projects/{pid}/items/case_99999.01.complete.-"), "not-found")
     assert_problem(

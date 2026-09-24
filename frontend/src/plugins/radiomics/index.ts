@@ -16,9 +16,10 @@ export const plugin: FrontendPlugin = {
 }
 
 export function registerRadiomics() {
-  registry.view({ id: 'radiomics', title: 'view.radiomics', icon: codicon('beaker'), order: 60, component: RadiomicsView, hideImageSection: true })
+  registry.view({ id: 'radiomics', writes: true, title: 'view.radiomics', icon: codicon('beaker'), order: 60, component: RadiomicsView, hideImageSection: true })
   registry.editor({
     type: 'radiomics',
+    writes: true,
     component: LazySettingsEditor,
     id: () => 'radiomics',
     title: () => i18n.t('rad.title'),
@@ -26,5 +27,5 @@ export function registerRadiomics() {
     path: (pid) => `/p/${pid}/radiomics`,
     match: (path) => (path === '/radiomics' ? {} : null),
   })
-  registry.command({ id: 'radiomics.new', title: 'radiomics.newRun', category: 'cat.radiomics', menu: 'radiomics', menuGroup: 1, run: () => openEditor('radiomics', {}) })
+  registry.command({ id: 'radiomics.new', writes: true, title: 'radiomics.newRun', category: 'cat.radiomics', menu: 'radiomics', menuGroup: 1, run: () => openEditor('radiomics', {}) })
 }

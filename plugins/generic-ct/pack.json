@@ -1,0 +1,51 @@
+{
+  "pack": 1,
+  "id": "generic-ct",
+  "title": "Generic CT phases",
+  "description": "NC \u00b7 ART \u00b7 PV \u00b7 DELAYED phases with their aliases; no labels, generic organ focus.",
+  "label_map": [],
+  "phase_vocabulary": [
+    "NC",
+    "ART",
+    "PV",
+    "DELAYED",
+    "UNK"
+  ],
+  "phase_aliases": {
+    "NC": [
+      "NC",
+      "NONCONTRAST",
+      "NON-CONTRAST"
+    ],
+    "ART": [
+      "ART",
+      "ARTERIAL",
+      "CMP",
+      "CORTICOMEDULLARY"
+    ],
+    "PV": [
+      "PV",
+      "VEN",
+      "VENOUS",
+      "PORTAL",
+      "NP",
+      "NEPHROGRAPHIC"
+    ],
+    "DELAYED": [
+      "DELAYED",
+      "DELAY",
+      "EP",
+      "EXC",
+      "EXCRETORY"
+    ]
+  },
+  "phase_priority": [
+    "PV",
+    "ART",
+    "NC",
+    "DELAYED",
+    "UNK"
+  ],
+  "target_profile": "generic",
+  "radiomics_profile": null
+}

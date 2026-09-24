@@ -20,7 +20,7 @@ HDR = {"X-Reviewer": "Dr. AP", "X-Session-Id": "tab-1"}
 
 @pytest.fixture
 def proj(client: TestClient, data_root: Path) -> tuple[str, list[dict[str, Any]]]:
-    cfg = client.portal.call(ctx_of(client).workspace.create, "cur")  # type: ignore[union-attr]
+    cfg = client.portal.call(ctx_of(client).workspace.create, "cur", "", "CT", ["ccrcc"])  # type: ignore[union-attr]
     pid = str(cfg.project_id)
     do_import(client, pid, data_root)
     items = [i.model_dump(mode="json") for i in ctx_of(client).index.load(pid).items]

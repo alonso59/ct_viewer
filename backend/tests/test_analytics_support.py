@@ -206,7 +206,7 @@ def mod_client(
 @pytest.fixture(scope="module")
 def syn(mod_client: TestClient) -> Synthetic:
     c = mod_client
-    r = c.post(f"{API}/projects", json={"name": "analytics"})
+    r = c.post(f"{API}/projects", json={"name": "analytics", "packs": ["ccrcc"]})
     assert r.status_code == 201, r.text
     pid = str(r.json()["project_id"])
     do_import(c, pid, c.app.state.fx_root)  # type: ignore[attr-defined]

@@ -65,12 +65,13 @@ export const plugin: FrontendPlugin = {
 const hasItem = () => useWorkbench.getState().active?.type === 'case' && useViewerSync.getState().activeCaseId !== null
 
 export function registerCuration() {
-  registry.view({ id: 'curation', title: 'view.curation', icon: codicon('checklist'), order: 30, component: CurationView })
+  registry.view({ id: 'curation', writes: true, title: 'view.curation', icon: codicon('checklist'), order: 30, component: CurationView })
   registry.view({ id: 'history', title: 'view.history', icon: codicon('history'), order: 50, component: HistoryView })
-  registry.inspector({ id: 'curation.form', title: 'inspector.curation', order: 10, component: InspectorCuration })
+  registry.inspector({ id: 'curation.form', writes: true, title: 'inspector.curation', order: 10, component: InspectorCuration })
   registry.panelTab({ id: 'history', title: 'panel.history', order: 30, component: HistoryPanel })
   registry.editor({
     type: 'queue',
+    writes: true,
     component: QueueEditor,
     id: () => 'queue',
     title: () => i18n.t('queue.title'),
@@ -88,6 +89,7 @@ export function registerCuration() {
   for (const [id, key, status] of quick)
     registry.command({
       id,
+      writes: true,
       title: `status.${status}`,
       category: 'cat.curation',
       keybinding: key,
@@ -96,7 +98,7 @@ export function registerCuration() {
       run: () => void submitDecision(status),
     })
   registry.command({
-    id: 'curation.queue',
+    id: 'curation.queue', writes: true,
     title: 'curation.addToQueue',
     category: 'cat.curation',
     keybinding: 'q',
@@ -105,9 +107,9 @@ export function registerCuration() {
     // Q flags the item for the queue and keeps its current status (CUR-09)
     run: () => void submitDecision(currentStatus(), { addToQueue: true }),
   })
-  registry.command({ id: 'curation.openQueue', title: 'curation.openQueue', category: 'cat.curation', menu: 'project', menuGroup: 2, run: () => openEditor('queue', {}) })
+  registry.command({ id: 'curation.openQueue', writes: true, title: 'curation.openQueue', category: 'cat.curation', menu: 'project', menuGroup: 2, run: () => openEditor('queue', {}) })
   registry.command({
-    id: 'curation.writeExports',
+    id: 'curation.writeExports', writes: true,
     title: 'queue.writeExports',
     category: 'cat.curation',
     menu: 'project',
@@ -116,7 +118,7 @@ export function registerCuration() {
     run: () => void writeExports(),
   })
   registry.command({
-    id: 'curation.clearDraft',
+    id: 'curation.clearDraft', writes: true,
     title: 'curation.clearDraft',
     category: 'cat.curation',
     run: () => useDraft.getState().reset(),

@@ -78,6 +78,8 @@ def convert_series(root: str, files: list[str], dst: str) -> str | None:
             ordered = paths
         convert.write_nifti(scan.Series(paths[0].parent, "open", ordered), Path(dst))
     except Exception as exc:
+        if Path(dst).is_file():
+            return None  # another writer finished the same volume first
         return f"{type(exc).__name__}: {exc}"
     return None
 

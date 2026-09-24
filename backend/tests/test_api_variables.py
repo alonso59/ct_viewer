@@ -1,4 +1,4 @@
-"""TST-03: API-16..18 over the synthetic fixtures (VAR-*), presets on create (PRJ-12)."""
+"""TST-03: API-16..18 over the synthetic fixtures (VAR-*), packs on create (PRJ-16)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ from fastapi.testclient import TestClient
 
 from tests.test_api_ingest import API, ctx_of, do_import
 from tests.test_contract import assert_problem
+from tests.test_projects_api import patch_project
 
 
 @pytest.fixture
 def pid(client: TestClient, data_root: Path) -> str:
-    r = client.post(f"{API}/projects", json={"name": "vars"})
+    r = client.post(f"{API}/projects", json={"name": "vars", "packs": ["ccrcc"]})
     assert r.status_code == 201, r.text
     p = str(r.json()["project_id"])
     do_import(client, p, data_root)
@@ -160,7 +161,9 @@ def test_external_table(client: TestClient, pid: str) -> None:
 
 
 def test_empty_project_has_an_empty_catalog(client: TestClient) -> None:
-    p = client.post(f"{API}/projects", json={"name": "empty"}).json()["project_id"]
+    p = client.post(f"{API}/projects", json={"name": "empty", "packs": ["ccrcc"]}).json()[
+        "project_id"
+    ]
     cat = catalog(client, p)
     assert cat["variables"] == [] and cat["n_items"] == 0
 
@@ -173,13 +176,14 @@ def test_empty_project_has_an_empty_catalog(client: TestClient) -> None:
         ("none", {"NC", "ART", "VEN", "CMP", "NP", "EP", "UNK"}, ["label_1", "label_2", "label_3"]),
     ],
 )
-def test_presets_seed_phases_and_labels(
+def test_packs_on_create_seed_phases_and_labels(
     client: TestClient, data_root: Path, preset: str, phases: set[str], labels: list[str]
 ) -> None:
-    r = client.post(f"{API}/projects", json={"name": preset, "preset": preset})
+    packs = [] if preset == "none" else [preset]
+    r = client.post(f"{API}/projects", json={"name": preset, "packs": packs})
     assert r.status_code == 201, r.text
     p = r.json()
-    assert p["preset"] == preset
+    assert p["packs"] == packs
     do_import(client, p["project_id"], data_root)
     cases = client.get(f"{API}/projects/{p['project_id']}/cases?limit=2000").json()["items"]
     seen = {ph for c in cases for ph in c["phases"]}
@@ -192,12 +196,16 @@ def test_presets_seed_phases_and_labels(
 
 
 def test_phase_config_patch_is_validated(client: TestClient) -> None:
-    p = client.post(f"{API}/projects", json={"name": "x"}).json()["project_id"]
+    p = client.post(f"{API}/projects", json={"name": "x", "packs": ["ccrcc"]}).json()["project_id"]
     url = f"{API}/projects/{p}"
-    assert_problem(client.patch(url, json={"phase_mapping": {"ART": "ZZZ"}}), "validation")
-    r = client.patch(url, json={"phase_mapping": {"ARTERIAL-LATE": "CMP"}})
+    del url
+    body: dict[str, Any] = {"phase_vocabulary": ["NC", "CMP", "UNK"], "phase_priority": ["UNK"]}
+    body["phase_mapping"] = {"ART": "ZZZ"}
+    assert_problem(patch_project(client, p, body), "validation")
+    body["phase_mapping"] = {"ARTERIAL-LATE": "CMP"}
+    r = patch_project(client, p, body)
     assert r.status_code == 200 and r.json()["phase_mapping"] == {"ARTERIAL-LATE": "CMP"}
-    assert_problem(client.post(f"{API}/projects", json={"name": "y", "preset": "z"}), "validation")
+    assert_problem(client.post(f"{API}/projects", json={"name": "y", "packs": ["z"]}), "validation")
 
 
 def test_case_summaries_carry_variables_and_thumbnail_item(client: TestClient, pid: str) -> None:

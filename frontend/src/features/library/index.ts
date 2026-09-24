@@ -11,5 +11,5 @@ function LazyView() {
 }
 
 export function registerLibrary() {
-  registry.view({ id: 'library', title: 'view.library', icon: codicon('extensions'), order: 90, component: LazyView, hideImageSection: true })
+  registry.view({ id: 'library', writes: true, title: 'view.library', icon: codicon('extensions'), order: 90, component: LazyView, hideImageSection: true })
 }

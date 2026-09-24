@@ -23,7 +23,7 @@ interface CurationState { n_events: number; items: { item_id: string; targets: T
 let pid = ''
 
 async function newProject() {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `TST-08 ${Date.now()}`, preset: 'ccrcc' })
+  const p = await api<{ project_id: string }>('POST', '/projects', { name: `TST-08 ${Date.now()}`, packs: ['ccrcc'] })
   pid = p.project_id
   const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
   await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })

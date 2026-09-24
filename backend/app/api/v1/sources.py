@@ -92,6 +92,30 @@ def close_open(ctx: Ctx, sid: str) -> Response:
     return Response(status_code=204)
 
 
+# One conversion per scratch target at a time: the viewer's image request and "Save as NIfTI…"
+# often ask for the same DICOM volume together; the second caller awaits the first.
+_converting: dict[str, asyncio.Future[str | None]] = {}
+
+
+async def _convert_once(ctx: Ctx, root: str, files: list[str], dst: Path) -> str | None:
+    key = str(dst)
+    running = _converting.get(key)
+    if running is not None:
+        return await asyncio.shield(running)
+    fut: asyncio.Future[str | None] = asyncio.get_running_loop().create_future()
+    _converting[key] = fut
+    try:
+        err: str | None = await ctx.jobs.run_in_worker(dicom_stage.convert_series, root, files, key)
+        fut.set_result(err)
+        return err
+    except BaseException as exc:
+        fut.set_exception(exc)
+        fut.exception()  # retrieved: waiters re-raise it, no "never retrieved" warning
+        raise
+    finally:
+        del _converting[key]
+
+
 async def _nifti_path(ctx: Ctx, sid: str, n: int, axis_order: str | None) -> tuple[Path, str]:
     s = ctx.open_sessions.get(sid)
     it = open_mode.item(s, n)
@@ -108,9 +132,7 @@ async def _nifti_path(ctx: Ctx, sid: str, n: int, axis_order: str | None) -> tup
         dst = open_mode.scratch_dir(ctx.settings.workspace_root, fp, "dicom") / "volume.nii.gz"
         if not dst.is_file():
             dst.parent.mkdir(parents=True, exist_ok=True)
-            err = await ctx.jobs.run_in_worker(
-                dicom_stage.convert_series, s.root, it.files or [it.rel], str(dst)
-            )
+            err = await _convert_once(ctx, s.root, it.files or [it.rel], dst)
             if err is not None or not dst.is_file():
                 raise UnsupportedFormat(f"{it.name}: cannot convert ({err})")
             await asyncio.to_thread(

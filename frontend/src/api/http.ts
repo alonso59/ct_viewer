@@ -5,6 +5,7 @@ import createClient from 'openapi-fetch'
 
 import { ProblemError, toProblemError } from './problem'
 import type { paths } from './schema'
+import { viewPath } from './view'
 import { filterByItems, type Api, type CaseFilter, type ConnectionState } from './surface'
 import type {
   BundleImportResult,
@@ -18,7 +19,6 @@ import type {
   FsListing,
   ItemRecord,
   Job,
-  Preset,
   Project,
   ProjectSummary,
   QCWarning,
@@ -32,8 +32,15 @@ const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 const V1 = `${BASE}/api/v1`
 const PAGE = 2000
 
+
 // `fetch` is looked up per call (like `send`), so tests can stub it after this module loads
-const client = createClient<paths>({ baseUrl: BASE, fetch: (req) => globalThis.fetch(req) })
+const client = createClient<paths>({
+  baseUrl: BASE,
+  fetch: (req) => {
+    const url = viewPath(req.url)
+    return globalThis.fetch(url === req.url ? req : new Request(url, req))
+  },
+})
 
 type Res<T> = { data?: T; error?: unknown; response: Response }
 
@@ -50,7 +57,7 @@ async function send<T>(method: string, path: string, body?: unknown, headers: Re
     init.body = JSON.stringify(body)
     ;(init.headers as Record<string, string>)['content-type'] = 'application/json'
   }
-  const r = await fetch(`${V1}${path}`, init)
+  const r = await fetch(viewPath(`${V1}${path}`), init)
   const json: unknown = r.status === 204 ? null : await r.json().catch(() => null)
   if (!r.ok) throw toProblemError(r.status, json, r.statusText)
   return json as T
@@ -117,14 +124,26 @@ const normalizeItem = (i: paths['/api/v1/projects/{pid}/cases/{cid}']['get']['re
 
 type Schemas = import('./schema').components['schemas']
 
+export const DEFAULT_DISPLAY: Project['display'] = {
+  layout: 'four-up',
+  wl: { CT: { ww: 400, wl: 50 }, MR: 'percentile' },
+  use_dicom_window: true,
+  wl_presets: null,
+  interpolation: 'linear',
+  convention: 'radiological',
+}
+
 const normalizeProject = (p: Schemas['ProjectDetail']): Project => ({
   path_roots: [],
   phase_vocabulary: [],
   phase_priority: [],
-  viewer_defaults: { ww: 400, wl: 50, layout: 'four-up' },
   segmentations: [],
   annotation_sources: {},
+  packs: [],
+  view_token: null,
+  view_url: null,
   ...p,
+  display: { ...DEFAULT_DISPLAY, ...p.display },
   phase_mapping: p.phase_mapping ?? {},
   label_map: p.label_map ?? [],
 })
@@ -286,7 +305,7 @@ function featureRows(t: Schemas['FeaturesTable']): FeatureRow[] {
 }
 
 async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
-  const r = await fetch(`${V1}${path}`, init)
+  const r = await fetch(viewPath(`${V1}${path}`), init)
   if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
   return r.blob()
 }
@@ -303,7 +322,7 @@ const streams = new Map<string, Stream>()
 
 function openStream(pid: string): Stream {
   // EventSource reconnects on its own and resends Last-Event-ID, so the server replays what we missed
-  const es = new EventSource(`${V1}/projects/${enc(pid)}/events`)
+  const es = new EventSource(viewPath(`${V1}/projects/${enc(pid)}/events`))
   const s: Stream = { es, listeners: new Set(), states: new Set(), state: 'connecting' }
   const setState = (st: ConnectionState) => {
     s.state = st
@@ -358,20 +377,27 @@ export const httpApi: Api = {
     return rows as ProjectSummary[]
   },
   getProject: async (pid) => normalizeProject(await unwrap(client.GET('/api/v1/projects/{pid}', { params: { path: { pid } } }))),
-  createProject({ name, description = '', preset }) {
-    // `preset` (PRJ-12) is added to ProjectCreate by lane/2-backend; older servers ignore it
-    const body: { name: string; description: string; preset: Preset } = { name, description, preset }
-    return unwrap(client.POST('/api/v1/projects', { body })).then(normalizeProject)
+  createProject({ name, description = '', default_modality = 'CT' }) {
+    return unwrap(client.POST('/api/v1/projects', { body: { name, description, default_modality } })).then(normalizeProject)
   },
-  updateLabelMap: (pid, label_map) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid } }, body: { label_map } })).then(normalizeProject),
+  updateProject: (pid, body, etag) =>
+    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body })).then(normalizeProject),
+  updateLabelMap: (pid, label_map, etag) =>
+    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body: { label_map } })).then(normalizeProject),
+  listPacks: () => unwrap(client.GET('/api/v1/packs')),
+  applyPack: (pid, pack_id) =>
+    unwrap(client.POST('/api/v1/projects/{pid}/packs', { params: { path: { pid } }, body: { pack_id } })).then((r) => ({ ...r, project: normalizeProject(r.project) })),
+  createViewToken: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/view-token', { params: { path: { pid } } })),
+  revokeViewToken: async (pid) => {
+    await unwrap(client.DELETE('/api/v1/projects/{pid}/view-token', { params: { path: { pid } } }))
+  },
   listRoots: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/roots', { params: { path: { pid } } })),
   relinkRoot: (pid, alias, path) =>
     unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path } })),
   setDerivedRoot: (pid, path, alias = 'DERIVED') =>
     unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path, role: 'derived' } })),
-  setDefaultSeg: (pid, default_seg) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid } }, body: { default_seg } })).then(normalizeProject),
+  setDefaultSeg: (pid, default_seg, etag) =>
+    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body: { default_seg } })).then(normalizeProject),
   async exportBundle(pid) {
     const r = await fetch(`${V1}/projects/${enc(pid)}/bundle`, { method: 'POST' })
     if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
@@ -477,7 +503,7 @@ export const httpApi: Api = {
     const mask_path = d.advanced.mask_path ?? null
     return { ...normalizeItem(d), advanced: { image_path, mask_path, image_abs: image_path, mask_abs: mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
   },
-  thumbnailUrl: (pid, iid) => `${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`,
+  thumbnailUrl: (pid, iid) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`),
 
   // API-50..54
   async listEvents(pid, f = {}) {
@@ -549,7 +575,7 @@ export const httpApi: Api = {
         }),
       ) as Schemas['FeaturesTable'],
     ),
-  runExportUrl: (pid, rid, format, shape) => `${V1}/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=${format}&shape=${shape}`,
+  runExportUrl: (pid, rid, format, shape) => viewPath(`${V1}/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=${format}&shape=${shape}`),
   runErrors: (pid, rid) =>
     allPages((cursor) =>
       unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/errors', { params: { path: { pid, rid }, query: { limit: PAGE, cursor } } })),
@@ -570,7 +596,7 @@ export const httpApi: Api = {
   listSegmentations: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid } } })),
   patchSegmentation: (pid, seg, body) =>
     unwrap(client.PATCH('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } }, body })),
-  maskUrl: (pid, iid, seg) => `${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`,
+  maskUrl: (pid, iid, seg) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`),
 
   // API-42..47
   listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),

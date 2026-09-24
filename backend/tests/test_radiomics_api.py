@@ -33,7 +33,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 @pytest.fixture
 def proj(client: TestClient, data_root: Path) -> str:
-    cfg = client.portal.call(ctx_of(client).workspace.create, "rad")  # type: ignore[union-attr]
+    cfg = client.portal.call(ctx_of(client).workspace.create, "rad", "", "CT", ["ccrcc"])  # type: ignore[union-attr]
     pid = str(cfg.project_id)
     do_import(client, pid, data_root)
     return pid

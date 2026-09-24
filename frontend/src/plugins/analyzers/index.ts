@@ -8,7 +8,7 @@ const openPhase = () => openEditor('task', { taskId: 'analyzer.phase' })
 export const plugin: FrontendPlugin = {
   id: 'analyzers',
   activate: ({ registry }) => {
-    registry.command({ id: 'analyzers.phase', title: 'cmd.runPhaseAnalyzer', category: 'cat.project', run: openPhase })
+    registry.command({ id: 'analyzers.phase', writes: true, title: 'cmd.runPhaseAnalyzer', category: 'cat.project', run: openPhase })
   },
   open: openPhase,
 }
