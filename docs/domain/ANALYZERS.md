@@ -2,7 +2,7 @@
 
 Scope: metadata-only tasks (phase, organ focus, readiness): interface, annotations, activation, presets.
 Read when: working on `plugins/analyzers/`, phase guessing, series selection, or annotation proposals.
-Depends: ADR-0017, TASKS.md, INPUT_METADATA.md §Phase resolution, CURATION.md, PROJECT_FORMAT.md (PRJ-12).
+Depends: ADR-0017, ADR-0020, TASKS.md, INPUT_METADATA.md §Phase resolution, CURATION.md, PROJECT_FORMAT.md (PRJ-16 packs).
 
 Analyzers read metadata rows only (no pixels, no files besides the rows) and **propose** values; they never overwrite data.
 Code and term lists: `plugins/analyzers/` (ported from `legacy/convert/policy.py` and `legacy/convert/metadata.py`, reference only, R9). The term lists live in code, not in this doc.
@@ -14,8 +14,8 @@ Code and term lists: `plugins/analyzers/` (ported from `legacy/convert/policy.py
 | ANZ-01 | Interface: `analyze(rows, config) → annotations`, where each annotation is `{key, field, value, confidence, evidence, rules_version}`. `key` is `item_id` in a project, or the row key `(case_identity_key, series_uid)` inside the converter. Pure and deterministic. | M |
 | ANZ-02 | Two modes: a stage inside `dicom.convert` (between scan and convert), or a standalone task (`input: rows`) on an imported project. The code is the same in both. | M |
 | ANZ-03 | `confidence` ∈ `high`, `medium`, `low`, `unknown`. `evidence` is a short human-readable reason (e.g. "non-contrast text", "delay 32 s"). | M |
-| ANZ-04 | Activation: `project.json.annotation_sources = {field: run_id \| null}`. Changing it rebuilds the index (PRJ-10); a new run is not active until the user activates it (default: activate if none is active). | M |
-| ANZ-05 | Presets (PRJ-12) configure the analyzers: `ccrcc` → target `kidneys` + vocabulary NC/CMP/NP/EP/UNK; `generic-ct` → target `generic` + NC/ART/PV/DELAYED/UNK; `none` → analyzers off by default. | M |
+| ANZ-04 | Annotations are metadata layers (ADR-0020): never written into `metadata.jsonl`, also when the converter chains the analyzer. Activation: `project.json.annotation_sources = {field: run_id \| null}`. Changing it rebuilds the index (PRJ-10); a new run is not active until the user activates it (default: activate if none is active). | M |
+| ANZ-05 | Study packs (PRJ-16) configure the analyzers: the `ccrcc` pack → target `kidneys` + vocabulary NC/CMP/NP/EP/UNK. With no pack: target `generic`, raw phase values mapped to UNK only when empty; the converter overlay still offers the phase analyzer. | M |
 | ANZ-06 | Output values are in the project `phase_vocabulary` or `UNK`. Compound or conflicting guesses (e.g. text vs timing) become `UNK` with `confidence: low` and the conflict in `evidence`. | M |
 | ANZ-07 | Accepting a proposal is a curation event (CUR-06 `proposed_phase`, `source: "analyzer"`); annotations themselves are never edited. | M |
 | ANZ-08 | Rerunning with changed rules is a new run with a new `rules_version`; older runs stay for comparison. | S |

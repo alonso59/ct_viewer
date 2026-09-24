@@ -56,6 +56,8 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | Dashboards | `graph` | — | Completed runs → dashboard tab (views + Analysis panel, DB-08) |
 | Search | `search` | — | Advanced filters on any visible variable, phase, status, warnings, VOI |
 | Variables | `symbol-variable` | — | Variable catalog (VAR-*): type/level/missing %, Review badges, visibility, tags, derived variables, external table import |
+| Labeling | `table` | — | Label tables of the project with fill progress (LBL-08); opens the table tab |
+| Plugin Library | `extensions` | Extensions | Every installed plugin with status and **Open** (UI-22, PLG-05) |
 | Settings *(bottom)* | `settings-gear` | Preferences | Theme, reviewer name, keybindings |
 
 ## Requirements
@@ -64,8 +66,8 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 |---|---|---|
 | UI-01 | Shell regions as drawn: title bar, tool bar, activity bar, left pane, editor area, panel, status bar, optional inspector. | M |
 | UI-02 | Features register views, editor types, tools, inspector sections, panel tabs, commands and status items in a registry, and the shell renders them. | M |
-| UI-03 | Editor tabs: case, radiomics settings, run dashboard, correction queue, welcome. Tabs support preview mode (italic until pinned), drag, split and close-others. | M |
-| UI-04 | Workspace home (`/`) looks like the QuPath/VS Code welcome: New Project, Open Recent (with thumbnail and progress), and a share-link copy button. | M |
+| UI-03 | Editor tabs: case, radiomics settings, run dashboard, correction queue, welcome, labeling table, project settings. Tabs support preview mode (italic until pinned), drag, split and close-others. | M |
+| UI-04 | Workspace home (`/`) looks like the QuPath/VS Code welcome: New Project (name + optional default modality, PRJ-14), Open file or folder…, Convert DICOM… (UI-25), Open Recent (with thumbnail and progress), and a share-link copy button. | M |
 | UI-05 | Command palette `Ctrl/Cmd+Shift+P` shows all commands; quick open `Ctrl/Cmd+P` jumps to a case or item. The title-bar search box opens quick open. | M |
 | UI-06 | Tool bar (QuPath style) holds viewer tools and toggles; the active tool is highlighted; each button has a tooltip with its shortcut. | M |
 | UI-07 | Status bar shows project, live/offline SSE state, job progress, cursor ijk/RAS/HU, W/L, reviewer (click to change). | M |
@@ -82,6 +84,11 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | UI-18 | Every error shows its cause (`detail`) and its next actions (`actions[]`) as buttons (SRC-11); a bare "Validation failed" is a bug. | M |
 | UI-19 | Requirements are asked when a task needs them, not at import: a task's settings tab shows the preflight (TSK-04) with counts and one-click suggested tasks; a task that writes volumes asks for the `DERIVED` folder on first use (PRJ-13). | M |
 | UI-20 | Every task uses the same tab: Selection · Settings (schema form) · Preflight/Estimate · Run; outputs appear as a segmentation set, a features run, an import or annotations. | M |
+| UI-22 | Plugin Library view: one card per plugin (icon, name, version, what it adds, status + reason, **Open**); `pending` plugins are listed but cannot be opened (PLG-05/06/09). | M |
+| UI-23 | Project settings tab: General · Display · Labels · Data · Plugins (PRJ-18); edits use `If-Match` and a 412 shows "changed by someone else — reload and reapply" (PRJ-15). | M |
+| UI-24 | **Close**: File › Close project (and the palette) releases loaded volumes (VW-14) and returns to the workspace home without deleting anything; in Open mode a Close button, last in the action row, drops the session (`DELETE /open/{sid}`, API-07), releases the volumes and returns home. Other users are never affected. | M |
+| UI-25 | Converter overlay window (ADR-0021): a modal work window with the steps source → settings → dry run → run with progress → result (Open · Create project · Add to project), reachable from Welcome, Open mode on DICOM, the Library and a project's Data tab. | M |
+| UI-26 | View-only mode (`/v/{token}`, PRJ-17): the shell shows a "View only" badge, hides every editing control, command and shortcut, and keeps all viewer tools. | M |
 | UI-21 | The app logo (§Brand) appears only as identity, never as decoration: browser tab icon, title-bar project switcher, workspace home header, Open-mode home button. | S |
 
 Implementation (P7b Wave 3): the Tasks view (activity bar) lists every task by kind with runner status and the recent runs; a task tab (`/p/{pid}/tasks/{task_id}`) has Selection (all active / current Explorer filter / item list; a segmentation set when the task reads masks; a folder or file for source tasks), Settings (the schema form), Preflight (counts, reasons, suggested tasks, the derived-folder prompt of UI-19), Estimate, Run, and the task's runs with their outputs (annotation runs can be activated per field). The Image view shows DICOM tags on demand. Open mode has Save as NIfTI… and Add to project…; the import wizard runs `dicom.convert` for DICOM sources.

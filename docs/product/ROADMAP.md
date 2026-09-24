@@ -22,7 +22,7 @@ Order from 2026-09-24 (user decision): **P7b → P7c → pending plugins (VOI ex
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
 | P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (Waves 1–4, exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
-| P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | 📝 Drafts proposed 2026-09-24; awaiting owner approval |
+| P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | 🟨 Accepted and documented 2026-09-24; code next |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.
@@ -139,13 +139,13 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 - [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 **Exit:** a NIfTI folder, a single NIfTI, a single DICOM file and a standalone segmentation open in Open mode; a DICOM folder converts into a project with sidecars and active phase annotations; the fake plugin (CI) adds a segmentation set through the external runner; a radiomics run on a chosen `seg_id` records it; TST-07/13/14/15/16 green.
 
-### P7c — Plugin platform & neutral projects (ADR-0018..0022, proposed 2026-09-24)
+### P7c — Plugin platform & neutral projects (ADR-0018..0022, accepted 2026-09-24)
 Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` is the converter's artifact (contract v1, no phase/curation/group fields), plugin data in layers; plugins installed per workspace and enabled by default (management later); projectless converter output in `{derived}/_datasets/{name}/`; default modality per project and a view-only link: yes.
-- [ ] Docs: accept ADR-0018..0022; PLUGINS.md and LABELING.md become owners; update TASKS, PROJECT_FORMAT, API, INPUT_METADATA, DICOM_CONVERTER, ANALYZERS, VARIABLES, CURATION, VIEWER, UI_SHELL, FE/BE ARCHITECTURE, DATA_MODEL, VISION, GLOSSARY
+- [x] Docs (2026-09-24): ADR-0018..0022 accepted; PLUGINS.md (PLG-) and LABELING.md (LBL-) are owners; TASKS (TSK-01/13), PROJECT_FORMAT (v3, PRJ-14..18), API (API-03 ETag, 28, 49, 56..62), INPUT_METADATA, DICOM_CONVERTER (DCM-13/14), ANALYZERS, VARIABLES (VAR-12), CURATION, VIEWER (VW-17, 22..25), UI_SHELL (UI-22..26), FE/BE ARCHITECTURE, DATA_MODEL, VISION, GLOSSARY, TESTING (TST-17..20) updated
 - [ ] Wave 1 · platform: `plugin.json` + registry activation (PLG-01..08), Plugin Library view, repackage converter, analyzers, radiomics, dashboard/analysis and curation as plugins (no behaviour change); `PLUGINS_ROOT` limited to the host runner of first-party plugins
 - [ ] Wave 2 · neutral projects: New project = name (+ optional default modality); packs (ccRCC pack) applied from Project settings; settings tabs (General, Display incl. DICOM window and convention, Labels incl. `.ctbl` / ITK-SNAP / `dataset.json` import, Data, Plugins); `If-Match` on API-03; view-only link `/v/{token}`; `format_version` 3 migration
 - [ ] Wave 3 · converter & metadata: clean converter output in the app and the CLI (no `phase_guess`, `curated_*`, `group`, `curation.csv`); legacy fields still accepted on import; layers model + dataset table export; converter overlay window; workspace tasks and `_datasets/`; phase analyzer chained by default
-- [ ] Wave 4 · CT tools in the case tab and Open mode (ADR-0021 Must + Should), including numeric W/L, DICOM header window, HU probe, header info, slab MIP/MinIP, distance/angle/ROI; fix the flaky cold-run E2E `tasks-dicom.spec.ts` (LANE_NOTES)
+- [ ] Wave 4 · CT tools in the case tab and Open mode (VW-22/23, ADR-0021 Must + Should), including numeric W/L, DICOM header window, HU probe, header info, slab MIP/MinIP, distance/angle/ROI; Close for projects and Open sessions (UI-24); fix the flaky cold-run E2E `tasks-dicom.spec.ts` (LANE_NOTES)
 - [ ] Wave 5 · core event store; Curation & QC plugin on it (no data change); Labeling table plugin (LBL-01..08)
 **Exit:** a user converts a DICOM folder without a project from the converter overlay, opens the dataset with the full CT tool set, creates a neutral project from it, applies the ccRCC pack, labels cases in a patient-level table and a CT-level table, curates items, and shares a view-only link that cannot write; every plugin is reachable from the Library; `make check`, Playwright and NFR-07 green.
 

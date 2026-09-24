@@ -1,5 +1,5 @@
 # ADR-0019 Neutral projects, study packs, view-only links
-Status: Proposed · Date: 2026-09-24
+Status: Accepted · Date: 2026-09-24
 Supersedes: PRJ-12 (presets chosen at creation). Amends: ADR-0004 (view-only link), ANZ-05
 
 **Context.** A project exists to give data an ID, a share link and a place where several people view and work together. Today "New project" forces a study preset (ccRCC / Generic CT / None) that seeds labels and phases before any data is seen.

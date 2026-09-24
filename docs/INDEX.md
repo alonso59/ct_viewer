@@ -15,8 +15,8 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Tasks, plugins, runner, run protocol | `domain/TASKS.md` |
 | DICOM → NIfTI converter | `domain/DICOM_CONVERTER.md` |
 | Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
-| Plugin model, Plugin Library, catalog (draft, ADR-0018) | `domain/PLUGINS.md` |
-| Labeling table plugin (draft, ADR-0022) | `domain/LABELING.md` |
+| Plugin model, Plugin Library, catalog | `domain/PLUGINS.md` |
+| Labeling table plugin | `domain/LABELING.md` |
 | Entities and relations | `domain/DATA_MODEL.md` |
 | Curation, QC status, correction queue | `domain/CURATION.md` |
 | Radiomics extraction, settings, IBSI | `domain/RADIOMICS.md` |
@@ -45,8 +45,8 @@ Read only the files routed for your task. Each file declares its scope in its he
 | `TSK-` | domain/TASKS.md | Tasks, plugins, runtimes |
 | `DCM-` | domain/DICOM_CONVERTER.md | DICOM conversion |
 | `ANZ-` | domain/ANALYZERS.md | Metadata analyzers |
-| `PLG-` | domain/PLUGINS.md | Plugins (draft until ADR-0018 is accepted) |
-| `LBL-` | domain/LABELING.md | Labeling tables (draft until ADR-0022 is accepted) |
+| `PLG-` | domain/PLUGINS.md | Plugins |
+| `LBL-` | domain/LABELING.md | Labeling tables |
 | `CUR-` | domain/CURATION.md | Curation workflow |
 | `RAD-` | domain/RADIOMICS.md | Radiomics engine |
 | `VAR-` | domain/VARIABLES.md | Study variables |

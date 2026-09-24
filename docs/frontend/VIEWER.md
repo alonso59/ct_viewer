@@ -40,11 +40,15 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 | VW-14 | Memory budget: at most `VIEWER_MAX_LOADED` (default 3) tabs keep GPU/CPU volumes; hidden tabs beyond that are unloaded and reload on focus. | M |
 | VW-15 | Crosshair position and W/L are preserved when switching items within a case where the geometry matches. | S |
 | VW-16 | Curation context (axis, slice, W/L) is attached to each event (CUR event `context.viewer`). | S |
-| VW-17 | Measurements (distance, ROI stats) are read-only helpers and are not persisted. | C (v3.1) |
+| VW-17 | Measurements (distance, angle, ROI mean/SD in HU) are read-only helpers; not persisted without a project (ADR-0021). | S |
 | VW-18 | Compare two items side by side with linked crosshair, e.g. NC vs NP. | C (v3.1) |
 | VW-19 | Segmentation set selector in the Layers section: one overlay per visible set, each with the label map through its `label_mapping`; the active set is the curation target (`seg_id`). Default `default_seg`. Implemented (P7b Wave 4) with one visible set at a time: the selector switches the overlay, meshes (`?seg=`) and label colours (set values → project labels); two sets at once is VW-20. | M |
 | VW-20 | Two sets shown together: second set as outline-only in a contrasting style (e.g. ground truth vs nnU-Net). | C |
-| VW-21 | Open mode: a label map opened alone renders with auto `label_{value}` colours; a 1-slice volume shows 2D tiles only; attaching a segmentation checks geometry first (SRC-10). The Open toolbar holds the three actions of UI-17 (Save as NIfTI…, Add to project…, Create project from this) and nothing that edits files. Implemented by the viewer's `StandaloneViewer` (same surface as a case tab, no curation or tasks); Open records keep the DICOM modality or `null` (assumed CT, VW-05); the action row layout is UI-17. | M |
+| VW-21 | Open mode: a label map opened alone renders with auto `label_{value}` colours; a 1-slice volume shows 2D tiles only; attaching a segmentation checks geometry first (SRC-10). The Open toolbar holds the three actions of UI-17 (Save as NIfTI…, Add to project…, Create project from this) and nothing that edits files. Implemented by the viewer's `StandaloneViewer` (same surface as a case tab, no curation or tasks); Open records keep the DICOM modality or `null` (assumed CT, VW-05); the action row layout is UI-17, Close is UI-24. | M |
+| VW-22 | CT tool set, identical in the case tab and Open mode (file or folder), ADR-0021 **Must**: W/L presets + numeric W/L + DICOM header window (`WindowCenter/Width`, when `display.use_dicom_window`), layout, zoom/pan, crosshair, slice slider, reset, screenshot, HU probe, header info (NIfTI header / DICOM tags), modality selector when assumed (VW-05); viewer shortcuts work in both. | M |
+| VW-23 | ADR-0021 **Should**: slab MIP / MinIP / average with a thickness in mm (2D tiles), invert. | S |
+| VW-24 | ADR-0021 **Could**: cine loop, histogram, MR colour maps. | C |
+| VW-25 | Display settings (PRJ-18) set the initial layout, W/L per modality, interpolation (linear / nearest) and the radiological (patient right on screen left, default) or neurological convention. | M |
 
 ## Wrapper contract (`features/viewer`)
 

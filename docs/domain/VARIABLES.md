@@ -2,7 +2,7 @@
 
 Scope: study-agnostic variable catalog — profiling, types, levels, visibility, derived variables, external tables.
 Read when: touching import profiling, filters, group-by, radiomics selection, or analysis inputs.
-Depends: INPUT_METADATA.md, DATA_MODEL.md, ADR-0011.
+Depends: INPUT_METADATA.md, DATA_MODEL.md, ADR-0011, ADR-0020.
 
 ## Principle
 
@@ -24,6 +24,7 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 | VAR-08 | `raw_metadata` and DICOM sidecars (DCM-04) are not variables. An allowlist of useful tags is flattened: `PatientSex` → categorical, `PatientAge` → continuous years. All other raw tags are ignored. Converter extras in the row (DICOM_CONVERTER §Row fields) and analyzer `target_match` / `readiness` (ANZ) are ordinary fields and are profiled. | S |
 | VAR-09 | Never exposed as variables: absolute paths, UIDs, `AccessionNumber`, blobs. `patient_id` and dates are `sensitive` (hidden from exports unless chosen). | M |
 | VAR-10 | Variables drive: Explorer filters and columns (UI-08), radiomics selection (RAD-05), analysis grouping/targets (ANA-*). | M |
+| VAR-12 | Active metadata layers are variables too (ADR-0020): analyzer fields (`phase` source, `target_match`, `readiness`) and labeling columns `lbl.{table}.{column}` at their table's level (LBL-06), with the layer's type. | M |
 | VAR-11 | Catalog overrides and derived definitions live in the project (`variables/catalog.json`); source files are never changed (R1). | M |
 
 ## Type inference rules (non-empty values only; empty string = missing)

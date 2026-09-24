@@ -31,11 +31,13 @@ scan (headers only) → select (analyzers, optional) → convert (pixels, select
 | DCM-05 | PHI: sidecars and rows can contain PHI. They stay in the derived root, are never in bundles (PRJ-08), exports or logs, and are shown only in the Image view's "DICOM tags" section on demand. Setting `anonymize: basic` removes the PS3.15 Basic Profile attributes from sidecars and rows and replaces `patient_id` with `case_id` (NFR-17). Rows converted **without** `anonymize` stay as they are in the project, but a bundle export applies `basic` to them (PROJECT_FORMAT §Bundles); the rule lives in `plugins/dicom/sidecar.py`. | M |
 | DCM-06 | Dry run = the task estimate (TSK-05): series found / selected / skipped with reasons, and storage per series. | M |
 | DCM-07 | Incremental: volumes accumulate in `dataset/` (append-only; existing files are never rewritten). Each run writes the **full current** row set to `runs/{run_id}/metadata.jsonl`, which the backend imports as a new snapshot (IMP-06). A series already converted (same `series_uid` and existing file) is skipped. | M |
-| DCM-08 | In the app, manual decisions (`curated_keep`, `curated_phase`, …) are curation events, and the converter writes no `curation.csv`. An existing `curation.csv` from the CLI is imported once as events (CUR-15). | M |
-| DCM-09 | A standalone CLI in `plugins/dicom/` (same YAML config as the legacy one) keeps its own resume registry and `curation.csv`; its output folder is imported as a `source` root through `metadata-v1`. | S |
+| DCM-08 | Manual decisions are curation events (Curation & QC plugin); the converter never writes `curation.csv` or `curated_*` fields. An existing legacy `curation.csv` is imported once as events (CUR-15). | M |
+| DCM-09 | A standalone CLI in `plugins/dicom/` (same YAML config as the legacy one) keeps its own resume registry and writes the same clean `metadata.jsonl` as the app (DCM-13); its output folder is imported as a `source` root through `metadata-v1`. | S |
 | DCM-10 | A single file: multi-frame (Enhanced CT/MR) → one 3D volume; a classic single slice → a 1-slice volume. | S |
 | DCM-11 | DICOM SEG → NIfTI label map registered as a segmentation set (`kind: imported`). | C |
 | DCM-12 | Modality values are DICOM codes (`CT`, `MR`, …); the CLI's `MRI` is emitted as `MR`. | M |
+| DCM-13 | `metadata.jsonl` is the converter's artifact (ADR-0020): contract v1 core fields + DICOM facts only. No `phase_guess*`, `curated_*`, `group`, `include_guess`, `target_match_*` or other study logic; phase, organ match and readiness are analyzer layers. `analyzer.target` still selects series in-process, but its result is not written to rows. | M |
+| DCM-14 | The converter is a workspace task (TSK-13) with its own overlay window (UI-25); inside a project it writes to the project's derived root as today (DCM-07); without one, to `{derived root}/_datasets/{name}/`. The overlay chains `analyzer.phase` after conversion by default (its output is the phase layer). | M |
 
 ## Settings (task schema; defaults from `legacy/convert/config.py`)
 
@@ -67,7 +69,7 @@ Case identity is **not** a converter setting in the app: it comes from `sources/
 
 ## Row fields (contract v1 + converter extras)
 
-Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as variables per VAR-08): `patient_folder`, `study_uid`, `series_uid`, `series_number`, `series_description`, `protocol_name`, `body_part`, `dicom_category`, `scan_type`, dates and times, geometry status and codes, `output_role`, `include_guess`, `exclude_reason`, `target_match_*`, `phase_guess*`, `contrast_delay_*`, `spacing_quality`, `dicom_sidecar`.
+Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as variables per VAR-08): `patient_folder`, `study_uid`, `series_uid`, `series_number`, `series_description`, `protocol_name`, `body_part`, `dicom_category`, `scan_type`, dates and times, geometry status and codes, `contrast_delay_*`, `spacing_quality`, `dicom_sidecar`. No study guesses or selection results (`output_role`, `exclude_reason` are readiness-analyzer layers; DCM-13).
 
 ## Implementation notes (P7b Wave 3)
 

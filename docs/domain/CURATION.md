@@ -2,14 +2,16 @@
 
 Scope: reviewer identity, curation events, statuses, rollups, correction queue, exports.
 Read when: building curation UI/API, audit, or multi-user sync.
-Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004.
+Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004, ADR-0022.
+
+Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event store, namespace `curation`; view-only links (PRJ-17) see it read-only.
 
 ## Requirements
 
 | ID | Requirement | Pri |
 |---|---|---|
 | CUR-01 | On first write in a browser, ask for a reviewer name or initials. Store it in `localStorage` and show it in the status bar, where it can be changed. | M |
-| CUR-02 | Every decision is an append-only event in `curation/events.jsonl`. There is no update or delete; a correction is a new event. | M |
+| CUR-02 | Every decision is an append-only event in `curation/events.jsonl` (the core event store's `curation` namespace, ADR-0022). There is no update or delete; a correction is a new event. | M |
 | CUR-03 | Decisions target an Item (and optionally a label) or a whole Case. | M |
 | CUR-04 | QC status set: see §Status. One-click buttons for the common ones, plus a keyboard shortcut per status (UI-12). | M |
 | CUR-05 | Free-text comment and priority (`low`, `medium`, `high`) on any decision. | M |

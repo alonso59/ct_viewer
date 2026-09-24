@@ -1,5 +1,5 @@
 # ADR-0021 CT tools without a project; workspace tasks; the converter overlay
-Status: Proposed · Date: 2026-09-24
+Status: Accepted · Date: 2026-09-24
 Amends: ADR-0014 (a second derived location outside projects), SRC-09 (tasks in Open mode), VW-17
 
 **Context.** Opening a file or folder without a project works, but Open mode lacks the CT controls of the case tab. Converting DICOM requires a project today, while users want to convert first and decide later.

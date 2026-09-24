@@ -2,7 +2,7 @@
 
 Scope: stack, module layout, layering rules, concurrency, jobs, streaming.
 Read when: writing any backend code.
-Depends: domain/*.md, API.md, ADR-0002, ADR-0003, ADR-0006, ADR-0014, ADR-0016.
+Depends: domain/*.md, API.md, ADR-0002, ADR-0003, ADR-0006, ADR-0014, ADR-0016, ADR-0018, ADR-0022.
 
 ## Stack
 
@@ -39,7 +39,7 @@ backend/app/
 └── events/          # in-process pub/sub → SSE fan-out
 ```
 
-Outside `backend/`: `plugins/dicom/` (DCM), `plugins/analyzers/` (ANZ), `plugins/nnunet/` (external, deferred), `plugins/threshold/` (CI test plugin), each with a `task.json`. Builtin plugins are installed into the image; external ones are read from `PLUGINS_ROOT`. `scripts/rw-runner.py` is the host runner (TSK-11).
+Outside `backend/`: `plugins/dicom/` (DCM), `plugins/analyzers/` (ANZ), `plugins/nnunet/` (external, deferred), `plugins/threshold/` (CI test plugin), each with a `task.json`. All plugins are first-party (PLG-01) with a `plugin.json`; builtin ones are installed into the image, and `PLUGINS_ROOT` is only the host copy the runner executes for `external` runtimes. `scripts/rw-runner.py` is the host runner (TSK-11). P7c adds `app/plugins/` (manifest loader, Library status, route mounting under `/api/v1/plugins/{id}/`), `app/eventstore/` (namespaced append-only log + derived state, ADR-0022) and the view-only router (API-60).
 
 **Layering:** `api → services (projects|sources|ingest|variables|imaging|curation|tasks|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`.
 Services never import `api`. All filesystem I/O goes through `core.fsio` or `core.paths`.

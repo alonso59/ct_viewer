@@ -31,3 +31,5 @@ Details: DICOM_CONVERTER.md (DCM-*), ANALYZERS.md (ANZ-*).
 **Rejected.**
 - Analyzers kept inside the converter: not rerunnable.
 - Fully independent programs with their own formats: two contracts.
+
+**Amended by ADR-0020.** The converter's `metadata.jsonl` carries no phase, curation or group fields (app and CLI); the phase analyzer's output is a layer, even when the converter chains it.

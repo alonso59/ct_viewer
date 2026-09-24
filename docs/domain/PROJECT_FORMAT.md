@@ -2,7 +2,7 @@
 
 Scope: workspace, project folder layout, IDs, path aliases, sharing, file-write rules.
 Read when: touching persistence, import, links, relinking, or any file under a project.
-Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
+Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, ADR-0022.
 
 ## Model (QuPath-like)
 
@@ -26,7 +26,12 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
 | PRJ-10 | Everything under `index/` and `cache/` is derived and rebuildable; deleting `cache/` is always safe. | M |
 | PRJ-11 | `format_version` is checked on open; older versions migrate forward with a backup copy of `project.json` (§Migration 1 → 2). | M |
 | PRJ-13 | A project may register one `derived` root (alias `DERIVED`), chosen by the user inside `ALLOWED_DERIVED_ROOTS`; tasks that write volumes require it and ask for it on first use (ADR-0014). | M |
-| PRJ-12 | Study presets seed the label map, phase vocabulary and phase mapping at project creation: `ccrcc` (current defaults), `generic-ct` (NC, ART, PV, DELAYED, UNK), `none` (raw values kept). Editable afterwards. | M |
+| PRJ-12 | *Superseded by PRJ-16 (ADR-0019).* Study presets chosen at creation. | — |
+| PRJ-14 | A project is neutral: "New project" asks for a name and an optional `default_modality` (`CT` default, `MR`, `mixed`), which only sets the viewer default for items without a modality (VW-05). | M |
+| PRJ-15 | Settings writes (API-03) need `If-Match` with the project ETag; a stale write gets `412 conflict` and the UI offers reload + reapply. | M |
+| PRJ-16 | Study packs (first-party plugin `packs`, PLG-) are applied from Project settings at any time: label map, phase vocabulary + mapping, organ profile (ANZ-05), optional radiomics profile. Applying one records it in `packs[]`; it never deletes curation, labels or data. With no pack, labels come from mask values (PRJ-07) and phases stay raw. | M |
+| PRJ-17 | View-only link `/v/{view_token}`: a random, rotatable token served only by the read-only routes (API-60), which never reveal `project_id`; every editing control is hidden. | M |
+| PRJ-18 | Project settings view with tabs General · Display · Labels · Data · Plugins (UI-23); `display` holds the layout, the initial W/L per modality (DICOM `WindowCenter/Width` first), editable W/L presets, interpolation and the radiological (default) / neurological convention. | M |
 
 ## Folder layout
 
@@ -36,6 +41,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
 ├── .staging/                      # scratch for bundle export/import (PRJ-08/09)
 ├── .scratch/                      # DISPOSABLE: Open mode conversions (SRC-09), builtin task job dirs (TSK-07)
 ├── queue/                         # external task jobs + runner heartbeats (TSK-11); the only dir with a second writer
+├── plugins/{plugin_id}/           # workspace-level plugin state (PLG-07)
 └── projects/
     ├── .archive/
     └── {project_id}/
@@ -60,17 +66,19 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
         │   └── runs/{run_id}/     # run.json, parts/*.parquet, features.parquet, errors.jsonl, run.log
         ├── tasks/runs/{run_id}/   # other task runs: run.json, items.jsonl, log.jsonl, masks.jsonl, annotations.jsonl (TSK-10)
         ├── derived/runs.jsonl     # ledger of files written to the DERIVED root: run, task, refs, sha256 (ADR-0014)
-        ├── exports/               # user-requested outputs (CSV/Parquet/phase.json proposals)
+        ├── events/{namespace}.jsonl # core event store per plugin, e.g. labeling (ADR-0022); curation keeps curation/events.jsonl
+        ├── plugins/{plugin_id}/   # plugin state, e.g. labeling/tables.json (PLG-07)
+        ├── exports/               # user-requested outputs (CSV/Parquet/phase.json proposals, dataset_table.* ADR-0020)
         ├── cache/                 # DISPOSABLE: meshes, npy→nii conversions
         └── .lock                  # advisory lock held by the API process
 ```
 
-## `project.json` (format_version 2)
+## `project.json` (format_version 3)
 
 ```jsonc
 {
   "format": "radiology-workbench-project",
-  "format_version": 2,
+  "format_version": 3,
   "project_id": "01JABCDEF...",            // ULID, immutable
   "name": "ccRCC Dataset820",
   "description": "",
@@ -85,11 +93,16 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015.
     { "value": 2, "name": "tumor",  "color": "#FFFF00", "opacity": 0.20, "visible": true },
     { "value": 3, "name": "cyst",   "color": "#FF00FF", "opacity": 0.15, "visible": false }
   ],
-  "preset": "ccrcc",                         // PRJ-12
+  "default_modality": "CT",                  // PRJ-14
+  "packs": ["ccrcc"],                        // applied study packs (PRJ-16); [] for a neutral project
+  "view_token": null,                        // PRJ-17 (random when created)
   "phase_vocabulary": ["NC", "CMP", "NP", "EP", "UNK"],
   "phase_mapping": { "ART": "CMP", "VEN": "NP", "DELAY": "EP" },   // + aliases, see INPUT_METADATA
   "phase_priority":   ["NP", "CMP", "NC", "EP", "UNK"],
-  "viewer_defaults":  { "ww": 400, "wl": 50, "layout": "four-up" },
+  "display": {                               // PRJ-18 (was viewer_defaults)
+    "layout": "four-up", "wl": { "CT": { "ww": 400, "wl": 50 }, "MR": "percentile" },
+    "use_dicom_window": true, "wl_presets": null, "interpolation": "linear", "convention": "radiological"
+  },
   "segmentations": [                          // ADR-0015
     { "seg_id": "imported", "name": "", "kind": "imported", "producer": null, "label_mapping": { "1": 1, "2": 2, "3": 3 }, "unmatched": [], "created_at": "…" }
   ],
@@ -126,12 +139,21 @@ Single-writer model and locking: BE-05.
 | Rule | Detail |
 |---|---|
 | Layout | One zip with one top-level folder `{project_id}/` |
-| Excluded | `cache/`, `.lock`, `.*.tmp`, symlinks, image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) and DICOM sidecars (`*.dicom.json`) anywhere |
+| Excluded | `view_token` (reset to null in the bundle), `cache/`, `.lock`, `.*.tmp`, symlinks, image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) and DICOM sidecars (`*.dicom.json`) anywhere |
 | Export | Built under the project lock in `WORKSPACE_ROOT/.staging/`, deleted after sending |
 | Import id | Keeps the bundle's `project_id` unless the workspace already uses it (active or archived); then a new ULID is written to `project.json` |
 | Import guards | Zip-slip, symlinks, ≤ 1M entries, ≤ 50 GiB uncompressed; extracted in `.staging/` then renamed into `projects/`; migrations run on open (PRJ-11) |
 | Relink | Each alias is resolved and verified (PRJ-05); failures open the relink dialog (API-06 `needs_relink`) |
 | PHI | DICOM-derived rows not anonymized at conversion leave with the `basic` profile applied (DCM-05): `sources/*/metadata.jsonl`, `index/items.jsonl` (PHI fields blanked, `patient_id` → `case_id`, UIDs replaced deterministically per project), `index/cases.jsonl` (`patient_id`) and `sources/identity.json` (identity keys hashed as in anonymized runs). The project folder is not changed; an imported copy that converts more data numbers new patients from `next_index` |
+
+## Migration 2 → 3 (PRJ-11)
+
+| Change | Rule |
+|---|---|
+| `preset` | Becomes `packs: [preset]` (`none` → `[]`) |
+| `default_modality` | `CT` |
+| `viewer_defaults` | Moves into `display` with the other keys at their defaults |
+| `view_token` | `null` until the user creates a view-only link |
 
 ## Migration 1 → 2 (PRJ-11)
 

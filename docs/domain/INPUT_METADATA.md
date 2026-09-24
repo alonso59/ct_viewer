@@ -6,6 +6,7 @@ Depends: PROJECT_FORMAT.md, DATA_MODEL.md, SOURCES.md (adapters, formats, identi
 
 "Upload" means registering **metadata plus a data root path**. Image bytes are never uploaded or copied (ADR-0005).
 Contract v1 below is the only internal form: other sources (NIfTI files, DICOM via `dicom.convert`) are turned into v1 rows by adapters (SOURCES.md, ADR-0013).
+The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy files that also carry `phase_guess*`, `curated_*` or `group` are still accepted: phase resolution reads them, and `group` is an ordinary variable.
 
 ## Requirements
 
@@ -66,7 +67,7 @@ Contract v1 below is the only internal form: other sources (NIfTI files, DICOM v
 ## Phase resolution
 
 Resolution order: `phase.json` override → `curated_phase` → `canonical_phase` → `phase` → active `analyzer.phase` run (ANZ-04) → `phase_guess` → `UNK`.
-The chosen value is kept as `raw_phase` and normalized with the project's `phase_vocabulary` + `phase_mapping` (PRJ-12). Table below = **ccRCC preset**: **NC · CMP · NP · EP · UNK** (NC = non-contrast, CMP = corticomedullary, NP = nephrographic, EP = excretory, UNK = unknown):
+The chosen value is kept as `raw_phase` and normalized with the project's `phase_vocabulary` + `phase_mapping` (PRJ-16 packs). Table below = **ccRCC preset**: **NC · CMP · NP · EP · UNK** (NC = non-contrast, CMP = corticomedullary, NP = nephrographic, EP = excretory, UNK = unknown):
 
 | Raw (case-insensitive) | Canonical |
 |---|---|

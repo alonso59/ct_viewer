@@ -321,6 +321,47 @@ Between waves, if the context is long, rely on LANE_NOTES.md + ROADMAP as your s
 
 To resume in a new session: same prompt plus "Continue from the first unticked wave in ROADMAP §P7b; LANE_NOTES.md has the state."
 
+## P7c: one Claude shell session, sequential (plugin platform, neutral projects, CT tools)
+
+Open one Claude terminal in `ct_viewer` (branch `v3`) and paste:
+
+```text
+You implement phase P7c of this repo alone, sequentially, on branch v3. Never git push.
+Read AGENTS.md (R1, R9), docs/INDEX.md, docs/product/ROADMAP.md §P7c, ADR-0018..0022,
+docs/domain/PLUGINS.md, docs/domain/LABELING.md and the last three LANE_NOTES.md entries. Per wave,
+read only the docs INDEX routes for it. Do not read docs/archive/** or legacy/**.
+
+Goal: close every open item of ROADMAP §P7c (Waves 1–5) and meet its exit criterion.
+Out of scope, keep listed as open: the pending plugins (VOI extractor, which requires a segmentation
+set, and nnU-Net), deleting legacy/, continuous ranges in radiomics selection, the human checks,
+Step 4 (udocker) and P8 (Electron).
+
+Waves, in order: 1 platform (plugin.json, registry activation, Plugin Library, repackage the existing
+features as plugins with no behaviour change) → 2 neutral projects (New project = name + optional
+default modality, packs with the ccRCC pack, Project settings tabs, If-Match/412, view-only link,
+format_version 3 migration) → 3 converter & metadata (clean converter output in app and CLI, legacy
+fields still accepted, layers + dataset-table export, converter overlay window, workspace tasks and
+_datasets/, phase analyzer chained) → 4 CT tools in the case tab and Open mode (VW-22/23), Close for
+projects and Open sessions (UI-24), and the root-cause fix of the flaky cold-run E2E
+tasks-dicom.spec.ts → 5 core event store, Curation & QC as a plugin (no data change), Labeling table
+plugin (LBL-01..08).
+
+For each wave: a short plan first; backend before frontend (make gen-api after API changes); tests
+for every requirement ID you implement (TST-17..20 where they apply); gate = make fixtures &&
+make check green, full Playwright (Chromium + Firefox) when the frontend changed, initial JS
+≤ 300 KB gzip measured the LANE_NOTES way (lazy-only strings in i18n/en.lazy.json). Update the owning
+doc where behaviour differs (one fact, one place), tick ROADMAP lines, append one "P7c Wave N" entry
+to LANE_NOTES.md (done, test counts, initial JS, decisions, open issues), commit locally with
+conventional messages. Never commit red: if a wave cannot be made green, move the work to branch
+p7c-wip, reset v3 to its last green commit, explain, and STOP.
+Do not stop between waves. Do not stop or restart the owner's dev servers on ports 8000/5176; E2E
+uses its own ports (E2E_API_PORT / E2E_WEB_PORT).
+When Wave 5 is done: write a "P7c integration" LANE_NOTES entry that checks the exit criterion point
+by point, set the P7c row in ROADMAP, commit, and STOP with a short summary and the pending list.
+If the context grows long, treat ROADMAP §P7c and LANE_NOTES.md as your state; to resume, continue
+from the first unticked wave.
+```
+
 ## Step 4: Shell on the remote server (P7)
 
 ```text

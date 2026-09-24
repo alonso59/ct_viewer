@@ -1,5 +1,5 @@
 # ADR-0020 `metadata.jsonl` belongs to the converter; plugin data lives in layers
-Status: Proposed · Date: 2026-09-24
+Status: Accepted · Date: 2026-09-24
 Amends: ADR-0017 (the converter emits no phase or curation fields), DCM-08/09, ANZ-04, INPUT_METADATA §contract v1
 
 **Context.** The legacy converter mixed three concerns into `metadata.jsonl`:

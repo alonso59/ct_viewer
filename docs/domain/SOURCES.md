@@ -18,13 +18,14 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | SRC-06 | Every snapshot has `sources/{import_id}/source.json` = `{adapter, adapter_version, options, detected_at}`, so re-import (IMP-06) reproduces the same rows. | M |
 | SRC-07 | Identity policy (§Identity) assigns `case_id` / `scan_idx` for adapters that don't carry them. The registry `sources/identity.json` keeps assignments stable across incremental imports. | M |
 | SRC-08 | `case_id` is a URL-safe slug `[A-Za-z0-9_-]{1,64}` (no `.`, because `item_id` uses it). The original name is kept in `extra.source_name`. | M |
-| SRC-09 | Open mode (§Open mode): view one file or folder without a project. | M |
+| SRC-09 | Open mode (§Open mode): view one file or folder without a project, with the full CT tool set (VW-22) and a Close action (UI-24). Workspace tasks (TSK-13) such as the converter can start from it; project-bound tasks cannot. | M |
 | SRC-10 | In Open mode, a segmentation can be attached to an open image only if the shape matches and the affines agree within the IMP-08 tolerance. It is never resampled; a mismatch is refused with both geometries shown. | M |
 | SRC-11 | Every refusal is a problem (API §Errors) with `detail` = the cause and `actions[]` = the suggested next steps, e.g. `{"detail": "No metadata.jsonl under the root; 11 NIfTI files found", "actions": ["import_as:nifti-files"]}`. The UI shows both, and never a bare "Validation failed". | M |
 | SRC-12 | NumPy arrays are read only with explicit geometry and axis order (§NumPy). There is no silent default. | S |
 | SRC-13 | DICOM sources are converted by the task `dicom.convert` (DCM-*). In Open mode, the same convert stage writes to `.scratch/` only. | M |
 | SRC-14 | "Save as NIfTI…" in Open mode (API-09) writes the open volume (converted from DICOM/NumPy, or the NIfTI itself) as `.nii.gz` (+ its DICOM JSON sidecar for DICOM, DCM-04) to `{first ALLOWED_DERIVED_ROOTS}/_open/{YYYY-MM-DD}/` by default; the user may change the folder once (remembered in the browser). The destination must be inside `ALLOWED_DERIVED_ROOTS` (never next to the source, R1); names never overwrite (`-1`, `-2` …); an optional `anonymize: basic` checkbox comes with a PHI notice (NFR-17). Written once, never modified. | M |
 | SRC-15 | "Add to project…" imports the open file into an existing project as a new import (`nifti-files` for NIfTI, `dicom.convert` for a single DICOM file); it is added next to the project's other sources (§Imports). | S |
+| SRC-16 | A workspace dataset (`{derived root}/_datasets/{name}/`, from a workspace task) opens in Open mode and imports through `metadata-v1` like any source root. | M |
 
 ## Formats
 

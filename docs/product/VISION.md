@@ -34,6 +34,7 @@ There are no roles. All users can reach every surface (ADR-0004).
 - 2×2 MPR + 3D viewer, rendered client-side with NiiVue; multi-label overlays (VW-*).
 - Segmentations are **never edited** in the app; tasks (e.g. nnU-Net) add new segmentation sets next to the imported ones (ADR-0015).
 - Tasks and plugins: DICOM→NIfTI conversion with faithful metadata, metadata analyzers (phase, organ focus, readiness), radiomics and segmentation models share one contract (TSK-*, ADR-0016/0017).
+- First-party plugin platform with a Plugin Library (ADR-0018): converter, analyzers, curation & QC, labeling tables, radiomics, dashboard, study packs. Projects are neutral (ID, share link, view-only link, multi-user; ADR-0019).
 - Curation: QC status, comments, phase/side proposals, correction queue export (CUR-*).
 - Radiomics: user-configurable extraction run by button, IBSI-aligned, versioned profiles (RAD-*).
 - Study-agnostic variables: any metadata field or external table becomes a typed variable for filters and group-by (VAR-*).
@@ -54,6 +55,7 @@ There are no roles. All users can reach every surface (ADR-0004).
 | Registration / fusion, volume editing | Future |
 | Electron desktop build | Phase P8, after the web app is stable (ADR-0001) |
 | Clinical use | Research tool, not a medical device |
+| Third-party plugins, plugin marketplace | v3 ships first-party plugins only (ADR-0018) |
 
 ## Principles
 
@@ -67,5 +69,5 @@ There are no roles. All users can reach every surface (ADR-0004).
 
 ## Decisions
 
-- Label map and phase vocabulary: project presets; the ccRCC preset holds the current defaults (PRJ-07, PRJ-12).
+- Label map and phase vocabulary: optional study packs applied after creation; the ccRCC pack holds the former defaults (PRJ-07, PRJ-16).
 - UI language: English, i18n-ready (FE-11).

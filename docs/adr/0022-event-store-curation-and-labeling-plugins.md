@@ -1,5 +1,5 @@
 # ADR-0022 Shared event store; Curation & QC and Labeling table as plugins
-Status: Proposed · Date: 2026-09-24
+Status: Accepted · Date: 2026-09-24
 Amends: CUR-02 (the event log becomes a core service), ADR-0018 (first plugins on it)
 
 **Context.** Curation already has an append-only, reviewer-stamped, SSE-synced event log with last-writer-wins state. A labeling table (user-defined columns at patient or CT level) needs exactly the same guarantees. Both should be plugins the user reaches from the Library.

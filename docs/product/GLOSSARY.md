@@ -19,6 +19,13 @@ Scope: terms used across docs. Read when a term is unclear.
 | Analyzer | Metadata-only task that proposes values (phase, organ focus, readiness) (ANZ-*) |
 | Annotation | An analyzer's per-item proposal with confidence and evidence; never overwrites data |
 | Sidecar | Per-series DICOM JSON file with the full header (DCM-04); may contain PHI |
+| Plugin Library | The view listing every installed first-party plugin with its status and an Open action (PLG-05) |
+| Contribution point | What a plugin can add: tasks, views, editors, overlays, panels, commands, columns, packs (PLG-) |
+| Study pack | Optional plugin bundle of labels, phases and profiles applied to a project (PRJ-16) |
+| Layer | Plugin-owned columns joined to the converter rows (analyzers, labeling, curation); never written into `metadata.jsonl` (ADR-0020) |
+| Workspace task | A task that runs without a project and writes to `_datasets/` (TSK-13) |
+| Overlay window | A modal work window a plugin opens from a button, e.g. the converter (UI-25) |
+| View-only link | `/v/{token}`: read-only access to a project without revealing its id (PRJ-17) |
 | Quick fingerprint | `size` + SHA-256 of the first and last 64 KiB of a file |
 | Case | All data for one `case_id` |
 | Scan | One acquisition `(case_id, scan_idx)`, usually one contrast phase |

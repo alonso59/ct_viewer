@@ -10,7 +10,7 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 
 | ID | Requirement | Pri |
 |---|---|---|
-| TSK-01 | Every task has a manifest (§Manifest). Builtin manifests ship in the image; external ones are `PLUGINS_ROOT/*/task.json` (read-only). Invalid manifests are listed with their error, not loaded. | M |
+| TSK-01 | Every task has a manifest (§Manifest) and belongs to a first-party plugin (PLG-01); there are no third-party tasks in v3. Builtin tasks run in the image; first-party tasks with an `external` runtime are run by the host runner from `PLUGINS_ROOT` (a host copy of `plugins/`). Invalid manifests are listed with their error, not loaded. | M |
 | TSK-02 | Settings come from the manifest's JSON Schema, rendered by the generic schema form. Validation runs live in the UI and authoritatively on the server. Radiomics keeps its richer schema (RAD-01) behind the same endpoints. | M |
 | TSK-03 | Selection is shared by every item task: all active / current Explorer filter / explicit item list; scope; `seg_id` + labels when the task reads masks (RAD-05 generalized). | M |
 | TSK-04 | Preflight checks `requires` against the selection → `{n_ready, missing: {reason: count}, suggestions: [{task_id, reason}]}`. Example: 12 items without a `kidney` mask → suggest `segment.nnunet`. Items that aren't ready are skipped, never failed. | M |
@@ -22,6 +22,7 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-10 | Run record `tasks/runs/{run_id}/run.json`: task id + version, manifest hash, settings + hash, selection, inputs with fingerprints, dependency versions, counts, outputs (NFR-15). Radiomics keeps `radiomics/runs/{run_id}/` (RAD-09). | M |
 | TSK-11 | External runtime through the file queue (§External runtime); the backend never starts containers or host processes. | M |
 | TSK-12 | One run per `(project, task)` at a time; the runner caps concurrency (default 1 per GPU). | S |
+| TSK-13 | `scope: workspace` tasks (e.g. `dicom.convert`) run without a project (API-62): inputs come from a source path, outputs go to `{derived root}/_datasets/{name}/` (write-once), run records to `WORKSPACE_ROOT/plugins/{plugin}/runs/`. Project-bound tasks keep `scope: project`. | M |
 
 ## Manifest (`task.json`)
 

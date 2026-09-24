@@ -19,7 +19,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 |---|---|---|---|
 | API-01 | `GET /health` | Liveness, versions, UI runtime config (`VIEWER_MAX_LOADED`, `PUBLIC_BASE_URL`) | OPS-03/07 |
 | API-02 | `GET /projects` · `POST /projects` | List / create | PRJ-01/02 |
-| API-03 | `GET·PATCH /projects/{pid}` | Read / rename / edit label map, defaults | PRJ-06/07 |
+| API-03 | `GET·PATCH /projects/{pid}` | Read (with `ETag`) / rename / edit label map, `default_modality`, `display`; PATCH needs `If-Match` → `412 precondition-failed` when stale | PRJ-06/07/14/15/18 |
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report); body `{path, role?}`, `role: derived` registers the derived root (PRJ-13; default = the alias's current role, else `source`) | PRJ-05/13 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
@@ -43,6 +43,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-24 | `GET /projects/{pid}/items/{iid}/mask?seg=` | Mask bytes of one segmentation set (default `default_seg`; Range, ETag) | BE-04, ADR-0015 |
 | API-25 | `GET /projects/{pid}/items/{iid}/mesh/{label}?smooth=1&seg=` | Mesh of one set's label (`202` + job if not cached) | VW-09 |
 | API-26 | `GET /projects/{pid}/items/{iid}/thumbnail` | Lossless WebP thumbnail (`404` until generated) | IMP-12 |
+| API-28 | `GET /packs` · `POST /projects/{pid}/packs` `{pack_id}` | Study packs available (from plugins) / apply one (records `packs[]`, never deletes data) | PRJ-16 |
 | API-27 | `GET /projects/{pid}/segmentations` · `PATCH …/segmentations/{seg}` | Sets with producer + counts / rename, label mapping; `default_seg` via API-03 | ADR-0015 |
 | API-30 | `GET /radiomics/schema` | Engine options, defaults, constraints | RAD-01 |
 | API-31 | `POST /radiomics/validate` | Settings → issues | RAD-04 |
@@ -62,6 +63,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-45 | `POST·GET /projects/{pid}/task-runs?task=` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection, name?}`, optional `X-Reviewer` → `202 {run_id, job_id, status}`) / list (radiomics runs included) / detail | TSK-06/10 |
 | API-46 | `POST …/task-runs/{rid}/cancel` · `POST …/task-runs/{rid}/resume` | Control | TSK-07 |
 | API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09 |
+| API-49 | `GET /plugins` · `GET /plugins/{id}` | Plugin Library: installed first-party plugins, contributions, status (`ready`, `needs runner`, `needs derived root`, `needs segmentation`, `pending`) with the reason | PLG-05/06 |
 | API-48 | `GET /projects/{pid}/annotations?field=&run=&item_id=` · `GET …/annotation-sources` · `PUT …/annotation-sources/{field}` | Annotations with confidence/evidence and `active` / active runs / activate a run (`{run_id\|null}` → `{annotation_sources, job_id}`, the reindex job) | ANZ-01/04 |
 | API-50 | `GET·POST /projects/{pid}/curation/events` | History (filter by `item_id`/`case_id`) / append (`X-Reviewer`, optional `X-Session-Id`) | CUR-02/14 |
 | API-51 | `GET /projects/{pid}/curation/state` | Derived latest state | CUR-08 |
@@ -69,6 +71,14 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-53 | `POST /projects/{pid}/curation/exports` | Write CUR-10 files to `exports/` | CUR-10 |
 | API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` | CUR-13 |
 | API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` (multipart `file`, `X-Reviewer`) → `201` report as API-54 | CUR-15 |
+
+| API-56 | `GET·POST /plugins/labeling/projects/{pid}/tables` · `PATCH …/tables/{tid}` | Label tables and column schemas | LBL-01/02 |
+| API-57 | `GET·POST /plugins/labeling/projects/{pid}/tables/{tid}/cells` | Cell state (paged, filterable) / append cell events (`X-Reviewer`) | LBL-03..05 |
+| API-58 | `POST …/tables/{tid}/import` · `GET …/tables/{tid}/export?format=csv\|parquet` | CSV import with a match report / export | LBL-07 |
+| API-59 | `GET /projects/{pid}/exports/dataset-table?format=csv\|parquet` | Merged metadata table (rows + active layers), one column per layer with its source | ADR-0020 |
+| API-60 | `GET /view/{token}/…` | Read-only mirror of the project GET endpoints for a view-only link; never exposes `project_id`; writes do not exist on this path | PRJ-17 |
+| API-61 | `POST·DELETE /projects/{pid}/view-token` | Create/rotate / revoke the view-only link | PRJ-17 |
+| API-62 | `POST·GET /task-runs` · `GET /task-runs/{rid}` | Workspace tasks (`scope: workspace`, e.g. `dicom.convert` without a project) → `{derived}/_datasets/{name}/` | TSK-13 |
 
 API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
 
@@ -104,6 +114,7 @@ Errors: `validation` (not a zip, unsafe entry, no/invalid `project.json`), `form
 | `source-missing` | 409 |
 | `format-version-unsupported` | 409 |
 | `job-conflict` | 409 |
+| `precondition-failed` | 412 |
 | `reviewer-required` | 428 |
 | `server-busy` | 503 |
 | `unsupported-format` | 415 |

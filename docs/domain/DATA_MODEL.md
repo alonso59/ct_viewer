@@ -2,7 +2,7 @@
 
 Scope: entities, IDs, relations, and where each entity is persisted.
 Read when: designing any schema, API payload, or UI list.
-Depends: PROJECT_FORMAT.md.
+Depends: PROJECT_FORMAT.md, ADR-0019, ADR-0020, ADR-0022.
 
 ## Entity map
 
@@ -16,6 +16,8 @@ Workspace 1─* Project 1─* PathRoot (role: source | derived)
                     1─* CurationEvent  *─1 Item | Case
                     1─* RadiomicsProfile 1─* RadiomicsRun 1─* FeatureValue *─1 Item
                     1─* Job
+                    *─* Pack (applied)   1─* LabelTable 1─* LabelColumn
+                    1─* EventNamespace (curation, labeling, …)   Layers = analyzer runs + label columns + curation state
                     1─* Variable (catalog)   1─* Analysis *─1 RadiomicsRun
 ```
 
@@ -30,7 +32,11 @@ Workspace 1─* Project 1─* PathRoot (role: source | derived)
 | IdentityRegistry | — | `sources/identity.json` | SRC-07 |
 | SegmentationSet | `seg_id` (slug) | `project.json.segmentations` | ADR-0015 |
 | TaskRun | `run_id` (ULID) | `tasks/runs/{run_id}/run.json` (radiomics: `radiomics/runs/`) | TSK-10 |
-| Annotation | `(run_id, item_id, field)` | `tasks/runs/{run_id}/annotations.jsonl` | ANZ-01 |
+| Annotation | `(run_id, item_id, field)` | `tasks/runs/{run_id}/annotations.jsonl` | ANZ-01; a metadata layer (ADR-0020) |
+| Pack | `pack_id` | plugin manifest; applied list in `project.json.packs` | PRJ-16 |
+| LabelTable | `table_id` (ULID) | `plugins/labeling/tables.json` | LBL-01/02 |
+| LabelCell | `(table_id, column_id, target)` | `events/labeling.jsonl` (derived state) | LBL-04 |
+| EventNamespace | name | `events/{namespace}.jsonl` (`curation` keeps `curation/events.jsonl`) | ADR-0022 |
 | Case | `case_id` | `index/cases.jsonl` (derived) | Group of scans |
 | Scan | `(case_id, scan_idx)` | implied by Items | One acquisition / phase |
 | Item | `item_id` | `index/items.jsonl` (derived) | **Viewable unit**; the target of curation and radiomics |

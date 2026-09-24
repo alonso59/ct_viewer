@@ -1,10 +1,8 @@
-# Labeling table plugin (draft for ADR-0022)
+# Labeling table plugin
 
 Scope: user-defined label tables at patient, CT or item level; columns, editing, storage, variables.
 Read when: working on `plugins/labeling/` or label-derived variables.
 Depends: ADR-0020, ADR-0022, PLUGINS.md, VARIABLES.md, CURATION.md (event rules).
-
-Status: **Proposed** with ADR-0022; becomes the owner of `LBL-` on acceptance.
 
 ## Requirements
 

@@ -1,10 +1,8 @@
-# Plugins (draft for ADR-0018)
+# Plugins
 
 Scope: the first-party plugin model, manifest, contribution points, Plugin Library, catalog.
 Read when: adding or changing any plugin, or the Library view.
 Depends: ADR-0016, ADR-0018..0022, TASKS.md (run protocol), UI_SHELL.md (registry UI-02).
-
-Status: **Proposed** with ADR-0018; becomes the owner of `PLG-` on acceptance.
 
 ## Requirements
 

@@ -33,3 +33,5 @@ Amends: AGENTS.md R1, ADR-0002, ADR-0005 (aliases gain a role), ADR-0007 (a thir
 - Derived data inside the project folder: size and bundles.
 - Writing next to sources: R1.
 - A managed blob store: ADR-0002, ADR-0005.
+
+**Amended by ADR-0021.** Workspace tasks (no project) write to `{derived root}/_datasets/{name}/`, write-once, next to the Open-mode `_open/` exports.

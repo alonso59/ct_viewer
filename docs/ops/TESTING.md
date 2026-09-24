@@ -22,6 +22,10 @@ Depends: all domain docs.
 | TST-14 | Task protocol | pytest | Builtin and external runtimes on the fake `segment.threshold` plugin: queue, runner claim, progress, cancel, resume, `waiting_for_runner`, mask registration as a segmentation set |
 | TST-15 | Sources | pytest + hypothesis | `nifti-files` patterns, single-file import, identity registry stability across incremental imports, Open mode (NIfTI, DICOM file, label map, attach mismatch), refusal `actions[]` |
 | TST-16 | Analyzers | pytest | Phase text/timing/conflict cases, target profiles, readiness codes, activation reindex (ANZ-*) |
+| TST-17 | Plugins | pytest + Vitest | Manifest validation, Library status reasons, contributions registered, pending plugins not openable (PLG-*) |
+| TST-18 | View-only link | pytest + Playwright | API-60 serves reads only, never returns `project_id`, rotation revokes the old token; the UI hides every editing control (PRJ-17, UI-26) |
+| TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
+| TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
 P7b files (Wave 4): TST-14 external half in `tests/test_runner.py` (the real `scripts/rw-runner.py` as a subprocess: waiting → claim → progress → set registration, SIGTERM cancel, resume, a crashing task, a lost runner, single claim); `e2e/runner.spec.ts` runs the fake plugin through the runner from the Tasks tab (the E2E backend gets `PLUGINS_ROOT` = a temp dir with a symlink to `plugins/threshold/`). RAD-05 and curation `seg_id` in `tests/test_tasks.py`. PyRadiomics is not thread-safe, so tests that run it in inline (threaded) mode use one unit at a time.
 

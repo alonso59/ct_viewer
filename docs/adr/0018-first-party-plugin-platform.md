@@ -1,5 +1,5 @@
 # ADR-0018 First-party plugin platform and Plugin Library
-Status: Proposed · Date: 2026-09-24
+Status: Accepted · Date: 2026-09-24
 Amends: ADR-0016 (tasks become one contribution type; no third-party plugins in v3), TSK-01
 
 **Context.** The converter, the analyzers, radiomics, the dashboard and curation are all wired as separate features. The owner wants one model where every domain tool is a plugin, reachable from a single Library, with a small core underneath. Loading third-party code at runtime conflicts with R5 and with the NFR-07 budget, and the owner has ruled it out for this version.

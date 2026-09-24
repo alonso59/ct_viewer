@@ -47,3 +47,5 @@ Amends: ADR-0006 (radiomics becomes a builtin task), ADR-0007 (heavy plugins run
 - The backend spawning containers: impossible under udocker.
 - HTTP plugin services.
 - Entry points in the API process: dependency conflicts, crashes.
+
+**Amended by ADR-0018.** Tasks are one contribution type of first-party plugins; third-party plugins are out of scope in v3, and `PLUGINS_ROOT` only points the host runner at first-party external plugins.

@@ -2,7 +2,7 @@
 
 Scope: stack, folder layout, state, routing, boundaries.
 Read when: writing any frontend code. UI look: UI_SHELL.md. Viewer: VIEWER.md.
-Depends: backend/API.md, ADR-0001, ADR-0003, ADR-0008.
+Depends: backend/API.md, ADR-0001, ADR-0003, ADR-0008, ADR-0018.
 
 ## Stack
 
@@ -39,6 +39,8 @@ frontend/src/
 │   ├── curation/   # inspector form, history, queue (CUR-*)
 │   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*); shares selection/runs with tasks/
 │   ├── dashboard/  # views (DB-*)
+│   └── …           # features move behind plugin boundaries in P7c (ADR-0018)
+├── plugins/<id>/   # first-party plugin UI: activate(ctx) registers contributions; heavy code lazy (PLG-03)
 │   └── jobs/
 ├── api/          # generated schema.d.ts, client, query keys, useProjectEvents (SSE)
 ├── state/        # cross-feature stores: reviewer, layout, viewerSync
@@ -60,6 +62,9 @@ frontend/src/
 | `/p/:pid/run/:rid?view=` | Workbench + dashboard tab |
 | `/p/:pid/radiomics` | Workbench + radiomics settings tab |
 | `/p/:pid/task/:tid` | Workbench + task settings tab |
+| `/p/:pid/settings` | Workbench + project settings tab (UI-23) |
+| `/p/:pid/labeling/:tid` | Workbench + label table tab (LBL-03) |
+| `/v/:token` | View-only workbench (UI-26, API-60) |
 | `/open?path=` | Open mode viewer (no project) |
 
 ## Requirements
