@@ -5,7 +5,7 @@
 #   scripts/udocker-run.sh [--env-file FILE] [--dry-run]
 #
 # Once per server (udocker cannot build; see docs/ops/DEPLOYMENT.md):
-#   udocker load -i rw-3.0.0.tar          # the container `rw` is created on first run
+#   udocker load -i rw-<version>.tar         # the container `rw` is created on first run
 #
 # Env overrides (not from .env): UDOCKER (command, default `udocker` or ./udocker.py),
 # RW_CONTAINER (container name, default rw).
@@ -52,7 +52,10 @@ data_host="$(get DATA_HOST)"
 workspace_host="$(get WORKSPACE_HOST ./workspace)"
 [[ "$workspace_host" == /* ]] || workspace_host="$env_dir/${workspace_host#./}"  # compose: relative to .env dir
 port="$(get PORT 8000)"
-version="$(get RW_VERSION 3.0.0)"
+# RW_VERSION defaults to the backend package version (backend/pyproject.toml), like compose.
+pkg_version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/backend/pyproject.toml" 2>/dev/null || true)"
+version="$(get RW_VERSION "$pkg_version")"
+[[ -n "$version" ]] || { echo "set RW_VERSION in $env_file" >&2; exit 2; }
 execmode="$(get UDOCKER_EXECMODE)"
 name="${RW_CONTAINER:-rw}"
 image="radiology-workbench:$version"

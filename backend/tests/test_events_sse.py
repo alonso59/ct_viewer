@@ -17,7 +17,7 @@ import uvicorn
 from fastapi.testclient import TestClient
 from sse_starlette.sse import AppStatus
 
-from app.api.v1.events import sse_messages
+from app.api.v1.events import OPEN_MESSAGE, RETRY_MS, sse_messages
 from app.config import Settings
 from app.core.errors import NotFound
 from app.events.bus import EventBus
@@ -57,6 +57,19 @@ def test_generator_unsubscribes_when_closed_early() -> None:
         assert bus.subscriber_count("p") == 1
         await gen.aclose()  # type: ignore[attr-defined]  # client disconnect
         assert bus.subscriber_count("p") == 0
+
+    asyncio.run(asyncio.wait_for(body(), 5))
+
+
+def test_opening_message_comes_first_after_subscribing() -> None:
+    async def body() -> None:
+        bus = EventBus()
+        gen = sse_messages(bus, "p", None, opening=True)
+        assert await anext(gen) == OPEN_MESSAGE
+        assert bus.subscriber_count("p") == 1  # subscribed before the comment went out
+        ev = bus.publish("p", "project.updated", {"fields": ["x"]})
+        assert (await asyncio.wait_for(anext(gen), 1))["id"] == str(ev.id)
+        await gen.aclose()  # type: ignore[attr-defined]
 
     asyncio.run(asyncio.wait_for(body(), 5))
 
@@ -109,6 +122,8 @@ def test_end_to_end_stream_over_uvicorn(settings: Settings, tmp_path: Path) -> N
         replayed = publish("project.updated", {"fields": ["b"]})
         url = f"http://127.0.0.1:{port}/api/v1/projects/p/events"
         seen: list[dict[str, str]] = []
+        head: list[str] = []
+        retry_seen = False
         with (
             httpx.Client(timeout=httpx.Timeout(5.0)) as http,
             http.stream("GET", url, headers={"Last-Event-ID": str(old)}) as r,
@@ -118,7 +133,11 @@ def test_end_to_end_stream_over_uvicorn(settings: Settings, tmp_path: Path) -> N
             cur: dict[str, str] = {}
             try:
                 for line in r.iter_lines():
+                    if len(head) < 2:
+                        head.append(line)
                     if not line:
+                        if cur.pop("retry", None) is not None:
+                            retry_seen = True
                         if cur:
                             seen.append(cur)
                             cur = {}
@@ -134,6 +153,8 @@ def test_end_to_end_stream_over_uvicorn(settings: Settings, tmp_path: Path) -> N
                     cur[k] = v.strip()
             except httpx.RemoteProtocolError:
                 pass  # sse-starlette drops the connection on shutdown; clients reconnect
+        # API-40: the stream opens with a comment + retry before any event (Firefox "live")
+        assert head == [": open", f"retry: {RETRY_MS}"] and retry_seen
         assert seen[0] == {
             "id": str(replayed),
             "event": "project.updated",

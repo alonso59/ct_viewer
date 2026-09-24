@@ -3,7 +3,7 @@
 #   docker compose up --build
 services:
   app:
-    image: radiology-workbench:${RW_VERSION:-3.0.0}
+    image: radiology-workbench:${RW_VERSION:-3.0.0.dev0} # = backend/pyproject.toml version
     build: .
     env_file: .env
     # These win over .env: container-side paths and bind address are fixed by the image contract.

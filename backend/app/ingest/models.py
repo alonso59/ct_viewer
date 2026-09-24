@@ -28,6 +28,8 @@ class VolumeRef(BaseModel):
     ref: str  # ALIAS:rel (PRJ-04)
     format: VolumeFormat = "nifti"
     fp: str | None = None  # quick fingerprint; None when missing/unreadable
+    # Full SHA-256 (IMP-09) from `index/hashes.json`, attached on load while `fp` matches.
+    sha256: str | None = None
 
 
 class Geometry(BaseModel):
@@ -44,6 +46,8 @@ class Item(BaseModel):
     scope: Scope
     side: Side
     patient_id: str | None = None
+    # Input `modality` (e.g. CT, MR); None when absent. Also kept in `extra` for variables.
+    modality: str | None = None
     phase: PhaseInfo
     image: VolumeRef | None = None
     mask: VolumeRef | None = None

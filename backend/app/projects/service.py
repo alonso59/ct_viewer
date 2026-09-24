@@ -6,11 +6,13 @@ the project lock (outer) and the `__workspace__` lock (inner) when the registry 
 
 from __future__ import annotations
 
+import asyncio
 import builtins
+import re
 import shutil
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Final
+from typing import IO, Any, Final
 
 from pydantic import ValidationError
 
@@ -21,6 +23,7 @@ from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard, PathResolver
 from app.curation.state import case_statuses
+from app.projects.bundle import extract_bundle, write_bundle
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
     FORMAT_VERSION,
@@ -59,6 +62,8 @@ class Workspace:
         self.projects_dir = self.root / "projects"
         self.archive_dir = self.projects_dir / ".archive"
         self.registry_path = self.root / "workspace.json"
+        # Bundle export/import scratch space; same filesystem as projects/ (atomic rename).
+        self.staging_dir = self.root / ".staging"
         self._registry: dict[str, WorkspaceEntry] | None = None
         self._cache: OrderedDict[str, ProjectConfig] = OrderedDict()
 
@@ -291,6 +296,58 @@ class Workspace:
             shutil.move(self._folder(entry), dest)
             await self._set_entry(entry.model_copy(update={"archived": False}))
             return self.get(project_id)
+
+    # -- bundles (PRJ-08/09) ------------------------------------------------------------------
+
+    async def export_bundle(self, project_id: str) -> tuple[Path, str]:
+        """Write the bundle zip to a staging file; returns (path, download filename).
+
+        The caller deletes the file once sent. Runs under the project lock so appends and
+        atomic writes cannot interleave with the snapshot.
+        """
+        folder = self.project_dir(project_id)
+        name = self.get(project_id).name
+        self.staging_dir.mkdir(parents=True, exist_ok=True)
+        out = self.staging_dir / f"{new_ulid()}.zip"
+        async with self.locks(project_id):
+            try:
+                await asyncio.to_thread(write_bundle, folder, project_id, out)
+            except BaseException:
+                out.unlink(missing_ok=True)
+                raise
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-.") or "project"
+        return out, f"{slug}-{project_id}.zip"
+
+    async def import_bundle(self, fileobj: IO[bytes]) -> tuple[ProjectConfig, str]:
+        """Extract a bundle as a new project; returns (config, the bundle's project_id).
+
+        The bundle's id is kept unless this workspace already has it (then a new ULID).
+        `cache/` is recreated empty; the index and curation history come from the bundle.
+        """
+        taken = set(self._entries())
+        for d in (self.projects_dir, self.archive_dir):
+            if d.is_dir():
+                taken |= {p.name for p in d.iterdir()}
+        self.staging_dir.mkdir(parents=True, exist_ok=True)
+        staging = self.staging_dir / new_ulid()
+        try:
+            cfg, original, _ = await asyncio.to_thread(extract_bundle, fileobj, staging, taken)
+            async with self.locks(cfg.project_id):
+                dest = self.projects_dir / cfg.project_id
+                if dest.exists() or cfg.project_id in self._entries():
+                    raise ValidationProblem(f"Project {cfg.project_id} already exists")
+                for sub in SUBDIRS:
+                    (staging / sub).mkdir(parents=True, exist_ok=True)
+                staging.rename(dest)
+                entry = WorkspaceEntry(
+                    project_id=cfg.project_id, name=cfg.name, created_at=cfg.created_at
+                )
+                await self._set_entry(entry)
+            self.invalidate(cfg.project_id)
+            return self.get(cfg.project_id), original  # PRJ-11 migration runs here
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
 
     async def touch_opened(self, project_id: str) -> None:
         async with self.locks(project_id):

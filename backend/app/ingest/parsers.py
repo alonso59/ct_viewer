@@ -26,11 +26,11 @@ METADATA_FIELDS = frozenset(
         "case_id", "scan_idx", "filename", "relative_path", "nifti_file", "patient_id",
         "dataset_id", "study_uid", "series_uid", "phase", "curated_phase", "canonical_phase",
         "phase_guess", "phase_guess_confidence", "seg_path", "status", "planned_conversion",
-        "curated_keep",
+        "curated_keep", "modality",
     }
 )  # fmt: skip
 CATALOG_FIELDS = frozenset(
-    {"voi_id", "case_id", "scan_idx", "side", "image_path", "mask_path", "phase"}
+    {"voi_id", "case_id", "scan_idx", "side", "image_path", "mask_path", "phase", "modality"}
 )
 IMAGE_FIELDS = ("relative_path", "nifti_file", "filename")
 

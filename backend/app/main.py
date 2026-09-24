@@ -1,12 +1,21 @@
-"""App factory (BE-*). Routers are mounted under /api/v1 (docs/backend/API.md)."""
+"""App factory (BE-*). Routers are mounted under /api/v1 (docs/backend/API.md).
+
+When `STATIC_ROOT/index.html` exists (the image, OPS-01), the SPA is served on the same port:
+`/assets` as static files, other files under the root as-is, and `index.html` for any other
+path (client-side routes). Paths under `/api` never fall back to the SPA (404 problem).
+"""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 
 from app import __version__
 from app.api.v1 import router as v1_router
@@ -45,7 +54,30 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
     app = FastAPI(title="Radiology Workbench", version=__version__, lifespan=lifespan)
     install_handlers(app)
     app.include_router(v1_router, prefix="/api/v1")
+    mount_spa(app, (settings or get_settings()).static_root)  # after every API router
     return app
+
+
+def mount_spa(app: FastAPI, static_root: Path) -> bool:
+    """Serve the SPA build from `static_root` if it has an `index.html`; returns whether it did."""
+    root = static_root.resolve()
+    index = root / "index.html"
+    if not index.is_file():
+        return False
+    if (root / "assets").is_dir():
+        # Vite content-hashes asset names, so they are safe to cache.
+        app.mount("/assets", StaticFiles(directory=root / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> FileResponse:
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        f = (root / path).resolve()
+        if path and f.is_file() and f.is_relative_to(root):
+            return FileResponse(f)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
+
+    return True
 
 
 def wire(ctx: AppContext) -> None:

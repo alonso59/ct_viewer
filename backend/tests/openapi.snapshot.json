@@ -560,6 +560,21 @@
     "title": "BinDef",
     "type": "object"
    },
+   "Body_import_bundle_api_v1_projects_import_bundle_post": {
+    "properties": {
+     "bundle": {
+      "contentMediaType": "application/octet-stream",
+      "description": "A PRJ-08 bundle .zip",
+      "title": "Bundle",
+      "type": "string"
+     }
+    },
+    "required": [
+     "bundle"
+    ],
+    "title": "Body_import_bundle_api_v1_projects_import_bundle_post",
+    "type": "object"
+   },
    "Body_import_external_api_v1_projects__pid__variables_external_post": {
     "properties": {
      "file": {
@@ -715,6 +730,58 @@
      "n"
     ],
     "title": "BoxStats",
+    "type": "object"
+   },
+   "BundleImportResult": {
+    "properties": {
+     "id_changed": {
+      "title": "Id Changed",
+      "type": "boolean"
+     },
+     "needs_relink": {
+      "title": "Needs Relink",
+      "type": "boolean"
+     },
+     "project": {
+      "$ref": "#/components/schemas/ProjectDetail"
+     },
+     "roots": {
+      "items": {
+       "$ref": "#/components/schemas/BundleRoot"
+      },
+      "title": "Roots",
+      "type": "array"
+     },
+     "source_project_id": {
+      "title": "Source Project Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "project",
+     "source_project_id",
+     "id_changed",
+     "roots",
+     "needs_relink"
+    ],
+    "title": "BundleImportResult",
+    "type": "object"
+   },
+   "BundleRoot": {
+    "description": "One alias of the imported project, checked on this server (PRJ-09).",
+    "properties": {
+     "root": {
+      "$ref": "#/components/schemas/RootInfo"
+     },
+     "verify": {
+      "$ref": "#/components/schemas/VerifyReport"
+     }
+    },
+    "required": [
+     "root",
+     "verify"
+    ],
+    "title": "BundleRoot",
     "type": "object"
    },
    "CaseDetail": {
@@ -3366,6 +3433,42 @@
     "title": "HTTPValidationError",
     "type": "object"
    },
+   "HashJobRequest": {
+    "properties": {
+     "force": {
+      "default": false,
+      "description": "Re-hash files that already have a current hash",
+      "title": "Force",
+      "type": "boolean"
+     }
+    },
+    "title": "HashJobRequest",
+    "type": "object"
+   },
+   "HashJobStarted": {
+    "description": "API-15 `202`: progress and completion arrive as `job.*` SSE events (API-40).",
+    "properties": {
+     "job_id": {
+      "title": "Job Id",
+      "type": "string"
+     },
+     "n_files": {
+      "title": "N Files",
+      "type": "integer"
+     },
+     "n_skipped": {
+      "title": "N Skipped",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "job_id",
+     "n_files",
+     "n_skipped"
+    ],
+    "title": "HashJobStarted",
+    "type": "object"
+   },
    "Health": {
     "properties": {
      "status": {
@@ -3796,6 +3899,17 @@
        }
       ]
      },
+     "modality": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modality"
+     },
      "patient_id": {
       "anyOf": [
        {
@@ -3947,6 +4061,17 @@
         "type": "null"
        }
       ]
+     },
+     "modality": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modality"
      },
      "patient_id": {
       "anyOf": [
@@ -7643,6 +7768,17 @@
      "ref": {
       "title": "Ref",
       "type": "string"
+     },
+     "sha256": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sha256"
      }
     },
     "required": [
@@ -8154,6 +8290,48 @@
     ]
    }
   },
+  "/api/v1/projects/import-bundle": {
+   "post": {
+    "description": "API-06 import (PRJ-09): new project from a bundle, plus a per-alias resolve report.",
+    "operationId": "import_bundle_api_v1_projects_import_bundle_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_import_bundle_api_v1_projects_import_bundle_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BundleImportResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Bundle",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}": {
    "get": {
     "operationId": "get_project_api_v1_projects__pid__get",
@@ -8534,6 +8712,50 @@
      }
     },
     "summary": "Archive Project",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/bundle": {
+   "post": {
+    "description": "API-06 export: `.zip` of the project folder without `cache/` and never image data.",
+    "operationId": "export_bundle_api_v1_projects__pid__bundle_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/zip": {
+        "schema": {
+         "format": "binary",
+         "type": "string"
+        }
+       }
+      },
+      "description": "Project bundle (PRJ-08)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Export Bundle",
     "tags": [
      "projects"
     ]
@@ -9279,6 +9501,66 @@
     "summary": "Project Events",
     "tags": [
      "events"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/hash-jobs": {
+   "post": {
+    "description": "API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.\n\nResults land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item\nrecords (API-21/22). One `hash` job per project (`job-conflict`).",
+    "operationId": "start_hash_api_v1_projects__pid__hash_jobs_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/HashJobRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HashJobStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Hash",
+    "tags": [
+     "imports"
     ]
    }
   },

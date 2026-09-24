@@ -115,6 +115,7 @@ def _finalize_one(
         scope=d.scope,
         side=d.side,
         patient_id=d.patient_id,
+        modality=d.modality,
         phase=d.phase,
         image=image,
         mask=mask,
