@@ -2,7 +2,7 @@
 // source adapters (API-19) → preview (API-11; `nifti-files` options with a live parse) → commit
 // (API-12) + indexing job (SSE progress, API-40). Refusals show their cause and next actions (UI-18).
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -10,6 +10,7 @@ import {
   api,
   useCommitImport,
   useDetect,
+  useFsList,
   useImportPreview,
   useJobs,
   useRoots,
@@ -24,6 +25,7 @@ import { toast } from '../../shell'
 import { useReviewer } from '../../state'
 import { DerivedRootDialog } from './DerivedRootDialog'
 import { ACCEPTED, FolderBrowser } from './FolderBrowser'
+import { sampleStems, segments, suggestPatterns } from './patternSuggest'
 import { useImportWizard, type WizardPrefill } from './store'
 import { Icon, codicon } from '../../theme'
 import './import.css'
@@ -84,8 +86,57 @@ function Mapping({ preview }: { preview: ImportPreview }) {
   )
 }
 
-/** SRC-04 options: pattern (nnU-Net style by default), case id source, modality */
-function NiftiOptionsForm({ value, onChange }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void }) {
+// SRC-17 highlight colours: the categorical palette, fixed per group (--cat-1 is the accent blue)
+const GROUP_COLOR: Record<string, string> = { case_id: 'var(--cat-2)', scan_idx: 'var(--cat-4)', channel: 'var(--cat-6)', side: 'var(--cat-5)' }
+const EXAMPLES = 4
+
+/** SRC-17: candidates from the browsed folder's file names; picking one only fills the field */
+function PatternSuggester({ names, current, onPick }: { names: string[]; current: string | undefined; onPick: (pattern: string) => void }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const stems = useMemo(() => sampleStems(names), [names])
+  const cands = useMemo(() => suggestPatterns(stems), [stems])
+  if (!open) {
+    return (
+      <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setOpen(true)}>
+        <Icon spec={codicon('lightbulb')} />
+        {t('import.suggestPattern')}
+      </button>
+    )
+  }
+  return (
+    <div className="pattern-cands">
+      <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>
+        {!stems.length ? t('import.suggestNone') : !cands.length ? t('import.suggestNoMatch') : t('import.suggestHelp')}
+      </span>
+      {cands.map((c) => (
+        <button key={c.pattern} type="button" className="pattern-cand" data-checked={current === c.pattern} onClick={() => onPick(c.pattern)}>
+          <span className="mono pattern-rx" title={c.pattern}>{c.pattern}</span>
+          <span className="pattern-meta">
+            {c.groups.map((g) => (
+              <span key={g} className="mono pattern-group" style={{ color: GROUP_COLOR[g] }}>{g}</span>
+            ))}
+            <span className="muted">{t('import.suggestMatches', { n: c.matched, total: stems.length })}</span>
+          </span>
+          {stems
+            .map((s) => segments(c.pattern, s))
+            .filter((x) => x !== null)
+            .slice(0, EXAMPLES)
+            .map((parts) => (
+              <span key={parts.map((x) => x.text).join('')} className="mono pattern-ex">
+                {parts.map((x, k) =>
+                  x.group ? <span key={k} className="pattern-group" style={{ color: GROUP_COLOR[x.group] }} title={x.group}>{x.text}</span> : <span key={k} className="muted">{x.text}</span>,
+                )}
+              </span>
+            ))}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** SRC-04 options: pattern (one case per stem by default), case id source, modality */
+function NiftiOptionsForm({ value, onChange, names }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; names: string[] }) {
   const { t } = useTranslation()
   return (
     <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
@@ -94,6 +145,7 @@ function NiftiOptionsForm({ value, onChange }: { value: NiftiOptions; onChange: 
         <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
         <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('import.nifti.patternHelp')}</span>
       </label>
+      <PatternSuggester names={names} current={value.pattern} onPick={(pattern) => onChange({ ...value, pattern })} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <label className="field">
           <span className="field-label">{t('import.nifti.caseIdFrom')}</span>
@@ -200,6 +252,9 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const p = preview.data
   const path = file ?? dir
   const cands = detect.data?.candidates ?? []
+  // SRC-17 sample: the browsed folder's listing, the same query as the Data root step's browser
+  const listing = useFsList(dir, 'source').data
+  const fileNames = useMemo(() => (listing?.entries ?? []).filter((e) => e.kind === 'file').map((e) => e.name), [listing])
   // IMP-14: format, and an alias of this project that points elsewhere (commit would repoint it);
   // SRC-15 "add" picks a free alias on the server, so it never collides
   const taken = (useRoots(pid).data ?? []).find((r) => r.alias === alias)
@@ -400,7 +455,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             <div className="wiz-grid" style={{ marginTop: 8 }}>
               <Candidates cands={cands} value={adapter} onPick={setAdapter} />
               <div>
-                {adapter === 'nifti-files' ? <NiftiOptionsForm value={options} onChange={setOptions} /> : null}
+                {adapter === 'nifti-files' ? <NiftiOptionsForm value={options} onChange={setOptions} names={fileNames} /> : null}
                 {detect.data && Object.keys(detect.data.ignored).length ? (
                   <p className="muted" style={{ fontSize: 'var(--fs-panel)', marginTop: 8 }}>
                     {t('import.ignored', { list: Object.entries(detect.data.ignored).map(([ext, n]) => `${n} ${ext}`).join(', ') })}

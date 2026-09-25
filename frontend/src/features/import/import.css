@@ -118,3 +118,47 @@
   border-radius: var(--radius);
   font-size: var(--fs-panel);
 }
+/* SRC-17 pattern suggester */
+.pattern-cands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  /* long patterns ellipsize instead of widening the form's grid track */
+  min-width: 0;
+}
+.pattern-cand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--sp-2) var(--sp-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--fs-panel);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.pattern-cand:hover {
+  background: var(--bg-hover);
+}
+.pattern-cand[data-checked='true'] {
+  border-color: var(--fg-muted);
+}
+.pattern-rx,
+.pattern-ex {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pattern-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-size: var(--fs-badge);
+}
+.pattern-group {
+  font-weight: var(--fw-semibold);
+}
