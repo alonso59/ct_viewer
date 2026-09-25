@@ -247,6 +247,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [files, setFiles] = useState<Partial<Uploads>>({})
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
   const [options, setOptions] = useState<NiftiOptions>(prefill?.modality ? { modality: prefill.modality } : {})
+  const [reconstruct, setReconstruct] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [convertError, setConvertError] = useState<unknown>(null)
   const [askDerived, setAskDerived] = useState(false)
@@ -302,6 +303,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     if (!path) return
     const req: PreviewRequest = { root: path, alias, adapter: a, add: prefill?.add ?? false }
     if (a === 'nifti-files') req.options = options
+    if (a === 'metadata-v1' && reconstruct) req.options = { reconstruct_sidecars: true } // IMP-15
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
 
@@ -454,7 +456,8 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               pid={pid}
               onClose={(ok) => {
                 setAskDerived(false)
-                if (ok) void runConvert()
+                // a DICOM conversion or a sidecar reconstruction (IMP-15) waited for the folder
+                if (ok) void (adapter === 'dicom.convert' ? runConvert() : adapter && IMPORTABLE.has(adapter) && runPreview(adapter as ImportAdapter))
               }}
             />
           ) : null}
@@ -463,6 +466,15 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               <Candidates cands={cands} value={adapter} onPick={setAdapter} />
               <div>
                 {adapter === 'nifti-files' ? <NiftiOptionsForm value={options} onChange={setOptions} names={fileNames} /> : null}
+                {adapter === 'metadata-v1' ? (
+                  <label className="check" style={{ marginTop: 8 }}>
+                    <input type="checkbox" checked={reconstruct} onChange={(e) => setReconstruct(e.target.checked)} />
+                    <span>
+                      {t('import.reconstruct')}
+                      <span className="muted" style={{ display: 'block', fontSize: 'var(--fs-badge)' }}>{t('import.reconstructHelp')}</span>
+                    </span>
+                  </label>
+                ) : null}
                 {detect.data && Object.keys(detect.data.ignored).length ? (
                   <p className="muted" style={{ fontSize: 'var(--fs-panel)', marginTop: 8 }}>
                     {t('import.ignored', { list: Object.entries(detect.data.ignored).map(([ext, n]) => `${n} ${ext}`).join(', ') })}

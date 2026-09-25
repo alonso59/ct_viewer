@@ -367,6 +367,8 @@
     "projectLevel": "Import (no case)"
   },
   "image": {
+    "tagsPartial": "Reconstructed from the imported metadata row: partial, not the DICOM header",
+    "tagsPartialHelp": "Built from the DICOM fields the metadata.jsonl row already had (IMP-15). Tags the row did not carry are missing.",
     "absolute": "Absolute",
     "hidePaths": "Hide paths",
     "imageRef": "Image",

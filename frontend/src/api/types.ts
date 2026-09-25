@@ -222,7 +222,8 @@ export interface PreviewRequest {
   files?: { metadata: File; phase?: File | null; voi_catalog?: File | null }
   /** SRC-03/04: `nifti-files` builds v1 rows from file names; `root` may be one NIfTI file (SRC-05) */
   adapter?: ImportAdapter
-  options?: NiftiOptions
+  /** `nifti-files` options, or IMP-15 `{reconstruct_sidecars}` for `metadata-v1` */
+  options?: NiftiOptions | { reconstruct_sidecars: boolean }
   /** SRC-15: keep the project's other sources (SOURCES §Imports) */
   add?: boolean
 }

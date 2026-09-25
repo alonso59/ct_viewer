@@ -28,6 +28,12 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | IMP-14 | The alias field (IMP-01) validates inline — format and collision with an existing alias of the project — instead of surfacing only as a preview/commit failure. | S |
 | IMP-15 | `metadata-v1` import offers, opt-in, reconstructed per-row DICOM sidecars from converter-extra fields already in the row (ADR-0025); never generated when a row's `dicom_sidecar` ref already resolves, never on by default. | S |
 
+## Implementation notes (IMP-15, ADR-0025 §2)
+
+- Opt-in in the wizard's Detect step for `metadata-v1` ("Reconstruct DICOM tags…"); stored in the snapshot's `source.json` options, so a re-index does the same. Needs the project's derived root (`derived-root-required` → choose one, then the preview runs again).
+- The index job maps the row fields with a header home (`backend/app/ingest/sidecars.py` `TAGS`: dates, times, UIDs, kVp, window, rescale, series/study descriptions, manufacturer, kernel, MR timing…) to a DICOM JSON Model with `_provenance: {source: "metadata-v1-import", fidelity: "partial", generated_at}` and an `_omitted` note; patient fields are never mapped. One file per scan, `{DERIVED}/{project}/imports/{import_id}/sidecars/{image name}.dicom.json`, written by the job workers; every item of the scan gets that `DERIVED:` ref as `dicom_sidecar`. A row whose `dicom_sidecar` already resolves keeps it. A row with no mappable field gets none.
+- The Image view's "DICOM tags" shows a "Reconstructed … partial" notice for these.
+
 ## Input files (contract v1, from the v2 converter/preprocessor)
 
 **Core** = the fields below marked ✓ plus `phase`, `seg_path`, `side`, `image_path`, `mask_path`, `modality`. Only core fields have fixed meaning.

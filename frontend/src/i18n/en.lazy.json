@@ -972,6 +972,8 @@
     "aliasHelp": "Items store paths as {{alias}}:relative/path, so the project survives a move.",
     "aliasInvalid": "Use 1–16 characters: a letter first, then letters, digits or _.",
     "aliasTaken": "{{alias}} is already this project's alias for {{path}}. Pick another name.",
+    "reconstruct": "Reconstruct DICOM tags for rows without a sidecar",
+    "reconstructHelp": "Builds a partial tag list from the DICOM fields each row already has (kVp, window, UIDs…), marked as reconstructed. Written to the project's derived folder only; a real sidecar always wins.",
     "suggestPattern": "Suggest a pattern",
     "suggestHelp": "Built from the file names in this folder. Picking one fills the pattern field; review and edit it before Preview.",
     "suggestMatches": "matches {{n}} of {{total}} sampled names",

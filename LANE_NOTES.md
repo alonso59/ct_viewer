@@ -734,3 +734,15 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Tests: `test_reference_column_mirrors_a_comparable_variable`, `test_api_variables` (`phase.effective`), Vitest LBL-09.
 
 **Results**: see the close-out entry below.
+
+## 2026-09-25 · Reconstructed sidecars (IMP-15, ADR-0025 §2) and close-out · version_3-dev
+
+**Done**
+- IMP-15 as in INPUT_METADATA §Implementation notes: opt-in toggle, derived root only, one partial sidecar per scan written by the index job's workers, a real sidecar wins, patient fields never mapped; the DICOM tags section flags reconstructed sidecars. The wizard re-runs the preview after "choose a derived folder" (it only resumed a DICOM conversion before).
+
+**Close-out of ADR-0025 / ADR-0026 (commits `5fe1ece` … this one)**: `make check` green (see the commit), Playwright 40/40 (Chromium + Firefox).
+
+**Open issues**
+- The "real sidecar wins" rule is covered by the code path, not by a test with a real converted sidecar under a metadata-v1 import.
+- Reference columns (LBL-09) trail their source by the catalog rebuild delay (≈ 1 s).
+- CSV/Parquet dataset exports no longer include `patient_id` by default (VAR-09); tick "Include sensitive fields" to get it.

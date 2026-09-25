@@ -30,7 +30,7 @@ from app.core.locks import ProjectLocks
 from app.core.paths import validate_alias
 from app.curation.state import case_statuses
 from app.events.bus import EventBus
-from app.ingest import indexer, preview
+from app.ingest import indexer, preview, sidecars
 from app.ingest.cases import build_cases
 from app.ingest.indexer import ItemProbeResult
 from app.ingest.models import CaseSummary, IndexState, IndexStatus, Item, QcWarning
@@ -75,6 +75,7 @@ SOURCES = "sources"
 IMPORTS = "imports.jsonl"
 ANNOTATIONS = "annotations.jsonl"
 SAMPLE_NAMES = 200
+SIDECAR_BATCH = 200  # IMP-15 files per worker unit
 
 
 class IngestService:
@@ -145,6 +146,11 @@ class IngestService:
                 "Data root is not a directory", errors=[{"loc": ["root"], "msg": "not a directory"}]
             )
         adapter = adapter or "metadata-v1"
+        if adapter == "metadata-v1":
+            # IMP-15: the only metadata-v1 option; reconstructed sidecars go to the derived root
+            options = {sidecars.OPTION: True} if options.get(sidecars.OPTION) else {}
+            if options:
+                self.workspace.derived_root(project_id)  # derived-root-required (DCM-05)
         extra: dict[str, Any] = {}
         if add:  # SRC-15: next to the other sources, under its own alias when the root differs
             alias = self._free_alias(project_id, alias, os.path.normpath(root))
@@ -349,6 +355,25 @@ class IngestService:
         if cur is not None:
             raise JobConflict(f"An index job is already active: {cur.job_id}")
 
+    def _plan_sidecars(
+        self, project_id: str, rec: ImportRecord, drafts: list[Draft]
+    ) -> list[sidecars.Spec]:
+        """IMP-15: reconstructed sidecars of an opted-in `metadata-v1` import (the option is
+        kept in the snapshot's `source.json`); none without a derived root."""
+        if rec.adapter != "metadata-v1":
+            return []
+        src = self.workspace.project_dir(project_id) / SOURCES / rec.import_id / "source.json"
+        opts = SourceInfo.model_validate(read_json(src)).options if src.is_file() else {}
+        if not opts.get(sidecars.OPTION):
+            return []
+        root = self.workspace.get(project_id).derived_root()
+        if root is None:
+            log.warning("reconstructed sidecars skipped: no derived root",
+                        extra={"project_id": project_id, "import_id": rec.import_id})  # fmt: skip
+            return []
+        resolver = self.workspace.resolver(project_id)
+        return sidecars.plan(drafts, resolver, root, project_id, rec.import_id, rec.at)
+
     async def _start_index(self, project_id: str, import_id: str) -> str:
         """Index the latest snapshot of every source (IMP-05/06) with active annotations."""
         rules = self.phase_rules(project_id)
@@ -356,13 +381,19 @@ class IngestService:
         resolver = self.workspace.resolver(project_id)
         anns = self.annotations(project_id)
         per_source: list[list[Draft]] = []
+        specs: list[sidecars.Spec] = []
         for rec in self.latest_sources(project_id):
             ds = build_drafts(self._snapshot(pdir, rec), resolver, rec.alias, rules, anns)
             for d in ds:
                 d.import_id = rec.import_id
+            specs += self._plan_sidecars(project_id, rec, ds)
             per_source.append(ds)
         drafts = merge_sources(per_source)
         units = [WorkUnit(indexer.probe_batch, (b,)) for b in indexer.batches(probes_for(drafts))]
+        units += [  # IMP-15: written by the workers, like the probes (BE-12)
+            WorkUnit(sidecars.write_batch, (specs[i : i + SIDECAR_BATCH],))
+            for i in range(0, len(specs), SIDECAR_BATCH)
+        ]
         results: dict[str, ItemProbeResult] = {}
 
         async def on_result(batch: Any) -> None:

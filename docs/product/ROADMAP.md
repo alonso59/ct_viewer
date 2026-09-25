@@ -164,7 +164,7 @@ Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` i
 
 ### Pending amendment — dataset.jsonl and reconstructed sidecars (ADR-0025)
 - [x] `dataset.jsonl` (API-59 `format=jsonl`): one line per item, layers flat, per-file records as `refs`; VAR-09 sensitive fields left out of every dataset-table format unless asked
-- [ ] Reconstructed sidecars on `metadata-v1` import, opt-in (IMP-15)
+- [x] Reconstructed sidecars on `metadata-v1` import, opt-in (IMP-15)
 
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)

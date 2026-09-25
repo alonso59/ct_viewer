@@ -27,18 +27,27 @@ function DicomTags({ pid, iid }: { pid: string; iid: string }) {
   if (q.error) return <ProblemCard error={q.error} />
   if (!q.data) return <span className="muted">{t('common.loading')}</span>
   const rows = Object.entries(q.data).filter(([k]) => /^[0-9A-F]{8}$/.test(k))
+  // IMP-15 / ADR-0025: a reconstructed sidecar is never shown as a real DICOM header
+  const partial = (q.data._provenance as { fidelity?: string } | undefined)?.fidelity === 'partial'
   return (
-    <table className="table mono" style={{ fontSize: 'var(--fs-badge)' }}>
-      <tbody>
-        {rows.map(([k, v]) => (
-          <tr key={k}>
-            <td>{tagName(k)}</td>
-            <td>{(v as { vr?: string }).vr ?? ''}</td>
-            <td>{tagText(v)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      {partial ? (
+        <div className="badge" data-tone="warn" role="note" style={{ marginBottom: 4 }} title={t('image.tagsPartialHelp')}>
+          {t('image.tagsPartial')}
+        </div>
+      ) : null}
+      <table className="table mono" style={{ fontSize: 'var(--fs-badge)' }}>
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}>
+              <td>{tagName(k)}</td>
+              <td>{(v as { vr?: string }).vr ?? ''}</td>
+              <td>{tagText(v)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   )
 }
 
