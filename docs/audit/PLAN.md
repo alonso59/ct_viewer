@@ -54,6 +54,7 @@ Order is fixed; stop for owner review after A1 and after A3 (one triage each).
 | A4 | Docs ↔ code conformance | Do docs, code and ROADMAP tell the same story? | **Traceability script** (scratch, not committed): every `| XXX-nn |` requirement → hits in code/tests; list `M` requirements with no code or no test; `API.md` routes vs OpenAPI snapshot vs `frontend/src/api/mock/server.ts`; ROADMAP `[x]` claims spot-checked; doc-to-doc contradictions (same fact stated twice, R8); stale `Open questions` | `A4-conformance.md` + traceability CSV in scratch |
 | A5 | Functional consistency & bugs | Where do features disagree or break? | Cross-feature consistency: effective phase (PHS-03) in Explorer vs Image view vs dashboard vs `dataset.jsonl`; curation rollup vs badges; seg set selection across viewer/radiomics/curation; SSE live vs refetch; `If-Match` 412 paths; view-only enforcement server-side; R1 writes. Targeted review of the high-risk modules: `backend/app/tasks/service.py`, `radiomics/service.py`, `ingest/service.py`, `frontend/src/api/http.ts`, `features/viewer/engine/NiivueViewer.ts`, `ImportWizard.tsx` | `A5-bugs.md` (each bug with a repro on the fixtures) |
 | A6 | Code quality & tests | Is the code clean, non-repetitive and cheap to change? | Duplication (`npx jscpd`), dead code (`npx knip`, `vulture`), type escape hatches (`any`, `as`, `# type: ignore`, `noqa`), files > 500 lines, layering (features importing each other, plugins reaching into core), mock server drift vs real API; tests: coverage by golden path (which steps have no E2E), unit coverage of the A5 modules, slow tests, fixture gaps; developer loop cost (`make check` time, type generation, E2E startup) | `A6-code-tests.md` |
+| A7 | Documentation structure | Is the doc set clean, stable and publishable (Sphinx + MyST) with a PRD, an SRS and an MVP, without breaking the agent router? | See §A7 below | `A7-docs.md` + target tree and migration map |
 
 Tools are run through `npx`/`uvx` from the scratchpad; nothing is added to `package.json` or `pyproject.toml` during the audit (integrator files, ROADMAP §Lanes).
 
@@ -74,6 +75,20 @@ One row per thing a scientist works with; one column per way to reach it. A cell
 | Plugin Library, reviewer name, theme, keybindings | | | | | | | |
 | Problems (warnings), jobs, history | | | | | | | |
 
+### A7 · documentation structure (owner decisions 2026-09-26)
+
+Tool: **Sphinx + MyST** (Markdown stays the source; build offline, dev-only dependency, never in the image, R5). **SRS generated**: `product/SRS.md` holds the hand-written IEEE 29148 frame (purpose, scope, definitions, constraints, verification); the requirement table is built from the owner docs' `| ID | Requirement | Pri |` rows, so R8 holds. **PRD** = `product/VISION.md` grown into a PRD (problem, users, goals, success metrics, journeys G1..G4, non-goals). **MVP = the v3.0 release cut**: G1..G4, the M requirements behind them, no open P0/P1 audit findings, Docker + udocker verified; everything else is "after v3.0". Order: A7 audit → owner approval of the target tree → one restructure batch → P1 fix batches.
+
+| Step | Check | Output |
+|---|---|---|
+| Inventory | Every file: header block, lines, owner prefixes, inbound links (INDEX, other docs), orphans, root files (`LANE_NOTES.md`, `README.md`) | table in `A7-docs.md` |
+| Trial build | `sphinx-build -W` with `myst-parser` via `uvx` in the scratchpad (no repo changes): broken links/anchors, heading levels, tables, images, duplicate labels | warning list grouped by cause |
+| Classification | product (PRD, MVP, NFR, GLOSSARY, ROADMAP) · requirements (SRS) · design (domain, backend, frontend) · operations · decisions (ADR) · process (audit, runbook, lane notes) · archive | proposed tree |
+| Agent router | `AGENTS.md` + `INDEX.md` keep working with the same token budget; root-doc name clash (`index.md` vs `INDEX.md` on case-insensitive macOS) resolved | rule + chosen root doc |
+| SRS generator | Design only: parser rules, output location (build-time vs committed), `make docs` / `make docs-srs`, failure on duplicate IDs (A4-06) | spec |
+| MVP cut | G1..G4 → M requirements (A4 `trace.csv`) → open findings → release checklist | draft outline, not the final MVP |
+| Migration map | old path → new path, what is merged, split (A4-17 runbook), published or excluded (`archive/`, runbook) | table |
+
 ## Triage and fix batches
 
 1. After each triage point the owner marks findings `accept` / `defer` / `reject` in the findings file (extra column `Decision`).
@@ -92,5 +107,6 @@ One row per thing a scientist works with; one column per way to reach it. A cell
 | A4 Conformance | ✅ 2026-09-25 (`findings/A4-conformance.md`) | 0 / 1 / 16 | pending |
 | A5 Bugs | ✅ 2026-09-26 (`findings/A5-bugs.md`) | 2 / 7 / 7 | pending |
 | A6 Code & tests | ✅ 2026-09-26 (`findings/A6-code-tests.md`) | 0 / 5 / 14 | pending |
+| A7 Docs structure | ✅ 2026-09-26 (`findings/A7-docs.md`) | 0 / 0 / 12 | pending |
 
 **Exit:** every audit reported; P0 findings fixed; accepted P1 findings fixed or scheduled in ROADMAP; G1..G4 each covered by one Playwright spec that walks the whole path.
