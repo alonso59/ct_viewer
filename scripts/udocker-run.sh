@@ -51,6 +51,17 @@ data_host="$(get DATA_HOST)"
 [[ "$data_host" == /* ]] || { echo "DATA_HOST must be an absolute path in $env_file" >&2; exit 2; }
 workspace_host="$(get WORKSPACE_HOST ./workspace)"
 [[ "$workspace_host" == /* ]] || workspace_host="$env_dir/${workspace_host#./}"  # compose: relative to .env dir
+# Derived roots (OPS-11): writable mirror mount; compose falls back to ./derived → /derived.
+derived_host="$(get DERIVED_HOST)"
+if [[ -n "$derived_host" ]]; then
+  [[ "$derived_host" == /* ]] || { echo "DERIVED_HOST must be an absolute path in $env_file" >&2; exit 2; }
+  derived_mount="$derived_host"
+else
+  derived_host="$env_dir/derived"; derived_mount=/derived
+fi
+# External task manifests (TSK-01): mounted at /plugins, like compose (read-only there).
+plugins_host="$(get PLUGINS_HOST ./plugins-external)"
+[[ "$plugins_host" == /* ]] || plugins_host="$env_dir/${plugins_host#./}"
 port="$(get PORT 8000)"
 # RW_VERSION defaults to the backend package version (backend/pyproject.toml), like compose.
 pkg_version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/backend/pyproject.toml" 2>/dev/null || true)"
@@ -68,15 +79,19 @@ fixed=(
   "PORT=$port"
   "WORKSPACE_ROOT=/workspace"
   "ALLOWED_DATA_ROOTS=$(get ALLOWED_DATA_ROOTS "$data_host")"
+  "ALLOWED_DERIVED_ROOTS=$(get ALLOWED_DERIVED_ROOTS "$derived_mount")"
+  "PLUGINS_ROOT=/plugins"
   "PUBLIC_BASE_URL=$(get PUBLIC_BASE_URL "http://localhost:$port")"
 )
-fixed_keys=" CONTAINER_MODE HOST PORT WORKSPACE_ROOT ALLOWED_DATA_ROOTS PUBLIC_BASE_URL "
+fixed_keys=" CONTAINER_MODE HOST PORT WORKSPACE_ROOT ALLOWED_DATA_ROOTS ALLOWED_DERIVED_ROOTS PLUGINS_ROOT PUBLIC_BASE_URL "
 
 if [[ -n "${UDOCKER:-}" ]]; then read -r -a ud <<< "$UDOCKER"
 elif command -v udocker >/dev/null; then ud=(udocker)
 else ud=(python3 "$repo/udocker.py"); fi
 
-args=(run --volume="$workspace_host:/workspace" --volume="$data_host:$data_host")
+# Compose mounts data and plugins :ro; udocker volumes take no ro flag, so the app enforces it (R1).
+args=(run --volume="$workspace_host:/workspace" --volume="$data_host:$data_host"
+  --volume="$derived_host:$derived_mount" --volume="$plugins_host:/plugins")
 # Every other .env key reaches the container, like compose `env_file:` (last duplicate wins).
 seen=" "
 for ((i = ${#keys[@]} - 1; i >= 0; i--)); do
@@ -92,8 +107,9 @@ if [[ $dry_run -eq 1 ]]; then
   exit 0
 fi
 
-mkdir -p "$workspace_host"
+mkdir -p "$workspace_host" "$derived_host" "$plugins_host"  # compose creates missing mounts too
 [[ -w "$workspace_host" ]] || { echo "workspace not writable: $workspace_host (OPS-06)" >&2; exit 2; }
+[[ -w "$derived_host" ]] || { echo "derived root not writable: $derived_host (OPS-11)" >&2; exit 2; }
 if ! "${ud[@]}" inspect "$name" >/dev/null 2>&1; then
   "${ud[@]}" create --name="$name" "$image"
 fi

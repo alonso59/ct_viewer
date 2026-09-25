@@ -2,9 +2,10 @@
 
 Layout: every entry sits under one top-level folder named after the `project_id`
 (`{project_id}/project.json`, `{project_id}/curation/events.jsonl`, …). Left out: `cache/`
-(disposable, PRJ-10), the `.lock` file, atomic-write temp files, symlinks and anything that
-looks like image data. Bundles hold alias refs only (PRJ-04), so image paths are resolved
-against the importing server's roots; the relink dialog (PRJ-05) fixes any that do not resolve.
+(disposable, PRJ-10), `index/variables.parquet` (rebuilt on open), the `.lock` file,
+atomic-write temp files, symlinks and anything that looks like image data. Bundles hold alias
+refs only (PRJ-04), so image paths are resolved against the importing server's roots; the
+relink dialog (PRJ-05) fixes any that do not resolve.
 """
 
 from __future__ import annotations
@@ -28,6 +29,9 @@ from app.projects.models import ProjectConfig
 
 EXCLUDED_DIRS: Final = frozenset({"cache"})
 EXCLUDED_FILES: Final = frozenset({".lock"})
+# Rebuilt on open (PRJ-10, VAR-01) and full of case-level values such as `patient_id` (NFR-17).
+EXCLUDED_REL: Final = frozenset({"index/variables.parquet"})
+CATALOG_FILE: Final = "variables/catalog.json"
 # Image data never goes into a bundle (PRJ-08), even if someone dropped a volume in the folder.
 IMAGE_SUFFIXES: Final = (".nii", ".nii.gz", ".npy", ".npz", ".nrrd", ".mha", ".mhd", ".dcm")
 MAX_ENTRIES: Final = 1_000_000
@@ -39,6 +43,7 @@ def _excluded(rel: str) -> bool:
     name = parts[-1]
     return (
         parts[0] in EXCLUDED_DIRS
+        or rel in EXCLUDED_REL
         or (len(parts) == 1 and name in EXCLUDED_FILES)
         or (name.startswith(".") and name.endswith(".tmp"))  # core.fsio temp files
         or name.lower().endswith(IMAGE_SUFFIXES)
@@ -117,6 +122,34 @@ class _Scrubber:
         return json.dumps(reg, indent=1).encode("utf-8")
 
 
+def _is_task_run(rel: str) -> bool:
+    parts = rel.split("/")
+    return len(parts) == 4 and parts[:2] == ["tasks", "runs"] and parts[3] == "run.json"
+
+
+def _without_source_path(data: bytes) -> bytes | None:
+    """NFR-17: the absolute input path of a task run (a DICOM folder is often a patient name)."""
+    raw = json.loads(data)
+    sel = raw.get("selection") if isinstance(raw, dict) else None
+    if not isinstance(sel, dict) or not sel.get("source"):
+        return None
+    sel["source"] = None
+    return json.dumps(raw, indent=2).encode("utf-8")
+
+
+def _without_profile_values(data: bytes) -> bytes | None:
+    """NFR-17: profile top values and examples (e.g. patient ids) leave; the importing server
+    re-profiles on first access because `index/variables.parquet` is not bundled (VAR-01)."""
+    raw = json.loads(data)
+    changed = False
+    for v in raw.get("variables", []) if isinstance(raw, dict) else []:
+        prof = v.get("profile") if isinstance(v, dict) else None
+        if isinstance(prof, dict) and (prof.get("top") or prof.get("examples")):
+            prof["top"], prof["examples"] = [], []
+            changed = True
+    return json.dumps(raw, indent=1).encode("utf-8") if changed else None
+
+
 def _without_view_token(data: bytes) -> bytes | None:
     """PRJ-17: a bundle never carries the view-only token (reset to null)."""
     raw = json.loads(data)
@@ -148,6 +181,10 @@ def write_bundle(folder: Path, project_id: str, out: Path) -> int:
             new = scrub.case_rows(path.read_bytes())
         elif rel == IDENTITY_FILE:
             new = scrub.identity(path.read_bytes())
+        elif rel == CATALOG_FILE:
+            new = _without_profile_values(path.read_bytes())
+        elif _is_task_run(rel):
+            new = _without_source_path(path.read_bytes())
         else:
             continue
         if new is not None:

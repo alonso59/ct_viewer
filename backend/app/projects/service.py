@@ -173,6 +173,17 @@ class Workspace:
         rows.sort(key=lambda r: r.last_opened_at or r.created_at, reverse=True)
         return rows
 
+    def reserved_derived(self) -> tuple[Path, ...]:
+        """Derived subtrees only their owner writes (NFR-11): the write-once `_datasets/`
+        (TSK-13) and every project's task tree `{derived root}/{project_id}/` (PROJECT_FORMAT
+        §Write rules), archived projects included."""
+        roots = [realpath(d) for d in self.settings.dataset_roots]
+        for pid in self._entries():
+            root = self.get(pid).derived_root()
+            if root is not None:
+                roots.append(realpath(Path(root.path) / pid))
+        return tuple(roots)
+
     def get(self, project_id: str) -> ProjectConfig:
         """Cached (LRU, BE-07); runs PRJ-11 migrations on first open."""
         hit = self._cache.get(project_id)

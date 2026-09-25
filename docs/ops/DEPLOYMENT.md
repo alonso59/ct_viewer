@@ -56,8 +56,8 @@ services:
     volumes:
       - ${WORKSPACE_HOST:-./workspace}:/workspace
       - ${DATA_HOST}:${DATA_HOST}:ro        # mirror mount (OPS-05)
-      - ${DERIVED_HOST}:${DERIVED_HOST}     # writable mirror mount (OPS-11)
-      - ${PLUGINS_HOST}:${PLUGINS_HOST}:ro  # optional: external task manifests
+      - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived}  # writable mirror mount (OPS-11)
+      - ${PLUGINS_HOST:-./plugins-external}:/plugins:ro     # external task manifests (PLUGINS_ROOT)
 ```
 
 ## udocker (remote server, no sudo)
@@ -78,7 +78,7 @@ udocker create --name=rw radiology-workbench:{version}
 | Execution mode affects I/O speed (`P1` default vs `F3`) | Benchmark in P7; document the chosen mode in the run script |
 | No compose | `udocker-run.sh` is the single source of the run command (OPS-09) |
 | Runs as the invoking user | `WORKSPACE_ROOT` must be writable by that user |
-| External tasks | Compose mounts `PLUGINS_HOST` read-only at `/plugins` (`PLUGINS_ROOT`) and `DERIVED_HOST` writable at the same path. Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
+| External tasks | Compose and `udocker-run.sh` both mount `PLUGINS_HOST` at `/plugins` (`PLUGINS_ROOT`) and `DERIVED_HOST` writable at the same path (default `./derived` → `/derived`, then `ALLOWED_DERIVED_ROOTS=/derived`); udocker volumes carry no read-only flag. Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
 
 ## Electron (phase P8)
 

@@ -8553,7 +8553,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "csv" | "parquet" | "jsonl";
-                /** @description Also export `sensitive` fields: patient_id, dates (VAR-09) */
+                /** @description Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers (VAR-09). Absolute paths and `raw_metadata` never leave. */
                 include_sensitive?: boolean;
             };
             header?: never;

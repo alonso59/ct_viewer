@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
 from fastapi import APIRouter, Query
 from fastapi.responses import Response
@@ -12,7 +12,7 @@ from app.api.v1.deps import Ctx
 from app.context import AppContext
 from app.layers import table
 from app.layers.model import Layer, LayerContext, active_layers
-from app.variables.schema import SENSITIVE_FIELDS
+from app.variables.schema import SENSITIVE_FIELDS, name_exclusion
 from app.variables.service import VariableService
 
 router = APIRouter(tags=["layers"])
@@ -46,10 +46,24 @@ def list_layers(ctx: Ctx, pid: str) -> list[LayerInfo]:
     ]
 
 
-async def sensitive_fields(ctx: AppContext, pid: str) -> frozenset[str]:
-    """VAR-09: `patient_id`, date variables and anything else the catalog tags `sensitive`."""
+NEVER_EXPORTED: Final = frozenset({"raw_metadata"})  # the DICOM tag blob (NFR-17)
+
+
+async def dropped_fields(ctx: AppContext, pid: str, include_sensitive: bool) -> frozenset[str]:
+    """VAR-09 / NFR-17 in every format: absolute paths and the raw tag blob never leave; UIDs,
+    accession numbers, `patient_id`, dates and catalog-`sensitive` fields only on request."""
     cat = await VariableService(ctx.workspace, ctx.index, ctx.locks, ctx.bus).catalog(pid)
-    return SENSITIVE_FIELDS | {v.name for v in cat.variables if "sensitive" in v.tags}
+    never = NEVER_EXPORTED | {e.name for e in cat.excluded if e.reason == "path"}
+    if include_sensitive:
+        return never
+    extra = {k for i in ctx.index.load(pid).items for k in i.extra}
+    return (
+        never
+        | SENSITIVE_FIELDS
+        | {v.name for v in cat.variables if "sensitive" in v.tags}
+        | {e.name for e in cat.excluded if e.reason in ("uid", "accession")}
+        | {k for k in extra if name_exclusion(k)}  # also fields only excluded items carry
+    )
 
 
 def annotation_refs(ctx: AppContext, pid: str) -> dict[str, str]:
@@ -80,13 +94,17 @@ async def dataset_table(
     pid: str,
     format: Literal["csv", "parquet", "jsonl"] = "csv",
     include_sensitive: Annotated[
-        bool, Query(description="Also export `sensitive` fields: patient_id, dates (VAR-09)")
+        bool,
+        Query(
+            description="Also export `sensitive` fields: patient_id, dates, UIDs, accession "
+            "numbers (VAR-09). Absolute paths and `raw_metadata` never leave."
+        ),
     ] = False,
 ) -> Response:
     """API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand."""
     layers = project_layers(ctx, pid)
     items = ctx.index.load(pid).items
-    drop = frozenset() if include_sensitive else await sensitive_fields(ctx, pid)
+    drop = await dropped_fields(ctx, pid, include_sensitive)
     if format == "jsonl":
         body, name = table.to_jsonl(items, layers, annotation_refs(ctx, pid), drop), "dataset.jsonl"
     else:

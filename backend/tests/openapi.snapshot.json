@@ -15283,13 +15283,13 @@
       }
      },
      {
-      "description": "Also export `sensitive` fields: patient_id, dates (VAR-09)",
+      "description": "Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers (VAR-09). Absolute paths and `raw_metadata` never leave.",
       "in": "query",
       "name": "include_sensitive",
       "required": false,
       "schema": {
        "default": false,
-       "description": "Also export `sensitive` fields: patient_id, dates (VAR-09)",
+       "description": "Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers (VAR-09). Absolute paths and `raw_metadata` never leave.",
        "title": "Include Sensitive",
        "type": "boolean"
       }

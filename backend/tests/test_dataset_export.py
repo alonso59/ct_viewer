@@ -9,6 +9,7 @@ import io
 import json
 from typing import Any
 
+import pyarrow.parquet as pq
 from fastapi.testclient import TestClient
 
 from tests.test_api_ingest import API
@@ -65,3 +66,27 @@ def test_sensitive_fields_only_on_request_in_every_format(
         else:
             assert all("patient_id" not in json.loads(x) for x in default.text.splitlines())
             assert any(json.loads(x).get("patient_id") for x in full.text.splitlines())
+
+
+def test_uids_paths_and_raw_tags_never_leak(
+    client: TestClient,
+    proj: Proj,  # noqa: F811
+) -> None:
+    """AUD-A2-01, VAR-09 / NFR-17: UIDs and accession numbers only on request; absolute paths
+    and the `raw_metadata` tag blob never, in any format."""
+    pid, _ = proj
+    uids = {"study_uid", "series_uid", "accession_number"}
+    never = {"first_file", "raw_metadata"}
+
+    def keys(fmt: str, **params: Any) -> set[str]:
+        r = export(client, pid, format=fmt, **params)
+        if fmt == "csv":
+            return set(next(csv.reader(io.StringIO(r.text))))
+        if fmt == "parquet":
+            return set(pq.read_schema(io.BytesIO(r.content)).names)
+        return {k for x in r.text.splitlines() for k in json.loads(x)}
+
+    for fmt in ("csv", "parquet", "jsonl"):
+        assert not keys(fmt) & (uids | never), fmt
+        full = keys(fmt, include_sensitive="true")
+        assert uids <= full and not full & never, fmt

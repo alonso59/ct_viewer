@@ -100,7 +100,7 @@ def to_jsonl(
                 layer.level, i.item_id
             )
             rec[layer.column] = layer.values.get(key)
-        refs = {k: i.extra[k] for k in REF_FIELDS if i.extra.get(k)}
+        refs = {k: i.extra[k] for k in REF_FIELDS if i.extra.get(k) and k not in drop}
         refs.update({f"annotations:{f}": ref for f, ref in sorted(annotation_refs.items())})
         rec["refs"] = refs
         lines.append(json.dumps(rec, ensure_ascii=False, default=str))

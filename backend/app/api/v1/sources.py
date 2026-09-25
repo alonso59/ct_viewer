@@ -17,10 +17,12 @@ from app.api.v1.deps import Ctx
 from app.core.errors import (
     DerivedRootRequired,
     NotFound,
+    PathOutsideRoot,
     SourceMissing,
     UnsupportedFormat,
     ValidationProblem,
 )
+from app.core.paths import is_within
 from app.imaging import npy_convert, streaming
 from app.sources import formats
 from app.sources import open as open_mode
@@ -273,6 +275,11 @@ async def open_save(ctx: Ctx, sid: str, n: int, body: SaveBody) -> Saved:
     else:
         dest = guard.allowed_roots[0] / "_open" / date.today().isoformat()
     dest_real = guard.check(dest)  # inside ALLOWED_DERIVED_ROOTS, never next to a source (R1)
+    if any(is_within(dest_real, r) for r in ctx.workspace.reserved_derived()):
+        raise PathOutsideRoot(  # NFR-11: datasets and project task folders have one writer
+            "Choose a folder outside workspace datasets (_datasets/) and project task folders",
+            actions=["choose_another_path"],
+        )
     s = ctx.open_sessions.get(sid)
     it = open_mode.item(s, n)
     volume, _ = await _nifti_path(ctx, sid, n, body.axis_order)

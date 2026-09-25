@@ -726,7 +726,7 @@
     "exportParquet": "Download dataset table (Parquet)",
     "exportJsonl": "Download dataset.jsonl",
     "exportJsonlHelp": "One JSON line per item: the imported metadata, every active layer and references to DICOM sidecars and analyzer records (ADR-0025)",
-    "exportSensitive": "Include sensitive fields (patient id, dates)"
+    "exportSensitive": "Include sensitive fields (patient id, dates, UIDs, accession numbers)"
   },
   "conv": {
     "title": "Convert DICOM",

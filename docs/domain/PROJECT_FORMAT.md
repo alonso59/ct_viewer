@@ -141,12 +141,12 @@ Single-writer model and locking: BE-05.
 | Rule | Detail |
 |---|---|
 | Layout | One zip with one top-level folder `{project_id}/` |
-| Excluded | `view_token` (reset to null in the bundle), `cache/`, `.lock`, `.*.tmp`, symlinks, image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) and DICOM sidecars (`*.dicom.json`) anywhere |
+| Excluded | `view_token` (reset to null in the bundle), `cache/`, `index/variables.parquet` (rebuilt on first access, VAR-01), `.lock`, `.*.tmp`, symlinks, image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) and DICOM sidecars (`*.dicom.json`) anywhere |
 | Export | Built under the project lock in `WORKSPACE_ROOT/.staging/`, deleted after sending |
 | Import id | Keeps the bundle's `project_id` unless the workspace already uses it (active or archived); then a new ULID is written to `project.json` |
 | Import guards | Zip-slip, symlinks, ≤ 1M entries, ≤ 50 GiB uncompressed; extracted in `.staging/` then renamed into `projects/`; migrations run on open (PRJ-11) |
 | Relink | Each alias is resolved and verified (PRJ-05); failures open the relink dialog (API-06 `needs_relink`) |
-| PHI | DICOM-derived rows not anonymized at conversion leave with the `basic` profile applied (DCM-05): `sources/*/metadata.jsonl`, `index/items.jsonl` (PHI fields blanked, `patient_id` → `case_id`, UIDs replaced deterministically per project), `index/cases.jsonl` (`patient_id`) and `sources/identity.json` (identity keys hashed as in anonymized runs). The project folder is not changed; an imported copy that converts more data numbers new patients from `next_index` |
+| PHI | DICOM-derived rows not anonymized at conversion leave with the `basic` profile applied (DCM-05): `sources/*/metadata.jsonl`, `index/items.jsonl` (PHI fields blanked, `patient_id` → `case_id`, UIDs replaced deterministically per project), `index/cases.jsonl` (`patient_id`) and `sources/identity.json` (identity keys hashed as in anonymized runs). Always, whatever the source: `variables/catalog.json` keeps its overrides and definitions but loses profile `top`/`examples`, and task `run.json` records lose `selection.source` (an absolute input path). The project folder is not changed; an imported copy that converts more data numbers new patients from `next_index` |
 
 ## Neutral projects, packs, If-Match, view-only links (P7c Wave 2)
 

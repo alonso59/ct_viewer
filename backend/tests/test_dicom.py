@@ -366,6 +366,15 @@ def test_save_as_nifti(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_pat
         dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(root)}),
         "path-outside-root",
     )
+    # AUD-A5-01, NFR-11: never into a write-once dataset or a project's task tree
+    derived = (tmp_path / "derived").resolve()
+    pid = project(dc, tmp_path)
+    for reserved in (derived / "_datasets" / "ds" / "nifti", derived / pid / "dicom.convert"):
+        r = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(reserved)})
+        assert_problem(r, "path-outside-root")
+        assert not reserved.exists()
+    mine = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(derived / "mine")})
+    assert mine.status_code == 201, mine.text  # any other folder the user picks (SRC-14)
 
 
 def test_save_needs_derived_roots(tmp_path: Path, src: tuple[Path, dict[str, Any]]) -> None:

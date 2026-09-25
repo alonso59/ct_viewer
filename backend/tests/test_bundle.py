@@ -250,3 +250,41 @@ def test_export_scrubs_unanonymized_dicom_rows(tmp_path: Path) -> None:
     assert [c["patient_id"] for c in cases] == ["case_00000", "P2"]
     assert list(reg["cases"]) == [rows[0]["case_identity_key"]]
     assert all(k.startswith("sha256:") for k in reg["scans"])
+
+
+def test_export_leaves_out_variable_values_and_run_source_paths(tmp_path: Path) -> None:
+    """AUD-A5-02, NFR-17: `index/variables.parquet` stays home (rebuilt on open, VAR-01), the
+    catalog keeps its overrides but not its profile values, run records lose the input path."""
+    from app.projects.bundle import write_bundle
+
+    pid = "01JTESTPROJECT0000000000AC"
+    folder = tmp_path / pid
+    source = "/data/incoming/DOE^JANE/CT"
+    var = {
+        "name": "patient_folder",
+        "tags": ["sensitive"],
+        "profile": {"n_units": 1, "top": [{"value": "DOE^JANE", "n": 1}], "examples": ["DOE^JANE"]},
+    }
+    files: dict[str, str] = {
+        "project.json": json.dumps({"project_id": pid}),
+        "index/variables.parquet": "DOE^JANE",
+        "variables/catalog.json": json.dumps({"variables": [var]}),
+        "tasks/runs/01JRUN/run.json": json.dumps({"task_id": "dicom.convert",
+                                                   "selection": {"source": source}}),
+    }  # fmt: skip
+    for rel, text in files.items():
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_text(text)
+
+    out = tmp_path / "b.zip"
+    write_bundle(folder, pid, out)
+
+    with zipfile.ZipFile(out) as zf:
+        names = {n.split("/", 1)[1] for n in zf.namelist()}
+        blob = b"".join(zf.read(n) for n in zf.namelist())
+        cat = json.loads(zf.read(f"{pid}/variables/catalog.json"))
+        run = json.loads(zf.read(f"{pid}/tasks/runs/01JRUN/run.json"))
+    assert "index/variables.parquet" not in names
+    assert b"DOE^JANE" not in blob
+    assert cat["variables"][0]["tags"] == ["sensitive"]  # user overrides travel (VAR-11)
+    assert run["task_id"] == "dicom.convert" and run["selection"]["source"] is None
