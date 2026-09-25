@@ -715,3 +715,12 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 **Results**: `make check` green: 480 backend + 234 frontend. Playwright 40/40 (Chromium + Firefox). Visual check in mock mode.
 
 **Open issues**: in a narrow sidebar the scan label is truncated while the row's phase buttons show.
+
+## 2026-09-25 · dataset.jsonl (ADR-0025 §1) · version_3-dev
+
+**Done**
+- API-59 gains `format=jsonl` → `dataset.jsonl`: one JSON object per item (core fields, input fields with their JSON shape, one key per active layer `{field}@{layer}`, `phase_resolved` when a selection replaced the value, `masks`, `labels_present`, `warning_codes`, `geometry`); per-file records are `refs` (`dicom_sidecar`, `annotations:{field}` → `tasks/runs/{run}/annotations.jsonl`), never inlined. Offered next to CSV/Parquet in Project settings → Data.
+- VAR-09 now holds in every dataset-table format: the catalog's `sensitive` fields (`patient_id`, dates, or whatever a user tagged) are left out unless `include_sensitive=true` ("Include sensitive fields" checkbox). **Behaviour change**: CSV/Parquet exported `patient_id` before; ADR-0025 assumed they did not.
+- Like `dataset_table.*`, `dataset.jsonl` is a download built on demand (API-59, not stored); PROJECT_FORMAT's `exports/` note corrected.
+
+**Results**: see the combined results of the ADR-0025/0026 close-out below.

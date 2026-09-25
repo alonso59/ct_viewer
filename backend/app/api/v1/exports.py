@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -12,6 +12,8 @@ from app.api.v1.deps import Ctx
 from app.context import AppContext
 from app.layers import table
 from app.layers.model import Layer, LayerContext, active_layers
+from app.variables.schema import SENSITIVE_FIELDS
+from app.variables.service import VariableService
 
 router = APIRouter(tags=["layers"])
 
@@ -44,20 +46,59 @@ def list_layers(ctx: Ctx, pid: str) -> list[LayerInfo]:
     ]
 
 
+async def sensitive_fields(ctx: AppContext, pid: str) -> frozenset[str]:
+    """VAR-09: `patient_id`, date variables and anything else the catalog tags `sensitive`."""
+    cat = await VariableService(ctx.workspace, ctx.index, ctx.locks, ctx.bus).catalog(pid)
+    return SENSITIVE_FIELDS | {v.name for v in cat.variables if "sensitive" in v.tags}
+
+
+def annotation_refs(ctx: AppContext, pid: str) -> dict[str, str]:
+    """ADR-0025: where each active annotation run keeps its full records (ANZ-04)."""
+    pdir = ctx.workspace.project_dir(pid)
+    out: dict[str, str] = {}
+    for fld, run_id in ctx.workspace.get(pid).annotation_sources.items():
+        rel = f"tasks/runs/{run_id}/annotations.jsonl"
+        if run_id and (pdir / rel).is_file():
+            out[fld] = rel
+    return out
+
+
+MEDIA: dict[str, str] = {
+    "csv": "text/csv",
+    "parquet": "application/vnd.apache.parquet",
+    "jsonl": "application/x-ndjson",
+}
+
+
 @router.get(
     "/projects/{pid}/exports/dataset-table",
     response_class=Response,
-    responses={200: {"content": {"text/csv": {}, "application/vnd.apache.parquet": {}}}},
+    responses={200: {"content": {m: {} for m in MEDIA.values()}}},
 )
-def dataset_table(ctx: Ctx, pid: str, format: Literal["csv", "parquet"] = "csv") -> Response:
+async def dataset_table(
+    ctx: Ctx,
+    pid: str,
+    format: Literal["csv", "parquet", "jsonl"] = "csv",
+    include_sensitive: Annotated[
+        bool, Query(description="Also export `sensitive` fields: patient_id, dates (VAR-09)")
+    ] = False,
+) -> Response:
+    """API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand."""
     layers = project_layers(ctx, pid)
-    header, data = table.rows(ctx.index.load(pid).items, layers)
-    if format == "parquet":
-        body, media = table.to_parquet(header, data, layers), "application/vnd.apache.parquet"
+    items = ctx.index.load(pid).items
+    drop = frozenset() if include_sensitive else await sensitive_fields(ctx, pid)
+    if format == "jsonl":
+        body, name = table.to_jsonl(items, layers, annotation_refs(ctx, pid), drop), "dataset.jsonl"
     else:
-        body, media = table.to_csv(header, data), "text/csv"
+        header, data = table.rows(items, layers, drop)
+        body = (
+            table.to_parquet(header, data, [x for x in layers if x.field not in drop])
+            if format == "parquet"
+            else table.to_csv(header, data)
+        )
+        name = f"dataset_table.{format}"
     return Response(
         body,
-        media_type=media,
-        headers={"Content-Disposition": f'attachment; filename="dataset_table.{format}"'},
+        media_type=MEDIA[format],
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )

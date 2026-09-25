@@ -641,7 +641,8 @@ export const httpApi: Api = {
   getWorkspaceRun: (rid) => unwrap(client.GET('/api/v1/task-runs/{rid}', { params: { path: { rid } } })),
   cancelWorkspaceRun: (rid) => unwrap(client.POST('/api/v1/task-runs/{rid}/cancel', { params: { path: { rid } } })),
   listLayers: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/layers', { params: { path: { pid } } })),
-  datasetTableUrl: (pid, format) => viewPath(`${V1}/projects/${enc(pid)}/exports/dataset-table?format=${format}`),
+  datasetTableUrl: (pid, format, includeSensitive = false) =>
+    viewPath(`${V1}/projects/${enc(pid)}/exports/dataset-table?format=${format}${includeSensitive ? '&include_sensitive=true' : ''}`),
   getTask: (tid) => unwrap(client.GET('/api/v1/tasks/{tid}', { params: { path: { tid } } })),
   validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),
   preflightTask: (pid, tid, selection, settings = {}) =>

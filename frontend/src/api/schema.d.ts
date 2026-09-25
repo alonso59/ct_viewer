@@ -1020,7 +1020,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Dataset Table */
+        /**
+         * Dataset Table
+         * @description API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand.
+         */
         get: operations["dataset_table_api_v1_projects__pid__exports_dataset_table_get"];
         put?: never;
         post?: never;
@@ -8537,7 +8540,9 @@ export interface operations {
     dataset_table_api_v1_projects__pid__exports_dataset_table_get: {
         parameters: {
             query?: {
-                format?: "csv" | "parquet";
+                format?: "csv" | "parquet" | "jsonl";
+                /** @description Also export `sensitive` fields: patient_id, dates (VAR-09) */
+                include_sensitive?: boolean;
             };
             header?: never;
             path: {
@@ -8555,6 +8560,7 @@ export interface operations {
                 content: {
                     "text/csv": unknown;
                     "application/vnd.apache.parquet": unknown;
+                    "application/x-ndjson": unknown;
                 };
             };
             /** @description Validation Error */

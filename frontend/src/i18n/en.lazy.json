@@ -723,7 +723,10 @@
     "layerSource": "Source",
     "noLayers": "No active layers yet.",
     "exportCsv": "Download dataset table (CSV)",
-    "exportParquet": "Download dataset table (Parquet)"
+    "exportParquet": "Download dataset table (Parquet)",
+    "exportJsonl": "Download dataset.jsonl",
+    "exportJsonlHelp": "One JSON line per item: the imported metadata, every active layer and references to DICOM sidecars and analyzer records (ADR-0025)",
+    "exportSensitive": "Include sensitive fields (patient id, dates)"
   },
   "conv": {
     "title": "Convert DICOM",

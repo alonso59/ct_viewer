@@ -213,7 +213,8 @@ export interface Api {
   cancelWorkspaceRun(rid: string): Promise<WorkspaceRun>
   /** API-59 (ADR-0020): active layers and the dataset table download URL */
   listLayers(pid: string): Promise<LayerInfo[]>
-  datasetTableUrl(pid: string, format: 'csv' | 'parquet'): string
+  /** API-59: `dataset_table.csv|parquet` or `dataset.jsonl` (ADR-0025); sensitive fields only when asked (VAR-09) */
+  datasetTableUrl(pid: string, format: 'csv' | 'parquet' | 'jsonl', includeSensitive?: boolean): string
 
   /** API-56..58 Labeling table plugin (LBL-*) */
   /** `deleted`: only the deleted tables (LBL-10) */

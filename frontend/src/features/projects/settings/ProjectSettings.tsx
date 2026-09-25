@@ -292,6 +292,7 @@ function Data({ pid, project }: { pid: string; project: Project }) {
   const roots = useRoots(pid).data ?? []
   const layers = useLayers(pid).data ?? []
   const [relink, setRelink] = useState(false)
+  const [sensitive, setSensitive] = useState(false)
   return (
     <div className="psettings-form">
       <table className="psettings-table">
@@ -327,9 +328,14 @@ function Data({ pid, project }: { pid: string; project: Project }) {
         </table>
       ) : <p className="muted">{t('psettings.noLayers')}</p>}
       <div className="psettings-row">
-        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'csv')} download>{t('psettings.exportCsv')}</a>
-        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'parquet')} download>{t('psettings.exportParquet')}</a>
+        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'csv', sensitive)} download>{t('psettings.exportCsv')}</a>
+        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'parquet', sensitive)} download>{t('psettings.exportParquet')}</a>
+        <a className="btn btn-sm" href={api.datasetTableUrl(pid, 'jsonl', sensitive)} download title={t('psettings.exportJsonlHelp')}>{t('psettings.exportJsonl')}</a>
       </div>
+      <label className="check">
+        <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} />
+        {t('psettings.exportSensitive')}
+      </label>
     </div>
   )
 }

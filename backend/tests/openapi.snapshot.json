@@ -15227,6 +15227,7 @@
   },
   "/api/v1/projects/{pid}/exports/dataset-table": {
    "get": {
+    "description": "API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand.",
     "operationId": "dataset_table_api_v1_projects__pid__exports_dataset_table_get",
     "parameters": [
      {
@@ -15246,10 +15247,23 @@
        "default": "csv",
        "enum": [
         "csv",
-        "parquet"
+        "parquet",
+        "jsonl"
        ],
        "title": "Format",
        "type": "string"
+      }
+     },
+     {
+      "description": "Also export `sensitive` fields: patient_id, dates (VAR-09)",
+      "in": "query",
+      "name": "include_sensitive",
+      "required": false,
+      "schema": {
+       "default": false,
+       "description": "Also export `sensitive` fields: patient_id, dates (VAR-09)",
+       "title": "Include Sensitive",
+       "type": "boolean"
       }
      }
     ],
@@ -15257,6 +15271,7 @@
      "200": {
       "content": {
        "application/vnd.apache.parquet": {},
+       "application/x-ndjson": {},
        "text/csv": {}
       },
       "description": "Successful Response"
