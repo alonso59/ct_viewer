@@ -488,7 +488,7 @@
     "truncated": "Only the first 500 files are listed",
     "attachAction": "Attach segmentation…",
     "attachTitle": "Attach a segmentation",
-    "attachHelp": "Pick a label map with the same shape and orientation as the image. It is never resampled.",
+    "attachHelp": "Pick a NIfTI segmentation (.nii or .nii.gz) with the same shape and orientation as the image. It is never resampled.",
     "attach": "Attach",
     "createProject": "Create project from this",
     "axisTitle": "Axis order of {{name}}",

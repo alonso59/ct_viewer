@@ -41,7 +41,7 @@ def nii(path: Path, data: np.ndarray, affine: np.ndarray | None = None) -> Path:
 
 
 def ct(shape: tuple[int, int, int] = (8, 9, 5)) -> np.ndarray:
-    """Float HU: tiny integer volumes would pass the ≤ 256-values label-map rule."""
+    """Float HU test volume."""
     return (np.arange(np.prod(shape)).reshape(shape) * 0.37 - 100).astype(np.float32)
 
 
@@ -53,12 +53,11 @@ def lab(shape: tuple[int, int, int] = (8, 9, 5)) -> np.ndarray:
 
 @pytest.fixture
 def src(tmp_path: Path) -> Path:
-    """A plain NIfTI folder (nnU-Net style names), no metadata.jsonl."""
+    """A plain NIfTI folder (images + seg/), no metadata.jsonl."""
     root = tmp_path / "src"
     for case in ("alpha", "beta"):
-        nii(root / "imagesTr" / f"01_CT_{case}_0000.nii.gz", ct())
-        nii(root / "labelsTr" / f"01_CT_{case}.nii.gz", lab())
-    nii(root / "imagesTr" / "01_CT_alpha_0001.nii.gz", ct())  # second channel
+        nii(root / "images" / f"{case}.nii.gz", ct())
+        nii(root / "seg" / f"{case}.nii.gz", lab())
     nii(root / "other" / "loose scan.nii", ct())
     (root / "notes.txt").write_text("x")
     (root / "arr.npz").write_bytes(b"PK")
@@ -111,7 +110,7 @@ def test_detect_folder_file_and_refusal(sclient: TestClient, src: Path, fixtures
     r = sclient.post(f"{API}/sources/detect", json={"path": str(src)})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["kind"] == "folder" and body["counts"]["nifti"] == 6
+    assert body["kind"] == "folder" and body["counts"]["nifti"] == 5
     assert body["ignored"] == {".txt": 1, ".npz": 1}
     assert [c["adapter"] for c in body["candidates"]] == ["nifti-files", "open"]
     assert body["candidates"][0]["confidence"] == "high"
@@ -141,17 +140,47 @@ def test_detect_prefers_metadata_v1(client: TestClient, data_root: Path) -> None
 # -- nifti-files adapter (SRC-04) -----------------------------------------------------------
 
 
-def test_plan_conventions_and_channels(src: Path) -> None:
+def test_plan_conventions(src: Path) -> None:
     p = plan(src, NiftiOptions(), IdentityRegistry())
     rows = {r["case_id"]: r for r in p.rows}
-    assert set(rows) == {"alpha", "beta", "loose_scan"}
+    assert set(rows) == {"alpha", "beta", "loose_scan"}  # one case per stem
     a = rows["alpha"]
-    assert a["scan_idx"] == "01" and a["modality"] == "CT" and a["channel"] == "0000"
-    assert a["seg_path"] == "labelsTr/01_CT_alpha.nii.gz"
-    assert a["channels"] == ["imagesTr/01_CT_alpha_0001.nii.gz"] and p.skipped_channels == 1
+    assert a["scan_idx"] == "01" and a["modality"] == "CT" and "channel" not in a
+    assert a["seg_path"] == "seg/alpha.nii.gz"
     assert rows["loose_scan"]["scan_idx"] == "01" and "seg_path" not in rows["loose_scan"]
-    assert p.unmatched == ["loose scan.nii"] and p.orphan_masks == []
+    assert p.unmatched == [] and p.orphan_masks == []
     assert all(r["source_kind"] == "nifti" for r in p.rows)
+
+
+def test_plan_nnunet_names_are_not_special(tmp_path: Path) -> None:
+    """nnU-Net naming belongs to the pending nnU-Net plugin (TSK-08), not to core import."""
+    root = tmp_path / "r"
+    nii(root / "imagesTr" / "01_CT_alpha_0000.nii.gz", ct())
+    nii(root / "imagesTr" / "01_CT_alpha_0001.nii.gz", ct())
+    nii(root / "labelsTr" / "01_CT_alpha.nii.gz", lab())
+    p = plan(root, NiftiOptions(), IdentityRegistry())
+    assert sorted(r["source_name"] for r in p.rows) == [
+        "01_CT_alpha",
+        "01_CT_alpha_0000",
+        "01_CT_alpha_0001",
+    ]
+    assert not any("seg_path" in r or "channel" in r for r in p.rows) and p.skipped_channels == 0
+    with pytest.raises(ValueError, match="unknown mask conventions"):
+        NiftiOptions(mask_conventions=["labelsTr/{case}.nii.gz"])
+
+
+def test_plan_user_pattern_channels_and_converter_layout(tmp_path: Path) -> None:
+    root = tmp_path / "r"
+    # metadata-v1 / converter layout: seg/{name minus _0000} (INPUT_METADATA `seg_path`)
+    nii(root / "nifti" / "01_case_00001_0000.nii.gz", ct())
+    nii(root / "nifti" / "01_case_00001_0001.nii.gz", ct())
+    nii(root / "seg" / "01_case_00001.nii.gz", lab())
+    pattern = r"^(?P<scan_idx>\d+)_(?P<case_id>.+?)_(?P<channel>\d{4})$"
+    p = plan(root, NiftiOptions(pattern=pattern), IdentityRegistry())
+    [row] = p.rows
+    assert (row["case_id"], row["scan_idx"], row["channel"]) == ("case_00001", "01", "0000")
+    assert row["seg_path"] == "seg/01_case_00001.nii.gz"
+    assert row["channels"] == ["nifti/01_case_00001_0001.nii.gz"] and p.skipped_channels == 1
 
 
 def test_plan_seg_dir_suffix_and_sequential(tmp_path: Path) -> None:
@@ -244,7 +273,7 @@ def test_nifti_folder_import(sclient: TestClient, src: Path) -> None:
     pv = import_nifti(sclient, pid, src)
     assert pv["adapter"] == "nifti-files" and pv["files"][0]["source"] == "generated"
     assert {s["case_id"] for s in pv["sample"]} == {"alpha", "beta", "loose_scan"}
-    assert pv["unmatched"] == ["loose scan.nii"] and pv["ignored"] == {".txt": 1, ".npz": 1}
+    assert pv["unmatched"] == [] and pv["ignored"] == {".txt": 1, ".npz": 1}
     items = {
         i["item_id"]: i
         for s in sclient.get(f"{API}/projects/{pid}/cases/alpha").json()["scans"]
@@ -252,8 +281,8 @@ def test_nifti_folder_import(sclient: TestClient, src: Path) -> None:
     }
     it = items["alpha.01.complete.-"]
     assert it["modality"] == "CT" and it["phase"]["canonical"] == "UNK"
-    assert it["masks"]["imported"]["ref"] == "DATA:labelsTr/01_CT_alpha.nii.gz"
-    assert it["extra"]["source_name"] == "01_CT_alpha_0000" and it["geometry"]["shape"] == [8, 9, 5]
+    assert it["masks"]["imported"]["ref"] == "DATA:seg/alpha.nii.gz"
+    assert it["extra"]["source_name"] == "alpha" and it["geometry"]["shape"] == [8, 9, 5]
     pdir = ctx_of(sclient).workspace.project_dir(pid)
     source = json.loads((pdir / "sources" / pv["import_id"] / "source.json").read_text())
     assert source["adapter"] == "nifti-files" and source["options"]["modality"] == "CT"
@@ -267,7 +296,7 @@ def test_incremental_import_keeps_identity(sclient: TestClient, src: Path) -> No
     pdir = ctx_of(sclient).workspace.project_dir(pid)
     first = json.loads((pdir / "sources" / "identity.json").read_text())
     cases1 = {c["case_id"] for c in sclient.get(f"{API}/projects/{pid}/cases").json()["items"]}
-    nii(src / "imagesTr" / "01_CT_aaa_0000.nii.gz", ct())  # sorts first: must not renumber
+    nii(src / "images" / "aaa.nii.gz", ct())  # sorts first: must not renumber
     import_nifti(sclient, pid, src, opts)
     second = json.loads((pdir / "sources" / "identity.json").read_text())
     assert all(second["cases"][k] == v for k, v in first["cases"].items())
@@ -298,7 +327,7 @@ def test_metadata_refusal_suggests_nifti_files(sclient: TestClient, src: Path) -
     r = sclient.post(f"{API}/projects/{pid}/imports/preview", json={"root": str(src)})
     assert_problem(r, "validation")
     body = r.json()
-    assert body["detail"] == "No metadata.jsonl under the root; 6 NIfTI files found"
+    assert body["detail"] == "No metadata.jsonl under the root; 5 NIfTI files found"
     assert body["actions"] == ["import_as:nifti-files", "open"]
     bad = sclient.post(
         f"{API}/projects/{pid}/imports/preview",
@@ -316,19 +345,22 @@ def open_(c: TestClient, path: Path) -> dict[str, Any]:
     return dict(r.json())
 
 
-def test_open_nifti_file_and_label_map(sclient: TestClient, src: Path) -> None:
+def test_open_nifti_file_is_always_an_image(sclient: TestClient, src: Path) -> None:
     ws = ctx_of(sclient).settings.workspace_root
     registry_before = (ws / "workspace.json").read_bytes()
-    s = open_(sclient, src / "imagesTr" / "01_CT_alpha_0000.nii.gz")
+    s = open_(sclient, src / "images" / "alpha.nii.gz")
     assert s["kind"] == "file" and len(s["items"]) == 1
     it = s["items"][0]
     assert it["item_id"] == "open.0" and it["kind"] == "image" and it["n_slices"] == 5
     assert it["modality"] is None  # NIfTI: unknown → percentiles (VW-05)
     r = sclient.get(f"{API}/open/{s['sid']}/items/0/image")
     assert r.status_code == 200
-    assert r.content == (src / "imagesTr" / "01_CT_alpha_0000.nii.gz").read_bytes()
-    lab_s = open_(sclient, src / "labelsTr" / "01_CT_alpha.nii.gz")
-    assert lab_s["items"][0]["kind"] == "label"
+    assert r.content == (src / "images" / "alpha.nii.gz").read_bytes()
+    # SRC-09: no label guessing; a segmentation opened alone and a small integer CT are images
+    lab_s = open_(sclient, src / "seg" / "alpha.nii.gz")
+    assert lab_s["items"][0]["kind"] == "image"
+    small_ct = nii(src / "small_ct.nii.gz", np.full((8, 9, 5), -1024, np.int16))
+    assert open_(sclient, small_ct)["items"][0]["kind"] == "image"
     # nothing written to projects or the registry (SRC-09)
     assert (ws / "workspace.json").read_bytes() == registry_before
     assert not any((ws / "projects").glob("[0-9A-Z]*"))
@@ -339,11 +371,11 @@ def test_open_nifti_file_and_label_map(sclient: TestClient, src: Path) -> None:
 def test_open_folder_and_attach(sclient: TestClient, src: Path, tmp_path: Path) -> None:
     s = open_(sclient, src)
     names = {i["rel"]: i for i in s["items"]}
-    assert "labelsTr/01_CT_alpha.nii.gz" in names and s["ignored"] == {".txt": 1, ".npz": 1}
-    n = names["imagesTr/01_CT_alpha_0000.nii.gz"]["n"]
+    assert "seg/alpha.nii.gz" in names and s["ignored"] == {".txt": 1, ".npz": 1}
+    n = names["images/alpha.nii.gz"]["n"]
     r = sclient.post(
         f"{API}/open/{s['sid']}/items/{n}/attach",
-        json={"path": str(src / "labelsTr/01_CT_alpha.nii.gz")},
+        json={"path": str(src / "seg/alpha.nii.gz")},
     )
     assert r.status_code == 200, r.text
     added = r.json()["items"][-1]
@@ -358,6 +390,14 @@ def test_open_folder_and_attach(sclient: TestClient, src: Path, tmp_path: Path) 
     assert_problem(
         sclient.post(f"{API}/open/{s['sid']}/items/{n}/attach", json={"path": str(shifted)}),
         "geometry-mismatch",
+    )
+    # SRC-10: only a NIfTI segmentation can be attached
+    np.save(src / "seg.npy", lab())
+    assert_problem(
+        sclient.post(
+            f"{API}/open/{s['sid']}/items/{n}/attach", json={"path": str(src / "seg.npy")}
+        ),
+        "unsupported-format",
     )
     (src / "empty").mkdir()
     r = sclient.post(f"{API}/open", json={"path": str(src / "empty")})

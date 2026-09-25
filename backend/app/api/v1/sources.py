@@ -208,9 +208,9 @@ async def open_attach(ctx: Ctx, sid: str, n: int, body: PathBody) -> open_mode.O
     s = ctx.open_sessions.get(sid)
     image = open_mode.item(s, n)
     real = _guarded(ctx, body.path)
-    if not real.is_file() or formats.classify(real) not in ("nifti", "npy"):
+    if not real.is_file() or formats.classify(real) != "nifti":
         raise UnsupportedFormat(
-            "Attach a NIfTI or NumPy label map", actions=["choose_another_path"]
+            "Attach a NIfTI segmentation (.nii or .nii.gz)", actions=["choose_another_path"]
         )
     rows = await ctx.jobs.run_in_worker(open_mode.probe, str(real.parent), [real.name])
     row = rows[0]
@@ -233,13 +233,11 @@ async def open_attach(ctx: Ctx, sid: str, n: int, body: PathBody) -> open_mode.O
         item_id=f"open.{len(s.items)}",
         name=real.name,
         rel=rel,
-        format="npy" if row["format"] == "npy" else "nifti",
+        format="nifti",
         kind="label",
         geometry=geo,
         n_slices=geo.shape[2],
         attached_to=n,
-        axis_order=row.get("axis_order"),
-        needs_axis_order=bool(row.get("needs_axis_order")),
     )
     s.items.append(new)
     return s

@@ -655,3 +655,19 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Pan moved the image against the pointer horizontally in every 2D view (drag right → image left); vertical was right. NiiVue's pan offset is screen-aligned and already honours the radiological/neurological flip, so the engine's sign was wrong **and** its extra neurological flip cancelled NiiVue's. Both removed (`NiivueViewer.pan`). Measured in the browser via the crosshair lines, both conventions, Chromium + Firefox.
 - Regression test: `e2e/viewer-fov.spec.ts` "pan: the image follows the pointer…" (3 views × 2 conventions, +40/+30 px drag → lines move +40/+30).
 - `make check` green (467 + 225); Playwright 40/40.
+
+## 2026-09-25 · Open mode attach-only; nnU-Net naming out of core import (ADR-0024) · v3
+
+**Why**: the Dataset900 "segmentation could not be loaded" notice (P7c addendum open issue). Open mode's value heuristic (integer dtype, ≤ 256 values in the middle slice) classified the small synthetic int16 CTs (240 values, −1024…110) as label maps, so the image was loaded as its own mask, and the viewer's `labelArray` refused the negative values.
+
+**Done** (owner decision 2026-09-25)
+- Open mode: every opened file is an image (`_is_label` removed); a segmentation only by attach, NIfTI only (`.npy` → `unsupported-format`), geometry check unchanged (SRC-10). Frontend: no self-mask for `kind: 'label'`; attach help text says NIfTI.
+- `nifti-files` (SRC-04): default pattern `^(?P<case_id>.+)$` (one case per stem); `labelsTr/{case}.nii.gz`, `labelsTr`/`labelsTs` dirs and implicit `_0000` channel stripping removed; a user pattern with a `channel` group still folds channels; `seg/{name minus _0000}` kept (metadata-v1 / converter layout).
+- Docs: ADR-0024 (amends ADR-0013 §3), SOURCES.md, TESTING.md TST-15, ROADMAP nnU-Net plugin line.
+
+**Kept, pending (owner)**: metadata-v1 `seg_path` default `seg/{filename minus _0000}` and the converter's `_0000` output names.
+
+**Results**: `make check` green: 469 backend + 225 frontend. Playwright 40/40; `viewer-fov.spec.ts` now also asserts no mask notice on the Dataset900 CT.
+
+**Open issues**
+- nnU-Net-style folders import with generic defaults (`labelsTr/` files become items) until the nnU-Net plugin; old options naming `labelsTr/{case}.nii.gz` are refused with the allowed list.

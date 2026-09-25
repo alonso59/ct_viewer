@@ -8,12 +8,13 @@ export const autoLabels = (n = 16): LabelDef[] =>
 
 /**
  * `modality`: Open mode knows it only from DICOM; otherwise `null`, which the viewer assumes to be CT
- * and lets the user change (VW-05). A label shown alone is its own image and overlay (VW-21).
+ * and lets the user change (VW-05). An opened file is always an image; its overlay is only a
+ * segmentation attached to it (SRC-10).
  */
 export function toItemRecord(it: OpenItem, mask: OpenItem | null): ItemRecord {
   const g = it.geometry
   const ref = { ref: it.rel, format: 'nifti' as const, fp: null, sha256: null }
-  const maskRef = mask ? { ref: mask.rel, format: 'nifti' as const, fp: null, sha256: null } : it.kind === 'label' ? ref : null
+  const maskRef = mask ? { ref: mask.rel, format: 'nifti' as const, fp: null, sha256: null } : null
   return {
     item_id: it.item_id,
     case_id: 'open',

@@ -8,12 +8,10 @@ const item = (over: Partial<OpenItem>): OpenItem => ({
   modality: null, n_slices: 5, attached_to: null, axis_order: null, needs_axis_order: false, error: null, ...over,
 })
 
-test('unknown modality uses percentiles (not CT presets); a label alone overlays itself', () => {
+test('unknown modality uses percentiles (not CT presets); only an attached segmentation overlays (SRC-10)', () => {
   const r = toItemRecord(item({}), null)
   expect(r.modality).toBeNull()
   expect(r.mask).toBeNull()
-  const l = toItemRecord(item({ kind: 'label' }), null)
-  expect(l.mask?.ref).toBe('a.nii.gz')
   const withMask = toItemRecord(item({}), item({ n: 1, rel: 'm.nii.gz', kind: 'label', attached_to: 0 }))
   expect(withMask.masks.open?.ref).toBe('m.nii.gz')
 })

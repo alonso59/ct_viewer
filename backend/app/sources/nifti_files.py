@@ -1,5 +1,9 @@
 """Adapter `nifti-files` (SRC-04/05, SOURCES.md §NIfTI files): a folder or one file of NIfTI
-volumes → contract v1 rows. File names only (headers are read later by the index job)."""
+volumes → contract v1 rows. File names only (headers are read later by the index job).
+
+nnU-Net dataset naming (`{case}_{channel:04d}` stems, `imagesTr/`/`labelsTr/`) is not a core
+convention: it belongs to the pending nnU-Net plugin (TSK-08). The default is one case per stem;
+a user pattern may still name a `channel` group."""
 
 from __future__ import annotations
 
@@ -16,14 +20,13 @@ from app.sources.identity import IdentityRegistry, slug
 
 ADAPTER = "nifti-files"
 VERSION = "1"
-DEFAULT_PATTERN = (
-    r"^(?P<scan_idx>\d+)_(?:(?P<modality>[A-Z]+)_)?(?P<case_id>.+?)_(?P<channel>\d{4})$"
-)
-CONVENTIONS = ("seg/{name}", "labelsTr/{case}.nii.gz", "suffix:_seg", "suffix:_mask")
-MASK_DIRS = {"seg", "labelstr", "labelsts", "masks"}
+DEFAULT_PATTERN = r"^(?P<case_id>.+)$"  # one case per file stem
+CONVENTIONS = ("seg/{name}", "suffix:_seg", "suffix:_mask")
+MASK_DIRS = {"seg", "masks"}
 GROUPS = ("case_id", "scan_idx", "channel", "modality", "phase", "side")
 SAMPLE = 50
-_CHANNEL = re.compile(r"_(\d{4})$")
+# `seg/{name minus _0000}`: the metadata-v1 / converter layout (INPUT_METADATA `seg_path`)
+_SEG_SUFFIX = re.compile(r"_0000$")
 MODALITY_CODES = {"MRI": "MR"}  # DICOM codes (DCM-12)
 
 
@@ -64,16 +67,11 @@ class NiftiPlan(BaseModel):
     registry: IdentityRegistry
 
 
-def _strip_channel(stem: str) -> tuple[str, str | None]:
-    m = _CHANNEL.search(stem)
-    return (stem[: m.start()], m.group(1)) if m else (stem, None)
-
-
 def _is_mask(rel: str, conventions: list[str]) -> bool:
     parts = rel.lower().split("/")
     st = formats.stem(parts[-1])
     if len(parts) > 1 and any(p in MASK_DIRS for p in parts[:-1]):
-        return "seg/{name}" in conventions or "labelsTr/{case}.nii.gz" in conventions
+        return "seg/{name}" in conventions
     return ("suffix:_seg" in conventions and st.endswith("_seg")) or (
         "suffix:_mask" in conventions and st.endswith("_mask")
     )
@@ -83,7 +81,7 @@ def _mask_for(rel: str, masks: dict[str, str], conventions: list[str]) -> str | 
     """First convention that names an existing mask file (SRC-04); `masks`: lower rel → rel."""
     d, name = posixpath.split(rel)
     st = formats.stem(name)
-    base, _ = _strip_channel(st)
+    base = _SEG_SUFFIX.sub("", st)
     ext = formats.extension(name)
     cands: list[str] = []
     for conv in conventions:
@@ -91,11 +89,6 @@ def _mask_for(rel: str, masks: dict[str, str], conventions: list[str]) -> str | 
             cands += [f"seg/{name}", f"seg/{base}{ext}", f"seg/{base}.nii.gz"]
             if d:
                 cands += [posixpath.join(posixpath.dirname(d), "seg", f"{base}.nii.gz")]
-        elif conv == "labelsTr/{case}.nii.gz":
-            for lab in ("labelsTr", "labelsTs"):
-                cands.append(f"{lab}/{base}.nii.gz")
-                if d:
-                    cands.append(posixpath.join(posixpath.dirname(d), lab, f"{base}.nii.gz"))
         else:
             suffix = conv.removeprefix("suffix:")
             for s in (st, base):
@@ -130,18 +123,17 @@ def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPla
         st = formats.stem(name)
         m = rx.fullmatch(st)
         g = {k: v for k, v in (m.groupdict() if m else {}).items() if v}
-        base, channel = _strip_channel(st)
-        channel = g.get("channel") or channel
+        channel = g.get("channel")
         if m is None:
             unmatched.append(name)
-        key = g.get("case_id") or base
+        key = g.get("case_id") or st
         if opts.case_id_from == "sequential":
             case_id = reg.case_id(key)
         elif opts.case_id_from == "pattern" and "case_id" in g:
             case_id = slug(g["case_id"])
         else:
-            case_id = slug(base)
-        scan_idx = g.get("scan_idx") or reg.scan_idx(key, base)
+            case_id = slug(st)
+        scan_idx = g.get("scan_idx") or reg.scan_idx(key, st)
         scan_idx = slug(scan_idx)
         if channel not in (None, "0000") and (case_id, scan_idx) in by_first:
             by_first[(case_id, scan_idx)].setdefault("channels", []).append(rel)

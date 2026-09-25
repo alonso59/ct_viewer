@@ -137,7 +137,7 @@ export default function OpenRoute() {
             </button>
           ) : null}
           <span className="toolbar-sep" />
-          <button type="button" className="btn" disabled={!current || current.kind === 'label'} onClick={() => setAttaching(true)}>
+          <button type="button" className="btn" disabled={!current} onClick={() => setAttaching(true)}>
             <Icon spec={codicon('layers')} />
             {t('open.attachAction')}
           </button>
@@ -157,7 +157,7 @@ export default function OpenRoute() {
             <div className="fs-list" role="listbox" aria-label={t('open.items')} style={{ height: 'auto' }}>
               {viewable.map((i) => (
                 <button key={i.n} type="button" className="list-row" aria-selected={i.n === current?.n} onClick={() => setPicked(i.n)} title={i.rel}>
-                  <Icon spec={codicon(i.kind === 'label' ? 'symbol-color' : i.format === 'npy' ? 'symbol-array' : 'file-media')} />
+                  <Icon spec={codicon(i.format === 'npy' ? 'symbol-array' : 'file-media')} />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.name}</span>
                   {attachedTo(items, i.n) ? <Icon spec={codicon('layers')} style={{ marginLeft: 'auto' }} /> : null}
                   {i.error ? <Icon spec={codicon('warning')} style={{ marginLeft: 'auto' }} /> : null}
@@ -180,7 +180,7 @@ export default function OpenRoute() {
                   key={`${current.n}|${order ?? ''}|${mask?.n ?? ''}`}
                   item={toItemRecord(current, mask)}
                   imageUrl={api.openImageUrl(session.sid, current.n, order) ?? ''}
-                  maskUrl={(mask ? api.openImageUrl(session.sid, mask.n, mask.axis_order) : current.kind === 'label' ? api.openImageUrl(session.sid, current.n, order) : null) ?? undefined}
+                  maskUrl={(mask ? api.openImageUrl(session.sid, mask.n, null) : null) ?? undefined}
                   labels={autoLabels()}
                   tags={current.format === 'dicom' ? () => api.openDicomTags(session.sid, current.n) : undefined}
                 />

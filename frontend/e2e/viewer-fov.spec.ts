@@ -21,6 +21,8 @@ test('zoom one view, the others unchanged; Fit restores it and keeps the slice i
   await page.goto(`/open?path=${encodeURIComponent(`${FIX}/Dataset900/nifti/04_case_00002_0000.nii.gz`)}`)
   await expect(page.locator('.vp').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  // ADR-0024: an opened integer CT is an image, never its own segmentation (no mask notice)
+  await expect(page.locator('.vp-notice')).toHaveCount(0)
 
   // Move off the centre slice so "kept" is meaningful
   const axialBody = view(page, 'Axial').locator('.vp-body')

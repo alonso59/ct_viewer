@@ -2,7 +2,7 @@
 
 Scope: accepted file formats, source adapters, Open mode (no project), case identity policy, NumPy geometry and axis order.
 Read when: building import detection, the NIfTI adapter, Open mode, case numbering, or any array ↔ NIfTI conversion.
-Depends: ADR-0013, INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
+Depends: ADR-0013, ADR-0024, INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
 
 Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstream knows which adapter was used.
 
@@ -19,7 +19,7 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | SRC-07 | Identity policy (§Identity) assigns `case_id` / `scan_idx` for adapters that don't carry them. The registry `sources/identity.json` keeps assignments stable across incremental imports. | M |
 | SRC-08 | `case_id` is a URL-safe slug `[A-Za-z0-9_-]{1,64}` (no `.`, because `item_id` uses it). The original name is kept in `extra.source_name`. | M |
 | SRC-09 | Open mode (§Open mode): view one file or folder without a project, with the full CT tool set (VW-22) and a Close action (UI-24). Workspace tasks (TSK-13) such as the converter can start from it; project-bound tasks cannot. | M |
-| SRC-10 | In Open mode, a segmentation can be attached to an open image only if the shape matches and the affines agree within the IMP-08 tolerance. It is never resampled; a mismatch is refused with both geometries shown. | M |
+| SRC-10 | In Open mode, a segmentation exists only when attached to an open image: a NIfTI file (`.nii`, `.nii.gz`), and only if the shape matches and the affines agree within the IMP-08 tolerance. It is never resampled; a mismatch is refused with both geometries shown. | M |
 | SRC-11 | Every refusal is a problem (API §Errors) with `detail` = the cause and `actions[]` = the suggested next steps, e.g. `{"detail": "No metadata.jsonl under the root; 11 NIfTI files found", "actions": ["import_as:nifti-files"]}`. The UI shows both, and never a bare "Validation failed". | M |
 | SRC-12 | NumPy arrays are read only with explicit geometry and axis order (§NumPy). There is no silent default. | S |
 | SRC-13 | DICOM sources are converted by the task `dicom.convert` (DCM-*). In Open mode, the same convert stage writes to `.scratch/` only. | M |
@@ -31,19 +31,19 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 
 | Kind | Extensions / shape | Image | Label map | Notes |
 |---|---|---|---|---|
-| NIfTI | `.nii`, `.nii.gz` | ✓ | ✓ | Label map = integer dtype with ≤ 256 distinct values in a header-guided sample; the user can switch image ↔ label |
+| NIfTI | `.nii`, `.nii.gz` | ✓ | ✓ | Label map by role only: a mask convention on import (SRC-04), or attach in Open mode (SRC-10); never guessed from values |
 | DICOM series | a folder with one or more series | ✓ | | One item per selected series (DCM-*) |
 | DICOM single file | one `.dcm` or extension-less DICOM | ✓ | | Multi-frame (Enhanced) → 3D; a classic single slice → a 1-slice volume (2D tiles only, 3D hidden) |
 | DICOM SEG | Segmentation Storage SOP class | | later (C) | Refused with "not supported yet" until DCM-11 |
-| NumPy | `.npy` (3D, no pickle) | ✓ | ✓ | Needs geometry and axis order (§NumPy); `.npz` refused |
+| NumPy | `.npy` (3D, no pickle) | ✓ | ✓ | Needs geometry and axis order (§NumPy); label maps on import only (VOI catalog), not attachable in Open mode; `.npz` refused |
 
 ## NIfTI files adapter (SRC-04)
 
 | Option | Default | Meaning |
 |---|---|---|
-| `pattern` | `^(?P<scan_idx>\d+)_(?:(?P<modality>[A-Z]+)_)?(?P<case_id>.+?)_(?P<channel>\d{4})$` (nnU-Net style, on the stem) | Named groups `case_id`, `scan_idx`, `channel`, `modality`, `phase`, `side`; unmatched files fall back to one case per stem |
+| `pattern` | `^(?P<case_id>.+)$` (one case per stem) | Named groups `case_id`, `scan_idx`, `channel`, `modality`, `phase`, `side`; unmatched files fall back to one case per stem. A `channel` group folds non-`0000` channels into the first. nnU-Net naming is the nnU-Net plugin's (ADR-0024) |
 | `case_id_from` | `pattern` | `pattern` · `stem` · `sequential` (identity template, §Identity) |
-| `mask_conventions` | `seg/{name}`, `labelsTr/{case}.nii.gz`, suffix `_seg` / `_mask` | First match wins; files matched as masks are not items |
+| `mask_conventions` | `seg/{name}` (also `seg/{name minus _0000}`, the metadata-v1 layout), suffix `_seg` / `_mask` | First match wins; files matched as masks are not items |
 | `modality` | `CT` | Applied to all rows; `MR` disables HU presets (VW-05) |
 | `include` | all accepted files | Explicit file list (SRC-05) |
 
@@ -73,11 +73,11 @@ Each import has a `source_key`: `{adapter}:{alias}` by default (a re-import of t
 
 ## Open mode (SRC-09/10)
 
-- `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry. Sessions live in the API process memory (LRU of 32; gone after a restart); a folder lists at most 500 accepted files. Headers and the label-map check (integer dtype and ≤ 256 values in the middle slice) run in a job worker.
+- `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry. Sessions live in the API process memory (LRU of 32; gone after a restart); a folder lists at most 500 accepted files. Headers are read in a job worker. Every opened file is an image (ADR-0024).
 - DICOM and NumPy are converted into `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, which is disposable, LRU-purged with `CACHE_MAX_GB`, and never a source for projects.
-- Viewer: all layouts. Modality from DICOM when present; otherwise CT is assumed and the user can change it (VW-05). A label map opened alone is shown with auto colours `label_{value}` over a black background.
+- Viewer: all layouts. Modality from DICOM when present; otherwise CT is assumed and the user can change it (VW-05). An attached segmentation is shown with auto colours `label_{value}`.
 - Curation, tasks and share links are disabled. Open mode offers exactly three actions: **Save as NIfTI…** (SRC-14), **Add to project…** (SRC-15) and **Create project from this** (the import wizard with the path and the detected adapter). No rename, delete or edit; tasks still require a project.
-- Attach (SRC-10) takes a NIfTI or NumPy label map from inside the opened folder; outside it the refusal offers `open_folder`.
+- Attach (SRC-10) takes a NIfTI segmentation from inside the opened folder; anything else is `unsupported-format`, outside the folder the refusal offers `open_folder`.
 
 ## NumPy geometry and axis order (SRC-12)
 

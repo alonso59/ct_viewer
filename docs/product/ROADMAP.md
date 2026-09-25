@@ -152,7 +152,7 @@ Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` i
 
 ### Pending plugins (after P7c, before Step 4)
 - [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10)
-- [ ] nnU-Net segmentation plugin (`plugins/nnunet/`, external runtime, GPU), deferred from P7b
+- [ ] nnU-Net segmentation plugin (`plugins/nnunet/`, external runtime, GPU), deferred from P7b; also owns nnU-Net dataset naming on import/export (`imagesTr/`/`labelsTr/`, `_0000` channels), removed from core `nifti-files` (ADR-0024)
 
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)

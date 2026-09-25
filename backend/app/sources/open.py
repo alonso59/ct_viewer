@@ -3,7 +3,8 @@
 Sessions live in memory only: nothing is written to a project or to the workspace registry.
 NumPy (and, with the converter, DICOM) volumes are converted into the disposable
 `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, LRU-purged with `CACHE_MAX_GB`.
-Headers and label sampling run in job workers (BE-12).
+Headers run in job workers (BE-12). An opened file is always an image; a segmentation
+comes only from attach (SRC-10: NIfTI, same geometry).
 """
 
 from __future__ import annotations
@@ -26,9 +27,9 @@ from app.sources import formats
 
 MAX_ITEMS = 500
 MAX_SESSIONS = 32
-LABEL_MAX_VALUES = 256
 OPEN_DIR = Path(".scratch") / "open"
 
+# "label" only for a segmentation attached to an image (SRC-10)
 ItemKind = Literal["image", "label"]
 
 
@@ -78,26 +79,8 @@ class OpenSession(BaseModel):
 # -- worker units ----------------------------------------------------------------------------
 
 
-def _is_label(path: Path, fmt: str, axis_order: str) -> bool:
-    """SOURCES §Formats: integer dtype with ≤ 256 distinct values in a header-guided sample."""
-    if fmt == "npy":
-        arr = np.load(path, mmap_mode="r", allow_pickle=False)
-        if not np.issubdtype(arr.dtype, np.integer) and arr.dtype != np.bool_:
-            return False
-        k = arr.shape[0 if axis_order == "zyx" else 2] // 2
-        sample = arr[k] if axis_order == "zyx" else arr[:, :, k]
-    else:
-        import nibabel as nib
-
-        img: Any = nib.load(path)
-        if not np.issubdtype(np.dtype(img.header.get_data_dtype()), np.integer):
-            return False
-        sample = np.asanyarray(img.dataobj[..., img.shape[2] // 2])
-    return len(np.unique(np.asarray(sample))) <= LABEL_MAX_VALUES
-
-
 def probe(root: str, rels: list[str]) -> list[dict[str, Any]]:
-    """Worker: header + label check per accepted file (NIfTI, NumPy). Never raises."""
+    """Worker: header per accepted file (NIfTI, NumPy). Never raises."""
     out: list[dict[str, Any]] = []
     for rel in rels:
         path = Path(root) / rel
@@ -125,11 +108,9 @@ def probe(root: str, rels: list[str]) -> list[dict[str, Any]]:
                     "orientation": None,
                     "affine": aff if isinstance(aff, list) else None,
                 }
-                row["label"] = _is_label(path, "npy", order or "xyz")
             elif fmt == "nifti":
                 h = read_header(path)
                 row["geometry"] = {**h.geometry(), "affine": h.affine}
-                row["label"] = _is_label(path, "nifti", "xyz")
             else:
                 continue  # DICOM files are grouped into series below
         except (HeaderError, OSError, ValueError) as exc:
@@ -201,7 +182,6 @@ def build_session(path: Path, rows: list[dict[str, Any]], scan: formats.Scan) ->
                 name=name,
                 rel=r["rel"],
                 format=r["format"],
-                kind="label" if r.get("label") else "image",
                 geometry=geo,
                 n_slices=geo.shape[2] if geo else None,
                 axis_order=r.get("axis_order"),

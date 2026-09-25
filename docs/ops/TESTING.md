@@ -20,7 +20,7 @@ Depends: all domain docs.
 | TST-12 | Statistics | pytest vs SciPy/statsmodels reference | ANA test choice, p/q/effect sizes, each REC rule triggered by a fixture |
 | TST-13 | Orientation | pytest | A synthetic DICOM series and NumPy `xyz`/`zyx` arrays with an asymmetric marker (known L/A/S voxel) convert to NIfTI with the marker at the expected RAS mm (NFR-18) |
 | TST-14 | Task protocol | pytest | Builtin and external runtimes on the fake `segment.threshold` plugin: queue, runner claim, progress, cancel, resume, `waiting_for_runner`, mask registration as a segmentation set |
-| TST-15 | Sources | pytest + hypothesis | `nifti-files` patterns, single-file import, identity registry stability across incremental imports, Open mode (NIfTI, DICOM file, label map, attach mismatch), refusal `actions[]` |
+| TST-15 | Sources | pytest + hypothesis | `nifti-files` patterns, single-file import, identity registry stability across incremental imports, Open mode (NIfTI, DICOM file, every opened file is an image, attach NIfTI only + mismatch), nnU-Net names not special (ADR-0024), refusal `actions[]` |
 | TST-16 | Analyzers | pytest | Phase text/timing/conflict cases, target profiles, readiness codes, activation reindex (ANZ-*) |
 | TST-17 | Plugins | pytest + Vitest | Manifest validation, Library status reasons, contributions registered, pending plugins not openable (PLG-*) |
 | TST-18 | View-only link | pytest + Playwright | API-60 serves reads only, never returns `project_id`, rotation revokes the old token; the UI hides every editing control (PRJ-17, UI-26) |
