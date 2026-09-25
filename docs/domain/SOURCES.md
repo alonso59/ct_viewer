@@ -2,7 +2,7 @@
 
 Scope: accepted file formats, source adapters, Open mode (no project), case identity policy, NumPy geometry and axis order.
 Read when: building import detection, the NIfTI adapter, Open mode, case numbering, or any array ↔ NIfTI conversion.
-Depends: ADR-0013, ADR-0024, INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
+Depends: ADR-0013, ADR-0024, ADR-0025 (reconstructed sidecars), INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
 
 Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstream knows which adapter was used.
 
@@ -12,7 +12,7 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 |---|---|---|
 | SRC-01 | `detect(path)` accepts a folder **or a single file** inside `ALLOWED_DATA_ROOTS`. It returns candidate adapters, each with a reason, file counts and a confidence. The wizard preselects the best one, and the user can switch. | M |
 | SRC-02 | Only the formats in §Formats are accepted. Any other file is listed as ignored with its extension; a source with no accepted file is refused with the cause and a next action (SRC-11). | M |
-| SRC-03 | Adapter `metadata-v1`: today's importer (IMP-02..08), unchanged. | M |
+| SRC-03 | Adapter `metadata-v1`: today's importer (IMP-02..08), unchanged; optionally offers reconstructed sidecars (IMP-15, ADR-0025). | M |
 | SRC-04 | Adapter `nifti-files`: a folder (recursive) or one file. It has a filename pattern with a live preview (§NIfTI files), mask discovery by convention (optional, IMP-11), modality asked once (default `CT`), and phase `UNK`. Geometry comes from headers. | M |
 | SRC-05 | A single accepted file can become a one-item project: the parent folder is the root, and the import keeps an include list. | S |
 | SRC-06 | Every snapshot has `sources/{import_id}/source.json` = `{adapter, adapter_version, options, detected_at}`, so re-import (IMP-06) reproduces the same rows. | M |

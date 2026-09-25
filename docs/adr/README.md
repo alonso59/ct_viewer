@@ -29,3 +29,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0021 | CT tools without a project; workspace tasks; the converter overlay | Accepted |
 | 0022 | Shared event store; Curation & QC and Labeling table as plugins | Accepted |
 | 0024 | Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin | Accepted |
+| 0025 | A JSONL whole-project export; reconstructed sidecars for `metadata-v1` imports | Accepted |

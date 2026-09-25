@@ -2,7 +2,7 @@
 
 Scope: accepted input files, import wizard, normalization into items, QC warnings.
 Read when: building import, indexing, phase resolution, or validation.
-Depends: PROJECT_FORMAT.md, DATA_MODEL.md, SOURCES.md (adapters, formats, identity), ANALYZERS.md (phase annotations).
+Depends: PROJECT_FORMAT.md, DATA_MODEL.md, SOURCES.md (adapters, formats, identity), ANALYZERS.md (phase annotations), ADR-0025 (reconstructed sidecars, dataset.jsonl).
 
 "Upload" means registering **metadata plus a data root path**. Image bytes are never uploaded or copied (ADR-0005).
 Contract v1 below is the only internal form: other sources (NIfTI files, DICOM via `dicom.convert`) are turned into v1 rows by adapters (SOURCES.md, ADR-0013).
@@ -26,6 +26,7 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | IMP-12 | Thumbnail job (after indexing, in workers): a 128 px mid-axial slice at the default W/L for each `complete` item, with a mask outline if one exists; stored in `cache/thumbs/{image_fp}.webp` (UI-08). | S |
 | IMP-13 | The import wizard's Data root step offers "Skip for now", which closes the wizard without importing. The project already exists (PRJ-14, created before the wizard opens) and shows its empty state with an Import data entry point; nothing is lost. | S |
 | IMP-14 | The alias field (IMP-01) validates inline — format and collision with an existing alias of the project — instead of surfacing only as a preview/commit failure. | S |
+| IMP-15 | `metadata-v1` import offers, opt-in, reconstructed per-row DICOM sidecars from converter-extra fields already in the row (ADR-0025); never generated when a row's `dicom_sidecar` ref already resolves, never on by default. | S |
 
 ## Input files (contract v1, from the v2 converter/preprocessor)
 

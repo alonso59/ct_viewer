@@ -2,7 +2,7 @@
 
 Scope: workspace, project folder layout, IDs, path aliases, sharing, file-write rules.
 Read when: touching persistence, import, links, relinking, or any file under a project.
-Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, ADR-0022.
+Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, ADR-0022, ADR-0025.
 
 ## Model (QuPath-like)
 
@@ -68,7 +68,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
         ├── derived/runs.jsonl     # ledger of files written to the DERIVED root: run, task, refs, sha256 (ADR-0014)
         ├── events/{namespace}.jsonl # core event store per plugin, e.g. labeling (ADR-0022); curation keeps curation/events.jsonl
         ├── plugins/{plugin_id}/   # plugin state, e.g. labeling/tables.json (PLG-07)
-        ├── exports/               # user-requested outputs (CSV/Parquet/phase.json proposals, dataset_table.* ADR-0020)
+        ├── exports/               # user-requested outputs (CSV/Parquet/phase.json proposals, dataset_table.* ADR-0020, dataset.jsonl ADR-0025)
         ├── cache/                 # DISPOSABLE: meshes, npy→nii conversions
         └── .lock                  # advisory lock held by the API process
 ```
