@@ -22,7 +22,7 @@ The user states **what question** they ask; the app picks a sensible test, expla
 | ANA-07 | Descriptives per group: n, missing, median, IQR, mean, SD. | M |
 | ANA-08 | After computing, show **Recommendations** (§Rules), each linking to the view that shows the problem. | M |
 | ANA-09 | Export: tidy CSV (unit rows × features + variables), results CSV, and `spec.json` so the same analysis can be redone in Python/R. | M |
-| ANA-10 | Paired comparison (same case across phases or sides): paired t / Wilcoxon signed-rank. | C (v3.1) |
+| ANA-10 | Paired comparison (same case across phases or sides): paired t / Wilcoxon signed-rank. | C |
 | ANA-11 | Out of scope in-app: multivariable models, ML, survival, mixed models, ComBat harmonization. Recommend them; do them outside. | — |
 
 ## Tests

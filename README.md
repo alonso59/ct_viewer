@@ -13,7 +13,8 @@ Requirements: Python 3.12 (via `uv` or `python3.12`), Node 22+ natively **or** D
 ```bash
 make setup      # backend venv + frontend deps
 make fixtures   # synthetic test dataset -> .fixtures/synthetic/
-make check      # lint, type check, unit tests (both sides)
+make check      # lint, type check, unit tests (both sides), requirement check
+make docs       # docs site -> build/docs/ (Sphinx + MyST via uvx; dev only)
 make dev-backend    # terminal 1: API on 127.0.0.1:8000
 make dev-frontend   # terminal 2: UI on 127.0.0.1:5173
 ```

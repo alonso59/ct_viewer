@@ -6,7 +6,7 @@ Agent entry point. Keep this file short; details live in `docs/`.
 
 1. This file.
 2. `docs/INDEX.md` — pick **only** the docs routed for your task.
-3. Never read `docs/archive/**` unless the task is v2 migration.
+3. Never read `docs/archive/**` (frozen history: v2, finished v3 runbook steps) unless the task says so (e.g. v2 migration).
 
 ## Product in one line
 

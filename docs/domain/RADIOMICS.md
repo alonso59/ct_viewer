@@ -27,7 +27,7 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-11 | Pre-run estimate: `n_items × n_labels` and time per item measured on a 3-item sample. | S |
 | RAD-12 | Engine adapter interface allows replacing the engine without UI changes (ADR-0006). | S |
 | RAD-13 | Radiomics runs as the builtin task `radiomics.pyradiomics` (TSK-*, ADR-0016). API-30..37 stay as aliases of the task endpoints during P7b; run records stay in `radiomics/runs/`. | M |
-| RAD-13 | Voxel-based feature maps. | C (v3.1) |
+| RAD-14 | Voxel-based feature maps. | C |
 
 ## Engine adapter
 

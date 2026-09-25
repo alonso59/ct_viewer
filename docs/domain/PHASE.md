@@ -17,7 +17,7 @@ Phase selection is a native app capability (ADR-0026) — always available, not 
 | PHS-05 | Live sync: a `phase.appended` event pushes to other open browsers via SSE (as ADR-0022); "Updated by {reviewer}". | M |
 | PHS-06 | Export: `exports/phase_selections.json`, shaped like `phase.json` (INPUT_METADATA §`phase.json`), so a correction can be fed back in as a future import override. | M |
 | PHS-07 | History panel per scan, newest first (same pattern as CUR-14). | S |
-| PHS-08 | Import compatibility: the standalone converter's `curation.csv` `curated_phase` (previously CUR-15) and v2's `phase_issue` map to a native `phase` event (`source: "converter_import"` / `"v2_import"`) instead of a curation event. One import per `case_id|scan_idx` (v2: the latest row per scan). An import never overrides a scan that already has a selection: that row is reported under `skipped` with the reason "phase already set", and `phase_events` counts the events written. | S |
+| PHS-08 | Import compatibility: the standalone converter's `curation.csv` `curated_phase` (previously CUR-15) and v2's `phase_issue` map to a native `phase` event (`source: "converter_import"` / `"v2_import"`) instead of a curation event. One import per `case_id\|scan_idx` (v2: the latest row per scan). An import never overrides a scan that already has a selection: that row is reported under `skipped` with the reason "phase already set", and `phase_events` counts the events written. | S |
 
 ## Where the effective phase surfaces
 

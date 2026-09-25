@@ -6,7 +6,9 @@ Read only the files routed for your task. Each file declares its scope in its he
 
 | Task | Read |
 |---|---|
-| Understand the product / scope | `product/VISION.md` |
+| Understand the product, scope, journeys G1..G4 (PRD) | `product/VISION.md` |
+| Release scope, v3.0 gates (MVP) | `product/MVP.md` |
+| All requirements at once, requirement grammar (SRS) | `product/SRS.md` (frame; `make docs-srs` for the table) |
 | Plan or pick next work | `product/ROADMAP.md` |
 | Unknown term | `product/GLOSSARY.md` |
 | Project folder, IDs, path aliases | `domain/PROJECT_FORMAT.md` |
@@ -32,6 +34,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Docker / udocker / env vars | `ops/DEPLOYMENT.md` |
 | Local and remote dev loop | `ops/DEV_ENV.md` |
 | Tests and fixtures | `ops/TESTING.md` |
+| Build or publish the docs site | `product/SRS.md` §1.5, `_sphinx/` |
 | (Humans) multi-agent prompts per step | `ops/AGENT_RUNBOOK.md`; agents skip it |
 | Performance, safety, privacy targets | `product/NFR.md` |
 | Run or triage the quality audit | `audit/PLAN.md` → one `audit/findings/A*.md` |
@@ -62,14 +65,18 @@ Read only the files routed for your task. Each file declares its scope in its he
 | `DB-` | frontend/DASHBOARD.md | Dashboard |
 | `OPS-` | ops/DEPLOYMENT.md | Runtime and deployment |
 | `NFR-` | product/NFR.md | Quality targets |
+| `TST-` | ops/TESTING.md | Test layers |
+| `G1`..`G4` | product/VISION.md | Journeys (golden paths) |
+| `REL-` | product/MVP.md | Release gates |
 | `AUD-` | audit/PLAN.md, audit/findings/ | Audit findings |
 
 ## Doc conventions (keep tokens low)
 
-- Header block: `Scope`, `Read when`, `Depends`. No intro prose.
+- Header block: `Scope`, `Read when`, `Depends`. No intro prose. ADRs use the ADR template (`adr/README.md`); routers (`AGENTS.md`, this file, `adr/README.md`), `SITE.md` and root files have none.
 - Target ≤ 200 lines per file. Split rather than grow.
 - Tables and compact schemas over paragraphs. No duplicated examples.
-- Requirements: `| ID | Requirement | Pri |`, where Pri is `M` (must), `S` (should) or `C` (could).
+- Requirements: `| ID | Requirement | Pri |`, where Pri is `M` (must), `S` (should), `C` (could) or `—` (retired or out of scope; the text says which). Release targets live in `product/MVP.md`, not in Pri. Grammar and checks: `product/SRS.md` §1.5 (`make check` runs them).
 - Reference other docs by ID or path; never copy their content.
 - `Open questions` section at the end of a file only while something is undecided; move answers to `Decisions`.
-- `archive/` is frozen v2 history. Do not read or update it.
+- `archive/` is frozen history (v2, finished v3 runbook steps). Do not read or update it unless the task says so.
+- `SITE.md` and `_sphinx/` build the published site (`make docs`); agents skip them.

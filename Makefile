@@ -14,6 +14,9 @@ VENV ?= backend/.venv
 BPY := $(if $(filter /%,$(VENV)),$(VENV),../$(VENV))/bin/python
 
 # Node runtime: native | docker | udocker (native if `node` exists, else udocker; AGENTS R4).
+# Docs site tools (dev-only, pinned; never in pyproject.toml, package.json or the image; R5).
+DOCS_TOOLS ?= uvx --from sphinx==9.1.0 --with myst-parser==5.1.0 --with furo==2025.12.19
+
 RUNTIME ?= $(if $(shell command -v node 2>/dev/null),native,udocker)
 NODE_IMAGE ?= node:22-slim
 UDOCKER_NODE ?= rw-node
@@ -28,7 +31,7 @@ else
 endif
 
 .PHONY: help setup setup-backend setup-frontend setup-node dev-backend dev-frontend fixtures \
-        gen-api lint typecheck test check e2e image udocker-run container-smoke
+        gen-api lint typecheck test reqs check e2e image udocker-run container-smoke docs docs-srs trace
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -64,7 +67,7 @@ gen-api: ## Regenerate frontend API types from OpenAPI (FE-03)
 	$(NODE) npm run gen:api
 
 lint: ## ruff + eslint
-	cd backend && $(BPY) -m ruff check . ../scripts ../plugins && $(BPY) -m ruff format --check . ../scripts ../plugins
+	cd backend && $(BPY) -m ruff check . ../scripts ../plugins ../docs/_sphinx && $(BPY) -m ruff format --check . ../scripts ../plugins ../docs/_sphinx
 	$(NODE) npm run lint
 
 typecheck: ## mypy (strict) + tsc (strict)
@@ -75,7 +78,10 @@ test: ## Unit tests: pytest + vitest
 	cd backend && $(BPY) -m pytest
 	$(NODE) npm test
 
-check: lint typecheck test ## Lint, type check and unit tests for both sides (CI gate)
+reqs: ## Requirement tables check (SRS §1.5; stdlib, < 1 s)
+	python3 docs/_sphinx/reqs.py check
+
+check: lint typecheck test reqs ## Lint, type check, unit tests and the requirement check (CI gate)
 
 e2e: ## Playwright (needs `npx playwright install` once)
 	$(NODE) npm run e2e
@@ -88,3 +94,13 @@ container-smoke: ## TST-10 against the built image (Docker)
 
 udocker-run: ## Run the image under udocker from .env (OPS-09)
 	scripts/udocker-run.sh
+
+docs: ## Docs site (Sphinx + MyST, warnings are errors) into build/docs/
+	$(DOCS_TOOLS) sphinx-build -E -W --keep-going -q -b html -c docs/_sphinx docs build/docs
+	@echo "docs: open build/docs/index.html"
+
+docs-srs: ## SRS review table + counts into build/docs-srs/ (git-ignored)
+	python3 docs/_sphinx/reqs.py srs build/docs-srs
+
+trace: ## Requirement -> code/test citations into build/trace/ (a report, not a gate; AUD-A4-01)
+	python3 docs/_sphinx/reqs.py trace build/trace

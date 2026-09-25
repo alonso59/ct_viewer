@@ -27,7 +27,7 @@ Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event s
 | CUR-12 | Conflict policy: last-writer-wins on derived state; history shows every event. | M |
 | CUR-13 | Import v2 `curation_review.csv` as events (`source: "v2_import"`). | S |
 | CUR-14 | History panel per item and per case, newest first. | M |
-| CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_quality`, `notes` map to status and comment (DCM-08); target `seg`: keep false → `rejected`, quality poor/bad/low → major, fair/medium → minor correction, keep true or quality good → `accepted`. `curated_phase` maps to a native phase event instead (PHS-08), not a curation decision. One import per `case_id|scan_idx`. | S |
+| CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_quality`, `notes` map to status and comment (DCM-08); target `seg`: keep false → `rejected`, quality poor/bad/low → major, fair/medium → minor correction, keep true or quality good → `accepted`. `curated_phase` maps to a native phase event instead (PHS-08), not a curation decision. One import per `case_id\|scan_idx`. | S |
 
 ## Status
 

@@ -71,7 +71,6 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-53 | `POST /projects/{pid}/curation/exports` | Write CUR-10 files to `exports/` | CUR-10 |
 | API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` → `201 {n_rows, imported, phase_events, skipped[]}`; `phase_issue` rows become phase events (PHS-08) | CUR-13 |
 | API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` (multipart `file`, `X-Reviewer`) → `201` report as API-54 | CUR-15 |
-
 | API-56 | `GET·POST /plugins/labeling/projects/{pid}/tables[?deleted=true]` · `PATCH …/tables/{tid}` · `GET …/tables/{tid}/history?target=&column_id=` | Label tables and column schemas (list rows carry `n_rows` + per-column `progress`; `?deleted=true` lists only deleted tables) / `PATCH {name?, hidden?, columns?}`: rename, delete or restore (`hidden`), column upserts / cell history, newest first. A deleted table answers 404 everywhere except `PATCH` A column with `ref` mirrors a comparable variable (LBL-09, read-only). | LBL-01/02/04/08/09/10 |
 | API-57 | `GET·POST /plugins/labeling/projects/{pid}/tables/{tid}/cells` | Cell state (paged, filterable) / append cell events (`X-Reviewer`) | LBL-03..05 |
 | API-58 | `POST …/tables/{tid}/import` · `GET …/tables/{tid}/export?format=csv\|parquet` | CSV import with a match report / export | LBL-07 |

@@ -1,8 +1,8 @@
 # Audit plan (v3, after P7c)
 
 Scope: end-to-end quality audit of the web app: scientist workflows, navigation, visuals, doc ↔ code conformance, bugs, code quality, tests.
-Read when: running or triaging an audit (A0..A6).
-Depends: VISION, UI_SHELL (UI-*), VIEWER (VW-*), NFR, TESTING (TST-*), ROADMAP.
+Read when: running or triaging an audit (A0..A7).
+Depends: VISION (§Journeys G1..G4), UI_SHELL (UI-*), VIEWER (VW-*), NFR, TESTING (TST-*), ROADMAP.
 
 Owner decisions (2026-09-25): all four golden paths (G1..G4) in scope · **fixtures only** (`.fixtures/synthetic`, no real data) · findings are reported first, fixed later in approved batches · first pain point to dig into: **navigation and discoverability** (A1).
 
@@ -32,12 +32,7 @@ One file per audit: `docs/audit/findings/A{n}-{slug}.md`, header block as in `do
 
 ## Golden paths (walked in A1 and A2, on the fixtures)
 
-| Path | Steps (the user's goal, not the UI's) | Refs |
-|---|---|---|
-| **G1 · Open & inspect** | Home → open a single NIfTI → 2×2 with the right W/L → scroll, zoom one view, fit (F) → HU probe, distance, header → attach a label map → Save as NIfTI… / Create project from this → Close | UI-17, UI-24, SRC-09/14/15, VW-* |
-| **G2 · DICOM → project** | Home → Convert DICOM… (overlay) → dry run → run → Create project → import wizard → explorer with thumbnails, phase and warnings → open a case | UI-25, DCM-*, IMP-*, UI-08/09 |
-| **G3 · Review & curate** | Open case → review scans/masks → one-click phase → QC status + comment → label a patient-level and a scan-level cell → **next case without the mouse** → correction queue export → second browser sees it live → view-only link can't write | CUR-*, PHS-*, LBL-*, UI-26, TST-08 |
-| **G4 · Radiomics → analysis** | Radiomics settings → selection by variable + `seg_id` → estimate → run → dashboard → outlier → viewer in one click → group comparison on a derived variable → export | RAD-*, DB-*, ANA-*, VAR-06 |
+G1..G4 are defined in `product/VISION.md` §Journeys (steps and refs).
 
 For every step record: clicks + keys, whether the next action was **visible without searching**, dead ends, waits > 1 s, and a screenshot at 1440×900 (plus 1280×800 and 2560×1440 for layout findings).
 
@@ -107,6 +102,6 @@ Tool: **Sphinx + MyST** (Markdown stays the source; build offline, dev-only depe
 | A4 Conformance | ✅ 2026-09-25 (`findings/A4-conformance.md`) | 0 / 1 / 16 | pending |
 | A5 Bugs | ✅ 2026-09-26 (`findings/A5-bugs.md`) | 2 / 7 / 7 | pending |
 | A6 Code & tests | ✅ 2026-09-26 (`findings/A6-code-tests.md`) | 0 / 5 / 14 | pending |
-| A7 Docs structure | ✅ 2026-09-26 (`findings/A7-docs.md`) | 0 / 0 / 12 | pending |
+| A7 Docs structure | ✅ 2026-09-26 (`findings/A7-docs.md`); restructure batch applied 2026-09-26 | 0 / 0 / 12 | done (owner 2026-09-26) |
 
 **Exit:** every audit reported; P0 findings fixed; accepted P1 findings fixed or scheduled in ROADMAP; G1..G4 each covered by one Playwright spec that walks the whole path.

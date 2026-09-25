@@ -20,6 +20,7 @@ frontend/test-results/
 frontend/src/api/openapi.json
 
 # Dev state and generated data
+/build/
 .workspace/
 /workspace/
 .fixtures/

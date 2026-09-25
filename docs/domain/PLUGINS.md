@@ -19,7 +19,7 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 | PLG-07 | Plugin state is namespaced: `{project}/plugins/{id}/` and `{WORKSPACE_ROOT}/plugins/{id}/`; human decisions go to the event store namespace `{id}` (ADR-0022). | M |
 | PLG-08 | New plugin HTTP routes mount under `/api/v1/plugins/{id}/`; existing first-party routes (radiomics, curation, analytics) keep their paths. | M |
 | PLG-09 | A plugin that is `pending` is listed in the Library with its description and requirements, but cannot be opened. | S |
-| PLG-10 | Per-project enable/disable, updates and plugin management. | C (later) |
+| PLG-10 | Per-project enable/disable, updates and plugin management. | C |
 
 ## Contribution points
 

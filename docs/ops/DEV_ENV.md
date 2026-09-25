@@ -26,6 +26,8 @@ Depends: DEPLOYMENT.md.
 | `make e2e` | Playwright against a running dev stack |
 | `make image` | Build the OCI image (Docker only) |
 | `make udocker-run` | `scripts/udocker-run.sh` |
+| `make reqs` | Requirement tables check (part of `make check`; SRS §1.5) |
+| `make docs` · `make docs-srs` · `make trace` | Docs site → `build/docs/` (pinned Sphinx via `uvx`) · SRS review table → `build/docs-srs/` · ID → code/test citations → `build/trace/` |
 
 ## Rules
 
