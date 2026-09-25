@@ -144,7 +144,7 @@ export default function OpenRoute() {
           <ModalityChip />
           <span className="toolbar-sep" />
           {/* UI-24: Close drops the session and releases the volumes; nothing is deleted */}
-          <button type="button" className="btn" onClick={() => void close()}>
+          <button type="button" className="btn open-close-btn" onClick={() => void close()}>
             <Icon spec={codicon('close')} />
             {t('open.close')}
           </button>

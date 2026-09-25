@@ -26,6 +26,7 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | SRC-14 | "Save as NIfTI…" in Open mode (API-09) writes the open volume (converted from DICOM/NumPy, or the NIfTI itself) as `.nii.gz` (+ its DICOM JSON sidecar for DICOM, DCM-04) to `{first ALLOWED_DERIVED_ROOTS}/_open/{YYYY-MM-DD}/` by default; the user may change the folder once (remembered in the browser). The destination must be inside `ALLOWED_DERIVED_ROOTS` (never next to the source, R1); names never overwrite (`-1`, `-2` …); an optional `anonymize: basic` checkbox comes with a PHI notice (NFR-17). Written once, never modified. | M |
 | SRC-15 | "Add to project…" imports the open file into an existing project as a new import (`nifti-files` for NIfTI, `dicom.convert` for a single DICOM file); it is added next to the project's other sources (§Imports). | S |
 | SRC-16 | A workspace dataset (`{derived root}/_datasets/{name}/`, from a workspace task) opens in Open mode and imports through `metadata-v1` like any source root. | M |
+| SRC-17 | The `nifti-files` step offers a pattern suggester (§Pattern suggester): candidate `pattern` regexes proposed from the sampled file names, shown with their named groups, picked into the field for the user to edit — never applied without that step. | S |
 
 ## Formats
 
@@ -48,6 +49,10 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | `include` | all accepted files | Explicit file list (SRC-05) |
 
 Preview shows the parsed columns for the first 50 files and every unmatched name.
+
+### Pattern suggester (SRC-17)
+
+The wizard's Detect step samples the file names `detect()` already listed and proposes 1-3 candidate `pattern` regexes, each shown with its named groups highlighted against a handful of real file names from this root. Picking a candidate only fills the `pattern` field for the user to review and edit before Preview; nothing is inferred or applied automatically. This keeps `nifti-files` free of hidden per-dataset defaults (ADR-0024) while still making a project-specific convention (e.g. `case_id` + `scan_idx` + a `side` laterality suffix, custom mask suffixes) fast to set up.
 
 Implementation notes (P7b Wave 2): the adapter reads file names only (headers are read by the index job) and writes v1 rows with `relative_path`, `seg_path`, `modality`, `source_kind: nifti`, `source_name`. Only channel `0000` (or no channel) becomes an item; other channels of the same case/scan are listed in the row's `channels`. `scan_idx` comes from the pattern, else from the registry. A mask file with no image is reported in `orphan_masks`. With one file chosen explicitly, that file is the item even if it looks like a mask.
 

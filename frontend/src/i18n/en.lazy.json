@@ -969,6 +969,8 @@
   "import": {
     "alias": "Alias",
     "aliasHelp": "Items store paths as {{alias}}:relative/path, so the project survives a move.",
+    "aliasInvalid": "Use 1–16 characters: a letter first, then letters, digits or _.",
+    "aliasTaken": "{{alias}} is already this project's alias for {{path}}. Pick another name.",
     "commit": "Import and index",
     "detectTitle": "Detected source",
     "detectedCount_one": "{{count}} input file",
@@ -987,6 +989,8 @@
     "rootHelp": "Choose a folder (with metadata.jsonl, NIfTI or DICOM files) or one NIfTI file. The folder becomes a path alias of this project.",
     "rootTitle": "Data root",
     "row": "row {{n}}",
+    "skip": "Skip for now",
+    "skipHelp": "The project is created either way — import data later from File → Import data.",
     "scanning": "Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…",
     "step": {
       "root": "Data root",

@@ -21,3 +21,8 @@
   align-items: center;
   gap: var(--sp-2);
 }
+/* UI-24: Close is non-destructive (releases the session, deletes nothing) — a red
+   border marks it as the exit action without borrowing --btn-danger's destructive color. */
+.open-close-btn {
+  border-color: var(--error);
+}

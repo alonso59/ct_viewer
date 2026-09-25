@@ -12,6 +12,7 @@ import {
   useDetect,
   useImportPreview,
   useJobs,
+  useRoots,
   type DetectCandidate,
   type ImportAdapter,
   type ImportPreview,
@@ -31,6 +32,9 @@ const STEPS = ['root', 'detect', 'preview', 'index'] as const
 type Step = (typeof STEPS)[number]
 const MAX_ERRORS = 50
 const IMPORTABLE = new Set<string>(['metadata-v1', 'nifti-files'])
+// PROJECT_FORMAT §Path aliases
+const ALIAS_RE = /^[A-Z][A-Z0-9_]{0,15}$/
+const normPath = (p: string) => p.replace(/\/+$/, '') || '/'
 
 type Uploads = NonNullable<PreviewRequest['files']>
 
@@ -112,28 +116,30 @@ function NiftiSample({ p }: { p: ImportPreview }) {
   const { t } = useTranslation()
   return (
     <>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>{t('import.nifti.file')}</th>
-            <th>{t('import.nifti.case')}</th>
-            <th>{t('import.nifti.scan')}</th>
-            <th>{t('import.nifti.modality')}</th>
-            <th>{t('import.field.mask')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(p.sample ?? []).map((r) => (
-            <tr key={r.file}>
-              <td className="mono" title={r.file}>{r.matched ? null : <Icon spec={codicon('warning')} />} {r.file}</td>
-              <td className="mono">{r.case_id}</td>
-              <td className="mono">{r.scan_idx}</td>
-              <td className="mono">{r.modality ?? '—'}</td>
-              <td className="mono" title={r.mask ?? ''}>{r.mask ? <Icon spec={codicon('check')} /> : '—'}</td>
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{t('import.nifti.file')}</th>
+              <th>{t('import.nifti.case')}</th>
+              <th>{t('import.nifti.scan')}</th>
+              <th>{t('import.nifti.modality')}</th>
+              <th>{t('import.field.mask')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(p.sample ?? []).map((r) => (
+              <tr key={r.file}>
+                <td className="mono" title={r.file}>{r.matched ? null : <Icon spec={codicon('warning')} />} {r.file}</td>
+                <td className="mono">{r.case_id}</td>
+                <td className="mono">{r.scan_idx}</td>
+                <td className="mono">{r.modality ?? '—'}</td>
+                <td className="mono" title={r.mask ?? ''}>{r.mask ? <Icon spec={codicon('check')} /> : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {p.unmatched?.length ? (
         <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.nifti.unmatched', { count: p.unmatched.length, names: p.unmatched.slice(0, 5).join(', ') })}</p>
       ) : null}
@@ -194,6 +200,14 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const p = preview.data
   const path = file ?? dir
   const cands = detect.data?.candidates ?? []
+  // IMP-14: format, and an alias of this project that points elsewhere (commit would repoint it);
+  // SRC-15 "add" picks a free alias on the server, so it never collides
+  const taken = (useRoots(pid).data ?? []).find((r) => r.alias === alias)
+  const aliasError = !ALIAS_RE.test(alias)
+    ? t('import.aliasInvalid')
+    : taken && !prefill?.add && dir !== null && normPath(taken.path) !== normPath(dir)
+      ? t('import.aliasTaken', { alias, path: taken.path })
+      : null
 
   useEffect(() => {
     if (job?.status === 'succeeded') {
@@ -233,7 +247,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const hasMetadata = p?.files.some((f) => f.kind === 'metadata') ?? false
   const canNext =
     step === 'root'
-      ? path !== null && alias !== '' && (!upload || files.metadata != null)
+      ? path !== null && aliasError === null && (!upload || files.metadata != null)
       : step === 'detect'
         ? adapter !== null && !preview.isPending && (adapter === 'open' || adapter === 'dicom.convert' || IMPORTABLE.has(adapter))
         : step === 'preview'
@@ -292,7 +306,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       open
       onOpenChange={(o) => !o && (step !== 'index' || failed) && close()}
       title={t('import.title')}
-      icon={codicon('cloud-download')}
+      icon={codicon('folder-opened')}
       size="lg"
       footer={
         <>
@@ -305,6 +319,9 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             ))}
           </ol>
           <span style={{ flex: 1 }} />
+          {step === 'root' ? (
+            <button type="button" className="btn" title={t('import.skipHelp')} onClick={close}>{t('import.skip')}</button>
+          ) : null}
           {step !== 'root' && step !== 'index' ? (
             <button type="button" className="btn" onClick={() => setStep(STEPS[i - 1] ?? 'root')}>{t('common.back')}</button>
           ) : null}
@@ -331,8 +348,10 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             ) : null}
             <label className="field" style={{ marginTop: 12 }}>
               <span className="field-label">{t('import.alias')}</span>
-              <input className="input mono" value={alias} onChange={(e) => setAlias(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} />
-              <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('import.aliasHelp', { alias })}</span>
+              <input className="input mono" value={alias} aria-invalid={aliasError !== null} aria-describedby="import-alias-help" onChange={(e) => setAlias(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} />
+              <span id="import-alias-help" className="muted" style={{ fontSize: 'var(--fs-badge)', color: aliasError ? 'var(--error)' : undefined }}>
+                {aliasError ?? t('import.aliasHelp', { alias })}
+              </span>
             </label>
             <label className="check" style={{ marginTop: 12 }}>
               <input type="checkbox" checked={upload} onChange={(e) => setUpload(e.target.checked)} />
@@ -393,31 +412,38 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
         </div>
       ) : null}
       {step === 'preview' && p ? (
-        <div className="wiz-grid">
+        // nifti-files has no mapping column: stack KPIs, sample and errors instead of a half-empty grid
+        <div className={p.adapter === 'nifti-files' ? 'wiz-stack' : 'wiz-grid'}>
           <div>
             <h3>{t('import.previewTitle')}</h3>
-            <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginTop: 0 }}>
-              <div className="card"><span className="kpi num">{p.counts.scan_rows}</span><span className="muted">{t('import.kpiRows')}</span></div>
-              <div className="card"><span className="kpi num">{p.counts.cases}</span><span className="muted">{t('import.kpiCases')}</span></div>
-              <div className="card"><span className="kpi num">{p.counts.voi_rows}</span><span className="muted">{t('import.kpiVoi')}</span></div>
-              <div className="card"><span className="kpi num">{p.counts.excluded_upstream}</span><span className="muted">{t('import.kpiExcluded')}</span></div>
+            <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${p.adapter === 'nifti-files' ? 4 : 2}, 1fr)`, marginTop: 0 }}>
+              {([
+                [p.counts.scan_rows, 'import.kpiRows'],
+                [p.counts.cases, 'import.kpiCases'],
+                [p.counts.voi_rows, 'import.kpiVoi'],
+                [p.counts.excluded_upstream, 'import.kpiExcluded'],
+              ] as const).map(([n, label]) => (
+                <div key={label} className="card" data-zero={n === 0 || undefined}><span className="kpi num">{n}</span><span className="muted">{t(label)}</span></div>
+              ))}
             </div>
             {p.adapter === 'nifti-files' ? null : (
               <>
                 <h3 style={{ marginTop: 16 }}>{t('import.mapping')}</h3>
                 <Mapping preview={p} />
-                <table className="table" style={{ marginTop: 12 }}>
-                  <tbody>
-                    {p.files.map((f) => (
-                      <tr key={f.kind}>
-                        <td style={{ color: 'var(--ok)' }}><Icon spec={codicon('pass')} /></td>
-                        <td className="mono">{f.name}</td>
-                        <td className="muted">{t(`import.source.${f.source}`)}</td>
-                        <td className="num muted">{t('import.rows', { count: f.rows })}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll" style={{ marginTop: 12 }}>
+                  <table className="table">
+                    <tbody>
+                      {p.files.map((f) => (
+                        <tr key={f.kind}>
+                          <td style={{ color: 'var(--ok)' }}><Icon spec={codicon('pass')} /></td>
+                          <td className="mono">{f.name}</td>
+                          <td className="muted">{t(`import.source.${f.source}`)}</td>
+                          <td className="num muted">{t('import.rows', { count: f.rows })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
           </div>

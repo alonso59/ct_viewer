@@ -4,6 +4,21 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--sp-5);
 }
+/* Preview for adapters without a left column (nifti-files, IMP-03) */
+.wiz-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+/* Wide tables scroll on their own, never the dialog body with their siblings (IMP-03) */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+/* A zero count stays legible but secondary to the non-zero ones */
+.stat-grid .card[data-zero] {
+  opacity: 0.55;
+}
 .dialog-body h3 {
   margin: 0 0 var(--sp-2);
   font-size: var(--fs-ui);

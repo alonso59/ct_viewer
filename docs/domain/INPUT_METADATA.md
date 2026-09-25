@@ -14,7 +14,7 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 |---|---|---|
 | IMP-01 | The import wizard picks a data root through a server-side folder browser limited to `ALLOWED_DATA_ROOTS`. The root becomes alias `DATA`, which the user can rename. | M |
 | IMP-02 | Auto-detect `metadata.jsonl`, `phase.json`, and `voi/voi_catalog.jsonl` under the root; alternatively upload them from the browser (multipart, metadata only). Other sources: adapter detection (SRC-01..05). | M |
-| IMP-03 | Preview before commit: row counts, case count, and the first 50 parse/validation errors, plus a detected field mapping. | M |
+| IMP-03 | Preview before commit: row counts, case count, and the first 50 parse/validation errors, plus a detected field mapping. Unmatched files, orphan masks and ignored-extension counts (`nifti-files`) surface next to the step's counts, not only below a scrollable table, so a user who doesn't scroll still sees them. | M |
 | IMP-04 | Commit snapshots the inputs to `sources/{import_id}/` with SHA-256 and appends to `imports.jsonl`. | M |
 | IMP-05 | Indexing runs as a job (progress, cancel) and builds `index/items.jsonl`, `index/cases.jsonl`, and the quick fingerprints. | M |
 | IMP-06 | Re-import creates a new snapshot and rebuilds the index. `item_id` is deterministic, so curation events stay attached. The index joins the latest snapshot of each source (SOURCES §Imports). | M |
@@ -24,6 +24,8 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | IMP-10 | Legacy `.npy` VOIs are accepted; they are converted to NIfTI in `cache/` on first view, using catalog spacing and axis order (SOURCES §NumPy). | S |
 | IMP-11 | Metadata-only mode: a project may be indexed without a seg or VOI catalog; the viewer adapts (VW-12). | M |
 | IMP-12 | Thumbnail job (after indexing, in workers): a 128 px mid-axial slice at the default W/L for each `complete` item, with a mask outline if one exists; stored in `cache/thumbs/{image_fp}.webp` (UI-08). | S |
+| IMP-13 | The import wizard's Data root step offers "Skip for now", which closes the wizard without importing. The project already exists (PRJ-14, created before the wizard opens) and shows its empty state with an Import data entry point; nothing is lost. | S |
+| IMP-14 | The alias field (IMP-01) validates inline — format and collision with an existing alias of the project — instead of surfacing only as a preview/commit failure. | S |
 
 ## Input files (contract v1, from the v2 converter/preprocessor)
 
