@@ -584,13 +584,12 @@ export class NiivueViewer implements ViewerHandle {
     const mmPerPx = ((fov[0] ?? 1) / (ltwh[2] || 1)) * k
     const mmPerPy = ((fov[1] ?? 1) / (ltwh[3] || 1)) * k
     const p = this.panOf(tile)
-    // World axes behind the screen axes. Radiological convention + sagittal nose left means screen
-    // right is −R (axial, coronal) or −A (sagittal), and screen down is −A (axial) or −S.
+    // The image follows the pointer: NiiVue's pan offset grows to the right on screen along the
+    // horizontal world axis (R for axial/coronal, A for sagittal) and upwards along the vertical one
+    // (A for axial, S otherwise). NiiVue applies the radiological/neurological flip itself (VW-25).
     const h = tile === 'sagittal' ? 1 : 0
     const v = tile === 'axial' ? 1 : 2
-    // Neurological convention flips the horizontal axis of the axial and coronal tiles (VW-25)
-    const flip = tile !== 'sagittal' && this.display.convention === 'neurological' ? -1 : 1
-    p[h] -= dx * mmPerPx * flip
+    p[h] += dx * mmPerPx
     p[v] -= dy * mmPerPy
     this.setPan(tile, p)
   }

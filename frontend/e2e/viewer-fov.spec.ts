@@ -49,3 +49,38 @@ test('zoom one view, the others unchanged; Fit restores it and keeps the slice i
   await expect(zoomText(page, 'Coronal')).toHaveCount(0)
   await expect(zoomText(page, 'Sagittal')).toHaveText(/\d+ %/)
 })
+
+/** Crosshair position in tile px: the lines move with the image */
+async function cross(page: Page, name: string): Promise<[number, number]> {
+  const px = (sel: string, prop: 'left' | 'top') => view(page, name).locator(sel).evaluate((e, p) => parseFloat((e as unknown as { style: Record<string, string> }).style[p] ?? ''), prop)
+  return [await px('.vp-cross-v', 'left'), await px('.vp-cross-h', 'top')]
+}
+
+test('pan: the image follows the pointer in every view and both conventions (VW-06, VW-25)', async ({ page }) => {
+  await page.goto(`/open?path=${encodeURIComponent(`${FIX}/Dataset900/nifti/04_case_00002_0000.nii.gz`)}`)
+  await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  await expect(page.locator('.vp-cross-v').first()).toBeAttached()
+  for (const convention of ['radiological', 'neurological'] as const) {
+    // The convention is a display setting (VW-25); Open mode has no project to set it from
+    await page.evaluate(async (c) => {
+      const store = '/src/state/index.ts'
+      const { useViewerSync } = await import(/* @vite-ignore */ store)
+      useViewerSync.setState((s: { display: object }) => ({ display: { ...s.display, convention: c } }))
+    }, convention)
+    // Let the flipped image redraw and the crosshair lines follow before reading the baseline
+    await page.waitForFunction('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => r(true)))))')
+    for (const name of ['Axial', 'Sagittal', 'Coronal']) {
+      const box = (await view(page, name).locator('.vp-body').boundingBox())!
+      const [x0, y0] = await cross(page, name)
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down({ button: 'middle' })
+      await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 30, { steps: 5 })
+      await page.mouse.up({ button: 'middle' })
+      const moved = async () => {
+        const [x, y] = await cross(page, name)
+        return [Math.round(x - x0), Math.round(y - y0)]
+      }
+      await expect.poll(moved, { message: `${convention} ${name}` }).toEqual([40, 30])
+    }
+  }
+})

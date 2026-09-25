@@ -649,3 +649,9 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 **Open issues**
 - The fixture `Dataset900/nifti/04_case_00002_0000.nii.gz` in Open mode shows the mask-load notice (the paired segmentation fails to load); not investigated (out of scope).
 - The notice still covers the header buttons visually in four-up; only its click blocking was fixed.
+
+## 2026-09-25 · Pan direction fix (VW-06/25) · v3
+
+- Pan moved the image against the pointer horizontally in every 2D view (drag right → image left); vertical was right. NiiVue's pan offset is screen-aligned and already honours the radiological/neurological flip, so the engine's sign was wrong **and** its extra neurological flip cancelled NiiVue's. Both removed (`NiivueViewer.pan`). Measured in the browser via the crosshair lines, both conventions, Chromium + Firefox.
+- Regression test: `e2e/viewer-fov.spec.ts` "pan: the image follows the pointer…" (3 views × 2 conventions, +40/+30 px drag → lines move +40/+30).
+- `make check` green (467 + 225); Playwright 40/40.
