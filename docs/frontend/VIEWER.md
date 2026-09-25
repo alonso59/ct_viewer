@@ -2,7 +2,7 @@
 
 Scope: case editor viewports, layouts, MPR interaction, overlays, 3D, memory.
 Read when: working on `features/viewer`.
-Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md (Open mode).
+Depends: ADR-0003, ADR-0015, ADR-0023, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md (Open mode).
 
 ## Model
 
@@ -26,8 +26,8 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 |---|---|---|
 | VW-01 | Layouts as listed; switch via toolbar, `L` key, or command; the layout is kept in the URL (FE-04). | M |
 | VW-02 | Maximize a viewport by double-clicking its header or pressing the maximize button; `Esc` restores the layout. | M |
-| VW-03 | Scroll = slice step; `Shift`+scroll = 10 slices; a slider per viewport shows index / total. | M |
-| VW-04 | Linked crosshair across the 2D views; click or drag sets the position. Accent colors follow 3D Slicer: axial **red** `#F85149`, sagittal **yellow** `#D29922`, coronal **green** `#3FB950`, 3D `#7D8590` (GitHub Dark tones). | M |
+| VW-03 | Scroll = slice step; `Shift`+scroll = 10 slices; a slider per viewport shows the index and total as "`{{index}} · {{total}}`" in the UI font, not `ui-monospace` (ADR-0023 — avoids reading as an editor's line/column indicator). | M |
+| VW-04 | Linked crosshair across the 2D views; click or drag sets the position. Accent colors follow 3D Slicer: axial **red** `#CF6679`, sagittal **yellow** `#C9A23C`, coronal **green** `#4F9D7C`, 3D `#7D8590` — desaturated off the literal `--error`/`--warn`/`--ok` GitHub Dark tokens so a plane accent doesn't read as a diff/lint status color (ADR-0023). The panel border stays a neutral `--border-muted`; the plane color lives in an 8×8 px chip in the header (`.vp-chip`), not the border. Crosshair lines and the slice slider's `accent-color` use the same desaturated values. | M |
 | VW-05 | Window/level: right-drag (horizontal = width, vertical = level), numeric inputs, and presets (Soft tissue 400/50, Bone 1800/400, Lung 1500/−600, Brain 80/40, Kidney 500/100). Modality rule (projects and Open mode alike): a **known** modality (DICOM header, input metadata, the import's `modality` option) is used as is and shows no selector; an **unknown** one (`null`: NIfTI or NumPy without metadata) is **assumed CT**, and a "CT (assumed) ▾" selector (CT · MR · Other) appears next to W/L so the user can change it. The choice is display-only (per item, in memory; the index is not changed) and is carried as the `modality` option into Add to project… / Create project from this (SRC-14/15). HU presets and the soft-tissue default apply to CT; any other modality opens on the 1st–99th percentile window. | M |
 | VW-06 | Pan (middle-drag or `Space`+drag) and zoom (`Ctrl/Cmd`+scroll, or pinch) act **only on the view under the pointer** (3D Slicer behaviour): each 2D view keeps its own field of view, and only the crosshair / slice position is shared (VW-04). A "Link zoom across views" toggle stays in the tool bar as an opt-in, **off by default**, not persisted; turning it on copies the last-used view's field of view to the others. `R` is the global reset (VW-10); per-view fit is VW-26. | M |
 | VW-07 | Multi-label overlay using the project label map colors (PRJ-07): per-label visibility and opacity, outline-only toggle, global overlay opacity. | M |

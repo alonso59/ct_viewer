@@ -29,8 +29,6 @@
   padding: 4px 10px 2px;
   font-size: var(--fs-badge);
   color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .item-filter-chip {

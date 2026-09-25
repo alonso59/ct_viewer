@@ -144,8 +144,7 @@ button.badge[aria-pressed='true'] {
   min-width: 0;
   min-height: 0;
   background: transparent;
-  border: 1px solid;
-  border-color: inherit;
+  border: 1px solid var(--border-muted);
   color: var(--fg-viewport);
 }
 .vp-header {
@@ -161,9 +160,12 @@ button.badge[aria-pressed='true'] {
   user-select: none;
   flex: none;
 }
-.vp-swatch {
-  width: 4px;
-  align-self: stretch;
+.vp-chip {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-left: 4px;
+  flex: none;
 }
 .vp-title {
   font-weight: var(--fw-semibold);
@@ -253,7 +255,7 @@ button.badge[aria-pressed='true'] {
   height: 20px;
 }
 .vp-3d-tools .icon-btn[aria-pressed='true'] {
-  background: var(--bg-selected);
+  background: var(--bg-inset);
 }
 .vp-blend {
   width: 64px;

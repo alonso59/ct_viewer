@@ -28,8 +28,6 @@
   color: var(--fg-muted);
   font-size: var(--fs-badge);
   font-weight: var(--fw-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   cursor: pointer;
 }
 .var-section .count {

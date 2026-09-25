@@ -2,7 +2,7 @@
 
 Scope: workbench layout, QuPath-style panes, toolbar, panels, status bar, commands, keybindings, theme, icons.
 Read when: building shell, navigation, theming, icons, or keyboard UX.
-Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010. Viewer internals: VIEWER.md.
+Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010, ADR-0023. Viewer internals: VIEWER.md.
 
 ## Concept
 
@@ -148,13 +148,14 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 | `--error` | `#F85149` | `--done` | `#A371F7` |
 | `--btn-primary` | `#238636` | `--bg-hover` | `#1F2428` |
 
-- **Typography:** `-apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`. Sizes are 13 px UI, 12 px panels, 11 px badges; `ui-monospace` for numbers.
+- **Typography:** `-apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`. Sizes are 13 px UI, 12 px panels, 11 px badges; `ui-monospace` for numbers, except the viewer's slice index (VW-03, ADR-0023).
 - **Shape:** 6 px radius on buttons, inputs and cards; 1 px borders; no shadows except overlays.
 - **Badges:** Primer "Label" pills (outline in the status color, 11 px), used for phase chips and QC status.
 - **Icons:** codicons (VS Code) plus the custom CT set (UI-15). Octicons are not mixed in.
 - Viewport accent colors (per-plane borders and crosshairs) are owned by VW-04.
 - GitHub Light values and the categorical palette (`--cat-1..8`, DB-07) are in `theme/tokens.css`; viewports stay black in both themes.
 - The Design reference tab (Help → Open design reference) shows all tokens, type, badges and icons.
+- **Identity signals decoupled from literal VS Code/GitHub chrome (ADR-0023), structure and density unchanged:** section/sidebar/panel-tab labels are sentence case, no `letter-spacing`, no `text-transform: uppercase` (was tracked uppercase, identical to VS Code's "EXPLORER"/"OUTLINE"); a pressed `.icon-btn[aria-pressed='true']` uses a darker flat "pressed" texture, not `--bg-selected` + a `--focus` inset outline (was identical to the search bar's "Match Case" toggle); `--focus`/`--accent` blue stays reserved for live interaction, never a resting toggle state. Viewport panel borders and plane colors follow VW-04.
 
 ## Prototype defaults (P0.5 → P2)
 

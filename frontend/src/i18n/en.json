@@ -430,7 +430,7 @@
     "scope": "Scope",
     "screenshot": "Screenshot (PNG)",
     "side": "Side",
-    "sliceOf": "{{index}}/{{total}}",
+    "sliceOf": "{{index}} · {{total}}",
     "tool": {
       "pan": "Move / pan",
       "window": "Window / level (drag)",

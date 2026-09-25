@@ -46,9 +46,9 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
   /* Viewport accents (VW-04): fixed in both themes, viewports stay black */
-  --plane-axial: #F85149;
-  --plane-sagittal: #D29922;
-  --plane-coronal: #3FB950;
+  --plane-axial: #CF6679;
+  --plane-sagittal: #C9A23C;
+  --plane-coronal: #4F9D7C;
   --plane-3d: #7D8590;
   --bg-viewport: #000000;
   --fg-viewport: #E6EDF3;

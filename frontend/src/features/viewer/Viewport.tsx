@@ -42,19 +42,18 @@ export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, on
   return (
     <section
       className="vp"
-      style={{ borderColor: `color-mix(in srgb, ${color} 55%, transparent)` }}
       aria-label={t(`viewer.plane.${id}`)}
       onDoubleClick={(e) => {
         if ((e.target as HTMLElement).closest('.vp-header')) onMaximize()
       }}
     >
       <header className="vp-header">
-        <span className="vp-swatch" style={{ background: color }} />
+        <span className="vp-chip" style={{ background: color }} />
         <span style={{ color, display: 'inline-flex' }}>
           <CtIcon name={PLANE_ICON[id]} />
         </span>
         <span className="vp-title">{t(`viewer.plane.${id}`)}</span>
-        {plane ? <span className="vp-index num">{t('viewer.sliceOf', { index: plane.index, total: plane.total })}</span> : null}
+        {plane ? <span className="vp-index">{t('viewer.sliceOf', { index: plane.index, total: plane.total })}</span> : null}
         {id === '3d' && hasMask ? <Render3dControls meshState={meshState} /> : null}
         <button type="button" className="icon-btn vp-fit" aria-label={t('viewer.fit')} title={t('viewer.fit')} onClick={onFit}>
           <Icon spec={codicon('layout-centered')} />

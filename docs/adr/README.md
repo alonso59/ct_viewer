@@ -28,6 +28,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0020 | `metadata.jsonl` belongs to the converter; plugin data lives in layers | Accepted (amended by 0026) |
 | 0021 | CT tools without a project; workspace tasks; the converter overlay | Accepted |
 | 0022 | Shared event store; Curation & QC and Labeling table as plugins | Accepted (amended by 0026) |
+| 0023 | Decouple literal VS Code/GitHub signals from the shell's visual identity | Accepted |
 | 0024 | Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin | Accepted |
 | 0025 | A JSONL whole-project export; reconstructed sidecars for `metadata-v1` imports | Accepted (amended by 0026) |
 | 0026 | Phase selection is native to the app, not a curation decision | Accepted |

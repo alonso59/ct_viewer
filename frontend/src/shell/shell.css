@@ -209,8 +209,6 @@
   padding: 0 var(--sp-2) 0 var(--sp-4);
   font-size: var(--fs-badge);
   font-weight: var(--fw-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--fg-muted);
   flex: none;
 }
@@ -240,8 +238,6 @@
   background: transparent;
   font-size: var(--fs-badge);
   font-weight: var(--fw-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--fg-muted);
   cursor: pointer;
 }
@@ -296,8 +292,6 @@
   border-bottom: 1px solid transparent;
   background: transparent;
   font-size: var(--fs-badge);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--fg-muted);
   cursor: pointer;
 }
