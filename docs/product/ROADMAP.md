@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order from 2026-09-24 (user decision): **P7b → P7c → pending plugins (VOI extractor, nnU-Net) → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
+Order from 2026-09-24 (user decision): **P7b → P7c (done 2026-09-25) → pending plugins (VOI extractor, nnU-Net) → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
 
 ## Progress
 
@@ -22,7 +22,7 @@ Order from 2026-09-24 (user decision): **P7b → P7c → pending plugins (VOI ex
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
 | P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (Waves 1–4, exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
-| P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | 🟨 Accepted and documented 2026-09-24; code next |
+| P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (Waves 1–5, exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
 | P8 | Electron shell | ⬜ |
 
 Step 0 bootstrap (legacy move, skeletons, Makefile, fixtures, `make check`): ✅ 2026-09-23.

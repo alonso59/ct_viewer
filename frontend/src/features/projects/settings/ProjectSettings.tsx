@@ -387,6 +387,12 @@ export default function ProjectSettings({ params }: EditorProps<SettingsParams>)
   const pid = useWorkbench((s) => s.pid) ?? ''
   const project = useProject(pid)
   const [tab, setTab] = useState<Tab>(params.tab ?? 'general')
+  // A Library Open on a pack re-targets an already open settings tab to Plugins
+  const [seenTab, setSeenTab] = useState(params.tab)
+  if (params.tab !== seenTab) {
+    setSeenTab(params.tab)
+    if (params.tab) setTab(params.tab)
+  }
   const p = project.data
   return (
     <div className="page psettings">

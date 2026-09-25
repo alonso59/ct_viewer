@@ -157,6 +157,10 @@ def test_workspace_dataset_then_project(
         .endswith("study-A-1")
     )
     before = {str(p): p.stat().st_mtime_ns for p in ds.rglob("*")}
+    # SRC-16: the dataset opens in Open mode (a readable root) without a project
+    opened = dc.post(f"{API}/open", json={"path": str(ds)})
+    assert opened.status_code == 201, opened.text
+    assert {i["format"] for i in opened.json()["items"]} == {"nifti"}
     # a neutral project from the dataset: it imports like any root and brings the phase layer
     pid = neutral(dc)
     pv = dc.post(f"{API}/projects/{pid}/imports/preview", json={"root": str(ds), "alias": "DATA"})

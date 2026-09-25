@@ -27,6 +27,8 @@ Depends: all domain docs.
 | TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
+P7c exit: `e2e/p7c-exit.spec.ts` walks the whole ROADMAP §P7c exit criterion in one journey (both browsers).
+
 P7c files (Wave 5): TST-19 in `tests/test_labeling.py` (levels, progress, typed cells, LWW, history, rename/hide, `lbl.*` variables and layers, CSV import report, export, view-only, live events); Vitest `plugins/labeling/{model,TableEditor}.test.ts(x)`; Playwright `e2e/labeling.spec.ts` (two browsers, live sync, variable, view-only read-only).
 
 P7c files (Wave 4): `tests/test_ct_tools.py` (Open-mode DICOM window + tags, converter window facts); Vitest `features/viewer/model/measure.test.ts`, `features/viewer/display.test.ts`, `api/liveState.test.ts`; Playwright `e2e/ct-tools.spec.ts` (the tool set in Open mode on DICOM and in a case tab, header info with DICOM tags, measurements, Close for both).

@@ -609,3 +609,25 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Open issues**
 - No per-table delete (tables are kept like events); column type changes need a new column (by design, LBL-02).
+
+## 2026-09-25 · P7c integration · v3
+
+**Exit criterion, point by point** (one journey: `e2e/p7c-exit.spec.ts`, Chromium + Firefox)
+- Converts a DICOM folder without a project from the converter overlay: step 1 (Welcome → overlay → dry run → run → result); backend `test_metadata_ownership.py::test_workspace_dataset_then_project` (write-once `_datasets/`, clean rows, phase layer).
+- Opens the dataset with the full CT tool set: step 2 (Open on the dataset; tool bar with measurements, header info, slab, screenshot); the tools themselves in `e2e/ct-tools.spec.ts` (Open mode and case tab), `test_ct_tools.py`, `measure.test.ts`, `display.test.ts`.
+- Creates a neutral project from it: step 3 (Create project from this → wizard, `packs: []`); `test_projects_v3.py`.
+- Applies the ccRCC pack: step 4 (Project settings › Plugins › Apply); `test_packs_list_and_apply_never_delete`.
+- Labels cases in a patient-level and a CT-level table: step 5; `test_labeling.py`, `e2e/labeling.spec.ts` (two-browser live sync, `lbl.*` variable).
+- Curates items: step 6 (Accept in the Curation view; one event through the core event store); curation suites unchanged and green.
+- Shares a view-only link that cannot write: step 8 (`/v/{token}`, "View only", POST → 405); `e2e/view-only.spec.ts`, `test_view_only_link`.
+- Every plugin is reachable from the Library: step 7 (Open enabled for dicom, analyzers, curation, labeling, radiomics, dashboard and the two packs; nnU-Net and VOI extractor listed as pending, not openable); `test_plugins.py`, `LibraryView.test.tsx`.
+- `make check`, Playwright and NFR-07 green: 467 backend + 221 frontend unit tests, Playwright 36/36 (Chromium 18, Firefox 18), initial JS 297.9 KB gzip (budget 300 KB).
+
+**Also done in P7c**: the flaky cold-run `tasks-dicom.spec.ts` root cause (concurrent Open-mode conversions → single-flight + unique temp names, Wave 2); a TST-08 refetch race removed (curation state patched from the SSE event, Wave 4); pack plugins open Project settings › Plugins from the Library.
+
+**Still pending (unchanged scope)**
+- Pending plugins: VOI extractor (requires a segmentation set; reference code from the owner; settles the legacy `.npy` axis order) and nnU-Net (`plugins/nnunet/` external runtime + GPU human check). Both are listed in the Library as `pending`.
+- Owner decisions: deleting `legacy/`; continuous ranges in radiomics selection (API-33/34) vs "bin first".
+- Human checks: P0.5 walkthrough, IBSI map/phantom, correction-queue CSV in 3D Slicer, v2 `curation_review.csv` import, converted series vs original in 3D Slicer, PHI review of an anonymized sidecar.
+- Step 4 (udocker, remote checks, image rebuild with P7c; `udocker-run.sh` derived/plugins mounts), then P8 Electron.
+- Minor: Open mode's tool bar wraps below ~1300 px; VW-24 (cine, histogram, MR colour maps) stays Could.
