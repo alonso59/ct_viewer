@@ -362,6 +362,34 @@ If the context grows long, treat ROADMAP §P7c and LANE_NOTES.md as your state; 
 from the first unticked wave.
 ```
 
+## P7c addendum: viewer field of view (one Claude shell session)
+
+Open one Claude terminal in `ct_viewer` (branch `v3`) and paste:
+
+```text
+You implement the "Owner addendum 2026-09-25 · viewer field of view" line of ROADMAP §P7c, alone,
+on branch v3. Never git push. Read AGENTS.md, docs/INDEX.md, docs/frontend/VIEWER.md (VW-04, VW-06,
+VW-10, VW-26, wrapper contract, Decisions) and the UI_SHELL.md shortcut table. Do not read
+docs/archive/** or legacy/**. Scope is frontend/src/features/viewer/** (+ i18n strings, e2e).
+
+Goal (3D Slicer behaviour, without breaking current habits):
+- VW-06: zoom/pan act only on the view under the pointer; useViewerLocal.linkZoom defaults to
+  false; the link toggle stays as an opt-in. Crosshair and slice lines stay linked (VW-04).
+- VW-26: add fitView(tile) to ViewerHandle and the NiiVue engine (2D: planePan[tile] = [0,0,0,1],
+  nothing else changes, no setFrac; 3D: volScaleMultiplier 1 + default azimuth/elevation; linked
+  zoom → all 2D views). Fit button in every viewport header left of maximize (tooltip
+  "Fit to window", same icon-btn style), `F` command on the hovered view (when: 'viewer').
+- VW-10: global Reset (`R`) keeps exactly its current behaviour; implement it via fitView where
+  that removes duplication.
+- The zoom % corner text must reflect each view independently.
+Tests: Vitest for fitView/linking in the engine or model tests; one Playwright check: zoom the
+axial view, sagittal/coronal zoom unchanged; Fit restores axial to 100 % and keeps the slice index.
+Gate: make check green, Playwright (Chromium + Firefox), initial JS ≤ 300 KB gzip (new strings in
+the lazy file if they are lazy-only). If behaviour differs from VIEWER.md, update VIEWER.md only.
+Tick the ROADMAP line, append a "P7c addendum · field of view" entry to LANE_NOTES.md, commit
+locally (feat(viewer): … VW-06/10/26) and STOP with a short summary.
+```
+
 ## Step 4: Shell on the remote server (P7)
 
 ```text

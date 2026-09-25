@@ -112,7 +112,8 @@ Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home a
 | `A` | Mark accepted* | `Shift+1` / `Shift+2` | Needs minor / major correction* |
 | `X` | Rejected* | `Q` | Add to correction queue* |
 | `1`–`9` | Toggle label visibility* | `L` | Cycle viewer layout* |
-| `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset view* |
+| `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset all views* (VW-10) |
+| `F` | Fit the view under the pointer* (VW-26) | | |
 
 \* Only active while the viewer has focus. Curation keys target the active item and the default target `seg`.
 

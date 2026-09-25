@@ -29,11 +29,11 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 | VW-03 | Scroll = slice step; `Shift`+scroll = 10 slices; a slider per viewport shows index / total. | M |
 | VW-04 | Linked crosshair across the 2D views; click or drag sets the position. Accent colors follow 3D Slicer: axial **red** `#F85149`, sagittal **yellow** `#D29922`, coronal **green** `#3FB950`, 3D `#7D8590` (GitHub Dark tones). | M |
 | VW-05 | Window/level: right-drag (horizontal = width, vertical = level), numeric inputs, and presets (Soft tissue 400/50, Bone 1800/400, Lung 1500/−600, Brain 80/40, Kidney 500/100). Modality rule (projects and Open mode alike): a **known** modality (DICOM header, input metadata, the import's `modality` option) is used as is and shows no selector; an **unknown** one (`null`: NIfTI or NumPy without metadata) is **assumed CT**, and a "CT (assumed) ▾" selector (CT · MR · Other) appears next to W/L so the user can change it. The choice is display-only (per item, in memory; the index is not changed) and is carried as the `modality` option into Add to project… / Create project from this (SRC-14/15). HU presets and the soft-tissue default apply to CT; any other modality opens on the 1st–99th percentile window. | M |
-| VW-06 | Pan (middle-drag or `Space`+drag) and zoom (`Ctrl/Cmd`+scroll, or pinch); `R` resets; zoom can be linked across views (toggle). | M |
+| VW-06 | Pan (middle-drag or `Space`+drag) and zoom (`Ctrl/Cmd`+scroll, or pinch) act **only on the view under the pointer** (3D Slicer behaviour): each 2D view keeps its own field of view, and only the crosshair / slice position is shared (VW-04). A "Link zoom across views" toggle stays in the tool bar as an opt-in, **off by default**, not persisted; turning it on copies the last-used view's field of view to the others. `R` is the global reset (VW-10); per-view fit is VW-26. | M |
 | VW-07 | Multi-label overlay using the project label map colors (PRJ-07): per-label visibility and opacity, outline-only toggle, global overlay opacity. | M |
 | VW-08 | Cursor readout: ijk, RAS mm, image value (HU), label value under the cursor → status bar (UI-07). | M |
 | VW-09 | 3D viewport: volume render of the image and/or label render; optional surface meshes (API-25) in label colors; orbit, pan, zoom; blend slider. | S |
-| VW-10 | Toolbar: layout, W/L presets, overlay toggle, outline, crosshair toggle, reset, screenshot (PNG to download). | S |
+| VW-10 | Toolbar: layout, W/L presets, overlay toggle, outline, crosshair toggle, reset, screenshot (PNG to download). Reset (`R`, tool bar) is global and keeps its meaning: fit every view (VW-26 on all tiles, 3D camera included), crosshair to the volume centre, the default W/L (VW-25), restore a maximized view. | S |
 | VW-11 | Item switcher in the tab header: phase chips, then scan_idx (only if >1), then scope (Full / VOI), then side (only if VOI). | M |
 | VW-12 | Adaptive states: no mask → overlay controls hidden and the 3D panel shows "No segmentation"; missing file → error card with the warning code (IMP-08). | M |
 | VW-13 | Loading UI: progress bar from download bytes; first slice rendered as soon as the volume is decoded. | M |
@@ -49,6 +49,7 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 | VW-23 | ADR-0021 **Should**: slab MIP / MinIP / average with a thickness in mm (2D tiles), invert. | S |
 | VW-24 | ADR-0021 **Could**: cine loop, histogram, MR colour maps. | C |
 | VW-25 | Display settings (PRJ-18) set the initial layout, W/L per modality, interpolation (linear / nearest) and the radiological (patient right on screen left, default) or neurological convention. | M |
+| VW-26 | **Fit to window per view** (3D Slicer's "Fit to window"): a fit button in each viewport header, left of maximize (tooltip "Fit to window", `F` on the view under the pointer). On a 2D view it restores zoom 100 % and zero pan so the whole slice fits the tile; slice index, crosshair, W/L, overlays and the other views do not change. On the 3D view it restores the camera (zoom, azimuth/elevation). When zoom is linked (VW-06) fit applies to all 2D views. A new item opens fitted (as today). | M |
 
 ## Implementation (P7c Wave 4)
 
@@ -63,11 +64,13 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 Source of truth: `frontend/src/features/viewer/model/types.ts` (`ViewerHandle`). Summary:
 `load(item, {imageUrl, maskUrl?, onProgress, onImage, signal})`, `maskError`, `setTiles`, `setWindow`, `defaultWindow`,
 `setLabels`, `setOverlay`, `setLinkedZoom`, `setRender`, `setMeshes`, `setCrosshair`, `step/goto/pick/hover/pan/zoom/orbit`,
-`resetView`, `onView`, `onCursor`, `screenshot`, `setDisplay`, `worldAt`, `canvasAt`, `roiStats`, `stats`, `dispose`. `getViewerContext()` gives CUR `context.viewer`; its `slice` is the 1-based index shown in the viewport header.
+`resetView`, `fitView(tile)` (VW-26), `onView`, `onCursor`, `screenshot`, `setDisplay`, `worldAt`, `canvasAt`, `roiStats`, `stats`, `dispose`. `getViewerContext()` gives CUR `context.viewer`; its `slice` is the 1-based index shown in the viewport header.
 
 NiiVue is only imported inside `features/viewer/engine/`, and **lazily** (`createViewer` is async), so it stays out of the initial bundle (FE-05). Everything else uses `ViewerHandle`, which keeps the engine swappable.
 
 ## Decisions
+
+- Independent field of view per view (owner, 2026-09-25, amends VW-06/10, adds VW-26): like 3D Slicer, zoom/pan never propagate between views unless the user links them; the existing global Reset keeps its semantics so the `R` habit does not change. No ADR: ADR-0003 is unaffected.
 
 - Mesh format (API-25, P1 spike): **gzip MZ3**, cached as `cache/meshes/{mask_fp}_{label}_{smooth}.mz3`, vertices in world mm via the NIfTI affine, served as `application/octet-stream`. A 302k-triangle mesh is 2.0 MB and parses in 16 ms in NiiVue 0.69 (GIfTI 2.6 MB, STL 14.8 MB, OBJ 10.4 MB).
 
