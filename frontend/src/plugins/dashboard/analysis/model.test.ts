@@ -3,7 +3,7 @@ import { analysisVariables, confounderVariables, fmtP, fmtStat, needsConfirmatio
 
 const v = (name: string, type: Variable['type'], extra: Partial<Variable> = {}): Variable => ({
   name, source: 'metadata', type, inferred_type: type, level: 'case', group: 'study', tags: [], visible: true,
-  confidence: 1, review: false, overridden: false, profile: { missing_pct: 0, n_distinct: 3, examples: [] }, ...extra,
+  confidence: 1, review: false, overridden: false, comparable: false, profile: { missing_pct: 0, n_distinct: 3, examples: [] }, ...extra,
 })
 
 const row = (feature: string, q: number | null, effect: number | null): ResultRow => ({ feature, test: 'welch_t', reason: '', q, effect, n: 10 })

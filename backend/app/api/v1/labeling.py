@@ -61,8 +61,12 @@ async def patch_table(ctx: Ctx, pid: str, tid: str, body: TablePatch) -> LabelTa
 
 
 @router.get("/tables/{tid}/cells", response_model=CellsPage)
-def get_cells(ctx: Ctx, pid: str, tid: str, paging: Paging, q: str | None = None) -> CellsPage:
-    return svc(ctx).cells(pid, tid, offset_of(paging.cursor), paging.limit, q)
+async def get_cells(
+    ctx: Ctx, pid: str, tid: str, paging: Paging, q: str | None = None
+) -> CellsPage:
+    s = svc(ctx)
+    refs = await s.ref_values(pid, tid)  # LBL-09
+    return s.cells(pid, tid, offset_of(paging.cursor), paging.limit, q, refs)
 
 
 @router.post("/tables/{tid}/cells", response_model=CellsWritten)
@@ -97,11 +101,12 @@ async def import_table(
     response_class=Response,
     responses={200: {"content": {"text/csv": {}, "application/vnd.apache.parquet": {}}}},
 )
-def export_table(
+async def export_table(
     ctx: Ctx, pid: str, tid: str, format: Literal["csv", "parquet"] = "csv"
 ) -> Response:
-    t = svc(ctx).table(pid, tid)
-    body = svc(ctx).export(pid, tid, format)
+    s = svc(ctx)
+    t = s.table(pid, tid)
+    body = s.export(pid, tid, format, await s.ref_values(pid, tid))
     media = "text/csv" if format == "csv" else "application/vnd.apache.parquet"
     return Response(
         body, media_type=media,

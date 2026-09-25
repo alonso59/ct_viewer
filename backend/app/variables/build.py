@@ -467,6 +467,7 @@ def build(
     derived: Sequence[DerivedDef] = (),
     external: Sequence[ExternalData] = (),
     layers: Sequence[LayerData] = (),
+    annotation_fields: frozenset[str] = frozenset(),
     strict: bool = False,
 ) -> tuple[Built, dict[str, list[str]]]:
     """Build the catalog. Returns it with `{"conflicts": [...], "derived_errors": [...]}`.
@@ -503,6 +504,10 @@ def build(
         c.var = apply_override(c.var, ov.get(d.name))
         by_name[c.var.name] = c
         cols.append(c)
+    for c in cols:  # VAR-13: categorical layers and active analyzer fields
+        c.var.comparable = c.var.type == "categorical" and (
+            c.var.source == "layer" or c.var.name in annotation_fields
+        )
     live_cases = {i.case_id for i in items if i.status != "excluded_upstream"}
     catalog = Catalog(
         n_items=len(items),

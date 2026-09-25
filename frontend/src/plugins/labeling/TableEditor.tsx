@@ -7,16 +7,18 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, ProblemError, useLabelCells, useLabelHistory, useLabelTables, useProject, type LabelCellIn, type LabelColumn, type LabelImportReport } from '../../api'
+import { api, keys, ProblemError, useLabelCells, useLabelHistory, useLabelTables, useProject, type LabelCellIn, type LabelColumn, type LabelImportReport, type LabelTable } from '../../api'
 import { openItem } from '../../features/explorer'
 import { Dialog, ProblemCard } from '../../lib'
 import { registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { display, fillCells, filterRows, move, parseTsv, pasteCells, rect, sortRows, type Pos } from './model'
-import { ColumnsForm, toColumns, type Draft } from './NewTableDialog'
+import { ColumnsForm, toColumns, useRefOptions, type Draft } from './NewTableDialog'
 import { ColumnMenu, TableMenu } from './TableActions'
 import './labeling.css'
+
+type LabelTableLevel = LabelTable['level']
 
 export interface TableParams {
   tableId: string
@@ -58,8 +60,15 @@ function CellEditor({ col, value, onCommit, onCancel }: { col: LabelColumn; valu
 
 function History({ pid, tid, target, col }: { pid: string; tid: string; target: string | null; col: LabelColumn | null }) {
   const { t } = useTranslation()
-  const h = useLabelHistory(pid, tid, target, col?.column_id ?? null).data ?? []
+  const h = useLabelHistory(pid, tid, target, col?.ref ? null : (col?.column_id ?? null)).data ?? []
   if (!target || !col) return null
+  if (col.ref)
+    return (
+      <aside className="lbl-history" aria-label={t('lbl.history')}>
+        <strong>{t('lbl.historyOf', { target, col: col.name })}</strong>
+        <p className="muted lbl-small">{t('lbl.refHistory', { name: col.ref })}</p>
+      </aside>
+    )
   return (
     <aside className="lbl-history" aria-label={t('lbl.history')}>
       <strong>{t('lbl.historyOf', { target, col: col.name })}</strong>
@@ -107,7 +116,10 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const virt = useVirtualizer({ count: rows.length, getScrollElement: () => scroller.current, estimateSize: () => ROW_H, overscan: 12, initialRect: { width: 800, height: 600 } })
   const sel = rect(active, anchor ?? active)
 
-  const write = async (list: LabelCellIn[]) => {
+  const write = async (all: LabelCellIn[]) => {
+    // LBL-09: reference columns are read-only (paste, fill and Delete skip them)
+    const refCols = new Set(cols.filter((c) => c.ref).map((c) => c.column_id))
+    const list = all.filter((c) => !refCols.has(c.column_id))
     if (readOnly || !list.length) return
     const reviewer = await requireReviewer()
     if (!reviewer) return
@@ -142,6 +154,8 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     if (e.key.startsWith('Arrow') || e.key === 'Tab') {
       e.preventDefault()
       goto(move(active, e.key === 'Tab' && e.shiftKey ? 'ArrowLeft' : e.key, rows.length, cols.length), e.shiftKey && e.key !== 'Tab')
+    } else if (col?.ref) {
+      return
     } else if ((e.key === 'Enter' || e.key === 'F2') && !readOnly) {
       e.preventDefault()
       if (col?.type === 'bool' && row) void write([{ column_id: col.column_id, target: row.target, value: !row.values?.[col.column_id] }])
@@ -216,7 +230,8 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
             </button>
             {cols.map((c) => (
               <div key={c.column_id} role="columnheader" className="lbl-th lbl-th-col">
-                <button type="button" className="lbl-sort" title={c.description ?? ''} onClick={() => setSort({ col: c.column_id, dir: sort.col === c.column_id ? (-sort.dir as 1 | -1) : 1 })}>
+                <button type="button" className="lbl-sort" title={c.ref ? t('lbl.refOf', { name: c.ref }) : (c.description ?? '')} onClick={() => setSort({ col: c.column_id, dir: sort.col === c.column_id ? (-sort.dir as 1 | -1) : 1 })}>
+                  {c.ref ? <Icon spec={codicon('link')} /> : null}
                   {c.name}
                   {sort.col === c.column_id ? <Icon spec={codicon(sort.dir === 1 ? 'arrow-up' : 'arrow-down')} /> : null}
                 </button>
@@ -255,10 +270,11 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
                           role="gridcell"
                           aria-selected={selected}
                           data-active={isActive}
-                          className="lbl-td"
-                          title={row.updated?.[c.column_id] ? t('lbl.lastBy', { reviewer: row.updated[c.column_id] }) : undefined}
+                          className={c.ref ? 'lbl-td lbl-td-ref' : 'lbl-td'}
+                          aria-readonly={c.ref ? true : undefined}
+                          title={c.ref ? t('lbl.refOf', { name: c.ref }) : row.updated?.[c.column_id] ? t('lbl.lastBy', { reviewer: row.updated[c.column_id] }) : undefined}
                           onMouseDown={(e) => goto(at, e.shiftKey)}
-                          onDoubleClick={() => !readOnly && c.type !== 'bool' && setEditing(at)}
+                          onDoubleClick={() => !readOnly && !c.ref && c.type !== 'bool' && setEditing(at)}
                         >
                           {editing && editing.r === at.r && editing.c === at.c ? (
                             <CellEditor col={c} value={value} onCommit={(nv) => commit(at, nv)} onCancel={() => { setEditing(null); grid.current?.focus() }} />
@@ -295,7 +311,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
           </label>
         </Dialog>
       ) : null}
-      {adding ? <AddColumns pid={pid} tid={tid} labels={labels.map((l) => l.name)} onClose={() => setAdding(false)} /> : null}
+      {adding ? <AddColumns pid={pid} tid={tid} level={table.level} labels={labels.map((l) => l.name)} onClose={() => setAdding(false)} /> : null}
       {report ? (
         <Dialog open onOpenChange={(o) => !o && setReport(null)} title={t('lbl.importTitle')}>
           <p>{t('lbl.importReport', { matched: report.matched, n: report.n_rows, events: report.n_events, key: report.key })}</p>
@@ -309,10 +325,11 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   )
 }
 
-function AddColumns({ pid, tid, labels, onClose }: { pid: string; tid: string; labels: string[]; onClose: () => void }) {
+function AddColumns({ pid, tid, level, labels, onClose }: { pid: string; tid: string; level: LabelTableLevel; labels: string[]; onClose: () => void }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [drafts, setDrafts] = useState<Draft[]>([{ name: '', type: 'bool', levels: '', unit: '' }])
+  const [drafts, setDrafts] = useState<Draft[]>([{ name: '', type: 'bool', levels: '', unit: '', ref: '' }])
+  const refs = useRefOptions(pid, level)
   const save = async () => {
     try {
       await api.patchLabelTable(pid, tid, { columns: toColumns(drafts) })
@@ -325,7 +342,7 @@ function AddColumns({ pid, tid, labels, onClose }: { pid: string; tid: string; l
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('lbl.addCol')} footer={<><button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button><button type="button" className="btn btn-primary" onClick={() => void save()}>{t('common.save')}</button></>}>
-      <ColumnsForm drafts={drafts} setDrafts={setDrafts} labels={labels} />
+      <ColumnsForm drafts={drafts} setDrafts={setDrafts} labels={labels} refs={refs} />
     </Dialog>
   )
 }

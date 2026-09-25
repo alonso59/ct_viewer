@@ -2642,6 +2642,11 @@ export interface components {
             default?: unknown;
             /** Hidden */
             hidden?: boolean | null;
+            /**
+             * Ref
+             * @description LBL-09: mirror this comparable variable (new columns only)
+             */
+            ref?: string | null;
         };
         /** ColumnProgress */
         ColumnProgress: {
@@ -3985,6 +3990,8 @@ export interface components {
              * @default false
              */
             hidden: boolean;
+            /** Ref */
+            ref?: string | null;
         };
         /** LabelCount */
         LabelCount: {
@@ -6238,6 +6245,11 @@ export interface components {
              * @default false
              */
             overridden: boolean;
+            /**
+             * Comparable
+             * @default false
+             */
+            comparable: boolean;
             profile: components["schemas"]["app__variables__models__Profile"];
         };
         /**

@@ -12,11 +12,12 @@ import asyncio
 import hashlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Final
 
 import pyarrow as pa
 
 from app.core.errors import NotFound, ValidationProblem
-from app.core.fsio import atomic_write_bytes, atomic_write_json, read_json
+from app.core.fsio import atomic_write_bytes, atomic_write_json, iter_jsonl, read_json
 from app.core.ids import new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.events.bus import EventBus
@@ -44,6 +45,8 @@ LIST_CAP = 50
 
 
 # LBL-02 column types → variable types (VAR-02)
+PHASE_EFFECTIVE: Final = "phase.effective"
+PHASE_ANALYZER: Final = "phase.analyzer"
 LAYER_TYPES: dict[str, VarType] = {
     "bool": "categorical", "category": "categorical", "number": "continuous", "text": "text",
     "date": "date",
@@ -104,18 +107,41 @@ class VariableService:
             derived=base.derived if derived is None else derived,
             external=self._external_data(project_id, base) if external is None else external,
             layers=self._layer_data(project_id, items),
+            annotation_fields=frozenset(
+                f for f, run in self.workspace.get(project_id).annotation_sources.items() if run
+            ),
             strict=strict,
         )
+
+    def _phase_layers(self, project_id: str, items: Sequence[Item]) -> list[builder.LayerData]:
+        """VAR-12 (ADR-0026): the effective phase (native selection, else the resolved value) and
+        the active `analyzer.phase` run's guess, per scan. `phase` itself is a core column."""
+        live = [i for i in items if i.status != "excluded_upstream"]
+        eff = builder.LayerData(PHASE_EFFECTIVE, "scan", "categorical")
+        for it in live:
+            eff.by_scan.setdefault((it.case_id, it.scan_idx), it.phase.canonical)
+        out = [eff]
+        run = self.workspace.get(project_id).annotation_sources.get("phase")
+        path = self._pdir(project_id) / "tasks" / "runs" / str(run) / "annotations.jsonl"
+        if run and path.is_file():
+            guess = {str(a.get("item_id")): a.get("value") for a in iter_jsonl(path)
+                     if a.get("field") == "phase"}  # fmt: skip
+            ld = builder.LayerData(PHASE_ANALYZER, "scan", "categorical")
+            for it in live:
+                if ld.by_scan.get((it.case_id, it.scan_idx)) is None:
+                    ld.by_scan[(it.case_id, it.scan_idx)] = _layer_text(guess.get(it.item_id))
+            out.append(ld)
+        return out
 
     def _layer_data(self, project_id: str, items: Sequence[Item]) -> list[builder.LayerData]:
         """LBL-06 / VAR-12: label columns as `lbl.{table}.{column}` at their table's level
         (scan and item tables share the scan unit; an item value lands on its scan)."""
         pdir = self._pdir(project_id)
         cells = labeling_state.cell_state(pdir)
-        out: list[builder.LayerData] = []
+        out: list[builder.LayerData] = self._phase_layers(project_id, items)
         for t in labeling_state.active_tables(pdir):
             for c in t.columns:
-                if c.hidden:
+                if c.hidden or c.ref:  # a reference column mirrors another variable (LBL-09)
                     continue
                 ld = builder.LayerData(
                     f"lbl.{t.slug}.{c.slug}", "case" if t.level == "case" else "scan",

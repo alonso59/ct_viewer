@@ -51,7 +51,7 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 
 ## Storage
 
-- `variables/catalog.json`: `[{name, source (metadata|derived|external|raw), type, level, group, tags[], visible, confidence, overridden}]` + derived definitions.
+- `variables/catalog.json`: `[{name, source (metadata|derived|external|raw|layer), type, level, group, tags[], visible, confidence, overridden, comparable}]` + derived definitions.
 - `index/variables.parquet` (derived, rebuildable): one row per item, all variables, case-level values joined.
 
 ## Reference dataset (2026-09-23 profile, for calibration only)
@@ -66,4 +66,6 @@ and `hb + lb ≈ 100` in most cases (compositional). 2 of 172 scans are MRI. 7 m
 - `bin`: a value `v < t` goes to the lower bin; `quantiles` on the wire are cut probabilities in (0, 1) (the UI shows a group count and converts).
 - `dominant`: missing if any source is missing; `tie` on equal maxima.
 - Unconfirmed `numeric-discrete` variables are rejected for tests (422) until the user confirms a type.
+- VAR-12 (ADR-0026): `phase` stays a core column; the effective phase is the layer variable `phase.effective` (native selection, else the resolved value) and the active `analyzer.phase` run's guess is `phase.analyzer`, both categorical at scan level. Analyzer `target_match` / `readiness` / `output_role` arrive as input fields (joined extras) and keep `source: metadata`.
+- VAR-13: `comparable` = categorical and (`source: layer`, or an active annotation field); recomputed at every build, so a type override changes it.
 - API-16/17 return the full `Catalog` (`variables, excluded, derived, external, overrides`); profile fields are `distinct` and `top[{value, n}]`. API-18 returns `{table, n_rows, n_matched, n_unmatched, unmatched_keys, duplicate_keys, conflicts}`. Deleting a derived variable in use → 422 `validation`.

@@ -33,6 +33,8 @@
 .lbl-target { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 8px; overflow: hidden; white-space: nowrap; }
 .lbl-td { padding: 0 8px; display: flex; align-items: center; border-right: 1px solid var(--border-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: cell; user-select: none; }
 .lbl-td[aria-selected='true'] { background: var(--bg-selected); }
+/* LBL-09: a mirrored value, read-only */
+.lbl-td-ref { color: var(--fg-muted); cursor: default; }
 .lbl-td[data-active='true'] { box-shadow: inset 0 0 0 2px var(--accent); }
 .lbl-input { width: 100%; height: 22px; border: 0; background: var(--bg-input); color: var(--fg); font: inherit; }
 .lbl-history { width: 240px; border-left: 1px solid var(--border); padding: 8px; overflow: auto; }

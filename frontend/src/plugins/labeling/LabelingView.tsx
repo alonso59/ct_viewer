@@ -13,7 +13,8 @@ import './labeling.css'
 
 function TableCard({ pid, t }: { pid: string; t: LabelTableInfo }) {
   const { t: tr } = useTranslation()
-  const cols = (t.columns ?? []).filter((c) => !c.hidden)
+  // LBL-08: progress over the table's own columns; reference columns (LBL-09) fill themselves
+  const cols = (t.columns ?? []).filter((c) => !c.hidden && !c.ref)
   const filled = (t.progress ?? []).reduce((n, p) => n + p.filled, 0)
   const total = t.n_rows * cols.length
   return (

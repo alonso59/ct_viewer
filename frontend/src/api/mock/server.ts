@@ -356,11 +356,13 @@ function state(pid: string): ProjectState {
 }
 
 // ---- variables (VAR-*) ------------------------------------------------------------------------
+const PHASE_EFFECTIVE = 'phase.effective'
+
 function rows(s: ProjectState): Row[] {
   const base = s.items.map<Row>((i) => ({
     case_id: i.case_id,
     patient_id: i.patient_id,
-    values: { ...i.extra, ...(s.external[i.case_id] ?? {}) },
+    values: { ...i.extra, ...(s.external[i.case_id] ?? {}), [PHASE_EFFECTIVE]: i.phase.canonical },
   }))
   for (const def of s.derived) for (const r of base) r.values[def.name] = deriveValue(def, r.values, base)
   return base
@@ -369,9 +371,10 @@ function rows(s: ProjectState): Row[] {
 function catalog(s: ProjectState, all = rows(s)): Variable[] {
   const external = new Set(s.externalFields)
   const derived = new Map(s.derived.map((d) => [d.name, d]))
-  const metadata = candidateFields(all).filter((n) => !external.has(n) && !derived.has(n))
+  const metadata = candidateFields(all).filter((n) => !external.has(n) && !derived.has(n) && n !== PHASE_EFFECTIVE)
   return [
     ...metadata.map((n) => profileField(all, n, 'metadata', s.overrides[n])),
+    profileField(all, PHASE_EFFECTIVE, 'layer', s.overrides[PHASE_EFFECTIVE]), // VAR-12 (ADR-0026)
     ...s.externalFields.map((n) => profileField(all, n, 'external', s.overrides[n])),
     ...[...derived.values()].map((d) => ({ ...profileField(all, d.name, 'derived', s.overrides[d.name]), definition: d })),
   ]

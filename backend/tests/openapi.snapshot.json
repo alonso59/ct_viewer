@@ -1587,6 +1587,18 @@
       "title": "Name",
       "type": "string"
      },
+     "ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "LBL-09: mirror this comparable variable (new columns only)",
+      "title": "Ref"
+     },
      "type": {
       "anyOf": [
        {
@@ -5273,6 +5285,17 @@
       "minLength": 1,
       "title": "Name",
       "type": "string"
+     },
+     "ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ref"
      },
      "slug": {
       "pattern": "^[a-z][a-z0-9_]{0,39}$",
@@ -11524,6 +11547,11 @@
    },
    "Variable": {
     "properties": {
+     "comparable": {
+      "default": false,
+      "title": "Comparable",
+      "type": "boolean"
+     },
      "confidence": {
       "title": "Confidence",
       "type": "number"

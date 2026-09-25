@@ -90,6 +90,8 @@ export function profileField(rows: Row[], name: string, source: Variable['source
     confidence: +confidence.toFixed(2),
     review: ov.type === undefined && (inferred === 'numeric-discrete' || confidence < REVIEW_BELOW),
     overridden: ov.type !== undefined || ov.visible !== undefined || ov.tags !== undefined,
+    // VAR-13: categorical layers (the mock's only layer is `phase.effective`)
+    comparable: type === 'categorical' && source === 'layer',
     profile: {
       missing_pct: unit.length ? +((100 * (unit.length - present.length)) / unit.length).toFixed(1) : 0,
       n_distinct: counts.size,

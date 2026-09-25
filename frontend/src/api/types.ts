@@ -291,6 +291,8 @@ export interface Variable {
   /** Low-confidence inference: the UI shows a "Review" badge until confirmed (VAR-03) */
   review: boolean
   overridden: boolean
+  /** VAR-13: offered for side-by-side comparison (Labeling reference columns, LBL-09) */
+  comparable: boolean
   profile: VariableProfile
   definition?: DerivedDef | null
 }

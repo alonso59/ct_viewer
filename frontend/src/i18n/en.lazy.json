@@ -1104,8 +1104,13 @@
       "category": "Category",
       "number": "Number",
       "text": "Text",
-      "date": "Date"
+      "date": "Date",
+      "ref": "Reference (read-only)"
     },
+    "refVar": "Variable to mirror",
+    "refPick": "Pick a comparable variable…",
+    "refOf": "Mirrors {{name}} (read-only; follows it live)",
+    "refHistory": "Mirrors {{name}}: its values come from there, so this column has no history of its own.",
     "levels": "Levels",
     "levelsHint": "Levels, comma-separated",
     "unit": "Unit",

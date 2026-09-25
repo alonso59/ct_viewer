@@ -46,6 +46,8 @@ from app.labeling.models import (
     TablesFile,
 )
 from app.projects.service import Workspace
+from app.variables.models import Catalog
+from app.variables.service import VariableService
 
 TEXT_MAX: Final = 2000
 TRUE: Final = {"true", "yes", "y", "1", "si", "sí", "x"}
@@ -152,7 +154,11 @@ class LabelingService:
 
     # -- schemas (API-56, LBL-01/02) ------------------------------------------------------------
 
-    def _column(self, t: LabelTable, c: ColumnIn, taken: set[str]) -> LabelColumn:
+    def _column(
+        self, t: LabelTable, c: ColumnIn, taken: set[str], catalog: Catalog | None = None
+    ) -> LabelColumn:
+        if c.ref is not None:
+            return self._ref_column(t, c, taken, catalog)
         if c.type is None:
             raise ValidationProblem(
                 f"Column {c.name!r} needs a type",
@@ -170,6 +176,59 @@ class LabelingService:
             )
         taken.add(col.slug)
         return col.model_copy(update={"default": self._default(col, c.default)})
+
+    def _ref_column(
+        self, t: LabelTable, c: ColumnIn, taken: set[str], catalog: Catalog | None
+    ) -> LabelColumn:
+        """LBL-09: the variable must be `comparable` (VAR-13) and at a level the table can show:
+        a patient table mirrors case-level variables only."""
+        var = next((v for v in (catalog.variables if catalog else []) if v.name == c.ref), None)
+        why = (
+            "unknown variable" if var is None
+            else "not comparable (VAR-13)" if not var.comparable
+            else "a scan-level variable cannot be shown per patient"
+            if t.level == "case" and var.level != "case" else None
+        )  # fmt: skip
+        if why:
+            raise ValidationProblem(
+                f"Reference column {c.name!r}: {why}",
+                errors=[{"loc": ["body", "columns", "ref"], "msg": why}],
+            )
+        col = LabelColumn(
+            column_id=new_ulid(), slug=slugify(c.name, taken), name=c.name.strip(),
+            type="category", description=c.description or "", hidden=bool(c.hidden), ref=c.ref,
+        )  # fmt: skip
+        taken.add(col.slug)
+        return col
+
+    async def _catalog(self, pid: str, columns: Sequence[ColumnIn] | None) -> Catalog | None:
+        """The variable catalog, only when a new reference column needs it."""
+        if not any(c.ref is not None and c.column_id is None for c in columns or []):
+            return None
+        return await VariableService(self.workspace, self.store, self.locks, self.bus).catalog(pid)
+
+    async def ref_values(self, pid: str, tid: str) -> dict[str, dict[str, Any]]:
+        """LBL-09: current values of the table's reference columns, `column_id → target → value`,
+        read from the variables table (VAR-12), so they follow their source live."""
+        t = self.table(pid, tid)
+        refs = [c for c in t.columns if c.ref and not c.hidden]
+        if not refs:
+            return {}
+        vs = VariableService(self.workspace, self.store, self.locks, self.bus)
+        table = await vs.table(pid)
+        out: dict[str, dict[str, Any]] = {c.column_id: {} for c in refs}
+        if table is None:
+            return out
+        names = [n for n in {str(c.ref) for c in refs} if n in table.column_names]
+        for row in table.select(["item_id", "case_id", "scan_idx", *names]).to_pylist():
+            key = {"case": row["case_id"], "scan": f"{row['case_id']}.{row['scan_idx']}"}.get(
+                t.level, row["item_id"]
+            )
+            for c in refs:
+                v = row.get(str(c.ref))
+                if v is not None:
+                    out[c.column_id].setdefault(key, v)
+        return out
 
     @staticmethod
     def _default(col: LabelColumn, raw: Any) -> Any:
@@ -199,12 +258,13 @@ class LabelingService:
                     ),
                 )
                 for c in t.columns
-                if not c.hidden
+                if not c.hidden and not c.ref
             ]
             out.append(TableInfo(**t.model_dump(), n_rows=len(rows), progress=prog))
         return out
 
     async def create(self, pid: str, body: TableCreate) -> LabelTable:
+        catalog = await self._catalog(pid, body.columns)
         async with self.locks(pid):
             doc = state.load_tables(self._pdir(pid))
             now = utc_now()
@@ -213,7 +273,7 @@ class LabelingService:
                 name=body.name.strip(), level=body.level, created_at=now, updated_at=now,
             )  # fmt: skip
             taken: set[str] = set()
-            t.columns = [self._column(t, c, taken) for c in body.columns]
+            t.columns = [self._column(t, c, taken, catalog) for c in body.columns]
             doc.tables.append(t)
             self._save(pid, doc)
         self.bus.publish(pid, "project.updated", {"fields": ["labeling"]})
@@ -222,6 +282,7 @@ class LabelingService:
     async def patch(self, pid: str, tid: str, body: TablePatch) -> LabelTable:
         """A rename keeps ids and slugs; `hidden: true` hides a column, or the table (LBL-10), and
         keeps its events; `hidden: false` restores it."""
+        catalog = await self._catalog(pid, body.columns)
         async with self.locks(pid):
             doc = state.load_tables(self._pdir(pid))
             t = next((x for x in doc.tables if x.table_id == tid), None)
@@ -237,10 +298,13 @@ class LabelingService:
                 if cur is None:
                     if c.column_id is not None:
                         raise NotFound(f"Column {c.column_id!r} not found")
-                    t.columns.append(self._column(t, c, taken))
+                    t.columns.append(self._column(t, c, taken, catalog))
                     continue
-                if c.type is not None and c.type != cur.type:
-                    raise ValidationProblem("A column's type cannot change; add a new column")
+                retyped = c.type is not None and c.type != cur.type
+                if retyped or (c.ref is not None and c.ref != cur.ref):
+                    raise ValidationProblem(
+                        "A column's type or reference cannot change; add a new column"
+                    )
                 upd: dict[str, Any] = {"name": c.name.strip()}
                 for k in ("levels", "hidden"):
                     v = getattr(c, k)
@@ -262,7 +326,11 @@ class LabelingService:
 
     # -- cells (API-57, LBL-03..05) -------------------------------------------------------------
 
-    def cells(self, pid: str, tid: str, cursor: int, limit: int, q: str | None) -> CellsPage:
+    def cells(
+        self, pid: str, tid: str, cursor: int, limit: int, q: str | None,
+        refs: dict[str, dict[str, Any]] | None = None,
+    ) -> CellsPage:  # fmt: skip
+        """`refs`: reference-column values from `ref_values` (LBL-09)."""
         t = self.table(pid, tid)
         rows = targets(t, self.store.load(pid).items)
         if q:
@@ -274,6 +342,11 @@ class LabelingService:
         for target, case_id, item_id in page:
             row = CellRow(target=target, case_id=case_id, item_id=item_id)
             for c in cols:
+                if c.ref:
+                    v = (refs or {}).get(c.column_id, {}).get(target)
+                    if v is not None:
+                        row.values[c.column_id] = v
+                    continue
                 e = cells.get((t.table_id, c.column_id, target))
                 if e is not None:
                     row.values[c.column_id] = e.get("value")
@@ -300,6 +373,10 @@ class LabelingService:
             col = by_id.get(cell.column_id)
             if col is None or col.hidden:
                 errors.append({"loc": ["body", "cells", n, "column_id"], "msg": "unknown column"})
+                continue
+            if col.ref:
+                errors.append({"loc": ["body", "cells", n, "column_id"],
+                               "msg": f"read-only reference to {col.ref}"})  # fmt: skip
                 continue
             if cell.target not in valid:
                 errors.append({"loc": ["body", "cells", n, "target"], "msg": "not a row"})
@@ -363,8 +440,9 @@ class LabelingService:
             index = {}
             for target, case_id, _ in rows:
                 index.setdefault(case_id, []).append(target)
-        cols = {c.name.lower(): c for c in t.columns if not c.hidden}
-        cols.update({c.slug: c for c in t.columns if not c.hidden})
+        own = [c for c in t.columns if not c.hidden and not c.ref]  # LBL-09 refs are read-only
+        cols = {c.name.lower(): c for c in own}
+        cols.update({c.slug: c for c in own})
         matched_cols = [h for h in header if h != key and (h.lower() in cols or h in cols)]
         ignored = [h for h in header if h != key and h not in matched_cols]
         report = ImportReport(key=key, n_rows=0, matched=0, columns=matched_cols,
@@ -398,11 +476,13 @@ class LabelingService:
         report.n_events = len(records)
         return report
 
-    def export(self, pid: str, tid: str, fmt: str) -> bytes:
+    def export(
+        self, pid: str, tid: str, fmt: str, refs: dict[str, dict[str, Any]] | None = None
+    ) -> bytes:
         t = self.table(pid, tid)
         cols = [c for c in t.columns if not c.hidden]
         header = ["target", "case_id", *(c.name for c in cols)]
-        page = self.cells(pid, tid, 0, 10**9, None)
+        page = self.cells(pid, tid, 0, 10**9, None, refs)
         data = [
             [r.target, r.case_id, *(r.values.get(c.column_id) for c in cols)] for r in page.items
         ]

@@ -97,7 +97,7 @@ def labeling_layers(ctx: LayerContext) -> list[Layer]:
     out: list[Layer] = []
     for t in labeling_state.active_tables(ctx.project_dir):
         for c in t.columns:
-            if c.hidden:
+            if c.hidden or c.ref:  # a reference column mirrors another variable (LBL-09)
                 continue
             values = {tg: e.get("value") for (tid, cid, tg), e in cells.items()
                       if tid == t.table_id and cid == c.column_id}  # fmt: skip

@@ -176,6 +176,7 @@ function catalogToVariables(c: Catalog): Variable[] {
     return {
       ...v,
       tags: v.tags ?? [],
+      comparable: v.comparable ?? false,
       profile: {
         missing_pct: p.missing_pct,
         n_distinct: p.distinct,

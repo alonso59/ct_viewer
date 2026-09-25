@@ -25,6 +25,8 @@ class LabelColumn(BaseModel):
     description: str = ""
     default: Any = None
     hidden: bool = False
+    # LBL-09: a read-only mirror of a `comparable` variable (VAR-13); no cell events of its own
+    ref: str | None = None
 
 
 class LabelTable(BaseModel):
@@ -57,6 +59,9 @@ class ColumnIn(BaseModel):
     description: str | None = None
     default: Any = None
     hidden: bool | None = None
+    ref: str | None = Field(
+        default=None, description="LBL-09: mirror this comparable variable (new columns only)"
+    )
 
 
 class TableCreate(BaseModel):

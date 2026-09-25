@@ -724,3 +724,13 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Like `dataset_table.*`, `dataset.jsonl` is a download built on demand (API-59, not stored); PROJECT_FORMAT's `exports/` note corrected.
 
 **Results**: see the combined results of the ADR-0025/0026 close-out below.
+
+## 2026-09-25 · Reference columns and comparable variables (LBL-09, VAR-12/13) · version_3-dev
+
+**Done**
+- VAR-12 was half implemented: only label columns were layer variables. New scan-level categorical layer variables `phase.effective` (native selection, else the resolved value; `phase` itself stays a core column) and `phase.analyzer` (the active `analyzer.phase` run's guess). Analyzer `target_match` / `readiness` stay input-field variables.
+- VAR-13: `comparable` on every variable = categorical and (layer, or an active annotation field).
+- LBL-09: `ref` on a column (creation only): must be comparable; a patient table takes case-level variables only; values read from `index/variables.parquet` on each cell read (so ≈ 1 s behind a phase selection, the catalog rebuild delay); read-only (writes and CSV import refuse it); not a layer, variable or progress column; included in the table export. UI: "Reference (read-only)" type with a picker, link icon, muted cells, no editor; the mock resolves `phase.effective` and input fields.
+- Tests: `test_reference_column_mirrors_a_comparable_variable`, `test_api_variables` (`phase.effective`), Vitest LBL-09.
+
+**Results**: see the close-out entry below.

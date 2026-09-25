@@ -41,8 +41,19 @@ def test_catalog_profiles_the_fixture_as_documented(
     cat = catalog(client, pid)
     names = {v["name"] for v in cat["variables"]}
     assert "group" not in names  # ADR-0011: nothing assumed
-    study = {v["name"] for v in cat["variables"] if v["group"] == "study"}
+    study = {
+        v["name"] for v in cat["variables"] if v["group"] == "study" and v["source"] != "layer"
+    }
     assert study == set(expected["study"])
+    # VAR-12/13 (ADR-0026): the effective phase is a comparable scan-level layer variable
+    eff = var(cat, "phase.effective")
+    assert (eff["source"], eff["level"], eff["type"], eff["comparable"]) == (
+        "layer",
+        "scan",
+        "categorical",
+        True,
+    )
+    assert not var(cat, "scan_date")["comparable"]
     for n in expected["compositional"]:
         v = var(cat, n)
         assert (v["type"], v["level"], v["visible"]) == ("continuous", "case", True)

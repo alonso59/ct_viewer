@@ -4,7 +4,7 @@ import { colorable, filterable, formatValue, levelColor, parseRange, rangeValue 
 
 const v = (p: Partial<Variable>): Variable => ({
   name: 'x', source: 'metadata', type: 'categorical', inferred_type: 'categorical', level: 'case', group: 'study',
-  tags: [], visible: true, confidence: 1, review: false, overridden: false,
+  tags: [], visible: true, confidence: 1, review: false, overridden: false, comparable: false,
   profile: { missing_pct: 0, n_distinct: 2, examples: [], levels: [{ value: 'B', count: 5 }, { value: 'A', count: 3 }] },
   ...p,
 })

@@ -238,3 +238,47 @@ def test_cell_writes_publish_live_events(client: TestClient, pid: str) -> None:
     client.post(f"{lab(pid)}/tables/{t['table_id']}/cells", json=w, headers=HDR)
     ev = [d for p, e, d in calls if e == "labeling.appended"]
     assert ev and ev[0]["target"] == CASE and ev[0]["session_id"] == "tab-a"
+
+
+def test_reference_column_mirrors_a_comparable_variable(client: TestClient, pid: str) -> None:
+    """LBL-09 / VAR-13: a read-only column that follows `phase.effective` live; patient tables
+    and non-comparable variables are refused."""
+    wait_var(client, pid, "phase.effective")
+    bad = client.post(f"{lab(pid)}/tables", json={"name": "Per patient", "level": "case",
+                      "columns": [{"name": "Phase", "ref": "phase.effective"}]})  # fmt: skip
+    assert_problem(bad, "validation")
+    bad = client.post(f"{lab(pid)}/tables", json={"name": "Dates", "level": "scan",
+                      "columns": [{"name": "When", "ref": "scan_date"}]})  # fmt: skip
+    assert_problem(bad, "validation")
+    cols = [{"name": "App phase", "ref": "phase.effective"}, {"name": "Mine", "type": "text"}]
+    r = client.post(f"{lab(pid)}/tables", json={"name": "Phase check", "level": "scan",
+                    "columns": cols})  # fmt: skip
+    assert r.status_code == 201, r.text
+    t = r.json()
+    ref = col(t, "App phase")
+    assert next(c for c in t["columns"] if c["column_id"] == ref)["ref"] == "phase.effective"
+    url = f"{lab(pid)}/tables/{t['table_id']}"
+    target = f"{CASE}.01"
+    row = client.get(f"{url}/cells", params={"q": target}).json()["items"][0]
+    before = client.get(f"{API}/projects/{pid}/items/{ITEM}").json()["phase"]["canonical"]
+    assert row["values"][ref] == before
+    # read-only: no cell events of its own; not a layer or variable itself (LBL-06)
+    w = client.post(f"{url}/cells", json={"cells": [{"column_id": ref, "target": target,
+                    "value": "NC"}]}, headers=HDR)  # fmt: skip
+    assert_problem(w, "validation")
+    assert not any(v["name"] == "lbl.phase_check.app_phase" for v in
+                   client.get(f"{API}/projects/{pid}/variables").json()["variables"])  # fmt: skip
+    # follows a native phase selection (PHS-03 → VAR-12)
+    new = next(p for p in ("NC", "CMP", "NP", "EP") if p != before)
+    sel = client.post(f"{API}/projects/{pid}/phase/events", headers=HDR,
+                      json={"case_id": CASE, "scan_idx": "01", "value": new})  # fmt: skip
+    assert sel.status_code == 201, sel.text
+    end = time.monotonic() + 10
+    while time.monotonic() < end:
+        row = client.get(f"{url}/cells", params={"q": target}).json()["items"][0]
+        if row["values"].get(ref) == new:
+            break
+        time.sleep(0.2)
+    assert row["values"][ref] == new
+    exported = client.get(f"{url}/export").text
+    assert "App phase" in exported.splitlines()[0] and new in exported

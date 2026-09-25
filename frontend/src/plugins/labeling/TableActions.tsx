@@ -109,10 +109,10 @@ function EditColumnDialog({ pid, tid, col, onClose }: { pid: string; tid: string
   const [max, setMax] = useState(col.max == null ? '' : String(col.max))
   const { run, error } = usePatch(pid, tid)
   const lv = levels.split(',').map((x) => x.trim()).filter(Boolean)
-  const bad = !name.trim() || (col.type === 'category' && !lv.length) || [min, max].some((x) => x.trim() !== '' && Number.isNaN(num(x)))
+  const bad = !name.trim() || (col.type === 'category' && !col.ref && !lv.length) || [min, max].some((x) => x.trim() !== '' && Number.isNaN(num(x)))
   const save = async () => {
     const c: LabelColumnIn = { column_id: col.column_id, name: name.trim(), description: description.trim() || null }
-    if (col.type === 'category') c.levels = lv
+    if (col.type === 'category' && !col.ref) c.levels = lv
     if (col.type === 'number') Object.assign(c, { unit: unit.trim() || null, min: num(min), max: num(max) })
     if (await run({ columns: [c] })) onClose()
   }
@@ -122,13 +122,13 @@ function EditColumnDialog({ pid, tid, col, onClose }: { pid: string; tid: string
         <label className="field">
           <span className="field-label">{t('lbl.colNameEdit')}</span>
           <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-          <span className="muted lbl-small">{t('lbl.colTypeFixed', { type: t(`lbl.type.${col.type}`) })}</span>
+          <span className="muted lbl-small">{col.ref ? t('lbl.refOf', { name: col.ref }) : t('lbl.colTypeFixed', { type: t(`lbl.type.${col.type}`) })}</span>
         </label>
         <label className="field">
           <span className="field-label">{t('lbl.description')}</span>
           <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
-        {col.type === 'category' ? (
+        {col.type === 'category' && !col.ref ? (
           <label className="field">
             <span className="field-label">{t('lbl.levels')}</span>
             <input className="input" placeholder={t('lbl.levelsHint')} value={levels} onChange={(e) => setLevels(e.target.value)} />

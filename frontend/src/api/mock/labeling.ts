@@ -69,7 +69,7 @@ export const mockLabeling = {
     const s = store(pid)
     const at = now()
     const cols: LabelColumn[] = []
-    for (const c of body.columns ?? []) cols.push({ column_id: id(), slug: slug(c.name, cols.map((x) => x.slug)), name: c.name, type: c.type ?? 'text', levels: c.levels ?? [], unit: c.unit ?? null, min: c.min ?? null, max: c.max ?? null, description: c.description ?? '', default: null, hidden: false })
+    for (const c of body.columns ?? []) cols.push({ column_id: id(), slug: slug(c.name, cols.map((x) => x.slug)), name: c.name, type: c.ref ? 'category' : (c.type ?? 'text'), levels: c.levels ?? [], unit: c.unit ?? null, min: c.min ?? null, max: c.max ?? null, description: c.description ?? '', default: null, hidden: false, ref: c.ref ?? null })
     const t: Table = { table_id: id(), slug: slug(body.name, s.tables.map((x) => x.slug)), name: body.name, level: body.level, columns: cols, hidden: false, created_at: at, updated_at: at }
     s.tables.push(t)
     return structuredClone(t)
@@ -92,7 +92,7 @@ export const mockLabeling = {
           max: 'max' in c ? (c.max ?? null) : cur.max,
           description: 'description' in c ? (c.description ?? '') : cur.description,
         })
-      else t.columns.push({ column_id: id(), slug: slug(c.name, t.columns.map((x) => x.slug)), name: c.name, type: c.type ?? 'text', levels: c.levels ?? [], unit: c.unit ?? null, min: c.min ?? null, max: c.max ?? null, description: '', default: null, hidden: false })
+      else t.columns.push({ column_id: id(), slug: slug(c.name, t.columns.map((x) => x.slug)), name: c.name, type: c.ref ? 'category' : (c.type ?? 'text'), levels: c.levels ?? [], unit: c.unit ?? null, min: c.min ?? null, max: c.max ?? null, description: '', default: null, hidden: false, ref: c.ref ?? null })
     }
     t.updated_at = now()
     return structuredClone(t)
@@ -105,6 +105,13 @@ export const mockLabeling = {
     return targets(t, items).map((r) => {
       const row: LabelCellRow = { ...r, values: {}, updated: {} }
       for (const c of t.columns.filter((x) => !x.hidden)) {
+        if (c.ref) {
+          // LBL-09: mirror the variable; the mock knows the effective phase and input fields
+          const it = items.find((i) => i.item_id === r.item_id)
+          const v = it ? (c.ref === 'phase.effective' ? it.phase.canonical : it.extra[c.ref]) : null
+          if (v != null) row.values![c.column_id] = v
+          continue
+        }
         const e = st.get(`${c.column_id}|${r.target}`)
         if (e) {
           row.values![c.column_id] = e.value
@@ -121,6 +128,7 @@ export const mockLabeling = {
     const out = cells.map((c) => {
       const col = t.columns.find((x) => x.column_id === c.column_id)
       if (!col) throw new ProblemError(422, 'validation', 'Unknown column', c.column_id)
+      if (col.ref) throw new ProblemError(422, 'validation', 'Read-only reference column', col.ref)
       let value: unknown
       try {
         value = coerce(col, c.value)

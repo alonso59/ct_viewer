@@ -51,6 +51,8 @@ class Variable(BaseModel):
     confidence: float  # 0..1
     review: bool  # VAR-03 "Review" badge: low confidence or numeric-discrete, until confirmed
     overridden: bool = False
+    # VAR-13 (ADR-0026): offered for side-by-side comparison (Labeling reference columns, LBL-09)
+    comparable: bool = False
     profile: Profile
 
 

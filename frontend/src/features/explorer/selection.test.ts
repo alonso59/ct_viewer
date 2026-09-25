@@ -5,7 +5,7 @@ import { activeFilterCount, useExplorer } from './store'
 
 const v = (name: string, type: Variable['type']): Variable => ({
   name, source: 'metadata', type, inferred_type: type, level: 'case', group: 'study',
-  tags: [], visible: true, confidence: 1, review: false, overridden: false,
+  tags: [], visible: true, confidence: 1, review: false, overridden: false, comparable: false,
   profile: { missing_pct: 0, n_distinct: 2, examples: [], levels: [] },
 })
 const VARS = [v('sex', 'categorical'), v('age', 'continuous'), v('grade', 'numeric-discrete')]

@@ -91,3 +91,29 @@ test('LBL-02/10: edit and delete a column, delete a table, restore both', async 
   expect(back?.columns?.map((c) => [c.name, c.hidden])).toEqual([['Diameter', false], ['Note', true]])
   await api.patchLabelTable(DEMO_PID, t.table_id, { columns: [{ column_id: size, name: 'Diameter' }] })
 })
+
+test('LBL-09: a reference column mirrors the effective phase and stays read-only', async () => {
+  useWorkbench.setState({ pid: DEMO_PID })
+  useReviewer.setState({ name: 'Dr. T' })
+  const t = await api.createLabelTable(DEMO_PID, { name: 'Phase check', level: 'scan', columns: [{ name: 'App phase', ref: 'phase.effective' }, { name: 'Mine', type: 'text' }] })
+  const ref = t.columns![0]!
+  expect(ref.ref).toBe('phase.effective')
+  const first = (await api.labelCells(DEMO_PID, t.table_id)).items[0]!
+  const item = (await api.getCase(DEMO_PID, first.case_id)).items.find((i) => i.item_id === first.item_id)!
+  const view = wrap(<TableEditor params={{ tableId: t.table_id }} panelId="p" active />)
+  const grid = await screen.findByRole('grid', { name: 'Phase check' })
+  const cells = await screen.findAllByRole('gridcell')
+  await waitFor(() => expect(cells[0]).toHaveTextContent(item.phase.canonical))
+  expect(cells[0]).toHaveAttribute('aria-readonly', 'true')
+  // typing on the reference cell opens no editor, and nothing is written
+  act(() => grid.focus())
+  fireEvent.keyDown(grid, { key: 'N' })
+  expect(screen.queryByRole('textbox', { name: 'App phase' })).toBeNull()
+  await expect(api.writeLabelCells(DEMO_PID, t.table_id, [{ column_id: ref.column_id, target: first.target, value: 'NC' }], 'Dr. T')).rejects.toThrow()
+  // the add-column form offers it as a type once comparable variables exist
+  fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+  const dlg = await screen.findByRole('dialog', { name: 'Add column' })
+  fireEvent.change(within(dlg).getByRole('combobox', { name: 'Type' }), { target: { value: 'ref' } })
+  expect(await within(dlg).findByRole('option', { name: 'phase.effective' })).toBeInTheDocument()
+  view.unmount()
+})

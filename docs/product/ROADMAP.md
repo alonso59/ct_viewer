@@ -160,7 +160,7 @@ Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` i
 - [x] Backend: `phase` namespace on the core event store (PHS-01/02/08); effective-phase join at read time (PHS-03); native routes (not under `/plugins/`, API-63..65)
 - [x] Frontend: one-click phase buttons in the case/scan header and Explorer (PHS-01); drop `wrong_phase_suspected` and the curation phase target/flow (CUR-06 removed)
 - [x] `dataset_table`/`dataset.jsonl` `phase_source` provenance (PHS §Where the effective phase surfaces); `exports/phase_selections.json` (PHS-06, replaces `phase_proposals.json`)
-- [ ] Labeling reference columns (LBL-09) + `comparable` variable flag (VAR-13)
+- [x] Labeling reference columns (LBL-09) + `comparable` variable flag (VAR-13); `phase.effective` / `phase.analyzer` layer variables (VAR-12)
 
 ### Pending amendment — dataset.jsonl and reconstructed sidecars (ADR-0025)
 - [x] `dataset.jsonl` (API-59 `format=jsonl`): one line per item, layers flat, per-file records as `refs`; VAR-09 sensitive fields left out of every dataset-table format unless asked
