@@ -27,6 +27,8 @@ Depends: all domain docs.
 | TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
+Import wizard UX (owner addendum 2026-09-25): Vitest `features/import/patternSuggest.test.ts` (SRC-17: stems, groups only when the sample shows them, no guess below half, highlight segments).
+
 P7c exit: `e2e/p7c-exit.spec.ts` walks the whole ROADMAP §P7c exit criterion in one journey (both browsers).
 
 P7c files (Wave 5): TST-19 in `tests/test_labeling.py` (levels, progress, typed cells, LWW, history, rename/hide, `lbl.*` variables and layers, CSV import report, export, view-only, live events); Vitest `plugins/labeling/{model,TableEditor}.test.ts(x)`; Playwright `e2e/labeling.spec.ts` (two browsers, live sync, variable, view-only read-only).

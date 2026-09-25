@@ -1058,7 +1058,7 @@
     "ignored": "Ignored (not NIfTI, DICOM or NumPy): {{list}}",
     "nifti": {
       "pattern": "File name pattern",
-      "patternDefault": "nnU-Net style: {scan_idx}_{MOD}_{case_id}_{channel}",
+      "patternDefault": "Default: ^(?P<case_id>.+)$ (one case per file)",
       "patternHelp": "A regular expression on the file name without extension; named groups case_id, scan_idx, channel, modality, phase, side. Unmatched names become one case per file.",
       "caseIdFrom": "Case id from",
       "from": {

@@ -167,31 +167,38 @@ function NiftiOptionsForm({ value, onChange, names }: { value: NiftiOptions; onC
 function NiftiSample({ p }: { p: ImportPreview }) {
   const { t } = useTranslation()
   return (
-    <>
-      <div className="table-scroll">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('import.nifti.file')}</th>
-              <th>{t('import.nifti.case')}</th>
-              <th>{t('import.nifti.scan')}</th>
-              <th>{t('import.nifti.modality')}</th>
-              <th>{t('import.field.mask')}</th>
+    <div className="table-scroll">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>{t('import.nifti.file')}</th>
+            <th>{t('import.nifti.case')}</th>
+            <th>{t('import.nifti.scan')}</th>
+            <th>{t('import.nifti.modality')}</th>
+            <th>{t('import.field.mask')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(p.sample ?? []).map((r) => (
+            <tr key={r.file}>
+              <td className="mono" title={r.file}>{r.matched ? null : <Icon spec={codicon('warning')} />} {r.file}</td>
+              <td className="mono">{r.case_id}</td>
+              <td className="mono">{r.scan_idx}</td>
+              <td className="mono">{r.modality ?? '—'}</td>
+              <td className="mono" title={r.mask ?? ''}>{r.mask ? <Icon spec={codicon('check')} /> : '—'}</td>
             </tr>
-          </thead>
-          <tbody>
-            {(p.sample ?? []).map((r) => (
-              <tr key={r.file}>
-                <td className="mono" title={r.file}>{r.matched ? null : <Icon spec={codicon('warning')} />} {r.file}</td>
-                <td className="mono">{r.case_id}</td>
-                <td className="mono">{r.scan_idx}</td>
-                <td className="mono">{r.modality ?? '—'}</td>
-                <td className="mono" title={r.mask ?? ''}>{r.mask ? <Icon spec={codicon('check')} /> : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** IMP-03: unmatched names, orphan masks and ignored extensions, shown next to the counts */
+function NiftiNotices({ p }: { p: ImportPreview }) {
+  const { t } = useTranslation()
+  return (
+    <>
       {p.unmatched?.length ? (
         <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.nifti.unmatched', { count: p.unmatched.length, names: p.unmatched.slice(0, 5).join(', ') })}</p>
       ) : null}
@@ -481,7 +488,11 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
                 <div key={label} className="card" data-zero={n === 0 || undefined}><span className="kpi num">{n}</span><span className="muted">{t(label)}</span></div>
               ))}
             </div>
-            {p.adapter === 'nifti-files' ? null : (
+            {p.adapter === 'nifti-files' ? (
+              <div style={{ marginTop: 'var(--sp-2)' }}>
+                <NiftiNotices p={p} />
+              </div>
+            ) : (
               <>
                 <h3 style={{ marginTop: 16 }}>{t('import.mapping')}</h3>
                 <Mapping preview={p} />

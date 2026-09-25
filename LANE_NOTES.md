@@ -671,3 +671,20 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 
 **Open issues**
 - nnU-Net-style folders import with generic defaults (`labelsTr/` files become items) until the nnU-Net plugin; old options naming `labelsTr/{case}.nii.gz` are refused with the allowed list.
+
+## 2026-09-25 · Import wizard UX (IMP-03, IMP-13, IMP-14, SRC-17) · feat/import-wizard-ux
+
+**Done** (owner addendum; commits `ce02d45`, `52f46bb` and this one)
+- IMP-03: `nifti-files` unmatched names, orphan masks and ignored extensions render under the Preview counts (`NiftiNotices`), not below the sample table; each table sits in its own `.table-scroll`, so a wide table never drags the KPI tiles; `nifti-files` Preview is one stacked column (`.wiz-stack`), `metadata-v1` keeps the two-column grid; zero-count KPI tiles are muted (`data-zero`).
+- IMP-13: "Skip for now" on the Data root step.
+- IMP-14: the alias hint turns into an inline error for a bad format (`[A-Z][A-Z0-9_]{0,15}`) or an alias of this project that points at another folder; Next is disabled meanwhile. Reason for blocking the collision: commit would silently repoint the existing alias. Same folder (re-import, IMP-06) and SRC-15 "add" (the server picks a free alias) are never flagged.
+- SRC-17: "Suggest a pattern" under the pattern field (rules in SOURCES §Pattern suggester); picking fills the field only. Group colours are `--cat-2/4/5/6` (`--cat-1` is the accent blue, ADR-0023).
+- SRC-04 / ADR-0024: the pattern placeholder shows the real default `^(?P<case_id>.+)$` (it still read "nnU-Net style").
+- Wizard title icon `folder-opened` (local, read-only scan), as in the Open dialog.
+
+**Results**: `make check` green: 469 backend + 231 frontend (new `patternSuggest.test.ts`). Playwright `p2-flow`, `converter`, `p7c-exit` 8/8 (Chromium + Firefox). Visual check on `.fixtures/synthetic/Dataset900/nifti` (85 files): suggester proposes `scan_idx` + `case_id` + `channel` (85/85) and `case_id` + `channel`.
+
+**Open issues**
+- The folder browser hides dot-folders, so `.fixtures/` can't be picked from the wizard's Data root step.
+- The suggester samples top-level files only; images in subfolders get "nothing to suggest from".
+- The Welcome page's "Import data" action still uses `cloud-download`.
