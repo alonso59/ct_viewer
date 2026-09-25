@@ -34,6 +34,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Tests and fixtures | `ops/TESTING.md` |
 | (Humans) multi-agent prompts per step | `ops/AGENT_RUNBOOK.md`; agents skip it |
 | Performance, safety, privacy targets | `product/NFR.md` |
+| Run or triage the quality audit | `audit/PLAN.md` → one `audit/findings/A*.md` |
 | Why a decision was made | `adr/README.md` → one ADR |
 
 ## Ownership (one fact, one place)
@@ -61,6 +62,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | `DB-` | frontend/DASHBOARD.md | Dashboard |
 | `OPS-` | ops/DEPLOYMENT.md | Runtime and deployment |
 | `NFR-` | product/NFR.md | Quality targets |
+| `AUD-` | audit/PLAN.md, audit/findings/ | Audit findings |
 
 ## Doc conventions (keep tokens low)
 

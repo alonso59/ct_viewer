@@ -166,6 +166,10 @@ Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` i
 - [x] `dataset.jsonl` (API-59 `format=jsonl`): one line per item, layers flat, per-file records as `refs`; VAR-09 sensitive fields left out of every dataset-table format unless asked
 - [x] Reconstructed sidecars on `metadata-v1` import, opt-in (IMP-15)
 
+### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
+- [ ] A0..A6 per `docs/audit/PLAN.md`; fixes in approved batches (`AUD-` IDs)
+**Exit:** see `docs/audit/PLAN.md` §Status.
+
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
 **Exit:** the desktop app connects to a local Docker backend and a forwarded remote one.

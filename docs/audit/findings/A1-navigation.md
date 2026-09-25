@@ -1,0 +1,64 @@
+# A1 · Navigation & discoverability
+
+Scope: findings of audit A1 (PLAN.md): wayfinding across G1..G4, command palette, quick open, menus, keyboard, active-item sync.
+Read when: triaging A1 or planning the navigation fix batch.
+Depends: audit/PLAN.md, UI_SHELL (UI-*), FE ARCHITECTURE (FE-04), LABELING (LBL-*), CURATION (CUR-*), DASHBOARD (DB-*).
+
+Run 2026-09-25 on `version_3-dev` @ `b388447`, dev servers (API :8020, Vite :5180) on a fresh workspace, fixtures `.fixtures/synthetic/Dataset900` imported through the UI (New project → Import wizard). Chromium (in-app browser), 1024×768, 1280×800 and 1440×900.
+Method note: screenshots from the in-app pane are unreliable under viewport emulation (stale overlays), so layout claims below come from DOM measurements.
+
+## Works well (keep)
+
+Project overview "Next steps" (Review first unreviewed case, Go to case, New radiomics run) · reviewer prompt keeps the pending action (A → name → accepted) · `Alt+↓/↑` · outlier row → viewer in one click (DB-04) · reopening a project restores the last case · quick open by case **or** patient ID · toolbar tooltips show shortcuts (UI-06) · context-aware palette (curation/viewer commands appear only in a case tab) · Explorer tree is keyboard-navigable (UI-08).
+
+## Findings
+
+| ID | Sev | Path | Finding | Evidence | Proposal | Refs | Effort | Decision |
+|---|---|---|---|---|---|---|---|---|
+| AUD-A1-01 | P1 | G1, all | Command palette and keybindings exist only inside a project. Home (`/`) says "Press Ctrl/Cmd+Shift+P anywhere", but nothing opens there or in Open mode. | `app/App.tsx:60-61` (routes without `Workbench`), `shell/Workbench.tsx:43` (only mount); ⌘⇧P on `/` and `/open` → no palette | Mount palette + key dispatcher in `ShellOverlays` for every route; route-scoped commands (New project, Open, Convert DICOM, recent projects; Open-mode actions) | UI-05, UI-17 | M | |
+| AUD-A1-02 | P1 | all | Browser **Back** leaves the project: case and tab changes replace the history entry, so Back from any case goes to the workspace home. | `shell/EditorArea.tsx:149` `navigate(path, { replace: true })`; case_00001 → ⌥↓ ×n → outlier case_00054 → ⌥↓ case_00055 → Back = `/` | Push on case/item/tab change, replace only for layout/query tweaks; state it in FE-04 | FE-04 | S | |
+| AUD-A1-03 | P1 | G3, G4 | Explorer does not follow the active case. After opening case_00054 from the dashboard, the Explorer still highlights case_00001, and its keyboard cursor restarts at the top (↓ + Enter opened case_00002, not case_00056). | `features/explorer/ProjectView.tsx:132` (cursor local to the view); DOM: no `aria-selected` row while case_00055 was open | On active-case change: set cursor, expand, scroll into view ("reveal active", as VS Code does for files) | UI-08, FE-04 | S | |
+| AUD-A1-04 | P1 | G3, G4 | No review-order navigation. Next/Previous follow Explorer order only: no "next unreviewed case" (only a one-off link on the overview), and after opening an outlier, ⌥↓ jumps to the next case by ID (00054 → 00055), not the next outlier, and drops `?item=`. | Palette dump (only Next/Prev case, Next problem); URL after ⌥↓ loses `item` | (a) `Go: Next unreviewed case` command + key; (b) a **navigation context**: a case opened from Outliers / Correction queue / Problems / a label table remembers that list; ⌥↓ follows it; the case header shows "Outliers 3/22 ›" with an × to fall back to Explorer order | CUR-08, DB-04, UI-09 | M | |
+| AUD-A1-05 | P1 | G3 | Labeling is unreachable from the case. The Inspector holds Curation, Layers and W/L only; filling a patient- or scan-level cell means switching to the table tab and away from the images. LBL-03 covers table → viewer, never viewer → table. | `plugins/curation/index.ts:70`, `features/viewer/index.ts:74-75` are the only `registry.inspector` calls | Inspector section "Labels · this case / scan": one compact row per table and column for the active target, reusing the table's cell editors and events (no new panel, G-1) | LBL-03/04, UI-02 | M | |
+| AUD-A1-06 | P1 | all | Palette coverage gaps. Missing: copy share link, copy view-only link, set phase (NC/CMP/NP/EP/UNK), fit view (`F`), switch segmentation set, open the latest dashboard, export dataset table / `dataset.jsonl`, new label table, run the other tasks (analyzers other than phase, threshold), and the views Image, Labels, Tasks, Dashboards, History. | Runtime palette dump (case tab and project root), queries: share, link, dashboard, dataset, jsonl, segmentation, fit, threshold, image → no result | Rule: every activity view has `View: …`; every toolbar/header/row action has a command; each task registers `Task: Run …`; add a registry test that fails when a view or task has no command | UI-02, UI-05 | M | |
+| AUD-A1-07 | P2 | all | Palette matching is too loose and ranks badly: "share" → Crosshair, Show all commands; "reject" lists 7 Project commands and not "Rejected"; "fit" → Open file or folder. | Same dump | Rank contiguous/word-prefix matches first, scattered subsequence last; optional `keywords` per command (e.g. Rejected: reject, fail) | UI-05 | S | |
+| AUD-A1-08 | P1 | G2, G3 | Case counts disagree with no explanation: import Preview 50 cases / 89 scan rows; toast "50 cases indexed"; Recent card "50 cases · 1/50 reviewed"; overview "49 cases · 98 items"; Explorer and curation progress "49"; radiomics run "85" items. | Screens of each step (same project) | One definition per count with a hover that explains the gap ("1 excluded upstream", "duplicate identity merged", "items = scans × scopes × sides"); A5 checks which number is right | IMP-03, CUR-08, RAD-05 | S | |
+| AUD-A1-09 | P2 | all | Menus are unbalanced and miss the common entry points. `Radiomics` is a top-level menu with one item; `Edit` has only "Change reviewer name"; File lacks New project, Convert DICOM, Export bundle; View lacks the views; Help has no keyboard shortcuts and no **About** (NFR-16 places "Research use only" in About). | `grep "menu: '"` over `frontend/src`: file 5, edit 1, view 10, project 5, radiomics 1, help 2 commands | Menus derived from command categories: File · Edit · View (views + panels) · Go (next/previous/unreviewed/problem) · Tasks (all tasks incl. radiomics) · Help (shortcuts, About); drop the plugin-named top menu | UI-02, NFR-16 | S | |
+| AUD-A1-10 | P2 | G4 | Radiomics has three entry points with no canonical one (Tasks › Features, the Radiomics view, the Dashboards view). The Dashboards empty state says "Start one from Radiomics." with no button, and a run row has no explicit "Open dashboard" action (only the name link). | Tasks / Radiomics / Dashboards views, run row HTML (actions: failures, CSV long, CSV wide) | Empty state gets a button; run row gets an "Open dashboard" action; Tasks › Radiomics opens the same settings tab and says so | UI-20, DB-01 | S | |
+| AUD-A1-11 | P2 | G3 | Sharing: the title-bar button copies the full edit link; the view-only link exists only in Project settings. Someone sharing with a reviewer cannot choose from where they share. | Title-bar buttons (`Copy share link`), i18n `settingsHelp` | Share button opens a two-item menu: Copy edit link · Copy view-only link (plus palette commands, A1-06) | PRJ-17, UI-26 | S | |
+| AUD-A1-12 | P2 | G3 | The case header shows two phase chip rows next to each other: "Phase NC ART VEN" switches the scan, "Set phase NC CMP NP EP UNK" assigns one. They read as the same control. At 1024 px the header overflows (741 px content in 676 px) and hides the review status. | DOM `.case-header` scrollWidth 741 > clientWidth 676 | Label the first group "Scan"; show the assigned phase as a segmented control with the effective value selected; let the header wrap | PHS-01, UI-03 | S | |
+| AUD-A1-13 | P2 | all | Internal item IDs are the main label for an item in Curation, Image, Measurements and dashboard tables ("case_00055.01.complete.-", truncated). Scientists think "case_00055 · NP · full". | Curation view header, Image view "Item", Outliers table | Display label `case · phase · scope · side`; the raw ID stays in a tooltip and in copy | UI-08, DATA_MODEL | S | |
+| AUD-A1-14 | P2 | all | Requirement and ADR IDs leak into user-facing text (11 strings), e.g. "(PRJ-17)", "(see API-42)", "(no accounts, ADR-0004)". | `i18n/en.json:371,704`; `i18n/en.lazy.json:536-537,606,637-638,656` | Remove them; add a unit test in `i18n/keys.test.ts` rejecting `[A-Z]{2,4}-\d+` in values | R8 | S | |
+| AUD-A1-15 | P2 | G2 | Import wizard Detect step: "Contract v1 (metadata.jsonl)" is internal jargon, and radio labels run into their descriptions with no separator ("…(metadata.jsonl)metadata.jsonl found (contract v1)"). | Detect step, fixture Dataset900 | "Metadata table (metadata.jsonl)" with the description on its own line; move "contract v1" to a tooltip | IMP-03 | S | |
+| AUD-A1-16 | P2 | G1, G2 | Folder browser has no filter or type-ahead: 183 NIfTI files in `Dataset900/nifti` must be scrolled. Dot-folders are hidden, and "Parent folder" appears at an allowed root. | Open file or folder dialog, Import wizard Data root step | Filter box + type-to-select; no Parent row at an allowed root | API-10, SRC-09 | S | |
+| AUD-A1-17 | P2 | all | Overlays stack: the command palette opened over the Import wizard right after "Create and import", and Escape closed the wizard underneath instead of the palette on top. Trigger not isolated (earlier ⌘⇧P presses on Home may have been queued). | Screenshots after New project → Enter | One overlay stack: Escape closes the topmost; the palette doesn't open while a modal is up. Repro in A2 | UI-05 | S | |
+| AUD-A1-18 | P2 | G4 | On non-case tabs (dashboard, radiomics settings) the bottom panel stays open, showing another item's features and taking ~⅓ of the height. At 1280 px the radiomics form column clips (384 of 418 px); at 1024 px it is unusable (118 of 418 px). | DOM measures of `.rad-field` parent at 1024/1280/1440 | Remember panel visibility per editor type; stack the settings form below ~1366 px (A3 takes the layout part) | UI-13, RAD-01 | M | |
+| AUD-A1-19 | P1 | G1 | Open mode puts the absolute source path in the URL (`/open?path=/Volumes/…/01_case_00001_0000.nii.gz`). It ends up in browser history and in any copied link, and real DICOM folder names often carry patient names. | URL after Open file | URL carries the Open session id (`/open/{sid}`); the path stays in server state. A5 checks NFR-17 exposure | NFR-17, API-07 | S | |
+
+Not findings (checked): the Image section under the Project view duplicating the Image view is by design (UI_SHELL §Layout). The Curation form appears both as a view and as an Inspector section, which is intended (UI-02); keep one visual style.
+
+## Reachability matrix
+
+Counts are actions from an open case tab (click or key); `—` = not reachable that way; `P` = in the palette.
+
+| Object | Welcome | Activity bar | Explorer / menu | Case tab | Palette | Quick open | Shortcut |
+|---|---|---|---|---|---|---|---|
+| Case / scan / item | Recent → 2 | Project 1 + click | tree | header scan chips 1 | — | ✓ case, patient (no item) | ⌥↓/⌥↑ |
+| Next unreviewed / next outlier | — | — | — | — | — | — | — (A1-04) |
+| Segmentation set, label visibility | — | Labels 1 | — | Inspector › Layers | labels ✓, seg set — | — | 1–9 |
+| Phase selection | — | — | Explorer chips | header "Set phase" 1 | — (A1-06) | — | — |
+| QC status, comment | — | Curation 1 | — | Inspector 1 | ✓ | — | A, ⇧1, ⇧2, X, Q |
+| Labeling cell | — | Labeling → table tab 3+ | — | — (A1-05) | View: Labeling | — | — |
+| Correction queue, exports | — | Curation › Open queue 2 | Project menu | — | ✓ queue, curation exports; dataset table — | — | — |
+| Tasks + runs | — | Tasks 1 | — | — | 2 of 5 tasks | — | — |
+| Radiomics run → dashboard → analysis | Overview "New radiomics run" | Radiomics 1 → run name 1 | Radiomics menu (new only) | Measurements panel | New run ✓, dashboard — | — | — |
+| Variables, derived, external table | — | Variables 1 | Project menu | — | ✓ | — | — |
+| Project settings, share, view-only, Close | — | — | Project / File menu | — | settings ✓, close ✓, share —, view-only — | — | — |
+| Plugin Library, reviewer, theme, keybindings | — | Library 1, Settings 1 | Edit (reviewer) | status bar (reviewer) | ✓ | — | ⌘, |
+| Problems, jobs, history | — | History 1 | — | Panel tabs 1 | ✓ panels | — | F8 |
+
+## Hand-offs
+
+- A2: repro of A1-17; correctness of the counts in A1-08; Problems panel → item (UI-09).
+- A3: layout parts of A1-12, A1-18; HU readout without a unit in the viewer corner ("28"); import wizard spacing (A1-15).
+- A5: A1-19 (PHI in URLs), A1-08 (which count is right).
