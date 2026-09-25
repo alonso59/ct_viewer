@@ -631,3 +631,21 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - Human checks: P0.5 walkthrough, IBSI map/phantom, correction-queue CSV in 3D Slicer, v2 `curation_review.csv` import, converted series vs original in 3D Slicer, PHI review of an anonymized sidecar.
 - Step 4 (udocker, remote checks, image rebuild with P7c; `udocker-run.sh` derived/plugins mounts), then P8 Electron.
 - Minor: Open mode's tool bar wraps below ~1300 px; VW-24 (cine, histogram, MR colour maps) stays Could.
+
+## 2026-09-25 · P7c addendum · field of view · v3
+
+**Done** (VW-06/10/26)
+- VW-06: zoom/pan act only on the view under the pointer; `useViewerLocal.linkZoom` and the engine default to unlinked; the link toggle is opt-in and copies the last zoomed/panned view (not the last sliced one) when turned on. Crosshair and slice lines stay linked (VW-04).
+- VW-26: `fitView(tile)` on `ViewerHandle` and the NiiVue engine (2D: `planePan[tile] = [0,0,0,1]`, no `setFrac`; 3D: `volScaleMultiplier` 1 + default azimuth/elevation; linked → all 2D views). The per-plane rules live in the pure `model/fov.ts` (Vitest `model/fov.test.ts`). Fit button in every viewport header left of maximize; `F` (`viewer.fit`) fits the hovered view, else the maximized one.
+- VW-10: `resetView` is now `fitView` on every view + crosshair to the centre; the store's `reset()` (W/L, maximized) is unchanged.
+- The zoom % corner text was already per plane; it now differs per view because the FOVs do.
+
+**Fixed along the way**
+- Open mode never set `viewerFocused`, so no `when: 'viewer'` shortcut (R, M, W, C, Z, L, F) fired there despite VW-22; `StandaloneViewer` now shares the case tab's focus handlers (`viewerFocusProps`).
+- `.vp-notice` ("The segmentation could not be loaded") sat over the axial header's buttons and swallowed clicks; it is now `pointer-events: none`.
+
+**Results**: `make check` green: 467 backend + 225 frontend. Playwright 38/38 (Chromium 19, Firefox 19; new `e2e/viewer-fov.spec.ts`). Initial JS 298.1 KB gzip.
+
+**Open issues**
+- The fixture `Dataset900/nifti/04_case_00002_0000.nii.gz` in Open mode shows the mask-load notice (the paired segmentation fails to load); not investigated (out of scope).
+- The notice still covers the header buttons visually in four-up; only its click blocking was fixed.

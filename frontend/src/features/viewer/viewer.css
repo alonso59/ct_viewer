@@ -172,11 +172,12 @@ button.badge[aria-pressed='true'] {
   margin-left: auto;
   color: var(--fg-muted);
 }
+.vp-fit,
 .vp-max {
   width: 20px;
   height: 20px;
 }
-.vp-title + .vp-max {
+.vp-title + .vp-fit {
   margin-left: auto;
 }
 .vp-body {
@@ -257,7 +258,7 @@ button.badge[aria-pressed='true'] {
 .vp-blend {
   width: 64px;
 }
-.vp-3d-tools + .vp-max {
+.vp-3d-tools + .vp-fit {
   margin-left: 0;
 }
 .vp-legend {
@@ -355,6 +356,8 @@ button.badge[aria-pressed='true'] {
 }
 .vp-notice {
   position: absolute;
+  /* status only: never blocks the header buttons underneath (VW-26 fit, maximize) */
+  pointer-events: none;
   top: 8px;
   left: 50%;
   transform: translateX(-50%);

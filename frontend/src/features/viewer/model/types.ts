@@ -120,6 +120,9 @@ export interface ViewerHandle {
   pan(tile: ViewportId, dx: number, dy: number): void
   zoom(tile: ViewportId, factor: number): void
   orbit(dAzimuth: number, dElevation: number): void
+  /** VW-26: fit one view to its tile (2D: zoom 100 %, no pan; 3D: default camera) */
+  fitView(tile: ViewportId): void
+  /** VW-10: fit every view, crosshair to the volume centre */
   resetView(): void
   /** Default window for the loaded image (CT preset or 1st–99th percentile, VW-05) */
   defaultWindow(): [number, number]

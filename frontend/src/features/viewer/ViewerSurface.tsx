@@ -1,5 +1,5 @@
 // One case tab's viewer: a single engine canvas under the viewport frames (VW-01..09, 12..15).
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type WheelEvent as RWheelEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type HTMLAttributes, type PointerEvent as RPointerEvent, type WheelEvent as RWheelEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, LabelDef } from '../../api'
@@ -29,6 +29,18 @@ export interface SurfaceProps {
   loaded: boolean
   /** VW-22 header info: the item's DICOM tags, when it has them (API-22 or the Open-mode tags) */
   tags?: () => Promise<Record<string, unknown>>
+}
+
+/** Focus handling of the viewer's container: `when: 'viewer'` shortcuts fire while it has focus */
+export const viewerFocusProps: HTMLAttributes<HTMLDivElement> = {
+  tabIndex: -1,
+  onFocus: () => useViewerSync.setState({ viewerFocused: true }),
+  onBlur: (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) useViewerSync.setState({ viewerFocused: false })
+  },
+  onPointerDown: (e) => {
+    if (!(e.target as HTMLElement).closest('button, input, select')) e.currentTarget.focus()
+  },
 }
 
 /** VW-25: the initial CT window of the store (a preset name when it matches one) */
@@ -381,6 +393,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
             labels={labels.filter((l) => item.labels_present.includes(l.value))}
             maximized={v.maximized === id}
             onMaximize={() => v.set({ maximized: v.maximized === id ? null : id })}
+            onFit={() => handle?.fitView(id)}
             onGoto={(i) => isPlane(id) && handle?.goto(id as Plane, i)}
             meshState={meshState}
             bodyProps={{
@@ -388,7 +401,11 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
               onPointerMove,
               onPointerUp,
               onPointerCancel: onPointerUp,
-              onPointerLeave: () => useViewerSync.setState({ cursor: null }),
+              onPointerEnter: () => useViewerLocal.setState({ hovered: id }),
+              onPointerLeave: () => {
+                useViewerSync.setState({ cursor: null })
+                if (useViewerLocal.getState().hovered === id) useViewerLocal.setState({ hovered: null })
+              },
               onWheel: onWheel(id),
             }}
           />

@@ -28,12 +28,14 @@ interface Props {
   labels: LabelDef[]
   maximized: boolean
   onMaximize: () => void
+  /** VW-26 fit this view to its tile */
+  onFit: () => void
   onGoto: (index: number) => void
   meshState: MeshState
   bodyProps: HTMLAttributes<HTMLDivElement>
 }
 
-export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, onGoto, meshState, bodyProps }: Props) {
+export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, onFit, onGoto, meshState, bodyProps }: Props) {
   const { t } = useTranslation()
   const tool = useViewerSync((s) => s.tool)
   const color = PLANE_COLOR[id]
@@ -54,6 +56,9 @@ export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, on
         <span className="vp-title">{t(`viewer.plane.${id}`)}</span>
         {plane ? <span className="vp-index num">{t('viewer.sliceOf', { index: plane.index, total: plane.total })}</span> : null}
         {id === '3d' && hasMask ? <Render3dControls meshState={meshState} /> : null}
+        <button type="button" className="icon-btn vp-fit" aria-label={t('viewer.fit')} title={t('viewer.fit')} onClick={onFit}>
+          <Icon spec={codicon('layout-centered')} />
+        </button>
         <button type="button" className="icon-btn vp-max" aria-label={t(maximized ? 'viewer.restore' : 'viewer.maximize')} title={t(maximized ? 'viewer.restore' : 'viewer.maximize')} onClick={onMaximize}>
           <Icon spec={codicon(maximized ? 'screen-normal' : 'screen-full')} />
         </button>

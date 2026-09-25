@@ -384,6 +384,7 @@
     },
     "layoutLabel": "Layout",
     "level": "Level",
+    "fit": "Fit to window",
     "maximize": "Maximize (double-click header)",
     "noSegmentation": "No segmentation",
     "outline": "Outline only",

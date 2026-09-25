@@ -49,7 +49,7 @@ Depends: ADR-0003, ADR-0015, frontend/ARCHITECTURE.md, API-23/24/25, SOURCES.md 
 | VW-23 | ADR-0021 **Should**: slab MIP / MinIP / average with a thickness in mm (2D tiles), invert. | S |
 | VW-24 | ADR-0021 **Could**: cine loop, histogram, MR colour maps. | C |
 | VW-25 | Display settings (PRJ-18) set the initial layout, W/L per modality, interpolation (linear / nearest) and the radiological (patient right on screen left, default) or neurological convention. | M |
-| VW-26 | **Fit to window per view** (3D Slicer's "Fit to window"): a fit button in each viewport header, left of maximize (tooltip "Fit to window", `F` on the view under the pointer). On a 2D view it restores zoom 100 % and zero pan so the whole slice fits the tile; slice index, crosshair, W/L, overlays and the other views do not change. On the 3D view it restores the camera (zoom, azimuth/elevation). When zoom is linked (VW-06) fit applies to all 2D views. A new item opens fitted (as today). | M |
+| VW-26 | **Fit to window per view** (3D Slicer's "Fit to window"): a fit button in each viewport header, left of maximize (tooltip "Fit to window", `F` on the view under the pointer, else on the maximized view). On a 2D view it restores zoom 100 % and zero pan so the whole slice fits the tile; slice index, crosshair, W/L, overlays and the other views do not change. On the 3D view it restores the camera (zoom, azimuth/elevation). When zoom is linked (VW-06) fit applies to all 2D views. A new item opens fitted (as today). | M |
 
 ## Implementation (P7c Wave 4)
 

@@ -90,6 +90,9 @@ export function registerViewer() {
     })
   registry.command({ id: 'viewer.cycleLayout', title: 'cmd.cycleLayout', category: 'cat.viewer', keybinding: 'l', when: 'viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => useViewerSync.getState().cycleLayout() })
   registry.command({ id: 'viewer.reset', title: 'viewer.reset', category: 'cat.viewer', keybinding: 'r', when: 'viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => useViewerSync.getState().reset() })
+  // VW-26: fit the view under the pointer (else the maximized one)
+  const fitTarget = () => useViewerLocal.getState().hovered ?? useViewerSync.getState().maximized
+  registry.command({ id: 'viewer.fit', title: 'viewer.fit', category: 'cat.viewer', keybinding: 'f', when: 'viewer', enabled: () => isCase() && fitTarget() !== null, run: () => { const tile = fitTarget(); if (tile) useViewerLocal.getState().active?.fitView(tile) } })
   registry.command({ id: 'viewer.restore', title: 'viewer.restore', category: 'cat.viewer', keybinding: 'esc', when: 'viewer', enabled: () => useViewerSync.getState().maximized !== null, run: () => useViewerSync.setState({ maximized: null }) })
   registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => void screenshot() })
   registry.command({ id: 'viewer.toggleOverlay', title: 'viewer.overlay', category: 'cat.viewer', enabled: isCase, run: () => useViewerSync.setState((s) => ({ overlay: !s.overlay })) })

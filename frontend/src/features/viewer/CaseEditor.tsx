@@ -8,7 +8,7 @@ import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '.
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
-import { ViewerSurface } from './ViewerSurface'
+import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
 import './viewer.css'
 
 export interface CaseParams {
@@ -132,17 +132,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const fatal = current.warning_codes.find((c) => FATAL_CODES.includes(c))
 
   return (
-    <div
-      className="case-editor"
-      tabIndex={-1}
-      onFocus={() => set({ viewerFocused: true })}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) set({ viewerFocused: false })
-      }}
-      onPointerDown={(e) => {
-        if (!(e.target as HTMLElement).closest('button, input, select')) e.currentTarget.focus()
-      }}
-    >
+    <div className="case-editor" {...viewerFocusProps}>
       <div className="case-header">
         <span className="mono case-id">{params.caseId}</span>
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />

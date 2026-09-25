@@ -2,11 +2,13 @@
 import { create } from 'zustand'
 
 import type { ItemRecord } from '../../api'
-import type { ViewerHandle } from './model/types'
+import type { ViewerHandle, ViewportId } from './model/types'
 
 interface LocalState {
-  /** VW-06: zoom/pan linked across the 2D views */
+  /** VW-06: zoom/pan linked across the 2D views (opt-in, not persisted) */
   linkZoom: boolean
+  /** Viewport under the pointer (VW-26 `F`) */
+  hovered: ViewportId | null
   /** VW-09 3D viewport */
   volume3d: boolean
   surfaces: boolean
@@ -18,7 +20,8 @@ interface LocalState {
 }
 
 export const useViewerLocal = create<LocalState>()(() => ({
-  linkZoom: true,
+  linkZoom: false,
+  hovered: null,
   volume3d: true,
   surfaces: false,
   blend: 1,

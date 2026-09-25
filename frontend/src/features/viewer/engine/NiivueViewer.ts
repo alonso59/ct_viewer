@@ -15,6 +15,7 @@ import { NVImage, NVMesh, Niivue, SLICE_TYPE } from '@niivue/niivue'
 
 import type { ItemRecord } from '../../../api'
 import { hexToRgb, lutRows, lutWidth, niivueLut } from '../model/labels'
+import { fitFov, fovOf, linkFov, setFov, zoomed, type Fov } from '../model/fov'
 import { PLANE_AXIS, PLANES } from '../model/layouts'
 import type { CursorReadout, DisplayOptions, LabelStyle, LoadOptions, MeshSpec, Plane, PlaneView, RoiStats, TileRect, Unsubscribe, ViewerContext, ViewerHandle, ViewportId, ViewState } from '../model/types'
 import { percentileWindow, windowToRange } from '../model/wl'
@@ -22,13 +23,15 @@ import { fetchVolume } from './fetchVolume'
 import { SLICE_FRAG, SliceRenderer } from './sliceRenderer'
 import { apply, fromGl, invert4, labelArray, niftiBytes, proxyGrid, resampleNearest, texMatrix, toGl, type Mat, type Vec3 } from './volumeMath'
 
-type Vec4 = [number, number, number, number]
 type Typed = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array
 
 /** 3D proxy budget: 256×256×300 for the reference volume */
 const PROXY_VOXELS = 24_000_000
 /** Wait this long after the last W/L or label change before refreshing the 3D proxy */
 const REFRESH_3D_MS = 200
+/** Default 3D camera (VW-26 fit, VW-10 reset) */
+const AZIMUTH = 110
+const ELEVATION = 15
 
 const SLICE: Record<Plane, SLICE_TYPE> = {
   axial: SLICE_TYPE.AXIAL,
@@ -39,7 +42,7 @@ const PLANE_OF: Record<number, Plane> = { [SLICE_TYPE.AXIAL]: 'axial', [SLICE_TY
 
 /** Niivue with per-plane 2D pan/zoom (unlinked zoom, VW-06), a 2D slice hook and a post-draw hook */
 class TiledNiivue extends Niivue {
-  planePan: Partial<Record<Plane, Vec4>> = {}
+  planePan: Partial<Record<Plane, Fov>> = {}
   showVolume3D = true
   beforeSlice: ((program: WebGLProgram) => void) | null = null
   afterDraw: (() => void) | null = null
@@ -117,8 +120,10 @@ export class NiivueViewer implements ViewerHandle {
   private labels: LabelStyle[] = []
   private overlay = { visible: true, opacity: 1 }
   private tiles: TileRect[] = []
-  private linked = true
+  private linked = false
   private lastPlane: Plane = 'axial'
+  /** Last 2D view zoomed or panned: its field of view is copied when zoom gets linked (VW-06) */
+  private lastFov: Plane = 'axial'
   private ww = 400
   private wl = 50
   private cursorCbs = new Set<(r: CursorReadout | null) => void>()
@@ -597,27 +602,23 @@ export class NiivueViewer implements ViewerHandle {
       this.schedule('draw')
       return
     }
-    const p = this.panOf(tile)
-    p[3] = Math.max(0.5, Math.min(16, p[3] * factor))
-    this.setPan(tile, p)
+    this.setPan(tile, zoomed(this.panOf(tile), factor))
   }
 
-  private panOf(tile: Plane): Vec4 {
-    const own = this.nv.planePan[tile]
-    return own ? [...own] : [0, 0, 0, 1]
+  private panOf(tile: Plane): Fov {
+    return fovOf(this.nv.planePan, tile)
   }
 
-  private setPan(tile: Plane, p: Vec4) {
-    if (this.linked) for (const pl of PLANES) this.nv.planePan[pl] = [...p]
-    else this.nv.planePan[tile] = p
+  private setPan(tile: Plane, p: Fov) {
+    this.lastFov = tile
+    setFov(this.nv.planePan, tile, p, this.linked)
     this.schedule('draw')
   }
 
   setLinkedZoom(linked: boolean): void {
     this.linked = linked
     if (linked) {
-      const p = this.panOf(this.lastPlane)
-      for (const pl of PLANES) this.nv.planePan[pl] = [...p]
+      linkFov(this.nv.planePan, this.lastFov)
       this.schedule('draw')
     }
   }
@@ -627,12 +628,20 @@ export class NiivueViewer implements ViewerHandle {
     this.nv.setRenderAzimuthElevation(s.renderAzimuth + dAz, Math.max(-90, Math.min(90, s.renderElevation + dEl)))
   }
 
+  /** VW-26: fit one view to its tile; the slice, crosshair and W/L stay as they are */
+  fitView(tile: ViewportId): void {
+    if (tile === '3d') {
+      this.nv.scene.volScaleMultiplier = 1
+      this.nv.setRenderAzimuthElevation(AZIMUTH, ELEVATION)
+    } else fitFov(this.nv.planePan, tile, this.linked)
+    this.schedule('draw')
+  }
+
+  /** VW-10: fit every view and centre the crosshair */
   resetView(): void {
-    for (const pl of PLANES) this.nv.planePan[pl] = [0, 0, 0, 1]
-    this.nv.scene.volScaleMultiplier = 1
-    this.nv.setRenderAzimuthElevation(110, 15)
+    for (const pl of PLANES) this.fitView(pl)
+    this.fitView('3d')
     if (this.image) this.setFrac([0.5, 0.5, 0.5])
-    else this.schedule('draw')
   }
 
   // ---- reporting ----------------------------------------------------------------------------
