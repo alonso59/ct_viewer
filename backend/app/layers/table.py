@@ -31,7 +31,9 @@ def _cell(v: Any) -> Any:
 
 def rows(items: Sequence[Item], layers: Sequence[Layer]) -> tuple[list[str], list[dict[str, Any]]]:
     layer_fields = {layer.field for layer in layers}
-    extra_keys = sorted({k for i in items for k in i.extra if k not in layer_fields})
+    # an input field named like a base column (e.g. the raw `phase`) must not overwrite it
+    skip = layer_fields | set(BASE)
+    extra_keys = sorted({k for i in items for k in i.extra if k not in skip})
     header = [*BASE, *extra_keys, *(layer.column for layer in layers)]
     out: list[dict[str, Any]] = []
     for i in items:

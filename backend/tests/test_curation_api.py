@@ -107,7 +107,9 @@ def test_errors(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> N
         base | {"item_id": None},
         base | {"case_id": "case_09999"},
         base | {"priority": "urgent"},
-        base | {"proposed_phase": "ZZ"},
+        base | {"proposed_phase": "NP"},  # phase is native now (ADR-0026)
+        base | {"target": "phase"},
+        base | {"status": "wrong_phase_suspected"},
         base | {"proposed_side": "X"},
         base | {"source": "v2_import"},
         base | {"extra_field": 1},
@@ -219,27 +221,24 @@ def test_queue_json_and_csv(client: TestClient, proj: tuple[str, list[dict[str, 
 def test_exports(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> None:
     pid, items = proj
     a, b = active_with_mask(items)[:2]
-    phase = {"target": "phase", "status": "wrong_phase_suspected"}
-    post(client, pid, {"item_id": a["item_id"], **phase, "proposed_phase": "EP"})
-    post(client, pid, {"item_id": a["item_id"], **phase, "proposed_phase": "NC"})
+    minor = {"target": "seg", "status": "needs_minor_correction"}
+    post(client, pid, {"item_id": a["item_id"], **minor, "comment": "first"})
+    post(client, pid, {"item_id": a["item_id"], **minor, "comment": "second"})
     side = {"target": "side", "status": "wrong_side_suspected", "proposed_side": "R"}
     post(client, pid, {"item_id": b["item_id"], **side})
     r = client.post(f"{API}/projects/{pid}/curation/exports")
     assert r.status_code == 201, r.text
     out = r.json()
-    assert out["files"] == ["curation_state.csv", "events.jsonl", "phase_proposals.json"]
+    assert out["files"] == ["curation_state.csv", "events.jsonl"]  # phase: PHS-06
     pdir = ctx_of(client).workspace.project_dir(pid)
     exp = pdir / "exports"
     assert (exp / "events.jsonl").read_bytes() == (pdir / "curation" / "events.jsonl").read_bytes()
     state_rows = list(csv.DictReader((exp / "curation_state.csv").open()))
     assert len(state_rows) == 2
     row_a = next(x for x in state_rows if x["item_id"] == a["item_id"])
-    assert row_a["proposed_phase"] == "NC" and row_a["item_status"] == "wrong_phase_suspected"
-    proposals = json.loads((exp / "phase_proposals.json").read_text())
-    assert proposals["schema_version"] == 1 and proposals["updated_at"].endswith("Z")
-    assert proposals["phases"] == [
-        {"case_id": a["case_id"], "scan_idx": a["scan_idx"], "phase": "NC"}
-    ]
+    assert row_a["comment"] == "second" and row_a["item_status"] == "needs_minor_correction"
+    assert "proposed_phase" not in state_rows[0]
+    assert not (exp / "phase_proposals.json").exists()
 
 
 def test_import_v2(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> None:

@@ -8,7 +8,6 @@ variables (LBL-06); the variable catalog is rebuilt shortly after writes.
 
 from __future__ import annotations
 
-import asyncio
 import builtins
 import csv
 import io
@@ -52,8 +51,6 @@ TEXT_MAX: Final = 2000
 TRUE: Final = {"true", "yes", "y", "1", "si", "sí", "x"}
 FALSE: Final = {"false", "no", "n", "0"}
 IMPORT_KEYS: Final = ("case_id", "patient_id", "scan", "item_id", "target")
-REBUILD_DELAY_S: Final = 1.0
-_rebuilds: dict[str, asyncio.Task[None]] = {}
 
 
 def slugify(name: str, taken: set[str]) -> str:
@@ -420,18 +417,3 @@ class LabelingService:
         w.writerow(header)
         w.writerows(["" if v is None else v for v in row] for row in data)
         return out.getvalue().encode("utf-8")
-
-
-def schedule_variables_rebuild(pid: str, rebuild: Any) -> None:
-    """LBL-06: rebuild the variable catalog once writes settle (coalesced per project)."""
-    old = _rebuilds.get(pid)
-    if old is not None and not old.done():
-        old.cancel()
-
-    async def later() -> None:
-        await asyncio.sleep(REBUILD_DELAY_S)
-        await rebuild(pid)
-
-    task = asyncio.get_running_loop().create_task(later())
-    _rebuilds[pid] = task
-    task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)

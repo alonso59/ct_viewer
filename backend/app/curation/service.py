@@ -35,12 +35,13 @@ from app.events.bus import EventBus
 from app.eventstore.store import namespace_path, require_reviewer
 from app.ingest.models import Item, VolumeRef
 from app.ingest.store import IndexStore
+from app.phase import state as phase_state
+from app.phase.service import PhaseService
 from app.projects.service import Workspace
 
 EXPORTS: Final = Path("exports")
 STATE_CSV: Final = "curation_state.csv"
 EVENTS_COPY: Final = "events.jsonl"
-PHASE_PROPOSALS: Final = "phase_proposals.json"
 STATE_COLUMNS: Final = (
     "case_id",
     "item_id",
@@ -53,7 +54,6 @@ STATE_COLUMNS: Final = (
     "case_status",
     "priority",
     "comment",
-    "proposed_phase",
     "proposed_side",
     "add_to_queue",
     "reviewer",
@@ -76,6 +76,7 @@ class CurationService:
         self.store = store
         self.locks = locks
         self.bus = bus
+        self.phase = PhaseService(workspace, store, locks, bus)  # PHS-08 import compat
 
     def _pdir(self, project_id: str) -> Path:
         return self.workspace.project_dir(project_id)
@@ -95,7 +96,7 @@ class CurationService:
         ]
 
     def _validate(self, project_id: str, body: EventIn) -> tuple[str, Item | None]:
-        """CUR-03/06/07: target grammar, label map, item/case existence, phase vocabulary."""
+        """CUR-03/07: target grammar, label map, item/case existence."""
         cfg = self.workspace.get(project_id)
         idx = self.store.load(project_id)
         item: Item | None = None
@@ -123,10 +124,6 @@ class CurationService:
         mask_target = body.target in ("seg", "voi_mask") or body.target.startswith("label:")
         if body.seg_id is not None and (not mask_target or cfg.segmentation(body.seg_id) is None):
             raise _invalid("seg_id", "seg_id must name a segmentation set, on mask targets only")
-        if body.proposed_phase is not None:
-            vocab = cfg.phase_vocabulary
-            if vocab and body.proposed_phase not in vocab:
-                raise _invalid("proposed_phase", f"allowed: {vocab}")
         return case_id, item
 
     async def append(
@@ -137,7 +134,7 @@ class CurationService:
         reviewer: str | None,
         session_id: str | None = None,
     ) -> CurationEvent:
-        """CUR-02/03/05/06/07/11: validate, append under the lock, publish `curation.appended`."""
+        """CUR-02/03/05/07/11: validate, append under the lock, publish `curation.appended`."""
         name = require_reviewer(reviewer)
         pdir = self._pdir(project_id)
         case_id, item = self._validate(project_id, body)
@@ -159,7 +156,6 @@ class CurationService:
             status=body.status,
             priority=body.priority,
             comment=body.comment,
-            proposed_phase=body.proposed_phase,
             proposed_side=body.proposed_side,
             add_to_queue=body.add_to_queue,
             context=context,
@@ -275,7 +271,7 @@ class CurationService:
     # -- API-53 -----------------------------------------------------------------------------
 
     async def export(self, project_id: str) -> ExportResult:
-        """CUR-10: `curation_state.csv`, `events.jsonl` copy, `phase_proposals.json`."""
+        """CUR-10: `curation_state.csv` and an `events.jsonl` copy (phase: PHS-06)."""
         pdir = self._pdir(project_id)
         idx = self.store.load(project_id)
         async with self.locks(project_id):
@@ -301,15 +297,17 @@ class CurationService:
             out = pdir / EXPORTS
             atomic_write_bytes(out / STATE_CSV, _csv(STATE_COLUMNS, state_rows).encode("utf-8"))
             atomic_write_bytes(out / EVENTS_COPY, raw)
-            atomic_write_json(out / PHASE_PROPOSALS, _phase_proposals(st.load_events(pdir)))
-        return ExportResult(files=[STATE_CSV, EVENTS_COPY, PHASE_PROPOSALS], at=utc_now())
+        return ExportResult(files=[STATE_CSV, EVENTS_COPY], at=utc_now())
 
     # -- API-54 -----------------------------------------------------------------------------
 
     async def import_v2(
         self, project_id: str, data: bytes, *, reviewer: str | None
     ) -> V2ImportReport:
-        """CUR-13: v2 rows → `source: "v2_import"` events; skipped rows carry a reason."""
+        """CUR-13: v2 rows → `source: "v2_import"` events; skipped rows carry a reason.
+
+        `phase_issue` rows become native phase events (PHS-08).
+        """
         name = require_reviewer(reviewer)
         pdir = self._pdir(project_id)
         rows = v2.parse_rows(data)
@@ -328,17 +326,19 @@ class CurationService:
                 vocabulary=tuple(cfg.phase_vocabulary),
                 imported_ids=imported,
                 fallback_reviewer=name,
+                phase_selected=frozenset(phase_state.selections(pdir)),
             )
-            events, skipped = v2.convert(rows, ctx)
-            if events:
-                self._append_locked(pdir, events)
-        self._publish(project_id, events)
-        return V2ImportReport(n_rows=len(rows), imported=len(events), skipped=skipped)
+            out = v2.convert(rows, ctx)
+            if out.events:
+                self._append_locked(pdir, out.events)
+            self.phase.append_locked(project_id, out.phases)
+        return self._imported(project_id, len(rows), out)
 
     async def import_converter(
         self, project_id: str, data: bytes, *, reviewer: str | None
     ) -> V2ImportReport:
-        """CUR-15: the converter CLI's `curation.csv` → `source: "converter_import"` events."""
+        """CUR-15: the converter CLI's `curation.csv` → `source: "converter_import"` events;
+        `curated_phase` → native phase events (PHS-08)."""
         name = require_reviewer(reviewer)
         pdir = self._pdir(project_id)
         rows = converter_csv.parse(data)
@@ -356,12 +356,23 @@ class CurationService:
                 mapping=dict(cfg.phase_mapping),
                 imported=imported,
                 reviewer=name,
+                phase_selected=frozenset(phase_state.selections(pdir)),
             )
-            events, skipped = converter_csv.convert(rows, ctx)
-            if events:
-                self._append_locked(pdir, events)
-        self._publish(project_id, events)
-        return V2ImportReport(n_rows=len(rows), imported=len(events), skipped=skipped)
+            out = converter_csv.convert(rows, ctx)
+            if out.events:
+                self._append_locked(pdir, out.events)
+            self.phase.append_locked(project_id, out.phases)
+        return self._imported(project_id, len(rows), out)
+
+    def _imported(self, project_id: str, n_rows: int, out: v2.Converted) -> V2ImportReport:
+        self._publish(project_id, out.events)
+        self.phase.publish(project_id, out.phases)
+        return V2ImportReport(
+            n_rows=n_rows,
+            imported=len(out.events),
+            phase_events=len(out.phases),
+            skipped=out.skipped,
+        )
 
 
 def _mask_of(item: Item | None, ev: CurationEvent) -> VolumeRef | None:
@@ -377,24 +388,6 @@ def _item_cols(item_id: str | None, item: Item | None) -> tuple[str | None, str 
         return item.scope, item.side, item.phase.canonical
     parsed = parse_item_id(item_id) if item_id else None
     return (parsed[2], parsed[3], None) if parsed else (None, None, None)
-
-
-def _phase_proposals(events: Iterable[CurationEvent]) -> dict[str, Any]:
-    """Shaped like `phase.json`: latest `proposed_phase` per scan, from item events (CUR-06)."""
-    latest: dict[tuple[str, str], str] = {}
-    for e in events:
-        if e.item_id is None or e.proposed_phase is None:
-            continue
-        parsed = parse_item_id(e.item_id)
-        if parsed is not None:
-            latest[(parsed[0], parsed[1])] = e.proposed_phase
-    return {
-        "schema_version": 1,
-        "updated_at": utc_now(),
-        "phases": [
-            {"case_id": c, "scan_idx": s, "phase": p} for (c, s), p in sorted(latest.items())
-        ],
-    }
 
 
 def _csv(columns: Sequence[str], rows: Iterable[dict[str, Any]]) -> str:

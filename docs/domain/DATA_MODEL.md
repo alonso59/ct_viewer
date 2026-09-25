@@ -2,7 +2,7 @@
 
 Scope: entities, IDs, relations, and where each entity is persisted.
 Read when: designing any schema, API payload, or UI list.
-Depends: PROJECT_FORMAT.md, ADR-0019, ADR-0020, ADR-0022.
+Depends: PROJECT_FORMAT.md, ADR-0019, ADR-0020, ADR-0022, ADR-0026.
 
 ## Entity map
 
@@ -17,7 +17,7 @@ Workspace 1─* Project 1─* PathRoot (role: source | derived)
                     1─* RadiomicsProfile 1─* RadiomicsRun 1─* FeatureValue *─1 Item
                     1─* Job
                     *─* Pack (applied)   1─* LabelTable 1─* LabelColumn
-                    1─* EventNamespace (curation, labeling, …)   Layers = analyzer runs + label columns + curation state
+                    1─* EventNamespace (curation, labeling, phase, …)   Layers = analyzer runs + label columns + curation state + phase selection
                     1─* Variable (catalog)   1─* Analysis *─1 RadiomicsRun
 ```
 
@@ -37,6 +37,7 @@ Workspace 1─* Project 1─* PathRoot (role: source | derived)
 | LabelTable | `table_id` (ULID) | `plugins/labeling/tables.json` | LBL-01/02 |
 | LabelCell | `(table_id, column_id, target)` | `events/labeling.jsonl` (derived state) | LBL-04 |
 | EventNamespace | name | `events/{namespace}.jsonl` (`curation` keeps `curation/events.jsonl`) | ADR-0022 |
+| PhaseEvent | `(case_id, scan_idx)` latest | `events/phase.jsonl` | Append-only, native, not plugin-owned (PHS-*, ADR-0026) |
 | Case | `case_id` | `index/cases.jsonl` (derived) | Group of scans |
 | Scan | `(case_id, scan_idx)` | implied by Items | One acquisition / phase |
 | Item | `item_id` | `index/items.jsonl` (derived) | **Viewable unit**; the target of curation and radiomics |

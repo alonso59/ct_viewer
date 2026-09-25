@@ -17,6 +17,8 @@ from app.curation.models import (
     V2ImportReport,
 )
 from app.curation.service import CurationService
+from app.variables.rebuild import schedule_variables_rebuild
+from app.variables.service import VariableService
 
 router = APIRouter(tags=["curation"])
 
@@ -27,6 +29,14 @@ Reviewer = Annotated[
 
 def curation_service(ctx: Ctx) -> CurationService:
     return CurationService(ctx.workspace, ctx.index, ctx.locks, ctx.bus)
+
+
+def _after_import(ctx: Ctx, pid: str, report: V2ImportReport) -> V2ImportReport:
+    """Phase events from an import change the `phase` variable (PHS-08, VAR-12)."""
+    if report.phase_events:
+        svc = VariableService(ctx.workspace, ctx.index, ctx.locks, ctx.bus)
+        schedule_variables_rebuild(pid, svc.rebuild)
+    return report
 
 
 @router.get("/projects/{pid}/curation/events", response_model=Page[CurationEvent])
@@ -49,7 +59,7 @@ async def append_event(
     x_reviewer: Reviewer = None,
     x_session_id: Annotated[str | None, Header(description="Per-tab id for audit")] = None,
 ) -> CurationEvent:
-    """API-50 append one decision (CUR-02/03/05/06/07); pushes `curation.appended` (CUR-11).
+    """API-50 append one decision (CUR-02/03/05/07); pushes `curation.appended` (CUR-11).
 
     428 `reviewer-required` without `X-Reviewer` (CUR-01).
     """
@@ -106,7 +116,9 @@ async def import_v2(
     `X-Reviewer` is required (CUR-01) and used for rows without a reviewer.
     """
     data = await file.read()
-    return await curation_service(ctx).import_v2(pid, data, reviewer=x_reviewer)
+    return _after_import(
+        ctx, pid, await curation_service(ctx).import_v2(pid, data, reviewer=x_reviewer)
+    )
 
 
 @router.post(
@@ -120,4 +132,5 @@ async def import_converter(
 ) -> V2ImportReport:
     """API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08)."""
     data = await file.read()
-    return await curation_service(ctx).import_converter(pid, data, reviewer=x_reviewer)
+    report = await curation_service(ctx).import_converter(pid, data, reviewer=x_reviewer)
+    return _after_import(ctx, pid, report)

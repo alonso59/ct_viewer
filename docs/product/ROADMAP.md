@@ -156,6 +156,12 @@ Owner decisions (2026-09-24): first-party plugins only in v3; `metadata.jsonl` i
 - [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10)
 - [ ] nnU-Net segmentation plugin (`plugins/nnunet/`, external runtime, GPU), deferred from P7b; also owns nnU-Net dataset naming on import/export (`imagesTr/`/`labelsTr/`, `_0000` channels), removed from core `nifti-files` (ADR-0024)
 
+### Pending amendment — native phase selection (ADR-0026, after P7c)
+- [x] Backend: `phase` namespace on the core event store (PHS-01/02/08); effective-phase join at read time (PHS-03); native routes (not under `/plugins/`, API-63..65)
+- [ ] Frontend: one-click phase buttons in the case/scan header and Explorer (PHS-01); drop `wrong_phase_suspected` and the curation phase target/flow (CUR-06 removed)
+- [ ] `dataset_table`/`dataset.jsonl` `phase_source` provenance (PHS §Where the effective phase surfaces); `exports/phase_selections.json` (PHS-06, replaces `phase_proposals.json`)
+- [ ] Labeling reference columns (LBL-09) + `comparable` variable flag (VAR-13)
+
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
 **Exit:** the desktop app connects to a local Docker backend and a forwarded remote one.

@@ -15,6 +15,7 @@ from app.api.v1 import (
     items,
     jobs,
     labeling,
+    phase,
     plugins,
     projects,
     radiomics,
@@ -30,7 +31,7 @@ from app.imaging import mesh_api
 router = APIRouter()
 for _module in (
     health, projects, fs, sources, imports, variables, cases, items, volumes, segmentations,
-    curation, annotations, exports, radiomics, tasks, plugins, labeling, dashboard, jobs,
+    curation, phase, annotations, exports, radiomics, tasks, plugins, labeling, dashboard, jobs,
     events, view,
 ):  # fmt: skip
     router.include_router(_module.router)

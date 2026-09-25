@@ -25,8 +25,9 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0017 | DICOM converter as a task; metadata analyzers as separate, composable tasks | Accepted (amended by 0020) |
 | 0018 | First-party plugin platform and Plugin Library | Accepted |
 | 0019 | Neutral projects, study packs, view-only links | Accepted |
-| 0020 | `metadata.jsonl` belongs to the converter; plugin data lives in layers | Accepted |
+| 0020 | `metadata.jsonl` belongs to the converter; plugin data lives in layers | Accepted (amended by 0026) |
 | 0021 | CT tools without a project; workspace tasks; the converter overlay | Accepted |
-| 0022 | Shared event store; Curation & QC and Labeling table as plugins | Accepted |
+| 0022 | Shared event store; Curation & QC and Labeling table as plugins | Accepted (amended by 0026) |
 | 0024 | Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin | Accepted |
-| 0025 | A JSONL whole-project export; reconstructed sidecars for `metadata-v1` imports | Accepted |
+| 0025 | A JSONL whole-project export; reconstructed sidecars for `metadata-v1` imports | Accepted (amended by 0026) |
+| 0026 | Phase selection is native to the app, not a curation decision | Accepted |

@@ -54,6 +54,7 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
             workspace.project_dir,
             settings.project_cache_max,
             default_seg=lambda pid: workspace.get(pid).default_seg,
+            phase_vocabulary=lambda pid: workspace.get(pid).phase_vocabulary,
         ),
         server_lock=FileLock(settings.workspace_root / ".server.lock"),
         registry=build_registry(

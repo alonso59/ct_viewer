@@ -1035,7 +1035,6 @@
       "enum": [
        "rejected",
        "needs_major_correction",
-       "wrong_phase_suspected",
        "wrong_side_suspected",
        "needs_minor_correction",
        "missing",
@@ -2199,17 +2198,6 @@
       "title": "Priority",
       "type": "string"
      },
-     "proposed_phase": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Proposed Phase"
-     },
      "proposed_side": {
       "anyOf": [
        {
@@ -2263,7 +2251,6 @@
        "ui",
        "v2_import",
        "converter_import",
-       "analyzer",
        "api"
       ],
       "title": "Source",
@@ -2273,7 +2260,6 @@
       "enum": [
        "rejected",
        "needs_major_correction",
-       "wrong_phase_suspected",
        "wrong_side_suspected",
        "needs_minor_correction",
        "missing",
@@ -3060,17 +3046,6 @@
       "title": "Priority",
       "type": "string"
      },
-     "proposed_phase": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Proposed Phase"
-     },
      "proposed_side": {
       "anyOf": [
        {
@@ -3123,7 +3098,6 @@
       "enum": [
        "rejected",
        "needs_major_correction",
-       "wrong_phase_suspected",
        "wrong_side_suspected",
        "needs_minor_correction",
        "missing",
@@ -3140,7 +3114,7 @@
        "label:2",
        "case"
       ],
-      "pattern": "^(seg|voi_mask|phase|side|case|label:[0-9]+)$",
+      "pattern": "^(seg|voi_mask|side|case|label:[0-9]+)$",
       "title": "Target",
       "type": "string"
      }
@@ -5087,7 +5061,6 @@
       "enum": [
        "rejected",
        "needs_major_correction",
-       "wrong_phase_suspected",
        "wrong_side_suspected",
        "needs_minor_correction",
        "missing",
@@ -6383,6 +6356,38 @@
     "title": "Page[CurationEvent]",
     "type": "object"
    },
+   "Page_PhaseEvent_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/PhaseEvent"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[PhaseEvent]",
+    "type": "object"
+   },
    "Page_Profile_": {
     "properties": {
      "items": {
@@ -6721,6 +6726,166 @@
     "title": "PathRoot",
     "type": "object"
    },
+   "PhaseEvent": {
+    "description": "One append-only selection in `events/phase.jsonl` (PHS-02).",
+    "properties": {
+     "accepted_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Accepted Run Id"
+     },
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "event_id": {
+      "title": "Event Id",
+      "type": "string"
+     },
+     "reviewer": {
+      "title": "Reviewer",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "session_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session Id"
+     },
+     "source": {
+      "default": "manual",
+      "enum": [
+       "manual",
+       "analyzer_accept",
+       "v2_import",
+       "converter_import"
+      ],
+      "title": "Source",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "event_id",
+     "at",
+     "reviewer",
+     "case_id",
+     "scan_idx",
+     "value"
+    ],
+    "title": "PhaseEvent",
+    "type": "object"
+   },
+   "PhaseExportResult": {
+    "description": "PHS-06: files written under the project folder's `dir`.",
+    "properties": {
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "dir": {
+      "default": "exports",
+      "title": "Dir",
+      "type": "string"
+     },
+     "files": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+     }
+    },
+    "required": [
+     "files",
+     "at"
+    ],
+    "title": "PhaseExportResult",
+    "type": "object"
+   },
+   "PhaseIn": {
+    "additionalProperties": false,
+    "description": "POST body. The server sets `event_id`, `at`, `reviewer`; imports use their own routes.",
+    "properties": {
+     "accepted_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Required with `analyzer_accept`: the active phase run (PHS-04)",
+      "title": "Accepted Run Id"
+     },
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "session_id": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session Id"
+     },
+     "source": {
+      "default": "manual",
+      "enum": [
+       "manual",
+       "analyzer_accept"
+      ],
+      "title": "Source",
+      "type": "string"
+     },
+     "value": {
+      "description": "A `phase_vocabulary` value",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "case_id",
+     "scan_idx",
+     "value"
+    ],
+    "title": "PhaseIn",
+    "type": "object"
+   },
    "PhaseInfo": {
     "properties": {
      "canonical": {
@@ -6738,6 +6903,16 @@
       ],
       "title": "Raw"
      },
+     "resolved": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PhaseInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "source": {
       "default": "none",
       "title": "Source",
@@ -6748,6 +6923,111 @@
      "canonical"
     ],
     "title": "PhaseInfo",
+    "type": "object"
+   },
+   "PhaseSelection": {
+    "description": "Latest event for one scan (PHS-02), with the index-time value it overrides (PHS-03).",
+    "properties": {
+     "accepted_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Accepted Run Id"
+     },
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "event_id": {
+      "title": "Event Id",
+      "type": "string"
+     },
+     "resolved": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "INPUT_METADATA \u00a7Phase resolution",
+      "title": "Resolved"
+     },
+     "resolved_source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved Source"
+     },
+     "reviewer": {
+      "title": "Reviewer",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "source": {
+      "enum": [
+       "manual",
+       "analyzer_accept",
+       "v2_import",
+       "converter_import"
+      ],
+      "title": "Source",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "case_id",
+     "scan_idx",
+     "value",
+     "source",
+     "reviewer",
+     "at",
+     "event_id"
+    ],
+    "title": "PhaseSelection",
+    "type": "object"
+   },
+   "PhaseState": {
+    "properties": {
+     "n_events": {
+      "title": "N Events",
+      "type": "integer"
+     },
+     "selections": {
+      "items": {
+       "$ref": "#/components/schemas/PhaseSelection"
+      },
+      "title": "Selections",
+      "type": "array"
+     }
+    },
+    "required": [
+     "n_events",
+     "selections"
+    ],
+    "title": "PhaseState",
     "type": "object"
    },
    "PluginInfo": {
@@ -7652,7 +7932,6 @@
       "enum": [
        "rejected",
        "needs_major_correction",
-       "wrong_phase_suspected",
        "wrong_side_suspected",
        "needs_minor_correction",
        "missing",
@@ -9622,17 +9901,6 @@
       "title": "Priority",
       "type": "string"
      },
-     "proposed_phase": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Proposed Phase"
-     },
      "proposed_side": {
       "anyOf": [
        {
@@ -9667,7 +9935,6 @@
       "enum": [
        "rejected",
        "needs_major_correction",
-       "wrong_phase_suspected",
        "wrong_side_suspected",
        "needs_minor_correction",
        "missing",
@@ -11066,6 +11333,11 @@
      },
      "n_rows": {
       "title": "N Rows",
+      "type": "integer"
+     },
+     "phase_events": {
+      "default": 0,
+      "title": "Phase Events",
       "type": "integer"
      },
      "skipped": {
@@ -14473,7 +14745,7 @@
     ]
    },
    "post": {
-    "description": "API-50 append one decision (CUR-02/03/05/06/07); pushes `curation.appended` (CUR-11).\n\n428 `reviewer-required` without `X-Reviewer` (CUR-01).",
+    "description": "API-50 append one decision (CUR-02/03/05/07); pushes `curation.appended` (CUR-11).\n\n428 `reviewer-required` without `X-Reviewer` (CUR-01).",
     "operationId": "append_event_api_v1_projects__pid__curation_events_post",
     "parameters": [
      {
@@ -15789,6 +16061,300 @@
     "summary": "Apply Pack",
     "tags": [
      "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/phase/events": {
+   "get": {
+    "description": "API-63 history, newest first (PHS-07).",
+    "operationId": "list_events_api_v1_projects__pid__phase_events_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "case_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case Id"
+      }
+     },
+     {
+      "in": "query",
+      "name": "scan_idx",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Scan Idx"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_PhaseEvent_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Events",
+    "tags": [
+     "phase"
+    ]
+   },
+   "post": {
+    "description": "API-63 one-click selection (PHS-01) or accepting the analyzer guess (PHS-04); replaces\nthe effective phase at once and pushes `phase.appended` (PHS-05). 428 without `X-Reviewer`.",
+    "operationId": "append_event_api_v1_projects__pid__phase_events_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Reviewer name or initials (ADR-0004)",
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Reviewer name or initials (ADR-0004)",
+       "title": "X-Reviewer"
+      }
+     },
+     {
+      "description": "Per-tab id for audit",
+      "in": "header",
+      "name": "X-Session-Id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Per-tab id for audit",
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PhaseIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhaseEvent"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Append Event",
+    "tags": [
+     "phase"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/phase/exports": {
+   "post": {
+    "description": "API-65 write `exports/phase_selections.json` (PHS-06).",
+    "operationId": "export_phase_api_v1_projects__pid__phase_exports_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhaseExportResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Export Phase",
+    "tags": [
+     "phase"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/phase/state": {
+   "get": {
+    "description": "API-64 latest selection per scan (PHS-02) next to the value it overrides (PHS-03).",
+    "operationId": "get_state_api_v1_projects__pid__phase_state_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "case_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhaseState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get State",
+    "tags": [
+     "phase"
     ]
    }
   },

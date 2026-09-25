@@ -109,7 +109,6 @@ def _targets(evs: list[tuple[int, CurationEvent]]) -> list[TargetState]:
             at=e.at,
             event_id=e.event_id,
             add_to_queue=e.add_to_queue,
-            proposed_phase=e.proposed_phase,
             proposed_side=e.proposed_side,
         )
         for _, e in sorted(evs, key=lambda pe: (pe[1].target, pe[1].seg_key or ""))

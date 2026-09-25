@@ -15,6 +15,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Tasks, plugins, runner, run protocol | `domain/TASKS.md` |
 | DICOM → NIfTI converter | `domain/DICOM_CONVERTER.md` |
 | Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
+| Native phase selection (one-click, precedence, exports) | `domain/PHASE.md` |
 | Plugin model, Plugin Library, catalog | `domain/PLUGINS.md` |
 | Labeling table plugin | `domain/LABELING.md` |
 | Entities and relations | `domain/DATA_MODEL.md` |
@@ -45,6 +46,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | `TSK-` | domain/TASKS.md | Tasks, plugins, runtimes |
 | `DCM-` | domain/DICOM_CONVERTER.md | DICOM conversion |
 | `ANZ-` | domain/ANALYZERS.md | Metadata analyzers |
+| `PHS-` | domain/PHASE.md | Native phase selection |
 | `PLG-` | domain/PLUGINS.md | Plugins |
 | `LBL-` | domain/LABELING.md | Labeling tables |
 | `CUR-` | domain/CURATION.md | Curation workflow |

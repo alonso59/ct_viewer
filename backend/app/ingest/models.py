@@ -12,7 +12,7 @@ from app.ingest.codes import QcCode, Severity
 
 Phase = str  # a code from the project's phase vocabulary (PRJ-12), or a raw value (`none`)
 # "phase.json" | "curated_phase" | "canonical_phase" | "phase" | "analyzer:{run_id}" (ANZ-04)
-# | "phase_guess" | "catalog" | "none"
+# | "phase_guess" | "catalog" | "none"; "manual" = a native phase selection joined on read (PHS-03)
 PhaseSource = str
 ItemStatus = Literal["active", "excluded_upstream", "missing"]
 IndexState = Literal["empty", "running", "ready", "failed", "cancelled", "interrupted"]
@@ -22,6 +22,9 @@ class PhaseInfo(BaseModel):
     canonical: Phase
     raw: str | None = None
     source: PhaseSource = "none"
+    # Set only on read when a native selection overrides the index (PHS-03): the index-time
+    # resolution it replaces. Never stored in the index.
+    resolved: PhaseInfo | None = None
 
 
 class VolumeRef(BaseModel):

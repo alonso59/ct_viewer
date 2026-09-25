@@ -21,7 +21,8 @@ from app.labeling.models import (
     TableInfo,
     TablePatch,
 )
-from app.labeling.service import LabelingService, schedule_variables_rebuild
+from app.labeling.service import LabelingService
+from app.variables.rebuild import schedule_variables_rebuild
 from app.variables.service import VariableService
 
 router = APIRouter(prefix="/plugins/labeling/projects/{pid}", tags=["labeling"])

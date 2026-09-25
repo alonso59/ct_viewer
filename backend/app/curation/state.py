@@ -18,7 +18,7 @@ from typing import Final
 
 from pydantic import ValidationError
 
-from app.curation.models import CaseState, CurationEvent, ItemState
+from app.curation.models import LEGACY_PHASE_TARGET, CaseState, CurationEvent, ItemState
 from app.curation.reducer import Reduced
 
 log = logging.getLogger("app.curation")
@@ -76,8 +76,11 @@ def _read_tail(path: Path, entry: _Entry) -> None:
         try:
             ev = CurationEvent.model_validate_json(line)
         except ValidationError:
-            log.warning("skipping malformed curation event", extra={"path": str(path)})
+            if b'"wrong_phase_suspected"' not in line:  # a pre-ADR-0026 status, not malformed
+                log.warning("skipping malformed curation event", extra={"path": str(path)})
             continue
+        if ev.target == LEGACY_PHASE_TARGET:
+            continue  # phase is a native selection now (ADR-0026, PHASE.md)
         entry.reduced.add(len(entry.events), ev)
         entry.events.append(ev)
     entry.offset += end + 1

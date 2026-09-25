@@ -74,11 +74,11 @@ def test_item_is_worst_over_targets_and_case_is_worst_over_items() -> None:
 def test_case_target_can_dominate_and_ties_go_to_later_event() -> None:
     red = reduce_events(
         [
-            ev(I1, "phase", "wrong_phase_suspected", reviewer="first"),
+            ev(I1, "side", "wrong_side_suspected", reviewer="first"),
             ev(I2, "side", "wrong_side_suspected", reviewer="second"),
         ]
     )
-    assert SEVERITY["wrong_phase_suspected"] == SEVERITY["wrong_side_suspected"]
+    assert "wrong_phase_suspected" not in SEVERITY  # phase is native (ADR-0026)
     assert red.cases()[C1].reviewer == "second"
     red = reduce_events([ev(I1, "seg", "accepted"), ev(None, "case", "rejected", case_id=C1)])
     assert red.cases()[C1].status == "rejected"
@@ -148,7 +148,7 @@ def test_v2_convert_maps_targets_and_skips_with_reasons() -> None:
     body = (
         f"r1,{C1},01,complete,,SEG,accepted,high,ok,AP,2026-01-02T10:00:00+00:00,\n"
         f"r2,{C1},1,voi,L,foo_mask,needs_minor_correction,,,,2026-01-01T10:00:00,ep\n"
-        f"r3,{C1},,,,phase_issue,wrong_phase_suspected,low,,AP,2026-01-03T10:00:00Z,XX\n"
+        f"r3,{C1},,,,SEG,needs_minor_correction,low,,AP,2026-01-03T10:00:00Z,XX\n"
         f"old,{C1},01,complete,,SEG,accepted,,,,2026-01-01T00:00:00Z,\n"
         f"r5,{C1},01,complete,,SEG,bogus,,,,2026-01-01T00:00:00Z,\n"
         f"r6,case_09999,01,complete,,SEG,accepted,,,,2026-01-01T00:00:00Z,\n"
@@ -157,13 +157,15 @@ def test_v2_convert_maps_targets_and_skips_with_reasons() -> None:
         f"r9,{C1},01,complete,,SEG,accepted,,,,not-a-date,\n"
         f"r1,{C1},01,complete,,SEG,accepted,,,,2026-01-01T00:00:00Z,\n"
     )
-    events, skipped = v2.convert(v2.parse_rows((header + body).encode()), ctx)
+    out = v2.convert(v2.parse_rows((header + body).encode()), ctx)
+    events, skipped = out.events, out.skipped
+    assert out.phases == []
     assert [e.context["v2_review_id"] for e in events] == ["r2", "r1", "r3"]  # by reviewed_at
     r2, r1, r3 = events
     assert r1.item_id == I1 and r1.target == "seg" and r1.priority == "high"
     assert r2.item_id == I2 and r2.target == "label:2" and r2.reviewer == "ME"
-    assert r2.proposed_phase == "EP" and r2.at == "2026-01-01T10:00:00Z"
-    assert r3.item_id is None and r3.target == "case" and r3.proposed_phase is None
+    assert r2.context["v2_proposed_phase"] == "EP" and r2.at == "2026-01-01T10:00:00Z"
+    assert r3.item_id is None and r3.target == "case"
     assert r3.context["v2_proposed_phase"] == "XX"
     assert all(e.source == "v2_import" for e in events)
     reasons = {s.review_id: s.reason for s in skipped}

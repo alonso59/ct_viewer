@@ -299,20 +299,24 @@ def test_curation_import_converter(
     )
     assert r.status_code == 201, r.text
     rep = r.json()
-    assert rep["imported"] == 2 and [s["reason"] for s in rep["skipped"]] == ["item not in index"]
+    assert rep["imported"] == 1 and rep["phase_events"] == 1
+    assert [s["reason"] for s in rep["skipped"]] == ["item not in index"]
     evs = dc.get(f"{API}/projects/{pid}/curation/events").json()["items"]
-    by_target = {e["target"]: e for e in evs}
-    assert (
-        by_target["phase"]["proposed_phase"] == "CMP"
-        and by_target["phase"]["status"] == "wrong_phase_suspected"
-    )
-    assert by_target["seg"]["status"] == "rejected" and by_target["seg"]["comment"] == "motion"
+    got = [(e["target"], e["status"], e["comment"]) for e in evs]
+    assert got == [("seg", "rejected", "motion")]
     assert {e["source"] for e in evs} == {"converter_import"}
+    # PHS-08: `curated_phase` is a native phase event, and it is the effective phase at once
+    phases = dc.get(f"{API}/projects/{pid}/phase/events").json()["items"]
+    assert [(p["case_id"], p["scan_idx"], p["value"], p["source"]) for p in phases] == [
+        ("case_00000", "01", "CMP", "converter_import")
+    ]
+    item = dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-").json()
+    assert item["phase"]["canonical"] == "CMP" and item["phase"]["source"] == "manual"
     files = {"file": ("curation.csv", io.BytesIO(csv), "text/csv")}
     again = dc.post(
         f"{API}/projects/{pid}/curation/import-converter", files=files, headers={"X-Reviewer": "AP"}
     ).json()
-    assert again["imported"] == 0  # once (CUR-15)
+    assert again["imported"] == 0 and again["phase_events"] == 0  # once (CUR-15, PHS-08)
 
 
 # -- Open mode DICOM (SRC-13, DCM-10) + Save as NIfTI (SRC-14) + Add to project (SRC-15) -----

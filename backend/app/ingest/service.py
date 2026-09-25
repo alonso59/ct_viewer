@@ -449,7 +449,7 @@ class IngestService:
     async def reapply_segmentations(self, project_id: str) -> None:
         """Re-join task segmentation sets into the derived index (ADR-0015, TSK-09)."""
         async with self.locks(project_id):
-            idx = self.store.load(project_id)
+            idx = self.store.load_resolved(project_id)  # never the phase join (PHS-03)
             if not idx.items:
                 return
             cfg = self.workspace.get(project_id)

@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field
 Status = Literal[
     "rejected",
     "needs_major_correction",
-    "wrong_phase_suspected",
     "wrong_side_suspected",
     "needs_minor_correction",
     "missing",
@@ -18,14 +17,13 @@ Status = Literal[
     "not_reviewed",
 ]
 Priority = Literal["low", "medium", "high"]
-Source = Literal["ui", "v2_import", "converter_import", "analyzer", "api"]
+Source = Literal["ui", "v2_import", "converter_import", "api"]
 ProposedSide = Literal["L", "R"]
 
 # CURATION.md §Status: rollup severity (high → low) and the correction-queue set (CUR-08/09).
 SEVERITY: Final[dict[str, int]] = {
     "rejected": 8,
     "needs_major_correction": 7,
-    "wrong_phase_suspected": 6,
     "wrong_side_suspected": 6,
     "needs_minor_correction": 5,
     "missing": 4,
@@ -37,7 +35,6 @@ QUEUE_STATUSES: Final = frozenset(
     {
         "rejected",
         "needs_major_correction",
-        "wrong_phase_suspected",
         "wrong_side_suspected",
         "needs_minor_correction",
         "missing",
@@ -45,7 +42,8 @@ QUEUE_STATUSES: Final = frozenset(
 )
 NOT_REVIEWED: Final = "not_reviewed"
 CASE_TARGET: Final = "case"
-TARGET_PATTERN: Final = r"^(seg|voi_mask|phase|side|case|label:[0-9]+)$"  # §Targets
+TARGET_PATTERN: Final = r"^(seg|voi_mask|side|case|label:[0-9]+)$"  # §Targets (no phase, ADR-0026)
+LEGACY_PHASE_TARGET: Final = "phase"  # pre-ADR-0026 events: kept on disk, ignored on read
 Target = Annotated[str, Field(pattern=TARGET_PATTERN, examples=["seg", "label:2", "case"])]
 
 QUEUE_COLUMNS: Final = (
@@ -81,7 +79,6 @@ class CurationEvent(BaseModel):
     status: Status
     priority: Priority = "medium"
     comment: str = ""
-    proposed_phase: str | None = None
     proposed_side: ProposedSide | None = None
     add_to_queue: bool = False
     context: dict[str, Any] = Field(default_factory=dict)  # audit snapshot; not used for logic
@@ -109,7 +106,6 @@ class EventIn(BaseModel):
     status: Status
     priority: Priority = "medium"
     comment: str = Field(default="", max_length=10_000)
-    proposed_phase: str | None = None  # CUR-06, from phase_vocabulary
     proposed_side: ProposedSide | None = None  # CUR-07
     add_to_queue: bool = False  # CUR-09
     context: dict[str, Any] = Field(default_factory=dict)
@@ -129,7 +125,6 @@ class TargetState(BaseModel):
     at: str
     event_id: str
     add_to_queue: bool = False
-    proposed_phase: str | None = None
     proposed_side: ProposedSide | None = None
 
 
@@ -204,5 +199,6 @@ class V2ImportReport(BaseModel):
     """API-54 result (CUR-13)."""
 
     n_rows: int
-    imported: int
+    imported: int  # curation events
+    phase_events: int = 0  # native phase events (PHS-08)
     skipped: list[V2Skipped]

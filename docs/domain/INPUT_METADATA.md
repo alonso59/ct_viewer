@@ -82,7 +82,7 @@ The chosen value is kept as `raw_phase` and normalized with the project's `phase
 
 Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (2026-09-23).
 
-`phase_source` records which field won. Curator phase proposals do **not** change the index (CUR-06).
+`phase_source` records which field won. This resolution runs at index time only; a native phase selection (PHASE.md, PHS-03) never changes the index either — it joins on top at read time and wins when present.
 
 ## QC warning codes
 

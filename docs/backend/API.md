@@ -69,7 +69,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-51 | `GET /projects/{pid}/curation/state` | Derived latest state | CUR-08 |
 | API-52 | `GET /projects/{pid}/curation/queue?format=json\|csv` | Correction queue | CUR-09 |
 | API-53 | `POST /projects/{pid}/curation/exports` | Write CUR-10 files to `exports/` | CUR-10 |
-| API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` | CUR-13 |
+| API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` → `201 {n_rows, imported, phase_events, skipped[]}`; `phase_issue` rows become phase events (PHS-08) | CUR-13 |
 | API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` (multipart `file`, `X-Reviewer`) → `201` report as API-54 | CUR-15 |
 
 | API-56 | `GET·POST /plugins/labeling/projects/{pid}/tables[?deleted=true]` · `PATCH …/tables/{tid}` · `GET …/tables/{tid}/history?target=&column_id=` | Label tables and column schemas (list rows carry `n_rows` + per-column `progress`; `?deleted=true` lists only deleted tables) / `PATCH {name?, hidden?, columns?}`: rename, delete or restore (`hidden`), column upserts / cell history, newest first. A deleted table answers 404 everywhere except `PATCH` | LBL-01/02/04/08/10 |
@@ -79,6 +79,9 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-60 | `GET /view/{token}/…` | Read-only mirror of the project GET endpoints for a view-only link; never exposes `project_id`; writes do not exist on this path | PRJ-17 |
 | API-61 | `POST·DELETE /projects/{pid}/view-token` | Create/rotate → `{view_token, view_url}` / revoke (`204`) the view-only link | PRJ-17 |
 | API-62 | `POST·GET /task-runs` · `GET /task-runs/{rid}` · `POST /task-runs/{rid}/cancel` · `POST /tasks/{tid}/estimate` | Workspace tasks (`scope: workspace`, e.g. `dicom.convert` without a project) → `{derived}/_datasets/{name}/`; the estimate is the dry run | TSK-13 |
+| API-63 | `GET·POST /projects/{pid}/phase/events` | Native, not under `/plugins/`. History, newest first (filter `case_id`/`scan_idx`) / one-click selection `{case_id, scan_idx, value, source: manual\|analyzer_accept, accepted_run_id?}` (`X-Reviewer`, optional `X-Session-Id`) → `201` PhaseEvent; `accepted_run_id` must be the active `analyzer.phase` run | PHS-01/02/04/07 |
+| API-64 | `GET /projects/{pid}/phase/state?case_id=` | Latest selection per scan with the value it overrides (`resolved`, `resolved_source`). Items, cases and API-59 already carry the effective phase (`phase.source = manual`, `phase.resolved` = the index-time value) | PHS-02/03 |
+| API-65 | `POST /projects/{pid}/phase/exports` | Write `exports/phase_selections.json` | PHS-06 |
 
 API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
 
@@ -88,6 +91,7 @@ API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD
 |---|---|
 | `curation.appended` | CurationEvent |
 | `labeling.appended` | CellEvent (LBL-04); a batch over 500 cells sends `project.updated {fields: [labeling]}` instead |
+| `phase.appended` | PhaseEvent (PHS-05); an import over 500 events sends `project.updated {fields: [phase]}` instead |
 | `job.progress` | `{job_id, kind, done, total, eta_s}` |
 | `job.finished` | `{job_id, kind, status, ref}` |
 | `job.status` | `{job_id, status}`, e.g. `waiting_for_runner` → `running` (TSK-06) |

@@ -100,7 +100,7 @@ def test_dataset_table_joins_active_layers(
     pid = project(dc, tmp_path)
     run = convert(dc, pid, src[0])
     item = "case_00000.01.complete.-"
-    ev = {"item_id": item, "target": "phase", "status": "accepted"}
+    ev = {"item_id": item, "target": "side", "status": "accepted"}
     assert dc.post(f"{API}/projects/{pid}/curation/events", json=ev, headers=HDR).is_success
     r = dc.get(f"{API}/projects/{pid}/exports/dataset-table")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")

@@ -448,7 +448,7 @@ def test_curation_decisions_per_segmentation_set(
     assert_problem(
         env.post(f"{API}/projects/{proj}/curation/events", json=bad, headers=who), "validation"
     )
-    phase = {"item_id": ITEMS[0], "target": "phase", "status": "accepted", "seg_id": "thr"}
+    side = {"item_id": ITEMS[0], "target": "side", "status": "accepted", "seg_id": "thr"}
     assert_problem(
-        env.post(f"{API}/projects/{proj}/curation/events", json=phase, headers=who), "validation"
+        env.post(f"{API}/projects/{proj}/curation/events", json=side, headers=who), "validation"
     )

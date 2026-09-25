@@ -2,7 +2,9 @@
 
 Scope: the first-party plugin model, manifest, contribution points, Plugin Library, catalog.
 Read when: adding or changing any plugin, or the Library view.
-Depends: ADR-0016, ADR-0018..0022, TASKS.md (run protocol), UI_SHELL.md (registry UI-02).
+Depends: ADR-0016, ADR-0018..0022, ADR-0026, TASKS.md (run protocol), UI_SHELL.md (registry UI-02).
+
+Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026) is native precisely because its vocabulary (`phase_vocabulary`) is already core project config — only the phase *guess* stays a plugin (`analyzers`).
 
 ## Requirements
 
