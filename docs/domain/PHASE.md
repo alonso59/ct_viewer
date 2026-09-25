@@ -25,6 +25,11 @@ Phase selection is a native app capability (ADR-0026) — always available, not 
 - `dataset_table` / `dataset.jsonl` (ADR-0020 §4, ADR-0025): `phase` = effective value; a `phase_source` note is `manual` or the INPUT_METADATA resolution winner (e.g. `analyzer:{run_id}`).
 - Labeling reference columns (LABELING.md LBL-02, `VAR-13 comparable`): the native phase (and, separately, the analyzer's guess) can be added read-only into any label table.
 
+## Implementation (ADR-0026 amendment)
+
+- Backend `app/phase/` (API-63..65): events via the core event store; the effective phase is joined where the index is loaded (`phase.source = "manual"`, the replaced value in `phase.resolved`), never written to `index/`.
+- Frontend `features/phase/` (core, not a plugin): `PhaseButtons` in the case header ("Set phase", next to the scan switcher, whose chips only move between scans) and in each Explorer scan row (shown on hover, focus or the active row); "Accept guess" when the effective value comes from the active `analyzer.phase` run (`analyzer:{run_id}`); "was …" shows the replaced value; a history dialog per scan (PHS-07); "updated by" toasts for other browsers (PHS-05); the command "Export phase selections" (Project menu, PHS-06). View-only links show the chip only.
+
 ## Relation to Curation & QC / Analyzers
 
 Curation records QC decisions about images and masks; it no longer has a phase target or status. Analyzers only guess; accepting a guess is a phase event, not a curation event. Both still use the same shared event store (ADR-0022), under a different, native namespace.

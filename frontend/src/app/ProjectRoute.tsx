@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 
 import { api, isViewPid, ProblemError, useProject, useProjectEvents, useProjectSync, type ServerEvent } from '../api'
+import { usePhaseRuntime } from '../features/phase'
 import { useCurationRuntime } from '../plugins'
 import { ImportWizard } from '../features/import'
 import { logEvent } from '../features/jobs'
@@ -60,6 +61,7 @@ export function ProjectRoute() {
     applyProjectDisplay(project.data, first && !new URLSearchParams(location.search).has('layout'))
   }, [project.data, pid])
   useCurationRuntime(pid)
+  usePhaseRuntime(pid)
   useProjectEvents(pid, useCallback((e: ServerEvent) => logEvent(e), []))
   useEffect(() => {
     if (readOnly) return

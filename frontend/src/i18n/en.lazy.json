@@ -322,7 +322,7 @@
     "importing": "Importing…",
     "noPath": "—",
     "subtitle": "Latest decision per item and target",
-    "writeExportsHelp": "Write curation_state.csv, events.jsonl and phase_proposals.json into the project exports/ folder"
+    "writeExportsHelp": "Write curation_state.csv and events.jsonl into the project exports/ folder"
   },
   "history": {
     "case": "Case {{id}}",
@@ -331,7 +331,6 @@
     "item": "This item",
     "list": "Curation events",
     "noActive": "Open a case to see its history.",
-    "proposedPhase": "Proposed phase: {{phase}}",
     "proposedSide": "Proposed side: {{side}}",
     "queued": "Added to correction queue",
     "scope": "History scope",
@@ -348,7 +347,6 @@
     "priority": "Priority",
     "progress": "Project progress",
     "progressCount": "{{done}}/{{total}} cases",
-    "proposedPhase": "Proposed phase",
     "proposedSide": "Proposed side",
     "sideL": "Left",
     "sideR": "Right",

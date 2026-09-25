@@ -42,7 +42,6 @@ export function HistoryList({ dense }: { dense?: boolean }) {
               </span>
             </div>
             {e.comment ? <div>{e.comment}</div> : null}
-            {e.proposed_phase ? <div className="muted">{t('history.proposedPhase', { phase: e.proposed_phase })}</div> : null}
             {e.proposed_side ? <div className="muted">{t('history.proposedSide', { side: e.proposed_side })}</div> : null}
             {e.context.viewer ? <div className="muted mono">{t('history.viewer', { axis: e.context.viewer.axis, slice: e.context.viewer.slice })}</div> : null}
             {e.add_to_queue ? <div className="muted">{t('history.queued')}</div> : null}

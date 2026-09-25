@@ -250,7 +250,6 @@ function stateRows(st: Schemas['CurationState']): CurationStateRow[] {
     at: x.at,
     event_id: x.event_id,
     add_to_queue: x.add_to_queue ?? false,
-    proposed_phase: x.proposed_phase ?? null,
     proposed_side: x.proposed_side ?? null,
   })
   return [
@@ -266,7 +265,6 @@ const normalizeEvent = (e: Schemas['CurationEvent']): CurationEvent => ({
   item_id: e.item_id ?? null,
   priority: e.priority ?? 'medium',
   comment: e.comment ?? '',
-  proposed_phase: e.proposed_phase ?? null,
   proposed_side: e.proposed_side ?? null,
   add_to_queue: e.add_to_queue ?? false,
   source: e.source ?? 'ui',
@@ -311,7 +309,7 @@ async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
 }
 
 // ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
-const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated']
+const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'phase.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated']
 interface Stream {
   es: EventSource
   listeners: Set<(e: ServerEvent) => void>
@@ -520,6 +518,16 @@ export const httpApi: Api = {
     // The server pages in append order; CUR-14 shows newest first
     return out.sort((a, b) => b.at.localeCompare(a.at) || b.event_id.localeCompare(a.event_id))
   },
+  phaseEvents: async (pid, f = {}) =>
+    (await unwrap(client.GET('/api/v1/projects/{pid}/phase/events', { params: { path: { pid }, query: { ...f, limit: 500 } } }))).items,
+  appendPhase: (pid, ev, reviewer) =>
+    unwrap(
+      client.POST('/api/v1/projects/{pid}/phase/events', {
+        params: { path: { pid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
+        body: { ...ev, session_id: SESSION_ID },
+      }),
+    ),
+  exportPhase: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/phase/exports', { params: { path: { pid } } })),
   appendEvent: async (pid, ev, reviewer) =>
     normalizeEvent(
       await unwrap(

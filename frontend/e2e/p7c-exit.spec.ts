@@ -84,6 +84,9 @@ test('the P7c journey', async ({ page, browserName }) => {
   const { view_token } = await json<{ view_token: string }>(await fetch(`${API}/projects/${pid}/view-token`, { method: 'POST' }))
   await page.goto(`/v/${view_token}`)
   await expect(page.getByText('View only', { exact: true })).toBeVisible()
-  const post = await fetch(`${API}/view/${view_token}/curation/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Reviewer': 'x' }, body: JSON.stringify({ item_id: 'case_00000.01.complete.-', target: 'phase', status: 'accepted' }) })
+  const post = await fetch(`${API}/view/${view_token}/curation/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Reviewer': 'x' }, body: JSON.stringify({ item_id: 'case_00000.01.complete.-', target: 'seg', status: 'accepted' }) })
   expect(post.status).toBe(405)
+  // ADR-0026: native phase selection is a write too
+  const phase = await fetch(`${API}/view/${view_token}/phase/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Reviewer': 'x' }, body: JSON.stringify({ case_id: 'case_00000', scan_idx: '01', value: 'NP' }) })
+  expect(phase.status).toBe(405)
 })

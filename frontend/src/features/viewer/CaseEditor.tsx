@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { api, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
 import { PhaseChip, StatusBadge } from '../../lib'
 import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
+import { PhaseButtons, PhaseHistoryButton } from '../phase'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
@@ -136,6 +137,11 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
       <div className="case-header">
         <span className="mono case-id">{params.caseId}</span>
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
+        {/* PHS-01: set this scan's phase (the switcher's chips only move between scans) */}
+        <span className="switcher-sep" />
+        <span className="switcher-label">{t('phaseSel.set')}</span>
+        <PhaseButtons pid={pid} scan={current} />
+        <PhaseHistoryButton pid={pid} caseId={current.case_id} scanIdx={current.scan_idx} />
         <span style={{ flex: 1 }} />
         {current.warning_codes.length ? (
           <span className="badge" data-tone="warn" title={current.warning_codes.join(', ')}>

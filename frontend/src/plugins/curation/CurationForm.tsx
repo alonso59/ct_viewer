@@ -9,7 +9,7 @@ import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { submitDecision, useDraft } from './decision'
-import { decisionsFor, phaseOptions, targetsFor } from './model'
+import { decisionsFor, targetsFor } from './model'
 import '../../i18n/lazy'
 
 export const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
@@ -18,7 +18,7 @@ export const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
   { status: 'needs_major_correction', cmd: 'curation.major', tone: 'error' },
   { status: 'rejected', cmd: 'curation.reject', tone: 'error' },
 ]
-const MORE: CurationStatus[] = ['wrong_phase_suspected', 'wrong_side_suspected', 'missing', 'cannot_assess', 'not_reviewed']
+const MORE: CurationStatus[] = ['wrong_side_suspected', 'missing', 'cannot_assess', 'not_reviewed']
 
 const chord = (id: string) => {
   const c = registry.commands.get(id)
@@ -44,7 +44,6 @@ export function CurationForm({ compact }: { compact?: boolean }) {
     await submitDecision(s)
     setBusy(false)
   }
-  const showPhase = d.target === 'phase'
   const showSide = d.target === 'side'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--fs-panel)' }}>
@@ -84,17 +83,6 @@ export function CurationForm({ compact }: { compact?: boolean }) {
           </Menu.Content>
         </Menu.Portal>
       </Menu.Root>
-      {showPhase ? (
-        <label className="field">
-          <span className="field-label">{t('curation.proposedPhase')}</span>
-          <select className="select input-sm" value={d.proposedPhase} onChange={(e) => d.set({ proposedPhase: e.target.value })}>
-            <option value="">{t('common.none')}</option>
-            {phaseOptions(project?.phase_vocabulary).map((p) => (
-              <option key={p} value={p}>{t('search.phaseOption', { code: p, name: t(`phase.${p}`, { defaultValue: p }) })}</option>
-            ))}
-          </select>
-        </label>
-      ) : null}
       {showSide ? (
         <label className="field">
           <span className="field-label">{t('curation.proposedSide')}</span>
@@ -132,7 +120,6 @@ export function CurationForm({ compact }: { compact?: boolean }) {
             <div key={`${s.item_id ?? s.case_id}|${s.target}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
               <span className="mono muted">{s.target}</span>
               <StatusBadge status={s.status} />
-              {s.proposed_phase ? <span className="muted">{t('history.proposedPhase', { phase: s.proposed_phase })}</span> : null}
               {s.proposed_side ? <span className="muted">{t('history.proposedSide', { side: s.proposed_side })}</span> : null}
               {s.add_to_queue ? <span className="muted" title={t('history.queued')}><Icon spec={codicon('checklist')} /></span> : null}
               <span className="muted" style={{ marginLeft: 'auto', fontSize: 'var(--fs-badge)' }}>

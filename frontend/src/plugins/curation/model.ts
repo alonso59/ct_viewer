@@ -1,5 +1,6 @@
-// Pure curation helpers (CUR-03, CUR-06, CUR-08): targets, decisions of the active item/case, phase options.
-import { PHASES, type CurationStateRow, type CurationStatus, type ItemRecord, type LabelDef } from '../../api'
+// Pure curation helpers (CUR-03, CUR-08): targets and decisions of the active item/case. Phase is
+// not a curation target (ADR-0026, PHASE.md).
+import { type CurationStateRow, type CurationStatus, type ItemRecord, type LabelDef } from '../../api'
 
 export interface TargetOption {
   value: string
@@ -7,13 +8,12 @@ export interface TargetOption {
   label: string
 }
 
-/** CUR-03 targets: the whole mask, each label of the project map (PRJ-07), VOI mask, phase, side, case */
+/** CUR-03 targets: the whole mask, each label of the project map (PRJ-07), VOI mask, side, case */
 export function targetsFor(item: Pick<ItemRecord, 'scope'> | undefined, labels: Pick<LabelDef, 'value' | 'name'>[]): TargetOption[] {
   const out: TargetOption[] = [{ value: 'seg', label: 'curation.target.seg' }]
   for (const l of labels) out.push({ value: `label:${l.value}`, label: `label:${l.name}` })
   if (item?.scope === 'voi') out.push({ value: 'voi_mask', label: 'curation.target.voi_mask' })
   out.push(
-    { value: 'phase', label: 'curation.target.phase' },
     { value: 'side', label: 'curation.target.side' },
     { value: 'case', label: 'curation.target.case' },
   )
@@ -37,7 +37,3 @@ export function statusOf(rows: CurationStateRow[], itemId: string | null, caseId
   return row?.status ?? 'not_reviewed'
 }
 
-/** CUR-06: proposals come from the project's phase vocabulary; an open vocabulary falls back to the defaults */
-export function phaseOptions(vocabulary: string[] | undefined): string[] {
-  return vocabulary?.length ? vocabulary : PHASES
-}

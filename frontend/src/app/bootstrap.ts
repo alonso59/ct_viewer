@@ -5,6 +5,7 @@ import i18n from '../i18n'
 import { registerExplorer } from '../features/explorer'
 import { registerImport } from '../features/import'
 import { registerOpen } from '../features/open'
+import { registerPhase } from '../features/phase'
 import { registerTasks } from '../features/tasks'
 import { registerJobs } from '../features/jobs'
 import { registerLibrary } from '../features/library'
@@ -40,6 +41,7 @@ export function bootstrap() {
   registerTasks()
   registerExplorer()
   registerViewer()
+  registerPhase() // ADR-0026: native, whatever plugins are enabled
   activatePlugins(FIRST_PARTY) // PLG-04: every shipped plugin, enabled by default
   registerVariables()
   registerJobs()

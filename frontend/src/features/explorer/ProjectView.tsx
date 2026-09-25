@@ -18,9 +18,10 @@ import {
   type Variable,
 } from '../../api'
 import { PhaseChip, SliceThumb, StatusIcon } from '../../lib'
-import { openEditor, useWorkbench } from '../../shell'
+import { openEditor, registry, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
+import { PhaseButtons } from '../phase'
 import { itemLabel } from './itemLabel'
 import { activeFilterCount, useExplorer, useExplorerPrefs, usePrefs } from './store'
 import { colorable, columnable, formatValue, levelColor } from './vars'
@@ -203,29 +204,31 @@ export function ProjectView() {
               )
             if (r.kind === 'item') {
               const it = r.item
+              const excluded = it.status === 'excluded_upstream'
+              // A div, not a button: the row holds the PHS-01 phase buttons (the tree handles keys)
               return (
-                <button
+                <div
                   key={it.item_id}
-                  type="button"
                   role="treeitem"
                   aria-level={2}
                   aria-selected={activeItemId === it.item_id}
+                  aria-disabled={excluded || undefined}
                   className="list-row"
                   data-focused={focused}
-                  style={{ ...style, paddingLeft: density === 'thumbnails' ? 58 : 34, gap: 6, fontSize: 'var(--fs-panel)', boxShadow: focused ? 'inset 0 0 0 1px var(--focus)' : undefined }}
-                  onClick={() => { setCursor(v.index); activate(r) }}
-                  onDoubleClick={() => activate(r, false)}
-                  disabled={it.status === 'excluded_upstream'}
+                  style={{ ...style, paddingLeft: density === 'thumbnails' ? 58 : 34, gap: 6, fontSize: 'var(--fs-panel)', boxShadow: focused ? 'inset 0 0 0 1px var(--focus)' : undefined, opacity: excluded ? 0.55 : undefined }}
+                  onClick={() => { if (!excluded) { setCursor(v.index); activate(r) } }}
+                  onDoubleClick={() => !excluded && activate(r, false)}
                 >
-                  <PhaseChip phase={it.phase.canonical} />
-                  <span>{itemLabel(it, t)}</span>
+                  <span className="phase-row-static"><PhaseChip phase={it.phase.canonical} /></span>
+                  <span className="item-label">{itemLabel(it, t)}</span>
                   {it.warning_codes.length ? (
                     <span style={{ color: 'var(--warn)', display: 'inline-flex', marginLeft: 'auto' }} title={it.warning_codes.join(', ')}>
                       <Icon spec={codicon('warning')} />
                     </span>
                   ) : null}
                   {it.status === 'missing' ? <span className="badge" data-tone="error">{t('explorer.missing')}</span> : null}
-                </button>
+                  {excluded || registry.readOnly ? null : <PhaseButtons pid={pid} scan={it} className="phase-row-actions" />}
+                </div>
               )
             }
             const c = r.c

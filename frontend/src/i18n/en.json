@@ -116,7 +116,6 @@
     "needs_minor_correction": "Needs minor correction",
     "needs_major_correction": "Needs major correction",
     "rejected": "Rejected",
-    "wrong_phase_suspected": "Wrong phase suspected",
     "wrong_side_suspected": "Wrong side suspected",
     "missing": "Missing",
     "cannot_assess": "Cannot assess",
@@ -139,7 +138,6 @@
     "needs_minor_correction": "Minor",
     "needs_major_correction": "Major",
     "rejected": "Reject",
-    "wrong_phase_suspected": "Phase?",
     "wrong_side_suspected": "Side?",
     "missing": "Missing",
     "cannot_assess": "Can't assess"
@@ -150,6 +148,26 @@
     "NP": "Nephrographic",
     "EP": "Excretory",
     "UNK": "Unknown phase"
+  },
+  "phaseSel": {
+    "group": "Phase of {{scan}}",
+    "set": "Set phase",
+    "accept": "Accept guess",
+    "acceptHelp": "Keep the analyzer's guess ({{phase}}) as the selected phase",
+    "was": "was {{phase}}",
+    "wasHelp": "Selected by a reviewer; the value from the imported metadata or analyzer is kept underneath",
+    "history": "Phase history",
+    "historyOf": "Phase history · {{scan}}",
+    "noHistory": "No phase selections yet.",
+    "by": "{{reviewer}} · {{ago}}",
+    "source": {
+      "manual": "Selected",
+      "analyzer_accept": "Analyzer guess accepted",
+      "v2_import": "Imported from v2",
+      "converter_import": "Imported from the converter"
+    },
+    "updatedBy": "{{scan}}: phase set to {{phase}} by {{reviewer}}",
+    "export": "Export phase selections"
   },
   "priority": {
     "low": "Low",
@@ -458,7 +476,6 @@
       "case": "Whole case",
       "label": "Target",
       "labelName": "Label: {{name}}",
-      "phase": "Phase",
       "seg": "Segmentation (all labels)",
       "side": "Side / laterality",
       "voi_mask": "VOI mask"

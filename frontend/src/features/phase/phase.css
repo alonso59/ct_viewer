@@ -1,0 +1,51 @@
+/* Native phase selection (PHASE.md PHS-01/07) */
+.phase-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.phase-buttons .badge:disabled {
+  opacity: 0.5;
+}
+.phase-was {
+  font-size: var(--fs-badge);
+  margin-left: 4px;
+}
+/* Explorer: row actions show on hover, focus or the active row only */
+.list-row .phase-row-actions {
+  display: none;
+  margin-left: auto;
+}
+.list-row:hover .phase-row-actions,
+.list-row:focus-within .phase-row-actions,
+.list-row[aria-selected='true'] .phase-row-actions {
+  display: inline-flex;
+  flex: none;
+}
+/* …where the pressed button already shows the current phase */
+.list-row:has(.phase-row-actions):is(:hover, :focus-within, [aria-selected='true']) .phase-row-static {
+  display: none;
+}
+.list-row .item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phase-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.phase-history li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.phase-by {
+  margin-left: auto;
+  font-size: var(--fs-badge);
+}

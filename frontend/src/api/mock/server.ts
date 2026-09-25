@@ -22,6 +22,7 @@ import {
   type LabelDef,
   type WorkspaceRun,
   type NewCurationEvent,
+  type PhaseEvent,
   type Project,
   type ProjectSummary,
   type QCWarning,
@@ -192,7 +193,6 @@ function seededEvents(): CurationEvent[] {
     status,
     priority: 'medium',
     comment: '',
-    proposed_phase: null,
     proposed_side: null,
     add_to_queue: false,
     context: {},
@@ -217,10 +217,6 @@ function seededEvents(): CurationEvent[] {
     base('2026-09-23T08:05:00Z', 'Dr. AP', 'case_00016.01.complete.-', 'seg', 'rejected', {
       priority: 'high',
       comment: 'Mask shifted ~10 mm against the image',
-    }),
-    base('2026-09-23T08:20:00Z', 'Dr. AP', 'case_00018.01.complete.-', 'phase', 'wrong_phase_suspected', {
-      comment: 'Renal medulla enhanced; looks nephrographic',
-      proposed_phase: 'NP',
     }),
   ]
 }
@@ -249,6 +245,8 @@ interface ProjectState {
 
 const db = new Map<string, ProjectState>()
 let events: Record<string, CurationEvent[]> = {}
+/** PHS-02: native phase selections per project, in append order */
+const phaseEvents: Record<string, PhaseEvent[]> = {}
 const jobs = new Map<string, Job>()
 type Listener = (e: ServerEvent) => void
 const listeners = new Map<string, Set<Listener>>()
@@ -480,7 +478,6 @@ function appendEventSync(pid: string, ev: NewCurationEvent, reviewer: string, se
     reviewer,
     seg_id: ev.seg_id ?? (ev.target === 'seg' || ev.target === 'voi_mask' || ev.target.startsWith('label:') ? 'imported' : null),
     session_id: session,
-    proposed_phase: null,
     proposed_side: null,
     context: {},
     source: 'ui',
@@ -1294,13 +1291,36 @@ export const mockServer: Api = {
     state(pid)
     return appendEventSync(pid, ev, reviewer, SESSION_ID)
   },
+  async phaseEvents(pid, f = {}) {
+    await wait(50)
+    state(pid)
+    return clone((phaseEvents[pid] ?? []).filter((e) => (!f.case_id || e.case_id === f.case_id) && (!f.scan_idx || e.scan_idx === f.scan_idx)).reverse())
+  },
+  async appendPhase(pid, ev, reviewer) {
+    await wait(70)
+    if (!reviewer) throw new ProblemError(428, 'reviewer-required', 'Reviewer name required')
+    const s = state(pid)
+    const vocab = s.project.phase_vocabulary ?? []
+    if (vocab.length && !vocab.includes(ev.value)) throw new ProblemError(422, 'validation', 'Phase not in the vocabulary', `allowed: ${vocab.join(', ')}`)
+    const e: PhaseEvent = { event_id: ulid(), at: now(), reviewer, session_id: SESSION_ID, accepted_run_id: null, ...ev }
+    ;(phaseEvents[pid] ??= []).push(e)
+    // PHS-03: the selection wins over the index-time value, which stays in `resolved`
+    for (const it of s.items)
+      if (it.case_id === ev.case_id && it.scan_idx === ev.scan_idx) it.phase = { canonical: ev.value, raw: it.phase.raw ?? null, source: 'manual', resolved: it.phase.resolved ?? it.phase }
+    emit(pid, { event: 'phase.appended', data: e })
+    return clone(e)
+  },
+  async exportPhase() {
+    await wait(60)
+    return { dir: 'exports', files: ['phase_selections.json'], at: now() }
+  },
   async curationState(pid) {
     await wait(70)
     state(pid)
     return [...latestState(pid).values()].map((e) => ({
       item_id: e.item_id, case_id: e.case_id, target: e.target, status: e.status, priority: e.priority,
       comment: e.comment, reviewer: e.reviewer, at: e.at, event_id: e.event_id, add_to_queue: e.add_to_queue,
-      proposed_phase: e.proposed_phase, proposed_side: e.proposed_side,
+      proposed_side: e.proposed_side,
     }))
   },
   async queue(pid) {
@@ -1317,7 +1337,7 @@ export const mockServer: Api = {
   async curationExports(pid) {
     await wait(200)
     state(pid)
-    return { dir: 'exports', files: ['curation_state.csv', 'events.jsonl', 'phase_proposals.json'], at: now() }
+    return { dir: 'exports', files: ['curation_state.csv', 'events.jsonl'], at: now() }
   },
   async importV2(pid) {
     await wait(200)

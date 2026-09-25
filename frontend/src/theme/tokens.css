@@ -153,7 +153,6 @@
 :root {
   --status-rejected: var(--error);
   --status-needs_major_correction: var(--error);
-  --status-wrong_phase_suspected: var(--warn);
   --status-wrong_side_suspected: var(--warn);
   --status-needs_minor_correction: var(--warn);
   --status-missing: var(--error);

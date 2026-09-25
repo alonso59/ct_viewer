@@ -68,6 +68,9 @@ import type {
   LabelTableCreate,
   LabelTableInfo,
   LabelTablePatch,
+  NewPhaseEvent,
+  PhaseEvent,
+  PhaseExport,
   LayerInfo,
   WorkspaceRun,
   WorkspaceRunRequest,
@@ -249,6 +252,12 @@ export interface Api {
   /** Newest first (CUR-14) */
   listEvents(pid: string, f?: { item_id?: string; case_id?: string }): Promise<CurationEvent[]>
   appendEvent(pid: string, ev: NewCurationEvent, reviewer: string): Promise<CurationEvent>
+  /** API-63: phase selections of one scan (or all), newest first (PHS-07) */
+  phaseEvents(pid: string, f?: { case_id?: string; scan_idx?: string }): Promise<PhaseEvent[]>
+  /** API-63: one-click phase selection (PHS-01) or accepting the analyzer guess (PHS-04) */
+  appendPhase(pid: string, ev: NewPhaseEvent, reviewer: string): Promise<PhaseEvent>
+  /** API-65: write `exports/phase_selections.json` (PHS-06) */
+  exportPhase(pid: string): Promise<PhaseExport>
   curationState(pid: string): Promise<CurationStateRow[]>
   queue(pid: string): Promise<QueueRow[]>
   /** API-52 `format=csv`: the server resolves absolute paths for 3D Slicer (CUR-09) */

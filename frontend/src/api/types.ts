@@ -79,7 +79,6 @@ export const CURATION_STATUSES = [
   'needs_minor_correction',
   'needs_major_correction',
   'rejected',
-  'wrong_phase_suspected',
   'wrong_side_suspected',
   'missing',
   'cannot_assess',
@@ -90,7 +89,6 @@ export type CurationStatus = (typeof CURATION_STATUSES)[number]
 export const STATUS_SEVERITY: Record<CurationStatus, number> = {
   rejected: 8,
   needs_major_correction: 7,
-  wrong_phase_suspected: 6,
   wrong_side_suspected: 6,
   needs_minor_correction: 5,
   missing: 4,
@@ -101,7 +99,6 @@ export const STATUS_SEVERITY: Record<CurationStatus, number> = {
 export const QUEUE_STATUSES: CurationStatus[] = [
   'rejected',
   'needs_major_correction',
-  'wrong_phase_suspected',
   'wrong_side_suspected',
   'needs_minor_correction',
   'missing',
@@ -125,7 +122,7 @@ export type NewCurationEvent = Pick<
   CurationEvent,
   'item_id' | 'case_id' | 'target' | 'status' | 'priority' | 'comment' | 'add_to_queue'
 > &
-  Partial<Pick<CurationEvent, 'proposed_phase' | 'proposed_side' | 'context' | 'seg_id'>>
+  Partial<Pick<CurationEvent, 'proposed_side' | 'context' | 'seg_id'>>
 
 /** CUR-08 derived state, one row per `(item_id, target)`; `item_id = null` for case targets.
  *  Flattened from API-51 `CurationState` (items[].targets, cases[].targets). */
@@ -140,7 +137,6 @@ export interface CurationStateRow {
   at: string
   event_id: string
   add_to_queue: boolean
-  proposed_phase: string | null
   proposed_side: 'L' | 'R' | null
 }
 
@@ -376,8 +372,15 @@ export interface Problem {
   detail?: string
 }
 
+// ---- Native phase selection (PHASE.md PHS-*, ADR-0026; API-63..65) --------------------------------
+export type PhaseEvent = S['PhaseEvent']
+/** API-63 POST body; the client adds the session id */
+export type NewPhaseEvent = Omit<S['PhaseIn'], 'session_id'>
+export type PhaseExport = S['PhaseExportResult']
+
 export type ServerEvent =
   | { event: 'curation.appended'; data: CurationEvent }
+  | { event: 'phase.appended'; data: PhaseEvent }
   | { event: 'labeling.appended'; data: LabelCellEvent }
   | { event: 'job.progress'; data: JobProgress }
   | { event: 'job.finished'; data: JobFinished }

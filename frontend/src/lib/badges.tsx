@@ -9,7 +9,6 @@ type Tone = 'ok' | 'warn' | 'error' | 'done' | 'accent' | undefined
 export const STATUS_TONE: Record<CurationStatus, Tone> = {
   accepted: 'ok',
   needs_minor_correction: 'warn',
-  wrong_phase_suspected: 'warn',
   wrong_side_suspected: 'warn',
   needs_major_correction: 'error',
   rejected: 'error',
@@ -21,7 +20,6 @@ export const STATUS_TONE: Record<CurationStatus, Tone> = {
 const STATUS_ICON: Record<CurationStatus, string> = {
   accepted: 'pass',
   needs_minor_correction: 'warning',
-  wrong_phase_suspected: 'question',
   wrong_side_suspected: 'arrow-swap',
   needs_major_correction: 'error',
   rejected: 'circle-slash',

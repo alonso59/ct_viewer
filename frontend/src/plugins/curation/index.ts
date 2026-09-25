@@ -44,7 +44,7 @@ function currentStatus() {
   return statusOf(rows, activeItemId, activeCaseId, useDraft.getState().target)
 }
 
-/** CUR-10: write curation_state.csv, events.jsonl and phase_proposals.json into `exports/` */
+/** CUR-10: write curation_state.csv and events.jsonl into `exports/` */
 async function writeExports() {
   const pid = useWorkbench.getState().pid
   if (!pid) return

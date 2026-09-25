@@ -14,6 +14,7 @@ export const keys = {
   imports: (pid: string) => ['project', pid, 'imports'] as const,
   variables: (pid: string) => ['project', pid, 'variables'] as const,
   events: (pid: string, f: { item_id?: string; case_id?: string } = {}) => ['project', pid, 'events', f] as const,
+  phaseEvents: (pid: string, cid: string, scan: string) => ['project', pid, 'phase', 'events', cid, scan] as const,
   curationState: (pid: string) => ['project', pid, 'curation', 'state'] as const,
   queue: (pid: string) => ['project', pid, 'curation', 'queue'] as const,
   runs: (pid: string) => ['project', pid, 'runs'] as const,

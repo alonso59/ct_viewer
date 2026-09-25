@@ -704,3 +704,14 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 **Open issues**
 - Removing a category level keeps values already entered with that level (shown as is, not flagged).
 - A deleted table can't be erased for good; by design (ADR-0022), not offered.
+
+## 2026-09-25 · Native phase selection (ADR-0026) · version_3-dev
+
+**Done**
+- Backend (`5fe1ece`, written by another session, reviewed and committed here): `app/phase/`, API-63..65, the read-time join (PHS-03), curation without phase, PHS-08 imports (an import never overrides a selection; such rows are `skipped` "phase already set"), the dataset-table column-shadowing fix.
+- Frontend: `features/phase/` (PHS-01 buttons in the case header and Explorer scan rows, "Accept guess" (PHS-04), "was …", history dialog (PHS-07), live toasts (PHS-05), "Export phase selections" (PHS-06)); curation UI without the phase target, `wrong_phase_suspected`, `proposed_phase` and `phase_proposals.json`; `phaseOptions` moved from curation to `features/phase`; the mock API applies selections to its items. Explorer scan rows are `div role="treeitem"` now (they hold buttons; the tree already handled keys).
+- E2E `p7c-exit`: the view-only write check uses a curation target that still exists and also checks a phase write (405).
+
+**Results**: `make check` green: 480 backend + 234 frontend. Playwright 40/40 (Chromium + Firefox). Visual check in mock mode.
+
+**Open issues**: in a narrow sidebar the scan label is truncated while the row's phase buttons show.

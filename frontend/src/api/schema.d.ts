@@ -761,7 +761,7 @@ export interface paths {
         put?: never;
         /**
          * Append Event
-         * @description API-50 append one decision (CUR-02/03/05/06/07); pushes `curation.appended` (CUR-11).
+         * @description API-50 append one decision (CUR-02/03/05/07); pushes `curation.appended` (CUR-11).
          *
          *     428 `reviewer-required` without `X-Reviewer` (CUR-01).
          */
@@ -868,6 +868,71 @@ export interface paths {
          * @description API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08).
          */
         post: operations["import_converter_api_v1_projects__pid__curation_import_converter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/phase/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Events
+         * @description API-63 history, newest first (PHS-07).
+         */
+        get: operations["list_events_api_v1_projects__pid__phase_events_get"];
+        put?: never;
+        /**
+         * Append Event
+         * @description API-63 one-click selection (PHS-01) or accepting the analyzer guess (PHS-04); replaces
+         *     the effective phase at once and pushes `phase.appended` (PHS-05). 428 without `X-Reviewer`.
+         */
+        post: operations["append_event_api_v1_projects__pid__phase_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/phase/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get State
+         * @description API-64 latest selection per scan (PHS-02) next to the value it overrides (PHS-03).
+         */
+        get: operations["get_state_api_v1_projects__pid__phase_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/phase/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Phase
+         * @description API-65 write `exports/phase_selections.json` (PHS-06).
+         */
+        post: operations["export_phase_api_v1_projects__pid__phase_exports_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2352,7 +2417,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
             /** Reviewer */
             reviewer: string;
             /** At */
@@ -2781,7 +2846,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
             /**
              * Priority
              * @default medium
@@ -2793,8 +2858,6 @@ export interface components {
              * @default
              */
             comment: string;
-            /** Proposed Phase */
-            proposed_phase?: string | null;
             /** Proposed Side */
             proposed_side?: ("L" | "R") | null;
             /**
@@ -2811,7 +2874,7 @@ export interface components {
              * @default ui
              * @enum {string}
              */
-            source: "ui" | "v2_import" | "converter_import" | "analyzer" | "api";
+            source: "ui" | "v2_import" | "converter_import" | "api";
         };
         /**
          * CurationState
@@ -3091,7 +3154,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
             /**
              * Priority
              * @default medium
@@ -3103,8 +3166,6 @@ export interface components {
              * @default
              */
             comment: string;
-            /** Proposed Phase */
-            proposed_phase?: string | null;
             /** Proposed Side */
             proposed_side?: ("L" | "R") | null;
             /**
@@ -3831,7 +3892,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
             /** Reviewer */
             reviewer: string;
             /** At */
@@ -4305,6 +4366,15 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[PhaseEvent] */
+        Page_PhaseEvent_: {
+            /** Items */
+            items: components["schemas"]["PhaseEvent"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
         /** Page[Profile] */
         Page_Profile_: {
             /** Items */
@@ -4421,6 +4491,77 @@ export interface components {
              */
             role: "source" | "derived";
         };
+        /**
+         * PhaseEvent
+         * @description One append-only selection in `events/phase.jsonl` (PHS-02).
+         */
+        PhaseEvent: {
+            /** Event Id */
+            event_id: string;
+            /** At */
+            at: string;
+            /** Reviewer */
+            reviewer: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /** Value */
+            value: string;
+            /**
+             * Source
+             * @default manual
+             * @enum {string}
+             */
+            source: "manual" | "analyzer_accept" | "v2_import" | "converter_import";
+            /** Accepted Run Id */
+            accepted_run_id?: string | null;
+        };
+        /**
+         * PhaseExportResult
+         * @description PHS-06: files written under the project folder's `dir`.
+         */
+        PhaseExportResult: {
+            /**
+             * Dir
+             * @default exports
+             */
+            dir: string;
+            /** Files */
+            files: string[];
+            /** At */
+            at: string;
+        };
+        /**
+         * PhaseIn
+         * @description POST body. The server sets `event_id`, `at`, `reviewer`; imports use their own routes.
+         */
+        PhaseIn: {
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /**
+             * Value
+             * @description A `phase_vocabulary` value
+             */
+            value: string;
+            /**
+             * Source
+             * @default manual
+             * @enum {string}
+             */
+            source: "manual" | "analyzer_accept";
+            /**
+             * Accepted Run Id
+             * @description Required with `analyzer_accept`: the active phase run (PHS-04)
+             */
+            accepted_run_id?: string | null;
+            /** Session Id */
+            session_id?: string | null;
+        };
         /** PhaseInfo */
         PhaseInfo: {
             /** Canonical */
@@ -4432,6 +4573,46 @@ export interface components {
              * @default none
              */
             source: string;
+            resolved?: components["schemas"]["PhaseInfo"] | null;
+        };
+        /**
+         * PhaseSelection
+         * @description Latest event for one scan (PHS-02), with the index-time value it overrides (PHS-03).
+         */
+        PhaseSelection: {
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /** Value */
+            value: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "analyzer_accept" | "v2_import" | "converter_import";
+            /** Accepted Run Id */
+            accepted_run_id?: string | null;
+            /** Reviewer */
+            reviewer: string;
+            /** At */
+            at: string;
+            /** Event Id */
+            event_id: string;
+            /**
+             * Resolved
+             * @description INPUT_METADATA §Phase resolution
+             */
+            resolved?: string | null;
+            /** Resolved Source */
+            resolved_source?: string | null;
+        };
+        /** PhaseState */
+        PhaseState: {
+            /** N Events */
+            n_events: number;
+            /** Selections */
+            selections: components["schemas"]["PhaseSelection"][];
         };
         /**
          * PluginInfo
@@ -4776,7 +4957,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
             /**
              * Priority
              * @enum {string}
@@ -5455,7 +5636,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "rejected" | "needs_major_correction" | "wrong_phase_suspected" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
+            status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed";
             /**
              * Priority
              * @enum {string}
@@ -5474,8 +5655,6 @@ export interface components {
              * @default false
              */
             add_to_queue: boolean;
-            /** Proposed Phase */
-            proposed_phase?: string | null;
             /** Proposed Side */
             proposed_side?: ("L" | "R") | null;
         };
@@ -5953,6 +6132,11 @@ export interface components {
             n_rows: number;
             /** Imported */
             imported: number;
+            /**
+             * Phase Events
+             * @default 0
+             */
+            phase_events: number;
             /** Skipped */
             skipped: components["schemas"]["V2Skipped"][];
         };
@@ -8063,6 +8247,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["V2ImportReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_v1_projects__pid__phase_events_get: {
+        parameters: {
+            query?: {
+                case_id?: string | null;
+                scan_idx?: string | null;
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PhaseEvent_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    append_event_api_v1_projects__pid__phase_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Reviewer name or initials (ADR-0004) */
+                "X-Reviewer"?: string | null;
+                /** @description Per-tab id for audit */
+                "X-Session-Id"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseEvent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_state_api_v1_projects__pid__phase_state_get: {
+        parameters: {
+            query?: {
+                case_id?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_phase_api_v1_projects__pid__phase_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseExportResult"];
                 };
             };
             /** @description Validation Error */

@@ -16,6 +16,7 @@ import type {
   Job,
   LabelDef,
   NewCurationEvent,
+  NewPhaseEvent,
   CurationEvent,
   CurationStateRow,
   Project,
@@ -53,6 +54,9 @@ export const useVariables = (pid: string) =>
   useQuery({ queryKey: keys.variables(pid), queryFn: () => api.listVariables(pid), enabled: enabled(pid) })
 export const useEvents = (pid: string, f: { item_id?: string; case_id?: string }) =>
   useQuery({ queryKey: keys.events(pid, f), queryFn: () => api.listEvents(pid, f), enabled: enabled(pid) })
+/** PHS-07: phase selections of one scan, newest first */
+export const usePhaseEvents = (pid: string, cid: string | null, scan: string | null) =>
+  useQuery({ queryKey: keys.phaseEvents(pid, cid ?? '', scan ?? ''), queryFn: () => api.phaseEvents(pid, { case_id: cid ?? '', scan_idx: scan ?? '' }), enabled: enabled(pid, cid, scan) })
 export const useCurationState = (pid: string) =>
   useQuery({ queryKey: keys.curationState(pid), queryFn: () => api.curationState(pid), enabled: enabled(pid) })
 export const useQueue = (pid: string) =>
@@ -142,6 +146,19 @@ export function useAppendEvent(pid: string) {
       return api.appendEvent(pid, ev, reviewer)
     },
     onSuccess: () => invalidateCuration(qc, pid),
+  })
+}
+
+/** PHS-01/04: one click sets the scan's phase at once (reviewer asked on first use) */
+export function useAppendPhase(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ev: NewPhaseEvent) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.appendPhase(pid, ev, reviewer)
+    },
+    onSuccess: () => invalidatePhase(qc, pid),
   })
 }
 
@@ -392,6 +409,12 @@ function invalidateViews(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ predicate: (q) => isViewKey(q.queryKey) && q.queryKey[1] === pid })
 }
 
+/** PHS-03: the effective phase shows in cases, items, filters, variables and dashboard views */
+function invalidatePhase(qc: QueryClient, pid: string) {
+  invalidateViews(qc, pid)
+  for (const k of ['cases', 'case', 'item', 'phase', 'variables'] as const) void qc.invalidateQueries({ queryKey: ['project', pid, k] })
+}
+
 function invalidateCuration(qc: QueryClient, pid: string) {
   invalidateViews(qc, pid)
   void qc.invalidateQueries({ queryKey: ['project', pid, 'cases'] })
@@ -414,7 +437,6 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
     at: ev.at,
     event_id: ev.event_id,
     add_to_queue: ev.add_to_queue ?? false,
-    proposed_phase: ev.proposed_phase ?? null,
     proposed_side: ev.proposed_side ?? null,
   }
   const same = (r: CurationStateRow) => r.item_id === row.item_id && r.case_id === row.case_id && r.target === row.target
@@ -426,6 +448,8 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   // LBL-05: other reviewers' cell edits (or a large batch announced as project.updated)
   if (e.event === 'labeling.appended' || (e.event === 'project.updated' && e.data.fields.includes('labeling')))
     void qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
+  // PHS-05: a selection here or in another browser (imports announce `project.updated` with `phase`)
+  if (e.event === 'phase.appended' || (e.event === 'project.updated' && e.data.fields.includes('phase'))) invalidatePhase(qc, pid)
   if (e.event === 'curation.appended') {
     // CUR-11: show the decision at once from the event (server order = last-writer-wins, CUR-12);
     // the refetch below confirms it, but can queue behind other requests on a busy server

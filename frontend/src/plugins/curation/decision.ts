@@ -14,7 +14,6 @@ interface Draft {
   priority: Priority
   comment: string
   addToQueue: boolean
-  proposedPhase: string
   proposedSide: 'L' | 'R' | ''
   set: (p: Partial<Omit<Draft, 'set' | 'reset'>>) => void
   reset: () => void
@@ -27,10 +26,9 @@ export const useDraft = create<Draft>()((set) => ({
   priority: 'medium',
   comment: '',
   addToQueue: false,
-  proposedPhase: '',
   proposedSide: '',
   set: (p) => set(p),
-  reset: () => set({ comment: '', addToQueue: false, proposedPhase: '', proposedSide: '' }),
+  reset: () => set({ comment: '', addToQueue: false, proposedSide: '' }),
 }))
 
 /** VW-16 viewer snapshot for the audit context; the server adds fingerprints, phase and import id */
@@ -69,7 +67,6 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
         priority: d.priority,
         comment: d.comment,
         add_to_queue: over.addToQueue ?? d.addToQueue,
-        proposed_phase: target === 'phase' && d.proposedPhase ? d.proposedPhase : null,
         proposed_side: target === 'side' && d.proposedSide ? d.proposedSide : null,
         // ADR-0015: mask decisions name the set on screen (VW-19); the server defaults to default_seg
         ...(isMaskTarget(target) && useViewerSync.getState().activeSeg ? { seg_id: useViewerSync.getState().activeSeg } : {}),
