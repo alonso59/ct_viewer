@@ -40,8 +40,9 @@ def _rebuild_variables(ctx: AppContext, pid: str) -> None:
 
 
 @router.get("/tables", response_model=list[TableInfo])
-def list_tables(ctx: Ctx, pid: str) -> list[TableInfo]:
-    return svc(ctx).tables(pid)
+def list_tables(ctx: Ctx, pid: str, deleted: bool = False) -> list[TableInfo]:
+    """`?deleted=true` lists only the deleted tables (LBL-10)."""
+    return svc(ctx).tables(pid, deleted)
 
 
 @router.post("/tables", response_model=LabelTable, status_code=201)

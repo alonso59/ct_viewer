@@ -213,7 +213,8 @@ export interface Api {
   datasetTableUrl(pid: string, format: 'csv' | 'parquet'): string
 
   /** API-56..58 Labeling table plugin (LBL-*) */
-  listLabelTables(pid: string): Promise<LabelTableInfo[]>
+  /** `deleted`: only the deleted tables (LBL-10) */
+  listLabelTables(pid: string, deleted?: boolean): Promise<LabelTableInfo[]>
   createLabelTable(pid: string, body: LabelTableCreate): Promise<LabelTable>
   patchLabelTable(pid: string, tid: string, body: LabelTablePatch): Promise<LabelTable>
   labelCells(pid: string, tid: string): Promise<LabelCellsPage>

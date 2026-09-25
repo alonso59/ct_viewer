@@ -256,6 +256,9 @@ export const useWorkspaceRun = (rid: string | null) =>
 export const useLayers = (pid: string) => useQuery({ queryKey: keys.layers(pid), queryFn: () => api.listLayers(pid), enabled: enabled(pid) })
 export const useLabelTables = (pid: string) =>
   useQuery({ queryKey: keys.labelTables(pid), queryFn: () => api.listLabelTables(pid), enabled: enabled(pid) })
+/** LBL-10: deleted tables, for Restore */
+export const useDeletedLabelTables = (pid: string) =>
+  useQuery({ queryKey: keys.deletedLabelTables(pid), queryFn: () => api.listLabelTables(pid, true), enabled: enabled(pid) })
 export const useLabelCells = (pid: string, tid: string) =>
   useQuery({ queryKey: keys.labelCells(pid, tid), queryFn: () => api.labelCells(pid, tid), enabled: enabled(pid, tid) })
 export const useLabelHistory = (pid: string, tid: string, target: string | null, col: string | null) =>

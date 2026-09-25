@@ -53,3 +53,41 @@ test('keyboard edit, paste and progress', async () => {
   const card = (await screen.findByText('Review')).closest('button') as HTMLElement
   expect(within(card).getByText(/Grade: 2 \//)).toBeInTheDocument()
 })
+
+test('LBL-02/10: edit and delete a column, delete a table, restore both', async () => {
+  useWorkbench.setState({ pid: DEMO_PID })
+  const t = await api.createLabelTable(DEMO_PID, { name: 'Scratch', level: 'case', columns: [{ name: 'Size', type: 'number', unit: 'mm', max: 10 }, { name: 'Note', type: 'text' }] })
+  const size = t.columns![0]!.column_id
+  const menu = async (label: string, item: string) => {
+    fireEvent.keyDown(await screen.findByRole('button', { name: label }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: item }))
+  }
+  const editor = wrap(<TableEditor params={{ tableId: t.table_id }} panelId="p" active />)
+  await screen.findByRole('grid', { name: 'Scratch' })
+  // Edit column: rename, change the unit, clear the max
+  await menu('Actions for column Size', 'Edit column…')
+  const dlg = await screen.findByRole('dialog', { name: 'Edit column' })
+  fireEvent.change(within(dlg).getByLabelText(/^Column name/), { target: { value: 'Diameter' } })
+  fireEvent.change(within(dlg).getByLabelText(/^Unit/), { target: { value: 'cm' } })
+  fireEvent.change(within(dlg).getByLabelText(/^Max/), { target: { value: '' } })
+  fireEvent.click(within(dlg).getByRole('button', { name: 'Save' }))
+  await waitFor(async () => expect((await api.listLabelTables(DEMO_PID)).find((x) => x.table_id === t.table_id)?.columns?.[0]).toMatchObject({ name: 'Diameter', unit: 'cm', max: null }))
+  // Delete column: hidden, not erased
+  await menu('Actions for column Note', 'Delete column…')
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete column Note?' })).getByRole('button', { name: 'Delete column' }))
+  await waitFor(() => expect(screen.queryByRole('columnheader', { name: /Note/ })).toBeNull())
+  // Delete the table from its tab: the tab says so
+  await menu('Actions for table Scratch', 'Delete table…')
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete Scratch?' })).getByRole('button', { name: 'Delete table' }))
+  expect(await screen.findByText(/This table was deleted/)).toBeInTheDocument()
+  expect((await api.listLabelTables(DEMO_PID)).some((x) => x.table_id === t.table_id)).toBe(false)
+  editor.unmount()
+  // The view lists it under Deleted tables; Restore brings it back with its size column
+  wrap(<LabelingView />)
+  fireEvent.click(await screen.findByRole('button', { name: /Deleted tables \(1\)/ }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Restore' }))
+  expect(await screen.findByRole('button', { name: /^Scratch/ })).toBeInTheDocument()
+  const back = (await api.listLabelTables(DEMO_PID)).find((x) => x.table_id === t.table_id)
+  expect(back?.columns?.map((c) => [c.name, c.hidden])).toEqual([['Diameter', false], ['Note', true]])
+  await api.patchLabelTable(DEMO_PID, t.table_id, { columns: [{ column_id: size, name: 'Diameter' }] })
+})

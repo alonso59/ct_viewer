@@ -5412,6 +5412,11 @@
       "title": "Created At",
       "type": "string"
      },
+     "hidden": {
+      "default": false,
+      "title": "Hidden",
+      "type": "boolean"
+     },
      "level": {
       "enum": [
        "case",
@@ -9487,6 +9492,11 @@
       "title": "Created At",
       "type": "string"
      },
+     "hidden": {
+      "default": false,
+      "title": "Hidden",
+      "type": "boolean"
+     },
      "level": {
       "enum": [
        "case",
@@ -9554,6 +9564,17 @@
        }
       ],
       "title": "Columns"
+     },
+     "hidden": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hidden"
      },
      "name": {
       "anyOf": [
@@ -12686,6 +12707,7 @@
   },
   "/api/v1/plugins/labeling/projects/{pid}/tables": {
    "get": {
+    "description": "`?deleted=true` lists only the deleted tables (LBL-10).",
     "operationId": "list_tables_api_v1_plugins_labeling_projects__pid__tables_get",
     "parameters": [
      {
@@ -12695,6 +12717,16 @@
       "schema": {
        "title": "Pid",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "deleted",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Deleted",
+       "type": "boolean"
       }
      }
     ],

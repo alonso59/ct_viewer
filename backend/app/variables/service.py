@@ -113,7 +113,7 @@ class VariableService:
         pdir = self._pdir(project_id)
         cells = labeling_state.cell_state(pdir)
         out: list[builder.LayerData] = []
-        for t in labeling_state.load_tables(pdir).tables:
+        for t in labeling_state.active_tables(pdir):
             for c in t.columns:
                 if c.hidden:
                     continue

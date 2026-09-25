@@ -33,6 +33,7 @@ class LabelTable(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     level: TableLevel
     columns: list[LabelColumn] = Field(default_factory=list)
+    hidden: bool = False  # LBL-10: deleted; events and slug kept, restorable
     created_at: str
     updated_at: str
 
@@ -66,6 +67,7 @@ class TableCreate(BaseModel):
 
 class TablePatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    hidden: bool | None = None  # LBL-10: delete (true) or restore (false)
     columns: list[ColumnIn] | None = None  # upsert by column_id; others unchanged
 
 

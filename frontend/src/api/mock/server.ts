@@ -894,9 +894,9 @@ export const mockServer: Api = {
     return []
   },
   datasetTableUrl: () => '#',
-  async listLabelTables(pid) {
+  async listLabelTables(pid, deleted = false) {
     await wait(40)
-    return mockLabeling.list(pid, exists(pid).items)
+    return mockLabeling.list(pid, exists(pid).items, deleted)
   },
   async createLabelTable(pid, body) {
     await wait(60)

@@ -2,6 +2,14 @@
 .lbl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .lbl-card { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--fg); cursor: pointer; }
 .lbl-card:hover { background: var(--bg-hover); }
+/* LBL-10: the card's "…" menu sits over its top-right corner, outside the card button */
+.lbl-card-wrap { position: relative; }
+.lbl-card-wrap .lbl-card-head { padding-right: 28px; }
+.lbl-card-wrap > .lbl-menu-btn { position: absolute; top: 6px; right: 6px; }
+.lbl-menu-btn { width: 22px; height: 22px; flex: none; }
+.lbl-deleted { display: flex; flex-direction: column; gap: 4px; }
+.lbl-restore-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lbl-restore-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lbl-card-head { display: flex; align-items: center; gap: 6px; }
 .lbl-card-head .badge { margin-left: auto; }
 .lbl-cols { display: flex; flex-direction: column; }
@@ -17,6 +25,8 @@
 .lbl-head { display: grid; grid-template-columns: inherit; border-bottom: 1px solid var(--border); }
 .lbl-th { display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: var(--bg-sidebar); border: 0; border-right: 1px solid var(--border-muted); color: var(--fg); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .lbl-filters .lbl-th { font-weight: normal; cursor: default; }
+.lbl-th-col { padding: 0 2px 0 0; cursor: default; }
+.lbl-sort { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; padding: 4px 8px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; }
 .lbl-filter { border: 0; border-right: 1px solid var(--border-muted); background: var(--bg-input); color: var(--fg); padding: 2px 6px; font: inherit; min-width: 0; }
 .lbl-scroll { flex: 1; overflow: auto; }
 .lbl-tr { position: absolute; left: 0; right: 0; display: grid; border-bottom: 1px solid var(--border-muted); }

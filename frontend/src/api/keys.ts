@@ -35,6 +35,7 @@ export const keys = {
   plugins: (pid: string | null) => ['plugins', pid] as const,
   packs: () => ['packs'] as const,
   labelTables: (pid: string) => ['project', pid, 'labeling', 'tables'] as const,
+  deletedLabelTables: (pid: string) => ['project', pid, 'labeling', 'tables', 'deleted'] as const,
   labelCells: (pid: string, tid: string) => ['project', pid, 'labeling', 'cells', tid] as const,
   labelHistory: (pid: string, tid: string, target: string, col: string) => ['project', pid, 'labeling', 'history', tid, target, col] as const,
   workspaceRuns: () => ['workspace-runs'] as const,

@@ -688,3 +688,19 @@ Synthetic phantom only; Dataset820 re-run belongs to TST-09 in P7.
 - The folder browser hides dot-folders, so `.fixtures/` can't be picked from the wizard's Data root step.
 - The suggester samples top-level files only; images in subfolders get "nothing to suggest from".
 - The Welcome page's "Import data" action still uses `cloud-download`.
+
+## 2026-09-25 · Label table edit/delete (LBL-02, LBL-10) · version_3-dev
+
+**Why**: the backend could already rename tables and rename/hide columns (API-56 `PATCH`), but nothing in the UI reached it, and a table could not be deleted at all.
+
+**Done** (owner approval 2026-09-25)
+- LBL-10 (new): rename keeps id and slug; Delete = `hidden: true` on the table. A deleted table leaves the list (`GET …/tables`; `?deleted=true` lists only deleted ones), is not a layer or `lbl.*` variable (`state.active_tables`), and answers 404 on cells / history / import / export; only `PATCH` reaches it, and `hidden: false` restores it with its events. Its slug stays reserved (a new table of the same name gets `_2`). Nothing is erased (ADR-0022).
+- API-56 `PATCH` columns: an explicit `null` now clears `unit`, `min`, `max`, `description` (before, `null` meant "unchanged", so an edit form could not clear them); the mock API follows.
+- UI (`plugins/labeling/TableActions.tsx`): "…" on each column header → Edit column… (name, description, levels, unit/min/max; type fixed) / Delete column…; "…" on each table card and in the table tab's toolbar → Edit table… (rename; restore deleted columns) / Delete table… (closes its tab); "Deleted tables (n)" in the Labeling view with Restore. A tab whose table was deleted elsewhere says so. Hidden on view-only links.
+- Docs: LABELING.md LBL-10 + UI note, API.md API-56, TESTING.md TST-19, ROADMAP addendum; OpenAPI snapshot and `schema.d.ts` regenerated.
+
+**Results**: `make check` green: 470 backend + 232 frontend (new Vitest "LBL-02/10: edit and delete a column, delete a table, restore both"). Playwright `labeling`, `p7c-exit`, `view-only` 6/6 (Chromium + Firefox). Visual check in mock mode.
+
+**Open issues**
+- Removing a category level keeps values already entered with that level (shown as is, not flagged).
+- A deleted table can't be erased for good; by design (ADR-0022), not offered.

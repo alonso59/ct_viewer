@@ -147,7 +147,8 @@ class LabelingService:
         atomic_write_json(self._pdir(pid) / state.TABLES, doc.model_dump(mode="json"))
 
     def table(self, pid: str, tid: str) -> LabelTable:
-        t = next((x for x in state.load_tables(self._pdir(pid)).tables if x.table_id == tid), None)
+        """A table that is not deleted; a deleted one is 404 until restored (LBL-10)."""
+        t = next((x for x in state.active_tables(self._pdir(pid)) if x.table_id == tid), None)
         if t is None:
             raise NotFound(f"Label table {tid!r} not found")
         return t
@@ -180,13 +181,16 @@ class LabelingService:
         except ValueError as exc:
             raise ValidationProblem(f"Default of {col.name!r}: {exc}") from None
 
-    def tables(self, pid: str) -> builtins.list[TableInfo]:
-        """LBL-08: progress = filled cells per column over the table's rows."""
+    def tables(self, pid: str, deleted: bool = False) -> builtins.list[TableInfo]:
+        """LBL-08: progress = filled cells per column over the table's rows. `deleted` lists
+        only the deleted tables instead (LBL-10)."""
         pdir = self._pdir(pid)
         items = self.store.load(pid).items
         cells = state.cell_state(pdir)
         out: list[TableInfo] = []
         for t in state.load_tables(pdir).tables:
+            if t.hidden != deleted:
+                continue
             rows = {r[0] for r in targets(t, items)}
             prog = [
                 ColumnProgress(
@@ -219,7 +223,8 @@ class LabelingService:
         return t
 
     async def patch(self, pid: str, tid: str, body: TablePatch) -> LabelTable:
-        """A rename keeps ids and slugs; `hidden: true` hides a column and keeps its events."""
+        """A rename keeps ids and slugs; `hidden: true` hides a column, or the table (LBL-10), and
+        keeps its events; `hidden: false` restores it."""
         async with self.locks(pid):
             doc = state.load_tables(self._pdir(pid))
             t = next((x for x in doc.tables if x.table_id == tid), None)
@@ -227,6 +232,8 @@ class LabelingService:
                 raise NotFound(f"Label table {tid!r} not found")
             if body.name is not None:
                 t.name = body.name.strip()
+            if body.hidden is not None:
+                t.hidden = body.hidden
             taken = {c.slug for c in t.columns}
             for c in body.columns or []:
                 cur = next((x for x in t.columns if x.column_id == c.column_id), None)
@@ -238,10 +245,15 @@ class LabelingService:
                 if c.type is not None and c.type != cur.type:
                     raise ValidationProblem("A column's type cannot change; add a new column")
                 upd: dict[str, Any] = {"name": c.name.strip()}
-                for k in ("levels", "unit", "min", "max", "description", "hidden"):
+                for k in ("levels", "hidden"):
                     v = getattr(c, k)
                     if v is not None:
                         upd[k] = v
+                # an explicit null clears these (an edit form sends what the user emptied)
+                for k in ("unit", "min", "max", "description"):
+                    if k in c.model_fields_set:
+                        v = getattr(c, k)
+                        upd[k] = (v or "") if k == "description" else v
                 new = cur.model_copy(update=upd)
                 if c.default is not None:
                     new.default = self._default(new, c.default)

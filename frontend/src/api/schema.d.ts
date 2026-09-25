@@ -1498,7 +1498,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Tables */
+        /**
+         * List Tables
+         * @description `?deleted=true` lists only the deleted tables (LBL-10).
+         */
         get: operations["list_tables_api_v1_plugins_labeling_projects__pid__tables_get"];
         put?: never;
         /** Create Table */
@@ -3959,6 +3962,11 @@ export interface components {
             level: "case" | "scan" | "item";
             /** Columns */
             columns?: components["schemas"]["LabelColumn"][];
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
             /** Created At */
             created_at: string;
             /** Updated At */
@@ -5411,6 +5419,11 @@ export interface components {
             level: "case" | "scan" | "item";
             /** Columns */
             columns?: components["schemas"]["LabelColumn"][];
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
             /** Created At */
             created_at: string;
             /** Updated At */
@@ -5424,6 +5437,8 @@ export interface components {
         TablePatch: {
             /** Name */
             name?: string | null;
+            /** Hidden */
+            hidden?: boolean | null;
             /** Columns */
             columns?: components["schemas"]["ColumnIn"][] | null;
         };
@@ -9315,7 +9330,9 @@ export interface operations {
     };
     list_tables_api_v1_plugins_labeling_projects__pid__tables_get: {
         parameters: {
-            query?: never;
+            query?: {
+                deleted?: boolean;
+            };
             header?: never;
             path: {
                 pid: string;

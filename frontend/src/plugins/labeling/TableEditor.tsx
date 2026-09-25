@@ -15,6 +15,7 @@ import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { display, fillCells, filterRows, move, parseTsv, pasteCells, rect, sortRows, type Pos } from './model'
 import { ColumnsForm, toColumns, type Draft } from './NewTableDialog'
+import { ColumnMenu, TableMenu } from './TableActions'
 import './labeling.css'
 
 export interface TableParams {
@@ -81,7 +82,8 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const qc = useQueryClient()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const tid = params.tableId
-  const table = useLabelTables(pid).data?.find((x) => x.table_id === tid)
+  const tables = useLabelTables(pid)
+  const table = tables.data?.find((x) => x.table_id === tid)
   const cells = useLabelCells(pid, tid)
   const labels = useProject(pid).data?.label_map ?? []
   const readOnly = registry.readOnly
@@ -171,7 +173,8 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     }
   }
 
-  if (!table) return <div className="page"><p className="muted">{t('common.loading')}</p></div>
+  // LBL-10: deleted (here or by another reviewer) while the tab was open
+  if (!table) return <div className="page"><p className="muted">{t(tables.data ? 'lbl.tableGone' : 'common.loading')}</p></div>
   const selectedCol = cols[active.c] ?? null
   const selectedRow = rows[active.r] ?? null
   return (
@@ -179,6 +182,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
       <div className="lbl-toolbar" role="toolbar" aria-label={t('lbl.toolbar')}>
         <strong>{table.name}</strong>
         <span className="badge">{t(`lbl.level.${table.level}`)}</span>
+        {readOnly ? null : <TableMenu pid={pid} table={table} />}
         <input className="input input-sm" aria-label={t('lbl.findRow')} placeholder={t('lbl.findRow')} value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted lbl-small">{t('lbl.rowsShown', { n: rows.length, total: cells.data?.total ?? 0 })}</span>
         {readOnly ? (
@@ -211,10 +215,13 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
               {t(`lbl.level.${table.level}`)}
             </button>
             {cols.map((c) => (
-              <button key={c.column_id} type="button" role="columnheader" className="lbl-th" title={c.description ?? ''} onClick={() => setSort({ col: c.column_id, dir: sort.col === c.column_id ? (-sort.dir as 1 | -1) : 1 })}>
-                {c.name}
-                {sort.col === c.column_id ? <Icon spec={codicon(sort.dir === 1 ? 'arrow-up' : 'arrow-down')} /> : null}
-              </button>
+              <div key={c.column_id} role="columnheader" className="lbl-th lbl-th-col">
+                <button type="button" className="lbl-sort" title={c.description ?? ''} onClick={() => setSort({ col: c.column_id, dir: sort.col === c.column_id ? (-sort.dir as 1 | -1) : 1 })}>
+                  {c.name}
+                  {sort.col === c.column_id ? <Icon spec={codicon(sort.dir === 1 ? 'arrow-up' : 'arrow-down')} /> : null}
+                </button>
+                {readOnly ? null : <ColumnMenu pid={pid} tid={tid} col={c} />}
+              </div>
             ))}
           </div>
           <div className="lbl-head lbl-filters" role="row">

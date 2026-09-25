@@ -1,4 +1,4 @@
-"""TST-19 backend half (LBL-01..08): tables at case/scan/item level, typed cell events with
+"""TST-19 backend half (LBL-01..08, 10): tables at case/scan/item level, typed cell events with
 last-writer-wins and history, `lbl.*` variables and layers, CSV import report, export, view-only."""
 
 from __future__ import annotations
@@ -126,6 +126,45 @@ def test_rename_keeps_id_and_hide_keeps_events(client: TestClient, pid: str) -> 
     assert len(client.get(f"{url}/history", params={"column_id": grade}).json()) == 1
     assert_problem(client.patch(url, json={"columns": [{"column_id": grade, "name": "x",
                    "type": "text"}]}), "validation")  # fmt: skip
+    size = col(t, "Size")
+    r = client.patch(url, json={"columns": [{"column_id": size, "name": "Size", "max": None,
+                     "unit": "cm", "description": "longest axis"}]}).json()  # fmt: skip
+    s = next(x for x in r["columns"] if x["column_id"] == size)
+    assert (s["max"], s["min"], s["unit"], s["description"]) == (None, 0, "cm", "longest axis")
+
+
+def test_delete_table_hides_it_keeps_events_and_restores(client: TestClient, pid: str) -> None:
+    """LBL-10: rename keeps the slug; delete hides the table everywhere but PATCH; restore is
+    lossless; the slug stays reserved while deleted."""
+    t = make_table(client, pid)
+    url = f"{lab(pid)}/tables/{t['table_id']}"
+    size = col(t, "Size")
+    client.post(f"{url}/cells", json={"cells": [{"column_id": size, "target": CASE,
+                "value": 40}]}, headers=HDR)  # fmt: skip
+    wait_var(client, pid, "lbl.clinical_review.size")
+    r = client.patch(url, json={"name": "Clinical review v2"}).json()
+    assert r["name"] == "Clinical review v2" and r["slug"] == "clinical_review"
+
+    assert client.patch(url, json={"hidden": True}).json()["hidden"] is True
+    assert [x["table_id"] for x in client.get(f"{lab(pid)}/tables").json()] == []
+    gone = client.get(f"{lab(pid)}/tables", params={"deleted": "true"}).json()
+    assert [x["table_id"] for x in gone] == [t["table_id"]]
+    assert_problem(client.get(f"{url}/cells"), "not-found")
+    assert_problem(client.post(f"{url}/cells", json={"cells": [{"column_id": size,
+                   "target": CASE, "value": 1}]}, headers=HDR), "not-found")  # fmt: skip
+    layers = {x["field"] for x in client.get(f"{API}/projects/{pid}/layers").json()}
+    assert "lbl.clinical_review.size" not in layers
+    time.sleep(1.3)
+    names = {v["name"] for v in client.get(f"{API}/projects/{pid}/variables").json()["variables"]}
+    assert "lbl.clinical_review.size" not in names
+    # a new table with the same name gets another slug: the deleted one keeps its variable names
+    other = client.post(f"{lab(pid)}/tables", json={"name": "Clinical review", "level": "case"})
+    assert other.json()["slug"] == "clinical_review_2"
+
+    client.patch(url, json={"hidden": False})
+    row = client.get(f"{url}/cells", params={"q": CASE}).json()["items"][0]
+    assert row["values"][size] == 40
+    assert wait_var(client, pid, "lbl.clinical_review.size")["type"] == "continuous"
 
 
 def wait_var(c: TestClient, pid: str, name: str) -> dict[str, Any]:

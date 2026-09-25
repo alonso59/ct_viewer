@@ -16,6 +16,7 @@ Depends: ADR-0020, ADR-0022, PLUGINS.md, VARIABLES.md, CURATION.md (event rules)
 | LBL-06 | Each column is a metadata layer (ADR-0020) and a typed variable `lbl.{table}.{column}` at the table's level (VAR-*): filters, colour-by, analysis, task selection. | M |
 | LBL-07 | Import a CSV keyed by `case_id` / `patient_id` / scan or `item_id` into a table (a match report as VAR-07); export a table as CSV/Parquet. | S |
 | LBL-08 | Progress per table (filled / total rows per column) in the Labeling view. | S |
+| LBL-10 | A table can be renamed (id and slug kept, so `lbl.{table}.*` names don't change) and deleted. Delete hides the table: it leaves the Labeling view, its columns stop being layers and variables (LBL-06), and its cells can't be written; its events stay in `events/labeling.jsonl` and its slug stays reserved, so Restore brings it back unchanged. Nothing is erased (ADR-0022). Deleted columns (LBL-02) can be restored the same way. | S |
 
 ## Storage
 
@@ -30,6 +31,7 @@ Depends: ADR-0020, ADR-0022, PLUGINS.md, VARIABLES.md, CURATION.md (event rules)
 - LBL-06: a layer provider (dataset table column `lbl.{t}.{c}@labeling:{t}`) and variables of source `layer` with the column's type (`bool`/`category` → categorical, `number` → continuous); scan and item tables use the scan unit (an item value lands on its scan). The catalog is rebuilt 1 s after the last write (coalesced).
 - LBL-07: CSV/TSV import keyed by `case_id`, `patient_id`, `scan`, `item_id` or `target`; columns matched by name or slug; report = matched / unmatched keys, matched and ignored columns, invalid values, events written. Export CSV / Parquet (`target, case_id, columns…`).
 - UI (`frontend/src/plugins/labeling/`, lazy): the Labeling view (tables with per-column progress, New table with columns named freely or from the project labels), the table tab `/p/{pid}/labeling/{tid}`: virtualized grid, arrow/Tab/Enter navigation, typing or Enter/F2 edits (type-aware editors), Space toggles yes/no, Delete clears the selection, Shift+click / Shift+arrows select, paste of a TSV block at the active cell, "Fill selection", per-column filters (`-` = empty) and sort, open the row in the viewer, cell history panel, CSV import report, export. Live sync: `labeling.appended` (or `project.updated` with `labeling`) refreshes the table. View-only links show the view and tab with a "Read only" badge and no editing.
+- LBL-02/10 (UI): a column header menu has Edit column… (name, description; levels for `category`; unit, min, max for `number`; the type is fixed) and Delete column…; a table card menu has Edit table… (rename, restore deleted columns) and Delete table…. Deleted tables are listed under "Deleted tables" in the Labeling view with Restore; deleting a table closes its tab. Writes and CSV import to a deleted table answer 404.
 
 ## Relation to Curation & QC
 

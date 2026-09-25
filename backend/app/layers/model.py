@@ -95,7 +95,7 @@ def labeling_layers(ctx: LayerContext) -> list[Layer]:
     """LBL-06: every visible label column, keyed by case, `case.scan` or item."""
     cells = labeling_state.cell_state(ctx.project_dir)
     out: list[Layer] = []
-    for t in labeling_state.load_tables(ctx.project_dir).tables:
+    for t in labeling_state.active_tables(ctx.project_dir):
         for c in t.columns:
             if c.hidden:
                 continue

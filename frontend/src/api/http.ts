@@ -602,7 +602,7 @@ export const httpApi: Api = {
   // API-42..47
   listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
   listTasks: () => unwrap(client.GET('/api/v1/tasks')),
-  listLabelTables: (pid) => unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid } } })),
+  listLabelTables: (pid, deleted = false) => unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid }, query: deleted ? { deleted } : {} } })),
   createLabelTable: (pid, body) => unwrap(client.POST('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid } }, body })),
   patchLabelTable: (pid, tid, body) => unwrap(client.PATCH('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}', { params: { path: { pid, tid } }, body })),
   async labelCells(pid, tid) {

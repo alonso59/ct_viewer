@@ -24,14 +24,14 @@ Depends: all domain docs.
 | TST-16 | Analyzers | pytest | Phase text/timing/conflict cases, target profiles, readiness codes, activation reindex (ANZ-*) |
 | TST-17 | Plugins | pytest + Vitest | Manifest validation, Library status reasons, contributions registered, pending plugins not openable (PLG-*) |
 | TST-18 | View-only link | pytest + Playwright | API-60 serves reads only, never returns `project_id`, rotation revokes the old token; the UI hides every editing control (PRJ-17, UI-26) |
-| TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report (LBL-*) |
+| TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report, edit / delete / restore of tables and columns (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 
 Import wizard UX (owner addendum 2026-09-25): Vitest `features/import/patternSuggest.test.ts` (SRC-17: stems, groups only when the sample shows them, no guess below half, highlight segments).
 
 P7c exit: `e2e/p7c-exit.spec.ts` walks the whole ROADMAP §P7c exit criterion in one journey (both browsers).
 
-P7c files (Wave 5): TST-19 in `tests/test_labeling.py` (levels, progress, typed cells, LWW, history, rename/hide, `lbl.*` variables and layers, CSV import report, export, view-only, live events); Vitest `plugins/labeling/{model,TableEditor}.test.ts(x)`; Playwright `e2e/labeling.spec.ts` (two browsers, live sync, variable, view-only read-only).
+P7c files (Wave 5): TST-19 in `tests/test_labeling.py` (levels, progress, typed cells, LWW, history, rename/hide, column edits clearing min/max/unit, table delete → 404 + no layers/variables → restore (LBL-10), `lbl.*` variables and layers, CSV import report, export, view-only, live events); Vitest `plugins/labeling/{model,TableEditor}.test.ts(x)`; Playwright `e2e/labeling.spec.ts` (two browsers, live sync, variable, view-only read-only).
 
 P7c files (Wave 4): `tests/test_ct_tools.py` (Open-mode DICOM window + tags, converter window facts); Vitest `features/viewer/model/measure.test.ts`, `features/viewer/display.test.ts`, `api/liveState.test.ts`; Playwright `e2e/ct-tools.spec.ts` (the tool set in Open mode on DICOM and in a case tab, header info with DICOM tags, measurements, Close for both).
 

@@ -57,9 +57,9 @@ function coerce(c: LabelColumn, v: unknown): unknown {
 }
 
 export const mockLabeling = {
-  list(pid: string, items: ItemRecord[]): LabelTableInfo[] {
+  list(pid: string, items: ItemRecord[], deleted = false): LabelTableInfo[] {
     const s = store(pid)
-    return s.tables.map((t) => {
+    return s.tables.filter((t) => !!t.hidden === deleted).map((t) => {
       const rows = new Set(targets(t, items).map((r) => r.target))
       const st = state(s, t.table_id)
       return { ...structuredClone(t), n_rows: rows.size, progress: t.columns.filter((c) => !c.hidden).map((c) => ({ column_id: c.column_id, filled: [...st.values()].filter((e) => e.column_id === c.column_id && rows.has(e.target)).length })) }
@@ -70,7 +70,7 @@ export const mockLabeling = {
     const at = now()
     const cols: LabelColumn[] = []
     for (const c of body.columns ?? []) cols.push({ column_id: id(), slug: slug(c.name, cols.map((x) => x.slug)), name: c.name, type: c.type ?? 'text', levels: c.levels ?? [], unit: c.unit ?? null, min: c.min ?? null, max: c.max ?? null, description: c.description ?? '', default: null, hidden: false })
-    const t: Table = { table_id: id(), slug: slug(body.name, s.tables.map((x) => x.slug)), name: body.name, level: body.level, columns: cols, created_at: at, updated_at: at }
+    const t: Table = { table_id: id(), slug: slug(body.name, s.tables.map((x) => x.slug)), name: body.name, level: body.level, columns: cols, hidden: false, created_at: at, updated_at: at }
     s.tables.push(t)
     return structuredClone(t)
   },
@@ -78,9 +78,20 @@ export const mockLabeling = {
     const t = store(pid).tables.find((x) => x.table_id === tid)
     if (!t) throw new ProblemError(404, 'not-found', 'Label table not found', tid)
     if (body.name) t.name = body.name
+    if (body.hidden != null) t.hidden = body.hidden
     for (const c of body.columns ?? []) {
       const cur = t.columns.find((x) => x.column_id === c.column_id)
-      if (cur) Object.assign(cur, { name: c.name, hidden: c.hidden ?? cur.hidden, levels: c.levels ?? cur.levels })
+      if (cur)
+        Object.assign(cur, {
+          name: c.name,
+          hidden: c.hidden ?? cur.hidden,
+          levels: c.levels ?? cur.levels,
+          // as the API: an explicit null clears these
+          unit: 'unit' in c ? (c.unit ?? null) : cur.unit,
+          min: 'min' in c ? (c.min ?? null) : cur.min,
+          max: 'max' in c ? (c.max ?? null) : cur.max,
+          description: 'description' in c ? (c.description ?? '') : cur.description,
+        })
       else t.columns.push({ column_id: id(), slug: slug(c.name, t.columns.map((x) => x.slug)), name: c.name, type: c.type ?? 'text', levels: c.levels ?? [], unit: c.unit ?? null, min: c.min ?? null, max: c.max ?? null, description: '', default: null, hidden: false })
     }
     t.updated_at = now()
@@ -88,7 +99,7 @@ export const mockLabeling = {
   },
   cells(pid: string, tid: string, items: ItemRecord[]): LabelCellRow[] {
     const s = store(pid)
-    const t = s.tables.find((x) => x.table_id === tid)
+    const t = s.tables.find((x) => x.table_id === tid && !x.hidden)
     if (!t) throw new ProblemError(404, 'not-found', 'Label table not found', tid)
     const st = state(s, tid)
     return targets(t, items).map((r) => {
@@ -105,7 +116,7 @@ export const mockLabeling = {
   },
   write(pid: string, tid: string, cells: LabelCellIn[], reviewer: string, sessionId: string): LabelCellEvent[] {
     const s = store(pid)
-    const t = s.tables.find((x) => x.table_id === tid)
+    const t = s.tables.find((x) => x.table_id === tid && !x.hidden)
     if (!t) throw new ProblemError(404, 'not-found', 'Label table not found', tid)
     const out = cells.map((c) => {
       const col = t.columns.find((x) => x.column_id === c.column_id)
