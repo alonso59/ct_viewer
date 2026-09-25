@@ -1,5 +1,6 @@
 // TST-18 (PRJ-17, UI-26): a view-only link opens the project read-only; editing controls, views and
 // shortcuts are hidden, and the server has no write route on that path. Real backend.
+// AUD-A5-03: nothing the page reads through the token carries the project id or a server path.
 import { resolve } from 'node:path'
 
 import { expect, test } from '@playwright/test'
@@ -21,6 +22,12 @@ test('a view-only link cannot write and hides every editing control', async ({ p
   await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
   const { view_token: token } = await api<{ view_token: string }>('POST', `/projects/${pid}/view-token`)
 
+  // AUD-A5-03: record what the page reads through the token (JSON and CSV; SSE streams never end)
+  const reads: { url: string; body: Promise<string> }[] = []
+  page.on('response', (r) => {
+    const ct = r.headers()['content-type'] ?? ''
+    if (r.url().includes('/api/v1/') && /json|csv/.test(ct)) reads.push({ url: r.url(), body: r.text().catch(() => '') })
+  })
   await page.goto(`/v/${token}`)
   await expect(page.getByText('View only', { exact: true })).toBeVisible()
   expect(page.url()).not.toContain(pid)
@@ -37,6 +44,17 @@ test('a view-only link cannot write and hides every editing control', async ({ p
   await page.keyboard.press('ControlOrMeta+Alt+b')
   await expect(page.locator('.inspector')).toBeVisible()
   await expect(page.locator('.inspector .section-title', { hasText: 'Curation' })).toHaveCount(0)
+
+  // Nothing read through the token carries the project id or an absolute server path; the
+  // project's jobs come through the mirror too (`/view/{token}/jobs`)
+  expect(reads.map((r) => r.url).filter((u) => u.includes('/api/v1/view/'))).not.toHaveLength(0)
+  expect(reads.some((r) => r.url.includes(`/api/v1/view/${token}/jobs`))).toBe(true)
+  for (const r of reads) {
+    expect(r.url).not.toContain(pid)
+    const body = await r.body
+    expect(body, r.url).not.toContain(pid)
+    expect(body, r.url).not.toContain(DATASET)
+  }
 
   // The palette lists no write commands
   await page.keyboard.press('ControlOrMeta+Shift+p')

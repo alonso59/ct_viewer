@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { gotoOpen } from './openMode'
+
 const FIX = resolve(import.meta.dirname, '../../.fixtures/synthetic')
 
 const view = (page: Page, name: string) => page.getByRole('region', { name, exact: true })
@@ -18,7 +20,7 @@ async function zoomIn(page: Page, name: string) {
 }
 
 test('zoom one view, the others unchanged; Fit restores it and keeps the slice index', async ({ page }) => {
-  await page.goto(`/open?path=${encodeURIComponent(`${FIX}/Dataset900/nifti/04_case_00002_0000.nii.gz`)}`)
+  await gotoOpen(page, `${FIX}/Dataset900/nifti/04_case_00002_0000.nii.gz`)
   await expect(page.locator('.vp').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
   // ADR-0024: an opened integer CT is an image, never its own segmentation (no mask notice)
@@ -59,7 +61,7 @@ async function cross(page: Page, name: string): Promise<[number, number]> {
 }
 
 test('pan: the image follows the pointer in every view and both conventions (VW-06, VW-25)', async ({ page }) => {
-  await page.goto(`/open?path=${encodeURIComponent(`${FIX}/Dataset900/nifti/04_case_00002_0000.nii.gz`)}`)
+  await gotoOpen(page, `${FIX}/Dataset900/nifti/04_case_00002_0000.nii.gz`)
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
   await expect(page.locator('.vp-cross-v').first()).toBeAttached()
   for (const convention of ['radiological', 'neurological'] as const) {

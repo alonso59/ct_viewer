@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
+import { gotoOpen } from './openMode'
+
 const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
 const DICOM = resolve(import.meta.dirname, '../../.fixtures/synthetic/dicom')
 
@@ -14,7 +16,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 test('a single DICOM file opens without a project and saves as NIfTI', async ({ page }) => {
-  await page.goto(`/open?path=${encodeURIComponent(`${DICOM}/P900/ct_np/IM0007.dcm`)}`)
+  await gotoOpen(page, `${DICOM}/P900/ct_np/IM0007.dcm`)
   await expect(page.getByText('No project: nothing is saved')).toBeVisible()
   await expect(page.getByRole('listbox', { name: 'Files' }).getByRole('button', { name: /IM0007/ })).toBeVisible()
   await page.getByRole('button', { name: 'Save as NIfTI…' }).click()
@@ -42,4 +44,30 @@ test('a DICOM folder converts into a project from the Tasks tab', async ({ page 
   const item = await api<{ phase: { canonical: string; source: string }; extra: Record<string, unknown> }>('GET', `/projects/${p.project_id}/items/case_00000.01.complete.-`)
   expect(item.phase.source).toMatch(/^analyzer:/)
   expect(item.extra.dicom_sidecar).toBeTruthy()
+})
+
+test('the import wizard converts a DICOM folder with the anonymize choice', async ({ page }) => {
+  // AUD-A5-16 (DCM-05, NFR-17): the wizard's in-project conversion offers `anonymize: basic`
+  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Wizard DICOM ${Date.now()}`, packs: ['ccrcc'] })
+  await api('PUT', `/projects/${p.project_id}/roots/DERIVED`, { path: process.env.E2E_DERIVED, role: 'derived' })
+  await page.goto(`/p/${p.project_id}`)
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByRole('dialog').getByRole('combobox').fill('Import data')
+  await page.getByRole('dialog').getByRole('option', { name: /Import data/ }).click()
+  const wizard = page.getByRole('dialog', { name: 'Import data' })
+  const folders = wizard.getByRole('listbox', { name: 'Folders' })
+  await folders.getByRole('button', { name: /synthetic/ }).click()
+  await folders.getByRole('button', { name: /^dicom$/ }).click()
+  await wizard.getByRole('button', { name: 'Next' }).click()
+  await wizard.getByRole('radio', { name: /DICOM → NIfTI conversion/ }).check()
+  await wizard.getByRole('checkbox', { name: /Anonymize/ }).check()
+  await wizard.getByRole('button', { name: 'Next' }).click()
+  await expect
+    .poll(async () => (await api<{ items: { case_id: string }[] }>('GET', `/projects/${p.project_id}/cases`)).items.map((c) => c.case_id), { timeout: 60_000 })
+    .toEqual(['case_00000', 'case_00001'])
+  const iid = 'case_00000.01.complete.-'
+  const item = await api<{ patient_id: string | null }>('GET', `/projects/${p.project_id}/items/${iid}`)
+  expect(item.patient_id).toBe('case_00000')
+  const tags = await api<Record<string, { Value?: unknown[] }>>('GET', `/projects/${p.project_id}/items/${iid}/dicom-tags`)
+  expect(tags['00120062']?.Value).toEqual(['YES']) // PatientIdentityRemoved
 })

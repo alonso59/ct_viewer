@@ -15,10 +15,11 @@ import {
   type TaskEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, useImportWizard } from '../../features/import'
+import { openPath } from '../../features/open/navigate'
 import { NewProjectDialog } from '../../features/projects'
 import { Dialog, ProblemCard, Progress } from '../../lib'
 import { codicon } from '../../theme'
-import { useConverter } from './store'
+import { defaultDatasetName, useConverter } from './store'
 import './converter.css'
 
 const STEPS = ['source', 'settings', 'estimate', 'run', 'result'] as const
@@ -33,7 +34,6 @@ interface Settings {
 }
 
 const parent = (p: string) => p.replace(/\/[^/]*$/, '') || '/'
-const baseName = (p: string) => p.split('/').filter(Boolean).pop() ?? ''
 const fmtBytes = (n: number | null | undefined) => (n == null ? '—' : n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`)
 
 function StepBar({ step }: { step: Step }) {
@@ -74,7 +74,7 @@ export default function ConverterOverlay() {
   const [browse, setBrowse] = useState<string | null>(initial ? parent(initial) : null)
   const [source, setSource] = useState<string | null>(initial)
   const [target, setTarget] = useState<Target>(pid ? 'project' : 'dataset')
-  const [settings, setSettings] = useState<Settings>({ target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: initial ? baseName(initial).replace(/\.dcm$/i, '') : '' })
+  const [settings, setSettings] = useState<Settings>({ target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: defaultDatasetName() })
   const [estimate, setEstimate] = useState<TaskEstimate | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -123,7 +123,7 @@ export default function ConverterOverlay() {
   const dataset = ws?.dataset_dir ?? ''
   const openDataset = () => {
     close()
-    navigate(`/open?path=${encodeURIComponent(dataset)}`)
+    openPath(navigate, dataset)
   }
   const addToProject = () => {
     if (!addTo) return
@@ -142,7 +142,7 @@ export default function ConverterOverlay() {
             <FolderBrowser path={browse} onPath={(p) => { setBrowse(p); setSource(p) }} selected={source} onSelectFile={(p) => setSource(p)} />
             <div className="conv-row">
               <span className="mono conv-path">{source ?? t('conv.noSource')}</span>
-              <button type="button" className="btn btn-primary" disabled={!source} onClick={() => { setSettings((s) => ({ ...s, name: s.name || baseName(source ?? '') })); setStep('settings') }}>{t('conv.next')}</button>
+              <button type="button" className="btn btn-primary" disabled={!source} onClick={() => { setSettings((s) => ({ ...s, name: s.name || defaultDatasetName() })); setStep('settings') }}>{t('conv.next')}</button>
             </div>
           </div>
         ) : null}

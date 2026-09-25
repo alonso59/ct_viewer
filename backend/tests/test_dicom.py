@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -356,11 +357,19 @@ def test_save_as_nifti(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_pat
     assert r.status_code == 201, r.text
     saved = r.json()
     dest = (tmp_path / "derived").resolve() / "_open" / date.today().isoformat()
-    assert Path(saved["path"]).parent == dest and saved["path"].endswith("ct.nii.gz")
+    # AUD-A2-15 (DCM-05, NFR-17, SRC-14): `basic` names neither file nor patient after a folder
+    stem = Path(saved["path"]).name.removesuffix(".nii.gz")
+    assert Path(saved["path"]).parent == dest and re.fullmatch(r"open-[0-9a-f]{12}", stem)
     side = json.loads(Path(saved["sidecar_path"]).read_text())
-    assert "00100030" not in side and side["00100020"]["Value"] == ["ct"]  # anonymized (DCM-05)
-    again = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={}).json()
-    assert again["path"].endswith("ct-1.nii.gz")  # never overwrites
+    assert "00100030" not in side and side["00100020"]["Value"] == [stem]  # anonymized (DCM-05)
+    assert side["00100010"]["Value"][0] in (stem, {"Alphabetic": stem})
+    assert (
+        "P001" not in json.dumps(side) and Path(saved["sidecar_path"]).name == f"{stem}.dicom.json"
+    )
+    again = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"anonymize": "basic"}).json()
+    assert again["path"].endswith(f"{stem}-1.nii.gz")  # never overwrites
+    plain = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={}).json()
+    assert plain["path"].endswith("/ct.nii.gz")  # without anonymize: the series folder name
     assert tree(root) == before  # R1
     assert_problem(
         dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(root)}),

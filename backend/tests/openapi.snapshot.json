@@ -3751,6 +3751,32 @@
     "title": "FsEntry",
     "type": "object"
    },
+   "FsListRequest": {
+    "properties": {
+     "path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Path"
+     },
+     "role": {
+      "default": "source",
+      "enum": [
+       "source",
+       "derived"
+      ],
+      "title": "Role",
+      "type": "string"
+     }
+    },
+    "title": "FsListRequest",
+    "type": "object"
+   },
    "FsListing": {
     "properties": {
      "entries": {
@@ -12282,41 +12308,19 @@
  "openapi": "3.1.0",
  "paths": {
   "/api/v1/fs/list": {
-   "get": {
-    "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.",
-    "operationId": "fs_list_api_v1_fs_list_get",
-    "parameters": [
-     {
-      "in": "query",
-      "name": "path",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Path"
+   "post": {
+    "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.\n\nA POST so browsed folders (often patient names) stay out of URLs and access logs (NFR-17).",
+    "operationId": "fs_list_api_v1_fs_list_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FsListRequest"
+       }
       }
      },
-     {
-      "in": "query",
-      "name": "role",
-      "required": false,
-      "schema": {
-       "default": "source",
-       "enum": [
-        "source",
-        "derived"
-       ],
-       "title": "Role",
-       "type": "string"
-      }
-     }
-    ],
+     "required": true
+    },
     "responses": {
      "200": {
       "content": {
@@ -19651,6 +19655,53 @@
      }
     },
     "summary": "View Project",
+    "tags": [
+     "view"
+    ]
+   }
+  },
+  "/api/v1/view/{token}/jobs": {
+   "get": {
+    "description": "The project's jobs (API-41) as the view-only link sees them: no `project_id`, no paths.",
+    "operationId": "view_jobs_api_v1_view__token__jobs_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/JobInfo"
+         },
+         "title": "Response View Jobs Api V1 View  Token  Jobs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Jobs",
     "tags": [
      "view"
     ]

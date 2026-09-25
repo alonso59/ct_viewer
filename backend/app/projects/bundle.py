@@ -15,7 +15,7 @@ import posixpath
 import shutil
 import stat
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import IO, Any, Final
 
@@ -24,6 +24,7 @@ from pydantic import ValidationError
 from app.core.errors import ValidationProblem
 from app.core.fsio import atomic_write_json
 from app.core.ids import is_ulid, new_ulid, utc_now
+from app.core.redact import Redactor
 from app.projects.migrations import check_version, migrate
 from app.projects.models import ProjectConfig
 
@@ -150,6 +151,42 @@ def _without_profile_values(data: bytes) -> bytes | None:
     return json.dumps(raw, indent=1).encode("utf-8") if changed else None
 
 
+IMPORTS_FILE: Final = "sources/imports.jsonl"
+WARNINGS_FILE: Final = "index/qc_warnings.jsonl"
+PROJECT_FILES: Final = ("project.json", "project.json.bak")
+
+
+def _roots_of(folder: Path) -> list[tuple[str, str]]:
+    try:
+        raw = json.loads((folder / "project.json").read_bytes())
+    except (OSError, ValueError):
+        return []
+    roots = raw.get("path_roots") if isinstance(raw, dict) else None
+    return [
+        (str(r["alias"]), str(r["path"]))
+        for r in roots or []
+        if isinstance(r, dict) and r.get("alias") and r.get("path")
+    ]
+
+
+def _import_roots_as_aliases(data: bytes) -> bytes | None:
+    """NFR-17: an import record's absolute `root` (often a patient-named folder) becomes its
+    alias ref `{alias}:`; `project.json` keeps the absolute roots by design (PRJ-05)."""
+    rows = _jsonl(data)
+    changed = False
+    for r in rows:
+        if isinstance(r, dict) and str(r.get("root") or "").startswith("/"):
+            r["root"] = f"{r.get('alias') or 'ROOT'}:"
+            changed = True
+    return _dump_jsonl(rows) if changed else None
+
+
+def _redacted_rows(data: bytes, red: Redactor) -> bytes | None:
+    """NFR-17: QC warning messages quote absolute paths (e.g. a reader error)."""
+    new = red.jsonl_bytes(data)
+    return new if new != data else None
+
+
 def _without_view_token(data: bytes) -> bytes | None:
     """PRJ-17: a bundle never carries the view-only token (reset to null)."""
     raw = json.loads(data)
@@ -159,14 +196,16 @@ def _without_view_token(data: bytes) -> bytes | None:
     return json.dumps(raw, indent=2).encode("utf-8")
 
 
-def write_bundle(folder: Path, project_id: str, out: Path) -> int:
+def write_bundle(folder: Path, project_id: str, out: Path, folders: Iterable[str] = ()) -> int:
     """Zip the project folder into `out` (outside `folder`'s bundled part); returns entries.
 
     DICOM-derived rows that were not anonymized at conversion leave with the `basic` profile
-    applied (DCM-05, NFR-17); the project folder itself is not changed.
+    applied (DCM-05, NFR-17); absolute paths in import records and QC messages become alias
+    refs (other server `folders` are elided); the project folder itself is not changed.
     """
     entries = list(_walk(folder))
     scrub = _Scrubber(salt=project_id)
+    red = Redactor(aliases=_roots_of(folder), folders=folders)
     replaced: dict[str, bytes] = {}
     # Rows first (they decide which cases carried PHI), then case summaries and the registry.
     for path, rel in entries:
@@ -175,8 +214,12 @@ def write_bundle(folder: Path, project_id: str, out: Path) -> int:
             if new is not None:
                 replaced[rel] = new
     for path, rel in entries:
-        if rel == "project.json":
+        if rel in PROJECT_FILES:
             new = _without_view_token(path.read_bytes())
+        elif rel == IMPORTS_FILE:
+            new = _import_roots_as_aliases(path.read_bytes())
+        elif rel == WARNINGS_FILE:
+            new = _redacted_rows(path.read_bytes(), red)
         elif rel in CASE_FILES:
             new = scrub.case_rows(path.read_bytes())
         elif rel == IDENTITY_FILE:

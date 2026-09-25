@@ -288,3 +288,44 @@ def test_export_leaves_out_variable_values_and_run_source_paths(tmp_path: Path) 
     assert b"DOE^JANE" not in blob
     assert cat["variables"][0]["tags"] == ["sensitive"]  # user overrides travel (VAR-11)
     assert run["task_id"] == "dicom.convert" and run["selection"]["source"] is None
+
+
+def test_export_turns_import_roots_and_warning_paths_into_alias_refs(tmp_path: Path) -> None:
+    """AUD-A5-02 residual (NFR-17, PRJ-08): `sources/imports.jsonl` roots and QC messages leave
+    as alias refs; `project.json` keeps its absolute roots (PRJ-05); no view token in the `.bak`
+    (PRJ-17)."""
+    from app.projects.bundle import write_bundle
+
+    pid = "01JTESTPROJECT0000000000AD"
+    folder = tmp_path / pid
+    root = "/data/incoming/DOE^JANE"
+    roots = [{"alias": "DATA", "path": root, "role": "source"}]
+    warning = {
+        "code": "UNREADABLE",
+        "path_ref": "DATA:ct/a.nii.gz",
+        "message": f"ImageFileError: File {root}/ct/a.nii.gz is not a gzip file",
+    }
+    bak = {"project_id": pid, "path_roots": roots, "view_token": "T" * 32}
+    imp = {"import_id": "01JIMP", "alias": "DATA", "root": root}
+    files: dict[str, str] = {
+        "project.json": json.dumps({"project_id": pid, "path_roots": roots}),
+        "project.json.bak": json.dumps(bak),
+        "sources/imports.jsonl": json.dumps(imp) + "\n",
+        "index/qc_warnings.jsonl": json.dumps(warning) + "\n",
+    }
+    for rel, text in files.items():
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_text(text)
+
+    out = tmp_path / "b.zip"
+    write_bundle(folder, pid, out, folders=["/data"])
+
+    with zipfile.ZipFile(out) as zf:
+        read = {n.split("/", 1)[1]: zf.read(n) for n in zf.namelist()}
+    imports = [json.loads(line) for line in read["sources/imports.jsonl"].splitlines()]
+    warnings = [json.loads(line) for line in read["index/qc_warnings.jsonl"].splitlines()]
+    assert imports[0]["root"] == "DATA:" and imports[0]["import_id"] == "01JIMP"
+    assert warnings[0]["message"] == "ImageFileError: File DATA:ct/a.nii.gz is not a gzip file"
+    assert json.loads(read["project.json"])["path_roots"][0]["path"] == root  # by design
+    assert json.loads(read["project.json.bak"])["view_token"] is None
+    assert all(b"DOE^JANE" not in v for k, v in read.items() if not k.startswith("project.json"))

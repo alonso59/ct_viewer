@@ -63,7 +63,7 @@ def test_problem_slugs_on_real_endpoints(client: TestClient) -> None:
     assert_problem(client.get(f"{api}/projects/01JAAAAAAAAAAAAAAAAAAAAAAA"), "not-found")
     assert_problem(client.get(f"{api}/projects/not-a-ulid"), "not-found")
     assert_problem(client.post(f"{api}/projects", json={"name": ""}), "validation")
-    assert_problem(client.get(f"{api}/fs/list", params={"path": "/"}), "path-outside-root")
+    assert_problem(client.post(f"{api}/fs/list", json={"path": "/"}), "path-outside-root")
     assert_problem(client.get(f"{api}/jobs/01JAAAAAAAAAAAAAAAAAAAAAAA"), "not-found")
     pid = client.post(f"{api}/projects", json={"name": "c", "packs": ["ccrcc"]}).json()[
         "project_id"

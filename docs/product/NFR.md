@@ -25,5 +25,5 @@ Reference volume: abdominal CT 512×512×600 int16 `.nii.gz` (~180 MB compressed
 | NFR-14 | Every curation event is durable once acknowledged (flushed before HTTP 201) | M | mandatory |
 | NFR-15 | Reproducibility: re-running the same profile on unchanged inputs gives identical features | M | bitwise, or ≤ 1e-9 relative |
 | NFR-16 | Not a medical device; the UI shows "Research use only" in About | M | mandatory |
-| NFR-17 | PHI: DICOM sidecars and tags stay in the derived root; never in bundles, exports, logs or E2E artifacts; optional `anonymize: basic` (DCM-05) | M | mandatory |
+| NFR-17 | PHI: DICOM sidecars and tags stay in the derived root; never in bundles, exports, logs or E2E artifacts; optional `anonymize: basic` (DCM-05). Source paths (folder names are often patient names) never go into URLs (Open mode `/open/{sid}`, `POST /fs/list`), logs (alias refs instead) or default dataset names | M | mandatory |
 | NFR-18 | Geometry fidelity: DICOM → NIfTI and NumPy → NIfTI keep world coordinates (voxel ↔ RAS mm) within 0.01 mm and never swap axes, verified by TST-13 | M | mandatory |

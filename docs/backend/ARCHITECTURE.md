@@ -25,7 +25,7 @@ backend/app/
 ├── api/v1/          # thin routers only: validation + call service + map errors
 │   └── health, projects, fs, imports, cases, items, volumes, curation,
 │       radiomics, dashboard, jobs, events
-├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks
+├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, redact (paths → alias refs, NFR-17)
 ├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
 ├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, full-hash job (IMP-09)
 ├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions (SRC-*)

@@ -59,6 +59,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
             <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
+            <Route path="/open/:sid" element={<><OpenRoute /><ShellOverlays /></>} />
             <Route path="/v/:token" element={<ViewLink />} />
             <Route path="/p/:pid/*" element={<ProjectRoute />} />
           </Routes>

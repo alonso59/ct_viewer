@@ -20,7 +20,7 @@ def assert_problem(res: Any, status: int, slug: str) -> None:
 
 
 def test_roots_listing(client: TestClient, data_root: Path) -> None:
-    body = client.get(API).json()
+    body = client.post(API, json={}).json()
     assert body["path"] is None and body["parent"] is None
     [root] = body["entries"]
     assert root["path"] == str(data_root.resolve())
@@ -32,7 +32,7 @@ def test_list_dir(client: TestClient, data_root: Path) -> None:
     (real / ".hidden").write_text("x")
     (real / "b_file.txt").write_text("abc")
     (real / "A_file.txt").write_text("a")
-    body = client.get(API, params={"path": str(data_root)}).json()
+    body = client.post(API, json={"path": str(data_root)}).json()
     assert body["path"] == str(real) and body["parent"] is None and body["truncated"] is False
     names = [e["name"] for e in body["entries"]]
     kinds = [e["kind"] for e in body["entries"]]
@@ -46,31 +46,39 @@ def test_list_dir(client: TestClient, data_root: Path) -> None:
     assert b["size"] == 3 and b["has_metadata"] is False
     nifti = next(e for e in body["entries"] if e["name"] == "nifti")
     assert nifti["size"] is None
-    sub = client.get(API, params={"path": nifti["path"]}).json()
+    sub = client.post(API, json={"path": nifti["path"]}).json()
     assert sub["parent"] == str(real)
 
 
 def test_errors(client: TestClient, data_root: Path, fixtures_copy: Path) -> None:
-    assert_problem(client.get(API, params={"path": "relative"}), 422, "validation")
+    assert_problem(client.post(API, json={"path": "relative"}), 422, "validation")
     outside = str(fixtures_copy / "outside")
-    assert_problem(client.get(API, params={"path": outside}), 403, "path-outside-root")
+    assert_problem(client.post(API, json={"path": outside}), 403, "path-outside-root")
     escape = str(data_root / ".." / "outside")
-    assert_problem(client.get(API, params={"path": escape}), 403, "path-outside-root")
-    assert_problem(client.get(API, params={"path": str(data_root / "nope")}), 404, "not-found")
+    assert_problem(client.post(API, json={"path": escape}), 403, "path-outside-root")
+    assert_problem(client.post(API, json={"path": str(data_root / "nope")}), 404, "not-found")
     meta = str(data_root / "metadata.jsonl")
-    assert_problem(client.get(API, params={"path": meta}), 404, "not-found")
+    assert_problem(client.post(API, json={"path": meta}), 404, "not-found")
 
 
 def test_symlink_escape_omitted(client: TestClient, data_root: Path, fixtures_copy: Path) -> None:
     os.symlink(fixtures_copy / "outside", data_root / "link_out")
     os.symlink(data_root / "nifti", data_root / "link_in")
-    names = [e["name"] for e in client.get(API, params={"path": str(data_root)}).json()["entries"]]
+    names = [e["name"] for e in client.post(API, json={"path": str(data_root)}).json()["entries"]]
     assert "link_out" not in names and "link_in" in names
-    res = client.get(API, params={"path": str(data_root / "link_out")})
+    res = client.post(API, json={"path": str(data_root / "link_out")})
     assert_problem(res, 403, "path-outside-root")
 
 
 def test_truncated(client: TestClient, data_root: Path, monkeypatch: Any) -> None:
     monkeypatch.setattr(fs, "MAX_ENTRIES", 2)
-    body = client.get(API, params={"path": str(data_root)}).json()
+    body = client.post(API, json={"path": str(data_root)}).json()
     assert body["truncated"] is True and len(body["entries"]) == 2
+
+
+def test_paths_travel_in_the_body_not_the_url(client: TestClient, data_root: Path) -> None:
+    """AUD-A5-16, NFR-17: a browsed folder never lands in a URL (access logs, history)."""
+    assert client.get(API, params={"path": str(data_root)}).status_code == 405
+    assert client.post(API, json={"path": str(data_root)}).json()["path"] == str(
+        data_root.resolve()
+    )

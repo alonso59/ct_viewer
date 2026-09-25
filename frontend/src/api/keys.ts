@@ -31,7 +31,8 @@ export const keys = {
   /** API-31; `body` is the serialized request, so equal settings share one answer */
   validation: (body: string) => ['radiomics', 'schema', 'validate', body] as const,
   fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
-  open: (path: string) => ['open', path] as const,
+  /** API-07 by session id: the route names the session, never the path (AUD-A1-19) */
+  open: (sid: string) => ['open', sid] as const,
   tasks: () => ['tasks'] as const,
   plugins: (pid: string | null) => ['plugins', pid] as const,
   packs: () => ['packs'] as const,

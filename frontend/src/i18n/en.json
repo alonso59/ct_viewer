@@ -691,7 +691,8 @@
     "choose_derived_root": "Choose the derived folder",
     "configure": "Ask the admin to set {{arg}}",
     "axis_order": "Use axis order {{arg}}",
-    "open_folder": "Open the folder instead"
+    "open_folder": "Open the folder instead",
+    "home": "Go to the workspace home"
   },
   "open": {
     "command": "Open file or folder…"

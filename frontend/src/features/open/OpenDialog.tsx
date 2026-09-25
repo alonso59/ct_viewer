@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router'
 import { Dialog } from '../../lib'
 import { FolderBrowser } from '../import'
 import { codicon } from '../../theme'
+import { openPath } from './navigate'
 import { useOpenDialog } from './store'
 
 export default function OpenDialog() {
@@ -30,7 +31,7 @@ export default function OpenDialog() {
             disabled={!target}
             onClick={() => {
               hide()
-              navigate(`/open?path=${encodeURIComponent(target ?? '')}`)
+              if (target) openPath(navigate, target)
             }}
           >
             {t(file ? 'open.openFile' : 'open.openFolder')}

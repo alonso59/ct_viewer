@@ -230,13 +230,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
          * Fs List
          * @description `role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.
+         *
+         *     A POST so browsed folders (often patient names) stay out of URLs and access logs (NFR-17).
          */
-        get: operations["fs_list_api_v1_fs_list_get"];
-        put?: never;
-        post?: never;
+        post: operations["fs_list_api_v1_fs_list_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2045,6 +2047,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/view/{token}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Jobs
+         * @description The project's jobs (API-41) as the view-only link sees them: no `project_id`, no paths.
+         */
+        get: operations["view_jobs_api_v1_view__token__jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/view/{token}/{rest}": {
         parameters: {
             query?: never;
@@ -3426,6 +3448,17 @@ export interface components {
              * @default false
              */
             has_metadata: boolean;
+        };
+        /** FsListRequest */
+        FsListRequest: {
+            /** Path */
+            path?: string | null;
+            /**
+             * Role
+             * @default source
+             * @enum {string}
+             */
+            role: "source" | "derived";
         };
         /** FsListing */
         FsListing: {
@@ -6960,17 +6993,18 @@ export interface operations {
             };
         };
     };
-    fs_list_api_v1_fs_list_get: {
+    fs_list_api_v1_fs_list_post: {
         parameters: {
-            query?: {
-                path?: string | null;
-                role?: "source" | "derived";
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FsListRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -10639,6 +10673,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_jobs_api_v1_view__token__jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"][];
                 };
             };
             /** @description Validation Error */

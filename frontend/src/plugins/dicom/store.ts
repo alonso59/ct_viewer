@@ -17,3 +17,7 @@ export const useConverter = create<ConverterState>()((set) => ({
   show: (p) => set({ open: true, source: p?.source ?? null, pid: p?.pid ?? null }),
   close: () => set({ open: false }),
 }))
+
+const pad = (n: number) => String(n).padStart(2, '0')
+/** AUD-A5-16 (NFR-17): the suggested dataset name; never the source folder's (often a patient) name */
+export const defaultDatasetName = (d = new Date()) => `dataset-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`

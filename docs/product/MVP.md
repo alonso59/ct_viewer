@@ -18,7 +18,7 @@ No `M` requirement is deferred. A deferral is a row here (`ID · reason · targe
 
 ## Blocking findings
 
-REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make docs-srs` prints the numbers). State on 2026-09-26: P0 all fixed (`e858eab`); P1 36 open (7 accepted, 29 undecided). Fix order: PLAN §Triage and fix batches.
+REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make docs-srs` prints the numbers). State on 2026-09-26: P0 all fixed (`e858eab`); P1 36 open (7 accepted, 29 undecided), 33 after FB1. Fix order: PLAN §Triage and fix batches.
 
 ## Release gates
 
@@ -26,7 +26,7 @@ REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make
 |---|---|---|---|
 | REL-01 | Unit, lint and type checks green, requirement check included | `make check` | pass |
 | REL-02 | One Playwright spec walks each journey G1..G4 end to end (Chromium + Firefox, TST-05) | `make e2e` | open: G4 has no spec (AUD-A6-01) |
-| REL-03 | No open P0/P1 audit finding | `make docs-srs` counts | open (36 P1) |
+| REL-03 | No open P0/P1 audit finding | `make docs-srs` counts | open (33 P1 after FB1) |
 | REL-04 | NFR-07 initial JS within budget, enforced by a gate | build + size check | open: over budget (AUD-A0-01) |
 | REL-05 | NFR-10 image size | `make image`, `docker image ls` | pass (arm64 947 MB, amd64 935 MB) |
 | REL-06 | NFR-11, NFR-12, NFR-16, NFR-17 verified | TST-07, network allowlist spec, About | open: no allowlist spec (AUD-A4-02), no About (AUD-A4-05) |

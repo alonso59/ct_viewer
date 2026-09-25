@@ -868,7 +868,7 @@ export const mockServer: Api = {
   async startWorkspaceRun(body) {
     await wait(150)
     const rid = ulid()
-    const name = (body.name ?? '').trim() || (body.selection.source ?? 'dataset').split('/').filter(Boolean).pop() || 'dataset'
+    const name = (body.name ?? '').trim() || `dataset-${now().slice(0, 10)}` // never the source folder's name (NFR-17)
     const at = now()
     workspaceRuns.set(rid, {
       run_id: rid, task: { id: body.task_id, version: '1.1.0', manifest_hash: 'mock' }, plugin: 'dicom', name, status: 'completed', created_at: at, started_at: at, finished_at: at,

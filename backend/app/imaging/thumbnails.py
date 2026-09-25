@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from app.core.errors import JobConflict, Problem
+from app.core.redact import Redactor
 from app.imaging.npy_convert import CACHE_DIR, atomic_write_cache
 from app.jobs.types import JobInfo, JobSpec, WorkUnit
 
@@ -138,10 +139,16 @@ def render_batch(tasks: Sequence[RenderTask]) -> list[str | None]:
     return [render(*t) for t in tasks]
 
 
-async def _log_result(result: Any) -> None:
-    failed = [r for r in result if r is not None] if isinstance(result, list) else []
-    if failed:
-        log.warning("thumbnails failed", extra={"n_failed": len(failed), "first": failed[0]})
+def _result_logger(red: Redactor) -> Callable[[Any], Awaitable[None]]:
+    """Failures are logged with alias refs, never absolute paths (NFR-17, AUD-A5-16)."""
+
+    async def log_result(result: Any) -> None:
+        failed = [r for r in result if r is not None] if isinstance(result, list) else []
+        if failed:
+            first = red.text(str(failed[0]))
+            log.warning("thumbnails failed", extra={"n_failed": len(failed), "first": first})
+
+    return log_result
 
 
 async def schedule_thumbnails(
@@ -184,9 +191,10 @@ async def schedule_thumbnails(
         return None
     todo = list(tasks.values())
     units = [WorkUnit(render_batch, (todo[i : i + BATCH],)) for i in range(0, len(todo), BATCH)]
+    on_result = _result_logger(Redactor(aliases=[(r.alias, r.path) for r in cfg.path_roots]))
     try:
         return jobs.submit(
-            JobSpec(project_id=project_id, kind="thumbnail", units=units, on_result=_log_result)
+            JobSpec(project_id=project_id, kind="thumbnail", units=units, on_result=on_result)
         )
     except JobConflict:
         return None

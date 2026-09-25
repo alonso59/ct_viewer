@@ -67,7 +67,7 @@ frontend/src/
 | `/p/:pid/settings` | Workbench + project settings tab (UI-23) |
 | `/p/:pid/labeling/:tid` | Workbench + label table tab (LBL-03) |
 | `/v/:token` | View-only workbench (UI-26, API-60) |
-| `/open?path=` | Open mode viewer (no project) |
+| `/open/:sid` | Open mode viewer (no project); `/open` with a path in the history state opens it and replaces itself with `/open/{sid}` (`features/open/navigate.ts`, SOURCES §Open mode) |
 
 ## Requirements
 

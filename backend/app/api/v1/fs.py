@@ -93,11 +93,18 @@ def list_dir(real: Path, guard: PathGuard) -> FsListing:
     )
 
 
-@router.get("/fs/list", response_model=FsListing)
-def fs_list(
-    ctx: Ctx, path: str | None = None, role: Literal["source", "derived"] = "source"
-) -> FsListing:
-    """`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS."""
+class FsListRequest(BaseModel):
+    path: str | None = None  # absolute; empty = the allowed roots
+    role: Literal["source", "derived"] = "source"
+
+
+@router.post("/fs/list", response_model=FsListing)
+def fs_list(ctx: Ctx, body: FsListRequest) -> FsListing:
+    """`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.
+
+    A POST so browsed folders (often patient names) stay out of URLs and access logs (NFR-17).
+    """
+    path, role = body.path, body.role
     guard = ctx.workspace.derived_guard if role == "derived" else ctx.guard
     if role == "derived" and not guard.allowed_roots:
         raise DerivedRootRequired(
@@ -110,7 +117,7 @@ def fs_list(
     p = Path(path)
     if not p.is_absolute():
         raise ValidationProblem(
-            "path must be absolute", errors=[{"loc": ["query", "path"], "msg": "not absolute"}]
+            "path must be absolute", errors=[{"loc": ["body", "path"], "msg": "not absolute"}]
         )
     real = guard.check(p)
     if not real.is_dir():

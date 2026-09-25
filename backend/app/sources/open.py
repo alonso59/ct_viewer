@@ -9,6 +9,7 @@ comes only from attach (SRC-10: NIfTI, same geometry).
 
 from __future__ import annotations
 
+import hashlib
 import io
 import shutil
 from collections import OrderedDict
@@ -156,8 +157,10 @@ class OpenSessions:
     def get(self, sid: str) -> OpenSession:
         s = self._s.get(sid)
         if s is None:
-            raise NotFound(
-                f"Open session {sid!r} not found (sessions are not kept across restarts)"
+            raise NotFound(  # UI-18: the route shows how to go on (AUD-A1-19)
+                "This Open session has ended: it was closed, or the server restarted "
+                "(sessions live in server memory only). Open the file or folder again.",
+                actions=["choose_another_path", "home"],
             )
         self._s.move_to_end(sid)
         return s
@@ -284,3 +287,10 @@ def purge_scratch(workspace_root: Path, max_gb: float) -> None:
 
 def fingerprint(path: Path) -> str:
     return quick_fingerprint(path)
+
+
+def pseudonym(fp: str) -> str:
+    """SRC-14 with `anonymize: basic`: the saved file's stem and the sidecar's PatientName /
+    PatientID. Derived from the volume's content fingerprint, never from a folder or file name
+    (DICOM folders are often patient names; NFR-17, AUD-A2-15)."""
+    return "open-" + hashlib.sha256(fp.encode()).hexdigest()[:12]

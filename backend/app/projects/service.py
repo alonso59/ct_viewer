@@ -478,7 +478,9 @@ class Workspace:
         out = self.staging_dir / f"{new_ulid()}.zip"
         async with self.locks(project_id):
             try:
-                await asyncio.to_thread(write_bundle, folder, project_id, out)
+                folders = [str(self.settings.workspace_root), *map(str, self.guard.allowed_roots)]
+                folders += map(str, self.derived_guard.allowed_roots)
+                await asyncio.to_thread(write_bundle, folder, project_id, out, folders)
             except BaseException:
                 out.unlink(missing_ok=True)
                 raise

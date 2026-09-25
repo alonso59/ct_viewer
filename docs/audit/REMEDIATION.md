@@ -40,4 +40,4 @@ Owner decision (2026-09-26): batches run one after another in this session while
 
 | Batch | Commit | Needs review |
 |---|---|---|
-| — | — | — |
+| FB1 | — | A5-16: the default dataset name is now always `dataset-{YYYY-MM-DD}` (the Proposal's "or always" branch; no person-name heuristic). Old `/open?path=` links no longer open anything (they show "No Open session" with next actions). Bundled task `run.json` still keeps `output_dir` (absolute derived path, same class as `project.json` roots); left as is |

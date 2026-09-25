@@ -14,6 +14,7 @@ import asyncio
 import re
 import shutil
 import time
+from datetime import date
 from pathlib import Path
 from typing import Any, Final, Literal
 
@@ -79,6 +80,11 @@ class WorkspaceRun(BaseModel):
     progress: dict[str, int] = Field(default_factory=dict)  # {done, total}
     error: str | None = None
     job_id: str | None = None
+
+
+def default_dataset_name(today: date | None = None) -> str:
+    """`dataset-{YYYY-MM-DD}`: the name when the user gives none (AUD-A5-16)."""
+    return f"dataset-{(today or date.today()).isoformat()}"
 
 
 def dataset_name(raw: str) -> str:
@@ -223,8 +229,8 @@ class WorkspaceTasks:
         if self.jobs.active(WORKSPACE_JOBS, "task", m.id) is not None:
             raise JobConflict(f"A {m.id} workspace run is already active")
         base = self._derived() / DATASETS
-        default = source.name.split(".")[0] if source.is_file() else source.name
-        stem = dataset_name(req.name or default)
+        # never the source folder's name: DICOM folders are often patient names (NFR-17)
+        stem = dataset_name(req.name or default_dataset_name())
         out, n = base / stem, 0
         while out.exists():  # write-once: never reuse a dataset folder
             n += 1

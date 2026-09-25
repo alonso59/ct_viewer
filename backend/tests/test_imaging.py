@@ -279,3 +279,20 @@ def test_render_bad_input_returns_error(tmp_path: Path) -> None:
 def test_render_batch_and_hex() -> None:
     assert thumbnails.hex_to_rgb("#00FFff") == (0, 255, 255)
     assert thumbnails.render_batch([]) == []
+
+
+def test_failure_logs_carry_alias_refs_not_paths(caplog: Any, tmp_path: Path) -> None:
+    """AUD-A5-16, NFR-17: thumbnail and hashing failures log refs, never absolute paths."""
+    import logging
+
+    from app.core.redact import Redactor
+    from app.ingest.hashing import hash_file
+
+    log_result = thumbnails._result_logger(Redactor(aliases=[("DATA", "/srv/DOE^JANE")]))
+    with caplog.at_level(logging.WARNING, logger="app.imaging.thumbnails"):
+        asyncio.run(log_result([None, "ImageFileError: File /srv/DOE^JANE/ct.nii.gz is bad"]))
+    [rec] = caplog.records
+    assert rec.first == "ImageFileError: File DATA:ct.nii.gz is bad"  # type: ignore[attr-defined]
+    missing = tmp_path / "DOE^JANE" / "ct.nii.gz"
+    _, fp, _, err = hash_file("DATA:ct.nii.gz", str(missing))
+    assert fp is None and err is not None and "DATA:ct.nii.gz" in err and str(tmp_path) not in err

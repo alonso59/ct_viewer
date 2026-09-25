@@ -1,10 +1,14 @@
 // Open mode (SRC-09/10/12, VW-21, UI-17): one file or folder in the viewer without a project.
 // Nothing is written to a project; "Create project from this" hands the path to the import wizard.
-import { useEffect, useState } from 'react'
+// The URL is `/open/{sid}` (AUD-A1-19): a path arrives in the history state (`navigate.ts`), is
+// opened once and replaced by the session id; reload and back re-read the session, and a session
+// that has ended (Close, server restart) shows the problem with its next actions (UI-18).
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 
-import { api, useAttachOpen, useOpenSession, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
+import { api, keys, ProblemError, useAttachOpen, useOpenPath, useOpenSession, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
 import { Dialog, ProblemCard } from '../../lib'
 import { NewProjectDialog } from '../projects'
 import { FolderBrowser } from '../import'
@@ -14,6 +18,7 @@ import { BrandMark, Icon, codicon } from '../../theme'
 import { attachedTo, autoLabels, toItemRecord } from './model'
 import { AddDialog } from './AddDialog'
 import { SaveDialog } from './SaveDialog'
+import { openPath, pendingPath } from './navigate'
 import { useOpenDialog } from './store'
 import '../import/import.css'
 import './open.css'
@@ -67,10 +72,25 @@ function AttachDialog({ start, onPick, onClose, error }: { start: string; onPick
 export default function OpenRoute() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [sp] = useSearchParams()
-  const path = sp.get('path')
-  const { data: session, error, isLoading } = useOpenSession(path)
-  const attach = useAttachOpen(path ?? '')
+  const { sid = null } = useParams()
+  const location = useLocation()
+  const pending = sid ? null : pendingPath(location.state)
+  const opening = useOpenPath()
+  const { mutate: open } = opening
+  const started = useRef<string | null>(null)
+  useEffect(() => {
+    if (!pending || started.current === location.key) return
+    started.current = location.key // once per history entry (StrictMode runs effects twice)
+    open(pending, { onSuccess: (s) => navigate(`/open/${encodeURIComponent(s.sid)}`, { replace: true }) })
+  }, [pending, location.key, open, navigate])
+  const live = useOpenSession(sid)
+  const session = live.data
+  const path = session?.path ?? pending
+  // `/open` with neither a session id nor a path to open: the next steps of an ended session
+  const none = useMemo(() => new ProblemError(404, 'not-found', t('open.noSession'), t('open.noSessionHelp'), ['choose_another_path', 'home']), [t])
+  const error = sid ? live.error : pending ? opening.error : none
+  const isLoading = live.isLoading || opening.isPending
+  const attach = useAttachOpen(sid ?? '')
   const [picked, setPicked] = useState<number | null>(null)
   const [orders, setOrders] = useState<Record<number, AxisOrder>>({})
   const [askOrder, setAskOrder] = useState(false)
@@ -80,8 +100,12 @@ export default function OpenRoute() {
   const [adding, setAdding] = useState(false)
   const openDialog = useOpenDialog((s) => s.show)
   useEffect(() => resetDisplay(), [])
+  const qc = useQueryClient()
   const close = async () => {
-    if (session) await api.closeOpen(session.sid).catch(() => undefined)
+    if (session) {
+      await api.closeOpen(session.sid).catch(() => undefined)
+      qc.removeQueries({ queryKey: keys.open(session.sid) }) // back to this URL = an ended session
+    }
     navigate('/')
   }
   // VW-05: an assumed modality the user changed travels into the import (SRC-14/15)
@@ -102,7 +126,8 @@ export default function OpenRoute() {
 
   const onAction = {
     choose_another_path: () => openDialog(),
-    open_folder: () => path && navigate(`/open?path=${encodeURIComponent(parentOf(path))}`),
+    open_folder: () => path && openPath(navigate, parentOf(path)),
+    home: () => navigate('/'),
   }
 
   return (
@@ -208,7 +233,7 @@ export default function OpenRoute() {
             setAttaching(false)
             attach.reset()
           }}
-          onPick={(file) => attach.mutate({ sid: session.sid, n: current.n, file }, { onSuccess: () => setAttaching(false) })}
+          onPick={(file) => attach.mutate({ n: current.n, file }, { onSuccess: () => setAttaching(false) })}
         />
       ) : null}
       {path ? <NewProjectDialog open={creating} onOpenChange={setCreating} prefill={{ path, modality }} /> : null}

@@ -78,8 +78,8 @@ def hash_file(ref: str, path: str) -> HashResult:
     try:
         p = Path(path)
         return ref, quick_fingerprint(p), full_sha256(p), None
-    except OSError as exc:
-        return ref, None, None, f"{type(exc).__name__}: {exc}"
+    except OSError as exc:  # logged: the ref, never the absolute path (NFR-17)
+        return ref, None, None, f"{type(exc).__name__}: {exc}".replace(path, ref)
 
 
 async def start_hash_job(

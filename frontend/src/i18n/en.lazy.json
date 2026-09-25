@@ -509,7 +509,7 @@
     "saveHelp": "A new .nii.gz is written once into this folder, never over an existing file (a -1, -2 … suffix is added). Your source files are never touched.",
     "changeFolder": "Change folder…",
     "sidecar": "Also write the DICOM tags (JSON sidecar)",
-    "anonymize": "Anonymize the sidecar (PS3.15 Basic Profile subset)",
+    "anonymize": "Anonymize (PS3.15 Basic Profile subset): neutral file name, patient name and ID",
     "phiNotice": "DICOM tags can contain patient data (names, IDs, dates, institutions). Keep sidecars in the derived folder; anonymize before sharing.",
     "saved": "Saved {{path}}",
     "addTitle": "Add {{name}} to a project",
@@ -521,7 +521,9 @@
     "noProjects": "No projects yet",
     "actions": "Open-mode actions",
     "convertAction": "Convert DICOM…",
-    "close": "Close"
+    "close": "Close",
+    "noSession": "No Open session",
+    "noSessionHelp": "Open a file or folder to view it without a project. The address bar names the session, never the path."
   },
   "tasks": {
     "kind": {

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from plugins.dicom import cli
 from plugins.dicom.pipeline import STUDY_FIELDS, STUDY_PREFIXES
 
+from app.tasks.workspace_runs import default_dataset_name
 from tests.test_api_ingest import ctx_of, do_import, wait
 from tests.test_contract import assert_problem
 from tests.test_dicom import convert, dc, project, src  # noqa: F401  (fixtures)
@@ -181,6 +182,11 @@ def test_workspace_dataset_then_project(
     wait(dc, off.json()["job_id"])
     ds2 = Path(dc.get(f"{API}/task-runs/{off.json()['run_id']}").json()["dataset_dir"])
     assert "phase" not in {a["field"] for a in read_jsonl(ds2 / "annotations.jsonl")}
+    # AUD-A5-16 (NFR-17): without a name, never the source folder's (often a patient) name
+    unnamed = dc.post(f"{API}/task-runs", json={**no_phase, "name": None})
+    wait(dc, unnamed.json()["job_id"])
+    ds3 = Path(dc.get(f"{API}/task-runs/{unnamed.json()['run_id']}").json()["dataset_dir"])
+    assert ds3.name == default_dataset_name() and src[0].name not in ds3.name
 
 
 def test_workspace_task_errors(dc: TestClient, src: tuple[Path, dict[str, Any]]) -> None:  # noqa: F811

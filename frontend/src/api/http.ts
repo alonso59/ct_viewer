@@ -410,7 +410,8 @@ export const httpApi: Api = {
 
   // API-10..14
   fsList: (path, role = 'source') =>
-    unwrap(client.GET('/api/v1/fs/list', { params: { query: { ...(path ? { path } : {}), role } } })).then(normalizeFs),
+    // a POST: browsed folders (often patient names) stay out of URLs and access logs (NFR-17)
+    unwrap(client.POST('/api/v1/fs/list', { body: { path: path || null, role } })).then(normalizeFs),
   detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
   openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
   openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),

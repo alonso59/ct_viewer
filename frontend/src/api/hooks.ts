@@ -109,14 +109,19 @@ export const useFsList = (path: string | null, role: RootRole = 'source') =>
   useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
 /** API-19 (SRC-01): candidate adapters for a folder or file */
 export const useDetect = () => useMutation({ mutationFn: (path: string) => api.detectSource(path) })
-/** API-07: an Open-mode session for a path (SRC-09); refetching re-opens */
-export const useOpenSession = (path: string | null) =>
-  useQuery({ queryKey: keys.open(path ?? ''), queryFn: () => api.openPath(path ?? ''), enabled: enabled(path), staleTime: Infinity, retry: false })
-export function useAttachOpen(path: string) {
+/** API-07: opens a path (SRC-09) and caches the new session under its id */
+export function useOpenPath() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: (path: string) => api.openPath(path), onSuccess: (s) => qc.setQueryData(keys.open(s.sid), s) })
+}
+/** API-07: a live Open-mode session by id; `not-found` once closed or after a server restart */
+export const useOpenSession = (sid: string | null) =>
+  useQuery({ queryKey: keys.open(sid ?? ''), queryFn: () => api.getOpen(sid ?? ''), enabled: enabled(sid), staleTime: Infinity, retry: false })
+export function useAttachOpen(sid: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ sid, n, file }: { sid: string; n: number; file: string }) => api.attachOpen(sid, n, file),
-    onSuccess: (s) => qc.setQueryData(keys.open(path), s),
+    mutationFn: ({ n, file }: { n: number; file: string }) => api.attachOpen(sid, n, file),
+    onSuccess: (s) => qc.setQueryData(keys.open(sid), s),
   })
 }
 

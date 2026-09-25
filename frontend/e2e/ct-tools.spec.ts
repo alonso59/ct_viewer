@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { gotoOpen } from './openMode'
+
 const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
 const FIX = resolve(import.meta.dirname, '../../.fixtures/synthetic')
 
@@ -44,7 +46,7 @@ async function useTools(page: Page, bar: ReturnType<Page['getByRole']>) {
 }
 
 test('Open mode on DICOM has the CT tool set, DICOM tags and Close', async ({ page }) => {
-  await page.goto(`/open?path=${encodeURIComponent(`${FIX}/dicom/P900`)}`)
+  await gotoOpen(page, `${FIX}/dicom/P900`)
   const bar = page.getByRole('toolbar').filter({ has: page.getByRole('button', { name: 'Invert' }) })
   await expect(bar).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.vp').first()).toBeVisible()

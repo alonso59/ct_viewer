@@ -26,6 +26,7 @@ import { useReviewer } from '../../state'
 import { DerivedRootDialog } from './DerivedRootDialog'
 import { ACCEPTED, FolderBrowser } from './FolderBrowser'
 import { sampleStems, segments, suggestPatterns } from './patternSuggest'
+import { openPath } from '../open/navigate'
 import { useImportWizard, type WizardPrefill } from './store'
 import { Icon, codicon } from '../../theme'
 import './import.css'
@@ -248,6 +249,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
   const [options, setOptions] = useState<NiftiOptions>(prefill?.modality ? { modality: prefill.modality } : {})
   const [reconstruct, setReconstruct] = useState(false)
+  const [anonymize, setAnonymize] = useState(false) // DCM-05 for the in-project conversion
   const [jobId, setJobId] = useState<string | null>(null)
   const [convertError, setConvertError] = useState<unknown>(null)
   const [askDerived, setAskDerived] = useState(false)
@@ -330,7 +332,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     } else if (step === 'detect' && adapter) {
       if (adapter === 'open') {
         close()
-        navigate(`/open?path=${encodeURIComponent(path ?? '')}`)
+        if (path) openPath(navigate, path)
       } else if (adapter === 'dicom.convert') void runConvert()
       else runPreview(adapter as ImportAdapter)
     } else if (step === 'preview' && p) {
@@ -343,7 +345,8 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const runConvert = async () => {
     setConvertError(null)
     try {
-      const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings: {}, selection: { source: path } }, reviewer || undefined)
+      const settings = anonymize ? { anonymize: 'basic' } : {}
+      const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings, selection: { source: path } }, reviewer || undefined)
       setJobId(r.job_id)
       setStep('index')
     } catch (e) {
@@ -359,7 +362,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     },
     open: () => {
       close()
-      navigate(`/open?path=${encodeURIComponent(path ?? '')}`)
+      if (path) openPath(navigate, path)
     },
     choose_another_path: () => setStep('root'),
     choose_derived_root: () => setAskDerived(true),
@@ -466,6 +469,16 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               <Candidates cands={cands} value={adapter} onPick={setAdapter} />
               <div>
                 {adapter === 'nifti-files' ? <NiftiOptionsForm value={options} onChange={setOptions} names={fileNames} /> : null}
+                {adapter === 'dicom.convert' ? (
+                  // AUD-A5-16: the same anonymize choice as the converter window (DCM-05, NFR-17)
+                  <label className="check" style={{ marginTop: 8 }}>
+                    <input type="checkbox" checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} />
+                    <span>
+                      {t('conv.anonymize')}
+                      <span className="muted" style={{ display: 'block', fontSize: 'var(--fs-badge)' }}>{t('conv.phiNotice')}</span>
+                    </span>
+                  </label>
+                ) : null}
                 {adapter === 'metadata-v1' ? (
                   <label className="check" style={{ marginTop: 8 }}>
                     <input type="checkbox" checked={reconstruct} onChange={(e) => setReconstruct(e.target.checked)} />

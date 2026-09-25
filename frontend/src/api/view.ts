@@ -7,3 +7,5 @@ export const viewPath = (url: string) =>
   url
     .replace(/\/api\/v1\/projects\/view-([A-Za-z0-9_-]+)(?=\/|\?|$)/, '/api/v1/view/$1')
     .replace(/\/api\/v1\/plugins\/labeling\/projects\/view-([A-Za-z0-9_-]+)\//, '/api/v1/view/$1/plugins/labeling/')
+    // the project's jobs, without its project_id (API-60, AUD-A5-03)
+    .replace(/\/api\/v1\/jobs\?project=view-([A-Za-z0-9_-]+)$/, '/api/v1/view/$1/jobs')

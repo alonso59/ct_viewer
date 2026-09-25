@@ -135,7 +135,7 @@ def test_derived_root_registration(dclient: TestClient, derived_dir: Path, data_
         dclient.put(f"{API}/projects/{pid}/roots/DATA", json={"path": str(derived_dir)}),
         "path-outside-root",
     )
-    listing = dclient.get(f"{API}/fs/list", params={"role": "derived"}).json()
+    listing = dclient.post(f"{API}/fs/list", json={"role": "derived"}).json()
     assert [e["path"] for e in listing["entries"]] == [str(derived_dir.resolve())]
 
 
@@ -146,7 +146,7 @@ def test_no_derived_roots_configured(client: TestClient, tmp_path: Path) -> None
     )
     assert_problem(r, "derived-root-required")
     assert r.json()["actions"] == ["configure:ALLOWED_DERIVED_ROOTS"]
-    r = client.get(f"{API}/fs/list", params={"role": "derived"})
+    r = client.post(f"{API}/fs/list", json={"role": "derived"})
     assert_problem(r, "derived-root-required")
 
 

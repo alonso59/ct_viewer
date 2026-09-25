@@ -282,11 +282,14 @@ async def open_save(ctx: Ctx, sid: str, n: int, body: SaveBody) -> Saved:
         )
     s = ctx.open_sessions.get(sid)
     it = open_mode.item(s, n)
-    volume, _ = await _nifti_path(ctx, sid, n, body.axis_order)
+    volume, fp = await _nifti_path(ctx, sid, n, body.axis_order)
     await asyncio.to_thread(dest_real.mkdir, parents=True, exist_ok=True)
-    series_dir = (Path(s.root) / it.rel).parent.name
-    stem = formats.stem(it.name) if it.format != "dicom" else series_dir or "dicom"
-    stem = "".join(c if c.isalnum() or c in "-_." else "_" for c in stem) or "volume"
+    if body.anonymize == "basic":  # neither the file name nor the sidecar names the patient
+        stem = open_mode.pseudonym(fp)
+    else:
+        series_dir = (Path(s.root) / it.rel).parent.name
+        stem = formats.stem(it.name) if it.format != "dicom" else series_dir or "dicom"
+        stem = "".join(c if c.isalnum() or c in "-_." else "_" for c in stem) or "volume"
     tmp = dest_real / f".{uuid.uuid4().hex}.tmp"
     await asyncio.to_thread(_gz_copy, volume, tmp)
     out = await asyncio.to_thread(dicom_stage.link_new, tmp, dest_real, stem, ".nii.gz")
