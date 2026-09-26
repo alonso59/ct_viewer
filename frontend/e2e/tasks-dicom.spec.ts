@@ -37,7 +37,7 @@ test('a DICOM folder converts into a project from the Tasks tab', async ({ page 
   await folders.getByRole('button', { name: /^dicom$/ }).click()
   await expect(page.getByText('1 of 1 ready')).toBeVisible()
   await page.getByRole('button', { name: 'Run', exact: true }).click()
-  await expect(page.locator('.task-run').first().getByText('completed', { exact: true })).toBeVisible({ timeout: 45_000 })
+  await expect(page.locator('.task-run').first().getByText('Completed', { exact: true })).toBeVisible({ timeout: 45_000 })
   await expect
     .poll(async () => (await api<{ items: { case_id: string }[] }>('GET', `/projects/${p.project_id}/cases`)).items.map((c) => c.case_id), { timeout: 30_000 })
     .toEqual(['case_00000', 'case_00001'])

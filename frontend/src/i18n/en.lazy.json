@@ -164,8 +164,8 @@
       "pca": "PCA",
       "umap": "UMAP"
     },
-    "errors_one": "{{count}} error",
-    "errors_other": "{{count}} errors",
+    "errors_one": "{{count}} failure or skip",
+    "errors_other": "{{count}} failures and skips",
     "excludedLevel": "{{level}} (n < 5)",
     "exportCsv": "Export CSV",
     "exportPng": "Export PNG",
@@ -186,14 +186,16 @@
       "status": "Curation status"
     },
     "filters": "Dashboard filters",
-    "flagged": "{{n}} of {{total}} flagged",
+    "flagged": "{{n}} of {{total}} items over the threshold",
     "grouping": "Grouping variable",
     "kpi": {
       "failed": "failed",
       "features": "features",
       "items": "items",
       "ok": "ok",
-      "runtime": "runtime"
+      "runtime": "runtime",
+      "skipped": "skipped",
+      "skippedHelp": "Items the index already knew were not ready (no mask, a blocking warning or an absent label). They are skipped, never failed."
     },
     "label": "Label",
     "loa": "95 % limit",
@@ -288,7 +290,14 @@
       "analysis": "Analysis"
     },
     "views": "Views",
-    "z": "robust z"
+    "z": "robust z",
+    "flaggedHelp": "An item is listed when at least one feature has a robust |z| ≥ {{threshold}}. Items are sorted by the number of such features, then by max |z|.",
+    "showAll": "Show all {{n}}",
+    "showTop": "Show the top {{n}}",
+    "phaseChanged_one": "The phase of {{count}} item changed since the run",
+    "phaseChanged_other": "The phase of {{count}} items changed since the run",
+    "phaseAtRun": "{{item}}: {{phase}} (phase at run time: {{atRun}})",
+    "errorsTable": "Failures and skips"
   },
   "queue": {
     "allStatuses": "All statuses",
@@ -422,8 +431,8 @@
     "estimate": "Estimate time",
     "estimateUnits": "{{items}} items × {{labels}} labels = {{units}} extractions",
     "estimateTime": "About {{time}} with {{workers}} workers",
-    "estimateSkipped_one": "{{count}} extraction will be skipped (label absent)",
-    "estimateSkipped_other": "{{count}} extractions will be skipped (label absent)",
+    "estimateSkipped_one": "{{count}} extraction will be skipped (not ready): {{why}}",
+    "estimateSkipped_other": "{{count}} extractions will be skipped (not ready): {{why}}",
     "estimateStale": "Settings or selection changed since the last estimate.",
     "run": "Run",
     "runName": "Run name",
@@ -466,7 +475,21 @@
         "vars": "Not sent with an item list: the variable filters."
       }
     },
-    "segSet": "Segmentation set"
+    "segSet": "Segmentation set",
+    "skipCode": {
+      "no_image": "no image",
+      "no_mask": "no mask in this set",
+      "missing_seg": "no mask",
+      "missing_path": "file missing",
+      "unreadable_file": "file unreadable",
+      "outside_root": "file outside the data roots",
+      "affine_mismatch": "mask does not line up with the image",
+      "shape_mismatch": "mask size differs from the image",
+      "label_absent": "label absent",
+      "label_not_in_set": "label not in the set",
+      "engine": "other"
+    },
+    "skipCount": "{{why}} ({{n}})"
   },
   "bundle": {
     "title": "Import project bundle",
@@ -589,16 +612,6 @@
     "activate": "Use for {{field}}",
     "deactivate": "Stop using for {{field}}",
     "openRadiomics": "Open the radiomics settings",
-    "status": {
-      "queued": "queued",
-      "waiting_for_runner": "waiting for runner",
-      "running": "running",
-      "completed": "completed",
-      "completed_with_errors": "completed with errors",
-      "failed": "failed",
-      "cancelled": "cancelled",
-      "interrupted": "interrupted"
-    },
     "err": {
       "number": "Must be a number",
       "integer": "Must be an integer",
@@ -1119,7 +1132,8 @@
       "nifti-files": "Adapter nifti-files: one row per NIfTI file (SRC-04)",
       "dicom_convert": "Task dicom.convert: DICOM series → NIfTI with sidecars (DCM-*)",
       "open": "Open mode: view without a project (SRC-09)"
-    }
+    },
+    "kpiCasesHelp": "Cases with at least one row that is not excluded upstream; {{excluded}} case(s) whose every row is excluded are counted only under \"excluded upstream\"."
   },
   "lbl": {
     "derivedUsers_one": "The derived variable {{list}} uses it and will show as broken until you delete it in Variables.",

@@ -124,6 +124,7 @@ class IndexStatus(BaseModel):
     job_id: str | None = None
     started_at: str | None = None
     finished_at: str | None = None
-    n_items: int = 0
+    n_items: int = 0  # items not excluded upstream (AUD-A2-08)
+    n_excluded_upstream: int = 0
     n_warnings: int = 0
     error: str | None = None

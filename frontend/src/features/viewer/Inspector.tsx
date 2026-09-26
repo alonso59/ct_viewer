@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useProject, useSegmentations } from '../../api'
+import { NumberInput } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
 
@@ -62,11 +63,11 @@ export function WindowSection() {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8 }}>
         <label className="field">
           <span className="field-label">{t('viewer.width')}</span>
-          <input className="input input-sm num" style={{ width: '100%' }} type="number" value={ww} onChange={(e) => setWindow(+e.target.value, wl)} />
+          <NumberInput className="input input-sm num" style={{ width: '100%' }} value={ww} onChange={(n) => n != null && setWindow(n, wl)} />
         </label>
         <label className="field">
           <span className="field-label">{t('viewer.level')}</span>
-          <input className="input input-sm num" style={{ width: '100%' }} type="number" value={wl} onChange={(e) => setWindow(ww, +e.target.value)} />
+          <NumberInput className="input input-sm num" style={{ width: '100%' }} value={wl} onChange={(n) => n != null && setWindow(ww, n)} />
         </label>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>

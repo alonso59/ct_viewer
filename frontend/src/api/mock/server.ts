@@ -745,6 +745,8 @@ export const mockServer: Api = {
         last_opened_at: s.last_opened_at,
         archived: !!s.archived,
         n_cases: s.project.project_id === OFFLINE_PID ? 820 : sums.length,
+        // AUD-A2-08: cases whose every item is excluded upstream are not counted
+        n_cases_excluded: new Set(s.items.map((i) => i.case_id)).size - new Set(s.items.filter((i) => i.status !== 'excluded_upstream').map((i) => i.case_id)).size,
         curation_progress: s.project.project_id === OFFLINE_PID ? 0.5 : sums.length ? reviewed / sums.length : 0,
         share_url: s.project.share_url,
       }
@@ -1128,7 +1130,7 @@ export const mockServer: Api = {
             { kind: 'phase', name: 'phase.json', source: 'detected', sha256: '634571c4…', rows: 1 },
             { kind: 'voi_catalog', name: 'voi_catalog.jsonl', source: 'detected', sha256: '2fed5d0f…', rows: 10 },
           ],
-      counts: { scan_rows: errors.length ? 0 : 24, voi_rows: errors.length ? 0 : 10, cases: errors.length ? 0 : cases.size, excluded_upstream: errors.length ? 0 : 1 },
+      counts: { scan_rows: errors.length ? 0 : 24, voi_rows: errors.length ? 0 : 10, cases: errors.length ? 0 : cases.size, excluded_upstream: errors.length ? 0 : 1, excluded_cases: 0 },
       errors,
       n_errors: errors.length,
       field_mapping: { image: 'relative_path', seg: 'convention', phase: ['phase.json', 'phase'], side: 'side' },
@@ -1174,7 +1176,8 @@ export const mockServer: Api = {
         job_id: null,
         started_at: null,
         finished_at: last?.at ?? null,
-        n_items: s.items.length,
+        n_items: s.items.filter((i) => i.status !== 'excluded_upstream').length,
+        n_excluded_upstream: s.items.filter((i) => i.status === 'excluded_upstream').length,
         n_warnings: s.warnings.length,
         error: null,
       },
@@ -1454,6 +1457,7 @@ export const mockServer: Api = {
     const n_skipped = items.filter((i) => labels.some((l) => !i.labels_present.includes(l))).length
     return {
       n_items: items.length, n_labels: labels.length, n_units, n_skipped,
+      skipped_by: (n_skipped ? { label_absent: n_skipped } : {}) as Record<string, number>,
       sample_item_ids: items.slice(0, 3).map((i) => i.item_id),
       time_per_item_s: 2.4, time_per_unit_s: 1.2, workers: 2,
       estimated_total_s: Math.round((n_units * 1.2) / 2), sample_errors: [],

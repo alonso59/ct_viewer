@@ -7,7 +7,6 @@ import { revealView, type FrontendPlugin } from '../host'
 import { LazySettingsEditor } from './LazySettingsEditor'
 import { RadiomicsView } from './RadiomicsView'
 
-export { RUN_TONE } from './runs'
 
 export const plugin: FrontendPlugin = {
   id: 'radiomics',

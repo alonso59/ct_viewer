@@ -27,6 +27,11 @@ export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode
     // Leaving the project (e.g. browser Back to the home, AUD-A1-02) leaves no stale project behind
     return () => useWorkbench.setState({ pid: null, active: null })
   }, [pid, load])
+  // UI-13 (AUD-A1-18): the bottom panel follows the active editor type
+  const editorType = useWorkbench((s) => s.active?.type ?? null)
+  useEffect(() => {
+    if (loadedPid === pid) useLayout.getState().setEditorType(editorType)
+  }, [editorType, loadedPid, pid])
   if (loadedPid !== pid) return null
   return (
     <div className="wb">

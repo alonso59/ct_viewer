@@ -1,5 +1,6 @@
 // FE-11: every translation key used in the source exists in en.json (static keys + enum families).
 import { CASE_ROLLUPS, PHASES } from '../api/types'
+import { RUN_STATES } from '../lib/badges'
 import { MENUS, SUBMENUS } from '../shell/menus'
 import { WL_PRESETS } from '../state/viewerSync'
 import en from './en.json'
@@ -59,7 +60,8 @@ test('enum families are complete', () => {
     ['statusShort', CASE_ROLLUPS],
     ['phase', PHASES],
     ['warning', warnings],
-    ['runStatus', ['queued', 'running', 'completed', 'completed_with_errors', 'failed', 'cancelled', 'interrupted']],
+    // AUD-A3-10 (UI-15): one run / job state vocabulary for every view
+    ['runStatus', RUN_STATES],
     ['viewer.layout', ['four-up', 'conventional', 'three-mpr', 'one-up-axial', 'one-up-sagittal', 'one-up-coronal', 'one-up-3d']],
     ['viewer.preset', Object.keys(WL_PRESETS)],
     ['viewer.plane', ['axial', 'sagittal', 'coronal', '3d']],

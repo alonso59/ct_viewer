@@ -74,9 +74,11 @@ def test_registry_survives_reload(ws: Workspace, settings: Settings) -> None:
 def test_list_summary(ws: Workspace) -> None:
     cfg = run(ws.create("Demo"))
     cases = ws.project_dir(cfg.project_id) / "index" / "cases.jsonl"
-    cases.write_text('{"case_id":"case_00001"}\n\n{"case_id":"case_00002"}\n')
+    cases.write_text(
+        '{"case_id":"case_00001"}\n\n{"case_id":"case_00002"}\n{"case_id":"x","n_items":0}\n'
+    )
     [row] = ws.list()
-    assert row.n_cases == 2
+    assert row.n_cases == 2 and row.n_cases_excluded == 1  # AUD-A2-08: all-excluded not counted
     assert row.curation_progress == 0.0
     assert row.share_url == f"{ws.settings.base_url}/p/{cfg.project_id}"
     assert ws.list(archived=True) == []

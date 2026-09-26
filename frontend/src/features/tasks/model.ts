@@ -6,16 +6,6 @@ export type SelectionMode = 'all' | 'explorer' | 'list'
 export const ACTIVE_RUN: TaskRunStatus[] = ['queued', 'waiting_for_runner', 'running']
 export const RESUMABLE_RUN: TaskRunStatus[] = ['failed', 'cancelled', 'interrupted']
 
-export const RUN_TONE: Record<TaskRunStatus, string> = {
-  queued: 'accent',
-  waiting_for_runner: 'warn',
-  running: 'accent',
-  completed: 'ok',
-  completed_with_errors: 'warn',
-  failed: 'error',
-  cancelled: 'muted',
-  interrupted: 'warn',
-}
 
 /** Explorer filter → selection: item list wins; phase and categorical variables map; ranges don't */
 export function fromExplorer(f: Readonly<CaseFilter>): TaskSelection {

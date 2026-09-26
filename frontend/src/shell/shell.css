@@ -514,6 +514,37 @@ button.statusbar-item:hover {
 .list-row:focus-visible {
   outline-offset: -1px;
 }
+/* Two-line list row: title line, muted meta line(s), trailing actions (Dashboards, Radiomics; AUD-A3-21) */
+.list-row-2 {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-height: 40px;
+  padding: 4px var(--sp-3);
+  cursor: default;
+}
+button.list-row-2 {
+  cursor: pointer;
+}
+.list-row-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.list-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-badge);
+}
+.list-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 2px;
+}
 
 /* Design reference */
 .icon-grid {

@@ -185,7 +185,8 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
         </div>
       </div>
 
-      {sets.length > 1 ? (
+      {/* RAD-05: the set is always visible (default `default_seg`), so the run names its masks */}
+      {sets.length ? (
         <div className="rad-field">
           <label className="rad-label" htmlFor="rad-seg">{t('rad.segSet')}</label>
           <select id="rad-seg" className="select" value={sel.seg ?? project?.default_seg ?? 'imported'} onChange={(e) => onChange({ seg: e.target.value })}>

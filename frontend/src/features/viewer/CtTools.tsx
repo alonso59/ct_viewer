@@ -5,7 +5,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Dialog, IconButton } from '../../lib'
+import { Dialog, IconButton, NumberInput } from '../../lib'
 import { useViewerSync, type ViewerDisplay, type ViewerTool } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useViewerLocal } from './local'
@@ -31,11 +31,11 @@ export function WindowInputs() {
     <>
       <label className="toolbar-num" title={t('ct.ww')}>
         {t('ct.w')}
-        <input className="input input-sm num" type="number" min={1} aria-label={t('ct.ww')} disabled={!enabled} value={ww} onChange={(e) => setWindow(Number(e.target.value) || 1, wl)} />
+        <NumberInput className="input input-sm num" min={1} aria-label={t('ct.ww')} disabled={!enabled} value={ww} onChange={(n) => n != null && setWindow(n || 1, wl)} />
       </label>
       <label className="toolbar-num" title={t('ct.wlLevel')}>
         {t('ct.l')}
-        <input className="input input-sm num" type="number" aria-label={t('ct.wlLevel')} disabled={!enabled} value={wl} onChange={(e) => setWindow(ww, Number(e.target.value))} />
+        <NumberInput className="input input-sm num" aria-label={t('ct.wlLevel')} disabled={!enabled} value={wl} onChange={(n) => n != null && setWindow(ww, n)} />
       </label>
       {header ? (
         <button type="button" className="btn btn-sm" disabled={!enabled} title={t('ct.dicomWindowHelp', { ww: header[0], wl: header[1] })} onClick={() => setWindow(header[0], header[1])}>
@@ -74,7 +74,7 @@ export function SlabControls() {
       </Menu.Root>
       {display.slab.mode !== 'none' ? (
         <label className="toolbar-num" title={t('ct.thickness')}>
-          <input className="input input-sm num" type="number" min={1} max={100} aria-label={t('ct.thickness')} value={display.slab.mm} onChange={(e) => set({ slab: { ...display.slab, mm: Math.max(1, Math.min(100, Number(e.target.value) || 1)) } })} />
+          <NumberInput className="input input-sm num" min={1} max={100} aria-label={t('ct.thickness')} value={display.slab.mm} onChange={(n) => n != null && set({ slab: { ...display.slab, mm: Math.max(1, Math.min(100, n || 1)) } })} />
           {t('ct.mm')}
         </label>
       ) : null}

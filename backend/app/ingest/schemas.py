@@ -47,8 +47,9 @@ class InputFile(BaseModel):
 class ImportCounts(BaseModel):
     scan_rows: int = 0
     voi_rows: int = 0
-    cases: int = 0
-    excluded_upstream: int = 0
+    cases: int = 0  # cases with a row that is not excluded upstream (AUD-A2-08)
+    excluded_upstream: int = 0  # scan rows excluded upstream (IMP-07)
+    excluded_cases: int = 0  # cases whose every row is excluded upstream (not in `cases`)
 
 
 class PreviewError(BaseModel):

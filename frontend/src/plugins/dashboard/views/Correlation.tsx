@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView } from '../../../api'
-import { fmtNum } from '../../../lib'
+import { NumberInput, fmtNum } from '../../../lib'
 import { token } from '../../../theme'
-import { Chart, type ChartInstance, type ChartOption } from '../Chart'
+import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
 import { useDashboardStore, useRunDashboard } from '../store'
 import { numParam, usePid, useFocusParams, ViewFrame, type ViewProps } from './common'
 
@@ -31,8 +31,8 @@ export function CorrelationView({ runId }: ViewProps) {
         formatter: (p: { data: [number, number, number | string] }) =>
           `${d.features[p.data[1]] ?? ''}<br/>${d.features[p.data[0]] ?? ''}<br/>ρ = ${typeof p.data[2] === 'number' ? fmtNum(p.data[2]) : '—'}`,
       },
-      xAxis: { type: 'category', data: d.features.map(short), axisLabel: { show: labels, rotate: 70, fontSize: 9, interval: 0 }, axisTick: { show: labels } },
-      yAxis: { type: 'category', data: d.features.map(short), axisLabel: { show: labels, fontSize: 9, interval: 0 }, axisTick: { show: labels } },
+      xAxis: { type: 'category', data: d.features.map(short), axisLabel: { show: labels, rotate: 70, fontSize: fontSize('--fs-badge') - 1, interval: 0 }, axisTick: { show: labels } },
+      yAxis: { type: 'category', data: d.features.map(short), axisLabel: { show: labels, fontSize: fontSize('--fs-badge') - 1, interval: 0 }, axisTick: { show: labels } },
       visualMap: {
         min: -1, max: 1, calculable: true, orient: 'vertical', right: 0, top: 'center', itemHeight: 140,
         textStyle: { color: token('--fg-muted') }, inRange: { color: [token('--cat-1'), token('--bg-editor'), token('--cat-2')] },
@@ -50,7 +50,7 @@ export function CorrelationView({ runId }: ViewProps) {
         <>
           <label className="db-inline">
             {t('dashboard.clusterThreshold')}
-            <input className="input input-sm num" style={{ width: 64 }} type="number" step={0.05} min={0.5} max={1} value={threshold} onChange={(e) => setThreshold(Math.min(1, Math.max(0.5, +e.target.value || 0.9)))} />
+            <NumberInput className="input input-sm num" style={{ width: 64 }} step={0.05} min={0.5} max={1} value={threshold} onChange={(n) => setThreshold(Math.min(1, Math.max(0.5, n || 0.9)))} />
           </label>
           {d ? <span className="muted">{t('dashboard.clusters', { count: d.clusters.length, n: d.clusters.reduce((s, c) => s + c.features.length, 0) })}</span> : null}
           {d?.truncated ? <span className="badge" data-tone="warn">{t('dashboard.truncated')}</span> : null}

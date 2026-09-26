@@ -37,7 +37,7 @@ test('compute full hashes: job in the Jobs panel, then up to date', async ({ pag
   const jobs = page.getByRole('tabpanel').filter({ has: page.getByRole('columnheader', { name: 'Job' }) })
   const row = jobs.getByRole('row').filter({ hasText: 'Full hash' }).first()
   await expect(row).toBeVisible()
-  await expect(row).toContainText('Succeeded', { timeout: 90_000 })
+  await expect(row).toContainText('Completed', { timeout: 90_000 }) // one run-state vocabulary (AUD-A3-10)
   // Results land on the item records (API-21/22)
   const item = await api<{ image: { sha256?: string | null } | null }>('GET', `/projects/${pid}/items/${encodeURIComponent('case_00001.01.complete.-')}`)
   expect(item.image?.sha256).toMatch(/^[0-9a-f]{64}$/)

@@ -39,13 +39,13 @@ test('the fake segmentation plugin adds a set through the host runner', async ({
   await expect(page.getByText('1 of 1 ready')).toBeVisible()
   await page.getByRole('button', { name: 'Run', exact: true }).click()
   const row = page.locator('.task-run').first()
-  await expect(row.getByText('waiting for runner', { exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(row.getByText('Waiting for runner', { exact: true })).toBeVisible({ timeout: 15_000 })
 
   const health = await api<{ ui_config: unknown }>('GET', '/health')
   expect(health).toBeTruthy()
   const workspace = process.env.E2E_WORKSPACE ?? ''
   runner = spawn(resolve(REPO, 'backend/.venv/bin/python'), [resolve(REPO, 'scripts/rw-runner.py'), '--workspace', workspace, '--plugins', process.env.E2E_PLUGINS ?? '', '--poll', '0.2'], { stdio: 'ignore' })
-  await expect(row.getByText('completed', { exact: true })).toBeVisible({ timeout: 45_000 })
+  await expect(row.getByText('Completed', { exact: true })).toBeVisible({ timeout: 45_000 })
   await expect(row.getByText('Segmentation set')).toBeVisible()
   const sets = await api<{ seg_id: string; kind: string; n_items: number }[]>('GET', `/projects/${pid}/segmentations`)
   expect(sets.filter((s) => s.kind === 'task').map((s) => s.n_items)).toEqual([1])

@@ -19,7 +19,7 @@ export function RunOverviewView({ runId }: ViewProps) {
     <ViewFrame
       name={t('dashboard.view.run-overview')}
       query={q}
-      csv={() => [['item_id', 'label', 'message'], ...(d?.errors ?? []).map((e) => [e.item_id, e.label, e.message])]}
+      csv={() => [['item_id', 'label', 'kind', 'code', 'message', 'detail'], ...(d?.errors ?? []).map((e) => [e.item_id, e.label, e.kind, e.code, e.message, e.detail])]}
     >
       {d ? (
         <div className="db-overview">
@@ -27,6 +27,8 @@ export function RunOverviewView({ runId }: ViewProps) {
             <div><span className="kpi num">{fmtInt(d.n_items_selected)}</span><span className="muted">{t('dashboard.kpi.items')}</span></div>
             <div><span className="kpi num" style={{ color: 'var(--ok)' }}>{fmtInt(d.n_items_ok)}</span><span className="muted">{t('dashboard.kpi.ok')}</span></div>
             <div><span className="kpi num" style={{ color: d.n_items_failed ? 'var(--error)' : undefined }}>{fmtInt(d.n_items_failed)}</span><span className="muted">{t('dashboard.kpi.failed')}</span></div>
+            {/* TSK-04 (AUD-A2-05): items known not ready are skipped, never failed */}
+            <div title={t('dashboard.kpi.skippedHelp')}><span className="kpi num" style={{ color: d.n_items_skipped ? 'var(--warn)' : undefined }}>{fmtInt(d.n_items_skipped ?? 0)}</span><span className="muted">{t('dashboard.kpi.skipped')}</span></div>
             <div><span className="kpi num">{fmtInt(d.n_features)}</span><span className="muted">{t('dashboard.kpi.features')}</span></div>
             <div><span className="kpi num">{d.runtime_s != null ? fmtDuration(d.runtime_s) : '—'}</span><span className="muted">{t('dashboard.kpi.runtime')}</span></div>
           </div>
@@ -56,23 +58,41 @@ export function RunOverviewView({ runId }: ViewProps) {
               </tbody>
             </table>
           </div>
+          {d.phase_changed?.length ? (
+            // PHS-03 (AUD-A5-04): views use the effective phase; the run's value is kept as "phase at run time"
+            <details className="db-phase-changed">
+              <summary className="muted">{t('dashboard.phaseChanged', { count: d.phase_changed.length })}</summary>
+              <ul>
+                {d.phase_changed.map((c) => (
+                  <li key={c.item_id} className="mono">{t('dashboard.phaseAtRun', { item: c.item_id, phase: c.phase, atRun: c.phase_at_run })}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           {d.errors.length ? (
             <>
               <div className="section-title">{t('dashboard.errors', { count: d.n_errors })}</div>
-              <table className="table">
+              <table className="table" aria-label={t('dashboard.errorsTable')}>
                 <tbody>
-                  {d.errors.map((e, i) =>
-                    e.item_id ? (
-                      <tr key={`${e.item_id}|${e.label ?? ''}|${i}`} {...rowProps({ item_id: e.item_id, case_id: e.case_id ?? e.item_id.split('.')[0] ?? '' }, selected)} title={t('dashboard.openInViewer')}>
-                        <td style={{ color: 'var(--error)', width: 20 }}><Icon spec={codicon('error')} /></td>
+                  {d.errors.map((e, i) => {
+                    const skipped = e.kind === 'skipped'
+                    const icon = (
+                      <td style={{ color: skipped ? 'var(--warn)' : 'var(--error)', width: 20 }} title={t(`rad.errKindName.${skipped ? 'skipped' : 'failed'}`)}>
+                        <Icon spec={codicon(skipped ? 'debug-step-over' : 'error')} />
+                      </td>
+                    )
+                    return e.item_id ? (
+                      <tr key={`${e.item_id}|${e.label ?? ''}|${i}`} data-kind={e.kind} {...rowProps({ item_id: e.item_id, case_id: e.case_id ?? e.item_id.split('.')[0] ?? '' }, selected)} title={t('dashboard.openInViewer')}>
+                        {icon}
                         <td className="mono">{e.item_id}</td>
                         <td>{e.label != null ? labelName(e.label) : ''}</td>
-                        <td className="muted" style={{ whiteSpace: 'normal' }}>{e.message}</td>
+                        <td>{t(`rad.errKindName.${skipped ? 'skipped' : 'failed'}`)}</td>
+                        <td className="muted" style={{ whiteSpace: 'normal' }} title={e.detail ?? undefined}>{e.message}</td>
                       </tr>
                     ) : (
-                      <tr key={i}><td /><td colSpan={3} className="muted">{e.message}</td></tr>
-                    ),
-                  )}
+                      <tr key={i}>{icon}<td colSpan={4} className="muted">{e.message}</td></tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </>

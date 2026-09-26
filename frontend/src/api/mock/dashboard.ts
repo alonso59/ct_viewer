@@ -180,7 +180,9 @@ const handlers: Partial<Record<DashboardView, Handler>> = {
       run_id: run?.run_id ?? '', name: run?.name ?? '', status: run?.status ?? 'completed', created_at: run?.created_at ?? null,
       runtime_s: run?.started_at && run.finished_at ? (Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000 : null,
       n_items_selected: items.size + new Set(d.errors.map((e) => e.item_id)).size,
-      n_items_ok: items.size, n_items_failed: new Set(d.errors.map((e) => e.item_id)).size, n_features: d.features.length,
+      n_items_ok: items.size, n_features: d.features.length,
+      n_items_failed: new Set(d.errors.filter((e) => e.kind !== 'skipped').map((e) => e.item_id)).size,
+      n_items_skipped: new Set(d.errors.filter((e) => e.kind === 'skipped').map((e) => e.item_id)).size,
       per_label: [...new Set(rows.map((r) => r.label))].sort().map((label) => {
         const rs = rows.filter((r) => r.label === label)
         return { label, n_items: rs.length, n_values: rs.reduce((s, r) => s + Object.keys(r.values).length, 0) }
@@ -188,7 +190,8 @@ const handlers: Partial<Record<DashboardView, Handler>> = {
       per_phase: count(byItem.map((r) => r.phase)),
       curation: count(byItem.map((r) => d.statusOf.get(r.case_id) ?? 'not_reviewed')),
       n_errors: d.errors.length,
-      errors: d.errors.map((e) => ({ item_id: e.item_id, case_id: e.item_id.split('.')[0] ?? null, label: e.label, message: e.error })),
+      errors: d.errors.map((e) => ({ item_id: e.item_id, case_id: e.item_id.split('.')[0] ?? null, label: e.label, message: e.error, kind: e.kind, code: e.code ?? null, detail: e.detail ?? null })),
+      phase_changed: [],
     }
   },
   'feature-distribution': (body: ViewRequest<'feature-distribution'>, d): ViewResponse<'feature-distribution'> => {
@@ -230,9 +233,10 @@ const handlers: Partial<Record<DashboardView, Handler>> = {
         max_abs_z: Math.abs(zs[0]?.z ?? 0), n_outlier_features: out.length, top_features: zs.slice(0, body?.top_features ?? 5),
       }
     })
-    const flagged = items.filter((i) => i.max_abs_z >= threshold).sort((a, b) => b.max_abs_z - a.max_abs_z)
+    // as the backend: features over the threshold first, then max |z| (AUD-A2-06)
+    const flagged = items.filter((i) => i.n_outlier_features > 0).sort((a, b) => b.n_outlier_features - a.n_outlier_features || b.max_abs_z - a.max_abs_z)
     return {
-      threshold, n_items: rows.length, n_flagged: flagged.length, items: flagged.slice(0, body?.top_n ?? 50),
+      threshold, n_items: rows.length, n_flagged: flagged.length, items: flagged.slice(0, body?.top_n ?? 10),
       features: [...counts].map(([feature, n]) => ({ feature, n_outlier_items: n })).sort((a, b) => b.n_outlier_items - a.n_outlier_items),
     }
   },

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 from app.core.paths import open_source
+from app.ingest.counting import split_cases
 from app.ingest.normalize import PHASE_FIELDS
 from app.ingest.parsers import FILE_NAMES, IMAGE_FIELDS, FileKind, ParsedInputs, is_excluded
 from app.ingest.schemas import FieldMapping, ImportCounts, InputFile, PreviewError
@@ -56,12 +57,17 @@ def input_files(blobs: dict[FileKind, InputBlob], parsed: ParsedInputs) -> list[
 
 
 def counts(parsed: ParsedInputs) -> ImportCounts:
-    cases = {r.case_id for r in parsed.metadata} | {r.case_id for r in parsed.catalog}
+    """IMP-03 preview counts; an all-excluded case is not a case (`counting`, AUD-A2-08)."""
+    meta = {r.case_id for r in parsed.metadata}
+    rows = [(r.case_id, is_excluded(r)) for r in parsed.metadata]
+    rows += [(r.case_id, False) for r in parsed.catalog if r.case_id not in meta]
+    cases, excluded = split_cases(rows)
     return ImportCounts(
         scan_rows=len(parsed.metadata),
         voi_rows=len(parsed.catalog),
         cases=len(cases),
         excluded_upstream=sum(1 for r in parsed.metadata if is_excluded(r)),
+        excluded_cases=len(excluded),
     )
 
 

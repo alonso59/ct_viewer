@@ -40,12 +40,14 @@ test('new project → import → browse → share link', async ({ page, browser,
   // Preview: the three input files and the counts from the fixtures
   for (const f of ['metadata.jsonl', 'phase.json', 'voi_catalog.jsonl']) await expect(wizard.getByRole('cell', { name: f, exact: true })).toBeVisible()
   const kpi = (label: string) => wizard.locator('.card', { hasText: label }).locator('.kpi')
-  await expect(kpi('cases')).toHaveText('50')
+  // IMP-03 (AUD-A1-08 / A2-08): 50 case ids − case_00022 excluded upstream = 49 cases, and the card says why
+  await expect(kpi('cases')).toHaveText('49')
+  await expect(wizard.locator('.card', { hasText: 'cases' }).first()).toHaveAttribute('title', /1 case\(s\) whose every row is excluded/)
   await expect(kpi('scan rows')).toHaveText('89')
   await wizard.getByRole('button', { name: 'Import and index' }).click()
 
-  // Indexing job → wizard closes with a toast
-  await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
+  // Indexing job → wizard closes with a toast that counts the same cases
+  await expect(page.getByRole('status').filter({ hasText: 'Import finished: 49 cases indexed' })).toBeVisible({ timeout: 30_000 })
   await expect(wizard).toBeHidden()
 
   // Browse: Project view lists cases; open case_00001

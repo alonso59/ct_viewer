@@ -180,7 +180,8 @@ def test_state_rollup_and_case_summaries(
     case = by_id[it["case_id"]]
     assert case["n_items_active"] == len(active)
     assert case["n_items_reviewed"] == len({it["item_id"], *[s["item_id"] for s in siblings[:1]]})
-    n_cases = len(ctx_of(client).index.load(pid).cases)
+    # AUD-A2-08: a case whose every item is excluded upstream is not counted
+    n_cases = sum(1 for c in ctx_of(client).index.load(pid).cases if c.n_items > 0)
 
     def progress() -> float:
         rows = [p for p in client.get(f"{API}/projects").json() if p["project_id"] == pid]

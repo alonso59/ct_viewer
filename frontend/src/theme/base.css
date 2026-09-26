@@ -313,6 +313,25 @@ textarea.input {
   text-align: right;
 }
 
+/* Truncation rule (UI-08, AUD-A3-13): one line with an ellipsis; the element carries the full value in
+   `title`. Paths use a middle ellipsis in text (`midEllipsis`) so both ends stay readable. */
+.truncate {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+span.truncate,
+a.truncate,
+button.truncate {
+  display: inline-block;
+  vertical-align: bottom;
+}
+td.truncate {
+  max-width: 320px;
+}
+
 .empty {
   display: flex;
   flex-direction: column;

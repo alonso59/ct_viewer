@@ -3021,6 +3021,13 @@
       "title": "Sample Item Ids",
       "type": "array"
      },
+     "skipped_by": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Skipped By",
+      "type": "object"
+     },
      "time_per_item_s": {
       "anyOf": [
        {
@@ -4328,6 +4335,11 @@
       "title": "Cases",
       "type": "integer"
      },
+     "excluded_cases": {
+      "default": 0,
+      "title": "Excluded Cases",
+      "type": "integer"
+     },
      "excluded_upstream": {
       "default": 0,
       "title": "Excluded Upstream",
@@ -4652,6 +4664,11 @@
        }
       ],
       "title": "Job Id"
+     },
+     "n_excluded_upstream": {
+      "default": 0,
+      "title": "N Excluded Upstream",
+      "type": "integer"
      },
      "n_items": {
       "default": 0,
@@ -6262,7 +6279,7 @@
       "type": "integer"
      },
      "top_n": {
-      "default": 50,
+      "default": 10,
       "maximum": 5000.0,
       "minimum": 1.0,
       "title": "Top N",
@@ -6830,6 +6847,35 @@
      "path"
     ],
     "title": "PathRoot",
+    "type": "object"
+   },
+   "PhaseChange": {
+    "description": "PHS-03 / AUD-A5-04: an item whose effective phase differs from the run's value.",
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "phase": {
+      "title": "Phase",
+      "type": "string"
+     },
+     "phase_at_run": {
+      "title": "Phase At Run",
+      "type": "string"
+     }
+    },
+    "required": [
+     "item_id",
+     "case_id",
+     "phase",
+     "phase_at_run"
+    ],
+    "title": "PhaseChange",
     "type": "object"
    },
    "PhaseEvent": {
@@ -7821,6 +7867,11 @@
      "n_cases": {
       "default": 0,
       "title": "N Cases",
+      "type": "integer"
+     },
+     "n_cases_excluded": {
+      "default": 0,
+      "title": "N Cases Excluded",
       "type": "integer"
      },
      "name": {
@@ -8853,6 +8904,11 @@
       "title": "N Items Selected",
       "type": "integer"
      },
+     "n_items_skipped": {
+      "default": 0,
+      "title": "N Items Skipped",
+      "type": "integer"
+     },
      "name": {
       "title": "Name",
       "type": "string"
@@ -8869,6 +8925,13 @@
        "$ref": "#/components/schemas/LevelCount"
       },
       "title": "Per Phase",
+      "type": "array"
+     },
+     "phase_changed": {
+      "items": {
+       "$ref": "#/components/schemas/PhaseChange"
+      },
+      "title": "Phase Changed",
       "type": "array"
      },
      "run_id": {
@@ -12249,6 +12312,28 @@
       ],
       "title": "Case Id"
      },
+     "code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Code"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
      "item_id": {
       "anyOf": [
        {
@@ -12259,6 +12344,15 @@
        }
       ],
       "title": "Item Id"
+     },
+     "kind": {
+      "default": "failed",
+      "enum": [
+       "failed",
+       "skipped"
+      ],
+      "title": "Kind",
+      "type": "string"
      },
      "label": {
       "anyOf": [
@@ -12319,11 +12413,33 @@
     "type": "object"
    },
    "app__radiomics__models__RunError": {
-    "description": "One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.",
+    "description": "One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.\n\n`code` names the cause (`radiomics/causes.py`, AUD-A2-05), `error` says it in plain words,\n`detail` keeps the engine's own text for failures. Rows written before FB5 have no code.",
     "properties": {
      "at": {
       "title": "At",
       "type": "string"
+     },
+     "code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Code"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
      },
      "error": {
       "title": "Error",

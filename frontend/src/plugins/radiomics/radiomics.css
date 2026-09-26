@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  container-type: inline-size; /* AUD-A3-06: the layout follows the editor width, not the window */
 }
 .rad-top {
   flex: none;
@@ -14,11 +15,18 @@
   align-items: center;
   gap: var(--sp-2);
 }
+/* One content width for form editors (UI-20, AUD-A3-06): at most --form-max-width, centred */
+.rad-top-row,
+.rad-body {
+  width: 100%;
+  max-width: var(--form-max-width);
+  margin: 0 auto;
+}
 .rad-body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  grid-template-columns: 200px minmax(0, 1fr) 280px;
 }
 .rad-nav {
   border-right: var(--border-width) solid var(--border);
@@ -45,7 +53,7 @@
 }
 .rad-field {
   display: grid;
-  grid-template-columns: 220px minmax(0, 360px);
+  grid-template-columns: minmax(140px, 220px) minmax(0, 360px);
   align-items: start;
   gap: var(--sp-3);
   padding: 6px 0;
@@ -228,74 +236,52 @@ button.rad-issue {
   display: flex;
   gap: 2px;
 }
-/* Radiomics view (left pane) */
-.rad-view {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  padding: 0 0 var(--sp-3);
-}
-.rad-view-pad {
-  padding: 0 var(--sp-3);
-}
-.rad-view-new {
-  width: 100%;
-  justify-content: center;
-}
-.rad-hash {
-  margin-left: auto;
-  font-size: var(--fs-badge);
-}
-.rad-runs {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.rad-run {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px var(--sp-3);
-  border-bottom: var(--border-width) solid var(--border-muted);
-}
-.rad-run-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.rad-run-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-.rad-run-meta {
-  display: flex;
+
+/* Segmented controls and long labels wrap instead of clipping (AUD-A3-06) */
+.rad .seg {
   flex-wrap: wrap;
-  gap: 0 var(--sp-2);
-  font-size: var(--fs-badge);
 }
-.rad-run-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: var(--fs-badge);
+.rad .seg button {
+  white-space: nowrap;
 }
-.rad-run-actions {
-  display: flex;
-  gap: 2px;
+.rad-field label {
+  white-space: normal;
 }
-.rad-errors {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--fs-panel);
+/* Narrow editor (about a 1366 px window with the side bar open): the Validation / Run panel moves
+   under the form and the whole body scrolls */
+@container (max-width: 1040px) {
+  .rad-body {
+    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow: auto;
+  }
+  .rad-nav {
+    grid-row: 1 / span 2;
+  }
+  .rad-form {
+    overflow: visible;
+  }
+  .rad-side {
+    grid-column: 2;
+    border-left: 0;
+    border-top: var(--border-width) solid var(--border);
+    overflow: visible;
+  }
 }
-.rad-errors th,
-.rad-errors td {
-  text-align: left;
-  padding: 4px var(--sp-2);
-  border-bottom: var(--border-width) solid var(--border-muted);
-  vertical-align: top;
+@container (max-width: 640px) {
+  .rad-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rad-nav {
+    grid-row: auto;
+    border-right: 0;
+    border-bottom: var(--border-width) solid var(--border);
+  }
+  .rad-side {
+    grid-column: 1;
+  }
+  .rad-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
 }

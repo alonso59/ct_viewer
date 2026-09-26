@@ -56,7 +56,7 @@ export function WelcomeEditor() {
     <div className="page">
       <div className="page-inner">
         <h1>{project?.name}</h1>
-        <p className="muted">{t('welcome.subtitle', { cases: cases.length, items: nItems })}</p>
+        <p className="muted" title={t('welcome.subtitleHelp', { excluded: index?.n_excluded_upstream ?? 0 })}>{t('welcome.subtitle', { cases: cases.length, items: nItems })}</p>
         <div className="stat-grid">
           <div className="card">
             <span className="kpi num">{t('welcome.pct', { v: cases.length ? Math.round((reviewed / cases.length) * 100) : 0 })}</span>

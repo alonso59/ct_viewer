@@ -4,24 +4,32 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
-import { Dialog, IconButton, Progress, fmtAgo, fmtDuration } from '../../lib'
+import { Dialog, IconButton, Progress, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
+import { openInContext } from '../../features/explorer'
 import { errorMessage } from './errors'
-import { ACTIVE, DONE, RESUMABLE, RUN_TONE, runProgress } from './runs'
+import { ACTIVE, DONE, RESUMABLE, runProgress } from './runs'
 import { fromWire } from './model/settings'
 import type { RunSummary } from './model/types'
 import { useDraft } from './store'
+import './radiomics-view.css'
 
+/** Failures first, then skips (items known not ready, TSK-04); a row opens the item (DB-03, AUD-A2-05) */
 function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onClose: () => void }) {
   const { t } = useTranslation()
   const errors = useRunErrors(pid, run.run_id)
+  const rows = [...(errors.data ?? [])].sort((a, b) => Number(a.kind === 'skipped') - Number(b.kind === 'skipped'))
+  const open = (itemId: string) => {
+    onClose()
+    openInContext(t('rad.errorsList', { name: run.name }), rows.map((e) => ({ caseId: e.item_id.split('.')[0] ?? e.item_id, itemId: e.item_id })), rows.findIndex((e) => e.item_id === itemId), true)
+  }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('rad.errorsTitle', { name: run.name })} icon={codicon('warning')} size="lg">
       {errors.isLoading ? <div className="muted">{t('common.loading')}</div> : null}
       {errors.error ? <div className="field-error">{errorMessage(errors.error, t('common.error'))}</div> : null}
       {errors.data?.length === 0 ? <div className="muted">{t('rad.noErrors')}</div> : null}
-      {errors.data?.length ? (
+      {rows.length ? (
         <table className="rad-errors">
           <thead>
             <tr>
@@ -32,12 +40,15 @@ function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onC
             </tr>
           </thead>
           <tbody>
-            {errors.data.map((e) => (
-              <tr key={`${e.item_id}-${e.label}-${e.at}`}>
+            {rows.map((e) => (
+              <tr key={`${e.item_id}-${e.label}-${e.at}`} data-kind={e.kind} tabIndex={0} title={t('rad.openItem')} onClick={() => open(e.item_id)} onKeyDown={(k) => k.key === 'Enter' && open(e.item_id)}>
                 <td className="mono">{e.item_id}</td>
                 <td className="num">{e.label}</td>
                 <td>{t(`rad.errKindName.${e.kind}`)}</td>
-                <td>{e.error}</td>
+                <td title={e.detail ?? undefined}>
+                  {e.error}
+                  {e.code ? <span className="badge mono rad-code">{e.code}</span> : null}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -56,22 +67,23 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
     control.mutateAsync({ rid: run.run_id, action }).catch((e: unknown) => toast({ message: errorMessage(e, t('common.error')), tone: 'error' }))
   const done = DONE.includes(run.status)
   return (
-    <li className="rad-run" data-status={run.status}>
-      <div className="rad-run-head">
+    <li className="list-row list-row-2" data-status={run.status}>
+      <div className="list-row-title">
         <Icon spec={codicon('graph')} />
         {done ? (
-          <button type="button" className="link rad-run-name" onClick={() => openEditor('run', { runId: run.run_id })}>{run.name}</button>
+          <button type="button" className="link rad-run-name" title={run.name} onClick={() => openEditor('run', { runId: run.run_id })}>{run.name}</button>
         ) : (
-          <span className="rad-run-name">{run.name}</span>
+          <span className="rad-run-name" title={run.name}>{run.name}</span>
         )}
-        <span className="badge" data-tone={RUN_TONE[run.status]}>{t(`runStatus.${run.status}`)}</span>
+        <RunStatusBadge status={run.status} />
       </div>
-      <div className="muted rad-run-meta">
+      {/* AUD-A1-08: what the counts mean */}
+      <div className="list-row-meta" title={t('rad.runCountsHelp', { items: c.items, ok: c.ok, failed: c.failed, skipped: c.skipped })}>
         <span>{t('rad.runCounts', { ok: c.ok, items: c.items, features: c.features })}</span>
         {c.failed ? <span className="field-error">{t('rad.runFailed', { count: c.failed })}</span> : null}
         {c.skipped ? <span className="field-warning">{t('rad.runSkipped', { count: c.skipped })}</span> : null}
       </div>
-      <div className="muted rad-run-meta">{t('rad.runBy', { reviewer: run.reviewer, ago: fmtAgo(run.created_at) })}</div>
+      <div className="list-row-meta">{t('rad.runBy', { reviewer: run.reviewer, ago: fmtAgo(run.created_at) })}</div>
       {p ? (
         <div className="rad-run-progress" data-testid={`progress-${run.run_id}`}>
           <Progress value={p.done} total={p.total} />
@@ -80,19 +92,31 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
           </span>
         </div>
       ) : null}
-      <div className="rad-run-actions">
+      <div className="list-row-actions">
         {ACTIVE.includes(run.status) ? <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={() => void act('cancel')} /> : null}
         {RESUMABLE.includes(run.status) ? <IconButton label={t('rad.resume')} icon={codicon('debug-continue')} disabled={control.isPending} onClick={() => void act('resume')} /> : null}
-        {c.failed || c.skipped ? <IconButton label={t('rad.showErrors')} icon={codicon('warning')} onClick={onErrors} /> : null}
+        {done ? (
+          // AUD-A1-10 / A3-21: labelled actions next to the exports
+          <button type="button" className="btn btn-sm" onClick={() => openEditor('run', { runId: run.run_id })}>
+            <Icon spec={codicon('graph')} />
+            {t('rad.openDashboard')}
+          </button>
+        ) : null}
+        {c.failed || c.skipped ? (
+          <button type="button" className="btn btn-sm" onClick={onErrors}>
+            <Icon spec={codicon('warning')} />
+            {t('rad.showErrors')}
+          </button>
+        ) : null}
         {done ? (
           <>
-            {/* AUD-A1-10: an explicit "Open dashboard" action next to the exports */}
-            <IconButton label={t('rad.openDashboard')} icon={codicon('graph')} onClick={() => openEditor('run', { runId: run.run_id })} />
-            <a className="icon-btn" href={api.runExportUrl(pid, run.run_id, 'csv', 'long')} download aria-label={t('rad.exportLong')} title={t('rad.exportLong')}>
+            <a className="btn btn-sm" href={api.runExportUrl(pid, run.run_id, 'csv', 'long')} download aria-label={t('rad.exportLong')} title={t('rad.exportLong')}>
               <Icon spec={codicon('cloud-download')} />
+              {t('rad.csvLong')}
             </a>
-            <a className="icon-btn" href={api.runExportUrl(pid, run.run_id, 'csv', 'wide')} download aria-label={t('rad.exportWide')} title={t('rad.exportWide')}>
+            <a className="btn btn-sm" href={api.runExportUrl(pid, run.run_id, 'csv', 'wide')} download aria-label={t('rad.exportWide')} title={t('rad.exportWide')}>
               <Icon spec={codicon('table')} />
+              {t('rad.csvWide')}
             </a>
           </>
         ) : null}
@@ -122,7 +146,7 @@ export function RadiomicsView() {
         <div className="section-title">{t('rad.runs')}</div>
         {runs.isLoading ? <div className="muted rad-view-pad">{t('common.loading')}</div> : null}
         {runs.error ? <div className="field-error rad-view-pad">{errorMessage(runs.error, t('common.error'))}</div> : null}
-        {runs.isSuccess && list.length === 0 ? <div className="muted rad-view-pad">{t('rad.noRuns')}</div> : null}
+        {runs.isSuccess && list.length === 0 ? <div className="empty">{t('rad.noRuns')}</div> : null}
         <ul className="rad-runs" aria-label={t('rad.runs')}>
           {list.map((r) => (
             <RunRow key={r.run_id} pid={pid} run={r} jobs={jobs} onErrors={() => setErrorsOf(r)} />
@@ -131,7 +155,7 @@ export function RadiomicsView() {
       </div>
       <div>
         <div className="section-title">{t('rad.profiles')}</div>
-        {profiles.isSuccess && profiles.data.length === 0 ? <div className="muted rad-view-pad">{t('rad.noProfiles')}</div> : null}
+        {profiles.isSuccess && profiles.data.length === 0 ? <div className="empty">{t('rad.noProfiles')}</div> : null}
         {(profiles.data ?? []).map((p) => (
           <button
             key={p.profile_hash}
@@ -146,7 +170,7 @@ export function RadiomicsView() {
             }}
           >
             <Icon spec={codicon('symbol-namespace')} />
-            <span>{p.name}</span>
+            <span className="truncate" title={p.name}>{p.name}</span>
             <span className="muted mono rad-hash">{p.profile_hash.replace(/^sha256:/, '').slice(0, 8)}</span>
           </button>
         ))}

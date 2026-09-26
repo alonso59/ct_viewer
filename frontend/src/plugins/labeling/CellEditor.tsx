@@ -8,12 +8,13 @@ import type { LabelColumn } from '../../api'
 export function CellEditor({ col, value, onCommit, onCancel }: { col: LabelColumn; value: unknown; onCommit: (v: unknown) => void; onCancel: () => void }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(value == null ? '' : String(value))
+  const norm = (d: string) => (col.type === 'number' ? d.trim().replace(',', '.') : d)
   const keys = (e: KeyboardEvent) => {
     e.stopPropagation()
     if (e.key === 'Escape') onCancel()
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault()
-      onCommit(draft)
+      onCommit(norm(draft))
     }
   }
   if (col.type === 'category')
@@ -28,11 +29,13 @@ export function CellEditor({ col, value, onCommit, onCancel }: { col: LabelColum
       className="lbl-input"
       autoFocus
       aria-label={col.name}
-      type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
+      // numbers: a text field that accepts `,` or `.` as the decimal point (AUD-A3-04)
+      type={col.type === 'date' ? 'date' : 'text'}
+      {...(col.type === 'number' ? { inputMode: 'decimal' as const, role: 'spinbutton' } : {})}
       value={draft}
       onKeyDown={keys}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => onCommit(draft)}
+      onBlur={() => onCommit(norm(draft))}
     />
   )
 }

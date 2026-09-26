@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ProblemError, useCreateDerived, useImportExternal, useVariables, type DerivedOp, type ExternalImportResult } from '../../api'
-import { Dialog } from '../../lib'
+import { Dialog, NumberInput } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import { categoricalSources, defaultLabels, numericSources, parseNumbers, toDefinition, type DerivedDraft } from './derived'
@@ -107,7 +107,7 @@ function DerivedDialog({ pid }: { pid: string }) {
             ) : (
               <label className="field">
                 <span className="field-label">{t('variables.quantiles')}</span>
-                <input className="input num" type="number" min={2} max={10} value={d.quantiles} onChange={(e) => set({ quantiles: e.target.value })} />
+                <NumberInput className="input num" min={2} max={10} value={d.quantiles} onChange={(_, raw) => set({ quantiles: raw })} />
               </label>
             )}
             <label className="field">

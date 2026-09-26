@@ -181,3 +181,28 @@
   color: var(--fg-muted);
   font-size: var(--fs-badge);
 }
+
+/* Outlier table (AUD-A2-06, A3-13, A3-15): the top feature column keeps ≥ 160 px, values align */
+.db-outliers {
+  table-layout: auto;
+}
+.db-outliers .db-top-feature {
+  min-width: 160px;
+  max-width: 320px;
+}
+.db-outliers .db-top-feature .link {
+  max-width: 100%;
+  text-align: left;
+}
+.db-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-2);
+}
+.db-phase-changed {
+  font-size: var(--fs-badge);
+}
+.db-phase-changed ul {
+  margin: 4px 0 0;
+  padding-left: var(--sp-4);
+}

@@ -124,6 +124,7 @@ class RadiomicsTask(RadiomicsService):
             basis="sample" if res.time_per_item_s is not None else "unknown",
             sample_item_ids=res.sample_item_ids,
             sample_errors=res.sample_errors,
+            detail={"skipped_by": res.skipped_by} if res.skipped_by else {},
         )
 
     async def start_task(
@@ -184,7 +185,7 @@ class RadiomicsTask(RadiomicsService):
             TaskItemError(
                 item_id=e.item_id,
                 status="skipped" if e.kind == "skipped" else "failed",
-                message=f"label {e.label}: {e.error}",
+                message=f"label {e.label}: {e.error}" + (f" ({e.code})" if e.code else ""),
             )
             for e in self.errors(pid, rid)
         ]

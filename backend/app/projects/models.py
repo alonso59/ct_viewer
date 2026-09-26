@@ -190,7 +190,8 @@ class ProjectSummary(BaseModel):
     created_at: str
     last_opened_at: str | None = None
     archived: bool = False
-    n_cases: int = 0
+    n_cases: int = 0  # cases with an item not excluded upstream (AUD-A2-08)
+    n_cases_excluded: int = 0  # cases whose every item is excluded upstream
     curation_progress: float = 0.0  # 0..1; filled by curation (lane P4)
     share_url: str  # PRJ-03
 

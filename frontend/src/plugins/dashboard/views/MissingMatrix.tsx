@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useDashboardView } from '../../../api'
 import { fmtInt } from '../../../lib'
 import { token } from '../../../theme'
-import { Chart, type ChartInstance, type ChartOption } from '../Chart'
+import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
 import { openRef, useItemMenu, usePid, ViewFrame, type ViewProps } from './common'
 
@@ -38,8 +38,8 @@ export function MissingMatrixView({ runId }: ViewProps) {
           return `${item?.item_id ?? ''}<br/>${feat?.feature ?? ''}: ${t(`dashboard.missing.${KINDS[p.data[2]] ?? 'nan'}`)}`
         },
       },
-      xAxis: { type: 'category', data: view.iIdx.map((i) => d.items[i]?.item_id ?? ''), axisLabel: { rotate: 60, fontSize: 10 } },
-      yAxis: { type: 'category', data: view.fIdx.map((f) => d.features[f]?.feature ?? ''), axisLabel: { fontSize: 10 } },
+      xAxis: { type: 'category', data: view.iIdx.map((i) => d.items[i]?.item_id ?? ''), axisLabel: { rotate: 45, fontSize: fontSize('--fs-badge') } },
+      yAxis: { type: 'category', data: view.fIdx.map((f) => d.features[f]?.feature ?? ''), axisLabel: { fontSize: fontSize('--fs-badge') } },
       visualMap: {
         type: 'piecewise', show: true, orient: 'horizontal', left: 'center', bottom: 0, textStyle: { color: token('--fg-muted') },
         pieces: KINDS.map((k, i) => ({ value: i, label: t(`dashboard.missing.${k}`), color: [token('--warn'), token('--error'), token('--fg-muted')][i] })),

@@ -184,3 +184,12 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 - Mock-only defaults ("Simulate a second reviewer", demo projects) exist only with `VITE_API_MODE=mock`; Settings hides them otherwise.
 
 - Radiomics settings tab: left nav (Selection + schema groups with error badges), the form, and a side panel (validation list, summary, estimate, Run). The Radiomics view lists runs (progress, cancel, resume, failures, exports) and profiles.
+
+## Implementation notes (FB5)
+
+- **Numbers (AUD-A3-04, owner 2026-09-25):** English format everywhere (`lib/format.ts`): a point as the decimal separator; counts keep the English thousands separator, measured values never get one. Number fields are `NumberInput` (`lib/ui.tsx`): a text field with `inputmode="decimal"` and spin-button semantics that accepts `,` or `.`; ↑/↓ step. Feature values (`fmtValue` / `fmtColumn`): 3 significant digits (whole numbers keep their integer digits), scientific above 1e5 or below 1e-3, for a whole column once one cell needs it; tabular figures; the unit from the feature class (`featureUnit`: shape → mm/mm²/mm³, original first-order intensities → HU on CT) (AUD-A3-15).
+- **Run and job states (UI-15, TSK-06; AUD-A3-10):** one sentence-case vocabulary (`runStatus.*`, `RunStatusBadge` in `lib/badges.tsx`) in the Tasks, Radiomics, Dashboard and Jobs views; a job's `succeeded` reads "Completed".
+- **Truncation (UI-08, AUD-A3-13):** `.truncate` (one line, ellipsis) always carries the full value in `title`; paths use a middle ellipsis (`midEllipsis`).
+- **Panel per editor type (UI-13, AUD-A1-18):** the bottom panel's visibility is remembered per editor type; it starts closed on full-height editors (radiomics settings, dashboards, tasks, project settings) and open elsewhere.
+- **Form editors (UI-20, AUD-A3-06):** content at most `--form-max-width` (1200 px), centred; the radiomics settings side panel moves under the form when the editor is narrower than 1040 px (about a 1366 px window with the side bar), and segmented controls wrap.
+- **Two-line list rows (AUD-A3-21):** `.list-row-2` (title, meta lines, labelled trailing actions) for the Dashboards and Radiomics views; empty states use `.empty`.

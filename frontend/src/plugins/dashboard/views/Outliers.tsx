@@ -1,86 +1,116 @@
-// Outlier table: robust z (median/MAD) per item, top-N items and features; one click opens the item
+// Outlier table: robust z (median/MAD) per item, ranked by the number of features over the threshold,
+// then by max |z| (owner 2026-09-25, AUD-A2-06); top 10 + "Show all"; one click opens the item (DB-03)
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useDashboardView } from '../../../api'
-import { StatusBadge, fmt1, fmtInt, fmtNum } from '../../../lib'
+import { useDashboardView, useProject } from '../../../api'
+import { NumberInput, StatusBadge, featureUnit, fmtColumn, fmtInt } from '../../../lib'
 import { useDashboardStore, useRunDashboard } from '../store'
 import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
+
+export const OUTLIERS_TOP = 10
 
 export function OutliersView({ runId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
   const { filters } = useRunDashboard(runId)
   const focusView = useDashboardStore((s) => s.focusView)
+  const modality = useProject(pid).data?.default_modality
   const [threshold, setThreshold] = useState(3.5)
+  const [all, setAll] = useState(false)
   useFocusParams(runId, 'outliers', (p) => setThreshold(numParam(p.threshold) ?? threshold))
-  const q = useDashboardView(pid, runId, 'outliers', { filters, threshold })
+  const first = useDashboardView(pid, runId, 'outliers', { filters, threshold, top_n: OUTLIERS_TOP })
+  const nFlagged = first.data?.n_flagged ?? 0
+  const more = all && nFlagged > OUTLIERS_TOP
+  const full = useDashboardView(pid, runId, 'outliers', more ? { filters, threshold, top_n: nFlagged } : null)
+  const q = more && full.data ? full : first
   const labelName = useLabelName()
   const { selected } = useSelection(runId)
   const d = q.data
-  const zFmt = (z: number) => (Math.abs(z) >= 1e4 ? z.toExponential(1) : fmt1(z))
+  // only items with a feature over the threshold are outliers; the server ranks them first
+  const rows = (d?.items ?? []).filter((o) => o.n_outlier_features > 0)
+  const zFmt = fmtColumn(rows.map((o) => o.max_abs_z))
+  const vFmt = fmtColumn(rows.map((o) => o.top_features[0]?.value))
   return (
     <ViewFrame
       name={t('dashboard.view.outliers')}
       query={q}
       csv={() => [
         ['item_id', 'case_id', 'label', 'status', 'max_abs_z', 'n_outlier_features', 'top_feature', 'top_value', 'top_z'],
-        ...(d?.items ?? []).map((i) => [i.item_id, i.case_id, i.label, i.status, i.max_abs_z, i.n_outlier_features, i.top_features[0]?.feature, i.top_features[0]?.value, i.top_features[0]?.z]),
+        ...rows.map((i) => [i.item_id, i.case_id, i.label, i.status, i.max_abs_z, i.n_outlier_features, i.top_features[0]?.feature, i.top_features[0]?.value, i.top_features[0]?.z]),
       ]}
       controls={
         <>
           <label className="db-inline">
             {t('dashboard.threshold')}
-            <input className="input input-sm num" style={{ width: 64 }} type="number" step={0.5} min={1} value={threshold} onChange={(e) => setThreshold(+e.target.value || 3.5)} />
+            <NumberInput className="input input-sm num" style={{ width: 64 }} step={0.5} min={1} value={threshold} onChange={(n) => setThreshold(n || 3.5)} />
           </label>
-          {d ? <span className="muted">{t('dashboard.flagged', { n: fmtInt(d.n_flagged), total: fmtInt(d.n_items) })}</span> : null}
+          {d ? (
+            <span className="muted" title={t('dashboard.flaggedHelp', { threshold })} data-testid="outliers-flagged">
+              {t('dashboard.flagged', { n: fmtInt(d.n_flagged), total: fmtInt(d.n_items) })}
+            </span>
+          ) : null}
         </>
       }
     >
-      {d && d.items.length === 0 ? <div className="empty">{t('dashboard.noOutliers')}</div> : null}
-      {d?.items.length ? (
-        <table className="table" aria-label={t('dashboard.view.outliers')}>
-          <thead>
-            <tr>
-              <th>{t('dashboard.col.item')}</th>
-              <th>{t('dashboard.label')}</th>
-              <th className="num">{t('dashboard.col.maxZ')}</th>
-              <th className="num">{t('dashboard.col.nFeatures')}</th>
-              <th>{t('dashboard.col.topFeature')}</th>
-              <th className="num">{t('dashboard.col.value')}</th>
-              <th>{t('dashboard.filter.status')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {d.items.map((o) => {
-              const top = o.top_features[0]
-              return (
-                <tr key={`${o.item_id}|${o.label}`} {...rowProps(o, selected, { label: t('dashboard.view.outliers'), rows: d.items })} title={t('dashboard.openInViewer')}>
-                  <td className="mono">{o.item_id}</td>
-                  <td>{labelName(o.label)}</td>
-                  <td className="num" style={{ color: o.max_abs_z > threshold * 2 ? 'var(--error)' : 'var(--warn)' }}>{zFmt(o.max_abs_z)}</td>
-                  <td className="num">{fmtInt(o.n_outlier_features)}</td>
-                  <td className="mono">
-                    {top ? (
-                      <button
-                        type="button"
-                        className="link"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          focusView(runId, 'feature-distribution', { feature: top.feature })
-                        }}
-                      >
-                        {top.feature}
-                      </button>
-                    ) : null}
-                  </td>
-                  <td className="num">{top?.value != null ? fmtNum(top.value) : '—'}</td>
-                  <td><StatusBadge status={asStatus(o.status)} compact /></td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {d && rows.length === 0 ? <div className="empty">{t('dashboard.noOutliers')}</div> : null}
+      {rows.length ? (
+        <>
+          <table className="table db-outliers" aria-label={t('dashboard.view.outliers')}>
+            <thead>
+              <tr>
+                <th>{t('dashboard.col.item')}</th>
+                <th>{t('dashboard.label')}</th>
+                <th className="num">{t('dashboard.col.nFeatures')}</th>
+                <th className="num">{t('dashboard.col.maxZ')}</th>
+                <th>{t('dashboard.col.topFeature')}</th>
+                <th className="num">{t('dashboard.col.value')}</th>
+                <th>{t('dashboard.filter.status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((o) => {
+                const top = o.top_features[0]
+                const unit = top ? featureUnit(top.feature, modality) : ''
+                return (
+                  <tr key={`${o.item_id}|${o.label}`} {...rowProps(o, selected, { label: t('dashboard.view.outliers'), rows })} title={t('dashboard.openInViewer')}>
+                    <td className="mono truncate" title={o.item_id}>{o.item_id}</td>
+                    <td>{labelName(o.label)}</td>
+                    <td className="num">{fmtInt(o.n_outlier_features)}</td>
+                    <td className="num" style={{ color: o.max_abs_z > threshold * 2 ? 'var(--error)' : 'var(--warn)' }}>{zFmt(o.max_abs_z)}</td>
+                    <td className="mono db-top-feature">
+                      {top ? (
+                        <button
+                          type="button"
+                          className="link truncate"
+                          title={top.feature}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            focusView(runId, 'feature-distribution', { feature: top.feature })
+                          }}
+                        >
+                          {top.feature}
+                        </button>
+                      ) : null}
+                    </td>
+                    <td className="num">
+                      {vFmt(top?.value)}
+                      {unit && top?.value != null ? <span className="muted"> {unit}</span> : null}
+                    </td>
+                    <td><StatusBadge status={asStatus(o.status)} compact /></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {nFlagged > OUTLIERS_TOP ? (
+            <div className="db-more">
+              <button type="button" className="btn btn-sm" aria-expanded={all} onClick={() => setAll(!all)}>
+                {all ? t('dashboard.showTop', { n: OUTLIERS_TOP }) : t('dashboard.showAll', { n: fmtInt(nFlagged) })}
+              </button>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </ViewFrame>
   )

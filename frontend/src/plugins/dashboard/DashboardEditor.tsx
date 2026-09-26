@@ -7,11 +7,11 @@ import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
 import { useRun } from '../../api'
+import { RunStatusBadge } from '../../lib'
 import { toast, type EditorProps } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { showItemsInExplorer } from '../../features/explorer'
 import '../../i18n/lazy'
-import { RUN_TONE } from '../radiomics'
 import { FilterBar } from './FilterBar'
 import { useDashboardStore, useRunDashboard } from './store'
 import { ItemMenu, PANELS, type PanelId } from './views'
@@ -174,7 +174,7 @@ export function DashboardEditor({ params }: EditorProps<RunParams>) {
       <div className="db-top">
         <Icon spec={codicon('graph')} />
         <strong>{r.name}</strong>
-        <span className="badge" data-tone={RUN_TONE[r.status]}>{t(`runStatus.${r.status}`)}</span>
+        <RunStatusBadge status={r.status} />
         {r.engine ? <span className="muted mono db-meta">{t('dashboard.meta', { engine: `${r.engine.name} ${r.engine.version}`, hash: r.profile_hash.replace(/^sha256:/, '').slice(0, 12) })}</span> : null}
         <span style={{ flex: 1 }} />
         <ViewsMenu api={api} runId={runId} />

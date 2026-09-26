@@ -65,6 +65,11 @@ class IndexStore:
             entry.phase_sig = sig
         return entry.joined
 
+    def effective_phases(self, project_id: str) -> dict[str, str]:
+        """PHS-03: item id → effective phase; joined at read time by every consumer of run
+        outputs (dashboards, analyses, feature exports; AUD-A5-04)."""
+        return {it.item_id: it.phase.canonical for it in self.load(project_id).items}
+
     def load_resolved(self, project_id: str) -> ProjectIndex:
         """The index as indexed, without the phase join: the base for index writers."""
         return self._entry(project_id).resolved

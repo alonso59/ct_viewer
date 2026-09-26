@@ -14,6 +14,7 @@ import re
 import secrets
 import shutil
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from typing import IO, Any, Final
 
@@ -34,6 +35,7 @@ from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard, PathResolver, is_within, realpath
 from app.curation.state import case_reviews
+from app.ingest.counting import split_cases
 from app.projects.bundle import extract_bundle, write_bundle
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
@@ -154,7 +156,7 @@ class Workspace:
     def summary(self, project_id: str) -> ProjectSummary:
         entry = self.entry(project_id)
         folder = self._folder(entry)
-        case_ids = _case_ids(folder / "index" / "cases.jsonl")
+        case_ids, excluded = _case_ids(folder / "index" / "cases.jsonl")
         # CUR-08: a case counts once every active item has a decision (partial cases don't)
         reviewed = sum(
             1
@@ -166,6 +168,7 @@ class Workspace:
         return ProjectSummary(
             **entry.model_dump(),
             n_cases=len(case_ids),
+            n_cases_excluded=len(excluded),
             curation_progress=reviewed / len(case_ids) if case_ids else 0.0,
             share_url=self.share_url(project_id),
         )
@@ -421,6 +424,20 @@ class Workspace:
             new = cur.model_copy(update={"path_roots": roots, "updated_at": utc_now()})
             return self._save(new)
 
+    async def edit_label_map(
+        self,
+        project_id: str,
+        edit: Callable[[builtins.list[LabelEntry]], builtins.list[LabelEntry]],
+    ) -> ProjectConfig:
+        """Read-modify-write of the label map under the project lock (AUD-A5-12)."""
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            label_map = edit(list(cur.label_map))
+            if label_map == cur.label_map:
+                return cur
+            new = cur.model_copy(update={"label_map": label_map, "updated_at": utc_now()})
+            return self._save(new)
+
     async def put_segmentation(self, project_id: str, seg: SegmentationSet) -> ProjectConfig:
         """Add or replace one segmentation set (ADR-0015; task outputs, API-27 PATCH)."""
         async with self.locks(project_id):
@@ -569,9 +586,10 @@ def _active_items(path: Path) -> dict[str, list[str]]:
     return out
 
 
-def _case_ids(path: Path) -> set[str]:
-    """Case ids in `index/cases.jsonl` (PRJ-02 count and curation-progress denominator)."""
-    return {str(r.get("case_id")) for r in iter_jsonl(path)}
+def _case_ids(path: Path) -> tuple[set[str], set[str]]:
+    """Counted case ids in `index/cases.jsonl` (PRJ-02 count and curation-progress
+    denominator) and the all-excluded ones (`n_items` 0, AUD-A2-08)."""
+    return split_cases((str(r.get("case_id")), r.get("n_items") == 0) for r in iter_jsonl(path))
 
 
 def _purge(cache: Path) -> None:

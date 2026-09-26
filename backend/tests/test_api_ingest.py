@@ -222,6 +222,16 @@ def test_cases_filters(
     default = ids()
     assert "case_00022" not in default and default == sorted(default)
     assert ids("status=excluded_upstream") == ["case_00022"]
+    # IMP-03 / CUR-08 (AUD-A2-08): one definition per count; preview, index status and the
+    # project summary leave the excluded case out and count it under "excluded upstream"
+    pv = imported[1]
+    assert pv["counts"]["cases"] == len(default) and pv["counts"]["excluded_cases"] == 1
+    [row] = [p for p in client.get(f"{API}/projects").json() if p["project_id"] == pid]
+    assert row["n_cases"] == len(default) and row["n_cases_excluded"] == 1
+    st = client.get(f"{API}/projects/{pid}/imports").json()["index"]
+    idx = ctx_of(client).index.load(pid)
+    assert st["n_excluded_upstream"] == 1
+    assert st["n_items"] == sum(1 for i in idx.items if i.status != "excluded_upstream")
     assert set(ids("status=missing")) >= {"case_00010", "case_00012", "case_00014"}
     assert ids("q=00017") == ["case_00017"] and ids("q=p017") == ["case_00017"]
     assert set(ids("phase=EP")) == {"case_00002", "case_00003"}

@@ -181,7 +181,8 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
             {p.name}
             {empty ? <span className="badge">{t('projects.empty')}</span> : null}
           </span>
-          <span className="muted">
+          {/* AUD-A1-08 / A2-08: one definition of a case; excluded cases are not counted */}
+          <span className="muted" title={p.n_cases_excluded ? t('projects.casesHelp', { excluded: p.n_cases_excluded }) : undefined}>
             {p.last_opened_at
               ? t('projects.meta', { cases: p.n_cases, ago: fmtAgo(p.last_opened_at) })
               : t('projects.metaNew', { cases: p.n_cases, ago: fmtAgo(p.created_at) })}

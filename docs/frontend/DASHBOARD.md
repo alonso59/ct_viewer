@@ -26,12 +26,12 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 
 | View | Shows | Params |
 |---|---|---|
-| Run overview | Items ok/failed, per-label counts, runtime, error list → item | — |
+| Run overview | Items ok/failed/skipped, per-label and per-phase counts, runtime, failures then skips (plain cause, code) → item, items whose phase changed since the run ("phase at run time") | — |
 | Feature distribution | Histogram / violin of one feature, split by color variable | feature, split, log-scale |
 | Missing / invalid matrix | Feature × item NaN/inf heat map | feature class |
 | Correlation heat map | Spearman correlation between features, clustered order | class filter, threshold |
 | Embedding scatter | PCA (default) or UMAP (optional dependency) on z-scored features | features, n_components |
-| Outlier table | Robust z-score (median/MAD) per item; top-N items and features | threshold (default 3.5) |
+| Outlier table | Robust z-score (median/MAD) per feature; items with a feature over the threshold, sorted by the number of such features, then by max \|z\| (owner 2026-09-25); top 10, "Show all" | threshold (default 3.5) |
 | Feature vs volume | Scatter of a feature against `shape_MeshVolume` (flags size-driven features) | feature |
 | Group comparison | Box/violin per group for the selected feature + test result; results table for all features | variable, test override |
 | Association | Scatter feature × continuous variable with ρ; ranked table | variable |
@@ -51,3 +51,9 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 
 - Views are dockview sub-panels per run (layout in localStorage); the Analysis panel is one of them. Mock mode serves only the QC views.
 - "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Project view.
+
+## Implementation notes (FB5)
+
+- Phase (DB-02, DB-07; AUD-A5-04, owner 2026-09-26): every view and analysis uses the **effective** phase (PHS-03), joined at read time (`IndexStore.effective_phases` → `analytics/data.join_phase`); the run's own value is `phase_at_run` (overview details, tidy and feature exports).
+- Values (DB-03; AUD-A3-04, A3-15): formats and units follow UI_SHELL §Implementation notes (FB5); axis ticks use the same format.
+- Charts (AUD-A3-14): the brush toolbox sits top right above the plot (a legend beside it starts 80 px in); histogram bars sit on a hidden category axis with a visible value axis over the same range (round ticks; the bin range is the tooltip title); chart font sizes read `--fs-badge` / `--fs-panel`.

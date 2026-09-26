@@ -206,6 +206,7 @@
   },
   "runStatus": {
     "queued": "Queued",
+    "waiting_for_runner": "Waiting for runner",
     "running": "Running",
     "completed": "Completed",
     "completed_with_errors": "Completed with errors",
@@ -317,7 +318,8 @@
     "archiveHelp": "The project folder moves to projects/.archive/ and its cache is cleared. Nothing is deleted; restore it from the Archived list on the home. Archiving is refused while a job of the project runs.",
     "archived": "“{{name}}” archived",
     "restore": "Restore",
-    "restored": "“{{name}}” restored"
+    "restored": "“{{name}}” restored",
+    "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted."
   },
   "welcome": {
     "commands": "Show all commands",
@@ -341,7 +343,8 @@
     "indexing": "Indexing is running. Cases appear when it finishes.",
     "hashHelp": "SHA-256 of every image and mask file, for provenance",
     "bundleHelp": "A .zip of the project folder, without image data",
-    "settingsHelp": "Name, display defaults, labels, data roots, study packs and the view-only link"
+    "settingsHelp": "Name, display defaults, labels, data roots, study packs and the view-only link",
+    "subtitleHelp": "Items = scans × scopes (the complete scan, VOI L and R); cases and items excluded upstream are not counted ({{excluded}} items). Radiomics runs count the items they select; items that are not ready are skipped."
   },
   "import": {
     "allowedRoots": "Only folders under ALLOWED_DATA_ROOTS are listed.",
@@ -580,15 +583,6 @@
     },
     "count": "{{done}}/{{total}}",
     "none": "No jobs",
-    "status": {
-      "queued": "Queued",
-      "running": "Running",
-      "completed": "Completed",
-      "failed": "Failed",
-      "cancelled": "Cancelled",
-      "succeeded": "Succeeded",
-      "interrupted": "Interrupted"
-    },
     "kind": {
       "index": "Indexing",
       "hash": "Full hash",
@@ -695,11 +689,11 @@
     "progressEta": "{{done}}/{{total}} · {{time}} left",
     "cancel": "Cancel run",
     "resume": "Resume run",
-    "showErrors": "Show failures",
+    "showErrors": "Failures and skips",
     "exportLong": "Export CSV (long)",
     "exportWide": "Export CSV (wide)",
-    "errorsTitle": "Failures · {{name}}",
-    "noErrors": "No failures",
+    "errorsTitle": "Failures and skips · {{name}}",
+    "noErrors": "No failures or skips",
     "errItem": "Item",
     "errLabel": "Label",
     "errKind": "Kind",
@@ -735,7 +729,12 @@
     "runFailed_other": "{{count}} failed",
     "runSkipped_one": "{{count}} skipped",
     "runSkipped_other": "{{count}} skipped",
-    "openDashboard": "Open dashboard"
+    "openDashboard": "Open dashboard",
+    "errorsList": "{{name}} · failures and skips",
+    "openItem": "Open the item in the viewer",
+    "runCountsHelp": "{{items}} items selected: {{ok}} extracted, {{failed}} failed. {{skipped}} extractions skipped because the item was not ready (no mask, a blocking warning or the label is absent); skipped items are never failed.",
+    "csvLong": "CSV long",
+    "csvWide": "CSV wide"
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",

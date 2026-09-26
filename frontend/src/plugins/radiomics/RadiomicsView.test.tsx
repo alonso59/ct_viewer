@@ -48,8 +48,8 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   if (p === `/projects/${PID}/radiomics/runs/r3/errors`)
     return reply(200, {
       items: [
-        { item_id: 'case_1.01.complete.-', label: 2, kind: 'failed', error: 'input: item has no mask', at: '2026-09-24T10:00:01Z' },
-        { item_id: 'case_2.01.complete.-', label: 2, kind: 'skipped', error: 'label absent', at: '2026-09-24T10:00:02Z' },
+        { item_id: 'case_2.01.complete.-', label: 2, kind: 'skipped', code: 'missing_seg', error: 'The item has no mask.', at: '2026-09-24T10:00:02Z' },
+        { item_id: 'case_1.01.complete.-', label: 2, kind: 'failed', code: 'affine_mismatch', error: 'The mask does not line up with the image.', detail: 'ValueError: geometry mismatch', at: '2026-09-24T10:00:01Z' },
       ],
       total: 2,
     })
@@ -108,9 +108,18 @@ test('runs show status, live job progress with ETA, and the matching controls', 
   expect(r3).toHaveTextContent('1 failed')
   expect(r3).toHaveTextContent('1 skipped')
   expect(within(r3).getByRole('link', { name: 'Export CSV (wide)' })).toHaveAttribute('href', expect.stringContaining('/runs/r3/features?format=csv&shape=wide'))
-  fireEvent.click(within(r3).getByRole('button', { name: 'Show failures' }))
-  expect(await screen.findByText('input: item has no mask')).toBeInTheDocument()
-  expect(screen.getByText('Skipped')).toBeInTheDocument()
+  // AUD-A3-21: labelled actions; AUD-A1-08: the counts explain themselves
+  expect(within(r3).getByRole('button', { name: /Open dashboard/ })).toBeInTheDocument()
+  expect(r3.querySelector('.list-row-meta')?.getAttribute('title')).toMatch(/skipped because the item was not ready/)
+  fireEvent.click(within(r3).getByRole('button', { name: 'Failures and skips' }))
+  // AUD-A2-05 (RAD-07, TSK-04): failures first, then skips, in plain words; the cause code is shown
+  const dialog = await screen.findByRole('dialog')
+  await within(dialog).findByText('The mask does not line up with the image.')
+  const rows = within(dialog).getAllByRole('row').slice(1)
+  expect(rows.map((r) => r.getAttribute('data-kind'))).toEqual(['failed', 'skipped'])
+  expect(rows[1]).toHaveTextContent('Skipped')
+  expect(rows[1]).toHaveTextContent('missing_seg')
+  expect(dialog).not.toHaveTextContent('geometryTolerance')
 })
 
 // FE-11: every `rad.*` key used by the feature exists in the bundle (the shared key test only
@@ -138,6 +147,7 @@ test('rad.* keys exist', () => {
     ['scopeName', ['complete', 'voi']],
     ['sideName', ['L', 'R', 'none']],
     ['errKindName', ['failed', 'skipped']],
+    ['skipCode', ['no_image', 'no_mask', 'missing_seg', 'missing_path', 'unreadable_file', 'outside_root', 'affine_mismatch', 'shape_mismatch', 'label_absent', 'label_not_in_set', 'engine']],
     ['rule', ['required', 'number', 'integer', 'list', 'choice', 'range', 'gt', 'ge', 'lt', 'le', 'count', 'countRange', 'spacing', 'binXor', 'logSigma', 'force2d', 'resegOrder', 'resegSigma', 'nothing', 'normalizeHu', 'unavailable']],
   ]
   expect(families.flatMap(([ns, vs]) => vs.map((v) => `rad.${ns}.${v}`)).filter((k) => !has(k))).toEqual([])

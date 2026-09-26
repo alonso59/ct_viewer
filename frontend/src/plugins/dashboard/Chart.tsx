@@ -13,6 +13,7 @@ import * as echarts from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 
+import { fmtValue } from '../../lib'
 import { useSettings } from '../../state'
 import { token } from '../../theme'
 
@@ -41,18 +42,32 @@ export function palette(): string[] {
   return Array.from({ length: 8 }, (_, i) => token(`--cat-${i + 1}`))
 }
 
+/** A font-size token in px (UI_SHELL §Theme tokens; AUD-A3-14): charts follow the interface size */
+export function fontSize(name: '--fs-badge' | '--fs-panel' | '--fs-ui'): number {
+  const px = Number.parseFloat(token(name))
+  return Number.isFinite(px) && px > 0 ? px : name === '--fs-badge' ? 11 : 12
+}
+
+/** Axis styling from the tokens; for views that pass an axis array (not merged by `withBase`) */
+export function axisStyle() {
+  const muted = token('--fg-muted')
+  const border = token('--border-muted')
+  // value ticks in the English format without thousands separators (AUD-A3-04)
+  const formatter = (v: number | string) => (typeof v === 'number' ? fmtValue(v) : v)
+  return { axisLine: { lineStyle: { color: border } }, axisLabel: { color: muted, fontSize: fontSize('--fs-badge'), formatter }, splitLine: { lineStyle: { color: border } }, nameTextStyle: { color: muted, fontSize: fontSize('--fs-badge') } }
+}
+
 export function baseOption(): ChartOption {
   const fg = token('--fg')
   const muted = token('--fg-muted')
-  const border = token('--border-muted')
-  const axis = { axisLine: { lineStyle: { color: border } }, axisLabel: { color: muted, fontSize: 11 }, splitLine: { lineStyle: { color: border } }, nameTextStyle: { color: muted } }
+  const axis = axisStyle()
   return {
     backgroundColor: 'transparent',
     color: palette(),
-    textStyle: { color: fg, fontFamily: token('--font-ui') },
+    textStyle: { color: fg, fontFamily: token('--font-ui'), fontSize: fontSize('--fs-panel') },
     grid: { left: 56, right: 16, top: 32, bottom: 40, containLabel: false },
-    tooltip: { backgroundColor: token('--bg-overlay'), borderColor: token('--border'), textStyle: { color: fg, fontSize: 12 } },
-    legend: { textStyle: { color: muted, fontSize: 11 }, top: 0, right: 0, itemWidth: 10, itemHeight: 10, type: 'scroll' },
+    tooltip: { backgroundColor: token('--bg-overlay'), borderColor: token('--border'), textStyle: { color: fg, fontSize: fontSize('--fs-panel') } },
+    legend: { textStyle: { color: muted, fontSize: fontSize('--fs-badge') }, top: 0, right: 0, itemWidth: 10, itemHeight: 10, type: 'scroll' },
     xAxis: axis,
     yAxis: axis,
   }
@@ -69,11 +84,13 @@ export function withBase(option: ChartOption): ChartOption {
   return out
 }
 
-/** Brush toolbox (DB-04): rectangle and lasso, bottom right */
+/** Brush toolbox (DB-04): rectangle and lasso, top right, above the plot — never over the x-axis
+ *  labels (AUD-A3-14). A legend next to it starts at `BRUSH_LEGEND_RIGHT`. */
+export const BRUSH_LEGEND_RIGHT = 80
 export function brushOption(): ChartOption {
   const muted = token('--fg-muted')
   return {
-    toolbox: { right: 0, bottom: 0, itemSize: 13, iconStyle: { borderColor: muted }, emphasis: { iconStyle: { borderColor: token('--accent') } }, feature: { brush: { type: ['rect', 'polygon', 'clear'] } } },
+    toolbox: { right: 0, top: 0, itemSize: 13, iconStyle: { borderColor: muted }, emphasis: { iconStyle: { borderColor: token('--accent') } }, feature: { brush: { type: ['rect', 'polygon', 'clear'] } } },
     brush: { xAxisIndex: 0, throttleType: 'debounce', brushStyle: { borderColor: token('--accent'), borderWidth: 1, color: 'transparent' } },
   }
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CURATION_STATUSES, PHASES, useProject, type ColorBy, type GlobalFilters, type Variable } from '../../api'
+import { NumberInput } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { useDashboardStore, useRunDashboard } from './store'
 import { useLabelName, usePid, useVisibleVariables } from './views/common'
@@ -70,9 +71,9 @@ function VarFilter({ v, value, onChange }: { v: Variable; value: string[]; onCha
   return (
     <span className="db-chip db-range" data-active={value.length > 0 || undefined}>
       <span className="muted">{v.name}</span>
-      <input className="input input-sm num" type="number" aria-label={t('search.min', { name: v.name })} placeholder={v.profile.min != null ? String(v.profile.min) : t('search.minShort')} value={lo} onChange={(e) => set(e.target.value, hi)} />
+      <NumberInput className="input input-sm num" aria-label={t('search.min', { name: v.name })} placeholder={v.profile.min != null ? String(v.profile.min) : t('search.minShort')} value={lo} onChange={(n, raw) => set(n == null ? (raw.trim() ? lo : '') : String(n), hi)} />
       <span className="muted">{t('search.to')}</span>
-      <input className="input input-sm num" type="number" aria-label={t('search.max', { name: v.name })} placeholder={v.profile.max != null ? String(v.profile.max) : t('search.maxShort')} value={hi} onChange={(e) => set(lo, e.target.value)} />
+      <NumberInput className="input input-sm num" aria-label={t('search.max', { name: v.name })} placeholder={v.profile.max != null ? String(v.profile.max) : t('search.maxShort')} value={hi} onChange={(n, raw) => set(lo, n == null ? (raw.trim() ? hi : '') : String(n))} />
       <button type="button" className="icon-btn" aria-label={t('dashboard.filter.remove', { name: v.name })} onClick={() => onChange(null)}>
         <Icon spec={codicon('close')} />
       </button>

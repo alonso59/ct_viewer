@@ -110,8 +110,9 @@ test('opens on the engine defaults from the schema', async () => {
   // Groups come from the schema, in its order
   expect(nav('Discretization')).toBeInTheDocument()
   fireEvent.click(nav('Discretization'))
-  expect(screen.getByLabelText('binWidth')).toHaveValue(25)
-  expect(screen.getByLabelText('binCount')).toHaveValue(null)
+  // AUD-A3-04: number fields are text fields that show a point (the value is the typed text)
+  expect(screen.getByLabelText('binWidth')).toHaveValue('25')
+  expect(screen.getByLabelText('binCount')).toHaveValue('')
   expect(screen.getByTestId('default-binWidth')).toHaveTextContent('Default: 25')
 
   fireEvent.click(nav('Filters'))
@@ -214,7 +215,7 @@ test('loading a profile fills the form; engine defaults restore it', async () =>
   await waitFor(() => expect(within(picker).getAllByRole('option')).toHaveLength(2))
   fireEvent.change(picker, { target: { value: 'sha256:bbbbbbbbbbbb' } })
   fireEvent.click(nav('Discretization'))
-  expect(screen.getByLabelText('binWidth')).toHaveValue(50)
+  expect(screen.getByLabelText('binWidth')).toHaveValue('50')
   fireEvent.click(screen.getByRole('button', { name: 'Engine defaults' }))
-  expect(screen.getByLabelText('binWidth')).toHaveValue(25)
+  expect(screen.getByLabelText('binWidth')).toHaveValue('25')
 })

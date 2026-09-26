@@ -32,6 +32,7 @@ from app.curation.state import CaseReview, case_reviews
 from app.events.bus import EventBus
 from app.ingest import indexer, preview, sidecars
 from app.ingest.cases import build_cases
+from app.ingest.counting import split_items
 from app.ingest.indexer import ItemProbeResult
 from app.ingest.models import CaseSummary, IndexState, IndexStatus, Item, QcWarning
 from app.ingest.normalize import (
@@ -413,7 +414,8 @@ class IngestService:
                     priority = self.workspace.get(project_id).phase_priority
                     cases = build_cases(items, warnings, rules, priority)
                     self.store.replace(project_id, items, cases, warnings)
-                    n_items, n_warnings = len(items), len(warnings)
+                    n_items, n_excluded = split_items(i.status for i in items)
+                    n_warnings = len(warnings)
                     st = IndexStatus(
                         state="ready",
                         import_id=import_id,
@@ -421,6 +423,7 @@ class IngestService:
                         started_at=st.started_at,
                         finished_at=utc_now(),
                         n_items=n_items,
+                        n_excluded_upstream=n_excluded,
                         n_warnings=n_warnings,
                     )
                 else:

@@ -5,7 +5,7 @@ import { create } from 'zustand'
 
 import i18n from '../../i18n'
 import { useCancelJob, useJobs, type ServerEvent } from '../../api'
-import { Progress, fmtDuration } from '../../lib'
+import { Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -25,7 +25,7 @@ export function logEvent(e: ServerEvent) {
   if (e.event === 'curation.appended')
     push(t('output.curation', { reviewer: e.data.reviewer, id: e.data.item_id ?? e.data.case_id, target: e.data.target, status: e.data.status }))
   if (e.event === 'job.finished')
-    push(t('output.job', { title: t(`jobs.kind.${e.data.kind}`), status: t(`jobs.status.${e.data.status}`) }), e.data.status === 'succeeded' ? 'ok' : 'warn')
+    push(t('output.job', { title: t(`jobs.kind.${e.data.kind}`), status: t(runStatusKey(e.data.status)) }), e.data.status === 'succeeded' ? 'ok' : 'warn')
   if (e.event === 'index.rebuilt') push(t('output.index', { items: e.data.n_items, warnings: e.data.n_warnings }), 'ok')
   if (e.event === 'project.updated') push(t('output.project', { fields: e.data.fields.join(', ') }))
 }
@@ -51,7 +51,7 @@ export function JobsPanel() {
         {jobs.map((j) => (
           <tr key={j.job_id}>
             <td>{t(`jobs.kind.${j.kind}`)}</td>
-            <td><span className="badge" data-tone={j.status === 'succeeded' ? 'ok' : j.status === 'running' ? 'accent' : j.status === 'failed' || j.status === 'interrupted' ? 'error' : undefined} title={j.error ?? undefined}>{t(`jobs.status.${j.status}`)}</span></td>
+            <td><RunStatusBadge status={j.status} title={j.error ?? undefined} /></td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} /></div>

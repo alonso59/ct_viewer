@@ -156,7 +156,7 @@ function Row({ pid, v, open, onToggle }: { pid: string; v: Variable; open: boole
           <Icon spec={codicon(v.visible ? 'eye' : 'eye-closed')} />
         </button>
         <button type="button" className="var-name" aria-expanded={open} onClick={onToggle}>
-          <span className="mono">{v.name}</span>
+          <span className="mono" title={v.name}>{v.name}</span>
           {v.review ? <span className="badge" data-tone="warn">{t('variables.review')}</span> : null}
           <span className="var-meta">
             <span className="badge" title={t(`variables.levelName.${v.level}`)}>{t(`varTypeShort.${v.type}`)}</span>
@@ -178,7 +178,7 @@ function BrokenRow({ pid, b }: { pid: string; b: BrokenDerived }) {
     <div className="var-item">
       <div className="list-row var-row" title={b.reason}>
         <span className="var-name">
-          <span className="mono">{b.name}</span>
+          <span className="mono" title={b.name}>{b.name}</span>
           <span className="badge" data-tone="error">{t('variables.broken')}</span>
           <span className="muted var-meta">{b.reason}</span>
         </span>

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { NumberInput } from '../../lib'
 import { fields, type FieldSchema } from './schema'
 
 function Field({ name, schema, value, error, onChange }: { name: string; schema: FieldSchema; value: unknown; error?: string; onChange: (v: unknown) => void }) {
@@ -21,16 +22,15 @@ function Field({ name, schema, value, error, onChange }: { name: string; schema:
     )
   } else if (schema.type === 'integer' || schema.type === 'number') {
     input = (
-      <input
+      <NumberInput
         id={id}
         className="input num"
-        type="number"
-        step={schema.type === 'integer' ? 1 : 'any'}
+        step={schema.type === 'integer' ? 1 : 0.1}
         min={schema.minimum}
         max={schema.maximum}
         placeholder={schema.default === undefined ? '' : String(schema.default)}
-        value={typeof value === 'number' ? value : ''}
-        onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+        value={typeof value === 'number' ? value : null}
+        onChange={(n, raw) => onChange(raw.trim() === '' ? undefined : (n ?? Number.NaN))}
       />
     )
   } else {

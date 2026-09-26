@@ -96,9 +96,10 @@ class AnalyticsBase:
             (await self.variables.filter_ids(pid, filters.var))["items"] if filters.var else None
         )
         table = await self.variables.table(pid)
+        phases = self.store.effective_phases(pid)
 
         def work() -> Inputs:
-            rd = dt.load_run(rdir, run_id)
+            rd = dt.join_phase(dt.load_run(rdir, run_id), phases)
             statuses = dt.item_statuses(pdir)
             n_total = rd.n
             rd, status = dt.apply_filters(rd, filters, statuses, var_items)
@@ -246,6 +247,7 @@ def tidy_csv(unit: dt.Unit, spec: AnalysisSpec) -> bytes:
         "item_id": [ids[0] for ids in unit.item_ids],
         "item_ids": [";".join(ids) for ids in unit.item_ids],
         "phase": [str(rd.phase[i]) for i in unit.rep],
+        "phase_at_run": [str(rd.phase_at_run[i]) for i in unit.rep],
         "scope": [unit.scope] * unit.n,
         "label": [unit.label] * unit.n,
     }

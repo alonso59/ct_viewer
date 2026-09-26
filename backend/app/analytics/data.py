@@ -13,7 +13,7 @@ import re
 import threading
 from collections import OrderedDict
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -77,7 +77,11 @@ def read_errors(d: Path) -> list[dict[str, Any]]:
 
 @dataclass
 class RunData:
-    """Wide observation matrix. `x[i, j]` is NaN where the feature is absent (`present`)."""
+    """Wide observation matrix. `x[i, j]` is NaN where the feature is absent (`present`).
+
+    `phase` is the effective phase (PHS-03) once `join_phase` ran; `phase_at_run` keeps the
+    value the run recorded (reproducibility, AUD-A5-04).
+    """
 
     run_id: str
     features: list[str]
@@ -91,6 +95,11 @@ class RunData:
     label: NDArray[np.int64]
     x: F64
     present: Bool
+    phase_at_run: Obj = field(default_factory=lambda: np.asarray([], dtype=object))
+
+    def __post_init__(self) -> None:
+        if self.phase_at_run.size != self.item_id.size:
+            self.phase_at_run = self.phase.copy()
 
     @property
     def n(self) -> int:
@@ -110,6 +119,7 @@ class RunData:
             self.label[rows],
             self.x[rows],
             self.present[rows],
+            self.phase_at_run[rows],
         )
 
     def cols(self, keep: Sequence[int]) -> RunData:
@@ -127,6 +137,7 @@ class RunData:
             self.label,
             self.x[:, k],
             self.present[:, k],
+            self.phase_at_run,
         )
 
     def col(self, feature: str, loc: Sequence[str] = ("body", "feature")) -> F64:
@@ -232,6 +243,16 @@ def _pivot(t: pa.Table, run_id: str) -> RunData:
         x=x,
         present=present,
     )
+
+
+def join_phase(rd: RunData, effective: dict[str, str]) -> RunData:
+    """PHS-03 at read time (AUD-A5-04): each item's effective phase replaces the run's value,
+    which stays in `phase_at_run`. Items no longer in the index keep the run's value."""
+    phase = np.asarray(
+        [effective.get(str(i), p) for i, p in zip(rd.item_id, rd.phase_at_run, strict=True)],
+        dtype=object,
+    )
+    return replace(rd, phase=phase)
 
 
 def select_features(

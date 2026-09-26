@@ -76,7 +76,7 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 
 | Type | Registered as |
 |---|---|
-| `masks` | A segmentation set (ADR-0015): `seg_id` = settings `seg_id` (must be new) or `{task-short}-{run_id[:8]}` lower-cased, `label_mapping` from the manifest's labels matched by name (unmatched values get new `label_*` entries in the label map and are listed in `unmatched`), `producer` = this run. It is created at the first `ok` item; at the end the index re-joins every task set from its `masks.jsonl` (the index stays derived, PRJ-10). Every volume output is recorded with its sha256 in `derived/runs.jsonl` |
+| `masks` | A segmentation set (ADR-0015): `seg_id` = settings `seg_id` (must be new) or `{task-short}-{run_id[:8]}` lower-cased, `label_mapping` from the values the run wrote (the first `ok` item's output `labels`, `{value: name}` or a value list), else from the manifest's names, matched by name (unmatched values get new `label_*` entries in the label map, appended under the project lock with a palette colour not already in use, and are listed in `unmatched`; AUD-A5-12), `producer` = this run. It is created at the first `ok` item; at the end the index re-joins every task set from its `masks.jsonl` (the index stays derived, PRJ-10). Every volume output is recorded with its sha256 in `derived/runs.jsonl` |
 | `images` + `metadata` | A new import through `metadata-v1` with alias `DERIVED` (IMP-06); the converter writes the full current `metadata.jsonl` per run (DCM-07) |
 | `features` | A Parquet run in `tasks/runs/{run_id}/` (radiomics: RAD-10); the dashboard reads any features run |
 | `annotations` | `tasks/runs/{run_id}/annotations.jsonl`, active per field through `project.json.annotation_sources` (ANZ-04) |

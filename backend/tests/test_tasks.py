@@ -415,6 +415,36 @@ def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_pa
     )
 
 
+def test_task_set_maps_the_labels_the_run_wrote(env: TestClient, proj: str, tmp_path: Path) -> None:
+    """TSK-09 / ADR-0015 §4 (AUD-A5-12): the set's `label_mapping` follows the values the run
+    wrote (`progress.jsonl` output `labels`), not the manifest's static names; the new label
+    gets a palette colour not already in use, and radiomics on the set extracts that label."""
+    pytest.importorskip("radiomics")
+    ctx_of(env).jobs.workers = 1
+    with_derived(env, proj, tmp_path)
+    before = {e["color"].upper() for e in env.get(f"{API}/projects/{proj}").json()["label_map"]}
+    run = finish(
+        env,
+        proj,
+        env.post(f"{API}/projects/{proj}/task-runs", json=run_body(label=2, seg_id="thr2")).json(),
+    )
+    assert run["status"] == "completed", run
+    s = {x["seg_id"]: x for x in env.get(f"{API}/projects/{proj}/segmentations").json()}["thr2"]
+    label_map = env.get(f"{API}/projects/{proj}").json()["label_map"]
+    fg = next(e for e in label_map if e["name"] == "foreground")
+    assert s["label_mapping"] == {"2": fg["value"]}
+    assert fg["color"].upper() not in before
+    body = {
+        "selection": {"item_ids": ITEMS[:1], "labels": [fg["value"]], "seg_id": "thr2"},
+        "settings": {"features": {"firstorder": ["Mean"]}, "settings": {"binWidth": 25}},
+    }
+    r = env.post(f"{API}/projects/{proj}/radiomics/runs", json=body, headers={"X-Reviewer": "T"})
+    assert r.status_code == 202, r.text
+    wait(env, r.json()["job_id"])
+    rad = env.get(f"{API}/projects/{proj}/radiomics/runs/{r.json()['run_id']}").json()
+    assert rad["status"] == "completed" and rad["counts"]["ok"] == 1, rad
+
+
 def test_curation_decisions_per_segmentation_set(
     env: TestClient, proj: str, tmp_path: Path
 ) -> None:

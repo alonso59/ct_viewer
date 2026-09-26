@@ -49,7 +49,6 @@ from app.projects.models import (
     SEG_ID_RE,
     LabelEntry,
     ProjectConfig,
-    ProjectPatch,
     SegmentationSet,
     SegProducer,
 )
@@ -928,7 +927,7 @@ class TaskService:
                 live.done += 1
                 item_rows.append(row)
         if masks and not live.registered:
-            await self._register_set(live)
+            await self._register_set(live, masks)
         async with self.locks(live.pid):
             if item_rows:
                 append_jsonl(live.run_dir / ITEMS, item_rows)
@@ -1003,18 +1002,27 @@ class TaskService:
         s = rec_settings.get("seg_id")
         return s if isinstance(s, str) and s else default_seg_id(live.manifest.id, live.rid)
 
-    async def _register_set(self, live: _Live) -> None:
-        """TSK-09: the segmentation set is created at the first `ok` item (ADR-0015)."""
+    async def _register_set(self, live: _Live, masks: Sequence[dict[str, Any]]) -> None:
+        """TSK-09: the segmentation set is created at the first `ok` item (ADR-0015).
+
+        Label values come from what the run wrote (`progress.jsonl` output `labels`), else
+        from the manifest's names (AUD-A5-12); new labels are appended to the label map
+        under the project lock, so a concurrent Labels edit is not lost.
+        """
         m = live.manifest
         rec = _read_run(live.run_dir)
-        cfg = self.workspace.get(live.pid)
-        names: dict[str, str] = {}
-        if m.labels and isinstance(m.labels.get("names"), dict):
+        names = _written_labels(masks)
+        if not names and m.labels and isinstance(m.labels.get("names"), dict):
             names = {str(k): str(v) for k, v in m.labels["names"].items()}
-        mapping, unmatched, new_labels = _match_labels(names, cfg.label_map)
-        if new_labels:
-            patch = ProjectPatch(label_map=[*cfg.label_map, *new_labels])
-            await self.workspace.update(live.pid, patch)
+        mapping: dict[str, int] = {}
+        unmatched: list[int] = []
+
+        def edit(label_map: list[LabelEntry]) -> list[LabelEntry]:
+            nonlocal mapping, unmatched
+            mapping, unmatched, new_labels = _match_labels(names, label_map)
+            return [*label_map, *new_labels]
+
+        await self.workspace.edit_label_map(live.pid, edit)
         seg = SegmentationSet(
             seg_id=self._target_seg(live),
             name=rec.name,
@@ -1274,12 +1282,26 @@ class TaskService:
         return RadiomicsTask(self.workspace, self.store, self.jobs, self.bus, self.locks)
 
 
+def _written_labels(masks: Sequence[dict[str, Any]]) -> dict[str, str]:
+    """Mask values → names from the outputs' `labels` (a `{value: name}` map or a value list)."""
+    out: dict[str, str] = {}
+    for row in masks:
+        labels = row.get("labels")
+        if isinstance(labels, dict):
+            out.update({str(k): str(v) for k, v in labels.items() if str(k).isdigit()})
+        elif isinstance(labels, list):
+            out.update({str(v): "" for v in labels if isinstance(v, int) and v > 0})
+    return {k: v for k, v in out.items() if k != "0"}
+
+
 def _match_labels(
     names: dict[str, str], label_map: Sequence[LabelEntry]
 ) -> tuple[dict[str, int], list[int], list[LabelEntry]]:
     """ADR-0015 §4: match set labels by name; unmatched → new `label_{value}` entries."""
     by_name = {e.name.lower(): e.value for e in label_map}
     used = {e.value for e in label_map}
+    free = [c for c in AUTO_LABEL_COLORS if c.upper() not in {e.color.upper() for e in label_map}]
+    colors = free or list(AUTO_LABEL_COLORS)  # skip palette colours already in use
     mapping: dict[str, int] = {}
     unmatched: list[int] = []
     new: list[LabelEntry] = []
@@ -1296,7 +1318,7 @@ def _match_labels(
                 LabelEntry(
                     value=target,
                     name=name or auto_label_name(target),
-                    color=AUTO_LABEL_COLORS[len(new) % len(AUTO_LABEL_COLORS)],
+                    color=colors[len(new) % len(colors)],
                     opacity=0.2,
                 )
             )

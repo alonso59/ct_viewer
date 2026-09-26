@@ -20,8 +20,8 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-04 | Validation (§Rules) runs live in the UI and authoritatively on the server; the Run button is disabled while errors exist. | M |
 | RAD-05 | Selection: items (all active / current Explorer filter on any variable (VAR-10) / explicit list), scope (`complete`, `voi`), labels (multi-select from label map, one extraction per label), segmentation set `seg_id` (default `default_seg`; ADR-0015). | M |
 | RAD-06 | Run is a background job (BE-06): per-item progress, ETA, cancel. | M |
-| RAD-07 | Per-item failures are logged to `errors.jsonl` and do not stop the run; the final status is `completed_with_errors`. | M |
-| RAD-08 | Interrupted runs can resume, skipping items that already have a part file. | S |
+| RAD-07 | Per-item failures are logged to `errors.jsonl` and do not stop the run; the final status is `completed_with_errors`. Items the index already knows are not ready are skipped, never failed (TSK-04); every row names its cause in plain words (UI-18). | M |
+| RAD-08 | Interrupted runs can resume, skipping items that already have a part file; a unit whose image or mask changed since the run started fails as `input_changed` (NFR-15). | S |
 | RAD-09 | Reproducibility record in `run.json` (§Run record). | M |
 | RAD-10 | Outputs: `features.parquet` (long) + `diagnostics.parquet`; CSV export in long or wide shape. | M |
 | RAD-11 | Pre-run estimate: `n_items × n_labels` and time per item measured on a 3-item sample. | S |
@@ -101,7 +101,7 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
 
 ## Output schema
 
-`features.parquet`: `run_id, item_id, case_id, scan_idx, scope, side, phase, label, image_type, feature_class, feature, value(float64), ibsi_code, ibsi_status`.
+`features.parquet`: `run_id, item_id, case_id, scan_idx, scope, side, phase, label, image_type, feature_class, feature, value(float64), ibsi_code, ibsi_status`. `phase` is the value at run time; exports (API-36), dashboards and analyses join the effective phase at read time (PHS-03) and add the run's value as `phase_at_run` (AUD-A5-04).
 Study variables are **not** copied into features; they are joined at analysis time from `index/variables.parquet` (ANA-03).
 `diagnostics.parquet`: `run_id, item_id, label, voxel_count, bbox, spacing, image_hash, mask_hash, …` (engine diagnostics, flattened).
 
@@ -118,6 +118,8 @@ Study variables are **not** copied into features; they are joined at analysis ti
 
 - Profiles stored as `profiles/{hex}.json`; saving identical settings returns the existing profile (200); DELETE returns the remaining list.
 - Labels absent from a mask → `kind: "skipped"` rows in `errors.jsonl` and `counts.skipped` (not an error). `run.json` also has `job_id`, `error`, `counts.skipped`; `units.jsonl` is the per-run plan used by resume.
+- Causes (FB5, AUD-A2-05; `radiomics/causes.py`): each `errors.jsonl` row has `code`, `error` (one plain sentence) and, for engine failures, `detail` (the engine's own text). Planning skips an item without image (`no_image`) or mask (`missing_seg`, `no_mask` for a task set) and, for the `imported` set, one with a blocking IMP-08 code (`missing_path`, `unreadable_file`, `outside_root`, `missing_seg`, `affine_mismatch`, `shape_mismatch`); labels give `label_absent` / `label_not_in_set`. Engine texts map to `shape_mismatch`, `affine_mismatch`, `label_absent`, `roi_too_small`, `input_missing` or `engine`. A geometry defect is never answered with "raise `geometryTolerance`" (a shifted mask gives features of the wrong voxels). The estimate adds `skipped_by` (code → count); the errors dialog and the dashboard overview list failures first, then skips, and a row opens the item (DB-03).
+- Resume (RAD-08, AUD-A5-14) compares each remaining unit's image and mask quick fingerprint with the one recorded at creation; a changed input fails that unit with `input_changed` (start a new run for new inputs).
 - One radiomics run per project at a time (409 `job-conflict`); an engine major-version change → 409 `format-version-unsupported`.
 - Engine schema differs from the design table: `sigma` has no default; extra `label_channel` (mask handling); 107 default features. LBP3D is unavailable unless `trimesh` is added to `[radiomics]`.
 - TST-06: IBSI digital phantom, 85 features compliant + 4 deviating within 0.6 %. **The IBSI codes and extended reference values were written by the implementing agent from memory and must be spot-checked against the IBSI manual**; the IBSI CT phantom (TST-06 part 2) has not been run.
@@ -129,5 +131,5 @@ Study variables are **not** copied into features; they are joined at analysis ti
 - Default label = first visible label. Client rules only pre-flag; the server validation (API-31) is authoritative once it answers for the current form.
 - Selection by variable sends level lists only; continuous variables must be binned into a derived variable first (VAR-06) until API-33/34 accept ranges (open decision, ROADMAP P7).
 - Draft settings live in memory; a reload reopens on the engine defaults (profiles persist).
-- `seg_id` (RAD-05, P7b Wave 4): masks come from that set; the selected labels are project label values, mapped to the set's own values through its `label_mapping` (ADR-0015); labels the set does not map are skipped (`label not in segmentation set`). `labels_present` checks apply to the `imported` set only. `run.json` records `selection.seg_id` and `inputs[].seg_id` + `mask_fp` of that set (NFR-15); older runs read as `imported`.
+- `seg_id` (RAD-05, P7b Wave 4): the set picker is always shown (default `default_seg`); masks come from that set; the selected labels are project label values, mapped to the set's own values through its `label_mapping` (ADR-0015); labels the set does not map are skipped (`label not in segmentation set`). `labels_present` checks apply to the `imported` set only. `run.json` records `selection.seg_id` and `inputs[].seg_id` + `mask_fp` of that set (NFR-15); older runs read as `imported`.
 - "Use the current Explorer filter" (RAD-05) maps phase and variable levels to `filter`, or an Explorer item list to `item_ids` (API-33/34 take one or the other, so the list wins and sets the scope when all items share one). Not sent, and listed in the form: text search, curation status, warnings, has-VOI, show-excluded, continuous ranges. The Explorer's phase filter matches cases; the run selection's matches items.

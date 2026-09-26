@@ -5,13 +5,13 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunSummary } from '../../api'
-import { Progress, ProblemCard, fmtAgo, fmtDuration } from '../../lib'
+import { Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, toast, useWorkbench, type EditorProps } from '../../shell'
 import { useReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
 import { useExplorerFilter } from '../explorer'
-import { ACTIVE_RUN, RESUMABLE_RUN, RUN_TONE, selectionFor, type SelectionMode } from './model'
+import { ACTIVE_RUN, RESUMABLE_RUN, selectionFor, type SelectionMode } from './model'
 import { check, toSettings } from './schema'
 import { SchemaForm } from './SchemaForm'
 import './tasks.css'
@@ -48,7 +48,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   return (
     <li className="task-run" data-status={run.status}>
       <div className="task-run-head">
-        <span className="badge" data-tone={RUN_TONE[run.status]}>{t(`tasks.status.${run.status}`)}</span>
+        <RunStatusBadge status={run.status} />
         <span className="task-run-name" title={run.run_id}>{run.name}</span>
         <span className="muted" style={{ marginLeft: 'auto' }}>{fmtAgo(run.created_at)}</span>
       </div>

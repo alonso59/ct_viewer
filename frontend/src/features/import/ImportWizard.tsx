@@ -20,7 +20,7 @@ import {
   type NiftiOptions,
   type PreviewRequest,
 } from '../../api'
-import { Dialog, ProblemCard, Progress } from '../../lib'
+import { Dialog, ProblemCard, Progress, runStatusKey } from '../../lib'
 import { toast } from '../../shell'
 import { useReviewer } from '../../state'
 import { DerivedRootDialog } from './DerivedRootDialog'
@@ -534,7 +534,8 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
                 [p.counts.voi_rows, 'import.kpiVoi'],
                 [p.counts.excluded_upstream, 'import.kpiExcluded'],
               ] as const).map(([n, label]) => (
-                <div key={label} className="card" data-zero={n === 0 || undefined}><span className="kpi num">{n}</span><span className="muted">{t(label)}</span></div>
+                // AUD-A1-08: the case count leaves out cases excluded upstream (and says so)
+                <div key={label} className="card" data-zero={n === 0 || undefined} title={label === 'import.kpiCases' ? t('import.kpiCasesHelp', { excluded: p.counts.excluded_cases ?? 0 }) : undefined}><span className="kpi num">{n}</span><span className="muted">{t(label)}</span></div>
               ))}
             </div>
             {p.adapter === 'nifti-files' ? (
@@ -591,7 +592,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '24px 0' }}>
           <h3>{t(failed ? 'import.indexFailed' : 'import.indexing')}</h3>
           {failed ? (
-            <div className="error-card" role="alert">{job.error ?? t(`jobs.status.${job.status}`)}</div>
+            <div className="error-card" role="alert">{job.error ?? t(runStatusKey(job.status))}</div>
           ) : (
             <>
               <Progress value={job?.done ?? 0} total={job?.total || 1} />

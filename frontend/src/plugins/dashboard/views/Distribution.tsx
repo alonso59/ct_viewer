@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView } from '../../../api'
-import { fmtNum } from '../../../lib'
-import { Chart, type ChartInstance, type ChartOption } from '../Chart'
+import { fmtValue } from '../../../lib'
+import { Chart, axisStyle, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
 import {
   FeatureSelect,
@@ -43,7 +43,23 @@ export function DistributionView({ runId }: ViewProps) {
     return {
       legend: levels.length > 1 ? { data: levels.map(levelName) } : { show: false },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      xAxis: { type: 'category', data: d.edges.slice(0, -1).map((e) => fmtNum(e)), name: d.log_scale ? t('dashboard.log10', { name: d.feature }) : d.feature, nameLocation: 'middle', nameGap: 26 },
+      // AUD-A3-14: bins on a hidden category axis (the bin range is the tooltip title); the visible
+      // value axis spans the same range with round ticks
+      xAxis: [
+        { type: 'category', data: d.edges.slice(0, -1).map((e, i) => `${fmtValue(e)} – ${fmtValue(d.edges[i + 1])}`), axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false } },
+        {
+          ...axisStyle(),
+          type: 'value',
+          position: 'bottom',
+          min: d.edges[0],
+          max: d.edges[d.edges.length - 1],
+          splitLine: { show: false },
+          axisLabel: { ...axisStyle().axisLabel, hideOverlap: true, showMinLabel: false, showMaxLabel: false },
+          name: d.log_scale ? t('dashboard.log10', { name: d.feature }) : d.feature,
+          nameLocation: 'middle',
+          nameGap: 26,
+        },
+      ],
       yAxis: { type: 'value', name: t('dashboard.count'), minInterval: 1 },
       series: d.groups.map((g) => ({
         name: levelName(g.level),

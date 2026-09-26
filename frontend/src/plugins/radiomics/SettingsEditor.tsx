@@ -197,7 +197,17 @@ export function SettingsEditor() {
             <div className="rad-estimate" data-testid="estimate">
               <span>{t('rad.estimateUnits', { items: currentEst.n_items, labels: currentEst.n_labels, units: currentEst.n_units })}</span>
               {currentEst.estimated_total_s !== null ? <span>{t('rad.estimateTime', { time: fmtDuration(currentEst.estimated_total_s), workers: currentEst.workers })}</span> : null}
-              {currentEst.n_skipped ? <span className="field-warning">{t('rad.estimateSkipped', { count: currentEst.n_skipped })}</span> : null}
+              {currentEst.n_skipped ? (
+                // TSK-04 (AUD-A2-05): skipped per reason, in plain words
+                <span className="field-warning">
+                  {t('rad.estimateSkipped', {
+                    count: currentEst.n_skipped,
+                    why: Object.entries(currentEst.skipped_by ?? {})
+                      .map(([code, n]) => t('rad.skipCount', { why: t(`rad.skipCode.${code}`, { defaultValue: code }), n }))
+                      .join(', ') || t('rad.skipCode.label_absent'),
+                  })}
+                </span>
+              ) : null}
               {(currentEst.sample_errors ?? []).map((e) => (
                 <span key={e} className="field-warning">{e}</span>
               ))}

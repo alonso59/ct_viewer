@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, ProblemError, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useQueue, type CurationStatus, type V2ImportReport } from '../../api'
-import { Dialog, PhaseChip, StatusBadge, fmtAgo } from '../../lib'
+import { Dialog, PhaseChip, StatusBadge, fmtAgo, midEllipsis } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -35,8 +35,9 @@ function PathCell({ path }: { path: string | null }) {
   if (!path) return <span className="muted">{t('queue.noPath')}</span>
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 320 }}>
-      <span className="mono muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', direction: 'rtl', textAlign: 'left' }} title={path}>
-        {path}
+      {/* AUD-A3-13: middle ellipsis, so the root and the file name stay readable */}
+      <span className="mono muted truncate" title={path}>
+        {midEllipsis(path, 44)}
       </span>
       <button
         type="button"

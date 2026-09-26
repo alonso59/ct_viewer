@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useFeatures, useProject, useRuns } from '../../api'
-import { fmt1, fmtNum, robustZ } from '../../lib'
+import { featureUnit, fmt1, fmtValue, robustZ } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -24,7 +24,8 @@ export function MeasurementsPanel() {
   // Without an item the hook's key equals the full-run query's, so its cached rows must be ignored
   const itemRows = iid ? mine.data : undefined
   const all = useFeatures(pid, rid).data
-  const labels = useProject(pid).data?.label_map ?? []
+  const project = useProject(pid).data
+  const labels = project?.label_map ?? []
   const runLabels = labels.filter((l) => !run || run.selection.labels.includes(l.value))
   const [wantedLabel, setLabel] = useState<number | null>(null)
   const labelOfItem = (itemRows ?? []).map((f) => f.label)
@@ -81,11 +82,15 @@ export function MeasurementsPanel() {
             <tbody>
               {rows.map((r) => {
                 const out = r.z !== null && Math.abs(r.z) >= OUTLIER_Z
+                const unit = featureUnit(r.feature, project?.default_modality)
                 return (
                   <tr key={r.feature}>
-                    <td className="mono">{r.feature.replace(/^original_/, '')}</td>
+                    <td className="mono truncate" title={r.feature}>{r.feature.replace(/^original_/, '')}</td>
                     <td className="muted">{r.feature_class}</td>
-                    <td className="num">{r.value === null ? t('measurements.invalid') : fmtNum(r.value)}</td>
+                    <td className="num">{r.value === null ? t('measurements.invalid') : fmtValue(r.value)}
+                      {/* AUD-A3-15: the unit of the feature class */}
+                      {unit && r.value !== null ? <span className="muted"> {unit}</span> : null}
+                    </td>
                     <td className="num" style={{ color: out ? 'var(--warn)' : undefined }}>{r.z === null ? '—' : fmt1(r.z)}</td>
                     <td style={{ color: 'var(--warn)' }}>{out ? <Icon spec={codicon('warning')} title={t('measurements.outlier')} /> : null}</td>
                   </tr>

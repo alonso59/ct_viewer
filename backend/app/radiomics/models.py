@@ -191,6 +191,8 @@ class EstimateResult(BaseModel):
     n_labels: int
     n_units: int  # (item, label) extractions after skipping absent labels
     n_skipped: int
+    # skipped (item, label) units per cause code (TSK-04, AUD-A2-05), e.g. {"missing_seg": 3}
+    skipped_by: dict[str, int] = Field(default_factory=dict)
     sample_item_ids: list[str]
     time_per_item_s: float | None
     time_per_unit_s: float | None
@@ -232,7 +234,7 @@ class RunCounts(BaseModel):
     ok: int = 0
     failed: int = 0
     features: int = 0
-    skipped: int = 0  # (item, label) pairs whose label is absent from the mask
+    skipped: int = 0  # (item, label) pairs not ready (TSK-04): no mask, blocking code, label
 
 
 class RunRecord(BaseModel):
@@ -281,13 +283,19 @@ class RunSummary(BaseModel):
 
 
 class RunError(BaseModel):
-    """One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail."""
+    """One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.
+
+    `code` names the cause (`radiomics/causes.py`, AUD-A2-05), `error` says it in plain words,
+    `detail` keeps the engine's own text for failures. Rows written before FB5 have no code.
+    """
 
     item_id: str
     label: int
     kind: Literal["failed", "skipped"]
     error: str
     at: str
+    code: str | None = None
+    detail: str | None = None
 
 
 class FeaturesTable(BaseModel):

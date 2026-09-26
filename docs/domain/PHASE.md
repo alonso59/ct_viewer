@@ -24,6 +24,7 @@ Phase selection is a native app capability (ADR-0026) — always available, not 
 - Case/scan header, Explorer, viewer: PHS-03's effective value, always.
 - `dataset_table` / `dataset.jsonl` (ADR-0020 §4, ADR-0025): `phase` = effective value; a `phase_source` note is `manual` or the INPUT_METADATA resolution winner (e.g. `analyzer:{run_id}`).
 - Labeling reference columns (LABELING.md LBL-02, `VAR-13 comparable`): the native phase (and, separately, the analyzer's guess) can be added read-only into any label table.
+- Radiomics run outputs (FB5, AUD-A5-04): dashboards, analyses and feature exports join the effective phase at read time; the run's recorded value stays as `phase_at_run` ("phase at run time").
 
 ## Implementation (ADR-0026 amendment)
 

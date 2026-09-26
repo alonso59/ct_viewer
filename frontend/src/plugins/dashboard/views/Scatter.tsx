@@ -3,9 +3,9 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { fmtNum } from '../../../lib'
+import { fmtValue } from '../../../lib'
 import { token } from '../../../theme'
-import { Chart, brushOption, brushed, type ChartInstance, type ChartOption } from '../Chart'
+import { BRUSH_LEGEND_RIGHT, Chart, fontSize, brushOption, brushed, type ChartInstance, type ChartOption } from '../Chart'
 import { openRef, useItemMenu, useLevelColors, useSelection, type ItemRef } from './common'
 
 export interface ScatterPoint extends ItemRef {
@@ -51,7 +51,7 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
               symbol: 'none',
               silent: true,
               lineStyle: { color: token('--fg-muted'), type: 'dashed' },
-              label: { color: token('--fg-muted'), fontSize: 10, formatter: (p: { name: string }) => p.name },
+              label: { color: token('--fg-muted'), fontSize: fontSize('--fs-badge'), formatter: (p: { name: string }) => p.name },
               data: markLines.map((m) => ({ yAxis: m.y, name: m.label })),
             },
           }
@@ -59,11 +59,11 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
     }))
     return {
       ...brushOption(),
-      legend: levels.length > 1 ? { data: levels.map(levelName) } : { show: false },
+      legend: levels.length > 1 ? { data: levels.map(levelName), right: BRUSH_LEGEND_RIGHT } : { show: false },
       tooltip: {
         trigger: 'item',
         formatter: (p: { data: Datum }) =>
-          [p.data.ref.item_id, `${xName}: ${fmtNum(p.data.ref.x)}`, `${yName}: ${fmtNum(p.data.ref.y)}`, p.data.ref.note].filter(Boolean).join('<br/>'),
+          [p.data.ref.item_id, `${xName}: ${fmtValue(p.data.ref.x)}`, `${yName}: ${fmtValue(p.data.ref.y)}`, p.data.ref.note].filter(Boolean).join('<br/>'),
       },
       xAxis: { type: 'value', name: xName, nameLocation: 'middle', nameGap: 26, scale: true },
       yAxis: { type: 'value', name: yName, scale: true },

@@ -174,7 +174,7 @@ class EmbeddingRequest(ViewRequest):
 
 class OutliersRequest(ViewRequest):
     threshold: float = Field(default=3.5, gt=0)
-    top_n: int = Field(default=50, ge=1, le=5000)
+    top_n: int = Field(default=10, ge=1, le=5000)  # the UI shows 10, "Show all" = n_flagged
     top_features: int = Field(default=5, ge=1, le=50)
     feature_class: list[str] | None = None
 
@@ -243,6 +243,18 @@ class RunError(BaseModel):
     case_id: str | None = None
     label: int | None = None
     message: str
+    kind: Literal["failed", "skipped"] = "failed"  # skipped = not ready (TSK-04, AUD-A2-05)
+    code: str | None = None  # cause code (RADIOMICS §Implementation notes)
+    detail: str | None = None  # the engine's own text
+
+
+class PhaseChange(BaseModel):
+    """PHS-03 / AUD-A5-04: an item whose effective phase differs from the run's value."""
+
+    item_id: str
+    case_id: str
+    phase: str
+    phase_at_run: str
 
 
 class RunOverviewResponse(BaseModel):
@@ -256,12 +268,14 @@ class RunOverviewResponse(BaseModel):
     n_items_selected: int
     n_items_ok: int
     n_items_failed: int
+    n_items_skipped: int = 0  # not ready, never failed (TSK-04)
     n_features: int
     per_label: list[LabelCount]
-    per_phase: list[LevelCount]
+    per_phase: list[LevelCount]  # effective phase (PHS-03)
     curation: list[LevelCount]
     n_errors: int
     errors: list[RunError]
+    phase_changed: list[PhaseChange] = Field(default_factory=list)  # "phase at run time"
 
 
 class DistPoint(ItemRef):

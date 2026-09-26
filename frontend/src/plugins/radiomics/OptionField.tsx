@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconButton } from '../../lib'
+import { IconButton, NumberInput } from '../../lib'
 import { codicon } from '../../theme'
 import { parseList } from './model/settings'
 import type { Issue, OptionSpec, Value } from './model/types'
@@ -50,34 +50,22 @@ function ListInput({ o, value, onChange, id, invalid, disabled }: { o: OptionSpe
   )
 }
 
-function NumberInput({ o, value, onChange, id, invalid, disabled }: { o: OptionSpec; value: Value; onChange: (v: Value) => void; id: string; invalid: boolean; disabled?: boolean }) {
+/** Accepts `,` or `.` as the decimal point (AUD-A3-04); typed text that is not a number → NaN (validation) */
+function NumberField({ o, value, onChange, id, invalid, disabled }: { o: OptionSpec; value: Value; onChange: (v: Value) => void; id: string; invalid: boolean; disabled?: boolean }) {
   const { t } = useTranslation()
-  const [text, setText] = useState(() => fmtValue(value))
-  const [pushed, setPushed] = useState<Value>(value)
-  if (!same(value, pushed)) {
-    setPushed(value)
-    setText(fmtValue(value))
-  }
   const c = o.constraints
   return (
-    <input
+    <NumberInput
       id={id}
       className="input input-sm rad-num"
-      type="number"
-      step={o.type === 'int' ? 1 : 'any'}
+      step={o.type === 'int' ? 1 : 0.1}
       min={c?.min ?? undefined}
       max={c?.max ?? undefined}
       disabled={disabled}
       aria-invalid={invalid || undefined}
-      value={text}
+      value={typeof value === 'number' ? value : null}
       placeholder={o.nullable ? t('rad.none') : undefined}
-      onChange={(e) => {
-        const raw = e.target.value
-        const v: Value = raw.trim() === '' ? null : Number(raw)
-        setText(raw)
-        setPushed(v)
-        onChange(v)
-      }}
+      onChange={(n, raw) => onChange(raw.trim() === '' ? null : (n ?? Number.NaN))}
     />
   )
 }
@@ -133,7 +121,7 @@ export function OptionField({ o, value, onChange, issues, disabled }: { o: Optio
         ))}
       </select>
     )
-  else if (o.type === 'int' || o.type === 'float') input = <NumberInput o={o} value={value} onChange={onChange} id={id} invalid={invalid} disabled={disabled} />
+  else if (o.type === 'int' || o.type === 'float') input = <NumberField o={o} value={value} onChange={onChange} id={id} invalid={invalid} disabled={disabled} />
   else if (isList(o)) input = <ListInput o={o} value={value} onChange={onChange} id={id} invalid={invalid} disabled={disabled} />
   else
     input = (

@@ -28,7 +28,9 @@ describe('explorer variables (VAR-10)', () => {
     expect(parseRange(undefined)).toEqual(['', ''])
   })
   test('values format with Intl and show a dash when missing', () => {
-    expect(formatValue(v({ type: 'continuous' }), 1234.567)).toBe('1,235')
+    // AUD-A3-04: English format, no thousands separator in measured values
+    expect(formatValue(v({ type: 'continuous' }), 1234.567)).toBe('1235')
+    expect(formatValue(v({ type: 'continuous' }), 0.25)).toBe('0.25')
     expect(formatValue(undefined, null)).toBe('—')
   })
   test('variable filters count as active filters', () => {

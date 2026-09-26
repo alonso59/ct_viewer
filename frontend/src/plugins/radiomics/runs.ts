@@ -2,15 +2,6 @@
 import type { Job } from '../../api'
 import type { RunStatus, RunSummary } from './model/types'
 
-export const RUN_TONE: Record<RunStatus, string | undefined> = {
-  queued: undefined,
-  running: 'accent',
-  completed: 'ok',
-  completed_with_errors: 'warn',
-  failed: 'error',
-  cancelled: undefined,
-  interrupted: 'warn',
-}
 
 export const ACTIVE: RunStatus[] = ['queued', 'running']
 /** RAD-08: interrupted (server restart) and cancelled runs resume, skipping finished part files */

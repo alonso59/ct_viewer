@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView, type ResultRow } from '../../../api'
-import { fmtInt, fmtNum } from '../../../lib'
+import { fmtInt, fmtValue } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
@@ -68,7 +68,7 @@ export function GroupComparisonView({ runId }: ViewProps) {
       tooltip: {
         trigger: 'item',
         formatter: (p: { seriesType: string; data: Pt | number[]; name: string }) =>
-          p.seriesType === 'scatter' ? `${(p.data as Pt).ref.item_id}<br/>${fmtNum((p.data as Pt).value[1])}` : p.name,
+          p.seriesType === 'scatter' ? `${(p.data as Pt).ref.item_id}<br/>${fmtValue((p.data as Pt).value[1])}` : p.name,
       },
       xAxis: [
         { type: 'category', data: levels.map((l) => (l !== null && excluded.has(l) ? t('dashboard.excludedLevel', { level: l ?? '' }) : (l ?? t('dashboard.missingLevel')))) },

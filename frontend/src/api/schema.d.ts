@@ -3174,6 +3174,10 @@ export interface components {
             n_units: number;
             /** N Skipped */
             n_skipped: number;
+            /** Skipped By */
+            skipped_by?: {
+                [key: string]: number;
+            };
             /** Sample Item Ids */
             sample_item_ids: string[];
             /** Time Per Item S */
@@ -3667,6 +3671,11 @@ export interface components {
              * @default 0
              */
             excluded_upstream: number;
+            /**
+             * Excluded Cases
+             * @default 0
+             */
+            excluded_cases: number;
         };
         /** ImportHistory */
         ImportHistory: {
@@ -3791,6 +3800,11 @@ export interface components {
              * @default 0
              */
             n_items: number;
+            /**
+             * N Excluded Upstream
+             * @default 0
+             */
+            n_excluded_upstream: number;
             /**
              * N Warnings
              * @default 0
@@ -4367,7 +4381,7 @@ export interface components {
             threshold: number;
             /**
              * Top N
-             * @default 50
+             * @default 10
              */
             top_n: number;
             /**
@@ -4564,6 +4578,20 @@ export interface components {
              * @enum {string}
              */
             role: "source" | "derived";
+        };
+        /**
+         * PhaseChange
+         * @description PHS-03 / AUD-A5-04: an item whose effective phase differs from the run's value.
+         */
+        PhaseChange: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Phase */
+            phase: string;
+            /** Phase At Run */
+            phase_at_run: string;
         };
         /**
          * PhaseEvent
@@ -4979,6 +5007,11 @@ export interface components {
              */
             n_cases: number;
             /**
+             * N Cases Excluded
+             * @default 0
+             */
+            n_cases_excluded: number;
+            /**
              * Curation Progress
              * @default 0
              */
@@ -5318,6 +5351,11 @@ export interface components {
             n_items_ok: number;
             /** N Items Failed */
             n_items_failed: number;
+            /**
+             * N Items Skipped
+             * @default 0
+             */
+            n_items_skipped: number;
             /** N Features */
             n_features: number;
             /** Per Label */
@@ -5330,6 +5368,8 @@ export interface components {
             n_errors: number;
             /** Errors */
             errors: components["schemas"]["app__analytics__models__RunError"][];
+            /** Phase Changed */
+            phase_changed?: components["schemas"]["PhaseChange"][];
         };
         /** RunProgress */
         RunProgress: {
@@ -6533,6 +6573,16 @@ export interface components {
             label?: number | null;
             /** Message */
             message: string;
+            /**
+             * Kind
+             * @default failed
+             * @enum {string}
+             */
+            kind: "failed" | "skipped";
+            /** Code */
+            code?: string | null;
+            /** Detail */
+            detail?: string | null;
         };
         /** Profile */
         app__radiomics__models__Profile: {
@@ -6550,6 +6600,9 @@ export interface components {
         /**
          * RunError
          * @description One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.
+         *
+         *     `code` names the cause (`radiomics/causes.py`, AUD-A2-05), `error` says it in plain words,
+         *     `detail` keeps the engine's own text for failures. Rows written before FB5 have no code.
          */
         app__radiomics__models__RunError: {
             /** Item Id */
@@ -6565,6 +6618,10 @@ export interface components {
             error: string;
             /** At */
             at: string;
+            /** Code */
+            code?: string | null;
+            /** Detail */
+            detail?: string | null;
         };
         /**
          * Profile

@@ -60,6 +60,7 @@ from app.analytics.models import (
     OutliersRequest,
     OutliersResponse,
     PairPoint,
+    PhaseChange,
     RankedFeature,
     RunError,
     RunOverviewRequest,
@@ -166,8 +167,11 @@ def run_overview(
     """Items ok/failed, per-label counts, runtime, error list → item."""
     rd = frame.rd
     ok_items = set(rd.item_id.tolist())
-    failed = [e for e in errors if selected is None or str(e.get("item_id")) in selected]
+    rows = [e for e in errors if selected is None or str(e.get("item_id")) in selected]
+    failed = [e for e in rows if e.get("kind") != "skipped"]
     failed_items = {str(e.get("item_id")) for e in failed if e.get("item_id")} - ok_items
+    skipped_items = {str(e.get("item_id")) for e in rows if e.get("kind") == "skipped"}
+    skipped_items -= ok_items | failed_items
     inputs = run.get("inputs") or []
     sel_items = {str(i.get("item_id")) for i in inputs if isinstance(i, dict)}
     sel_items |= {str(i) for i in (run.get("selection") or {}).get("item_ids") or []}
@@ -189,14 +193,29 @@ def run_overview(
     phases = Counter(str(rd.phase[i]) for i in first.values())
     curation = Counter(str(frame.status[i]) for i in first.values())
     start, end = _ts(run.get("started_at")), _ts(run.get("finished_at"))
+    # failures first, then skips (AUD-A2-05)
+    listed = sorted(rows, key=lambda e: e.get("kind") == "skipped")
     run_errors = [
         RunError(
             item_id=e.get("item_id"),
-            case_id=e.get("case_id"),
+            case_id=e.get("case_id") or str(e.get("item_id") or "").split(".")[0] or None,
             label=e.get("label") if isinstance(e.get("label"), int) else None,
             message=str(e.get("message") or e.get("error") or e.get("detail") or ""),
+            kind="skipped" if e.get("kind") == "skipped" else "failed",
+            code=e.get("code"),
+            detail=e.get("detail"),
         )
-        for e in failed[: req.errors_limit]
+        for e in listed[: req.errors_limit]
+    ]
+    changed = [
+        PhaseChange(
+            item_id=str(rd.item_id[i]),
+            case_id=str(rd.case_id[i]),
+            phase=str(rd.phase[i]),
+            phase_at_run=str(rd.phase_at_run[i]),
+        )
+        for i in first.values()
+        if rd.phase_at_run[i] != rd.phase[i]
     ]
     return RunOverviewResponse(
         run_id=rd.run_id,
@@ -204,15 +223,17 @@ def run_overview(
         status=str(run.get("status") or ""),
         created_at=run.get("created_at"),
         runtime_s=(end - start).total_seconds() if start and end else None,
-        n_items_selected=max(len(sel_items), len(ok_items | failed_items)),
+        n_items_selected=max(len(sel_items), len(ok_items | failed_items | skipped_items)),
         n_items_ok=len(ok_items),
         n_items_failed=len(failed_items),
+        n_items_skipped=len(skipped_items),
         n_features=len(rd.features),
         per_label=per_label,
         per_phase=[LevelCount(level=k, n=v) for k, v in sorted(phases.items())],
         curation=[LevelCount(level=k, n=v) for k, v in sorted(curation.items())],
-        n_errors=len(failed),
+        n_errors=len(rows),
         errors=run_errors,
+        phase_changed=changed,
     )
 
 
@@ -416,14 +437,17 @@ def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
 
 
 def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
-    """Robust z = (x - median) / (1.4826 · MAD) per feature; top-N items and features."""
+    """Robust z = (x - median) / (1.4826 · MAD) per feature; top-N items and features.
+
+    Items rank by the number of features over the threshold, then by max |z| (owner decision
+    2026-09-25, AUD-A2-06): one wild feature does not outrank a broadly abnormal item."""
     rd = select_features(frame.rd, None, req.feature_class)
     z = st.robust_z(rd.x)
     az = np.abs(np.nan_to_num(z, nan=0.0))
     flagged = az > req.threshold
     max_z = az.max(axis=1) if rd.features else np.zeros(rd.n)
     n_flag = flagged.sum(axis=1)
-    order = sorted(range(rd.n), key=lambda i: (-float(max_z[i]), -int(n_flag[i])))
+    order = sorted(range(rd.n), key=lambda i: (-int(n_flag[i]), -float(max_z[i])))
     items: list[OutlierItem] = []
     for i in order[: req.top_n]:
         top = np.argsort(-az[i])[: req.top_features]

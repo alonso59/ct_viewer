@@ -249,7 +249,7 @@ def test_run_end_to_end_outputs(
     assert j["total"] == 107 and {r["item_id"] for r in j["rows"]} == {ITEMS[1]}
     w = client.get(furl, params={"shape": "wide"}).json()
     assert w["total"] == 3 and "original_firstorder_Mean" in w["columns"]
-    assert w["columns"][:8] == [
+    assert w["columns"][:9] == [
         "run_id",
         "item_id",
         "case_id",
@@ -257,6 +257,7 @@ def test_run_end_to_end_outputs(
         "scope",
         "side",
         "phase",
+        "phase_at_run",  # PHS-03 join at read time (AUD-A5-04)
         "label",
     ]
     r = client.get(furl, params={"format": "csv", "shape": "wide"})
@@ -267,7 +268,7 @@ def test_run_end_to_end_outputs(
     r = client.get(furl, params={"format": "parquet", "shape": "wide"})
     assert r.headers["content-type"] == "application/vnd.apache.parquet"
     wt = pq.read_table(io.BytesIO(r.content))
-    assert wt.num_rows == 3 and wt.num_columns == 8 + 107
+    assert wt.num_rows == 3 and wt.num_columns == 9 + 107
     r = client.get(furl, params={"format": "parquet"})
     assert pq.read_table(io.BytesIO(r.content)).num_rows == 321
     assert_problem(client.get(furl, params={"format": "xlsx"}), "validation")
@@ -289,11 +290,13 @@ def test_per_item_failures_and_skips(client: TestClient, proj: str, data_root: P
     assert run["status"] == "completed_with_errors", run
     assert run["counts"] == {"items": 3, "ok": 1, "failed": 2, "features": 107, "skipped": 3}
     errs = client.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/errors").json()
-    by = {(e["item_id"], e["label"], e["kind"]): e["error"] for e in errs["items"]}
+    by = {(e["item_id"], e["label"], e["kind"]): e for e in errs["items"]}
     assert errs["total"] == 5
-    assert all((i, 4, "skipped") in by for i in ITEMS)
-    assert "input:" in by[(ITEMS[2], 2, "failed")]
-    assert (ITEMS[1], 2, "failed") in by and "input:" not in by[(ITEMS[1], 2, "failed")]
+    assert all(by[(i, 4, "skipped")]["code"] == "label_absent" for i in ITEMS)
+    missing = by[(ITEMS[2], 2, "failed")]
+    assert missing["code"] == "input_missing" and missing["error"].endswith(".")
+    engine = by[(ITEMS[1], 2, "failed")]  # RAD-07: a plain cause, the engine text in `detail`
+    assert engine["code"] != "input_missing" and engine["detail"]
     feats = client.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/features").json()
     assert {r["item_id"] for r in feats["rows"]} == {ITEMS[0]}
     r = client.post(
@@ -389,3 +392,105 @@ def test_reproducibility_same_profile(client: TestClient, proj: str) -> None:
     va = ta["value"].to_numpy()
     vb = tb["value"].to_numpy()
     assert np.array_equal(va.view(np.uint64), vb.view(np.uint64))  # bitwise
+
+
+def test_items_known_not_ready_are_skipped_in_plain_words(client: TestClient, proj: str) -> None:
+    """TSK-04 / RAD-07 (AUD-A2-05): no mask or a blocking IMP-08 code → skipped, never failed;
+    geometry defects are said in plain words and never suggest raising `geometryTolerance`."""
+    bad = {f"case_{n:05d}.01.complete.-": code for n, code in (
+        (13, "missing_seg"), (16, "affine_mismatch"), (17, "shape_mismatch"),
+    )}  # fmt: skip
+    items = [ITEMS[0], *bad]
+    est = client.post(
+        f"{API}/projects/{proj}/radiomics/estimate", json={"selection": sel(items)}
+    ).json()
+    assert est["n_units"] == 1 and est["n_skipped"] == 3
+    assert est["skipped_by"] == {"missing_seg": 1, "affine_mismatch": 1, "shape_mismatch": 1}
+    run = start(client, proj, {"selection": sel(items)})
+    assert run["status"] == "completed", run
+    assert run["counts"] == {"items": 4, "ok": 1, "failed": 0, "features": 107, "skipped": 3}
+    errs = client.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/errors").json()
+    got = {e["item_id"]: e for e in errs["items"]}
+    assert {i: (e["kind"], e["code"]) for i, e in got.items()} == {
+        i: ("skipped", c) for i, c in bad.items()
+    }
+    assert "line up" in got[f"case_{16:05d}.01.complete.-"]["error"]
+    assert all("geometryTolerance" not in json.dumps(e) for e in errs["items"])
+    # the dashboard overview counts them as skipped, not failed (DB, AUD-A2-05)
+    r = client.post(
+        f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/views/run-overview", json={}
+    )
+    ov = r.json()
+    assert r.status_code == 200, r.text
+    assert ov["n_items_failed"] == 0 and ov["n_items_skipped"] == 3 and ov["n_items_ok"] == 1
+    assert {e["kind"] for e in ov["errors"]} == {"skipped"}
+
+
+def test_engine_errors_map_to_plain_causes() -> None:
+    """AUD-A2-05: the PyRadiomics / SimpleITK texts seen on the fixtures map to cause codes."""
+    from app.radiomics import causes
+
+    geo = "ValueError: Image/Mask geometry mismatch. Potential fix: increase tolerance using "
+    geo += "geometryTolerance, see Documentation:Usage:Customizing the Extraction"
+    assert causes.explain(geo) == "affine_mismatch"
+    size = "RuntimeError: Exception thrown in SimpleITK LabelStatisticsImageFilter_Execute: "
+    size += "sitkImageFilter.cxx:71: Image1 for LabelStatisticsImageFilter doesn't match size "
+    size += "[64, 64, 48] vs [64, 64, 40]"
+    assert causes.explain(size) == "shape_mismatch"
+    assert causes.explain("ValueError: Label (1) not present in mask. Choose from [2]") == (
+        "label_absent"
+    )
+    assert causes.explain("KeyError: 'x'") == "engine"
+    assert all("geometryTolerance" not in t for t in causes.TEXT.values())
+
+
+def test_resume_refuses_changed_inputs(client: TestClient, proj: str, data_root: Path) -> None:
+    """RAD-08 / NFR-15 (AUD-A5-14): a unit whose input changed since the run started fails
+    with `input_changed` on resume; unchanged units still resume."""
+    run = start(client, proj, {"selection": sel()})
+    rid = run["run_id"]
+    d = run_dir(client, proj, rid)
+    rec = json.loads((d / "run.json").read_text())
+    rec.update(status="interrupted", finished_at=None)
+    (d / "run.json").write_text(json.dumps(rec))
+    for iid in ITEMS[1:]:
+        (d / "parts" / f"{iid}__2.parquet").unlink()
+    (d / "features.parquet").unlink()
+    img = data_root / "nifti" / "01_case_00031_0000.nii.gz"
+    img.write_bytes(img.read_bytes() + b"\0")  # the image changed after the run started
+    url = f"{API}/projects/{proj}/radiomics/runs/{rid}"
+    r = client.post(f"{url}/resume")
+    assert r.status_code == 202, r.text
+    wait(client, r.json()["job_id"])
+    done = client.get(url).json()
+    assert done["status"] == "completed_with_errors" and done["counts"]["ok"] == 2
+    errs = client.get(f"{url}/errors").json()["items"]
+    assert [(e["item_id"], e["kind"], e["code"]) for e in errs] == [
+        (ITEMS[1], "failed", "input_changed")
+    ]
+    assert {r["item_id"] for r in client.get(f"{url}/features").json()["rows"]} == {
+        ITEMS[0], ITEMS[2]
+    }  # fmt: skip
+
+
+def test_exports_join_the_effective_phase(client: TestClient, proj: str) -> None:
+    """PHS-03 at read time (AUD-A5-04): a phase selected after the run shows in the feature
+    exports and dashboards; the run's own value stays as `phase_at_run`."""
+    run = start(client, proj, {"selection": sel()})
+    rid = run["run_id"]
+    body = {"case_id": "case_00030", "scan_idx": "01", "value": "CMP"}
+    r = client.post(f"{API}/projects/{proj}/phase/events", json=body, headers=WHO)
+    assert r.status_code in (200, 201), r.text
+    rows = client.get(
+        f"{API}/projects/{proj}/radiomics/runs/{rid}/features", params={"shape": "wide"}
+    ).json()["rows"]
+    by = {r["item_id"]: (r["phase"], r["phase_at_run"]) for r in rows}
+    assert by == {ITEMS[0]: ("CMP", "NP"), ITEMS[1]: ("NP", "NP"), ITEMS[2]: ("NP", "NP")}
+    dash = f"{API}/projects/{proj}/radiomics/runs/{rid}/views/run-overview"
+    ov = client.post(dash, json={}).json()
+    assert {p["level"]: p["n"] for p in ov["per_phase"]} == {"CMP": 1, "NP": 2}
+    assert ov["phase_changed"] == [
+        {"item_id": ITEMS[0], "case_id": "case_00030", "phase": "CMP", "phase_at_run": "NP"}
+    ]
+    ov = client.post(dash, json={"filters": {"phase": ["CMP"]}}).json()
+    assert ov["n_items_ok"] == 1 and ov["n_items_selected"] == 1

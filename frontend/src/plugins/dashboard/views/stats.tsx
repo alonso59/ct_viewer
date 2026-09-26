@@ -60,7 +60,7 @@ export function ResultsTable({ rows, selected, onPick }: { rows: ResultRow[]; se
       <tbody>
         {sorted.map((r) => (
           <tr key={r.feature ?? ''} data-clickable="true" aria-selected={r.feature === selected || undefined} onClick={() => onPick(r)}>
-            <td className="mono">{(r.feature ?? '').replace(/^original_/, '')}</td>
+            <td className="mono truncate" title={r.feature ?? undefined}>{(r.feature ?? '').replace(/^original_/, '')}</td>
             <td className="num">{fmtInt(r.n)}</td>
             <td className="num">{r.effect != null ? fmtNum(r.effect) : '—'}</td>
             <td className="num">{fmtP(r.p)}</td>

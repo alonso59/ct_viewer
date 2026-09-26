@@ -22,7 +22,7 @@ import {
   type Project,
   type ProjectPatch,
 } from '../../../api'
-import { ProblemCard } from '../../../lib'
+import { NumberInput, ProblemCard } from '../../../lib'
 import { runCommand, toast, useWorkbench, type EditorProps } from '../../../shell'
 import { useLayout } from '../../../state'
 import { Icon, codicon } from '../../../theme'
@@ -189,8 +189,8 @@ function Display({ pid, project }: { pid: string; project: Project }) {
       <div className="field">
         <span className="field-label">{t('psettings.ctWindow')}</span>
         <div className="psettings-row">
-          <label className="psettings-inline">{t('psettings.ww')}<input className="input input-sm num" type="number" min={1} value={ct.ww} onChange={(e) => setCt('ww', Number(e.target.value))} /></label>
-          <label className="psettings-inline">{t('psettings.wl')}<input className="input input-sm num" type="number" value={ct.wl} onChange={(e) => setCt('wl', Number(e.target.value))} /></label>
+          <label className="psettings-inline">{t('psettings.ww')}<NumberInput className="input input-sm num" min={1} value={ct.ww} onChange={(n) => setCt('ww', n ?? 0)} /></label>
+          <label className="psettings-inline">{t('psettings.wl')}<NumberInput className="input input-sm num" value={ct.wl} onChange={(n) => setCt('wl', n ?? 0)} /></label>
         </div>
         <span className="muted psettings-help">{t('psettings.ctWindowHelp')}</span>
       </div>
@@ -216,8 +216,8 @@ function Display({ pid, project }: { pid: string; project: Project }) {
         {presets.map((p, i) => (
           <div key={i} className="psettings-row">
             <input className="input input-sm" aria-label={t('psettings.presetName')} value={p.name} onChange={(e) => setPresets(presets.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-            <input className="input input-sm num" type="number" aria-label={t('psettings.ww')} value={p.ww} onChange={(e) => setPresets(presets.map((x, j) => (j === i ? { ...x, ww: Number(e.target.value) } : x)))} />
-            <input className="input input-sm num" type="number" aria-label={t('psettings.wl')} value={p.wl} onChange={(e) => setPresets(presets.map((x, j) => (j === i ? { ...x, wl: Number(e.target.value) } : x)))} />
+            <NumberInput className="input input-sm num" aria-label={t('psettings.ww')} value={p.ww} onChange={(n) => setPresets(presets.map((x, j) => (j === i ? { ...x, ww: n ?? 0 } : x)))} />
+            <NumberInput className="input input-sm num" aria-label={t('psettings.wl')} value={p.wl} onChange={(n) => setPresets(presets.map((x, j) => (j === i ? { ...x, wl: n ?? 0 } : x)))} />
             <button type="button" className="icon-btn" aria-label={t('psettings.removePreset')} onClick={() => setPresets(presets.filter((_, j) => j !== i))}><Icon spec={codicon('close')} /></button>
           </div>
         ))}
@@ -261,7 +261,7 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
               <td className="num">{l.value}</td>
               <td><input className="input input-sm" aria-label={t('labels.name')} value={l.name} onChange={(e) => edit(l.value, { name: e.target.value })} /></td>
               <td><input type="color" className="label-swatch" aria-label={t('labels.color', { name: l.name })} value={l.color} onChange={(e) => edit(l.value, { color: e.target.value.toUpperCase() })} /></td>
-              <td><input className="input input-sm num" type="number" min={0} max={1} step={0.05} aria-label={t('psettings.opacity')} value={l.opacity} onChange={(e) => edit(l.value, { opacity: Number(e.target.value) })} /></td>
+              <td><NumberInput className="input input-sm num" min={0} max={1} step={0.05} aria-label={t('psettings.opacity')} value={l.opacity} onChange={(n) => edit(l.value, { opacity: n ?? 0 })} /></td>
               <td><input type="checkbox" aria-label={t('labels.visible', { name: l.name })} checked={l.visible} onChange={(e) => edit(l.value, { visible: e.target.checked })} /></td>
             </tr>
           ))}

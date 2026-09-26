@@ -16,6 +16,7 @@ import logging
 import math
 import os
 import re
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
@@ -45,7 +46,7 @@ from app.jobs.manager import JobManager
 from app.jobs.types import TERMINAL, JobInfo, JobSpec, WorkUnit
 from app.projects.models import SegmentationSet
 from app.projects.service import Workspace
-from app.radiomics import ibsi, worker
+from app.radiomics import causes, ibsi, worker
 from app.radiomics import settings as st
 from app.radiomics.engine import RadiomicsEngine, get_engine
 from app.radiomics.models import (
@@ -91,7 +92,9 @@ REVIEWER_MAX: Final = 100
 SAMPLE_ITEMS: Final = 3
 MSG_NOTHING: Final = "Nothing to extract"
 HASH_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
-ID_COLS: Final = ("run_id", "item_id", "case_id", "scan_idx", "scope", "side", "phase", "label")
+ID_COLS: Final = (
+    "run_id", "item_id", "case_id", "scan_idx", "scope", "side", "phase", "phase_at_run", "label"
+)  # fmt: skip
 
 
 def require_reviewer(reviewer: str | None) -> str:
@@ -141,6 +144,28 @@ def _read_run(run_dir: Path) -> RunRecord:
 def _parse_key(key: str) -> tuple[str, int]:
     item_id, _, label = key.rpartition("__")
     return item_id, int(label)
+
+
+def _row(item_id: str, label: int, kind: str, code: str, detail: str | None = None) -> RunError:
+    """An `errors.jsonl` row with a cause code and its plain text (AUD-A2-05)."""
+    return RunError(
+        item_id=item_id,
+        label=label,
+        kind=kind,  # type: ignore[arg-type]
+        error=causes.text(code),
+        code=code,
+        detail=detail,
+        at=utc_now(),
+    )
+
+
+def _not_ready(it: Item, seg_id: str) -> str | None:
+    """TSK-04 preflight of one item for one set: the skip code, or None when ready."""
+    if it.image is None:
+        return "no_image"
+    if seg_id not in it.masks:
+        return "missing_seg" if seg_id == "imported" else "no_mask"
+    return causes.blocking(it.warning_codes) if seg_id == "imported" else None
 
 
 def _empty_features() -> pa.Table:
@@ -204,27 +229,36 @@ def _compact(run_dir: Path) -> int:
 
 def wide(table: pa.Table) -> pa.Table:
     """One row per (item, label); feature columns `{image_type}_{feature_class}_{feature}`."""
+    ids = [c for c in ID_COLS if c in table.column_names]
     rows: dict[tuple[str, int], dict[str, Any]] = {}
     fcols: dict[str, None] = {}
     for r in table.to_pylist():
         key = (r["item_id"], r["label"])
         row = rows.get(key)
         if row is None:
-            row = rows[key] = {c: r[c] for c in ID_COLS}
+            row = rows[key] = {c: r[c] for c in ids}
         name = f"{r['image_type']}_{r['feature_class']}_{r['feature']}"
         fcols.setdefault(name)
         row[name] = r["value"]
     cols: dict[str, pa.Array] = {}
-    for c in ID_COLS:
+    for c in ids:
         typ = pa.int64() if c == "label" else pa.string()
         cols[c] = pa.array([r[c] for r in rows.values()], type=typ)
     for name in fcols:
         cols[name] = pa.array([r.get(name) for r in rows.values()], type=pa.float64())
     if not rows:
-        return pa.table(
-            {c: pa.array([], type=worker.FEATURE_SCHEMA.field(c).type) for c in ID_COLS}
-        )
+        return pa.table({c: pa.array([], type=table.schema.field(c).type) for c in ids})
     return pa.table(cols)
+
+
+def join_phase(table: pa.Table, effective: dict[str, str]) -> pa.Table:
+    """PHS-03 at read time (AUD-A5-04): `phase` = effective phase, `phase_at_run` = the run's."""
+    run_phase = table["phase"]
+    items = table["item_id"].to_pylist()
+    phase = [effective.get(i, p) for i, p in zip(items, run_phase.to_pylist(), strict=True)]
+    j = table.column_names.index("phase")
+    t = table.set_column(j, "phase", pa.array(phase, type=pa.string()))
+    return t.add_column(j + 1, "phase_at_run", run_phase)
 
 
 def _cell(v: Any) -> Cell:
@@ -472,41 +506,30 @@ class RadiomicsService:
     def plan(
         items: Sequence[Item], labels: Sequence[int], seg: SegmentationSet | None = None
     ) -> tuple[list[dict[str, Any]], list[RunError]]:
-        """(item, label) units; labels absent from the mask are skipped (recorded).
+        """(item, label) units; items and labels that are not ready are skipped (TSK-04).
 
         `seg` (RAD-05): masks come from that set; project labels map to its values through the
-        set's `label_mapping` (ADR-0015). `labels_present` describes the `imported` set only.
+        set's `label_mapping` (ADR-0015). `labels_present` and the IMP-08 codes describe the
+        `imported` set only. An item without image or mask, or with a blocking code
+        (`causes.BLOCKING`), is skipped with that code, never failed (AUD-A2-05).
         """
         units: list[dict[str, Any]] = []
         skips: list[RunError] = []
-        now = utc_now()
         seg_id = seg.seg_id if seg is not None else "imported"
         inverse = {v: int(k) for k, v in (seg.label_mapping if seg else {}).items() if k.isdigit()}
         for it in items:
+            not_ready = _not_ready(it, seg_id)
             for lab in sorted(set(labels)):
+                if not_ready is not None:
+                    skips.append(_row(it.item_id, lab, "skipped", not_ready))
+                    continue
                 mask_label = inverse.get(lab, lab)
                 if seg_id != "imported" and seg is not None and inverse and lab not in inverse:
-                    skips.append(
-                        RunError(
-                            item_id=it.item_id,
-                            label=lab,
-                            kind="skipped",
-                            error=f"label not in segmentation set {seg_id}",
-                            at=now,
-                        )
-                    )
+                    skips.append(_row(it.item_id, lab, "skipped", "label_not_in_set"))
                     continue
                 present = it.labels_present if seg_id == "imported" else []
                 if present and lab not in present:
-                    skips.append(
-                        RunError(
-                            item_id=it.item_id,
-                            label=lab,
-                            kind="skipped",
-                            error="label absent from mask",
-                            at=now,
-                        )
-                    )
+                    skips.append(_row(it.item_id, lab, "skipped", "label_absent"))
                     continue
                 units.append(
                     {
@@ -557,30 +580,34 @@ class RadiomicsService:
         units: Sequence[dict[str, Any]],
         settings: RadiomicsSettings,
         engine_name: str,
+        check_fp: bool = False,
     ) -> tuple[list[dict[str, Any]], list[RunError]]:
-        """Resolve units into worker tasks; unresolvable inputs become per-item errors."""
+        """Resolve units into worker tasks; unresolvable inputs become per-item errors.
+
+        `check_fp` (resume, RAD-08 / NFR-15; AUD-A5-14): a unit whose image or mask quick
+        fingerprint differs from the one recorded at run creation fails with `input_changed`,
+        so a resumed run never mixes features of changed inputs with the original parts.
+        """
         out: list[dict[str, Any]] = []
         errors: list[RunError] = []
         snap = settings.model_dump(mode="json")
         for u in units:
+            iid, lab = u["item"]["item_id"], u["label"]
             try:
                 if u["image"] is None:
                     raise SourceMissingError("item has no image")
                 if u["mask"] is None:
                     raise SourceMissingError("item has no mask")
+                if check_fp and await self._changed(pid, u):
+                    errors.append(_row(iid, lab, "failed", "input_changed"))
+                    continue
                 order = u.get("axis_order", "xyz")
                 image = await self._path(pid, u["image"], u["spacing"], order)
                 mask = await self._path(pid, u["mask"], u["spacing"], order)
             except (Problem, SourceMissingError, OSError) as exc:
                 detail = exc.detail if isinstance(exc, Problem) else str(exc)
                 errors.append(
-                    RunError(
-                        item_id=u["item"]["item_id"],
-                        label=u["label"],
-                        kind="failed",
-                        error=f"input: {detail or type(exc).__name__}",
-                        at=utc_now(),
-                    )
+                    _row(iid, lab, "failed", "input_missing", detail or type(exc).__name__)
                 )
                 continue
             out.append(
@@ -598,6 +625,18 @@ class RadiomicsService:
                 }
             )
         return out, errors
+
+    async def _changed(self, pid: str, unit: dict[str, Any]) -> bool:
+        """True when the unit's image or mask no longer has its recorded quick fingerprint."""
+        resolver = self.workspace.resolver(pid)
+        for vol in (unit["image"], unit["mask"]):
+            want = vol.get("fp")
+            path = resolver.resolve(vol["ref"])
+            if want is None or not path.is_file():
+                continue  # missing files fail in `_path` as `input_missing`
+            if await asyncio.to_thread(quick_fingerprint, path) != want:
+                return True
+        return False
 
     # -- estimate (API-33, RAD-11) --------------------------------------------------------
 
@@ -625,13 +664,16 @@ class RadiomicsService:
         workers = self.jobs.workers
         errors = [f"{e.item_id} label {e.label}: {e.error}" for e in pre]
         errors += [
-            f"{r['item_id']} label {r['label']}: {r['error']}" for r in results if r["error"]
+            f"{r['item_id']} label {r['label']}: {causes.text(causes.explain(r['error']))}"
+            for r in results
+            if r["error"]
         ]
         return EstimateResult(
             n_items=len(items),
             n_labels=len(set(req.selection.labels)),
             n_units=len(units),
             n_skipped=len(skips),
+            skipped_by=dict(Counter(e.code or "engine" for e in skips)),
             sample_item_ids=sample_ids,
             time_per_item_s=round(per_item, 4) if per_item is not None else None,
             time_per_unit_s=round(per_unit, 4) if per_unit is not None else None,
@@ -684,7 +726,7 @@ class RadiomicsService:
         units, skips = self.plan(items, req.selection.labels, seg)
         if not units:
             raise ValidationProblem(
-                "Selected labels are absent from every selected item",
+                "No selected item is ready: every item or label was skipped",
                 errors=[{"loc": ["body", "selection", "labels"], "msg": MSG_NOTHING}],
             )
         cur = self.jobs.active(pid, "radiomics")
@@ -736,13 +778,8 @@ class RadiomicsService:
         async def on_result(res: dict[str, Any]) -> None:
             if res.get("ok"):
                 return
-            row = RunError(
-                item_id=res["item_id"],
-                label=int(res["label"]),
-                kind="failed",
-                error=str(res.get("error") or "extraction failed"),
-                at=utc_now(),
-            )
+            raw = str(res.get("error") or "extraction failed")
+            row = _row(res["item_id"], int(res["label"]), "failed", causes.explain(raw), raw)
             async with self.locks(pid):
                 append_jsonl(run_dir / ERRORS, [row.model_dump()])
 
@@ -867,7 +904,9 @@ class RadiomicsService:
             raise JobConflict(f"A radiomics run is already active: {cur.job_id}")
         units = read_jsonl(run_dir / UNITS)
         remaining = [u for u in units if not worker.part_path(run_dir, u["key"]).is_file()]
-        tasks, pre = await self.tasks(pid, run_dir, rid, remaining, rec.settings, eng.name)
+        tasks, pre = await self.tasks(
+            pid, run_dir, rid, remaining, rec.settings, eng.name, check_fp=True
+        )
         async with self.locks(pid):
             kept = [r for r in read_jsonl(run_dir / ERRORS) if r.get("kind") == "skipped"]
             write_jsonl_atomic(run_dir / ERRORS, [*kept, *(e.model_dump() for e in pre)])
@@ -886,6 +925,7 @@ class RadiomicsService:
         t = _load_features(run_dir)
         if item_id is not None:
             t = t.filter(pc.equal(t["item_id"], item_id))
+        t = join_phase(t, self.store.effective_phases(pid))
         return wide(t) if shape == "wide" else t
 
     @staticmethod
