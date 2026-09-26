@@ -1,6 +1,7 @@
 # ADR-0024 Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin
 Status: Accepted · Date: 2026-09-25
 Amends: ADR-0013 §3 (Open mode) and SRC-04 defaults
+**ADR-0027 (Proposed)** amends §1 (attach from anywhere under ALLOWED_DATA_ROOTS) and §2 (the wizard pre-fills the converter's naming when every name follows it).
 
 **Context.** Open mode guessed label maps from values (integer dtype, ≤ 256 distinct values in the middle slice). Small or quantized integer CTs passed the rule (the synthetic Dataset900 CTs: int16, 240 values, −1024…110), were loaded as their own segmentation, and the viewer refused them (label values are never negative): a false "The segmentation could not be loaded". Separately, the `nifti-files` adapter's defaults were nnU-Net dataset naming (`{scan}_{MOD}_{case}_{channel:04d}` stems, `imagesTr/`/`labelsTr/`), although nnU-Net is a pending plugin (TSK-08).
 

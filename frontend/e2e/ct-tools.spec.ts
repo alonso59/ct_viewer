@@ -78,3 +78,23 @@ test('a case tab has the same tools; Close project returns to the workspace home
   await palette.getByRole('option', { name: /Close project/ }).click()
   await expect(page).toHaveURL(/\/$/)
 })
+
+test('case errors state the cause and the next steps (UI-18, AUD-A3-03, AUD-A2-07)', async ({ page }) => {
+  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Errors ${Date.now()}`, packs: ['ccrcc'] })
+  const pv = await api<{ preview_id: string }>('POST', `/projects/${p.project_id}/imports/preview`, { root: `${FIX}/Dataset900`, alias: 'DATA', detect: true })
+  await api('POST', `/projects/${p.project_id}/imports`, { preview_id: pv.preview_id })
+  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${p.project_id}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  // an unknown case: what happened and how to go on
+  await page.goto(`/p/${p.project_id}/case/case_99999`)
+  const missing = page.getByRole('alert').filter({ hasText: 'Case not found' })
+  await expect(missing).toContainText('case_99999')
+  await expect(missing.getByRole('button', { name: /Go to case…/ })).toBeVisible()
+  await missing.getByRole('button', { name: 'Close tab' }).click()
+  await expect(missing).toBeHidden()
+  // a missing image (fixture defect `missing_path`): relink or look at the Problems
+  await page.goto(`/p/${p.project_id}/case/case_00010`)
+  const card = page.getByRole('alert').filter({ hasText: 'DATA:' })
+  await expect(card.getByRole('button', { name: 'Relink data root…' })).toBeVisible()
+  await card.getByRole('button', { name: 'Show in Problems' }).click()
+  await expect(page.getByRole('tab', { name: /Problems/ })).toHaveAttribute('aria-selected', 'true')
+})

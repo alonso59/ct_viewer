@@ -181,8 +181,10 @@ class Workspace:
         (TSK-13) and every project's task tree `{derived root}/{project_id}/` (PROJECT_FORMAT
         §Write rules), archived projects included."""
         roots = [realpath(d) for d in self.settings.dataset_roots]
-        for pid in self._entries():
-            root = self.get(pid).derived_root()
+        for pid, entry in self._entries().items():
+            # an archived project is not `get`-able, but its task tree stays reserved
+            cfg = self.get(pid) if not entry.archived else self._load(self._folder(entry))
+            root = cfg.derived_root()
             if root is not None:
                 roots.append(realpath(Path(root.path) / pid))
         return tuple(roots)

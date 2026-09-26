@@ -78,6 +78,7 @@ class Result:
     counts: dict[str, int]
     storage: dict[str, int]
     outputs: list[dict[str, Any]]
+    plan: list[dict[str, Any]] = field(default_factory=list)  # one row per series (DCM-06)
 
 
 Progress = Callable[[str, str, list[dict[str, Any]], str], None]
@@ -211,6 +212,7 @@ def run(
     storage = {"source_bytes": 0, "nifti_gz_estimated_bytes": 0}
     outputs: list[dict[str, Any]] = []
     annotations: list[dict[str, Any]] = []
+    plan: list[dict[str, Any]] = []
     for key, group in sorted(by_case.items()):
         case_id = identity.case_id(key)
         rows.apply_scan_timing([g.row for g in group])
@@ -278,11 +280,25 @@ def run(
             filename = "_".join([*parts, case_id]) + "_0000.nii.gz"
             row["filename"] = filename
             row["relative_path"] = f"{ref_rel}/nifti/{filename}"
+            est = 0
             if planned:
                 counts["selected"] += 1
                 src, est = _estimate(g.header, g.series, row)
                 storage["source_bytes"] += src
                 storage["nifti_gz_estimated_bytes"] += est
+            plan.append(
+                {
+                    "case_id": case_id,
+                    "scan_idx": row["scan_idx"],
+                    "patient": "" if anonymize else str(row.get("patient_id") or ""),
+                    "description": str(row.get("series_description") or ""),
+                    "modality": str(row.get("modality") or ""),
+                    "n_files": len(g.series.files),
+                    "action": "convert" if planned else "skip",
+                    "reason": "" if planned else str(row.get("skip_reason") or ""),
+                    "bytes": est,
+                }
+            )
             if cancelled():
                 break
             item_outputs: list[dict[str, Any]] = []
@@ -380,7 +396,7 @@ def run(
     merged = {_key(r): r for r in previous}
     merged.update({_key(r): r for r in current})  # DCM-07: the full current row set
     rows_out = [clean_row(r) for r in merged.values()]
-    return Result(rows_out, annotations, diagnostics, counts, storage, outputs)
+    return Result(rows_out, annotations, diagnostics, counts, storage, outputs, plan)
 
 
 def write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:

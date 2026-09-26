@@ -18,7 +18,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0010 | QuPath-style layout in a VS Code shell, GitHub Dark theme | Accepted |
 | 0011 | Study-agnostic variable catalog | Accepted (extended by 0019) |
 | 0012 | Simple guided statistics in-app (supersedes QC-only dashboard) | Accepted |
-| 0013 | Source adapters with one internal contract; Open mode; identity policy | Accepted |
+| 0013 | Source adapters with one internal contract; Open mode; identity policy | Accepted (§3 attach location superseded by 0027, proposed) |
 | 0014 | Source and derived roots (amends R1) | Accepted (amended by 0021) |
 | 0015 | Segmentation sets per item | Accepted |
 | 0016 | Tasks and plugins: one contract, builtin and external runtimes | Accepted (amended by 0018) |
@@ -29,6 +29,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0021 | CT tools without a project; workspace tasks; the converter overlay | Accepted |
 | 0022 | Shared event store; Curation & QC and Labeling table as plugins | Accepted (amended by 0026) |
 | 0023 | Decouple literal VS Code/GitHub signals from the shell's visual identity | Accepted |
-| 0024 | Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin | Accepted |
+| 0024 | Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin | Accepted (amended by 0027, proposed) |
 | 0025 | A JSONL whole-project export; reconstructed sidecars for `metadata-v1` imports | Accepted (amended by 0026) |
 | 0026 | Phase selection is native to the app, not a curation decision | Accepted |
+| 0027 | Open mode: attach a segmentation from anywhere under the shared folders; it travels into the import | Proposed |

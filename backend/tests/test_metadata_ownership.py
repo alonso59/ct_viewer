@@ -133,6 +133,12 @@ def test_workspace_dataset_then_project(
     body = {"settings": {}, "selection": {"source": str(src[0])}}
     est = dc.post(f"{API}/tasks/dicom.convert/estimate", json=body).json()
     assert est["n_units"] == 2 and est["detail"]["series"] == 3
+    # DCM-06 (AUD-A2-13): one row per series, the skipped one with its reason, bytes per series
+    plan = {(r["description"], r["action"]): r for r in est["series"]}
+    scout = plan[("SCOUT", "skip")]
+    assert scout["reason"] and scout["bytes"] == 0 and scout["n_files"] > 0
+    assert sum(r["bytes"] for r in est["series"]) == est["output_bytes"]
+    assert all(r["patient"] for r in est["series"])  # not anonymized
     started = dc.post(f"{API}/task-runs", json={**body, "task_id": "dicom.convert",
                                                 "name": "study A"})  # fmt: skip
     assert started.status_code == 202, started.text
@@ -162,6 +168,8 @@ def test_workspace_dataset_then_project(
     opened = dc.post(f"{API}/open", json={"path": str(ds)})
     assert opened.status_code == 201, opened.text
     assert {i["format"] for i in opened.json()["items"]} == {"nifti"}
+    # VW-05 / SRC-16 (AUD-A2-10): the dataset's rows name the modality, so it is not assumed
+    assert {i["modality"] for i in opened.json()["items"]} == {"CT"}
     # a neutral project from the dataset: it imports like any root and brings the phase layer
     pid = neutral(dc)
     pv = dc.post(f"{API}/projects/{pid}/imports/preview", json={"root": str(ds), "alias": "DATA"})
@@ -174,6 +182,11 @@ def test_workspace_dataset_then_project(
     item = dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-").json()
     assert item["phase"]["canonical"] == "NP" and item["phase"]["source"].startswith("analyzer:")
     assert dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-/image").status_code == 200
+    # DCM-04 / VW-22 (AUD-A2-04): the dataset's relative `sidecars/…` ref resolves in the project
+    assert item["extra"]["dicom_sidecar"].startswith("DATA:sidecars/")
+    tags = dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-/dicom-tags")
+    assert tags.status_code == 200, tags.text
+    assert "7FE00010" not in tags.json()  # never PixelData
     assert {str(p): p.stat().st_mtime_ns for p in ds.rglob("*")} == before
     # without the chained phase analyzer the dataset has no phase layer
     no_phase = {**body, "task_id": "dicom.convert", "name": "nophase"}
@@ -196,4 +209,18 @@ def test_workspace_task_errors(dc: TestClient, src: tuple[Path, dict[str, Any]])
     assert_problem(dc.post(f"{API}/task-runs", json=no_src), "validation")
     outside = {"task_id": "dicom.convert", "selection": {"source": "/etc"}}
     assert_problem(dc.post(f"{API}/task-runs", json=outside), "path-outside-root")
+    # SRC-11 / UI-18 (AUD-A2-07): a folder without DICOM is refused with the cause and next
+    # steps, for the dry run and the run; no empty dataset is "completed"
+    nifti_only = src[0] / "NIFTI"
+    nifti_only.mkdir()
+    (nifti_only / "a.nii.gz").write_bytes(b"x")
+    none = {"settings": {}, "selection": {"source": str(nifti_only)}}
+    r = dc.post(f"{API}/tasks/dicom.convert/estimate", json=none)
+    assert_problem(r, "unsupported-format")
+    assert r.json()["detail"] == "No DICOM files in NIFTI; 1 NIfTI files found"
+    assert r.json()["actions"] == ["open", "import_as:nifti-files", "choose_another_path"]
+    r = dc.post(f"{API}/task-runs", json={**none, "task_id": "dicom.convert", "name": "empty"})
+    assert_problem(r, "unsupported-format")
+    derived = ctx_of(dc).settings.derived_roots[0]
+    assert not (derived / "_datasets" / "empty").exists()
     assert_problem(dc.get(f"{API}/task-runs/01JAAAAAAAAAAAAAAAAAAAAAAA"), "not-found")

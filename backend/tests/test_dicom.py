@@ -384,6 +384,12 @@ def test_save_as_nifti(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_pat
         assert not reserved.exists()
     mine = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(derived / "mine")})
     assert mine.status_code == 201, mine.text  # any other folder the user picks (SRC-14)
+    # an archived project's task tree stays reserved, and saving still works (FB4 E2E finding)
+    assert dc.post(f"{API}/projects/{pid}/archive").status_code == 200
+    ctx_of(dc).workspace.invalidate(pid)
+    assert dc.post(f"{API}/open/{s['sid']}/items/0/save", json={}).status_code == 201
+    r = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(derived / pid / "x")})
+    assert_problem(r, "path-outside-root")
 
 
 def test_save_needs_derived_roots(tmp_path: Path, src: tuple[Path, dict[str, Any]]) -> None:

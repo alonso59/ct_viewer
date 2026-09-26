@@ -51,7 +51,7 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |
 | `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}` |
 | `status`, `planned_conversion`, `curated_keep` | | Upstream skip/exclude (IMP-07) |
-| `dicom_sidecar` *(v1.1)* | | Ref to the DICOM JSON sidecar (DCM-04) |
+| `dicom_sidecar` *(v1.1)* | | Ref to the DICOM JSON sidecar (DCM-04); a path relative to the import root (a workspace dataset's `sidecars/…`) becomes a ref under the import's alias, like `relative_path` (AUD-A2-04) |
 | `source_kind` *(v1.1)* | | `dicom` \| `nifti` \| `npy`; set by adapters and the converter |
 
 ### `phase.json`: optional phase overrides
@@ -101,7 +101,7 @@ Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (20
 | `missing_voi_image` / `missing_voi_mask` | warning | VOI part missing |
 | `missing_affine` | warning | No usable affine |
 | `affine_mismatch` / `shape_mismatch` | error | Mask geometry ≠ image geometry |
-| `ambiguous_phase` | warning | Resolved to `UNK`, or conflicting sources |
+| `ambiguous_phase` | warning | Resolved to `UNK`, or conflicting sources; not for `nifti-files` rows without a phase (UNK by design, SRC-04) |
 | `ambiguous_side` | warning | Side unparseable, or both sides map to the same file |
 | `duplicate_row_identity` | error | Two rows produce the same `item_id` |
 | `fingerprint_changed` | warning | File changed since indexing |

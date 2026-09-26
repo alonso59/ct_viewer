@@ -1,5 +1,5 @@
 // Open mode records (SRC-09): an OpenItem shown through the project viewer's item shape.
-import type { ItemRecord, LabelDef, OpenItem } from '../../api'
+import type { ItemRecord, LabelDef, OpenItem, OpenSession } from '../../api'
 
 /** Auto label colours for a label map without a project label map (VW-21: `label_{value}`) */
 const AUTO = ['#00FFFF', '#FFFF00', '#FF00FF', '#00FF00', '#FF8000', '#0080FF', '#FF0040', '#80FF00']
@@ -39,3 +39,42 @@ export function toItemRecord(it: OpenItem, mask: OpenItem | null): ItemRecord {
 
 /** The label attached to item n last (SRC-10), if any */
 export const attachedTo = (items: OpenItem[], n: number) => [...items].reverse().find((i) => i.attached_to === n) ?? null
+
+const join = (root: string, rel: string) => (rel.startsWith('/') ? rel : `${root.replace(/\/+$/, '')}/${rel}`)
+const dirOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
+
+/** Absolute path of an item: attachments outside the session root keep an absolute `rel` (ADR-0027) */
+export const itemPath = (s: Pick<OpenSession, 'root'>, it: Pick<OpenItem, 'rel'>) => join(s.root, it.rel)
+
+function commonDir(a: string, b: string): string {
+  const x = dirOf(a).split('/')
+  const y = dirOf(b).split('/')
+  let n = 0
+  while (n < x.length && n < y.length && x[n] === y[n]) n++
+  return x.slice(0, n).join('/') || '/'
+}
+
+/**
+ * "Create project from this" / "Add to project…" (SRC-05/15): the open path, or, with an attached
+ * segmentation, the folder holding both files with an include list and the image → mask pair, so
+ * the mask becomes the item's segmentation (`nifti-files` `masks`, ADR-0027, AUD-A2-12).
+ */
+export function importSource(s: Pick<OpenSession, 'root'>, item: Pick<OpenItem, 'rel' | 'format'>, mask: Pick<OpenItem, 'rel'> | null, path: string) {
+  if (!mask || item.format !== 'nifti') return { path }
+  const img = itemPath(s, item)
+  const seg = itemPath(s, mask)
+  const root = commonDir(img, seg)
+  const rel = (p: string) => p.slice(root === '/' ? 1 : root.length + 1)
+  return { path: root, adapter: 'nifti-files', options: { include: [rel(img), rel(seg)], masks: { [rel(img)]: rel(seg) } } }
+}
+
+/** Folder names that usually hold the segmentations next to the images (SRC-10 attach browser) */
+export const MASK_DIR = /^(seg|segs|segmentations?|labels\w*|masks?)$/i
+
+/** Where the attach browser starts: a mask folder inside the opened folder or next to it, else the root */
+export function attachStart(root: string, inRoot: string[], besideRoot: string[]): string {
+  const here = inRoot.find((n) => MASK_DIR.test(n))
+  if (here) return join(root, here)
+  const sib = besideRoot.find((n) => MASK_DIR.test(n))
+  return sib ? join(dirOf(root), sib) : root
+}

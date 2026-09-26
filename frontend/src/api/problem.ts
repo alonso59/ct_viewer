@@ -3,6 +3,8 @@
 import type { Problem } from './types'
 
 export class ProblemError extends Error {
+  /** From the API: `title` is the slug's generic title, so the UI may word it plainly (UI-18) */
+  generic = false
   constructor(
     public status: number,
     public type: string,
@@ -18,7 +20,9 @@ export function toProblemError(status: number, body: unknown, fallbackTitle: str
   const p = (body && typeof body === 'object' ? body : {}) as Partial<Problem> & { actions?: unknown }
   const slug = typeof p.type === 'string' ? (p.type.split('/').filter(Boolean).at(-1) ?? 'about:blank') : 'about:blank'
   const actions = Array.isArray(p.actions) ? p.actions.filter((a): a is string => typeof a === 'string') : []
-  return new ProblemError(status, slug, p.title ?? fallbackTitle, p.detail, actions)
+  const e = new ProblemError(status, slug, p.title ?? fallbackTitle, p.detail, actions)
+  e.generic = true
+  return e
 }
 
 /** `import_as:nifti-files` → `{ name: 'import_as', arg: 'nifti-files' }` */

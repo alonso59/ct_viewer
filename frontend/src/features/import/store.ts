@@ -1,6 +1,8 @@
 // Import wizard open/close state (eager; the wizard itself is a lazy chunk, NFR-07)
 import { create } from 'zustand'
 
+import type { NiftiOptions } from '../../api'
+
 export interface WizardPrefill {
   path: string
   adapter?: string
@@ -8,6 +10,8 @@ export interface WizardPrefill {
   add?: boolean
   /** VW-05: the modality chosen in Open mode for a file without one → `nifti-files` option */
   modality?: string
+  /** `nifti-files` options from Open mode: an include list with the attached mask (ADR-0027) */
+  options?: NiftiOptions
 }
 
 interface WizardState {

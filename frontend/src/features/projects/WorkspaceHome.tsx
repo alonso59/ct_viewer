@@ -14,6 +14,7 @@ import {
   useProjects,
   useRelink,
   useRoots,
+  useWorkspaceRuns,
   type ProjectModality,
   type ProjectSummary,
   type RelinkResult,
@@ -22,7 +23,7 @@ import { Dialog, IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
 import { runCommand, toast } from '../../shell'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from '../import'
-import { useOpenDialog } from '../open'
+import { openPath, useOpenDialog } from '../open'
 import { useConverter } from '../../plugins/dicom/store'
 import { exportBundle, problemText } from './actions'
 import { useProjectDialogs } from './store'
@@ -210,6 +211,38 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
   )
 }
 
+const MAX_DATASETS = 5
+
+/** UI-04 / DCM-14 (AUD-A2-14): converted workspace datasets, found again from the home */
+function RecentDatasets({ onCreate }: { onCreate: (path: string) => void }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const runs = useWorkspaceRuns().data ?? []
+  const seen = new Set<string>()
+  const done = runs.filter((r) => r.status === 'completed' && !seen.has(r.dataset_dir) && seen.add(r.dataset_dir)).slice(0, MAX_DATASETS)
+  if (!done.length) return null
+  return (
+    <>
+      <h3 className="home-sub">{t('home.datasets')}</h3>
+      <div role="list" className="home-list" aria-label={t('home.datasets')}>
+        {done.map((r) => (
+          <div key={r.run_id} className="home-project" role="listitem">
+            <span className="home-project-main">
+              <Icon spec={codicon('database')} size={20} />
+              <span className="home-project-text">
+                <span className="home-project-name">{r.name}</span>
+                <span className="muted">{t('home.datasetMeta', { count: (r.counts?.converted ?? 0) + (r.counts?.already_converted ?? 0), ago: fmtAgo(r.finished_at ?? r.created_at) })}</span>
+              </span>
+            </span>
+            <button type="button" className="btn btn-sm" onClick={() => openPath(navigate, r.dataset_dir)}>{t('home.datasetOpen')}</button>
+            <button type="button" className="btn btn-sm" onClick={() => onCreate(r.dataset_dir)}>{t('home.datasetCreate')}</button>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 /** PRJ-06: archived projects, each with Restore (AUD-A4-03) */
 function ArchivedList() {
   const { t } = useTranslation()
@@ -255,6 +288,7 @@ export function WorkspaceHome() {
   const bundlePick = useProjectDialogs((s) => s.bundlePick)
   const [showArchived, setShowArchived] = useState(false)
   const [relink, setRelink] = useState<ProjectSummary | null>(null)
+  const [fromDataset, setFromDataset] = useState<string | null>(null)
   const [bundle, setBundle] = useState<File | null>(null)
   const picker = useRef<HTMLInputElement>(null)
   // "Import project bundle…" from the palette (AUD-A1-01)
@@ -351,6 +385,7 @@ export function WorkspaceHome() {
                 <ProjectCard key={p.project_id} p={p} onRelink={() => setRelink(p)} />
               ))}
             </div>
+            <RecentDatasets onCreate={setFromDataset} />
             </>}
           </section>
         </div>
@@ -361,6 +396,7 @@ export function WorkspaceHome() {
         </footer>
       </div>
       <NewProjectDialog open={creating} onOpenChange={setCreating} />
+      {fromDataset ? <NewProjectDialog open onOpenChange={(o) => !o && setFromDataset(null)} prefill={{ path: fromDataset }} /> : null}
       {bundle ? (
         <Suspense fallback={null}>
           <BundleImport file={bundle} onClose={() => setBundle(null)} />

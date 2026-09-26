@@ -163,3 +163,4 @@
 /* AUD-A4-03: Recent / Archived toggle */
 .home-recent-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .home-footer { display: flex; gap: var(--sp-3); align-items: center; }
+.home-sub { margin: var(--sp-3, 12px) 0 var(--sp-1, 4px); font-size: var(--fs-panel); color: var(--fg-muted); font-weight: var(--fw-semibold); }

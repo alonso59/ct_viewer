@@ -91,7 +91,7 @@ def detect(path: Path, *, dicom_available: bool) -> DetectResult:
         cands.append(
             Candidate(
                 adapter="metadata-v1",
-                reason="metadata.jsonl found (contract v1)",
+                reason="metadata.jsonl found",
                 counts=counts,
                 confidence="high",
             )

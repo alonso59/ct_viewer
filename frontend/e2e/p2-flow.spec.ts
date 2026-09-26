@@ -33,7 +33,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await wizard.getByRole('button', { name: 'Next' }).click()
 
   // Detect (API-19): contract v1 is the best match, NIfTI files also possible (SRC-01)
-  await expect(wizard.getByRole('radio', { name: /Contract v1/ })).toBeChecked()
+  await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await expect(wizard.getByRole('radio', { name: /NIfTI files/ })).toBeVisible()
   await wizard.getByRole('button', { name: 'Next' }).click()
 

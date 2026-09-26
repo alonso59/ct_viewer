@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
-import { CaseRollupBadge, PhaseChip } from '../../lib'
+import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
+import { CaseRollupBadge, PhaseChip, ProblemCard } from '../../lib'
 import { bindingOf, formatChord, pinEditor, registry, runCommand, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { PhaseButtons, PhaseHistoryButton } from '../phase'
 import { navPosition, resolveSeg, useNavContext, useViewerSync } from '../../state'
@@ -158,12 +158,23 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   }
 
   if (isLoading) return <div className="empty">{t('common.loading')}</div>
-  if (isError || !data || !current)
+  if (isError || !data || !current) {
+    // UI-18 (AUD-A3-03): the cause and how to go on, not a bare "Not found"
+    const p = error instanceof ProblemError ? error : null
+    const notFound = !p || p.status === 404
+    const title = notFound ? t('viewer.caseNotFound') : t(`problemTitle.${p.type}`, { defaultValue: p.title })
+    const problem = new ProblemError(p?.status ?? 404, p?.type ?? 'not-found', title, notFound ? t('viewer.caseNotFoundHelp', { id: params.caseId }) : p.detail, ['quick_open', 'close_tab'])
+    const quick = registry.commands.get('workbench.quickOpen')
     return (
-      <div className="error-card" role="alert">
-        <strong>{(error as { title?: string } | null)?.title ?? t('viewer.caseNotFound')}</strong>
+      <div className="case-editor-error">
+        <ProblemCard
+          error={problem}
+          labels={{ quick_open: `${t('problemAction.quick_open')}${quick ? ` (${formatChord(bindingOf(quick))})` : ''}` }}
+          onAction={{ quick_open: () => runCommand('workbench.quickOpen'), close_tab: () => runCommand('workbench.closeTab') }}
+        />
       </div>
     )
+  }
 
   const fatal = current.warning_codes.find((c) => FATAL_CODES.includes(c))
   const setName = (id: string) => sets?.find((x) => x.seg_id === id)?.name || id
@@ -194,15 +205,12 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <CaseRollupBadge summary={data.summary} />
       </div>
       {fatal || current.status === 'missing' ? (
-        <div className="error-card" role="alert" style={{ maxWidth: 560 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ color: 'var(--error)', display: 'inline-flex' }}>
-              <Icon spec={codicon('error')} />
-            </span>
-            <strong>{t(`warning.${fatal ?? 'missing_path'}`)}</strong>
-            <span className="badge mono">{fatal ?? 'missing_path'}</span>
-          </div>
-          <div className="muted">{t('viewer.fileError', { ref: current.image?.ref ?? '—' })}</div>
+        // UI-18 (AUD-A2-07): what failed, where, and the next steps (relink the root, Problems)
+        <div style={{ maxWidth: 560 }}>
+          <ProblemCard
+            error={new ProblemError(409, fatal ?? 'missing_path', t(`warning.${fatal ?? 'missing_path'}`), t('viewer.fileError', { ref: current.image?.ref ?? '—' }), ['relink_root', 'show_problems'])}
+            onAction={{ relink_root: () => runCommand('project.relink'), show_problems: () => runCommand('panel.show.problems') }}
+          />
         </div>
       ) : (
         <ViewerSurface

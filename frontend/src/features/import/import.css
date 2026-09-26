@@ -162,3 +162,10 @@
 .pattern-group {
   font-weight: var(--fw-semibold);
 }
+
+/* IMP-03 (AUD-A1-15): an adapter option: name on one line, its reason below */
+.adapter-option { display: flex; align-items: flex-start; gap: var(--sp-2); padding: 6px 0; }
+.adapter-option input { margin-top: 3px; }
+.adapter-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adapter-text .muted { font-size: var(--fs-panel); }
+.fs-filter { width: 100%; }

@@ -241,6 +241,8 @@ export interface NiftiOptions {
   modality?: string
   include?: string[] | null
   mask_conventions?: string[]
+  /** image → mask: the segmentation attached in Open mode (ADR-0027) */
+  masks?: Record<string, string> | null
 }
 export type ParsedFile = S['ParsedFile']
 /** API-19 */

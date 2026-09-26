@@ -48,7 +48,11 @@ test('open mode refuses a folder with nothing to open, with next actions', async
   await page.goto('/')
   await openViaHistoryState(page, '/nope/not-allowed')
   const alert = page.getByRole('alert')
-  await expect(alert).toContainText('path-outside-root')
+  // UI-18 (AUD-A2-07, AUD-A3-03): a plain title, no server setting names, and next actions
+  await expect(alert).toContainText('This folder is not shared with the app')
+  await expect(alert).not.toContainText('ALLOWED_DATA_ROOTS')
+  await expect(alert.getByRole('button', { name: 'Go to the workspace home' })).toBeVisible()
+  await expect(alert.getByRole('button', { name: 'Choose another file or folder' })).toBeVisible()
   await expect(page).toHaveURL(/\/open$/) // a refused path never reaches the URL either
 })
 

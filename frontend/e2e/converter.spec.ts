@@ -33,7 +33,7 @@ test('convert without a project, then create a project from the dataset', async 
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
   const wizard = page.getByRole('dialog', { name: 'Import data' })
-  await expect(wizard.getByRole('radio', { name: /Contract v1/ })).toBeChecked()
+  await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await wizard.getByRole('button', { name: 'Next' }).click()
   await wizard.getByRole('button', { name: 'Import and index' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
@@ -41,4 +41,21 @@ test('convert without a project, then create a project from the dataset', async 
   const project = (await (await fetch(`${API}/projects/${pid}`)).json()) as { packs: string[]; annotation_sources: Record<string, string | null> }
   expect(project.packs).toEqual([]) // neutral
   expect(project.annotation_sources.phase).toBeTruthy() // the chained phase analyzer's layer
+})
+
+test('a folder without DICOM is refused with the cause and next steps (UI-18, AUD-A2-07)', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /Convert DICOM/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'Convert DICOM' })
+  const folders = dialog.getByRole('listbox', { name: 'Folders' })
+  await folders.getByRole('button', { name: /synthetic/ }).click()
+  await folders.getByRole('button', { name: /Dataset900/ }).click()
+  await folders.getByRole('button', { name: /^nifti$/ }).click()
+  await dialog.getByRole('button', { name: 'Next' }).click()
+  await dialog.getByRole('button', { name: 'Dry run' }).click()
+  const alert = dialog.getByRole('alert')
+  await expect(alert).toContainText(/No DICOM files in nifti; \d+ NIfTI files found/)
+  await expect(alert.getByRole('button', { name: 'Create project from this' })).toBeVisible()
+  await alert.getByRole('button', { name: 'Open without a project' }).click()
+  await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
 })

@@ -36,6 +36,9 @@ class NiftiOptions(BaseModel):
     mask_conventions: list[str] = Field(default_factory=lambda: list(CONVENTIONS))
     modality: str = Field("CT", min_length=1, max_length=16)
     include: list[str] | None = None  # explicit relative file list (SRC-05)
+    # image rel → mask rel: the segmentation attached in Open mode, carried into the import
+    # ("Create project from this" / "Add to project…", ADR-0027); these files are not items
+    masks: dict[str, str] | None = None
 
     @field_validator("pattern")
     @classmethod
@@ -106,7 +109,8 @@ def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPla
     reg.strategy = "filename_pattern"
     s = formats.scan(root, opts.include)
     files = s.files["nifti"]
-    mask_files = [f for f in files if _is_mask(f, opts.mask_conventions)]
+    explicit = {k: v for k, v in (opts.masks or {}).items() if v in files}
+    mask_files = [f for f in files if f in explicit.values() or _is_mask(f, opts.mask_conventions)]
     masks = {f.lower(): f for f in mask_files}
     images = [f for f in files if f.lower() not in masks]
     if opts.include is not None and not images and mask_files:
@@ -139,7 +143,9 @@ def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPla
             by_first[(case_id, scan_idx)].setdefault("channels", []).append(rel)
             skipped += 1
             continue
-        mask = _mask_for(rel, masks, opts.mask_conventions) if masks else None
+        mask = explicit.get(rel) or (
+            _mask_for(rel, masks, opts.mask_conventions) if masks else None
+        )
         if mask:
             used_masks.add(mask)
         modality = g.get("modality")

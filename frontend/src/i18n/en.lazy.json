@@ -488,7 +488,7 @@
     "truncated": "Only the first 500 files are listed",
     "attachAction": "Attach segmentation…",
     "attachTitle": "Attach a segmentation",
-    "attachHelp": "Pick a NIfTI segmentation (.nii or .nii.gz) with the same shape and orientation as the image. It is never resampled.",
+    "attachHelp": "Pick a NIfTI segmentation (.nii or .nii.gz) from any shared folder, e.g. the seg/ or labelsTr/ folder next to the images. It must have the same shape and orientation as the image; it is never resampled.",
     "attach": "Attach",
     "createProject": "Create project from this",
     "axisTitle": "Axis order of {{name}}",
@@ -525,7 +525,8 @@
     "convertAction": "Convert DICOM…",
     "close": "Close",
     "noSession": "No Open session",
-    "noSessionHelp": "Open a file or folder to view it without a project. The address bar names the session, never the path."
+    "noSessionHelp": "Open a file or folder to view it without a project. The address bar names the session, never the path.",
+    "unreadable": "{{name}} cannot be read"
   },
   "tasks": {
     "kind": {
@@ -793,7 +794,31 @@
     "addTo": "Add to project",
     "pickProject": "Choose a project…",
     "projectDone": "The converted series were imported into the project.",
-    "close": "Close"
+    "close": "Close",
+    "plan_one": "{{count}} series · {{skipped}} skipped",
+    "plan_other": "{{count}} series · {{skipped}} skipped",
+    "planCase": "Case · scan",
+    "planPatient": "Patient",
+    "planSeries": "Series",
+    "planFiles": "Files",
+    "planAction": "Plan",
+    "planSize": "Est. size",
+    "planId": "{{case}} · {{scan}}",
+    "planModality": " · {{modality}}",
+    "actionConvert": "Convert",
+    "actionSkip": "Skip: {{reason}}",
+    "planTruncated": "Showing the first {{n}} series.",
+    "reason": {
+      "localizer": "localizer / scout",
+      "unsafe_geometry": "unsafe geometry",
+      "secondary_disabled": "secondary series (not converted)",
+      "excluded_disabled": "excluded series (not converted)",
+      "wrong_modality": "not CT or MR",
+      "insufficient_slices": "too few slices",
+      "intervention_scan": "intervention scan",
+      "wrong_anatomy": "outside the organ focus"
+    },
+    "nameTaken": "A dataset named {{name}} exists; this one will be saved as {{next}}."
   },
   "ct": {
     "w": "W",
@@ -1053,7 +1078,7 @@
     "mapping": "Field mapping",
     "adapterTitle": "Import as",
     "adapter": {
-      "metadata-v1": "Contract v1 (metadata.jsonl)",
+      "metadata-v1": "Metadata table (metadata.jsonl)",
       "nifti-files": "NIfTI files",
       "dicom_convert": "DICOM → NIfTI conversion",
       "open": "Open without a project"
@@ -1084,9 +1109,17 @@
       "unmatched_one": "{{count}} name did not match the pattern: {{names}}",
       "unmatched_other": "{{count}} names did not match the pattern: {{names}}",
       "orphans_one": "{{count}} mask has no image",
-      "orphans_other": "{{count}} masks have no image"
+      "orphans_other": "{{count}} masks have no image",
+      "withMask": "With the segmentation attached in Open mode: {{mask}}",
+      "patternPrefilled": "Filled from the file names (the converter's naming: scan, case, channel). Edit it, or clear it for one case per file."
     },
-    "converted": "DICOM converted; the converted series are being indexed"
+    "converted": "DICOM converted; the converted series are being indexed",
+    "adapterHint": {
+      "metadata-v1": "Adapter metadata-v1: the converter's metadata.jsonl table (contract v1, INPUT_METADATA)",
+      "nifti-files": "Adapter nifti-files: one row per NIfTI file (SRC-04)",
+      "dicom_convert": "Task dicom.convert: DICOM series → NIfTI with sidecars (DCM-*)",
+      "open": "Open mode: view without a project (SRC-09)"
+    }
   },
   "lbl": {
     "derivedUsers_one": "The derived variable {{list}} uses it and will show as broken until you delete it in Variables.",

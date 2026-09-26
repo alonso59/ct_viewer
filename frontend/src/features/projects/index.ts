@@ -13,6 +13,7 @@ import { WelcomeEditor } from './WelcomeEditor'
 
 export { WorkspaceHome, NewProjectDialog, RelinkDialog } from './WorkspaceHome'
 export { useRootsCheck } from './useRootsCheck'
+export { useProjectDialogs } from './store'
 export { ProjectSwitcher } from './ProjectSwitcher'
 export { ShareMenu, deepLink } from './share'
 
@@ -63,6 +64,8 @@ export function registerProjects() {
       if (pid) useProjectDialogs.getState().set({ archive: { pid, name: queryClient.getQueryData<Project>(keys.project(pid))?.name ?? pid, home: false } })
     },
   })
+  // PRJ-05: relink a moved data root (also the missing-image card's next step, AUD-A2-07)
+  registry.command({ id: 'project.relink', writes: true, title: 'projects.relink', category: 'cat.project', menuGroup: 3, enabled: hasPid, run: withPid((pid) => useProjectDialogs.getState().set({ relink: pid })) })
   // AUD-A1-06: the dataset table and `dataset.jsonl` (API-59, the Data tab's downloads)
   for (const [fmt, title] of [['csv', 'cmd.exportDatasetCsv'], ['parquet', 'cmd.exportDatasetParquet'], ['jsonl', 'cmd.exportDatasetJsonl']] as const)
     registry.command({

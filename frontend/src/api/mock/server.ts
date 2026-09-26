@@ -529,6 +529,11 @@ const FS: Record<string, FsEntry[]> = {
     { name: 'metadata.jsonl', path: `${DEMO_ROOT}/metadata.jsonl`, kind: 'file', size: 18_204, has_metadata: false },
     { name: 'phase.json', path: `${DEMO_ROOT}/phase.json`, kind: 'file', size: 812, has_metadata: false },
   ],
+  // a long folder for the browser's filter and type-ahead (AUD-A1-16)
+  [`${DEMO_ROOT}/nifti`]: Array.from({ length: 20 }, (_, k) => {
+    const name = `01_case_${String(k).padStart(5, '0')}_0000.nii.gz`
+    return { name, path: `${DEMO_ROOT}/nifti/${name}`, kind: 'file' as const, size: 2_000_000, has_metadata: false }
+  }),
 }
 
 function queueRows(pid: string): QueueRow[] {
@@ -901,7 +906,13 @@ export const mockServer: Api = {
   },
   async estimateWorkspaceTask() {
     await wait(300)
-    return { n_units: 2, n_skipped: 1, seconds_per_item: null, estimated_total_s: null, output_bytes: 2_400_000, basis: 'sample', sample_item_ids: [], sample_errors: [], detail: { series: 3, selected: 2, skipped: 1, nifti_gz_estimated_bytes: 2_400_000 } }
+    // DCM-06: one row per series, the skipped one with its reason (AUD-A2-13)
+    const series = [
+      { case_id: 'case_00000', scan_idx: '01', patient: 'P900', description: 'ABD NEPHRO', modality: 'CT', n_files: 12, action: 'convert' as const, reason: '', bytes: 1_200_000 },
+      { case_id: 'case_00000', scan_idx: '02', patient: 'P900', description: 'SCOUT', modality: 'CT', n_files: 1, action: 'skip' as const, reason: 'localizer', bytes: 0 },
+      { case_id: 'case_00001', scan_idx: '01', patient: 'P901', description: 'NON CONTRAST', modality: 'CT', n_files: 12, action: 'convert' as const, reason: '', bytes: 1_200_000 },
+    ]
+    return { n_units: 2, n_skipped: 1, seconds_per_item: null, estimated_total_s: null, output_bytes: 2_400_000, basis: 'sample', sample_item_ids: [], sample_errors: [], detail: { series: 3, selected: 2, skipped: 1, nifti_gz_estimated_bytes: 2_400_000 }, series, series_truncated: false }
   },
   async startWorkspaceRun(body) {
     await wait(150)
@@ -988,7 +999,7 @@ export const mockServer: Api = {
     const m = taskOf(tid).manifest
     const pre = preflight(m, taskItems(s, selection), selection, s.project.default_seg, true)
     const spi = m.resources?.seconds_per_item ?? null
-    return { n_units: pre.n_ready, n_skipped: pre.n_selected - pre.n_ready, seconds_per_item: spi, estimated_total_s: spi == null ? null : spi * pre.n_ready, output_bytes: null, basis: spi == null ? 'unknown' : 'manifest', sample_item_ids: [], sample_errors: [] }
+    return { n_units: pre.n_ready, n_skipped: pre.n_selected - pre.n_ready, seconds_per_item: spi, estimated_total_s: spi == null ? null : spi * pre.n_ready, output_bytes: null, basis: spi == null ? 'unknown' : 'manifest', sample_item_ids: [], sample_errors: [], series: [], series_truncated: false }
   },
   async startTaskRun(pid, body, reviewer) {
     await wait(150)

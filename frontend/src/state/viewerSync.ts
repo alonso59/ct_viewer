@@ -53,6 +53,8 @@ export interface CursorReadout {
   ras: [number, number, number]
   value: number
   label: number
+  /** The label's name from the shown labels (VW-08), when it has one */
+  labelName?: string
 }
 
 interface ViewerSyncState {

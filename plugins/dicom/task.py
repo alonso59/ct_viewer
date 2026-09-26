@@ -75,6 +75,8 @@ def run(job_dir: str) -> int:
         "identity": identity.as_dict(),
         "estimate": {**result.counts, **result.storage},
     }
+    if dry:  # DCM-06: which series converts, which is skipped and why, storage per series
+        extra["estimate"]["series_plan"] = result.plan
     annotations = result.annotations
     if not job.settings.get("phase_analyzer", True):  # DCM-14: the phase layer is optional
         annotations = [a for a in annotations if a.get("field") != "phase"]

@@ -292,6 +292,8 @@ export function useUpdateProject(pid: string) {
   })
 }
 
+/** API-62: workspace task runs, newest first (the converted datasets on the home, AUD-A2-14) */
+export const useWorkspaceRuns = () => useQuery({ queryKey: keys.workspaceRuns(), queryFn: () => api.listWorkspaceRuns() })
 export const useWorkspaceRun = (rid: string | null) =>
   useQuery({
     queryKey: keys.workspaceRun(rid ?? ''),

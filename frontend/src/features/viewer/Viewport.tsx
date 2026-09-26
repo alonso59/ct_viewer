@@ -1,6 +1,6 @@
 // Viewport frame over the engine canvas: header, slice slider, crosshair lines, corner text
 // (VW-02, 03, 04, 09, 12). The pixels underneath come from the engine; the body is transparent.
-import type { HTMLAttributes } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { LabelDef } from '../../api'
@@ -33,9 +33,11 @@ interface Props {
   onGoto: (index: number) => void
   meshState: MeshState
   bodyProps: HTMLAttributes<HTMLDivElement>
+  /** VW-22 probe of this view (only the hovered one), drawn at its bottom-left above the slider */
+  probe?: ReactNode
 }
 
-export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, onFit, onGoto, meshState, bodyProps }: Props) {
+export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, onFit, onGoto, meshState, bodyProps, probe }: Props) {
   const { t } = useTranslation()
   const tool = useViewerSync((s) => s.tool)
   const color = PLANE_COLOR[id]
@@ -64,6 +66,7 @@ export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, on
       </header>
       <div className="vp-body" data-tile={id} data-tool={isPlane(id) ? tool : 'orbit'} {...bodyProps}>
         {isPlane(id) ? <PlaneOverlay plane={id} view={plane} /> : <Overlay3d hasMask={hasMask} labels={labels} />}
+        {probe}
       </div>
       {isPlane(id) && plane ? (
         <input

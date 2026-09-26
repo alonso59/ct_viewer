@@ -2,7 +2,7 @@
 
 Scope: accepted file formats, source adapters, Open mode (no project), case identity policy, NumPy geometry and axis order.
 Read when: building import detection, the NIfTI adapter, Open mode, case numbering, or any array ↔ NIfTI conversion.
-Depends: ADR-0013, ADR-0024, ADR-0025 (reconstructed sidecars), INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
+Depends: ADR-0013, ADR-0024, ADR-0025 (reconstructed sidecars), ADR-0027 (attach anywhere, Proposed), INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
 
 Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstream knows which adapter was used.
 
@@ -19,7 +19,7 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | SRC-07 | Identity policy (§Identity) assigns `case_id` / `scan_idx` for adapters that don't carry them. The registry `sources/identity.json` keeps assignments stable across incremental imports. | M |
 | SRC-08 | `case_id` is a URL-safe slug `[A-Za-z0-9_-]{1,64}` (no `.`, because `item_id` uses it). The original name is kept in `extra.source_name`. | M |
 | SRC-09 | Open mode (§Open mode): view one file or folder without a project, with the full CT tool set (VW-22) and a Close action (UI-24). Workspace tasks (TSK-13) such as the converter can start from it; project-bound tasks cannot. | M |
-| SRC-10 | In Open mode, a segmentation exists only when attached to an open image: a NIfTI file (`.nii`, `.nii.gz`), and only if the shape matches and the affines agree within the IMP-08 tolerance. It is never resampled; a mismatch is refused with both geometries shown. | M |
+| SRC-10 | In Open mode, a segmentation exists only when attached to an open image: a NIfTI file (`.nii`, `.nii.gz`) from anywhere under `ALLOWED_DATA_ROOTS` (ADR-0027), and only if the shape matches and the affines agree within the IMP-08 tolerance. It is never resampled; a mismatch is refused with both geometries shown. An attached segmentation travels into Create project from this / Add to project… (§NIfTI files `masks`). | M |
 | SRC-11 | Every refusal is a problem (API §Errors) with `detail` = the cause and `actions[]` = the suggested next steps, e.g. `{"detail": "No metadata.jsonl under the root; 11 NIfTI files found", "actions": ["import_as:nifti-files"]}`. The UI shows both, and never a bare "Validation failed". | M |
 | SRC-12 | NumPy arrays are read only with explicit geometry and axis order (§NumPy). There is no silent default. | S |
 | SRC-13 | DICOM sources are converted by the task `dicom.convert` (DCM-*). In Open mode, the same convert stage writes to `.scratch/` only. | M |
@@ -47,8 +47,9 @@ Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstrea
 | `mask_conventions` | `seg/{name}` (also `seg/{name minus _0000}`, the metadata-v1 layout), suffix `_seg` / `_mask` | First match wins; files matched as masks are not items |
 | `modality` | `CT` | Applied to all rows; `MR` disables HU presets (VW-05) |
 | `include` | all accepted files | Explicit file list (SRC-05) |
+| `masks` | none | Explicit image → mask pairs (relative paths, both in `include`): the segmentation attached in Open mode (ADR-0027); these files are not items |
 
-Preview shows the parsed columns for the first 50 files and every unmatched name.
+Preview shows the parsed columns for the first 50 files and every unmatched name. The wizard pre-fills `pattern` with the converter's naming `^(?P<scan_idx>\d+)_(?:(?P<modality>[A-Z]{2,3})_)?(?P<case_id>.+)_(?P<channel>\d{4})$` only when every image name being imported follows it, with a note; the field stays editable (ADR-0027 §3, AUD-A2-12). `nifti-files` rows carry phase `UNK` by design: no `ambiguous_phase` unless the pattern gave a phase, and no metadata-v1 `seg/{name}` guess (the adapter's own conventions already ran).
 
 ### Pattern suggester (SRC-17)
 
@@ -83,9 +84,10 @@ Each import has a `source_key`: `{adapter}:{alias}` by default (a re-import of t
 - `POST /open {path}` (API-07) returns an ephemeral session with item-like records (`item_id` = `open.{n}`) from headers only. Nothing is written to any project or to the workspace registry. Sessions live in the API process memory (LRU of 32; gone after a restart); a folder lists at most 500 accepted files. Headers are read in a job worker. Every opened file is an image (ADR-0024).
 - URL: `/open/{sid}`, never the path (folder names are often patient names, NFR-17; AUD-A1-19). The app hands a path to the route in the history state; the route opens it and replaces the entry with `/open/{sid}`. Reload and back re-read the session (`GET /open/{sid}`); an ended one (Close, restart) shows the problem with "Choose another file or folder" and "Go to the workspace home" (UI-18). The path is shown on the page, from the session.
 - DICOM and NumPy are converted into `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, which is disposable, LRU-purged with `CACHE_MAX_GB`, and never a source for projects.
-- Viewer: all layouts. Modality from DICOM when present; otherwise CT is assumed and the user can change it (VW-05). An attached segmentation is shown with auto colours `label_{value}`.
+- Viewer: all layouts. Modality from DICOM, else from the `modality` of the `metadata.jsonl` rows of an opened dataset folder (or of the folder above an opened `nifti/`, SRC-16, AUD-A2-10); otherwise CT is assumed and the user can change it (VW-05). An attached segmentation is shown with auto colours `label_{value}`.
 - Curation, tasks and share links are disabled. Open mode offers exactly three actions: **Save as NIfTI…** (SRC-14), **Add to project…** (SRC-15) and **Create project from this** (the import wizard with the path and the detected adapter). No rename, delete or edit; tasks still require a project.
-- Attach (SRC-10) takes a NIfTI segmentation from inside the opened folder; anything else is `unsupported-format`, outside the folder the refusal offers `open_folder`.
+- Attach (SRC-10, ADR-0027) takes a NIfTI segmentation from anywhere under `ALLOWED_DATA_ROOTS`; the browser starts in a `seg*`/`labels*`/`masks*` folder inside or next to the opened one. Anything else is `unsupported-format`; outside the shared folders it is `path-outside-root`.
+- Refusals (SRC-11): a path that does not exist (`not-found`), is outside the shared folders (`path-outside-root`, worded without server settings) or holds nothing to open (`unsupported-format`) offers `choose_another_path` and `home`. The logic lives in `backend/app/sources/open_service.py`; the router only maps (AUD-A6-05).
 
 ## NumPy geometry and axis order (SRC-12)
 

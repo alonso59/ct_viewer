@@ -44,7 +44,7 @@ test('the P7c journey', async ({ page, browserName }) => {
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
   const wizard = page.getByRole('dialog', { name: 'Import data' })
-  await expect(wizard.getByRole('radio', { name: /Contract v1/ })).toBeChecked()
+  await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await wizard.getByRole('button', { name: 'Next' }).click()
   await wizard.getByRole('button', { name: 'Import and index' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })

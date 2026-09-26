@@ -28,7 +28,7 @@ backend/app/
 ├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, redact (paths → alias refs, NFR-17)
 ├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
 ├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, full-hash job (IMP-09)
-├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions (SRC-*)
+├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions + service (open_service.py: open, attach, save; SRC-*)
 ├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*)
 ├── imaging/         # header reader, fingerprint, npy→nii, mesh builder, file streaming
 ├── curation/        # event store, reducer (derived state), queue, exports

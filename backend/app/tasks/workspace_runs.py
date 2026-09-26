@@ -27,7 +27,7 @@ from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.paths import PathGuard
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
-from app.tasks import protocol
+from app.tasks import dry_run, protocol
 from app.tasks.builtin import run_entry
 from app.tasks.models import (
     TaskEstimate,
@@ -196,6 +196,7 @@ class WorkspaceTasks:
         m = self._manifest(task_id)
         settings, _ = self._settings(m, req.settings)
         source = self._source(req.selection)
+        await dry_run.require_dicom(m.id, source)
         job_dir = self.settings.workspace_root / ".scratch" / "estimates" / new_ulid()
         spec = self._spec(m, settings, source, job_dir / "out")
         protocol.write_job(
@@ -208,24 +209,13 @@ class WorkspaceTasks:
             result = protocol.read_result(job_dir) or {}
         finally:
             shutil.rmtree(job_dir, ignore_errors=True)
-        est = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
-        assert isinstance(est, dict)
-        selected = int(est.get("selected", 0))
-        return TaskEstimate(
-            n_units=selected,
-            n_skipped=int(est.get("series", 0)) - selected,
-            seconds_per_item=None,
-            estimated_total_s=None,
-            output_bytes=int(est.get("nifti_gz_estimated_bytes", 0)) or None,
-            basis="sample",
-            sample_errors=[str(result["error"])] if result.get("error") else [],
-            detail={**est, "scan_s": round(time.monotonic() - t0, 3)},
-        )
+        return dry_run.estimate_of(result, time.monotonic() - t0, source)
 
     async def start(self, req: WorkspaceRunRequest) -> TaskRunStarted:
         m = self._manifest(req.task_id)
         settings, shash = self._settings(m, req.settings)
         source = self._source(req.selection)
+        await dry_run.require_dicom(m.id, source)  # never an empty dataset (AUD-A2-07)
         if self.jobs.active(WORKSPACE_JOBS, "task", m.id) is not None:
             raise JobConflict(f"A {m.id} workspace run is already active")
         base = self._derived() / DATASETS
@@ -318,10 +308,12 @@ class WorkspaceTasks:
             status = "failed"
         else:
             status = "completed"
-        run.status, run.finished_at = status, utc_now()
-        run.error = info.error or (str(result["error"]) if result.get("error") else None)
         counts = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
         run.counts = {k: int(v) for k, v in (counts or {}).items() if isinstance(v, int)}
+        run.error = info.error or (str(result["error"]) if result.get("error") else None)
+        if status == "completed" and not run.counts.get("series"):  # AUD-A2-07
+            status, run.error = "failed", run.error or "No DICOM series found in the source"
+        run.status, run.finished_at = status, utc_now()
         self._write(run_dir, run)
         shutil.rmtree(job_dir, ignore_errors=True)
 

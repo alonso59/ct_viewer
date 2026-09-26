@@ -178,6 +178,20 @@ class PreflightResult(BaseModel):
     ready_item_ids: list[str] = Field(default_factory=list)
 
 
+class SeriesPlan(BaseModel):
+    """One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why."""
+
+    case_id: str
+    scan_idx: str
+    patient: str = ""  # empty with `anonymize: basic` (DCM-05)
+    description: str = ""
+    modality: str = ""
+    n_files: int = 0
+    action: Literal["convert", "skip"]
+    reason: str = ""  # the row's `skip_reason` (e.g. `localizer`)
+    bytes: int = 0  # estimated `.nii.gz` bytes; 0 when skipped
+
+
 class TaskEstimate(BaseModel):
     """TSK-05."""
 
@@ -190,6 +204,8 @@ class TaskEstimate(BaseModel):
     sample_item_ids: list[str] = Field(default_factory=list)
     sample_errors: list[str] = Field(default_factory=list)
     detail: dict[str, Any] = Field(default_factory=dict)  # e.g. the converter's dry run (DCM-06)
+    series: list[SeriesPlan] = Field(default_factory=list)  # source tasks: one row per series
+    series_truncated: bool = False  # more than MAX_PLAN_ROWS series
 
 
 class TaskRunRequest(BaseModel):

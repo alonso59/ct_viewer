@@ -6,6 +6,7 @@ import { registry } from '../../shell'
 import { useOpenDialog } from './store'
 
 export { useOpenDialog } from './store'
+export { openPath } from './navigate'
 
 const Route = lazy(() => Promise.all([import('./OpenRoute'), import('../../i18n/lazy')]).then(([m]) => m))
 const Dialog = lazy(() => Promise.all([import('./OpenDialog'), import('../../i18n/lazy')]).then(([m]) => m))

@@ -18,15 +18,15 @@ No `M` requirement is deferred. A deferral is a row here (`ID · reason · targe
 
 ## Blocking findings
 
-REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make docs-srs` prints the numbers). State on 2026-09-26: P0 all fixed (`e858eab`); P1 36 open (7 accepted, 29 undecided), 33 after FB1, 26 after FB2, 18 after FB3. Fix order: PLAN §Triage and fix batches.
+REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make docs-srs` prints the numbers). State on 2026-09-26: P0 all fixed (`e858eab`); P1 36 open (7 accepted, 29 undecided), 33 after FB1, 26 after FB2, 18 after FB3, 11 after FB4. Fix order: PLAN §Triage and fix batches.
 
 ## Release gates
 
 | ID | Gate | Check | Status |
 |---|---|---|---|
 | REL-01 | Unit, lint and type checks green, requirement check included | `make check` | pass |
-| REL-02 | One Playwright spec walks each journey G1..G4 end to end (Chromium + Firefox, TST-05) | `make e2e` | open: G4 has no spec (AUD-A6-01) |
-| REL-03 | No open P0/P1 audit finding | `make docs-srs` counts | open (18 P1 after FB3) |
+| REL-02 | One Playwright spec walks each journey G1..G4 end to end (Chromium + Firefox, TST-05) | `make e2e` | open: G1 `e2e/g1-open.spec.ts` and G2 `e2e/g2-dicom.spec.ts` green in Chromium + Firefox (FB4); G3 `e2e/g3-review.spec.ts` covers the start (FB3); G4 has no spec (AUD-A6-01); overlapping older specs are merged or kept in FB8 |
+| REL-03 | No open P0/P1 audit finding | `make docs-srs` counts | open (11 P1 after FB4) |
 | REL-04 | NFR-07 initial JS within budget, enforced by a gate | build + size check | open: over budget (AUD-A0-01) |
 | REL-05 | NFR-10 image size | `make image`, `docker image ls` | pass (arm64 947 MB, amd64 935 MB) |
 | REL-06 | NFR-11, NFR-12, NFR-16, NFR-17 verified | TST-07, network allowlist spec, About | open: no allowlist spec (AUD-A4-02); About with "Research use only" done (FB3, AUD-A4-05) |

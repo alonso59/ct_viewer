@@ -7,6 +7,7 @@ import { useProjects, type OpenItem, type OpenSession } from '../../api'
 import { Dialog } from '../../lib'
 import { codicon } from '../../theme'
 import { useImportWizard } from '../import'
+import { importSource } from './model'
 
 /** The path to add: the file itself; a DICOM series of several files → its folder */
 export function addPath(session: OpenSession, item: OpenItem): string {
@@ -14,7 +15,7 @@ export function addPath(session: OpenSession, item: OpenItem): string {
   return item.format === 'dicom' && (item.files?.length ?? 0) > 1 ? file.slice(0, file.lastIndexOf('/')) : file
 }
 
-export function AddDialog({ session, item, modality, onClose }: { session: OpenSession; item: OpenItem; modality?: string; onClose: () => void }) {
+export function AddDialog({ session, item, mask, modality, onClose }: { session: OpenSession; item: OpenItem; mask: OpenItem | null; modality?: string; onClose: () => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const projects = useProjects().data ?? []
@@ -23,7 +24,9 @@ export function AddDialog({ session, item, modality, onClose }: { session: OpenS
     if (!pid) return
     onClose()
     navigate(`/p/${pid}`)
-    useImportWizard.getState().open(pid, { path: addPath(session, item), adapter: item.format === 'dicom' ? 'dicom.convert' : 'nifti-files', add: true, modality })
+    // an attached segmentation travels with the image (ADR-0027, AUD-A2-12)
+    const src = importSource(session, item, mask, addPath(session, item))
+    useImportWizard.getState().open(pid, { adapter: item.format === 'dicom' ? 'dicom.convert' : 'nifti-files', ...src, add: true, modality })
   }
   return (
     <Dialog

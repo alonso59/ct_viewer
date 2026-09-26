@@ -8,23 +8,21 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
-import { api, keys, ProblemError, useAttachOpen, useOpenPath, useOpenSession, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
+import { api, keys, ProblemError, useAttachOpen, useFsList, useOpenPath, useOpenSession, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
 import { Dialog, ProblemCard } from '../../lib'
 import { NewProjectDialog } from '../projects'
 import { FolderBrowser } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
 import { useViewerSync } from '../../state'
 import { BrandMark, Icon, codicon } from '../../theme'
-import { attachedTo, autoLabels, toItemRecord } from './model'
+import { attachStart, attachedTo, autoLabels, importSource, toItemRecord } from './model'
 import { AddDialog } from './AddDialog'
 import { SaveDialog } from './SaveDialog'
-import { openPath, pendingPath } from './navigate'
+import { pendingPath } from './navigate'
 import { useOpenDialog } from './store'
 import '../import/import.css'
 import './open.css'
 import { useConverter } from '../../plugins/dicom/store'
-
-const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 
 /** SRC-12: the middle slice in both orders; the user picks */
 function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSession; item: OpenItem; onPick: (o: AxisOrder) => void; onClose: () => void }) {
@@ -45,9 +43,18 @@ function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSess
   )
 }
 
-function AttachDialog({ start, onPick, onClose, error }: { start: string; onPick: (p: string) => void; onClose: () => void; error: unknown }) {
+/** SRC-10 (ADR-0027): a segmentation from anywhere under the shared folders; the browser starts in
+ * a `seg/` / `labels*` / `masks/` folder inside or next to the opened one (AUD-A2-03) */
+function AttachDialog({ root, onPick, onClose, error }: { root: string; onPick: (p: string) => void; onClose: () => void; error: unknown }) {
   const { t } = useTranslation()
-  const [dir, setDir] = useState<string | null>(start)
+  const inRoot = useFsList(root).data
+  // the folder above, unless the opened one is a shared root itself (`parent` null)
+  const parent = inRoot?.path === root ? inRoot.parent : undefined
+  const beside = useFsList(parent ?? null).data
+  const dirs = (l: typeof inRoot) => (l?.entries ?? []).filter((e) => e.kind === 'dir').map((e) => e.name)
+  const ready = parent === null || (parent !== undefined && beside?.path === parent)
+  const [dir, setDir] = useState<string | null | undefined>(undefined)
+  const shown = dir !== undefined ? dir : ready ? attachStart(root, dirs(inRoot), parent ? dirs(beside) : []) : root
   const [file, setFile] = useState<string | null>(null)
   return (
     <Dialog
@@ -63,8 +70,8 @@ function AttachDialog({ start, onPick, onClose, error }: { start: string; onPick
       }
     >
       <p className="muted">{t('open.attachHelp')}</p>
-      {error ? <ProblemCard error={error} /> : null}
-      <FolderBrowser path={dir} onPath={setDir} selected={file} onSelectFile={setFile} />
+      {error ? <ProblemCard error={error} onAction={{ choose_another_path: () => setFile(null) }} /> : null}
+      <FolderBrowser path={shown} onPath={setDir} selected={file} onSelectFile={setFile} />
     </Dialog>
   )
 }
@@ -126,9 +133,10 @@ export default function OpenRoute() {
 
   const onAction = {
     choose_another_path: () => openDialog(),
-    open_folder: () => path && openPath(navigate, parentOf(path)),
     home: () => navigate('/'),
   }
+  // SRC-05/15: an attached segmentation travels into the import (ADR-0027, AUD-A2-12)
+  const source = session && current && path ? importSource(session, current, mask, path) : path ? { path } : null
 
   return (
     <div className="page">
@@ -192,7 +200,8 @@ export default function OpenRoute() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               {current?.error ? (
-                <ProblemCard error={new Error(current.error)} />
+                // UI-18 (AUD-A2-07): a plain title, the reader's message as the detail, a next step
+                <ProblemCard error={new ProblemError(415, 'unreadable', t('open.unreadable', { name: current.name }), current.error, ['choose_another_path'])} onAction={onAction} />
               ) : current && needsOrder ? (
                 <div className="error-card" role="alert">
                   <strong>{t('open.axisNeeded')}</strong>
@@ -227,7 +236,7 @@ export default function OpenRoute() {
       ) : null}
       {attaching && session && current && path ? (
         <AttachDialog
-          start={session.root}
+          root={session.root}
           error={attach.error}
           onClose={() => {
             setAttaching(false)
@@ -236,9 +245,9 @@ export default function OpenRoute() {
           onPick={(file) => attach.mutate({ n: current.n, file }, { onSuccess: () => setAttaching(false) })}
         />
       ) : null}
-      {path ? <NewProjectDialog open={creating} onOpenChange={setCreating} prefill={{ path, modality }} /> : null}
+      {source ? <NewProjectDialog open={creating} onOpenChange={setCreating} prefill={{ ...source, modality }} /> : null}
       {saving && session && current ? <SaveDialog session={session} item={current} axisOrder={order ?? null} onClose={() => setSaving(false)} /> : null}
-      {adding && session && current ? <AddDialog session={session} item={current} modality={modality} onClose={() => setAdding(false)} /> : null}
+      {adding && session && current ? <AddDialog session={session} item={current} mask={mask} modality={modality} onClose={() => setAdding(false)} /> : null}
     </div>
   )
 }

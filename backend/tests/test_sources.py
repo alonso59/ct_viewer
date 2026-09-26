@@ -26,7 +26,7 @@ from app.main import create_app
 from app.sources import formats
 from app.sources.identity import IdentityRegistry, slug
 from app.sources.nifti_files import NiftiOptions, plan
-from tests.test_api_ingest import ctx_of, wait
+from tests.test_api_ingest import ctx_of, pages, wait
 from tests.test_contract import assert_problem
 
 API = "/api/v1"
@@ -320,6 +320,29 @@ def test_single_file_import(sclient: TestClient, src: Path) -> None:
     txt = src / "notes.txt"
     r = sclient.post(f"{API}/projects/{pid}/imports/preview", json={"root": str(txt)})
     assert_problem(r, "unsupported-format")
+
+
+def test_single_file_with_attached_mask_and_quiet_warnings(sclient: TestClient, src: Path) -> None:
+    """AUD-A2-12 (SRC-04/05, ADR-0027): the Open-mode attachment travels as `masks`, from a
+    sibling folder under the common parent; `nifti-files` rows get no phase warning (UNK by
+    design) and no metadata-v1 `seg/` guess under the image's own folder."""
+    nii(src / "seg" / "renamed mask.nii.gz", lab())
+    pid = project(sclient)
+    opts = {"include": ["images/alpha.nii.gz", "seg/renamed mask.nii.gz"],
+            "masks": {"images/alpha.nii.gz": "seg/renamed mask.nii.gz"}}  # fmt: skip
+    pv = import_nifti(sclient, pid, src, opts)
+    assert pv["counts"]["scan_rows"] == 1 and pv["sample"][0]["mask"] == "seg/renamed mask.nii.gz"
+    it = sclient.get(f"{API}/projects/{pid}/items/alpha.01.complete.-").json()
+    assert it["masks"]["imported"]["ref"] == "DATA:seg/renamed mask.nii.gz"
+    warns = pages(sclient, f"{API}/projects/{pid}/warnings")
+    assert warns == [], warns
+    # one file, no mask: only `missing_seg`, without a path under the image's folder
+    pid2 = project(sclient)
+    import_nifti(sclient, pid2, src / "images", {"include": ["beta.nii.gz"]})
+    codes = [
+        (w["code"], w.get("path_ref")) for w in pages(sclient, f"{API}/projects/{pid2}/warnings")
+    ]
+    assert codes == [("missing_seg", None)]
 
 
 def test_metadata_refusal_suggests_nifti_files(sclient: TestClient, src: Path) -> None:

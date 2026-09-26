@@ -20,6 +20,7 @@ import { PLANE_AXIS, PLANES } from '../model/layouts'
 import type { CursorReadout, DisplayOptions, LabelStyle, LoadOptions, MeshSpec, Plane, PlaneView, RoiStats, TileRect, Unsubscribe, ViewerContext, ViewerHandle, ViewportId, ViewState } from '../model/types'
 import { percentileWindow, windowToRange } from '../model/wl'
 import { fetchVolume } from './fetchVolume'
+import { LoadGate, type Ticket } from './loadGate'
 import { SLICE_FRAG, SliceRenderer } from './sliceRenderer'
 import { apply, fromGl, invert4, labelArray, niftiBytes, proxyGrid, resampleNearest, texMatrix, toGl, type Mat, type Vec3 } from './volumeMath'
 
@@ -132,6 +133,8 @@ export class NiivueViewer implements ViewerHandle {
   private raf = 0
   private timer3d = 0
   private meshes = new Map<number, NVMesh>()
+  private gate = new LoadGate()
+  private meshGate = new LoadGate()
   private disposed = false
   private ready: Promise<unknown>
   readonly stats = { frames: 0, lastFrameMs: 0, sync: false }
@@ -175,16 +178,19 @@ export class NiivueViewer implements ViewerHandle {
   // ---- loading ------------------------------------------------------------------------------
 
   async load(item: ItemRecord, opts: LoadOptions): Promise<void> {
+    // AUD-A5-13: after every await, stop unless this is still the newest load (VW-14/15)
+    const ticket = this.gate.begin(opts.signal)
     performance.mark('rw:load-start')
     await this.ready
+    if (!ticket.check()) return
     this.maskError = null
     const maskBytes = opts.maskUrl ? fetchVolume(opts.maskUrl, undefined, opts.signal) : null
     // A failed mask must not fail the image; it is reported through `maskError`
     maskBytes?.catch(() => undefined)
     const { bytes } = await fetchVolume(opts.imageUrl, opts.onProgress, opts.signal)
-    if (this.disposed) return
+    if (!ticket.check()) return
     const img = await parse(bytes, `${item.item_id}.nii`)
-    if (this.disposed) return
+    if (!ticket.check()) return
     this.clearVolumes()
     const f = full(img)
     this.image = f
@@ -196,7 +202,7 @@ export class NiivueViewer implements ViewerHandle {
     // 3D proxy: NiiVue renders this one; the full volume goes to the slice shader
     const grid = proxyGrid(f.dims, f.affine, PROXY_VOXELS)
     const proxy = grid.factor === 1 ? img : await parse(niftiBytes(resampleNearest(f.data, f.dims, grid.dims), grid.dims, grid.affine, { slope: f.slope, inter: f.inter }), `${item.item_id}_3d.nii`)
-    if (this.disposed) return
+    if (!ticket.check()) return
     const [lo, hi] = windowToRange(this.ww, this.wl)
     proxy.cal_min = lo
     proxy.cal_max = hi
@@ -212,20 +218,23 @@ export class NiivueViewer implements ViewerHandle {
 
     if (!maskBytes) return
     try {
-      await this.loadMask(item, await maskBytes, f)
+      const mb = await maskBytes
+      if (!ticket.check()) return
+      await this.loadMask(item, mb, f, ticket)
     } catch (e) {
       if (opts.signal?.aborted) throw e
       this.maskError = e instanceof Error ? e.message : String(e)
     }
   }
 
-  private async loadMask(item: ItemRecord, { bytes }: { bytes: ArrayBuffer }, image: Full): Promise<void> {
-    if (this.disposed || this.image !== image) return
+  private async loadMask(item: ItemRecord, { bytes }: { bytes: ArrayBuffer }, image: Full, ticket: Ticket): Promise<void> {
+    const stale = () => !ticket.live() || this.image !== image
+    if (stale()) return
     const m = await parse(bytes, `${item.item_id}_mask.nii`)
     const mf = full(m)
     const labels = labelArray(mf.data)
     if (!labels) throw new Error('The segmentation does not contain integer labels')
-    if (this.disposed || this.image !== image) return
+    if (stale()) return
     let max = 0
     for (let i = 0; i < labels.length; i++) if (labels[i]! > max) max = labels[i]!
     this.maskMax = max
@@ -238,7 +247,7 @@ export class NiivueViewer implements ViewerHandle {
     if (u8) {
       const data = grid.factor === 1 ? u8 : resampleNearest(u8, mf.dims, grid.dims)
       const pm = await parse(niftiBytes(data, grid.dims, grid.affine, { intent: 1002 }), `${item.item_id}_mask3d.nii`)
-      if (this.disposed || this.image !== image) return
+      if (stale()) return
       pm.hdr!.intent_code = 1002 // exact-index label shader
       pm.setColormapLabel(niivueLut(this.labels, lutWidth(this.labels, max)))
       pm.opacity = this.overlay.visible ? this.overlay.opacity : 0
@@ -387,7 +396,12 @@ export class NiivueViewer implements ViewerHandle {
   }
 
   async setMeshes(specs: MeshSpec[]): Promise<void> {
+    // AUD-A5-13: a newer call, or a newer image, drops the meshes this call is still reading
+    const ticket = this.meshGate.begin()
+    const image = this.gate.current
+    const live = () => ticket.live() && this.gate.current === image
     await this.ready
+    if (!live()) return
     const want = new Set(specs.map((s) => s.label))
     for (const [label, mesh] of this.meshes)
       if (!want.has(label)) {
@@ -398,7 +412,7 @@ export class NiivueViewer implements ViewerHandle {
       if (this.meshes.has(s.label)) continue
       const [r, g, b] = hexToRgb(s.color)
       const mesh = await NVMesh.readMesh(s.data.slice(0), `label${s.label}.mz3`, this.nv.gl, 1, new Uint8Array([r, g, b, 255]))
-      if (this.disposed) return
+      if (!live() || this.meshes.has(s.label)) return
       mesh.visible = this.labels.find((l) => l.value === s.label)?.visible ?? true
       this.meshes.set(s.label, mesh)
       this.nv.addMesh(mesh)
@@ -688,6 +702,8 @@ export class NiivueViewer implements ViewerHandle {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.gate.close()
+    this.meshGate.close()
     cancelAnimationFrame(this.raf)
     clearTimeout(this.timer3d)
     this.cursorCbs.clear()

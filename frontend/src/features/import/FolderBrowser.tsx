@@ -1,10 +1,14 @@
 // Server folder browser (IMP-01, API-10), shared by the import wizard, Open mode and tasks
+import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useFsList, type RootRole } from '../../api'
 import { ProblemCard } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import './import.css'
+
+/** The filter box shows for folders longer than this (AUD-A1-16) */
+const FILTER_FROM = 12
 
 /** SRC-02: files the browser lets you pick (folders are always navigable) */
 export const ACCEPTED = /\.(nii|nii\.gz|npy|dcm)$/i
@@ -27,6 +31,28 @@ export function FolderBrowser({
 }) {
   const { t } = useTranslation()
   const { data, isLoading, isError, error } = useFsList(path, role)
+  const roots = useFsList(null, role).data
+  // AUD-A1-16: a filter for long folders (resets per folder) and type-to-select in the list
+  const [filter, setFilter] = useState({ path, text: '' })
+  const text = filter.path === path ? filter.text : ''
+  const list = useRef<HTMLDivElement>(null)
+  const typed = useRef({ text: '', at: 0 })
+  const q = text.trim().toLowerCase()
+  const entries = (data?.entries ?? []).filter((e) => !q || e.name.toLowerCase().includes(q))
+  // at an allowed root there is no parent folder: only the list of shared folders, when there are several
+  const atRoot = path !== null && data?.path === path && data.parent === null
+  const upRow = path === null ? null : !atRoot ? 'up' : (roots?.entries.length ?? 0) > 1 ? 'roots' : null
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey || e.key === ' ') return
+    const now = Date.now()
+    typed.current = { text: (now - typed.current.at < 700 ? typed.current.text : '') + e.key.toLowerCase(), at: now }
+    const rows = [...(list.current?.querySelectorAll<HTMLButtonElement>('button[data-name]') ?? [])]
+    const hit = rows.find((b) => (b.dataset.name ?? '').toLowerCase().startsWith(typed.current.text))
+    if (hit) {
+      e.preventDefault()
+      hit.focus()
+    }
+  }
   return (
     <div className="fs">
       <div className="fs-path mono" title={path ?? ''}>
@@ -35,23 +61,28 @@ export function FolderBrowser({
           {path ?? t('import.allowedRootsTitle')}
         </span>
       </div>
-      <div className="fs-list" role="listbox" aria-label={t('import.folders')}>
-        {path !== null ? (
-          <button type="button" className="list-row" onClick={() => onPath(data?.parent ?? null)}>
-            <Icon spec={codicon('arrow-up')} />
-            {t('import.up')}
+      {(data?.entries.length ?? 0) > FILTER_FROM || text ? (
+        <input className="input fs-filter" type="search" value={text} placeholder={t('import.filter')} aria-label={t('import.filter')} onChange={(e) => setFilter({ path, text: e.target.value })} />
+      ) : null}
+      <div ref={list} className="fs-list" role="listbox" aria-label={t('import.folders')} onKeyDown={onKeyDown}>
+        {upRow ? (
+          <button type="button" className="list-row" onClick={() => onPath(upRow === 'up' ? (data?.parent ?? null) : null)}>
+            <Icon spec={codicon(upRow === 'up' ? 'arrow-up' : 'list-flat')} />
+            {t(upRow === 'up' ? 'import.up' : 'import.allRoots')}
           </button>
         ) : null}
         {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
         {isError ? <ProblemCard error={error} /> : null}
         {data && data.entries.length === 0 ? <div className="empty">{t(path === null ? 'import.noRoots' : 'import.emptyFolder')}</div> : null}
-        {data?.entries.map((e) => {
+        {data && data.entries.length > 0 && entries.length === 0 ? <div className="empty">{t('import.noMatch', { text })}</div> : null}
+        {entries.map((e) => {
           const pickable = e.kind === 'file' && !!onSelectFile && ACCEPTED.test(e.name)
           return (
             <button
               key={e.path}
               type="button"
               className="list-row"
+              data-name={e.name}
               aria-selected={selected === e.path}
               disabled={e.kind === 'file' && !pickable}
               onClick={() => (e.kind === 'dir' ? onPath(e.path) : onSelectFile?.(e.path))}

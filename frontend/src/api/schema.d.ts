@@ -371,7 +371,8 @@ export interface paths {
         put?: never;
         /**
          * Open Attach
-         * @description API-08 attach (SRC-10): a segmentation for item n, only if the geometry matches.
+         * @description API-08 attach (SRC-10, ADR-0027): a segmentation for item n from anywhere under
+         *     ALLOWED_DATA_ROOTS, only if the geometry matches.
          */
         post: operations["open_attach_api_v1_open__sid__items__n__attach_post"];
         delete?: never;
@@ -5598,6 +5599,51 @@ export interface components {
                 [key: string]: string[];
             } | null;
         };
+        /**
+         * SeriesPlan
+         * @description One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why.
+         */
+        SeriesPlan: {
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /**
+             * Patient
+             * @default
+             */
+            patient: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Modality
+             * @default
+             */
+            modality: string;
+            /**
+             * N Files
+             * @default 0
+             */
+            n_files: number;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "convert" | "skip";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Bytes
+             * @default 0
+             */
+            bytes: number;
+        };
         /** SettingsIssue */
         SettingsIssue: {
             /** Loc */
@@ -5761,6 +5807,13 @@ export interface components {
             detail?: {
                 [key: string]: unknown;
             };
+            /** Series */
+            series?: components["schemas"]["SeriesPlan"][];
+            /**
+             * Series Truncated
+             * @default false
+             */
+            series_truncated: boolean;
         };
         /**
          * TaskInfo

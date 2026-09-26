@@ -25,7 +25,7 @@ import { toast } from '../../shell'
 import { useReviewer } from '../../state'
 import { DerivedRootDialog } from './DerivedRootDialog'
 import { ACCEPTED, FolderBrowser } from './FolderBrowser'
-import { sampleStems, segments, suggestPatterns } from './patternSuggest'
+import { CONVERTER_PATTERN, converterPattern, sampleStems, segments, suggestPatterns } from './patternSuggest'
 import { openPath } from '../open/navigate'
 import { useImportWizard, type WizardPrefill } from './store'
 import { Icon, codicon } from '../../theme'
@@ -137,14 +137,20 @@ function PatternSuggester({ names, current, onPick }: { names: string[]; current
 }
 
 /** SRC-04 options: pattern (one case per stem by default), case id source, modality */
-function NiftiOptionsForm({ value, onChange, names }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; names: string[] }) {
+function NiftiOptionsForm({ value, onChange, names, prefilled }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; names: string[]; prefilled: boolean }) {
   const { t } = useTranslation()
+  const masks = Object.values(value.masks ?? {})
   return (
     <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+      {masks.length ? (
+        <p className="muted" role="note" style={{ fontSize: 'var(--fs-panel)', margin: 0 }}>
+          <Icon spec={codicon('layers')} /> {t('import.nifti.withMask', { mask: masks.join(', ') })}
+        </p>
+      ) : null}
       <label className="field">
         <span className="field-label">{t('import.nifti.pattern')}</span>
         <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
-        <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('import.nifti.patternHelp')}</span>
+        <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t(prefilled && value.pattern === CONVERTER_PATTERN ? 'import.nifti.patternPrefilled' : 'import.nifti.patternHelp')}</span>
       </label>
       <PatternSuggester names={names} current={value.pattern} onPick={(pattern) => onChange({ ...value, pattern })} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -215,21 +221,25 @@ function NiftiNotices({ p }: { p: ImportPreview }) {
   )
 }
 
+/** IMP-03 (AUD-A1-15): the adapter in plain words, its reason on its own line; internal names in the tooltip */
 function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value: string | null; onPick: (a: string) => void }) {
   const { t } = useTranslation()
   return (
     <fieldset className="field preset-list" style={{ border: 0, padding: 0, margin: 0 }}>
       <legend className="field-label">{t('import.adapterTitle')}</legend>
-      {cands.map((c) => (
-        <label key={c.adapter} className="preset" data-checked={value === c.adapter} aria-disabled={!c.available}>
-          <input type="radio" name="adapter" value={c.adapter} disabled={!c.available} checked={value === c.adapter} onChange={() => onPick(c.adapter)} />
-          <span>
-            <strong>{t(`import.adapter.${c.adapter.replace('.', '_')}`)}</strong>
-            <span className="muted">{c.reason}{c.unavailable_reason ? ` — ${c.unavailable_reason}` : ''}</span>
-          </span>
-          <span className="badge" style={{ marginLeft: 'auto' }}>{t(`import.confidence.${c.confidence}`)}</span>
-        </label>
-      ))}
+      {cands.map((c) => {
+        const key = c.adapter.replace('.', '_')
+        return (
+          <label key={c.adapter} className="preset adapter-option" data-checked={value === c.adapter} aria-disabled={!c.available} title={t(`import.adapterHint.${key}`, { defaultValue: c.adapter })}>
+            <input type="radio" name="adapter" value={c.adapter} disabled={!c.available} checked={value === c.adapter} onChange={() => onPick(c.adapter)} />
+            <span className="adapter-text">
+              <strong>{t(`import.adapter.${key}`)}</strong>
+              <span className="muted">{c.reason}{c.unavailable_reason ? ` — ${c.unavailable_reason}` : ''}</span>
+            </span>
+            <span className="badge" style={{ marginLeft: 'auto' }}>{t(`import.confidence.${c.confidence}`)}</span>
+          </label>
+        )
+      })}
     </fieldset>
   )
 }
@@ -247,7 +257,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [upload, setUpload] = useState(false)
   const [files, setFiles] = useState<Partial<Uploads>>({})
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
-  const [options, setOptions] = useState<NiftiOptions>(prefill?.modality ? { modality: prefill.modality } : {})
+  const [options, setOptions] = useState<NiftiOptions>({ ...prefill?.options, ...(prefill?.modality ? { modality: prefill.modality } : {}) })
   const [reconstruct, setReconstruct] = useState(false)
   const [anonymize, setAnonymize] = useState(false) // DCM-05 for the in-project conversion
   const [jobId, setJobId] = useState<string | null>(null)
@@ -265,6 +275,20 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   // SRC-17 sample: the browsed folder's listing, the same query as the Data root step's browser
   const listing = useFsList(dir, 'source').data
   const fileNames = useMemo(() => (listing?.entries ?? []).filter((e) => e.kind === 'file').map((e) => e.name), [listing])
+  // AUD-A2-12 (ADR-0027): the image names being imported: one file, an Open-mode include list, or the folder
+  const imageStems = useMemo(() => {
+    const masks = new Set(Object.values(options.masks ?? {}))
+    const names = options.include ? options.include.filter((f) => !masks.has(f)) : file ? [file] : fileNames
+    return sampleStems(names.map((n) => n.slice(n.lastIndexOf('/') + 1)))
+  }, [options.include, options.masks, file, fileNames])
+  // until the user edits the options, the converter naming fills the pattern when every name follows it
+  const [touched, setTouched] = useState(false)
+  const auto = adapter === 'nifti-files' && !touched && options.pattern === undefined ? converterPattern(imageStems) : null
+  const niftiOptions = auto ? { ...options, pattern: auto } : options
+  const editOptions = (o: NiftiOptions) => {
+    setTouched(true)
+    setOptions(o)
+  }
   // IMP-14: format, and an alias of this project that points elsewhere (commit would repoint it);
   // SRC-15 "add" picks a free alias on the server, so it never collides
   const taken = (useRoots(pid).data ?? []).find((r) => r.alias === alias)
@@ -304,7 +328,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const runPreview = (a: ImportAdapter) => {
     if (!path) return
     const req: PreviewRequest = { root: path, alias, adapter: a, add: prefill?.add ?? false }
-    if (a === 'nifti-files') req.options = options
+    if (a === 'nifti-files') req.options = niftiOptions
     if (a === 'metadata-v1' && reconstruct) req.options = { reconstruct_sidecars: true } // IMP-15
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
@@ -468,7 +492,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             <div className="wiz-grid" style={{ marginTop: 8 }}>
               <Candidates cands={cands} value={adapter} onPick={setAdapter} />
               <div>
-                {adapter === 'nifti-files' ? <NiftiOptionsForm value={options} onChange={setOptions} names={fileNames} /> : null}
+                {adapter === 'nifti-files' ? <NiftiOptionsForm value={niftiOptions} onChange={editOptions} names={fileNames} prefilled={auto !== null} /> : null}
                 {adapter === 'dicom.convert' ? (
                   // AUD-A5-16: the same anonymize choice as the converter window (DCM-05, NFR-17)
                   <label className="check" style={{ marginTop: 8 }}>

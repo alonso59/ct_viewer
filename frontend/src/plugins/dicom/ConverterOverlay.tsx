@@ -12,14 +12,15 @@ import {
   useTaskRun,
   useTasks,
   useWorkspaceRun,
+  useWorkspaceRuns,
   type TaskEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, useImportWizard } from '../../features/import'
 import { openPath } from '../../features/open/navigate'
 import { NewProjectDialog } from '../../features/projects'
-import { Dialog, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, ProblemCard, Progress } from '../../lib'
 import { codicon } from '../../theme'
-import { defaultDatasetName, useConverter } from './store'
+import { datasetSlug, defaultDatasetName, useConverter } from './store'
 import './converter.css'
 
 const STEPS = ['source', 'settings', 'estimate', 'run', 'result'] as const
@@ -34,7 +35,6 @@ interface Settings {
 }
 
 const parent = (p: string) => p.replace(/\/[^/]*$/, '') || '/'
-const fmtBytes = (n: number | null | undefined) => (n == null ? '—' : n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`)
 
 function StepBar({ step }: { step: Step }) {
   const { t } = useTranslation()
@@ -46,6 +46,46 @@ function StepBar({ step }: { step: Step }) {
         </li>
       ))}
     </ol>
+  )
+}
+
+/** DCM-06 (AUD-A2-13): every series of the dry run, what happens to it and why, with its size */
+function SeriesPlanTable({ estimate }: { estimate: TaskEstimate }) {
+  const { t } = useTranslation()
+  const rows = estimate.series ?? []
+  const skipped = rows.filter((r) => r.action === 'skip').length
+  if (!rows.length) return null
+  return (
+    <details className="conv-plan" open={skipped > 0 && rows.length <= 20}>
+      <summary>{t('conv.plan', { count: rows.length, skipped })}</summary>
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{t('conv.planCase')}</th>
+              <th>{t('conv.planPatient')}</th>
+              <th>{t('conv.planSeries')}</th>
+              <th className="num">{t('conv.planFiles')}</th>
+              <th>{t('conv.planAction')}</th>
+              <th className="num">{t('conv.planSize')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.case_id}.${r.scan_idx}`} data-action={r.action}>
+                <td className="mono">{t('conv.planId', { case: r.case_id, scan: r.scan_idx })}</td>
+                <td className="mono">{r.patient || '—'}</td>
+                <td>{r.description || '—'}{r.modality ? <span className="muted">{t('conv.planModality', { modality: r.modality })}</span> : null}</td>
+                <td className="num">{r.n_files}</td>
+                <td>{r.action === 'convert' ? t('conv.actionConvert') : t('conv.actionSkip', { reason: t(`conv.reason.${r.reason}`, { defaultValue: r.reason || '—' }) })}</td>
+                <td className="num">{r.action === 'convert' ? fmtBytes(r.bytes) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {estimate.series_truncated ? <p className="muted conv-help">{t('conv.planTruncated', { n: rows.length })}</p> : null}
+    </details>
   )
 }
 
@@ -66,7 +106,7 @@ function ProjectRunProgress({ pid, rid, onDone }: { pid: string; rid: string; on
 export default function ConverterOverlay() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { source: initial, pid, close } = useConverter()
+  const { source: initial, pid, close, createFrom } = useConverter()
   const project = useProject(pid ?? '').data
   const manifest = useTasks().data?.tasks.find((x) => x.manifest.id === 'dicom.convert')?.manifest
   const profiles = ((manifest?.settings_schema?.properties as Record<string, { enum?: string[] }> | undefined)?.target_profile?.enum ?? ['generic']) as string[]
@@ -83,6 +123,12 @@ export default function ConverterOverlay() {
   const [derivedPrompt, setDerivedPrompt] = useState(false)
   const [addTo, setAddTo] = useState('')
   const projects = useProjects().data ?? []
+  const datasets = useWorkspaceRuns().data ?? []
+  const slug = datasetSlug(settings.name.trim() || defaultDatasetName())
+  const taken = new Set(datasets.map((r) => r.name))
+  const clash = target === 'dataset' && taken.has(slug) ? { name: slug } : null
+  let nextFree = slug
+  for (let n = 1; taken.has(nextFree); n++) nextFree = `${slug}-${n}`
   const ws = useWorkspaceRun(run?.kind === 'dataset' ? run.rid : null).data
   const intoProject = target === 'project' && !!pid
   const needsDerived = intoProject && !!project && !project.path_roots.some((r) => r.role === 'derived')
@@ -162,6 +208,8 @@ export default function ConverterOverlay() {
               <label className="field">
                 <span className="field-label">{t('conv.name')}</span>
                 <input className="input" value={settings.name} onChange={(e) => setSettings({ ...settings, name: e.target.value })} />
+                {/* DCM-14 (AUD-A2-14): a taken name is said here, not silently suffixed later */}
+                {clash ? <span className="conv-help" role="note" style={{ color: 'var(--warn)' }}>{t('conv.nameTaken', { name: clash.name, next: nextFree })}</span> : null}
                 <span className="muted conv-help">{t('conv.nameHelp')}</span>
               </label>
             ) : null}
@@ -199,6 +247,7 @@ export default function ConverterOverlay() {
               <div className="card"><span className="kpi num">{estimate.n_skipped}</span><span className="muted">{t('conv.skipped')}</span></div>
               <div className="card"><span className="kpi num">{fmtBytes(estimate.output_bytes)}</span><span className="muted">{t('conv.storage')}</span></div>
             </div>
+            <SeriesPlanTable estimate={estimate} />
             {estimate.sample_errors?.length ? <div className="error-card">{estimate.sample_errors.join('; ')}</div> : null}
             <div className="conv-row conv-actions">
               <button type="button" className="btn" onClick={() => setStep('settings')}>{t('conv.back')}</button>
@@ -240,8 +289,26 @@ export default function ConverterOverlay() {
             <div className="conv-row conv-actions"><button type="button" className="btn btn-primary" onClick={close}>{t('conv.close')}</button></div>
           </div>
         ) : null}
-        {error ? <ProblemCard error={error} /> : null}
+        {error ? (
+          <ProblemCard
+            error={error}
+            labels={{ import_as: t('conv.createProject') }}
+            onAction={{
+              // AUD-A2-07: no DICOM here → view it, or make a project from its NIfTI files
+              open: () => {
+                close()
+                if (source) openPath(navigate, source)
+              },
+              import_as: () => source && useConverter.setState({ createFrom: source }),
+              choose_another_path: () => {
+                setError(null)
+                setStep('source')
+              },
+            }}
+          />
+        ) : null}
       </div>
+      {createFrom ? <NewProjectDialog open onOpenChange={(o) => { if (!o) { useConverter.setState({ createFrom: null }); close() } }} prefill={{ path: createFrom, adapter: 'nifti-files' }} /> : null}
       {derivedPrompt && pid ? <DerivedRootDialog pid={pid} onClose={() => setDerivedPrompt(false)} /> : null}
     </Dialog>
   )

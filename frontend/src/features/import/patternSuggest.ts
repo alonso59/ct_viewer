@@ -87,3 +87,15 @@ export function segments(pattern: string, stem: string): { text: string; group?:
   if (at < stem.length) out.push({ text: stem.slice(at) })
   return out
 }
+
+/**
+ * The converter's own file naming `{scan_idx}_[{MOD}_]{case_id}_{channel}` (DICOM_CONVERTER,
+ * kept by ADR-0024 §3). The wizard pre-fills it, visible and editable, only when every sampled
+ * image stem follows it (ADR-0027, AUD-A2-12); otherwise the default (one case per stem) stays.
+ */
+export const CONVERTER_PATTERN = '^(?P<scan_idx>\\d+)_(?:(?P<modality>[A-Z]{2,3})_)?(?P<case_id>.+)_(?P<channel>\\d{4})$'
+
+export function converterPattern(stems: string[]): string | null {
+  const rx = toJsRegex(CONVERTER_PATTERN)
+  return stems.length > 0 && stems.every((s) => rx.test(s)) ? CONVERTER_PATTERN : null
+}

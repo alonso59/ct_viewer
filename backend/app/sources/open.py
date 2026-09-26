@@ -4,7 +4,8 @@ Sessions live in memory only: nothing is written to a project or to the workspac
 NumPy (and, with the converter, DICOM) volumes are converted into the disposable
 `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, LRU-purged with `CACHE_MAX_GB`.
 Headers run in job workers (BE-12). An opened file is always an image; a segmentation
-comes only from attach (SRC-10: NIfTI, same geometry).
+comes only from attach (SRC-10: NIfTI, same geometry, from anywhere under ALLOWED_DATA_ROOTS,
+ADR-0027). The actions (open, attach, save) live in `open_service.py`.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import numpy as np
 from pydantic import BaseModel, Field
 
 from app.core.errors import AmbiguousAxisOrder, GeometryMismatch, NotFound, UnsupportedFormat
+from app.core.fsio import iter_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.imaging import npy_convert
 from app.imaging.fingerprint import quick_fingerprint
@@ -48,11 +50,12 @@ class OpenItem(BaseModel):
     n: int
     item_id: str
     name: str
-    rel: str  # relative to the session root
+    rel: str  # relative to the session root; absolute for an attachment outside it (ADR-0027)
     format: Literal["nifti", "npy", "dicom"]
     kind: ItemKind = "image"
     geometry: OpenGeometry | None = None
-    modality: str | None = None  # from DICOM only; NIfTI/NumPy: unknown (VW-05 percentiles)
+    # DICOM, or the `metadata.jsonl` row of a dataset folder (SRC-16); else unknown (VW-05)
+    modality: str | None = None
     n_slices: int | None = None
     attached_to: int | None = None
     axis_order: Literal["xyz", "zyx"] | None = None  # NumPy (SRC-12)
@@ -169,7 +172,33 @@ class OpenSessions:
         self._s.pop(sid, None)
 
 
-def build_session(path: Path, rows: list[dict[str, Any]], scan: formats.Scan) -> OpenSession:
+def row_modalities(root: Path) -> dict[str, str]:
+    """File name → `modality` from the `metadata.jsonl` of an opened dataset folder, or of the
+    folder above an opened `nifti/` (SRC-16, AUD-A2-10). Unreadable rows are skipped."""
+    for d in (root, root.parent):
+        meta = d / "metadata.jsonl"
+        if not meta.is_file():
+            continue
+        out: dict[str, str] = {}
+        try:
+            for r in iter_jsonl(meta):
+                mod = r.get("modality")
+                ref = r.get("relative_path") or r.get("filename")
+                if isinstance(mod, str) and mod and isinstance(ref, str) and ref:
+                    out[Path(ref.replace("\\", "/")).name] = mod.upper()
+        except (OSError, ValueError):
+            return {}
+        return out
+    return {}
+
+
+def build_session(
+    path: Path,
+    rows: list[dict[str, Any]],
+    scan: formats.Scan,
+    modalities: dict[str, str] | None = None,
+) -> OpenSession:
+    known = modalities or {}
     items: list[OpenItem] = []
     for n, r in enumerate(rows):
         geo = OpenGeometry.model_validate(r["geometry"]) if r.get("geometry") else None
@@ -193,7 +222,7 @@ def build_session(path: Path, rows: list[dict[str, Any]], scan: formats.Scan) ->
                 files=list(r.get("files") or []),
                 series_uid=r.get("series_uid"),
                 description=r.get("description"),
-                modality=r.get("modality"),
+                modality=r.get("modality") or known.get(rel.name),
                 window=r.get("window"),
             )
         )
@@ -218,7 +247,7 @@ def refuse_empty(path: Path, scan: formats.Scan) -> UnsupportedFormat:
     ignored = ", ".join(f"{n} {e}" for e, n in scan.ignored.most_common(5)) or "no files"
     extra = "; ".join(scan.refused.values())
     detail = f"Nothing to open in {path.name}: {ignored}" + (f". {extra}" if extra else "")
-    return UnsupportedFormat(detail, actions=["choose_another_path"])
+    return UnsupportedFormat(detail, actions=["choose_another_path", "home"])
 
 
 def item(session: OpenSession, n: int) -> OpenItem:
@@ -228,7 +257,30 @@ def item(session: OpenSession, n: int) -> OpenItem:
 
 
 def source_path(session: OpenSession, it: OpenItem) -> Path:
-    return Path(session.root) / it.rel
+    rel = Path(it.rel)
+    return rel if rel.is_absolute() else Path(session.root) / rel
+
+
+def add_label(session: OpenSession, n: int, path: Path, geo: OpenGeometry) -> OpenSession:
+    """Append an attached segmentation for item n (SRC-10). A file outside the session root keeps
+    its absolute path (ADR-0027); reads are guarded again on every request."""
+    root = Path(session.root)
+    rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+    k = len(session.items)
+    session.items.append(
+        OpenItem(
+            n=k,
+            item_id=f"open.{k}",
+            name=path.name,
+            rel=rel,
+            format="nifti",
+            kind="label",
+            geometry=geo,
+            n_slices=geo.shape[2],
+            attached_to=n,
+        )
+    )
+    return session
 
 
 def scratch_dir(workspace_root: Path, fp: str, axis_order: str) -> Path:

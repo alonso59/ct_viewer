@@ -15,6 +15,7 @@ import { dicomWindowOf, dragWindow, effectiveModality, isCt, modalityKey } from 
 import { MeasureLayer } from './Measurements'
 import { NEEDED, type MeasureKind, type Measurement } from './model/measure'
 import { Viewport, type MeshState } from './Viewport'
+import { useCursorText } from './readout'
 
 export interface SurfaceProps {
   item: ItemRecord
@@ -81,6 +82,10 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
 
   const v = useViewerSync()
   const local = useViewerLocal()
+  const labelsRef = useRef(labels)
+  useEffect(() => {
+    labelsRef.current = labels
+  }, [labels])
   const hasMask = !!maskUrl && !!item.mask
   const viewports = visibleViewports(v.layout, v.maximized)
   const [handleId, setHandleId] = useState(0)
@@ -186,7 +191,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => {
     if (!handle) return
     const offView = handle.onView(setView)
-    const offCursor = handle.onCursor((cursor) => useViewerSync.setState({ cursor }))
+    // VW-08: the readout names the label (the shown labels' names, AUD-A2-11)
+    const offCursor = handle.onCursor((c) => useViewerSync.setState({ cursor: c && c.label ? { ...c, labelName: labelsRef.current.find((l) => l.value === c.label)?.name } : c }))
     return () => {
       offView()
       offCursor()
@@ -396,6 +402,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
             onFit={() => handle?.fitView(id)}
             onGoto={(i) => isPlane(id) && handle?.goto(id as Plane, i)}
             meshState={meshState}
+            probe={load.phase === 'ready' && active && local.hovered === id && isPlane(id) ? <ProbeReadout /> : null}
             bodyProps={{
               onPointerDown: onPointerDown(id),
               onPointerMove,
@@ -412,7 +419,6 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         ))}
       </div>
       <MeasureLayer handle={handle} view={view} items={mine.items} draft={mine.draft} />
-      {load.phase === 'ready' && active ? <ProbeReadout /> : null}
       {load.maskError ? (
         <div className="vp-notice" role="status">
           <Icon spec={codicon('warning')} />
@@ -439,16 +445,14 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   )
 }
 
-/** VW-22 HU probe: the value under the cursor (and its voxel and label) over the viewer */
+/** VW-22 probe: the readout under the pointer, inside the hovered view above its slider (AUD-A3-05) */
 function ProbeReadout() {
   const { t } = useTranslation()
-  const cursor = useViewerSync((s) => s.cursor)
-  if (!cursor) return null
+  const text = useCursorText()
+  if (!text) return null
   return (
     <div className="vp-probe mono" role="status" aria-label={t('vw.probe')}>
-      {t('vw.probeValue', { v: cursor.value })}
-      <span className="muted">{t('vw.probeIjk', { ijk: cursor.ijk.join(', ') })}</span>
-      {cursor.label ? <span className="muted">{t('vw.probeLabel', { label: cursor.label })}</span> : null}
+      {text}
     </div>
   )
 }

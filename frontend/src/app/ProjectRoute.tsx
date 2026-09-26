@@ -9,7 +9,7 @@ import { usePhaseRuntime } from '../features/phase'
 import { useCurationRuntime } from '../plugins'
 import { ImportWizard } from '../features/import'
 import { logEvent } from '../features/jobs'
-import { ProjectSwitcher, RelinkDialog, ShareMenu, useRootsCheck } from '../features/projects'
+import { ProjectSwitcher, RelinkDialog, ShareMenu, useProjectDialogs, useRootsCheck } from '../features/projects'
 import { TaskCommands } from '../features/tasks'
 import { applyProjectDisplay } from '../features/viewer'
 import { registry, ShellOverlays, Workbench } from '../shell'
@@ -52,6 +52,7 @@ export function ProjectRoute() {
   const project = useProject(pid)
   const simulate = useSettings((s) => s.simulateReviewer)
   const relink = useRootsCheck(readOnly ? '' : pid)
+  const relinkAsked = useProjectDialogs((s) => s.relink === pid)
   useProjectSync(pid)
   // VW-25: the project's display settings; the initial layout once per project unless the URL has one
   const displayed = useRef<string | null>(null)
@@ -76,7 +77,17 @@ export function ProjectRoute() {
       <Workbench pid={pid} brand={readOnly ? <ViewOnlyBrand name={project.data?.name ?? ''} /> : <ProjectSwitcher pid={pid} />} share={<ShareMenu pid={pid} />} />
       {readOnly ? null : <ImportWizard />}
       {readOnly ? null : <TaskCommands />}
-      {!readOnly && relink.open ? <RelinkDialog pid={pid} name={project.data?.name ?? ''} onOpenChange={(o) => !o && relink.dismiss()} /> : null}
+      {!readOnly && (relink.open || relinkAsked) ? (
+        <RelinkDialog
+          pid={pid}
+          name={project.data?.name ?? ''}
+          onOpenChange={(o) => {
+            if (o) return
+            relink.dismiss()
+            useProjectDialogs.getState().set({ relink: null })
+          }}
+        />
+      ) : null}
     </>
   )
 }

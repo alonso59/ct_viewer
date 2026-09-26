@@ -56,7 +56,7 @@ from app.projects.models import (
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name, target_profile
 from app.projects.service import Workspace
 from app.sources import identity as identity_store
-from app.tasks import protocol, registry
+from app.tasks import dry_run, protocol, registry
 from app.tasks.builtin import run_entry
 from app.tasks.models import (
     RESUMABLE_TASK_RUN,
@@ -598,6 +598,7 @@ class TaskService:
         """A source task's estimate = its dry run (DCM-06): counts and storage, nothing written."""
         settings, _ = self._settings(m, req.settings)
         source = self._source(req.selection)
+        await dry_run.require_dicom(m.id, Path(source))
         job_dir = self.settings.workspace_root / ".scratch" / "estimates" / new_ulid()
         spec = self._job_spec(
             pid, m, settings=settings, items=[], seg_id=None, output_dir=str(job_dir / "out"),
@@ -613,19 +614,7 @@ class TaskService:
             result = protocol.read_result(job_dir) or {}
         finally:
             shutil.rmtree(job_dir, ignore_errors=True)
-        est = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
-        assert isinstance(est, dict)
-        selected = int(est.get("selected", 0))
-        return TaskEstimate(
-            n_units=selected,
-            n_skipped=int(est.get("series", 0)) - selected,
-            seconds_per_item=None,
-            estimated_total_s=None,
-            output_bytes=int(est.get("nifti_gz_estimated_bytes", 0)) or None,
-            basis="sample",
-            sample_errors=[str(result["error"])] if result.get("error") else [],
-            detail={**est, "scan_s": round(time.monotonic() - t0, 3)},
-        )
+        return dry_run.estimate_of(result, time.monotonic() - t0, Path(source))
 
     # -- runs (TSK-06..10, API-45/46) --------------------------------------------------------
 
@@ -663,6 +652,8 @@ class TaskService:
         settings, shash = self._settings(m, req.settings)
         cfg = self.workspace.get(pid)
         source = self._source(req.selection) if m.input == "source" else None
+        if source is not None:
+            await dry_run.require_dicom(m.id, Path(source))  # AUD-A2-07
         items = [] if source is not None else await self.select(pid, req.selection)
         seg_id = self._seg_id(cfg, m, req.selection)
         ready = [i for i in items if self._not_ready(cfg, m, i, seg_id) is None]

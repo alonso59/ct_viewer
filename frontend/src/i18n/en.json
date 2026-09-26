@@ -148,7 +148,6 @@
     "cannot_assess": "Cannot assess",
     "partially_reviewed": "Partially reviewed",
     "partialOf": "{{status}} · {{done}} of {{total}} items reviewed",
-    "cursor": "ijk {{ijk}} · RAS {{ras}} mm · HU {{hu}} · label {{label}}",
     "cursorIdle": "Move over a view for ijk / HU",
     "job": "{{title}} {{done}}/{{total}}",
     "live": "live",
@@ -255,7 +254,12 @@
     "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed",
     "archived": "Archived projects",
     "showArchived": "Archived",
-    "noArchived": "No archived projects"
+    "noArchived": "No archived projects",
+    "datasets": "Converted datasets",
+    "datasetMeta_one": "{{count}} series · {{ago}}",
+    "datasetMeta_other": "{{count}} series · {{ago}}",
+    "datasetOpen": "Open",
+    "datasetCreate": "Create project"
   },
   "projects": {
     "alias": "Alias",
@@ -349,7 +353,10 @@
     "emptyFolder": "Empty folder",
     "hasMetadata": "metadata.jsonl",
     "truncated": "Listing truncated",
-    "allowedDerived": "Only folders under ALLOWED_DERIVED_ROOTS are listed."
+    "allowedDerived": "Only folders under ALLOWED_DERIVED_ROOTS are listed.",
+    "filter": "Filter this folder",
+    "noMatch": "Nothing here matches “{{text}}”",
+    "allRoots": "All shared folders"
   },
   "explorer": {
     "caseCount_one": "{{count}} case",
@@ -495,7 +502,8 @@
       "MR": "MR",
       "OT": "Other"
     },
-    "segShown": "Showing segmentation set {{set}}"
+    "segShown": "Showing segmentation set {{set}}",
+    "caseNotFoundHelp": "The case {{id}} is not in this project (renamed, excluded or from another project)."
   },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",
@@ -671,10 +679,7 @@
     "mm": "{{v}} mm",
     "deg": "{{v}}°",
     "roi": "μ {{mean}} σ {{sd}} · n {{n}} · {{area}} cm²",
-    "probe": "Value under the cursor",
-    "probeValue": "{{v}}",
-    "probeIjk": "ijk {{ijk}}",
-    "probeLabel": "label {{label}}"
+    "probe": "Value under the cursor"
   },
   "rad": {
     "title": "Radiomics settings",
@@ -739,8 +744,11 @@
     "choose_derived_root": "Choose the derived folder",
     "configure": "Ask the admin to set {{arg}}",
     "axis_order": "Use axis order {{arg}}",
-    "open_folder": "Open the folder instead",
-    "home": "Go to the workspace home"
+    "home": "Go to the workspace home",
+    "quick_open": "Go to case…",
+    "close_tab": "Close tab",
+    "relink_root": "Relink data root…",
+    "show_problems": "Show in Problems"
   },
   "open": {
     "command": "Open file or folder…"
@@ -796,5 +804,23 @@
   },
   "about": {
     "statusTip": "Radiology Workbench {{version}} · Research use only"
+  },
+  "readout": {
+    "hu": "{{v}} HU",
+    "value": "value {{v}}",
+    "label": "{{name}} ({{n}})",
+    "labelAuto": "label {{n}}",
+    "noLabel": "label —",
+    "ijk": "ijk {{ijk}}",
+    "ras": "RAS {{ras}} mm"
+  },
+  "problemTitle": {
+    "unknown": "Something went wrong",
+    "not-found": "Not found",
+    "path-outside-root": "This folder is not shared with the app",
+    "unsupported-format": "This file cannot be used here",
+    "unreadable": "This file cannot be read",
+    "geometry-mismatch": "The segmentation does not match the image",
+    "source-missing": "A source file is missing"
   }
 }

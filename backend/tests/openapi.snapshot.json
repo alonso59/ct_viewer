@@ -9703,6 +9703,64 @@
     "title": "SelectionFilter",
     "type": "object"
    },
+   "SeriesPlan": {
+    "description": "One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why.",
+    "properties": {
+     "action": {
+      "enum": [
+       "convert",
+       "skip"
+      ],
+      "title": "Action",
+      "type": "string"
+     },
+     "bytes": {
+      "default": 0,
+      "title": "Bytes",
+      "type": "integer"
+     },
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "modality": {
+      "default": "",
+      "title": "Modality",
+      "type": "string"
+     },
+     "n_files": {
+      "default": 0,
+      "title": "N Files",
+      "type": "integer"
+     },
+     "patient": {
+      "default": "",
+      "title": "Patient",
+      "type": "string"
+     },
+     "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     }
+    },
+    "required": [
+     "case_id",
+     "scan_idx",
+     "action"
+    ],
+    "title": "SeriesPlan",
+    "type": "object"
+   },
    "SettingsIssue": {
     "properties": {
      "loc": {
@@ -10150,6 +10208,18 @@
        }
       ],
       "title": "Seconds Per Item"
+     },
+     "series": {
+      "items": {
+       "$ref": "#/components/schemas/SeriesPlan"
+      },
+      "title": "Series",
+      "type": "array"
+     },
+     "series_truncated": {
+      "default": false,
+      "title": "Series Truncated",
+      "type": "boolean"
      }
     },
     "required": [
@@ -12695,7 +12765,7 @@
   },
   "/api/v1/open/{sid}/items/{n}/attach": {
    "post": {
-    "description": "API-08 attach (SRC-10): a segmentation for item n, only if the geometry matches.",
+    "description": "API-08 attach (SRC-10, ADR-0027): a segmentation for item n from anywhere under\nALLOWED_DATA_ROOTS, only if the geometry matches.",
     "operationId": "open_attach_api_v1_open__sid__items__n__attach_post",
     "parameters": [
      {

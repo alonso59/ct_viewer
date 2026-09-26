@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
-from app.api.v1 import sources
+from app.sources import open_service as sources
 
 
 class FakeJobs:
@@ -25,11 +24,10 @@ class FakeJobs:
 
 def test_concurrent_callers_share_one_conversion(tmp_path: Path) -> None:
     jobs = FakeJobs()
-    ctx: Any = SimpleNamespace(jobs=jobs)
     dst = tmp_path / "volume.nii.gz"
 
     async def both() -> list[str | None]:
-        calls = (sources._convert_once(ctx, "/r", ["a.dcm"], dst) for _ in range(3))
+        calls = (sources.convert_once(jobs, "/r", ["a.dcm"], dst) for _ in range(3))
         return list(await asyncio.gather(*calls))
 
     assert asyncio.run(both()) == [None, None, None]

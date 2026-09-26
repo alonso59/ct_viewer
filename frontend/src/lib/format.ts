@@ -25,6 +25,19 @@ export function fmtDuration(sec: number): string {
   return `${m} min ${Math.round(sec % 60)} s`
 }
 
+/** Bytes with the unit that fits (decimal units, as file managers show them; AUD-A2-13) */
+export function fmtBytes(n: number | null | undefined): string {
+  if (n == null) return '—'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let v = n
+  let u = 0
+  while (v >= 1000 && u < units.length - 1) {
+    v /= 1000
+    u++
+  }
+  return `${u === 0 ? Math.round(v) : nf1.format(v)} ${units[u]}`
+}
+
 /** Robust z-score (median / MAD), as used by the outlier views (DASHBOARD §Views) */
 export function robustZ(values: number[]): (v: number) => number {
   const sorted = [...values].sort((a, b) => a - b)

@@ -1,5 +1,5 @@
 // SRC-17: candidates come from the sampled names only, and only with groups the sample supports.
-import { sampleStems, segments, suggestPatterns, toJsRegex } from './patternSuggest'
+import { CONVERTER_PATTERN, converterPattern, sampleStems, segments, suggestPatterns, toJsRegex } from './patternSuggest'
 
 test('stems: accepted extensions only, masks left out', () => {
   expect(sampleStems(['a_case_1_0000.nii.gz', 'b.nii', 'c.npy', 'd_seg.nii.gz', 'e_mask.nii', 'notes.txt'])).toEqual(['a_case_1_0000', 'b', 'c'])
@@ -41,4 +41,12 @@ test('segments mark each named group in the stem', () => {
     { text: '_' },
     { text: '0000', group: 'channel' },
   ])
+})
+
+test('the converter naming is pre-filled only when every stem follows it (ADR-0027, AUD-A2-12)', () => {
+  expect(converterPattern(['01_case_00030_0000'])).toBe(CONVERTER_PATTERN)
+  expect(toJsRegex(CONVERTER_PATTERN).exec('01_case_00030_0000')?.groups).toMatchObject({ scan_idx: '01', case_id: 'case_00030', channel: '0000' })
+  expect(toJsRegex(CONVERTER_PATTERN).exec('02_CT_case_00031_0000')?.groups).toMatchObject({ scan_idx: '02', modality: 'CT', case_id: 'case_00031' })
+  expect(converterPattern(['01_case_00030_0000', 'loose scan'])).toBeNull()
+  expect(converterPattern([])).toBeNull()
 })

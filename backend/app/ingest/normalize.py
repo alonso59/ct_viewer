@@ -284,10 +284,15 @@ def _scan_draft(
         a = by_item.get(iid)
         if field_name != "phase" and a is not None:
             d.extra[field_name] = a.value
+    _sidecar_ref(d, resolver, alias)
     if excluded:
         return d  # IMP-07: no file checks, no warnings
-    if ambiguous:
-        d.warn(QcCode.AMBIGUOUS_PHASE, "phase", f"phase {phase.raw!r} is unknown or conflicting")
+    # `nifti-files` rows have phase UNK by design (SRC-04): no warning unless a phase was given
+    from_nifti = (row.text("source_kind") or row.extra.get("source_kind")) == "nifti"
+    by_design = from_nifti and phase.raw is None
+    if ambiguous and not by_design:
+        what = f"phase {phase.raw!r} is unknown or conflicting" if phase.raw else "no phase given"
+        d.warn(QcCode.AMBIGUOUS_PHASE, "phase", what)
     raw = image_path(row)
     d.image = _file(d, resolver, alias, raw, "image") if raw else None
     if d.image is None:
@@ -295,11 +300,27 @@ def _scan_draft(
     seg = row.text("seg_path")
     if seg:
         d.mask = _file(d, resolver, alias, seg, "mask")
-    elif fname:
+    elif fname and not from_nifti:
+        # the metadata-v1 `seg/` convention; `nifti-files` already applied its own (SRC-04)
         d.mask = _file(d, resolver, alias, seg_convention(fname), "mask", explicit=False)
     if d.mask is None:
         d.warn(QcCode.MISSING_SEG, "mask", "scan has no SEG")
     return d
+
+
+def _sidecar_ref(d: Draft, resolver: PathResolver, alias: str) -> None:
+    """A `dicom_sidecar` relative to the import root (a workspace dataset's `sidecars/…`,
+    TSK-13) becomes an alias ref like `relative_path` (DCM-04, AUD-A2-04); refs stay as they are."""
+    raw = d.extra.get("dicom_sidecar")
+    if not isinstance(raw, str) or not raw.strip():
+        return
+    head, sep, _ = raw.partition(":")
+    if sep and head in resolver.roots:
+        return
+    try:
+        d.extra["dicom_sidecar"] = resolver.to_ref(alias, raw)
+    except Problem:
+        return  # left as is: the tags endpoint reports it (API-22)
 
 
 def _voi_draft(

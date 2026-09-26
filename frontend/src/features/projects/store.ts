@@ -8,6 +8,8 @@ interface ProjectDialogs {
   bundlePick: number
   /** Archive confirmation (PRJ-06) */
   archive: { pid: string; name: string; home: boolean } | null
+  /** Relink asked for from a command or a missing-image card (PRJ-05, AUD-A2-07): the project id */
+  relink: string | null
   set: (patch: Partial<Omit<ProjectDialogs, 'set'>>) => void
 }
 
@@ -15,5 +17,6 @@ export const useProjectDialogs = create<ProjectDialogs>()((set) => ({
   creating: false,
   bundlePick: 0,
   archive: null,
+  relink: null,
   set: (patch) => set(patch),
 }))
