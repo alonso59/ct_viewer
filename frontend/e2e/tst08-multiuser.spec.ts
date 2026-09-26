@@ -1,6 +1,8 @@
 // TST-08 (ops/TESTING.md): two reviewers in two browser contexts on the same case.
 // CUR-11: a decision by A reaches B over SSE ("updated by" toast + new state).
 // CUR-12: concurrent writes to the same (item, target) → last writer wins everywhere; history keeps both.
+// CUR-08 (AUD-A5-15, A5-09, A2-16): a case with one decided item of several is "Partially reviewed",
+// the Search Status filter finds it on the real API, the queue CSV names the segmentation set.
 // Real backend on the synthetic fixtures (playwright.config.ts starts it); setup goes through the API.
 import { resolve } from 'node:path'
 
@@ -63,7 +65,8 @@ test('live sync and last-writer-wins between two reviewers', async ({ browser })
   await expect(segRow(a)).toContainText('Accepted')
   await expect(b.getByRole('status').filter({ hasText: `${CASE} updated by Dr. A: Accepted` })).toBeVisible()
   // The toast proves the SSE event arrived; the row follows B's refetch, which can queue behind
-  // the thumbnail job right after indexing (seen flaky at the 5 s default on Chromium)
+  // the thumbnail job right after indexing. An event during B's first state load restarts that load
+  // (AUD-A0-02, unit-tested in api/liveState.test.ts)
   await expect(segRow(b)).toContainText('Accepted', { timeout: 15_000 })
   // A's own event does not toast "updated by" in A's tab (same session)
   await expect(a.getByRole('status').filter({ hasText: 'updated by' })).toHaveCount(0)
@@ -90,4 +93,43 @@ test('live sync and last-writer-wins between two reviewers', async ({ browser })
   }
   await a.context().close()
   await b.context().close()
+})
+
+test('partial rollup, Search status filter and queue CSV with seg_id', async ({ browser }) => {
+  await newProject()
+  const cases = await api<{ items: { case_id: string; n_items_active: number }[] }>('GET', `/projects/${pid}/cases?limit=200`)
+  const multi = cases.items.find((c) => c.n_items_active > 1)
+  expect(multi).toBeTruthy()
+  const caseId = multi?.case_id ?? ''
+  const ctx = await browser.newContext()
+  await ctx.addInitScript(() => localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: 'Dr. A' }, version: 0 })))
+  const page = await ctx.newPage()
+  await page.goto(`/p/${pid}/case/${caseId}`)
+  const activity = page.getByRole('navigation', { name: 'Activity bar' })
+  await activity.getByRole('button', { name: 'Curation' }).click()
+  await expect(form(page).getByText(`${caseId}.`, { exact: false }).first()).toBeVisible()
+  await quick(page, /^Accept/).click()
+  await expect(segRow(page)).toContainText('Accepted')
+  // AUD-A5-15: one item of several decided → partial, and not counted as reviewed
+  const header = page.locator('.case-header')
+  await expect(header.getByText('Partially reviewed', { exact: true })).toBeVisible({ timeout: 15_000 })
+  const listed = await api<{ project_id: string; curation_progress: number }[]>('GET', '/projects')
+  expect(listed.find((p) => p.project_id === pid)?.curation_progress).toBe(0)
+
+  // AUD-A5-09: the Search view's Status filters on the rollup through API-20 (no 422)
+  await activity.getByRole('button', { name: 'Search' }).click()
+  const search = page.getByRole('complementary', { name: 'Search' })
+  await search.getByLabel('Curation status').selectOption('partially_reviewed')
+  await expect(search.getByText('1 case', { exact: true })).toBeVisible()
+  await search.getByLabel('Curation status').selectOption('not_reviewed')
+  await expect(search.getByText(`${cases.items.length - 1} cases`, { exact: true })).toBeVisible()
+
+  // AUD-A2-16: the correction-queue CSV names the set of a mask decision
+  await activity.getByRole('button', { name: 'Curation' }).click()
+  await quick(page, /^Reject/).click()
+  await expect(segRow(page)).toContainText('Rejected')
+  const csv = await (await fetch(`${API}/projects/${pid}/curation/queue?format=csv`)).text()
+  expect(csv.split('\n')[0]).toContain(',target,seg_id,status,')
+  expect(csv).toContain(',seg,imported,rejected,')
+  await ctx.close()
 })

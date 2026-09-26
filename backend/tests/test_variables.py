@@ -276,9 +276,10 @@ def test_dominant_tie() -> None:
 )
 def test_invalid_derived_definitions(bad: Any) -> None:
     with pytest.raises(ValidationProblem):
-        build(cohort(), derived=[bad], strict=True)
-    _, info = build(cohort(), derived=[bad])
+        build(cohort(), derived=[bad], strict={bad.name})
+    built, info = build(cohort(), derived=[bad])
     assert info["derived_errors"]
+    assert [b.name for b in built.catalog.broken] == [bad.name]  # AUD-A5-08: listed, deletable
 
 
 # -- external tables (VAR-07) ------------------------------------------------------------------

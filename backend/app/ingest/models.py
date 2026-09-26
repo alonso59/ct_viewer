@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.ids import Scope, Side
+from app.curation.models import ReviewState, RollupStatus
 from app.imaging.header import VolumeFormat
 from app.ingest.codes import QcCode, Severity
 
@@ -103,7 +104,11 @@ class CaseSummary(BaseModel):
     has_voi_L: bool = False  # DATA_MODEL field names
     has_voi_R: bool = False
     n_warnings: int = 0
-    curation_status: str = "not_reviewed"  # CUR-08 rollup; filled by curation (lane P4)
+    curation_status: RollupStatus = "not_reviewed"  # CUR-08 rollup; query-time join
+    # CUR-08: reviewed = every active item has a decision; progress counts only those
+    review_state: ReviewState = "not_reviewed"
+    n_items_reviewed: int = 0  # active items with a decision
+    n_items_active: int = 0
     last_reviewed_at: str | None = None
     # Best item for the case thumbnail (API-26): active `complete` item, by phase priority.
     thumb_item_id: str | None = None

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { API_MODE, CURATION_STATUSES, PHASES, useCases, useVariables, type Variable } from '../../api'
+import { API_MODE, CASE_ROLLUPS, PHASES, useCases, useVariables, type Variable } from '../../api'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { ItemFilterChip } from './ProjectView'
@@ -60,7 +60,7 @@ export function SearchView() {
         <input className="input" value={filter.q ?? ''} placeholder={t('explorer.filterPlaceholder')} onChange={(e) => setFilter({ q: e.target.value })} />
       </label>
       <Select label={t('search.phase')} value={filter.phase} options={PHASES.map((p) => ({ v: p, l: t('search.phaseOption', { code: p, name: t(`phase.${p}`) }) }))} onChange={(phase) => setFilter({ phase })} />
-      <Select label={t('search.status')} value={filter.status} options={CURATION_STATUSES.map((s) => ({ v: s, l: t(`status.${s}`) }))} onChange={(status) => setFilter({ status })} />
+      <Select label={t('search.status')} value={filter.status} options={CASE_ROLLUPS.map((s) => ({ v: s, l: t(`status.${s}`) }))} onChange={(status) => setFilter({ status })} />
       <Select label={t('search.warnings')} value={filter.warning} options={[{ v: 'any', l: t('search.hasWarnings') }, { v: 'none', l: t('search.noWarnings') }]} onChange={(w) => setFilter({ warning: w as 'any' | 'none' | '' })} />
       <Select label={t('search.voi')} value={filter.voi} options={[{ v: 'any', l: t('search.hasVoi') }, { v: 'none', l: t('search.noVoi') }]} onChange={(v) => setFilter({ voi: v as 'any' | 'none' | '' })} />
       <div className="search-section">

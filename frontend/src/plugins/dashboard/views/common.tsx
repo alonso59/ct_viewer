@@ -262,11 +262,13 @@ export function ItemMenu() {
   const target = useItemMenu((s) => s.target)
   const close = useItemMenu((s) => s.close)
   const state = useCurationState(pid).data
+  const defaultSeg = useProject(pid).data?.default_seg ?? 'imported'
   const append = useAppendEvent(pid)
   if (!target) return null
   const addToQueue = () => {
-    // Q semantics (CUR-09): keep the item's current `seg` status, flag it for the queue
-    const current = state?.find((r) => r.item_id === target.item_id && r.target === 'seg')?.status ?? 'not_reviewed'
+    // Q semantics (CUR-09): keep the item's current `seg` status, flag it for the queue; the event
+    // carries no seg_id, so it is about `default_seg` (ADR-0015, AUD-A5-06)
+    const current = state?.find((r) => r.item_id === target.item_id && r.target === 'seg' && (r.seg_id ?? 'imported') === defaultSeg)?.status ?? 'not_reviewed'
     append.mutate(
       { item_id: target.item_id, case_id: target.case_id, target: 'seg', status: current, priority: 'medium', comment: '', add_to_queue: true },
       {

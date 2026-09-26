@@ -4,6 +4,7 @@ export { useSettings } from './settings'
 export { useLayout, type LayoutState } from './layout'
 export {
   useViewerSync,
+  resolveSeg,
   WL_PRESETS,
   LAYOUT_CYCLE,
   type LayoutId,

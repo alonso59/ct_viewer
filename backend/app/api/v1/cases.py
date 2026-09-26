@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Request
 from app.api.v1.deps import Ctx
 from app.api.v1.imports import ingest_service
 from app.api.v1.paging import Page, Paging, paginate
+from app.curation.models import RollupStatus
 from app.ingest.codes import QcCode
 from app.ingest.models import CaseSummary, ItemStatus, Phase
 from app.ingest.schemas import CaseDetail
@@ -30,6 +31,9 @@ async def list_cases(
     status: Annotated[
         ItemStatus | None, Query(description="Default hides all-excluded_upstream cases")
     ] = None,
+    curation_status: Annotated[
+        RollupStatus | None, Query(description="CUR-08 case rollup (the Search view's Status)")
+    ] = None,
     warning: Annotated[QcCode | None, Query()] = None,
     has_voi: Annotated[bool | None, Query()] = None,
     sort: Annotated[CaseSort, Query()] = "case_id",
@@ -45,6 +49,7 @@ async def list_cases(
         var_cases=var_cases,
         phase=phase,
         status=status,
+        curation_status=curation_status,
         warning=warning,
         has_voi=has_voi,
         sort=sort,

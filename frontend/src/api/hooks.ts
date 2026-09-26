@@ -14,7 +14,6 @@ import type {
   DerivedDef,
   ItemRecord,
   Job,
-  LabelDef,
   NewCurationEvent,
   NewPhaseEvent,
   CurationEvent,
@@ -52,6 +51,8 @@ export const useImportHistory = (pid: string) =>
   useQuery({ queryKey: keys.imports(pid), queryFn: () => api.importHistory(pid), enabled: enabled(pid) })
 export const useVariables = (pid: string) =>
   useQuery({ queryKey: keys.variables(pid), queryFn: () => api.listVariables(pid), enabled: enabled(pid) })
+export const useBrokenDerived = (pid: string) =>
+  useQuery({ queryKey: [...keys.variables(pid), 'broken'], queryFn: () => api.brokenDerived(pid), enabled: enabled(pid) })
 export const useEvents = (pid: string, f: { item_id?: string; case_id?: string }) =>
   useQuery({ queryKey: keys.events(pid, f), queryFn: () => api.listEvents(pid, f), enabled: enabled(pid) })
 /** PHS-07: phase selections of one scan, newest first */
@@ -248,14 +249,6 @@ export function useCommitImport(pid: string) {
  *  someone else changed the settings since. */
 const shownEtag = (qc: QueryClient, pid: string) => qc.getQueryData<Project>(keys.project(pid))?.etag ?? ''
 
-export function useUpdateLabels(pid: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (labels: LabelDef[]) => api.updateLabelMap(pid, labels, shownEtag(qc, pid)),
-    onSuccess: (p) => qc.setQueryData(keys.project(pid), p),
-  })
-}
-
 /** API-03 settings write (UI-23): `etag` = the version the form was loaded from */
 export function useUpdateProject(pid: string) {
   const qc = useQueryClient()
@@ -417,19 +410,30 @@ function invalidateViews(qc: QueryClient, pid: string) {
 /** PHS-03: the effective phase shows in cases, items, filters, variables and dashboard views */
 function invalidatePhase(qc: QueryClient, pid: string) {
   invalidateViews(qc, pid)
-  for (const k of ['cases', 'case', 'item', 'phase', 'variables'] as const) void qc.invalidateQueries({ queryKey: ['project', pid, k] })
+  for (const k of ['cases', 'case', 'item', 'phase', 'variables'] as const) void refreshQueries(qc, ['project', pid, k])
+}
+
+/** Invalidate like `invalidateQueries`, but also restart a *first* fetch that is still running:
+ *  TanStack joins an in-flight fetch of a query without data instead of starting a new one, so
+ *  an event that arrives during the first load would be lost (AUD-A0-02). */
+export function refreshQueries(qc: QueryClient, queryKey: readonly unknown[]) {
+  for (const q of qc.getQueryCache().findAll({ queryKey }))
+    // silent = "a new fetch follows" (as TanStack's own cancelRefetch); only active queries refetch
+    if (q.state.data === undefined && q.state.fetchStatus === 'fetching' && q.isActive()) void q.cancel({ silent: true })
+  return qc.invalidateQueries({ queryKey })
 }
 
 function invalidateCuration(qc: QueryClient, pid: string) {
   invalidateViews(qc, pid)
-  void qc.invalidateQueries({ queryKey: ['project', pid, 'cases'] })
-  void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
-  void qc.invalidateQueries({ queryKey: ['project', pid, 'events'] })
-  void qc.invalidateQueries({ queryKey: ['project', pid, 'curation'] })
-  void qc.invalidateQueries({ queryKey: keys.projects() })
+  for (const k of ['cases', 'case', 'events', 'curation'] as const) void refreshQueries(qc, ['project', pid, k])
+  void refreshQueries(qc, keys.projects())
 }
 
-/** The derived CUR-08 row of one event, replacing the row of the same (item, target) */
+/** Mask targets carry a segmentation set; an event without one means `imported` (CURATION §Targets) */
+const segKey = (target: string, seg: string | null | undefined) =>
+  target === 'seg' || target === 'voi_mask' || target.startsWith('label:') ? (seg ?? 'imported') : null
+
+/** The derived CUR-08 row of one event, replacing the row of the same (item, target, seg_id) */
 export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): CurationStateRow[] {
   const row: CurationStateRow = {
     item_id: ev.item_id ?? null,
@@ -443,8 +447,10 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
     event_id: ev.event_id,
     add_to_queue: ev.add_to_queue ?? false,
     proposed_side: ev.proposed_side ?? null,
+    seg_id: segKey(ev.target, ev.seg_id),
   }
-  const same = (r: CurationStateRow) => r.item_id === row.item_id && r.case_id === row.case_id && r.target === row.target
+  const same = (r: CurationStateRow) =>
+    r.item_id === row.item_id && r.case_id === row.case_id && r.target === row.target && segKey(r.target, r.seg_id) === row.seg_id
   return rows.some((r) => r.event_id === row.event_id) ? rows : [...rows.filter((r) => !same(r)), row]
 }
 
@@ -452,7 +458,7 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
 export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   // LBL-05: other reviewers' cell edits (or a large batch announced as project.updated)
   if (e.event === 'labeling.appended' || (e.event === 'project.updated' && e.data.fields.includes('labeling')))
-    void qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
+    void refreshQueries(qc, ['project', pid, 'labeling'])
   // PHS-05: a selection here or in another browser (imports announce `project.updated` with `phase`)
   if (e.event === 'phase.appended' || (e.event === 'project.updated' && e.data.fields.includes('phase'))) invalidatePhase(qc, pid)
   if (e.event === 'curation.appended') {
@@ -498,6 +504,12 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
     // TSK-06: `waiting_for_runner` ↔ `running`
     qc.setQueryData(keys.jobs(pid), (old: Job[] | undefined) => old?.map((j) => (j.job_id === e.data.job_id ? { ...j, status: e.data.status } : j)))
     void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
+  }
+  // AUD-A5-11: events were missed (server replay gap, or the stream reopened after an error)
+  if (e.event === 'reset') {
+    void refreshQueries(qc, ['project', pid])
+    void refreshQueries(qc, keys.projects())
+    void qc.invalidateQueries({ queryKey: ['jobs'] })
   }
   if (e.event === 'index.rebuilt') {
     void qc.invalidateQueries({ queryKey: ['project', pid] })

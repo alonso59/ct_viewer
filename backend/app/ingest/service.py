@@ -28,7 +28,7 @@ from app.core.fsio import (
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import validate_alias
-from app.curation.state import case_statuses
+from app.curation.state import CaseReview, case_reviews
 from app.events.bus import EventBus
 from app.ingest import indexer, preview, sidecars
 from app.ingest.cases import build_cases
@@ -573,10 +573,12 @@ class IngestService:
         has_voi: bool | None = None,
         sort: str = "case_id",
         var_cases: set[str] | None = None,
+        curation_status: str | None = None,
     ) -> list[CaseSummary]:
         """API-20. Cases whose items are all `excluded_upstream` show only for that status.
 
         `var_cases`: case ids passing the `var.{name}` filters (VAR-10), or None for no filter.
+        `curation_status`: the CUR-08 case rollup (`partially_reviewed` included).
         """
         vocab = self.workspace.get(project_id).phase_vocabulary
         if phase is not None and vocab and phase not in vocab:
@@ -611,9 +613,14 @@ class IngestService:
                 return False
             return has_voi is None or (c.has_voi_L or c.has_voi_R) == has_voi
 
-        rollup = case_statuses(self.workspace.project_dir(project_id))
+        active = _active_by_case(idx.items)
+        rollup = case_reviews(self.workspace.project_dir(project_id), active)
         values = self.variables.case_values(project_id)
-        out = [_with_values(_with_curation(c, rollup), values) for c in idx.cases if keep(c)]
+        out = [
+            _with_values(_with_curation(c, rollup, active), values) for c in idx.cases if keep(c)
+        ]
+        if curation_status is not None:
+            out = [c for c in out if c.curation_status == curation_status]
         if sort in ("n_warnings", "-n_warnings"):
             out.sort(key=lambda c: c.case_id)
             out.sort(key=lambda c: c.n_warnings, reverse=sort.startswith("-"))
@@ -626,10 +633,12 @@ class IngestService:
     def case_detail(self, project_id: str, case_id: str) -> CaseDetail:
         """API-21: case + scans → items tree + warnings."""
         idx = self.store.load(project_id)
+        active = _active_by_case(idx.items)
         case = _with_values(
             _with_curation(
                 self.store.get_case(project_id, case_id),
-                case_statuses(self.workspace.project_dir(project_id)),
+                case_reviews(self.workspace.project_dir(project_id), active),
+                active,
             ),
             self.variables.case_values(project_id),
         )
@@ -676,9 +685,28 @@ def _with_values(
     return case.model_copy(update={"variables": hit}) if hit else case
 
 
-def _with_curation(case: CaseSummary, rollup: dict[str, tuple[str, str | None]]) -> CaseSummary:
+def _active_by_case(items: Sequence[Item]) -> dict[str, list[str]]:
+    """Active item ids per case: the items a case needs a decision on to count as reviewed."""
+    out: dict[str, list[str]] = {}
+    for it in items:
+        if it.status == "active":
+            out.setdefault(it.case_id, []).append(it.item_id)
+    return out
+
+
+def _with_curation(
+    case: CaseSummary, rollup: dict[str, CaseReview], active: dict[str, list[str]]
+) -> CaseSummary:
     """CUR-08 rollup onto a (cached, so copied) case summary."""
     hit = rollup.get(case.case_id)
     if hit is None:
-        return case
-    return case.model_copy(update={"curation_status": hit[0], "last_reviewed_at": hit[1]})
+        return case.model_copy(update={"n_items_active": len(active.get(case.case_id, ()))})
+    return case.model_copy(
+        update={
+            "curation_status": hit.status,
+            "review_state": hit.state,
+            "n_items_reviewed": hit.n_reviewed,
+            "n_items_active": hit.n_active,
+            "last_reviewed_at": hit.last_reviewed_at,
+        }
+    )

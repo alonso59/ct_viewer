@@ -74,6 +74,28 @@ def test_opening_message_comes_first_after_subscribing() -> None:
     asyncio.run(asyncio.wait_for(body(), 5))
 
 
+def test_unresumable_id_sends_reset_first() -> None:
+    """AUD-A5-11 (CUR-11): an id from before a restart gets `reset` (with the newest id, so the
+    next reconnect resumes normally), then live events."""
+
+    async def body() -> None:
+        bus = EventBus()
+        gen = sse_messages(bus, "p", 1, opening=True)
+        assert await anext(gen) == OPEN_MESSAGE
+        assert await anext(gen) == {"id": str(bus.last_id), "event": "reset", "data": "{}"}
+        ev = bus.publish("p", "project.updated", {"fields": ["x"]})
+        assert (await asyncio.wait_for(anext(gen), 1))["id"] == str(ev.id)
+        await gen.aclose()  # type: ignore[attr-defined]
+        again = sse_messages(bus, "p", ev.id)  # resumes from there: no reset
+        nxt = asyncio.ensure_future(anext(again))
+        await asyncio.sleep(0)
+        live = bus.publish("p", "project.updated", {"fields": ["y"]})
+        assert (await asyncio.wait_for(nxt, 1))["id"] == str(live.id)
+        await again.aclose()  # type: ignore[attr-defined]
+
+    asyncio.run(asyncio.wait_for(body(), 5))
+
+
 def test_unknown_project_is_404(client: TestClient) -> None:
     def missing(pid: str) -> Path:
         raise NotFound(f"Project {pid!r} not found")

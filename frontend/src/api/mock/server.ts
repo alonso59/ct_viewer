@@ -393,8 +393,27 @@ function matchesVar(v: unknown, spec: string): boolean {
 // ---- cases (CUR-08 rollup) -------------------------------------------------------------------
 function latestState(pid: string): Map<string, CurationEvent> {
   const latest = new Map<string, CurationEvent>()
-  for (const e of events[pid] ?? []) latest.set(`${e.item_id ?? e.case_id}|${e.target}`, e)
+  for (const e of events[pid] ?? []) latest.set(`${e.item_id ?? e.case_id}|${e.target}|${segOf(e) ?? ''}`, e)
   return latest
+}
+
+/** CURATION §Targets: mask targets carry a set; none = `imported` */
+const segOf = (e: Pick<CurationEvent, 'target' | 'seg_id'>) =>
+  e.target === 'seg' || e.target === 'voi_mask' || e.target.startsWith('label:') ? (e.seg_id ?? 'imported') : null
+
+/** CUR-08 case rollup as the server computes it (AUD-A5-15): reviewed once every active item has a
+ *  decision; partial with a non-queue worst status shows `partially_reviewed` */
+function caseRollup(evs: CurationEvent[], items: ItemRecord[]): Pick<CaseSummary, 'curation_status' | 'review_state' | 'n_items_reviewed' | 'n_items_active'> {
+  const worst = rollup(evs.map((e) => e.status))
+  const active = items.filter((i) => i.status === 'active').map((i) => i.item_id)
+  const decided = active.filter((id) => rollup(evs.filter((e) => e.item_id === id).map((e) => e.status)) !== 'not_reviewed').length
+  const state = worst === 'not_reviewed' ? 'not_reviewed' : decided < active.length ? 'partial' : 'reviewed'
+  return {
+    curation_status: state === 'partial' && !QUEUE_STATUSES.includes(worst) ? 'partially_reviewed' : worst,
+    review_state: state,
+    n_items_reviewed: decided,
+    n_items_active: active.length,
+  }
 }
 
 function summaries(pid: string): CaseSummary[] {
@@ -431,7 +450,7 @@ function summaries(pid: string): CaseSummary[] {
       has_voi_L: items.some((i) => i.scope === 'voi' && i.side === 'L'),
       has_voi_R: items.some((i) => i.scope === 'voi' && i.side === 'R'),
       n_warnings: s.warnings.filter((w) => w.case_id === case_id).length,
-      curation_status: rollup(evs.map((e) => e.status)),
+      ...caseRollup(evs, items),
       last_reviewed_at: evs.map((e) => e.at).sort().at(-1) ?? null,
       thumb_item_id: thumb?.item_id ?? null,
       excluded: items.every((i) => i.status === 'excluded_upstream'),
@@ -519,9 +538,10 @@ function queueRows(pid: string): QueueRow[] {
       const item = s.items.find((i) => i.item_id === e.item_id)
       return {
         case_id: e.case_id, item_id: e.item_id ?? '', scope: item?.scope ?? null, side: item?.side ?? null,
-        phase: item?.phase.canonical ?? null, target: e.target, status: e.status, priority: e.priority,
+        phase: item?.phase.canonical ?? null, target: e.target, seg_id: segOf(e), status: e.status, priority: e.priority,
         comment: e.comment, reviewer: e.reviewer, at: e.at,
-        image_path_abs: absPath(item?.image?.ref), mask_path_abs: absPath(item?.mask?.ref),
+        // AUD-A2-16: the mask of the decision's set
+        image_path_abs: absPath(item?.image?.ref), mask_path_abs: absPath((segOf(e) ? item?.masks[segOf(e) ?? ''] : item?.mask)?.ref),
       }
     })
 }
@@ -693,7 +713,7 @@ export const mockServer: Api = {
     simTimer = setInterval(() => {
       const latest = latestState(pid)
       const candidates = s.items.filter(
-        (i) => i.scope === 'complete' && i.status === 'active' && !latest.has(`${i.item_id}|seg`),
+        (i) => i.scope === 'complete' && i.status === 'active' && !latest.has(`${i.item_id}|seg|imported`),
       )
       const it = candidates[Math.floor(Math.random() * candidates.length)]
       if (!it) return
@@ -710,7 +730,7 @@ export const mockServer: Api = {
     await wait()
     return [...db.values()].map((s) => {
       const sums = s.reachable && s.items.length ? summaries(s.project.project_id) : []
-      const reviewed = sums.filter((c) => c.curation_status !== 'not_reviewed').length
+      const reviewed = sums.filter((c) => c.review_state === 'reviewed').length
       return {
         project_id: s.project.project_id,
         name: s.project.name,
@@ -1174,6 +1194,12 @@ export const mockServer: Api = {
     if (!v) throw new ProblemError(500, 'about:blank', 'Derived variable missing')
     return v
   },
+  async brokenDerived(pid) {
+    await wait(60)
+    const s = state(pid)
+    const names = new Set(catalog(s).map((v) => v.name))
+    return s.derived.filter((d) => !names.has(d.name)).map((d) => ({ name: d.name, reason: `Unknown source variable ${JSON.stringify(d.op === 'dominant' ? d.sources.find((x) => !names.has(x)) : d.source)}` }))
+  },
   async deleteDerived(pid, name) {
     await wait(80)
     const s = state(pid)
@@ -1235,7 +1261,7 @@ export const mockServer: Api = {
       if (c.excluded && !f.showExcluded) return false
       if (q && !c.case_id.includes(q) && !(c.patient_id ?? '').toLowerCase().includes(q)) return false
       if (f.phase && !c.phases.includes(f.phase as CaseSummary['phases'][number])) return false
-      if (f.status && c.curation_status !== f.status) return false
+      if (f.status && c.curation_status !== f.status) return false // API-20 `curation_status`
       if (f.warning === 'any' && c.n_warnings === 0) return false
       if (f.warning === 'none' && c.n_warnings > 0) return false
       const hasVoi = c.has_voi_L || c.has_voi_R
@@ -1323,7 +1349,7 @@ export const mockServer: Api = {
     return [...latestState(pid).values()].map((e) => ({
       item_id: e.item_id, case_id: e.case_id, target: e.target, status: e.status, priority: e.priority,
       comment: e.comment, reviewer: e.reviewer, at: e.at, event_id: e.event_id, add_to_queue: e.add_to_queue,
-      proposed_side: e.proposed_side,
+      proposed_side: e.proposed_side, seg_id: segOf(e),
     }))
   },
   async queue(pid) {
@@ -1332,7 +1358,7 @@ export const mockServer: Api = {
   },
   async queueCsv(pid) {
     await wait(60)
-    const cols = ['case_id', 'item_id', 'scope', 'side', 'phase', 'target', 'status', 'priority', 'comment', 'reviewer', 'at', 'image_path_abs', 'mask_path_abs'] as const
+    const cols = ['case_id', 'item_id', 'scope', 'side', 'phase', 'target', 'seg_id', 'status', 'priority', 'comment', 'reviewer', 'at', 'image_path_abs', 'mask_path_abs'] as const
     const esc = (v: unknown) => (/[",\n]/.test(String(v ?? '')) ? `"${String(v).replaceAll('"', '""')}"` : String(v ?? ''))
     const lines = [cols.join(','), ...queueRows(pid).map((r) => cols.map((c) => esc(r[c])).join(','))]
     return new Blob([`${lines.join('\n')}\n`], { type: 'text/csv' })
@@ -1476,7 +1502,9 @@ export const mockServer: Api = {
     await wait(160)
     const s = state(pid)
     if (!s.runs.some((r) => r.run_id === rid)) throw new ProblemError(404, 'not-found', 'Run not found', rid)
-    const statusOf = new Map(summaries(pid).map((c) => [c.case_id, c.curation_status]))
+    // worst decision per case (the server colours by item status)
+    const statusOf = new Map<string, CurationStatus>()
+    for (const e of latestState(pid).values()) statusOf.set(e.case_id, rollup([statusOf.get(e.case_id) ?? 'not_reviewed', e.status]))
     return mockDashboardView(view, body, { rows: featureRows(s, rid), errors: s.errors[rid] ?? [], run: s.runs.find((r) => r.run_id === rid), statusOf })
   },
   async listAnalyses(pid) {

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 from typing import Final
 
@@ -98,7 +98,7 @@ class VariableService:
         derived: Sequence[DerivedDef] | None = None,
         overrides: Mapping[str, VariableOverride] | None = None,
         external: Sequence[builder.ExternalData] | None = None,
-        strict: bool = False,
+        strict: Collection[str] = (),
     ) -> tuple[builder.Built, dict[str, list[str]]]:
         items = self.store.load(project_id).items
         return builder.build(
@@ -265,7 +265,12 @@ class VariableService:
                 )
             derived = [*base.derived, d]
             built, _ = await asyncio.to_thread(
-                self._build, project_id, base, derived=derived, strict=True
+                # only the new definition must build; existing broken ones stay listed (A5-08)
+                self._build,
+                project_id,
+                base,
+                derived=derived,
+                strict={d.name},
             )
             cat = self._save(project_id, built)
         self._publish(project_id)

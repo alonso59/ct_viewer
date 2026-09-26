@@ -1,5 +1,6 @@
 // TST-19 (LBL-03..06): two reviewers label the same table; edits appear live in the other browser,
-// columns become `lbl.*` variables, and a view-only link shows the table read-only. Real backend.
+// columns become `lbl.*` variables, the case's Inspector section edits its row (AUD-A1-05), the
+// Labels view saves a typed name whole (AUD-A5-07), and a view-only link shows the table read-only.
 import { resolve } from 'node:path'
 
 import { expect, test, type Browser, type Page } from '@playwright/test'
@@ -55,6 +56,32 @@ test('two reviewers label a patient table live; columns become variables', async
   // LBL-06: the column is a typed variable
   await expect.poll(async () => (await api<{ variables: { name: string; type: string }[] }>('GET', `/projects/${pid}/variables`)).variables.find((v) => v.name === 'lbl.review.grade')?.type, { timeout: 15_000 }).toBe('categorical')
 
+  // AUD-A1-05: from the case, the Inspector section fills the case's row of every table; B's table
+  // tab shows the edit live
+  const target = ((await b.getByRole('rowheader').first().textContent()) ?? '').trim()
+  await a.goto(`/p/${pid}/case/${target}`)
+  await a.getByRole('banner').getByRole('button', { name: 'Toggle inspector' }).click()
+  const section = a.locator('.inspector').getByRole('group', { name: 'Review' })
+  await section.getByRole('button', { name: 'Edit Grade' }).click()
+  await section.getByRole('combobox', { name: 'Grade' }).selectOption('G3')
+  await expect(section.getByRole('button', { name: 'Edit Grade' })).toHaveText('G3')
+  await expect(cell(b, 0, 0)).toHaveText('G3', { timeout: 15_000 })
+
+  // AUD-A5-07 (PRJ-07): a label name typed at full speed is saved whole, once, on blur
+  await a.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Labels' }).click()
+  const name = a.getByRole('complementary', { name: 'Labels' }).getByRole('textbox', { name: 'Label name' }).first()
+  const before = await name.inputValue()
+  const patches: number[] = []
+  a.on('response', (r) => {
+    if (r.request().method() === 'PATCH' && r.url().endsWith(`/projects/${pid}`)) patches.push(r.status())
+  })
+  await name.click()
+  await name.press('End')
+  await a.keyboard.type('abcdefghij', { delay: 0 })
+  await name.press('Tab')
+  await expect.poll(async () => (await api<{ label_map: { name: string }[] }>('GET', `/projects/${pid}`)).label_map[0]?.name).toBe(`${before}abcdefghij`)
+  await expect.poll(() => patches).toEqual([200])
+
   // A view-only link shows the table, read-only
   const { view_token } = await api<{ view_token: string }>('POST', `/projects/${pid}/view-token`)
   const v = await a.context().newPage()
@@ -62,7 +89,7 @@ test('two reviewers label a patient table live; columns become variables', async
   await v.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Labeling' }).click()
   await v.getByRole('complementary', { name: 'Labeling' }).getByRole('button', { name: /^Review/ }).click()
   await expect(v.getByText('Read only', { exact: true })).toBeVisible()
-  await expect(cell(v, 0, 0)).toHaveText('G2')
+  await expect(cell(v, 0, 0)).toHaveText('G3')
   await cell(v, 2, 1).click()
   await v.keyboard.press(' ')
   await expect(cell(v, 2, 1)).toHaveText('')

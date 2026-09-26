@@ -9,7 +9,7 @@ import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { openItem } from '../../features/explorer'
 import { revealView, type FrontendPlugin } from '../host'
-import { submitDecision, useDraft } from './decision'
+import { activeSegOf, submitDecision, useDraft } from './decision'
 import { statusOf } from './model'
 
 // Curation UI stays out of the initial bundle (FE-05, NFR-07); shortcuts only need ./decision.
@@ -41,7 +41,7 @@ function currentStatus() {
   const pid = useWorkbench.getState().pid ?? ''
   const { activeItemId, activeCaseId } = useViewerSync.getState()
   const rows = queryClient.getQueryData<CurationStateRow[]>(keys.curationState(pid)) ?? []
-  return statusOf(rows, activeItemId, activeCaseId, useDraft.getState().target)
+  return statusOf(rows, activeItemId, activeCaseId, useDraft.getState().target, activeSegOf(pid))
 }
 
 /** CUR-10: write curation_state.csv and events.jsonl into `exports/` */

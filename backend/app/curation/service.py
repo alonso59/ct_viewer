@@ -49,6 +49,7 @@ STATE_COLUMNS: Final = (
     "side",
     "phase",
     "target",
+    "seg_id",
     "status",
     "item_status",
     "case_status",
@@ -254,6 +255,7 @@ class CurationService:
                     side=side,
                     phase=phase,
                     target=e.target,
+                    seg_id=e.seg_key,
                     status=e.status,
                     priority=e.priority,
                     comment=e.comment,
@@ -287,6 +289,7 @@ class CurationService:
                 state_rows.append(
                     {
                         **e.model_dump(mode="json"),
+                        "seg_id": e.seg_key,
                         "scope": scope,
                         "side": side,
                         "phase": phase,

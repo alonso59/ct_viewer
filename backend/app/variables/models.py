@@ -124,6 +124,14 @@ class VariableOverride(BaseModel):
     tags: list[Tag] | None = None
 
 
+class BrokenDerived(BaseModel):
+    """VAR-06: a stored derived definition that no longer builds (e.g. its source column's
+    label table was deleted, LBL-10); listed so it can be deleted (AUD-A5-08)."""
+
+    name: str
+    reason: str
+
+
 class Catalog(BaseModel):
     """`variables/catalog.json` (VAR-11) and the API-16 response."""
 
@@ -135,6 +143,7 @@ class Catalog(BaseModel):
     variables: list[Variable] = Field(default_factory=list)
     excluded: list[Excluded] = Field(default_factory=list)
     derived: list[DerivedDef] = Field(default_factory=list)
+    broken: list[BrokenDerived] = Field(default_factory=list)  # derived that did not build
     external: list[ExternalTable] = Field(default_factory=list)
     overrides: dict[str, VariableOverride] = Field(default_factory=dict)
 

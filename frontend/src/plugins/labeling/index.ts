@@ -12,7 +12,10 @@ import type { TableParams } from './TableEditor'
 const View = lazy(() => Promise.all([import('./LabelingView'), import('../../i18n/lazy')]).then(([m]) => m))
 const Editor = lazy(() => Promise.all([import('./TableEditor'), import('../../i18n/lazy')]).then(([m]) => m))
 
+const Section = lazy(() => Promise.all([import('./InspectorLabels'), import('../../i18n/lazy')]).then(([m]) => m))
+
 const LazyView = () => createElement(Suspense, { fallback: null }, createElement(View))
+const LazySection = () => createElement(Suspense, { fallback: null }, createElement(Section))
 const LazyEditor = (props: { params: TableParams; panelId: string; active: boolean }) => createElement(Suspense, { fallback: null }, createElement(Editor, props))
 
 const tableName = (tid: string) => {
@@ -24,6 +27,8 @@ export const plugin: FrontendPlugin = {
   id: 'labeling',
   activate: ({ registry }) => {
     registry.view({ id: 'labeling', title: 'view.labeling', icon: codicon('table'), order: 35, component: LazyView, hideImageSection: true })
+    // AUD-A1-05: fill the case's / scan's cells next to the images (read-only on view-only links)
+    registry.inspector({ id: 'labeling.cells', title: 'inspector.labels', order: 15, component: LazySection })
     registry.editor<TableParams>({
       type: 'labeling',
       component: LazyEditor,

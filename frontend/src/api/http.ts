@@ -231,14 +231,15 @@ function caseQuery(f: CaseFilter): Record<string, string> {
   const q: Record<string, string> = {}
   if (f.q?.trim()) q.q = f.q.trim()
   if (f.phase) q.phase = f.phase
-  if (f.status) q.status = f.status
+  // AUD-A5-09: the Search view's Status is the CUR-08 case rollup, not the item status
+  if (f.status) q.curation_status = f.status
   if (f.voi) q.has_voi = String(f.voi === 'any')
   for (const [name, v] of Object.entries(f.vars ?? {})) if (v) q[`var.${name}`] = v
   return q
 }
 
 // ---- curation (API-50..54) -------------------------------------------------------------------
-/** API-51 → one row per (item_id, target); case targets have `item_id = null` */
+/** API-51 → one row per (item_id, target, seg_id); case targets have `item_id = null` */
 function stateRows(st: Schemas['CurationState']): CurationStateRow[] {
   const row = (item_id: string | null, case_id: string, x: Schemas['TargetState']): CurationStateRow => ({
     item_id,
@@ -252,6 +253,7 @@ function stateRows(st: Schemas['CurationState']): CurationStateRow[] {
     event_id: x.event_id,
     add_to_queue: x.add_to_queue ?? false,
     proposed_side: x.proposed_side ?? null,
+    seg_id: x.seg_id ?? null,
   })
   return [
     ...st.items.flatMap((i) => i.targets.map((x) => row(i.item_id, i.case_id, x))),
@@ -310,7 +312,7 @@ async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
 }
 
 // ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
-const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'phase.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated']
+const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'phase.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated', 'reset']
 interface Stream {
   es: EventSource
   listeners: Set<(e: ServerEvent) => void>
@@ -327,8 +329,21 @@ function openStream(pid: string): Stream {
     s.state = st
     for (const l of s.states) l(st)
   }
-  es.onopen = () => setState('live')
-  es.onerror = () => setState(es.readyState === EventSource.CLOSED ? 'offline' : 'connecting')
+  const emit = (e: ServerEvent) => {
+    for (const l of s.listeners) l(e)
+  }
+  let dropped = false
+  es.onopen = () => {
+    setState('live')
+    // AUD-A5-11: events published while we were away may be beyond the server's replay buffer
+    // (or lost with a restart), so a reopen after an error refetches the project
+    if (dropped) emit({ event: 'reset', data: {} })
+    dropped = false
+  }
+  es.onerror = () => {
+    dropped = true
+    setState(es.readyState === EventSource.CLOSED ? 'offline' : 'connecting')
+  }
   for (const type of EVENT_TYPES)
     es.addEventListener(type, (m: MessageEvent<string>) => {
       let data: unknown
@@ -337,8 +352,7 @@ function openStream(pid: string): Stream {
       } catch {
         return
       }
-      const e = { event: type, data } as ServerEvent
-      for (const l of s.listeners) l(e)
+      emit({ event: type, data } as ServerEvent)
     })
   return s
 }
@@ -465,6 +479,10 @@ export const httpApi: Api = {
     variableFrom(await send<Catalog>('PATCH', `/projects/${enc(pid)}/variables/${enc(name)}`, patch), name),
   createDerived: async (pid, def) =>
     variableFrom(await send<Catalog>('POST', `/projects/${enc(pid)}/variables/derived`, toWireDerived(def)), def.name),
+  async brokenDerived(pid) {
+    const c = await send<Catalog>('GET', `/projects/${enc(pid)}/variables`)
+    return c.broken ?? []
+  },
   async deleteDerived(pid, name) {
     await send('DELETE', `/projects/${enc(pid)}/variables/derived/${enc(name)}`)
   },
@@ -548,6 +566,7 @@ export const httpApi: Api = {
       image_path_abs: null,
       mask_path_abs: null,
       ...r,
+      seg_id: r.seg_id ?? null,
     })),
   queueCsv: (pid) => blob(`/projects/${enc(pid)}/curation/queue?format=csv`),
   curationExports: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/curation/exports', { params: { path: { pid } } })),

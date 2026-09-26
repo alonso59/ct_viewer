@@ -3,10 +3,10 @@ import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
-import { PhaseChip, StatusBadge } from '../../lib'
+import { CaseRollupBadge, PhaseChip } from '../../lib'
 import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { PhaseButtons, PhaseHistoryButton } from '../phase'
-import { useViewerSync } from '../../state'
+import { resolveSeg, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
 import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
@@ -104,9 +104,13 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const items = useMemo(() => data?.items ?? [], [data])
   const current = items.find((i) => i.item_id === params.itemId) ?? defaultItem(items)
   const iid = current?.item_id ?? ''
-  // VW-19: the active segmentation set (Layers section), else the project's default
-  const activeSeg = useViewerSync((s) => s.activeSeg)
-  const segId = activeSeg ?? project.data?.default_seg ?? 'imported'
+  // VW-19: the set chosen for this project (Layers section), else its default; an item without
+  // a mask in that set shows the default set's mask with a notice (AUD-A5-05)
+  const chosen = useViewerSync((s) => s.segChoice[pid])
+  const defaultSeg = project.data?.default_seg ?? 'imported'
+  const masks = current?.masks
+  const { seg: shownSeg, missing } = useMemo(() => resolveSeg(masks ?? {}, chosen, defaultSeg), [masks, chosen, defaultSeg])
+  const segId = shownSeg ?? chosen ?? defaultSeg
   const sets = useSegmentations(pid).data
   const mapping = sets?.find((s) => s.seg_id === segId)?.label_mapping
   const meshUrl = useMemo(() => meshUrlOf(pid, iid, segId), [pid, iid, segId])
@@ -114,8 +118,8 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const shown = useMemo(() => (current ? { ...current, mask: current.masks[segId] ?? null } : null), [current, segId])
 
   useEffect(() => {
-    if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id })
-  }, [active, current, params.caseId, set])
+    if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id, shownSeg })
+  }, [active, current, params.caseId, set, shownSeg])
 
   const pick = (itemId: string) => {
     updateActiveParams(panelId, { itemId })
@@ -131,6 +135,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
     )
 
   const fatal = current.warning_codes.find((c) => FATAL_CODES.includes(c))
+  const setName = (id: string) => sets?.find((x) => x.seg_id === id)?.name || id
 
   return (
     <div className="case-editor" {...viewerFocusProps}>
@@ -149,7 +154,12 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
             {current.warning_codes.length}
           </span>
         ) : null}
-        <StatusBadge status={data.summary.curation_status} />
+        {missing ? (
+          <span className="badge" data-tone="warn" role="note">
+            {shownSeg ? t('viewer.segMissing', { set: setName(missing), shown: setName(shownSeg) }) : t('viewer.segMissingNone', { set: setName(missing) })}
+          </span>
+        ) : null}
+        <CaseRollupBadge summary={data.summary} />
       </div>
       {fatal || current.status === 'missing' ? (
         <div className="error-card" role="alert" style={{ maxWidth: 560 }}>
@@ -166,7 +176,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <ViewerSurface
           item={shown ?? current}
           imageUrl={itemUrl(pid, current.item_id, 'image')}
-          maskUrl={current.masks[segId] ? `${itemUrl(pid, current.item_id, 'mask')}?seg=${encodeURIComponent(segId)}` : undefined}
+          maskUrl={shownSeg ? `${itemUrl(pid, current.item_id, 'mask')}?seg=${encodeURIComponent(shownSeg)}` : undefined}
           labels={labels}
           meshUrl={meshUrl}
           active={active}

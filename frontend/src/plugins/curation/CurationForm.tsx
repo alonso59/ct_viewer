@@ -3,7 +3,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useCurationState, useItem, useProject, type CurationStatus, type Priority } from '../../api'
+import { useCurationState, useItem, useProject, useSegmentations, type CurationStatus, type Priority } from '../../api'
 import { StatusBadge, StatusIcon, fmtAgo } from '../../lib'
 import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
@@ -30,6 +30,8 @@ export function CurationForm({ compact }: { compact?: boolean }) {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const iid = useViewerSync((s) => s.activeItemId)
   const cid = useViewerSync((s) => s.activeCaseId)
+  const shownSeg = useViewerSync((s) => s.shownSeg)
+  const sets = useSegmentations(pid).data
   const item = useItem(pid, iid).data
   const project = useProject(pid).data
   const labels = project?.label_map ?? []
@@ -38,7 +40,10 @@ export function CurationForm({ compact }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false)
   if (!cid) return <div className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('curation.noActive')}</div>
 
-  const mine = decisionsFor(stateQ.data ?? [], iid, cid)
+  // VW-19: mask decisions of the set on screen (AUD-A5-06)
+  const seg = shownSeg ?? project?.default_seg ?? 'imported'
+  const segName = (id: string) => sets?.find((x) => x.seg_id === id)?.name || id
+  const mine = decisionsFor(stateQ.data ?? [], iid, cid, seg)
   const go = async (s: CurationStatus) => {
     setBusy(true)
     await submitDecision(s)
@@ -117,8 +122,9 @@ export function CurationForm({ compact }: { compact?: boolean }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} role="list" aria-label={t('curation.current')}>
           <div className="section-title" style={{ padding: 0 }}>{t('curation.current')}</div>
           {mine.map((s) => (
-            <div key={`${s.item_id ?? s.case_id}|${s.target}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
+            <div key={`${s.item_id ?? s.case_id}|${s.target}|${s.seg_id ?? ''}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
               <span className="mono muted">{s.target}</span>
+              {s.seg_id && (sets?.length ?? 0) > 1 ? <span className="badge" title={t('curation.segSet')}>{segName(s.seg_id)}</span> : null}
               <StatusBadge status={s.status} />
               {s.proposed_side ? <span className="muted">{t('history.proposedSide', { side: s.proposed_side })}</span> : null}
               {s.add_to_queue ? <span className="muted" title={t('history.queued')}><Icon spec={codicon('checklist')} /></span> : null}

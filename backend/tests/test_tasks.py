@@ -443,7 +443,10 @@ def test_curation_decisions_per_segmentation_set(
     }
     queue = env.get(f"{API}/projects/{proj}/curation/queue").json()
     row = next(q for q in queue if q["item_id"] == ITEMS[0])
-    assert "/segment.threshold/runs/" in row["mask_path_abs"]  # the thr set's file
+    # AUD-A2-16 (CUR-09): the row names the set, and the mask path is that set's file
+    assert row["seg_id"] == "thr" and "/segment.threshold/runs/" in row["mask_path_abs"]
+    csv_text = env.get(f"{API}/projects/{proj}/curation/queue", params={"format": "csv"}).text
+    assert ",seg,thr,needs_major_correction," in csv_text
     bad = {**base, "status": "accepted", "seg_id": "nope"}
     assert_problem(
         env.post(f"{API}/projects/{proj}/curation/events", json=bad, headers=who), "validation"

@@ -93,7 +93,7 @@ def test_correction_resets_status() -> None:
 
 def test_state_readers_incremental_and_tolerant(tmp_path: Path) -> None:
     pdir = tmp_path / "p"
-    assert st.item_statuses(pdir) == {} and st.case_statuses(pdir) == {}
+    assert st.item_statuses(pdir) == {} and st.case_reviews(pdir, {}) == {}
     path = pdir / st.EVENTS
     append_jsonl(path, [ev(I1, "seg", "accepted").model_dump(mode="json")])
     assert st.item_statuses(pdir) == {I1: "accepted"}
@@ -104,7 +104,9 @@ def test_state_readers_incremental_and_tolerant(tmp_path: Path) -> None:
     with path.open("a") as fh:
         fh.write("\n")
     assert st.item_statuses(pdir) == {I1: "rejected"}
-    assert st.case_statuses(pdir) == {C1: ("rejected", "2026-09-23T10:00:00Z")}
+    assert st.case_reviews(pdir, {C1: [I1]}) == {
+        C1: st.CaseReview("rejected", "reviewed", 1, 1, "2026-09-23T10:00:00Z")
+    }
     assert len(st.load_events(pdir)) == 2
     path.write_text("")  # replaced/shrunk → full reload
     assert st.item_statuses(pdir) == {}
@@ -179,3 +181,26 @@ def test_v2_convert_maps_targets_and_skips_with_reasons() -> None:
         "r1": "already imported",
     }
     assert {s.line for s in skipped} == {5, 6, 7, 8, 9, 10, 11}
+
+
+def test_case_review_partial_until_every_active_item_decided(tmp_path: Path) -> None:
+    """CUR-08 (AUD-A5-15): an undecided active item keeps the case partial; a partial case shows
+    `partially_reviewed` unless its worst status is in the queue set."""
+    pdir = tmp_path / "p"
+    active = {C1: [I1, I2]}
+    append_jsonl(pdir / st.EVENTS, [ev(I1, "seg", "accepted").model_dump(mode="json")])
+    r = st.case_reviews(pdir, active)[C1]
+    assert (r.status, r.state, r.n_reviewed, r.n_active) == ("partially_reviewed", "partial", 1, 2)
+    append_jsonl(pdir / st.EVENTS, [ev(I1, "label:1", "rejected").model_dump(mode="json")])
+    assert st.case_reviews(pdir, active)[C1].status == "rejected"  # a problem stays visible
+    assert st.case_reviews(pdir, active)[C1].state == "partial"
+    append_jsonl(pdir / st.EVENTS, [ev(I2, "seg", "not_reviewed").model_dump(mode="json")])
+    assert st.case_reviews(pdir, active)[C1].state == "partial"  # not_reviewed is no decision
+    append_jsonl(pdir / st.EVENTS, [ev(I2, "seg", "cannot_assess").model_dump(mode="json")])
+    assert st.case_reviews(pdir, active)[C1].state == "reviewed"
+    # an excluded item needs no decision; a case target alone leaves the items undecided
+    case_only = [ev(None, "case", "accepted", case_id=C2).model_dump(mode="json")]
+    append_jsonl(pdir / st.EVENTS, case_only)
+    r2 = st.case_reviews(pdir, {**active, C2: [f"{C2}.01.complete.-"]})[C2]
+    assert (r2.status, r2.state) == ("partially_reviewed", "partial")
+    assert st.case_reviews(pdir, active)[C2].state == "reviewed"

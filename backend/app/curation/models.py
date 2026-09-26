@@ -16,6 +16,19 @@ Status = Literal[
     "accepted",
     "not_reviewed",
 ]
+# CUR-08 case rollup: a status, or `partially_reviewed` while an active item has no decision
+RollupStatus = Literal[
+    "rejected",
+    "needs_major_correction",
+    "wrong_side_suspected",
+    "needs_minor_correction",
+    "missing",
+    "cannot_assess",
+    "accepted",
+    "partially_reviewed",
+    "not_reviewed",
+]
+ReviewState = Literal["not_reviewed", "partial", "reviewed"]
 Priority = Literal["low", "medium", "high"]
 Source = Literal["ui", "v2_import", "converter_import", "api"]
 ProposedSide = Literal["L", "R"]
@@ -41,6 +54,7 @@ QUEUE_STATUSES: Final = frozenset(
     }
 )
 NOT_REVIEWED: Final = "not_reviewed"
+PARTIALLY_REVIEWED: Final = "partially_reviewed"
 CASE_TARGET: Final = "case"
 TARGET_PATTERN: Final = r"^(seg|voi_mask|side|case|label:[0-9]+)$"  # §Targets (no phase, ADR-0026)
 LEGACY_PHASE_TARGET: Final = "phase"  # pre-ADR-0026 events: kept on disk, ignored on read
@@ -53,6 +67,7 @@ QUEUE_COLUMNS: Final = (
     "side",
     "phase",
     "target",
+    "seg_id",
     "status",
     "priority",
     "comment",
@@ -172,6 +187,7 @@ class QueueRow(BaseModel):
     side: str | None = None
     phase: str | None = None
     target: str
+    seg_id: str | None = None  # mask targets: the set whose mask `mask_path_abs` is (ADR-0015)
     status: Status
     priority: Priority
     comment: str

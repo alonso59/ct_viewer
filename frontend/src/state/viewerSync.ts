@@ -32,6 +32,16 @@ export interface ViewerDisplay {
   convention: 'radiological' | 'neurological'
 }
 
+/** VW-19: the set to show for an item: the chosen one (else `default_seg`); an item without a
+ *  mask in the chosen set falls back to `default_seg` and reports the set it is `missing` from. */
+export function resolveSeg(masks: Record<string, unknown>, chosen: string | undefined, defaultSeg: string): { seg: string | null; missing: string | null } {
+  const want = chosen ?? defaultSeg
+  if (masks[want]) return { seg: want, missing: null }
+  const any = Object.keys(masks).length > 0
+  if (masks[defaultSeg]) return { seg: defaultSeg, missing: want }
+  return { seg: null, missing: any ? want : null }
+}
+
 export interface WindowPreset {
   name: string
   ww: number
@@ -48,8 +58,12 @@ export interface CursorReadout {
 interface ViewerSyncState {
   activeCaseId: string | null
   activeItemId: string | null
-  /** VW-19: the segmentation set shown and curated; null = the project's `default_seg` */
-  activeSeg: string | null
+  /** VW-19: the segmentation set chosen per project (pid → seg_id); absent = its `default_seg`.
+   *  Keyed by project so a choice never leaks into another project (AUD-A5-05). */
+  segChoice: Record<string, string>
+  /** VW-19: the set whose mask is on screen for the active item, i.e. the `seg_id` of mask
+   *  decisions; null = no mask shown (set by the case editor) */
+  shownSeg: string | null
   viewerFocused: boolean
   tool: ViewerTool
   layout: LayoutId
@@ -92,7 +106,8 @@ interface ViewerSyncState {
 export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
   activeCaseId: null,
   activeItemId: null,
-  activeSeg: null,
+  segChoice: {},
+  shownSeg: null,
   viewerFocused: false,
   tool: 'crosshair',
   layout: 'four-up',

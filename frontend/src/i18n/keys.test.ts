@@ -1,5 +1,5 @@
 // FE-11: every translation key used in the source exists in en.json (static keys + enum families).
-import { CURATION_STATUSES, PHASES } from '../api/types'
+import { CASE_ROLLUPS, PHASES } from '../api/types'
 import { WL_PRESETS } from '../state/viewerSync'
 import en from './en.json'
 import enLazy from './en.lazy.json'
@@ -54,8 +54,8 @@ test('static keys exist', () => {
 test('enum families are complete', () => {
   const warnings = ['missing_path', 'unreadable_file', 'outside_root', 'missing_seg', 'missing_voi_image', 'missing_voi_mask', 'missing_affine', 'affine_mismatch', 'shape_mismatch', 'ambiguous_phase', 'ambiguous_side', 'duplicate_row_identity', 'fingerprint_changed']
   const families: [string, readonly string[]][] = [
-    ['status', CURATION_STATUSES],
-    ['statusShort', CURATION_STATUSES],
+    ['status', CASE_ROLLUPS],
+    ['statusShort', CASE_ROLLUPS],
     ['phase', PHASES],
     ['warning', warnings],
     ['runStatus', ['queued', 'running', 'completed', 'completed_with_errors', 'failed', 'cancelled', 'interrupted']],

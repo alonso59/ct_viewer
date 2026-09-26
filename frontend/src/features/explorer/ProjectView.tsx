@@ -17,7 +17,7 @@ import {
   type LabelDef,
   type Variable,
 } from '../../api'
-import { PhaseChip, SliceThumb, StatusIcon } from '../../lib'
+import { PhaseChip, rollupTitle, SliceThumb, StatusIcon } from '../../lib'
 import { openEditor, registry, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -275,7 +275,7 @@ export function ProjectView() {
                           {c.n_warnings}
                         </span>
                       ) : null}
-                      <span title={t(`status.${c.curation_status}`)}>
+                      <span title={rollupTitle(t, c)}>
                         <StatusIcon status={c.curation_status} />
                       </span>
                     </span>

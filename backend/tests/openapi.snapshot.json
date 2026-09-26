@@ -867,6 +867,25 @@
     "title": "BoxStats",
     "type": "object"
    },
+   "BrokenDerived": {
+    "description": "VAR-06: a stored derived definition that no longer builds (e.g. its source column's\nlabel table was deleted, LBL-10); listed so it can be deleted (AUD-A5-08).",
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "reason"
+    ],
+    "title": "BrokenDerived",
+    "type": "object"
+   },
    "BundleImportResult": {
     "properties": {
      "id_changed": {
@@ -1074,6 +1093,17 @@
      },
      "curation_status": {
       "default": "not_reviewed",
+      "enum": [
+       "rejected",
+       "needs_major_correction",
+       "wrong_side_suspected",
+       "needs_minor_correction",
+       "missing",
+       "cannot_assess",
+       "accepted",
+       "partially_reviewed",
+       "not_reviewed"
+      ],
       "title": "Curation Status",
       "type": "string"
      },
@@ -1108,6 +1138,16 @@
       "title": "N Items",
       "type": "integer"
      },
+     "n_items_active": {
+      "default": 0,
+      "title": "N Items Active",
+      "type": "integer"
+     },
+     "n_items_reviewed": {
+      "default": 0,
+      "title": "N Items Reviewed",
+      "type": "integer"
+     },
      "n_scans": {
       "default": 0,
       "title": "N Scans",
@@ -1135,6 +1175,16 @@
       },
       "title": "Phases",
       "type": "array"
+     },
+     "review_state": {
+      "default": "not_reviewed",
+      "enum": [
+       "not_reviewed",
+       "partial",
+       "reviewed"
+      ],
+      "title": "Review State",
+      "type": "string"
      },
      "thumb_item_id": {
       "anyOf": [
@@ -1174,6 +1224,13 @@
    "Catalog": {
     "description": "`variables/catalog.json` (VAR-11) and the API-16 response.",
     "properties": {
+     "broken": {
+      "items": {
+       "$ref": "#/components/schemas/BrokenDerived"
+      },
+      "title": "Broken",
+      "type": "array"
+     },
      "derived": {
       "items": {
        "discriminator": {
@@ -7966,6 +8023,17 @@
       ],
       "title": "Scope"
      },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     },
      "side": {
       "anyOf": [
        {
@@ -14512,6 +14580,35 @@
        ],
        "description": "Default hides all-excluded_upstream cases",
        "title": "Status"
+      }
+     },
+     {
+      "description": "CUR-08 case rollup (the Search view's Status)",
+      "in": "query",
+      "name": "curation_status",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "rejected",
+          "needs_major_correction",
+          "wrong_side_suspected",
+          "needs_minor_correction",
+          "missing",
+          "cannot_assess",
+          "accepted",
+          "partially_reviewed",
+          "not_reviewed"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "CUR-08 case rollup (the Search view's Status)",
+       "title": "Curation Status"
       }
      },
      {

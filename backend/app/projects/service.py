@@ -33,7 +33,7 @@ from app.core.fsio import atomic_write_json, iter_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard, PathResolver, is_within, realpath
-from app.curation.state import case_statuses
+from app.curation.state import case_reviews
 from app.projects.bundle import extract_bundle, write_bundle
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
@@ -155,10 +155,13 @@ class Workspace:
         entry = self.entry(project_id)
         folder = self._folder(entry)
         case_ids = _case_ids(folder / "index" / "cases.jsonl")
+        # CUR-08: a case counts once every active item has a decision (partial cases don't)
         reviewed = sum(
             1
-            for cid, (status, _) in case_statuses(folder).items()
-            if cid in case_ids and status != "not_reviewed"
+            for cid, r in case_reviews(
+                folder, _active_items(folder / "index" / "items.jsonl")
+            ).items()
+            if cid in case_ids and r.state == "reviewed"
         )
         return ProjectSummary(
             **entry.model_dump(),
@@ -538,6 +541,30 @@ def check_phase_config(cfg: dict[str, Any]) -> None:
                 f"{key} must only use phase_vocabulary values",
                 errors=[{"loc": [key], "msg": f"allowed: {vocab}"}],
             )
+
+
+_active_cache: OrderedDict[Path, tuple[tuple[int, int], dict[str, list[str]]]] = OrderedDict()
+
+
+def _active_items(path: Path) -> dict[str, list[str]]:
+    """Active item ids per case from `index/items.jsonl` (CUR-08 progress), cached by stat."""
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return {}
+    sig = (st.st_mtime_ns, st.st_size)
+    hit = _active_cache.get(path)
+    if hit is not None and hit[0] == sig:
+        _active_cache.move_to_end(path)
+        return hit[1]
+    out: dict[str, list[str]] = {}
+    for r in iter_jsonl(path):
+        if r.get("status") == "active":
+            out.setdefault(str(r.get("case_id")), []).append(str(r.get("item_id")))
+    _active_cache[path] = (sig, out)
+    while len(_active_cache) > 16:
+        _active_cache.popitem(last=False)
+    return out
 
 
 def _case_ids(path: Path) -> set[str]:

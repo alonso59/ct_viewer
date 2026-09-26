@@ -24,9 +24,14 @@ QUEUE_MAX = 1000  # per subscriber; overflow drops the subscriber (it reconnects
 class Subscription(AsyncIterator[Event]):
     """Replayed events first, then live ones; ends on overflow, `aclose()` or `bus.close()`."""
 
-    def __init__(self, bus: EventBus, project_id: str, replay: list[Event]) -> None:
+    def __init__(
+        self, bus: EventBus, project_id: str, replay: list[Event], *, gap: bool = False
+    ) -> None:
         self._bus = bus
         self.project_id = project_id
+        # AUD-A5-11: `Last-Event-ID` fell outside what the buffer can replay; the stream starts
+        # with a `reset` so the client refetches instead of trusting a partial replay
+        self.gap = gap
         self._replay = deque(replay)
         self._queue: asyncio.Queue[Event | None] = asyncio.Queue(maxsize=QUEUE_MAX)
         self._ended = False
@@ -72,7 +77,9 @@ class EventBus:
     def __init__(self, replay_max: int = REPLAY_MAX) -> None:
         self.replay_max = replay_max
         self._next_id = time.time_ns() // 1000
+        self._first_id = self._next_id  # ids below it come from an earlier process
         self._buffers: dict[str, deque[Event]] = {}
+        self._evicted: dict[str, int] = {}  # project → id of the newest event dropped from replay
         self._subs: dict[str, set[Subscription]] = {}
         self._closed = False
 
@@ -89,6 +96,8 @@ class EventBus:
         buf = self._buffers.get(project_id)
         if buf is None:
             buf = self._buffers[project_id] = deque(maxlen=self.replay_max)
+        if len(buf) == buf.maxlen:
+            self._evicted[project_id] = buf[0].id
         buf.append(ev)
         for sub in list(self._subs.get(project_id, ())):
             if not sub._offer(ev):
@@ -97,21 +106,36 @@ class EventBus:
                 self._discard(sub)
         return ev
 
-    def subscribe(self, project_id: str, last_event_id: int | None = None) -> AsyncIterator[Event]:
-        """Replay buffered events with id > last_event_id (all buffered if unknown), then live.
+    @property
+    def first_id(self) -> int:
+        """This process's first id; `subscribe(pid, first_id - 1)` replays the whole buffer."""
+        return self._first_id
 
-        `last_event_id=None` replays nothing. An id outside the buffered range (older than the
-        oldest - 1, or newer than the newest, e.g. from before a restart) replays everything.
+    @property
+    def last_id(self) -> int:
+        """The newest id handed out (the `reset` event's id, so a client resumes from here)."""
+        return self._next_id - 1
+
+    def subscribe(self, project_id: str, last_event_id: int | None = None) -> Subscription:
+        """Replay buffered events with id > last_event_id, then live.
+
+        `last_event_id=None` replays nothing. An id the buffer cannot resume from (from an
+        earlier process, e.g. before a restart; older than an event already evicted; or never
+        handed out) replays nothing and marks the subscription `gap` (AUD-A5-11).
         """
         replay: list[Event] = []
-        buf = self._buffers.get(project_id)
-        if last_event_id is not None and buf:
-            oldest, newest = buf[0].id, buf[-1].id
-            if last_event_id < oldest - 1 or last_event_id > newest:
-                replay = list(buf)
-            else:
+        gap = False
+        if last_event_id is not None:
+            buf = self._buffers.get(project_id) or deque()
+            gap = (
+                last_event_id
+                < self._first_id - 1  # `first - 1` = our own `last_id` before any event
+                or last_event_id < self._evicted.get(project_id, -1)
+                or last_event_id >= self._next_id
+            )
+            if not gap:
                 replay = [e for e in buf if e.id > last_event_id]
-        sub = Subscription(self, project_id, replay)
+        sub = Subscription(self, project_id, replay, gap=gap)
         if self._closed:
             sub._end(drain=True)
         else:

@@ -13,6 +13,7 @@ import type {
   CurationExport,
   CurationStateRow,
   DashboardView,
+  BrokenDerived,
   DerivedDef,
   EstimateResult,
   ExternalImportResult,
@@ -98,6 +99,7 @@ import type {
 export interface CaseFilter {
   q?: string
   phase?: string
+  /** CUR-08 case rollup (`CaseRollup`), sent as API-20 `curation_status` (AUD-A5-09) */
   status?: string
   warning?: 'any' | 'none' | ''
   voi?: 'any' | 'none' | ''
@@ -187,6 +189,8 @@ export interface Api {
   patchVariable(pid: string, name: string, patch: VariablePatch): Promise<Variable>
   createDerived(pid: string, def: DerivedDef): Promise<Variable>
   deleteDerived(pid: string, name: string): Promise<void>
+  /** VAR-06: stored derived definitions that no longer build (e.g. a deleted label table), AUD-A5-08 */
+  brokenDerived(pid: string): Promise<BrokenDerived[]>
   importExternal(pid: string, file: File, key: 'case_id' | 'patient_id'): Promise<ExternalImportResult>
 
   // Cases and items (API-20..26)

@@ -12,13 +12,24 @@ import logging
 import os
 import threading
 from collections import OrderedDict
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
 from pydantic import ValidationError
 
-from app.curation.models import LEGACY_PHASE_TARGET, CaseState, CurationEvent, ItemState
+from app.curation.models import (
+    LEGACY_PHASE_TARGET,
+    NOT_REVIEWED,
+    PARTIALLY_REVIEWED,
+    QUEUE_STATUSES,
+    CaseState,
+    CurationEvent,
+    ItemState,
+    ReviewState,
+    RollupStatus,
+)
 from app.curation.reducer import Reduced
 
 log = logging.getLogger("app.curation")
@@ -115,6 +126,39 @@ def item_statuses(project_dir: Path) -> dict[str, str]:
     return {k: v.status for k, v in item_states(project_dir).items()}
 
 
-def case_statuses(project_dir: Path) -> dict[str, tuple[str, str | None]]:
-    """Case rollup per case_id → (worst status, last_reviewed_at) (CUR-08)."""
-    return {k: (v.status, v.last_reviewed_at) for k, v in case_states(project_dir).items()}
+@dataclass(frozen=True)
+class CaseReview:
+    """CUR-08 case rollup: `status` is shown on badges, `state` drives progress."""
+
+    status: RollupStatus
+    state: ReviewState
+    n_reviewed: int  # active items with a decision
+    n_active: int
+    last_reviewed_at: str | None
+
+
+def case_reviews(project_dir: Path, active: Mapping[str, Collection[str]]) -> dict[str, CaseReview]:
+    """CUR-08 per case_id, given its active item ids (`active`, from the index).
+
+    A case is reviewed when every active item has a decision (a latest status other than
+    `not_reviewed`); with decisions but an undecided active item it is partial. The status is
+    the worst decision, except that a partial case whose worst status is not in the queue set
+    shows `partially_reviewed` (a problem stays visible). Cases without decisions are omitted.
+    """
+    items = item_states(project_dir)
+    out: dict[str, CaseReview] = {}
+    for case_id, cs in case_states(project_dir).items():
+        ids = active.get(case_id, ())
+        n_rev = sum(1 for i in ids if (s := items.get(i)) is not None and s.status != NOT_REVIEWED)
+        state: ReviewState
+        if cs.status == NOT_REVIEWED:
+            state = "not_reviewed"
+        elif n_rev < len(ids):
+            state = "partial"
+        else:
+            state = "reviewed"
+        status: RollupStatus = cs.status
+        if state == "partial" and status not in QUEUE_STATUSES:
+            status = PARTIALLY_REVIEWED
+        out[case_id] = CaseReview(status, state, n_rev, len(ids), cs.last_reviewed_at)
+    return out

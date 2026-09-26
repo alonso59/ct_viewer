@@ -6,7 +6,7 @@ for scan-level ones (VAR-02); `Column.get` joins either level onto any item of t
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
 from typing import Any
@@ -19,6 +19,7 @@ from app.variables import schema
 from app.variables.models import (
     NUMERIC_TYPES,
     BinDef,
+    BrokenDerived,
     Catalog,
     DerivedDef,
     DominantDef,
@@ -468,12 +469,13 @@ def build(
     external: Sequence[ExternalData] = (),
     layers: Sequence[LayerData] = (),
     annotation_fields: frozenset[str] = frozenset(),
-    strict: bool = False,
+    strict: Collection[str] = (),
 ) -> tuple[Built, dict[str, list[str]]]:
     """Build the catalog. Returns it with `{"conflicts": [...], "derived_errors": [...]}`.
 
-    `strict=True` (API writes) raises ValidationProblem on the first invalid derived definition;
-    otherwise it is skipped and reported (a later re-import may drop its source).
+    A derived definition named in `strict` (the one an API write adds) raises ValidationProblem
+    when invalid; any other invalid one is skipped and listed in `Catalog.broken` (a re-import
+    or a deleted label table may drop its source, AUD-A5-08).
     """
     ov = dict(overrides or {})
     cols, excluded = _metadata_columns(items, ov)
@@ -493,13 +495,15 @@ def build(
         by_name[ld.name] = col
         cols.append(col)
     derived_errors: list[str] = []
+    broken: list[BrokenDerived] = []
     for d in derived:
         try:
             c = _derive(d, by_name)
         except ValidationProblem as exc:
-            if strict:
+            if d.name in strict:
                 raise
             derived_errors.append(f"{d.name}: {exc.detail}")
+            broken.append(BrokenDerived(name=d.name, reason=str(exc.detail)))
             continue
         c.var = apply_override(c.var, ov.get(d.name))
         by_name[c.var.name] = c
@@ -515,6 +519,7 @@ def build(
         variables=[c.var for c in cols],
         excluded=excluded,
         derived=list(derived),
+        broken=broken,
         external=[e.table for e in external],
         overrides=ov,
     )

@@ -13,7 +13,7 @@ export function CurationView() {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const cases = useCases(pid).data ?? []
   const queue = useQueue(pid).data ?? []
-  const reviewed = cases.filter((c) => c.curation_status !== 'not_reviewed').length
+  const reviewed = cases.filter((c) => c.review_state === 'reviewed').length
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 12px 12px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

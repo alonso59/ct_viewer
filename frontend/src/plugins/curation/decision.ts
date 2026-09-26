@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
-import { api, keys, ProblemError, queryClient, type CurationContext, type CurationStatus, type Priority } from '../../api'
+import { api, keys, ProblemError, queryClient, type CurationContext, type CurationStatus, type Priority, type Project } from '../../api'
 import { toast, useWorkbench } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
 import { getViewerContext } from '../../features/viewer'
@@ -31,6 +31,11 @@ export const useDraft = create<Draft>()((set) => ({
   reset: () => set({ comment: '', addToQueue: false, proposedSide: '' }),
 }))
 
+/** VW-19: the set mask decisions are about: the one on screen, else the project's `default_seg` */
+export function activeSegOf(pid: string): string {
+  return useViewerSync.getState().shownSeg ?? queryClient.getQueryData<Project>(keys.project(pid))?.default_seg ?? 'imported'
+}
+
 /** VW-16 viewer snapshot for the audit context; the server adds fingerprints, phase and import id */
 function viewerContext(): CurationContext {
   const v = getViewerContext()
@@ -49,7 +54,7 @@ function refreshCuration(pid: string) {
 export async function submitDecision(status: CurationStatus, over: { addToQueue?: boolean } = {}) {
   const t = i18n.t.bind(i18n)
   const pid = useWorkbench.getState().pid
-  const { activeItemId, activeCaseId } = useViewerSync.getState()
+  const { activeItemId, activeCaseId, shownSeg } = useViewerSync.getState()
   const d = useDraft.getState()
   if (!pid || !activeCaseId) return
   const caseTarget = d.target === 'case' || !activeItemId
@@ -68,8 +73,9 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
         comment: d.comment,
         add_to_queue: over.addToQueue ?? d.addToQueue,
         proposed_side: target === 'side' && d.proposedSide ? d.proposedSide : null,
-        // ADR-0015: mask decisions name the set on screen (VW-19); the server defaults to default_seg
-        ...(isMaskTarget(target) && useViewerSync.getState().activeSeg ? { seg_id: useViewerSync.getState().activeSeg } : {}),
+        // ADR-0015: mask decisions name the set whose mask is on screen (VW-19); none shown → the
+        // server's default_seg (AUD-A5-05: never a set the item has no mask in)
+        ...(isMaskTarget(target) && shownSeg ? { seg_id: shownSeg } : {}),
         context: viewerContext(),
       },
       reviewer,

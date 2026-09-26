@@ -304,6 +304,7 @@
       "reason": "Reason",
       "reviewId": "Review id",
       "reviewer": "Reviewer",
+      "set": "Set",
       "status": "Status",
       "target": "Target"
     },
@@ -338,6 +339,7 @@
     "viewer": "{{axis}} slice {{slice}}"
   },
   "curation": {
+    "segSet": "Segmentation set",
     "byAt": "{{reviewer}} · {{ago}}",
     "comment": "Comment",
     "commentPlaceholder": "What is wrong, and where (slices)?",
@@ -891,7 +893,9 @@
     },
     "hide": "Hide {{name}}",
     "show": "Show {{name}}",
+    "broken": "Broken",
     "deleteDerived": "Delete derived variable",
+    "deleteNamed": "Delete {{name}}",
     "create": "Create",
     "created": "Variable {{name}} created",
     "name": "Name",
@@ -1084,6 +1088,13 @@
     "converted": "DICOM converted; the converted series are being indexed"
   },
   "lbl": {
+    "derivedUsers_one": "The derived variable {{list}} uses it and will show as broken until you delete it in Variables.",
+    "derivedUsers_other": "The derived variables {{list}} use it and will show as broken until you delete them in Variables.",
+    "editCell": "Edit {{col}}",
+    "inspectorNoCase": "Open a case to fill its label tables.",
+    "inspectorNoTables": "No label tables yet. Create one in the Labeling view.",
+    "notARow": "Not a row of this table (excluded upstream).",
+    "openTable": "Open table {{name}}",
     "newTable": "New label table",
     "empty": "No label tables yet. A table has rows per patient, CT scan or item and typed columns; every column becomes a study variable.",
     "level": {

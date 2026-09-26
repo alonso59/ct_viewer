@@ -12,13 +12,14 @@ export function LayersSection() {
   const labels = project?.label_map ?? []
   const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
-  const active = v.activeSeg ?? project?.default_seg ?? 'imported'
+  // VW-19: the choice is per project (AUD-A5-05)
+  const active = v.segChoice[pid] ?? project?.default_seg ?? 'imported'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-panel)' }}>
       {sets.length > 1 ? (
         <label className="field">
           <span className="field-label">{t('layers.segSet')}</span>
-          <select className="select input-sm" value={active} onChange={(e) => v.set({ activeSeg: e.target.value })}>
+          <select className="select input-sm" value={active} onChange={(e) => v.set({ segChoice: { ...v.segChoice, [pid]: e.target.value } })}>
             {sets.map((s) => (
               <option key={s.seg_id} value={s.seg_id}>
                 {t('layers.segOption', { name: s.name || s.seg_id, n: s.n_items })}

@@ -168,7 +168,7 @@ def test_index_rebuilt_event(
     bus = ctx_of(client).bus
 
     async def first_rebuilt() -> dict[str, Any]:
-        async for ev in bus.subscribe(pid, 0):
+        async for ev in bus.subscribe(pid, bus.first_id - 1):
             if ev.event == "index.rebuilt":
                 return ev.data
         raise AssertionError("no index.rebuilt")

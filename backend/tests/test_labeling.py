@@ -167,6 +167,44 @@ def test_delete_table_hides_it_keeps_events_and_restores(client: TestClient, pid
     assert wait_var(client, pid, "lbl.clinical_review.size")["type"] == "continuous"
 
 
+def test_deleted_table_leaves_derived_variables_listed_and_deletable(
+    client: TestClient, pid: str
+) -> None:
+    """AUD-A5-08 (LBL-10, VAR-06): a derived variable on a deleted table's column is listed as
+    broken with its reason and can be deleted; other derived variables can still be added."""
+    t = make_table(client, pid)
+    size = col(t, "Size")
+    client.post(f"{lab(pid)}/tables/{t['table_id']}/cells", json={"cells": [{"column_id": size,
+                "target": CASE, "value": 40}]}, headers=HDR)  # fmt: skip
+    wait_var(client, pid, "lbl.clinical_review.size")
+    derived = f"{API}/projects/{pid}/variables/derived"
+    grp = {"op": "bin", "name": "size_grp", "source": "lbl.clinical_review.size",
+           "thresholds": [50]}  # fmt: skip
+    assert client.post(derived, json=grp).status_code == 201
+    other = client.post(f"{lab(pid)}/tables", json={"name": "Other", "level": "case",
+                        "columns": [{"name": "Size", "type": "number"}]}).json()  # fmt: skip
+    client.post(f"{lab(pid)}/tables/{other['table_id']}/cells", json={"cells": [{"column_id":
+                col(other, "Size"), "target": CASE, "value": 7}]}, headers=HDR)  # fmt: skip
+    wait_var(client, pid, "lbl.other.size")
+
+    client.patch(f"{lab(pid)}/tables/{t['table_id']}", json={"hidden": True})
+    end = time.monotonic() + 10
+    while time.monotonic() < end:
+        cat = client.get(f"{API}/projects/{pid}/variables").json()
+        if cat["broken"]:
+            break
+        time.sleep(0.2)
+    assert [b["name"] for b in cat["broken"]] == ["size_grp"]
+    assert "lbl.clinical_review.size" in cat["broken"][0]["reason"]
+    assert "size_grp" not in {v["name"] for v in cat["variables"]}
+    new = {"op": "bin", "name": "other_grp", "source": "lbl.other.size", "thresholds": [5]}
+    r = client.post(derived, json=new)
+    assert r.status_code == 201, r.text
+    assert [b["name"] for b in r.json()["broken"]] == ["size_grp"]
+    r = client.delete(f"{derived}/size_grp")
+    assert r.status_code == 200 and r.json()["broken"] == []
+
+
 def wait_var(c: TestClient, pid: str, name: str) -> dict[str, Any]:
     end = time.monotonic() + 10
     while time.monotonic() < end:

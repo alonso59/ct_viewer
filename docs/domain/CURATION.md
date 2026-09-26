@@ -6,7 +6,7 @@ Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004, ADR-0022, ADR-0026 (phase m
 
 Event store (P7c Wave 5): curation appends through the core event store's namespace `curation` (`app/eventstore/`, file unchanged: `curation/events.jsonl`); its reviewer rule is the shared `require_reviewer`.
 
-Live sync (P7c Wave 4): a `curation.appended` event updates the cached state row of its `(item, target)` at once, then the state is refetched (CUR-11/12).
+Live sync (P7c Wave 4, FB2): a `curation.appended` event updates the cached state row of its `(item, target, seg_id)` at once, then the state is refetched; a first load still in flight is restarted so the event is not lost (AUD-A0-02). A reconnect after an error, or a server `reset` (API-40), refetches the project (AUD-A5-11) (CUR-11/12).
 
 Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event store, namespace `curation`; view-only links (PRJ-17) see it read-only.
 
@@ -20,7 +20,7 @@ Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event s
 | CUR-04 | QC status set: see §Status. One-click buttons for the common ones, plus a keyboard shortcut per status (UI-12). | M |
 | CUR-05 | Free-text comment and priority (`low`, `medium`, `high`) on any decision. | M |
 | CUR-07 | Side/laterality flag: `wrong_side_suspected` with optional `proposed_side`. | M |
-| CUR-08 | Derived state = latest event per `(item_id, target)`. Case rollup = worst status by the severity order below. | M |
+| CUR-08 | Derived state = latest event per `(item_id, target, seg_id)`. Case rollup = worst status by the severity order below; a case is **reviewed** only when every active item has a decision (a latest status other than `not_reviewed`). With decisions but an undecided active item it is **partial**: its rollup shows `partially_reviewed` unless the worst status is in the queue set. Badges, progress (API-02 `curation_progress`, overview %, Recent card) and "next unreviewed" count reviewed cases only. | M |
 | CUR-09 | Correction queue = items whose latest status is in the queue set, or with `add_to_queue=true`; exportable as CSV for 3D Slicer work. | M |
 | CUR-10 | Exports: `curation_state.csv` and `events.jsonl` copy into `exports/`. (Phase export moved to `exports/phase_selections.json`, PHS-06.) | M |
 | CUR-11 | Live sync: new events are pushed to other open browsers via SSE (API-40). The UI shows "Updated by {reviewer}". | M |
@@ -40,6 +40,7 @@ Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event s
 | `missing` | 4 | ✓ |
 | `cannot_assess` | 3 | |
 | `accepted` | 1 | |
+| `partially_reviewed` (case rollup only, CUR-08) | — | |
 | `not_reviewed` | 0 | |
 
 ## Targets
@@ -75,8 +76,8 @@ Mask targets (`seg`, `label:*`, `voi_mask`) also carry `seg_id` (ADR-0015); a mi
 
 ## Correction queue CSV columns
 
-`case_id, item_id, scope, side, phase, target, status, priority, comment, reviewer, at, image_path_abs, mask_path_abs`.
-Absolute paths are resolved at export time so the 3D Slicer user can open the files directly.
+`case_id, item_id, scope, side, phase, target, seg_id, status, priority, comment, reviewer, at, image_path_abs, mask_path_abs`.
+Absolute paths are resolved at export time so the 3D Slicer user can open the files directly; for a mask target `seg_id` names the set and `mask_path_abs` is that set's mask (ADR-0015). `curation_state.csv` carries `seg_id` too.
 
 ## Deferred
 

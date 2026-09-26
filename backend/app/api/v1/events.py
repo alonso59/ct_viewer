@@ -32,6 +32,8 @@ async def sse_messages(
     try:
         if opening:
             yield OPEN_MESSAGE
+        if sub.gap:  # AUD-A5-11: missed events cannot be replayed; the client refetches
+            yield {"id": str(bus.last_id), "event": "reset", "data": json.dumps({})}
         async for ev in sub:
             yield {"id": str(ev.id), "event": ev.event, "data": json.dumps(ev.data)}
     finally:

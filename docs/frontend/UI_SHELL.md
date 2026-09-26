@@ -40,7 +40,7 @@ Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010, ADR-0023. Viewer internal
 ```
 
 AB = activity bar. The left pane has a QuPath-style split: the active view on top, and a compact **Image** properties section below it (collapsible). Image is also a full activity-bar view; views that need the height (Search, Radiomics, Dashboards, Settings) hide the section.
-An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/Cmd+Alt+B`; it is closed by default to keep the QuPath feel.
+An optional right **Inspector** (curation form, labels of the case / scan (LBL-03), layers, W/L) toggles with `Ctrl/Cmd+Alt+B`; it is closed by default to keep the QuPath feel.
 
 ## Left pane views (activity bar)
 
@@ -49,7 +49,7 @@ An optional right **Inspector** (curation form, layers, W/L) toggles with `Ctrl/
 | Project | `files` | Project tab | Case list with **axial thumbnails** (IMP-12), status and warning badges; expands to phase → scan → items |
 | Image | `info` | Image tab | Properties of the active item: geometry, spacing, dtype, phase (canonical/raw/source), paths (advanced) |
 | Curation | `checklist` | Annotations | Decisions for the active case/item, a quick status bar, the correction queue |
-| Labels | `tag` | Classes list | Project label map: swatch, visibility, opacity, hotkey |
+| Labels | `tag` | Classes list | Project label map: swatch, visibility, opacity, hotkey; a name or colour saves on blur / Enter / picker close, 412 → reload + reapply (PRJ-15) |
 | History | `history` | Workflow | Curation event log for the case (CUR-14) |
 | Radiomics | `beaker` | — | Profiles, runs, "New run" |
 | Tasks | `tools` | Run analysis / scripts | Every task (TSK-01) with availability; runs with status (incl. `waiting_for_runner` + how to start the runner), outputs; annotation runs with Activate (ANZ-04) |

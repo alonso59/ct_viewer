@@ -8,9 +8,11 @@ import {
   OVERRIDE_TYPES,
   ProblemError,
   VARIABLE_TAGS,
+  useBrokenDerived,
   useDeleteDerived,
   usePatchVariable,
   useVariables,
+  type BrokenDerived,
   type OverrideType,
   type Variable,
   type VariablePatch,
@@ -167,10 +169,32 @@ function Row({ pid, v, open, onToggle }: { pid: string; v: Variable; open: boole
   )
 }
 
+/** VAR-06: a derived variable whose source is gone (e.g. its label table was deleted): shown with
+ *  the reason so it can be deleted (AUD-A5-08) */
+function BrokenRow({ pid, b }: { pid: string; b: BrokenDerived }) {
+  const { t } = useTranslation()
+  const del = useDeleteDerived(pid)
+  return (
+    <div className="var-item">
+      <div className="list-row var-row" title={b.reason}>
+        <span className="var-name">
+          <span className="mono">{b.name}</span>
+          <span className="badge" data-tone="error">{t('variables.broken')}</span>
+          <span className="muted var-meta">{b.reason}</span>
+        </span>
+        <button type="button" className="icon-btn" aria-label={t('variables.deleteNamed', { name: b.name })} title={t('variables.deleteDerived')} disabled={del.isPending} onClick={() => del.mutate(b.name, { onError: (e) => toast({ message: problemText(e), tone: 'error' }) })}>
+          <Icon spec={codicon('trash')} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function VariablesView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const vars = useVariables(pid)
+  const broken = useBrokenDerived(pid).data ?? []
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const collapsed = useVariablesUi((s) => s.collapsed)
@@ -200,16 +224,18 @@ export function VariablesView() {
       <div className="var-list" role="list">
         {SECTIONS.map((s) => {
           const rows = list.filter((v) => sectionOf(v) === s)
-          if (!rows.length) return null
+          const bad = s === 'derived' ? broken.filter((b) => !q || b.name.toLowerCase().includes(q.trim().toLowerCase())) : []
+          if (!rows.length && !bad.length) return null
           const shut = collapsed[s] ?? s === 'acquisition'
           return (
             <section key={s} role="listitem" aria-label={t(`variables.section.${s}`)}>
               <button type="button" className="var-section" aria-expanded={!shut} onClick={() => toggleSection(s, !shut)}>
                 <Icon spec={codicon(shut ? 'chevron-right' : 'chevron-down')} />
                 {t(`variables.section.${s}`)}
-                <span className="count">{rows.length}</span>
+                <span className="count">{rows.length + bad.length}</span>
               </button>
               {!shut ? rows.map((v) => <Row key={v.name} pid={pid} v={v} open={open === v.name} onToggle={() => setOpen(open === v.name ? null : v.name)} />) : null}
+              {!shut ? bad.map((b) => <BrokenRow key={b.name} pid={pid} b={b} />) : null}
             </section>
           )
         })}

@@ -81,7 +81,7 @@ def test_append_history_and_sse(client: TestClient, proj: tuple[str, list[dict[s
 
     async def appended() -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
-        async for e in bus.subscribe(pid, 0):
+        async for e in bus.subscribe(pid, bus.first_id - 1):
             if e.event == "curation.appended":
                 out.append(e.data)
                 if len(out) == 3:
@@ -172,10 +172,57 @@ def test_state_rollup_and_case_summaries(
     assert detail["case"]["curation_status"] == "missing"
 
     summary = client.get(f"{API}/projects/{pid}").json()
-    n_cases = len(ctx_of(client).index.load(pid).cases)
-    rows = [p for p in client.get(f"{API}/projects").json() if p["project_id"] == pid]
-    assert rows and rows[0]["curation_progress"] == pytest.approx(1 / n_cases)
     assert summary["project_id"] == pid
+    # CUR-08 (AUD-A5-15): reviewed only once every active item has a decision
+    active = [
+        i["item_id"] for i in items if i["case_id"] == it["case_id"] and i["status"] == "active"
+    ]
+    case = by_id[it["case_id"]]
+    assert case["n_items_active"] == len(active)
+    assert case["n_items_reviewed"] == len({it["item_id"], *[s["item_id"] for s in siblings[:1]]})
+    n_cases = len(ctx_of(client).index.load(pid).cases)
+
+    def progress() -> float:
+        rows = [p for p in client.get(f"{API}/projects").json() if p["project_id"] == pid]
+        return float(rows[0]["curation_progress"])
+
+    if case["n_items_reviewed"] < len(active):
+        assert case["review_state"] == "partial" and progress() == 0.0
+    for iid in active:
+        post(client, pid, {"item_id": iid, "target": "side", "status": "accepted"})
+    case = client.get(f"{API}/projects/{pid}/cases/{it['case_id']}").json()["case"]
+    assert case["review_state"] == "reviewed" and case["curation_status"] == "missing"
+    assert progress() == pytest.approx(1 / n_cases)
+
+
+def test_partially_reviewed_rollup_and_status_filter(
+    client: TestClient, proj: tuple[str, list[dict[str, Any]]]
+) -> None:
+    """CUR-08 (AUD-A5-15): one accepted item of several → `partially_reviewed`, not counted;
+    API-20 `?curation_status=` filters on the rollup (AUD-A5-09)."""
+    pid, items = proj
+    by_case: dict[str, list[str]] = {}
+    for i in items:
+        if i["status"] == "active":
+            by_case.setdefault(i["case_id"], []).append(i["item_id"])
+    cid, ids = next((c, v) for c, v in by_case.items() if len(v) > 1)
+    post(client, pid, {"item_id": ids[0], "target": "side", "status": "accepted"})
+    url = f"{API}/projects/{pid}/cases"
+    case = client.get(f"{url}/{cid}").json()["case"]
+    assert (case["curation_status"], case["review_state"]) == ("partially_reviewed", "partial")
+    assert (case["n_items_reviewed"], case["n_items_active"]) == (1, len(ids))
+    got = client.get(url, params={"curation_status": "partially_reviewed"}).json()["items"]
+    assert [c["case_id"] for c in got] == [cid]
+    assert client.get(url, params={"curation_status": "accepted"}).json()["items"] == []
+    rest = client.get(url, params={"curation_status": "not_reviewed", "limit": 2000}).json()
+    assert cid not in {c["case_id"] for c in rest["items"]} and rest["total"] > 0
+    assert_problem(client.get(url, params={"curation_status": "bogus"}), "validation")
+    for iid in ids[1:]:
+        post(client, pid, {"item_id": iid, "target": "side", "status": "accepted"})
+    case = client.get(f"{url}/{cid}").json()["case"]
+    assert (case["curation_status"], case["review_state"]) == ("accepted", "reviewed")
+    got = client.get(url, params={"curation_status": "accepted"}).json()["items"]
+    assert [c["case_id"] for c in got] == [cid]
 
 
 def test_queue_json_and_csv(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> None:
@@ -208,6 +255,7 @@ def test_queue_json_and_csv(client: TestClient, proj: tuple[str, list[dict[str, 
         Path(rows[0]["image_path_abs"]).is_absolute() and Path(rows[0]["image_path_abs"]).exists()
     )
     assert rows[0]["phase"] == a["phase"]["canonical"] and rows[0]["scope"] == a["scope"]
+    assert rows[0]["seg_id"] == "imported"  # AUD-A2-16: mask targets name their set
 
     r = client.get(f"{API}/projects/{pid}/curation/queue", params={"format": "csv"})
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")

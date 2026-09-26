@@ -2376,6 +2376,17 @@ export interface components {
             /** Sd */
             sd?: number | null;
         };
+        /**
+         * BrokenDerived
+         * @description VAR-06: a stored derived definition that no longer builds (e.g. its source column's
+         *     label table was deleted, LBL-10); listed so it can be deleted (AUD-A5-08).
+         */
+        BrokenDerived: {
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+        };
         /** BundleImportResult */
         BundleImportResult: {
             project: components["schemas"]["ProjectDetail"];
@@ -2500,8 +2511,25 @@ export interface components {
             /**
              * Curation Status
              * @default not_reviewed
+             * @enum {string}
              */
-            curation_status: string;
+            curation_status: "rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "partially_reviewed" | "not_reviewed";
+            /**
+             * Review State
+             * @default not_reviewed
+             * @enum {string}
+             */
+            review_state: "not_reviewed" | "partial" | "reviewed";
+            /**
+             * N Items Reviewed
+             * @default 0
+             */
+            n_items_reviewed: number;
+            /**
+             * N Items Active
+             * @default 0
+             */
+            n_items_active: number;
             /** Last Reviewed At */
             last_reviewed_at?: string | null;
             /** Thumb Item Id */
@@ -2542,6 +2570,8 @@ export interface components {
             excluded?: components["schemas"]["Excluded"][];
             /** Derived */
             derived?: (components["schemas"]["BinDef"] | components["schemas"]["RecodeDef"] | components["schemas"]["DominantDef"])[];
+            /** Broken */
+            broken?: components["schemas"]["BrokenDerived"][];
             /** External */
             external?: components["schemas"]["ExternalTable"][];
             /** Overrides */
@@ -4996,6 +5026,8 @@ export interface components {
             phase?: string | null;
             /** Target */
             target: string;
+            /** Seg Id */
+            seg_id?: string | null;
             /**
              * Status
              * @enum {string}
@@ -7724,6 +7756,8 @@ export interface operations {
                 phase?: string | null;
                 /** @description Default hides all-excluded_upstream cases */
                 status?: ("active" | "excluded_upstream" | "missing") | null;
+                /** @description CUR-08 case rollup (the Search view's Status) */
+                curation_status?: ("rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "partially_reviewed" | "not_reviewed") | null;
                 warning?: components["schemas"]["QcCode"] | null;
                 has_voi?: boolean | null;
                 sort?: "case_id" | "-case_id" | "n_warnings" | "-n_warnings";

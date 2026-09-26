@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import deque
 from collections.abc import AsyncIterator, Coroutine
 from typing import Any
 
@@ -62,19 +63,28 @@ def test_replay_after_last_event_id_without_duplicates() -> None:
     run(body())
 
 
-def test_unknown_last_event_id_replays_whole_buffer() -> None:
+def test_unresumable_last_event_id_is_a_gap() -> None:
+    """AUD-A5-11 (CUR-11, API-40): an id the buffer cannot resume from replays nothing and
+    marks the subscription `gap` (the stream then sends `reset`); a resumable one replays."""
+
     async def body() -> None:
         bus = EventBus(replay_max=3)
         evs = [bus.publish("p", "job.progress", {"n": i}) for i in range(6)]
         buffered = [e.id for e in evs[3:]]
-        for last in (0, evs[0].id, evs[-1].id + 100):  # too old / from a previous process
+        # before this process, older than an evicted event, never handed out
+        for last in (0, evs[0].id, evs[1].id, evs[-1].id + 100):
             sub = bus.subscribe("p", last)
-            assert [e.id for e in await take(sub, 3)] == buffered
-        # the id just before the oldest buffered one is contiguous: exact replay
+            assert sub.gap and sub._replay == deque()
+        # the newest evicted event was seen: exact replay of the buffer
         sub = bus.subscribe("p", evs[2].id)
-        assert [e.id for e in await take(sub, 3)] == buffered
+        assert not sub.gap and [e.id for e in await take(sub, 3)] == buffered
         # up to date: nothing to replay
         sub = bus.subscribe("p", evs[-1].id)
+        assert not sub.gap
+        # a project without events in this process: an id of this process resumes
+        assert not bus.subscribe("q", evs[-1].id).gap
+        assert bus.subscribe("q", evs[0].id - 2).gap  # earlier process
+        assert bus.last_id == evs[-1].id
         bus.close()
         assert await drain(sub) == []
 

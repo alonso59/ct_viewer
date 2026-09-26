@@ -56,7 +56,8 @@ export type ItemDetail = ItemRecord & {
 export type VariableValue = string | number | null
 
 export type CaseSummary = Omit<Required<S['CaseSummary']>, 'group' | 'curation_status'> & {
-  curation_status: CurationStatus
+  /** CUR-08 case rollup: the worst decision, or `partially_reviewed` (see `review_state`) */
+  curation_status: CaseRollup
   /** Case-level values of study variables (VAR-02/10); `{}` until the backend sends them */
   variables: Record<string, VariableValue>
   /** Item used for the list thumbnail; null = derive it from the case detail */
@@ -84,6 +85,9 @@ export const CURATION_STATUSES = [
   'cannot_assess',
 ] as const
 export type CurationStatus = (typeof CURATION_STATUSES)[number]
+/** CUR-08 case rollup values: a status, or `partially_reviewed` while an active item has no decision */
+export const CASE_ROLLUPS = [...CURATION_STATUSES.slice(0, 1), 'partially_reviewed', ...CURATION_STATUSES.slice(1)] as const
+export type CaseRollup = (typeof CASE_ROLLUPS)[number]
 
 // CUR §Status: rollup severity and queue membership
 export const STATUS_SEVERITY: Record<CurationStatus, number> = {
@@ -124,7 +128,7 @@ export type NewCurationEvent = Pick<
 > &
   Partial<Pick<CurationEvent, 'proposed_side' | 'context' | 'seg_id'>>
 
-/** CUR-08 derived state, one row per `(item_id, target)`; `item_id = null` for case targets.
+/** CUR-08 derived state, one row per `(item_id, target, seg_id)`; `item_id = null` for case targets.
  *  Flattened from API-51 `CurationState` (items[].targets, cases[].targets). */
 export interface CurationStateRow {
   item_id: string | null
@@ -138,6 +142,8 @@ export interface CurationStateRow {
   event_id: string
   add_to_queue: boolean
   proposed_side: 'L' | 'R' | null
+  /** Mask targets: the segmentation set (ADR-0015; `imported` when an old event had none); else null */
+  seg_id: string | null
 }
 
 /** API-52 row (CUR §Correction queue CSV columns); absolute paths resolved by the server */
@@ -250,6 +256,8 @@ export type AxisOrder = 'xyz' | 'zyx'
 // API-16/17 `Catalog` in http.ts (profile `distinct`/`top` → `n_distinct`/`levels`, derived
 // definitions joined in, bin `quantiles` as a group count instead of cut probabilities).
 type WireVariable = S['Variable']
+/** VAR-06 derived definition that no longer builds, with the reason (AUD-A5-08) */
+export type BrokenDerived = S['BrokenDerived']
 export const VARIABLE_TYPES = ['continuous', 'categorical', 'numeric-discrete', 'date', 'identifier', 'text', 'constant'] as const satisfies readonly WireVariable['type'][]
 export type VariableType = WireVariable['type']
 /** Types a user can pick when confirming or overriding an inference (VAR-03; API `VariableOverride.type`) */
@@ -390,6 +398,9 @@ export type ServerEvent =
   | { event: 'job.status'; data: Pick<Job, 'job_id' | 'status'> }
   | { event: 'index.rebuilt'; data: { import_id: string; n_items: number; n_warnings: number } }
   | { event: 'project.updated'; data: { fields: string[] } }
+  /** AUD-A5-11: missed events cannot be replayed (server) or the stream reopened after an error
+   *  (client): refetch everything of the project */
+  | { event: 'reset'; data: Record<string, never> }
 
 // ---- P7b: tasks (API-42..47, TSK-*) and segmentation sets (API-27, ADR-0015) --------------------
 export type RootRole = S['PathRoot']['role']

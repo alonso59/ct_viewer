@@ -5,12 +5,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, type LabelColumn, type LabelColumnIn, type LabelTable, type LabelTablePatch } from '../../api'
+import { api, keys, useLabelTables, useVariables, type LabelColumn, type LabelColumnIn, type LabelTable, type LabelTablePatch } from '../../api'
 import { Dialog, ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 
-type Table = Pick<LabelTable, 'table_id' | 'name' | 'columns'>
+type Table = Pick<LabelTable, 'table_id' | 'name' | 'slug' | 'columns'>
 
 /** PATCH the table and refresh everything labeling (tables, deleted tables, cells) */
 function usePatch(pid: string, tid: string) {
@@ -28,6 +28,33 @@ function usePatch(pid: string, tid: string) {
     }
   }
   return { run, error }
+}
+
+/** VAR-06 derived variables built on these label variables (directly or through another derived
+ *  one): deleting the table or column breaks them (AUD-A5-08), so the dialog names them */
+function useDerivedUsers(pid: string, uses: (source: string) => boolean): string[] {
+  const vars = useVariables(pid).data ?? []
+  const defs = vars.flatMap((v) => (v.definition ? [{ name: v.name, sources: v.definition.op === 'dominant' ? v.definition.sources : [v.definition.source] }] : []))
+  const hit = new Set<string>()
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const d of defs)
+      if (!hit.has(d.name) && d.sources.some((s) => uses(s) || hit.has(s))) {
+        hit.add(d.name)
+        grew = true
+      }
+  }
+  return [...hit].sort()
+}
+
+function DerivedWarning({ names }: { names: string[] }) {
+  const { t } = useTranslation()
+  if (!names.length) return null
+  return (
+    <div className="error-card" role="alert">
+      {t('lbl.derivedUsers', { count: names.length, list: names.join(', ') })}
+    </div>
+  )
 }
 
 const closeTab = (tid: string) => useWorkbench.getState().dock?.getPanel(`labeling:${tid}`)?.api.close()
@@ -83,6 +110,7 @@ function EditTableDialog({ pid, table, onClose }: { pid: string; table: Table; o
 function DeleteTableDialog({ pid, table, onClose }: { pid: string; table: Table; onClose: () => void }) {
   const { t } = useTranslation()
   const { run, error } = usePatch(pid, table.table_id)
+  const users = useDerivedUsers(pid, (s) => s.startsWith(`lbl.${table.slug}.`))
   const del = async () => {
     if (!(await run({ hidden: true }))) return
     onClose()
@@ -91,6 +119,7 @@ function DeleteTableDialog({ pid, table, onClose }: { pid: string; table: Table;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('lbl.deleteTableTitle', { name: table.name })} icon={codicon('trash')} footer={<Footer onCancel={onClose} onOk={() => void del()} ok={t('lbl.deleteTable')} danger />}>
       <p>{t('lbl.deleteTableHelp')}</p>
+      <DerivedWarning names={users} />
       {error ? <ProblemCard error={error} /> : null}
     </Dialog>
   )
@@ -160,12 +189,15 @@ function EditColumnDialog({ pid, tid, col, onClose }: { pid: string; tid: string
 function DeleteColumnDialog({ pid, tid, col, onClose }: { pid: string; tid: string; col: LabelColumn; onClose: () => void }) {
   const { t } = useTranslation()
   const { run, error } = usePatch(pid, tid)
+  const slug = useLabelTables(pid).data?.find((x) => x.table_id === tid)?.slug
+  const users = useDerivedUsers(pid, (s) => s === `lbl.${slug}.${col.slug}`)
   const del = async () => {
     if (await run({ columns: [{ column_id: col.column_id, name: col.name, hidden: true }] })) onClose()
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('lbl.deleteColumnTitle', { name: col.name })} icon={codicon('trash')} footer={<Footer onCancel={onClose} onOk={() => void del()} ok={t('lbl.deleteColumn')} danger />}>
       <p>{t('lbl.deleteColumnHelp')}</p>
+      <DerivedWarning names={users} />
       {error ? <ProblemCard error={error} /> : null}
     </Dialog>
   )

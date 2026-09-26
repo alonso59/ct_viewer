@@ -13,7 +13,7 @@ Depends: all domain docs.
 | TST-05 | E2E | Playwright (Chromium, Firefox) | import → explore → view → curate → radiomics → dashboard |
 | TST-06 | IBSI compliance | pytest | Engine output vs IBSI digital phantom + CT phantom reference values, within the IBSI-published tolerances; results stored with `ibsi_map_version` |
 | TST-07 | Source immutability | pytest / E2E hook | SHA-256 of every fixture source file before and after the full E2E suite must match (R1); derived writes only inside run folders / append-only datasets. E2E: `e2e/tst07.ts` (global setup) + `e2e/tst07-teardown.ts` |
-| TST-08 | Multi-user | Playwright (2 contexts) | CUR-11 SSE sync, CUR-12 last-writer-wins |
+| TST-08 | Multi-user | Playwright (2 contexts) + Vitest | CUR-11 SSE sync, CUR-12 last-writer-wins; the API-40 handler on a real QueryClient (first-load race, per-set rows, reconnect `reset`: `api/liveState.test.ts`) |
 | TST-09 | Performance | scripted bench | NFR-01..05 on the reference volume |
 | TST-10 | Container smoke | `scripts/container-smoke.sh` (Docker), `scripts/container_smoke.py --url … --root …` (udocker) | Image boots under Docker and udocker; health OK; one item viewable |
 | TST-11 | Fixtures | `make fixtures` | Synthetic dataset (below) |

@@ -108,6 +108,7 @@
   "inspector": {
     "curation": "Curation",
     "layers": "Layers",
+    "labels": "Labels · this case / scan",
     "window": "Window / level"
   },
   "status": {
@@ -119,6 +120,8 @@
     "wrong_side_suspected": "Wrong side suspected",
     "missing": "Missing",
     "cannot_assess": "Cannot assess",
+    "partially_reviewed": "Partially reviewed",
+    "partialOf": "{{status}} · {{done}} of {{total}} items reviewed",
     "cursor": "ijk {{ijk}} · RAS {{ras}} mm · HU {{hu}} · label {{label}}",
     "cursorIdle": "Move over a view for ijk / HU",
     "job": "{{title}} {{done}}/{{total}}",
@@ -140,7 +143,8 @@
     "rejected": "Reject",
     "wrong_side_suspected": "Side?",
     "missing": "Missing",
-    "cannot_assess": "Can't assess"
+    "cannot_assess": "Can't assess",
+    "partially_reviewed": "Partial"
   },
   "phase": {
     "NC": "Non-contrast",
@@ -389,6 +393,8 @@
     "hideTags": "Hide DICOM tags"
   },
   "viewer": {
+    "segMissing": "Not in set {{set}} · showing {{shown}}",
+    "segMissingNone": "No mask in set {{set}}",
     "caseNotFound": "Case not found",
     "crosshairToggle": "Show crosshair",
     "fileError": "The image could not be opened: {{ref}}",
@@ -463,7 +469,10 @@
     "color": "{{name}} color",
     "defaultsNote": "Seeded with the ccRCC defaults. Changes apply to everyone on this project.",
     "help": "Label map for this project. Keys 1–9 toggle visibility in the viewer.",
+    "conflict": "The label map was changed by someone else. Reload it and apply your edits again, or discard them.",
+    "discard": "Discard my edits",
     "hotkey": "Visibility key",
+    "reapply": "Reload and reapply",
     "name": "Label name",
     "value": "Label value in the mask",
     "visible": "Show {{name}}"

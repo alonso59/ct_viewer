@@ -14,6 +14,7 @@ import { registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { display, fillCells, filterRows, move, parseTsv, pasteCells, rect, sortRows, type Pos } from './model'
+import { CellEditor } from './CellEditor'
 import { ColumnsForm, toColumns, useRefOptions, type Draft } from './NewTableDialog'
 import { ColumnMenu, TableMenu } from './TableActions'
 import './labeling.css'
@@ -25,38 +26,6 @@ export interface TableParams {
 }
 
 const ROW_H = 26
-
-function CellEditor({ col, value, onCommit, onCancel }: { col: LabelColumn; value: unknown; onCommit: (v: unknown) => void; onCancel: () => void }) {
-  const { t } = useTranslation()
-  const [draft, setDraft] = useState(value == null ? '' : String(value))
-  const keys = (e: KeyboardEvent) => {
-    e.stopPropagation()
-    if (e.key === 'Escape') onCancel()
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      onCommit(draft)
-    }
-  }
-  if (col.type === 'category')
-    return (
-      <select className="lbl-input" autoFocus aria-label={col.name} value={draft} onKeyDown={keys} onChange={(e) => onCommit(e.target.value)} onBlur={onCancel}>
-        <option value="">{t('lbl.empty_value')}</option>
-        {(col.levels ?? []).map((l) => <option key={l} value={l}>{l}</option>)}
-      </select>
-    )
-  return (
-    <input
-      className="lbl-input"
-      autoFocus
-      aria-label={col.name}
-      type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
-      value={draft}
-      onKeyDown={keys}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => onCommit(draft)}
-    />
-  )
-}
 
 function History({ pid, tid, target, col }: { pid: string; tid: string; target: string | null; col: LabelColumn | null }) {
   const { t } = useTranslation()

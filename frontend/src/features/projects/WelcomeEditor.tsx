@@ -38,8 +38,8 @@ export function WelcomeEditor() {
   const warnings = useWarnings(pid).data ?? []
   const queue = useQueue(pid).data ?? []
   const runs = useRuns(pid).data ?? []
-  const reviewed = cases.filter((c) => c.curation_status !== 'not_reviewed').length
-  const nextCase = cases.find((c) => c.curation_status === 'not_reviewed')
+  const reviewed = cases.filter((c) => c.review_state === 'reviewed').length
+  const nextCase = cases.find((c) => c.review_state !== 'reviewed')
   if (project && index && index.state !== 'ready' && cases.length === 0)
     return (
       <div className="page">

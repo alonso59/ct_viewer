@@ -177,6 +177,7 @@ export function QueueEditor() {
               <th>{t('queue.col.item')}</th>
               <th>{t('queue.col.phase')}</th>
               <th>{t('queue.col.target')}</th>
+              <th>{t('queue.col.set')}</th>
               <th>{t('queue.col.status')}</th>
               <th>{t('queue.col.priority')}</th>
               <th>{t('queue.col.comment')}</th>
@@ -187,11 +188,13 @@ export function QueueEditor() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={`${r.item_id}|${r.target}`} data-clickable="true" onClick={() => openItem(r.case_id, r.item_id, false)}>
+              <tr key={`${r.item_id}|${r.target}|${r.seg_id ?? ''}`} data-clickable="true" onClick={() => openItem(r.case_id, r.item_id, false)}>
                 <td className="mono">{r.case_id}</td>
                 <td className="mono muted">{r.item_id}</td>
                 <td>{r.phase ? <PhaseChip phase={r.phase} /> : null}</td>
                 <td className="mono">{r.target}</td>
+                {/* AUD-A2-16: which segmentation set to fix (ADR-0015) */}
+                <td className="mono muted">{r.seg_id ?? ''}</td>
                 <td><StatusBadge status={r.status} /></td>
                 <td>
                   <span className="badge" data-tone={r.priority === 'high' ? 'error' : r.priority === 'medium' ? 'warn' : undefined}>{t(`priority.${r.priority}`)}</span>

@@ -36,7 +36,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-17 | `POST /projects/{pid}/variables/derived` · `DELETE …/derived/{name}` | Bin / recode / dominant | VAR-06 |
 | API-18 | `POST /projects/{pid}/variables/external` | CSV/TSV keyed by case_id or patient_id → match report | VAR-07 |
 | API-19 | `POST /sources/detect` | `{path}` (folder or file) → `{path, kind, root, candidates: [{adapter, reason, counts, confidence, options, available, unavailable_reason}], counts, ignored}`; adapters `metadata-v1`, `nifti-files`, `dicom.convert`, `open`; nothing accepted → `unsupported-format` | SRC-01..06 |
-| API-20 | `GET /projects/{pid}/cases` | Case summaries | DATA_MODEL |
+| API-20 | `GET /projects/{pid}/cases` | Case summaries with the CUR-08 rollup (`curation_status`, `review_state`, `n_items_reviewed`, `n_items_active`); filters `q`, `phase`, `status` (item status), `curation_status` (the case rollup), `warning`, `has_voi`, `var.{name}` | DATA_MODEL, CUR-08 |
 | API-21 | `GET /projects/{pid}/cases/{cid}` | Case + items tree + warnings | |
 | API-22 | `GET /projects/{pid}/items/{iid}` · `GET …/items/{iid}/dicom-tags` | Item record (+ `advanced` with absolute paths) / its DICOM JSON sidecar, on demand (`not-found` without one) | DCM-04/05 |
 | API-23 | `GET /projects/{pid}/items/{iid}/image` | Image bytes (Range, ETag) | BE-04 |
@@ -96,9 +96,10 @@ API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD
 | `job.status` | `{job_id, status}`, e.g. `waiting_for_runner` → `running` (TSK-06) |
 | `index.rebuilt` | `{import_id, n_items, n_warnings}` |
 | `project.updated` | `{fields[]}` |
+| `reset` | `{}`, sent first when `Last-Event-ID` cannot be resumed (from before a restart, older than an evicted event, unknown); its `id` is the newest one, and the client refetches the project (AUD-A5-11) |
 
 The stream opens with a `: open` comment and `retry: 3000`, so clients (Firefox) see it live at once.
-Clients reconnect with `Last-Event-ID`; the server replays up to 1,000 recent events per project.
+Clients reconnect with `Last-Event-ID`; the server replays up to 1,000 recent events per project, or sends `reset` when it cannot. The web client also refetches the project whenever the stream reopens after an error.
 
 ## Bundles (API-06)
 
