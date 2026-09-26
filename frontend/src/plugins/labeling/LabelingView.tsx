@@ -1,6 +1,5 @@
 // Labeling view (LBL-01/08/10): the project's label tables with fill progress; New table; each
 // card's menu edits or deletes the table; deleted tables can be restored.
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDeletedLabelTables, useLabelTables, useProject, type LabelTableInfo } from '../../api'
@@ -8,6 +7,7 @@ import { ProblemCard, Progress } from '../../lib'
 import { openEditor, registry, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { NewTableDialog } from './NewTableDialog'
+import { useNewTable } from './store'
 import { DeletedTables, TableMenu } from './TableActions'
 import './labeling.css'
 
@@ -49,7 +49,8 @@ export default function LabelingView() {
   const tables = useLabelTables(pid)
   const deleted = useDeletedLabelTables(pid).data ?? []
   const labels = useProject(pid).data?.label_map ?? []
-  const [creating, setCreating] = useState(false)
+  const creating = useNewTable((s) => s.open)
+  const setCreating = useNewTable((s) => s.set)
   return (
     <div className="lbl-view">
       {registry.readOnly ? null : (

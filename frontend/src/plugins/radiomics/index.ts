@@ -27,5 +27,5 @@ export function registerRadiomics() {
     path: (pid) => `/p/${pid}/radiomics`,
     match: (path) => (path === '/radiomics' ? {} : null),
   })
-  registry.command({ id: 'radiomics.new', writes: true, title: 'radiomics.newRun', category: 'cat.radiomics', menu: 'radiomics', menuGroup: 1, run: () => openEditor('radiomics', {}) })
+  registry.command({ id: 'radiomics.new', writes: true, title: 'radiomics.newRun', category: 'cat.tasks', keywords: ['kw.features'], menuGroup: 2, run: () => openEditor('radiomics', {}) })
 }

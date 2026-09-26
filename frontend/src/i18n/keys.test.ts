@@ -1,5 +1,6 @@
 // FE-11: every translation key used in the source exists in en.json (static keys + enum families).
 import { CASE_ROLLUPS, PHASES } from '../api/types'
+import { MENUS, SUBMENUS } from '../shell/menus'
 import { WL_PRESETS } from '../state/viewerSync'
 import en from './en.json'
 import enLazy from './en.lazy.json'
@@ -63,7 +64,10 @@ test('enum families are complete', () => {
     ['viewer.preset', Object.keys(WL_PRESETS)],
     ['viewer.plane', ['axial', 'sagittal', 'coronal', '3d']],
     ['viewer.tool', ['pan', 'window', 'crosshair', 'zoom']],
-    ['menu', ['file', 'edit', 'view', 'project', 'radiomics', 'help']],
+    // AUD-A1-09: every derived menu and submenu has a label
+    ['menu', MENUS.map((m) => m.id)],
+    ['menu.sub', [...SUBMENUS].map((c) => c.slice(4))],
+    ['cat', MENUS.flatMap((m) => m.categories.map((c) => c.slice(4)))],
     ['priority', ['low', 'medium', 'high']],
   ]
   const missing = families.flatMap(([ns, values]) => values.map((v) => `${ns}.${v}`).filter((k) => !has(k)))

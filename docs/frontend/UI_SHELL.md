@@ -17,7 +17,7 @@ Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010, ADR-0023. Viewer internal
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│ ◧ Dataset820 ▾   File Edit View Project Radiomics Help   [⌕ Go to case… ⌘P]    │ title bar
+│ ◧ Dataset820 ▾   File Edit View Go Tasks Help            [⌕ Go to case… ⌘P]    │ title bar
 ├────────────────────────────────────────────────────────────────────────────────┤
 │ ✥ ◐ ⌖ 🔍 │ ▦ 2×2 ▾ │ ◉ Overlay  ◌ Outline │ W/L [Soft tissue ▾] │ ↺ │ 📷          │ tool bar (QuPath style)
 ├──┬──────────────────────┬──────────────────────────────────────────────────────┤
@@ -68,7 +68,7 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | UI-02 | Features register views, editor types, tools, inspector sections, panel tabs, commands and status items in a registry, and the shell renders them. | M |
 | UI-03 | Editor tabs: case, radiomics settings, run dashboard, correction queue, welcome, labeling table, project settings. Tabs support preview mode (italic until pinned), drag, split and close-others. | M |
 | UI-04 | Workspace home (`/`) looks like the QuPath/VS Code welcome: New Project (name + optional default modality, PRJ-14), Open file or folder…, Convert DICOM… (UI-25), Open Recent (with thumbnail and progress), and a share-link copy button. | M |
-| UI-05 | Command palette `Ctrl/Cmd+Shift+P` shows all commands; quick open `Ctrl/Cmd+P` jumps to a case or item. The title-bar search box opens quick open. | M |
+| UI-05 | Command palette `Ctrl/Cmd+Shift+P` on every route (workspace home, Open mode, project) shows the commands of that route, word and prefix matches first; quick open `Ctrl/Cmd+P` jumps to a case or item (on the home and in Open mode: to a project). The title-bar search box opens quick open. Neither opens over a modal, and Escape closes the topmost overlay. | M |
 | UI-06 | Tool bar (QuPath style) holds viewer tools and toggles; the active tool is highlighted; each button has a tooltip with its shortcut. | M |
 | UI-07 | Status bar shows project, live/offline SSE state, job progress, cursor ijk/RAS/HU, W/L, reviewer (click to change). | M |
 | UI-08 | Project list: 22 px rows (compact) or 56 px rows with thumbnail (default), virtualized, navigable with the keyboard; the badge follows the curation rollup (CUR-08). | M |
@@ -101,6 +101,19 @@ Implementation (P7b Wave 3): the Tasks view (activity bar) lists every task by k
 
 Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home and in the palette (File menu) and leads to `/open/{sid}` (the path never enters the URL, SOURCES §Open mode). `lib/ProblemCard` shows `detail` and `actions[]` as buttons where the screen has a handler (labels `problemAction.*`; e.g. `configure:…` stays a hint). The import wizard's detect step lists the API-19 candidates, preselects the best available one, and shows the `nifti-files` options next to it; a NIfTI file can be picked in the folder browser (SRC-05).
 
+## Commands, menus and navigation
+
+| Topic | Rule |
+|---|---|
+| Menus (AUD-A1-09) | File · Edit · View · Go · Tasks · Help, derived from command categories (`shell/menus.ts`): File = `cat.file`, `cat.project`; Edit = curation, phase, edits; View = shell toggles, viewer, **Views ›** and **Panels ›** (every activity-bar view and panel tab); Go = next / previous / next unreviewed case, next problem, queue, latest dashboard; Tasks = every task (`Task: Run …`, TSK-01) incl. radiomics and DICOM; Help = Welcome, Keyboard shortcuts, design reference, About. No menu is named after a plugin; `menu: false` keeps a command palette-only |
+| Scope (AUD-A1-01) | A command's `scope` (`home`, `open`, `project`; default project) decides where the palette, menus and keys offer it. Home: New project, Open file or folder, Convert DICOM, Import project bundle, Open recent project (`Ctrl/Cmd+P`), theme, Keyboard shortcuts, About. Open mode: the viewer commands too |
+| Coverage (AUD-A1-06) | Every view and panel tab has `view.show.*` / `panel.show.*`, every listed task `task.run.*` (registry test); share links, phase set, fit, next segmentation set, latest dashboard, dataset exports and New label table are commands |
+| Navigation context (AUD-A1-04) | A case opened from Outliers, the correction queue, Problems or a label table remembers that list: `Alt+↓/↑` follow it and the case header shows e.g. "Outliers 3/22 ›" with × (back to Explorer order). An Explorer or quick-open open drops it. "Next unreviewed" = next case in Explorer order whose CUR-08 `review_state` is not `reviewed`, wrapping |
+| Explorer (AUD-A1-03) | The Project view follows the active case: cursor and scroll move to its row (its item row when the case is expanded); it does not expand cases by itself |
+| Sharing (AUD-A1-11) | The title-bar share button is a menu: Copy edit link · Copy view-only link (created on first use, PRJ-17); both keep the current tab's deep link (`/v/{token}/case/…` opens that case read-only). A view-only workbench shows only its own link |
+| Help (AUD-A4-05) | About: version (API-01), "Research use only · not a medical device" (NFR-16), main open-source licences; the status-bar project item's tooltip repeats the version and the notice. Keyboard shortcuts lists every bound command |
+| Archive (AUD-A4-03) | File › Archive project… and the home card's archive button ask first (PRJ-06); the home's **Archived** toggle lists archived projects with Restore |
+
 ## Default keybindings
 
 | Keys | Command | Keys | Command |
@@ -108,14 +121,15 @@ Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home a
 | `Ctrl/Cmd+Shift+P` | Command palette | `Ctrl/Cmd+P` | Quick open case |
 | `Ctrl/Cmd+B` | Toggle left pane | `Ctrl/Cmd+J` | Toggle panel |
 | `Ctrl/Cmd+Alt+B` | Toggle inspector | `Alt+W` | Close tab (browsers reserve `Ctrl/Cmd+W`; Electron uses `Ctrl/Cmd+W`) |
-| `Alt+↓` / `Alt+↑` | Next / previous case (filtered order) | `F8` | Next problem |
+| `Alt+↓` / `Alt+↑` | Next / previous case (navigation list, else filtered Explorer order) | `F8` | Next problem |
+| `Alt+Shift+↓` | Next unreviewed case (AUD-A1-04) | `Ctrl/Cmd+P` *(home, Open mode)* | Open recent project |
 | `A` | Mark accepted* | `Shift+1` / `Shift+2` | Needs minor / major correction* |
 | `X` | Rejected* | `Q` | Add to correction queue* |
 | `1`–`9` | Toggle label visibility* | `L` | Cycle viewer layout* |
 | `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset all views* (VW-10) |
 | `F` | Fit the view under the pointer* (VW-26) | | |
 
-\* Only active while the viewer has focus. Curation keys target the active item and the default target `seg`.
+\* Only while a viewer is shown (a case tab, or Open mode) and focus is not in a text field or menu; DOM focus inside the viewer is not needed, so `A → Alt+↓ → A` records both cases (AUD-A2-02). Curation keys wait until the new case's item has loaded and target it with the default target `seg`. No shortcut fires while a dialog is open (AUD-A2-09).
 
 ## Brand (UI-21)
 

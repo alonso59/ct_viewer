@@ -5,41 +5,57 @@ import { useTranslation } from 'react-i18next'
 import { IconButton } from '../lib'
 import { useLayout } from '../state'
 import { Icon, codicon } from '../theme'
-import { bindingOf, formatChord, runCommand } from './keybindings'
-import { registry, type MenuId } from './registry'
-import { toast, useWorkbench } from './workbenchStore'
+import { bindingOf, commandTitle, formatChord, runCommand } from './keybindings'
+import { MENUS, menuSections } from './menus'
+import { registry, type Command, type MenuId } from './registry'
+import { useWorkbench } from './workbenchStore'
 
-const MENUS: MenuId[] = ['file', 'edit', 'view', 'project', 'radiomics', 'help']
+function Item({ c }: { c: Command }) {
+  const { t } = useTranslation()
+  return (
+    <Menu.Item className="menu-item" disabled={c.enabled ? !c.enabled() : false} onSelect={() => runCommand(c.id)}>
+      {commandTitle(c, t)}
+      <span className="kbd">{formatChord(bindingOf(c))}</span>
+    </Menu.Item>
+  )
+}
 
+/** One menu: a section per category (AUD-A1-09); views and panels open as submenus */
 function MenuItems({ menu }: { menu: MenuId }) {
   const { t } = useTranslation()
-  const cmds = [...registry.commands.values()]
-    .filter((c) => c.menu === menu && registry.allowed(c))
-    .sort((a, b) => (a.menuGroup ?? 0) - (b.menuGroup ?? 0))
   return (
     <>
-      {cmds.map((c, i) => {
-        const prev = cmds[i - 1]
-        return (
-          <div key={c.id}>
-            {prev && prev.menuGroup !== c.menuGroup ? <Menu.Separator className="menu-sep" /> : null}
-            <Menu.Item className="menu-item" disabled={c.enabled ? !c.enabled() : false} onSelect={() => runCommand(c.id)}>
-              {t(c.title)}
-              <span className="kbd">{formatChord(bindingOf(c))}</span>
-            </Menu.Item>
-          </div>
-        )
-      })}
+      {menuSections(menu).map((s, i) => (
+        <div key={s.category}>
+          {i > 0 ? <Menu.Separator className="menu-sep" /> : null}
+          {s.submenu ? (
+            <Menu.Sub>
+              <Menu.SubTrigger className="menu-item">
+                {t(`menu.sub.${s.category.slice(4)}`)}
+                <Icon spec={codicon('chevron-right')} />
+              </Menu.SubTrigger>
+              <Menu.Portal>
+                <Menu.SubContent className="overlay menu" sideOffset={2}>
+                  {s.commands.map((c) => <Item key={c.id} c={c} />)}
+                </Menu.SubContent>
+              </Menu.Portal>
+            </Menu.Sub>
+          ) : (
+            s.commands.map((c, j) => (
+              <div key={c.id}>
+                {j > 0 && s.commands[j - 1]?.menuGroup !== c.menuGroup ? <Menu.Separator className="menu-sep" /> : null}
+                <Item c={c} />
+              </div>
+            ))
+          )}
+        </div>
+      ))}
     </>
   )
 }
 
-/** Clipboard API needs a secure context; plain-http remote hosts fall back to the toast text */
-function copyText(text: string): Promise<void> {
-  return navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject(new Error('no clipboard'))
-}
-
-export function TitleBar({ brand, shareUrl }: { brand: ReactNode; shareUrl?: string }) {
+/** `share`: the project's share control (AUD-A1-11, from `features/projects`) */
+export function TitleBar({ brand, share }: { brand: ReactNode; share?: ReactNode }) {
   const { t } = useTranslation()
   const layout = useLayout()
   const openPalette = useWorkbench((s) => s.openPalette)
@@ -48,7 +64,7 @@ export function TitleBar({ brand, shareUrl }: { brand: ReactNode; shareUrl?: str
     <header className="titlebar">
       {brand}
       <nav className="titlebar-menus" aria-label={t('shell.menus')}>
-        {MENUS.map((m) => (
+        {MENUS.map(({ id: m }) => (
           <Menu.Root key={m}>
             <Menu.Trigger className="titlebar-menu">{t(`menu.${m}`)}</Menu.Trigger>
             <Menu.Portal>
@@ -65,20 +81,7 @@ export function TitleBar({ brand, shareUrl }: { brand: ReactNode; shareUrl?: str
         <span className="kbd">{quickOpen ? formatChord(bindingOf(quickOpen)) : null}</span>
       </button>
       <div className="titlebar-right">
-        {shareUrl ? (
-          <IconButton
-            icon={codicon('link')}
-            label={t('shell.copyShareLink')}
-            onClick={() => {
-              // PRJ-03: the project link plus the active tab's deep link (case, item, layout)
-              const url = shareUrl.replace(/\/$/, '') + location.pathname.replace(/^\/p\/[^/]+/, '') + location.search
-              copyText(url).then(
-                () => toast({ message: t('shell.shareLinkCopied', { url }), tone: 'ok' }),
-                () => toast({ message: t('shell.shareLinkManual', { url }), tone: 'info' }),
-              )
-            }}
-          />
-        ) : null}
+        {share}
         <IconButton icon={codicon('layout-sidebar-left')} label={t('cmd.toggleSidebar')} pressed={layout.sidebarVisible} onClick={() => layout.toggle('sidebarVisible')} />
         <IconButton icon={codicon('layout-panel')} label={t('cmd.togglePanel')} pressed={layout.panelVisible} onClick={() => layout.toggle('panelVisible')} />
         <IconButton icon={codicon('layout-sidebar-right')} label={t('cmd.toggleInspector')} pressed={layout.inspectorVisible} onClick={() => layout.toggle('inspectorVisible')} />

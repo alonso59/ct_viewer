@@ -22,7 +22,7 @@ export const plugin: FrontendPlugin = {
   id: 'dicom',
   activate: ({ registry }) => {
     registry.overlay({ id: 'dicom.converter', component: ConverterHost })
-    registry.command({ id: 'tasks.convertDicom', writes: true, title: 'cmd.convertDicom', category: 'cat.project', menu: 'project', menuGroup: 2, run: () => openConverter() })
+    registry.command({ id: 'tasks.convertDicom', writes: true, title: 'cmd.convertDicom', category: 'cat.tasks', scope: ['home', 'open', 'project'], menuGroup: 1, run: () => openConverter() })
   },
   open: () => openConverter(),
 }

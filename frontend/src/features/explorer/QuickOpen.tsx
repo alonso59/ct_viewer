@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useCases } from '../../api'
 import { PhaseChip, StatusIcon } from '../../lib'
 import { useWorkbench } from '../../shell'
-import { openItem } from './ProjectView'
+import { openFromExplorer } from './navigate'
 
 export function QuickOpenCases({ query, close }: { query: string; close: () => void }) {
   const { t } = useTranslation()
@@ -21,7 +21,7 @@ export function QuickOpenCases({ query, close }: { query: string; close: () => v
           value={c.case_id}
           onSelect={() => {
             close()
-            openItem(c.case_id, null, false)
+            openFromExplorer(c.case_id, null, false)
           }}
         >
           <StatusIcon status={c.curation_status} />

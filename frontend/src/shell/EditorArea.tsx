@@ -80,6 +80,13 @@ function pathFor(pid: string, p: EditorParams | null): string {
   return contrib?.path?.(pid, p) ?? `/p/${pid}`
 }
 
+/** FE-04: a different path or item is a new history entry; other query changes (layout) are not */
+export function isNewEntry(from: string, to: string): boolean {
+  const a = new URL(from, 'http://x')
+  const b = new URL(to, 'http://x')
+  return a.pathname !== b.pathname || a.searchParams.get('item') !== b.searchParams.get('item')
+}
+
 function matchLocation(pid: string, pathname: string, search: string): EditorParams | null {
   const rest = pathname.slice(`/p/${pid}`.length) || '/'
   const sp = new URLSearchParams(search)
@@ -138,17 +145,25 @@ export function EditorArea({ pid }: { pid: string }) {
     }
   }, [location.pathname, location.search, pid])
 
-  // The active editor drives the URL (FE-04)
+  // The active editor drives the URL (FE-04): a new tab, case or item is a history entry, so
+  // browser Back returns to it (AUD-A1-02); a layout or other query tweak replaces the entry
   const active = useWorkbench((s) => s.active)
   const urlToken = useWorkbench((s) => s.urlToken)
+  // `navigate` changes with every location; as a dependency it would re-run this effect on
+  // browser Back with the previous tab still in `active` and push that tab again
+  const nav = useRef(navigate)
+  useEffect(() => {
+    nav.current = navigate
+  }, [navigate])
   useEffect(() => {
     if (!ready.current) return
     const path = pathFor(pid, active)
     if (path !== lastPath.current) {
+      const replace = !lastPath.current || !isNewEntry(lastPath.current, path)
       lastPath.current = path
-      navigate(path, { replace: true })
+      nav.current(path, { replace })
     }
-  }, [active, urlToken, pid, navigate])
+  }, [active, urlToken, pid])
 
   useEffect(() => () => setDock(null), [setDock])
 

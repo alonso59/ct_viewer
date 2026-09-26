@@ -9,7 +9,8 @@ import { usePhaseRuntime } from '../features/phase'
 import { useCurationRuntime } from '../plugins'
 import { ImportWizard } from '../features/import'
 import { logEvent } from '../features/jobs'
-import { ProjectSwitcher, RelinkDialog, useRootsCheck } from '../features/projects'
+import { ProjectSwitcher, RelinkDialog, ShareMenu, useRootsCheck } from '../features/projects'
+import { TaskCommands } from '../features/tasks'
 import { applyProjectDisplay } from '../features/viewer'
 import { registry, ShellOverlays, Workbench } from '../shell'
 import { BrandMark } from '../theme'
@@ -72,8 +73,9 @@ export function ProjectRoute() {
     return <ProjectNotFound pid={pid} detail={project.error.detail} />
   return (
     <>
-      <Workbench pid={pid} brand={readOnly ? <ViewOnlyBrand name={project.data?.name ?? ''} /> : <ProjectSwitcher pid={pid} />} shareUrl={project.data?.share_url} />
+      <Workbench pid={pid} brand={readOnly ? <ViewOnlyBrand name={project.data?.name ?? ''} /> : <ProjectSwitcher pid={pid} />} share={<ShareMenu pid={pid} />} />
       {readOnly ? null : <ImportWizard />}
+      {readOnly ? null : <TaskCommands />}
       {!readOnly && relink.open ? <RelinkDialog pid={pid} name={project.data?.name ?? ''} onOpenChange={(o) => !o && relink.dismiss()} /> : null}
     </>
   )

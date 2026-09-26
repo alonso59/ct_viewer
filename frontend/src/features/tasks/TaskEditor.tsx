@@ -182,6 +182,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
       <div className="task-tab">
         <h1>{m.title}</h1>
         <p className="muted">{m.description}</p>
+        <p className="muted">{t('tasks.radiomicsHere')}</p>
         <button type="button" className="btn btn-primary" onClick={() => openEditor('radiomics', {})}>{t('tasks.openRadiomics')}</button>
         <Section title={t('tasks.runs')}>
           <ul className="task-runs">{runs.map((r) => <RunRow key={r.run_id} pid={pid} run={r} />)}</ul>

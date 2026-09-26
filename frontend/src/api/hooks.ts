@@ -1,5 +1,5 @@
 // Server state through TanStack Query only (FE-02). Writes stamp the reviewer (FE-10).
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { isCancelledError, keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 import { requireReviewer } from '../state'
@@ -34,7 +34,17 @@ import type {
 const enabled = (...v: (string | null | undefined)[]) => v.every(Boolean)
 
 export const useHealth = () => useQuery({ queryKey: keys.health(), queryFn: () => api.health(), staleTime: Infinity })
-export const useProjects = () => useQuery({ queryKey: keys.projects(), queryFn: () => api.listProjects() })
+export const useProjects = (archived = false) => useQuery({ queryKey: keys.projects(archived), queryFn: () => api.listProjects({ archived }) })
+
+/** API-04 (PRJ-06): archive / restore; the lists refresh */
+export function useArchiveProject() {
+  const qc = useQueryClient()
+  const done = () => qc.invalidateQueries({ queryKey: keys.projects() })
+  return {
+    archive: useMutation({ mutationFn: (pid: string) => api.archiveProject(pid), onSuccess: done }),
+    restore: useMutation({ mutationFn: (pid: string) => api.unarchiveProject(pid), onSuccess: done }),
+  }
+}
 export const useProject = (pid: string) =>
   useQuery({ queryKey: keys.project(pid), queryFn: () => api.getProject(pid), enabled: enabled(pid) })
 export const useRoots = (pid: string | null) =>
@@ -166,6 +176,27 @@ export function useAppendPhase(pid: string) {
     },
     onSuccess: () => invalidatePhase(qc, pid),
   })
+}
+
+/** `fetchQuery` for commands: a live-sync refresh can cancel the fetch it joined (`refreshQueries`),
+ *  so a cancelled fetch is retried instead of silently dropping the command (AUD-A1-04) */
+export async function fetchSettled<T>(qc: QueryClient, queryKey: QueryKey, queryFn: () => Promise<T>): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await qc.fetchQuery({ queryKey, queryFn })
+    } catch (e) {
+      if (!isCancelledError(e) || i >= 3) throw e
+    }
+  }
+}
+
+/** PHS-01 outside a component (a palette command, AUD-A1-06): same as `useAppendPhase` */
+export async function appendPhaseNow(qc: QueryClient, pid: string, ev: NewPhaseEvent) {
+  const reviewer = await requireReviewer()
+  if (!reviewer) throw new ReviewerCancelled()
+  const r = await api.appendPhase(pid, ev, reviewer)
+  invalidatePhase(qc, pid)
+  return r
 }
 
 /** API-39: create + run an analysis (ANA-01), stamped with the reviewer */

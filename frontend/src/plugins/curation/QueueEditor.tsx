@@ -7,7 +7,7 @@ import { api, ProblemError, QUEUE_STATUSES, ReviewerCancelled, useCurationExport
 import { Dialog, PhaseChip, StatusBadge, fmtAgo } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { openItem } from '../../features/explorer'
+import { openInContext } from '../../features/explorer'
 import '../../i18n/lazy'
 
 const problemText = (e: unknown, fallback: string) => (e instanceof ProblemError ? (e.detail ?? e.title) : fallback)
@@ -187,8 +187,9 @@ export function QueueEditor() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={`${r.item_id}|${r.target}|${r.seg_id ?? ''}`} data-clickable="true" onClick={() => openItem(r.case_id, r.item_id, false)}>
+            {rows.map((r, i) => (
+              // AUD-A1-04: Alt+↓ then follows the queue
+              <tr key={`${r.item_id}|${r.target}|${r.seg_id ?? ''}`} data-clickable="true" onClick={() => openInContext(t('queue.title'), rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id })), i, false)}>
                 <td className="mono">{r.case_id}</td>
                 <td className="mono muted">{r.item_id}</td>
                 <td>{r.phase ? <PhaseChip phase={r.phase} /> : null}</td>

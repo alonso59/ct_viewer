@@ -86,6 +86,8 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
         {c.failed || c.skipped ? <IconButton label={t('rad.showErrors')} icon={codicon('warning')} onClick={onErrors} /> : null}
         {done ? (
           <>
+            {/* AUD-A1-10: an explicit "Open dashboard" action next to the exports */}
+            <IconButton label={t('rad.openDashboard')} icon={codicon('graph')} onClick={() => openEditor('run', { runId: run.run_id })} />
             <a className="icon-btn" href={api.runExportUrl(pid, run.run_id, 'csv', 'long')} download aria-label={t('rad.exportLong')} title={t('rad.exportLong')}>
               <Icon spec={codicon('cloud-download')} />
             </a>

@@ -2,8 +2,8 @@
 import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../../i18n'
-import { keys, queryClient, type RunSummary } from '../../api'
-import { registry, useWorkbench } from '../../shell'
+import { api, fetchSettled, keys, queryClient, type RunStatus, type RunSummary } from '../../api'
+import { openEditor, registry, toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import { revealView, type FrontendPlugin } from '../host'
 import type { RunParams } from './DashboardEditor'
@@ -21,8 +21,21 @@ export const plugin: FrontendPlugin = {
   open: () => revealView('dashboards'),
 }
 
+const DONE: RunStatus[] = ['completed', 'completed_with_errors']
+
+/** AUD-A1-06: open the dashboard of the newest completed run */
+async function openLatest() {
+  const pid = useWorkbench.getState().pid
+  if (!pid) return
+  const runs = await fetchSettled(queryClient, keys.runs(pid), () => api.listRuns(pid))
+  const latest = runs.filter((r) => DONE.includes(r.status)).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+  if (latest) openEditor('run', { runId: latest.run_id })
+  else toast({ message: i18n.t('dashboard.noRuns') })
+}
+
 export function registerDashboard() {
   registry.view({ id: 'dashboards', writes: true, title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })
+  registry.command({ id: 'dashboard.openLatest', writes: true, title: 'cmd.openLatestDashboard', category: 'cat.navigate', keywords: ['kw.radiomics', 'kw.features'], menuGroup: 3, run: () => void openLatest() })
   registry.panelTab({ id: 'measurements', title: 'panel.measurements', order: 10, component: MeasurementsPanel })
   registry.editor<RunParams>({
     type: 'run',

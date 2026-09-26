@@ -1,16 +1,19 @@
 // Core status bar items: project, live/offline SSE state, reviewer (UI-07)
 import { useTranslation } from 'react-i18next'
 
-import { useConnection, useProject } from '../api'
+import { useConnection, useHealth, useProject } from '../api'
 import { useWorkbench } from '../shell'
 import { changeReviewer, useReviewer } from '../state'
 import { Icon, codicon } from '../theme'
 
 export function ProjectStatus() {
+  const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const p = useProject(pid).data
+  // AUD-A4-05 (NFR-16): the version and "Research use only" in the tooltip too
+  const about = t('about.statusTip', { version: useHealth().data?.version ?? '—' })
   return (
-    <span className="statusbar-item" title={p?.path_roots.map((r) => `${r.alias} → ${r.path}`).join('\n')}>
+    <span className="statusbar-item" title={[about, ...(p?.path_roots.map((r) => `${r.alias} → ${r.path}`) ?? [])].join('\n')}>
       <Icon spec={codicon('database')} />
       {p?.name}
     </span>

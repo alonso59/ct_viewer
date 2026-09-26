@@ -28,6 +28,6 @@ export function registerVariables() {
     useLayout.getState().showView('variables')
     useVariablesUi.getState().openDialog(d)
   }
-  registry.command({ id: 'variables.newDerived', writes: true, title: 'variables.newDerived', category: 'cat.project', menu: 'project', menuGroup: 3, enabled: hasProject, run: () => openDialog('derived') })
-  registry.command({ id: 'variables.importTable', writes: true, title: 'variables.importTable', category: 'cat.project', menu: 'project', menuGroup: 3, enabled: hasProject, run: () => openDialog('external') })
+  registry.command({ id: 'variables.newDerived', writes: true, title: 'variables.newDerived', category: 'cat.edit', menuGroup: 3, enabled: hasProject, run: () => openDialog('derived') })
+  registry.command({ id: 'variables.importTable', writes: true, title: 'variables.importTable', category: 'cat.edit', menuGroup: 3, enabled: hasProject, run: () => openDialog('external') })
 }

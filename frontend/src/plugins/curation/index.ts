@@ -62,7 +62,12 @@ export const plugin: FrontendPlugin = {
   open: () => revealView('curation'),
 }
 
-const hasItem = () => useWorkbench.getState().active?.type === 'case' && useViewerSync.getState().activeCaseId !== null
+/** A case tab is active and its item is loaded (AUD-A2-02: never the previous case's item) */
+const hasItem = () => {
+  const a = useWorkbench.getState().active
+  const { activeCaseId, activeItemId } = useViewerSync.getState()
+  return a?.type === 'case' && a.caseId === activeCaseId && activeItemId !== null
+}
 
 export function registerCuration() {
   registry.view({ id: 'curation', writes: true, title: 'view.curation', icon: codicon('checklist'), order: 30, component: CurationView })
@@ -80,18 +85,20 @@ export function registerCuration() {
     match: (path) => (path === '/queue' ? {} : null),
   })
 
-  const quick: [string, string, CurationStatus][] = [
-    ['curation.accept', 'a', 'accepted'],
-    ['curation.minor', 'shift+1', 'needs_minor_correction'],
-    ['curation.major', 'shift+2', 'needs_major_correction'],
-    ['curation.reject', 'x', 'rejected'],
+  const quick: [string, string, CurationStatus, string[]][] = [
+    ['curation.accept', 'a', 'accepted', ['kw.accept', 'kw.ok']],
+    ['curation.minor', 'shift+1', 'needs_minor_correction', ['kw.correction', 'kw.fix']],
+    ['curation.major', 'shift+2', 'needs_major_correction', ['kw.correction', 'kw.fix']],
+    ['curation.reject', 'x', 'rejected', ['kw.reject', 'kw.fail']],
   ]
-  for (const [id, key, status] of quick)
+  for (const [id, key, status, keywords] of quick)
     registry.command({
       id,
       writes: true,
       title: `status.${status}`,
       category: 'cat.curation',
+      keywords,
+      menuGroup: 1,
       keybinding: key,
       when: 'viewer',
       enabled: hasItem,
@@ -102,18 +109,19 @@ export function registerCuration() {
     title: 'curation.addToQueue',
     category: 'cat.curation',
     keybinding: 'q',
+    keywords: ['kw.queue'],
+    menuGroup: 1,
     when: 'viewer',
     enabled: hasItem,
     // Q flags the item for the queue and keeps its current status (CUR-09)
     run: () => void submitDecision(currentStatus(), { addToQueue: true }),
   })
-  registry.command({ id: 'curation.openQueue', writes: true, title: 'curation.openQueue', category: 'cat.curation', menu: 'project', menuGroup: 2, run: () => openEditor('queue', {}) })
+  registry.command({ id: 'curation.openQueue', writes: true, title: 'curation.openQueue', category: 'cat.navigate', menuGroup: 3, run: () => openEditor('queue', {}) })
   registry.command({
     id: 'curation.writeExports', writes: true,
     title: 'queue.writeExports',
-    category: 'cat.curation',
-    menu: 'project',
-    menuGroup: 2,
+    category: 'cat.file',
+    menuGroup: 5,
     enabled: () => useWorkbench.getState().pid !== null,
     run: () => void writeExports(),
   })
@@ -121,6 +129,7 @@ export function registerCuration() {
     id: 'curation.clearDraft', writes: true,
     title: 'curation.clearDraft',
     category: 'cat.curation',
+    menu: false,
     run: () => useDraft.getState().reset(),
   })
 }

@@ -19,20 +19,27 @@
     "file": "File",
     "edit": "Edit",
     "view": "View",
-    "project": "Project",
-    "radiomics": "Radiomics",
-    "help": "Help"
+    "go": "Go",
+    "tasks": "Tasks",
+    "help": "Help",
+    "sub": {
+      "showView": "Views",
+      "showPanel": "Panels"
+    }
   },
   "cat": {
     "curation": "Curation",
     "help": "Help",
     "navigate": "Go",
     "project": "Project",
-    "radiomics": "Radiomics",
     "showPanel": "Panel",
     "showView": "View",
     "view": "View",
-    "viewer": "Viewer"
+    "viewer": "Viewer",
+    "file": "File",
+    "edit": "Edit",
+    "phase": "Phase",
+    "tasks": "Tasks"
   },
   "cmd": {
     "changeReviewer": "Change reviewer name",
@@ -46,14 +53,26 @@
     "quickOpen": "Go to case…",
     "split": "Split editor right",
     "toggleInspector": "Toggle inspector",
-    "toggleLabel": "Toggle label visibility",
+    "toggleLabel": "Toggle label {{n}}",
     "togglePanel": "Toggle panel",
     "toggleSidebar": "Toggle side bar",
     "toggleTheme": "Toggle light / dark theme",
     "welcome": "Welcome",
     "convertDicom": "Convert DICOM to NIfTI…",
     "runPhaseAnalyzer": "Run the phase analyzer…",
-    "closeProject": "Close project"
+    "closeProject": "Close project",
+    "nextUnreviewed": "Next unreviewed case",
+    "openRecent": "Open recent project…",
+    "keyboardShortcuts": "Keyboard shortcuts",
+    "about": "About",
+    "nextSegSet": "Show the next segmentation set",
+    "setPhase": "Set phase {{phase}}",
+    "runTask": "Run {{task}}…",
+    "openLatestDashboard": "Open the latest dashboard",
+    "newLabelTable": "New label table…",
+    "exportDatasetCsv": "Export dataset table (CSV)",
+    "exportDatasetParquet": "Export dataset table (Parquet)",
+    "exportDatasetJsonl": "Export dataset.jsonl"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -72,7 +91,12 @@
     "statusBar": "Status bar",
     "toolbar": "Tool bar",
     "unknownEditor": "No editor for “{{type}}”",
-    "shareLinkManual": "Copy this link: {{url}}"
+    "shareLinkManual": "Copy this link: {{url}}",
+    "share": "Share",
+    "copyEditLink": "Copy edit link",
+    "copyViewLink": "Copy view-only link",
+    "createViewLink": "Create and copy a view-only link",
+    "viewLinkCopied": "View-only link copied: {{url}}"
   },
   "palette": {
     "cases": "Cases",
@@ -81,7 +105,9 @@
     "commandsPlaceholder": "Type a command",
     "empty": "No matches",
     "quickOpen": "Go to case",
-    "quickOpenPlaceholder": "Case ID or patient ID  ·  type > for commands"
+    "quickOpenPlaceholder": "Case ID or patient ID  ·  type > for commands",
+    "projects": "Projects",
+    "quickOpenProjects": "Project name  ·  type > for commands"
   },
   "view": {
     "curation": "Curation",
@@ -171,7 +197,8 @@
       "converter_import": "Imported from the converter"
     },
     "updatedBy": "{{scan}}: phase set to {{phase}} by {{reviewer}}",
-    "export": "Export phase selections"
+    "export": "Export phase selections",
+    "setTo": "{{scan}}: phase set to {{phase}}"
   },
   "priority": {
     "low": "Low",
@@ -225,7 +252,10 @@
     "openPath": "Open file or folder…",
     "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project",
     "convertDicom": "Convert DICOM…",
-    "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed"
+    "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed",
+    "archived": "Archived projects",
+    "showArchived": "Archived",
+    "noArchived": "No archived projects"
   },
   "projects": {
     "alias": "Alias",
@@ -276,7 +306,14 @@
       "MR": "MR",
       "mixed": "Mixed"
     },
-    "modalityHelp": "Only used for items without a modality. Study packs (labels, phases) are applied later from Project settings."
+    "modalityHelp": "Only used for items without a modality. Study packs (labels, phases) are applied later from Project settings.",
+    "archive": "Archive",
+    "archiveMenu": "Archive project…",
+    "archiveTitle": "Archive “{{name}}”?",
+    "archiveHelp": "The project folder moves to projects/.archive/ and its cache is cleared. Nothing is deleted; restore it from the Archived list on the home. Archiving is refused while a job of the project runs.",
+    "archived": "“{{name}}” archived",
+    "restore": "Restore",
+    "restored": "“{{name}}” restored"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -457,7 +494,8 @@
       "CT": "CT",
       "MR": "MR",
       "OT": "Other"
-    }
+    },
+    "segShown": "Showing segmentation set {{set}}"
   },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",
@@ -510,7 +548,7 @@
     "runMeta": "{{items}} items · {{features}} features · {{ago}}"
   },
   "dashboard": {
-    "noRuns": "No completed runs yet. Start one from Radiomics.",
+    "noRuns": "No completed runs yet.",
     "tabTitle": "Dashboard"
   },
   "measurements": {
@@ -691,7 +729,8 @@
     "runFailed_one": "{{count}} failed",
     "runFailed_other": "{{count}} failed",
     "runSkipped_one": "{{count}} skipped",
-    "runSkipped_other": "{{count}} skipped"
+    "runSkipped_other": "{{count}} skipped",
+    "openDashboard": "Open dashboard"
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",
@@ -712,5 +751,50 @@
   "viewOnly": {
     "badge": "View only",
     "help": "Opened from a view-only link: nothing can be changed here (PRJ-17)."
+  },
+  "nav": {
+    "endOf": "End of {{list}}",
+    "startOf": "Start of {{list}}",
+    "allReviewed": "Every case is reviewed",
+    "clear": "Back to Explorer order",
+    "context": "Navigation list: {{list}}",
+    "position": "{{list}} {{n}}/{{total}}",
+    "next": "Next in {{list}}"
+  },
+  "kw": {
+    "review": "review",
+    "todo": "todo",
+    "warning": "warning",
+    "zoom": "zoom",
+    "mask": "mask",
+    "segmentation": "segmentation",
+    "accept": "accept",
+    "ok": "ok",
+    "correction": "correction",
+    "fix": "fix",
+    "reject": "reject",
+    "fail": "fail",
+    "queue": "queue",
+    "find": "find",
+    "case": "case",
+    "project": "project",
+    "keys": "keys",
+    "keybindings": "keybindings",
+    "version": "version",
+    "license": "license",
+    "preferences": "preferences",
+    "features": "features",
+    "radiomics": "radiomics",
+    "share": "share",
+    "link": "link",
+    "url": "url",
+    "readOnly": "read-only",
+    "dataset": "dataset",
+    "export": "export",
+    "labeling": "labeling",
+    "phase": "phase"
+  },
+  "about": {
+    "statusTip": "Radiology Workbench {{version}} · Research use only"
   }
 }

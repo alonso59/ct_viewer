@@ -1,6 +1,7 @@
 // Viewer: case editor, tools, layouts, overlays (VIEWER.md). NiiVue lives only in ./engine.
-import { keys, queryClient, type Project } from '../../api'
-import { refreshUrl, registry, useWorkbench } from '../../shell'
+import i18n from '../../i18n'
+import { keys, queryClient, type Project, type SegmentationSet } from '../../api'
+import { refreshUrl, registry, toast, useWorkbench } from '../../shell'
 import { useViewerSync, type ViewerTool } from '../../state'
 import { codicon, ct } from '../../theme'
 import { CaseEditor, type CaseParams } from './CaseEditor'
@@ -8,7 +9,7 @@ import { ImageSection } from './ImageSection'
 import { LayersSection, WindowSection } from './Inspector'
 import { CursorStatus, WindowStatus } from './StatusItems'
 import { useViewerLocal } from './local'
-import { isLayoutId } from './model/layouts'
+import { isLayoutId, visibleViewports } from './model/layouts'
 import type { ViewerContext } from './model/types'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, WindowPresets } from './Tools'
 import { createElement, lazy, Suspense, type ComponentType } from 'react'
@@ -32,6 +33,12 @@ export type { ViewerContext, ViewerHandle } from './model/types'
 /** VW-16: viewer context of the visible case tab, for CUR events (`context.viewer`) */
 export function getViewerContext(): ViewerContext | null {
   return useViewerLocal.getState().active?.snapshot() ?? null
+}
+
+/** VW-19: the project's segmentation sets, from the cached query */
+const segSets = (): SegmentationSet[] => {
+  const pid = useWorkbench.getState().pid
+  return pid ? (queryClient.getQueryData<SegmentationSet[]>(keys.segmentations(pid)) ?? []) : []
 }
 
 /** Label map for the 1–9 keys, from the cached project query */
@@ -78,6 +85,9 @@ export function registerViewer() {
 
   // A viewer is visible: a case tab or Open mode (VW-22: shortcuts work in both)
   const isCase = () => useViewerLocal.getState().active !== null
+  // AUD-A2-02: `when: 'viewer'` keys need a shown viewer, not DOM focus inside it
+  registry.context('viewer', () => useWorkbench.getState().active?.type === 'case' || isCase())
+  const both = ['project', 'open'] as const
   const tools: [ViewerTool, string][] = [['pan', 'm'], ['window', 'w'], ['crosshair', 'c'], ['zoom', 'z']]
   for (const [tool, key] of tools)
     registry.command({
@@ -86,24 +96,59 @@ export function registerViewer() {
       category: 'cat.viewer',
       keybinding: key,
       when: 'viewer',
+      scope: [...both],
+      menuGroup: 2,
       run: () => useViewerSync.setState({ tool }),
     })
-  registry.command({ id: 'viewer.cycleLayout', title: 'cmd.cycleLayout', category: 'cat.viewer', keybinding: 'l', when: 'viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => useViewerSync.getState().cycleLayout() })
-  registry.command({ id: 'viewer.reset', title: 'viewer.reset', category: 'cat.viewer', keybinding: 'r', when: 'viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => useViewerSync.getState().reset() })
-  // VW-26: fit the view under the pointer (else the maximized one)
+  registry.command({ id: 'viewer.cycleLayout', title: 'cmd.cycleLayout', category: 'cat.viewer', keybinding: 'l', when: 'viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => useViewerSync.getState().cycleLayout() })
+  registry.command({ id: 'viewer.reset', title: 'viewer.reset', category: 'cat.viewer', keybinding: 'r', when: 'viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => useViewerSync.getState().reset() })
+  // VW-26: fit the view under the pointer (else the maximized one); from the palette or a menu,
+  // with no pointer over a view, every visible view
   const fitTarget = () => useViewerLocal.getState().hovered ?? useViewerSync.getState().maximized
-  registry.command({ id: 'viewer.fit', title: 'viewer.fit', category: 'cat.viewer', keybinding: 'f', when: 'viewer', enabled: () => isCase() && fitTarget() !== null, run: () => { const tile = fitTarget(); if (tile) useViewerLocal.getState().active?.fitView(tile) } })
-  registry.command({ id: 'viewer.restore', title: 'viewer.restore', category: 'cat.viewer', keybinding: 'esc', when: 'viewer', enabled: () => useViewerSync.getState().maximized !== null, run: () => useViewerSync.setState({ maximized: null }) })
-  registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', menu: 'view', menuGroup: 3, enabled: isCase, run: () => void screenshot() })
-  registry.command({ id: 'viewer.toggleOverlay', title: 'viewer.overlay', category: 'cat.viewer', enabled: isCase, run: () => useViewerSync.setState((s) => ({ overlay: !s.overlay })) })
-  registry.command({ id: 'viewer.toggleOutline', title: 'viewer.outline', category: 'cat.viewer', enabled: isCase, run: () => useViewerSync.setState((s) => ({ outline: !s.outline })) })
+  const fit = () => {
+    const h = useViewerLocal.getState().active
+    const tile = fitTarget()
+    if (!h) return
+    if (tile) h.fitView(tile)
+    else {
+      const s = useViewerSync.getState()
+      for (const vp of visibleViewports(s.layout, s.maximized)) h.fitView(vp)
+    }
+  }
+  registry.command({ id: 'viewer.fit', title: 'viewer.fit', category: 'cat.viewer', keybinding: 'f', when: 'viewer', scope: [...both], keywords: ['kw.zoom'], menuGroup: 1, enabled: isCase, run: fit })
+  registry.command({ id: 'viewer.restore', title: 'viewer.restore', category: 'cat.viewer', keybinding: 'esc', when: 'viewer', scope: [...both], menu: false, enabled: () => useViewerSync.getState().maximized !== null, run: () => useViewerSync.setState({ maximized: null }) })
+  registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => void screenshot() })
+  registry.command({ id: 'viewer.toggleOverlay', title: 'viewer.overlay', category: 'cat.viewer', scope: [...both], keywords: ['kw.mask'], menuGroup: 3, enabled: isCase, run: () => useViewerSync.setState((s) => ({ overlay: !s.overlay })) })
+  registry.command({ id: 'viewer.toggleOutline', title: 'viewer.outline', category: 'cat.viewer', scope: [...both], keywords: ['kw.mask'], menuGroup: 3, enabled: isCase, run: () => useViewerSync.setState((s) => ({ outline: !s.outline })) })
+  // AUD-A1-06: switch the segmentation set shown (VW-19; the Layers section's choice)
+  registry.command({
+    id: 'viewer.nextSegSet',
+    title: 'cmd.nextSegSet',
+    category: 'cat.viewer',
+    keywords: ['kw.segmentation', 'kw.mask'],
+    menuGroup: 3,
+    enabled: () => segSets().length > 1,
+    run: () => {
+      const pid = useWorkbench.getState().pid
+      const sets = segSets()
+      if (!pid || sets.length < 2) return
+      const v = useViewerSync.getState()
+      const cur = v.segChoice[pid] ?? queryClient.getQueryData<Project>(keys.project(pid))?.default_seg ?? 'imported'
+      const next = sets[(sets.findIndex((x) => x.seg_id === cur) + 1) % sets.length]
+      if (!next) return
+      v.set({ segChoice: { ...v.segChoice, [pid]: next.seg_id } })
+      toast({ message: i18n.t('viewer.segShown', { set: next.name || next.seg_id }) })
+    },
+  })
   for (let n = 1; n <= 9; n++)
     registry.command({
       id: `viewer.toggleLabel.${n}`,
       title: 'cmd.toggleLabel',
+      titleArgs: { n: String(n) },
       category: 'cat.viewer',
       keybinding: String(n),
       when: 'viewer',
+      menu: false,
       run: () => {
         const pid = useWorkbench.getState().pid
         const label = pid ? projectLabels(pid)[n - 1] : undefined

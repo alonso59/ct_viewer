@@ -110,3 +110,21 @@ test('AUD-A5-11: the stream reports a reopen after an error as `reset`', () => {
   expect(states).toEqual(['connecting', 'live', 'connecting', 'live'])
   off()
 })
+
+// AUD-A1-04: a command's fetch survives a live-sync invalidation that cancels the fetch it joined
+// (a plain `fetchQuery` rejects with CancelledError there, and "Next unreviewed" did nothing)
+test('fetchSettled retries a fetch cancelled by an invalidation', async () => {
+  const { fetchSettled } = await import('./hooks')
+  const { QueryClient, QueryObserver } = await import('@tanstack/react-query')
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  let n = 0
+  const fn = () => new Promise<number>((res) => setTimeout(() => res(++n), 20))
+  const stop = new QueryObserver(qc, { queryKey: ['k'], queryFn: fn }).subscribe(() => {})
+  await new Promise((r) => setTimeout(r, 40))
+  void qc.invalidateQueries({ queryKey: ['k'] })
+  const p = fetchSettled(qc, ['k'], fn)
+  await new Promise((r) => setTimeout(r, 2))
+  void qc.invalidateQueries({ queryKey: ['k'] }) // cancels the fetch `p` joined
+  await expect(p).resolves.toBeGreaterThan(1)
+  stop()
+})

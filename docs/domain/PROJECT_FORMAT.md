@@ -19,7 +19,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 | PRJ-03 | Every project has a share link `{PUBLIC_BASE_URL}/p/{project_id}`; deep links add `/case/{case_id}` and `?item={item_id}`. | M |
 | PRJ-04 | Items store image paths as `ALIAS:relative/posix/path`, never as absolute paths. | M |
 | PRJ-05 | "Relink" edits an alias's root path and verifies it on a sample of items via quick fingerprint. | M |
-| PRJ-06 | Rename and archive a project (archive moves it to `projects/.archive/` and purges `cache/`). The UI and API **never** delete a project permanently; an admin removes archived folders on the filesystem. | M |
+| PRJ-06 | Rename and archive a project (archive moves it to `projects/.archive/` and purges `cache/`); archive is refused while a job of the project runs (AUD-A5-10). The UI archives with a confirmation (File menu, home card) and restores from the home's Archived list. The UI and API **never** delete a project permanently; an admin removes archived folders on the filesystem. | M |
 | PRJ-07 | Label map is project-level and editable (name, value, color, default opacity/visibility); seeded from the project preset, or auto-named `label_{value}` from mask values when no preset applies. | S |
 | PRJ-08 | Export a project bundle (`.zip` of the project folder without `cache/`, and never image data or DICOM sidecars, NFR-17). | S |
 | PRJ-09 | Import a bundle; the relink dialog opens if any alias fails to resolve. | S |

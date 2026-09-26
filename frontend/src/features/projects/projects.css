@@ -159,3 +159,7 @@
   border-radius: 3px;
 }
 /* New project: study preset choice (PRJ-12) */
+
+/* AUD-A4-03: Recent / Archived toggle */
+.home-recent-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.home-footer { display: flex; gap: var(--sp-3); align-items: center; }

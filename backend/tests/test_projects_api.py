@@ -13,6 +13,7 @@ from app.core.ids import new_ulid
 from app.imaging.fingerprint import quick_fingerprint
 from app.ingest.models import Item, PhaseInfo, VolumeRef
 from app.ingest.store import IndexStore
+from app.jobs.types import JobInfo
 from app.projects.relink import evenly_spaced
 
 API = "/api/v1"
@@ -110,6 +111,22 @@ def test_archive_unarchive(client: TestClient) -> None:
     res = client.post(f"{API}/projects/{pid}/unarchive")
     assert res.status_code == 200 and res.json()["project_id"] == pid
     assert_problem(client.post(f"{API}/projects/{pid}/unarchive"), 404, "not-found")
+
+
+def test_archive_refused_while_a_job_runs(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PRJ-06, API-04, AUD-A5-10: archive is refused (409) while a job of the project is live."""
+    pid = create(client)["project_id"]
+    ctx = client.app.state.ctx  # type: ignore[attr-defined]
+    live = JobInfo(
+        job_id="J1", kind="radiomics", project_id=pid, status="running", total=1, created_at="t"
+    )
+    monkeypatch.setattr(ctx.jobs, "busy", lambda p: live if p == pid else None)
+    assert_problem(client.post(f"{API}/projects/{pid}/archive"), 409, "job-conflict")
+    assert client.get(f"{API}/projects/{pid}").status_code == 200
+    monkeypatch.setattr(ctx.jobs, "busy", lambda p: None)
+    assert client.post(f"{API}/projects/{pid}/archive").status_code == 200
 
 
 def test_format_version_problem(client: TestClient) -> None:

@@ -4,8 +4,10 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
-import { api, ProblemError, useProjectEvents, type ServerEvent } from '../../api'
+import { api, appendPhaseNow, keys, PHASES, ProblemError, queryClient, ReviewerCancelled, useProjectEvents, type CaseDetail, type Project, type ServerEvent } from '../../api'
 import { registry, toast, useWorkbench } from '../../shell'
+import { useViewerSync } from '../../state'
+import { phaseOptions } from './model'
 
 export { PhaseButtons, PhaseHistoryButton } from './PhaseButtons'
 
@@ -34,13 +36,50 @@ async function writeExport() {
   }
 }
 
+/** The scan of the active item, from the cached case detail */
+function activeScan() {
+  const pid = useWorkbench.getState().pid
+  const { activeCaseId, activeItemId } = useViewerSync.getState()
+  if (!pid || !activeCaseId || useWorkbench.getState().active?.type !== 'case') return null
+  const item = queryClient.getQueryData<CaseDetail>(keys.case(pid, activeCaseId))?.items.find((i) => i.item_id === activeItemId)
+  return item ? { pid, item } : null
+}
+
+/** AUD-A1-06: "Phase: Set NP" etc. for the active scan (PHS-01, same event as the buttons) */
+function setPhase(value: string) {
+  const at = activeScan()
+  if (!at) return
+  appendPhaseNow(queryClient, at.pid, { case_id: at.item.case_id, scan_idx: at.item.scan_idx, value, source: 'manual' }).then(
+    () => toast({ message: i18n.t('phaseSel.setTo', { scan: `${at.item.case_id} · ${at.item.scan_idx}`, phase: value }), tone: 'ok' }),
+    (e: unknown) => {
+      if (!(e instanceof ReviewerCancelled)) toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.saveFailed'), tone: 'error' })
+    },
+  )
+}
+
+const vocabulary = () => {
+  const pid = useWorkbench.getState().pid
+  return phaseOptions(pid ? queryClient.getQueryData<Project>(keys.project(pid))?.phase_vocabulary : undefined)
+}
+
 export function registerPhase() {
+  for (const p of PHASES)
+    registry.command({
+      id: `phase.set.${p}`,
+      writes: true,
+      title: 'cmd.setPhase',
+      titleArgs: { phase: p },
+      category: 'cat.phase',
+      keywords: ['kw.phase'],
+      menuGroup: 1,
+      enabled: () => activeScan() !== null && vocabulary().includes(p),
+      run: () => setPhase(p),
+    })
   registry.command({
     id: 'phase.export', writes: true,
     title: 'phaseSel.export',
-    category: 'cat.project',
-    menu: 'project',
-    menuGroup: 2,
+    category: 'cat.file',
+    menuGroup: 5,
     enabled: () => useWorkbench.getState().pid !== null,
     run: () => void writeExport(),
   })

@@ -1,11 +1,11 @@
 // Title-bar brand: project switcher ▾ (UI_SHELL §Layout)
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { useProjects } from '../../api'
 import { BrandMark, Icon, codicon } from '../../theme'
+import { useProjectDialogs } from './store'
 import { NewProjectDialog } from './WorkspaceHome'
 
 export function ProjectSwitcher({ pid }: { pid: string }) {
@@ -13,7 +13,8 @@ export function ProjectSwitcher({ pid }: { pid: string }) {
   const navigate = useNavigate()
   const projects = useProjects().data ?? []
   const current = projects.find((p) => p.project_id === pid)
-  const [creating, setCreating] = useState(false)
+  const creating = useProjectDialogs((s) => s.creating)
+  const setCreating = (creating: boolean) => useProjectDialogs.getState().set({ creating })
   return (
     <>
       <Menu.Root>

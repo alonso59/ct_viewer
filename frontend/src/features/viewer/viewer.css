@@ -393,3 +393,7 @@ button.badge[aria-pressed='true'] {
 .ct-header td { padding: 2px 0; overflow-wrap: anywhere; }
 .ct-tags { max-height: 360px; overflow: auto; margin-top: 8px; }
 .ct-phi { font-size: var(--fs-badge); }
+
+/* AUD-A1-04 navigation context chip in the case header */
+.nav-context { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; }
+.nav-context .icon-btn { width: 16px; height: 16px; }

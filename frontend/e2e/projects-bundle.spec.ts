@@ -67,3 +67,31 @@ test('bundle export downloads a zip; import shows the resolve report and opens t
   expect(page.url()).not.toContain(pid)
   await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible({ timeout: 30_000 })
 })
+
+// PRJ-06, API-04 (AUD-A4-03): archive from the home card with a confirmation, restore from the
+// Archived list; File › Archive project… inside a project returns to the home
+test('archive and restore a project from the home', async ({ page }) => {
+  const other = `Archive ${Date.now()}`
+  const oid = (await api<{ project_id: string }>('POST', '/projects', { name: other })).project_id
+  await page.goto('/')
+  const card = page.getByRole('listitem').filter({ hasText: other })
+  await card.getByRole('button', { name: 'Archive project…' }).click()
+  const dialog = page.getByRole('dialog', { name: `Archive “${other}”?` })
+  await dialog.getByRole('button', { name: 'Archive', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: `“${other}” archived` })).toBeVisible()
+  await expect(card).toHaveCount(0)
+  await page.getByRole('button', { name: 'Archived', exact: true }).click()
+  const archived = page.getByRole('list', { name: 'Archived projects' }).getByRole('listitem').filter({ hasText: other })
+  await archived.getByRole('button', { name: 'Restore' }).click()
+  await expect(page.getByRole('status').filter({ hasText: `“${other}” restored` })).toBeVisible()
+  await page.getByRole('button', { name: 'Archived', exact: true }).click()
+  await expect(page.getByRole('listitem').filter({ hasText: other })).toBeVisible()
+
+  // From inside the project: File › Archive project…
+  await page.goto(`/p/${oid}`)
+  await page.getByRole('navigation', { name: 'Application menu' }).getByRole('button', { name: 'File' }).click()
+  await page.getByRole('menuitem', { name: 'Archive project…' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Archive', exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
+  expect((await api<{ project_id: string }[]>('GET', '/projects?archived=true')).map((p) => p.project_id)).toContain(oid)
+})

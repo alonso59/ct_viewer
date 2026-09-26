@@ -18,17 +18,19 @@ import { useWorkbench } from './workbenchStore'
 import './shell.css'
 
 /** The workbench shell for one project (UI-01). Domain content comes only from the registry. */
-export function Workbench({ pid, brand, shareUrl }: { pid: string; brand: ReactNode; shareUrl?: string }) {
+export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode; share?: ReactNode }) {
   const load = useLayout((s) => s.load)
   const loadedPid = useLayout((s) => s.pid)
   useEffect(() => {
     load(pid)
     useWorkbench.setState({ pid })
+    // Leaving the project (e.g. browser Back to the home, AUD-A1-02) leaves no stale project behind
+    return () => useWorkbench.setState({ pid: null, active: null })
   }, [pid, load])
   if (loadedPid !== pid) return null
   return (
     <div className="wb">
-      <TitleBar brand={brand} shareUrl={shareUrl} />
+      <TitleBar brand={brand} share={share} />
       <ToolBar />
       <div className="wb-main">
         <ActivityBar />
@@ -40,16 +42,17 @@ export function Workbench({ pid, brand, shareUrl }: { pid: string; brand: ReactN
         <Inspector />
       </div>
       <StatusBar />
-      <CommandPalette />
       <ShellOverlays />
     </div>
   )
 }
 
-/** Overlays shared by every page (also the workspace home) */
+/** Overlays shared by every page (also the workspace home and Open mode): the palette and its
+ *  keys work on every route (AUD-A1-01) */
 export function ShellOverlays() {
   return (
     <>
+      <CommandPalette />
       <Toasts />
       <ReviewerPrompt />
       {registry.overlays.filter((o) => registry.allowed(o)).map(({ id, component: C }) => <C key={id} />)}

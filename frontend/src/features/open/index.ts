@@ -23,8 +23,8 @@ export function registerOpen() {
   registry.command({
     id: 'open.path',
     title: 'open.command',
-    category: 'cat.project',
-    menu: 'file',
+    category: 'cat.file',
+    scope: ['home', 'open', 'project'],
     menuGroup: 1,
     run: () => useOpenDialog.getState().show(),
   })

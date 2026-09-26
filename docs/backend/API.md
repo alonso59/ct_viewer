@@ -20,7 +20,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-01 | `GET /health` | Liveness, versions, UI runtime config (`VIEWER_MAX_LOADED`, `PUBLIC_BASE_URL`) | OPS-03/07 |
 | API-02 | `GET /projects` · `POST /projects` | List / create `{name, description?, default_modality?, packs?}` (neutral; `packs` for scripts) | PRJ-01/02/14 |
 | API-03 | `GET·PATCH /projects/{pid}` | Read (with `ETag`) / rename / edit label map, `default_modality`, `display`; PATCH needs `If-Match` → `428 precondition-required` when missing, `412 precondition-failed` when stale | PRJ-06/07/14/15/18 |
-| API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint) | PRJ-06 |
+| API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint); archive → `409 job-conflict` while any job of the project is live | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report); body `{path, role?}`, `role: derived` registers the derived root (PRJ-13; default = the alias's current role, else `source`) | PRJ-05/13 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
 | API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `201 {sid, path, root, kind, items[], truncated, ignored}` (headers only; DICOM/NumPy converted into `.scratch/`); DELETE → `204`; an ended session (closed, server restarted) → `not-found` with `actions: ["choose_another_path", "home"]` | SRC-09 |

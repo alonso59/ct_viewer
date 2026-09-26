@@ -608,7 +608,8 @@
     },
     "derivedTitle": "Choose the derived folder",
     "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here, never next to your data (ADR-0014). Only folders under ALLOWED_DERIVED_ROOTS are listed.",
-    "derivedUse": "Use this folder"
+    "derivedUse": "Use this folder",
+    "radiomicsHere": "Radiomics runs are set up in the Radiomics settings tab (the same tab as Tasks › Radiomics and the Radiomics view)."
   },
   "library": {
     "status": {
@@ -1183,5 +1184,15 @@
     "deletedTables": "Deleted tables ({{n}})",
     "restore": "Restore",
     "tableGone": "This table was deleted. Restore it from Deleted tables in the Labeling view."
+  },
+  "about": {
+    "title": "About",
+    "version": "Version {{version}}",
+    "researchOnly": "Research use only · not a medical device",
+    "local": "Runs locally: no accounts, no telemetry, no external requests.",
+    "components": "Open-source components"
+  },
+  "keys": {
+    "help": "Change a shortcut in Settings › Keybindings. Browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W; the title bar has the same entry points."
   }
 }

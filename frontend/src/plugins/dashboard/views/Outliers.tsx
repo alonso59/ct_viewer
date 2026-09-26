@@ -55,7 +55,7 @@ export function OutliersView({ runId }: ViewProps) {
             {d.items.map((o) => {
               const top = o.top_features[0]
               return (
-                <tr key={`${o.item_id}|${o.label}`} {...rowProps(o, selected)} title={t('dashboard.openInViewer')}>
+                <tr key={`${o.item_id}|${o.label}`} {...rowProps(o, selected, { label: t('dashboard.view.outliers'), rows: d.items })} title={t('dashboard.openInViewer')}>
                   <td className="mono">{o.item_id}</td>
                   <td>{labelName(o.label)}</td>
                   <td className="num" style={{ color: o.max_abs_z > threshold * 2 ? 'var(--error)' : 'var(--warn)' }}>{zFmt(o.max_abs_z)}</td>

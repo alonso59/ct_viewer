@@ -23,7 +23,7 @@ import {
 } from '../../../api'
 import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon, token } from '../../../theme'
-import { openItem } from '../../../features/explorer'
+import { openInContext, openItem } from '../../../features/explorer'
 import { palette, type ChartInstance } from '../Chart'
 import { useDashboardStore, useRunDashboard } from '../store'
 
@@ -310,12 +310,16 @@ export function ItemMenu() {
   )
 }
 
-/** Row props for tables of items: click opens, right click shows the item menu, selection highlight */
-export function rowProps(r: ItemRef, selected: Set<string>) {
+/** Row props for tables of items: click opens, right click shows the item menu, selection highlight.
+ *  `list` (label + all rows): the case tab follows that list on Alt+↓ (AUD-A1-04). */
+export function rowProps(r: ItemRef, selected: Set<string>, list?: { label: string; rows: ItemRef[] }) {
   return {
     'data-clickable': 'true',
     'aria-selected': selected.has(r.item_id) || undefined,
-    onClick: () => openRef(r),
+    onClick: () =>
+      list
+        ? openInContext(list.label, list.rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id })), list.rows.indexOf(r), true)
+        : openRef(r),
     onContextMenu: (e: ReactMouseEvent) => {
       e.preventDefault()
       useItemMenu.getState().open(r, e.clientX, e.clientY)

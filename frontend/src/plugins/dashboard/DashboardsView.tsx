@@ -10,7 +10,17 @@ export function DashboardsView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const runs = (useRuns(pid).data ?? []).filter((r) => r.status === 'completed' || r.status === 'completed_with_errors')
-  if (!runs.length) return <div className="empty">{t('dashboard.noRuns')}</div>
+  // AUD-A1-10: the empty state starts a run (the Radiomics settings tab, UI-20)
+  if (!runs.length)
+    return (
+      <div className="empty">
+        <p>{t('dashboard.noRuns')}</p>
+        <button type="button" className="btn btn-primary" onClick={() => openEditor('radiomics', {})}>
+          <Icon spec={codicon('beaker')} />
+          {t('radiomics.newRun')}
+        </button>
+      </div>
+    )
   return (
     <div>
       {runs.map((r) => (

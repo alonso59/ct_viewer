@@ -11,8 +11,7 @@ export function registerImport() {
   registry.command({
     id: 'import.open', writes: true,
     title: 'import.title',
-    category: 'cat.project',
-    menu: 'file',
+    category: 'cat.file',
     menuGroup: 2,
     enabled: () => useWorkbench.getState().pid !== null,
     run: () => {

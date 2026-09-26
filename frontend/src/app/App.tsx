@@ -41,10 +41,11 @@ function Keys() {
   return null
 }
 
-/** PRJ-17: `/v/{token}` is the view-only workbench of pseudo project `view-{token}` */
+/** PRJ-17: `/v/{token}` is the view-only workbench of pseudo project `view-{token}`; a deep link
+ *  (`/v/{token}/case/…`, AUD-A1-11) keeps its tab */
 function ViewLink() {
-  const { token = '' } = useParams()
-  return <Navigate to={`/p/${viewPid(token)}`} replace />
+  const { token = '', '*': rest = '' } = useParams()
+  return <Navigate to={`/p/${viewPid(token)}${rest ? `/${rest}` : ''}${location.search}`} replace />
 }
 
 export function App() {
@@ -60,7 +61,7 @@ export function App() {
             <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
             <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
             <Route path="/open/:sid" element={<><OpenRoute /><ShellOverlays /></>} />
-            <Route path="/v/:token" element={<ViewLink />} />
+            <Route path="/v/:token/*" element={<ViewLink />} />
             <Route path="/p/:pid/*" element={<ProjectRoute />} />
           </Routes>
         </BrowserRouter>

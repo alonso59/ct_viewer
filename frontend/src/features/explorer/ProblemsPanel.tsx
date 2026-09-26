@@ -5,7 +5,8 @@ import { useWarnings, type QCWarning } from '../../api'
 import { SeverityIcon } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { openItem } from './ProjectView'
+import i18n from '../../i18n'
+import { openInContext } from './navigate'
 
 export function groupWarnings(ws: QCWarning[]): [string, QCWarning[]][] {
   const m = new Map<string, QCWarning[]>()
@@ -20,8 +21,14 @@ export function nextProblem(ws: QCWarning[]) {
   const flat = groupWarnings(ws).flatMap(([, list]) => list)
   if (!flat.length) return
   cursor = (cursor + 1) % flat.length
-  const w = flat[cursor]
-  if (w?.case_id) openItem(w.case_id, w.item_id, true)
+  if (flat[cursor]?.case_id) openProblem(flat, cursor)
+}
+
+/** Opens a warning's item with the Problems list as navigation context (AUD-A1-04) */
+function openProblem(flat: QCWarning[], i: number) {
+  const withCase = flat.filter((w) => w.case_id)
+  const at = withCase.indexOf(flat[i] as QCWarning)
+  openInContext(i18n.t('panel.problems'), withCase.map((w) => ({ caseId: w.case_id ?? '', itemId: w.item_id })), at, true)
 }
 
 export function ProblemsPanel() {
@@ -30,6 +37,7 @@ export function ProblemsPanel() {
   const { data, isLoading } = useWarnings(pid)
   if (isLoading) return <div className="empty">{t('common.loading')}</div>
   if (!data?.length) return <div className="empty">{t('problems.none')}</div>
+  const flat = groupWarnings(data).flatMap(([, list]) => list)
   return (
     <div role="tree" aria-label={t('panel.problems')} style={{ fontSize: 'var(--fs-panel)' }}>
       {groupWarnings(data).map(([cid, list]) => (
@@ -40,7 +48,7 @@ export function ProblemsPanel() {
             <span className="count">{list.length}</span>
           </div>
           {list.map((w) => (
-            <button key={`${w.code}-${w.item_id ?? ''}-${w.field ?? ''}`} type="button" role="treeitem" className="list-row" style={{ paddingLeft: 32 }} disabled={!w.case_id} onClick={() => w.case_id && openItem(w.case_id, w.item_id, true)}>
+            <button key={`${w.code}-${w.item_id ?? ''}-${w.field ?? ''}`} type="button" role="treeitem" className="list-row" style={{ paddingLeft: 32 }} disabled={!w.case_id} onClick={() => w.case_id && openProblem(flat, flat.indexOf(w))}>
               <SeverityIcon severity={w.severity} />
               <span>{t(`warning.${w.code}`)}</span>
               <span className="muted">{w.message}</span>

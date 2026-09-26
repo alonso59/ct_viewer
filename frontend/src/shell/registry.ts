@@ -4,6 +4,13 @@ import type { ComponentType } from 'react'
 
 import type { IconSpec } from '../theme'
 
+/** The route scope of a pathname: `/p/…` project, `/open…` Open mode, else the workspace home */
+export function routeScope(pathname: string = typeof location === 'undefined' ? '/' : location.pathname): RouteScope {
+  if (pathname.startsWith('/p/') || pathname.startsWith('/v/')) return 'project'
+  if (pathname === '/open' || pathname.startsWith('/open/')) return 'open'
+  return 'home'
+}
+
 export interface ViewContribution {
   id: string
   title: string
@@ -49,17 +56,31 @@ export interface PanelTabContribution {
   useBadge?: () => number | null
 }
 
-export type MenuId = 'file' | 'edit' | 'view' | 'project' | 'radiomics' | 'help'
+/** Title-bar menus (AUD-A1-09): derived from command categories (`shell/menus.ts`), never named after a plugin */
+export type MenuId = 'file' | 'edit' | 'view' | 'go' | 'tasks' | 'help'
+
+/** Where a command is offered (AUD-A1-01): the workspace home, Open mode, or inside a project */
+export type RouteScope = 'home' | 'open' | 'project'
 
 export interface Command {
   id: string
+  /** i18n key; `titleArgs` fill its placeholders (e.g. a task's own title) */
   title: string
+  titleArgs?: Record<string, string>
+  /** i18n key; it decides the menu (`shell/menus.ts`) and the palette prefix */
   category?: string
+  /** Extra palette search words, e.g. `reject`, `fail` for Rejected (AUD-A1-07) */
+  keywords?: string[]
   /** Default chord, e.g. `mod+shift+p`, `alt+down`, `shift+1` (UI-12) */
   keybinding?: string
-  /** `viewer`: only while the viewer has focus (UI_SHELL §Default keybindings) */
+  /** `viewer`: only while a viewer is shown (a case tab or Open mode) and focus is not in a
+   *  text field, menu or dialog (UI_SHELL §Default keybindings, AUD-A2-02) */
   when?: 'viewer'
-  menu?: MenuId
+  /** Routes that offer it (palette, menus, keys); default `['project']` */
+  scope?: RouteScope[]
+  /** `false`: palette and keys only, not in the title-bar menus */
+  menu?: false
+  /** Order inside its category's menu section */
   menuGroup?: number
   enabled?: () => boolean
   run: () => void
@@ -94,6 +115,8 @@ export interface OverlayContribution {
 export interface QuickOpenProvider {
   id: string
   order: number
+  /** Routes where it lists entries; default `['project']` */
+  scope?: RouteScope[]
   component: ComponentType<{ query: string; close: () => void }>
 }
 
@@ -117,6 +140,20 @@ class Registry {
 
   allowed(c: { writes?: boolean }): boolean {
     return !(this.readOnly && c.writes)
+  }
+
+  /** Allowed and offered on the current route (AUD-A1-01) */
+  available(c: { writes?: boolean; scope?: RouteScope[] }, scope: RouteScope = routeScope()): boolean {
+    return this.allowed(c) && (c.scope ?? ['project']).includes(scope)
+  }
+
+  /** Named key contexts (`Command.when`); features register the predicate (UI-02) */
+  readonly contexts = new Map<string, () => boolean>()
+  context(name: string, test: () => boolean) {
+    this.contexts.set(name, test)
+  }
+  inContext(name: string): boolean {
+    return this.contexts.get(name)?.() ?? false
   }
 
   view(v: ViewContribution) {

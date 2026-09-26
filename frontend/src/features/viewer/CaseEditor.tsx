@@ -1,12 +1,12 @@
 // Case editor tab: item switcher + the NiiVue viewer (VIEWER.md; VW-11, 12, 14).
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
 import { CaseRollupBadge, PhaseChip } from '../../lib'
-import { pinEditor, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
+import { bindingOf, formatChord, pinEditor, registry, runCommand, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { PhaseButtons, PhaseHistoryButton } from '../phase'
-import { resolveSeg, useViewerSync } from '../../state'
+import { navPosition, resolveSeg, useNavContext, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
 import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
@@ -93,6 +93,26 @@ function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current
   )
 }
 
+/** AUD-A1-04: "Outliers 3/22 ›" while the case came from a list; × falls back to Explorer order */
+function NavContextChip({ caseId, itemId }: { caseId: string; itemId: string | null }) {
+  const { t } = useTranslation()
+  const nav = useNavContext()
+  const pos = navPosition(nav, caseId, itemId)
+  if (pos === null || !nav.label) return null
+  const next = registry.commands.get('explorer.nextCase')
+  return (
+    <span className="badge nav-context" data-tone="accent" role="group" aria-label={t('nav.context', { list: nav.label })}>
+      <span>{t('nav.position', { list: nav.label, n: pos + 1, total: nav.entries.length })}</span>
+      <button type="button" className="icon-btn" disabled={pos + 1 >= nav.entries.length} aria-label={t('nav.next', { list: nav.label })} title={`${t('nav.next', { list: nav.label })} ${next ? formatChord(bindingOf(next)) : ''}`} onClick={() => runCommand('explorer.nextCase')}>
+        <Icon spec={codicon('chevron-right')} />
+      </button>
+      <button type="button" className="icon-btn" aria-label={t('nav.clear')} title={t('nav.clear')} onClick={() => nav.clear()}>
+        <Icon spec={codicon('close')} />
+      </button>
+    </span>
+  )
+}
+
 export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
@@ -119,7 +139,18 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
 
   useEffect(() => {
     if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id, shownSeg })
+    // While the new case loads, no item is active: a curation key then does nothing instead of
+    // landing on the previous case (AUD-A2-02); the Explorer already reveals the case (AUD-A1-03)
+    else if (active && useViewerSync.getState().activeCaseId !== params.caseId) set({ activeCaseId: params.caseId, activeItemId: null, shownSeg: null })
   }, [active, current, params.caseId, set, shownSeg])
+
+  // AUD-A2-02: after Alt+↓ the focus may be left on nothing (the old tab's viewer is gone); keep
+  // it in the case editor so Tab / screen readers continue here. A focused Explorer tree keeps it.
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = document.activeElement
+    if (active && (!el || el === document.body)) root.current?.focus({ preventScroll: true })
+  }, [active, params.caseId, params.itemId, isLoading])
 
   const pick = (itemId: string) => {
     updateActiveParams(panelId, { itemId })
@@ -138,9 +169,10 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const setName = (id: string) => sets?.find((x) => x.seg_id === id)?.name || id
 
   return (
-    <div className="case-editor" {...viewerFocusProps}>
+    <div className="case-editor" ref={root} {...viewerFocusProps}>
       <div className="case-header">
         <span className="mono case-id">{params.caseId}</span>
+        <NavContextChip caseId={params.caseId} itemId={current.item_id} />
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
         {/* PHS-01: set this scan's phase (the switcher's chips only move between scans) */}
         <span className="switcher-sep" />

@@ -4,7 +4,7 @@ import type { DashboardView } from './types'
 
 export const keys = {
   health: () => ['health'] as const,
-  projects: () => ['projects'] as const,
+  projects: (archived = false) => (archived ? (['projects', 'archived'] as const) : (['projects'] as const)),
   project: (pid: string) => ['project', pid] as const,
   roots: (pid: string) => ['project', pid, 'roots'] as const,
   cases: (pid: string, f: CaseFilter = {}) => ['project', pid, 'cases', f] as const,

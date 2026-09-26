@@ -1,15 +1,17 @@
 // Explorer: case tree, filters, quick open, problems (UI-05, UI-08, UI-09)
-import { api, keys, queryClient, type CaseFilter, type CaseSummary, type QCWarning } from '../../api'
-import { registry, useWorkbench } from '../../shell'
-import { useLayout, useViewerSync } from '../../state'
+import { api, fetchSettled, keys, queryClient, type CaseFilter, type CaseSummary, type QCWarning } from '../../api'
+import i18n from '../../i18n'
+import { registry, toast, useWorkbench } from '../../shell'
+import { navPosition, useLayout, useNavContext, useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { nextProblem, ProblemsPanel, useProblemsBadge } from './ProblemsPanel'
-import { openItem, ProjectView, ProjectViewActions } from './ProjectView'
+import { openItem } from './navigate'
+import { ProjectView, ProjectViewActions } from './ProjectView'
 import { QuickOpenCases } from './QuickOpen'
 import { SearchView } from './SearchView'
 import { activeFilterCount, useExplorer } from './store'
 
-export { openItem } from './ProjectView'
+export { openItem, openInContext, openFromExplorer } from './navigate'
 export { itemLabel } from './itemLabel'
 export { explorerSelection, type DroppedCriterion, type ExplorerSelection } from './selection'
 
@@ -23,12 +25,48 @@ export function showItemsInExplorer(itemIds: string[]) {
 }
 
 function stepCase(delta: 1 | -1) {
+  const { activeCaseId: cur, activeItemId } = useViewerSync.getState()
+  const nav = useNavContext.getState()
+  const pos = navPosition(nav, cur, activeItemId)
+  if (pos !== null) {
+    const next = nav.entries[pos + delta]
+    if (!next) {
+      toast({ message: i18n.t(delta > 0 ? 'nav.endOf' : 'nav.startOf', { list: nav.label }) })
+      return
+    }
+    nav.setIndex(pos + delta)
+    openItem(next.caseId, next.itemId, true)
+    return
+  }
   const order = useExplorer.getState().order
   if (!order.length) return
-  const cur = useViewerSync.getState().activeCaseId
   const i = cur ? order.indexOf(cur) : -1
   const next = order[Math.max(0, Math.min(order.length - 1, i + delta))]
   if (next && next !== cur) openItem(next, null, true)
+}
+
+/** Go: Next unreviewed case (AUD-A1-04): the next case in Explorer order that is not fully
+ *  reviewed (CUR-08 `review_state`), after the active one, wrapping around */
+async function nextUnreviewed() {
+  const pid = useWorkbench.getState().pid
+  if (!pid) return
+  const filter = useExplorer.getState().filter
+  const cases = await fetchSettled(queryClient, keys.cases(pid, filter), () => api.listCases(pid, filter))
+  const cur = useViewerSync.getState().activeCaseId
+  const next = pickNextUnreviewed(cases, cur)
+  if (!next) {
+    toast({ message: i18n.t('nav.allReviewed'), tone: 'ok' })
+    return
+  }
+  useNavContext.getState().clear()
+  openItem(next.case_id, null, true)
+}
+
+/** Pure part of `nextUnreviewed` (unit-tested) */
+export function pickNextUnreviewed(cases: CaseSummary[], current: string | null): CaseSummary | undefined {
+  const i = current ? cases.findIndex((c) => c.case_id === current) : -1
+  const rest = [...cases.slice(i + 1), ...cases.slice(0, i + 1)]
+  return rest.find((c) => c.review_state !== 'reviewed' && c.case_id !== current && !c.excluded)
 }
 
 export function registerExplorer() {
@@ -54,23 +92,28 @@ export function registerExplorer() {
   })
   registry.panelTab({ id: 'problems', title: 'panel.problems', order: 20, component: ProblemsPanel, useBadge: useProblemsBadge })
   registry.quickOpenProvider({ id: 'cases', order: 10, component: QuickOpenCases })
-  registry.command({ id: 'explorer.nextCase', title: 'cmd.nextCase', category: 'cat.navigate', keybinding: 'alt+down', run: () => stepCase(1) })
-  registry.command({ id: 'explorer.prevCase', title: 'cmd.prevCase', category: 'cat.navigate', keybinding: 'alt+up', run: () => stepCase(-1) })
+  registry.command({ id: 'explorer.nextCase', title: 'cmd.nextCase', category: 'cat.navigate', keybinding: 'alt+down', menuGroup: 1, run: () => stepCase(1) })
+  registry.command({ id: 'explorer.prevCase', title: 'cmd.prevCase', category: 'cat.navigate', keybinding: 'alt+up', menuGroup: 1, run: () => stepCase(-1) })
+  registry.command({ id: 'explorer.nextUnreviewed', title: 'cmd.nextUnreviewed', category: 'cat.navigate', keybinding: 'alt+shift+down', keywords: ['kw.review', 'kw.todo'], menuGroup: 1, run: () => void nextUnreviewed() })
   registry.command({
     id: 'explorer.nextProblem',
     title: 'cmd.nextProblem',
     category: 'cat.navigate',
     keybinding: 'f8',
+    keywords: ['kw.warning'],
+    menuGroup: 1,
     run: () => {
       const pid = useWorkbench.getState().pid
       if (!pid) return
-      void queryClient.fetchQuery({ queryKey: keys.warnings(pid), queryFn: () => api.listWarnings(pid) }).then((ws: QCWarning[]) => nextProblem(ws))
+      void fetchSettled(queryClient, keys.warnings(pid), () => api.listWarnings(pid)).then((ws: QCWarning[]) => nextProblem(ws))
     },
   })
+  registry.command({ id: 'explorer.clearNavContext', title: 'nav.clear', category: 'cat.navigate', menuGroup: 2, enabled: () => useNavContext.getState().label !== null, run: () => useNavContext.getState().clear() })
   registry.command({
     id: 'explorer.clearFilters',
     title: 'explorer.clearFilters',
-    category: 'cat.project',
+    category: 'cat.navigate',
+    menuGroup: 2,
     run: () => useExplorer.getState().clearFilter(),
   })
 }

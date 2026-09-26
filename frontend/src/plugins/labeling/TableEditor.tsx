@@ -8,7 +8,7 @@ import { useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } fr
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, ProblemError, useLabelCells, useLabelHistory, useLabelTables, useProject, type LabelCellIn, type LabelColumn, type LabelImportReport, type LabelTable } from '../../api'
-import { openItem } from '../../features/explorer'
+import { openInContext } from '../../features/explorer'
 import { Dialog, ProblemCard } from '../../lib'
 import { registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { requireReviewer } from '../../state'
@@ -223,7 +223,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
                     <span role="rowheader" className="lbl-target mono">
                       {row.target}
                       {row.item_id ? (
-                        <button type="button" className="icon-btn" aria-label={t('lbl.openViewer', { target: row.target })} onClick={() => openItem(row.case_id, row.item_id ?? null, false)}>
+                        <button type="button" className="icon-btn" aria-label={t('lbl.openViewer', { target: row.target })} onClick={() => openInContext(table.name, rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id ?? null })), v.index, false)}>
                           <Icon spec={codicon('eye')} />
                         </button>
                       ) : null}

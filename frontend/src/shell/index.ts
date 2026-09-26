@@ -1,7 +1,7 @@
 // Shell regions and registry (UI-01/02). No domain logic here.
 import './shell.css'
 
-export { registry } from './registry'
+export { registry, routeScope } from './registry'
 export type {
   Command,
   EditorContribution,
@@ -10,7 +10,10 @@ export type {
   PanelTabContribution,
   QuickOpenProvider,
   MenuId,
+  RouteScope,
 } from './registry'
+export { MENUS, menuOf, menuSections } from './menus'
+export { paletteScore } from './paletteMatch'
 export { Workbench, ShellOverlays, ShellProviders } from './Workbench'
 export {
   useWorkbench,
@@ -24,4 +27,4 @@ export {
   refreshUrl,
   type EditorParams,
 } from './workbenchStore'
-export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, isMac } from './keybindings'
+export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, isMac, commandTitle, dispatchKey, modalOpen } from './keybindings'

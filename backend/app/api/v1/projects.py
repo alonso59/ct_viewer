@@ -178,6 +178,13 @@ async def revoke_view_token(ctx: Ctx, pid: str) -> Response:
 
 @router.post("/projects/{pid}/archive", response_model=ProjectSummary)
 async def archive_project(ctx: Ctx, pid: str) -> ProjectSummary:
+    ctx.workspace.project_dir(pid)  # 404 first
+    # AUD-A5-10: a running job would keep writing into a re-created active folder
+    busy = ctx.jobs.busy(pid)
+    if busy is not None:
+        raise JobConflict(
+            f"A {busy.kind} job is running ({busy.job_id}); wait for it or cancel it, then archive"
+        )
     await ctx.workspace.archive(pid)
     ctx.index.invalidate(pid)
     return ctx.workspace.summary(pid)

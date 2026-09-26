@@ -169,6 +169,7 @@ def test_conflict_cancel_and_lookup() -> None:
         units = [WorkUnit(gated, (i,)) for i in range(100)]
         info = jm.submit(JobSpec("p", "thumbnail", units, on_finish=on_finish, job_id="J1"))
         assert info.job_id == "J1" and jm.active("p", "thumbnail") is info
+        assert jm.busy("p") is info and jm.busy("q") is None  # AUD-A5-10 (PRJ-06)
         with pytest.raises(JobConflict):
             jm.submit(JobSpec("p", "thumbnail", []))
         other = jm.submit(JobSpec("p", "thumbnail", [], exclusive=False))

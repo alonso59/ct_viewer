@@ -225,6 +225,8 @@ function seededEvents(): CurationEvent[] {
 interface ProjectState {
   project: Project
   last_opened_at: string | null
+  /** PRJ-06: archived projects are listed only with `archived` and 404 elsewhere */
+  archived?: boolean
   reachable: boolean
   items: ItemRecord[]
   warnings: QCWarning[]
@@ -345,7 +347,7 @@ function checkEtag(s: ProjectState, etag: string) {
 
 function exists(pid: string): ProjectState {
   const s = db.get(pid)
-  if (!s) throw new ProblemError(404, 'not-found', 'Project not found', pid)
+  if (!s || s.archived) throw new ProblemError(404, 'not-found', 'Project not found', pid)
   return s
 }
 function state(pid: string): ProjectState {
@@ -726,17 +728,17 @@ export const mockServer: Api = {
   },
 
   // API-02..05
-  async listProjects(): Promise<ProjectSummary[]> {
+  async listProjects(opts = {}): Promise<ProjectSummary[]> {
     await wait()
-    return [...db.values()].map((s) => {
-      const sums = s.reachable && s.items.length ? summaries(s.project.project_id) : []
+    return [...db.values()].filter((s) => !!s.archived === !!opts.archived).map((s) => {
+      const sums = s.reachable && !s.archived && s.items.length ? summaries(s.project.project_id) : []
       const reviewed = sums.filter((c) => c.review_state === 'reviewed').length
       return {
         project_id: s.project.project_id,
         name: s.project.name,
         created_at: s.project.created_at,
         last_opened_at: s.last_opened_at,
-        archived: false,
+        archived: !!s.archived,
         n_cases: s.project.project_id === OFFLINE_PID ? 820 : sums.length,
         curation_progress: s.project.project_id === OFFLINE_PID ? 0.5 : sums.length ? reviewed / sums.length : 0,
         share_url: s.project.share_url,
@@ -747,6 +749,22 @@ export const mockServer: Api = {
     await wait(60)
     const s = exists(pid)
     s.last_opened_at = now()
+    return clone(s.project)
+  },
+  async archiveProject(pid) {
+    await wait(120)
+    const s = exists(pid)
+    // AUD-A5-10: same rule as the server (API-04)
+    const busy = [...jobs.values()].find((j) => j.project_id === pid && (j.status === 'running' || j.status === 'queued'))
+    if (busy) throw new ProblemError(409, 'job-conflict', 'Conflicting job', `A ${busy.kind} job is running (${busy.job_id}); wait for it or cancel it, then archive`)
+    s.archived = true
+    return (await this.listProjects({ archived: true })).find((p) => p.project_id === pid) as ProjectSummary
+  },
+  async unarchiveProject(pid) {
+    await wait(120)
+    const s = db.get(pid)
+    if (!s?.archived) throw new ProblemError(404, 'not-found', 'Project not found', pid)
+    s.archived = false
     return clone(s.project)
   },
   async createProject({ name, description = '', default_modality = 'CT' }) {

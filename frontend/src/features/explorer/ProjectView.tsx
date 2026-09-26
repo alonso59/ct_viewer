@@ -18,11 +18,12 @@ import {
   type Variable,
 } from '../../api'
 import { PhaseChip, rollupTitle, SliceThumb, StatusIcon } from '../../lib'
-import { openEditor, registry, useWorkbench } from '../../shell'
+import { registry, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { PhaseButtons } from '../phase'
 import { itemLabel } from './itemLabel'
+import { openFromExplorer } from './navigate'
 import { activeFilterCount, useExplorer, useExplorerPrefs, usePrefs } from './store'
 import { colorable, columnable, formatValue, levelColor } from './vars'
 import './explorer.css'
@@ -47,10 +48,6 @@ function VarColumns({ c, columns }: { c: CaseSummary; columns: Variable[] }) {
 }
 
 type Row = { kind: 'case'; c: CaseSummary } | { kind: 'item'; item: ItemRecord; caseId: string } | { kind: 'loading'; caseId: string }
-
-export function openItem(caseId: string, itemId: string | null, preview = true) {
-  openEditor('case', { caseId, itemId }, { preview })
-}
 
 function ExpandedItems({ caseId, onItems }: { caseId: string; onItems: (cid: string, items: ItemRecord[]) => void }) {
   const pid = useWorkbench((s) => s.pid) ?? ''
@@ -116,10 +113,25 @@ export function ProjectView() {
   })
   useEffect(() => virt.measure(), [caseH, virt])
 
+  // AUD-A1-03: follow the active case (and item, when its case is expanded), like VS Code's
+  // "reveal active file": the keyboard cursor moves there and the row scrolls into view
+  const revealed = useRef('')
+  useEffect(() => {
+    if (!activeCaseId) return
+    const key = `${activeCaseId}|${activeItemId ?? ''}`
+    if (revealed.current === key) return
+    const item = activeItemId ? rows.findIndex((r) => r.kind === 'item' && r.item.item_id === activeItemId) : -1
+    const i = item >= 0 ? item : rows.findIndex((r) => r.kind === 'case' && r.c.case_id === activeCaseId)
+    if (i < 0) return
+    revealed.current = key
+    setCursor(i)
+    virt.scrollToIndex(i, { align: 'auto' })
+  }, [activeCaseId, activeItemId, rows, virt])
+
   const activate = (r: Row | undefined, preview = true) => {
     if (!r) return
-    if (r.kind === 'case') openItem(r.c.case_id, null, preview)
-    if (r.kind === 'item') openItem(r.caseId, r.item.item_id, preview)
+    if (r.kind === 'case') openFromExplorer(r.c.case_id, null, preview)
+    if (r.kind === 'item') openFromExplorer(r.caseId, r.item.item_id, preview)
   }
 
   const onKey = (e: KeyboardEvent) => {

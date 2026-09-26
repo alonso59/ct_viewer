@@ -79,7 +79,7 @@ export function WelcomeEditor() {
         <h2>{t('welcome.next')}</h2>
         <div className="home-actions" style={{ maxWidth: 560 }}>
           {nextCase ? (
-            <Action icon={codicon('play')} title={t('welcome.reviewNext', { id: nextCase.case_id })} detail={t('welcome.reviewNextHelp')} onClick={() => openEditor('case', { caseId: nextCase.case_id, itemId: null })} chord={chordOf('explorer.nextCase')} />
+            <Action icon={codicon('play')} title={t('welcome.reviewNext', { id: nextCase.case_id })} detail={t('welcome.reviewNextHelp')} onClick={() => openEditor('case', { caseId: nextCase.case_id, itemId: null })} chord={chordOf('explorer.nextUnreviewed')} />
           ) : null}
           <Action icon={codicon('search')} title={t('welcome.goTo')} detail={t('welcome.goToHelp')} onClick={() => useWorkbench.getState().openPalette('quickopen')} chord={chordOf('workbench.quickOpen')} />
           {registry.readOnly ? null : (

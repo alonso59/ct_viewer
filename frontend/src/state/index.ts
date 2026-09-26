@@ -15,3 +15,4 @@ export {
   type WlPreset,
   type CursorReadout,
 } from './viewerSync'
+export { useNavContext, navPosition, uniqueEntries, type NavEntry } from './navContext'

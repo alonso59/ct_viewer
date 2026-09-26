@@ -385,10 +385,12 @@ export const httpApi: Api = {
   health: () => unwrap(client.GET('/api/v1/health')),
 
   // API-02..05
-  async listProjects() {
-    const rows = await unwrap(client.GET('/api/v1/projects'))
+  async listProjects(opts = {}) {
+    const rows = await unwrap(client.GET('/api/v1/projects', { params: { query: { archived: opts.archived ?? false } } }))
     return rows as ProjectSummary[]
   },
+  archiveProject: async (pid) => (await unwrap(client.POST('/api/v1/projects/{pid}/archive', { params: { path: { pid } } }))) as ProjectSummary,
+  unarchiveProject: async (pid) => normalizeProject(await unwrap(client.POST('/api/v1/projects/{pid}/unarchive', { params: { path: { pid } } }))),
   getProject: async (pid) => normalizeProject(await unwrap(client.GET('/api/v1/projects/{pid}', { params: { path: { pid } } }))),
   createProject({ name, description = '', default_modality = 'CT' }) {
     return unwrap(client.POST('/api/v1/projects', { body: { name, description, default_modality } })).then(normalizeProject)

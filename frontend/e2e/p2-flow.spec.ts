@@ -63,8 +63,10 @@ test('new project → import → browse → share link', async ({ page, browser,
   const status = page.getByRole('contentinfo', { name: 'Status bar' })
   await expect(status.getByText('live', { exact: true })).toBeVisible()
 
-  // Share link: the toast carries the URL whether or not the clipboard is available
-  await page.getByRole('button', { name: 'Copy share link' }).click()
+  // Share link (AUD-A1-11: the share menu has the edit and the view-only link): the toast carries
+  // the URL whether or not the clipboard is available
+  await page.getByRole('button', { name: 'Share' }).click()
+  await page.getByRole('menuitem', { name: 'Copy edit link' }).click()
   const toast = page.getByRole('status').filter({ hasText: /Share link copied|Copy this link/ })
   await expect(toast).toBeVisible()
   const url = /(https?:\/\/\S+)/.exec((await toast.textContent()) ?? '')?.[1] ?? ''

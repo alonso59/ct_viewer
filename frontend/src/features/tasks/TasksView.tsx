@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 
 import { useTaskRuns, useTasks, type TaskInfo } from '../../api'
 import { ProblemCard } from '../../lib'
-import { openEditor, useWorkbench } from '../../shell'
+import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
+import { openTask, RADIOMICS_TASK } from './commands'
 import { RunRow } from './TaskEditor'
 import './tasks.css'
 
@@ -28,7 +29,8 @@ export default function TasksView() {
             <ul className="tasks-list">
               {byKind(k).map((x) => (
                 <li key={x.manifest.id}>
-                  <button type="button" className="list-row" onClick={() => openEditor('task', { taskId: x.manifest.id })} title={x.manifest.description ?? ''}>
+                  {/* AUD-A1-10: radiomics has one canonical tab, the Radiomics settings tab */}
+                  <button type="button" className="list-row" onClick={() => openTask(x.manifest.id)} title={x.manifest.id === RADIOMICS_TASK ? t('tasks.radiomicsHere') : (x.manifest.description ?? '')}>
                     <Icon spec={codicon(ICON[k])} />
                     <span>{x.manifest.title}</span>
                     {!x.available ? <span className="badge" data-tone="warn" style={{ marginLeft: 'auto' }}>{t('tasks.unavailable')}</span> : null}

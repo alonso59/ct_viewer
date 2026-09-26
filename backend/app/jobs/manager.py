@@ -145,6 +145,13 @@ class JobManager:
                 return i
         return None
 
+    def busy(self, project_id: str) -> JobInfo | None:
+        """Any live job of the project, whatever its kind (PRJ-06: no archive while one runs)."""
+        for j in self._jobs.values():
+            if j.info.project_id == project_id and j.info.status not in TERMINAL:
+                return j.info
+        return None
+
     def cancel(self, job_id: str) -> JobInfo:
         job = self._jobs.get(job_id)
         if job is None:

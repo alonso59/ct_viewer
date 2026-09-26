@@ -1,9 +1,11 @@
 // Tasks (UI-17..20, TSK-*): one generic view and one tab per task. Both load lazily with their
 // strings (NFR-07).
-import { createElement, lazy, Suspense } from 'react'
+import { createElement, lazy, Suspense, useEffect } from 'react'
 
+import { useTasks } from '../../api'
 import { registry } from '../../shell'
 import { codicon } from '../../theme'
+import { syncTaskCommands } from './commands'
 import type { TaskParams } from './TaskEditor'
 
 const View = lazy(() => Promise.all([import('./TasksView'), import('../../i18n/lazy')]).then(([m]) => m))
@@ -32,4 +34,15 @@ export function registerTasks() {
       return m?.[1] ? { taskId: decodeURIComponent(m[1]) } : null
     },
   })
+}
+
+export { syncTaskCommands, taskCommandId } from './commands'
+
+/** Mount once per writable project: keeps the `Task: Run …` commands in step with the task list */
+export function TaskCommands() {
+  const tasks = useTasks().data?.tasks
+  useEffect(() => {
+    if (tasks) syncTaskCommands(tasks)
+  }, [tasks])
+  return null
 }

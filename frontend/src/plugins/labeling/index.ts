@@ -7,6 +7,7 @@ import { keys, queryClient, type LabelTableInfo } from '../../api'
 import { useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import { revealView, type FrontendPlugin } from '../host'
+import { useNewTable } from './store'
 import type { TableParams } from './TableEditor'
 
 const View = lazy(() => Promise.all([import('./LabelingView'), import('../../i18n/lazy')]).then(([m]) => m))
@@ -41,7 +42,19 @@ export const plugin: FrontendPlugin = {
         return m?.[1] ? { tableId: m[1] } : null
       },
     })
-    registry.command({ id: 'labeling.show', title: 'view.labeling', category: 'cat.showView', menu: 'view', menuGroup: 6, run: () => revealView('labeling') })
+    // AUD-A1-06: "New label table…" from the palette opens the view with its dialog
+    registry.command({
+      id: 'labeling.newTable',
+      writes: true,
+      title: 'cmd.newLabelTable',
+      category: 'cat.edit',
+      keywords: ['kw.labeling'],
+      menuGroup: 4,
+      run: () => {
+        revealView('labeling')
+        useNewTable.getState().set(true)
+      },
+    })
   },
   open: () => revealView('labeling'),
 }

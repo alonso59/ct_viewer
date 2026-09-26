@@ -133,7 +133,11 @@ export interface Api {
   health(): Promise<Health>
 
   // Projects (API-02..05)
-  listProjects(): Promise<ProjectSummary[]>
+  /** `archived`: the archived ones instead (PRJ-06) */
+  listProjects(opts?: { archived?: boolean }): Promise<ProjectSummary[]>
+  /** API-04 (PRJ-06): 409 `job-conflict` while a job of the project runs (AUD-A5-10) */
+  archiveProject(pid: string): Promise<ProjectSummary>
+  unarchiveProject(pid: string): Promise<Project>
   getProject(pid: string): Promise<Project>
   /** PRJ-14: neutral; a name and an optional default modality */
   createProject(p: { name: string; description?: string; default_modality?: ProjectModality }): Promise<Project>

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { API_MODE, api } from '../api'
-import { bindingOf, chordOf, formatChord, openEditor, registry, toast } from '../shell'
+import { bindingOf, chordOf, commandTitle, formatChord, openEditor, registry, toast } from '../shell'
 import { useReviewer, useSettings } from '../state'
 import type { ThemeChoice } from '../theme'
 
@@ -14,7 +14,7 @@ export function SettingsView() {
   const [name, setName] = useState(reviewer.name)
   const [filter, setFilter] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
-  const cmds = [...registry.commands.values()].filter((c) => c.keybinding && (!filter || t(c.title).toLowerCase().includes(filter.toLowerCase())))
+  const cmds = [...registry.commands.values()].filter((c) => c.keybinding && (!filter || commandTitle(c, t).toLowerCase().includes(filter.toLowerCase())))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 12px 16px', fontSize: 'var(--fs-panel)' }}>
       <label className="field">
@@ -76,7 +76,7 @@ export function SettingsView() {
           <tbody>
             {cmds.map((c) => (
               <tr key={c.id}>
-                <td style={{ whiteSpace: 'normal' }}>{t(c.title)}</td>
+                <td style={{ whiteSpace: 'normal' }}>{commandTitle(c, t)}</td>
                 <td className="num">
                   {editing === c.id ? (
                     <input

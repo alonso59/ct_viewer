@@ -1,8 +1,8 @@
 // Keybinding dispatch (UI_SHELL §Default keybindings, UI-12). `mod` = Cmd on macOS, Ctrl elsewhere.
 import { useEffect } from 'react'
 
-import { useSettings, useViewerSync } from '../state'
-import { registry, type Command } from './registry'
+import { useSettings } from '../state'
+import { registry, routeScope, type Command } from './registry'
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
@@ -51,31 +51,49 @@ export function formatChord(chord: string | undefined): string {
 
 function inTextField(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null
-  if (!el) return false
+  if (!el?.tagName) return false
   const tag = el.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
 
+/** A modal (dialog, palette, wizard) is open: global keys stay off, its own keys and Escape
+ *  (topmost layer first, Radix) apply (AUD-A2-09, AUD-A1-17) */
+export function modalOpen(): boolean {
+  return typeof document !== 'undefined' && document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]') !== null
+}
+
+const inMenu = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.('[role="menu"], [role="listbox"]')
+
+/** One keydown through the registry (UI-12). Returns whether a command ran.
+ *  - only commands offered on the current route (AUD-A1-01) and allowed (UI-26)
+ *  - nothing while a modal is open or a menu has focus
+ *  - `when: 'viewer'`: a viewer is shown and focus is not in a text field; DOM focus inside the
+ *    viewer is not needed, so the keys work right after Alt+↓ or a click in the Explorer (AUD-A2-02)
+ *  - plain keys never fire while typing; chords with a modifier or F-keys do */
+export function dispatchKey(e: KeyboardEvent): boolean {
+  if (e.repeat && !e.altKey) return false
+  const target = e.target as HTMLElement | null
+  if (target?.dataset?.keyrecorder) return false
+  if (modalOpen() || inMenu(target)) return false
+  const chord = chordOf(e)
+  const typing = inTextField(target)
+  const scope = routeScope()
+  for (const c of registry.commands.values()) {
+    if (bindingOf(c) !== chord || !registry.available(c, scope)) continue
+    if (c.when === 'viewer' && (typing || !registry.inContext('viewer'))) continue
+    if (typing && !/mod|alt|ctrl|^f\d/.test(chord)) continue
+    if (c.enabled && !c.enabled()) continue
+    e.preventDefault()
+    e.stopPropagation()
+    c.run()
+    return true
+  }
+  return false
+}
+
 export function useGlobalKeybindings() {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.repeat && !e.altKey) return
-      if ((e.target as HTMLElement | null)?.dataset?.keyrecorder) return
-      const chord = chordOf(e)
-      const typing = inTextField(e.target)
-      const viewerFocused = useViewerSync.getState().viewerFocused
-      for (const c of registry.commands.values()) {
-        if (bindingOf(c) !== chord || !registry.allowed(c)) continue
-        if (c.when === 'viewer' && (!viewerFocused || typing)) continue
-        // Plain keys never fire while typing; chords with a modifier or F-keys do
-        if (typing && !/mod|alt|ctrl|^f\d/.test(chord)) continue
-        if (c.enabled && !c.enabled()) continue
-        e.preventDefault()
-        e.stopPropagation()
-        c.run()
-        return
-      }
-    }
+    const onKey = (e: KeyboardEvent) => void dispatchKey(e)
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
@@ -83,5 +101,8 @@ export function useGlobalKeybindings() {
 
 export function runCommand(id: string) {
   const c = registry.commands.get(id)
-  if (c && registry.allowed(c) && (!c.enabled || c.enabled())) c.run()
+  if (c && registry.available(c) && (!c.enabled || c.enabled())) c.run()
 }
+
+/** The translated title of a command (its `titleArgs` filled in) */
+export const commandTitle = (c: Command, t: (key: string, args?: Record<string, string>) => string) => t(c.title, c.titleArgs)

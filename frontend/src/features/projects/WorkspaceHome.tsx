@@ -1,6 +1,6 @@
 // Workspace home (`/`, UI-04): New Project (name + optional default modality, PRJ-14), Open Recent with
 // thumbnail + progress (PRJ-02), share-link copy (PRJ-03), relink (PRJ-05), bundles (PRJ-08/09).
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -9,6 +9,7 @@ import {
   pickThumbItem,
   useCase,
   useCases,
+  useArchiveProject,
   useCreateProject,
   useProjects,
   useRelink,
@@ -18,12 +19,13 @@ import {
   type RelinkResult,
 } from '../../api'
 import { Dialog, IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
-import { toast } from '../../shell'
+import { runCommand, toast } from '../../shell'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from '../import'
 import { useOpenDialog } from '../open'
 import { useConverter } from '../../plugins/dicom/store'
-import { exportBundle } from './actions'
+import { exportBundle, problemText } from './actions'
+import { useProjectDialogs } from './store'
 import './projects.css'
 
 // The import report dialog and its strings load once a bundle is picked (NFR-07)
@@ -191,6 +193,8 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
       </button>
       <IconButton icon={codicon('plug')} label={t('projects.relink')} onClick={onRelink} />
       <IconButton icon={codicon('package')} label={t('projects.bundle.export')} onClick={() => void exportBundle(p.project_id)} />
+      {/* AUD-A4-03 (PRJ-06): archive, with a confirmation */}
+      <IconButton icon={codicon('archive')} label={t('projects.archiveMenu')} onClick={() => useProjectDialogs.getState().set({ archive: { pid: p.project_id, name: p.name, home: true } })} />
       <IconButton
         icon={codicon('link')}
         label={t('shell.copyShareLink')}
@@ -206,13 +210,60 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
   )
 }
 
+/** PRJ-06: archived projects, each with Restore (AUD-A4-03) */
+function ArchivedList() {
+  const { t } = useTranslation()
+  const archived = useProjects(true)
+  const { restore } = useArchiveProject()
+  if (archived.isLoading) return <div className="empty">{t('common.loading')}</div>
+  if (!archived.data?.length) return <div className="empty">{t('home.noArchived')}</div>
+  return (
+    <div role="list" className="home-list" aria-label={t('home.archived')}>
+      {archived.data.map((p) => (
+        <div key={p.project_id} className="home-project" role="listitem">
+          <span className="home-project-main">
+            <Icon spec={codicon('archive')} size={20} />
+            <span className="home-project-text">
+              <span className="home-project-name">{p.name}</span>
+              <span className="muted">{t('projects.metaNew', { cases: p.n_cases, ago: fmtAgo(p.created_at) })}</span>
+            </span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={restore.isPending}
+            onClick={() =>
+              restore.mutate(p.project_id, {
+                onSuccess: () => toast({ message: t('projects.restored', { name: p.name }), tone: 'ok' }),
+                onError: (e) => toast({ message: problemText(e), tone: 'error' }),
+              })
+            }
+          >
+            {t('projects.restore')}
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function WorkspaceHome() {
   const { t } = useTranslation()
   const projects = useProjects()
-  const [creating, setCreating] = useState(false)
+  const creating = useProjectDialogs((s) => s.creating)
+  const setCreating = (creating: boolean) => useProjectDialogs.getState().set({ creating })
+  const bundlePick = useProjectDialogs((s) => s.bundlePick)
+  const [showArchived, setShowArchived] = useState(false)
   const [relink, setRelink] = useState<ProjectSummary | null>(null)
   const [bundle, setBundle] = useState<File | null>(null)
   const picker = useRef<HTMLInputElement>(null)
+  // "Import project bundle…" from the palette (AUD-A1-01)
+  const picked = useRef(bundlePick)
+  useEffect(() => {
+    if (picked.current === bundlePick) return
+    picked.current = bundlePick
+    picker.current?.click()
+  }, [bundlePick])
   const sorted = [...(projects.data ?? [])]
     .filter((p) => !p.archived)
     .sort((a, b) => (b.last_opened_at ?? b.created_at).localeCompare(a.last_opened_at ?? a.created_at))
@@ -279,7 +330,14 @@ export function WorkspaceHome() {
             </ul>
           </section>
           <section>
-            <h2>{t('home.recent')}</h2>
+            <div className="home-recent-head">
+              <h2>{t(showArchived ? 'home.archived' : 'home.recent')}</h2>
+              <button type="button" className="btn btn-sm" aria-pressed={showArchived} onClick={() => setShowArchived(!showArchived)}>
+                <Icon spec={codicon('archive')} />
+                {t('home.showArchived')}
+              </button>
+            </div>
+            {showArchived ? <ArchivedList /> : <>
             {projects.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
             {projects.isError ? (
               <div className="error-card" role="alert">
@@ -293,9 +351,14 @@ export function WorkspaceHome() {
                 <ProjectCard key={p.project_id} p={p} onRelink={() => setRelink(p)} />
               ))}
             </div>
+            </>}
           </section>
         </div>
-        <footer className="home-footer muted">{t('app.tagline')}</footer>
+        <footer className="home-footer muted">
+          {t('app.tagline')}
+          {/* AUD-A4-05 (NFR-16) */}
+          <button type="button" className="link" onClick={() => runCommand('help.about')}>{t('cmd.about')}</button>
+        </footer>
       </div>
       <NewProjectDialog open={creating} onOpenChange={setCreating} />
       {bundle ? (

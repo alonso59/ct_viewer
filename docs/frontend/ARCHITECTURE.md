@@ -45,7 +45,7 @@ frontend/src/
 │   ├── dicom/      # converter command (overlay: P7c Wave 3)
 │   └── analyzers/  # opens the analyzer task tabs
 ├── api/          # generated schema.d.ts, client, query keys, useProjectEvents (SSE)
-├── state/        # cross-feature stores: reviewer, layout, viewerSync
+├── state/        # cross-feature stores: reviewer, layout, viewerSync, navContext
 ├── i18n/         # en.json (all UI strings); other locales later
 ├── theme/        # tokens.css (dark/light), codicon import
 └── lib/
@@ -66,7 +66,7 @@ frontend/src/
 | `/p/:pid/task/:tid` | Workbench + task settings tab |
 | `/p/:pid/settings` | Workbench + project settings tab (UI-23) |
 | `/p/:pid/labeling/:tid` | Workbench + label table tab (LBL-03) |
-| `/v/:token` | View-only workbench (UI-26, API-60) |
+| `/v/:token/*` | View-only workbench (UI-26, API-60); a deep path opens that tab |
 | `/open/:sid` | Open mode viewer (no project); `/open` with a path in the history state opens it and replaces itself with `/open/{sid}` (`features/open/navigate.ts`, SOURCES §Open mode) |
 
 ## Requirements
@@ -76,7 +76,7 @@ frontend/src/
 | FE-01 | TypeScript `strict`; no `any` in `features/`. | M |
 | FE-02 | Server data only via TanStack Query; query keys centralized in `api/keys.ts`. | M |
 | FE-03 | API types generated from OpenAPI (`npm run gen:api`); CI checks they are up to date. | M |
-| FE-04 | The URL encodes project, case, item and layout; open editor tabs persist per project in `localStorage`. | M |
+| FE-04 | The URL encodes project, case, item and layout; open editor tabs persist per project in `localStorage`. A new tab, case or item pushes a history entry, so browser Back returns to the previous one inside the project; a layout or other query change replaces the entry. | M |
 | FE-05 | Lazy-load the viewer, radiomics and dashboard chunks; initial JS ≤ 300 KB gzip (NFR-07). | S |
 | FE-06 | No runtime network calls outside the app origin; fonts and icons are bundled. | M |
 | FE-07 | Electron readiness: no Node or DOM-global hacks; the API base URL is configurable. | M |
