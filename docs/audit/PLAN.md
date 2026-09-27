@@ -103,5 +103,6 @@ Tool: **Sphinx + MyST** (Markdown stays the source; build offline, dev-only depe
 | A5 Bugs | ✅ 2026-09-26 (`findings/A5-bugs.md`) | 2 / 7 / 7 | pending |
 | A6 Code & tests | ✅ 2026-09-26 (`findings/A6-code-tests.md`) | 0 / 5 / 14 | pending |
 | A7 Docs structure | ✅ 2026-09-26 (`findings/A7-docs.md`); restructure batch applied 2026-09-26 | 0 / 0 / 12 | done (owner 2026-09-26) |
+| A8 Activity bar (rail) | ✅ 2026-09-27 (`findings/A8-rail.md`, minimal audit after an owner report) | 0 / 0 / 2 | fixed in FB9 (proposal) |
 
 **Exit:** every audit reported; P0 findings fixed; accepted P1 findings fixed or scheduled in ROADMAP; G1..G4 each covered by one Playwright spec that walks the whole path.

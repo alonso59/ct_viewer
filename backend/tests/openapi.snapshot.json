@@ -6265,6 +6265,13 @@
      "filters": {
       "$ref": "#/components/schemas/GlobalFilters"
      },
+     "min_feature_pct": {
+      "default": 5.0,
+      "maximum": 100.0,
+      "minimum": 0.0,
+      "title": "Min Feature Pct",
+      "type": "number"
+     },
      "threshold": {
       "default": 3.5,
       "exclusiveMinimum": 0.0,
@@ -6305,6 +6312,18 @@
       "title": "Items",
       "type": "array"
      },
+     "min_feature_pct": {
+      "title": "Min Feature Pct",
+      "type": "number"
+     },
+     "min_features": {
+      "title": "Min Features",
+      "type": "integer"
+     },
+     "n_features": {
+      "title": "N Features",
+      "type": "integer"
+     },
      "n_flagged": {
       "title": "N Flagged",
       "type": "integer"
@@ -6320,6 +6339,9 @@
     },
     "required": [
      "threshold",
+     "min_feature_pct",
+     "min_features",
+     "n_features",
      "n_items",
      "n_flagged",
      "items",

@@ -437,17 +437,22 @@ def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
 
 
 def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
-    """Robust z = (x - median) / (1.4826 · MAD) per feature; top-N items and features.
+    """Robust z = (x - median) / (1.4826 · MAD) per feature; flagged items and top features.
 
-    Items rank by the number of features over the threshold, then by max |z| (owner decision
-    2026-09-25, AUD-A2-06): one wild feature does not outrank a broadly abnormal item."""
+    An item is flagged when at least `min_feature_pct` % of its features (and at least one) have
+    |z| over the threshold (owner decision 2026-09-27, DB-10). Flagged items rank by the number of
+    features over the threshold, then by max |z| (owner decision 2026-09-25, AUD-A2-06): one wild
+    feature does not outrank a broadly abnormal item. Per-feature counts cover every item."""
     rd = select_features(frame.rd, None, req.feature_class)
     z = st.robust_z(rd.x)
     az = np.abs(np.nan_to_num(z, nan=0.0))
-    flagged = az > req.threshold
+    over = az > req.threshold
     max_z = az.max(axis=1) if rd.features else np.zeros(rd.n)
-    n_flag = flagged.sum(axis=1)
-    order = sorted(range(rd.n), key=lambda i: (-int(n_flag[i]), -float(max_z[i])))
+    n_over = over.sum(axis=1)
+    n_feat = len(rd.features)
+    need = max(1, math.ceil(req.min_feature_pct / 100 * n_feat - 1e-9))
+    flagged = [i for i in range(rd.n) if n_feat and int(n_over[i]) >= need]
+    order = sorted(flagged, key=lambda i: (-int(n_over[i]), -float(max_z[i])))
     items: list[OutlierItem] = []
     for i in order[: req.top_n]:
         top = np.argsort(-az[i])[: req.top_features]
@@ -455,7 +460,7 @@ def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
             OutlierItem(
                 **_ref(frame, i),
                 max_abs_z=float(max_z[i]),
-                n_outlier_features=int(n_flag[i]),
+                n_outlier_features=int(n_over[i]),
                 top_features=[
                     OutlierFeature(feature=rd.features[j], value=num(rd.x[i, j]), z=float(z[i, j]))
                     for j in top
@@ -463,12 +468,15 @@ def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
                 ],
             )
         )
-    per_feature = flagged.sum(axis=0)
+    per_feature = over.sum(axis=0)
     fo = [int(j) for j in np.argsort(-per_feature, kind="stable") if per_feature[j] > 0]
     return OutliersResponse(
         threshold=req.threshold,
+        min_feature_pct=req.min_feature_pct,
+        min_features=need,
+        n_features=n_feat,
         n_items=rd.n,
-        n_flagged=int((n_flag > 0).sum()),
+        n_flagged=len(flagged),
         items=items,
         features=[
             OutlierFeatureCount(feature=rd.features[j], n_outlier_items=int(per_feature[j]))

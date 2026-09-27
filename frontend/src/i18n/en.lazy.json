@@ -186,7 +186,7 @@
       "status": "Curation status"
     },
     "filters": "Dashboard filters",
-    "flagged": "{{n}} of {{total}} items over the threshold",
+    "flagged": "{{n}} of {{total}} items flagged",
     "grouping": "Grouping variable",
     "kpi": {
       "failed": "failed",
@@ -218,7 +218,7 @@
       "summary": "{{values}} invalid values · {{items}} items"
     },
     "missingLevel": "(missing)",
-    "noOutliers": "No item above the threshold",
+    "noOutliers": "No item flagged",
     "noPoints": "Nothing to plot for these filters",
     "openInViewer": "Open in viewer",
     "pair": "Pair by",
@@ -291,7 +291,9 @@
     },
     "views": "Views",
     "z": "robust z",
-    "flaggedHelp": "An item is listed when at least one feature has a robust |z| ≥ {{threshold}}. Items are sorted by the number of such features, then by max |z|.",
+    "flaggedHelp": "An item is flagged when at least {{pct}} % of its features ({{n}} of {{total}}, at least one) have a robust |z| over {{threshold}}. Flagged items are sorted by the number of such features, then by max |z|.",
+    "minPct": "Min. features %",
+    "minPctHelp": "Share of an item's features that must be over the threshold to flag it (%)",
     "showAll": "Show all {{n}}",
     "showTop": "Show the top {{n}}",
     "phaseChanged_one": "The phase of {{count}} item changed since the run",

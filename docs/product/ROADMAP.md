@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order from 2026-09-24 (user decision): **P7b → P7c (done 2026-09-25) → quality audit (A0..A7, fix batches FB1..FB8) → pending plugins (VOI extractor, nnU-Net) → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
+Order from 2026-09-24 (user decision): **P7b → P7c (done 2026-09-25) → quality audit (A0..A8, fix batches FB1..FB9) → pending plugins (VOI extractor, nnU-Net) → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
 
 ## Progress
 
@@ -65,6 +65,7 @@ Waves 1–4 done 2026-09-24 (exit met; archive).
 - [x] A0..A7 run 2026-09-25..26 per `docs/audit/PLAN.md`; findings in `docs/audit/findings/`
 - [x] Fix batches FB1..FB7 (2026-09-26..27; one commit each, `docs/audit/REMEDIATION.md` §Owner review)
 - [x] FB8 (tests, performance budget, code health; 2026-09-27)
+- [x] A8 rail duplication audit and FB9 (owner decisions after FB8: registry upsert, 400 KiB budget + baseline warning, outlier share rule, dev tools gates, ADR-0027/0028 Accepted; 2026-09-27)
 - [ ] The deferred items (REMEDIATION §Deferred)
 **Exit:** see `docs/audit/PLAN.md` §Status.
 

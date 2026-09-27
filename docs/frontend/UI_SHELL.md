@@ -65,7 +65,7 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | ID | Requirement | Pri |
 |---|---|---|
 | UI-01 | Shell regions as drawn: title bar, tool bar, activity bar, left pane, editor area, panel, status bar, optional inspector. | M |
-| UI-02 | Features register views, editor types, tools, inspector sections, panel tabs, commands and status items in a registry, and the shell renders them. | M |
+| UI-02 | Features register views, editor types, tools, inspector sections, panel tabs, commands and status items in a registry, and the shell renders them. Registration is idempotent: every contribution is keyed by its id, so registering an id again replaces the entry (a hot-reloaded module swaps its component, AUD-A8-01). | M |
 | UI-03 | Editor tabs: case, radiomics settings, run dashboard, correction queue, welcome, labeling table, project settings. Tabs support preview mode (italic until pinned), drag, split and close-others. | M |
 | UI-04 | Workspace home (`/`) looks like the QuPath/VS Code welcome: New Project (name + optional default modality, PRJ-14), Open file or folder…, Convert DICOM… (UI-25), Open Recent (with thumbnail and progress) followed by the converted workspace datasets (name, series, Open · Create project; AUD-A2-14), and a share-link copy button. | M |
 | UI-05 | Command palette `Ctrl/Cmd+Shift+P` on every route (workspace home, Open mode, project) shows the commands of that route, word and prefix matches first; quick open `Ctrl/Cmd+P` jumps to a case or item (on the home and in Open mode: to a project). The title-bar search box opens quick open. Neither opens over a modal, and Escape closes the topmost overlay. | M |

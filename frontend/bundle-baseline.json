@@ -1,0 +1,4 @@
+{
+  "note": "NFR-07 baseline: initial JS gzip -9 bytes; update with `make bundle-baseline` when growth is intended",
+  "initial_js_bytes": 232421
+}

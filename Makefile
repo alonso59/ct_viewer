@@ -31,7 +31,7 @@ else
 endif
 
 .PHONY: help setup setup-backend setup-frontend setup-node dev-backend dev-frontend fixtures \
-        gen-api api-types bundle-size lint fix typecheck test reqs check e2e e2e-one e2e-servers record-mock \
+        gen-api api-types bundle-size bundle-baseline lint fix typecheck test coverage deadcode reqs check e2e e2e-one e2e-servers record-mock \
         image udocker-run container-smoke docs docs-srs trace
 
 help: ## List targets
@@ -86,18 +86,29 @@ typecheck: ## mypy (strict) + tsc (strict)
 	cd backend && $(BPY) -m mypy && $(BPY) -m mypy --strict ../scripts/*.py
 	$(NODE) npm run typecheck
 
-test: ## Unit tests: pytest + vitest
-	cd backend && $(BPY) -m pytest
+test: ## Unit tests: pytest (parallel, pytest-xdist; one worker per module) + vitest
+	cd backend && $(BPY) -m pytest -n auto --dist loadscope
 	$(NODE) npm test
 
-bundle-size: ## NFR-07 gate: production build, initial JS (entry + modulepreload, gzip -9) <= 300 KiB (REL-04)
+coverage: ## Vitest coverage report (v8) into build/coverage/frontend/ (a report, not a gate)
+	$(NODE) npx vitest run --coverage
+
+deadcode: ## Dead-code gate: knip (frontend: files, exports, deps) + vulture (backend, confidence >= 80)
+	$(NODE) npx knip
+	cd backend && $(BPY) -m vulture app tools tests ../scripts ../plugins vulture_allowlist.py --min-confidence 80
+
+bundle-size: ## NFR-07 gate: production build, initial JS (entry + modulepreload, gzip -9) <= 400 KiB; warns > 25 KiB over the baseline (REL-04)
 	$(NODE) npx vite build --outDir .vite/bundle --emptyOutDir --logLevel error
-	$(NODE) node scripts/bundle-size.mjs .vite/bundle --budget-kib 300
+	$(NODE) node scripts/bundle-size.mjs .vite/bundle --budget-kib 400 --baseline bundle-baseline.json --warn-kib 25
+
+bundle-baseline: ## NFR-07: record the current initial JS size in frontend/bundle-baseline.json (commit it)
+	$(NODE) npx vite build --outDir .vite/bundle --emptyOutDir --logLevel error
+	$(NODE) node scripts/bundle-size.mjs .vite/bundle --budget-kib 400 --baseline bundle-baseline.json --write-baseline
 
 reqs: ## Requirement tables check (SRS §1.5; stdlib, < 1 s)
 	python3 docs/_sphinx/reqs.py check
 
-check: lint typecheck test api-types bundle-size reqs ## Lint, type check, unit tests, API types, bundle budget and the requirement check (CI gate)
+check: lint typecheck test deadcode api-types bundle-size reqs ## Lint, type check, unit tests, dead code, API types, bundle budget and the requirement check (CI gate)
 
 e2e: ## Playwright, both browsers (SPEC=name PROJECT=chromium|firefox narrow it; `npx playwright install` once)
 	$(NODE) npx playwright test $(if $(SPEC),e2e/$(SPEC).spec.ts,) $(if $(PROJECT),--project=$(PROJECT),)

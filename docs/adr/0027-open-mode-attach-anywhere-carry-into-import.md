@@ -1,5 +1,5 @@
 # ADR-0027 Open mode: attach a segmentation from anywhere under the shared folders; it travels into the import
-Status: Proposed · Date: 2026-09-26
+Status: Accepted (owner 2026-09-27) · Date: 2026-09-26
 Supersedes: ADR-0013 §3 and SRC-10 / SOURCES §Open mode on *where* an attached segmentation may come from ("inside the opened folder")
 Amends: ADR-0024 §2 (the import wizard may pre-fill the converter's own naming)
 

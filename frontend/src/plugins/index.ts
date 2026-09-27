@@ -10,5 +10,5 @@ import type { FrontendPlugin } from './host'
 import { plugin as radiomics } from './radiomics'
 
 export const FIRST_PARTY: FrontendPlugin[] = [dicom, analyzers, curation, labeling, radiomics, dashboard, ...packs]
-export { activatePlugins, isActive, openerOf, revealView, type FrontendPlugin, type PluginContext } from './host'
+export { activatePlugins, isActive, openerOf, type FrontendPlugin } from './host'
 export { useCurationRuntime } from './curation'

@@ -21,6 +21,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 | DB-08 | **Analysis panel** (ANA-*): pick question type → variable → (confounder); shows the chosen test + reason, results table (feature, n, effect, p, q), descriptives, and Recommendations. | M |
 | DB-09 | Result rows open the feature's distribution split by the analysis variable; recommendation items open the view that shows the problem. | S |
 | DB-07 | Color by any categorical variable, phase or curation status; colors come from the categorical palette tokens. | M |
+| DB-10 | The outlier table flags an item only when at least a share of its features (default 5 %, and at least one feature) has a robust \|z\| over the threshold (default 3.5); both are adjustable in the view. | M |
 
 ## Views
 
@@ -31,7 +32,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 | Missing / invalid matrix | Feature × item NaN/inf heat map | feature class |
 | Correlation heat map | Spearman correlation between features, clustered order | class filter, threshold |
 | Embedding scatter | PCA (default) or UMAP (optional dependency) on z-scored features | features, n_components |
-| Outlier table | Robust z-score (median/MAD) per feature; items with a feature over the threshold, sorted by the number of such features, then by max \|z\| (owner 2026-09-25); top 10, "Show all" | threshold (default 3.5) |
+| Outlier table | Robust z-score (median/MAD) per feature; flagged items (DB-10: ≥ `min_feature_pct` % of the features, and ≥ 1, over the threshold; owner 2026-09-27), sorted by the number of features over the threshold, then by max \|z\| (owner 2026-09-25); top 10, "Show all"; the per-feature counts cover every item | threshold (default 3.5), `min_feature_pct` (default 5) |
 | Feature vs volume | Scatter of a feature against `shape_MeshVolume` (flags size-driven features) | feature |
 | Group comparison | Box/violin per group for the selected feature + test result; results table for all features | variable, test override |
 | Association | Scatter feature × continuous variable with ρ; ranked table | variable |

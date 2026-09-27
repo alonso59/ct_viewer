@@ -1,5 +1,7 @@
 // Contribution registry (UI-02). Features register what they add; the shell renders it.
-// Titles are i18n keys. Registration happens once at bootstrap, before the first render.
+// Titles are i18n keys. Registration happens at bootstrap, before the first render. Every list is
+// keyed by `id` (AUD-A8-01): registering an id again replaces the entry, so a re-executed module
+// (Vite HMR, a re-activated plugin) swaps its component instead of adding a second copy.
 import type { ComponentType } from 'react'
 
 import type { IconSpec } from '../theme'
@@ -123,6 +125,14 @@ export interface QuickOpenProvider {
   component: ComponentType<{ query: string; close: () => void }>
 }
 
+/** Replace the entry with the same id (or append), then keep the list ordered by `order` (stable) */
+function upsert<T extends { id: string; order?: number }>(list: T[], item: T) {
+  const i = list.findIndex((x) => x.id === item.id)
+  if (i >= 0) list[i] = item
+  else list.push(item)
+  list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+}
+
 class Registry {
   readonly views: ViewContribution[] = []
   readonly editors = new Map<string, EditorContribution<never>>()
@@ -160,40 +170,35 @@ class Registry {
   }
 
   view(v: ViewContribution) {
-    this.views.push(v)
-    this.views.sort((a, b) => a.order - b.order)
+    upsert(this.views, v)
   }
   editor<P extends object>(e: EditorContribution<P>) {
     this.editors.set(e.type, e as unknown as EditorContribution<never>)
   }
   panelTab(p: PanelTabContribution) {
-    this.panelTabs.push(p)
-    this.panelTabs.sort((a, b) => a.order - b.order)
+    upsert(this.panelTabs, p)
   }
   command(c: Command) {
     this.commands.set(c.id, c)
   }
   tool(t: ItemContribution) {
-    this.tools.push(t)
-    this.tools.sort((a, b) => a.order - b.order)
+    upsert(this.tools, t)
   }
   status(s: StatusItemContribution) {
-    this.statusItems.push(s)
-    this.statusItems.sort((a, b) => a.order - b.order)
+    upsert(this.statusItems, s)
   }
   inspector(s: InspectorSectionContribution) {
-    this.inspectorSections.push(s)
-    this.inspectorSections.sort((a, b) => a.order - b.order)
+    upsert(this.inspectorSections, s)
   }
   quickOpenProvider(p: QuickOpenProvider) {
-    this.quickOpen.push(p)
-    this.quickOpen.sort((a, b) => a.order - b.order)
+    upsert(this.quickOpen, p)
   }
+  /** Overlays keep registration order (no `order` field) */
   overlay(o: OverlayContribution) {
-    this.overlays.push(o)
+    upsert(this.overlays, o)
   }
   imageSectionContent(s: ItemContribution) {
-    this.imageSection.push(s)
+    upsert(this.imageSection, s)
   }
   getEditor<P extends object>(type: string): EditorContribution<P> | undefined {
     return this.editors.get(type) as unknown as EditorContribution<P> | undefined

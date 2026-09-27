@@ -24,10 +24,10 @@ REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make
 
 | ID | Gate | Check | Status |
 |---|---|---|---|
-| REL-01 | Unit, lint and type checks green, requirement check included | `make check` | pass (the NFR-07 bundle gate included since FB8) |
+| REL-01 | Unit, lint and type checks green, requirement check included | `make check` | pass (the NFR-07 bundle gate included since FB8; knip + vulture dead-code gate and parallel pytest since FB9) |
 | REL-02 | One Playwright spec walks each journey G1..G4 end to end (Chromium + Firefox, TST-05) | `make e2e` | pass: G1 `e2e/g1-open.spec.ts`, G2 `e2e/g2-dicom.spec.ts`, G3 `e2e/g3-review.spec.ts` (whole path since FB8, AUD-A6-16) and G4 `e2e/g4-radiomics.spec.ts` green in Chromium + Firefox (FB8 full run); the older specs are kept, their shared steps are in `e2e/helpers.ts` |
 | REL-03 | No open P0/P1 audit finding | `make docs-srs` counts | pass (P0 0, P1 0 after FB8) |
-| REL-04 | NFR-07 initial JS within budget, enforced by a gate | `make bundle-size` (in `make check`) | pass: 226.9 KiB of 300 (FB8, AUD-A0-01) |
+| REL-04 | NFR-07 initial JS within budget, enforced by a gate | `make bundle-size` (in `make check`) | pass: 227.0 KiB of 400, +0.0 against the baseline (FB9; gate since FB8, AUD-A0-01) |
 | REL-05 | NFR-10 image size | `make image`, `docker image ls` | pass (arm64 947 MB, amd64 935 MB) |
 | REL-06 | NFR-11, NFR-12, NFR-16, NFR-17 verified | TST-07, network allowlist spec, About | pass: TST-07 hook; `e2e/network-allowlist.spec.ts` green in Chromium + Firefox (FB7, AUD-A4-02); About with "Research use only" (FB3, AUD-A4-05) |
 | REL-07 | TST-10 under Docker and under udocker on the remote server: ROADMAP P7 remaining items and Step 4 (amd64 image, Dataset820 import check, IBSI phantom smoke in the Linux image) | `make container-smoke`, `scripts/udocker-run.sh` | Docker pass; udocker open |

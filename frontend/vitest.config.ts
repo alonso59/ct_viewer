@@ -34,5 +34,13 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     env: { VITE_API_MODE: 'mock' },
+    // `make coverage` (a report, not a gate; TESTING §Coverage)
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/api/schema.d.ts', 'src/features/viewer/harness/**'],
+      reporter: ['text-summary', 'html', 'json-summary'],
+      reportsDirectory: '../build/coverage/frontend',
+    },
   },
 })

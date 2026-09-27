@@ -174,6 +174,8 @@ class EmbeddingRequest(ViewRequest):
 
 class OutliersRequest(ViewRequest):
     threshold: float = Field(default=3.5, gt=0)
+    # an item is flagged when at least this share of its features is over the threshold (DB-10)
+    min_feature_pct: float = Field(default=5.0, ge=0, le=100)
     top_n: int = Field(default=10, ge=1, le=5000)  # the UI shows 10, "Show all" = n_flagged
     top_features: int = Field(default=5, ge=1, le=50)
     feature_class: list[str] | None = None
@@ -379,9 +381,13 @@ class OutlierFeatureCount(BaseModel):
 
 class OutliersResponse(BaseModel):
     threshold: float
+    min_feature_pct: float
+    # features over the threshold an item needs to be flagged: max(1, ceil(pct · n_features))
+    min_features: int
+    n_features: int
     n_items: int
     n_flagged: int
-    items: list[OutlierItem]
+    items: list[OutlierItem]  # flagged items only, ranked
     features: list[OutlierFeatureCount]
 
 

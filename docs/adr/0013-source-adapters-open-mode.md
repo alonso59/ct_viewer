@@ -2,7 +2,7 @@
 Status: Accepted · Date: 2026-09-24
 
 **Amended by ADR-0024.** Open mode shows every opened file as an image; a segmentation only by attach (NIfTI, same geometry). nnU-Net naming is not a `nifti-files` default.
-**ADR-0027 (Proposed)** supersedes where an attachment may come from: anywhere under ALLOWED_DATA_ROOTS, not only the opened folder.
+**ADR-0027** supersedes where an attachment may come from: anywhere under ALLOWED_DATA_ROOTS, not only the opened folder.
 Amends: IMP-02 (INPUT_METADATA.md), the `case_id` pattern of contract v1, VISION §Out of scope (DICOM)
 
 **Context.** Import accepts only contract v1 (`metadata.jsonl` from the v2 converter). A plain NIfTI folder, one NIfTI or DICOM file, or one segmentation fails with an empty "Validation failed". Users also want to look at a single file without creating a study. Case numbering lives inside the external converter, although other sources need it too (nnU-Net asks for `{case}_0000.nii.gz`).

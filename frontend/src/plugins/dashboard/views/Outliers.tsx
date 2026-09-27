@@ -1,5 +1,7 @@
-// Outlier table: robust z (median/MAD) per item, ranked by the number of features over the threshold,
-// then by max |z| (owner 2026-09-25, AUD-A2-06); top 10 + "Show all"; one click opens the item (DB-03)
+// Outlier table: robust z (median/MAD) per item. An item is flagged when at least `min %` of its
+// features are over the threshold (DB-10, owner 2026-09-27); flagged items are ranked by the number of
+// features over the threshold, then by max |z| (AUD-A2-06); top 10 + "Show all"; one click opens the
+// item (DB-03)
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +11,9 @@ import { useDashboardStore, useRunDashboard } from '../store'
 import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
 
 export const OUTLIERS_TOP = 10
+export const OUTLIERS_THRESHOLD = 3.5
+/** DB-10: share of an item's features that must be over the threshold, in % */
+export const OUTLIERS_MIN_PCT = 5
 
 export function OutliersView({ runId }: ViewProps) {
   const { t } = useTranslation()
@@ -16,19 +21,24 @@ export function OutliersView({ runId }: ViewProps) {
   const { filters } = useRunDashboard(runId)
   const focusView = useDashboardStore((s) => s.focusView)
   const modality = useProject(pid).data?.default_modality
-  const [threshold, setThreshold] = useState(3.5)
+  const [threshold, setThreshold] = useState(OUTLIERS_THRESHOLD)
+  const [minPct, setMinPct] = useState(OUTLIERS_MIN_PCT)
   const [all, setAll] = useState(false)
-  useFocusParams(runId, 'outliers', (p) => setThreshold(numParam(p.threshold) ?? threshold))
-  const first = useDashboardView(pid, runId, 'outliers', { filters, threshold, top_n: OUTLIERS_TOP })
+  useFocusParams(runId, 'outliers', (p) => {
+    setThreshold(numParam(p.threshold) ?? threshold)
+    setMinPct(numParam(p.min_feature_pct) ?? minPct)
+  })
+  const body = { filters, threshold, min_feature_pct: minPct }
+  const first = useDashboardView(pid, runId, 'outliers', { ...body, top_n: OUTLIERS_TOP })
   const nFlagged = first.data?.n_flagged ?? 0
   const more = all && nFlagged > OUTLIERS_TOP
-  const full = useDashboardView(pid, runId, 'outliers', more ? { filters, threshold, top_n: nFlagged } : null)
+  const full = useDashboardView(pid, runId, 'outliers', more ? { ...body, top_n: nFlagged } : null)
   const q = more && full.data ? full : first
   const labelName = useLabelName()
   const { selected } = useSelection(runId)
   const d = q.data
-  // only items with a feature over the threshold are outliers; the server ranks them first
-  const rows = (d?.items ?? []).filter((o) => o.n_outlier_features > 0)
+  // the server lists flagged items only (DB-10), ranked
+  const rows = d?.items ?? []
   const zFmt = fmtColumn(rows.map((o) => o.max_abs_z))
   const vFmt = fmtColumn(rows.map((o) => o.top_features[0]?.value))
   return (
@@ -43,10 +53,22 @@ export function OutliersView({ runId }: ViewProps) {
         <>
           <label className="db-inline">
             {t('dashboard.threshold')}
-            <NumberInput className="input input-sm num" style={{ width: 64 }} step={0.5} min={1} value={threshold} onChange={(n) => setThreshold(n || 3.5)} />
+            <NumberInput className="input input-sm num" style={{ width: 64 }} step={0.5} min={1} value={threshold} onChange={(n) => setThreshold(n || OUTLIERS_THRESHOLD)} />
+          </label>
+          <label className="db-inline" title={t('dashboard.minPctHelp')}>
+            {t('dashboard.minPct')}
+            <NumberInput
+              className="input input-sm num"
+              style={{ width: 56 }}
+              step={1}
+              min={0}
+              max={100}
+              value={minPct}
+              onChange={(n) => setMinPct(n == null ? OUTLIERS_MIN_PCT : Math.min(100, Math.max(0, n)))}
+            />
           </label>
           {d ? (
-            <span className="muted" title={t('dashboard.flaggedHelp', { threshold })} data-testid="outliers-flagged">
+            <span className="muted" title={t('dashboard.flaggedHelp', { threshold, pct: minPct, n: d.min_features, total: d.n_features })} data-testid="outliers-flagged">
               {t('dashboard.flagged', { n: fmtInt(d.n_flagged), total: fmtInt(d.n_items) })}
             </span>
           ) : null}

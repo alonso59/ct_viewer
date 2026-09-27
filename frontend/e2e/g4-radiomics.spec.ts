@@ -2,7 +2,7 @@
 // variable + segmentation set → estimate → run → failures and skips in plain words (items without a
 // mask are skipped, not failed) → dashboard → outliers top 10, the injected defect `case_00062` first
 // → one click opens it in the viewer → group comparison on a derived variable (p-values) → export.
-// TST-05, RAD-05/07/10/11, TSK-04, DB-01/03, ANA-04/05, VAR-06; AUD-A2-05, A2-06, A3-04, A3-10,
+// TST-05, RAD-05/07/10/11, TSK-04, DB-01/03/10, ANA-04/05, VAR-06; AUD-A2-05, A2-06, A3-04, A3-10,
 // A3-15, A3-21, A1-08, A1-18, A5-04 (FB5).
 import { readFileSync } from 'node:fs'
 
@@ -97,9 +97,11 @@ test('G4: radiomics run, failures in plain words, outliers, viewer, group compar
   await expect(kpi('failed')).toHaveText('0')
   await expect(kpi('skipped')).not.toHaveText('0')
 
-  // Outliers (AUD-A2-06): top 10, sorted by features over the threshold; the injected defect first
+  // Outliers (AUD-A2-06, DB-10): flagged = ≥ 5 % of the features over |z| 3.5 (both adjustable);
+  // top 10, sorted by features over the threshold; the injected defect first
   await page.getByRole('tab', { name: 'Outliers', exact: true }).click()
   const table = page.getByRole('table', { name: 'Outliers' })
+  await expect(page.getByRole('spinbutton', { name: /Min\. features/ })).toHaveValue('5')
   await expect(table.locator('tbody tr').first()).toContainText('case_00062', { timeout: 30_000 })
   const n = await table.locator('tbody tr').count()
   expect(n).toBeLessThanOrEqual(10)

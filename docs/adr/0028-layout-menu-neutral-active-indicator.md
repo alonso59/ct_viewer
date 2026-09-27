@@ -1,5 +1,5 @@
 # ADR-0028 One "Layout" menu in the title bar; a neutral active indicator
-Status: Proposed · Date: 2026-09-26
+Status: Accepted (owner 2026-09-27) · Date: 2026-09-26
 Supersedes: ADR-0023's scope clause "the title bar's menus/search/layout toggles … GitHub Dark's remaining tokens … unchanged", for the title-bar layout toggles and `--tab-active-indicator` only
 Refines: ADR-0010
 

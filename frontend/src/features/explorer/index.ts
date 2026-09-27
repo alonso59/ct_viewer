@@ -12,8 +12,7 @@ import { SearchView } from './SearchView'
 import { activeFilterCount, useExplorer } from './store'
 
 export { openItem, openInContext, openFromExplorer } from './navigate'
-export { itemLabel } from './itemLabel'
-export { explorerSelection, type DroppedCriterion, type ExplorerSelection } from './selection'
+export { explorerSelection, type ExplorerSelection } from './selection'
 
 /** Read-only view of the current Explorer filter (RAD-05 "Use the current Explorer filter") */
 export const useExplorerFilter = (): Readonly<CaseFilter> => useExplorer((s) => s.filter)

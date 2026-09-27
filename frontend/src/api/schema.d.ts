@@ -4380,6 +4380,11 @@ export interface components {
              */
             threshold: number;
             /**
+             * Min Feature Pct
+             * @default 5
+             */
+            min_feature_pct: number;
+            /**
              * Top N
              * @default 10
              */
@@ -4396,6 +4401,12 @@ export interface components {
         OutliersResponse: {
             /** Threshold */
             threshold: number;
+            /** Min Feature Pct */
+            min_feature_pct: number;
+            /** Min Features */
+            min_features: number;
+            /** N Features */
+            n_features: number;
             /** N Items */
             n_items: number;
             /** N Flagged */

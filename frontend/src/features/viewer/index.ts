@@ -23,12 +23,11 @@ const lazyTool = (pick: (m: Awaited<ReturnType<typeof ctTools>>) => ComponentTyp
 /** VW-22: the whole CT tool bar, for Open mode */
 export const CtToolbar = lazyTool((m) => m.default)
 
-export { PLANE_COLOR } from './Viewport'
 export { configureViewer } from './budget'
 export { StandaloneViewer } from './StandaloneViewer'
 export { applyProjectDisplay, resetDisplay } from './display'
 export { ModalityChip } from './ModalityChip'
-export type { ViewerContext, ViewerHandle } from './model/types'
+export type { ViewerContext } from './model/types'
 
 /** VW-16: viewer context of the visible case tab, for CUR events (`context.viewer`) */
 export function getViewerContext(): ViewerContext | null {

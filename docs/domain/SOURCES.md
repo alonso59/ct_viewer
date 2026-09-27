@@ -2,7 +2,7 @@
 
 Scope: accepted file formats, source adapters, Open mode (no project), case identity policy, NumPy geometry and axis order.
 Read when: building import detection, the NIfTI adapter, Open mode, case numbering, or any array ↔ NIfTI conversion.
-Depends: ADR-0013, ADR-0024, ADR-0025 (reconstructed sidecars), ADR-0027 (attach anywhere, Proposed), INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
+Depends: ADR-0013, ADR-0024, ADR-0025 (reconstructed sidecars), ADR-0027 (attach anywhere), INPUT_METADATA.md (contract v1), PROJECT_FORMAT.md, DICOM_CONVERTER.md.
 
 Every source becomes **contract v1 rows** (INPUT_METADATA.md); nothing downstream knows which adapter was used.
 

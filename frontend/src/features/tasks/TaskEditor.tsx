@@ -304,7 +304,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   )
 }
 
-export function TaskEditor({ params }: EditorProps<TaskParams>) {
+function TaskEditor({ params }: EditorProps<TaskParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const { data, error } = useTasks()

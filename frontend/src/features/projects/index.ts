@@ -16,7 +16,7 @@ export { RelinkDialog } from './RelinkDialog'
 export { useRootsCheck } from './useRootsCheck'
 export { useProjectDialogs } from './store'
 export { ProjectSwitcher } from './ProjectSwitcher'
-export { ShareMenu, deepLink } from './share'
+export { ShareMenu } from './share'
 
 /** Runs `fn` on the open project, if any */
 const withPid = (fn: (pid: string) => unknown) => () => {

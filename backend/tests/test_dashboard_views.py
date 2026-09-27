@@ -55,9 +55,8 @@ def test_run_overview(mod_client: TestClient, syn: Synthetic) -> None:
     assert np_only["n_items_ok"] == sum(a["phase"] == "NP" for a in syn.items.values())
 
 
-def test_feature_distribution_split_and_log(
-    mod_client: TestClient, syn: Synthetic, rejected: None
-) -> None:
+@pytest.mark.usefixtures("rejected")
+def test_feature_distribution_split_and_log(mod_client: TestClient, syn: Synthetic) -> None:
     body = ok(
         view(
             mod_client, syn, "feature-distribution",
@@ -128,11 +127,13 @@ def test_embedding(mod_client: TestClient, syn: Synthetic) -> None:
     assert_problem(r, "validation")  # optional extra not installed
 
 
-def test_outliers_flag_the_injected_case(
-    mod_client: TestClient, syn: Synthetic, rejected: None
-) -> None:
+@pytest.mark.usefixtures("rejected")
+def test_outliers_flag_the_injected_case(mod_client: TestClient, syn: Synthetic) -> None:
     body = ok(view(mod_client, syn, "outliers", {"filters": {"label": [2]}, "top_n": 5}))
-    assert body["threshold"] == 3.5 and len(body["items"]) == 5
+    assert body["threshold"] == 3.5 and body["min_feature_pct"] == 5
+    # DB-10: only flagged items are listed (≥ 5 % of the features over the threshold)
+    assert 1 <= len(body["items"]) == min(5, body["n_flagged"])
+    assert all(i["n_outlier_features"] >= body["min_features"] for i in body["items"])
     top = body["items"][0]
     assert top["case_id"] == OUTLIER and top["status"] == "rejected"
     assert top["max_abs_z"] > 10 and top["n_outlier_features"] >= 3
@@ -144,6 +145,32 @@ def test_outliers_flag_the_injected_case(
     mad = np.median(np.abs(col - med)) * 1.4826
     assert f0["z"] == pytest.approx((f0["value"] - med) / mad, rel=1e-9)
     assert body["features"][0]["n_outlier_items"] >= 1
+
+
+def test_outliers_flag_rule_share_of_features(mod_client: TestClient, syn: Synthetic) -> None:
+    """DB-10 (owner 2026-09-27): an item is flagged when ≥ min_feature_pct % of its features
+    (and ≥ 1) exceed the threshold; ranking by that count, then max |z| (AUD-A2-06)."""
+    req = {"filters": {"label": [2]}, "top_n": 5000, "threshold": 2.0}
+    by_pct = {
+        p: ok(view(mod_client, syn, "outliers", {**req, "min_feature_pct": p}))
+        for p in (0, 5, 20, 100)
+    }
+    n_feat = by_pct[5]["n_features"]
+    assert n_feat > 1
+    for p, b in by_pct.items():
+        assert b["min_features"] == max(1, math.ceil(p / 100 * n_feat - 1e-9))
+        assert b["n_flagged"] == len(b["items"])
+        assert all(i["n_outlier_features"] >= b["min_features"] for i in b["items"])
+        keys = [(-i["n_outlier_features"], -i["max_abs_z"]) for i in b["items"]]
+        assert keys == sorted(keys)
+    flagged = [by_pct[p]["n_flagged"] for p in (0, 5, 20, 100)]
+    assert flagged == sorted(flagged, reverse=True)  # a stricter share flags fewer items
+    # 13 features: 5 % needs 1 (same as 0 %), 20 % needs 3, 100 % all of them
+    assert [by_pct[p]["min_features"] for p in (0, 5, 20, 100)] == [1, 1, 3, n_feat]
+    assert flagged[0] == flagged[1] > flagged[2] > 0 == flagged[3]
+    assert by_pct[5]["items"][0]["case_id"] == by_pct[20]["items"][0]["case_id"] == OUTLIER
+    assert by_pct[100]["features"] == by_pct[0]["features"]  # per-feature counts cover every item
+    assert_problem(view(mod_client, syn, "outliers", {"min_feature_pct": 101}), "validation")
 
 
 def test_feature_vs_volume(mod_client: TestClient, syn: Synthetic) -> None:

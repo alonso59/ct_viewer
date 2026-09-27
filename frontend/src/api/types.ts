@@ -8,7 +8,6 @@ export type Phase = S['PhaseInfo']['canonical']
 export const PHASES: Phase[] = ['NC', 'CMP', 'NP', 'EP', 'UNK']
 export type Scope = S['Item']['scope']
 export type Side = S['Item']['side']
-export type QcCode = S['QcCode']
 
 /** PRJ-14 default modality of a neutral project */
 export const MODALITIES = ['CT', 'MR', 'mixed'] as const
@@ -18,7 +17,6 @@ export type ProjectModality = (typeof MODALITIES)[number]
 export type ProjectSummary = Omit<S['ProjectSummary'], 'last_opened_at'> & { last_opened_at: string | null }
 
 export type LabelDef = Required<S['LabelEntry']>
-export type PathRoot = S['PathRoot']
 export type RootInfo = S['RootInfo']
 export type RelinkResult = S['RelinkResult']
 /** API-06 import report (PRJ-09): the new project and a per-alias resolve check */
@@ -42,8 +40,6 @@ export type PackApplied = S['PackApplied']
 /** API-61 view-only link (PRJ-17) */
 export type ViewToken = S['ViewToken']
 
-export type VolumeRef = S['VolumeRef']
-export type Geometry = S['Geometry']
 
 /** API-22 item; server defaults make every field present */
 export type ItemRecord = Required<S['Item']>
@@ -72,7 +68,6 @@ export interface CaseDetail {
 }
 
 export type QCWarning = Required<S['QcWarning']>
-export type Severity = S['Severity']
 
 export const CURATION_STATUSES = [
   'not_reviewed',
@@ -89,17 +84,7 @@ export type CurationStatus = (typeof CURATION_STATUSES)[number]
 export const CASE_ROLLUPS = [...CURATION_STATUSES.slice(0, 1), 'partially_reviewed', ...CURATION_STATUSES.slice(1)] as const
 export type CaseRollup = (typeof CASE_ROLLUPS)[number]
 
-// CUR §Status: rollup severity and queue membership
-export const STATUS_SEVERITY: Record<CurationStatus, number> = {
-  rejected: 8,
-  needs_major_correction: 7,
-  wrong_side_suspected: 6,
-  needs_minor_correction: 5,
-  missing: 4,
-  cannot_assess: 3,
-  accepted: 1,
-  not_reviewed: 0,
-}
+// CUR §Status: queue membership
 export const QUEUE_STATUSES: CurationStatus[] = [
   'rejected',
   'needs_major_correction',
@@ -207,7 +192,6 @@ export interface FeatureRow {
 
 /** API-41 job */
 export type Job = Required<S['JobInfo']>
-export type JobKind = Job['kind']
 export type JobStatus = Job['status']
 /** API-40 `job.progress` / `job.finished` payloads */
 export type JobProgress = Pick<Job, 'job_id' | 'kind' | 'done' | 'total' | 'eta_s'>
@@ -217,7 +201,6 @@ export type FsEntry = Required<S['FsEntry']>
 export type FsListing = Omit<S['FsListing'], 'entries' | 'truncated'> & { entries: FsEntry[]; truncated: boolean }
 export type ImportPreview = S['ImportPreview']
 export type ImportHistory = S['ImportHistory']
-export type IndexStatus = S['IndexStatus']
 export type CommitResult = S['CommitResult']
 export type Health = S['Health']
 
@@ -244,7 +227,6 @@ export interface NiftiOptions {
   /** image → mask: the segmentation attached in Open mode (ADR-0027) */
   masks?: Record<string, string> | null
 }
-export type ParsedFile = S['ParsedFile']
 /** API-19 */
 export type DetectResult = S['DetectResult']
 export type DetectCandidate = S['Candidate']
@@ -260,7 +242,6 @@ export type AxisOrder = 'xyz' | 'zyx'
 type WireVariable = S['Variable']
 /** VAR-06 derived definition that no longer builds, with the reason (AUD-A5-08) */
 export type BrokenDerived = S['BrokenDerived']
-export const VARIABLE_TYPES = ['continuous', 'categorical', 'numeric-discrete', 'date', 'identifier', 'text', 'constant'] as const satisfies readonly WireVariable['type'][]
 export type VariableType = WireVariable['type']
 /** Types a user can pick when confirming or overriding an inference (VAR-03; API `VariableOverride.type`) */
 export const OVERRIDE_TYPES = ['continuous', 'categorical', 'date', 'identifier', 'text'] as const satisfies readonly NonNullable<S['VariableOverride']['type']>[]
@@ -333,10 +314,8 @@ export interface ExternalImportResult {
 export type GlobalFilters = S['GlobalFilters']
 export type ColorBy = S['ColorBy']
 export type UnitSpec = S['UnitSpec']
-export type UnitSummary = S['UnitSummary']
 export type TestChoice = S['TestChoice']
 export type ResultRow = S['ResultRow']
-export type DescriptiveRow = S['DescriptiveRow']
 export type Recommendation = S['Recommendation']
 export type AnalysisSpec = S['AnalysisSpec']
 export type Analysis = S['Analysis']
@@ -362,19 +341,6 @@ export interface DashboardViews {
   'phase-side-consistency': { req: Body<S['ConsistencyRequest'], 'feature'>; res: S['ConsistencyResponse'] }
 }
 export type DashboardView = keyof DashboardViews
-export const DASHBOARD_VIEWS = [
-  'run-overview',
-  'feature-distribution',
-  'missing-matrix',
-  'correlation',
-  'embedding',
-  'outliers',
-  'feature-vs-volume',
-  'group-comparison',
-  'association',
-  'balance',
-  'phase-side-consistency',
-] as const satisfies readonly DashboardView[]
 export type ViewRequest<V extends DashboardView> = DashboardViews[V]['req']
 export type ViewResponse<V extends DashboardView> = DashboardViews[V]['res']
 
@@ -409,7 +375,6 @@ export type RootRole = S['PathRoot']['role']
 export type SegmentationSet = S['SegmentationSet']
 export type SegmentationInfo = S['SegmentationInfo']
 export type SegmentationPatch = S['SegmentationPatch']
-export type TaskManifest = S['TaskManifest']
 export type TaskInfo = S['TaskInfo']
 export type TaskList = S['TaskList']
 export type TaskSelection = S['TaskSelection']
@@ -430,10 +395,8 @@ export type SaveOpenBody = S['SaveBody']
 export type SavedOpen = S['Saved']
 
 // ---- P7c: plugins (API-49, PLG-*) ------------------------------------------------------------------
-export type PluginManifest = S['PluginManifest']
 export type PluginInfo = S['PluginInfo']
 export type PluginList = S['PluginList']
-export type PluginStatus = PluginInfo['status']
 /** API-62 workspace tasks (TSK-13) and API-59 layers (ADR-0020) */
 export type WorkspaceRun = S['WorkspaceRun']
 export type WorkspaceRunRequest = S['WorkspaceRunRequest']

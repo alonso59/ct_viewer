@@ -6,8 +6,6 @@ import { useWorkbench } from '../../shell'
 import type { FrontendPlugin } from '../host'
 import { useConverter } from './store'
 
-export { useConverter } from './store'
-
 const Overlay = lazy(() => Promise.all([import('./ConverterOverlay'), import('../../i18n/lazy')]).then(([m]) => m))
 
 function ConverterHost() {
