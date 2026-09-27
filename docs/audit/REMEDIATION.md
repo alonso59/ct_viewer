@@ -33,8 +33,7 @@ Owner decision (2026-09-26): batches run one after another in this session while
 |---|---|---|
 | AUD-A6-06 shared run lifecycle / `tasks/service.py` split | owner 2026-09-26 | with AUD-A4-09 (API-30..37 migration) |
 | AUD-A4-09 migrate frontend to API-42..47, drop API-30..37 aliases | coupled to A6-06 | same batch as A6-06, after FB8 |
-| `DERIVED_HOST` fallback rule (A0-03 open question) | owner: pending with udocker | ROADMAP Step 4 |
-| udocker verification, amd64 image, Dataset820 check (REL-07) | remote server | ROADMAP Step 4 |
+| udocker verification on the server, amd64 image, Dataset820 check (REL-07) | remote server; local udocker simulation passed in FB10 | ROADMAP Step 4 |
 
 ## Owner decisions after FB8 (2026-09-27)
 

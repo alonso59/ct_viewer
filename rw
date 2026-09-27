@@ -1,0 +1,280 @@
+#!/usr/bin/env bash
+# rw: launch the Radiology Workbench image with Docker (compose v2) or udocker (docs/ops/DEPLOYMENT.md).
+# No sudo, POSIX tools only. The runtime is Docker when `docker compose` reaches a daemon, else
+# udocker (`udocker` on PATH or the bundled ./udocker.py); RW_RUNTIME=docker|udocker forces one.
+#
+#   ./rw init [--data DIR] [--derived DIR] [--port N] [--force]   create .env from .env.example
+#   ./rw up                start in the background, wait for /api/v1/health, print the URL
+#   ./rw stop              stop the app
+#   ./rw logs [-f]         last 200 log lines (-f follows)
+#   ./rw status            runtime, config, image, health
+#   ./rw update [TAR|REF]  load an image tar (docker save) or pull REF; no argument: rebuild
+#                          (Docker, repo checkout) or load the newest rw-*.tar here or in build/ (udocker)
+#   ./rw smoke             TST-10 smoke against the running app (creates one smoke project)
+#
+# Env: RW_RUNTIME, RW_ENV (default ./.env), UDOCKER (udocker command), RW_CONTAINER (default rw),
+# RW_WAIT (health wait in seconds, default 120).
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+env_file="${RW_ENV:-$repo/.env}"
+state="$repo/.rw"                 # udocker pid + log (git-ignored)
+name="${RW_CONTAINER:-rw}"
+
+die() { printf 'rw: %s\n' "$1" >&2; [[ -z "${2:-}" ]] || printf '    next: %s\n' "$2" >&2; exit "${3:-1}"; }
+say() { printf 'rw: %s\n' "$*" >&2; }
+usage() { sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+# KEY=VALUE reader for .env (last value wins; quotes and trailing comments stripped; no eval).
+envget() {
+  local v=""
+  [[ -f "$env_file" ]] && v="$(sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$env_file" | tail -n 1)"
+  v="${v%%[[:space:]]#*}"; v="${v%"${v##*[![:space:]]}"}"
+  v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
+  printf '%s' "${v:-${2:-}}"
+}
+pkg_version() { sed -n 's/^version = "\(.*\)"/\1/p' "$repo/backend/pyproject.toml" 2>/dev/null || true; }
+port() { envget PORT 8000; }
+version() { envget RW_VERSION "$(pkg_version)"; }
+image() { printf 'radiology-workbench:%s' "$(version)"; }
+url() { printf 'http://localhost:%s' "$(port)"; }
+
+runtime() {
+  case "${RW_RUNTIME:-}" in
+    docker|udocker) printf '%s' "$RW_RUNTIME"; return ;;
+    "") ;;
+    *) die "RW_RUNTIME must be docker or udocker, not '$RW_RUNTIME'" ;;
+  esac
+  if command -v docker >/dev/null && docker compose version >/dev/null 2>&1 \
+     && docker info >/dev/null 2>&1; then printf docker
+  elif [[ -n "${UDOCKER:-}" ]] || command -v udocker >/dev/null || [[ -f "$repo/udocker.py" ]]; then
+    printf udocker
+  elif command -v docker >/dev/null; then
+    die "Docker is installed but its daemon (or compose v2) is not reachable" \
+      "start Docker, or use udocker (RW_RUNTIME=udocker with udocker on PATH)"
+  else
+    die "neither Docker (compose v2) nor udocker found" "install udocker in your home dir (no sudo) or Docker"
+  fi
+}
+ud() {
+  if [[ -n "${UDOCKER:-}" ]]; then local a; read -r -a a <<< "$UDOCKER"; "${a[@]}" "$@"
+  elif command -v udocker >/dev/null; then udocker "$@"
+  else python3 "$repo/udocker.py" "$@"; fi
+}
+compose() { RW_ENV="$env_file" docker compose --project-directory "$repo" --env-file "$env_file" -f "$repo/docker-compose.yml" "$@"; }
+
+need_env() {
+  [[ -f "$env_file" ]] || die "missing $env_file" "./rw init"
+  local d; d="$(envget DATA_HOST)"
+  [[ "$d" == /* ]] || die "DATA_HOST in $env_file must be an absolute path (got '$d')" "./rw init --force"
+  [[ -d "$d" ]] || die "DATA_HOST does not exist: $d" "fix DATA_HOST in $env_file"
+}
+
+health() {  # prints the health JSON; fails when the app does not answer
+  local u; u="http://127.0.0.1:$(port)/api/v1/health"
+  if command -v curl >/dev/null; then curl -fsS --max-time 4 "$u"
+  else python3 -c 'import sys, urllib.request; print(urllib.request.urlopen(sys.argv[1], timeout=4).read().decode())' "$u"
+  fi 2>/dev/null
+}
+
+wait_health() {
+  local i
+  for ((i = 0; i < ${RW_WAIT:-120}; i++)); do
+    if health >/dev/null; then return 0; fi
+    if [[ "$1" == udocker ]] && ! udocker_pid >/dev/null; then return 1; fi
+    sleep 1
+  done
+  return 1
+}
+
+alive() { kill -0 -- "-$1" 2>/dev/null || kill -0 "$1" 2>/dev/null; }  # process group or pid
+
+udocker_pid() {  # prints the pid of a running `./rw up` under udocker
+  local p
+  [[ -f "$state/rw.pid" ]] || return 1
+  p="$(cat "$state/rw.pid")"
+  [[ -n "$p" ]] && alive "$p" && printf '%s' "$p"
+}
+
+cmd_init() {
+  local data="" derived="" port_="" force=0 example="$repo/.env.example"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --data) data="$2"; shift 2 ;;
+      --derived) derived="$2"; shift 2 ;;
+      --port) port_="$2"; shift 2 ;;
+      --force) force=1; shift ;;
+      *) die "unknown init argument: $1" "./rw help" 2 ;;
+    esac
+  done
+  if [[ -f "$env_file" && $force -eq 0 ]]; then
+    say "$env_file already exists; nothing changed (./rw init --force rewrites it)"
+    return 0
+  fi
+  [[ -f "$example" ]] || die "missing $example"
+  if [[ -z "$data" ]]; then
+    [[ -t 0 ]] || die "DATA_HOST is required" "./rw init --data /absolute/path/to/data" 2
+    read -r -p "DATA_HOST (absolute folder with the source images, mounted read-only): " data
+    read -r -p "DERIVED_HOST (absolute folder for task outputs; empty = ./derived -> /derived): " derived
+    read -r -p "PORT [8000]: " port_
+  fi
+  [[ "$data" == /* && -d "$data" ]] || die "DATA_HOST must be an existing absolute folder: '$data'" "" 2
+  if [[ -n "$derived" ]]; then
+    [[ "$derived" == /* ]] || die "DERIVED_HOST must be an absolute path: '$derived'" "" 2
+    case "$derived/" in "$data"/*) die "DERIVED_HOST must be outside DATA_HOST (OPS-12)" "" 2 ;; esac
+    case "$data/" in "$derived"/*) die "DATA_HOST must be outside DERIVED_HOST (OPS-12)" "" 2 ;; esac
+  fi
+  port_="${port_:-8000}"
+  [[ "$port_" =~ ^[0-9]+$ && "$port_" -ge 1024 && "$port_" -le 65535 ]] || die "PORT must be 1024-65535" "" 2
+  local tmp="$env_file.tmp.$$"
+  awk -v data="$data" -v derived="$derived" -v port="$port_" -v ver="$(pkg_version)" '
+    /^DATA_HOST=/ { print "DATA_HOST=" data; next }
+    /^# ?DERIVED_HOST=/ && derived != "" { print "DERIVED_HOST=" derived; next }
+    /^PORT=/ { print "PORT=" port; next }
+    /^RW_VERSION=/ && ver != "" { print "RW_VERSION=" ver; next }
+    { print }' "$example" > "$tmp"
+  mv "$tmp" "$env_file"
+  say "wrote $env_file (DATA_HOST=$data, PORT=$port_${derived:+, DERIVED_HOST=$derived})"
+  say "next: ./rw up"
+}
+
+cmd_up() {
+  need_env
+  local rt; rt="$(runtime)"
+  if health >/dev/null; then say "already running: $(url)"; return 0; fi
+  if [[ "$rt" == docker ]]; then
+    compose up -d || die "docker compose up failed" "./rw logs"
+  else
+    udocker_pid >/dev/null && die "udocker run is up but not healthy yet" "./rw logs, or ./rw stop and retry"
+    ud images 2>/dev/null | grep -q "$(image)" \
+      || die "image $(image) is not loaded in udocker" "./rw update rw-$(version).tar (made with docker save)"
+    mkdir -p "$state"
+    # Job control gives the background job its own process group (pgid = pid), so `stop` reaches
+    # every process udocker starts (proot / fakechroot children, uvicorn workers).
+    set -m
+    RW_CONTAINER="$name" nohup "$repo/scripts/udocker-run.sh" --env-file "$env_file" \
+      > "$state/rw.log" 2>&1 < /dev/null &
+    set +m
+    echo $! > "$state/rw.pid"
+  fi
+  say "waiting for $(url)/api/v1/health (up to ${RW_WAIT:-120} s)"
+  if ! wait_health "$rt"; then
+    cmd_logs 2>/dev/null | tail -n 20 >&2 || true
+    die "the app did not become healthy" "./rw logs; check $env_file; ./rw stop"
+  fi
+  say "Radiology Workbench is up: $(url)"
+  say "on a remote server, open it through the VS Code Ports view (port $(port))"
+}
+
+cmd_stop() {
+  local rt; rt="$(runtime)"
+  if [[ "$rt" == docker ]]; then
+    [[ -f "$env_file" ]] || die "missing $env_file" "./rw init"
+    compose down
+    return
+  fi
+  local p
+  if ! p="$(udocker_pid)"; then say "not running (udocker)"; rm -f "$state/rw.pid"; return 0; fi
+  kill -TERM -- "-$p" 2>/dev/null || kill -TERM "$p"
+  local i
+  for ((i = 0; i < 30; i++)); do alive "$p" || break; sleep 0.5; done
+  if alive "$p"; then
+    kill -KILL -- "-$p" 2>/dev/null || kill -KILL "$p"
+    for ((i = 0; i < 10; i++)); do alive "$p" || break; sleep 0.5; done
+  fi
+  rm -f "$state/rw.pid"
+  say "stopped"
+}
+
+cmd_logs() {
+  local follow=()
+  [[ "${1:-}" == -f ]] && follow=(-f)
+  if [[ "$(runtime)" == docker ]]; then compose logs --tail=200 ${follow[@]+"${follow[@]}"}
+  else
+    [[ -f "$state/rw.log" ]] || die "no log yet" "./rw up"
+    tail -n 200 ${follow[@]+"${follow[@]}"} "$state/rw.log"
+  fi
+}
+
+cmd_status() {
+  local rt; rt="$(runtime)"
+  echo "runtime  $rt"
+  if [[ -f "$env_file" ]]; then echo "config   $env_file (DATA_HOST=$(envget DATA_HOST), PORT=$(port))"
+  else echo "config   missing (./rw init)"; fi
+  if [[ "$rt" == docker ]]; then
+    docker image inspect "$(image)" >/dev/null 2>&1 && echo "image    $(image)" || echo "image    $(image) not built (./rw up builds it)"
+  else
+    ud images 2>/dev/null | grep -q "$(image)" && echo "image    $(image)" || echo "image    $(image) not loaded (./rw update TAR)"
+  fi
+  local h
+  if h="$(health)"; then echo "health   ok $h"; echo "url      $(url)"
+  else echo "health   not running"; return 3; fi
+}
+
+cmd_update() {
+  local src="${1:-}" rt tag="" was_up=0; rt="$(runtime)"
+  health >/dev/null && was_up=1
+  if [[ -z "$src" && "$rt" == udocker ]]; then
+    src="$(ls -t "$repo"/rw-*.tar "$repo"/build/rw-*.tar 2>/dev/null | head -n 1 || true)"
+    [[ -n "$src" ]] || die "no image tar given" "./rw update /path/to/rw-<version>.tar (docker save on a build machine)" 2
+  fi
+  if [[ -n "$src" && -f "$src" ]]; then
+    # RepoTags from the tar's manifest.json (docker save), so .env can follow the new version.
+    tag="$(tar -xOf "$src" manifest.json 2>/dev/null | grep -o 'radiology-workbench:[^"]*' | head -n 1 || true)"
+    # udocker names an OCI-layout tar (containerd store) by a random hash unless given the repo.
+    if [[ "$rt" == docker ]]; then docker load -i "$src"
+    else  # udocker 1.3 cannot follow every OCI index docker save writes: flatten it first
+      local flat="$src.udocker-$$" rc=0
+      python3 "$repo/scripts/oci_tar_normalize.py" "$src" "$flat" || rc=$?
+      case $rc in
+        0) ud load -i "$flat" radiology-workbench || { rm -f "$flat"; die "udocker load failed"; }; rm -f "$flat" ;;
+        3) ud load -i "$src" radiology-workbench || die "udocker load failed" ;;
+        *) rm -f "$flat"; die "cannot read image tar $src" "re-create it with: docker save radiology-workbench:<version> -o rw-<version>.tar" ;;
+      esac
+    fi
+  elif [[ -n "$src" ]]; then
+    tag="$src"
+    if [[ "$rt" == docker ]]; then docker pull "$src"; else ud pull "$src"; fi
+  else
+    [[ -f "$repo/Dockerfile" ]] || die "no Dockerfile here" "./rw update rw-<version>.tar" 2
+    compose build
+  fi
+  if [[ -n "$tag" && "$tag" == radiology-workbench:* && -f "$env_file" ]]; then
+    local v="${tag#radiology-workbench:}"
+    if [[ "$v" != "$(version)" ]]; then
+      local tmp="$env_file.tmp.$$"
+      if grep -q '^RW_VERSION=' "$env_file"; then sed "s/^RW_VERSION=.*/RW_VERSION=$v/" "$env_file" > "$tmp"
+      else { cat "$env_file"; echo "RW_VERSION=$v"; } > "$tmp"; fi
+      mv "$tmp" "$env_file"
+      say "RW_VERSION=$v in $env_file"
+    fi
+  fi
+  if [[ "$rt" == udocker ]]; then  # the container is bound to its image: recreate it on next run
+    cmd_stop >/dev/null
+    ud rm "$name" >/dev/null 2>&1 || true
+  fi
+  if [[ $was_up -eq 1 ]]; then
+    [[ "$rt" == docker ]] && compose down
+    cmd_up
+  else
+    say "updated; next: ./rw up"
+  fi
+}
+
+cmd_smoke() {
+  need_env
+  health >/dev/null || die "the app is not running" "./rw up"
+  python3 "$repo/scripts/container_smoke.py" --url "http://127.0.0.1:$(port)" --root "$(envget DATA_HOST)"
+}
+
+case "${1:-help}" in
+  init) shift; cmd_init "$@" ;;
+  up|start) cmd_up ;;
+  stop|down) cmd_stop ;;
+  logs) shift; cmd_logs "$@" ;;
+  status) cmd_status ;;
+  update) shift; cmd_update "$@" ;;
+  smoke) cmd_smoke ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

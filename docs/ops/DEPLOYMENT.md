@@ -43,42 +43,52 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | `PLUGINS_ROOT` | *(empty)* | Read-only dir of external task manifests (TSK-01); the runner uses the same dir on the host |
 | `BUILTIN_PLUGINS_ROOT` | `plugins/` next to `backend/` (`/app/plugins` in the image) | Builtin task plugins (converter, analyzers); normally left unset |
 
+## Quick start (`./rw`)
+
+`./rw` (repo root, bash, no sudo) is the one launcher for both runtimes. It uses Docker when `docker compose` (v2) reaches a daemon, else udocker (`udocker` on `PATH` or the bundled `./udocker.py`); `RW_RUNTIME=docker|udocker` forces one. `./rw help` lists the options.
+
+```bash
+./rw init                 # writes .env from .env.example; asks DATA_HOST, optional DERIVED_HOST, PORT
+./rw up                   # starts in the background, waits for /api/v1/health, prints the URL
+./rw status | logs [-f] | stop
+./rw update rw-{version}.tar   # load a new image (docker save) and restart; ./rw update REF pulls
+./rw smoke                # TST-10 against the running app (adds one smoke project to the workspace)
+```
+
+`make up` / `make down` / `make logs` wrap it. Every command is idempotent (`init` never overwrites `.env` without `--force`; `up` on a healthy app only prints the URL). On a remote server, open the printed port through the VS Code Ports view (AGENTS R7). Under Docker, `./rw up` is `docker compose up -d` (compose builds the image when it is missing); under udocker it runs `scripts/udocker-run.sh` in the background (pid and log in `.rw/`, git-ignored).
+
 ## Docker (local machine)
 
-```yaml
-# docker-compose.yml (sketch)
-services:
-  app:
-    image: radiology-workbench:${RW_VERSION}
-    build: .
-    ports: ["127.0.0.1:${PORT:-8000}:8000"]
-    env_file: .env
-    volumes:
-      - ${WORKSPACE_HOST:-./workspace}:/workspace
-      - ${DATA_HOST}:${DATA_HOST}:ro        # mirror mount (OPS-05)
-      - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived}  # writable mirror mount (OPS-11)
-      - ${PLUGINS_HOST:-./plugins-external}:/plugins:ro     # external task manifests (PLUGINS_ROOT)
-```
+`docker-compose.yml` is the Docker run definition (plain compose v2, R3): `.env` as `env_file`, the container-side paths fixed in `environment:`, the mirror mounts of OPS-05/OPS-11 and `127.0.0.1:${PORT}` published. `tests/test_udocker_run.py` checks that `udocker-run.sh` resolves the same environment and volumes.
+
+**Derived roots (owner decision 2026-09-27):** the default stays `./derived` (next to `.env`) mounted at `/derived` for both compose and udocker, so `ALLOWED_DERIVED_ROOTS=/derived`; set `DERIVED_HOST` to an absolute path to mirror-mount it instead. The external runner (nnU-Net, OPS-13) is out of scope for this default: it lives on the remote server where the repo is installed, and is configured there.
 
 ## udocker (remote server, no sudo)
 
-udocker cannot build images. Build with Docker elsewhere, then transfer the tar or pull from a registry:
+udocker cannot build images. Build with Docker elsewhere (`make image PLATFORM=linux/amd64` for an amd64 server), then transfer the tar:
 
 ```bash
-docker save radiology-workbench:{version} -o rw-{version}.tar  # on the build machine
-udocker load -i rw-{version}.tar                               # on the server
-udocker create --name=rw radiology-workbench:{version}
-./scripts/udocker-run.sh                                   # wraps: udocker run --volume=… --env=… rw
+make image-tar                 # on the build machine: docker save -> build/rw-{version}.tar
+./rw update rw-{version}.tar   # on the server: normalize + udocker load (see the first note)
+./rw init && ./rw up           # runs scripts/udocker-run.sh (creates the container `rw` on first run)
 ```
 
 | Note | Consequence |
 |---|---|
+| `docker save` from the containerd image store writes an OCI-layout tar; BuildKit nests the image in a second index (provenance attestation) | udocker 1.3 cannot follow that index and names OCI images by a random hash. `./rw update` first runs `scripts/oci_tar_normalize.py` (flat index, attestations dropped, blobs unchanged; needs free disk for one tar copy), then `udocker load -i FILE radiology-workbench` |
+| udocker needs `curl` (or pycurl) even offline, and fetches its engine tarball (proot, patchelf) on first use | Most servers have `curl`. Offline: copy `udocker-englib-*.tar.gz` and set `UDOCKER_TARBALL=/path/to/it` before the first run |
 | udocker does not isolate the network: the process binds host ports directly | Use `HOST=127.0.0.1` and let VS Code forward the port; `-p` mapping is not relied on |
 | Mount `:ro` is not guaranteed under every execution mode | Source safety is enforced by the app (BE-02/03), not the mount |
-| Execution mode affects I/O speed (`P1` default vs `F3`) | Benchmark in P7; document the chosen mode in the run script |
+| Execution mode: `P1` (proot, default) or `F3` (fakechroot, set `UDOCKER_EXECMODE=F3`) | Both pass the local simulation below; `F3` needs a username for the invoking uid (a normal server account has one). Benchmark I/O on the real server (Step 4) |
 | No compose | `udocker-run.sh` is the single source of the run command (OPS-09) |
 | Runs as the invoking user | `WORKSPACE_ROOT` must be writable by that user |
-| External tasks | Compose and `udocker-run.sh` both mount `PLUGINS_HOST` at `/plugins` (`PLUGINS_ROOT`) and `DERIVED_HOST` writable at the same path (default `./derived` → `/derived`, then `ALLOWED_DERIVED_ROOTS=/derived`); udocker volumes carry no read-only flag. Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
+| External tasks | Compose and `udocker-run.sh` both mount `PLUGINS_HOST` at `/plugins` (`PLUGINS_ROOT`) and the derived folder writable (§Docker); udocker volumes carry no read-only flag. Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
+
+### Local udocker simulation (`make udocker-selftest`)
+
+`scripts/udocker-selftest.sh` checks the udocker path without a server: it saves the image into a named volume of a throwaway Linux container (`python:3.12-slim` + `curl`, same architecture), and as uid 10001 with no sudo it installs udocker from `./udocker.py`, runs `./rw update` (udocker load), `./rw up` (→ `udocker-run.sh`), `scripts/container_smoke.py`, a source-hash check (R1) and `./rw stop`, once per mode in `EXECMODES` (default `P1 F3`). Only Docker is needed on the host (named volumes + `docker cp`, no bind mounts); the udocker engine tarball is downloaded once into `build/udocker-selftest/`.
+
+Result 2026-09-27 (linux/arm64 under colima, default Docker seccomp profile, no extra capabilities): **P1 pass** (healthy after ~13 s, TST-10 in 3 s), **F3 pass** (healthy after ~12 s including the F3 setup, TST-10 in 1 s); 191 source files unchanged. P1 (proot/ptrace) needed no `--cap-add SYS_PTRACE` or `seccomp=unconfined` on the outer container; if a stricter Docker host blocks ptrace, pass them through `OUTER_OPTS` (outer test container only; a real server has no such limit). The real remote check (amd64, real data, I/O benchmark) stays open (REL-07).
 
 ## Electron (phase P8)
 
@@ -87,7 +97,7 @@ The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or
 ## Implementation notes (P7-prep)
 
 - Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker); P7b adds `DERIVED_HOST`, `PLUGINS_HOST`.
-- Image: 956 MB uncompressed on linux/arm64 after P7b (plugins, pydicom, SimpleITK in the core; 947 MB before, 265 MB compressed); 935 MB (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
+- Image: 897 MB uncompressed on linux/arm64 after FB10 (956 MB before: the build stage now drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 956 MB after P7b (plugins, pydicom, SimpleITK in the core; 947 MB before, 265 MB compressed); 935 MB (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
 - Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).
 - Build for the server's architecture: `make image PLATFORM=linux/amd64` on an Apple Silicon Mac. The tag carries no architecture, so a second build for another platform replaces the first under the same tag.

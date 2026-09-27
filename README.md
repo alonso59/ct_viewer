@@ -22,28 +22,19 @@ make dev-frontend   # terminal 2: UI on 127.0.0.1:5173
 Remote servers without sudo: activate the conda env, then `make setup-backend VENV=$CONDA_PREFIX`,
 `make setup-node` once, and use `RUNTIME=udocker` for frontend targets. See [docs/ops/DEV_ENV.md](docs/ops/DEV_ENV.md).
 
-## Quick start (Docker)
+## Quick start (run the image)
 
-One image serves the API and the UI on one port ([docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)).
-
-```bash
-cp .env.example .env    # set DATA_HOST and ALLOWED_DATA_ROOTS (absolute paths)
-docker compose up --build
-# open http://localhost:8000
-```
-
-Data is mounted read-only at the same path as on the host; projects live in `WORKSPACE_HOST`
-(default `./workspace`). Smoke test of a built image (TST-10): `make fixtures && scripts/container-smoke.sh`.
-
-## Remote server (udocker, no sudo)
-
-udocker cannot build images: build and `docker save radiology-workbench:3.0.0 -o rw-3.0.0.tar` on a
-Docker machine, copy the tar over, then:
+One image serves the API and the UI on one port. `./rw` runs it with Docker (compose v2) or, on a
+server without sudo, udocker ([docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)).
 
 ```bash
-udocker load -i rw-3.0.0.tar   # or: python3 udocker.py load … (bundled copy)
-cp .env.example .env    # same file as for compose
-scripts/udocker-run.sh  # binds 127.0.0.1:$PORT; VS Code forwards the port
+./rw init    # writes .env: asks DATA_HOST (absolute), optional DERIVED_HOST and PORT
+./rw up      # starts, waits for health, prints the URL (default http://localhost:8000)
+./rw stop    # also: ./rw status | logs | update rw-<version>.tar | smoke
 ```
+
+udocker cannot build images: run `make image image-tar` on a Docker machine, copy
+`build/rw-<version>.tar` to the server, then `./rw update rw-<version>.tar`.
+On a remote server, VS Code forwards the port.
 
 Research use only; not a medical device.

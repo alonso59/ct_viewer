@@ -1,11 +1,12 @@
-# Local Docker run (docs/ops/DEPLOYMENT.md). udocker equivalent: scripts/udocker-run.sh (OPS-09).
-#   cp .env.example .env   # set DATA_HOST and ALLOWED_DATA_ROOTS
-#   docker compose up --build
+# Docker run (docs/ops/DEPLOYMENT.md). udocker equivalent: scripts/udocker-run.sh (OPS-09).
+#   ./rw init && ./rw up     # or: cp .env.example .env (set DATA_HOST); docker compose up -d --build
+# Plain compose v2 file: nothing here is needed by the image itself (R3); tests/test_udocker_run.py
+# checks that udocker-run.sh resolves the same environment and volumes.
 services:
   app:
     image: radiology-workbench:${RW_VERSION:-3.0.0.dev0} # = backend/pyproject.toml version
     build: .
-    env_file: .env
+    env_file: ${RW_ENV:-.env} # ./rw sets RW_ENV when started with another env file
     # These win over .env: container-side paths and bind address are fixed by the image contract.
     environment:
       HOST: 0.0.0.0

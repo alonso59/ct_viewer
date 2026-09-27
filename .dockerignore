@@ -1,4 +1,5 @@
-# Allowlist: the image needs only the backend, the frontend sources and the container entry point.
+# Allowlist: the image needs only the backend, the frontend sources and the container entry point
+# (Dockerfile). Everything else (fixtures, legacy/, docs, udocker, workspaces) stays out of the context.
 *
 !backend/pyproject.toml
 !backend/app/
@@ -7,6 +8,7 @@
 !scripts/container_app.py
 !plugins/
 
+# Never in the image: bytecode, OS files, build output, dev-only frontend files (tests, E2E, reports).
 **/__pycache__
 **/*.py[cod]
 **/.DS_Store
@@ -16,3 +18,7 @@ frontend/.vite
 frontend/e2e
 frontend/playwright-report
 frontend/test-results
+frontend/coverage
+frontend/**/*.test.ts
+frontend/**/*.test.tsx
+frontend/**/CLAUDE.md

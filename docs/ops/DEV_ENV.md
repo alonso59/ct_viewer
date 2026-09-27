@@ -13,6 +13,8 @@ Depends: DEPLOYMENT.md.
 
 ## Make targets (runtime-agnostic)
 
+`make help` lists them by group (setup, dev, check, E2E, docs, image, deploy).
+
 `RUNTIME=docker|udocker|native` selects how Node commands run (default: `native` locally, `udocker` if `node` is missing).
 
 | Target | Does |
@@ -32,8 +34,10 @@ Depends: DEPLOYMENT.md.
 | `make e2e-one SPEC=…` | One spec in one browser (Chromium unless `PROJECT=`) |
 | `make e2e-servers` | The E2E backend + web server in the foreground; then `E2E_REUSE=1 make e2e-one SPEC=…` reuses them |
 | `make record-mock` | Re-record the mock API from the backend on the fixtures (TESTING §Mock API) |
-| `make image` | Build the OCI image (Docker only) |
-| `make udocker-run` | `scripts/udocker-run.sh` |
+| `make image` · `make image-tar` · `make container-smoke` | Build the OCI image (Docker only) · `docker save` it to `build/rw-{version}.tar` · TST-10 against it |
+| `make udocker-selftest` | The image under udocker as a non-root user in a throwaway container (DEPLOYMENT §udocker) |
+| `make up` · `make down` · `make logs` | `./rw up` · `./rw stop` · `./rw logs` (DEPLOYMENT §Quick start) |
+| `make udocker-run` | `scripts/udocker-run.sh` in the foreground |
 | `make reqs` | Requirement tables check (part of `make check`; SRS §1.5) |
 | `make docs` · `make docs-srs` · `make trace` | Docs site → `build/docs/` (pinned Sphinx via `uvx`) · SRS review table → `build/docs-srs/` · ID → code/test citations → `build/trace/` |
 

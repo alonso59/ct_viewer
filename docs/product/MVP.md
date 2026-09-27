@@ -30,7 +30,7 @@ REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make
 | REL-04 | NFR-07 initial JS within budget, enforced by a gate | `make bundle-size` (in `make check`) | pass: 227.0 KiB of 400, +0.0 against the baseline (FB9; gate since FB8, AUD-A0-01) |
 | REL-05 | NFR-10 image size | `make image`, `docker image ls` | pass (arm64 947 MB, amd64 935 MB) |
 | REL-06 | NFR-11, NFR-12, NFR-16, NFR-17 verified | TST-07, network allowlist spec, About | pass: TST-07 hook; `e2e/network-allowlist.spec.ts` green in Chromium + Firefox (FB7, AUD-A4-02); About with "Research use only" (FB3, AUD-A4-05) |
-| REL-07 | TST-10 under Docker and under udocker on the remote server: ROADMAP P7 remaining items and Step 4 (amd64 image, Dataset820 import check, IBSI phantom smoke in the Linux image) | `make container-smoke`, `scripts/udocker-run.sh` | Docker pass; udocker open |
+| REL-07 | TST-10 under Docker and under udocker on the remote server: ROADMAP P7 remaining items and Step 4 (amd64 image, Dataset820 import check, IBSI phantom smoke in the Linux image) | `make container-smoke`, `make udocker-selftest`, `scripts/udocker-run.sh` | Docker pass; udocker local simulation pass 2026-09-27 (P1 and F3, non-root, no sudo; DEPLOYMENT §udocker); remote server check open |
 | REL-08 | Docs site builds with no warnings; requirement check has no errors | `make docs`, `make docs-srs` | pass |
 | REL-09 | Version set in `backend/pyproject.toml`, git tag `v3.0.0`, one release note line in ROADMAP | manual | open |
 

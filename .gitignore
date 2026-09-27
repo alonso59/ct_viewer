@@ -43,3 +43,5 @@ LANE_NOTES.local.md
 
 # Legacy code: reference only, read-only, safe to delete (tag legacy-reference keeps the tracked v2 copy)
 /legacy/
+.rw/
+/rw-*.tar

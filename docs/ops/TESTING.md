@@ -15,7 +15,7 @@ Depends: all domain docs.
 | TST-07 | Source immutability | pytest / E2E hook | SHA-256 of every fixture source file before and after the full E2E suite must match (R1); derived writes only inside run folders / append-only datasets. E2E: `e2e/tst07.ts` (global setup) + `e2e/tst07-teardown.ts` |
 | TST-08 | Multi-user | Playwright (2 contexts) + Vitest | CUR-11 SSE sync, CUR-12 last-writer-wins; the API-40 handler on a real QueryClient (first-load race, per-set rows, reconnect `reset`: `api/liveState.test.ts`) |
 | TST-09 | Performance | scripted bench | NFR-01..05 on the reference volume |
-| TST-10 | Container smoke | `scripts/container-smoke.sh` (Docker), `scripts/container_smoke.py --url … --root …` (udocker) | Image boots under Docker and udocker; health OK; one item viewable |
+| TST-10 | Container smoke | `scripts/container-smoke.sh` (Docker), `scripts/container_smoke.py --url … --root …` (udocker; `./rw smoke`), `scripts/udocker-selftest.sh` (udocker simulated in Docker) | Image boots under Docker and udocker; health OK; one item viewable |
 | TST-11 | Fixtures | `make fixtures` | Synthetic dataset (below) |
 | TST-12 | Statistics | pytest vs SciPy/statsmodels reference | ANA test choice, p/q/effect sizes, each REC rule triggered by a fixture |
 | TST-13 | Orientation | pytest | A synthetic DICOM series and NumPy `xyz`/`zyx` arrays with an asymmetric marker (known L/A/S voxel) convert to NIfTI with the marker at the expected RAS mm (NFR-18) |
