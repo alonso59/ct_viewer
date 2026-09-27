@@ -1,4 +1,4 @@
-"""Radiomics payloads and persisted records (RADIOMICS.md, DATA_MODEL.md, API-30..37).
+"""Radiomics payloads and records (RADIOMICS.md, DATA_MODEL.md; API-30/32/36, API-43..47).
 
 Settings are engine-agnostic in shape: `image_types` (filter → params), `features`
 (class → feature names) and `settings` (engine option → value). Option names inside are the
@@ -108,7 +108,7 @@ class SettingsSchema(BaseModel):
     defaults: RadiomicsSettings
 
 
-# -- validation (API-31, RAD-04) ------------------------------------------------------------
+# -- validation (API-43, RAD-04) ------------------------------------------------------------
 
 
 class Issue(BaseModel):
@@ -158,7 +158,7 @@ class ProfilePatch(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
-# -- selection / estimate / runs (API-33..37, RAD-05..11) -----------------------------------
+# -- selection / estimate / runs (API-44..47, RAD-05..11) -----------------------------------
 
 
 class SelectionFilter(BaseModel):

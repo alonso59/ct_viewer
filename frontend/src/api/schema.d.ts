@@ -1056,26 +1056,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/radiomics/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate Settings
-         * @description API-31 (RAD-04): issues (errors + the normalize/HU warning) with field locations.
-         */
-        post: operations["validate_settings_api_v1_radiomics_validate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/projects/{pid}/radiomics/profiles": {
         parameters: {
             query?: never;
@@ -1124,110 +1104,6 @@ export interface paths {
         patch: operations["rename_profile_api_v1_projects__pid__radiomics_profiles__phash__patch"];
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Estimate
-         * @description API-33 (RAD-11): n_items x n_labels and time per item from a 3-item worker sample.
-         */
-        post: operations["estimate_api_v1_projects__pid__radiomics_estimate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{pid}/radiomics/runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Runs
-         * @description API-34: runs, newest first; stale `running` runs are reported `interrupted` (BE-06).
-         */
-        get: operations["list_runs_api_v1_projects__pid__radiomics_runs_get"];
-        put?: never;
-        /**
-         * Start Run
-         * @description API-34 (RAD-05/06/09): validate and start a background run. 428 without `X-Reviewer`.
-         */
-        post: operations["start_run_api_v1_projects__pid__radiomics_runs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Run
-         * @description API-34 (RAD-09): the run record plus live progress while its job runs.
-         */
-        get: operations["get_run_api_v1_projects__pid__radiomics_runs__rid__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel Run
-         * @description API-35 (RAD-06): cancel; idempotent for finished runs.
-         */
-        post: operations["cancel_run_api_v1_projects__pid__radiomics_runs__rid__cancel_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resume Run
-         * @description API-35 (RAD-08): resume an interrupted/cancelled/failed run, skipping finished parts.
-         */
-        post: operations["resume_run_api_v1_projects__pid__radiomics_runs__rid__resume_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/projects/{pid}/radiomics/runs/{rid}/features": {
         parameters: {
             query?: never;
@@ -1240,26 +1116,6 @@ export interface paths {
          * @description API-36 (RAD-10, UI-14): long or wide features as JSON, CSV or Parquet.
          */
         get: operations["get_features_api_v1_projects__pid__radiomics_runs__rid__features_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/errors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Errors
-         * @description API-37 (RAD-07): per-item failures and label-absent skips.
-         */
-        get: operations["get_errors_api_v1_projects__pid__radiomics_runs__rid__errors_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3157,13 +3013,6 @@ export interface components {
             /** Version */
             version: string;
         };
-        /** EstimateRequest */
-        EstimateRequest: {
-            /** Profile Hash */
-            profile_hash?: string | null;
-            settings?: components["schemas"]["RadiomicsSettings"] | null;
-            selection: components["schemas"]["Selection"];
-        };
         /** EstimateResult */
         EstimateResult: {
             /** N Items */
@@ -4492,24 +4341,6 @@ export interface components {
             /** Total */
             total: number;
         };
-        /** Page[RunError] */
-        Page_RunError_: {
-            /** Items */
-            items: components["schemas"]["app__radiomics__models__RunError"][];
-            /** Next Cursor */
-            next_cursor?: string | null;
-            /** Total */
-            total: number;
-        };
-        /** Page[RunSummary] */
-        Page_RunSummary_: {
-            /** Items */
-            items: components["schemas"]["RunSummary"][];
-            /** Next Cursor */
-            next_cursor?: string | null;
-            /** Total */
-            total: number;
-        };
         /** PairPoint */
         PairPoint: {
             /** Case Id */
@@ -5391,15 +5222,6 @@ export interface components {
             /** Eta S */
             eta_s?: number | null;
         };
-        /** RunRequest */
-        RunRequest: {
-            /** Name */
-            name?: string | null;
-            /** Profile Hash */
-            profile_hash?: string | null;
-            settings?: components["schemas"]["RadiomicsSettings"] | null;
-            selection: components["schemas"]["Selection"];
-        };
         /** RunSelection */
         RunSelection: {
             /** Scope */
@@ -5622,35 +5444,6 @@ export interface components {
             created_at: string;
         };
         /**
-         * Selection
-         * @description All active items (default) / explicit `item_ids` / `filter`; plus scope and labels.
-         */
-        Selection: {
-            /** Item Ids */
-            item_ids?: string[] | null;
-            filter?: components["schemas"]["SelectionFilter"] | null;
-            /** Scope */
-            scope?: ("complete" | "voi") | null;
-            /** Labels */
-            labels?: number[];
-            /** Seg Id */
-            seg_id?: string | null;
-        };
-        /**
-         * SelectionFilter
-         * @description RAD-05 filter: values OR within a field, AND across fields; `var` as VAR-10.
-         */
-        SelectionFilter: {
-            /** Phase */
-            phase?: string[] | null;
-            /** Side */
-            side?: ("L" | "R" | "-")[] | null;
-            /** Var */
-            var?: {
-                [key: string]: string[];
-            } | null;
-        };
-        /**
          * SeriesPlan
          * @description One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why.
          */
@@ -5865,6 +5658,7 @@ export interface components {
              * @default false
              */
             series_truncated: boolean;
+            radiomics?: components["schemas"]["EstimateResult"] | null;
         };
         /**
          * TaskInfo
@@ -5907,6 +5701,7 @@ export interface components {
              * @default
              */
             message: string;
+            radiomics?: components["schemas"]["app__radiomics__models__RunError"] | null;
         };
         /** TaskList */
         TaskList: {
@@ -6065,8 +5860,7 @@ export interface components {
              */
             attempts: number;
             progress?: components["schemas"]["TaskRunProgress"] | null;
-            /** Detail Url */
-            detail_url?: string | null;
+            radiomics?: components["schemas"]["RunDetail"] | null;
         };
         /** TaskRunInput */
         TaskRunInput: {
@@ -6078,6 +5872,36 @@ export interface components {
             seg_id?: string | null;
             /** Mask Fp */
             mask_fp?: string | null;
+        };
+        /**
+         * TaskRunListItem
+         * @description API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13).
+         */
+        TaskRunListItem: {
+            /** Run Id */
+            run_id: string;
+            task: components["schemas"]["TaskRef"];
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            counts?: components["schemas"]["TaskRunCounts"];
+            /** Error */
+            error?: string | null;
+            radiomics?: components["schemas"]["RunSummary"] | null;
         };
         /**
          * TaskRunOutput
@@ -6130,32 +5954,6 @@ export interface components {
              */
             status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
         };
-        /** TaskRunSummary */
-        TaskRunSummary: {
-            /** Run Id */
-            run_id: string;
-            task: components["schemas"]["TaskRef"];
-            /** Name */
-            name: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
-            /** Created At */
-            created_at: string;
-            /** Started At */
-            started_at?: string | null;
-            /** Finished At */
-            finished_at?: string | null;
-            /** Reviewer */
-            reviewer?: string | null;
-            /** Job Id */
-            job_id?: string | null;
-            counts?: components["schemas"]["TaskRunCounts"];
-            /** Error */
-            error?: string | null;
-        };
         /**
          * TaskSelection
          * @description TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels.
@@ -6190,6 +5988,10 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
+            /** Labels */
+            labels?: number[] | null;
+            /** N Items */
+            n_items?: number | null;
         };
         /** TaskValidateResult */
         TaskValidateResult: {
@@ -6203,6 +6005,7 @@ export interface components {
             } | null;
             /** Settings Hash */
             settings_hash?: string | null;
+            radiomics?: components["schemas"]["ValidateResult"] | null;
         };
         /**
          * TestChoice
@@ -6327,20 +6130,6 @@ export interface components {
             review_id?: string | null;
             /** Reason */
             reason: string;
-        };
-        /** ValidateRequest */
-        ValidateRequest: {
-            settings?: components["schemas"]["RadiomicsSettings"];
-            /**
-             * Labels
-             * @description Selected labels (optional)
-             */
-            labels?: number[] | null;
-            /**
-             * N Items
-             * @description Selected item count (optional)
-             */
-            n_items?: number | null;
         };
         /** ValidateResult */
         ValidateResult: {
@@ -8795,39 +8584,6 @@ export interface operations {
             };
         };
     };
-    validate_settings_api_v1_radiomics_validate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ValidateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ValidateResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_profiles_api_v1_projects__pid__radiomics_profiles_get: {
         parameters: {
             query?: {
@@ -8979,210 +8735,6 @@ export interface operations {
             };
         };
     };
-    estimate_api_v1_projects__pid__radiomics_estimate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pid: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EstimateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EstimateResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_runs_api_v1_projects__pid__radiomics_runs_get: {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from `next_cursor` */
-                cursor?: string | null;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                pid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_RunSummary_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    start_run_api_v1_projects__pid__radiomics_runs_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Reviewer name or initials; recorded in run.json (RAD-09) */
-                "x-reviewer"?: string | null;
-            };
-            path: {
-                pid: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RunRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_run_api_v1_projects__pid__radiomics_runs__rid__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pid: string;
-                rid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cancel_run_api_v1_projects__pid__radiomics_runs__rid__cancel_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pid: string;
-                rid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resume_run_api_v1_projects__pid__radiomics_runs__rid__resume_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pid: string;
-                rid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_features_api_v1_projects__pid__radiomics_runs__rid__features_get: {
         parameters: {
             query?: {
@@ -9209,42 +8761,6 @@ export interface operations {
                     "application/json": components["schemas"]["FeaturesTable"];
                     "text/csv": unknown;
                     "application/vnd.apache.parquet": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_errors_api_v1_projects__pid__radiomics_runs__rid__errors_get: {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from `next_cursor` */
-                cursor?: string | null;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                pid: string;
-                rid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_RunError_"];
                 };
             };
             /** @description Validation Error */
@@ -9435,7 +8951,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskRunSummary"][];
+                    "application/json": components["schemas"]["TaskRunListItem"][];
                 };
             };
             /** @description Validation Error */

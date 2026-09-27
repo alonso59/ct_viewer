@@ -22,6 +22,8 @@ import type {
   Project,
   ProjectSummary,
   QCWarning,
+  RunError,
+  RunSummary,
   ServerEvent,
   V2ImportReport,
   Variable,
@@ -31,6 +33,14 @@ import type {
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 const V1 = `${BASE}/api/v1`
 const PAGE = 2000
+/** RAD-13: radiomics runs through the task routes API-43..47 */
+const RADIOMICS_TASK = 'radiomics.pyradiomics'
+
+/** The RAD-* record a task response carries for `radiomics.pyradiomics` */
+function rad<T>(r: { radiomics?: T | null }): T {
+  if (r.radiomics == null) throw new ProblemError(404, '/problems/not-found', 'Not a radiomics run')
+  return r.radiomics
+}
 
 
 type Res<T> = { data?: T; error?: unknown; response: Response }
@@ -360,6 +370,9 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     return json as T
   }
 
+  const radiomicsRun = async (pid: string, rid: string) =>
+    rad(await unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}', { params: { path: { pid, rid } } })))
+
   async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
     const r = await doFetch(viewPath(`${V1}${path}`), init)
     if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
@@ -584,10 +597,11 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send('POST', `/projects/${enc(pid)}/curation/import-v2`, fd, reviewerHeader(reviewer))
     },
 
-    // API-30..37
+    // API-30/32/36 radiomics routes; validate, estimate and runs are the task routes API-43..47 of
+    // `radiomics.pyradiomics`, which attach the RAD-* record as `radiomics` (RAD-13, AUD-A4-09)
     radiomicsSchema: () => unwrap(client.GET('/api/v1/radiomics/schema')),
-    validateRadiomics: (settings, labels, nItems) =>
-      unwrap(client.POST('/api/v1/radiomics/validate', { body: { settings, labels, n_items: nItems } })),
+    validateRadiomics: async (settings, labels, nItems) =>
+      rad(await unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid: RADIOMICS_TASK } }, body: { settings, labels, n_items: nItems } }))),
     listProfiles: (pid) =>
       allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
     saveProfile: (pid, name, settings) =>
@@ -596,15 +610,31 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       unwrap(client.PATCH('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash } }, body: { name } })),
     deleteProfile: async (pid, phash) =>
       (await unwrap(client.DELETE('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash }, query: { limit: PAGE } } }))).items,
-    estimate: (pid, settings, selection) =>
-      unwrap(client.POST('/api/v1/projects/{pid}/radiomics/estimate', { params: { path: { pid } }, body: { settings, selection } })),
-    listRuns: (pid) =>
-      allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
-    getRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}', { params: { path: { pid, rid } } })),
-    startRun: (pid, body, reviewer) =>
-      unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body })),
-    cancelRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel', { params: { path: { pid, rid } } })),
-    resumeRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/resume', { params: { path: { pid, rid } } })),
+    estimate: async (pid, settings, selection) =>
+      rad(
+        await unwrap(
+          client.POST('/api/v1/projects/{pid}/tasks/{tid}/estimate', { params: { path: { pid, tid: RADIOMICS_TASK } }, body: { settings, selection } }),
+        ),
+      ),
+    listRuns: async (pid) =>
+      (await unwrap(client.GET('/api/v1/projects/{pid}/task-runs', { params: { path: { pid }, query: { task: RADIOMICS_TASK } } })))
+        .map((r) => r.radiomics)
+        .filter((r): r is RunSummary => r != null),
+    getRun: (pid, rid) => radiomicsRun(pid, rid),
+    async startRun(pid, body, reviewer) {
+      const r = await unwrap(
+        client.POST('/api/v1/projects/{pid}/task-runs', {
+          params: { path: { pid }, header: { 'X-Reviewer': reviewer } },
+          body: { task_id: RADIOMICS_TASK, name: body.name, settings: body.settings, selection: body.selection },
+        }),
+      )
+      return radiomicsRun(pid, r.run_id)
+    },
+    cancelRun: async (pid, rid) => rad(await unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/cancel', { params: { path: { pid, rid } } }))),
+    async resumeRun(pid, rid) {
+      await unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } }))
+      return radiomicsRun(pid, rid)
+    },
     runFeatures: async (pid, rid, itemId) =>
       featureRows(
         await unwrap(
@@ -614,10 +644,10 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
         ) as Schemas['FeaturesTable'],
       ),
     runExportUrl: (pid, rid, format, shape) => viewPath(`${V1}/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=${format}&shape=${shape}`),
-    runErrors: (pid, rid) =>
-      allPages((cursor) =>
-        unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/errors', { params: { path: { pid, rid }, query: { limit: PAGE, cursor } } })),
-      ),
+    runErrors: async (pid, rid) =>
+      (await unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })))
+        .map((e) => e.radiomics)
+        .filter((e): e is RunError => e != null),
 
     // API-38/39
     dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),

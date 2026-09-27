@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-// Settings tab against a stubbed API-30..37 (real engine schema fixture): engine defaults on open
+// Settings tab against stubbed API-30/32 and the radiomics task routes API-43..45 (RAD-13; real
+// engine schema fixture): engine defaults on open
 // (RAD-01/02), live + server validation gating Run (RAD-04), selection (RAD-05), estimate
 // (RAD-11), profiles (RAD-03) and the run request (RAD-06).
 import * as RTooltip from '@radix-ui/react-tooltip'
@@ -47,12 +48,16 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   calls.push({ method: req.method, path: url.pathname, body, headers: req.headers })
   const p = url.pathname.replace('/api/v1', '')
   if (p === '/radiomics/schema') return reply(200, schema)
-  if (p === '/radiomics/validate') return reply(200, validateReply(body as never))
+  const TASK = 'radiomics.pyradiomics'
+  if (p === `/tasks/${TASK}/validate`) return reply(200, { radiomics: validateReply(body as never) })
   if (p === `/projects/${PID}/radiomics/profiles`) return req.method === 'GET' ? reply(200, { items: profiles, total: 1 }) : reply(201, profiles[0])
-  if (p === `/projects/${PID}/radiomics/estimate`)
-    return reply(200, { n_items: 12, n_labels: 1, n_units: 12, n_skipped: 1, sample_item_ids: [], time_per_item_s: 2, time_per_unit_s: 2, workers: 2, estimated_total_s: 12, sample_errors: [] })
-  if (p === `/projects/${PID}/radiomics/runs` && req.method === 'POST') return reply(202, { run_id: 'r1', name: (body as { name: string }).name })
-  if (p === `/projects/${PID}/radiomics/runs`) return reply(200, { items: [], total: 0 })
+  if (p === `/projects/${PID}/tasks/${TASK}/estimate`)
+    return reply(200, {
+      radiomics: { n_items: 12, n_labels: 1, n_units: 12, n_skipped: 1, sample_item_ids: [], time_per_item_s: 2, time_per_unit_s: 2, workers: 2, estimated_total_s: 12, sample_errors: [] },
+    })
+  if (p === `/projects/${PID}/task-runs` && req.method === 'POST') return reply(202, { run_id: 'r1', job_id: 'j1', status: 'queued' })
+  if (p === `/projects/${PID}/task-runs/r1`) return reply(200, { run_id: 'r1', radiomics: { run_id: 'r1', name: 'Run' } })
+  if (p === `/projects/${PID}/task-runs`) return reply(200, [])
   return reply(404, { type: '/problems/not-found', title: 'Not found', status: 404 })
 }
 
@@ -183,12 +188,12 @@ test('selection by variable feeds the estimate and the run request', async () =>
   const est = await screen.findByTestId('estimate')
   expect(est).toHaveTextContent('12 items × 1 labels = 12 extractions')
   expect(est).toHaveTextContent('1 extraction will be skipped')
-  const estCall = calls.find((c) => c.path.endsWith('/radiomics/estimate'))
+  const estCall = calls.find((c) => c.path.endsWith('/tasks/radiomics.pyradiomics/estimate'))
   expect(estCall?.body).toMatchObject({ selection: { scope: 'complete', labels: [2], filter: { phase: ['NP'], var: { sex: ['F'] } } } })
 
   await settle()
   fireEvent.click(runButton())
-  const isRun = (c: Call) => c.method === 'POST' && c.path.endsWith('/radiomics/runs')
+  const isRun = (c: Call) => c.method === 'POST' && c.path.endsWith('/task-runs')
   await waitFor(() => expect(calls.some(isRun)).toBe(true))
   const run = calls.find(isRun)
   expect(run?.headers.get('x-reviewer')).toBe('Tester')

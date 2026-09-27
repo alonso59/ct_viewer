@@ -265,25 +265,28 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     )
 
     # RAD-*: the engine defaults as a profile, one run (first-order + shape, NP, tumor)
+    # validate, estimate and runs are the task routes of `radiomics.pyradiomics` (RAD-13)
+    rad = "radiomics.pyradiomics"
     schema = get(f"{API}/radiomics/schema")
-    call("POST", f"{API}/radiomics/validate", {"settings": {}, "labels": [2], "n_items": 10})
+    check = {"settings": {}, "labels": [2], "n_items": 10}
+    call("POST", f"{API}/tasks/{rad}/validate", check)
     call("POST", f"{P}/radiomics/profiles", {"name": "Engine defaults", "settings": {}})
     settings = {"features": {"firstorder": None, "shape": ["MeshVolume"]}}
     sel = {"scope": "complete", "labels": [2], "filter": {"phase": ["NP"]}, "seg_id": "imported"}
-    call("POST", f"{P}/radiomics/estimate", {"settings": settings, "selection": sel})
+    call("POST", f"{P}/tasks/{rad}/estimate", {"settings": settings, "selection": sel})
     run = call(
         "POST",
-        f"{P}/radiomics/runs",
-        {"name": "NP tumor first-order", "settings": settings, "selection": sel},
+        f"{P}/task-runs",
+        {"task_id": rad, "name": "NP tumor first-order", "settings": settings, "selection": sel},
         AP,
     )
     wait_jobs(c, pid)
     rid = run["run_id"]
     R = f"{P}/radiomics/runs/{rid}"
-    get(f"{P}/radiomics/runs", paged=True)
-    get(R)
+    get(f"{P}/task-runs?task={rad}")
+    get(f"{P}/task-runs/{rid}")
     get(f"{R}/features?format=json&shape=long")
-    get(f"{R}/errors", paged=True)
+    get(f"{P}/task-runs/{rid}/errors")
     for view, body in (
         ("run-overview", {}),
         ("outliers", {"threshold": 3}),

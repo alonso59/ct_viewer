@@ -12,7 +12,7 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any, Final, cast
 
-from app.core.errors import ReviewerRequired, ValidationProblem
+from app.core.errors import ValidationProblem
 from app.core.fsio import append_jsonl, iter_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.core.locks import ProjectLocks
@@ -20,7 +20,6 @@ from app.events.bus import EventBus
 from app.events.types import EventType
 from app.projects.service import Workspace
 
-REVIEWER_MAX: Final = 100
 NAMESPACE_FILES: Final = {"curation": Path("curation") / "events.jsonl"}
 SSE_EVENT_MAX: Final = 500  # a larger batch publishes one summary event instead
 
@@ -29,19 +28,6 @@ def namespace_path(project_dir: Path, namespace: str) -> Path:
     if not namespace.isidentifier():
         raise ValidationProblem(f"Invalid event namespace {namespace!r}")
     return project_dir / NAMESPACE_FILES.get(namespace, Path("events") / f"{namespace}.jsonl")
-
-
-def require_reviewer(reviewer: str | None) -> str:
-    """CUR-01 / LBL-04: writes carry a free-text reviewer stamp (`X-Reviewer`, ADR-0004)."""
-    name = (reviewer or "").strip()
-    if not name:
-        raise ReviewerRequired("Set the X-Reviewer header (reviewer name or initials)")
-    if len(name) > REVIEWER_MAX:
-        raise ValidationProblem(
-            "Reviewer name too long",
-            errors=[{"loc": ["header", "X-Reviewer"], "msg": f"max {REVIEWER_MAX} chars"}],
-        )
-    return name
 
 
 def stamp(reviewer: str, session_id: str | None, body: dict[str, Any]) -> dict[str, Any]:

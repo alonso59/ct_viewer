@@ -18,6 +18,7 @@ from app.core.errors import Problem, ValidationProblem
 from app.core.fsio import append_jsonl, atomic_write_bytes, atomic_write_json
 from app.core.ids import new_ulid, parse_item_id, utc_now
 from app.core.locks import ProjectLocks
+from app.core.reviewer import require as require_reviewer
 from app.curation import converter_csv, v2
 from app.curation import state as st
 from app.curation.models import (
@@ -32,7 +33,7 @@ from app.curation.models import (
     V2ImportReport,
 )
 from app.events.bus import EventBus
-from app.eventstore.store import namespace_path, require_reviewer
+from app.eventstore.store import namespace_path
 from app.ingest.models import Item, VolumeRef
 from app.ingest.store import IndexStore
 from app.phase import state as phase_state

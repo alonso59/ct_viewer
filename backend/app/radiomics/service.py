@@ -9,7 +9,6 @@ and workers get absolute paths. Study variables are never copied into features (
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import io
 import json
 import logging
@@ -26,16 +25,17 @@ import pyarrow.compute as pc
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
+from app.core import reviewer as reviewer_stamp
 from app.core.errors import (
     FormatVersionUnsupported,
     JobConflict,
     NotFound,
     Problem,
-    ReviewerRequired,
     ValidationProblem,
+    issue_errors,
 )
 from app.core.fsio import append_jsonl, atomic_write_json, read_json, read_jsonl, write_jsonl_atomic
-from app.core.ids import is_ulid, new_ulid, utc_now
+from app.core.ids import new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.events.bus import EventBus
 from app.imaging import npy_convert
@@ -43,7 +43,8 @@ from app.imaging.fingerprint import quick_fingerprint
 from app.ingest.models import Item
 from app.ingest.store import IndexStore
 from app.jobs.manager import JobManager
-from app.jobs.types import TERMINAL, JobInfo, JobSpec, WorkUnit
+from app.jobs.runs import RunStore
+from app.jobs.types import JobInfo, JobSpec, WorkUnit
 from app.projects.models import SegmentationSet
 from app.projects.service import Workspace
 from app.radiomics import causes, ibsi, worker
@@ -83,37 +84,17 @@ log = logging.getLogger("app.radiomics")
 RADIOMICS = "radiomics"
 PROFILES = "profiles"
 RUNS = "runs"
-RUN_JSON = "run.json"
 UNITS = "units.jsonl"
 ERRORS = "errors.jsonl"
 FEATURES = "features.parquet"
 DIAGNOSTICS = "diagnostics.parquet"
-REVIEWER_MAX: Final = 100
 SAMPLE_ITEMS: Final = 3
+CANCEL_WAIT_S: Final = 30.0
 MSG_NOTHING: Final = "Nothing to extract"
 HASH_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
 ID_COLS: Final = (
     "run_id", "item_id", "case_id", "scan_idx", "scope", "side", "phase", "phase_at_run", "label"
 )  # fmt: skip
-
-
-def require_reviewer(reviewer: str | None) -> str:
-    """RAD-09: a run records its reviewer; `X-Reviewer` is required (428, CUR-01)."""
-    name = (reviewer or "").strip()
-    if not name:
-        raise ReviewerRequired("Set the X-Reviewer header (reviewer name or initials)")
-    if len(name) > REVIEWER_MAX:
-        raise ValidationProblem(
-            "Reviewer name too long",
-            errors=[{"loc": ["header", "X-Reviewer"], "msg": f"max {REVIEWER_MAX} chars"}],
-        )
-    return name
-
-
-def _issue_errors(issues: Sequence[Issue]) -> list[dict[str, Any]]:
-    return [
-        {"loc": list(i.loc), "msg": i.msg, "type": i.rule} for i in issues if i.severity == "error"
-    ]
 
 
 def _nothing(loc: list[str | int]) -> Issue:
@@ -124,21 +105,6 @@ def _write_parquet_atomic(path: Path, table: pa.Table) -> None:
     tmp = path.with_name(path.name + ".tmp")
     pq.write_table(table, tmp)
     os.replace(tmp, path)
-
-
-def _write_run(run_dir: Path, rec: RunRecord) -> None:
-    """Commit `run.json` via `run.json.tmp` + fsync + rename (RAD-09)."""
-    tmp = run_dir / (RUN_JSON + ".tmp")
-    data = (json.dumps(rec.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n").encode()
-    with tmp.open("wb") as fh:
-        fh.write(data)
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.replace(tmp, run_dir / RUN_JSON)
-
-
-def _read_run(run_dir: Path) -> RunRecord:
-    return RunRecord.model_validate(read_json(run_dir / RUN_JSON))
 
 
 def _parse_key(key: str) -> tuple[str, int]:
@@ -295,6 +261,15 @@ class RadiomicsService:
         self.jobs = jobs
         self.bus = bus
         self.locks = locks
+        self.runs = RunStore(
+            RunRecord,
+            self._runs_dir,
+            jobs,
+            locks,
+            terminal=TERMINAL_RUN,
+            resumable=RESUMABLE_RUN,
+            noun="Run",
+        )
 
     # -- engine / settings (API-30/31, RAD-01/04) -----------------------------------------
 
@@ -303,7 +278,7 @@ class RadiomicsService:
         return get_engine()
 
     def validate(self, req: ValidateRequest) -> ValidateResult:
-        """API-31: schema checks + rules; selection counts are checked when given."""
+        """API-43: schema checks + rules; selection counts are checked when given."""
         eng = self.engine()
         issues = eng.validate(req.settings.model_dump())
         if req.labels is not None and not req.labels:
@@ -329,10 +304,8 @@ class RadiomicsService:
         """Authoritative validation (RAD-04): 422 with field issues, else normalized settings."""
         raw = raw or RadiomicsSettings()
         issues = eng.validate(raw.model_dump())
-        errors = _issue_errors(issues)
+        errors = issue_errors(issues, ["body", loc])
         if errors:
-            for e in errors:
-                e["loc"] = ["body", loc, *e["loc"]]
             raise ValidationProblem("Invalid radiomics settings", errors=errors)
         norm, _ = st.normalize(eng.schema(), raw)
         assert norm is not None
@@ -482,9 +455,7 @@ class RadiomicsService:
         if not items and not issues:
             issues.append(_nothing(["selection"]))
         if issues:
-            errs = _issue_errors(issues)
-            for e in errs:
-                e["loc"] = ["body", *e["loc"]]
+            errs = issue_errors(issues, ["body"])
             raise ValidationProblem("Invalid selection", errors=errs)
         return sorted(items, key=lambda i: i.item_id)
 
@@ -638,7 +609,7 @@ class RadiomicsService:
                 return True
         return False
 
-    # -- estimate (API-33, RAD-11) --------------------------------------------------------
+    # -- estimate (API-44, RAD-11) --------------------------------------------------------
 
     async def estimate(self, pid: str, req: EstimateRequest) -> EstimateResult:
         eng = self.engine()
@@ -684,41 +655,14 @@ class RadiomicsService:
             sample_errors=errors,
         )
 
-    # -- runs (API-34/35, RAD-06..09) -----------------------------------------------------
+    # -- runs (API-45/46, RAD-06..09) -----------------------------------------------------
 
     def _runs_dir(self, pid: str) -> Path:
         return self.workspace.project_dir(pid) / RADIOMICS / RUNS
 
-    def _run_dir(self, pid: str, rid: str) -> Path:
-        d = self._runs_dir(pid) / rid
-        if not is_ulid(rid) or not (d / RUN_JSON).is_file():
-            raise NotFound(f"Run {rid!r} not found")
-        return d
-
-    def _job(self, job_id: str | None) -> JobInfo | None:
-        if job_id is None:
-            return None
-        try:
-            return self.jobs.get(job_id)
-        except NotFound:
-            return None
-
-    async def _reconcile(self, pid: str, run_dir: Path) -> RunRecord:
-        """A `queued`/`running` run whose job is unknown (server restart) → `interrupted`."""
-        rec = _read_run(run_dir)
-        if rec.status in TERMINAL_RUN or self._job(rec.job_id) is not None:
-            return rec
-        async with self.locks(pid):
-            rec = _read_run(run_dir)
-            if rec.status not in TERMINAL_RUN and self._job(rec.job_id) is None:
-                rec.status = "interrupted"
-                rec.finished_at = utc_now()
-                _write_run(run_dir, rec)
-        return rec
-
     async def start(self, pid: str, req: RunRequest, reviewer: str | None) -> RunDetail:
-        """API-34: validate, select, snapshot, then one `radiomics` job (RAD-06)."""
-        who = require_reviewer(reviewer)
+        """API-45: validate, select, snapshot, then one `radiomics` job (RAD-06)."""
+        who = reviewer_stamp.require(reviewer)
         eng = self.engine()
         norm, phash, prof = self._settings_for(pid, eng, req.settings, req.profile_hash)
         items = await self.select(pid, req.selection)
@@ -768,7 +712,7 @@ class RadiomicsService:
             (run_dir / worker.PARTS).mkdir(parents=True, exist_ok=True)
             write_jsonl_atomic(run_dir / UNITS, units)
             write_jsonl_atomic(run_dir / ERRORS, [e.model_dump() for e in [*skips, *pre]])
-            _write_run(run_dir, rec)
+            self.runs.write(run_dir, rec)
         await self._submit(pid, run_dir, tasks)
         return await self.get(pid, run_id)
 
@@ -785,7 +729,7 @@ class RadiomicsService:
 
         async def on_finish(info: JobInfo) -> str | None:
             async with self.locks(pid):
-                rec = _read_run(run_dir)
+                rec = self.runs.read(run_dir)
                 try:
                     await self._finish(run_dir, rec, info)
                 except Exception as exc:
@@ -793,7 +737,7 @@ class RadiomicsService:
                     rec.status, rec.error = "failed", f"{type(exc).__name__}: {exc}"
                 rec.started_at = rec.started_at or info.started_at
                 rec.finished_at = utc_now()
-                _write_run(run_dir, rec)
+                self.runs.write(run_dir, rec)
             return run_id
 
         job_id = new_ulid()
@@ -807,24 +751,8 @@ class RadiomicsService:
             job_id=job_id,
             meta={"run_id": run_id},
         )
-        async with self.locks(pid):
-            rec = _read_run(run_dir)
-            rec.job_id, rec.status = job_id, "queued"
-            _write_run(run_dir, rec)
-        try:
-            self.jobs.submit(spec)
-        except Problem as exc:
-            async with self.locks(pid):
-                rec = _read_run(run_dir)
-                rec.status, rec.error, rec.finished_at = "failed", exc.detail, utc_now()
-                _write_run(run_dir, rec)
-            raise
-        async with self.locks(pid):
-            rec = _read_run(run_dir)
-            if rec.status == "queued":
-                rec.status = "running"
-                rec.started_at = rec.started_at or utc_now()
-                _write_run(run_dir, rec)
+        await self.runs.submit(pid, run_dir, spec)
+        await self.runs.set_status(pid, run_dir, "running")
 
     async def _finish(self, run_dir: Path, rec: RunRecord, info: JobInfo) -> None:
         errors = [RunError.model_validate(r) for r in read_jsonl(run_dir / ERRORS)]
@@ -855,44 +783,30 @@ class RadiomicsService:
         rec.status = status
 
     async def get(self, pid: str, rid: str) -> RunDetail:
-        run_dir = self._run_dir(pid, rid)
-        rec = await self._reconcile(pid, run_dir)
-        job = self._job(rec.job_id)
+        run_dir = self.runs.run_dir(pid, rid)
+        rec = await self.runs.reconcile(pid, run_dir)
+        job = self.runs.job(rec.job_id)
         progress = None
         if job is not None:
             progress = RunProgress(done=job.done, total=job.total, eta_s=job.eta_s)
         return RunDetail(**rec.model_dump(), progress=progress)
 
     async def list_runs(self, pid: str) -> list[RunSummary]:
-        d = self._runs_dir(pid)
-        if not d.is_dir():
-            return []
         out = []
-        for run_dir in sorted(d.iterdir(), key=lambda p: p.name, reverse=True):
-            if not is_ulid(run_dir.name) or not (run_dir / RUN_JSON).is_file():
-                continue
-            rec = await self._reconcile(pid, run_dir)
+        for run_dir in self.runs.run_dirs(pid):
+            rec = await self.runs.reconcile(pid, run_dir)
             out.append(RunSummary.model_validate(rec.model_dump()))
         return out
 
     async def cancel(self, pid: str, rid: str) -> RunDetail:
-        """API-35: cancel the run's job; idempotent for finished runs."""
-        run_dir = self._run_dir(pid, rid)
-        rec = await self._reconcile(pid, run_dir)
-        job = self._job(rec.job_id)
-        if rec.status not in TERMINAL_RUN and job is not None and rec.job_id is not None:
-            if job.status not in TERMINAL:
-                self.jobs.cancel(rec.job_id)
-            with contextlib.suppress(TimeoutError):
-                await self.jobs.wait(rec.job_id, 30)
+        """API-46 (RAD-06): cancel the run's job; idempotent for finished runs."""
+        await self.runs.cancel(pid, self.runs.run_dir(pid, rid), CANCEL_WAIT_S)
         return await self.get(pid, rid)
 
     async def resume(self, pid: str, rid: str) -> RunDetail:
-        """API-35 / RAD-08: re-run units without a part file; failures are retried."""
-        run_dir = self._run_dir(pid, rid)
-        rec = await self._reconcile(pid, run_dir)
-        if rec.status not in RESUMABLE_RUN:
-            raise JobConflict(f"Run is {rec.status}; only interrupted, cancelled or failed resume")
+        """API-46 / RAD-08: re-run units without a part file; failures are retried."""
+        run_dir = self.runs.run_dir(pid, rid)
+        rec = await self.runs.resumable(pid, run_dir)
         eng = self.engine()
         if eng.name != rec.engine.name or eng.version != rec.engine.version:
             raise FormatVersionUnsupported(
@@ -912,16 +826,16 @@ class RadiomicsService:
             write_jsonl_atomic(run_dir / ERRORS, [*kept, *(e.model_dump() for e in pre)])
             (run_dir / FEATURES).unlink(missing_ok=True)
             (run_dir / DIAGNOSTICS).unlink(missing_ok=True)
-            rec = _read_run(run_dir)
+            rec = self.runs.read(run_dir)
             rec.status, rec.finished_at, rec.error = "queued", None, None
-            _write_run(run_dir, rec)
+            self.runs.write(run_dir, rec)
         await self._submit(pid, run_dir, tasks)
         return await self.get(pid, rid)
 
-    # -- outputs (API-36/37, RAD-07/10) ---------------------------------------------------
+    # -- outputs (API-36, API-47, RAD-07/10) ---------------------------------------------------
 
     def features(self, pid: str, rid: str, item_id: str | None, shape: str) -> pa.Table:
-        run_dir = self._run_dir(pid, rid)
+        run_dir = self.runs.run_dir(pid, rid)
         t = _load_features(run_dir)
         if item_id is not None:
             t = t.filter(pc.equal(t["item_id"], item_id))
@@ -940,7 +854,7 @@ class RadiomicsService:
         )
 
     def errors(self, pid: str, rid: str) -> list[RunError]:
-        run_dir = self._run_dir(pid, rid)
+        run_dir = self.runs.run_dir(pid, rid)
         return [RunError.model_validate(r) for r in read_jsonl(run_dir / ERRORS)]
 
 

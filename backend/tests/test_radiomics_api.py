@@ -1,4 +1,7 @@
-"""API-30..37 over the synthetic fixtures (RAD-01..11, BE-03/06, NFR-15). Inline jobs."""
+"""Radiomics over the synthetic fixtures (RAD-01..11, BE-03/06, NFR-15). Inline jobs.
+
+API-30/32/36 are the radiomics routes; validate, estimate and runs go through the task routes
+API-43..47 for `radiomics.pyradiomics` (RAD-13, AUD-A4-09), which attach the RAD-* record."""
 
 from __future__ import annotations
 
@@ -18,6 +21,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from app.core.ids import new_ulid
 from tests.test_api_ingest import ctx_of, do_import, wait
@@ -28,6 +32,7 @@ pytest.importorskip("radiomics")
 API = "/api/v1"
 ITEMS = [f"case_{n:05d}.01.complete.-" for n in (30, 31, 32)]
 WHO = {"X-Reviewer": "Dr. T"}
+TASK = "radiomics.pyradiomics"
 BACKEND = Path(__file__).resolve().parents[1]
 
 
@@ -43,22 +48,68 @@ def run_dir(c: TestClient, pid: str, rid: str) -> Path:
     return ctx_of(c).workspace.project_dir(pid) / "radiomics" / "runs" / rid
 
 
+def task_body(body: dict[str, Any]) -> dict[str, Any]:
+    """A radiomics run / estimate body → the task body (`profile_hash` inside `settings`)."""
+    settings = dict(body.get("settings") or {})
+    if "profile_hash" in body:
+        settings["profile_hash"] = body["profile_hash"]
+    out = {"settings": settings, "selection": body.get("selection", {})}
+    return {**out, "name": body["name"]} if "name" in body else out
+
+
+def post_run(
+    c: TestClient, pid: str, body: dict[str, Any], headers: dict[str, str] | None = WHO
+) -> Response:
+    """API-45 start of a radiomics run."""
+    body = {"task_id": TASK, **task_body(body)}
+    return c.post(f"{API}/projects/{pid}/task-runs", json=body, headers=headers)
+
+
+def post_estimate(c: TestClient, pid: str, body: dict[str, Any]) -> Response:
+    """API-44 estimate; the RAD-11 result is `.json()["radiomics"]`."""
+    return c.post(f"{API}/projects/{pid}/tasks/{TASK}/estimate", json=task_body(body))
+
+
+def post_validate(c: TestClient, body: dict[str, Any]) -> Response:
+    """API-43 validate; the RAD-04 result is `.json()["radiomics"]`."""
+    return c.post(f"{API}/tasks/{TASK}/validate", json=body)
+
+
+def runs_url(pid: str, rid: str = "") -> str:
+    return f"{API}/projects/{pid}/task-runs" + (f"/{rid}" if rid else "")
+
+
+def features_url(pid: str, rid: str) -> str:
+    return f"{API}/projects/{pid}/radiomics/runs/{rid}/features"  # API-36
+
+
+def get_run(c: TestClient, pid: str, rid: str) -> dict[str, Any]:
+    """API-45 detail → the RAD-09 run record."""
+    r = c.get(runs_url(pid, rid))
+    assert r.status_code == 200, r.text
+    return dict(r.json()["radiomics"])
+
+
+def run_errors(c: TestClient, pid: str, rid: str) -> list[dict[str, Any]]:
+    """API-47 errors → the RAD-07 rows."""
+    return [e["radiomics"] for e in c.get(f"{runs_url(pid, rid)}/errors").json()]
+
+
 def start(c: TestClient, pid: str, body: dict[str, Any], *, finish: bool = True) -> dict[str, Any]:
-    r = c.post(f"{API}/projects/{pid}/radiomics/runs", json=body, headers=WHO)
+    r = post_run(c, pid, body)
     assert r.status_code == 202, r.text
-    run = r.json()
-    assert run["status"] in ("queued", "running", "completed", "completed_with_errors")
+    started = r.json()
+    assert started["status"] in ("queued", "running", "completed", "completed_with_errors")
     if finish:
-        wait(c, run["job_id"])
-        run = c.get(f"{API}/projects/{pid}/radiomics/runs/{run['run_id']}").json()
-    return run
+        wait(c, started["job_id"])
+    return get_run(c, pid, started["run_id"])
 
 
 def sel(items: list[str] = ITEMS, labels: list[int] | None = None) -> dict[str, Any]:
     return {"item_ids": items, "labels": labels or [2]}
 
 
-# -- API-30/31 ----------------------------------------------------------------------------
+# -- API-30 / API-43 ----------------------------------------------------------------------
 
 
 def test_schema_and_validate_endpoints(client: TestClient) -> None:
@@ -68,25 +119,48 @@ def test_schema_and_validate_endpoints(client: TestClient) -> None:
     assert s["engine"]["name"] == "pyradiomics" and s["ibsi_map_version"] == "1"
     assert {o["name"] for o in s["options"]} >= {"binWidth", "binCount", "force2D", "distances"}
     assert s["defaults"]["settings"]["binWidth"] == 25.0
-    r = client.post(f"{API}/radiomics/validate", json={})
-    body = r.json()
+    r = post_validate(client, {})
+    body = r.json()["radiomics"]
     assert r.status_code == 200 and body["ok"] and body["issues"] == []
     assert body["profile_hash"].startswith("sha256:")
-    r = client.post(
-        f"{API}/radiomics/validate",
-        json={"settings": {"settings": {"binCount": 8}}, "labels": [], "n_items": 0},
+    r = post_validate(
+        client, {"settings": {"settings": {"binCount": 8}}, "labels": [], "n_items": 0}
     )
-    body = r.json()
+    body = r.json()["radiomics"]
     assert not body["ok"] and body["profile_hash"] is None
     rules = {(i["rule"], tuple(i["loc"])) for i in body["issues"]}
     assert ("bin_xor", ("settings", "binWidth")) in rules
     assert ("nothing", ("labels",)) in rules and ("nothing", ("n_items",)) in rules
-    r = client.post(
-        f"{API}/radiomics/validate",
-        json={"settings": {"settings": {"normalize": True, "resegmentRange": [-100, 200]}}},
+    r = post_validate(
+        client, {"settings": {"settings": {"normalize": True, "resegmentRange": [-100, 200]}}}
     )
-    body = r.json()
+    body = r.json()["radiomics"]
     assert body["ok"] and [i["severity"] for i in body["issues"]] == ["warning"]
+
+
+def test_retired_aliases_are_gone(client: TestClient, proj: str) -> None:
+    """AUD-A4-09: API-31/33/34/35/37 (aliases of API-43..47, RAD-13) are removed; API-30/32/36
+    stay the radiomics routes."""
+    rid = new_ulid()
+    base = f"{API}/projects/{proj}/radiomics"
+    for method, url in (
+        ("POST", f"{API}/radiomics/validate"),
+        ("POST", f"{base}/estimate"),
+        ("POST", f"{base}/runs"),
+        ("GET", f"{base}/runs"),
+        ("GET", f"{base}/runs/{rid}"),
+        ("POST", f"{base}/runs/{rid}/cancel"),
+        ("POST", f"{base}/runs/{rid}/resume"),
+        ("GET", f"{base}/runs/{rid}/errors"),
+    ):
+        assert client.request(method, url, json={}).status_code in (404, 405), (method, url)
+    paths = set(client.get("/openapi.json").json()["paths"])
+    assert {p for p in paths if "/radiomics/" in p and "/views/" not in p} == {
+        "/api/v1/radiomics/schema",
+        "/api/v1/projects/{pid}/radiomics/profiles",
+        "/api/v1/projects/{pid}/radiomics/profiles/{phash}",
+        "/api/v1/projects/{pid}/radiomics/runs/{rid}/features",
+    }
 
 
 def test_engine_missing_is_server_busy(
@@ -97,9 +171,8 @@ def test_engine_missing_is_server_busy(
     monkeypatch.setattr(engine, "_ENGINES", {})
     monkeypatch.setitem(sys.modules, "app.radiomics.pyradiomics_engine", None)
     assert_problem(client.get(f"{API}/radiomics/schema"), "server-busy")
-    assert_problem(client.post(f"{API}/radiomics/validate", json={}), "server-busy")
-    r = client.post(f"{API}/projects/{proj}/radiomics/runs", json={"selection": sel()}, headers=WHO)
-    assert_problem(r, "server-busy")
+    assert_problem(post_validate(client, {}), "server-busy")
+    assert_problem(post_run(client, proj, {"selection": sel()}), "server-busy")
     assert client.get(f"{API}/projects/{proj}/radiomics/profiles").status_code == 200
 
 
@@ -148,38 +221,35 @@ def test_profiles_crud(client: TestClient, proj: str) -> None:
     assert r.json()["errors"][0]["loc"] == ["body", "settings", "settings", "binWidth"]
 
 
-# -- API-33 estimate ----------------------------------------------------------------------
+# -- API-44 estimate ----------------------------------------------------------------------
 
 
 def test_estimate(client: TestClient, proj: str) -> None:
-    url = f"{API}/projects/{proj}/radiomics/estimate"
     body = {"selection": {"filter": {"phase": ["NP"]}, "scope": "complete", "labels": [2, 3]}}
-    r = client.post(url, json=body)
+    r = post_estimate(client, proj, body)
     assert r.status_code == 200, r.text
-    e = r.json()
+    e = r.json()["radiomics"]
     assert e["n_items"] >= 30 and e["n_labels"] == 2
     assert e["n_units"] + e["n_skipped"] == e["n_items"] * 2
     assert len(e["sample_item_ids"]) == 3
     assert e["time_per_item_s"] > 0 and e["estimated_total_s"] > 0 and e["workers"] >= 1
-    r = client.post(
-        url,
-        json={
-            "selection": {"filter": {"var": {"grade": ["1"]}}, "scope": "complete", "labels": [2]}
-        },
-    )
+    var = {"filter": {"var": {"grade": ["1"]}}, "scope": "complete", "labels": [2]}
+    r = post_estimate(client, proj, {"selection": var})
     assert r.status_code == 200, r.text
-    assert 0 < r.json()["n_items"] < e["n_items"]
-    r = client.post(url, json={"selection": {"filter": {"var": {"nope": ["1"]}}, "labels": [2]}})
+    assert 0 < r.json()["radiomics"]["n_items"] < e["n_items"]
+    r = post_estimate(
+        client, proj, {"selection": {"filter": {"var": {"nope": ["1"]}}, "labels": [2]}}
+    )
     assert_problem(r, "validation")
-    assert_problem(client.post(url, json={"selection": {"labels": []}}), "validation")
-    r = client.post(
-        url, json={"selection": {"item_ids": ["case_99999.01.complete.-"], "labels": [2]}}
+    assert_problem(post_estimate(client, proj, {"selection": {"labels": []}}), "validation")
+    r = post_estimate(
+        client, proj, {"selection": {"item_ids": ["case_99999.01.complete.-"], "labels": [2]}}
     )
     assert_problem(r, "validation")
     assert r.json()["errors"][0]["loc"] == ["body", "selection", "item_ids", 0]
 
 
-# -- API-34..37 runs ----------------------------------------------------------------------
+# -- API-45..47 runs, API-36 exports ------------------------------------------------------
 
 
 def _write_guard(root: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
@@ -202,8 +272,8 @@ def _write_guard(root: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
 def test_run_end_to_end_outputs(
     client: TestClient, proj: str, data_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    url = f"{API}/projects/{proj}/radiomics/runs"
-    r = client.post(url, json={"selection": sel()})
+    url = runs_url(proj)
+    r = post_run(client, proj, {"selection": sel()}, headers=None)
     assert_problem(r, "reviewer-required")
     bad = _write_guard(data_root, monkeypatch)
     run = start(client, proj, {"name": "baseline", "selection": sel()})
@@ -242,7 +312,7 @@ def test_run_end_to_end_outputs(
     assert len(diag) == 3 and all(x["voxel_count"] > 0 and x["image_hash"] for x in diag)
     assert {"bbox", "spacing", "mask_hash"} <= set(diag[0])
     # exports (API-36)
-    furl = f"{url}/{rid}/features"
+    furl = features_url(proj, rid)
     j = client.get(furl).json()
     assert j["shape"] == "long" and j["total"] == 321 and "value" in j["columns"]
     j = client.get(furl, params={"item_id": ITEMS[1]}).json()
@@ -273,13 +343,13 @@ def test_run_end_to_end_outputs(
     assert pq.read_table(io.BytesIO(r.content)).num_rows == 321
     assert_problem(client.get(furl, params={"format": "xlsx"}), "validation")
     # list / errors / not found
-    lst = client.get(url).json()
-    assert lst["total"] == 1 and lst["items"][0]["run_id"] == rid
-    assert client.get(f"{url}/{rid}/errors").json()["total"] == 0
+    lst = client.get(url, params={"task": TASK}).json()
+    assert len(lst) == 1 and lst[0]["run_id"] == rid and lst[0]["radiomics"]["run_id"] == rid
+    assert run_errors(client, proj, rid) == []
     assert_problem(client.get(f"{url}/{new_ulid()}"), "not-found")
-    assert_problem(client.get(f"{url}/not-a-run/features"), "not-found")
+    assert_problem(client.get(features_url(proj, "not-a-run")), "not-found")
     # cancel of a finished run is a no-op
-    assert client.post(f"{url}/{rid}/cancel").json()["status"] == "completed"
+    assert client.post(f"{url}/{rid}/cancel").json()["radiomics"]["status"] == "completed"
     assert_problem(client.post(f"{url}/{rid}/resume"), "job-conflict")
 
 
@@ -289,29 +359,28 @@ def test_per_item_failures_and_skips(client: TestClient, proj: str, data_root: P
     run = start(client, proj, {"selection": sel(labels=[2, 4])})
     assert run["status"] == "completed_with_errors", run
     assert run["counts"] == {"items": 3, "ok": 1, "failed": 2, "features": 107, "skipped": 3}
-    errs = client.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/errors").json()
-    by = {(e["item_id"], e["label"], e["kind"]): e for e in errs["items"]}
-    assert errs["total"] == 5
+    errs = run_errors(client, proj, run["run_id"])
+    by = {(e["item_id"], e["label"], e["kind"]): e for e in errs}
+    assert len(errs) == 5
     assert all(by[(i, 4, "skipped")]["code"] == "label_absent" for i in ITEMS)
     missing = by[(ITEMS[2], 2, "failed")]
     assert missing["code"] == "input_missing" and missing["error"].endswith(".")
     engine = by[(ITEMS[1], 2, "failed")]  # RAD-07: a plain cause, the engine text in `detail`
     assert engine["code"] != "input_missing" and engine["detail"]
-    feats = client.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/features").json()
+    feats = client.get(features_url(proj, run["run_id"])).json()
     assert {r["item_id"] for r in feats["rows"]} == {ITEMS[0]}
-    r = client.post(
-        f"{API}/projects/{proj}/radiomics/runs", json={"selection": sel(labels=[4])}, headers=WHO
-    )
+    r = post_run(client, proj, {"selection": sel(labels=[4])})
     assert_problem(r, "validation")  # every selected label absent → nothing to extract
 
 
 def test_invalid_settings_rejected_at_run_start(client: TestClient, proj: str) -> None:
     body = {"settings": {"image_types": {"LoG": {}}}, "selection": sel()}
-    r = client.post(f"{API}/projects/{proj}/radiomics/runs", json=body, headers=WHO)
+    r = post_run(client, proj, body)
     assert_problem(r, "validation")
     assert r.json()["errors"][0]["loc"] == ["body", "settings", "image_types", "LoG", "sigma"]
-    body = {"settings": {}, "profile_hash": "sha256:" + "0" * 64, "selection": sel()}
-    r = client.post(f"{API}/projects/{proj}/radiomics/runs", json=body, headers=WHO)
+    # settings and a profile together are refused
+    body = {"settings": {"settings": {}}, "profile_hash": "sha256:" + "0" * 64, "selection": sel()}
+    r = post_run(client, proj, body)
     assert_problem(r, "validation")
 
 
@@ -332,20 +401,20 @@ def _gate(monkeypatch: pytest.MonkeyPatch) -> threading.Event:
 def test_cancel_then_resume(client: TestClient, proj: str, monkeypatch: pytest.MonkeyPatch) -> None:
     gate = _gate(monkeypatch)
     run = start(client, proj, {"selection": sel()}, finish=False)
-    url = f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}"
+    url = runs_url(proj, run["run_id"])
     try:
         r = client.post(f"{url}/cancel")
         assert r.status_code == 200, r.text
-        assert r.json()["status"] == "cancelled"
+        assert r.json()["radiomics"]["status"] == "cancelled"
         assert not (run_dir(client, proj, run["run_id"]) / "features.parquet").exists()
     finally:
         gate.set()
     r = client.post(f"{url}/resume")
     assert r.status_code == 202, r.text
     wait(client, r.json()["job_id"])
-    done = client.get(url).json()
+    done = get_run(client, proj, run["run_id"])
     assert done["status"] == "completed" and done["counts"]["ok"] == 3
-    assert client.get(f"{url}/features").json()["total"] == 321
+    assert client.get(features_url(proj, run["run_id"])).json()["total"] == 321
 
 
 def test_interrupted_detection_and_resume_skips_parts(client: TestClient, proj: str) -> None:
@@ -361,17 +430,17 @@ def test_interrupted_detection_and_resume_skips_parts(client: TestClient, proj: 
     parts[1].unlink()
     (d / "features.parquet").unlink()
     kept = {p.name: p.stat().st_mtime_ns for p in (parts[0], parts[2])}
-    url = f"{API}/projects/{proj}/radiomics/runs/{rid}"
-    got = client.get(url).json()
+    url = runs_url(proj, rid)
+    got = get_run(client, proj, rid)
     assert got["status"] == "interrupted" and got["finished_at"]
     assert json.loads((d / "run.json").read_text())["status"] == "interrupted"
     # partial features are readable before compaction
-    assert client.get(f"{url}/features").json()["total"] == 214
+    assert client.get(features_url(proj, rid)).json()["total"] == 214
     r = client.post(f"{url}/resume")
     assert r.status_code == 202, r.text
     info = wait(client, r.json()["job_id"])
     assert info.total == 1  # only the missing part is recomputed (RAD-08)
-    done = client.get(url).json()
+    done = get_run(client, proj, rid)
     assert done["status"] == "completed" and done["counts"]["ok"] == 3
     assert {p.name: p.stat().st_mtime_ns for p in (parts[0], parts[2])} == kept
     assert parts[1].is_file() and (d / "features.parquet").is_file()
@@ -401,21 +470,19 @@ def test_items_known_not_ready_are_skipped_in_plain_words(client: TestClient, pr
         (13, "missing_seg"), (16, "affine_mismatch"), (17, "shape_mismatch"),
     )}  # fmt: skip
     items = [ITEMS[0], *bad]
-    est = client.post(
-        f"{API}/projects/{proj}/radiomics/estimate", json={"selection": sel(items)}
-    ).json()
+    est = post_estimate(client, proj, {"selection": sel(items)}).json()["radiomics"]
     assert est["n_units"] == 1 and est["n_skipped"] == 3
     assert est["skipped_by"] == {"missing_seg": 1, "affine_mismatch": 1, "shape_mismatch": 1}
     run = start(client, proj, {"selection": sel(items)})
     assert run["status"] == "completed", run
     assert run["counts"] == {"items": 4, "ok": 1, "failed": 0, "features": 107, "skipped": 3}
-    errs = client.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/errors").json()
-    got = {e["item_id"]: e for e in errs["items"]}
+    errs = run_errors(client, proj, run["run_id"])
+    got = {e["item_id"]: e for e in errs}
     assert {i: (e["kind"], e["code"]) for i, e in got.items()} == {
         i: ("skipped", c) for i, c in bad.items()
     }
     assert "line up" in got[f"case_{16:05d}.01.complete.-"]["error"]
-    assert all("geometryTolerance" not in json.dumps(e) for e in errs["items"])
+    assert all("geometryTolerance" not in json.dumps(e) for e in errs)
     # the dashboard overview counts them as skipped, not failed (DB, AUD-A2-05)
     r = client.post(
         f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/views/run-overview", json={}
@@ -458,17 +525,17 @@ def test_resume_refuses_changed_inputs(client: TestClient, proj: str, data_root:
     (d / "features.parquet").unlink()
     img = data_root / "nifti" / "01_case_00031_0000.nii.gz"
     img.write_bytes(img.read_bytes() + b"\0")  # the image changed after the run started
-    url = f"{API}/projects/{proj}/radiomics/runs/{rid}"
+    url = runs_url(proj, rid)
     r = client.post(f"{url}/resume")
     assert r.status_code == 202, r.text
     wait(client, r.json()["job_id"])
-    done = client.get(url).json()
+    done = get_run(client, proj, rid)
     assert done["status"] == "completed_with_errors" and done["counts"]["ok"] == 2
-    errs = client.get(f"{url}/errors").json()["items"]
+    errs = run_errors(client, proj, rid)
     assert [(e["item_id"], e["kind"], e["code"]) for e in errs] == [
         (ITEMS[1], "failed", "input_changed")
     ]
-    assert {r["item_id"] for r in client.get(f"{url}/features").json()["rows"]} == {
+    assert {r["item_id"] for r in client.get(features_url(proj, rid)).json()["rows"]} == {
         ITEMS[0], ITEMS[2]
     }  # fmt: skip
 

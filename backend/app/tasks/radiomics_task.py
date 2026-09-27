@@ -1,7 +1,8 @@
 """`radiomics.pyradiomics` behind the generic task endpoints (RAD-13, ADR-0016 §3).
 
 The radiomics service stays the implementation (RAD-*); run records stay in `radiomics/runs/`.
-This adapter maps task payloads to radiomics ones and back.
+This adapter maps task payloads to radiomics ones and back, and attaches the radiomics record
+itself (`radiomics` field) so the UI reads the RAD-* shapes through API-43..47 (AUD-A4-09).
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.errors import ValidationProblem
-from app.core.ids import is_ulid
 from app.radiomics.models import (
     EstimateRequest,
     RadiomicsSettings,
@@ -32,11 +32,11 @@ from app.tasks.models import (
     TaskRunCounts,
     TaskRunDetail,
     TaskRunInput,
+    TaskRunListItem,
     TaskRunOutput,
     TaskRunProgress,
     TaskRunRequest,
     TaskRunStarted,
-    TaskRunSummary,
     TaskSelection,
     TaskValidateResult,
 )
@@ -76,8 +76,8 @@ def _ref() -> TaskRef:
     return TaskRef(id=RADIOMICS_TASK, version=VERSION, manifest_hash="")
 
 
-def _summary(r: RunSummary | RunDetail) -> TaskRunSummary:
-    return TaskRunSummary(
+def _summary(r: RunSummary | RunDetail) -> TaskRunListItem:
+    return TaskRunListItem(
         run_id=r.run_id,
         task=_ref(),
         name=r.name,
@@ -94,9 +94,13 @@ def _summary(r: RunSummary | RunDetail) -> TaskRunSummary:
 
 
 class RadiomicsTask(RadiomicsService):
-    def validate_task(self, raw: dict[str, Any]) -> TaskValidateResult:
+    def validate_task(
+        self, raw: dict[str, Any], labels: list[int] | None = None, n_items: int | None = None
+    ) -> TaskValidateResult:
         settings, _ = _settings(raw)
-        req = ValidateRequest(settings=settings or RadiomicsSettings(), labels=None, n_items=None)
+        req = ValidateRequest(
+            settings=settings or RadiomicsSettings(), labels=labels, n_items=n_items
+        )
         res = self.validate(req)
         return TaskValidateResult(
             ok=res.ok,
@@ -106,6 +110,7 @@ class RadiomicsTask(RadiomicsService):
             ],
             settings=res.settings.model_dump(mode="json") if res.settings else None,
             settings_hash=res.profile_hash,
+            radiomics=res,
         )
 
     async def estimate_task(self, pid: str, req: PreflightRequest) -> TaskEstimate:
@@ -125,6 +130,7 @@ class RadiomicsTask(RadiomicsService):
             sample_item_ids=res.sample_item_ids,
             sample_errors=res.sample_errors,
             detail={"skipped_by": res.skipped_by} if res.skipped_by else {},
+            radiomics=res,
         )
 
     async def start_task(
@@ -141,17 +147,15 @@ class RadiomicsTask(RadiomicsService):
         return TaskRunStarted(run_id=d.run_id, job_id=d.job_id, status=d.status)
 
     def has_run(self, pid: str, rid: str) -> bool:
-        if not is_ulid(rid):
-            return False
-        return (self._runs_dir(pid) / rid / "run.json").is_file()
+        return self.runs.has(pid, rid)
 
-    async def task_summaries(self, pid: str) -> list[TaskRunSummary]:
-        return [_summary(r) for r in await self.list_runs(pid)]
+    async def task_summaries(self, pid: str) -> list[TaskRunListItem]:
+        return [_summary(r).model_copy(update={"radiomics": r}) for r in await self.list_runs(pid)]
 
     async def task_detail(self, pid: str, rid: str) -> TaskRunDetail:
         d = await self.get(pid, rid)
         return TaskRunDetail(
-            **_summary(d).model_dump(),
+            **_summary(d).model_dump(exclude={"radiomics"}),
             runtime="builtin",
             settings=d.settings.model_dump(mode="json"),
             settings_hash=d.profile_hash,
@@ -177,7 +181,7 @@ class RadiomicsTask(RadiomicsService):
                 if d.progress
                 else None
             ),
-            detail_url=f"/api/v1/projects/{pid}/radiomics/runs/{rid}",
+            radiomics=d,
         )
 
     def task_errors(self, pid: str, rid: str) -> list[TaskItemError]:
@@ -186,6 +190,7 @@ class RadiomicsTask(RadiomicsService):
                 item_id=e.item_id,
                 status="skipped" if e.kind == "skipped" else "failed",
                 message=f"label {e.label}: {e.error}" + (f" ({e.code})" if e.code else ""),
+                radiomics=e,
             )
             for e in self.errors(pid, rid)
         ]

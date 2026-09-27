@@ -387,7 +387,7 @@ class PyRadiomicsEngine:
     def schema(self) -> SettingsSchema:
         return self._schema.model_copy(deep=True)
 
-    # -- validation (API-31, RAD-04) --------------------------------------------------------
+    # -- validation (API-43, RAD-04) --------------------------------------------------------
 
     def validate(self, settings: dict[str, Any]) -> list[Issue]:
         raw = RadiomicsSettings.model_validate(settings)

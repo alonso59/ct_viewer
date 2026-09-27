@@ -47,23 +47,23 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-28 | `GET /packs` · `POST /projects/{pid}/packs` `{pack_id}` | Study packs available (from plugins) / apply one → `{project, job_id}` (records `packs[]`, never deletes data; `job_id` = the reindex when phase rules changed) | PRJ-16 |
 | API-29 | — | Retired (never used); the ID is not reused | — |
 | API-30 | `GET /radiomics/schema` | Engine options, defaults, constraints | RAD-01 |
-| API-31 | `POST /radiomics/validate` | Settings → issues | RAD-04 |
+| API-31 | — | Retired by AUD-A4-09 (FB11): alias of API-43 for `radiomics.pyradiomics` (RAD-13); the ID is not reused | — |
 | API-32 | `GET·POST /projects/{pid}/radiomics/profiles` · `PATCH·DELETE …/{hash}` | Profiles | RAD-03 |
-| API-33 | `POST /projects/{pid}/radiomics/estimate` | Pre-run estimate | RAD-11 |
-| API-34 | `POST /projects/{pid}/radiomics/runs` · `GET …/runs` · `GET …/runs/{rid}` | Start / list / detail | RAD-06 |
-| API-35 | `POST …/runs/{rid}/cancel` · `POST …/runs/{rid}/resume` | Control | RAD-06/08 |
-| API-36 | `GET …/runs/{rid}/features?format=json\|parquet\|csv&shape=long\|wide&item_id=` | Export; the `item_id` filter + JSON feeds the Measurements panel | RAD-10, UI-14 |
-| API-37 | `GET …/runs/{rid}/errors` | Per-item failures | RAD-07 |
-| API-38 | `POST …/runs/{rid}/views/{view}` | Dashboard computation (body = view params) | DB-* |
+| API-33 | — | Retired by AUD-A4-09 (FB11): alias of API-44 for `radiomics.pyradiomics` (RAD-13); the ID is not reused | — |
+| API-34 | — | Retired by AUD-A4-09 (FB11): alias of API-45 for `radiomics.pyradiomics` (RAD-13); the ID is not reused | — |
+| API-35 | — | Retired by AUD-A4-09 (FB11): alias of API-46 for `radiomics.pyradiomics` (RAD-13); the ID is not reused | — |
+| API-36 | `GET /projects/{pid}/radiomics/runs/{rid}/features?format=json\|parquet\|csv&shape=long\|wide&item_id=` | Export; the `item_id` filter + JSON feeds the Measurements panel | RAD-10, UI-14 |
+| API-37 | — | Retired by AUD-A4-09 (FB11): alias of API-47 for `radiomics.pyradiomics` (RAD-13); the ID is not reused | — |
+| API-38 | `POST /projects/{pid}/radiomics/runs/{rid}/views/{view}` | Dashboard computation (body = view params) | DB-* |
 | API-39 | `POST /projects/{pid}/analyses` · `GET …/analyses[/{aid}]` · `GET …/analyses/{aid}/export` | Create+run / list / results + recommendations / tidy CSV + spec | ANA-* |
 | API-40 | `GET /projects/{pid}/events` (SSE) | Realtime stream | CUR-11 |
 | API-41 | `GET /jobs?project={pid}` · `GET /jobs/{job_id}` · `POST /jobs/{job_id}/cancel` | Jobs panel / one job (`JobInfo`; scripts and a future job deep link, no UI caller) / cancel | BE-06 |
 | API-42 | `GET /tasks` · `GET /tasks/{tid}` | `{tasks: [{manifest, source, manifest_hash, available, unavailable_reason, runner_online, settings_schema_url}], invalid: [{path, error}], runners[]}` | TSK-01, TSK-11 |
-| API-43 | `POST /tasks/{tid}/validate` | Settings → issues | TSK-02 |
-| API-44 | `POST /projects/{pid}/tasks/{tid}/preflight` · `…/estimate` | Selection → readiness + suggestions / estimate (source tasks: the dry run with `series[]` + `series_truncated`, DCM-06) | TSK-04/05 |
-| API-45 | `POST·GET /projects/{pid}/task-runs?task=` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection, name?}`, optional `X-Reviewer` → `202 {run_id, job_id, status}`) / list (radiomics runs included) / detail | TSK-06/10 |
-| API-46 | `POST …/task-runs/{rid}/cancel` · `POST …/task-runs/{rid}/resume` | Control | TSK-07 |
-| API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09 |
+| API-43 | `POST /tasks/{tid}/validate` | Settings → issues (`radiomics.pyradiomics`: optional `labels`, `n_items` checked as well) | TSK-02, RAD-04 |
+| API-44 | `POST /projects/{pid}/tasks/{tid}/preflight` · `…/estimate` | Selection → readiness + suggestions / estimate (source tasks: the dry run with `series[]` + `series_truncated`, DCM-06) | TSK-04/05, RAD-11 |
+| API-45 | `POST·GET /projects/{pid}/task-runs?task=` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection, name?}`, optional `X-Reviewer` → `202 {run_id, job_id, status}`) / list (radiomics runs included) / detail | TSK-06/10, RAD-06/09 |
+| API-46 | `POST …/task-runs/{rid}/cancel` · `POST …/task-runs/{rid}/resume` | Control | TSK-07, RAD-08 |
+| API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09, RAD-07 |
 | API-48 | `GET /projects/{pid}/annotations?field=&run=&item_id=` · `GET …/annotation-sources` · `PUT …/annotation-sources/{field}` | Annotations with confidence/evidence and `active` / active runs / activate a run (`{run_id\|null}` → `{annotation_sources, job_id}`, the reindex job) | ANZ-01/04 |
 | API-49 | `GET /plugins` · `GET /plugins/{id}` | Plugin Library: installed first-party plugins, contributions, status (`ready`, `needs runner`, `needs derived root`, `needs segmentation`, `pending`) with the reason | PLG-05/06 |
 | API-50 | `GET·POST /projects/{pid}/curation/events` | History (filter by `item_id`/`case_id`) / append (`X-Reviewer`, optional `X-Session-Id`) | CUR-02/14 |
@@ -83,7 +83,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-64 | `GET /projects/{pid}/phase/state?case_id=` | For scripts and external clients (the UI reads items and API-63). Latest selection per scan with the value it overrides (`resolved`, `resolved_source`). Items, cases and API-59 already carry the effective phase (`phase.source = manual`, `phase.resolved` = the index-time value) | PHS-02/03 |
 | API-65 | `POST /projects/{pid}/phase/exports` | Write `exports/phase_selections.json` | PHS-06 |
 
-API-30..37 are aliases of API-42..47 for `radiomics.pyradiomics` during P7b (RAD-13) and are removed one release after the P7b exit.
+Radiomics is the task `radiomics.pyradiomics` (RAD-13): validate, estimate, runs, control and errors are API-43..47, whose answers carry the radiomics record as `radiomics` (API-43 `ValidateResult`, API-44 `EstimateResult`, API-45 list `RunSummary` / detail and API-46 cancel `RunDetail`, API-47 `RunError` per row). Only the engine schema (API-30), profiles (API-32), feature exports (API-36) and dashboard views (API-38) are radiomics routes.
 
 ## SSE event types (API-40)
 

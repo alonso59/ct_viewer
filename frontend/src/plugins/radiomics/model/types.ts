@@ -1,4 +1,4 @@
-// Radiomics wire types (API-30..37) from the shared API layer, under the names this feature uses.
+// Radiomics wire types (API-30/32/36; runs: API-43..47) from the shared API layer, under the names this feature uses.
 export type {
   EstimateResult,
   FeatureClassSpec,
@@ -27,7 +27,7 @@ export interface FormState {
   options: Record<string, Value>
 }
 
-/** One validation finding. `loc` uses the server's paths (API-31) so both sources merge per field. */
+/** One validation finding. `loc` uses the server's paths (API-43) so both sources merge per field. */
 export interface Issue {
   loc: (string | number)[]
   rule: string

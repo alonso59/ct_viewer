@@ -276,10 +276,10 @@ export interface Api {
   /** API-54: v2 `curation_review.csv` → events (CUR-13) */
   importV2(pid: string, file: File, reviewer: string): Promise<V2ImportReport>
 
-  // Radiomics (API-30..37)
+  // Radiomics (API-30/32/36; runs: API-43..47)
   /** API-30: engine options, defaults, constraints (RAD-01) */
   radiomicsSchema(): Promise<SettingsSchema>
-  /** API-31: authoritative validation (RAD-04); `nItems = null` skips the empty-selection check */
+  /** API-43 for radiomics: authoritative validation (RAD-04); `nItems = null` skips the empty-selection check */
   validateRadiomics(settings: RadiomicsSettings, labels: number[] | null, nItems: number | null): Promise<ValidateResult>
   /** API-32 (RAD-03); all pages */
   listProfiles(pid: string): Promise<Profile[]>
@@ -288,20 +288,20 @@ export interface Api {
   renameProfile(pid: string, hash: string, name: string): Promise<Profile>
   /** Returns the remaining profiles */
   deleteProfile(pid: string, hash: string): Promise<Profile[]>
-  /** API-33 (RAD-11) */
+  /** API-44 for radiomics (RAD-11) */
   estimate(pid: string, settings: RadiomicsSettings, selection: Selection): Promise<EstimateResult>
-  /** API-34; all pages, newest first */
+  /** API-45 radiomics runs (RAD-13), newest first */
   listRuns(pid: string): Promise<RunSummary[]>
   getRun(pid: string, rid: string): Promise<RunDetail>
   startRun(pid: string, body: StartRunBody, reviewer: string): Promise<RunDetail>
-  /** API-35 (RAD-06/08) */
+  /** API-46 (RAD-06/08) */
   cancelRun(pid: string, rid: string): Promise<RunDetail>
   resumeRun(pid: string, rid: string): Promise<RunDetail>
   /** API-36 JSON long rows (Measurements panel, UI-14) */
   runFeatures(pid: string, rid: string, itemId?: string): Promise<FeatureRow[]>
   /** API-36 file download URL (RAD-10) */
   runExportUrl(pid: string, rid: string, format: RunExportFormat, shape: RunExportShape): string
-  /** API-37 (RAD-07); all pages */
+  /** API-47 (RAD-07) */
   runErrors(pid: string, rid: string): Promise<RunError[]>
 
   // Dashboard (API-38) and guided analysis (API-39)

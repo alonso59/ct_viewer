@@ -2945,39 +2945,6 @@
     "title": "EngineInfo",
     "type": "object"
    },
-   "EstimateRequest": {
-    "properties": {
-     "profile_hash": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Profile Hash"
-     },
-     "selection": {
-      "$ref": "#/components/schemas/Selection"
-     },
-     "settings": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/RadiomicsSettings"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     }
-    },
-    "required": [
-     "selection"
-    ],
-    "title": "EstimateRequest",
-    "type": "object"
-   },
    "EstimateResult": {
     "properties": {
      "estimated_total_s": {
@@ -6597,70 +6564,6 @@
     "title": "Page[QcWarning]",
     "type": "object"
    },
-   "Page_RunError_": {
-    "properties": {
-     "items": {
-      "items": {
-       "$ref": "#/components/schemas/app__radiomics__models__RunError"
-      },
-      "title": "Items",
-      "type": "array"
-     },
-     "next_cursor": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Next Cursor"
-     },
-     "total": {
-      "title": "Total",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "items",
-     "total"
-    ],
-    "title": "Page[RunError]",
-    "type": "object"
-   },
-   "Page_RunSummary_": {
-    "properties": {
-     "items": {
-      "items": {
-       "$ref": "#/components/schemas/RunSummary"
-      },
-      "title": "Items",
-      "type": "array"
-     },
-     "next_cursor": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Next Cursor"
-     },
-     "total": {
-      "title": "Total",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "items",
-     "total"
-    ],
-    "title": "Page[RunSummary]",
-    "type": "object"
-   },
    "PairPoint": {
     "properties": {
      "a": {
@@ -9022,51 +8925,6 @@
     "title": "RunProgress",
     "type": "object"
    },
-   "RunRequest": {
-    "properties": {
-     "name": {
-      "anyOf": [
-       {
-        "maxLength": 200,
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Name"
-     },
-     "profile_hash": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Profile Hash"
-     },
-     "selection": {
-      "$ref": "#/components/schemas/Selection"
-     },
-     "settings": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/RadiomicsSettings"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     }
-    },
-    "required": [
-     "selection"
-    ],
-    "title": "RunRequest",
-    "type": "object"
-   },
    "RunSelection": {
     "properties": {
      "filter": {
@@ -9667,127 +9525,6 @@
     "title": "SegmentationSet",
     "type": "object"
    },
-   "Selection": {
-    "description": "All active items (default) / explicit `item_ids` / `filter`; plus scope and labels.",
-    "properties": {
-     "filter": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/SelectionFilter"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     },
-     "item_ids": {
-      "anyOf": [
-       {
-        "items": {
-         "type": "string"
-        },
-        "type": "array"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Item Ids"
-     },
-     "labels": {
-      "items": {
-       "type": "integer"
-      },
-      "title": "Labels",
-      "type": "array"
-     },
-     "scope": {
-      "anyOf": [
-       {
-        "enum": [
-         "complete",
-         "voi"
-        ],
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Scope"
-     },
-     "seg_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Seg Id"
-     }
-    },
-    "title": "Selection",
-    "type": "object"
-   },
-   "SelectionFilter": {
-    "description": "RAD-05 filter: values OR within a field, AND across fields; `var` as VAR-10.",
-    "properties": {
-     "phase": {
-      "anyOf": [
-       {
-        "items": {
-         "type": "string"
-        },
-        "type": "array"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Phase"
-     },
-     "side": {
-      "anyOf": [
-       {
-        "items": {
-         "enum": [
-          "L",
-          "R",
-          "-"
-         ],
-         "type": "string"
-        },
-        "type": "array"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Side"
-     },
-     "var": {
-      "anyOf": [
-       {
-        "additionalProperties": {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        "type": "object"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Var"
-     }
-    },
-    "title": "SelectionFilter",
-    "type": "object"
-   },
    "SeriesPlan": {
     "description": "One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why.",
     "properties": {
@@ -10269,6 +10006,16 @@
       ],
       "title": "Output Bytes"
      },
+     "radiomics": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EstimateResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "sample_errors": {
       "items": {
        "type": "string"
@@ -10403,6 +10150,16 @@
       "default": "",
       "title": "Message",
       "type": "string"
+     },
+     "radiomics": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/app__radiomics__models__RunError"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "status": {
       "enum": [
@@ -10638,17 +10395,6 @@
       "title": "Created At",
       "type": "string"
      },
-     "detail_url": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Detail Url"
-     },
      "error": {
       "anyOf": [
        {
@@ -10722,6 +10468,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/TaskRunProgress"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "radiomics": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RunDetail"
        },
        {
         "type": "null"
@@ -10857,6 +10613,117 @@
      "item_id"
     ],
     "title": "TaskRunInput",
+    "type": "object"
+   },
+   "TaskRunListItem": {
+    "description": "API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13).",
+    "properties": {
+     "counts": {
+      "$ref": "#/components/schemas/TaskRunCounts"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "radiomics": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RunSummary"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "waiting_for_runner",
+       "running",
+       "completed",
+       "completed_with_errors",
+       "failed",
+       "cancelled",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "task": {
+      "$ref": "#/components/schemas/TaskRef"
+     }
+    },
+    "required": [
+     "run_id",
+     "task",
+     "name",
+     "status",
+     "created_at"
+    ],
+    "title": "TaskRunListItem",
     "type": "object"
    },
    "TaskRunOutput": {
@@ -11030,106 +10897,6 @@
     "title": "TaskRunStarted",
     "type": "object"
    },
-   "TaskRunSummary": {
-    "properties": {
-     "counts": {
-      "$ref": "#/components/schemas/TaskRunCounts"
-     },
-     "created_at": {
-      "title": "Created At",
-      "type": "string"
-     },
-     "error": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Error"
-     },
-     "finished_at": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Finished At"
-     },
-     "job_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Job Id"
-     },
-     "name": {
-      "title": "Name",
-      "type": "string"
-     },
-     "reviewer": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Reviewer"
-     },
-     "run_id": {
-      "title": "Run Id",
-      "type": "string"
-     },
-     "started_at": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Started At"
-     },
-     "status": {
-      "enum": [
-       "queued",
-       "waiting_for_runner",
-       "running",
-       "completed",
-       "completed_with_errors",
-       "failed",
-       "cancelled",
-       "interrupted"
-      ],
-      "title": "Status",
-      "type": "string"
-     },
-     "task": {
-      "$ref": "#/components/schemas/TaskRef"
-     }
-    },
-    "required": [
-     "run_id",
-     "task",
-     "name",
-     "status",
-     "created_at"
-    ],
-    "title": "TaskRunSummary",
-    "type": "object"
-   },
    "TaskSelection": {
     "description": "TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels.",
     "properties": {
@@ -11263,6 +11030,32 @@
    },
    "TaskValidateRequest": {
     "properties": {
+     "labels": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Labels"
+     },
+     "n_items": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "N Items"
+     },
      "settings": {
       "additionalProperties": true,
       "title": "Settings",
@@ -11284,6 +11077,16 @@
      "ok": {
       "title": "Ok",
       "type": "boolean"
+     },
+     "radiomics": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ValidateResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "settings": {
       "anyOf": [
@@ -11655,43 +11458,6 @@
      "reason"
     ],
     "title": "V2Skipped",
-    "type": "object"
-   },
-   "ValidateRequest": {
-    "properties": {
-     "labels": {
-      "anyOf": [
-       {
-        "items": {
-         "type": "integer"
-        },
-        "type": "array"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "description": "Selected labels (optional)",
-      "title": "Labels"
-     },
-     "n_items": {
-      "anyOf": [
-       {
-        "minimum": 0.0,
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "description": "Selected item count (optional)",
-      "title": "N Items"
-     },
-     "settings": {
-      "$ref": "#/components/schemas/RadiomicsSettings"
-     }
-    },
-    "title": "ValidateRequest",
     "type": "object"
    },
    "ValidateResult": {
@@ -16710,59 +16476,6 @@
     ]
    }
   },
-  "/api/v1/projects/{pid}/radiomics/estimate": {
-   "post": {
-    "description": "API-33 (RAD-11): n_items x n_labels and time per item from a 3-item worker sample.",
-    "operationId": "estimate_api_v1_projects__pid__radiomics_estimate_post",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/EstimateRequest"
-       }
-      }
-     },
-     "required": true
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/EstimateResult"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Estimate",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
   "/api/v1/projects/{pid}/radiomics/profiles": {
    "get": {
     "description": "API-32 (RAD-03): saved profiles, by name.",
@@ -17039,334 +16752,6 @@
     ]
    }
   },
-  "/api/v1/projects/{pid}/radiomics/runs": {
-   "get": {
-    "description": "API-34: runs, newest first; stale `running` runs are reported `interrupted` (BE-06).",
-    "operationId": "list_runs_api_v1_projects__pid__radiomics_runs_get",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "Opaque cursor from `next_cursor`",
-      "in": "query",
-      "name": "cursor",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "description": "Opaque cursor from `next_cursor`",
-       "title": "Cursor"
-      }
-     },
-     {
-      "in": "query",
-      "name": "limit",
-      "required": false,
-      "schema": {
-       "default": 200,
-       "maximum": 2000,
-       "minimum": 1,
-       "title": "Limit",
-       "type": "integer"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Page_RunSummary_"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "List Runs",
-    "tags": [
-     "radiomics"
-    ]
-   },
-   "post": {
-    "description": "API-34 (RAD-05/06/09): validate and start a background run. 428 without `X-Reviewer`.",
-    "operationId": "start_run_api_v1_projects__pid__radiomics_runs_post",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "Reviewer name or initials; recorded in run.json (RAD-09)",
-      "in": "header",
-      "name": "x-reviewer",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "description": "Reviewer name or initials; recorded in run.json (RAD-09)",
-       "title": "X-Reviewer"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/RunRequest"
-       }
-      }
-     },
-     "required": true
-    },
-    "responses": {
-     "202": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RunDetail"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Start Run",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
-  "/api/v1/projects/{pid}/radiomics/runs/{rid}": {
-   "get": {
-    "description": "API-34 (RAD-09): the run record plus live progress while its job runs.",
-    "operationId": "get_run_api_v1_projects__pid__radiomics_runs__rid__get",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     },
-     {
-      "in": "path",
-      "name": "rid",
-      "required": true,
-      "schema": {
-       "title": "Rid",
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RunDetail"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Get Run",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
-  "/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel": {
-   "post": {
-    "description": "API-35 (RAD-06): cancel; idempotent for finished runs.",
-    "operationId": "cancel_run_api_v1_projects__pid__radiomics_runs__rid__cancel_post",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     },
-     {
-      "in": "path",
-      "name": "rid",
-      "required": true,
-      "schema": {
-       "title": "Rid",
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RunDetail"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Cancel Run",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
-  "/api/v1/projects/{pid}/radiomics/runs/{rid}/errors": {
-   "get": {
-    "description": "API-37 (RAD-07): per-item failures and label-absent skips.",
-    "operationId": "get_errors_api_v1_projects__pid__radiomics_runs__rid__errors_get",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     },
-     {
-      "in": "path",
-      "name": "rid",
-      "required": true,
-      "schema": {
-       "title": "Rid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "Opaque cursor from `next_cursor`",
-      "in": "query",
-      "name": "cursor",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "description": "Opaque cursor from `next_cursor`",
-       "title": "Cursor"
-      }
-     },
-     {
-      "in": "query",
-      "name": "limit",
-      "required": false,
-      "schema": {
-       "default": 200,
-       "maximum": 2000,
-       "minimum": 1,
-       "title": "Limit",
-       "type": "integer"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Page_RunError_"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Get Errors",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/features": {
    "get": {
     "description": "API-36 (RAD-10, UI-14): long or wide features as JSON, CSV or Parquet.",
@@ -17463,58 +16848,6 @@
      }
     },
     "summary": "Get Features",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
-  "/api/v1/projects/{pid}/radiomics/runs/{rid}/resume": {
-   "post": {
-    "description": "API-35 (RAD-08): resume an interrupted/cancelled/failed run, skipping finished parts.",
-    "operationId": "resume_run_api_v1_projects__pid__radiomics_runs__rid__resume_post",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "pid",
-      "required": true,
-      "schema": {
-       "title": "Pid",
-       "type": "string"
-      }
-     },
-     {
-      "in": "path",
-      "name": "rid",
-      "required": true,
-      "schema": {
-       "title": "Rid",
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "202": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RunDetail"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Resume Run",
     "tags": [
      "radiomics"
     ]
@@ -18487,7 +17820,7 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/TaskRunSummary"
+          "$ref": "#/components/schemas/TaskRunListItem"
          },
          "title": "Response List Runs Api V1 Projects  Pid  Task Runs Get",
          "type": "array"
@@ -19517,48 +18850,6 @@
      }
     },
     "summary": "Get Schema",
-    "tags": [
-     "radiomics"
-    ]
-   }
-  },
-  "/api/v1/radiomics/validate": {
-   "post": {
-    "description": "API-31 (RAD-04): issues (errors + the normalize/HU warning) with field locations.",
-    "operationId": "validate_settings_api_v1_radiomics_validate_post",
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/ValidateRequest"
-       }
-      }
-     },
-     "required": true
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ValidateResult"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Validate Settings",
     "tags": [
      "radiomics"
     ]

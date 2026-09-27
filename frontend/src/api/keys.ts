@@ -37,7 +37,7 @@ export const keys = {
   profiles: (pid: string) => ['project', pid, 'profiles'] as const,
   jobs: (pid?: string) => ['jobs', pid ?? '*'] as const,
   schema: () => ['radiomics', 'schema'] as const,
-  /** API-31; `body` is the serialized request, so equal settings share one answer */
+  /** API-43; `body` is the serialized request, so equal settings share one answer */
   validation: (body: string) => ['radiomics', 'schema', 'validate', body] as const,
   fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
   /** API-07 by session id: the route names the session, never the path (AUD-A1-19) */

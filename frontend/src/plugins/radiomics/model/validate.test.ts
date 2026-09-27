@@ -1,4 +1,4 @@
-// RAD-04 client validation mirrors API-31 (RADIOMICS.md §Validation rules)
+// RAD-04 client validation mirrors API-43 (RADIOMICS.md §Validation rules)
 import schemaJson from './fixtures/schema.json'
 import { defaultForm, setFeatures, setFilter, setOption } from './settings'
 import type { FormState, Issue, ServerIssue, SettingsSchema } from './types'

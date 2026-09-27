@@ -105,7 +105,7 @@ export const useJobs = (pid?: string | null) =>
   useQuery({ queryKey: keys.jobs(pid ?? undefined), queryFn: () => api.listJobs(pid ?? undefined) })
 /** API-30; the engine schema does not change while the server runs */
 export const useRadiomicsSchema = () => useQuery({ queryKey: keys.schema(), queryFn: () => api.radiomicsSchema(), staleTime: Infinity, retry: 1 })
-/** API-31 for one request; `body = null` disables it. The previous answer stays while a new one loads. */
+/** API-43 for one request; `body = null` disables it. The previous answer stays while a new one loads. */
 export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labels: number[] | null; nItems: number | null } | null) {
   const key = body ? JSON.stringify(body) : ''
   return useQuery({
@@ -366,7 +366,7 @@ export function useImportExternal(pid: string) {
   })
 }
 
-// ---- radiomics writes (API-32..35) ---------------------------------------------------------------
+// ---- radiomics writes (API-32, API-44..46) ---------------------------------------------------------------
 /** API-32; saving settings that match a profile returns that profile */
 export function useSaveProfile(pid: string) {
   const qc = useQueryClient()
@@ -392,7 +392,7 @@ export function useDeleteProfile(pid: string) {
   })
 }
 
-/** API-33 (RAD-11) */
+/** API-44 (RAD-11) */
 export function useEstimate(pid: string) {
   return useMutation({ mutationFn: (p: { settings: RadiomicsSettings; selection: Selection }) => api.estimate(pid, p.settings, p.selection) })
 }
@@ -403,7 +403,7 @@ function invalidateRuns(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ queryKey: keys.allJobs() })
 }
 
-/** API-34 (RAD-06), stamped with the reviewer; the Run button is the only trigger (RADIOMICS §Principles) */
+/** API-45 (RAD-06), stamped with the reviewer; the Run button is the only trigger (RADIOMICS §Principles) */
 export function useStartRun(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -416,7 +416,7 @@ export function useStartRun(pid: string) {
   })
 }
 
-/** API-35 cancel / resume (RAD-06/08) */
+/** API-46 cancel / resume (RAD-06/08) */
 export function useRunControl(pid: string) {
   const qc = useQueryClient()
   return useMutation({

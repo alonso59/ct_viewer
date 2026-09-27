@@ -27,12 +27,12 @@ backend/app/
 │   └── health, projects, fs, imports, cases, items, volumes, segmentations, sources, curation,
 │       phase, labeling, annotations, variables, exports, radiomics, dashboard, tasks, plugins,
 │       jobs, events, view (API-60)
-├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, logs, redact (paths → alias refs, NFR-17), cache_budget (CACHE_MAX_GB LRU)
+├── core/            # errors (problem+json, settings issues → errors), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, logs, redact (paths → alias refs, NFR-17), cache_budget (CACHE_MAX_GB LRU), reviewer (the `X-Reviewer` stamp rule)
 ├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
 ├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, sidecars (IMP-15), full-hash job (IMP-09)
 ├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions + service (open_service.py: open, attach, save; SRC-*)
 ├── layers/          # metadata layers joined onto the rows; dataset table (API-59, ADR-0020)
-├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*)
+├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*); the service is split records → selection → jobspec → estimate → registration → driver → service
 ├── plugins/         # plugin.json loader, task ownership, Library status (PLG-*, API-49)
 ├── eventstore/      # namespaced append-only log `events/{ns}.jsonl`, reviewer/session stamps, `{ns}.appended` SSE, LWW state (ADR-0022)
 ├── curation/        # Curation & QC on the event store: reducer (derived state), queue, exports (CUR-*)
@@ -42,7 +42,7 @@ backend/app/
 ├── radiomics/       # engine protocol, pyradiomics adapter, schema builder, ibsi_map.json; runs as builtin task (RAD-13)
 ├── variables/       # profiling, type inference, catalog overrides, derived + external variables (VAR-*)
 ├── analytics/       # DuckDB queries for dashboard views (DB-*) + guided statistics and recommendations (ANA-*)
-├── jobs/            # job manager, process pool, progress relay
+├── jobs/            # job manager, process pool, progress relay; runs (the shared run lifecycle: `run.json` I/O, status, reconcile, cancel, resume guard, submit) for task and radiomics runs
 └── events/          # in-process pub/sub → SSE fan-out
 ```
 
@@ -60,7 +60,7 @@ Services never import `api`. All filesystem I/O goes through `core.fsio` or `cor
 | BE-03 | Files under `source` roots are only ever opened `rb`. A test fails if any module opens a resolved `source` path for writing. Writes to a `derived` root happen only in task code, inside the run's `output_dir` or the task's `dataset/` (ADR-0014). | M |
 | BE-04 | Volumes are streamed as the original file bytes (`FileResponse`, HTTP Range, `ETag` = quick fingerprint). The server does not decode volumes for viewing, except the npy→NIfTI cache (IMP-10). | M |
 | BE-05 | Writes: one `asyncio.Lock` per project serializes appends and atomic writes. On startup, take an exclusive `fcntl` lock on `WORKSPACE_ROOT/.server.lock`; refuse to start if it is held. | M |
-| BE-06 | Job manager: `ProcessPoolExecutor(JOB_WORKERS)`, with job types `index`, `hash`, `thumbnail`, `radiomics`, `mesh`, `task` (builtin tasks, TSK-07), `open-convert` (SRC-09). Progress is relayed to the event bus, and state is persisted (index status, `run.json`). On restart, running jobs become `interrupted`. A `task` job has a *driver* coroutine instead of units: it owns progress and status (`waiting_for_runner` ↔ `running`, event `job.status`) and one job per `(project, task_id)` is active (TSK-12). | M |
+| BE-06 | Job manager: `ProcessPoolExecutor(JOB_WORKERS)`, with job types `index`, `hash`, `thumbnail`, `radiomics`, `mesh`, `task` (builtin tasks, TSK-07), `open-convert` (SRC-09). Progress is relayed to the event bus, and state is persisted (index status, `run.json`; task and radiomics runs share one run lifecycle, `jobs/runs.py`, AUD-A6-06). On restart, running jobs become `interrupted`. A `task` job has a *driver* coroutine instead of units: it owns progress and status (`waiting_for_runner` ↔ `running`, event `job.status`) and one job per `(project, task_id)` is active (TSK-12). | M |
 | BE-07 | Per-project in-memory caches (index, curation state, label map) are loaded on first access and invalidated on write. An LRU keeps at most `PROJECT_CACHE_MAX` projects. | M |
 | BE-08 | Errors are RFC 9457 `application/problem+json`, with stable `type` slugs (API.md §Errors). | M |
 | BE-09 | Structured JSON logs to stdout; level from `LOG_LEVEL`; never log absolute patient paths at `info`. | S |

@@ -38,7 +38,7 @@ export function fromWire(schema: SettingsSchema, wire: WireSettings = schema.def
 
 export const defaultForm = (schema: SettingsSchema): FormState => fromWire(schema, schema.defaults)
 
-/** Full normalized snapshot sent to API-31/33/34 and stored in profiles */
+/** Full normalized snapshot sent to API-43/44/45 and stored in profiles */
 export function toWire(schema: SettingsSchema, form: FormState): WireSettings {
   const image_types: Record<string, Record<string, unknown>> = {}
   for (const f of schema.filters) {

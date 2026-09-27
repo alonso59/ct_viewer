@@ -6,7 +6,8 @@ validation/HTTP errors) to `application/problem+json` responses.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable, Sequence
+from typing import Any, Protocol
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -67,6 +68,28 @@ class NotFound(Problem):
 
 class ValidationProblem(Problem):
     slug = "validation"
+
+
+class _Issue(Protocol):
+    @property
+    def loc(self) -> Sequence[str | int]: ...
+    @property
+    def msg(self) -> str: ...
+    @property
+    def rule(self) -> str: ...
+    @property
+    def severity(self) -> str: ...
+
+
+def issue_errors(
+    issues: Iterable[_Issue], prefix: Sequence[str | int] = ()
+) -> list[dict[str, Any]]:
+    """Settings issues of severity `error` → `ValidationProblem.errors` rows (TSK-02, RAD-04)."""
+    return [
+        {"loc": [*prefix, *i.loc], "msg": i.msg, "type": i.rule}
+        for i in issues
+        if i.severity == "error"
+    ]
 
 
 class PathOutsideRoot(Problem):

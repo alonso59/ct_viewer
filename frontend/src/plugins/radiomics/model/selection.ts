@@ -42,7 +42,7 @@ export function toFilter(s: SelectionForm): SelectionFilter | null {
   return Object.keys(f).length ? f : null
 }
 
-/** API-33/34 `selection` body */
+/** API-44/45 `selection` body */
 export function toSelection(s: SelectionForm): Selection {
   const out: Selection = { scope: s.scope, labels: [...s.labels].sort((a, b) => a - b) }
   if (s.mode === 'filter') {

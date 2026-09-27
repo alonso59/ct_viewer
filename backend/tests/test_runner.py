@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.tasks import service as task_service
+from app.tasks import driver as task_service
 from app.tasks.registry import parse_manifest
 from tests.test_api_ingest import ctx_of, do_import, wait
 from tools.make_fixtures import DATASET

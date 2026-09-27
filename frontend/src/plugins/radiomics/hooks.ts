@@ -15,7 +15,7 @@ export function useDebounced<T>(value: T, ms: number): T {
 
 type Body = { settings: WireSettings; labels: number[]; nItems: number | null }
 
-/** Authoritative validation (API-31), debounced; `isCurrent` is false while the form is ahead of the answer */
+/** Authoritative validation (API-43), debounced; `isCurrent` is false while the form is ahead of the answer */
 export function useServerValidation(settings: WireSettings | null, labels: number[], nItems: number | null) {
   const body = settings ? JSON.stringify({ settings, labels, nItems }) : null
   const debounced = useDebounced(body, 300)

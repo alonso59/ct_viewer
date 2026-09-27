@@ -6,6 +6,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+# RAD-13: `radiomics.pyradiomics` answers the task endpoints with its own records attached
+from app.radiomics.models import EstimateResult, RunDetail, RunError, RunSummary, ValidateResult
+
 TASK_ID_RE = r"^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$"
 TaskKind = Literal["conversion", "analyzer", "features", "segmentation"]
 TaskInput = Literal["items", "rows", "source"]
@@ -130,6 +133,9 @@ class SettingsIssue(BaseModel):
 
 class TaskValidateRequest(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
+    # radiomics.pyradiomics: selection counts, checked when given (RAD-04 "Nothing to extract")
+    labels: list[int] | None = None
+    n_items: int | None = Field(default=None, ge=0)
 
 
 class TaskValidateResult(BaseModel):
@@ -137,6 +143,7 @@ class TaskValidateResult(BaseModel):
     issues: list[SettingsIssue]
     settings: dict[str, Any] | None = None  # normalized (defaults applied)
     settings_hash: str | None = None
+    radiomics: ValidateResult | None = None  # radiomics.pyradiomics: the RAD-04 result
 
 
 class TaskSelectionFilter(BaseModel):
@@ -206,6 +213,7 @@ class TaskEstimate(BaseModel):
     detail: dict[str, Any] = Field(default_factory=dict)  # e.g. the converter's dry run (DCM-06)
     series: list[SeriesPlan] = Field(default_factory=list)  # source tasks: one row per series
     series_truncated: bool = False  # more than MAX_PLAN_ROWS series
+    radiomics: EstimateResult | None = None  # radiomics.pyradiomics: the RAD-11 estimate
 
 
 class TaskRunRequest(BaseModel):
@@ -260,6 +268,12 @@ class TaskRunSummary(BaseModel):
     error: str | None = None
 
 
+class TaskRunListItem(TaskRunSummary):
+    """API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13)."""
+
+    radiomics: RunSummary | None = None
+
+
 class TaskRunRecord(TaskRunSummary):
     """`tasks/runs/{run_id}/run.json` (TSK-10, NFR-15)."""
 
@@ -283,8 +297,8 @@ class TaskRunProgress(BaseModel):
 
 class TaskRunDetail(TaskRunRecord):
     progress: TaskRunProgress | None = None
-    # radiomics.pyradiomics runs live in `radiomics/runs/` (RAD-13); details via API-34.
-    detail_url: str | None = None
+    # radiomics.pyradiomics runs live in `radiomics/runs/` (RAD-13): their RAD-09 record
+    radiomics: RunDetail | None = None
 
 
 class TaskRunStarted(BaseModel):
@@ -297,3 +311,4 @@ class TaskItemError(BaseModel):
     item_id: str
     status: ItemState
     message: str = ""
+    radiomics: RunError | None = None  # radiomics.pyradiomics: the RAD-07 row (label, cause)

@@ -47,7 +47,7 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 - [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12) — `Item.modality` done in Step 3b (VW-05 reads it); BE-12 still open
 - [ ] Deferred from P1: Dataset820 import check on the remote server (`tools.import_check`, LANE_NOTES.md); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done (lane/3-packaging); Dataset820 check in Step 4
 - [ ] Build the image for the server's architecture (`make image PLATFORM=linux/amd64` if the server is amd64), rerun `make container-smoke`, then `docker save` → udocker — amd64 build + TST-10 under Docker done (Step 3b, IBSI 20/20); `docker save` → udocker in Step 4
-- [ ] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-33/34, or keep "bin into a derived variable first"
+- [ ] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-44/45, or keep "bin into a derived variable first"
 - [ ] **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
 **Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
 
@@ -66,6 +66,7 @@ Waves 1–4 done 2026-09-24 (exit met; archive).
 - [x] Fix batches FB1..FB7 (2026-09-26..27; one commit each, `docs/audit/REMEDIATION.md` §Owner review)
 - [x] FB8 (tests, performance budget, code health; 2026-09-27)
 - [x] A8 rail duplication audit and FB9 (owner decisions after FB8: registry upsert, 400 KiB budget + baseline warning, outlier share rule, dev tools gates, ADR-0027/0028 Accepted; 2026-09-27)
+- [x] FB11 (shared run lifecycle + `tasks/service.py` split, AUD-A6-06; radiomics UI on the task routes API-43..47, aliases API-31/33/34/35/37 removed, AUD-A4-09; 2026-09-27)
 - [ ] The deferred items (REMEDIATION §Deferred)
 **Exit:** see `docs/audit/PLAN.md` §Status.
 

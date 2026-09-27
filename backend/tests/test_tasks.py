@@ -370,14 +370,15 @@ def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_pa
         if e["name"] == "foreground"
     )
     body = {
+        "task_id": "radiomics.pyradiomics",
         "selection": {"item_ids": ITEMS[:2], "labels": [fg], "seg_id": "thr"},
         "settings": {"settings": {"binWidth": 25}},
     }
-    r = env.post(f"{API}/projects/{proj}/radiomics/runs", json=body, headers={"X-Reviewer": "T"})
+    r = env.post(f"{API}/projects/{proj}/task-runs", json=body, headers={"X-Reviewer": "T"})
     assert r.status_code == 202, r.text
     wait(env, r.json()["job_id"])
-    run = env.get(f"{API}/projects/{proj}/radiomics/runs/{r.json()['run_id']}").json()
-    errs = env.get(f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/errors").json()
+    run = env.get(f"{API}/projects/{proj}/task-runs/{r.json()['run_id']}").json()["radiomics"]
+    errs = env.get(f"{API}/projects/{proj}/task-runs/{run['run_id']}/errors").json()
     assert run["status"] == "completed", errs
     assert run["selection"]["seg_id"] == "thr" and {i["seg_id"] for i in run["inputs"]} == {"thr"}
     idx = ctx_of(env).index.load(proj)
@@ -386,7 +387,7 @@ def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_pa
         f"{API}/projects/{proj}/radiomics/runs/{run['run_id']}/features", params={"format": "json"}
     ).json()
     assert feats["total"] > 0 and {row["label"] for row in feats["rows"]} == {fg}
-    # the same run through the generic task endpoints (API-45..47 alias the radiomics service)
+    # the task view of a radiomics run (API-45..47, RAD-13): task shape + the RAD-09 record
     alias = {
         "task_id": "radiomics.pyradiomics",
         "settings": {"settings": {"binWidth": 25}},
@@ -397,7 +398,9 @@ def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_pa
     wait(env, r.json()["job_id"])
     t = env.get(f"{API}/projects/{proj}/task-runs/{r.json()['run_id']}").json()
     assert t["task"]["id"] == "radiomics.pyradiomics" and t["selection"]["seg_id"] == "thr"
-    assert t["detail_url"].endswith(f"/radiomics/runs/{r.json()['run_id']}")
+    assert (
+        t["radiomics"]["run_id"] == t["run_id"] and t["radiomics"]["selection"]["seg_id"] == "thr"
+    )
     assert {
         o["kind"] for o in env.get(f"{API}/projects/{proj}/task-runs/{t['run_id']}/outputs").json()
     } == {"features"}
@@ -407,7 +410,7 @@ def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_pa
     assert listed[t["run_id"]] == "radiomics.pyradiomics"
     assert_problem(
         env.post(
-            f"{API}/projects/{proj}/radiomics/runs",
+            f"{API}/projects/{proj}/task-runs",
             json={**body, "selection": {**body["selection"], "seg_id": "nope"}},
             headers={"X-Reviewer": "T"},
         ),
@@ -435,13 +438,14 @@ def test_task_set_maps_the_labels_the_run_wrote(env: TestClient, proj: str, tmp_
     assert s["label_mapping"] == {"2": fg["value"]}
     assert fg["color"].upper() not in before
     body = {
+        "task_id": "radiomics.pyradiomics",
         "selection": {"item_ids": ITEMS[:1], "labels": [fg["value"]], "seg_id": "thr2"},
         "settings": {"features": {"firstorder": ["Mean"]}, "settings": {"binWidth": 25}},
     }
-    r = env.post(f"{API}/projects/{proj}/radiomics/runs", json=body, headers={"X-Reviewer": "T"})
+    r = env.post(f"{API}/projects/{proj}/task-runs", json=body, headers={"X-Reviewer": "T"})
     assert r.status_code == 202, r.text
     wait(env, r.json()["job_id"])
-    rad = env.get(f"{API}/projects/{proj}/radiomics/runs/{r.json()['run_id']}").json()
+    rad = env.get(f"{API}/projects/{proj}/task-runs/{r.json()['run_id']}").json()["radiomics"]
     assert rad["status"] == "completed" and rad["counts"]["ok"] == 1, rad
 
 

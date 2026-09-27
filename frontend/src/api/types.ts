@@ -138,31 +138,31 @@ export type CurationExport = S['ExportResult']
 /** API-54 report */
 export type V2ImportReport = S['V2ImportReport']
 
-// ---- radiomics (API-30..37), from the generated schema ----------------------------------------
+// ---- radiomics (API-30/32/36; RAD-* records of API-43..47), from the generated schema ---------
 /** API-30 engine schema (RAD-01) */
 export type SettingsSchema = S['SettingsSchema']
 export type OptionSpec = S['OptionSpec']
 export type FilterSpec = S['FilterSpec']
 export type FeatureClassSpec = S['FeatureClassSpec']
-/** Engine settings snapshot sent to API-31/33/34 and stored in profiles */
+/** Engine settings snapshot sent to API-43/44/45 and stored in profiles */
 export type RadiomicsSettings = S['RadiomicsSettings']
-/** API-31 finding; `loc` is the path into `RadiomicsSettings` (or `labels`, `n_items`) */
+/** API-43 (radiomics) finding; `loc` is the path into `RadiomicsSettings` (or `labels`, `n_items`) */
 export type ValidationIssue = S['Issue']
 export type ValidateResult = S['ValidateResult']
-/** API-33/34 item selection (RAD-05) */
-export type Selection = S['Selection']
-export type SelectionFilter = S['SelectionFilter']
-/** API-33 pre-run estimate (RAD-11) */
+/** API-44/45 item selection (RAD-05) */
+export type Selection = S['TaskSelection']
+export type SelectionFilter = S['TaskSelectionFilter']
+/** API-44 pre-run estimate (RAD-11), `TaskEstimate.radiomics` */
 export type EstimateResult = S['EstimateResult']
 /** API-32 profile; identified by `profile_hash` (RAD-03) */
 export type Profile = S['app__radiomics__models__Profile']
-/** API-34 list row and detail */
+/** API-45 list row and detail (`radiomics` of the task run) */
 export type RunSummary = S['RunSummary']
 export type RunDetail = S['RunDetail']
 export type RunStatus = RunSummary['status']
-/** API-37 per-item failure (RAD-07) */
+/** API-47 per-item failure (RAD-07), `TaskItemError.radiomics` */
 export type RunError = S['app__radiomics__models__RunError']
-/** API-34 start body */
+/** API-45 start body (task `radiomics.pyradiomics`) */
 export interface StartRunBody {
   name: string
   settings: RadiomicsSettings
@@ -383,7 +383,8 @@ export type PreflightResult = S['PreflightResult']
 export type TaskEstimate = S['TaskEstimate']
 export type TaskRunRequest = S['TaskRunRequest']
 export type TaskRunStarted = S['TaskRunStarted']
-export type TaskRunSummary = S['TaskRunSummary']
+/** API-45 list row; a radiomics row carries its RAD-09 summary (`radiomics`) */
+export type TaskRunSummary = S['TaskRunListItem']
 export type TaskRunDetail = S['TaskRunDetail']
 export type TaskRunStatus = TaskRunSummary['status']
 export type TaskItemError = S['TaskItemError']

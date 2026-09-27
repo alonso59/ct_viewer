@@ -1,5 +1,5 @@
 """API-42..47 tasks and task runs (TSK-*). `radiomics.pyradiomics` is served by the radiomics
-service behind the same endpoints; API-30..37 remain its aliases during P7b (RAD-13)."""
+service behind the same endpoints, its RAD-* records attached as `radiomics` (RAD-13)."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ from app.tasks.models import (
     TaskItemError,
     TaskList,
     TaskRunDetail,
+    TaskRunListItem,
     TaskRunOutput,
     TaskRunRequest,
     TaskRunStarted,
-    TaskRunSummary,
     TaskValidateRequest,
     TaskValidateResult,
 )
@@ -54,7 +54,7 @@ def get_task(ctx: Ctx, tid: str) -> TaskInfo:
 
 @router.post("/tasks/{tid}/validate", response_model=TaskValidateResult)
 def validate_task(ctx: Ctx, tid: str, body: TaskValidateRequest) -> TaskValidateResult:
-    return svc(ctx).validate(tid, body.settings)
+    return svc(ctx).validate(tid, body.settings, body.labels, body.n_items)
 
 
 @router.post("/projects/{pid}/tasks/{tid}/preflight", response_model=PreflightResult)
@@ -74,8 +74,8 @@ async def start_run(
     return await svc(ctx).start(pid, body, x_reviewer)
 
 
-@router.get("/projects/{pid}/task-runs", response_model=list[TaskRunSummary])
-async def list_runs(ctx: Ctx, pid: str, task: str | None = None) -> list[TaskRunSummary]:
+@router.get("/projects/{pid}/task-runs", response_model=list[TaskRunListItem])
+async def list_runs(ctx: Ctx, pid: str, task: str | None = None) -> list[TaskRunListItem]:
     return await svc(ctx).list_runs(pid, task)
 
 

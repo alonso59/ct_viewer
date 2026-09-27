@@ -44,17 +44,22 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   const req = input instanceof Request ? input : new Request(input, init)
   const p = new URL(req.url).pathname.replace('/api/v1', '')
   if (req.method === 'POST') posted.push(p)
-  if (p === `/projects/${PID}/radiomics/runs`) return reply(200, { items: runs, total: runs.length })
+  // RAD-13 / AUD-A4-09: radiomics runs through the task routes, the RAD-* record in `radiomics`
+  if (p === `/projects/${PID}/task-runs` && new URL(req.url).searchParams.get('task') === 'radiomics.pyradiomics')
+    return reply(200, runs.map((r) => ({ run_id: r.run_id, radiomics: r })))
   if (p === `/projects/${PID}/radiomics/profiles`) return reply(200, { items: [], total: 0 })
-  if (p === `/projects/${PID}/radiomics/runs/r3/errors`)
-    return reply(200, {
-      items: [
+  if (p === `/projects/${PID}/task-runs/r3/errors`)
+    return reply(
+      200,
+      [
         { item_id: 'case_2.01.complete.-', label: 2, kind: 'skipped', code: 'missing_seg', error: 'The item has no mask.', at: '2026-09-24T10:00:02Z' },
         { item_id: 'case_1.01.complete.-', label: 2, kind: 'failed', code: 'affine_mismatch', error: 'The mask does not line up with the image.', detail: 'ValueError: geometry mismatch', at: '2026-09-24T10:00:01Z' },
-      ],
-      total: 2,
-    })
-  if (p.endsWith('/cancel') || p.endsWith('/resume')) return reply(200, runs[0])
+      ].map((e) => ({ item_id: e.item_id, status: e.kind, radiomics: e })),
+    )
+  if (p.endsWith('/cancel')) return reply(200, { run_id: 'r1', radiomics: runs[0] })
+  if (p.endsWith('/resume')) return reply(202, { run_id: 'r2', job_id: 'j2', status: 'queued' })
+  const one = runs.find((r) => p === `/projects/${PID}/task-runs/${r.run_id}`)
+  if (one) return reply(200, { run_id: one.run_id, radiomics: one })
   return reply(404, { type: '/problems/not-found', title: 'Not found', status: 404 })
 }
 
@@ -97,12 +102,12 @@ test('runs show status, live job progress with ETA, and the matching controls', 
   expect(within(r1).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25')
   expect(r1).toHaveTextContent('10/40 · 1 min 30 s left')
   fireEvent.click(within(r1).getByRole('button', { name: 'Cancel run' }))
-  await waitFor(() => expect(posted).toContain(`/projects/${PID}/radiomics/runs/r1/cancel`))
+  await waitFor(() => expect(posted).toContain(`/projects/${PID}/task-runs/r1/cancel`))
 
   const r2 = row('Interrupted one')
   expect(within(r2).queryByRole('progressbar')).toBeNull()
   fireEvent.click(within(r2).getByRole('button', { name: 'Resume run' }))
-  await waitFor(() => expect(posted).toContain(`/projects/${PID}/radiomics/runs/r2/resume`))
+  await waitFor(() => expect(posted).toContain(`/projects/${PID}/task-runs/r2/resume`))
 
   const r3 = row('Done with errors')
   expect(r3).toHaveTextContent('8/10 ok · 107 features')

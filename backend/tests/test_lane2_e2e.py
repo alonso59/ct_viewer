@@ -37,16 +37,17 @@ def test_outlier_and_group_comparisons_on_real_run(
     cases = [*expected["cohort"], *expected["radiomics_outlier"]]
     items = [f"{c}.01.complete.-" for c in cases]
     body = {
+        "task_id": "radiomics.pyradiomics",
         "name": "NP tumor",
         "selection": {"item_ids": items, "scope": "complete", "labels": [TUMOR]},
     }
-    r = client.post(f"{API}/projects/{pid}/radiomics/runs", json=body, headers=WHO)
+    r = client.post(f"{API}/projects/{pid}/task-runs", json=body, headers=WHO)
     assert r.status_code in (201, 202), r.text
     run = r.json()
     rid = run["run_id"]
     if run.get("job_id"):
         wait(client, run["job_id"])
-    run = client.get(f"{API}/projects/{pid}/radiomics/runs/{rid}").json()
+    run = client.get(f"{API}/projects/{pid}/task-runs/{rid}").json()["radiomics"]
     assert run["status"] == "completed", run
     assert run["counts"]["ok"] == len(items)
 
@@ -112,8 +113,9 @@ def test_features_parquet_long_schema(client: TestClient, data_root: Path) -> No
         "project_id"
     ]
     do_import(client, pid, data_root)
-    body = {"selection": {"item_ids": ["case_00030.01.complete.-"], "labels": [TUMOR]}}
-    run = client.post(f"{API}/projects/{pid}/radiomics/runs", json=body, headers=WHO).json()
+    sel = {"item_ids": ["case_00030.01.complete.-"], "labels": [TUMOR]}
+    body = {"task_id": "radiomics.pyradiomics", "selection": sel}
+    run = client.post(f"{API}/projects/{pid}/task-runs", json=body, headers=WHO).json()
     if run.get("job_id"):
         wait(client, run["job_id"])
     f = ctx_of(client).workspace.project_dir(pid) / "radiomics/runs" / run["run_id"]

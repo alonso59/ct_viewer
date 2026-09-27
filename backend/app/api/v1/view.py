@@ -37,8 +37,8 @@ READ_ONLY = re.compile(
     r"|warnings|segmentations|variables|annotations|annotation-sources|events"
     r"|curation/(?:state|events|queue)"
     r"|phase/(?:state|events)"
-    r"|radiomics/runs(?:/[^/]+(?:/(?:features|errors))?)?"
-    r"|task-runs(?:/[^/]+)?"
+    r"|radiomics/runs/[^/]+/features"
+    r"|task-runs(?:/[^/]+(?:/(?:errors|outputs))?)?"
     r"|exports/dataset-table|layers"
     r")$"
 )

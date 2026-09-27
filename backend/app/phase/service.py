@@ -15,8 +15,9 @@ from app.core.errors import ValidationProblem
 from app.core.fsio import atomic_write_json
 from app.core.ids import utc_now
 from app.core.locks import ProjectLocks
+from app.core.reviewer import require as require_reviewer
 from app.events.bus import EventBus
-from app.eventstore.store import EventStore, require_reviewer, stamp
+from app.eventstore.store import EventStore, stamp
 from app.ingest.store import IndexStore
 from app.phase import state
 from app.phase.models import (

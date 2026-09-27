@@ -26,7 +26,7 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-10 | Outputs: `features.parquet` (long) + `diagnostics.parquet`; CSV export in long or wide shape. | M |
 | RAD-11 | Pre-run estimate: `n_items × n_labels` and time per item measured on a 3-item sample. | S |
 | RAD-12 | Engine adapter interface allows replacing the engine without UI changes (ADR-0006). | S |
-| RAD-13 | Radiomics runs as the builtin task `radiomics.pyradiomics` (TSK-*, ADR-0016). API-30..37 stay as aliases of the task endpoints during P7b; run records stay in `radiomics/runs/`. | M |
+| RAD-13 | Radiomics runs as the builtin task `radiomics.pyradiomics` (TSK-*, ADR-0016): validate, estimate, runs, control and errors go through the task endpoints API-43..47, which carry the radiomics records (API.md); run records stay in `radiomics/runs/`. | M |
 | RAD-14 | Voxel-based feature maps. | C |
 
 ## Engine adapter
@@ -128,8 +128,8 @@ Study variables are **not** copied into features; they are joined at analysis ti
 ## Implementation notes (P5-FE)
 
 - The form opens on `schema.defaults`; "Engine defaults" restores them. Duplicate = load a profile's settings and pre-fill "<name> copy". Saving unchanged settings keeps the existing profile (same hash).
-- Default label = first visible label. Client rules only pre-flag; the server validation (API-31) is authoritative once it answers for the current form.
-- Selection by variable sends level lists only; continuous variables must be binned into a derived variable first (VAR-06) until API-33/34 accept ranges (open decision, ROADMAP P7).
+- Default label = first visible label. Client rules only pre-flag; the server validation (API-43) is authoritative once it answers for the current form.
+- Selection by variable sends level lists only; continuous variables must be binned into a derived variable first (VAR-06) until API-44/45 accept ranges (open decision, ROADMAP P7).
 - Draft settings live in memory; a reload reopens on the engine defaults (profiles persist).
 - `seg_id` (RAD-05, P7b Wave 4): the set picker is always shown (default `default_seg`); masks come from that set; the selected labels are project label values, mapped to the set's own values through its `label_mapping` (ADR-0015); labels the set does not map are skipped (`label not in segmentation set`). `labels_present` checks apply to the `imported` set only. `run.json` records `selection.seg_id` and `inputs[].seg_id` + `mask_fp` of that set (NFR-15); older runs read as `imported`.
-- "Use the current Explorer filter" (RAD-05) maps phase and variable levels to `filter`, or an Explorer item list to `item_ids` (API-33/34 take one or the other, so the list wins and sets the scope when all items share one). Not sent, and listed in the form: text search, curation status, warnings, has-VOI, show-excluded, continuous ranges. The Explorer's phase filter matches cases; the run selection's matches items.
+- "Use the current Explorer filter" (RAD-05) maps phase and variable levels to `filter`, or an Explorer item list to `item_ids` (API-44/45 take one or the other, so the list wins and sets the scope when all items share one). Not sent, and listed in the form: text search, curation status, warnings, has-VOI, show-excluded, continuous ranges. The Explorer's phase filter matches cases; the run selection's matches items.

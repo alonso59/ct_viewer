@@ -1,9 +1,9 @@
-// The Explorer filter as a radiomics selection (RAD-05 "current Explorer filter"). API-33/34
+// The Explorer filter as a radiomics selection (RAD-05 "current Explorer filter"). API-44/45
 // take either an item-id list or level lists (phase, side, `var`), so ranges and case-only
 // criteria cannot be sent; they are reported as dropped.
 import type { CaseFilter, Variable } from '../../api'
 
-/** Criteria of the Explorer filter that have no API-33/34 equivalent */
+/** Criteria of the Explorer filter that have no API-44/45 equivalent */
 export type DroppedCriterion = 'text' | 'status' | 'warning' | 'voi' | 'showExcluded' | 'phase' | 'vars'
 
 export interface ExplorerSelection {

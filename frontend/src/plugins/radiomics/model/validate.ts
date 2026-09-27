@@ -1,4 +1,4 @@
-// Live validation (RAD-04, RADIOMICS.md §Validation rules). The server (API-31) is authoritative;
+// Live validation (RAD-04, RADIOMICS.md §Validation rules). The server (API-43) is authoritative;
 // this mirrors its rules and `loc` paths so the form can flag fields before the round trip.
 import { featureCount } from './settings'
 import type { FormState, Issue, OptionSpec, ServerIssue, SettingsSchema, Value } from './types'
