@@ -1,6 +1,6 @@
 // Viewport frame over the engine canvas: header, slice slider, crosshair lines, corner text
 // (VW-02, 03, 04, 09, 12). The pixels underneath come from the engine; the body is transparent.
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { LabelDef } from '../../api'
@@ -76,7 +76,7 @@ export function Viewport({ id, plane, hasMask, labels, maximized, onMaximize, on
           max={plane.total}
           value={plane.index}
           aria-label={t('vw.slice', { index: plane.index, total: plane.total })}
-          style={{ accentColor: color }}
+          style={{ '--vp-plane': color } as CSSProperties}
           onChange={(e) => onGoto(+e.target.value)}
         />
       ) : null}
@@ -114,7 +114,7 @@ function Overlay3d({ hasMask, labels }: { hasMask: boolean; labels: LabelDef[] }
   if (!hasMask)
     return (
       <div className="vp-message">
-        <Icon spec={codicon('circle-slash')} size={20} />
+        <CtIcon name="label-outline" size={20} />
         {t('viewer.noSegmentation')}
       </div>
     )

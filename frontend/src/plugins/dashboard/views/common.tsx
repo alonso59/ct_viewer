@@ -21,6 +21,7 @@ import {
   type UnitSpec,
   type Variable,
 } from '../../../api'
+import { itemName, knownPhase } from '../../../lib'
 import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon, token } from '../../../theme'
 import { openInContext, openItem } from '../../../features/explorer'
@@ -272,7 +273,7 @@ export function ItemMenu() {
     append.mutate(
       { item_id: target.item_id, case_id: target.case_id, target: 'seg', status: current, priority: 'medium', comment: '', add_to_queue: true },
       {
-        onSuccess: () => toast({ message: t('dashboard.menu.queued', { id: target.item_id }), tone: 'ok' }),
+        onSuccess: () => toast({ message: t('dashboard.menu.queued', { id: itemName(target.item_id, t, knownPhase(pid, target.item_id)) }), tone: 'ok' }),
         onError: (e) => {
           if (!(e instanceof ReviewerCancelled)) toast({ message: t('common.saveFailed'), tone: 'error' })
         },
@@ -291,7 +292,7 @@ export function ItemMenu() {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Content className="overlay menu" align="start" sideOffset={2}>
-          <Menu.Label className="menu-label mono">{target.item_id}</Menu.Label>
+          <Menu.Label className="menu-label" title={target.item_id}>{itemName(target.item_id, t, knownPhase(pid, target.item_id))}</Menu.Label>
           <Menu.Item className="menu-item" onSelect={() => openRef(target)}>
             <Icon spec={codicon('eye')} />
             {t('dashboard.openInViewer')}

@@ -10,7 +10,7 @@ import { RunRow } from './TaskEditor'
 import './tasks.css'
 
 const KINDS = ['conversion', 'analyzer', 'segmentation', 'features'] as const
-const ICON: Record<(typeof KINDS)[number], string> = { conversion: 'file-binary', analyzer: 'lightbulb', segmentation: 'layers', features: 'beaker' }
+const ICON: Record<(typeof KINDS)[number], string> = { conversion: 'file-binary', analyzer: 'symbol-property', segmentation: 'layers', features: 'beaker' }
 
 export default function TasksView() {
   const { t } = useTranslation()
@@ -33,8 +33,8 @@ export default function TasksView() {
                   <button type="button" className="list-row" onClick={() => openTask(x.manifest.id)} title={x.manifest.id === RADIOMICS_TASK ? t('tasks.radiomicsHere') : (x.manifest.description ?? '')}>
                     <Icon spec={codicon(ICON[k])} />
                     <span>{x.manifest.title}</span>
-                    {!x.available ? <span className="badge" data-tone="warn" style={{ marginLeft: 'auto' }}>{t('tasks.unavailable')}</span> : null}
-                    {x.manifest.runtime.type === 'external' ? <span className="badge" data-tone={x.runner_online ? 'ok' : 'warn'} style={{ marginLeft: 'auto' }}>{t(x.runner_online ? 'tasks.runnerOn' : 'tasks.runnerOff')}</span> : null}
+                    {!x.available ? <span className="badge ml-auto" data-tone="warn" >{t('tasks.unavailable')}</span> : null}
+                    {x.manifest.runtime.type === 'external' ? <span className="badge ml-auto" data-tone={x.runner_online ? 'ok' : 'warn'} >{t(x.runner_online ? 'tasks.runnerOn' : 'tasks.runnerOff')}</span> : null}
                   </button>
                 </li>
               ))}

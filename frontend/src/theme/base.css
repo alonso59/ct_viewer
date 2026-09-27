@@ -76,7 +76,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  height: 28px;
+  height: var(--h-control);
   padding: 0 var(--sp-3);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius);
@@ -101,11 +101,17 @@ textarea {
 .btn-primary:hover:not(:disabled) {
   background: var(--btn-primary-hover);
 }
+/* A disabled primary looks like a disabled secondary: no green that still reads as "go" (AUD-A3-19) */
+.btn-primary:disabled {
+  background: var(--btn-secondary);
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
 .btn-danger {
   color: var(--error);
 }
 .btn-sm {
-  height: 22px;
+  height: var(--h-control-sm);
   padding: 0 var(--sp-2);
   font-size: var(--fs-panel);
 }
@@ -118,8 +124,8 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--h-icon-btn);
+  height: var(--h-icon-btn);
   padding: 0;
   border: 0;
   border-radius: var(--radius);
@@ -131,10 +137,11 @@ textarea {
   background: var(--bg-hover);
   color: var(--fg);
 }
-.icon-btn[aria-pressed='true'] {
-  background: var(--bg-inset);
+/* Active toggle (UI-06, ADR-0023 §3, AUD-A3-02): a flat neutral fill ≥ 3:1 against the bars, no blue */
+.icon-btn[aria-pressed='true'],
+.icon-btn[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--bg-pressed);
   color: var(--fg);
-  box-shadow: inset 0 1px 2px rgb(1 4 9 / 0.6);
 }
 .icon-btn:disabled {
   opacity: 0.4;
@@ -155,7 +162,7 @@ textarea {
 /* ---- Inputs ------------------------------------------------------------- */
 .input,
 .select {
-  height: 28px;
+  height: var(--h-control);
   padding: 0 var(--sp-2);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius);
@@ -164,7 +171,7 @@ textarea {
   min-width: 0;
 }
 .input-sm {
-  height: 24px;
+  height: var(--h-control-sm);
   font-size: var(--fs-panel);
 }
 textarea.input {
@@ -206,16 +213,136 @@ textarea.input {
   margin: 0;
 }
 
+/* Segmented control (UI-11, AUD-A3-08): as wide as its options, never stretched by a form column */
+.seg {
+  display: inline-flex;
+  align-self: flex-start;
+  width: max-content;
+  max-width: 100%;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg button {
+  height: var(--h-control-sm);
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-panel);
+  cursor: pointer;
+}
+.seg button + button {
+  border-left: var(--border-width) solid var(--border);
+}
+.seg button:hover:not(:disabled, [aria-pressed='true']) {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.seg button[aria-pressed='true'] {
+  background: var(--bg-selected);
+  color: var(--fg);
+}
+.seg button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Layout helpers on the 4 px grid (AUD-A3-17: instead of inline style objects) */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.stack-3 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.row-1 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.small {
+  font-size: var(--fs-badge);
+}
+.panel-size {
+  font-size: var(--fs-panel);
+}
+.block {
+  display: block;
+}
+.m-0 {
+  margin: 0;
+}
+.mt-0 {
+  margin-top: 0;
+}
+.mt-2 {
+  margin-top: var(--sp-2);
+}
+.mt-3 {
+  margin-top: var(--sp-3);
+}
+.mt-4 {
+  margin-top: var(--sp-4);
+}
+.ml-auto {
+  margin-left: auto;
+}
+.justify-start {
+  justify-self: start;
+}
+.pad-row {
+  padding: var(--sp-1) var(--sp-3);
+}
+.bare {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ws-normal {
+  white-space: normal;
+}
+.text-ok {
+  color: var(--ok);
+}
+.text-warn {
+  color: var(--warn);
+}
+.text-error {
+  color: var(--error);
+}
+
 /* ---- Badges (Primer Label) ---------------------------------------------- */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  height: 18px;
+  height: var(--h-badge);
   padding: 0 7px;
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-pill);
-  font-size: var(--fs-badge);
+  font-size: var(--fs-chip);
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
@@ -241,17 +368,57 @@ textarea.input {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
+/* Chip buttons (phase chips, scan chips): the pressed one is --fg on --bg-selected; its tone stays in
+   the border (AUD-A3-19: --accent text on the selected fill was 4.40:1) */
+button.badge {
+  background: transparent;
+  cursor: pointer;
+}
+button.badge[aria-pressed='true'] {
+  background: var(--bg-selected);
+  color: var(--fg);
+}
+/* On a selected list row the muted chips use --fg (4.37:1 in Light otherwise) */
+.list-row[aria-selected='true'] .badge:not([data-tone]) {
+  color: var(--fg);
+}
 .count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
+  min-width: var(--h-badge);
+  height: var(--h-badge);
   padding: 0 5px;
   border-radius: var(--radius-pill);
   background: var(--btn-secondary-hover);
   font-size: var(--fs-badge);
   color: var(--fg);
+}
+/* Axial thumbnail (IMP-12): real slices on the black viewport colour; a missing one is a muted
+   placeholder on the inset colour, never a solid black square (AUD-A3-12) */
+.thumb {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-viewport);
+  color: var(--fg-viewport-muted);
+}
+.thumb[data-empty='true'] {
+  background: var(--bg-inset);
+  color: var(--fg-muted);
+}
+.thumb-empty {
+  display: inline-flex;
+}
+.thumb > img,
+.thumb > canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .dot {
   display: inline-block;
@@ -271,7 +438,7 @@ textarea.input {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
-  height: 22px;
+  height: var(--h-row-compact);
   padding: 0 var(--sp-2);
   font-size: var(--fs-badge);
   font-weight: var(--fw-semibold);
@@ -397,7 +564,7 @@ button.card:hover {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 26px;
+  height: var(--h-icon-btn);
   padding: 0 var(--sp-2);
   border-radius: 4px;
   cursor: pointer;

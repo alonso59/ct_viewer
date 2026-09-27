@@ -2,7 +2,7 @@
 // Study variables drive the row columns and colour (VAR-10); nothing here knows a field name.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -20,7 +20,7 @@ import {
 import { PhaseChip, rollupTitle, SliceThumb, StatusIcon } from '../../lib'
 import { registry, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
-import { Icon, codicon } from '../../theme'
+import { Icon, codicon, tokenPx } from '../../theme'
 import { PhaseButtons } from '../phase'
 import { itemLabel } from './itemLabel'
 import { openFromExplorer } from './navigate'
@@ -30,7 +30,7 @@ import './explorer.css'
 
 function CaseThumb({ pid, c, labels }: { pid: string; c: CaseSummary; labels?: LabelDef[] }) {
   const itemId = useThumbItemId(pid, c)
-  return <SliceThumb pid={pid} itemId={itemId} labels={labels} size={44} />
+  return <SliceThumb pid={pid} itemId={itemId} labels={labels} size="var(--thumb-row)" />
 }
 
 /** `name value` chips for the chosen variable columns */
@@ -102,16 +102,21 @@ export function ProjectView() {
     return out
   }, [cases.data, expanded, itemsByCase, itemIds])
 
-  const caseH = density === 'thumbnails' ? 56 : 22
+  // UI-08 / UI-27: row heights come from the tokens of the current interface size
+  const uiSize = useSettings((s) => s.uiSize)
+  // (read on every render; the fallback, for a document without the tokens, follows the size too)
+  const rowH = tokenPx('--h-row-compact', uiSize === 'compact' ? 22 : 24)
+  const thumbH = tokenPx('--h-row-thumb', uiSize === 'compact' ? 56 : 60)
+  const caseH = density === 'thumbnails' ? thumbH : rowH
   // TanStack Virtual is not React-compiler compatible yet; the compiler skips this component, which is fine here
   // eslint-disable-next-line react-hooks/incompatible-library
   const virt = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => (rows[i]?.kind === 'case' ? caseH : 22),
+    estimateSize: (i) => (rows[i]?.kind === 'case' ? caseH : rowH),
     overscan: 8,
   })
-  useEffect(() => virt.measure(), [caseH, virt])
+  useEffect(() => virt.measure(), [caseH, rowH, virt])
 
   // AUD-A1-03: follow the active case (and item, when its case is expanded), like VS Code's
   // "reveal active file": the keyboard cursor moves there and the row scrolls into view
@@ -162,26 +167,21 @@ export function ProjectView() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', gap: 4, padding: '0 8px 6px' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <input
-            className="input input-sm"
-            style={{ width: '100%', paddingLeft: 24 }}
-            placeholder={t('explorer.filterPlaceholder')}
-            value={filter.q ?? ''}
-            onChange={(e) => setFilter({ q: e.target.value })}
-            aria-label={t('explorer.filterPlaceholder')}
-          />
-          <span style={{ position: 'absolute', left: 6, top: 4, color: 'var(--fg-muted)' }}>
-            <Icon spec={codicon('filter')} />
-          </span>
-        </div>
+    <div className="fill">
+      <div className="pv-filter">
+        <input
+          className="input input-sm"
+          placeholder={t('explorer.filterPlaceholder')}
+          value={filter.q ?? ''}
+          onChange={(e) => setFilter({ q: e.target.value })}
+          aria-label={t('explorer.filterPlaceholder')}
+        />
+        <Icon spec={codicon('filter')} />
       </div>
       {colorVar ? <ColorLegend v={colorVar} /> : null}
       {itemIds ? <ItemFilterChip ids={itemIds} /> : null}
       {activeFilterCount(filter) > 0 ? (
-        <div className="muted" style={{ padding: '0 12px 6px', fontSize: 'var(--fs-panel)', display: 'flex', gap: 6 }}>
+        <div className="muted row pv-active-filters">
           {t('explorer.filtersActive', { count: activeFilterCount(filter) })}
           <button type="button" className="link" onClick={() => useExplorer.getState().clearFilter()}>
             {t('explorer.clearFilters')}
@@ -194,7 +194,7 @@ export function ProjectView() {
         aria-label={t('view.project')}
         tabIndex={0}
         onKeyDown={onKey}
-        style={{ flex: 1, overflow: 'auto', outline: 'none' }}
+        className="pv-tree"
       >
         {cases.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
         {cases.data?.length === 0 ? (
@@ -210,7 +210,7 @@ export function ProjectView() {
             const focused = v.index === cursor
             if (r.kind === 'loading')
               return (
-                <div key={`l-${r.caseId}`} style={{ ...style, paddingLeft: 40 }} className="muted">
+                <div key={`l-${r.caseId}`} style={style} className="muted pv-loading">
                   {t('common.loading')}
                 </div>
               )
@@ -225,16 +225,18 @@ export function ProjectView() {
                   aria-level={2}
                   aria-selected={activeItemId === it.item_id}
                   aria-disabled={excluded || undefined}
-                  className="list-row"
+                  className="list-row pv-item"
                   data-focused={focused}
-                  style={{ ...style, paddingLeft: density === 'thumbnails' ? 58 : 34, gap: 6, fontSize: 'var(--fs-panel)', boxShadow: focused ? 'inset 0 0 0 1px var(--focus)' : undefined, opacity: excluded ? 0.55 : undefined }}
+                  data-density={density}
+                  data-excluded={excluded || undefined}
+                  style={style}
                   onClick={() => { if (!excluded) { setCursor(v.index); activate(r) } }}
                   onDoubleClick={() => !excluded && activate(r, false)}
                 >
                   <span className="phase-row-static"><PhaseChip phase={it.phase.canonical} /></span>
                   <span className="item-label">{itemLabel(it, t)}</span>
                   {it.warning_codes.length ? (
-                    <span style={{ color: 'var(--warn)', display: 'inline-flex', marginLeft: 'auto' }} title={it.warning_codes.join(', ')}>
+                    <span className="pv-warn pv-end" title={it.warning_codes.join(', ')}>
                       <Icon spec={codicon('warning')} />
                     </span>
                   ) : null}
@@ -253,36 +255,32 @@ export function ProjectView() {
                 aria-level={1}
                 aria-expanded={open}
                 aria-selected={activeCaseId === c.case_id}
-                className="list-row"
-                style={{
-                  ...style,
-                  paddingLeft: 4,
-                  gap: 6,
-                  // Colour-by variable: a left stripe in the categorical palette
-                  boxShadow: [focused ? 'inset 0 0 0 1px var(--focus)' : '', swatch ? `inset 3px 0 0 ${swatch}` : ''].filter(Boolean).join(', ') || undefined,
-                  opacity: c.excluded ? 0.55 : 1,
-                }}
+                className="list-row pv-case"
+                data-focused={focused}
+                data-excluded={c.excluded || undefined}
+                data-swatch={swatch ? true : undefined}
+                // Colour-by variable: a left stripe in the categorical palette
+                style={swatch ? { ...style, '--swatch': swatch } as CSSProperties : style}
                 data-color={swatch ? String(c.variables[colorVar?.name ?? '']) : undefined}
                 onClick={() => { setCursor(v.index); activate(r) }}
                 onDoubleClick={() => activate(r, false)}
               >
                 <button
                   type="button"
-                  className="icon-btn"
-                  style={{ width: 16, height: 16 }}
+                  className="icon-btn pv-twisty"
                   aria-label={t(open ? 'explorer.collapse' : 'explorer.expand')}
                   onClick={(e) => { e.stopPropagation(); toggle(c.case_id) }}
                 >
                   <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
                 </button>
                 {density === 'thumbnails' ? <CaseThumb pid={pid} c={c} labels={project.data?.label_map} /> : null}
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: 2 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="mono" style={{ fontSize: 'var(--fs-panel)' }}>{c.case_id}</span>
+                <span className="pv-case-body">
+                  <span className="pv-case-line">
+                    <span className="mono panel-size">{c.case_id}</span>
                     {density === 'compact' ? <VarColumns c={c} columns={columns} /> : null}
-                    <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                    <span className="row-1 pv-end">
                       {c.n_warnings ? (
-                        <span style={{ color: 'var(--warn)', display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 'var(--fs-badge)' }} title={t('explorer.warnings', { count: c.n_warnings })}>
+                        <span className="pv-warn small" title={t('explorer.warnings', { count: c.n_warnings })}>
                           <Icon spec={codicon('warning')} />
                           {c.n_warnings}
                         </span>
@@ -293,7 +291,7 @@ export function ProjectView() {
                     </span>
                   </span>
                   {density === 'thumbnails' ? (
-                    <span className="muted" style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 'var(--fs-badge)', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                    <span className="muted pv-case-meta">
                       <VarColumns c={c} columns={columns} />
                       {c.phases.map((p) => (
                         <PhaseChip key={p} phase={p} />
@@ -313,7 +311,7 @@ export function ProjectView() {
             <ExpandedItems key={cid} caseId={cid} onItems={onItems} />
           ))}
       </div>
-      <div className="muted" style={{ padding: '4px 12px', fontSize: 'var(--fs-badge)', borderTop: '1px solid var(--border-muted)' }}>
+      <div className="muted pv-footer">
         {t('explorer.caseCount', { count: cases.data?.length ?? 0 })}
       </div>
     </div>
@@ -324,14 +322,13 @@ export function ProjectView() {
 export function ItemFilterChip({ ids }: { ids: string[] }) {
   const { t } = useTranslation()
   return (
-    <div style={{ padding: '0 8px 6px' }}>
+    <div className="pv-chip-row">
       <span className="badge item-filter-chip" data-tone="accent" title={ids.join('\n')}>
         <Icon spec={codicon('filter')} />
         {t('explorer.itemFilter', { count: ids.length })}
         <button
           type="button"
-          className="icon-btn"
-          style={{ width: 14, height: 14 }}
+          className="icon-btn pv-chip-close"
           aria-label={t('explorer.clearItemFilter')}
           title={t('explorer.clearItemFilter')}
           onClick={() => useExplorer.getState().setItemIds(null)}

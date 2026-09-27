@@ -23,6 +23,21 @@ import { useDraft } from './store'
 import '../../i18n/lazy'
 import './radiomics.css'
 
+/** One glyph per settings group (AUD-A3-11); an unknown engine group falls back to `settings` */
+const GROUP_ICON: Record<string, string> = {
+  [SELECTION]: 'list-selection',
+  resampling: 'symbol-ruler',
+  intensity: 'color-mode',
+  discretization: 'symbol-numeric',
+  mask: 'circle-large-outline',
+  resegmentation: 'layers',
+  filters: 'filter',
+  feature_classes: 'symbol-class',
+  texture: 'symbol-array',
+  two_d: 'split-horizontal',
+  output: 'output',
+}
+
 export function SettingsEditor() {
   const { t } = useTranslation()
   const msg = useIssueMessage()
@@ -131,7 +146,7 @@ export function SettingsEditor() {
         <nav className="rad-nav" aria-label={t('rad.groups')}>
           {[{ id: SELECTION, label: t('rad.selection') }, ...navGroups].map((g) => (
             <button key={g.id} type="button" className="list-row" aria-current={group === g.id || undefined} onClick={() => setGroup(g.id)}>
-              <Icon spec={codicon(g.id === SELECTION ? 'filter' : g.id === 'filters' ? 'symbol-color' : g.id === 'feature_classes' ? 'symbol-class' : 'settings')} />
+              <Icon spec={codicon(GROUP_ICON[g.id] ?? 'settings')} />
               {g.label}
               {errorsIn(g.id) ? <span className="count rad-err-count">{errorsIn(g.id)}</span> : null}
             </button>

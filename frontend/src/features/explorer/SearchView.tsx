@@ -66,7 +66,7 @@ export function SearchView() {
       <div className="search-section">
         <span className="field-label">{t('search.variables')}</span>
         {vars.length === 0 ? (
-          <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('search.noVariables')}</span>
+          <span className="muted panel-size">{t('search.noVariables')}</span>
         ) : null}
       </div>
       {vars.map((v) =>
@@ -91,7 +91,7 @@ export function SearchView() {
       ) : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span className="muted">{t('explorer.caseCount', { count: matches.data?.length ?? 0 })}</span>
-        <span style={{ flex: 1 }} />
+        <span className="grow" />
         <button type="button" className="btn btn-sm" disabled={activeFilterCount(filter) === 0 && !filter.q} onClick={clearFilter}>
           {t('explorer.clearFilters')}
         </button>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCurationState, useItem, useProject, useSegmentations, type CurationStatus, type Priority } from '../../api'
-import { StatusBadge, StatusIcon, fmtAgo } from '../../lib'
+import { ItemName, StatusBadge, StatusIcon, fmtAgo } from '../../lib'
 import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -38,7 +38,7 @@ export function CurationForm({ compact }: { compact?: boolean }) {
   const stateQ = useCurationState(pid)
   const d = useDraft()
   const [busy, setBusy] = useState(false)
-  if (!cid) return <div className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('curation.noActive')}</div>
+  if (!cid) return <div className="muted panel-size">{t('curation.noActive')}</div>
 
   // VW-19: mask decisions of the set on screen (AUD-A5-06)
   const seg = shownSeg ?? project?.default_seg ?? 'imported'
@@ -52,7 +52,7 @@ export function CurationForm({ compact }: { compact?: boolean }) {
   const showSide = d.target === 'side'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--fs-panel)' }}>
-      <div className="muted mono" style={{ fontSize: 'var(--fs-badge)' }}>{iid ?? cid}</div>
+      <div className="muted small">{iid ? <ItemName id={iid} phase={item?.phase.canonical} /> : cid}</div>
       <label className="field">
         <span className="field-label">{t('curation.target.label')}</span>
         <select className="select input-sm" value={d.target} onChange={(e) => d.set({ target: e.target.value })}>
@@ -68,7 +68,7 @@ export function CurationForm({ compact }: { compact?: boolean }) {
           <button key={q.status} type="button" className="btn btn-sm" disabled={busy} onClick={() => void go(q.status)} style={{ justifyContent: 'flex-start' }}>
             <StatusIcon status={q.status} />
             {t(`statusShort.${q.status}`)}
-            <span className="kbd" style={{ marginLeft: 'auto' }}>{chord(q.cmd)}</span>
+            <span className="kbd ml-auto">{chord(q.cmd)}</span>
           </button>
         ))}
       </div>
@@ -115,7 +115,7 @@ export function CurationForm({ compact }: { compact?: boolean }) {
       <label className="check">
         <input type="checkbox" checked={d.addToQueue} onChange={(e) => d.set({ addToQueue: e.target.checked })} />
         {t('curation.addToQueue')}
-        <span className="kbd" style={{ marginLeft: 'auto' }}>{chord('curation.queue')}</span>
+        <span className="kbd ml-auto">{chord('curation.queue')}</span>
       </label>
       {stateQ.isError ? <div className="error-card">{t('curation.stateError')}</div> : null}
       {mine.length ? (

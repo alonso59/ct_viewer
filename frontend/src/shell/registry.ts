@@ -54,6 +54,8 @@ export interface PanelTabContribution {
   order: number
   component: ComponentType
   useBadge?: () => number | null
+  /** AUD-A3-01: true when the tab has something for the active item (a case tab opens the panel then) */
+  useHasContent?: () => boolean
 }
 
 /** Title-bar menus (AUD-A1-09): derived from command categories (`shell/menus.ts`), never named after a plugin */

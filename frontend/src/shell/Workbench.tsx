@@ -6,7 +6,7 @@ import { ActivityBar } from './ActivityBar'
 import { CommandPalette } from './CommandPalette'
 import { EditorArea } from './EditorArea'
 import { Inspector } from './Inspector'
-import { Panel } from './Panel'
+import { Panel, PanelContentWatch } from './Panel'
 import { ReviewerPrompt } from './ReviewerPrompt'
 import { SideBar } from './SideBar'
 import { StatusBar } from './StatusBar'
@@ -43,6 +43,7 @@ export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode
         <div className="wb-center">
           <EditorArea key={pid} pid={pid} />
           <Panel />
+          <PanelContentWatch />
         </div>
         <Inspector />
       </div>

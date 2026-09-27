@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useEvents } from '../../api'
-import { StatusBadge, fmtAgo, fmtDate } from '../../lib'
+import { ItemName, StatusBadge, fmtAgo, fmtDate } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import '../../i18n/lazy'
@@ -34,10 +34,10 @@ export function HistoryList({ dense }: { dense?: boolean }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <StatusBadge status={e.status} />
               <span className="mono muted">{e.target}</span>
-              {e.item_id ? <span className="mono muted">{e.item_id}</span> : null}
+              {e.item_id ? <ItemName id={e.item_id} pid={pid} className="muted" /> : null}
               {e.priority !== 'medium' ? <span className="badge" data-tone={e.priority === 'high' ? 'error' : undefined}>{t(`priority.${e.priority}`)}</span> : null}
               {e.source === 'v2_import' ? <span className="badge">{t('history.v2Import')}</span> : null}
-              <span className="muted" style={{ marginLeft: 'auto' }} title={fmtDate(e.at)}>
+              <span className="muted ml-auto" title={fmtDate(e.at)}>
                 {t('curation.byAt', { reviewer: e.reviewer, ago: fmtAgo(e.at) })}
               </span>
             </div>

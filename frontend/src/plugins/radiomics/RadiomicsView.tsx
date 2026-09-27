@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
-import { Dialog, IconButton, Progress, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -42,7 +42,7 @@ function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onC
           <tbody>
             {rows.map((e) => (
               <tr key={`${e.item_id}-${e.label}-${e.at}`} data-kind={e.kind} tabIndex={0} title={t('rad.openItem')} onClick={() => open(e.item_id)} onKeyDown={(k) => k.key === 'Enter' && open(e.item_id)}>
-                <td className="mono">{e.item_id}</td>
+                <td><ItemName id={e.item_id} pid={pid} /></td>
                 <td className="num">{e.label}</td>
                 <td>{t(`rad.errKindName.${e.kind}`)}</td>
                 <td title={e.detail ?? undefined}>

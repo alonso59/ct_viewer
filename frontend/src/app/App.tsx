@@ -27,6 +27,7 @@ function Theme() {
   return null
 }
 
+
 /** VW-14: loaded-tab budget from the server's UI runtime config (API-01). */
 function ViewerConfig() {
   const maxLoaded = useHealth().data?.ui_config.viewer_max_loaded

@@ -57,7 +57,11 @@ test('new project → import → browse → share link', async ({ page, browser,
   await row.dblclick()
   await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/case_00001`))
 
-  // Problems panel lists the fixture warnings
+  // Problems panel lists the fixture warnings. AUD-A3-01 (UI-13): on a case tab the panel stays
+  // closed while the item has neither features nor problems; the Layout menu opens it (ADR-0028)
+  await expect(page.getByRole('region', { name: 'Panel' })).toBeHidden()
+  await page.getByRole('banner').getByRole('button', { name: /^Layout/ }).click()
+  await page.getByRole('menuitemcheckbox', { name: /Panel/ }).click()
   await page.getByRole('tab', { name: /Problems/ }).click()
   await expect(page.getByRole('tabpanel').getByRole('treeitem').filter({ hasText: 'case_00010' }).first()).toBeVisible()
 

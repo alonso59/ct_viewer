@@ -30,12 +30,12 @@ function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSess
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('open.axisTitle', { name: item.name })} icon={codicon('symbol-array')}>
       <p className="muted">{t('open.axisHelp')}</p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="open-axis-grid">
         {(['xyz', 'zyx'] as const).map((o) => (
-          <button key={o} type="button" className="card" style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }} onClick={() => onPick(o)}>
-            <img alt={t('open.axisOption', { order: o })} src={api.openPreviewUrl(session.sid, item.n, o) ?? ''} style={{ maxWidth: '100%', imageRendering: 'pixelated' }} />
+          <button key={o} type="button" className="card open-axis-card" onClick={() => onPick(o)}>
+            <img alt={t('open.axisOption', { order: o })} src={api.openPreviewUrl(session.sid, item.n, o) ?? ''} />
             <strong className="mono">{o}</strong>
-            <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t(`open.axis.${o}`)}</span>
+            <span className="muted panel-size">{t(`open.axis.${o}`)}</span>
           </button>
         ))}
       </div>
@@ -140,7 +140,7 @@ export default function OpenRoute() {
 
   return (
     <div className="page">
-      <div className="page-inner" style={{ maxWidth: 'none', display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+      <div className="page-inner open-inner">
         <header className="open-title">
           <button type="button" className="btn btn-brand" onClick={() => navigate('/')} title={t('open.home')} aria-label={t('open.home')}>
             <BrandMark size={18} />
@@ -186,26 +186,26 @@ export default function OpenRoute() {
         {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
         {error ? <ProblemCard error={error} onAction={onAction} /> : null}
         {session ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 12, flex: 1, minHeight: 480 }}>
-            <div className="fs-list" role="listbox" aria-label={t('open.items')} style={{ height: 'auto' }}>
+          <div className="open-body">
+            <div className="fs-list open-items" role="listbox" aria-label={t('open.items')}>
               {viewable.map((i) => (
                 <button key={i.n} type="button" className="list-row" aria-selected={i.n === current?.n} onClick={() => setPicked(i.n)} title={i.rel}>
                   <Icon spec={codicon(i.format === 'npy' ? 'symbol-array' : 'file-media')} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.name}</span>
-                  {attachedTo(items, i.n) ? <Icon spec={codicon('layers')} style={{ marginLeft: 'auto' }} /> : null}
-                  {i.error ? <Icon spec={codicon('warning')} style={{ marginLeft: 'auto' }} /> : null}
+                  <span className="truncate" title={i.name}>{i.name}</span>
+                  {attachedTo(items, i.n) ? <Icon spec={codicon('layers')} className="ml-auto" /> : null}
+                  {i.error ? <Icon spec={codicon('warning')} className="ml-auto" /> : null}
                 </button>
               ))}
-              {session.truncated ? <div className="muted" style={{ padding: '4px 12px' }}>{t('open.truncated')}</div> : null}
+              {session.truncated ? <div className="muted pad-row">{t('open.truncated')}</div> : null}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div className="open-view">
               {current?.error ? (
                 // UI-18 (AUD-A2-07): a plain title, the reader's message as the detail, a next step
                 <ProblemCard error={new ProblemError(415, 'unreadable', t('open.unreadable', { name: current.name }), current.error, ['choose_another_path'])} onAction={onAction} />
               ) : current && needsOrder ? (
                 <div className="error-card" role="alert">
                   <strong>{t('open.axisNeeded')}</strong>
-                  <div style={{ marginTop: 8 }}>
+                  <div className="mt-2">
                     <button type="button" className="btn" onClick={() => setAskOrder(true)}>{t('open.axisChoose')}</button>
                   </div>
                 </div>

@@ -2,8 +2,9 @@
 import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../../i18n'
-import { api, fetchSettled, keys, queryClient, type RunStatus, type RunSummary } from '../../api'
+import { api, fetchSettled, keys, queryClient, useFeatures, useRuns, type RunStatus, type RunSummary } from '../../api'
 import { openEditor, registry, toast, useWorkbench } from '../../shell'
+import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { revealView, type FrontendPlugin } from '../host'
 import type { RunParams } from './DashboardEditor'
@@ -33,10 +34,18 @@ async function openLatest() {
   else toast({ message: i18n.t('dashboard.noRuns') })
 }
 
+/** AUD-A3-01: the active item has feature rows in the run the Measurements panel shows first */
+function useMeasurementsContent() {
+  const pid = useWorkbench((s) => s.pid) ?? ''
+  const iid = useViewerSync((s) => s.activeItemId)
+  const rid = (useRuns(pid).data ?? []).find((r) => DONE.includes(r.status))?.run_id ?? null
+  return (useFeatures(pid, rid, iid).data?.length ?? 0) > 0
+}
+
 export function registerDashboard() {
   registry.view({ id: 'dashboards', writes: true, title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })
   registry.command({ id: 'dashboard.openLatest', writes: true, title: 'cmd.openLatestDashboard', category: 'cat.navigate', keywords: ['kw.radiomics', 'kw.features'], menuGroup: 3, run: () => void openLatest() })
-  registry.panelTab({ id: 'measurements', title: 'panel.measurements', order: 10, component: MeasurementsPanel })
+  registry.panelTab({ id: 'measurements', title: 'panel.measurements', order: 10, component: MeasurementsPanel, useHasContent: useMeasurementsContent })
   registry.editor<RunParams>({
     type: 'run',
     writes: true,

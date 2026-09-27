@@ -1,5 +1,5 @@
 // Explorer: case tree, filters, quick open, problems (UI-05, UI-08, UI-09)
-import { api, fetchSettled, keys, queryClient, type CaseFilter, type CaseSummary, type QCWarning } from '../../api'
+import { api, fetchSettled, keys, queryClient, useItem, type CaseFilter, type CaseSummary, type QCWarning } from '../../api'
 import i18n from '../../i18n'
 import { registry, toast, useWorkbench } from '../../shell'
 import { navPosition, useLayout, useNavContext, useViewerSync } from '../../state'
@@ -22,6 +22,13 @@ export const useExplorerFilter = (): Readonly<CaseFilter> => useExplorer((s) => 
 export function showItemsInExplorer(itemIds: string[]) {
   useExplorer.getState().setItemIds(itemIds.length ? itemIds : null)
   useLayout.getState().showView('project')
+}
+
+/** AUD-A3-01: the active item has QC warnings (the Problems panel then has something for it) */
+function useProblemsContent() {
+  const pid = useWorkbench((s) => s.pid) ?? ''
+  const iid = useViewerSync((s) => s.activeItemId)
+  return (useItem(pid, iid).data?.warning_codes.length ?? 0) > 0
 }
 
 function stepCase(delta: 1 | -1) {
@@ -90,7 +97,7 @@ export function registerExplorer() {
       return activeFilterCount(f) || null
     },
   })
-  registry.panelTab({ id: 'problems', title: 'panel.problems', order: 20, component: ProblemsPanel, useBadge: useProblemsBadge })
+  registry.panelTab({ id: 'problems', title: 'panel.problems', order: 20, component: ProblemsPanel, useBadge: useProblemsBadge, useHasContent: useProblemsContent })
   registry.quickOpenProvider({ id: 'cases', order: 10, component: QuickOpenCases })
   registry.command({ id: 'explorer.nextCase', title: 'cmd.nextCase', category: 'cat.navigate', keybinding: 'alt+down', menuGroup: 1, run: () => stepCase(1) })
   registry.command({ id: 'explorer.prevCase', title: 'cmd.prevCase', category: 'cat.navigate', keybinding: 'alt+up', menuGroup: 1, run: () => stepCase(-1) })

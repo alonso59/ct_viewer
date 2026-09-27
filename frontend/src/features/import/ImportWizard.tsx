@@ -99,7 +99,7 @@ function PatternSuggester({ names, current, onPick }: { names: string[]; current
   const cands = useMemo(() => suggestPatterns(stems), [stems])
   if (!open) {
     return (
-      <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setOpen(true)}>
+      <button type="button" className="btn btn-sm justify-start" onClick={() => setOpen(true)}>
         <Icon spec={codicon('lightbulb')} />
         {t('import.suggestPattern')}
       </button>
@@ -107,7 +107,7 @@ function PatternSuggester({ names, current, onPick }: { names: string[]; current
   }
   return (
     <div className="pattern-cands">
-      <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>
+      <span className="muted small">
         {!stems.length ? t('import.suggestNone') : !cands.length ? t('import.suggestNoMatch') : t('import.suggestHelp')}
       </span>
       {cands.map((c) => (
@@ -141,19 +141,19 @@ function NiftiOptionsForm({ value, onChange, names, prefilled }: { value: NiftiO
   const { t } = useTranslation()
   const masks = Object.values(value.masks ?? {})
   return (
-    <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+    <div className="wiz-nifti">
       {masks.length ? (
-        <p className="muted" role="note" style={{ fontSize: 'var(--fs-panel)', margin: 0 }}>
+        <p className="muted panel-size m-0" role="note" >
           <Icon spec={codicon('layers')} /> {t('import.nifti.withMask', { mask: masks.join(', ') })}
         </p>
       ) : null}
       <label className="field">
         <span className="field-label">{t('import.nifti.pattern')}</span>
         <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
-        <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t(prefilled && value.pattern === CONVERTER_PATTERN ? 'import.nifti.patternPrefilled' : 'import.nifti.patternHelp')}</span>
+        <span className="muted small">{t(prefilled && value.pattern === CONVERTER_PATTERN ? 'import.nifti.patternPrefilled' : 'import.nifti.patternHelp')}</span>
       </label>
       <PatternSuggester names={names} current={value.pattern} onPick={(pattern) => onChange({ ...value, pattern })} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div className="wiz-nifti-grid">
         <label className="field">
           <span className="field-label">{t('import.nifti.caseIdFrom')}</span>
           <select className="select" value={value.case_id_from ?? 'pattern'} onChange={(e) => onChange({ ...value, case_id_from: e.target.value as NiftiOptions['case_id_from'] })}>
@@ -207,13 +207,13 @@ function NiftiNotices({ p }: { p: ImportPreview }) {
   return (
     <>
       {p.unmatched?.length ? (
-        <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.nifti.unmatched', { count: p.unmatched.length, names: p.unmatched.slice(0, 5).join(', ') })}</p>
+        <p className="muted panel-size">{t('import.nifti.unmatched', { count: p.unmatched.length, names: p.unmatched.slice(0, 5).join(', ') })}</p>
       ) : null}
       {p.orphan_masks?.length ? (
-        <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.nifti.orphans', { count: p.orphan_masks.length })}</p>
+        <p className="muted panel-size">{t('import.nifti.orphans', { count: p.orphan_masks.length })}</p>
       ) : null}
       {Object.keys(p.ignored ?? {}).length ? (
-        <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>
+        <p className="muted panel-size">
           {t('import.ignored', { list: Object.entries(p.ignored ?? {}).map(([ext, n]) => `${n} ${ext}`).join(', ') })}
         </p>
       ) : null}
@@ -225,7 +225,7 @@ function NiftiNotices({ p }: { p: ImportPreview }) {
 function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value: string | null; onPick: (a: string) => void }) {
   const { t } = useTranslation()
   return (
-    <fieldset className="field preset-list" style={{ border: 0, padding: 0, margin: 0 }}>
+    <fieldset className="field preset-list bare">
       <legend className="field-label">{t('import.adapterTitle')}</legend>
       {cands.map((c) => {
         const key = c.adapter.replace('.', '_')
@@ -236,7 +236,7 @@ function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value:
               <strong>{t(`import.adapter.${key}`)}</strong>
               <span className="muted">{c.reason}{c.unavailable_reason ? ` — ${c.unavailable_reason}` : ''}</span>
             </span>
-            <span className="badge" style={{ marginLeft: 'auto' }}>{t(`import.confidence.${c.confidence}`)}</span>
+            <span className="badge ml-auto">{t(`import.confidence.${c.confidence}`)}</span>
           </label>
         )
       })}
@@ -409,7 +409,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               </li>
             ))}
           </ol>
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           {step === 'root' ? (
             <button type="button" className="btn" title={t('import.skipHelp')} onClick={close}>{t('import.skip')}</button>
           ) : null}
@@ -433,18 +433,18 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             <h3>{t('import.rootTitle')}</h3>
             <p className="muted">{t('import.rootHelp')}</p>
             {file ? (
-              <p className="mono" style={{ fontSize: 'var(--fs-panel)' }}>
+              <p className="mono panel-size">
                 <Icon spec={codicon('file')} /> {t('import.singleFile', { name: file.slice(file.lastIndexOf('/') + 1) })}
               </p>
             ) : null}
-            <label className="field" style={{ marginTop: 12 }}>
+            <label className="field mt-3">
               <span className="field-label">{t('import.alias')}</span>
               <input className="input mono" value={alias} aria-invalid={aliasError !== null} aria-describedby="import-alias-help" onChange={(e) => setAlias(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} />
-              <span id="import-alias-help" className="muted" style={{ fontSize: 'var(--fs-badge)', color: aliasError ? 'var(--error)' : undefined }}>
+              <span id="import-alias-help" className={`muted small ${aliasError ? 'text-error' : ''}`}>
                 {aliasError ?? t('import.aliasHelp', { alias })}
               </span>
             </label>
-            <label className="check" style={{ marginTop: 12 }}>
+            <label className="check mt-3">
               <input type="checkbox" checked={upload} onChange={(e) => setUpload(e.target.checked)} />
               {t('import.uploadToggle')}
             </label>
@@ -489,31 +489,31 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             />
           ) : null}
           {cands.length ? (
-            <div className="wiz-grid" style={{ marginTop: 8 }}>
+            <div className="wiz-grid mt-2">
               <Candidates cands={cands} value={adapter} onPick={setAdapter} />
               <div>
                 {adapter === 'nifti-files' ? <NiftiOptionsForm value={niftiOptions} onChange={editOptions} names={fileNames} prefilled={auto !== null} /> : null}
                 {adapter === 'dicom.convert' ? (
                   // AUD-A5-16: the same anonymize choice as the converter window (DCM-05, NFR-17)
-                  <label className="check" style={{ marginTop: 8 }}>
+                  <label className="check mt-2">
                     <input type="checkbox" checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} />
                     <span>
                       {t('conv.anonymize')}
-                      <span className="muted" style={{ display: 'block', fontSize: 'var(--fs-badge)' }}>{t('conv.phiNotice')}</span>
+                      <span className="muted block small">{t('conv.phiNotice')}</span>
                     </span>
                   </label>
                 ) : null}
                 {adapter === 'metadata-v1' ? (
-                  <label className="check" style={{ marginTop: 8 }}>
+                  <label className="check mt-2">
                     <input type="checkbox" checked={reconstruct} onChange={(e) => setReconstruct(e.target.checked)} />
                     <span>
                       {t('import.reconstruct')}
-                      <span className="muted" style={{ display: 'block', fontSize: 'var(--fs-badge)' }}>{t('import.reconstructHelp')}</span>
+                      <span className="muted block small">{t('import.reconstructHelp')}</span>
                     </span>
                   </label>
                 ) : null}
                 {detect.data && Object.keys(detect.data.ignored).length ? (
-                  <p className="muted" style={{ fontSize: 'var(--fs-panel)', marginTop: 8 }}>
+                  <p className="muted panel-size mt-2">
                     {t('import.ignored', { list: Object.entries(detect.data.ignored).map(([ext, n]) => `${n} ${ext}`).join(', ') })}
                   </p>
                 ) : null}
@@ -539,19 +539,19 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               ))}
             </div>
             {p.adapter === 'nifti-files' ? (
-              <div style={{ marginTop: 'var(--sp-2)' }}>
+              <div className="mt-2">
                 <NiftiNotices p={p} />
               </div>
             ) : (
               <>
-                <h3 style={{ marginTop: 16 }}>{t('import.mapping')}</h3>
+                <h3 className="mt-4">{t('import.mapping')}</h3>
                 <Mapping preview={p} />
-                <div className="table-scroll" style={{ marginTop: 12 }}>
+                <div className="table-scroll mt-3">
                   <table className="table">
                     <tbody>
                       {p.files.map((f) => (
                         <tr key={f.kind}>
-                          <td style={{ color: 'var(--ok)' }}><Icon spec={codicon('pass')} /></td>
+                          <td className="text-ok"><Icon spec={codicon('pass')} /></td>
                           <td className="mono">{f.name}</td>
                           <td className="muted">{t(`import.source.${f.source}`)}</td>
                           <td className="num muted">{t('import.rows', { count: f.rows })}</td>
@@ -571,16 +571,16 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               </>
             ) : null}
             <h3>{t('import.errors', { count: p.n_errors })}</h3>
-            <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.errorsHelp')}</p>
-            {p.n_errors > MAX_ERRORS ? <p className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.errorsFirst', { n: MAX_ERRORS })}</p> : null}
+            <p className="muted panel-size">{t('import.errorsHelp')}</p>
+            {p.n_errors > MAX_ERRORS ? <p className="muted panel-size">{t('import.errorsFirst', { n: MAX_ERRORS })}</p> : null}
             <table className="table">
               <tbody>
                 {p.errors.slice(0, MAX_ERRORS).map((e, k) => (
                   <tr key={k}>
-                    <td style={{ color: 'var(--error)' }}><Icon spec={codicon('error')} /></td>
+                    <td className="text-error"><Icon spec={codicon('error')} /></td>
                     <td className="num muted mono">{e.line != null ? t('import.fileLine', { file: e.file, n: e.line }) : e.file}</td>
                     <td className="mono">{e.field ?? ''}</td>
-                    <td style={{ whiteSpace: 'normal' }}>{e.message}</td>
+                    <td className="ws-normal">{e.message}</td>
                   </tr>
                 ))}
               </tbody>
@@ -589,7 +589,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
         </div>
       ) : null}
       {step === 'index' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '24px 0' }}>
+        <div className="wiz-progress">
           <h3>{t(failed ? 'import.indexFailed' : 'import.indexing')}</h3>
           {failed ? (
             <div className="error-card" role="alert">{job.error ?? t(runStatusKey(job.status))}</div>
@@ -599,7 +599,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               <span className="muted num">{t('jobs.count', { done: job?.done ?? 0, total: job?.total ?? 0 })}</span>
             </>
           )}
-          <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('import.indexingHelp')}</span>
+          <span className="muted panel-size">{t('import.indexingHelp')}</span>
         </div>
       ) : null}
     </Dialog>

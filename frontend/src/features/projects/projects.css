@@ -17,7 +17,7 @@
 }
 .home-hero h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--fs-hero);
   font-weight: var(--fw-semibold);
 }
 .home-hero p {

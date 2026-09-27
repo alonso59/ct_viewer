@@ -1,19 +1,23 @@
 /*
- * Design tokens (UI-11). GitHub Dark Default is the default theme; GitHub Light
- * Default is the alternative. Every color in the app comes from these tokens.
+ * Design tokens (UI-11). Dark (Primer's GitHub Dark Default values) is the default theme; Light
+ * (GitHub Light Default values) is the alternative. Every color in the app comes from these tokens.
  * Theme selection: <html data-theme="dark|light">, set at bootstrap from the
  * Settings choice (dark | light | system); dark applies when unset.
+ * Interface size (UI-27): <html data-size="compact|large">; Default when unset. Every font size and
+ * control / row height below scales with it; Compact is the P7 scale (13 px UI).
  */
 
 :root {
-  /* Typography */
+  /* Typography (Default interface size: 14 px UI, UI-27) */
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --fs-ui: 13px;
-  --fs-panel: 12px;
-  --fs-badge: 11px;
-  --fs-title: 20px;
-  --fs-heading: 16px;
+  --fs-ui: 14px;
+  --fs-panel: 13px;
+  --fs-badge: 12px;
+  --fs-chip: 13px; /* phase / status chips (AUD-A3-16: chips at the panel size) */
+  --fs-heading: 17px;
+  --fs-title: 22px;
+  --fs-hero: 30px; /* workspace home title */
   --lh-ui: 1.4;
   --fw-normal: 400;
   --fw-semibold: 600;
@@ -33,14 +37,22 @@
   --radius-pill: 999px;
   --border-width: 1px;
 
+  /* Control heights */
+  --h-control: 30px;
+  --h-control-sm: 24px;
+  --h-icon-btn: 28px;
+  --h-badge: 20px;
+  --icon-activity: 24px;
+
   /* Shell metrics */
-  --h-titlebar: 36px;
-  --h-toolbar: 34px;
+  --h-titlebar: 38px;
+  --h-toolbar: 36px;
   --w-activitybar: 48px;
-  --h-tab: 35px;
-  --h-statusbar: 22px;
-  --h-row-compact: 22px;
-  --h-row-thumb: 56px;
+  --h-tab: 36px;
+  --h-statusbar: 24px;
+  --h-row-compact: 24px;
+  --h-row-thumb: 60px;
+  --thumb-row: 46px; /* Explorer thumbnail in a --h-row-thumb row */
 
   /* Motion (UI-16) */
   --dur-fast: 100ms;
@@ -55,9 +67,57 @@
   --bg-viewport: #000000;
   --fg-viewport: #E6EDF3;
   --fg-viewport-muted: #7D8590;
+  /* Text boxes and lines drawn over the black viewport (AUD-A3-17/22), both themes */
+  --bg-viewport-overlay: #000000A6;
+  --viewport-halo: #000000B3;
+  --plane-track: #484F58;
 }
 
-/* GitHub Dark Default */
+/* Interface size (UI-27): Compact = the P7 scale, Large for big screens at DPR 1 */
+:root[data-size="compact"] {
+  --fs-ui: 13px;
+  --fs-panel: 12px;
+  --fs-badge: 11px;
+  --fs-chip: 11px;
+  --fs-heading: 16px;
+  --fs-title: 20px;
+  --fs-hero: 28px;
+  --h-control: 28px;
+  --h-control-sm: 22px;
+  --h-icon-btn: 26px;
+  --h-badge: 18px;
+  --h-titlebar: 36px;
+  --h-toolbar: 34px;
+  --h-tab: 35px;
+  --h-statusbar: 22px;
+  --h-row-compact: 22px;
+  --h-row-thumb: 56px;
+  --thumb-row: 44px;
+}
+:root[data-size="large"] {
+  --fs-ui: 16px;
+  --fs-panel: 15px;
+  --fs-badge: 13px;
+  --fs-chip: 14px;
+  --fs-heading: 19px;
+  --fs-title: 25px;
+  --fs-hero: 34px;
+  --h-control: 34px;
+  --h-control-sm: 28px;
+  --h-icon-btn: 32px;
+  --h-badge: 22px;
+  --icon-activity: 28px;
+  --w-activitybar: 56px;
+  --h-titlebar: 42px;
+  --h-toolbar: 40px;
+  --h-tab: 40px;
+  --h-statusbar: 26px;
+  --h-row-compact: 28px;
+  --h-row-thumb: 68px;
+  --thumb-row: 52px;
+}
+
+/* Dark (GitHub Dark Default values) */
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -73,6 +133,7 @@
   --bg-selected: #1F6FEB26;
   --bg-input: #0D1117;
   --bg-inset: #010409;
+  --bg-pressed: #5F6874; /* active toggle (AUD-A3-02): 3.35:1 vs --bg-editor, 3.64:1 vs --bg-sidebar; --fg on it 4.78:1 */
   --fg: #E6EDF3;
   --fg-muted: #7D8590;
   --fg-on-emphasis: #FFFFFF;
@@ -80,7 +141,7 @@
   --border-muted: #21262D;
   --focus: #1F6FEB;
   --accent: #2F81F7;
-  --tab-active-indicator: #F78166;
+  --tab-active-indicator: var(--fg); /* ADR-0028: neutral, not GitHub's orange */
   --btn-primary: #238636;
   --btn-primary-hover: #2EA043;
   --btn-secondary: #21262D;
@@ -105,7 +166,7 @@
   --cat-8: #8B949E;
 }
 
-/* GitHub Light Default */
+/* Light (GitHub Light Default values) */
 :root[data-theme="light"] {
   color-scheme: light;
   --bg-editor: #FFFFFF;
@@ -120,6 +181,7 @@
   --bg-selected: #0969DA1A;
   --bg-input: #FFFFFF;
   --bg-inset: #F6F8FA;
+  --bg-pressed: #818B98; /* 3.45:1 vs --bg-editor, 3.24:1 vs --bg-sidebar; --fg on it 4.57:1 */
   --fg: #1F2328;
   --fg-muted: #636C76;
   --fg-on-emphasis: #FFFFFF;
@@ -127,7 +189,7 @@
   --border-muted: #D8DEE4;
   --focus: #0969DA;
   --accent: #0969DA;
-  --tab-active-indicator: #FD8C73;
+  --tab-active-indicator: var(--fg);
   --btn-primary: #1F883D;
   --btn-primary-hover: #1A7F37;
   --btn-secondary: #F6F8FA;
@@ -167,5 +229,12 @@
   :root {
     --dur-fast: 0ms;
     --dur-base: 0ms;
+  }
+  /* UI-16 (AUD-A3-18): no endless spinner rotation; the progress text carries the state */
+  .codicon-modifier-spin,
+  .codicon-sync.codicon-modifier-spin,
+  .codicon-loading.codicon-modifier-spin,
+  .codicon-gear.codicon-modifier-spin {
+    animation: none;
   }
 }

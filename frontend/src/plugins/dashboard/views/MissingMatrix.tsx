@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView } from '../../../api'
-import { fmtInt } from '../../../lib'
+import { fmtInt, itemName } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
@@ -35,7 +35,7 @@ export function MissingMatrixView({ runId }: ViewProps) {
         formatter: (p: { data: [number, number, number] }) => {
           const item = d.items[view.iIdx[p.data[0]] ?? -1]
           const feat = d.features[view.fIdx[p.data[1]] ?? -1]
-          return `${item?.item_id ?? ''}<br/>${feat?.feature ?? ''}: ${t(`dashboard.missing.${KINDS[p.data[2]] ?? 'nan'}`)}`
+          return `${item ? itemName(item.item_id, t) : ''}<br/>${feat?.feature ?? ''}: ${t(`dashboard.missing.${KINDS[p.data[2]] ?? 'nan'}`)}`
         },
       },
       xAxis: { type: 'category', data: view.iIdx.map((i) => d.items[i]?.item_id ?? ''), axisLabel: { rotate: 45, fontSize: fontSize('--fs-badge') } },

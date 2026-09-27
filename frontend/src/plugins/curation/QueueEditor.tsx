@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, ProblemError, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useQueue, type CurationStatus, type V2ImportReport } from '../../api'
-import { Dialog, PhaseChip, StatusBadge, fmtAgo, midEllipsis } from '../../lib'
+import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -81,7 +81,7 @@ function ImportReport({ report, onClose }: { report: V2ImportReport; onClose: ()
                 <tr key={s.line}>
                   <td className="num">{s.line}</td>
                   <td className="mono muted">{s.review_id ?? ''}</td>
-                  <td style={{ whiteSpace: 'normal' }}>{s.reason}</td>
+                  <td className="ws-normal">{s.reason}</td>
                 </tr>
               ))}
             </tbody>
@@ -134,8 +134,8 @@ export function QueueEditor() {
         <Icon spec={codicon('checklist')} />
         <strong>{t('queue.title')}</strong>
         <span className="count">{rows.length}</span>
-        <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('queue.subtitle')}</span>
-        <span style={{ flex: 1 }} />
+        <span className="muted panel-size">{t('queue.subtitle')}</span>
+        <span className="grow" />
         <select className="select input-sm" value={status} onChange={(e) => setStatus(e.target.value as CurationStatus | '')} aria-label={t('search.status')}>
           <option value="">{t('queue.allStatuses')}</option>
           {QUEUE_STATUSES.map((s) => (
@@ -192,7 +192,7 @@ export function QueueEditor() {
               // AUD-A1-04: Alt+↓ then follows the queue
               <tr key={`${r.item_id}|${r.target}|${r.seg_id ?? ''}`} data-clickable="true" onClick={() => openInContext(t('queue.title'), rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id })), i, false)}>
                 <td className="mono">{r.case_id}</td>
-                <td className="mono muted">{r.item_id}</td>
+                <td className="muted"><ItemName id={r.item_id} phase={r.phase} /></td>
                 <td>{r.phase ? <PhaseChip phase={r.phase} /> : null}</td>
                 <td className="mono">{r.target}</td>
                 {/* AUD-A2-16: which segmentation set to fix (ADR-0015) */}

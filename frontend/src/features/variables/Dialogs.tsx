@@ -70,7 +70,7 @@ function DerivedDialog({ pid }: { pid: string }) {
               </button>
             ))}
           </div>
-          <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t(`variables.opHelp.${d.op}`)}</span>
+          <span className="muted panel-size">{t(`variables.opHelp.${d.op}`)}</span>
         </div>
         {d.op !== 'dominant' ? (
           <label className="field">
@@ -113,7 +113,7 @@ function DerivedDialog({ pid }: { pid: string }) {
             <label className="field">
               <span className="field-label">{t('variables.labels')}</span>
               <input className="input" value={d.labels} placeholder={suggested.join(', ')} onChange={(e) => set({ labels: e.target.value })} />
-              <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('variables.labelsHelp')}</span>
+              <span className="muted small">{t('variables.labelsHelp')}</span>
             </label>
           </>
         ) : null}
@@ -138,7 +138,7 @@ function DerivedDialog({ pid }: { pid: string }) {
           </table>
         ) : null}
         {d.op === 'dominant' ? (
-          <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
+          <fieldset className="field bare">
             <legend className="field-label">{t('variables.sources')}</legend>
             {numeric.map((v) => (
               <label key={v.name} className="check">
@@ -212,7 +212,7 @@ function ExternalDialog({ pid }: { pid: string }) {
               <span className="muted">{t('variables.importDuplicates', { count: result.duplicate_keys.length, keys: result.duplicate_keys.slice(0, 20).join(', ') })}</span>
             ) : null}
             {result.conflicts.length ? (
-              <span style={{ color: 'var(--warn)' }}>{t('variables.importConflicts', { names: result.conflicts.join(', ') })}</span>
+              <span className="text-warn">{t('variables.importConflicts', { names: result.conflicts.join(', ') })}</span>
             ) : null}
             {result.unmatched_keys.length ? (
               <span className="muted">

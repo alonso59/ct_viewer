@@ -25,7 +25,7 @@ import {
 import { NumberInput, ProblemCard } from '../../../lib'
 import { runCommand, toast, useWorkbench, type EditorProps } from '../../../shell'
 import { useLayout } from '../../../state'
-import { Icon, codicon } from '../../../theme'
+import { Icon, autoLabelColor, codicon } from '../../../theme'
 import { useImportWizard } from '../../import'
 import { RelinkDialog } from '../WorkspaceHome'
 import { mergeLabels, parseLabelFile } from './labelFiles'
@@ -183,7 +183,7 @@ function Display({ pid, project }: { pid: string; project: Project }) {
     <div className="psettings-form">
       <Field label={t('psettings.layout')}>
         <select className="input" value={v.layout} onChange={(e) => d.set({ ...v, layout: e.target.value as DisplaySettings['layout'] })}>
-          {LAYOUTS.map((l) => <option key={l} value={l}>{t(`viewer.layouts.${l}`)}</option>)}
+          {LAYOUTS.map((l) => <option key={l} value={l}>{t(`viewer.layout.${l}`)}</option>)}
         </select>
       </Field>
       <div className="field">
@@ -269,7 +269,7 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
       </table>
       {!v.label_map.length ? <p className="muted">{t('psettings.noLabels')}</p> : null}
       <div className="psettings-row">
-        <button type="button" className="btn btn-sm" onClick={() => d.set({ ...v, label_map: [...v.label_map, { value: nextValue, name: `label_${nextValue}`, color: '#00FF00', opacity: 0.2, visible: true }] })}>{t('psettings.addLabel')}</button>
+        <button type="button" className="btn btn-sm" onClick={() => d.set({ ...v, label_map: [...v.label_map, { value: nextValue, name: `label_${nextValue}`, color: autoLabelColor(nextValue), opacity: 0.2, visible: true }] })}>{t('psettings.addLabel')}</button>
         <label className="btn btn-sm">
           {t('psettings.importLabels')}
           <input type="file" accept=".ctbl,.txt,.json,.label" hidden onChange={(e) => void onFile(e.target.files?.[0])} />

@@ -4,10 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunSummary } from '../../api'
+import { api, keys, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
 import { Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, toast, useWorkbench, type EditorProps } from '../../shell'
-import { useReviewer } from '../../state'
+import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
 import { useExplorerFilter } from '../explorer'
@@ -50,7 +50,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       <div className="task-run-head">
         <RunStatusBadge status={run.status} />
         <span className="task-run-name" title={run.run_id}>{run.name}</span>
-        <span className="muted" style={{ marginLeft: 'auto' }}>{fmtAgo(run.created_at)}</span>
+        <span className="muted ml-auto">{fmtAgo(run.created_at)}</span>
       </div>
       {live ? <Progress value={job.done} total={job.total || 1} /> : null}
       {live && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
@@ -88,7 +88,7 @@ function Outputs({ pid, run }: { pid: string; run: TaskRunSummary }) {
         <li key={`${o.kind}-${o.ref ?? o.seg_id ?? ''}`}>
           <Icon spec={codicon(o.kind === 'segmentation_set' ? 'layers' : o.kind === 'import' ? 'cloud-download' : o.kind === 'features' ? 'beaker' : 'tag')} />
           <span>{t(`tasks.out.${o.kind}`, { defaultValue: o.kind })}</span>
-          <span className="mono muted">{o.seg_id ?? o.detail ?? ''}</span>
+          <OutputLink pid={pid} run={run} o={o} />
           {o.kind === 'annotations'
             ? (o.detail ?? '').split(',').filter(Boolean).map((f) => {
                 const on = project?.annotation_sources?.[f] === run.run_id
@@ -103,6 +103,32 @@ function Outputs({ pid, run }: { pid: string; run: TaskRunSummary }) {
       ))}
     </ul>
   )
+}
+
+/** TSK-09 (AUD-A3-09): an output by its name, as a link that opens it; the API path or id stays in
+ *  the tooltip (never on screen) */
+function OutputLink({ pid, run, o }: { pid: string; run: TaskRunSummary; o: TaskRunOutput }) {
+  const { t } = useTranslation()
+  const sets = useSegmentations(pid).data ?? []
+  const raw = [o.seg_id, o.ref, o.detail].filter(Boolean).join(' · ')
+  if (o.kind === 'segmentation_set' && o.seg_id) {
+    const segId = o.seg_id
+    const name = sets.find((x) => x.seg_id === segId)?.name || segId
+    const show = () => {
+      const v = useViewerSync.getState()
+      v.set({ segChoice: { ...v.segChoice, [pid]: segId } })
+      toast({ message: t('viewer.segShown', { set: name }) })
+    }
+    return <button type="button" className="link truncate" title={raw} onClick={show}>{name}</button>
+  }
+  if (o.kind === 'features') {
+    // the features run of a radiomics task run (its dashboard); the id is in the output's API path
+    const rid = /\/runs\/([^/]+)\/features/.exec(o.detail ?? '')?.[1] ?? run.run_id
+    return <button type="button" className="link truncate" title={raw} onClick={() => openEditor('run', { runId: rid })}>{run.name}</button>
+  }
+  if (o.kind === 'import')
+    return <button type="button" className="link truncate" title={raw} onClick={() => useLayout.getState().showView('project')}>{run.name}</button>
+  return null
 }
 
 function EstimateView({ est }: { est: TaskEstimate }) {

@@ -32,3 +32,20 @@ test('a click sets the phase at once, keeps the replaced value, and shows in the
   expect(await within(dlg).findByText('Selected')).toBeInTheDocument()
   expect(within(dlg).getByText(/Dr\. P/)).toBeInTheDocument()
 })
+
+// PHS-01 / AUD-A1-12: in the case header the scan's phase is a segmented control with the effective
+// value pressed, apart from the scan chips of the item switcher
+test('the case header variant is a segmented control with the effective phase pressed', async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const scan = (await api.getCase(DEMO_PID, 'case_00001')).items.find((i) => i.scope === 'complete')!
+  const { container } = render(
+    <QueryClientProvider client={qc}>
+      <PhaseButtons pid={DEMO_PID} scan={scan} variant="seg" />
+    </QueryClientProvider>,
+  )
+  const group = await screen.findByRole('group', { name: `Phase of ${scan.case_id} · ${scan.scan_idx}` })
+  await waitFor(() => expect(within(group).getAllByRole('button').length).toBeGreaterThan(3))
+  expect(container.querySelector('.seg')).not.toBeNull()
+  expect(within(group).getByRole('button', { name: scan.phase.canonical })).toHaveAttribute('aria-pressed', 'true')
+  expect(within(group).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1)
+})

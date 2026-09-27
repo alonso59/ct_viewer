@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { fmtValue } from '../../../lib'
+import { fmtValue, itemName } from '../../../lib'
 import { token } from '../../../theme'
 import { BRUSH_LEGEND_RIGHT, Chart, fontSize, brushOption, brushed, type ChartInstance, type ChartOption } from '../Chart'
 import { openRef, useItemMenu, useLevelColors, useSelection, type ItemRef } from './common'
@@ -63,13 +63,13 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
       tooltip: {
         trigger: 'item',
         formatter: (p: { data: Datum }) =>
-          [p.data.ref.item_id, `${xName}: ${fmtValue(p.data.ref.x)}`, `${yName}: ${fmtValue(p.data.ref.y)}`, p.data.ref.note].filter(Boolean).join('<br/>'),
+          [itemName(p.data.ref.item_id, t), `${xName}: ${fmtValue(p.data.ref.x)}`, `${yName}: ${fmtValue(p.data.ref.y)}`, p.data.ref.note].filter(Boolean).join('<br/>'),
       },
       xAxis: { type: 'value', name: xName, nameLocation: 'middle', nameGap: 26, scale: true },
       yAxis: { type: 'value', name: yName, scale: true },
       series,
     }
-  }, [points, levels, levelName, color, sel, xName, yName, markLines])
+  }, [points, levels, levelName, color, sel, xName, yName, markLines, t])
   if (!points.length) return <div className="empty">{t('dashboard.noPoints')}</div>
   return (
     <Chart

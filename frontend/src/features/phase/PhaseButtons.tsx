@@ -16,7 +16,9 @@ type Scan = Pick<ItemRecord, 'case_id' | 'scan_idx' | 'phase'>
 // Inside an Explorer row: a click or key here must not also open the row
 const stop = (e: SyntheticEvent) => e.stopPropagation()
 
-export function PhaseButtons({ pid, scan, className }: { pid: string; scan: Scan; className?: string }) {
+/** `variant="seg"` (case header, AUD-A1-12): a segmented control with the effective phase pressed,
+ *  so it reads as the scan's current value and not as a second row of scan chips */
+export function PhaseButtons({ pid, scan, className, variant = 'chips' }: { pid: string; scan: Scan; className?: string; variant?: 'chips' | 'seg' }) {
   const { t } = useTranslation()
   const project = useProject(pid).data
   const append = useAppendPhase(pid)
@@ -33,11 +35,21 @@ export function PhaseButtons({ pid, scan, className }: { pid: string; scan: Scan
     )
   const was = cur.source === 'manual' ? cur.resolved?.canonical : null
   if (registry.readOnly) return <PhaseChip phase={cur.canonical} />
+  const choose = (p: string) => (cur.canonical === p && cur.source === 'manual' ? undefined : set(p))
+  const options = phaseOptions(project?.phase_vocabulary)
   return (
     <span role="group" aria-label={t('phaseSel.group', { scan: `${scan.case_id} · ${scan.scan_idx}` })} className={`phase-buttons ${className ?? ''}`} onClick={stop} onDoubleClick={stop} onKeyDown={stop}>
-      {phaseOptions(project?.phase_vocabulary).map((p) => (
-        <PhaseChip key={p} phase={p} active={cur.canonical === p} onClick={() => (cur.canonical === p && cur.source === 'manual' ? undefined : set(p))} />
-      ))}
+      {variant === 'seg' ? (
+        <span className="seg">
+          {options.map((p) => (
+            <button key={p} type="button" aria-pressed={cur.canonical === p} title={t(`phase.${p}`)} disabled={append.isPending} onClick={() => choose(p)}>
+              {p}
+            </button>
+          ))}
+        </span>
+      ) : (
+        options.map((p) => <PhaseChip key={p} phase={p} active={cur.canonical === p} onClick={() => choose(p)} />)
+      )}
       {run ? (
         <button type="button" className="badge" title={t('phaseSel.acceptHelp', { phase: cur.canonical })} disabled={append.isPending} onClick={() => set(cur.canonical, { source: 'analyzer_accept', accepted_run_id: run })}>
           <Icon spec={codicon('check')} />

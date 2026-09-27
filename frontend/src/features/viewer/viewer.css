@@ -13,14 +13,16 @@
 }
 .case-header {
   display: flex;
+  flex-wrap: wrap; /* AUD-A1-12: a narrow editor wraps instead of hiding the review status */
   align-items: center;
-  gap: var(--sp-2);
-  height: 34px;
-  padding: 0 var(--sp-3);
+  gap: var(--sp-1) var(--sp-2);
+  min-height: 34px;
+  padding: var(--sp-1) var(--sp-3);
   border-bottom: var(--border-width) solid var(--border);
   flex: none;
-  overflow-x: auto;
-  scrollbar-width: none;
+}
+.case-header-end {
+  flex: 1;
 }
 .case-id {
   font-weight: var(--fw-semibold);
@@ -51,42 +53,6 @@
   margin: 0 var(--sp-1);
   background: var(--border);
 }
-button.badge {
-  background: transparent;
-  cursor: pointer;
-}
-button.badge[aria-pressed='true'] {
-  background: var(--bg-selected);
-}
-
-/* Segmented control */
-.seg {
-  display: inline-flex;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.seg button {
-  height: 22px;
-  padding: 0 var(--sp-2);
-  border: 0;
-  background: transparent;
-  color: var(--fg-muted);
-  font-size: var(--fs-panel);
-  cursor: pointer;
-}
-.seg button + button {
-  border-left: var(--border-width) solid var(--border);
-}
-.seg button[aria-pressed='true'] {
-  background: var(--bg-selected);
-  color: var(--fg);
-}
-.seg button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 /* Viewport grid (VW-01 layouts) */
 .vp-surface {
   position: relative;
@@ -210,39 +176,65 @@ button.badge[aria-pressed='true'] {
   inset: 0;
   pointer-events: none;
 }
+/* VW-03/04 (AUD-A3-22): a 2 px neutral track; the plane colour (--vp-plane) only on the thumb */
 .vp-slider {
   flex: none;
   width: 100%;
   height: 14px;
   margin: 0;
   background: var(--bg-overlay);
+  appearance: none;
+  cursor: pointer;
+}
+.vp-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--plane-track);
+}
+.vp-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--vp-plane, var(--fg-viewport));
+}
+.vp-slider::-moz-range-track {
+  height: 2px;
+  background: var(--plane-track);
+}
+.vp-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--vp-plane, var(--fg-viewport));
 }
 .vp-orient {
   position: absolute;
   font-size: var(--fs-badge);
   font-weight: var(--fw-semibold);
   color: var(--fg-viewport-muted);
-  text-shadow: 0 0 2px #000;
+  text-shadow: 0 0 2px var(--viewport-halo);
 }
+/* AUD-A3-22: 8 px off the centre lines, so a centred crosshair never runs through a letter */
 .vp-orient-l {
   left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(50% - 8px);
+  transform: translateY(-100%);
 }
 .vp-orient-r {
   right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(50% - 8px);
+  transform: translateY(-100%);
 }
 .vp-orient-t {
   top: 4px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: calc(50% + 8px);
 }
 .vp-orient-b {
   bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: calc(50% + 8px);
 }
 .vp-3d-tools {
   display: inline-flex;
@@ -255,7 +247,7 @@ button.badge[aria-pressed='true'] {
   height: 20px;
 }
 .vp-3d-tools .icon-btn[aria-pressed='true'] {
-  background: var(--bg-inset);
+  background: var(--bg-pressed);
 }
 .vp-blend {
   width: 64px;
@@ -290,11 +282,13 @@ button.badge[aria-pressed='true'] {
   right: 0;
   z-index: 2;
 }
+/* VW-04 (AUD-A3-22): Slicer plane colours at full opacity with a 1 px dark halo, legible over any
+   overlay colour */
 .vp-cross-v,
 .vp-cross-h {
   position: absolute;
   pointer-events: none;
-  opacity: 0.85;
+  box-shadow: 0 0 0 1px var(--viewport-halo);
 }
 .vp-cross-v {
   left: 50%;
@@ -313,7 +307,7 @@ button.badge[aria-pressed='true'] {
   font-size: var(--fs-badge);
   color: var(--fg-viewport-muted);
   pointer-events: none;
-  text-shadow: 0 0 2px #000;
+  text-shadow: 0 0 2px var(--viewport-halo);
 }
 .vp-corner-tl {
   top: 6px;
@@ -370,7 +364,7 @@ button.badge[aria-pressed='true'] {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-overlay);
-  color: var(--warning, var(--fg));
+  color: var(--warn);
   font-size: var(--fs-panel);
   z-index: 3;
 }
@@ -382,10 +376,10 @@ button.badge[aria-pressed='true'] {
 .vp-measure { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .vp-measure polyline, .vp-measure circle { fill: none; stroke: var(--warn); stroke-width: 1.5; }
 .vp-measure circle.vp-measure-pt { fill: var(--warn); }
-.vp-measure text { fill: var(--warn); font: 11px ui-monospace, monospace; paint-order: stroke; stroke: #000; stroke-width: 3px; }
+.vp-measure text { fill: var(--warn); font-family: var(--font-mono); font-size: var(--fs-badge); paint-order: stroke; stroke: var(--bg-viewport); stroke-width: 3px; }
 /* VW-22 HU probe */
 /* inside the hovered view's body, bottom-left above its slider and clear of the bottom orientation letter */
-.vp-probe { position: absolute; left: 6px; bottom: 24px; z-index: 2; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border-radius: 4px; background: rgba(0, 0, 0, 0.6); color: #fff; font-size: var(--fs-badge); pointer-events: none; }
+.vp-probe { position: absolute; left: 6px; bottom: 24px; z-index: 2; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border-radius: 4px; background: var(--bg-viewport-overlay); color: var(--fg-viewport); font-size: var(--fs-badge); pointer-events: none; }
 .toolbar-num { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-panel); }
 .toolbar-num input { width: 64px; }
 .ct-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
@@ -398,4 +392,4 @@ button.badge[aria-pressed='true'] {
 /* AUD-A1-04 navigation context chip in the case header */
 .nav-context { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; }
 .nav-context .icon-btn { width: 16px; height: 16px; }
-.case-editor-error { padding: var(--sp-3, 12px); max-width: 640px; }
+.case-editor-error { padding: var(--sp-3); max-width: 640px; }

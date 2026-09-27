@@ -1,13 +1,13 @@
 // Label map import (PRJ-18 Labels tab): 3D Slicer colour tables (`.ctbl` / `.txt`), ITK-SNAP label
 // descriptions and nnU-Net `dataset.json`. Pure parsers → LabelDef[]; background (0) is skipped.
 import type { LabelDef } from '../../../api'
+import { autoLabelColor } from '../../../theme'
 
 export type LabelFileKind = 'slicer' | 'itksnap' | 'nnunet'
 
-const PALETTE = ['#00FFFF', '#FFFF00', '#FF00FF', '#00FF00', '#FF8000', '#0080FF', '#FF0000', '#8000FF']
 const hex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0').toUpperCase()
 const rgb = (r: number, g: number, b: number) => `#${hex(r)}${hex(g)}${hex(b)}`
-const auto = (value: number) => PALETTE[(value - 1) % PALETTE.length] ?? '#FFFFFF'
+const auto = autoLabelColor
 
 function label(value: number, name: string, color: string, opacity = 0.2, visible = true): LabelDef {
   return { value, name: name.trim() || `label_${value}`, color, opacity: Math.max(0, Math.min(1, opacity)), visible }

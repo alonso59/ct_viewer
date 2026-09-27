@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView } from '../../../api'
-import { StatusBadge, fmtDuration, fmtInt } from '../../../lib'
+import { ItemName, StatusBadge, fmtDuration, fmtInt } from '../../../lib'
 import { Icon, codicon } from '../../../theme'
 import { useRunDashboard } from '../store'
 import { asStatus, rowProps, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
@@ -84,7 +84,7 @@ export function RunOverviewView({ runId }: ViewProps) {
                     return e.item_id ? (
                       <tr key={`${e.item_id}|${e.label ?? ''}|${i}`} data-kind={e.kind} {...rowProps({ item_id: e.item_id, case_id: e.case_id ?? e.item_id.split('.')[0] ?? '' }, selected)} title={t('dashboard.openInViewer')}>
                         {icon}
-                        <td className="mono">{e.item_id}</td>
+                        <td><ItemName id={e.item_id} pid={pid} /></td>
                         <td>{e.label != null ? labelName(e.label) : ''}</td>
                         <td>{t(`rad.errKindName.${skipped ? 'skipped' : 'failed'}`)}</td>
                         <td className="muted" style={{ whiteSpace: 'normal' }} title={e.detail ?? undefined}>{e.message}</td>

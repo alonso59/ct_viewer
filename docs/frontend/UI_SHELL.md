@@ -2,7 +2,7 @@
 
 Scope: workbench layout, QuPath-style panes, toolbar, panels, status bar, commands, keybindings, theme, icons.
 Read when: building shell, navigation, theming, icons, or keyboard UX.
-Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010, ADR-0023. Viewer internals: VIEWER.md.
+Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010, ADR-0023, ADR-0028. Viewer internals: VIEWER.md.
 
 ## Concept
 
@@ -58,7 +58,7 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | Variables | `symbol-variable` | — | Variable catalog (VAR-*): type/level/missing %, Review badges, visibility, tags, derived variables, external table import |
 | Labeling | `table` | — | Label tables of the project with fill progress (LBL-08); opens the table tab |
 | Plugin Library | `extensions` | Extensions | Every installed plugin with status and **Open** (UI-22, PLG-05) |
-| Settings *(bottom)* | `settings-gear` | Preferences | Theme, reviewer name, keybindings |
+| Settings *(bottom)* | `settings-gear` | Preferences | Theme, interface size (UI-27), reviewer name, project list rows, keybindings |
 
 ## Requirements
 
@@ -69,17 +69,17 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | UI-03 | Editor tabs: case, radiomics settings, run dashboard, correction queue, welcome, labeling table, project settings. Tabs support preview mode (italic until pinned), drag, split and close-others. | M |
 | UI-04 | Workspace home (`/`) looks like the QuPath/VS Code welcome: New Project (name + optional default modality, PRJ-14), Open file or folder…, Convert DICOM… (UI-25), Open Recent (with thumbnail and progress) followed by the converted workspace datasets (name, series, Open · Create project; AUD-A2-14), and a share-link copy button. | M |
 | UI-05 | Command palette `Ctrl/Cmd+Shift+P` on every route (workspace home, Open mode, project) shows the commands of that route, word and prefix matches first; quick open `Ctrl/Cmd+P` jumps to a case or item (on the home and in Open mode: to a project). The title-bar search box opens quick open. Neither opens over a modal, and Escape closes the topmost overlay. | M |
-| UI-06 | Tool bar (QuPath style) holds viewer tools and toggles; the active tool is highlighted; each button has a tooltip with its shortcut. | M |
+| UI-06 | Tool bar (QuPath style) holds viewer tools and toggles, shown only while the active editor is a viewer (a case tab, Open mode); other editors leave it empty (AUD-A3-20). The active tool is marked with `--bg-pressed` (≥ 3:1 against the bars, no blue; AUD-A3-02); each button has a tooltip with its shortcut. | M |
 | UI-07 | Status bar shows project, live/offline SSE state, job progress, cursor ijk/RAS/HU, W/L, reviewer (click to change). | M |
-| UI-08 | Project list: 22 px rows (compact) or 56 px rows with thumbnail (default), virtualized, navigable with the keyboard; the badge follows the curation rollup (CUR-08). | M |
+| UI-08 | Project list: compact rows (`--h-row-compact`, 22 px at Compact size) or rows with thumbnail (`--h-row-thumb`, 56 px at Compact; default), virtualized, navigable with the keyboard; the badge follows the curation rollup (CUR-08). An item is named `case · phase · scope · side` (scan number when the phase is not loaded); the raw `item_id` is only in the tooltip and in copy actions (AUD-A1-13). | M |
 | UI-09 | The Problems panel lists QC warnings (IMP-08) grouped by case; clicking one opens the item. | M |
 | UI-10 | Notifications are toasts at bottom-right, e.g. "case_00042 updated by Dr. AP". | S |
-| UI-11 | GitHub Dark is the default theme and GitHub Light the alternative; all colors come from tokens (`theme/tokens.css`). The Settings choice (`dark`, `light`, `system`) decides; `dark` applies until the user picks another, whatever the OS preference. | M |
+| UI-11 | Dark (Primer's GitHub Dark values) is the default theme and Light (GitHub Light values) the alternative; Settings names them **Dark · Light · System** (AUD-A3-23). All colors come from tokens (`theme/tokens.css`; a unit test rejects raw colours elsewhere, AUD-A3-17). The Settings choice (`dark`, `light`, `system`) decides; `dark` applies until the user picks another, whatever the OS preference. | M |
 | UI-12 | Keybindings (below) are overridable in Settings and stored in `localStorage`. | S |
-| UI-13 | Layout state (pane sizes, visibility, open tabs) persists per project. | S |
+| UI-13 | Layout state (pane sizes, visibility, open tabs) persists per project. The side bar, panel and inspector toggle from one title-bar **Layout** menu (ADR-0028). The panel's default height is min(220 px, 20 % of the window); on a case tab it stays closed until a panel tab has content for the item (a feature row, a problem), unless the user chose (AUD-A3-01). | S |
 | UI-14 | Measurements panel: features of the active item from the selected run (API-36 `item_id` filter), with a robust z-score column; outliers are marked. | S |
 | UI-15 | CT-specific icons (axial/sagittal/coronal plane, W/L, crosshair, layout grid, outline, VOI L/R) are a custom SVG set drawn to codicon rules: 16 px grid, `currentColor`, same stroke weight. Set (`theme/icons/CtIcon.tsx`): plane-axial/sagittal/coronal, view-3d, window-level, crosshair (tool), crosshair-lines (show/hide crosshair), layout-four-up/conventional/three-mpr/one-up, label-overlay, label-outline, voi-left/right, slice-stack. | M |
-| UI-16 | Motion is limited to ≤150 ms fades/slides and respects `prefers-reduced-motion`. | S |
+| UI-16 | Motion is limited to ≤150 ms fades/slides and respects `prefers-reduced-motion` (durations 0, spinners stop; AUD-A3-18). | S |
 | UI-17 | Three entry levels, no more: **Open** (a file or folder → viewer, no project, SRC-09), **Project** (a study), **Tasks** (act on a selection). Welcome and the palette offer "Open file or folder…" next to "New project". Open mode has exactly three actions: Save as NIfTI… (SRC-14), Add to project… (SRC-15), Create project from this. Open-mode layout: a title row (logo = home, "Open", path, "No project" badge) and, above the viewer, one **left-aligned** action row in workflow order: **Create project from this** (primary) · Add to project… · Save as NIfTI… │ Attach segmentation… │ the modality selector (only when assumed, VW-05). Nothing is pushed to the far right, so the actions stay in reach on wide (1440p+) screens. | M |
 | UI-18 | Every error shows its cause (`detail`) and its next actions (`actions[]`) as buttons (SRC-11); a bare "Validation failed" is a bug. The title is the problem in plain words (`problemTitle.{slug}` for API problems), never a raw exception or a slug chip, and never a server setting name. | M |
 | UI-19 | Requirements are asked when a task needs them, not at import: a task's settings tab shows the preflight (TSK-04) with counts and one-click suggested tasks; a task that writes volumes asks for the `DERIVED` folder on first use (PRJ-13). | M |
@@ -90,6 +90,7 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | UI-25 | Converter overlay window (ADR-0021): a modal work window with the steps source → settings (a taken dataset name is said there) → dry run (every series with its plan, skip reason and size, DCM-06) → run with progress → result (Open · Create project · Add to project), reachable from Welcome, Open mode on DICOM, the Library and a project's Data tab. | M |
 | UI-26 | View-only mode (`/v/{token}`, PRJ-17): the shell shows a "View only" badge, hides every editing control, command and shortcut, and keeps all viewer tools. | M |
 | UI-21 | The app logo (§Brand) appears only as identity, never as decoration: browser tab icon, title-bar project switcher, workspace home header, Open-mode home button. | S |
+| UI-27 | Settings › **Interface size**: Compact · Default · Large (per browser). Every font size, control and row height is a token that the size sets (`<html data-size>`); Compact is the P7 scale (13 px UI), Default 14 px, Large 16 px (AUD-A3-16). | S |
 
 Implementation (P7c Wave 4, UI-24): File › Close project (palette "Close project") goes to the workspace home with a page change, which releases every loaded volume; Open mode's Close (last in the action row) calls `DELETE /open/{sid}` and returns home. Open mode shows the CT tool bar under its action row (VW-22).
 
@@ -141,7 +142,7 @@ Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home a
 | Integrity | Shown as is: no recolouring, filters, shadows, cropping, rotation or stretching; square aspect kept |
 | Minimum size | 16 px; below 24 px the detail is lost, so use it only with the text name beside it |
 | Clear space | At least `--sp-2` around it; never overlapping other content |
-| Themes | The same artwork on GitHub Dark and Light (transparent background); no light/dark variants |
+| Themes | The same artwork on Dark and Light (transparent background); no light/dark variants |
 | Later | Electron (P8) app icons are derived from the master |
 
 ## Theme tokens: GitHub Dark (Primer)
@@ -156,20 +157,21 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 | `--bg-panel` | `#010409` | `--border-muted` | `#21262D` |
 | `--bg-overlay` (menus, popovers) | `#161B22` | `--focus` | `#1F6FEB` |
 | `--bg-tab-active` | `#0D1117` | `--bg-tab-inactive` | `#010409` |
-| `--tab-active-indicator` | `#F78166` | `--accent` | `#2F81F7` |
+| `--tab-active-indicator` | `var(--fg)` (ADR-0028) | `--accent` | `#2F81F7` |
 | `--bg-statusbar` | `#0D1117` | `--bg-viewport` | `#000000` |
 | `--ok` | `#3FB950` | `--warn` | `#D29922` |
 | `--error` | `#F85149` | `--done` | `#A371F7` |
 | `--btn-primary` | `#238636` | `--bg-hover` | `#1F2428` |
+| `--bg-pressed` (active toggle) | `#5F6874` (Light `#818B98`) | `--bg-viewport-overlay` | `#000000A6` |
 
-- **Typography:** `-apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`. Sizes are 13 px UI, 12 px panels, 11 px badges; `ui-monospace` for numbers, except the viewer's slice index (VW-03, ADR-0023).
+- **Typography:** `-apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`. Sizes (UI-27, Default · Compact): UI 14 · 13 px, panels 13 · 12, badges 12 · 11, chips `--fs-chip` 13 · 11, headings 17 · 16, titles 22 · 20, home title `--fs-hero` 30 · 28; no px font size outside `tokens.css`. `ui-monospace` for numbers, except the viewer's slice index (VW-03, ADR-0023).
 - **Shape:** 6 px radius on buttons, inputs and cards; 1 px borders; no shadows except overlays.
-- **Badges:** Primer "Label" pills (outline in the status color, 11 px), used for phase chips and QC status.
+- **Badges:** Primer "Label" pills (outline in the status color, `--fs-chip`), used for phase chips and QC status; a pressed chip is `--fg` on `--bg-selected` (AUD-A3-19). Segmented controls (`.seg`, `theme/base.css`) are as wide as their options (AUD-A3-08).
 - **Icons:** codicons (VS Code) plus the custom CT set (UI-15). Octicons are not mixed in.
 - Viewport accent colors (per-plane borders and crosshairs) are owned by VW-04.
-- GitHub Light values and the categorical palette (`--cat-1..8`, DB-07) are in `theme/tokens.css`; viewports stay black in both themes.
+- Light values and the categorical palette (`--cat-1..8`, DB-07) are in `theme/tokens.css`; viewports stay black in both themes.
 - The Design reference tab (Help → Open design reference) shows all tokens, type, badges and icons.
-- **Identity signals decoupled from literal VS Code/GitHub chrome (ADR-0023), structure and density unchanged:** section/sidebar/panel-tab labels are sentence case, no `letter-spacing`, no `text-transform: uppercase` (was tracked uppercase, identical to VS Code's "EXPLORER"/"OUTLINE"); a pressed `.icon-btn[aria-pressed='true']` uses a darker flat "pressed" texture, not `--bg-selected` + a `--focus` inset outline (was identical to the search bar's "Match Case" toggle); `--focus`/`--accent` blue stays reserved for live interaction, never a resting toggle state. Viewport panel borders and plane colors follow VW-04.
+- **Identity signals decoupled from literal VS Code/GitHub chrome (ADR-0023), structure and density unchanged:** section/sidebar/panel-tab labels are sentence case, no `letter-spacing`, no `text-transform: uppercase` (was tracked uppercase, identical to VS Code's "EXPLORER"/"OUTLINE"); a pressed `.icon-btn[aria-pressed='true']` uses the flat `--bg-pressed` fill (AUD-A3-02), not `--bg-selected` + a `--focus` inset outline (was identical to the search bar's "Match Case" toggle); `--focus`/`--accent` blue stays reserved for live interaction, never a resting toggle state. Viewport panel borders and plane colors follow VW-04.
 
 ## Prototype defaults (P0.5 → P2)
 
@@ -185,7 +187,7 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 
 - Radiomics settings tab: left nav (Selection + schema groups with error badges), the form, and a side panel (validation list, summary, estimate, Run). The Radiomics view lists runs (progress, cancel, resume, failures, exports) and profiles.
 
-## Implementation notes (FB5)
+## Implementation notes (FB5, FB6)
 
 - **Numbers (AUD-A3-04, owner 2026-09-25):** English format everywhere (`lib/format.ts`): a point as the decimal separator; counts keep the English thousands separator, measured values never get one. Number fields are `NumberInput` (`lib/ui.tsx`): a text field with `inputmode="decimal"` and spin-button semantics that accepts `,` or `.`; ↑/↓ step. Feature values (`fmtValue` / `fmtColumn`): 3 significant digits (whole numbers keep their integer digits), scientific above 1e5 or below 1e-3, for a whole column once one cell needs it; tabular figures; the unit from the feature class (`featureUnit`: shape → mm/mm²/mm³, original first-order intensities → HU on CT) (AUD-A3-15).
 - **Run and job states (UI-15, TSK-06; AUD-A3-10):** one sentence-case vocabulary (`runStatus.*`, `RunStatusBadge` in `lib/badges.tsx`) in the Tasks, Radiomics, Dashboard and Jobs views; a job's `succeeded` reads "Completed".
@@ -193,3 +195,5 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 - **Panel per editor type (UI-13, AUD-A1-18):** the bottom panel's visibility is remembered per editor type; it starts closed on full-height editors (radiomics settings, dashboards, tasks, project settings) and open elsewhere.
 - **Form editors (UI-20, AUD-A3-06):** content at most `--form-max-width` (1200 px), centred; the radiomics settings side panel moves under the form when the editor is narrower than 1040 px (about a 1366 px window with the side bar), and segmented controls wrap.
 - **Two-line list rows (AUD-A3-21):** `.list-row-2` (title, meta lines, labelled trailing actions) for the Dashboards and Radiomics views; empty states use `.empty`.
+- **One icon per meaning (UI-15, AUD-A3-11/12):** a missing thumbnail is a muted `slice-stack` on `--bg-inset` with a tooltip (real slices stay on black); "No segmentation" `label-outline`; analyzer tasks `symbol-property`; each radiomics settings group its own codicon; `circle-slash` only means Rejected.
+- **Task outputs (TSK-09, AUD-A3-09):** a run's outputs are named links (segmentation set → shown in the viewer, features → its dashboard, import → Explorer); API paths and ids only in the tooltip. User-facing strings never cite requirement or ADR IDs (`i18n/keys.test.ts`, AUD-A1-14).

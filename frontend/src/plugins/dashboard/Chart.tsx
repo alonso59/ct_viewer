@@ -135,6 +135,7 @@ export function Chart({ option, onClick, onContextMenu, onBrush, onReady, height
   const chart = useRef<ChartInstance | null>(null)
   const latest = useRef({ option, onClick, onContextMenu, onBrush, onReady })
   const theme = useSettings((s) => s.theme)
+  const size = useSettings((s) => s.uiSize)
   useEffect(() => {
     latest.current = { option, onClick, onContextMenu, onBrush, onReady }
   })
@@ -168,6 +169,6 @@ export function Chart({ option, onClick, onContextMenu, onBrush, onReady, height
   useEffect(() => {
     const c = chart.current
     if (c && !c.isDisposed()) c.setOption(withBase(option), true)
-  }, [option, theme])
+  }, [option, theme, size])
   return <div ref={el} style={{ width: '100%', height }} onContextMenu={(e) => e.preventDefault()} />
 }

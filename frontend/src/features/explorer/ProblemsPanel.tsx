@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useWarnings, type QCWarning } from '../../api'
-import { SeverityIcon } from '../../lib'
+import { SeverityIcon, itemName, knownPhase } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import i18n from '../../i18n'
@@ -39,7 +39,7 @@ export function ProblemsPanel() {
   if (!data?.length) return <div className="empty">{t('problems.none')}</div>
   const flat = groupWarnings(data).flatMap(([, list]) => list)
   return (
-    <div role="tree" aria-label={t('panel.problems')} style={{ fontSize: 'var(--fs-panel)' }}>
+    <div role="tree" aria-label={t('panel.problems')} className="panel-size">
       {groupWarnings(data).map(([cid, list]) => (
         <div key={cid} role="group">
           <div className="list-row" style={{ cursor: 'default', paddingLeft: 8 }} role="treeitem" aria-expanded>
@@ -52,9 +52,8 @@ export function ProblemsPanel() {
               <SeverityIcon severity={w.severity} />
               <span>{t(`warning.${w.code}`)}</span>
               <span className="muted">{w.message}</span>
-              <span className="muted mono" style={{ marginLeft: 'auto' }}>
-                {w.code}
-                {w.item_id ? ` · ${w.item_id}` : ''}
+              <span className="muted problem-where" title={w.item_id ? `${w.code} · ${w.item_id}` : w.code}>
+                {w.item_id ? itemName(w.item_id, t, knownPhase(pid, w.item_id)) : null}
               </span>
             </button>
           ))}

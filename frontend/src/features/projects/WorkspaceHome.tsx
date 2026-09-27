@@ -65,7 +65,7 @@ export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolea
         <div className="field">
           <label className="field-label" htmlFor="project-name">{t('projects.name')}</label>
           <input id="project-name" className="input" autoFocus value={name} placeholder={t('projects.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
-          <span className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('projects.newHelp')}</span>
+          <span className="muted panel-size">{t('projects.newHelp')}</span>
         </div>
         <div className="field">
           <span className="field-label">{t('projects.modality')}</span>
@@ -74,7 +74,7 @@ export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolea
               <button key={m} type="button" aria-pressed={modality === m} onClick={() => setModality(m)}>{t(`projects.modalities.${m}`)}</button>
             ))}
           </div>
-          <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('projects.modalityHelp')}</span>
+          <span className="muted small">{t('projects.modalityHelp')}</span>
         </div>
         {create.isError ? <div className="error-card" style={{ margin: 0 }}>{create.error.message}</div> : null}
       </form>
@@ -119,7 +119,7 @@ export function RelinkDialog({ pid, name, onOpenChange }: { pid: string; name: s
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="muted" style={{ fontSize: 'var(--fs-panel)' }}>{t('projects.relinkHelp')}</div>
+        <div className="muted panel-size">{t('projects.relinkHelp')}</div>
         {roots.data && roots.data.length > 1 ? (
           <label className="field">
             <span className="field-label">{t('projects.alias')}</span>

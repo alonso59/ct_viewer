@@ -5,3 +5,4 @@ export { fmtNum, fmt1, fmtInt, fmtDate, fmtAgo, fmtDuration, fmtBytes, fmtValue,
 export { renderSlice, hexToRgb, type SliceRender } from './slice'
 export { SliceThumb } from './SliceThumb'
 export { ProblemCard, type ActionHandlers } from './ProblemCard'
+export { ItemName, itemName, knownPhase, parseItemId, type ItemParts } from './itemName'

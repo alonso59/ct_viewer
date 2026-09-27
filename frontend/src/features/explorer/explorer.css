@@ -36,3 +36,115 @@
   align-items: center;
   gap: 4px;
 }
+
+/* Project view rows (UI-08): heights follow --h-row-* (UI-27); no inline layout (AUD-A3-17) */
+.pv-filter {
+  position: relative;
+  display: flex;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+.pv-filter .input {
+  flex: 1;
+  padding-left: var(--sp-5);
+}
+.pv-filter .codicon {
+  position: absolute;
+  left: calc(var(--sp-2) + 6px);
+  top: calc((var(--h-control-sm) - 16px) / 2);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+.pv-active-filters {
+  padding: 0 var(--sp-3) var(--sp-2);
+  font-size: var(--fs-panel);
+}
+.pv-tree {
+  flex: 1;
+  overflow: auto;
+  outline: none;
+}
+.pv-loading {
+  padding-left: var(--sp-6);
+}
+.pv-case,
+.pv-item {
+  gap: 6px;
+}
+.pv-case {
+  padding-left: var(--sp-1);
+}
+.pv-item {
+  padding-left: 34px;
+  font-size: var(--fs-panel);
+}
+.pv-item[data-density='thumbnails'] {
+  padding-left: calc(var(--thumb-row) + 14px);
+}
+.pv-case[data-focused='true'],
+.pv-item[data-focused='true'] {
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+.pv-case[data-swatch='true'] {
+  box-shadow: inset 3px 0 0 var(--swatch);
+}
+.pv-case[data-focused='true'][data-swatch='true'] {
+  box-shadow: inset 0 0 0 1px var(--focus), inset 3px 0 0 var(--swatch);
+}
+.pv-case[data-excluded='true'],
+.pv-item[data-excluded='true'] {
+  opacity: 0.55;
+}
+.pv-twisty {
+  width: 16px;
+  height: 16px;
+}
+.pv-case-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pv-case-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pv-case-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--fs-badge);
+}
+.pv-end {
+  margin-left: auto;
+}
+.pv-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--warn);
+}
+.pv-footer {
+  padding: var(--sp-1) var(--sp-3);
+  border-top: var(--border-width) solid var(--border-muted);
+  font-size: var(--fs-badge);
+}
+.pv-chip-row {
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+.pv-chip-close {
+  width: 14px;
+  height: 14px;
+}
+.problem-where {
+  flex: none;
+  margin-left: auto;
+  white-space: nowrap;
+}
+/* AUD-A3-19: the warning count on the selected row (Light: --warn is 3.96:1 on --bg-selected) */
+.list-row[aria-selected='true'] .pv-warn {
+  color: color-mix(in srgb, var(--warn) 80%, var(--fg));
+}

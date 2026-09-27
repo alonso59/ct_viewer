@@ -561,8 +561,8 @@
     "unavailable": "unavailable",
     "runnerOn": "runner online",
     "runnerOff": "no runner",
-    "invalid_one": "{{count}} invalid manifest (see API-42)",
-    "invalid_other": "{{count}} invalid manifests (see API-42)",
+    "invalid_one": "{{count}} invalid manifest",
+    "invalid_other": "{{count}} invalid manifests",
     "recent": "Recent runs",
     "noRuns": "No runs yet",
     "unknown": "Unknown task {{id}}",
@@ -621,7 +621,7 @@
       "pattern": "Does not match the expected pattern"
     },
     "derivedTitle": "Choose the derived folder",
-    "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here, never next to your data (ADR-0014). Only folders under ALLOWED_DERIVED_ROOTS are listed.",
+    "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here, never next to your data. Only output folders shared with the app are listed.",
     "derivedUse": "Use this folder",
     "radiomicsHere": "Radiomics runs are set up in the Radiomics settings tab (the same tab as Tasks › Radiomics and the Radiomics view)."
   },
@@ -653,8 +653,8 @@
     },
     "adds": "Adds: {{list}}",
     "openNamed": "Open {{name}}",
-    "invalid_one": "{{count}} invalid plugin manifest (see API-49)",
-    "invalid_other": "{{count}} invalid plugin manifests (see API-49)"
+    "invalid_one": "{{count}} invalid plugin manifest",
+    "invalid_other": "{{count}} invalid plugin manifests"
   },
   "psettings": {
     "title": "Project settings",
@@ -672,7 +672,7 @@
     "description": "Description",
     "links": "Links",
     "fullLink": "Project link",
-    "fullLinkHelp": "Anyone with this link can view and edit the project (no accounts, ADR-0004).",
+    "fullLinkHelp": "Anyone with this link can view and edit the project (there are no accounts).",
     "viewLink": "View-only link",
     "viewLinkHelp": "Opens the project read-only: no editing controls, and the server refuses every write. Rotating it stops the old link at once.",
     "createViewLink": "Create view-only link",
@@ -744,7 +744,7 @@
     "exportCsv": "Download dataset table (CSV)",
     "exportParquet": "Download dataset table (Parquet)",
     "exportJsonl": "Download dataset.jsonl",
-    "exportJsonlHelp": "One JSON line per item: the imported metadata, every active layer and references to DICOM sidecars and analyzer records (ADR-0025)",
+    "exportJsonlHelp": "One JSON line per item: the imported metadata, every active layer and references to DICOM sidecars and analyzer records",
     "exportSensitive": "Include sensitive fields (patient id, dates, UIDs, accession numbers)"
   },
   "conv": {
@@ -926,7 +926,7 @@
       "sensitive": "sensitive"
     },
     "tagHelp": {
-      "confounder": "Scanner or protocol factor to check in analyses (VAR-05)",
+      "confounder": "Scanner or protocol factor to check in analyses",
       "outcome": "A target for analyses",
       "sensitive": "Hidden from exports unless chosen"
     },
@@ -996,7 +996,7 @@
     "codicons": "Codicons used by the shell",
     "colors": "Color tokens",
     "controls": "Controls",
-    "ctIcons": "CT icon set (UI-15)",
+    "ctIcons": "CT icon set",
     "ctIconsHelp": "16 px grid · currentColor · 1 px stroke · 40 % tint for planes. Shown at 16, 32 and 64 px.",
     "disabled": "Disabled",
     "input": "Input",
@@ -1129,9 +1129,9 @@
     "converted": "DICOM converted; the converted series are being indexed",
     "adapterHint": {
       "metadata-v1": "Adapter metadata-v1: the converter's metadata.jsonl table (contract v1, INPUT_METADATA)",
-      "nifti-files": "Adapter nifti-files: one row per NIfTI file (SRC-04)",
+      "nifti-files": "Adapter nifti-files: one row per NIfTI file",
       "dicom_convert": "Task dicom.convert: DICOM series → NIfTI with sidecars (DCM-*)",
-      "open": "Open mode: view without a project (SRC-09)"
+      "open": "Open mode: view without a project"
     },
     "kpiCasesHelp": "Cases with at least one row that is not excluded upstream; {{excluded}} case(s) whose every row is excluded are counted only under \"excluded upstream\"."
   },

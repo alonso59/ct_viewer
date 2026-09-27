@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useItem } from '../../api'
-import { PhaseChip, ProblemCard } from '../../lib'
+import { ItemName, PhaseChip, ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 
@@ -36,7 +36,7 @@ function DicomTags({ pid, iid }: { pid: string; iid: string }) {
           {t('image.tagsPartial')}
         </div>
       ) : null}
-      <table className="table mono" style={{ fontSize: 'var(--fs-badge)' }}>
+      <table className="table mono small">
         <tbody>
           {rows.map(([k, v]) => (
             <tr key={k}>
@@ -65,7 +65,7 @@ export function ImageSection() {
   return (
     <dl className="props">
       <dt>{t('image.item')}</dt>
-      <dd className="mono" title={it.item_id}>{it.item_id}</dd>
+      <dd><ItemName id={it.item_id} phase={it.phase.canonical} /></dd>
       <dt>{t('image.phase')}</dt>
       <dd style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
         <PhaseChip phase={it.phase.canonical} />
@@ -91,7 +91,7 @@ export function ImageSection() {
       ) : null}
       <dt />
       <dd>
-        <button type="button" className="link" style={{ fontSize: 'var(--fs-badge)' }} onClick={() => setAdvanced(!advanced)}>
+        <button type="button" className="link small" onClick={() => setAdvanced(!advanced)}>
           {t(advanced ? 'image.hidePaths' : 'image.showPaths')}
         </button>
       </dd>
@@ -99,7 +99,7 @@ export function ImageSection() {
         <>
           <dt />
           <dd>
-            <button type="button" className="link" style={{ fontSize: 'var(--fs-badge)' }} onClick={() => setTags(!tags)}>
+            <button type="button" className="link small" onClick={() => setTags(!tags)}>
               {t(tags ? 'image.hideTags' : 'image.showTags')}
             </button>
           </dd>

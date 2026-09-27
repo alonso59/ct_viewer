@@ -2,10 +2,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { ThemeChoice } from '../theme'
+import { applySize, type InterfaceSize, type ThemeChoice } from '../theme'
 
 interface SettingsState {
   theme: ThemeChoice
+  /** UI-27 (AUD-A3-16): scale of every font and control size; Default = 14 px UI */
+  uiSize: InterfaceSize
   rowDensity: 'thumbnails' | 'compact'
   simulateReviewer: boolean
   /** UI-12: command id → key chord overrides */
@@ -18,6 +20,7 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       theme: 'dark',
+      uiSize: 'default',
       rowDensity: 'thumbnails',
       simulateReviewer: true,
       keybindings: {},
@@ -33,3 +36,10 @@ export const useSettings = create<SettingsState>()(
     { name: 'rw.settings' },
   ),
 )
+
+// UI-27: the size set applies synchronously (before React re-renders), so views that measure rows
+// (the Explorer's virtual list) read the new tokens
+applySize(useSettings.getState().uiSize)
+useSettings.subscribe((s, prev) => {
+  if (s.uiSize !== prev.uiSize) applySize(s.uiSize)
+})

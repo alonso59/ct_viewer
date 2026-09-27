@@ -96,7 +96,14 @@
     "copyEditLink": "Copy edit link",
     "copyViewLink": "Copy view-only link",
     "createViewLink": "Create and copy a view-only link",
-    "viewLinkCopied": "View-only link copied: {{url}}"
+    "viewLinkCopied": "View-only link copied: {{url}}",
+    "layout": {
+      "menu": "Layout: side bar, panel, inspector",
+      "title": "Layout",
+      "sidebar": "Side bar",
+      "panel": "Panel",
+      "inspector": "Inspector"
+    }
   },
   "palette": {
     "cases": "Cases",
@@ -180,7 +187,6 @@
   },
   "phaseSel": {
     "group": "Phase of {{scan}}",
-    "set": "Set phase",
     "accept": "Accept guess",
     "acceptHelp": "Keep the analyzer's guess ({{phase}}) as the selected phase",
     "was": "was {{phase}}",
@@ -233,7 +239,9 @@
     "full": "Full",
     "label": "Scan {{scan}} · {{scope}}",
     "voi": "VOI",
-    "voiSide": "VOI {{side}}"
+    "voiSide": "VOI {{side}}",
+    "name": "{{case}} · {{part}} · {{scope}}",
+    "scanShort": "Scan {{scan}}"
   },
   "home": {
     "importBundle": "Import project bundle…",
@@ -347,7 +355,7 @@
     "subtitleHelp": "Items = scans × scopes (the complete scan, VOI L and R); cases and items excluded upstream are not counted ({{excluded}} items). Radiomics runs count the items they select; items that are not ready are skipped."
   },
   "import": {
-    "allowedRoots": "Only folders under ALLOWED_DATA_ROOTS are listed.",
+    "allowedRoots": "Only folders shared with the app are listed.",
     "folders": "Folders",
     "title": "Import data",
     "up": "Parent folder",
@@ -356,7 +364,7 @@
     "emptyFolder": "Empty folder",
     "hasMetadata": "metadata.jsonl",
     "truncated": "Listing truncated",
-    "allowedDerived": "Only folders under ALLOWED_DERIVED_ROOTS are listed.",
+    "allowedDerived": "Only output folders shared with the app are listed.",
     "filter": "Filter this folder",
     "noMatch": "Nothing here matches “{{text}}”",
     "allRoots": "All shared folders"
@@ -387,7 +395,8 @@
     "noVariables": "No case-level variables",
     "itemFilter_one": "{{count}} item",
     "itemFilter_other": "{{count}} items",
-    "clearItemFilter": "Clear the item filter"
+    "clearItemFilter": "Clear the item filter",
+    "noThumbnail": "No thumbnail: not built yet, or the image could not be read"
   },
   "search": {
     "any": "Any",
@@ -419,7 +428,7 @@
   },
   "image": {
     "tagsPartial": "Reconstructed from the imported metadata row: partial, not the DICOM header",
-    "tagsPartialHelp": "Built from the DICOM fields the metadata.jsonl row already had (IMP-15). Tags the row did not carry are missing.",
+    "tagsPartialHelp": "Built from the DICOM fields the metadata.jsonl row already had. Tags the row did not carry are missing.",
     "absolute": "Absolute",
     "hidePaths": "Hide paths",
     "imageRef": "Image",
@@ -506,7 +515,8 @@
       "OT": "Other"
     },
     "segShown": "Showing segmentation set {{set}}",
-    "caseNotFoundHelp": "The case {{id}} is not in this project (renamed, excluded or from another project)."
+    "caseNotFoundHelp": "The case {{id}} is not in this project (renamed, excluded or from another project).",
+    "scanIndex": "Scan {{scan}}"
   },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",
@@ -613,10 +623,17 @@
     "simulate": "Simulate a second reviewer (Dr. MK, every 45 s)",
     "theme": "Theme",
     "themes": {
-      "dark": "GitHub Dark",
-      "light": "GitHub Light",
+      "dark": "Dark",
+      "light": "Light",
       "system": "System"
-    }
+    },
+    "size": "Interface size",
+    "sizes": {
+      "compact": "Compact",
+      "default": "Default",
+      "large": "Large"
+    },
+    "sizeHelp": "Text and control size. Compact fits more rows; Large suits big screens."
   },
   "design": {
     "open": "Open design reference",
@@ -667,7 +684,7 @@
       "source": "Source",
       "load": "Load",
       "fixture": "Fixture item",
-      "reference": "Reference volume (TST-09)"
+      "reference": "Reference volume"
     },
     "measurements": "Measurements",
     "mm": "{{v}} mm",
@@ -757,7 +774,7 @@
   },
   "viewOnly": {
     "badge": "View only",
-    "help": "Opened from a view-only link: nothing can be changed here (PRJ-17)."
+    "help": "Opened from a view-only link: nothing can be changed here."
   },
   "nav": {
     "endOf": "End of {{list}}",

@@ -1,10 +1,10 @@
 // Open mode records (SRC-09): an OpenItem shown through the project viewer's item shape.
 import type { ItemRecord, LabelDef, OpenItem, OpenSession } from '../../api'
+import { autoLabelColor } from '../../theme'
 
 /** Auto label colours for a label map without a project label map (VW-21: `label_{value}`) */
-const AUTO = ['#00FFFF', '#FFFF00', '#FF00FF', '#00FF00', '#FF8000', '#0080FF', '#FF0040', '#80FF00']
 export const autoLabels = (n = 16): LabelDef[] =>
-  Array.from({ length: n }, (_, k) => ({ value: k + 1, name: `label_${k + 1}`, color: AUTO[k % AUTO.length] ?? '#FFFFFF', opacity: 0.35, visible: true }))
+  Array.from({ length: n }, (_, k) => ({ value: k + 1, name: `label_${k + 1}`, color: autoLabelColor(k + 1), opacity: 0.35, visible: true }))
 
 /**
  * `modality`: Open mode knows it only from DICOM; otherwise `null`, which the viewer assumes to be CT

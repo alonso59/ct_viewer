@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useFeatures, useProject, useRuns } from '../../api'
-import { featureUnit, fmt1, fmtValue, robustZ } from '../../lib'
+import { ItemName, featureUnit, fmt1, fmtValue, robustZ } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -61,7 +61,7 @@ export function MeasurementsPanel() {
           ))}
         </select>
         {nOut ? <span className="badge" data-tone="warn">{t('measurements.outliers', { count: nOut })}</span> : null}
-        <span className="mono muted" style={{ marginLeft: 'auto' }}>{iid ?? ''}</span>
+        {iid ? <ItemName id={iid} pid={pid} className="muted ml-auto" /> : null}
       </div>
       {!iid ? <div className="empty">{t('measurements.noItem')}</div> : null}
       {iid && mine.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
@@ -92,7 +92,7 @@ export function MeasurementsPanel() {
                       {unit && r.value !== null ? <span className="muted"> {unit}</span> : null}
                     </td>
                     <td className="num" style={{ color: out ? 'var(--warn)' : undefined }}>{r.z === null ? '—' : fmt1(r.z)}</td>
-                    <td style={{ color: 'var(--warn)' }}>{out ? <Icon spec={codicon('warning')} title={t('measurements.outlier')} /> : null}</td>
+                    <td className="text-warn">{out ? <Icon spec={codicon('warning')} title={t('measurements.outlier')} /> : null}</td>
                   </tr>
                 )
               })}

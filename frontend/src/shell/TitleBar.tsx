@@ -2,7 +2,6 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconButton } from '../lib'
 import { useLayout } from '../state'
 import { Icon, codicon } from '../theme'
 import { bindingOf, commandTitle, formatChord, runCommand } from './keybindings'
@@ -54,10 +53,45 @@ function MenuItems({ menu }: { menu: MenuId }) {
   )
 }
 
+const LAYOUT_ITEMS = [
+  { key: 'sidebarVisible', label: 'shell.layout.sidebar', cmd: 'workbench.toggleSidebar' },
+  { key: 'panelVisible', label: 'shell.layout.panel', cmd: 'workbench.togglePanel' },
+  { key: 'inspectorVisible', label: 'shell.layout.inspector', cmd: 'workbench.toggleInspector' },
+] as const
+
+/** ADR-0028: one "Layout" menu with the side bar, panel and inspector as check items, instead of
+ *  VS Code's three title-bar toggles; the keys (UI_SHELL §Default keybindings) are unchanged */
+function LayoutMenu() {
+  const { t } = useTranslation()
+  const layout = useLayout()
+  return (
+    <Menu.Root>
+      <Menu.Trigger className="titlebar-menu titlebar-layout" aria-label={t('shell.layout.menu')}>
+        <Icon spec={codicon('layout')} />
+        {t('shell.layout.title')}
+        <Icon spec={codicon('chevron-down')} />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content className="overlay menu" align="end" sideOffset={2}>
+          {LAYOUT_ITEMS.map((it) => {
+            const c = registry.commands.get(it.cmd)
+            return (
+              <Menu.CheckboxItem key={it.key} className="menu-item" checked={layout[it.key]} onCheckedChange={() => layout.toggle(it.key)}>
+                <span className="menu-check">{layout[it.key] ? <Icon spec={codicon('check')} /> : null}</span>
+                {t(it.label)}
+                <span className="kbd">{c ? formatChord(bindingOf(c)) : null}</span>
+              </Menu.CheckboxItem>
+            )
+          })}
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu.Root>
+  )
+}
+
 /** `share`: the project's share control (AUD-A1-11, from `features/projects`) */
 export function TitleBar({ brand, share }: { brand: ReactNode; share?: ReactNode }) {
   const { t } = useTranslation()
-  const layout = useLayout()
   const openPalette = useWorkbench((s) => s.openPalette)
   const quickOpen = registry.commands.get('workbench.quickOpen')
   return (
@@ -82,9 +116,7 @@ export function TitleBar({ brand, share }: { brand: ReactNode; share?: ReactNode
       </button>
       <div className="titlebar-right">
         {share}
-        <IconButton icon={codicon('layout-sidebar-left')} label={t('cmd.toggleSidebar')} pressed={layout.sidebarVisible} onClick={() => layout.toggle('sidebarVisible')} />
-        <IconButton icon={codicon('layout-panel')} label={t('cmd.togglePanel')} pressed={layout.panelVisible} onClick={() => layout.toggle('panelVisible')} />
-        <IconButton icon={codicon('layout-sidebar-right')} label={t('cmd.toggleInspector')} pressed={layout.inspectorVisible} onClick={() => layout.toggle('inspectorVisible')} />
+        <LayoutMenu />
       </div>
     </header>
   )

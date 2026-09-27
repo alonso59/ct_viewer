@@ -5,12 +5,12 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Dialog, IconButton, NumberInput } from '../../lib'
+import { Dialog, IconButton, NumberInput, itemName } from '../../lib'
 import { useViewerSync, type ViewerDisplay, type ViewerTool } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useViewerLocal } from './local'
 import { dicomWindowOf } from './model/wl'
-import { LayoutMenu, OverlayToggles, ResetAndSnapshot, ToolGroup, WindowPresets } from './Tools'
+import { LayoutMenu, OverlayToggles, ResetAndSnapshot, ToolGroup, WindowPresets, useShown } from './Tools'
 
 const useEnabled = () => useViewerLocal((s) => s.active !== null)
 const SLABS: ViewerDisplay['slab']['mode'][] = ['none', 'mip', 'minip', 'avg']
@@ -27,6 +27,8 @@ export function WindowInputs() {
   const item = useViewerLocal((s) => s.info?.item)
   const header = item ? dicomWindowOf(item) : null
   const enabled = useEnabled()
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <label className="toolbar-num" title={t('ct.ww')}>
@@ -53,6 +55,8 @@ export function SlabControls() {
   const display = useViewerSync((s) => s.display)
   const set = (p: Partial<ViewerDisplay>) => useViewerSync.setState((s) => ({ display: { ...s.display, ...p } }))
   const enabled = useEnabled()
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <Menu.Root>
@@ -89,6 +93,8 @@ export function MeasureTools() {
   const { t } = useTranslation()
   const tool = useViewerSync((s) => s.tool)
   const enabled = useEnabled()
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       {MEASURE.map((m) => (
@@ -128,11 +134,13 @@ export function HeaderInfo() {
     setError(null)
     info?.tags?.().then(setTags, (e: unknown) => setError(e instanceof Error ? e.message : String(e)))
   }
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <IconButton icon={codicon('info')} label={t('ct.header')} disabled={!enabled || !info} onClick={() => { setTags(null); setOpen(true) }} />
       {open && info ? (
-        <Dialog open onOpenChange={setOpen} title={t('ct.headerTitle', { name: info.item.item_id })} icon={codicon('info')} size="lg">
+        <Dialog open onOpenChange={setOpen} title={t('ct.headerTitle', { name: itemName(info.item.item_id, t, info.item.phase.canonical) })} icon={codicon('info')} size="lg">
           <table className="ct-header">
             <tbody>
               <Row k={t('ct.modality')} v={info.item.modality ?? '—'} />
@@ -175,7 +183,7 @@ export default function CtToolbar() {
       <WindowInputs />
       <SlabControls />
       <HeaderInfo />
-      <ResetAndSnapshot standalone />
+      <ResetAndSnapshot />
     </div>
   )
 }

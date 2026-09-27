@@ -3,14 +3,21 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 
 import { IconButton } from '../../lib'
-import { bindingOf, formatChord, registry } from '../../shell'
-import { useLayout, useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
+import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
+import { useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
 import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../../theme'
 import { useViewerLocal } from './local'
 import { ModalityChip } from './ModalityChip'
 
 // Enabled while a viewer is visible: a case tab or Open mode (VW-22: one tool set)
 const useEnabled = () => useViewerLocal((s) => s.active !== null)
+/** UI-06 (AUD-A3-20): the viewer group is shown only while the active editor is a viewer (a case
+ *  tab, also while it loads, or Open mode); other editors leave the tool bar empty */
+export const useShown = () => {
+  const viewer = useViewerLocal((s) => s.active !== null)
+  const caseTab = useWorkbench((s) => s.active?.type === 'case')
+  return viewer || caseTab
+}
 const chord = (id: string) => {
   const c = registry.commands.get(id)
   return c ? formatChord(bindingOf(c)) : undefined
@@ -28,6 +35,8 @@ export function ToolGroup() {
   const tool = useViewerSync((s) => s.tool)
   const set = useViewerSync((s) => s.set)
   const enabled = useEnabled()
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       {TOOLS.map((x) => (
@@ -53,6 +62,8 @@ export function LayoutMenu() {
   const layout = useViewerSync((s) => s.layout)
   const set = useViewerSync((s) => s.set)
   const enabled = useEnabled()
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <Menu.Root>
@@ -83,6 +94,8 @@ export function OverlayToggles() {
   const { overlay, outline, crosshair, set } = useViewerSync()
   const linkZoom = useViewerLocal((s) => s.linkZoom)
   const enabled = useEnabled()
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <IconButton icon={ct('label-overlay')} label={t('viewer.overlay')} pressed={enabled && overlay} disabled={!enabled} onClick={() => set({ overlay: !overlay })} />
@@ -99,6 +112,8 @@ export function WindowPresets() {
   const { preset, ww, wl, setPreset, customPresets, setWindow } = useViewerSync()
   const enabled = useEnabled()
   const custom = customPresets.find((p) => p.ww === ww && p.wl === wl)
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <span className="toolbar-label">{t('viewer.wl')}</span>
@@ -133,20 +148,15 @@ export function WindowPresets() {
   )
 }
 
-export function ResetAndSnapshot({ standalone = false }: { standalone?: boolean }) {
+export function ResetAndSnapshot() {
   const { t } = useTranslation()
   const enabled = useEnabled()
-  const inspector = useLayout((s) => s.inspectorVisible)
+  const shown = useShown()
+  if (!shown) return null
   return (
     <>
       <IconButton icon={codicon('discard')} label={t('viewer.reset')} shortcut={chord('viewer.reset')} disabled={!enabled} onClick={() => useViewerSync.getState().reset()} />
       <IconButton icon={codicon('device-camera')} label={t('viewer.screenshot')} disabled={!enabled} onClick={() => void screenshot()} />
-      {standalone ? null : (
-        <>
-          <span style={{ flex: 1 }} />
-          <IconButton icon={codicon('layout-sidebar-right')} label={t('cmd.toggleInspector')} shortcut={chord('workbench.toggleInspector')} pressed={inspector} onClick={() => useLayout.getState().toggle('inspectorVisible')} />
-        </>
-      )}
     </>
   )
 }

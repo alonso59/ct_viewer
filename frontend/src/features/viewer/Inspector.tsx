@@ -77,7 +77,7 @@ export function WindowSection() {
           </button>
         ))}
       </div>
-      <span className="muted" style={{ fontSize: 'var(--fs-badge)' }}>{t('viewer.wlHint')}</span>
+      <span className="muted small">{t('viewer.wlHint')}</span>
     </div>
   )
 }

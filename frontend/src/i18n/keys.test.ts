@@ -53,6 +53,38 @@ test('static keys exist', () => {
   expect([...missing]).toEqual([])
 })
 
+// UI-23 (AUD-A3-07): a template key `t(\`ns.group.${x}\`)` needs its `ns.group` object; a wrong
+// prefix (e.g. `viewer.layouts.` for `viewer.layout.`) shows raw keys on screen
+test('every t() template prefix exists', () => {
+  const namespaces = new Set(Object.keys(tree))
+  const node = (key: string): string | Tree | undefined => {
+    let n: string | Tree | undefined = tree
+    for (const part of key.split('.')) n = typeof n === 'object' ? n[part] : undefined
+    return n
+  }
+  const missing = new Set<string>()
+  for (const [file, src] of Object.entries(files))
+    for (const m of src.matchAll(/\bt\(`([a-zA-Z]+(?:\.[a-zA-Z0-9_-]+)*)\.\$\{/g)) {
+      const prefix = m[1] ?? ''
+      if (namespaces.has(prefix.split('.')[0] ?? '') && typeof node(prefix) !== 'object') missing.add(`${prefix} (${file})`)
+    }
+  expect([...missing]).toEqual([])
+})
+
+// R8 (AUD-A1-14): requirement and ADR IDs ("PRJ-17", "ADR-0004") belong to the docs, never to
+// user-facing text; SHA-256 is a hash name, not an ID
+test('no requirement or ADR IDs in user-facing strings', () => {
+  const leaks: string[] = []
+  const walk = (n: Tree, path: string) => {
+    for (const [k, v] of Object.entries(n)) {
+      if (typeof v === 'object') walk(v, `${path}${k}.`)
+      else if (/\b(?!SHA-)[A-Z]{2,4}-\d+/.test(v)) leaks.push(`${path}${k}: ${v}`)
+    }
+  }
+  walk(tree, '')
+  expect(leaks).toEqual([])
+})
+
 test('enum families are complete', () => {
   const warnings = ['missing_path', 'unreadable_file', 'outside_root', 'missing_seg', 'missing_voi_image', 'missing_voi_mask', 'missing_affine', 'affine_mismatch', 'shape_mismatch', 'ambiguous_phase', 'ambiguous_side', 'duplicate_row_identity', 'fingerprint_changed']
   const families: [string, readonly string[]][] = [

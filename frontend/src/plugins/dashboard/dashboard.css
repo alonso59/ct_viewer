@@ -38,6 +38,12 @@
 .db-chip {
   color: var(--fg);
 }
+/* AUD-A3-19: the chip labels ("Phase", "Scope", a variable) are --fg on the button colour (the muted
+   text reached only 4.08:1 there) */
+.db-filter > .muted,
+.db-chip > .muted:first-child {
+  color: var(--fg);
+}
 .db-range .input {
   width: 72px;
 }

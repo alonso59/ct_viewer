@@ -56,21 +56,19 @@ function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current
   }
   return (
     <div className="switcher" role="toolbar" aria-label={t('viewer.itemSwitcher')}>
-      <span className="switcher-label">{t('viewer.phase')}</span>
+      {/* AUD-A1-12: these chips pick the scan to view (named by its phase); the phase itself is set in
+          the "Phase" control next to it */}
+      <span className="switcher-label">{t('viewer.scan')}</span>
       {phases.map((p) => (
         <PhaseChip key={p} phase={p} active={p === current.phase.canonical} onClick={() => pick((i) => i.phase.canonical === p)} />
       ))}
-      {scans.length > 1 ? (
-        <>
-          <span className="switcher-sep" />
-          <span className="switcher-label">{t('viewer.scan')}</span>
-          {scans.map((s) => (
-            <button key={s} type="button" className="badge" aria-pressed={s === current.scan_idx} data-tone={s === current.scan_idx ? 'accent' : undefined} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === s)}>
+      {scans.length > 1
+        ? scans.map((s) => (
+            <button key={s} type="button" className="badge" aria-pressed={s === current.scan_idx} aria-label={t('viewer.scanIndex', { scan: s })} data-tone={s === current.scan_idx ? 'accent' : undefined} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === s)}>
               {s}
             </button>
-          ))}
-        </>
-      ) : null}
+          ))
+        : null}
       <span className="switcher-sep" />
       <div className="seg" role="group" aria-label={t('viewer.scope')}>
         <button type="button" aria-pressed={current.scope === 'complete'} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'complete')}>
@@ -186,11 +184,13 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <NavContextChip caseId={params.caseId} itemId={current.item_id} />
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
         {/* PHS-01: set this scan's phase (the switcher's chips only move between scans) */}
-        <span className="switcher-sep" />
-        <span className="switcher-label">{t('phaseSel.set')}</span>
-        <PhaseButtons pid={pid} scan={current} />
-        <PhaseHistoryButton pid={pid} caseId={current.case_id} scanIdx={current.scan_idx} />
-        <span style={{ flex: 1 }} />
+        <span className="switcher">
+          <span className="switcher-sep" />
+          <span className="switcher-label">{t('viewer.phase')}</span>
+          <PhaseButtons pid={pid} scan={current} variant="seg" />
+          <PhaseHistoryButton pid={pid} caseId={current.case_id} scanIdx={current.scan_idx} />
+        </span>
+        <span className="case-header-end" />
         {current.warning_codes.length ? (
           <span className="badge" data-tone="warn" title={current.warning_codes.join(', ')}>
             <Icon spec={codicon('warning')} />
@@ -206,7 +206,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
       </div>
       {fatal || current.status === 'missing' ? (
         // UI-18 (AUD-A2-07): what failed, where, and the next steps (relink the root, Problems)
-        <div style={{ maxWidth: 560 }}>
+        <div className="case-editor-error">
           <ProblemCard
             error={new ProblemError(409, fatal ?? 'missing_path', t(`warning.${fatal ?? 'missing_path'}`), t('viewer.fileError', { ref: current.image?.ref ?? '—' }), ['relink_root', 'show_problems'])}
             onAction={{ relink_root: () => runCommand('project.relink'), show_problems: () => runCommand('panel.show.problems') }}
