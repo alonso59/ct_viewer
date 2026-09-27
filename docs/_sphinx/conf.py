@@ -18,7 +18,6 @@ root_doc = "SITE"
 source_suffix = {".md": "markdown"}
 exclude_patterns = [
     "archive/**",
-    "audit/**",
     "_sphinx/**",
     "INDEX.md",
     "ops/AGENT_RUNBOOK.md",

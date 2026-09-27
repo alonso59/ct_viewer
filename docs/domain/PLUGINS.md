@@ -55,13 +55,13 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 
 | Plugin | Contributes | Scope | Requires | Status |
 |---|---|---|---|---|
-| DICOM converter (`dicom`) | overlay, task `dicom.convert` | workspace | derived root | P7c Wave 1 (overlay Wave 3) |
-| Metadata analyzers (`analyzers`): phase, organ target, readiness | tasks, `columns` | project (phase chained by the converter) | metadata rows | P7c Wave 1 |
-| Curation & QC (`curation`) | view, inspector, queue editor, commands | project | event store | P7c Wave 1 (repackaged), on the core event store in Wave 5 |
-| Labeling table (`labeling`) | view, editor, columns | project | event store | P7c Wave 5 (new) |
-| Radiomics (`radiomics`) | view, editor, task | project | segmentation set | P7c Wave 1 (repackaged) |
-| Dashboard & analysis (`dashboard`) | editor, panels | project | a features run | P7c Wave 1 (repackaged) |
-| Study packs `ccrcc`, `generic-ct` | pack | project | — | P7c Wave 2 |
+| DICOM converter (`dicom`) | overlay, task `dicom.convert` | workspace | derived root | shipped |
+| Metadata analyzers (`analyzers`): phase, organ target, readiness | tasks, `columns` | project (phase chained by the converter) | metadata rows | shipped |
+| Curation & QC (`curation`) | view, inspector, queue editor, commands | project | event store | shipped |
+| Labeling table (`labeling`) | view, editor, columns | project | event store | shipped |
+| Radiomics (`radiomics`) | view, editor, task | project | segmentation set | shipped |
+| Dashboard & analysis (`dashboard`) | editor, panels | project | a features run | shipped |
+| Study packs `ccrcc`, `generic-ct` | pack | project | — | shipped |
 | `segment.threshold` (`threshold`, `hidden`) | task (test only, hidden from the Library) | project | runner | done (CI) |
 | nnU-Net segmentation (`nnunet`, `pending`) | task (external) | project | runner, GPU | **pending** (end) |
 | VOI extractor (`voi`, `pending`) | task: crops VOIs (image + mask, per side) from a segmented mask | project | **a segmentation set** with the target labels | **pending** (end; reference code from the owner; settles the legacy `.npy` axis order, SRC-12) |

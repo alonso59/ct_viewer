@@ -48,13 +48,10 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 
 - UMAP is an optional extra (`pip install .[umap]`); PCA is the default embedding.
 
-## Implementation notes (P6-FE)
+## Implementation notes
 
 - Views are dockview sub-panels per run (layout in localStorage); the Analysis panel is one of them. Mock mode serves only the QC views.
 - "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Project view.
-
-## Implementation notes (FB5)
-
 - Phase (DB-02, DB-07; AUD-A5-04, owner 2026-09-26): every view and analysis uses the **effective** phase (PHS-03), joined at read time (`IndexStore.effective_phases` → `analytics/data.join_phase`); the run's own value is `phase_at_run` (overview details, tidy and feature exports).
-- Values (DB-03; AUD-A3-04, A3-15): formats and units follow UI_SHELL §Implementation notes (FB5); axis ticks use the same format.
+- Values (DB-03; AUD-A3-04, A3-15): formats and units follow UI_SHELL §Implementation notes; axis ticks use the same format.
 - Charts (AUD-A3-14): the brush toolbox sits top right above the plot (a legend beside it starts 80 px in); histogram bars sit on a hidden category axis with a visible value axis over the same range (round ticks; the bin range is the tooltip title); chart font sizes read `--fs-badge` / `--fs-panel`.

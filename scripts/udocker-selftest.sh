@@ -19,6 +19,7 @@
 set -euo pipefail
 
 if [[ "${1:-}" == --inner ]]; then
+  : "${IMAGE:?set by the outer run (-e IMAGE)}"
   mode="$2"; home="$HOME"; app="$home/repo"; data="$home/data/Dataset900"; port=8123
   ok() { echo "ok   [$mode] $*"; }
   [[ "$(id -u)" != 0 ]] || { echo "FAIL must not run as root" >&2; exit 1; }
@@ -75,6 +76,7 @@ if [[ ! -s "$tarball" ]]; then  # test-time download of the udocker engines (pro
 fi
 
 name="rw-udst-$$"; vol="$name-home"; uid=10001
+# shellcheck disable=SC2329  # invoked by the EXIT trap
 cleanup() { docker rm -f "$name-seed" >/dev/null 2>&1 || true; docker volume rm -f "$vol" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 

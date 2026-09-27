@@ -1,5 +1,5 @@
 """TST-01: variable profiling and catalog rules (VAR-01..09), derived variables (VAR-06),
-external tables (VAR-07), `var.{name}` filters (VAR-10) and phase presets (PRJ-12)."""
+external tables (VAR-07), `var.{name}` filters (VAR-10) and phase presets (PRJ-16)."""
 
 from __future__ import annotations
 
@@ -336,7 +336,7 @@ def test_parse_and_match_var_filters() -> None:
         matching_ids(built.catalog, table, {"alpha": ["x..y"]})
 
 
-# -- presets (PRJ-12) --------------------------------------------------------------------------
+# -- presets (PRJ-16) --------------------------------------------------------------------------
 
 
 def test_preset_phase_normalization() -> None:

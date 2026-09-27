@@ -54,7 +54,7 @@ The user states **what question** they ask; the app picks a sensible test, expla
 
 `analyses/{analysis_id}/spec.json`, `results.parquet`, `descriptives.parquet`, `recommendations.json`, `exports/`.
 
-## Implementation notes (P6-BE)
+## Implementation notes
 
 - Export: `GET …/analyses/{aid}/export?file=tidy|results|descriptives|spec`; the tidy export omits `sensitive` variables.
 - Phase (ANA-03, PHS-03; AUD-A5-04): the unit's phase and phase priority use the effective phase, joined at read time; the tidy export adds `phase_at_run` (the run's value).

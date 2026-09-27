@@ -4,9 +4,9 @@ Scope: reviewer identity, curation events, statuses, rollups, correction queue, 
 Read when: building curation UI/API, audit, or multi-user sync.
 Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004, ADR-0022, ADR-0026 (phase moved to PHASE.md, not a curation target).
 
-Event store (P7c Wave 5): curation appends through the core event store's namespace `curation` (`app/eventstore/`, file unchanged: `curation/events.jsonl`); its reviewer rule is the shared `require_reviewer`.
+Event store: curation appends through the core event store's namespace `curation` (`app/eventstore/`, file unchanged: `curation/events.jsonl`); its reviewer rule is the shared `require_reviewer`.
 
-Live sync (P7c Wave 4, FB2): a `curation.appended` event updates the cached state row of its `(item, target, seg_id)` at once, then the state is refetched; a first load still in flight is restarted so the event is not lost (AUD-A0-02). A reconnect after an error, or a server `reset` (API-40), refetches the project (AUD-A5-11) (CUR-11/12).
+Live sync: a `curation.appended` event updates the cached state row of its `(item, target, seg_id)` at once, then the state is refetched; a first load still in flight is restarted so the event is not lost (AUD-A0-02). A reconnect after an error, or a server `reset` (API-40), refetches the project (AUD-A5-11) (CUR-11/12).
 
 Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event store, namespace `curation`; view-only links (PRJ-17) see it read-only.
 
@@ -84,10 +84,9 @@ Absolute paths are resolved at export time so the 3D Slicer user can open the fi
 
 - Review sessions (start/stop timer, per-session progress): v3.1.
 
-## Implementation notes (P4-BE)
+## Implementation notes
 
 - v2 import target mapping: `SEG→seg`, `VOI_mask→voi_mask`, `side_laterality_issue→side`, `{name}_mask→label:{value}` via the label map; rows without `scan_idx` → `target=case`. `phase_issue` maps to a native phase event instead (PHS-08).
-- The correction queue holds item-level entries only. `curation_state.csv` columns = `STATE_COLUMNS` in `backend/app/curation/service.py`.
+- The correction queue holds item-level entries only.
 - API-50 GET is a page; API-51 filters by `case_id`/`item_id`; API-53/54 return 201; API-54 needs `X-Reviewer`. Imports over 500 events publish one `project.updated {fields: ["curation"]}` instead of per-event SSE.
-
 - The correction-queue CSV is produced by the server (API-52 `format=csv`), not built in the client. Writes also send `X-Session-Id` (API-50).

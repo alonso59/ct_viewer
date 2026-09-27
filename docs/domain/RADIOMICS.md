@@ -114,7 +114,7 @@ Study variables are **not** copied into features; they are joined at analysis ti
 - No built-in presets beyond engine defaults; users save their own profiles.
 - Engine defaults assume CT (HU; `binWidth=25`). When the selection contains non-CT modality, the form warns and the analysis raises REC-MODALITY.
 
-## Implementation notes (P5-BE)
+## Implementation notes
 
 - Profiles stored as `profiles/{hex}.json`; saving identical settings returns the existing profile (200); DELETE returns the remaining list.
 - Labels absent from a mask → `kind: "skipped"` rows in `errors.jsonl` and `counts.skipped` (not an error). `run.json` also has `job_id`, `error`, `counts.skipped`; `units.jsonl` is the per-run plan used by resume.
@@ -124,12 +124,9 @@ Study variables are **not** copied into features; they are joined at analysis ti
 - Engine schema differs from the design table: `sigma` has no default; extra `label_channel` (mask handling); 107 default features. LBP3D is unavailable unless `trimesh` is added to `[radiomics]`.
 - TST-06: IBSI digital phantom, 85 features compliant + 4 deviating within 0.6 %. **The IBSI codes and extended reference values were written by the implementing agent from memory and must be spot-checked against the IBSI manual**; the IBSI CT phantom (TST-06 part 2) has not been run.
 - Without PyRadiomics installed, engine endpoints return 503 `server-busy` and its tests are skipped.
-
-## Implementation notes (P5-FE)
-
 - The form opens on `schema.defaults`; "Engine defaults" restores them. Duplicate = load a profile's settings and pre-fill "<name> copy". Saving unchanged settings keeps the existing profile (same hash).
 - Default label = first visible label. Client rules only pre-flag; the server validation (API-43) is authoritative once it answers for the current form.
 - Selection by variable sends level lists only; continuous variables must be binned into a derived variable first (VAR-06) until API-44/45 accept ranges (open decision, ROADMAP P7).
 - Draft settings live in memory; a reload reopens on the engine defaults (profiles persist).
-- `seg_id` (RAD-05, P7b Wave 4): the set picker is always shown (default `default_seg`); masks come from that set; the selected labels are project label values, mapped to the set's own values through its `label_mapping` (ADR-0015); labels the set does not map are skipped (`label not in segmentation set`). `labels_present` checks apply to the `imported` set only. `run.json` records `selection.seg_id` and `inputs[].seg_id` + `mask_fp` of that set (NFR-15); older runs read as `imported`.
+- `seg_id` (RAD-05): the set picker is always shown (default `default_seg`); masks come from that set; the selected labels are project label values, mapped to the set's own values through its `label_mapping` (ADR-0015); labels the set does not map are skipped (`label not in segmentation set`). `labels_present` checks apply to the `imported` set only. `run.json` records `selection.seg_id` and `inputs[].seg_id` + `mask_fp` of that set (NFR-15); older runs read as `imported`.
 - "Use the current Explorer filter" (RAD-05) maps phase and variable levels to `filter`, or an Explorer item list to `item_ids` (API-44/45 take one or the other, so the list wins and sets the scope when all items share one). Not sent, and listed in the form: text search, curation status, warnings, has-VOI, show-excluded, continuous ranges. The Explorer's phase filter matches cases; the run selection's matches items.

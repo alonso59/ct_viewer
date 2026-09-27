@@ -26,8 +26,8 @@ Depends: product/ROADMAP.md.
 
 ## Lanes (parallel work; moved from ROADMAP 2026-09-27)
 
-A lane edits **only** the paths it owns. Anything it needs elsewhere goes into `LANE_NOTES.md` for the integrator.
-Every lane may also append to `LANE_NOTES.md` and tick its own lines in `product/ROADMAP.md`.
+A lane edits **only** the paths it owns. Anything it needs elsewhere goes into its commit message as a note for the integrator.
+Every lane may also tick its own lines in `product/ROADMAP.md`.
 
 | Step | Lane | Branch | Runs in | Owns |
 |---|---|---|---|---|
@@ -40,7 +40,7 @@ Every lane may also append to `LANE_NOTES.md` and tick its own lines in `product
 | 3 | P4-FE + P6-FE | `lane/3-curation-dashboard` | VS Code | `frontend/src/features/{curation,dashboard}/**` |
 | 3 | P5-FE radiomics form | `lane/3-radiomics-ui` | Shell A | `frontend/src/features/radiomics/**` |
 | 3 | P7-prep packaging | `lane/3-packaging` | Shell B | `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/udocker-run.sh`, `.env.example`, `README.md` |
-| 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (udocker notes), `LANE_NOTES.md` |
+| 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (udocker notes) |
 | P7b | Waves 1–4, sequential | `v3` | one Claude shell session (user decision 2026-09-24) | per wave, see §P7b |
 | 5 | P8 Electron | `lane/5-electron` | VS Code | `desktop/**` |
 
@@ -63,7 +63,7 @@ After merging, clean up with `git worktree remove "../ct_viewer-wt/A"`.
 LANE RULES
 - Read AGENTS.md, then docs/INDEX.md, then ONLY the docs listed for this lane.
 - You own ONLY the paths listed under "Owns". Do not edit anything else; if you need a
-  change elsewhere, write it in LANE_NOTES.md at the repo root and continue.
+  change elsewhere, note it for the integrator in your commit message and continue.
 - Implement against requirement IDs; cite IDs in commit messages.
 - Run the lane's checks before every commit. Never commit red.
 - Use sub-agents in parallel for independent modules within your lane.
@@ -71,7 +71,7 @@ LANE RULES
 - Commits are local only. Never git push.
 - Dev servers: port 5173 is taken by VS Code on the dev Mac; use the port given in the lane prompt.
 - When the lane's exit criteria pass: tick the tasks in docs/product/ROADMAP.md
-  (only your lines), write a summary in LANE_NOTES.md, commit, and STOP.
+  (only your lines), commit with a summary (and integrator notes) in the message, and STOP.
 - If a requirement is ambiguous or contradicts another, stop and ask. Do not guess.
 ```
 
@@ -87,7 +87,7 @@ Steps 0 to 3b, P7b, P7c and the P7c addendum are done; their prompts are frozen 
 [LANE RULES]
 Lane: P7. You are on the remote no-sudo server. Branch: v3 (after I merge Step 3).
 Read: docs/ops/DEPLOYMENT.md, docs/ops/TESTING.md, docs/product/NFR.md.
-Owns: scripts/**, docs/ops/DEPLOYMENT.md (udocker notes only), LANE_NOTES.md.
+Owns: scripts/**, docs/ops/DEPLOYMENT.md (udocker notes only).
 1. Load the image I transferred (udocker load), create and run it via scripts/udocker-run.sh.
 2. Verify the udocker notes (bind address, ro mounts, execution mode P1 vs F3) and
    correct DEPLOYMENT.md with what you measured.

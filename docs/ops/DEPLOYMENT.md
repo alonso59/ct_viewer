@@ -94,10 +94,10 @@ Result 2026-09-27 (linux/arm64 under colima, default Docker seccomp profile, no 
 
 The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or a forwarded remote). It adds native folder dialogs through a preload bridge. The backend packaging is unchanged (ADR-0001).
 
-## Implementation notes (P7-prep)
+## Implementation notes
 
-- Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker); P7b adds `DERIVED_HOST`, `PLUGINS_HOST`.
-- Image: 897 MB uncompressed on linux/arm64 after FB10 (956 MB before: the build stage now drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 956 MB after P7b (plugins, pydicom, SimpleITK in the core; 947 MB before, 265 MB compressed); 935 MB (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
+- Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker), `DERIVED_HOST`, `PLUGINS_HOST`.
+- Image: 897 MB uncompressed on linux/arm64 (the build stage drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 935 MB before FB10 (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
 - Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).
 - Build for the server's architecture: `make image PLATFORM=linux/amd64` on an Apple Silicon Mac. The tag carries no architecture, so a second build for another platform replaces the first under the same tag.

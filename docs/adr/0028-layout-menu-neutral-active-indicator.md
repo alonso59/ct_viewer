@@ -18,4 +18,4 @@ Refines: ADR-0010
 
 **Rejected.** Keeping the trio with a `--bg-pressed` state only (fixes the contrast, keeps the VS Code tell). The brand colour for the indicator (the logo is multi-colour; UI-21 keeps it identity only). Removing the indicator (the active tab would rely on the background alone, 1.0–1.1:1 in Light).
 
-**Doc updates:** `frontend/UI_SHELL.md` (theme tokens, §Implementation notes FB6), `adr/README.md`, ADR-0023 status.
+**Doc updates:** `frontend/UI_SHELL.md` (theme tokens, §Implementation notes), `adr/README.md`, ADR-0023 status.

@@ -107,3 +107,28 @@ test('enum families are complete', () => {
   const missing = families.flatMap(([ns, values]) => values.map((v) => `${ns}.${v}`).filter((k) => !has(k)))
   expect(missing).toEqual([])
 })
+
+// FB12: every key in the locale files is used. A key counts as used when the source quotes it
+// ('a.b', "a.b" or `a.b`) or it sits under a template prefix `t(\`a.b.${x}\`)`; i18next plural
+// suffixes are folded. Families built another way go in DYNAMIC (prefixes, with the reason).
+const DYNAMIC: string[] = []
+
+test('no unused keys', () => {
+  const src = Object.values(files).join('\n')
+  const quoted = new Set([...src.matchAll(/['"`]([a-zA-Z]+(?:\.[a-zA-Z0-9_-]+)+)['"`]/g)].map((m) => m[1] ?? ''))
+  const prefixes = [...src.matchAll(/`([a-zA-Z]+(?:\.[a-zA-Z0-9_-]+)*)\.\$\{/g)].map((m) => `${m[1] ?? ''}.`)
+  prefixes.push(...DYNAMIC)
+  const unused: string[] = []
+  const walk = (n: Tree, path: string) => {
+    for (const [k, v] of Object.entries(n)) {
+      const key = `${path}${k}`
+      if (typeof v === 'object') walk(v, `${key}.`)
+      else {
+        const base = key.replace(/_(zero|one|two|few|many|other)$/, '')
+        if (!quoted.has(base) && !prefixes.some((p) => base.startsWith(p))) unused.push(key)
+      }
+    }
+  }
+  walk(tree, '')
+  expect(unused).toEqual([])
+})

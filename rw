@@ -215,7 +215,9 @@ cmd_update() {
   local src="${1:-}" rt tag="" was_up=0; rt="$(runtime)"
   health >/dev/null && was_up=1
   if [[ -z "$src" && "$rt" == udocker ]]; then
-    src="$(ls -t "$repo"/rw-*.tar "$repo"/build/rw-*.tar 2>/dev/null | head -n 1 || true)"
+    local f; for f in "$repo"/rw-*.tar "$repo"/build/rw-*.tar; do  # the newest tar
+      if [[ -f "$f" && ( -z "$src" || "$f" -nt "$src" ) ]]; then src="$f"; fi
+    done
     [[ -n "$src" ]] || die "no image tar given" "./rw update /path/to/rw-<version>.tar (docker save on a build machine)" 2
   fi
   if [[ -n "$src" && -f "$src" ]]; then

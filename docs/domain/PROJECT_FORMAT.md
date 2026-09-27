@@ -148,7 +148,7 @@ Single-writer model and locking: BE-05.
 | Relink | Each alias is resolved and verified (PRJ-05); failures open the relink dialog (API-06 `needs_relink`) |
 | PHI | DICOM-derived rows not anonymized at conversion leave with the `basic` profile applied (DCM-05): `sources/*/metadata.jsonl`, `index/items.jsonl` (PHI fields blanked, `patient_id` → `case_id`, UIDs replaced deterministically per project), `index/cases.jsonl` (`patient_id`) and `sources/identity.json` (identity keys hashed as in anonymized runs). Always, whatever the source: `variables/catalog.json` keeps its overrides and definitions but loses profile `top`/`examples`, task `run.json` records lose `selection.source` (an absolute input path), `sources/imports.jsonl` records carry `root: "{alias}:"` instead of the absolute import root, and absolute paths in `index/qc_warnings.jsonl` messages become alias refs (other server folders are elided, `…/`; AUD-A5-02). `project.json` keeps its absolute roots (PRJ-05). The project folder is not changed; an imported copy that converts more data numbers new patients from `next_index` |
 
-## Neutral projects, packs, If-Match, view-only links (P7c Wave 2)
+## Neutral projects, packs, If-Match, view-only links
 
 | Rule | Detail |
 |---|---|

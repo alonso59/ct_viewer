@@ -41,7 +41,7 @@ Targets are owned elsewhere; this table only says which ones define success.
 | Each journey G1..G4 walks end to end on the fixtures, one Playwright spec per journey | pass | MVP.md (REL-02), TESTING |
 | Performance and footprint | NFR-01..10 | NFR.md |
 | Safety, privacy, reproducibility | NFR-11, NFR-12, NFR-14, NFR-15, NFR-17, NFR-18 | NFR.md |
-| Wayfinding: every core object reachable in ≤ 3 actions from the case tab, and from the palette | audit A1 reachability matrix | audit/PLAN.md |
+| Wayfinding: every core object reachable in ≤ 3 actions from the case tab, and from the palette | audit A1 reachability matrix | archive/v3/audit/PLAN.md (closed audit) |
 | Release gates | REL-* | MVP.md |
 
 ## Users
@@ -56,7 +56,7 @@ There are no roles. All users can reach every surface (ADR-0004).
 
 ## Journeys
 
-The golden paths. Each is the user's goal, not the UI's; the MVP (MVP.md) and the audits (audit/PLAN.md) are built on them.
+The golden paths. Each is the user's goal, not the UI's; the MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, closed) were built on them.
 
 | Path | Steps (the user's goal, not the UI's) | Refs |
 |---|---|---|

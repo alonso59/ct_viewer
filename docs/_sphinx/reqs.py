@@ -22,7 +22,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
-SKIP_DIRS = ("archive/", "audit/", "adr/", "_sphinx/", "_build/")
+SKIP_DIRS = ("archive/", "adr/", "_sphinx/", "_build/")
 ID_RE = re.compile(r"^([A-Z]{2,4})-(\d{2})$")
 CITE_RE = re.compile(r"\b([A-Z]{2,4})-(\d{2})\b")
 PRI = {"M", "S", "C", "—"}
@@ -280,12 +280,14 @@ def citations() -> tuple[Counter[str], Counter[str]]:
     return code, test
 
 
-# -- open audit findings (MVP REL-03) --------------------------------------------------------------
+# -- open audit findings (MVP REL-03; the v3 audit is closed and archived) -------------------------
+
+FINDINGS = DOCS / "archive" / "v3" / "audit" / "findings"
 
 
 def open_findings() -> Counter[str]:
     out: Counter[str] = Counter()
-    for p in sorted((DOCS / "audit" / "findings").glob("A*.md")):
+    for p in sorted(FINDINGS.glob("A*.md")):
         for line in p.read_text(encoding="utf-8").splitlines():
             if line.startswith("| AUD-"):
                 c = split_cells(line)

@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# PyPI has no cp312 wheels and its 3.1.0 sdist is broken; the P1 spike (LANE_NOTES, ADR-0006)
+# PyPI has no cp312 wheels and its 3.1.0 sdist is broken; the P1 spike (ADR-0006)
 # verified this upstream commit on Python 3.12 against the IBSI digital phantom.
 radiomics = [
   "pyradiomics @ git+https://github.com/AIM-Harvard/pyradiomics@8ed579383b44806651c463d5e691f3b2b57522ab",

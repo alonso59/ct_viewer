@@ -662,7 +662,6 @@
   },
   "vw": {
     "loading": "Loading {{pct}} %",
-    "loadingBytes": "Loading {{loaded}} MB",
     "decoding": "Decoding…",
     "loadError": "The image could not be loaded",
     "maskError": "The segmentation could not be loaded",
@@ -681,7 +680,6 @@
     "harness": {
       "title": "Viewer harness",
       "source": "Source",
-      "load": "Load",
       "fixture": "Fixture item",
       "reference": "Reference volume"
     },

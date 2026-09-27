@@ -356,9 +356,6 @@ def test_unknown_run_and_items(env: TestClient, proj: str) -> None:
 def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_path: Path) -> None:
     """RAD-05 / NFR-15: a run on a chosen `seg_id` records it; API-45 is an alias (RAD-13)."""
     pytest.importorskip("radiomics")
-    # Inline jobs run units in threads; PyRadiomics' settings loader is not thread-safe
-    # (production runs each unit in a worker process), so one unit at a time here.
-    ctx_of(env).jobs.workers = 1
     with_derived(env, proj, tmp_path)
     seg = finish(
         env, proj, env.post(f"{API}/projects/{proj}/task-runs", json=run_body(seg_id="thr")).json()

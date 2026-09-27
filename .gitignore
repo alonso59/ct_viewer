@@ -26,7 +26,6 @@ frontend/src/api/openapi.json
 .fixtures/
 .udocker/
 webui_state/
-LANE_NOTES.local.md
 
 # Logs / archives / OS
 *.log

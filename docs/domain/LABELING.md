@@ -26,7 +26,7 @@ Depends: ADR-0020, ADR-0022, ADR-0026, PLUGINS.md, VARIABLES.md (VAR-13 `compara
 {project}/events/labeling.jsonl          # append-only cell events (LBL-04)
 ```
 
-## Implementation (P7c Wave 5)
+## Implementation notes
 
 - Backend `app/labeling/` (+ `app/api/v1/labeling.py`, API-56..58, also `GET …/tables/{tid}/history`), plugin manifest `plugins/labeling/plugin.json`. Tables and columns get a `slug` from their first name (unique; kept on rename), which names the variable `lbl.{table}.{column}`. Cell writes validate all cells first (422 lists every bad one), then append one event each through the core event store; `null` clears a cell. Types: `bool` (yes/no, true/false, 1/0), `category` (a level, case-insensitive), `number` (`,` decimal accepted, min/max), `text` (≤ 2000), `date` (ISO). Rows: active cases / `case.scan` / items in index order; the row's viewer item is its complete-scope item.
 - LBL-06: a layer provider (dataset table column `lbl.{t}.{c}@labeling:{t}`) and variables of source `layer` with the column's type (`bool`/`category` → categorical, `number` → continuous); scan and item tables use the scan unit (an item value lands on its scan). The catalog is rebuilt 1 s after the last write (coalesced).

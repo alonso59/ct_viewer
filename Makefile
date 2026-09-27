@@ -30,7 +30,7 @@ else
   $(error RUNTIME must be native, docker or udocker)
 endif
 
-.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest up down logs udocker-run
+.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^##@ / {printf "\n%s\n", substr($$0, 5)} /^[a-z0-9-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -158,6 +158,9 @@ udocker-selftest: ## REL-07 local simulation: the image under udocker (P1, F3) a
 	scripts/udocker-selftest.sh
 
 ##@ Deploy (./rw wraps Docker compose or udocker)
+
+shellcheck: ## Lint ./rw and scripts/*.sh with koalaman/shellcheck:stable (Docker, files piped on stdin; not in `make check`)
+	@for f in rw scripts/*.sh; do echo "shellcheck $$f"; docker run --rm -i koalaman/shellcheck:stable -f gcc - < "$$f" || exit 1; done
 
 up: ## Start the app in the background and wait for health (./rw up; `./rw init` first)
 	./rw up

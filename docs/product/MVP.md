@@ -2,7 +2,7 @@
 
 Scope: what v3.0 contains, what blocks it, the release gates (REL-*), and what comes after v3.0.
 Read when: deciding whether something is in v3.0, or preparing the release.
-Depends: VISION (§Journeys), SRS (requirement grammar), NFR, ROADMAP (Step 4), audit/PLAN.md (findings).
+Depends: VISION (§Journeys), SRS (requirement grammar), NFR, ROADMAP (Step 4), archive/v3/audit/ (closed audit, findings).
 
 ## Definition
 
@@ -18,7 +18,7 @@ No `M` requirement is deferred. A deferral is a row here (`ID · reason · targe
 
 ## Blocking findings
 
-REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make docs-srs` prints the numbers). State on 2026-09-26: P0 all fixed (`e858eab`); P1 36 open (7 accepted, 29 undecided), 33 after FB1, 26 after FB2, 18 after FB3, 11 after FB4, 5 after FB5, 3 after FB6 and FB7 (2026-09-27; FB7 held P2 findings only), 0 after FB8 (2026-09-27). Fix order: PLAN §Triage and fix batches.
+REL-03 counts audit findings whose Decision is not `fixed`, `defer` or `reject` (`make docs-srs` prints the numbers; it reads the archived v3 audit, `archive/v3/audit/findings/`). The v3 audit closed 2026-09-27 with none open (P0 fixed in `e858eab`, the last P1 in FB8); a later audit adds its own findings folder to that count.
 
 ## Release gates
 
@@ -26,7 +26,7 @@ REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make
 |---|---|---|---|
 | REL-01 | Unit, lint and type checks green, requirement check included | `make check` | pass (the NFR-07 bundle gate included since FB8; knip + vulture dead-code gate and parallel pytest since FB9) |
 | REL-02 | One Playwright spec walks each journey G1..G4 end to end (Chromium + Firefox, TST-05) | `make e2e` | pass: G1 `e2e/g1-open.spec.ts`, G2 `e2e/g2-dicom.spec.ts`, G3 `e2e/g3-review.spec.ts` (whole path since FB8, AUD-A6-16) and G4 `e2e/g4-radiomics.spec.ts` green in Chromium + Firefox (FB8 full run); the older specs are kept, their shared steps are in `e2e/helpers.ts` |
-| REL-03 | No open P0/P1 audit finding | `make docs-srs` counts | pass (P0 0, P1 0 after FB8) |
+| REL-03 | No open P0/P1 audit finding | `make docs-srs` counts (reads `archive/v3/audit/findings/`) | pass: audit closed 2026-09-27, 129 of 129 findings fixed (P0 4 · P1 36 · P2 89) |
 | REL-04 | NFR-07 initial JS within budget, enforced by a gate | `make bundle-size` (in `make check`) | pass: 227.0 KiB of 400, +0.0 against the baseline (FB9; gate since FB8, AUD-A0-01) |
 | REL-05 | NFR-10 image size | `make image`, `docker image ls` | pass (arm64 947 MB, amd64 935 MB) |
 | REL-06 | NFR-11, NFR-12, NFR-16, NFR-17 verified | TST-07, network allowlist spec, About | pass: TST-07 hook; `e2e/network-allowlist.spec.ts` green in Chromium + Firefox (FB7, AUD-A4-02); About with "Research use only" (FB3, AUD-A4-05) |
@@ -43,4 +43,3 @@ REL-03 counts findings whose Decision is not `fixed`, `defer` or `reject` (`make
 | Later: per-project plugin enable/disable, updates, management | PLG-10 |
 | Pending plugins: VOI extractor, nnU-Net | PLG-09, ROADMAP §Pending plugins |
 | Electron desktop build | P8, ADR-0001 |
-| P2 audit findings not accepted into a fix batch | audit/findings/ |

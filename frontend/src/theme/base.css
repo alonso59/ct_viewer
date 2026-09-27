@@ -62,14 +62,6 @@ textarea {
 .muted {
   color: var(--fg-muted);
 }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
 
 /* ---- Buttons ------------------------------------------------------------ */
 .btn {
@@ -114,10 +106,6 @@ textarea {
   height: var(--h-control-sm);
   padding: 0 var(--sp-2);
   font-size: var(--fs-panel);
-}
-.btn-lg {
-  height: 36px;
-  padding: 0 var(--sp-4);
 }
 
 .icon-btn {
@@ -280,11 +268,6 @@ button.badge[data-phase='UNK'][aria-pressed='true'] {
   flex-direction: column;
   gap: var(--sp-2);
 }
-.stack-3 {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
 .row {
   display: flex;
   align-items: center;
@@ -319,9 +302,6 @@ button.badge[data-phase='UNK'][aria-pressed='true'] {
 }
 .m-0 {
   margin: 0;
-}
-.mt-0 {
-  margin-top: 0;
 }
 .mt-2 {
   margin-top: var(--sp-2);

@@ -24,7 +24,7 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-12 | One run per `(project, task)` at a time; the runner caps concurrency (default 1 per GPU). | S |
 | TSK-13 | `scope: workspace` tasks (e.g. `dicom.convert`) run without a project (API-62): inputs come from a source path, outputs go to `{derived root}/_datasets/{name}/` (write-once), run records to `WORKSPACE_ROOT/plugins/{plugin}/runs/`. Project-bound tasks keep `scope: project`. | M |
 
-Implementation (P7c Wave 3, TSK-13): the manifest key `scope` (`project` default, `workspace` = may also run without a project; only builtin `input: source` tasks, today `dicom.convert`). API-62: `POST /tasks/{tid}/estimate` (dry run), `POST /task-runs` `{task_id, settings, selection: {source}, name?}` → `202`, `GET /task-runs[/{rid}]`, `POST /task-runs/{rid}/cancel`. The dataset folder name is a slug of `name` (default: the source folder), with `-1`, `-2` … when taken; the job runs under the JobManager key `_workspace`, one per task at a time. Importing a dataset into a project (API-12) first records its `annotations.jsonl` as a completed run of the project and activates each field that has no active run (ANZ-04), so the index is built with the phase layer.
+Implementation (TSK-13): the manifest key `scope` (`project` default, `workspace` = may also run without a project; only builtin `input: source` tasks, today `dicom.convert`). API-62: `POST /tasks/{tid}/estimate` (dry run), `POST /task-runs` `{task_id, settings, selection: {source}, name?}` → `202`, `GET /task-runs[/{rid}]`, `POST /task-runs/{rid}/cancel`. The dataset folder name is a slug of `name` (default: the source folder), with `-1`, `-2` … when taken; the job runs under the JobManager key `_workspace`, one per task at a time. Importing a dataset into a project (API-12) first records its `annotations.jsonl` as a completed run of the project and activates each field that has no active run (ANZ-04), so the index is built with the phase layer.
 
 ## Manifest (`task.json`)
 
@@ -70,7 +70,7 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
   `python scripts/rw-runner.py --workspace <WORKSPACE_HOST> --plugins <PLUGINS_ROOT> [--tasks segment.nnunet] [--concurrency 1]`.
 - Heartbeat: `queue/runners/{runner_id}.json` `{tasks[], gpu, pid, at}` every 10 s. With no fresh heartbeat for the task, a job shows `waiting_for_runner` (not an error) and the UI shows how to start the runner.
 - Writers: the backend writes only `job.json` and `cancel`, and the runner/task writes the rest. `queue/` is the only workspace directory with a second writer; project files keep the single writer (BE-05).
-- Implementation (P7b Wave 4): the runner substitutes `{python}` (its own interpreter) and `{job_dir}` in `runtime.command`, runs it in the plugin folder with output to `task.log`, and writes `exit.json {code, at, runner_id}` when the process ends (a crash without `result.json` becomes `failed` with the code and the log tail). A job cancelled before its claim is never claimed. A claimed job whose runner sends no heartbeat for 60 s fails ("runner stopped sending heartbeats"). Queue folders are kept after the run for audit. Options: `--tasks`, `--concurrency`, `--poll`, `--once` (tests); SIGTERM stops it cleanly (children terminated, heartbeat removed).
+- Implementation: the runner substitutes `{python}` (its own interpreter) and `{job_dir}` in `runtime.command`, runs it in the plugin folder with output to `task.log`, and writes `exit.json {code, at, runner_id}` when the process ends (a crash without `result.json` becomes `failed` with the code and the log tail). A job cancelled before its claim is never claimed. A claimed job whose runner sends no heartbeat for 60 s fails ("runner stopped sending heartbeats"). Queue folders are kept after the run for audit. Options: `--tasks`, `--concurrency`, `--poll`, `--once` (tests); SIGTERM stops it cleanly (children terminated, heartbeat removed).
 
 ## Outputs
 
@@ -90,4 +90,4 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 | `analyzer.phase`, `analyzer.target`, `analyzer.readiness` | rows | annotations | ANALYZERS.md |
 | `segment.threshold` (test only, CI; runs under both runtimes, TST-14) | items | masks | TESTING.md |
 
-External (first, deferred until P7b is stable, ROADMAP §P7b): `segment.nnunet` in `plugins/nnunet/`. The manifest above is its target shape.
+External (first, pending, ROADMAP §Pending plugins): `segment.nnunet` in `plugins/nnunet/`. The manifest above is its target shape.

@@ -1,4 +1,4 @@
-# Audit plan (v3, after P7c)
+# Audit plan (v3, after P7c) — Closed 2026-09-27
 
 Scope: end-to-end quality audit of the web app: scientist workflows, navigation, visuals, doc ↔ code conformance, bugs, code quality, tests.
 Read when: running or triaging an audit (A0..A7).
@@ -95,14 +95,16 @@ Tool: **Sphinx + MyST** (Markdown stays the source; build offline, dev-only depe
 
 | Audit | Status | Findings (P0/P1/P2) | Triage |
 |---|---|---|---|
-| A0 Baseline | ✅ 2026-09-25 (`findings/A0-baseline.md`) | 1 / 1 / 3 | pending |
-| A1 Navigation | ✅ 2026-09-25 (`findings/A1-navigation.md`) | 0 / 8 / 11 | pending |
-| A2 Workflows | ✅ 2026-09-25 (`findings/A2-workflows.md`) | 1 / 8 / 7 | pending |
-| A3 Visual | ✅ 2026-09-25 (`findings/A3-visual.md`) | 0 / 5 / 18 | pending |
-| A4 Conformance | ✅ 2026-09-25 (`findings/A4-conformance.md`) | 0 / 1 / 16 | pending |
-| A5 Bugs | ✅ 2026-09-26 (`findings/A5-bugs.md`) | 2 / 7 / 7 | pending |
-| A6 Code & tests | ✅ 2026-09-26 (`findings/A6-code-tests.md`) | 0 / 5 / 14 | pending |
-| A7 Docs structure | ✅ 2026-09-26 (`findings/A7-docs.md`); restructure batch applied 2026-09-26 | 0 / 0 / 12 | done (owner 2026-09-26) |
-| A8 Activity bar (rail) | ✅ 2026-09-27 (`findings/A8-rail.md`, minimal audit after an owner report) | 0 / 0 / 2 | fixed in FB9 (proposal) |
+| A0 Baseline | ✅ 2026-09-25 (`findings/A0-baseline.md`) | 1 / 1 / 3 | closed (all fixed) |
+| A1 Navigation | ✅ 2026-09-25 (`findings/A1-navigation.md`) | 0 / 8 / 11 | closed (all fixed) |
+| A2 Workflows | ✅ 2026-09-25 (`findings/A2-workflows.md`) | 1 / 8 / 7 | closed (all fixed) |
+| A3 Visual | ✅ 2026-09-25 (`findings/A3-visual.md`) | 0 / 5 / 18 | closed (all fixed) |
+| A4 Conformance | ✅ 2026-09-25 (`findings/A4-conformance.md`) | 0 / 1 / 16 | closed (all fixed) |
+| A5 Bugs | ✅ 2026-09-26 (`findings/A5-bugs.md`) | 2 / 7 / 7 | closed (all fixed) |
+| A6 Code & tests | ✅ 2026-09-26 (`findings/A6-code-tests.md`) | 0 / 5 / 14 | closed (all fixed) |
+| A7 Docs structure | ✅ 2026-09-26 (`findings/A7-docs.md`); restructure batch applied 2026-09-26 | 0 / 0 / 12 | closed (all fixed) |
+| A8 Activity bar (rail) | ✅ 2026-09-27 (`findings/A8-rail.md`, minimal audit after an owner report) | 0 / 0 / 2 | closed (all fixed, FB9) |
 
 **Exit:** every audit reported; P0 findings fixed; accepted P1 findings fixed or scheduled in ROADMAP; G1..G4 each covered by one Playwright spec that walks the whole path.
+
+**Closed 2026-09-27** (owner decisions 2026-09-27): exit met. 129 findings (P0 4 · P1 36 · P2 89), every Decision cell `fixed`; none deferred or rejected. Fix batches FB1..FB12, commits in `REMEDIATION.md` §Owner review. The audit folder is frozen history in `docs/archive/v3/audit/` since.

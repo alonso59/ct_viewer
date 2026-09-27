@@ -59,7 +59,7 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 172 scans / 77 cases, ~160 fields. No `group` field. `hb`, `lb`, `sn` are case-level numeric (0–100), present for 39/77 cases,
 and `hb + lb ≈ 100` in most cases (compositional). 2 of 172 scans are MRI. 7 manufacturer strings for 4 vendors.
 
-## Implementation notes (P1b)
+## Implementation notes
 
 - Only `metadata.jsonl` rows are profiled; VOI-catalog extras are not. Core phase fields (`phase`, `curated_phase`, `canonical_phase`) are core, not variables.
 - The Acquisition group is the known converter field list in `backend/app/variables/schema.py`.

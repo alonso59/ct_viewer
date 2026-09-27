@@ -39,6 +39,11 @@ from app.radiomics.models import (
     SettingsSchema,
 )
 
+# PyRadiomics is not thread-safe (settings loader, module-level logging and C-extension state).
+# Worker processes run one unit at a time; inline (threaded) jobs, as in the tests, share one
+# process, so extraction is serialized here.
+_EXTRACT_LOCK = threading.Lock()
+
 log = logging.getLogger("app.radiomics")
 
 GROUPS: list[tuple[str, str]] = [
@@ -420,8 +425,9 @@ class PyRadiomicsEngine:
     def extract(
         self, image_path: str, mask_path: str, label: int, settings: dict[str, Any]
     ) -> ExtractionResult:
-        ext = self._extractor(settings)
-        raw = ext.execute(image_path, mask_path, label=int(label))
+        with _EXTRACT_LOCK:
+            ext = self._extractor(settings)
+            raw = ext.execute(image_path, mask_path, label=int(label))
         features: list[FeatureValue] = []
         diagnostics: dict[str, Any] = {}
         for key, value in raw.items():
