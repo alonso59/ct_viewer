@@ -1,19 +1,11 @@
 // P7b Wave 3 exit points on the real backend: a single DICOM file opens in Open mode and saves as
 // NIfTI (SRC-13/14); a DICOM folder converts into a project from the Tasks tab (DCM-*, UI-20).
-import { resolve } from 'node:path'
-
 import { expect, test } from '@playwright/test'
 
 import { gotoOpen } from './openMode'
+import { api, FIXTURES } from './helpers'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DICOM = resolve(import.meta.dirname, '../../.fixtures/synthetic/dicom')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
+const DICOM = `${FIXTURES}/dicom`
 
 test('a single DICOM file opens without a project and saves as NIfTI', async ({ page }) => {
   await gotoOpen(page, `${DICOM}/P900/ct_np/IM0007.dcm`)

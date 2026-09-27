@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // VW-14 budget, API-25 polling, FE-11 keys of the viewer-local bundle
 import { act, renderHook } from '@testing-library/react'
 

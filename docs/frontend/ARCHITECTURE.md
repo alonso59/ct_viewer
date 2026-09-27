@@ -55,8 +55,8 @@ frontend/src/
 └── lib/          # shared UI pieces (ProblemCard, NumberInput, SliceThumb), number format, item names
 ```
 
-**Boundaries:** a feature or plugin exposes only its `index.ts` (plugins export `plugin: FrontendPlugin`). Features and plugins never import another one's internals; plugins may use feature `index.ts` exports.
-`shell/` holds no domain logic; features register views and commands through a registry (UI-02).
+**Boundaries:** a feature or plugin exposes only its `index.ts` (plugins export `plugin: FrontendPlugin`). Features and plugins never import another one's internals; plugins may use feature `index.ts` exports; a feature reaches a plugin through a registry command (`runCommand(id, arg)`, e.g. `tasks.convertDicom` with a source folder), never through its modules. Slices depend on each other one way only and there is no import cycle; `app/boundaries.test.ts` checks all three (AUD-A6-10/11).
+`shell/` holds no domain logic; features register views and commands through a registry (UI-02). Error text comes from one helper, `lib/problem.ts` (`problemMessage`, `problemToastText`; `toastProblem` in the shell shows the problem's next steps, UI-18).
 
 ## Routes
 
@@ -74,7 +74,7 @@ Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`);
 | `/p/:pid/settings` | Workbench + project settings tab (UI-23) |
 | `/p/:pid/labeling/:tid` | Workbench + label table tab (LBL-03) |
 | `/v/:token/*` | View-only workbench (UI-26, API-60); a deep path opens that tab |
-| `/open/:sid` | Open mode viewer (no project); `/open` with a path in the history state opens it and replaces itself with `/open/{sid}` (`features/open/navigate.ts`, SOURCES §Open mode) |
+| `/open/:sid` | Open mode viewer (no project); `/open` with a path in the history state opens it and replaces itself with `/open/{sid}` (`lib/openNavigate.ts`, SOURCES §Open mode) |
 
 ## Requirements
 
@@ -84,7 +84,7 @@ Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`);
 | FE-02 | Server data only via TanStack Query; query keys centralized in `api/keys.ts`. | M |
 | FE-03 | API types generated from OpenAPI (`npm run gen:api`); CI checks they are up to date. | M |
 | FE-04 | The URL encodes project, case, item and layout; open editor tabs persist per project in `localStorage`. A new tab, case or item pushes a history entry, so browser Back returns to the previous one inside the project; a layout or other query change replaces the entry. | M |
-| FE-05 | Lazy-load the viewer, radiomics and dashboard chunks; initial JS ≤ 300 KB gzip (NFR-07). | S |
+| FE-05 | Lazy-load the viewer, radiomics and dashboard chunks; initial JS ≤ 300 KiB gzip (NFR-07), gated by `make bundle-size`. | S |
 | FE-06 | No runtime network calls outside the app origin; fonts and icons are bundled. | M |
 | FE-07 | Electron readiness: no Node or DOM-global hacks; the API base URL is configurable. | M |
 | FE-08 | Keyboard- and screen-reader-friendly tree, tabs and dialogs (ARIA roles, focus rings). | S |
@@ -94,10 +94,10 @@ Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`);
 
 ## API layer (P2)
 
-- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`), `mock/` implements it for the prototype. Every feature goes through it, radiomics included (API-30..37, types from `schema.d.ts`; validation key `keys.validation`). The mock's radiomics members lazily load the live schema fixture and the form's validation rules. The http client resolves `fetch` per call so tests can stub it.
+- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`) as `createHttpApi(fetch)`. `httpApi` uses `globalThis.fetch` per call (tests stub it); the mock (`mock/server.ts`) is the same binding over a replay of responses recorded from the backend (TESTING §Mock API, AUD-A6-03), with no logic of its own. Every feature goes through it, radiomics included (API-30..37, types from `schema.d.ts`; validation key `keys.validation`). Query keys, prefixes for invalidation included (`keys.scope(pid, part)`, `keys.allJobs()`), come only from `api/keys.ts` (FE-02; `api/keys.test.ts`).
 - Env: `VITE_API_MODE` (`http` | `mock`), `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; it flushes SSE headers so the stream opens immediately).
-- Initial JS is 289 KB gzip (Step 3b; gzip -9 of the entry script in `dist/index.html` plus its static-import closure, i.e. the `modulepreload` set); NFR-07 allows 300 KB, so new eager dependencies need a lazy boundary.
+- Initial JS = gzip -9 of the entry script in `dist/index.html` plus its `modulepreload` set, in KiB; `make bundle-size` (part of `make check`, REL-04) builds and fails above 300 KiB (NFR-07). 226.9 KiB after FB8 (312.1 before): the editor area (dockview) loads with the first project workbench (`shell/Workbench.tsx`), not with the home; a tab asked for while it loads opens once it is ready. New eager dependencies need a lazy boundary.
 - `CaseFilter.itemIds` (DB-04) is applied client-side on API-20 results (the case id is the `item_id` prefix); `features/explorer` exports a read-only `useExplorerFilter()` and `showItemsInExplorer(ids)`.
 
 - i18n is split: `i18n/en.json` (eager) and `i18n/en.lazy.json`, loaded by `i18n/lazy.ts` from lazy chunks (dashboard, analysis, curation, queue, radiomics settings). Put strings used only in a lazy chunk into `en.lazy.json` (NFR-07). The key-coverage tests merge both files.
-- Initial JS after P7b: 295.1 KB gzip (same method). The import wizard is its own chunk (`features/import/LazyImportWizard.tsx`); its store and `FolderBrowser` stay eager. Brand images are static files (`public/brand/`, UI-21), never imported into JS.
+- The import wizard is its own chunk (`features/import/LazyImportWizard.tsx`; rules in `model.ts`, one component per step in `steps/`); its store, `NewProjectDialog` and `FolderBrowser` stay eager. Brand images are static files (`public/brand/`, UI-21), never imported into JS.

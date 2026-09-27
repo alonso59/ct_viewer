@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, useItem } from '../../api'
+import { api, keys, useItem } from '../../api'
 import { ItemName, PhaseChip, ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
@@ -23,7 +23,7 @@ const tagText = (v: unknown): string => {
 /** DCM-05: DICOM tags only on demand (they can hold PHI) */
 function DicomTags({ pid, iid }: { pid: string; iid: string }) {
   const { t } = useTranslation()
-  const q = useQuery({ queryKey: ['project', pid, 'item', iid, 'dicom-tags'], queryFn: () => api.dicomTags(pid, iid), retry: false })
+  const q = useQuery({ queryKey: keys.dicomTags(pid, iid), queryFn: () => api.dicomTags(pid, iid), retry: false })
   if (q.error) return <ProblemCard error={q.error} />
   if (!q.data) return <span className="muted">{t('common.loading')}</span>
   const rows = Object.entries(q.data).filter(([k]) => /^[0-9A-F]{8}$/.test(k))

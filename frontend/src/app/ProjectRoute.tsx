@@ -1,10 +1,10 @@
-// /p/:pid/* — the workbench for one project, with runtime hooks (cache sync, live state, output log,
-// mock simulation). Share links land here (PRJ-03), so an unknown project gets its own page.
+// /p/:pid/* — the workbench for one project, with runtime hooks (cache sync, live state, output log).
+// Share links land here (PRJ-03), so an unknown project gets its own page.
 import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 
-import { api, isViewPid, ProblemError, useProject, useProjectEvents, useProjectSync, type ServerEvent } from '../api'
+import { isViewPid, ProblemError, useProject, useProjectEvents, useProjectSync, type ServerEvent } from '../api'
 import { usePhaseRuntime } from '../features/phase'
 import { useCurationRuntime } from '../plugins'
 import { ImportWizard } from '../features/import'
@@ -14,7 +14,6 @@ import { TaskCommands } from '../features/tasks'
 import { applyProjectDisplay } from '../features/viewer'
 import { registry, ShellOverlays, Workbench } from '../shell'
 import { BrandMark } from '../theme'
-import { useSettings } from '../state'
 
 function ProjectNotFound({ pid, detail }: { pid: string; detail?: string }) {
   const { t } = useTranslation()
@@ -50,7 +49,6 @@ export function ProjectRoute() {
   const readOnly = isViewPid(pid)
   registry.setReadOnly(readOnly) // before the workbench renders its contributions (UI-26)
   const project = useProject(pid)
-  const simulate = useSettings((s) => s.simulateReviewer)
   const relink = useRootsCheck(readOnly ? '' : pid)
   const relinkAsked = useProjectDialogs((s) => s.relink === pid)
   useProjectSync(pid)
@@ -65,11 +63,6 @@ export function ProjectRoute() {
   useCurationRuntime(pid)
   usePhaseRuntime(pid)
   useProjectEvents(pid, useCallback((e: ServerEvent) => logEvent(e), []))
-  useEffect(() => {
-    if (readOnly) return
-    api.setReviewerSimulation(pid, simulate)
-    return () => api.setReviewerSimulation(null, false)
-  }, [pid, simulate, readOnly])
   if (project.error instanceof ProblemError && project.error.status === 404)
     return <ProjectNotFound pid={pid} detail={project.error.detail} />
   return (

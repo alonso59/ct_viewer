@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // CUR-11/12, TST-08, AUD-A6-04: the API-40 handler (`applyServerEvent`) against a real QueryClient,
 // and the SSE stream's reconnect signal (AUD-A5-11).
 import { QueryClient, QueryObserver } from '@tanstack/react-query'

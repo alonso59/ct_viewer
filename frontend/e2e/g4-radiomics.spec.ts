@@ -5,26 +5,14 @@
 // TST-05, RAD-05/07/10/11, TSK-04, DB-01/03, ANA-04/05, VAR-06; AUD-A2-05, A2-06, A3-04, A3-10,
 // A3-15, A3-21, A1-08, A1-18, A5-04 (FB5).
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
+import { api, importedProject } from './helpers'
 
 /** A project on the fixtures with a derived grouping variable (VAR-06), set up through the API */
 async function project(name: string): Promise<string> {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name, packs: ['ccrcc'] })
-  const pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(name)
   await expect.poll(async () => (await api<{ variables: { name: string }[] }>('GET', `/projects/${pid}/variables`)).variables.map((v) => v.name), { timeout: 30_000 }).toContain('marker_a')
   await api('POST', `/projects/${pid}/variables/derived`, { op: 'bin', name: 'marker_group', source: 'marker_a', quantiles: [0.5], labels: ['low', 'high'] })
   return pid

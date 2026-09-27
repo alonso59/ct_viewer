@@ -1,19 +1,9 @@
 // VW-17/22/23 + UI-24 on the real backend: the same CT tools in Open mode and in a case tab
 // (numeric W/L, slab, invert, HU probe, header info, measurements), and Close for both.
-import { resolve } from 'node:path'
-
 import { expect, test, type Page } from '@playwright/test'
 
 import { gotoOpen } from './openMode'
-
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const FIX = resolve(import.meta.dirname, '../../.fixtures/synthetic')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (r.status === 204 ? null : await r.json()) as T
-}
+import { FIXTURES, importedProject } from './helpers'
 
 async function useTools(page: Page, bar: ReturnType<Page['getByRole']>) {
   // numeric W/L drives the window
@@ -46,7 +36,7 @@ async function useTools(page: Page, bar: ReturnType<Page['getByRole']>) {
 }
 
 test('Open mode on DICOM has the CT tool set, DICOM tags and Close', async ({ page }) => {
-  await gotoOpen(page, `${FIX}/dicom/P900`)
+  await gotoOpen(page, `${FIXTURES}/dicom/P900`)
   const bar = page.getByRole('toolbar').filter({ has: page.getByRole('button', { name: 'Invert' }) })
   await expect(bar).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.vp').first()).toBeVisible()
@@ -61,11 +51,8 @@ test('Open mode on DICOM has the CT tool set, DICOM tags and Close', async ({ pa
 })
 
 test('a case tab has the same tools; Close project returns to the workspace home', async ({ page }) => {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `CT tools ${Date.now()}`, packs: ['ccrcc'] })
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${p.project_id}/imports/preview`, { root: `${FIX}/Dataset900`, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${p.project_id}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${p.project_id}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
-  await page.goto(`/p/${p.project_id}/case/case_00001`)
+  const pid = await importedProject(`CT tools ${Date.now()}`)
+  await page.goto(`/p/${pid}/case/case_00001`)
   const bar = page.getByRole('toolbar', { name: 'Tool bar' })
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
   await expect(bar.getByRole('button', { name: 'Invert' })).toBeEnabled()
@@ -80,19 +67,16 @@ test('a case tab has the same tools; Close project returns to the workspace home
 })
 
 test('case errors state the cause and the next steps (UI-18, AUD-A3-03, AUD-A2-07)', async ({ page }) => {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Errors ${Date.now()}`, packs: ['ccrcc'] })
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${p.project_id}/imports/preview`, { root: `${FIX}/Dataset900`, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${p.project_id}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${p.project_id}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(`Errors ${Date.now()}`)
   // an unknown case: what happened and how to go on
-  await page.goto(`/p/${p.project_id}/case/case_99999`)
+  await page.goto(`/p/${pid}/case/case_99999`)
   const missing = page.getByRole('alert').filter({ hasText: 'Case not found' })
   await expect(missing).toContainText('case_99999')
   await expect(missing.getByRole('button', { name: /Go to case…/ })).toBeVisible()
   await missing.getByRole('button', { name: 'Close tab' }).click()
   await expect(missing).toBeHidden()
   // a missing image (fixture defect `missing_path`): relink or look at the Problems
-  await page.goto(`/p/${p.project_id}/case/case_00010`)
+  await page.goto(`/p/${pid}/case/case_00010`)
   const card = page.getByRole('alert').filter({ hasText: 'DATA:' })
   await expect(card.getByRole('button', { name: 'Relink data root…' })).toBeVisible()
   await card.getByRole('button', { name: 'Show in Problems' }).click()

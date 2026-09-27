@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // DB-04: the item-id filter narrows the Project view to the items' cases; the chip clears it.
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

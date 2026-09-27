@@ -1,18 +1,10 @@
 // TST-19 (LBL-03..06): two reviewers label the same table; edits appear live in the other browser,
 // columns become `lbl.*` variables, the case's Inspector section edits its row (AUD-A1-05), the
 // Labels view saves a typed name whole (AUD-A5-07), and a view-only link shows the table read-only.
-import { resolve } from 'node:path'
 
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
+import { api, importedProject } from './helpers'
 
 async function reviewer(browser: Browser, name: string, url: string): Promise<Page> {
   const ctx = await browser.newContext()
@@ -27,11 +19,7 @@ const cell = (page: Page, row: number, col: number) => page.getByRole('row').fil
 
 test('two reviewers label a patient table live; columns become variables', async ({ browser }) => {
   test.setTimeout(120_000)
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Labeling ${Date.now()}`, packs: ['ccrcc'] })
-  const pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(`Labeling ${Date.now()}`)
   const t = await api<{ table_id: string }>('POST', `/plugins/labeling/projects/${pid}/tables`, {
     name: 'Review', level: 'case', columns: [{ name: 'Grade', type: 'category', levels: ['G1', 'G2', 'G3'] }, { name: 'Tumour', type: 'bool' }],
   })

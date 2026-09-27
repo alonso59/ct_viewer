@@ -12,6 +12,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.variables import rebuild
+from app.variables.rebuild import rebuild_pending
 from tests.test_api_ingest import ctx_of, do_import
 from tests.test_contract import assert_problem
 from tests.test_projects_v3 import neutral
@@ -20,6 +22,12 @@ API = "/api/v1"
 HDR = {"X-Reviewer": "Dr. A", "X-Session-Id": "tab-a"}
 CASE = "case_00001"
 ITEM = "case_00001.01.complete.-"
+
+
+@pytest.fixture(autouse=True)
+def quick_rebuild(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The coalescing delay is not under test here; waits poll for the result (AUD-A6-19)."""
+    monkeypatch.setattr(rebuild, "REBUILD_DELAY_S", 0.05)
 
 
 @pytest.fixture
@@ -154,7 +162,7 @@ def test_delete_table_hides_it_keeps_events_and_restores(client: TestClient, pid
                    "target": CASE, "value": 1}]}, headers=HDR), "not-found")  # fmt: skip
     layers = {x["field"] for x in client.get(f"{API}/projects/{pid}/layers").json()}
     assert "lbl.clinical_review.size" not in layers
-    time.sleep(1.3)
+    wait_rebuilt(pid)  # AUD-A6-19: the rebuild after the hide has run, so absence means something
     names = {v["name"] for v in client.get(f"{API}/projects/{pid}/variables").json()["variables"]}
     assert "lbl.clinical_review.size" not in names
     # a new table with the same name gets another slug: the deleted one keeps its variable names
@@ -205,6 +213,14 @@ def test_deleted_table_leaves_derived_variables_listed_and_deletable(
     assert r.status_code == 200 and r.json()["broken"] == []
 
 
+def wait_rebuilt(pid: str) -> None:
+    """Until the coalesced variable rebuild of the project has run (TST-19, AUD-A6-19)."""
+    end = time.monotonic() + 10
+    while rebuild_pending(pid):
+        assert time.monotonic() < end, "variable rebuild never ran"
+        time.sleep(0.02)
+
+
 def wait_var(c: TestClient, pid: str, name: str) -> dict[str, Any]:
     end = time.monotonic() + 10
     while time.monotonic() < end:
@@ -224,7 +240,6 @@ def test_columns_are_variables_and_layers(client: TestClient, pid: str) -> None:
     ]
     cells.append({"column_id": size, "target": CASE, "value": 40})
     client.post(url, json={"cells": cells}, headers=HDR)
-    time.sleep(1.3)
     v = wait_var(client, pid, "lbl.clinical_review.tumour_present")
     assert v["type"] == "categorical" and v["level"] == "case" and v["source"] == "layer"
     assert wait_var(client, pid, "lbl.clinical_review.size")["type"] == "continuous"

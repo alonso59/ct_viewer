@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // PHS-01/04 helpers.
 import { guessRun, phaseOptions } from './model'
 

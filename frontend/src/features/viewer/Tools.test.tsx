@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-06 (AUD-A3-20): the viewer tool group shows only while the active editor is a viewer; the
 // active tool is marked with aria-pressed (its --bg-pressed look, AUD-A3-02, is in base.css)
 import { render, screen } from '@testing-library/react'

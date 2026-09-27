@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // AUD-A1-07 (UI-05): palette ranking on the real command set
 import i18n from '../i18n'
 import { bootstrap } from '../app/bootstrap'

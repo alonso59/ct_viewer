@@ -9,6 +9,12 @@ REBUILD_DELAY_S: Final = 1.0
 _rebuilds: dict[str, asyncio.Task[None]] = {}
 
 
+def rebuild_pending(pid: str) -> bool:
+    """A scheduled rebuild has not finished yet (tests wait on this, not on a sleep)."""
+    t = _rebuilds.get(pid)
+    return t is not None and not t.done()
+
+
 def schedule_variables_rebuild(pid: str, rebuild: Any) -> None:
     """Rebuild the variable catalog once writes settle (coalesced per project)."""
     old = _rebuilds.get(pid)

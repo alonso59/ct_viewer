@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { API_MODE, api } from '../api'
+import { API_MODE } from '../api'
 import { bindingOf, chordOf, commandTitle, formatChord, openEditor, registry, toast } from '../shell'
 import { useReviewer, useSettings } from '../state'
 import { INTERFACE_SIZES, type ThemeChoice } from '../theme'
@@ -52,12 +52,6 @@ export function SettingsView() {
       </div>
       <div className="field">
         <span className="field-label">{t('settings.prototype')}</span>
-        {API_MODE === 'mock' ? (
-          <label className="check">
-            <input type="checkbox" checked={s.simulateReviewer} onChange={(e) => s.set({ simulateReviewer: e.target.checked })} />
-            {t('settings.simulate')}
-          </label>
-        ) : null}
         <div className="row wrap">
           <button type="button" className="btn btn-sm" onClick={() => openEditor('design', {})}>{t('design.open')}</button>
           {API_MODE === 'mock' ? (
@@ -65,7 +59,6 @@ export function SettingsView() {
               type="button"
               className="btn btn-sm btn-danger"
               onClick={() => {
-                api.reset()
                 try {
                   for (const k of Object.keys(localStorage)) if (k.startsWith('rw.tabs.') || k.startsWith('rw.layout.')) localStorage.removeItem(k)
                 } catch {

@@ -1,4 +1,2 @@
-// problem+json `detail`/`title` for toasts and error states (FE-09)
-import { ProblemError } from '../../api'
-
-export const errorMessage = (e: unknown, fallback: string): string => (e instanceof ProblemError ? (e.detail ?? e.title) : fallback)
+// problem+json text for toasts and error states (FE-09): the shared helper (AUD-A6-12)
+export { problemMessage as errorMessage } from '../../lib'

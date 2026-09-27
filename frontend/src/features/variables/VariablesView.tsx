@@ -4,22 +4,9 @@
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  OVERRIDE_TYPES,
-  ProblemError,
-  VARIABLE_TAGS,
-  useBrokenDerived,
-  useDeleteDerived,
-  usePatchVariable,
-  useVariables,
-  type BrokenDerived,
-  type OverrideType,
-  type Variable,
-  type VariablePatch,
-  type VariableTag,
-} from '../../api'
+import { OVERRIDE_TYPES, VARIABLE_TAGS, useBrokenDerived, useDeleteDerived, usePatchVariable, useVariables, type BrokenDerived, type OverrideType, type Variable, type VariablePatch, type VariableTag } from '../../api'
 import { fmt1 } from '../../lib'
-import { toast, useWorkbench } from '../../shell'
+import { useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { useVariablesUi } from './store'
 import './variables.css'
@@ -33,7 +20,6 @@ const isOverrideType = (ty: string): ty is OverrideType => (OVERRIDE_TYPES as re
 const sectionOf = (v: Variable): Section => (v.source === 'derived' ? 'derived' : v.source === 'external' ? 'external' : v.group)
 
 /** Problem detail when the server gives one (e.g. 422 "used by …" on deleting a derived variable) */
-const problemText = (e: Error) => (e instanceof ProblemError && e.detail ? e.detail : e.message)
 
 /** Short summary of a derived definition, e.g. "bin(score) at 50" */
 function definitionText(v: Variable, t: (k: string, o?: Record<string, unknown>) => string): string {
@@ -51,7 +37,7 @@ function Detail({ pid, v }: { pid: string; v: Variable }) {
   const { t } = useTranslation()
   const patch = usePatchVariable(pid)
   const del = useDeleteDerived(pid)
-  const fail = (e: Error) => toast({ message: problemText(e), tone: 'error' })
+  const fail = (e: Error) => toastProblem(e)
   const apply = (p: VariablePatch) => patch.mutate({ name: v.name, patch: p }, { onError: fail })
   const toggleTag = (tag: VariableTag) => apply({ tags: v.tags.includes(tag) ? v.tags.filter((x) => x !== tag) : [...v.tags, tag] })
   const levels = v.profile.levels ?? []
@@ -151,7 +137,7 @@ function Row({ pid, v, open, onToggle }: { pid: string; v: Variable; open: boole
           aria-pressed={v.visible}
           aria-label={t(v.visible ? 'variables.hide' : 'variables.show', { name: v.name })}
           title={t(v.visible ? 'variables.hide' : 'variables.show', { name: v.name })}
-          onClick={() => patch.mutate({ name: v.name, patch: { visible: !v.visible } }, { onError: (e) => toast({ message: problemText(e), tone: 'error' }) })}
+          onClick={() => patch.mutate({ name: v.name, patch: { visible: !v.visible } }, { onError: (e) => toastProblem(e) })}
         >
           <Icon spec={codicon(v.visible ? 'eye' : 'eye-closed')} />
         </button>
@@ -182,7 +168,7 @@ function BrokenRow({ pid, b }: { pid: string; b: BrokenDerived }) {
           <span className="badge" data-tone="error">{t('variables.broken')}</span>
           <span className="muted var-meta">{b.reason}</span>
         </span>
-        <button type="button" className="icon-btn" aria-label={t('variables.deleteNamed', { name: b.name })} title={t('variables.deleteDerived')} disabled={del.isPending} onClick={() => del.mutate(b.name, { onError: (e) => toast({ message: problemText(e), tone: 'error' }) })}>
+        <button type="button" className="icon-btn" aria-label={t('variables.deleteNamed', { name: b.name })} title={t('variables.deleteDerived')} disabled={del.isPending} onClick={() => del.mutate(b.name, { onError: (e) => toastProblem(e) })}>
           <Icon spec={codicon('trash')} />
         </button>
       </div>

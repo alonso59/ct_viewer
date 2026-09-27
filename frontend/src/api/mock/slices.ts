@@ -1,4 +1,4 @@
-// Mid-slices per complete item (from `npm run mock:seed`). Loaded lazily: ~0.6 MB of JSON.
+// Mid-slices per complete item (from `npm run mock:slices`). Loaded lazily: ~0.6 MB of JSON.
 export type Plane = 'axial' | 'coronal' | 'sagittal'
 export interface Slice<T extends Int16Array | Uint8Array> {
   w: number

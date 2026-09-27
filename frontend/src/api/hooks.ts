@@ -62,7 +62,7 @@ export const useImportHistory = (pid: string) =>
 export const useVariables = (pid: string) =>
   useQuery({ queryKey: keys.variables(pid), queryFn: () => api.listVariables(pid), enabled: enabled(pid) })
 export const useBrokenDerived = (pid: string) =>
-  useQuery({ queryKey: [...keys.variables(pid), 'broken'], queryFn: () => api.brokenDerived(pid), enabled: enabled(pid) })
+  useQuery({ queryKey: keys.brokenDerived(pid), queryFn: () => api.brokenDerived(pid), enabled: enabled(pid) })
 export const useEvents = (pid: string, f: { item_id?: string; case_id?: string }) =>
   useQuery({ queryKey: keys.events(pid, f), queryFn: () => api.listEvents(pid, f), enabled: enabled(pid) })
 /** PHS-07: phase selections of one scan, newest first */
@@ -210,7 +210,7 @@ export function useCreateAnalysis(pid: string) {
     },
     onSuccess: (a) => {
       qc.setQueryData(keys.analysis(pid, a.analysis_id), a)
-      void qc.invalidateQueries({ queryKey: ['project', pid, 'analyses'] })
+      void qc.invalidateQueries({ queryKey: keys.scope(pid, 'analyses') })
     },
   })
 }
@@ -323,7 +323,7 @@ export function useApplyPack(pid: string) {
     mutationFn: (packId: string) => api.applyPack(pid, packId),
     onSuccess: (r) => {
       qc.setQueryData(keys.project(pid), r.project)
-      void qc.invalidateQueries({ queryKey: ['project', pid] })
+      void qc.invalidateQueries({ queryKey: keys.project(pid) })
     },
   })
 }
@@ -340,7 +340,7 @@ export function useViewToken(pid: string) {
 function invalidateVariables(qc: QueryClient, pid: string) {
   invalidateViews(qc, pid)
   void qc.invalidateQueries({ queryKey: keys.variables(pid) })
-  void qc.invalidateQueries({ queryKey: ['project', pid, 'cases'] })
+  void qc.invalidateQueries({ queryKey: keys.scope(pid, 'cases') })
 }
 
 export function usePatchVariable(pid: string) {
@@ -399,8 +399,8 @@ export function useEstimate(pid: string) {
 
 function invalidateRuns(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ queryKey: keys.runs(pid) })
-  void qc.invalidateQueries({ queryKey: ['project', pid, 'run'] })
-  void qc.invalidateQueries({ queryKey: ['jobs'] })
+  void qc.invalidateQueries({ queryKey: keys.scope(pid, 'run') })
+  void qc.invalidateQueries({ queryKey: keys.allJobs() })
 }
 
 /** API-34 (RAD-06), stamped with the reviewer; the Run button is the only trigger (RADIOMICS §Principles) */
@@ -429,7 +429,7 @@ export function useCancelJob(pid: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (jobId: string) => api.cancelJob(pid, jobId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['jobs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.allJobs() }),
   })
 }
 
@@ -511,25 +511,25 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
           : { ...j, ...e.data, finished_at: new Date().toISOString() }
       }),
     )
-    if (!known || e.event === 'job.finished') void qc.invalidateQueries({ queryKey: ['jobs'] })
+    if (!known || e.event === 'job.finished') void qc.invalidateQueries({ queryKey: keys.allJobs() })
     if (e.event === 'job.finished') {
       if (e.data.kind === 'radiomics') {
         void qc.invalidateQueries({ queryKey: keys.runs(pid) })
-        void qc.invalidateQueries({ queryKey: ['project', pid, 'run'] })
+        void qc.invalidateQueries({ queryKey: keys.scope(pid, 'run') })
       }
       if (e.data.kind === 'thumbnail') useConnection.getState().bumpThumbs()
       // TSK-09: a finished task run may have registered a segmentation set, annotations or an import
       if (e.data.kind === 'task') {
         void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
         void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
-        void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
-        void qc.invalidateQueries({ queryKey: ['project', pid, 'item'] })
+        void qc.invalidateQueries({ queryKey: keys.scope(pid, 'case') })
+        void qc.invalidateQueries({ queryKey: keys.scope(pid, 'item') })
       }
       if (e.data.kind === 'index') void qc.invalidateQueries({ queryKey: keys.imports(pid) })
       // API-15 results are `image.sha256` / `mask.sha256` on item records
       if (e.data.kind === 'hash') {
-        void qc.invalidateQueries({ queryKey: ['project', pid, 'item'] })
-        void qc.invalidateQueries({ queryKey: ['project', pid, 'case'] })
+        void qc.invalidateQueries({ queryKey: keys.scope(pid, 'item') })
+        void qc.invalidateQueries({ queryKey: keys.scope(pid, 'case') })
       }
     }
   }
@@ -542,10 +542,10 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   if (e.event === 'reset') {
     void refreshQueries(qc, ['project', pid])
     void refreshQueries(qc, keys.projects())
-    void qc.invalidateQueries({ queryKey: ['jobs'] })
+    void qc.invalidateQueries({ queryKey: keys.allJobs() })
   }
   if (e.event === 'index.rebuilt') {
-    void qc.invalidateQueries({ queryKey: ['project', pid] })
+    void qc.invalidateQueries({ queryKey: keys.project(pid) })
     void qc.invalidateQueries({ queryKey: keys.projects() })
   }
   if (e.event === 'project.updated') {

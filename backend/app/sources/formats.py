@@ -95,8 +95,3 @@ def scan(root: Path, include: Iterable[str] | None = None) -> Scan:
             continue
         out.files[kind].append(rel)
     return out
-
-
-def dicom_series_folders(s: Scan) -> list[str]:
-    """Folders holding DICOM files (one or more series each)."""
-    return sorted({str(Path(f).parent.as_posix()) for f in s.files["dicom"]})

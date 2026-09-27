@@ -64,7 +64,8 @@ Waves 1–4 done 2026-09-24 (exit met; archive).
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
 - [x] A0..A7 run 2026-09-25..26 per `docs/audit/PLAN.md`; findings in `docs/audit/findings/`
 - [x] Fix batches FB1..FB7 (2026-09-26..27; one commit each, `docs/audit/REMEDIATION.md` §Owner review)
-- [ ] FB8 (tests, performance budget, code health); then the deferred items (REMEDIATION §Deferred)
+- [x] FB8 (tests, performance budget, code health; 2026-09-27)
+- [ ] The deferred items (REMEDIATION §Deferred)
 **Exit:** see `docs/audit/PLAN.md` §Status.
 
 ### P8 — Electron

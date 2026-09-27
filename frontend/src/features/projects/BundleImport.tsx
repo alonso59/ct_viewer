@@ -6,11 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { useImportBundle } from '../../api'
-import { Dialog } from '../../lib'
+import { Dialog, problemMessage } from '../../lib'
 import { codicon } from '../../theme'
 import '../../i18n/lazy'
-import { problemText } from './actions'
-import { RelinkDialog } from './WorkspaceHome'
+import { RelinkDialog } from './RelinkDialog'
 
 export default function BundleImport({ file, onClose }: { file: File; onClose: () => void }) {
   const { t } = useTranslation()
@@ -52,7 +51,7 @@ export default function BundleImport({ file, onClose }: { file: File; onClose: (
         {importBundle.isError ? (
           <div className="error-card" style={{ margin: 0 }} role="alert">
             <strong>{t('bundle.failed')}</strong>
-            <div className="muted">{problemText(importBundle.error)}</div>
+            <div className="muted">{problemMessage(importBundle.error)}</div>
           </div>
         ) : null}
         {r ? (

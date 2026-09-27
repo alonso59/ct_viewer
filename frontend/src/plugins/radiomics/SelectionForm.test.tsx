@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // RAD-05 "Use the current Explorer filter": the Explorer filter maps onto the run selection;
 // criteria API-33/34 cannot take are listed as not sent.
 import * as RTooltip from '@radix-ui/react-tooltip'

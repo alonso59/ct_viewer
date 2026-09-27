@@ -73,7 +73,7 @@ function Outputs({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const project = useProject(pid).data
-  const outputs = useQuery({ queryKey: [...keys.taskRun(pid, run.run_id), 'outputs'], queryFn: () => api.taskRunOutputs(pid, run.run_id), enabled: !ACTIVE_RUN.includes(run.status) })
+  const outputs = useQuery({ queryKey: keys.taskRunOutputs(pid, run.run_id), queryFn: () => api.taskRunOutputs(pid, run.run_id), enabled: !ACTIVE_RUN.includes(run.status) })
   const rows = (outputs.data ?? []).filter((o) => o.kind !== 'mask' && o.kind !== 'image' && o.kind !== 'sidecar')
   const volumes = (outputs.data ?? []).filter((o) => o.kind === 'mask' || o.kind === 'image').length
   if (!rows.length && !volumes) return null
@@ -170,7 +170,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const settings = toSettings(values)
   const errors = check(m.settings_schema, values)
   const preflight = useQuery({
-    queryKey: ['project', pid, 'task-preflight', m.id, selection],
+    queryKey: keys.taskPreflight(pid, m.id, selection),
     queryFn: () => api.preflightTask(pid, m.id, selection, settings),
     enabled: m.input !== 'source' || !!source,
     retry: false,

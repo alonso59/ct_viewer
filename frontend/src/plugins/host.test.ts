@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // TST-17 (PLG-03/04): activation registers each plugin's contributions once; Open handlers exist.
 import '../i18n'
 import { registry } from '../shell/registry'

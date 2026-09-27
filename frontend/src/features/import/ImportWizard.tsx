@@ -1,263 +1,41 @@
 // Import wizard (IMP-01..05, SRC-01..06): a folder or one file (server browser, API-10) → detected
 // source adapters (API-19) → preview (API-11; `nifti-files` options with a live parse) → commit
 // (API-12) + indexing job (SSE progress, API-40). Refusals show their cause and next actions (UI-18).
+// The rules are in `model.ts`, each step renders itself (`steps/`); this component holds the state
+// and the footer (AUD-A6-07).
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import {
-  api,
-  useCommitImport,
-  useDetect,
-  useFsList,
-  useImportPreview,
-  useJobs,
-  useRoots,
-  type DetectCandidate,
-  type ImportAdapter,
-  type ImportPreview,
-  type NiftiOptions,
-  type PreviewRequest,
-} from '../../api'
-import { Dialog, ProblemCard, Progress, runStatusKey } from '../../lib'
+import { api, keys, useCommitImport, useDetect, useFsList, useImportPreview, useJobs, useRoots, type DetectCandidate, type ImportAdapter, type NiftiOptions, type PreviewRequest } from '../../api'
+import { Dialog, openPath } from '../../lib'
 import { toast } from '../../shell'
 import { useReviewer } from '../../state'
-import { DerivedRootDialog } from './DerivedRootDialog'
-import { ACCEPTED, FolderBrowser } from './FolderBrowser'
-import { CONVERTER_PATTERN, converterPattern, sampleStems, segments, suggestPatterns } from './patternSuggest'
-import { openPath } from '../open/navigate'
-import { useImportWizard, type WizardPrefill } from './store'
 import { Icon, codicon } from '../../theme'
+import { DerivedRootDialog } from './DerivedRootDialog'
+import { aliasProblem, autoPattern, canNext, firstAdapter, imageStems, IMPORTABLE, initialState, jobFailed, nextAction, STEPS, type Step } from './model'
+import { DetectStep } from './steps/DetectStep'
+import { IndexStep } from './steps/IndexStep'
+import { PreviewStep } from './steps/PreviewStep'
+import { RootStep, type Uploads } from './steps/RootStep'
+import { useImportWizard, type WizardPrefill } from './store'
 import './import.css'
-
-const STEPS = ['root', 'detect', 'preview', 'index'] as const
-type Step = (typeof STEPS)[number]
-const MAX_ERRORS = 50
-const IMPORTABLE = new Set<string>(['metadata-v1', 'nifti-files'])
-// PROJECT_FORMAT §Path aliases
-const ALIAS_RE = /^[A-Z][A-Z0-9_]{0,15}$/
-const normPath = (p: string) => p.replace(/\/+$/, '') || '/'
-
-type Uploads = NonNullable<PreviewRequest['files']>
-
-/** IMP-02 alternative: upload the metadata files (images stay on the server) */
-function UploadFields({ files, onFiles }: { files: Partial<Uploads>; onFiles: (f: Partial<Uploads>) => void }) {
-  const { t } = useTranslation()
-  const pick = (k: keyof Uploads) => (e: ChangeEvent<HTMLInputElement>) => onFiles({ ...files, [k]: e.target.files?.[0] ?? null })
-  return (
-    <div className="upload-grid">
-      <label className="field">
-        <span className="field-label">{t('import.upload.metadata')}</span>
-        <input type="file" accept=".jsonl,.json" onChange={pick('metadata')} />
-      </label>
-      <label className="field">
-        <span className="field-label">{t('import.upload.phase')}</span>
-        <input type="file" accept=".json" onChange={pick('phase')} />
-      </label>
-      <label className="field">
-        <span className="field-label">{t('import.upload.voi')}</span>
-        <input type="file" accept=".jsonl" onChange={pick('voi_catalog')} />
-      </label>
-    </div>
-  )
-}
-
-function Mapping({ preview }: { preview: ImportPreview }) {
-  const { t } = useTranslation()
-  const m = preview.field_mapping
-  const rows: [string, string][] = [
-    ['image', m.image ?? '—'],
-    ['mask', m.seg ? t(`import.seg.${m.seg}`) : '—'],
-    ['phase', m.phase?.length ? m.phase.join(' → ') : '—'],
-    ['side', m.side ?? '—'],
-  ]
-  return (
-    <table className="table">
-      <tbody>
-        {rows.map(([field, source]) => (
-          <tr key={field}>
-            <td>{t(`import.field.${field}`)}</td>
-            <td className="muted"><Icon spec={codicon('arrow-left')} /></td>
-            <td className="mono">{source}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-// SRC-17 highlight colours: the categorical palette, fixed per group (--cat-1 is the accent blue)
-const GROUP_COLOR: Record<string, string> = { case_id: 'var(--cat-2)', scan_idx: 'var(--cat-4)', channel: 'var(--cat-6)', side: 'var(--cat-5)' }
-const EXAMPLES = 4
-
-/** SRC-17: candidates from the browsed folder's file names; picking one only fills the field */
-function PatternSuggester({ names, current, onPick }: { names: string[]; current: string | undefined; onPick: (pattern: string) => void }) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const stems = useMemo(() => sampleStems(names), [names])
-  const cands = useMemo(() => suggestPatterns(stems), [stems])
-  if (!open) {
-    return (
-      <button type="button" className="btn btn-sm justify-start" onClick={() => setOpen(true)}>
-        <Icon spec={codicon('lightbulb')} />
-        {t('import.suggestPattern')}
-      </button>
-    )
-  }
-  return (
-    <div className="pattern-cands">
-      <span className="muted small">
-        {!stems.length ? t('import.suggestNone') : !cands.length ? t('import.suggestNoMatch') : t('import.suggestHelp')}
-      </span>
-      {cands.map((c) => (
-        <button key={c.pattern} type="button" className="pattern-cand" data-checked={current === c.pattern} onClick={() => onPick(c.pattern)}>
-          <span className="mono pattern-rx" title={c.pattern}>{c.pattern}</span>
-          <span className="pattern-meta">
-            {c.groups.map((g) => (
-              <span key={g} className="mono pattern-group" style={{ color: GROUP_COLOR[g] }}>{g}</span>
-            ))}
-            <span className="muted">{t('import.suggestMatches', { n: c.matched, total: stems.length })}</span>
-          </span>
-          {stems
-            .map((s) => segments(c.pattern, s))
-            .filter((x) => x !== null)
-            .slice(0, EXAMPLES)
-            .map((parts) => (
-              <span key={parts.map((x) => x.text).join('')} className="mono pattern-ex">
-                {parts.map((x, k) =>
-                  x.group ? <span key={k} className="pattern-group" style={{ color: GROUP_COLOR[x.group] }} title={x.group}>{x.text}</span> : <span key={k} className="muted">{x.text}</span>,
-                )}
-              </span>
-            ))}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/** SRC-04 options: pattern (one case per stem by default), case id source, modality */
-function NiftiOptionsForm({ value, onChange, names, prefilled }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; names: string[]; prefilled: boolean }) {
-  const { t } = useTranslation()
-  const masks = Object.values(value.masks ?? {})
-  return (
-    <div className="wiz-nifti">
-      {masks.length ? (
-        <p className="muted panel-size m-0" role="note" >
-          <Icon spec={codicon('layers')} /> {t('import.nifti.withMask', { mask: masks.join(', ') })}
-        </p>
-      ) : null}
-      <label className="field">
-        <span className="field-label">{t('import.nifti.pattern')}</span>
-        <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
-        <span className="muted small">{t(prefilled && value.pattern === CONVERTER_PATTERN ? 'import.nifti.patternPrefilled' : 'import.nifti.patternHelp')}</span>
-      </label>
-      <PatternSuggester names={names} current={value.pattern} onPick={(pattern) => onChange({ ...value, pattern })} />
-      <div className="wiz-nifti-grid">
-        <label className="field">
-          <span className="field-label">{t('import.nifti.caseIdFrom')}</span>
-          <select className="select" value={value.case_id_from ?? 'pattern'} onChange={(e) => onChange({ ...value, case_id_from: e.target.value as NiftiOptions['case_id_from'] })}>
-            {(['pattern', 'stem', 'sequential'] as const).map((k) => (
-              <option key={k} value={k}>{t(`import.nifti.from.${k}`)}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">{t('import.nifti.modality')}</span>
-          <input className="input mono" value={value.modality ?? 'CT'} onChange={(e) => onChange({ ...value, modality: e.target.value.toUpperCase() })} />
-        </label>
-      </div>
-    </div>
-  )
-}
-
-function NiftiSample({ p }: { p: ImportPreview }) {
-  const { t } = useTranslation()
-  return (
-    <div className="table-scroll">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>{t('import.nifti.file')}</th>
-            <th>{t('import.nifti.case')}</th>
-            <th>{t('import.nifti.scan')}</th>
-            <th>{t('import.nifti.modality')}</th>
-            <th>{t('import.field.mask')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(p.sample ?? []).map((r) => (
-            <tr key={r.file}>
-              <td className="mono" title={r.file}>{r.matched ? null : <Icon spec={codicon('warning')} />} {r.file}</td>
-              <td className="mono">{r.case_id}</td>
-              <td className="mono">{r.scan_idx}</td>
-              <td className="mono">{r.modality ?? '—'}</td>
-              <td className="mono" title={r.mask ?? ''}>{r.mask ? <Icon spec={codicon('check')} /> : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-/** IMP-03: unmatched names, orphan masks and ignored extensions, shown next to the counts */
-function NiftiNotices({ p }: { p: ImportPreview }) {
-  const { t } = useTranslation()
-  return (
-    <>
-      {p.unmatched?.length ? (
-        <p className="muted panel-size">{t('import.nifti.unmatched', { count: p.unmatched.length, names: p.unmatched.slice(0, 5).join(', ') })}</p>
-      ) : null}
-      {p.orphan_masks?.length ? (
-        <p className="muted panel-size">{t('import.nifti.orphans', { count: p.orphan_masks.length })}</p>
-      ) : null}
-      {Object.keys(p.ignored ?? {}).length ? (
-        <p className="muted panel-size">
-          {t('import.ignored', { list: Object.entries(p.ignored ?? {}).map(([ext, n]) => `${n} ${ext}`).join(', ') })}
-        </p>
-      ) : null}
-    </>
-  )
-}
-
-/** IMP-03 (AUD-A1-15): the adapter in plain words, its reason on its own line; internal names in the tooltip */
-function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value: string | null; onPick: (a: string) => void }) {
-  const { t } = useTranslation()
-  return (
-    <fieldset className="field preset-list bare">
-      <legend className="field-label">{t('import.adapterTitle')}</legend>
-      {cands.map((c) => {
-        const key = c.adapter.replace('.', '_')
-        return (
-          <label key={c.adapter} className="preset adapter-option" data-checked={value === c.adapter} aria-disabled={!c.available} title={t(`import.adapterHint.${key}`, { defaultValue: c.adapter })}>
-            <input type="radio" name="adapter" value={c.adapter} disabled={!c.available} checked={value === c.adapter} onChange={() => onPick(c.adapter)} />
-            <span className="adapter-text">
-              <strong>{t(`import.adapter.${key}`)}</strong>
-              <span className="muted">{c.reason}{c.unavailable_reason ? ` — ${c.unavailable_reason}` : ''}</span>
-            </span>
-            <span className="badge ml-auto">{t(`import.confidence.${c.confidence}`)}</span>
-          </label>
-        )
-      })}
-    </fieldset>
-  )
-}
-
-const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 
 export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardPrefill | null }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const close = useImportWizard((s) => s.close)
-  const [step, setStep] = useState<Step>(prefill ? 'detect' : 'root')
-  const [dir, setDir] = useState<string | null>(prefill ? (ACCEPTED.test(prefill.path) ? parentOf(prefill.path) : prefill.path) : null)
-  const [file, setFile] = useState<string | null>(prefill && ACCEPTED.test(prefill.path) ? prefill.path : null)
+  const start = initialState(prefill)
+  const [step, setStep] = useState<Step>(start.step)
+  const [dir, setDir] = useState<string | null>(start.dir)
+  const [file, setFile] = useState<string | null>(start.file)
   const [alias, setAlias] = useState('DATA')
   const [upload, setUpload] = useState(false)
   const [files, setFiles] = useState<Partial<Uploads>>({})
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
   const [options, setOptions] = useState<NiftiOptions>({ ...prefill?.options, ...(prefill?.modality ? { modality: prefill.modality } : {}) })
+  const [touched, setTouched] = useState(false)
   const [reconstruct, setReconstruct] = useState(false)
   const [anonymize, setAnonymize] = useState(false) // DCM-05 for the in-project conversion
   const [jobId, setJobId] = useState<string | null>(null)
@@ -271,48 +49,28 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const qc = useQueryClient()
   const p = preview.data
   const path = file ?? dir
-  const cands = detect.data?.candidates ?? []
   // SRC-17 sample: the browsed folder's listing, the same query as the Data root step's browser
   const listing = useFsList(dir, 'source').data
   const fileNames = useMemo(() => (listing?.entries ?? []).filter((e) => e.kind === 'file').map((e) => e.name), [listing])
-  // AUD-A2-12 (ADR-0027): the image names being imported: one file, an Open-mode include list, or the folder
-  const imageStems = useMemo(() => {
-    const masks = new Set(Object.values(options.masks ?? {}))
-    const names = options.include ? options.include.filter((f) => !masks.has(f)) : file ? [file] : fileNames
-    return sampleStems(names.map((n) => n.slice(n.lastIndexOf('/') + 1)))
-  }, [options.include, options.masks, file, fileNames])
-  // until the user edits the options, the converter naming fills the pattern when every name follows it
-  const [touched, setTouched] = useState(false)
-  const auto = adapter === 'nifti-files' && !touched && options.pattern === undefined ? converterPattern(imageStems) : null
+  const stems = useMemo(() => imageStems(options, file, fileNames), [options, file, fileNames])
+  const auto = autoPattern(adapter, touched, options, stems)
   const niftiOptions = auto ? { ...options, pattern: auto } : options
-  const editOptions = (o: NiftiOptions) => {
-    setTouched(true)
-    setOptions(o)
-  }
-  // IMP-14: format, and an alias of this project that points elsewhere (commit would repoint it);
-  // SRC-15 "add" picks a free alias on the server, so it never collides
   const taken = (useRoots(pid).data ?? []).find((r) => r.alias === alias)
-  const aliasError = !ALIAS_RE.test(alias)
-    ? t('import.aliasInvalid')
-    : taken && !prefill?.add && dir !== null && normPath(taken.path) !== normPath(dir)
-      ? t('import.aliasTaken', { alias, path: taken.path })
-      : null
+  const aliasKind = aliasProblem(alias, taken, prefill?.add ?? false, dir)
+  const aliasError = aliasKind === 'invalid' ? t('import.aliasInvalid') : aliasKind === 'taken' ? t('import.aliasTaken', { alias, path: taken?.path ?? '' }) : null
+  const failed = jobFailed(job?.status)
 
   useEffect(() => {
     if (job?.status === 'succeeded') {
-      void qc.invalidateQueries({ queryKey: ['project', pid] })
-      void qc.invalidateQueries({ queryKey: ['projects'] })
+      void qc.invalidateQueries({ queryKey: keys.project(pid) })
+      void qc.invalidateQueries({ queryKey: keys.projects() })
       const cases = p?.counts.cases
       toast({ message: cases == null ? t('import.converted') : t('import.done', { cases }), tone: 'ok' })
       close()
     }
   }, [job?.status, qc, close, t, p?.counts.cases, pid])
 
-  const pickAdapter = (d: { candidates: DetectCandidate[] }) => {
-    const want = prefill?.adapter
-    const first = d.candidates.find((c) => c.available && (want ? c.adapter === want : IMPORTABLE.has(c.adapter))) ?? d.candidates.find((c) => c.available)
-    setAdapter(first?.adapter ?? null)
-  }
+  const pickAdapter = (d: { candidates: DetectCandidate[] }) => setAdapter(firstAdapter(d.candidates, prefill?.adapter))
   const runDetect = (target: string) => {
     setStep('detect')
     preview.reset()
@@ -332,39 +90,6 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     if (a === 'metadata-v1' && reconstruct) req.options = { reconstruct_sidecars: true } // IMP-15
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
-
-  const i = STEPS.indexOf(step)
-  const hasMetadata = p?.files.some((f) => f.kind === 'metadata') ?? false
-  const canNext =
-    step === 'root'
-      ? path !== null && aliasError === null && (!upload || files.metadata != null)
-      : step === 'detect'
-        ? adapter !== null && !preview.isPending && (adapter === 'open' || adapter === 'dicom.convert' || IMPORTABLE.has(adapter))
-        : step === 'preview'
-          ? hasMetadata && !commit.isPending
-          : false
-  const next = async () => {
-    if (step === 'root' && path) {
-      if (upload && files.metadata) {
-        setStep('detect')
-        setAdapter('metadata-v1')
-        preview.mutate(
-          { root: path, alias, files: { metadata: files.metadata, phase: files.phase ?? null, voi_catalog: files.voi_catalog ?? null } },
-          { onSuccess: () => setStep('preview') },
-        )
-      } else runDetect(path)
-    } else if (step === 'detect' && adapter) {
-      if (adapter === 'open') {
-        close()
-        if (path) openPath(navigate, path)
-      } else if (adapter === 'dicom.convert') void runConvert()
-      else runPreview(adapter as ImportAdapter)
-    } else if (step === 'preview' && p) {
-      const r = await commit.mutateAsync(p.preview_id)
-      setJobId(r.job_id)
-      setStep('index')
-    }
-  }
   // DICOM sources go through the converter task (SRC-13, DCM-*); its rows are imported on success
   const runConvert = async () => {
     setConvertError(null)
@@ -377,17 +102,36 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       setConvertError(e)
     }
   }
-  const failed = job && (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted')
+  const openInstead = () => {
+    close()
+    if (path) openPath(navigate, path)
+  }
+
+  const i = STEPS.indexOf(step)
+  const enabled = canNext({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending, preview: p, commitPending: commit.isPending })
+  const next = async () => {
+    const action = nextAction(step, adapter, upload)
+    if (action === 'upload-preview' && path && files.metadata) {
+      setStep('detect')
+      setAdapter('metadata-v1')
+      preview.mutate({ root: path, alias, files: { metadata: files.metadata, phase: files.phase ?? null, voi_catalog: files.voi_catalog ?? null } }, { onSuccess: () => setStep('preview') })
+    } else if (action === 'detect' && path) runDetect(path)
+    else if (action === 'open') openInstead()
+    else if (action === 'convert') void runConvert()
+    else if (action === 'preview' && adapter) runPreview(adapter as ImportAdapter)
+    else if (action === 'commit' && p) {
+      const r = await commit.mutateAsync(p.preview_id)
+      setJobId(r.job_id)
+      setStep('index')
+    }
+  }
   const onAction = {
     import_as: (a: string | null) => {
       if (!a) return
       setAdapter(a)
       if (IMPORTABLE.has(a)) runPreview(a as ImportAdapter)
     },
-    open: () => {
-      close()
-      if (path) openPath(navigate, path)
-    },
+    open: openInstead,
     choose_another_path: () => setStep('root'),
     choose_derived_root: () => setAskDerived(true),
   }
@@ -420,7 +164,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             <button type="button" className="btn" onClick={close}>{t('common.close')}</button>
           ) : null}
           {step !== 'index' ? (
-            <button type="button" className="btn btn-primary" disabled={!canNext} onClick={() => void next()}>
+            <button type="button" className="btn btn-primary" disabled={!enabled} onClick={() => void next()}>
               {step === 'preview' ? t('import.commit') : step === 'detect' && adapter === 'open' ? t('import.openInstead') : t('common.next')}
             </button>
           ) : null}
@@ -428,180 +172,45 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       }
     >
       {step === 'root' ? (
-        <div className="wiz-grid">
-          <div>
-            <h3>{t('import.rootTitle')}</h3>
-            <p className="muted">{t('import.rootHelp')}</p>
-            {file ? (
-              <p className="mono panel-size">
-                <Icon spec={codicon('file')} /> {t('import.singleFile', { name: file.slice(file.lastIndexOf('/') + 1) })}
-              </p>
-            ) : null}
-            <label className="field mt-3">
-              <span className="field-label">{t('import.alias')}</span>
-              <input className="input mono" value={alias} aria-invalid={aliasError !== null} aria-describedby="import-alias-help" onChange={(e) => setAlias(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} />
-              <span id="import-alias-help" className={`muted small ${aliasError ? 'text-error' : ''}`}>
-                {aliasError ?? t('import.aliasHelp', { alias })}
-              </span>
-            </label>
-            <label className="check mt-3">
-              <input type="checkbox" checked={upload} onChange={(e) => setUpload(e.target.checked)} />
-              {t('import.uploadToggle')}
-            </label>
-            {upload ? <UploadFields files={files} onFiles={setFiles} /> : null}
-            <div className="wiz-note">
-              <Icon spec={codicon('lock')} />
-              {t('import.readOnly')}
-            </div>
-          </div>
-          <FolderBrowser
-            path={dir}
-            onPath={(d) => {
-              setDir(d)
-              setFile(null)
-            }}
-            selected={file}
-            onSelectFile={(f) => setFile(file === f ? null : f)}
-          />
-        </div>
+        <RootStep dir={dir} file={file} onDir={setDir} onFile={setFile} alias={alias} onAlias={setAlias} aliasError={aliasError} upload={upload} onUpload={setUpload} files={files} onFiles={setFiles} />
       ) : null}
       {step === 'detect' ? (
-        <div>
-          <h3>{t('import.detectTitle')}</h3>
-          <p className="muted mono">{path}</p>
-          {detect.isPending || preview.isPending ? (
-            <div className="empty">
-              <Icon spec={codicon('loading')} className="codicon-modifier-spin" />
-              {t('import.scanning')}
-            </div>
-          ) : null}
-          {detect.isError ? <ProblemCard error={detect.error} onAction={onAction} /> : null}
-          {preview.isError ? <ProblemCard error={preview.error} onAction={onAction} /> : null}
-          {convertError ? <ProblemCard error={convertError} onAction={onAction} /> : null}
-          {askDerived ? (
-            <DerivedRootDialog
-              pid={pid}
-              onClose={(ok) => {
-                setAskDerived(false)
-                // a DICOM conversion or a sidecar reconstruction (IMP-15) waited for the folder
-                if (ok) void (adapter === 'dicom.convert' ? runConvert() : adapter && IMPORTABLE.has(adapter) && runPreview(adapter as ImportAdapter))
-              }}
-            />
-          ) : null}
-          {cands.length ? (
-            <div className="wiz-grid mt-2">
-              <Candidates cands={cands} value={adapter} onPick={setAdapter} />
-              <div>
-                {adapter === 'nifti-files' ? <NiftiOptionsForm value={niftiOptions} onChange={editOptions} names={fileNames} prefilled={auto !== null} /> : null}
-                {adapter === 'dicom.convert' ? (
-                  // AUD-A5-16: the same anonymize choice as the converter window (DCM-05, NFR-17)
-                  <label className="check mt-2">
-                    <input type="checkbox" checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} />
-                    <span>
-                      {t('conv.anonymize')}
-                      <span className="muted block small">{t('conv.phiNotice')}</span>
-                    </span>
-                  </label>
-                ) : null}
-                {adapter === 'metadata-v1' ? (
-                  <label className="check mt-2">
-                    <input type="checkbox" checked={reconstruct} onChange={(e) => setReconstruct(e.target.checked)} />
-                    <span>
-                      {t('import.reconstruct')}
-                      <span className="muted block small">{t('import.reconstructHelp')}</span>
-                    </span>
-                  </label>
-                ) : null}
-                {detect.data && Object.keys(detect.data.ignored).length ? (
-                  <p className="muted panel-size mt-2">
-                    {t('import.ignored', { list: Object.entries(detect.data.ignored).map(([ext, n]) => `${n} ${ext}`).join(', ') })}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <DetectStep
+          path={path}
+          pending={detect.isPending || preview.isPending}
+          errors={[detect.isError ? detect.error : null, preview.isError ? preview.error : null, convertError]}
+          onAction={onAction}
+          derived={
+            askDerived ? (
+              <DerivedRootDialog
+                pid={pid}
+                onClose={(ok) => {
+                  setAskDerived(false)
+                  // a DICOM conversion or a sidecar reconstruction (IMP-15) waited for the folder
+                  if (ok) void (adapter === 'dicom.convert' ? runConvert() : adapter && IMPORTABLE.has(adapter) && runPreview(adapter as ImportAdapter))
+                }}
+              />
+            ) : null
+          }
+          cands={detect.data?.candidates ?? []}
+          adapter={adapter}
+          onAdapter={setAdapter}
+          nifti={niftiOptions}
+          onNifti={(o) => {
+            setTouched(true)
+            setOptions(o)
+          }}
+          names={fileNames}
+          prefilled={auto !== null}
+          anonymize={anonymize}
+          onAnonymize={setAnonymize}
+          reconstruct={reconstruct}
+          onReconstruct={setReconstruct}
+          ignored={detect.data?.ignored}
+        />
       ) : null}
-      {step === 'preview' && p ? (
-        // nifti-files has no mapping column: stack KPIs, sample and errors instead of a half-empty grid
-        <div className={p.adapter === 'nifti-files' ? 'wiz-stack' : 'wiz-grid'}>
-          <div>
-            <h3>{t('import.previewTitle')}</h3>
-            <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${p.adapter === 'nifti-files' ? 4 : 2}, 1fr)`, marginTop: 0 }}>
-              {([
-                [p.counts.scan_rows, 'import.kpiRows'],
-                [p.counts.cases, 'import.kpiCases'],
-                [p.counts.voi_rows, 'import.kpiVoi'],
-                [p.counts.excluded_upstream, 'import.kpiExcluded'],
-              ] as const).map(([n, label]) => (
-                // AUD-A1-08: the case count leaves out cases excluded upstream (and says so)
-                <div key={label} className="card" data-zero={n === 0 || undefined} title={label === 'import.kpiCases' ? t('import.kpiCasesHelp', { excluded: p.counts.excluded_cases ?? 0 }) : undefined}><span className="kpi num">{n}</span><span className="muted">{t(label)}</span></div>
-              ))}
-            </div>
-            {p.adapter === 'nifti-files' ? (
-              <div className="mt-2">
-                <NiftiNotices p={p} />
-              </div>
-            ) : (
-              <>
-                <h3 className="mt-4">{t('import.mapping')}</h3>
-                <Mapping preview={p} />
-                <div className="table-scroll mt-3">
-                  <table className="table">
-                    <tbody>
-                      {p.files.map((f) => (
-                        <tr key={f.kind}>
-                          <td className="text-ok"><Icon spec={codicon('pass')} /></td>
-                          <td className="mono">{f.name}</td>
-                          <td className="muted">{t(`import.source.${f.source}`)}</td>
-                          <td className="num muted">{t('import.rows', { count: f.rows })}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
-          <div>
-            {p.adapter === 'nifti-files' ? (
-              <>
-                <h3>{t('import.nifti.sampleTitle')}</h3>
-                <NiftiSample p={p} />
-              </>
-            ) : null}
-            <h3>{t('import.errors', { count: p.n_errors })}</h3>
-            <p className="muted panel-size">{t('import.errorsHelp')}</p>
-            {p.n_errors > MAX_ERRORS ? <p className="muted panel-size">{t('import.errorsFirst', { n: MAX_ERRORS })}</p> : null}
-            <table className="table">
-              <tbody>
-                {p.errors.slice(0, MAX_ERRORS).map((e, k) => (
-                  <tr key={k}>
-                    <td className="text-error"><Icon spec={codicon('error')} /></td>
-                    <td className="num muted mono">{e.line != null ? t('import.fileLine', { file: e.file, n: e.line }) : e.file}</td>
-                    <td className="mono">{e.field ?? ''}</td>
-                    <td className="ws-normal">{e.message}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : null}
-      {step === 'index' ? (
-        <div className="wiz-progress">
-          <h3>{t(failed ? 'import.indexFailed' : 'import.indexing')}</h3>
-          {failed ? (
-            <div className="error-card" role="alert">{job.error ?? t(runStatusKey(job.status))}</div>
-          ) : (
-            <>
-              <Progress value={job?.done ?? 0} total={job?.total || 1} />
-              <span className="muted num">{t('jobs.count', { done: job?.done ?? 0, total: job?.total ?? 0 })}</span>
-            </>
-          )}
-          <span className="muted panel-size">{t('import.indexingHelp')}</span>
-        </div>
-      ) : null}
+      {step === 'preview' && p ? <PreviewStep p={p} /> : null}
+      {step === 'index' ? <IndexStep job={job} failed={failed} /> : null}
     </Dialog>
   )
 }

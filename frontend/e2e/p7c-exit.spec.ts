@@ -4,7 +4,8 @@
 // share a view-only link that cannot write; every plugin opens from the Library.
 import { expect, test, type Page } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
+import { API } from './helpers'
+
 const json = async <T,>(r: Response) => (await r.json()) as T
 
 const cell = (page: Page, row: number, col: number) => page.getByRole('row').filter({ has: page.getByRole('rowheader') }).nth(row).getByRole('gridcell').nth(col)

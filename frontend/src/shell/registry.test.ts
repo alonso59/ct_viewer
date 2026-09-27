@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-26: on a view-only link, contributions that need write routes are hidden.
 import '../i18n'
 import { bootstrap } from '../app/bootstrap'

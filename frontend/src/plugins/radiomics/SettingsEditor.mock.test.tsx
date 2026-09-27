@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Settings tab on the in-memory mock (VITE_API_MODE=mock, the unit-test default): the engine schema,
 // seeded profile and server validation come from the mock, so the tab opens instead of "engine not available".
 import * as RTooltip from '@radix-ui/react-tooltip'

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { caseOfItem, type Variable } from '../../api'
 import { filterByItems } from '../../api/surface'
 import { explorerSelection } from './selection'

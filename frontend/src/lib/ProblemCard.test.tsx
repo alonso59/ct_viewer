@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-18 / SRC-11: a problem shows its cause and its next actions as buttons.
 import { fireEvent, render, screen } from '@testing-library/react'
 

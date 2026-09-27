@@ -26,3 +26,6 @@ export const useImportWizard = create<WizardState>()((set) => ({
   open: (pid, prefill) => set({ pid, prefill: prefill ?? null }),
   close: () => set({ pid: null, prefill: null }),
 }))
+
+/** Files the browser lets the user pick (SRC-01): NIfTI, NumPy, DICOM */
+export const ACCEPTED = /\.(nii|nii\.gz|npy|dcm)$/i

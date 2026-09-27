@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 import pytest
@@ -39,6 +39,15 @@ def sleepy(s: float) -> float:
 
 
 GATE = threading.Event()
+
+
+async def until(cond: Callable[[], bool], timeout: float = 5) -> None:
+    """Wait for a condition instead of a fixed sleep (AUD-A6-19)."""
+    end = time.monotonic() + timeout
+    while not cond():
+        if time.monotonic() > end:
+            raise AssertionError("condition not met in time")
+        await asyncio.sleep(0.005)
 
 
 def gated(x: int) -> int:
@@ -174,7 +183,7 @@ def test_conflict_cancel_and_lookup() -> None:
             jm.submit(JobSpec("p", "thumbnail", []))
         other = jm.submit(JobSpec("p", "thumbnail", [], exclusive=False))
         jm.submit(JobSpec("q", "thumbnail", []))  # other project: fine
-        await asyncio.sleep(0.05)
+        await until(lambda: jm.get("J1").status == "running")
         c = jm.cancel("J1")
         assert c.status == "cancelled" and jm.active("p", "thumbnail") is None
         GATE.set()
@@ -264,13 +273,20 @@ def test_shutdown_interrupts_and_rejects() -> None:
 
         info = jm.submit(
             JobSpec(
-                "p", "radiomics", [WorkUnit(gated, (i,)) for i in range(9)], on_finish=on_finish
+                # one gated unit: the second worker stays free for run_in_worker (AUD-A6-19)
+                "p",
+                "radiomics",
+                [WorkUnit(gated, (0,))],
+                on_finish=on_finish,
             )
         )
-        await asyncio.sleep(0.05)
+        await until(lambda: jm.get(info.job_id).status == "running")
         assert await jm.run_in_worker(square, 7) == 49
-        await jm.shutdown()
+        # AUD-A6-19: shutdown marks the job at once; the gate opens then, not after a 5 s timeout
+        stop = asyncio.create_task(jm.shutdown())
+        await until(lambda: jm.get(info.job_id).status == "interrupted")
         GATE.set()
+        await stop
         got = jm.get(info.job_id)
         assert got.status == "interrupted" and got.ref == "partial" and seen == ["interrupted"]
         assert [e.data["status"] for e in events(bus, "job.finished")] == ["interrupted"]
@@ -295,7 +311,7 @@ def test_shutdown_bounds_slow_on_finish(monkeypatch: pytest.MonkeyPatch) -> None
             return None
 
         info = jm.submit(JobSpec("p", "mesh", [WorkUnit(gated, (1,))], on_finish=hang))
-        await asyncio.sleep(0.05)
+        await until(lambda: jm.get(info.job_id).status == "running")
         await asyncio.wait_for(jm.shutdown(), 3)
         GATE.set()
         assert jm.get(info.job_id).status == "interrupted"

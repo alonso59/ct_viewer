@@ -193,7 +193,7 @@ class Runner:
             self.stop_heartbeat()
 
 
-def _stop(signum: int, frame: Any) -> None:
+def _stop(_signum: int, _frame: Any) -> None:
     """SIGTERM behaves like Ctrl-C: stop children, remove the heartbeat."""
     raise KeyboardInterrupt
 

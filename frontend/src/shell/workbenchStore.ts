@@ -3,6 +3,7 @@ import type { DockviewApi } from 'dockview-react'
 import { create } from 'zustand'
 
 import { registry } from './registry'
+import { problemToastText } from '../lib/problem'
 
 export interface EditorParams {
   type: string
@@ -52,11 +53,34 @@ export const useWorkbench = create<WorkbenchState>()((set) => ({
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
 
+/** An open asked for while the editor area (lazy, NFR-07) is still loading; run once it is ready */
+let pendingOpen: { pid: string; args: Parameters<typeof openEditor> } | null = null
+
+/** EditorArea: open what was asked for while it loaded; returns it, so a dock that is disposed
+ *  again at once (React StrictMode mounts twice in dev) can hand it back with `requeueOpen` */
+export function flushPendingOpen(pid: string): Parameters<typeof openEditor> | null {
+  const p = pendingOpen
+  pendingOpen = null
+  if (!p || p.pid !== pid) return null
+  openEditor(...p.args)
+  return p.args
+}
+
+export function requeueOpen(pid: string, args: Parameters<typeof openEditor>) {
+  pendingOpen ??= { pid, args }
+}
+
 /** Open (or focus) an editor tab. Preview tabs reuse one slot until pinned (UI-03). */
 export function openEditor(type: string, params: Record<string, unknown> = {}, opts: { preview?: boolean } = {}) {
   const dock = useWorkbench.getState().dock
   const contrib = registry.getEditor<Record<string, unknown>>(type)
-  if (!dock || !contrib || !registry.allowed(contrib)) return
+  if (!contrib || !registry.allowed(contrib)) return
+  if (!dock) {
+    // the last request wins, like a click that replaces the preview tab
+    const pid = useWorkbench.getState().pid
+    if (pid) pendingOpen = { pid, args: [type, params, opts] }
+    return
+  }
   const id = contrib.id(params)
   const existing = dock.getPanel(id)
   if (existing) {
@@ -131,3 +155,5 @@ export function updateActiveParams(panelId: string, patch: Record<string, unknow
 export const refreshUrl = () => useWorkbench.setState((s) => ({ urlToken: s.urlToken + 1 }))
 
 export const toast = (t: Omit<Toast, 'id'>) => useWorkbench.getState().toast(t)
+/** UI-18 (AUD-A6-12): an error toast with the problem's cause and next steps */
+export const toastProblem = (e: unknown, fallback?: string) => toast({ message: problemToastText(e, fallback), tone: 'error' })

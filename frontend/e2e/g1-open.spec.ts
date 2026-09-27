@@ -4,7 +4,8 @@
 // SRC-09/10/14/05, VW-05/08/22/26, UI-17/24; AUD-A2-03, A2-11, A2-12, A3-05, A1-16 (FB4).
 import { expect, test, type Page } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
+import { API } from './helpers'
+
 const IMAGE = '01_case_00030_0000.nii.gz'
 const MASK = '01_case_00030.nii.gz'
 
@@ -30,8 +31,10 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
 
-  // W/L: a numeric window, then reset to the CT default (VW-05, VW-22)
+  // W/L: the CT default on open (VW-05, AUD-A6-16), then a numeric window (VW-22)
   const bar = page.getByRole('toolbar').filter({ has: page.getByRole('button', { name: 'Invert' }) })
+  await expect(bar.getByLabel('Window width')).toHaveValue('400')
+  await expect(bar.getByLabel('Window level')).toHaveValue('50')
   await bar.getByLabel('Window width').fill('1500')
   await bar.getByLabel('Window level').fill('-600')
   await expect(view(page, 'Axial').locator('.vp-corner-tl')).toContainText('1500')

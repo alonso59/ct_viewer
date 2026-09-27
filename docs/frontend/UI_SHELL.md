@@ -176,15 +176,14 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 
 ## Prototype defaults (P0.5 → P2)
 
-- Settings → "Simulate a second reviewer" is on by default in the mock build: a fake reviewer posts a decision every 45 s so live-sync toasts (UI-10, CUR-11) can be seen. It does not exist against the real API.
-- The mock API (`frontend/src/api/mock/`) is seeded from `make fixtures` via `npm run mock:seed`; the seed is committed so the prototype runs standalone.
+- The mock API (`frontend/src/api/mock/`) replays responses recorded from the backend on the fixtures (`make record-mock`, TESTING §Mock API); the recording is committed so the prototype runs standalone. It shows one demo project and changes nothing on writes; there are no server events (the simulated second reviewer is gone, FB8).
 
 ## Implementation notes (P2)
 
 - Project view has a "Columns and colour" menu: extra columns and a colour stripe + legend from any visible case-level variable (VAR-10). The share link is the current deep link.
 - Project and Search views show a clearable "N items" chip while an item-id filter is active (set by the dashboard's "Send to Explorer", DB-04).
 - Bundles (PRJ-08/09): "Export bundle" on each home project card, on Welcome and in the palette (`project.exportBundle`); "Import project bundle…" on the home opens a report dialog (id change, per-alias resolve) with Relink when needed. "Compute full hashes" / "Recompute all" (IMP-09) on Welcome and in the palette; progress in the Jobs panel.
-- Mock-only defaults ("Simulate a second reviewer", demo projects) exist only with `VITE_API_MODE=mock`; Settings hides them otherwise.
+- Mock-only settings (Settings › Prototype: reset the prototype's tabs and layout) exist only with `VITE_API_MODE=mock`; Settings hides them otherwise.
 
 - Radiomics settings tab: left nav (Selection + schema groups with error badges), the form, and a side panel (validation list, summary, estimate, Run). The Radiomics view lists runs (progress, cancel, resume, failures, exports) and profiles.
 

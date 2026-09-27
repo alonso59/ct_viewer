@@ -2,18 +2,11 @@
 // bundle export (PRJ-08) and import with its resolve report (PRJ-09, API-06).
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
+import { api, DATASET } from './helpers'
 
 let pid = ''
 let name = ''

@@ -314,8 +314,4 @@ export interface Api {
   // Jobs (API-41)
   listJobs(pid?: string): Promise<Job[]>
   cancelJob(pid: string, jobId: string): Promise<void>
-
-  /** Mock only: reset demo data (Settings) and the simulated second reviewer (UI_SHELL §Prototype) */
-  reset(): void
-  setReviewerSimulation(pid: string | null, on: boolean): void
 }

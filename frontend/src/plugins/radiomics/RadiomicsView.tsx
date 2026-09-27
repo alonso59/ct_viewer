@@ -4,11 +4,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
-import { Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
-import { openEditor, toast, useWorkbench } from '../../shell'
+import { Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage } from '../../lib'
+import { openEditor, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
-import { errorMessage } from './errors'
 import { ACTIVE, DONE, RESUMABLE, runProgress } from './runs'
 import { fromWire } from './model/settings'
 import type { RunSummary } from './model/types'
@@ -27,7 +26,7 @@ function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onC
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('rad.errorsTitle', { name: run.name })} icon={codicon('warning')} size="lg">
       {errors.isLoading ? <div className="muted">{t('common.loading')}</div> : null}
-      {errors.error ? <div className="field-error">{errorMessage(errors.error, t('common.error'))}</div> : null}
+      {errors.error ? <div className="field-error">{problemMessage(errors.error, t('common.error'))}</div> : null}
       {errors.data?.length === 0 ? <div className="muted">{t('rad.noErrors')}</div> : null}
       {rows.length ? (
         <table className="rad-errors">
@@ -64,7 +63,7 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
   const p = runProgress(run, jobs)
   const c = run.counts
   const act = (action: 'cancel' | 'resume') =>
-    control.mutateAsync({ rid: run.run_id, action }).catch((e: unknown) => toast({ message: errorMessage(e, t('common.error')), tone: 'error' }))
+    control.mutateAsync({ rid: run.run_id, action }).catch((e: unknown) => toastProblem(e, t('common.error')))
   const done = DONE.includes(run.status)
   return (
     <li className="list-row list-row-2" data-status={run.status}>
@@ -145,7 +144,7 @@ export function RadiomicsView() {
       <div>
         <div className="section-title">{t('rad.runs')}</div>
         {runs.isLoading ? <div className="muted rad-view-pad">{t('common.loading')}</div> : null}
-        {runs.error ? <div className="field-error rad-view-pad">{errorMessage(runs.error, t('common.error'))}</div> : null}
+        {runs.error ? <div className="field-error rad-view-pad">{problemMessage(runs.error, t('common.error'))}</div> : null}
         {runs.isSuccess && list.length === 0 ? <div className="empty">{t('rad.noRuns')}</div> : null}
         <ul className="rad-runs" aria-label={t('rad.runs')}>
           {list.map((r) => (

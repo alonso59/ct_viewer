@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next'
 import { useFsList, type RootRole } from '../../api'
 import { ProblemCard } from '../../lib'
 import { Icon, codicon } from '../../theme'
+import { ACCEPTED } from './store'
 import './import.css'
+
+/** SRC-02: files the browser lets you pick (folders are always navigable) */
+export { ACCEPTED }
 
 /** The filter box shows for folders longer than this (AUD-A1-16) */
 const FILTER_FROM = 12
-
-/** SRC-02: files the browser lets you pick (folders are always navigable) */
-export const ACCEPTED = /\.(nii|nii\.gz|npy|dcm)$/i
 
 /** IMP-01: browse folders under ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
 export function FolderBrowser({

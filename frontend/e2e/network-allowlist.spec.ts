@@ -9,18 +9,11 @@ import { resolve } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 
 import { gotoOpen } from './openMode'
+import { api, DATASET, importedProject } from './helpers'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
 const IMAGE = resolve(DATASET, 'nifti/01_case_00030_0000.nii.gz')
 // Not network: inline data and object URLs the app creates itself
 const LOCAL_SCHEMES = new Set(['data:', 'blob:', 'about:'])
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json', 'X-Reviewer': 'E2E' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
 
 /** Let the screen finish its lazy loads (chunks, workers, fonts) before moving on */
 async function settle(page: Page) {
@@ -47,11 +40,7 @@ test('NFR-12: no request leaves the app origin across a journey', async ({ page,
   })
 
   // Setup through the API (not through the page): a project on the fixtures and a small radiomics run
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `NFR-12 ${browserName} ${Date.now()}`, packs: ['ccrcc'] })
-  const pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(`NFR-12 ${browserName} ${Date.now()}`)
   const items: string[] = []
   for (const cid of ['case_00001', 'case_00002']) {
     const detail = await api<{ scans: { items: { item_id: string }[] }[] }>('GET', `/projects/${pid}/cases/${cid}`)

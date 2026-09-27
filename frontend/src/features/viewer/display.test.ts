@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // VW-25: project display settings reach the viewer store; Open mode resets to the defaults.
 import type { Project } from '../../api'
 import { useViewerSync } from '../../state'

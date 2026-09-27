@@ -185,55 +185,106 @@ def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspec
 
 
 def _geometry(datasets: list[Any], out: Inspection) -> None:
-    warnings: list[str] = []
-    orientations = [_floats(ds, "ImageOrientationPatient", 6) for ds in datasets]
-    positions = [_floats(ds, "ImagePositionPatient", 3) for ds in datasets]
-    spacings = [_floats(ds, "PixelSpacing", 2) for ds in datasets]
-    rows = [_int(getattr(ds, "Rows", None)) for ds in datasets]
-    cols = [_int(getattr(ds, "Columns", None)) for ds in datasets]
-    if any(v is None for v in orientations + positions + spacings) or any(
-        v is None for v in rows + cols
-    ):
-        _add(warnings, "GEOMETRY_METADATA_MISSING")
-    first_o = next((v for v in orientations if v is not None), None)
-    if first_o is not None and any(
-        o is not None and _delta(o, first_o) > ORIENTATION_TOLERANCE for o in orientations
-    ):
-        _add(warnings, "ORIENTATION_CONFLICT")
-    first_s = next((v for v in spacings if v is not None), None)
-    if first_s is not None and any(
-        s is not None and _delta(s, first_s) > IN_PLANE_SPACING_TOLERANCE_MM for s in spacings
-    ):
-        _add(warnings, "IN_PLANE_SPACING_CONFLICT")
-    r0 = next((v for v in rows if v is not None), None)
-    c0 = next((v for v in cols if v is not None), None)
-    if any(v is not None and v != r0 for v in rows) or any(v is not None and v != c0 for v in cols):
-        _add(warnings, "MATRIX_SIZE_CONFLICT")
-    if first_o is not None and all(p is not None for p in positions) and len(positions) > 1:
-        normal = _normal(first_o)
-        proj = sorted(sum(a * b for a, b in zip(p or (), normal, strict=False)) for p in positions)
-        dist = [abs(proj[i + 1] - proj[i]) for i in range(len(proj) - 1)]
-        if any(d <= POSITION_TOLERANCE_MM for d in dist):
-            _add(warnings, "DUPLICATE_SLICE_POSITION")
-        pos = [d for d in dist if d > POSITION_TOLERANCE_MM]
-        if pos:
-            nominal = float(median(pos))
-            dev = max(abs(d - nominal) for d in pos)
-            tol = max(
-                SLICE_SPACING_ABSOLUTE_TOLERANCE_MM, nominal * SLICE_SPACING_RELATIVE_TOLERANCE
-            )
-            gaps = [
-                d for d in pos if d > nominal * LARGE_GAP_FACTOR or d > min(pos) * LARGE_GAP_FACTOR
-            ]
-            if dev > tol:
-                _add(warnings, "IRREGULAR_SLICE_SPACING")
-            if gaps:
-                _add(warnings, "LARGE_SLICE_GAP")
-            if len(gaps) > 1 or any(d > nominal * MULTIPLE_STACK_GAP_FACTOR for d in pos):
-                _add(warnings, "POSSIBLE_MULTIPLE_STACKS")
-            out.nominal_slice_spacing, out.maximum_spacing_deviation = nominal, dev
-    out.geometry_codes = warnings
-    out.geometry_status = "warning" if warnings else "ok"
+    """DCM-06 geometry checks over the slice headers of one series; each check adds its code."""
+    g = _Headers(
+        orientations=[_floats(ds, "ImageOrientationPatient", 6) for ds in datasets],
+        positions=[_floats(ds, "ImagePositionPatient", 3) for ds in datasets],
+        spacings=[_floats(ds, "PixelSpacing", 2) for ds in datasets],
+        rows=[_int(getattr(ds, "Rows", None)) for ds in datasets],
+        cols=[_int(getattr(ds, "Columns", None)) for ds in datasets],
+    )
+    codes: list[str] = []
+    for check in (_check_missing, _check_orientation, _check_in_plane, _check_matrix):
+        code = check(g)
+        if code:
+            _add(codes, code)
+    spacing = _slice_spacing(g)
+    if spacing is not None:
+        for code in spacing.codes:
+            _add(codes, code)
+        if spacing.nominal is not None:
+            out.nominal_slice_spacing = spacing.nominal
+            out.maximum_spacing_deviation = spacing.deviation
+    out.geometry_codes = codes
+    out.geometry_status = "warning" if codes else "ok"
+
+
+@dataclass(frozen=True)
+class _Headers:
+    """The geometry tags of every slice of a series (None = missing or unreadable)."""
+
+    orientations: list[tuple[float, ...] | None]
+    positions: list[tuple[float, ...] | None]
+    spacings: list[tuple[float, ...] | None]
+    rows: list[int | None]
+    cols: list[int | None]
+
+
+@dataclass(frozen=True)
+class _Spacing:
+    nominal: float | None  # None: every slice is a duplicate position
+    deviation: float | None
+    codes: list[str]
+
+
+def _first(values: list[Any]) -> Any:
+    return next((v for v in values if v is not None), None)
+
+
+def _check_missing(g: _Headers) -> str | None:
+    tags: list[Any] = [*g.orientations, *g.positions, *g.spacings, *g.rows, *g.cols]
+    return "GEOMETRY_METADATA_MISSING" if any(v is None for v in tags) else None
+
+
+def _check_orientation(g: _Headers) -> str | None:
+    o0 = _first(g.orientations)
+    bad = o0 is not None and any(
+        o is not None and _delta(o, o0) > ORIENTATION_TOLERANCE for o in g.orientations
+    )
+    return "ORIENTATION_CONFLICT" if bad else None
+
+
+def _check_in_plane(g: _Headers) -> str | None:
+    s0 = _first(g.spacings)
+    bad = s0 is not None and any(
+        s is not None and _delta(s, s0) > IN_PLANE_SPACING_TOLERANCE_MM for s in g.spacings
+    )
+    return "IN_PLANE_SPACING_CONFLICT" if bad else None
+
+
+def _check_matrix(g: _Headers) -> str | None:
+    r0, c0 = _first(g.rows), _first(g.cols)
+    bad = any(v is not None and v != r0 for v in g.rows) or any(
+        v is not None and v != c0 for v in g.cols
+    )
+    return "MATRIX_SIZE_CONFLICT" if bad else None
+
+
+def _slice_spacing(g: _Headers) -> _Spacing | None:
+    """Distances between slices along the normal: duplicates, irregular spacing, gaps, stacks."""
+    o0 = _first(g.orientations)
+    if o0 is None or len(g.positions) < 2 or any(p is None for p in g.positions):
+        return None
+    normal = _normal(o0)
+    proj = sorted(sum(a * b for a, b in zip(p or (), normal, strict=False)) for p in g.positions)
+    dist = [abs(proj[i + 1] - proj[i]) for i in range(len(proj) - 1)]
+    codes: list[str] = []
+    if any(d <= POSITION_TOLERANCE_MM for d in dist):
+        codes.append("DUPLICATE_SLICE_POSITION")
+    pos = [d for d in dist if d > POSITION_TOLERANCE_MM]
+    if not pos:
+        return _Spacing(None, None, codes) if codes else None
+    nominal = float(median(pos))
+    dev = max(abs(d - nominal) for d in pos)
+    tol = max(SLICE_SPACING_ABSOLUTE_TOLERANCE_MM, nominal * SLICE_SPACING_RELATIVE_TOLERANCE)
+    gaps = [d for d in pos if d > nominal * LARGE_GAP_FACTOR or d > min(pos) * LARGE_GAP_FACTOR]
+    if dev > tol:
+        codes.append("IRREGULAR_SLICE_SPACING")
+    if gaps:
+        codes.append("LARGE_SLICE_GAP")
+    if len(gaps) > 1 or any(d > nominal * MULTIPLE_STACK_GAP_FACTOR for d in pos):
+        codes.append("POSSIBLE_MULTIPLE_STACKS")
+    return _Spacing(nominal, dev, codes)
 
 
 def _advanced(datasets: list[Any], out: Inspection) -> None:

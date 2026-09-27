@@ -1,4 +1,6 @@
+// @vitest-environment jsdom
 // AUD-A1-16 (API-10, SRC-09): a filter for long folders, type-to-select, no Parent row at a root.
+// On the recorded fixtures (TST-04) the shared folders are the data root and the workspace datasets.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
@@ -18,11 +20,11 @@ const wrap = (start: string) =>
     </QueryClientProvider>,
   )
 
-test('a shared root has no Parent row (one root: nothing above it)', async () => {
+test('a shared root has no Parent row; with several shared folders it leads to their list', async () => {
   wrap('/data')
   expect(await screen.findByRole('button', { name: /Dataset900/ })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Parent folder' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'All shared folders' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'All shared folders' })).toBeInTheDocument()
 })
 
 test('a long folder gets a filter box and type-to-select', async () => {
@@ -34,5 +36,5 @@ test('a long folder gets a filter box and type-to-select', async () => {
   fireEvent.change(filter, { target: { value: '' } })
   const list = screen.getByRole('listbox', { name: 'Folders' })
   fireEvent.keyDown(list, { key: '0' })
-  expect(document.activeElement?.textContent).toBe('01_case_00000_0000.nii.gz')
+  expect(document.activeElement?.textContent).toBe('01_case_00001_0000.nii.gz') // the folder's first file
 })

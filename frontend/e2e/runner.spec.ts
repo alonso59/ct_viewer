@@ -6,16 +6,10 @@ import { resolve } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const REPO = resolve(import.meta.dirname, '../..')
-const DATASET = resolve(REPO, '.fixtures/synthetic/Dataset900')
-const ITEM = 'case_00001.01.complete.-'
+import { api, importedProject } from './helpers'
 
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
+const REPO = resolve(import.meta.dirname, '../..')
+const ITEM = 'case_00001.01.complete.-'
 
 let runner: ChildProcess | null = null
 test.afterEach(() => {
@@ -25,11 +19,7 @@ test.afterEach(() => {
 
 test('the fake segmentation plugin adds a set through the host runner', async ({ page }) => {
   test.setTimeout(120_000)
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `Runner ${Date.now()}`, packs: ['ccrcc'] })
-  const pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(`Runner ${Date.now()}`)
   await api('PUT', `/projects/${pid}/roots/DERIVED`, { path: process.env.E2E_DERIVED, role: 'derived' })
 
   await page.goto(`/p/${pid}/tasks/segment.threshold`)

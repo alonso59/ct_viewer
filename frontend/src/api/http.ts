@@ -33,34 +33,12 @@ const V1 = `${BASE}/api/v1`
 const PAGE = 2000
 
 
-// `fetch` is looked up per call (like `send`), so tests can stub it after this module loads
-const client = createClient<paths>({
-  baseUrl: BASE,
-  fetch: (req) => {
-    const url = viewPath(req.url)
-    return globalThis.fetch(url === req.url ? req : new Request(url, req))
-  },
-})
-
 type Res<T> = { data?: T; error?: unknown; response: Response }
 
 async function unwrap<T>(p: Promise<Res<T>>): Promise<T> {
   const { data, error, response } = await p
   if (!response.ok) throw toProblemError(response.status, error, response.statusText)
   return data as T
-}
-
-async function send<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
-  const init: RequestInit = { method, headers: { ...headers } }
-  if (body instanceof FormData) init.body = body
-  else if (body !== undefined) {
-    init.body = JSON.stringify(body)
-    ;(init.headers as Record<string, string>)['content-type'] = 'application/json'
-  }
-  const r = await fetch(viewPath(`${V1}${path}`), init)
-  const json: unknown = r.status === 204 ? null : await r.json().catch(() => null)
-  if (!r.ok) throw toProblemError(r.status, json, r.statusText)
-  return json as T
 }
 
 /** Every page of a cursor-paged list (API §Pagination) */
@@ -305,12 +283,6 @@ function featureRows(t: Schemas['FeaturesTable']): FeatureRow[] {
   })
 }
 
-async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
-  const r = await fetch(viewPath(`${V1}${path}`), init)
-  if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
-  return r.blob()
-}
-
 // ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
 const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'phase.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated', 'reset']
 interface Stream {
@@ -360,349 +332,385 @@ function openStream(pid: string): Stream {
 // ---- surface -------------------------------------------------------------------------------------
 const SESSION_ID = Math.random().toString(36).slice(2, 10)
 
-export const httpApi: Api = {
-  mode: 'http',
-  sessionId: SESSION_ID,
+/** A fetch as the binding uses it (the mock passes a replay of recorded exchanges, TST-04) */
+export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
-  subscribe(pid, listener, onState) {
-    const s = streams.get(pid) ?? openStream(pid)
-    streams.set(pid, s)
-    s.listeners.add(listener)
-    if (onState) {
-      s.states.add(onState)
-      onState(s.state)
+/** The HTTP binding over `doFetch`; `base` is the API origin (empty = same origin, FE-07) */
+export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
+  const V1 = `${base}/api/v1`
+  // FE-03: the typed client; its `fetch` is this binding's (tests stub `globalThis.fetch`)
+  const client = createClient<paths>({
+    baseUrl: base,
+    fetch: (req) => {
+      const url = viewPath(req.url)
+      return doFetch(url === req.url ? req : new Request(url, req))
+    },
+  })
+
+  async function send<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
+    const init: RequestInit = { method, headers: { ...headers } }
+    if (body instanceof FormData) init.body = body
+    else if (body !== undefined) {
+      init.body = JSON.stringify(body)
+      ;(init.headers as Record<string, string>)['content-type'] = 'application/json'
     }
-    return () => {
-      s.listeners.delete(listener)
-      if (onState) s.states.delete(onState)
-      if (s.listeners.size === 0 && s.states.size === 0) {
-        s.es.close()
-        streams.delete(pid)
-      }
-    }
-  },
+    const r = await doFetch(viewPath(`${V1}${path}`), init)
+    const json: unknown = r.status === 204 ? null : await r.json().catch(() => null)
+    if (!r.ok) throw toProblemError(r.status, json, r.statusText)
+    return json as T
+  }
 
-  health: () => unwrap(client.GET('/api/v1/health')),
-
-  // API-02..05
-  async listProjects(opts = {}) {
-    const rows = await unwrap(client.GET('/api/v1/projects', { params: { query: { archived: opts.archived ?? false } } }))
-    return rows as ProjectSummary[]
-  },
-  archiveProject: async (pid) => (await unwrap(client.POST('/api/v1/projects/{pid}/archive', { params: { path: { pid } } }))) as ProjectSummary,
-  unarchiveProject: async (pid) => normalizeProject(await unwrap(client.POST('/api/v1/projects/{pid}/unarchive', { params: { path: { pid } } }))),
-  getProject: async (pid) => normalizeProject(await unwrap(client.GET('/api/v1/projects/{pid}', { params: { path: { pid } } }))),
-  createProject({ name, description = '', default_modality = 'CT' }) {
-    return unwrap(client.POST('/api/v1/projects', { body: { name, description, default_modality } })).then(normalizeProject)
-  },
-  updateProject: (pid, body, etag) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body })).then(normalizeProject),
-  updateLabelMap: (pid, label_map, etag) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body: { label_map } })).then(normalizeProject),
-  listPacks: () => unwrap(client.GET('/api/v1/packs')),
-  applyPack: (pid, pack_id) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/packs', { params: { path: { pid } }, body: { pack_id } })).then((r) => ({ ...r, project: normalizeProject(r.project) })),
-  createViewToken: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/view-token', { params: { path: { pid } } })),
-  revokeViewToken: async (pid) => {
-    await unwrap(client.DELETE('/api/v1/projects/{pid}/view-token', { params: { path: { pid } } }))
-  },
-  listRoots: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/roots', { params: { path: { pid } } })),
-  relinkRoot: (pid, alias, path) =>
-    unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path } })),
-  setDerivedRoot: (pid, path, alias = 'DERIVED') =>
-    unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path, role: 'derived' } })),
-  setDefaultSeg: (pid, default_seg, etag) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body: { default_seg } })).then(normalizeProject),
-  async exportBundle(pid) {
-    const r = await fetch(`${V1}/projects/${enc(pid)}/bundle`, { method: 'POST' })
+  async function blob(path: string, init: RequestInit = {}): Promise<Blob> {
+    const r = await doFetch(viewPath(`${V1}${path}`), init)
     if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
-    return { blob: await r.blob(), filename: attachmentName(r.headers.get('content-disposition')) ?? `${pid}.zip` }
-  },
-  importBundle(file) {
-    const fd = new FormData()
-    fd.set('bundle', file)
-    return send<BundleImportResult>('POST', '/projects/import-bundle', fd)
-  },
+    return r.blob()
+  }
 
-  // API-10..14
-  fsList: (path, role = 'source') =>
-    // a POST: browsed folders (often patient names) stay out of URLs and access logs (NFR-17)
-    unwrap(client.POST('/api/v1/fs/list', { body: { path: path || null, role } })).then(normalizeFs),
-  detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
-  openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
-  openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),
-  getOpen: (sid) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid } } })),
-  async closeOpen(sid) {
-    await send('DELETE', `/open/${enc(sid)}`)
-  },
-  openImageUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/image${axisOrder ? `?axis_order=${axisOrder}` : ''}`,
-  openPreviewUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/preview?axis_order=${axisOrder}`,
-  saveOpen: (sid, n, body) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/save', { params: { path: { sid, n } }, body })),
-  attachOpen: (sid, n, path) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/attach', { params: { path: { sid, n } }, body: { path } })),
-  importPreview(pid, req) {
-    if (!req.files)
-      return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true, adapter: req.adapter, options: req.options ?? {}, add: req.add ?? false })
-    const fd = new FormData()
-    fd.set('root', req.root)
-    fd.set('alias', req.alias)
-    fd.set('metadata', req.files.metadata)
-    if (req.files.phase) fd.set('phase', req.files.phase)
-    if (req.files.voi_catalog) fd.set('voi_catalog', req.files.voi_catalog)
-    return send('POST', `/projects/${enc(pid)}/imports/preview`, fd)
-  },
-  commitImport: (pid, preview_id) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/imports', { params: { path: { pid } }, body: { preview_id } })),
-  importHistory: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/imports', { params: { path: { pid } } })),
-  startHashJob: (pid, force = false) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/hash-jobs', { params: { path: { pid } }, body: { force } })),
-  async listWarnings(pid) {
-    const out: QCWarning[] = []
-    let cursor: string | undefined
-    do {
-      const page = await unwrap(
-        client.GET('/api/v1/projects/{pid}/warnings', { params: { path: { pid }, query: { limit: PAGE, cursor } } }),
-      )
-      out.push(...page.items.map(normalizeWarning))
-      cursor = page.next_cursor ?? undefined
-    } while (cursor)
-    return out
-  },
+  return {
+    mode: 'http',
+    sessionId: SESSION_ID,
 
-  // API-16..18 (lane/2-backend)
-  async listVariables(pid) {
-    try {
-      return catalogToVariables(await send<Catalog>('GET', `/projects/${enc(pid)}/variables`))
-    } catch (e) {
-      if (e instanceof ProblemError && (e.status === 404 || e.status === 405)) return []
-      throw e
-    }
-  },
-  patchVariable: async (pid, name, patch) =>
-    variableFrom(await send<Catalog>('PATCH', `/projects/${enc(pid)}/variables/${enc(name)}`, patch), name),
-  createDerived: async (pid, def) =>
-    variableFrom(await send<Catalog>('POST', `/projects/${enc(pid)}/variables/derived`, toWireDerived(def)), def.name),
-  async brokenDerived(pid) {
-    const c = await send<Catalog>('GET', `/projects/${enc(pid)}/variables`)
-    return c.broken ?? []
-  },
-  async deleteDerived(pid, name) {
-    await send('DELETE', `/projects/${enc(pid)}/variables/derived/${enc(name)}`)
-  },
-  importExternal(pid, file, key) {
-    const fd = new FormData()
-    fd.set('file', file)
-    fd.set('key', key)
-    return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then(externalResult)
-  },
+    subscribe(pid, listener, onState) {
+      const s = streams.get(pid) ?? openStream(pid)
+      streams.set(pid, s)
+      s.listeners.add(listener)
+      if (onState) {
+        s.states.add(onState)
+        onState(s.state)
+      }
+      return () => {
+        s.listeners.delete(listener)
+        if (onState) s.states.delete(onState)
+        if (s.listeners.size === 0 && s.states.size === 0) {
+          s.es.close()
+          streams.delete(pid)
+        }
+      }
+    },
 
-  // API-20..26
-  async listCases(pid, f = {}) {
-    const out: CaseSummary[] = []
-    let cursor: string | undefined
-    const query = caseQuery(f)
-    do {
-      const page = await send<{ items: RawCase[]; next_cursor: string | null }>(
-        'GET',
-        `/projects/${enc(pid)}/cases?${new URLSearchParams({ ...query, limit: String(f.limit ?? PAGE), ...(cursor ? { cursor } : {}) })}`,
-      )
-      out.push(...page.items.map(normalizeCase))
-      cursor = f.limit ? undefined : (page.next_cursor ?? undefined)
-    } while (cursor)
-    // The server filters `warning` by QC code; "any/none" and the item list are applied here
-    const byItems = filterByItems(out, f.itemIds)
-    if (f.warning === 'any') return byItems.filter((c) => c.n_warnings > 0)
-    if (f.warning === 'none') return byItems.filter((c) => c.n_warnings === 0)
-    return byItems
-  },
-  async getCase(pid, cid): Promise<CaseDetail> {
-    const d = await unwrap(client.GET('/api/v1/projects/{pid}/cases/{cid}', { params: { path: { pid, cid } } }))
-    return { summary: normalizeCase(d.case), items: d.scans.flatMap((s) => s.items.map(normalizeItem)), warnings: d.warnings.map(normalizeWarning) }
-  },
-  async getItem(pid, iid) {
-    const d = await unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}', { params: { path: { pid, iid } } }))
-    const image_path = d.advanced.image_path ?? null
-    const mask_path = d.advanced.mask_path ?? null
-    return { ...normalizeItem(d), advanced: { image_path, mask_path, image_abs: image_path, mask_abs: mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
-  },
-  thumbnailUrl: (pid, iid) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`),
+    health: () => unwrap(client.GET('/api/v1/health')),
 
-  // API-50..54
-  async listEvents(pid, f = {}) {
-    const out: CurationEvent[] = []
-    let cursor: string | undefined
-    do {
-      const page = await unwrap(
-        client.GET('/api/v1/projects/{pid}/curation/events', { params: { path: { pid }, query: { ...f, limit: PAGE, cursor } } }),
-      )
-      out.push(...page.items.map(normalizeEvent))
-      cursor = page.next_cursor ?? undefined
-    } while (cursor)
-    // The server pages in append order; CUR-14 shows newest first
-    return out.sort((a, b) => b.at.localeCompare(a.at) || b.event_id.localeCompare(a.event_id))
-  },
-  phaseEvents: async (pid, f = {}) =>
-    (await unwrap(client.GET('/api/v1/projects/{pid}/phase/events', { params: { path: { pid }, query: { ...f, limit: 500 } } }))).items,
-  appendPhase: (pid, ev, reviewer) =>
-    unwrap(
-      client.POST('/api/v1/projects/{pid}/phase/events', {
-        params: { path: { pid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
-        body: { ...ev, session_id: SESSION_ID },
-      }),
-    ),
-  exportPhase: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/phase/exports', { params: { path: { pid } } })),
-  appendEvent: async (pid, ev, reviewer) =>
-    normalizeEvent(
-      await unwrap(
-        client.POST('/api/v1/projects/{pid}/curation/events', {
-          params: { path: { pid }, header: { 'x-reviewer': reviewer, 'x-session-id': SESSION_ID } },
-          body: { ...ev, context: { ...ev.context }, session_id: SESSION_ID, source: 'ui' },
+    // API-02..05
+    async listProjects(opts = {}) {
+      const rows = await unwrap(client.GET('/api/v1/projects', { params: { query: { archived: opts.archived ?? false } } }))
+      return rows as ProjectSummary[]
+    },
+    archiveProject: async (pid) => (await unwrap(client.POST('/api/v1/projects/{pid}/archive', { params: { path: { pid } } }))) as ProjectSummary,
+    unarchiveProject: async (pid) => normalizeProject(await unwrap(client.POST('/api/v1/projects/{pid}/unarchive', { params: { path: { pid } } }))),
+    getProject: async (pid) => normalizeProject(await unwrap(client.GET('/api/v1/projects/{pid}', { params: { path: { pid } } }))),
+    createProject({ name, description = '', default_modality = 'CT' }) {
+      return unwrap(client.POST('/api/v1/projects', { body: { name, description, default_modality } })).then(normalizeProject)
+    },
+    updateProject: (pid, body, etag) =>
+      unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body })).then(normalizeProject),
+    updateLabelMap: (pid, label_map, etag) =>
+      unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body: { label_map } })).then(normalizeProject),
+    listPacks: () => unwrap(client.GET('/api/v1/packs')),
+    applyPack: (pid, pack_id) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/packs', { params: { path: { pid } }, body: { pack_id } })).then((r) => ({ ...r, project: normalizeProject(r.project) })),
+    createViewToken: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/view-token', { params: { path: { pid } } })),
+    revokeViewToken: async (pid) => {
+      await unwrap(client.DELETE('/api/v1/projects/{pid}/view-token', { params: { path: { pid } } }))
+    },
+    listRoots: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/roots', { params: { path: { pid } } })),
+    relinkRoot: (pid, alias, path) =>
+      unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path } })),
+    setDerivedRoot: (pid, path, alias = 'DERIVED') =>
+      unwrap(client.PUT('/api/v1/projects/{pid}/roots/{alias}', { params: { path: { pid, alias } }, body: { path, role: 'derived' } })),
+    setDefaultSeg: (pid, default_seg, etag) =>
+      unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body: { default_seg } })).then(normalizeProject),
+    async exportBundle(pid) {
+      const r = await doFetch(`${V1}/projects/${enc(pid)}/bundle`, { method: 'POST' })
+      if (!r.ok) throw toProblemError(r.status, await r.json().catch(() => null), r.statusText)
+      return { blob: await r.blob(), filename: attachmentName(r.headers.get('content-disposition')) ?? `${pid}.zip` }
+    },
+    importBundle(file) {
+      const fd = new FormData()
+      fd.set('bundle', file)
+      return send<BundleImportResult>('POST', '/projects/import-bundle', fd)
+    },
+
+    // API-10..14
+    fsList: (path, role = 'source') =>
+      // a POST: browsed folders (often patient names) stay out of URLs and access logs (NFR-17)
+      unwrap(client.POST('/api/v1/fs/list', { body: { path: path || null, role } })).then(normalizeFs),
+    detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
+    openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
+    openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),
+    getOpen: (sid) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid } } })),
+    async closeOpen(sid) {
+      await send('DELETE', `/open/${enc(sid)}`)
+    },
+    openImageUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/image${axisOrder ? `?axis_order=${axisOrder}` : ''}`,
+    openPreviewUrl: (sid, n, axisOrder) => `${V1}/open/${enc(sid)}/items/${n}/preview?axis_order=${axisOrder}`,
+    saveOpen: (sid, n, body) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/save', { params: { path: { sid, n } }, body })),
+    attachOpen: (sid, n, path) => unwrap(client.POST('/api/v1/open/{sid}/items/{n}/attach', { params: { path: { sid, n } }, body: { path } })),
+    importPreview(pid, req) {
+      if (!req.files)
+        return send('POST', `/projects/${enc(pid)}/imports/preview`, { root: req.root, alias: req.alias, detect: true, adapter: req.adapter, options: req.options ?? {}, add: req.add ?? false })
+      const fd = new FormData()
+      fd.set('root', req.root)
+      fd.set('alias', req.alias)
+      fd.set('metadata', req.files.metadata)
+      if (req.files.phase) fd.set('phase', req.files.phase)
+      if (req.files.voi_catalog) fd.set('voi_catalog', req.files.voi_catalog)
+      return send('POST', `/projects/${enc(pid)}/imports/preview`, fd)
+    },
+    commitImport: (pid, preview_id) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/imports', { params: { path: { pid } }, body: { preview_id } })),
+    importHistory: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/imports', { params: { path: { pid } } })),
+    startHashJob: (pid, force = false) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/hash-jobs', { params: { path: { pid } }, body: { force } })),
+    async listWarnings(pid) {
+      const out: QCWarning[] = []
+      let cursor: string | undefined
+      do {
+        const page = await unwrap(
+          client.GET('/api/v1/projects/{pid}/warnings', { params: { path: { pid }, query: { limit: PAGE, cursor } } }),
+        )
+        out.push(...page.items.map(normalizeWarning))
+        cursor = page.next_cursor ?? undefined
+      } while (cursor)
+      return out
+    },
+
+    // API-16..18 (lane/2-backend)
+    async listVariables(pid) {
+      try {
+        return catalogToVariables(await send<Catalog>('GET', `/projects/${enc(pid)}/variables`))
+      } catch (e) {
+        if (e instanceof ProblemError && (e.status === 404 || e.status === 405)) return []
+        throw e
+      }
+    },
+    patchVariable: async (pid, name, patch) =>
+      variableFrom(await send<Catalog>('PATCH', `/projects/${enc(pid)}/variables/${enc(name)}`, patch), name),
+    createDerived: async (pid, def) =>
+      variableFrom(await send<Catalog>('POST', `/projects/${enc(pid)}/variables/derived`, toWireDerived(def)), def.name),
+    async brokenDerived(pid) {
+      const c = await send<Catalog>('GET', `/projects/${enc(pid)}/variables`)
+      return c.broken ?? []
+    },
+    async deleteDerived(pid, name) {
+      await send('DELETE', `/projects/${enc(pid)}/variables/derived/${enc(name)}`)
+    },
+    importExternal(pid, file, key) {
+      const fd = new FormData()
+      fd.set('file', file)
+      fd.set('key', key)
+      return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then(externalResult)
+    },
+
+    // API-20..26
+    async listCases(pid, f = {}) {
+      const out: CaseSummary[] = []
+      let cursor: string | undefined
+      const query = caseQuery(f)
+      do {
+        const page = await send<{ items: RawCase[]; next_cursor: string | null }>(
+          'GET',
+          `/projects/${enc(pid)}/cases?${new URLSearchParams({ ...query, limit: String(f.limit ?? PAGE), ...(cursor ? { cursor } : {}) })}`,
+        )
+        out.push(...page.items.map(normalizeCase))
+        cursor = f.limit ? undefined : (page.next_cursor ?? undefined)
+      } while (cursor)
+      // The server filters `warning` by QC code; "any/none" and the item list are applied here
+      const byItems = filterByItems(out, f.itemIds)
+      if (f.warning === 'any') return byItems.filter((c) => c.n_warnings > 0)
+      if (f.warning === 'none') return byItems.filter((c) => c.n_warnings === 0)
+      return byItems
+    },
+    async getCase(pid, cid): Promise<CaseDetail> {
+      const d = await unwrap(client.GET('/api/v1/projects/{pid}/cases/{cid}', { params: { path: { pid, cid } } }))
+      return { summary: normalizeCase(d.case), items: d.scans.flatMap((s) => s.items.map(normalizeItem)), warnings: d.warnings.map(normalizeWarning) }
+    },
+    async getItem(pid, iid) {
+      const d = await unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}', { params: { path: { pid, iid } } }))
+      const image_path = d.advanced.image_path ?? null
+      const mask_path = d.advanced.mask_path ?? null
+      return { ...normalizeItem(d), advanced: { image_path, mask_path, image_abs: image_path, mask_abs: mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
+    },
+    thumbnailUrl: (pid, iid) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`),
+
+    // API-50..54
+    async listEvents(pid, f = {}) {
+      const out: CurationEvent[] = []
+      let cursor: string | undefined
+      do {
+        const page = await unwrap(
+          client.GET('/api/v1/projects/{pid}/curation/events', { params: { path: { pid }, query: { ...f, limit: PAGE, cursor } } }),
+        )
+        out.push(...page.items.map(normalizeEvent))
+        cursor = page.next_cursor ?? undefined
+      } while (cursor)
+      // The server pages in append order; CUR-14 shows newest first
+      return out.sort((a, b) => b.at.localeCompare(a.at) || b.event_id.localeCompare(a.event_id))
+    },
+    phaseEvents: async (pid, f = {}) =>
+      (await unwrap(client.GET('/api/v1/projects/{pid}/phase/events', { params: { path: { pid }, query: { ...f, limit: 500 } } }))).items,
+    appendPhase: (pid, ev, reviewer) =>
+      unwrap(
+        client.POST('/api/v1/projects/{pid}/phase/events', {
+          params: { path: { pid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
+          body: { ...ev, session_id: SESSION_ID },
         }),
       ),
-    ),
-  curationState: async (pid) => stateRows(await unwrap(client.GET('/api/v1/projects/{pid}/curation/state', { params: { path: { pid } } }))),
-  queue: async (pid) =>
-    ((await unwrap(client.GET('/api/v1/projects/{pid}/curation/queue', { params: { path: { pid }, query: { format: 'json' } } }))) as Schemas['QueueRow'][]).map((r) => ({
-      scope: null,
-      side: null,
-      phase: null,
-      image_path_abs: null,
-      mask_path_abs: null,
-      ...r,
-      seg_id: r.seg_id ?? null,
-    })),
-  queueCsv: (pid) => blob(`/projects/${enc(pid)}/curation/queue?format=csv`),
-  curationExports: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/curation/exports', { params: { path: { pid } } })),
-  importV2(pid, file, reviewer) {
-    const fd = new FormData()
-    fd.set('file', file)
-    return send('POST', `/projects/${enc(pid)}/curation/import-v2`, fd, reviewerHeader(reviewer))
-  },
+    exportPhase: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/phase/exports', { params: { path: { pid } } })),
+    appendEvent: async (pid, ev, reviewer) =>
+      normalizeEvent(
+        await unwrap(
+          client.POST('/api/v1/projects/{pid}/curation/events', {
+            params: { path: { pid }, header: { 'x-reviewer': reviewer, 'x-session-id': SESSION_ID } },
+            body: { ...ev, context: { ...ev.context }, session_id: SESSION_ID, source: 'ui' },
+          }),
+        ),
+      ),
+    curationState: async (pid) => stateRows(await unwrap(client.GET('/api/v1/projects/{pid}/curation/state', { params: { path: { pid } } }))),
+    queue: async (pid) =>
+      ((await unwrap(client.GET('/api/v1/projects/{pid}/curation/queue', { params: { path: { pid }, query: { format: 'json' } } }))) as Schemas['QueueRow'][]).map((r) => ({
+        scope: null,
+        side: null,
+        phase: null,
+        image_path_abs: null,
+        mask_path_abs: null,
+        ...r,
+        seg_id: r.seg_id ?? null,
+      })),
+    queueCsv: (pid) => blob(`/projects/${enc(pid)}/curation/queue?format=csv`),
+    curationExports: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/curation/exports', { params: { path: { pid } } })),
+    importV2(pid, file, reviewer) {
+      const fd = new FormData()
+      fd.set('file', file)
+      return send('POST', `/projects/${enc(pid)}/curation/import-v2`, fd, reviewerHeader(reviewer))
+    },
 
-  // API-30..37
-  radiomicsSchema: () => unwrap(client.GET('/api/v1/radiomics/schema')),
-  validateRadiomics: (settings, labels, nItems) =>
-    unwrap(client.POST('/api/v1/radiomics/validate', { body: { settings, labels, n_items: nItems } })),
-  listProfiles: (pid) =>
-    allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
-  saveProfile: (pid, name, settings) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid } }, body: { name, settings } })),
-  renameProfile: (pid, phash, name) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash } }, body: { name } })),
-  deleteProfile: async (pid, phash) =>
-    (await unwrap(client.DELETE('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash }, query: { limit: PAGE } } }))).items,
-  estimate: (pid, settings, selection) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/radiomics/estimate', { params: { path: { pid } }, body: { settings, selection } })),
-  listRuns: (pid) =>
-    allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
-  getRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}', { params: { path: { pid, rid } } })),
-  startRun: (pid, body, reviewer) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body })),
-  cancelRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel', { params: { path: { pid, rid } } })),
-  resumeRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/resume', { params: { path: { pid, rid } } })),
-  runFeatures: async (pid, rid, itemId) =>
-    featureRows(
-      await unwrap(
-        client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/features', {
-          params: { path: { pid, rid }, query: { format: 'json', shape: 'long', ...(itemId ? { item_id: itemId } : {}) } },
+    // API-30..37
+    radiomicsSchema: () => unwrap(client.GET('/api/v1/radiomics/schema')),
+    validateRadiomics: (settings, labels, nItems) =>
+      unwrap(client.POST('/api/v1/radiomics/validate', { body: { settings, labels, n_items: nItems } })),
+    listProfiles: (pid) =>
+      allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
+    saveProfile: (pid, name, settings) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/radiomics/profiles', { params: { path: { pid } }, body: { name, settings } })),
+    renameProfile: (pid, phash, name) =>
+      unwrap(client.PATCH('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash } }, body: { name } })),
+    deleteProfile: async (pid, phash) =>
+      (await unwrap(client.DELETE('/api/v1/projects/{pid}/radiomics/profiles/{phash}', { params: { path: { pid, phash }, query: { limit: PAGE } } }))).items,
+    estimate: (pid, settings, selection) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/radiomics/estimate', { params: { path: { pid } }, body: { settings, selection } })),
+    listRuns: (pid) =>
+      allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, query: { limit: PAGE, cursor } } }))),
+    getRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}', { params: { path: { pid, rid } } })),
+    startRun: (pid, body, reviewer) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body })),
+    cancelRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/cancel', { params: { path: { pid, rid } } })),
+    resumeRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/radiomics/runs/{rid}/resume', { params: { path: { pid, rid } } })),
+    runFeatures: async (pid, rid, itemId) =>
+      featureRows(
+        await unwrap(
+          client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/features', {
+            params: { path: { pid, rid }, query: { format: 'json', shape: 'long', ...(itemId ? { item_id: itemId } : {}) } },
+          }),
+        ) as Schemas['FeaturesTable'],
+      ),
+    runExportUrl: (pid, rid, format, shape) => viewPath(`${V1}/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=${format}&shape=${shape}`),
+    runErrors: (pid, rid) =>
+      allPages((cursor) =>
+        unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/errors', { params: { path: { pid, rid }, query: { limit: PAGE, cursor } } })),
+      ),
+
+    // API-38/39
+    dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),
+    async listAnalyses(pid, rid) {
+      const r = await unwrap(client.GET('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, query: rid ? { run_id: rid } : {} } }))
+      return r.items
+    },
+    getAnalysis: (pid, aid) => unwrap(client.GET('/api/v1/projects/{pid}/analyses/{aid}', { params: { path: { pid, aid } } })),
+    createAnalysis: (pid, spec, reviewer) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body: spec })),
+    exportAnalysis: (pid, aid, file) => blob(`/projects/${enc(pid)}/analyses/${enc(aid)}/export?file=${file}`),
+
+    // API-24/27
+    listSegmentations: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid } } })),
+    patchSegmentation: (pid, seg, body) =>
+      unwrap(client.PATCH('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } }, body })),
+    maskUrl: (pid, iid, seg) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`),
+
+    // API-42..47
+    listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
+    listTasks: () => unwrap(client.GET('/api/v1/tasks')),
+    listLabelTables: (pid, deleted = false) => unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid }, query: deleted ? { deleted } : {} } })),
+    createLabelTable: (pid, body) => unwrap(client.POST('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid } }, body })),
+    patchLabelTable: (pid, tid, body) => unwrap(client.PATCH('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}', { params: { path: { pid, tid } }, body })),
+    async labelCells(pid, tid) {
+      const items = await allPages((cursor) =>
+        unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', { params: { path: { pid, tid }, query: { cursor, limit: PAGE } } })),
+      )
+      return { items, next_cursor: null, total: items.length }
+    },
+    writeLabelCells: (pid, tid, cells, reviewer) =>
+      unwrap(
+        client.POST('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', {
+          params: { path: { pid, tid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
+          body: { cells },
         }),
-      ) as Schemas['FeaturesTable'],
-    ),
-  runExportUrl: (pid, rid, format, shape) => viewPath(`${V1}/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/features?format=${format}&shape=${shape}`),
-  runErrors: (pid, rid) =>
-    allPages((cursor) =>
-      unwrap(client.GET('/api/v1/projects/{pid}/radiomics/runs/{rid}/errors', { params: { path: { pid, rid }, query: { limit: PAGE, cursor } } })),
-    ),
+      ),
+    labelHistory: (pid, tid, target, column_id) =>
+      unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/history', { params: { path: { pid, tid }, query: { target, column_id } } })),
+    importLabelTable(pid, tid, file, reviewer) {
+      const fd = new FormData()
+      fd.set('file', file)
+      return send('POST', `/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/import`, fd, { ...reviewerHeader(reviewer), 'X-Session-Id': SESSION_ID })
+    },
+    labelExportUrl: (pid, tid, format) => viewPath(`${V1}/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}`),
+    estimateWorkspaceTask: (tid, selection, settings = {}) =>
+      unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid } }, body: { selection, settings } })),
+    startWorkspaceRun: (body) => unwrap(client.POST('/api/v1/task-runs', { body })),
+    listWorkspaceRuns: () => unwrap(client.GET('/api/v1/task-runs')),
+    getWorkspaceRun: (rid) => unwrap(client.GET('/api/v1/task-runs/{rid}', { params: { path: { rid } } })),
+    cancelWorkspaceRun: (rid) => unwrap(client.POST('/api/v1/task-runs/{rid}/cancel', { params: { path: { rid } } })),
+    listLayers: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/layers', { params: { path: { pid } } })),
+    datasetTableUrl: (pid, format, includeSensitive = false) =>
+      viewPath(`${V1}/projects/${enc(pid)}/exports/dataset-table?format=${format}${includeSensitive ? '&include_sensitive=true' : ''}`),
+    getTask: (tid) => unwrap(client.GET('/api/v1/tasks/{tid}', { params: { path: { tid } } })),
+    validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),
+    preflightTask: (pid, tid, selection, settings = {}) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/preflight', { params: { path: { pid, tid } }, body: { selection, settings } })),
+    estimateTask: (pid, tid, selection, settings = {}) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/estimate', { params: { path: { pid, tid } }, body: { selection, settings } })),
+    startTaskRun: (pid, body, reviewer) =>
+      unwrap(
+        client.POST('/api/v1/projects/{pid}/task-runs', {
+          params: { path: { pid }, header: reviewer ? { 'X-Reviewer': reviewer } : {} },
+          body,
+        }),
+      ),
+    listTaskRuns: (pid, task) =>
+      unwrap(client.GET('/api/v1/projects/{pid}/task-runs', { params: { path: { pid }, query: task ? { task } : {} } })),
+    getTaskRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}', { params: { path: { pid, rid } } })),
+    cancelTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/cancel', { params: { path: { pid, rid } } })),
+    resumeTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } })),
+    taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
+    taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),
 
-  // API-38/39
-  dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),
-  async listAnalyses(pid, rid) {
-    const r = await unwrap(client.GET('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, query: rid ? { run_id: rid } : {} } }))
-    return r.items
-  },
-  getAnalysis: (pid, aid) => unwrap(client.GET('/api/v1/projects/{pid}/analyses/{aid}', { params: { path: { pid, aid } } })),
-  createAnalysis: (pid, spec, reviewer) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body: spec })),
-  exportAnalysis: (pid, aid, file) => blob(`/projects/${enc(pid)}/analyses/${enc(aid)}/export?file=${file}`),
+    listAnnotations: (pid, f = {}) => unwrap(client.GET('/api/v1/projects/{pid}/annotations', { params: { path: { pid }, query: f } })),
+    setAnnotationSource: (pid, field, run_id) =>
+      unwrap(client.PUT('/api/v1/projects/{pid}/annotation-sources/{field}', { params: { path: { pid, field } }, body: { run_id } })),
+    dicomTags: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/dicom-tags', { params: { path: { pid, iid } } })),
+    importConverterCuration(pid, file, reviewer) {
+      const fd = new FormData()
+      fd.set('file', file)
+      return send<V2ImportReport>('POST', `/projects/${enc(pid)}/curation/import-converter`, fd, reviewerHeader(reviewer))
+    },
 
-  // API-24/27
-  listSegmentations: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid } } })),
-  patchSegmentation: (pid, seg, body) =>
-    unwrap(client.PATCH('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } }, body })),
-  maskUrl: (pid, iid, seg) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`),
+    // API-41
+    listJobs: async (pid) => (await unwrap(client.GET('/api/v1/jobs', { params: { query: pid ? { project: pid } : {} } }))).map(normalizeJob),
+    async cancelJob(_pid, jobId) {
+      await unwrap(client.POST('/api/v1/jobs/{job_id}/cancel', { params: { path: { job_id: jobId } } }))
+    },
 
-  // API-42..47
-  listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
-  listTasks: () => unwrap(client.GET('/api/v1/tasks')),
-  listLabelTables: (pid, deleted = false) => unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid }, query: deleted ? { deleted } : {} } })),
-  createLabelTable: (pid, body) => unwrap(client.POST('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid } }, body })),
-  patchLabelTable: (pid, tid, body) => unwrap(client.PATCH('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}', { params: { path: { pid, tid } }, body })),
-  async labelCells(pid, tid) {
-    const items = await allPages((cursor) =>
-      unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', { params: { path: { pid, tid }, query: { cursor, limit: PAGE } } })),
-    )
-    return { items, next_cursor: null, total: items.length }
-  },
-  writeLabelCells: (pid, tid, cells, reviewer) =>
-    unwrap(
-      client.POST('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', {
-        params: { path: { pid, tid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
-        body: { cells },
-      }),
-    ),
-  labelHistory: (pid, tid, target, column_id) =>
-    unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/history', { params: { path: { pid, tid }, query: { target, column_id } } })),
-  importLabelTable(pid, tid, file, reviewer) {
-    const fd = new FormData()
-    fd.set('file', file)
-    return send('POST', `/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/import`, fd, { ...reviewerHeader(reviewer), 'X-Session-Id': SESSION_ID })
-  },
-  labelExportUrl: (pid, tid, format) => viewPath(`${V1}/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}`),
-  estimateWorkspaceTask: (tid, selection, settings = {}) =>
-    unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid } }, body: { selection, settings } })),
-  startWorkspaceRun: (body) => unwrap(client.POST('/api/v1/task-runs', { body })),
-  listWorkspaceRuns: () => unwrap(client.GET('/api/v1/task-runs')),
-  getWorkspaceRun: (rid) => unwrap(client.GET('/api/v1/task-runs/{rid}', { params: { path: { rid } } })),
-  cancelWorkspaceRun: (rid) => unwrap(client.POST('/api/v1/task-runs/{rid}/cancel', { params: { path: { rid } } })),
-  listLayers: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/layers', { params: { path: { pid } } })),
-  datasetTableUrl: (pid, format, includeSensitive = false) =>
-    viewPath(`${V1}/projects/${enc(pid)}/exports/dataset-table?format=${format}${includeSensitive ? '&include_sensitive=true' : ''}`),
-  getTask: (tid) => unwrap(client.GET('/api/v1/tasks/{tid}', { params: { path: { tid } } })),
-  validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),
-  preflightTask: (pid, tid, selection, settings = {}) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/preflight', { params: { path: { pid, tid } }, body: { selection, settings } })),
-  estimateTask: (pid, tid, selection, settings = {}) =>
-    unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/estimate', { params: { path: { pid, tid } }, body: { selection, settings } })),
-  startTaskRun: (pid, body, reviewer) =>
-    unwrap(
-      client.POST('/api/v1/projects/{pid}/task-runs', {
-        params: { path: { pid }, header: reviewer ? { 'X-Reviewer': reviewer } : {} },
-        body,
-      }),
-    ),
-  listTaskRuns: (pid, task) =>
-    unwrap(client.GET('/api/v1/projects/{pid}/task-runs', { params: { path: { pid }, query: task ? { task } : {} } })),
-  getTaskRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}', { params: { path: { pid, rid } } })),
-  cancelTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/cancel', { params: { path: { pid, rid } } })),
-  resumeTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } })),
-  taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
-  taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),
-
-  listAnnotations: (pid, f = {}) => unwrap(client.GET('/api/v1/projects/{pid}/annotations', { params: { path: { pid }, query: f } })),
-  setAnnotationSource: (pid, field, run_id) =>
-    unwrap(client.PUT('/api/v1/projects/{pid}/annotation-sources/{field}', { params: { path: { pid, field } }, body: { run_id } })),
-  dicomTags: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/dicom-tags', { params: { path: { pid, iid } } })),
-  importConverterCuration(pid, file, reviewer) {
-    const fd = new FormData()
-    fd.set('file', file)
-    return send<V2ImportReport>('POST', `/projects/${enc(pid)}/curation/import-converter`, fd, reviewerHeader(reviewer))
-  },
-
-  // API-41
-  listJobs: async (pid) => (await unwrap(client.GET('/api/v1/jobs', { params: { query: pid ? { project: pid } : {} } }))).map(normalizeJob),
-  async cancelJob(_pid, jobId) {
-    await unwrap(client.POST('/api/v1/jobs/{job_id}/cancel', { params: { path: { job_id: jobId } } }))
-  },
-
-  reset() {},
-  setReviewerSimulation() {},
+  }
 }
+
+// `fetch` is looked up per call, so tests can stub it after this module loads
+export const httpApi: Api = createHttpApi((input, init) => globalThis.fetch(input, init))

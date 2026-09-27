@@ -38,7 +38,7 @@ backend/app/
 ├── curation/        # Curation & QC on the event store: reducer (derived state), queue, exports (CUR-*)
 ├── labeling/        # Labeling tables on the event store: schemas, cells, layers (LBL-*)
 ├── phase/           # native phase selection: events, read-time join, exports (PHS-*, ADR-0026)
-├── imaging/         # header reader, fingerprint, npy→nii, mesh builder + route (API-25), thumbnails, file streaming
+├── imaging/         # header reader, fingerprint, npy→nii, mesh builder (route: api/v1/mesh.py, API-25), thumbnails, file streaming
 ├── radiomics/       # engine protocol, pyradiomics adapter, schema builder, ibsi_map.json; runs as builtin task (RAD-13)
 ├── variables/       # profiling, type inference, catalog overrides, derived + external variables (VAR-*)
 ├── analytics/       # DuckDB queries for dashboard views (DB-*) + guided statistics and recommendations (ANA-*)
@@ -48,7 +48,7 @@ backend/app/
 
 Outside `backend/`: task plugins `plugins/dicom/` (DCM), `plugins/analyzers/` (ANZ), `plugins/threshold/` (CI test plugin) with their `task*.json` manifests; `plugins/nnunet/` and `plugins/voi/` are pending manifests (PLG-09); `plugins/radiomics/` (the builtin `radiomics.pyradiomics` task in `app/radiomics/`), `plugins/curation/`, `plugins/labeling/`, `plugins/dashboard/` and the packs `plugins/ccrcc/`, `plugins/generic-ct/` contribute UI, routes or pack data only. All plugins are first-party (PLG-01) with a `plugin.json`; builtin ones are installed into the image, and `PLUGINS_ROOT` is only the host copy the runner executes for `external` runtimes. `scripts/rw-runner.py` is the host runner (TSK-11).
 
-**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|tasks|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`.
+**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|tasks|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
 Services never import `api`. All filesystem I/O goes through `core.fsio` or `core.paths`.
 
 ## Requirements

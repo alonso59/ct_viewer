@@ -1,6 +1,7 @@
 """API-25 surface mesh per mask label (VW-09, BE-04/06/12).
 
-Not mounted here: the integrator adds `mesh_api` to `app/api/v1/__init__.py`.
+A router, so it lives with the routers (was `imaging/mesh_api.py`: a service package importing
+the API layer, AUD-A6-10).
 """
 
 from __future__ import annotations

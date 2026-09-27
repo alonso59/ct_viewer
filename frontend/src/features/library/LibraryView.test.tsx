@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // TST-17 (PLG-05/06/09, UI-22): the Library lists every plugin with status; pending ones cannot open.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, within } from '@testing-library/react'

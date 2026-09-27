@@ -19,7 +19,6 @@ import { isLayoutId } from '../model/layouts'
 import { CursorStatus, WindowStatus } from '../StatusItems'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, ToolGroup, WindowPresets } from '../Tools'
 import { ViewerSurface } from '../ViewerSurface'
-import '../i18n'
 import '../viewer.css'
 import '../../../shell/shell.css'
 

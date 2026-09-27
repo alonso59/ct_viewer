@@ -4,10 +4,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDeleteProfile, useProfiles, useRenameProfile, useSaveProfile } from '../../api'
-import { Dialog, IconButton, fmtAgo } from '../../lib'
-import { toast } from '../../shell'
+import { Dialog, IconButton, fmtAgo, problemMessage } from '../../lib'
+import { toast, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { errorMessage } from './errors'
 import { fromWire } from './model/settings'
 import type { Profile, SettingsSchema, WireSettings } from './model/types'
 import { useDraft } from './store'
@@ -40,7 +39,7 @@ export function ProfileBar({ pid, schema, wire }: { pid: string; schema: Setting
       useDraft.setState({ loadedFrom: p.name })
       setName('')
     } catch (e) {
-      toast({ message: errorMessage(e, t('common.saveFailed')), tone: 'error' })
+      toastProblem(e, t('common.saveFailed'))
     }
   }
   const doRename = async () => {
@@ -49,7 +48,7 @@ export function ProfileBar({ pid, schema, wire }: { pid: string; schema: Setting
       await rename.mutateAsync({ hash: editing.hash, name: editing.name.trim() })
       setEditing(null)
     } catch (e) {
-      toast({ message: errorMessage(e, t('common.saveFailed')), tone: 'error' })
+      toastProblem(e, t('common.saveFailed'))
     }
   }
   const doDelete = async (p: Profile) => {
@@ -57,7 +56,7 @@ export function ProfileBar({ pid, schema, wire }: { pid: string; schema: Setting
       await del.mutateAsync(p.profile_hash)
       toast({ message: t('rad.profileDeleted', { name: p.name }), tone: 'info' })
     } catch (e) {
-      toast({ message: errorMessage(e, t('common.saveFailed')), tone: 'error' })
+      toastProblem(e, t('common.saveFailed'))
     }
   }
 
@@ -102,7 +101,7 @@ export function ProfileBar({ pid, schema, wire }: { pid: string; schema: Setting
         </div>
         <span className="muted rad-help">{t('rad.profileHashHelp')}</span>
         {profiles.isLoading ? <div className="muted">{t('common.loading')}</div> : null}
-        {profiles.error ? <div className="field-error">{errorMessage(profiles.error, t('common.error'))}</div> : null}
+        {profiles.error ? <div className="field-error">{problemMessage(profiles.error, t('common.error'))}</div> : null}
         {!profiles.isLoading && list.length === 0 ? <div className="muted">{t('rad.noProfiles')}</div> : null}
         <ul className="rad-profile-list">
           {list.map((p) => (

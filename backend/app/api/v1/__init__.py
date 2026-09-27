@@ -15,6 +15,7 @@ from app.api.v1 import (
     items,
     jobs,
     labeling,
+    mesh,
     phase,
     plugins,
     projects,
@@ -26,7 +27,6 @@ from app.api.v1 import (
     view,
     volumes,
 )
-from app.imaging import mesh_api
 
 router = APIRouter()
 for _module in (
@@ -35,4 +35,4 @@ for _module in (
     events, view,
 ):  # fmt: skip
     router.include_router(_module.router)
-router.include_router(mesh_api.router)  # API-25 (lane P3)
+router.include_router(mesh.router)  # API-25

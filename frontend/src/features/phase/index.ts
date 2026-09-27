@@ -4,8 +4,8 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
-import { api, appendPhaseNow, keys, PHASES, ProblemError, queryClient, ReviewerCancelled, useProjectEvents, type CaseDetail, type Project, type ServerEvent } from '../../api'
-import { registry, toast, useWorkbench } from '../../shell'
+import { api, appendPhaseNow, keys, PHASES, queryClient, ReviewerCancelled, useProjectEvents, type CaseDetail, type Project, type ServerEvent } from '../../api'
+import { registry, toast, useWorkbench, toastProblem } from '../../shell'
 import { useViewerSync } from '../../state'
 import { phaseOptions } from './model'
 
@@ -32,7 +32,7 @@ async function writeExport() {
     const r = await api.exportPhase(pid)
     toast({ message: i18n.t('queue.exportsWritten', { dir: r.dir ?? 'exports', files: r.files.join(', ') }), tone: 'ok' })
   } catch (e) {
-    toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.error'), tone: 'error' })
+    toastProblem(e, i18n.t('common.error'))
   }
 }
 
@@ -52,7 +52,7 @@ function setPhase(value: string) {
   appendPhaseNow(queryClient, at.pid, { case_id: at.item.case_id, scan_idx: at.item.scan_idx, value, source: 'manual' }).then(
     () => toast({ message: i18n.t('phaseSel.setTo', { scan: `${at.item.case_id} · ${at.item.scan_idx}`, phase: value }), tone: 'ok' }),
     (e: unknown) => {
-      if (!(e instanceof ReviewerCancelled)) toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.saveFailed'), tone: 'error' })
+      if (!(e instanceof ReviewerCancelled)) toastProblem(e, i18n.t('common.saveFailed'))
     },
   )
 }

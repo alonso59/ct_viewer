@@ -71,10 +71,10 @@ function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current
         : null}
       <span className="switcher-sep" />
       <div className="seg" role="group" aria-label={t('viewer.scope')}>
-        <button type="button" aria-pressed={current.scope === 'complete'} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'complete')}>
+        <button type="button" data-scope="complete" aria-pressed={current.scope === 'complete'} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'complete')}>
           {t('item.full')}
         </button>
-        <button type="button" aria-pressed={current.scope === 'voi'} disabled={!hasVoi} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'voi')}>
+        <button type="button" data-scope="voi" aria-pressed={current.scope === 'voi'} disabled={!hasVoi} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'voi')}>
           {t('item.voi')}
         </button>
       </div>

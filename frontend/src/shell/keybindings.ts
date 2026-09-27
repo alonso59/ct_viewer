@@ -99,9 +99,10 @@ export function useGlobalKeybindings() {
   }, [])
 }
 
-export function runCommand(id: string) {
+/** Run a command by id; features reach plugins this way, never through their modules (FE-ARCH §Boundaries) */
+export function runCommand(id: string, arg?: string) {
   const c = registry.commands.get(id)
-  if (c && registry.available(c) && (!c.enabled || c.enabled())) c.run()
+  if (c && registry.available(c) && (!c.enabled || c.enabled())) c.run(arg)
 }
 
 /** The translated title of a command (its `titleArgs` filled in) */

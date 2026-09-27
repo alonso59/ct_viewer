@@ -16,9 +16,8 @@ import {
   type TaskEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, useImportWizard } from '../../features/import'
-import { openPath } from '../../features/open/navigate'
-import { NewProjectDialog } from '../../features/projects'
-import { Dialog, fmtBytes, ProblemCard, Progress } from '../../lib'
+import { NewProjectDialog } from '../../features/import'
+import { Dialog, fmtBytes, openPath, ProblemCard, Progress } from '../../lib'
 import { codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, useConverter } from './store'
 import './converter.css'

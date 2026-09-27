@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { api, keys, ProblemError, useLabelCells, useLabelHistory, useLabelTables, useProject, type LabelCellIn, type LabelColumn, type LabelImportReport, type LabelTable } from '../../api'
 import { openInContext } from '../../features/explorer'
 import { Dialog, ProblemCard } from '../../lib'
-import { registry, toast, useWorkbench, type EditorProps } from '../../shell'
+import { registry, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { display, fillCells, filterRows, move, parseTsv, pasteCells, rect, sortRows, type Pos } from './model'
@@ -95,7 +95,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     try {
       setError(null)
       await api.writeLabelCells(pid, tid, list, reviewer)
-      void qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
+      void qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
     } catch (e) {
       setError(e)
     }
@@ -116,8 +116,10 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     setAnchor(extend ? (anchor ?? active) : null)
     virt.scrollToIndex(p.r)
   }
+  // Only keys and pastes on the grid itself: a header menu, sort button or column filter inside it
+  // keeps its own keys (Enter on a column menu, letters in a filter) instead of editing a cell
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (editing || !rows.length || !cols.length) return
+    if (e.target !== e.currentTarget || editing || !rows.length || !cols.length) return
     const col = cols[active.c]
     const row = rows[active.r]
     if (e.key.startsWith('Arrow') || e.key === 'Tab') {
@@ -140,7 +142,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     }
   }
   const onPaste = (e: ClipboardEvent<HTMLDivElement>) => {
-    if (readOnly || editing) return
+    if (e.target !== e.currentTarget || readOnly || editing) return
     e.preventDefault()
     void write(pasteCells(parseTsv(e.clipboardData.getData('text/plain')), active, rows, cols))
   }
@@ -150,7 +152,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     if (!reviewer) return
     try {
       setReport(await api.importLabelTable(pid, tid, file, reviewer))
-      void qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
+      void qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
     } catch (e) {
       setError(e)
     }
@@ -306,7 +308,7 @@ function AddColumns({ pid, tid, level, labels, onClose }: { pid: string; tid: st
       void qc.invalidateQueries({ queryKey: keys.labelCells(pid, tid) })
       onClose()
     } catch (e) {
-      toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : String(e), tone: 'error' })
+      toastProblem(e)
     }
   }
   return (

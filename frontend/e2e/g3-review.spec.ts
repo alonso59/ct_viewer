@@ -2,21 +2,17 @@
 // A → Alt+↓ → A (both recorded, AUD-A2-02, CUR-04) → next unreviewed case (AUD-A1-04, CUR-08) →
 // open from the correction queue and follow its navigation context (AUD-A1-04, CUR-09) → browser
 // Back returns to the previous case (AUD-A1-02, FE-04) → the Explorer shows the active case
-// (AUD-A1-03, UI-08). Title-bar entry points (menus, quick open, share, About) are used too,
+// (AUD-A1-03, UI-08) → the queue exports as CSV with the segmentation set (CUR-09/10) → one-click
+// phase in the case header (PHS-01) → a decision with a comment on the set on screen (CUR-05,
+// VW-19; AUD-A6-16). Title-bar entry points (menus, quick open, share, About) are used too,
 // because browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W (UI-05, AUD-A1-09/11, NFR-16).
 // Real backend on the synthetic fixtures; setup goes through the API.
-import { resolve } from 'node:path'
+
+import { readFileSync } from 'node:fs'
 
 import { expect, test, type Page } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json', 'X-Reviewer': 'E2E' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
+import { api, importedProject } from './helpers'
 
 interface CaseRow { case_id: string; review_state: string; excluded?: boolean }
 const events = async (pid: string, caseId: string) =>
@@ -34,11 +30,7 @@ test.setTimeout(120_000)
 test('G3: review loop with the keyboard, review order and history', async ({ page, browserName }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `G3 ${browserName} ${Date.now()}`, packs: ['ccrcc'] })
-  const pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(`G3 ${browserName} ${Date.now()}`)
   const cases = (await api<{ items: CaseRow[] }>('GET', `/projects/${pid}/cases?limit=500`)).items
   const [first, second] = cases
   expect(first && second).toBeTruthy()
@@ -83,6 +75,12 @@ test('G3: review loop with the keyboard, review order and history', async ({ pag
   const firstQ = (await rows.nth(0).locator('td').first().textContent()) ?? ''
   const secondQ = (await rows.nth(1).locator('td').first().textContent()) ?? ''
   expect([firstQ, secondQ].sort()).toEqual([q1, q2].sort())
+  // Queue export (CUR-10): a CSV for 3D Slicer with one row per queued decision and its set
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export CSV for 3D Slicer' }).click()
+  const csv = readFileSync((await (await download).path())!, 'utf-8').trim().split('\n')
+  expect(csv[0]).toContain('seg_id')
+  expect(csv.slice(1).map((l) => l.split(',')[0]).sort()).toEqual([q1, q2].sort())
   await rows.nth(0).click()
   await onCase(page, pid, firstQ)
   const chip = page.getByRole('group', { name: 'Navigation list: Correction queue' })
@@ -108,6 +106,26 @@ test('G3: review loop with the keyboard, review order and history', async ({ pag
   // × falls back to Explorer order
   await chip.getByRole('button', { name: 'Back to Explorer order' }).click()
   await expect(chip).toHaveCount(0)
+
+  // One-click phase (PHS-01): the case header's control sets the scan's phase at once
+  const scan = (await api<{ scans: { scan_idx: string; items: { scope: string; phase: { canonical: string } }[] }[] }>('GET', `/projects/${pid}/cases/${firstQ}`)).scans[0]!
+  const now = scan.items.find((x) => x.scope === 'complete')!.phase.canonical
+  const pick = now === 'EP' ? 'NC' : 'EP'
+  const phase = page.locator('.case-header').getByRole('group', { name: `Phase of ${firstQ} · ${scan.scan_idx}` })
+  await phase.getByRole('button', { name: pick, exact: true }).click()
+  await expect(phase.getByRole('button', { name: pick, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  const selections = await api<{ items: { value: string; reviewer: string }[] }>('GET', `/projects/${pid}/phase/events?case_id=${firstQ}&scan_idx=${scan.scan_idx}`)
+  expect(selections.items.map((e) => [e.value, e.reviewer])).toEqual([[pick, 'Dr. G3']])
+
+  // A decision with a comment (CUR-05), recorded on the segmentation set on screen (VW-19)
+  const bar2 = page.getByRole('navigation', { name: 'Activity bar' })
+  await bar2.getByRole('button', { name: 'Curation', exact: true }).click()
+  const form = page.getByRole('complementary', { name: 'Curation' })
+  await form.getByPlaceholder('What is wrong, and where (slices)?').fill('Leak at the upper pole, slices 20-24')
+  await form.getByRole('button', { name: /^Minor/ }).click()
+  await expect
+    .poll(async () => (await api<{ items: { comment: string; seg_id: string | null; status: string }[] }>('GET', `/projects/${pid}/curation/events?case_id=${firstQ}`)).items.find((e) => e.comment))
+    .toMatchObject({ comment: 'Leak at the upper pole, slices 20-24', seg_id: 'imported', status: 'needs_minor_correction' })
 
   // Title-bar entry points: quick open, share menu, Help › About (NFR-16)
   await page.getByRole('button', { name: /Go to case/ }).click()

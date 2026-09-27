@@ -3,14 +3,13 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, ProblemError, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useQueue, type CurationStatus, type V2ImportReport } from '../../api'
-import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis } from '../../lib'
-import { toast, useWorkbench } from '../../shell'
+import { api, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useQueue, type CurationStatus, type V2ImportReport } from '../../api'
+import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis, problemMessage } from '../../lib'
+import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
 import '../../i18n/lazy'
 
-const problemText = (e: unknown, fallback: string) => (e instanceof ProblemError ? (e.detail ?? e.title) : fallback)
 
 function download(name: string, blob: Blob) {
   const a = document.createElement('a')
@@ -110,7 +109,7 @@ export function QueueEditor() {
       download('correction_queue.csv', await api.queueCsv(pid))
       toast({ message: t('queue.exported', { count: data?.length ?? 0 }), tone: 'ok' })
     } catch (e) {
-      toast({ message: problemText(e, t('common.error')), tone: 'error' })
+      toastProblem(e, t('common.error'))
     } finally {
       setBusyCsv(false)
     }
@@ -118,13 +117,13 @@ export function QueueEditor() {
   const writeExports = () =>
     exportsM.mutate(undefined, {
       onSuccess: (r) => toast({ message: t('queue.exportsWritten', { dir: r.dir ?? 'exports', files: r.files.join(', ') }), tone: 'ok' }),
-      onError: (e) => toast({ message: problemText(e, t('common.error')), tone: 'error' }),
+      onError: (e) => toastProblem(e, t('common.error')),
     })
   const importV2 = (file: File) =>
     importM.mutate(file, {
       onSuccess: setReport,
       onError: (e) => {
-        if (!(e instanceof ReviewerCancelled)) toast({ message: problemText(e, t('common.error')), tone: 'error' })
+        if (!(e instanceof ReviewerCancelled)) toastProblem(e, t('common.error'))
       },
     })
 
@@ -168,7 +167,7 @@ export function QueueEditor() {
         />
       </div>
       {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-      {isError ? <div className="error-card">{problemText(error, t('common.error'))}</div> : null}
+      {isError ? <div className="error-card">{problemMessage(error, t('common.error'))}</div> : null}
       {!isLoading && !isError && rows.length === 0 ? <div className="empty">{t('queue.empty')}</div> : null}
       {rows.length ? (
         <table className="table">

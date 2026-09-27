@@ -5,8 +5,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, ProblemError, useItem, useLabelCells, useLabelTables, type ItemRecord, type LabelColumn, type LabelTableInfo } from '../../api'
-import { openEditor, registry, toast, useWorkbench } from '../../shell'
+import { api, keys, useItem, useLabelCells, useLabelTables, type ItemRecord, type LabelColumn, type LabelTableInfo } from '../../api'
+import { openEditor, registry, useWorkbench, toastProblem } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { CellEditor } from './CellEditor'
@@ -33,9 +33,9 @@ function Cell({ pid, tid, target, col, value }: { pid: string; tid: string; targ
     if (!reviewer) return
     try {
       await api.writeLabelCells(pid, tid, [{ column_id: col.column_id, target, value: next }], reviewer)
-      void qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
+      void qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
     } catch (e) {
-      toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : t('common.saveFailed'), tone: 'error' })
+      toastProblem(e, t('common.saveFailed'))
     }
   }
   if (col.type === 'bool' && !col.ref)

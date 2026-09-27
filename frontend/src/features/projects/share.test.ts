@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // AUD-A1-11 (PRJ-03, PRJ-17): both links keep the current tab's deep link
 import { deepLink } from './share'
 

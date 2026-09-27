@@ -15,7 +15,7 @@ Reference volume: abdominal CT 512×512×600 int16 `.nii.gz` (~180 MB compressed
 | NFR-04 | Index 1,000 items (headers + quick fingerprints) | M | < 60 s |
 | NFR-05 | Mesh for one label (cached miss) | M | < 5 s |
 | NFR-06 | Radiomics throughput reported per run; no UI blocking during runs | M | reported, not fixed |
-| NFR-07 | Initial JS bundle | M | ≤ 300 KB gzip |
+| NFR-07 | Initial JS bundle: entry script + its `modulepreload` set, gzip -9, gated by `make bundle-size` (FE-05) | M | ≤ 300 KiB gzip |
 | NFR-08 | API process RSS at idle with 4 projects cached | M | ≤ 500 MB |
 | NFR-09 | Browser memory with `VIEWER_MAX_LOADED=3` | M | ≤ 3 GB |
 | NFR-10 | OCI image size | M | ≤ 1.5 GB |

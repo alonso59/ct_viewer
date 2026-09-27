@@ -1,10 +1,9 @@
 import * as RTooltip from '@radix-ui/react-tooltip'
-import { useEffect, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 
 import { useLayout } from '../state'
 import { ActivityBar } from './ActivityBar'
 import { CommandPalette } from './CommandPalette'
-import { EditorArea } from './EditorArea'
 import { Inspector } from './Inspector'
 import { Panel, PanelContentWatch } from './Panel'
 import { ReviewerPrompt } from './ReviewerPrompt'
@@ -16,6 +15,9 @@ import { Toasts } from './Toasts'
 import { ToolBar } from './ToolBar'
 import { useWorkbench } from './workbenchStore'
 import './shell.css'
+
+// dockview (the editor area) loads with the first project workbench, not with the home (NFR-07)
+const EditorArea = lazy(() => import('./EditorArea').then((m) => ({ default: m.EditorArea })))
 
 /** The workbench shell for one project (UI-01). Domain content comes only from the registry. */
 export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode; share?: ReactNode }) {
@@ -41,7 +43,9 @@ export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode
         <ActivityBar />
         <SideBar />
         <div className="wb-center">
-          <EditorArea key={pid} pid={pid} />
+          <Suspense fallback={<div className="wb-editor" />}>
+            <EditorArea key={pid} pid={pid} />
+          </Suspense>
           <Panel />
           <PanelContentWatch />
         </div>

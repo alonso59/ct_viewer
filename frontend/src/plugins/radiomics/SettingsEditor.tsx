@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ReviewerCancelled, useEstimate, useProfiles, useProject, useRadiomicsSchema, useStartRun, useVariables } from '../../api'
-import { fmtDuration } from '../../lib'
-import { toast, useWorkbench } from '../../shell'
+import { fmtDuration, problemMessage } from '../../lib'
+import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { FeatureClassesForm, FiltersForm } from './GroupForms'
 import { useServerValidation } from './hooks'
@@ -18,7 +18,6 @@ import { criteriaCount, knownEmpty, toSelection } from './model/selection'
 import { defaultForm, featureCount, optionsByGroup, setOption, toWire } from './model/settings'
 import { SELECTION, fieldOf, fromServer, groupOf, hasErrors, validateForm } from './model/validate'
 import type { EstimateResult, FormState, Issue } from './model/types'
-import { errorMessage } from './errors'
 import { useDraft } from './store'
 import '../../i18n/lazy'
 import './radiomics.css'
@@ -83,7 +82,7 @@ export function SettingsEditor() {
     return (
       <div className="error-card" role="alert">
         <strong>{t('rad.schemaError')}</strong>
-        <span>{errorMessage(schema.error ?? project.error, t('common.error'))}</span>
+        <span>{problemMessage(schema.error ?? project.error, t('common.error'))}</span>
       </div>
     )
 
@@ -111,7 +110,7 @@ export function SettingsEditor() {
       const result = await estimate.mutateAsync({ settings: wire, selection })
       setEst({ key: estKey, result })
     } catch (e) {
-      toast({ message: errorMessage(e, t('common.error')), tone: 'error' })
+      toastProblem(e, t('common.error'))
     }
   }
   const run = async () => {
@@ -122,7 +121,7 @@ export function SettingsEditor() {
       draft.setRunName('')
     } catch (e) {
       if (e instanceof ReviewerCancelled) return
-      toast({ message: errorMessage(e, t('common.error')), tone: 'error' })
+      toastProblem(e, t('common.error'))
     }
   }
 

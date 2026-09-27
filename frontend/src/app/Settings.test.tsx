@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-11 / UI-27 (AUD-A3-16, AUD-A3-23): themes are "Dark · Light · System"; the interface size
 // (Compact · Default · Large) sets <html data-size> at once, Default without the attribute
 import { fireEvent, render, screen, within } from '@testing-library/react'

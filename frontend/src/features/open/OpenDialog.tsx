@@ -3,10 +3,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { Dialog } from '../../lib'
+import { Dialog, openPath } from '../../lib'
 import { FolderBrowser } from '../import'
 import { codicon } from '../../theme'
-import { openPath } from './navigate'
 import { useOpenDialog } from './store'
 
 export default function OpenDialog() {

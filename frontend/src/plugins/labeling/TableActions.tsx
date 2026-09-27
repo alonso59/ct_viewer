@@ -20,7 +20,7 @@ function usePatch(pid: string, tid: string) {
     try {
       setError(null)
       await api.patchLabelTable(pid, tid, body)
-      await qc.invalidateQueries({ queryKey: ['project', pid, 'labeling'] })
+      await qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
       return true
     } catch (e) {
       setError(e)

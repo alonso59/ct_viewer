@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // IMP-12 / UI-15 (AUD-A3-11, AUD-A3-12): a missing thumbnail is a muted CT-set placeholder with a
 // tooltip on the inset colour (never a black square, never the "rejected" circle-slash)
 import { render, screen } from '@testing-library/react'

@@ -3,8 +3,8 @@ import { createElement, lazy, Suspense, useCallback, type ComponentType } from '
 import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
-import { api, keys, ProblemError, queryClient, useProjectEvents, type CurationStateRow, type CurationStatus, type ServerEvent } from '../../api'
-import { registry, toast, useWorkbench, openEditor } from '../../shell'
+import { api, keys, queryClient, useProjectEvents, type CurationStateRow, type CurationStatus, type ServerEvent } from '../../api'
+import { registry, toast, useWorkbench, openEditor, toastProblem } from '../../shell'
 import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { openItem } from '../../features/explorer'
@@ -52,7 +52,7 @@ async function writeExports() {
     const r = await api.curationExports(pid)
     toast({ message: i18n.t('queue.exportsWritten', { dir: r.dir ?? 'exports', files: r.files.join(', ') }), tone: 'ok' })
   } catch (e) {
-    toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.error'), tone: 'error' })
+    toastProblem(e, i18n.t('common.error'))
   }
 }
 

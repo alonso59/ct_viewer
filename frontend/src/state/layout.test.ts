@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-13 / UI-14 (AUD-A3-01, AUD-A1-18): the bottom panel follows the active editor type; a case
 // tab keeps it closed until a panel tab has content for its item; the default height is ≤ 20 %.
 import { panelAutoHeight, useLayout } from './layout'

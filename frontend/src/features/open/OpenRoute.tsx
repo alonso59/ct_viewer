@@ -9,20 +9,18 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { api, keys, ProblemError, useAttachOpen, useFsList, useOpenPath, useOpenSession, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
-import { Dialog, ProblemCard } from '../../lib'
-import { NewProjectDialog } from '../projects'
-import { FolderBrowser } from '../import'
+import { Dialog, pendingPath, ProblemCard } from '../../lib'
+import { FolderBrowser, NewProjectDialog } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
+import { runCommand } from '../../shell'
 import { useViewerSync } from '../../state'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { attachStart, attachedTo, autoLabels, importSource, toItemRecord } from './model'
 import { AddDialog } from './AddDialog'
 import { SaveDialog } from './SaveDialog'
-import { pendingPath } from './navigate'
 import { useOpenDialog } from './store'
 import '../import/import.css'
 import './open.css'
-import { useConverter } from '../../plugins/dicom/store'
 
 /** SRC-12: the middle slice in both orders; the user picks */
 function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSession; item: OpenItem; onPick: (o: AxisOrder) => void; onClose: () => void }) {
@@ -164,7 +162,7 @@ export default function OpenRoute() {
             {t('open.saveAction')}
           </button>
           {items.some((i) => i.format === 'dicom') && path ? (
-            <button type="button" className="btn" onClick={() => useConverter.getState().show({ source: path, pid: null })}>
+            <button type="button" className="btn" onClick={() => runCommand('tasks.convertDicom', path)}>
               <Icon spec={codicon('file-binary')} />
               {t('open.convertAction')}
             </button>

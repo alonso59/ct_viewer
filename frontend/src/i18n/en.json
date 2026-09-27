@@ -616,11 +616,10 @@
     "prototype": "Prototype",
     "reset": "Reset",
     "resetKey": "Restore default",
-    "resetMock": "Reset mock data",
+    "resetMock": "Reset the prototype's tabs and layout",
     "reviewer": "Reviewer name",
     "reviewerSaved": "Reviewer name saved",
     "rows": "Project list",
-    "simulate": "Simulate a second reviewer (Dr. MK, every 45 s)",
     "theme": "Theme",
     "themes": {
       "dark": "Dark",
@@ -752,6 +751,9 @@
     "runCountsHelp": "{{items}} items selected: {{ok}} extracted, {{failed}} failed. {{skipped}} extractions skipped because the item was not ready (no mask, a blocking warning or the label is absent); skipped items are never failed.",
     "csvLong": "CSV long",
     "csvWide": "CSV wide"
+  },
+  "problem": {
+    "next": "{{message}} Next: {{actions}}."
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",

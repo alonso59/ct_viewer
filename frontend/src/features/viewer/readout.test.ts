@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // VW-08 / VW-22 (AUD-A2-11, AUD-A3-05): one readout: value with its unit, label name, ijk, RAS mm.
 import i18n from '../../i18n'
 import { cursorParts } from './readout'

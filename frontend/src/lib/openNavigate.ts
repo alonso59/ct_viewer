@@ -1,3 +1,5 @@
+// The `/open` route's contract, shared by every feature that opens a path (in lib/ so the import
+// wizard and the converter need not import the Open-mode feature, AUD-A6-10).
 // AUD-A1-19 (NFR-17): the Open-mode URL names the session (`/open/{sid}`), never the path.
 // A path to open travels in the history entry's state; OpenRoute opens it (API-07) and replaces
 // the entry with `/open/{sid}`, so the path is neither in the address bar nor in copied links.

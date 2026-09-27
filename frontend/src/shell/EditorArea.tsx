@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { Icon, codicon } from '../theme'
 import { registry } from './registry'
-import { openEditor, pinEditor, useWorkbench, type EditorParams } from './workbenchStore'
+import { flushPendingOpen, openEditor, pinEditor, requeueOpen, useWorkbench, type EditorParams } from './workbenchStore'
 
 const THEME = { name: 'rw', className: 'dockview-theme-dark dv-rw', gap: 0 }
 const tabsKey = (pid: string) => `rw.tabs.${pid}`
@@ -123,6 +123,7 @@ export function EditorArea({ pid }: { pid: string }) {
   const navigate = useNavigate()
   const lastPath = useRef<string>('')
   const ready = useRef(false)
+  const flushed = useRef<ReturnType<typeof flushPendingOpen>>(null)
 
   const onReady = (e: DockviewReadyEvent) => {
     setDock(e.api)
@@ -142,6 +143,10 @@ export function EditorArea({ pid }: { pid: string }) {
       setActive(e.api.activePanel.params as EditorParams)
     }
     ready.current = true
+    // a tab asked for while this lazy area was loading (e.g. a case double-clicked at once)
+    flushed.current = flushPendingOpen(pid)
+    // StrictMode disposes and re-creates the dock in the same commit; a later unmount must not
+    setTimeout(() => (flushed.current = null), 0)
   }
 
   // Deep links and history navigation open the matching editor
@@ -177,7 +182,15 @@ export function EditorArea({ pid }: { pid: string }) {
     }
   }, [active, urlToken, pid])
 
-  useEffect(() => () => setDock(null), [setDock])
+  useEffect(
+    () => () => {
+      setDock(null)
+      // disposed right after it opened a pending tab (StrictMode's second mount): hand it back
+      if (flushed.current) requeueOpen(pid, flushed.current)
+      flushed.current = null
+    },
+    [setDock, pid],
+  )
 
   return (
     <div className="wb-editor">

@@ -85,7 +85,8 @@ export interface Command {
   /** Order inside its category's menu section */
   menuGroup?: number
   enabled?: () => boolean
-  run: () => void
+  /** `arg`: from a caller that names what to act on (e.g. the converter's source folder) */
+  run: (arg?: string) => void
   /** Changes data: hidden and disabled on a view-only link (UI-26) */
   writes?: boolean
 }

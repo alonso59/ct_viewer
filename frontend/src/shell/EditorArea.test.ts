@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // AUD-A1-02 (FE-04): a new case, item or tab is a history entry; a layout tweak is not
 import { isNewEntry, loadTabs, saveTabs } from './EditorArea'
 

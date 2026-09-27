@@ -20,10 +20,11 @@ import pytest
 from fastapi.testclient import TestClient
 from numpy.typing import NDArray
 
+from app.api.v1 import mesh as mesh_api
 from app.context import AppContext
 from app.core.errors import NotFound, ValidationProblem
 from app.events.bus import EventBus
-from app.imaging import mesh, mesh_api
+from app.imaging import mesh
 from app.imaging.fingerprint import quick_fingerprint
 from app.ingest.models import Item, PhaseInfo, VolumeRef
 from app.jobs.manager import JobManager

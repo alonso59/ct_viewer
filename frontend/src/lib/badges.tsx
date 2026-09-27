@@ -67,7 +67,7 @@ export function PhaseChip({ phase, active, onClick }: { phase: Phase; active?: b
   const tone = phase === 'UNK' ? 'warn' : active ? 'accent' : undefined
   if (!onClick)
     return (
-      <span className="badge" data-tone={tone} title={t(`phase.${phase}`)}>
+      <span className="badge" data-tone={tone} data-phase={phase} title={t(`phase.${phase}`)}>
         {phase}
       </span>
     )
@@ -76,10 +76,11 @@ export function PhaseChip({ phase, active, onClick }: { phase: Phase; active?: b
       type="button"
       className="badge"
       data-tone={tone}
+      data-phase={phase}
       aria-pressed={active}
       title={t(`phase.${phase}`)}
       onClick={onClick}
-      style={{ cursor: 'pointer', background: active ? 'var(--bg-selected)' : 'transparent' }}
+      style={{ cursor: 'pointer' }}
     >
       {phase}
     </button>

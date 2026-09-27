@@ -73,10 +73,6 @@ class Item(BaseModel):
             raw = {**raw, "masks": {"imported": raw["mask"]}}
         return raw
 
-    def mask_for(self, seg_id: str | None) -> VolumeRef | None:
-        """The mask of one set; None = the deprecated default (`mask`)."""
-        return self.mask if seg_id is None else self.masks.get(seg_id)
-
     def volumes(self) -> list[VolumeRef]:
         """Image and every mask (hashing, relink)."""
         return [v for v in (self.image, *self.masks.values()) if v is not None]

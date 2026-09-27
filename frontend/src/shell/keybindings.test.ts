@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-12 keybinding dispatch: chords, route scope (AUD-A1-01), viewer context without DOM focus
 // (AUD-A2-02), typing, menus and modals (AUD-A2-09 / AUD-A1-17), view-only (UI-26). AUD-A6-04.
 import { chordOf, dispatchKey } from './keybindings'

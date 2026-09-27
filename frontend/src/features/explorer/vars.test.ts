@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import type { Variable } from '../../api'
 import { activeFilterCount } from './store'
 import { colorable, filterable, formatValue, levelColor, parseRange, rangeValue } from './vars'

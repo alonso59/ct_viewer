@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router'
 import { useProjects } from '../../api'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { useProjectDialogs } from './store'
-import { NewProjectDialog } from './WorkspaceHome'
+import { NewProjectDialog } from '../import'
 
 export function ProjectSwitcher({ pid }: { pid: string }) {
   const { t } = useTranslation()

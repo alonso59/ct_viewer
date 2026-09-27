@@ -4,20 +4,13 @@
 // CUR-08 (AUD-A5-15, A5-09, A2-16): a case with one decided item of several is "Partially reviewed",
 // the Search Status filter finds it on the real API, the queue CSV names the segmentation set.
 // Real backend on the synthetic fixtures (playwright.config.ts starts it); setup goes through the API.
-import { resolve } from 'node:path'
 
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
+import { api, API, importedProject } from './helpers'
+
 const CASE = 'case_00002'
 const ITEM = 'case_00002.01.complete.-'
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (await r.json()) as T
-}
 
 interface TargetState { target: string; status: string; reviewer: string }
 interface CurationState { n_events: number; items: { item_id: string; targets: TargetState[] }[] }
@@ -25,13 +18,7 @@ interface CurationState { n_events: number; items: { item_id: string; targets: T
 let pid = ''
 
 async function newProject() {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `TST-08 ${Date.now()}`, packs: ['ccrcc'] })
-  pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect
-    .poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 })
-    .toBe('ready')
+  pid = await importedProject(`TST-08 ${Date.now()}`)
 }
 
 /** A browser context with a preset reviewer name (CUR-01 stamp in localStorage) on the case */
@@ -43,7 +30,8 @@ async function reviewer(browser: Browser, name: string): Promise<Page> {
   const page = await ctx.newPage()
   await page.goto(`/p/${pid}/case/${CASE}?item=${encodeURIComponent(ITEM)}`)
   await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Curation' }).click()
-  await expect(page.getByRole('complementary', { name: 'Curation' }).getByText(ITEM, { exact: true }).first()).toBeVisible()
+  // the form names the item on screen (AUD-A1-13: `case · phase · scope`, the id in its title)
+  await expect(page.getByRole('complementary', { name: 'Curation' }).locator(`[title="${ITEM}"]`).first()).toBeVisible()
   await expect(page.getByRole('contentinfo', { name: 'Status bar' }).getByText('live', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
   return page
 }
@@ -107,7 +95,7 @@ test('partial rollup, Search status filter and queue CSV with seg_id', async ({ 
   await page.goto(`/p/${pid}/case/${caseId}`)
   const activity = page.getByRole('navigation', { name: 'Activity bar' })
   await activity.getByRole('button', { name: 'Curation' }).click()
-  await expect(form(page).getByText(`${caseId}.`, { exact: false }).first()).toBeVisible()
+  await expect(form(page).locator(`[title^="${caseId}."]`).first()).toBeVisible() // the item on screen (AUD-A1-13)
   await quick(page, /^Accept/).click()
   await expect(segRow(page)).toContainText('Accepted')
   // AUD-A5-15: one item of several decided → partial, and not counted as reviewed

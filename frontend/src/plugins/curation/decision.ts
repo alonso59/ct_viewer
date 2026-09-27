@@ -4,6 +4,7 @@ import { create } from 'zustand'
 
 import i18n from '../../i18n'
 import { api, keys, ProblemError, queryClient, type CurationContext, type CurationStatus, type Priority, type Project } from '../../api'
+import { problemToastText } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
 import { getViewerContext } from '../../features/viewer'
@@ -44,9 +45,9 @@ function viewerContext(): CurationContext {
 
 /** Refresh derived state right after our own write (other reviewers' writes arrive via SSE) */
 function refreshCuration(pid: string) {
-  void queryClient.invalidateQueries({ queryKey: ['project', pid, 'curation'] })
-  void queryClient.invalidateQueries({ queryKey: ['project', pid, 'events'] })
-  void queryClient.invalidateQueries({ queryKey: ['project', pid, 'cases'] })
+  void queryClient.invalidateQueries({ queryKey: keys.scope(pid, 'curation') })
+  void queryClient.invalidateQueries({ queryKey: keys.scope(pid, 'events') })
+  void queryClient.invalidateQueries({ queryKey: keys.scope(pid, 'cases') })
   void queryClient.invalidateQueries({ queryKey: keys.projects() })
 }
 
@@ -84,7 +85,7 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
     refreshCuration(pid)
     toast({ message: t('curation.saved', { status: t(`status.${status}`), target, id: caseTarget ? activeCaseId : activeItemId }), tone: 'ok' })
   } catch (e) {
-    const detail = e instanceof ProblemError ? (e.detail ?? e.title) : ''
+    const detail = e instanceof ProblemError ? problemToastText(e) : ''
     toast({ message: detail ? t('curation.saveFailedDetail', { detail }) : t('common.saveFailed'), tone: 'error' })
   }
 }

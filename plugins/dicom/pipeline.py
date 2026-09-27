@@ -124,6 +124,21 @@ def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
     return src, int(raw * 0.45) if raw else src
 
 
+def decide_conversion(
+    row: dict[str, Any], role: str, role_reason: str, settings: Settings
+) -> tuple[bool, str]:
+    """DCM-06 convert / skip decision for one series: (planned, skip reason or "")."""
+    planned = {
+        "PRIMARY": settings.convert_primary,
+        "SECONDARY": settings.convert_secondary,
+    }.get(role, settings.convert_excluded)
+    if planned and settings.skip_unsafe_geometry and readiness_rules.has_unsafe_geometry(row):
+        return False, "unsafe_geometry"
+    if not planned:
+        return False, role_reason if role == "EXCLUDED" else f"{role.lower()}_disabled"
+    return True, ""
+
+
 def run(
     source: Path,
     settings: Settings,
@@ -230,20 +245,9 @@ def run(
                 role, "exclude"
             )
             row["exclude_reason"] = role_reason if role == "EXCLUDED" else ""
-            planned = {
-                "PRIMARY": settings.convert_primary,
-                "SECONDARY": settings.convert_secondary,
-            }.get(role, settings.convert_excluded)
-            if (
-                planned
-                and settings.skip_unsafe_geometry
-                and readiness_rules.has_unsafe_geometry(row)
-            ):
-                planned, row["skip_reason"] = False, "unsafe_geometry"
-            elif not planned:
-                row["skip_reason"] = (
-                    role_reason if role == "EXCLUDED" else f"{role.lower()}_disabled"
-                )
+            planned, skip_reason = decide_conversion(row, role, role_reason, settings)
+            if skip_reason:
+                row["skip_reason"] = skip_reason
             row["planned_conversion"] = planned
             iid = f"{case_id}.{row['scan_idx']}.complete.-"
             g.annotations = [

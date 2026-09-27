@@ -2,7 +2,14 @@
 import type { CaseFilter } from './surface'
 import type { DashboardView } from './types'
 
+/** Parts of a project that are invalidated as a whole (a prefix of the keys below) */
+export type ProjectScope = 'cases' | 'case' | 'item' | 'curation' | 'events' | 'labeling' | 'run' | 'analyses'
+
 export const keys = {
+  /** Prefix of every key of one part of a project, for invalidation (AUD-A6-13) */
+  scope: (pid: string, part: ProjectScope) => ['project', pid, part] as const,
+  /** Prefix of every jobs key */
+  allJobs: () => ['jobs'] as const,
   health: () => ['health'] as const,
   projects: (archived = false) => (archived ? (['projects', 'archived'] as const) : (['projects'] as const)),
   project: (pid: string) => ['project', pid] as const,
@@ -10,9 +17,11 @@ export const keys = {
   cases: (pid: string, f: CaseFilter = {}) => ['project', pid, 'cases', f] as const,
   case: (pid: string, cid: string) => ['project', pid, 'case', cid] as const,
   item: (pid: string, iid: string) => ['project', pid, 'item', iid] as const,
+  dicomTags: (pid: string, iid: string) => ['project', pid, 'item', iid, 'dicom-tags'] as const,
   warnings: (pid: string) => ['project', pid, 'warnings'] as const,
   imports: (pid: string) => ['project', pid, 'imports'] as const,
   variables: (pid: string) => ['project', pid, 'variables'] as const,
+  brokenDerived: (pid: string) => ['project', pid, 'variables', 'broken'] as const,
   events: (pid: string, f: { item_id?: string; case_id?: string } = {}) => ['project', pid, 'events', f] as const,
   phaseEvents: (pid: string, cid: string, scan: string) => ['project', pid, 'phase', 'events', cid, scan] as const,
   curationState: (pid: string) => ['project', pid, 'curation', 'state'] as const,
@@ -46,4 +55,6 @@ export const keys = {
   segmentations: (pid: string) => ['project', pid, 'segmentations'] as const,
   taskRuns: (pid: string) => ['project', pid, 'task-runs'] as const,
   taskRun: (pid: string, rid: string) => ['project', pid, 'task-runs', rid] as const,
+  taskRunOutputs: (pid: string, rid: string) => ['project', pid, 'task-runs', rid, 'outputs'] as const,
+  taskPreflight: (pid: string, tid: string, selection: unknown) => ['project', pid, 'task-preflight', tid, selection] as const,
 }

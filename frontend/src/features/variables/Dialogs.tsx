@@ -2,8 +2,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ProblemError, useCreateDerived, useImportExternal, useVariables, type DerivedOp, type ExternalImportResult } from '../../api'
-import { Dialog, NumberInput } from '../../lib'
+import { useCreateDerived, useImportExternal, useVariables, type DerivedOp, type ExternalImportResult } from '../../api'
+import { Dialog, NumberInput, problemMessage } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import { categoricalSources, defaultLabels, numericSources, parseNumbers, toDefinition, type DerivedDraft } from './derived'
@@ -40,7 +40,7 @@ function DerivedDialog({ pid }: { pid: string }) {
         toast({ message: t('variables.created', { name: v.name }), tone: 'ok' })
         close()
       },
-      onError: (e) => setError(e instanceof ProblemError ? (e.detail ?? e.title) : e.message),
+      onError: (e) => setError(problemMessage(e)),
     })
   }
   return (
@@ -201,7 +201,7 @@ function ExternalDialog({ pid }: { pid: string }) {
         </div>
         {upload.isError ? (
           <div className="error-card" role="alert" style={{ margin: 0 }}>
-            {upload.error instanceof ProblemError ? (upload.error.detail ?? upload.error.title) : upload.error.message}
+            {problemMessage(upload.error)}
           </div>
         ) : null}
         {result ? (

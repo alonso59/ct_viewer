@@ -247,6 +247,32 @@ textarea.input {
   opacity: 0.4;
   cursor: default;
 }
+/* Phase seg + Full/VOI scope (case header): the active option is a solid, high-contrast blue
+   (--focus, not translucent --accent: --fg-on-emphasis on --focus is 4.6:1+ in both themes, AUD-A3-19)
+   so it reads at a glance; UNK is the one exception, kept in its existing warn tone. A hover preview
+   uses the same blue at low opacity so pointing at an option foreshadows the solid pressed state. */
+.seg button[data-phase]:not([data-phase='UNK']):hover:not(:disabled, [aria-pressed='true']),
+.seg button[data-scope]:hover:not(:disabled, [aria-pressed='true']) {
+  background: color-mix(in srgb, var(--focus) 20%, transparent);
+  color: var(--fg);
+}
+.seg button[data-phase]:not([data-phase='UNK'])[aria-pressed='true'],
+.seg button[data-scope][aria-pressed='true'] {
+  background: var(--focus);
+  color: var(--fg-on-emphasis);
+}
+.seg button[data-phase='UNK'][aria-pressed='true'] {
+  background: color-mix(in srgb, var(--warn) 32%, transparent);
+  color: var(--warn);
+}
+button.badge[data-phase]:not([data-phase='UNK'])[aria-pressed='true'] {
+  background: var(--focus);
+  color: var(--fg-on-emphasis);
+}
+button.badge[data-phase='UNK'][aria-pressed='true'] {
+  background: color-mix(in srgb, var(--warn) 32%, transparent);
+  color: var(--warn);
+}
 
 /* Layout helpers on the 4 px grid (AUD-A3-17: instead of inline style objects) */
 .stack {

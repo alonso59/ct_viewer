@@ -27,7 +27,7 @@ import { runCommand, toast, useWorkbench, type EditorProps } from '../../../shel
 import { useLayout } from '../../../state'
 import { Icon, autoLabelColor, codicon } from '../../../theme'
 import { useImportWizard } from '../../import'
-import { RelinkDialog } from '../WorkspaceHome'
+import { RelinkDialog } from '../RelinkDialog'
 import { mergeLabels, parseLabelFile } from './labelFiles'
 import './settings.css'
 

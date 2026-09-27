@@ -23,6 +23,7 @@ export {
   closeOtherEditors,
   splitActiveEditor,
   toast,
+  toastProblem,
   updateActiveParams,
   refreshUrl,
   type EditorParams,

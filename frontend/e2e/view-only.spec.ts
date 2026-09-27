@@ -1,25 +1,13 @@
 // TST-18 (PRJ-17, UI-26): a view-only link opens the project read-only; editing controls, views and
 // shortcuts are hidden, and the server has no write route on that path. Real backend.
 // AUD-A5-03: nothing the page reads through the token carries the project id or a server path.
-import { resolve } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const DATASET = resolve(import.meta.dirname, '../../.fixtures/synthetic/Dataset900')
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method, headers: { 'content-type': 'application/json', 'X-Reviewer': 'E2E' }, body: body === undefined ? undefined : JSON.stringify(body) })
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`)
-  return (r.status === 204 ? null : await r.json()) as T
-}
+import { api, API, DATASET, importedProject } from './helpers'
 
 test('a view-only link cannot write and hides every editing control', async ({ page }) => {
-  const p = await api<{ project_id: string }>('POST', '/projects', { name: `View ${Date.now()}`, packs: ['ccrcc'] })
-  const pid = p.project_id
-  const pv = await api<{ preview_id: string }>('POST', `/projects/${pid}/imports/preview`, { root: DATASET, alias: 'DATA', detect: true })
-  await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
-  await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
+  const pid = await importedProject(`View ${Date.now()}`)
   const { view_token: token } = await api<{ view_token: string }>('POST', `/projects/${pid}/view-token`)
 
   // AUD-A5-03: record what the page reads through the token (JSON and CSV; SSE streams never end)

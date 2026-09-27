@@ -4,8 +4,8 @@ import i18n from '../../i18n'
 import { ProblemError, api, keys, queryClient } from '../../api'
 import { toast } from '../../shell'
 import { useLayout } from '../../state'
+import { problemMessage } from '../../lib'
 
-export const problemText = (e: unknown) => (e instanceof ProblemError ? (e.detail ?? e.title) : i18n.t('common.error'))
 
 export function saveBlob(name: string, blob: Blob) {
   const a = document.createElement('a')
@@ -23,7 +23,7 @@ export async function exportBundle(pid: string): Promise<void> {
     saveBlob(filename, blob)
     toast({ message: i18n.t('projects.bundle.exported', { name: filename }), tone: 'ok' })
   } catch (e) {
-    toast({ message: i18n.t('projects.bundle.exportFailed', { detail: problemText(e) }), tone: 'error' })
+    toast({ message: i18n.t('projects.bundle.exportFailed', { detail: problemMessage(e) }), tone: 'error' })
   }
 }
 
@@ -42,6 +42,6 @@ export async function computeHashes(pid: string, force = false): Promise<void> {
     if (e instanceof ProblemError && e.status === 409) {
       toast({ message: i18n.t('projects.hash.running'), tone: 'info' })
       showJobs()
-    } else toast({ message: i18n.t('projects.hash.failed', { detail: problemText(e) }), tone: 'error' })
+    } else toast({ message: i18n.t('projects.hash.failed', { detail: problemMessage(e) }), tone: 'error' })
   }
 }

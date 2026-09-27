@@ -1,31 +1,16 @@
 // ROADMAP P6: Variables view end to end against the real API-16..18 on the synthetic fixtures
 // (TST-11 variables cohort). The project is created and imported through the API to save time.
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { expect, test, type Page } from '@playwright/test'
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
-
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
-const dataset = resolve(dirname(fileURLToPath(import.meta.url)), '../../.fixtures/synthetic/Dataset900')
-
-async function importedProject(request: APIRequestContext, name: string): Promise<string> {
-  const p = await (await request.post(`${API}/projects`, { data: { name, packs: ['ccrcc'] } })).json()
-  const pid = p.project_id as string
-  const preview = await (await request.post(`${API}/projects/${pid}/imports/preview`, { data: { root: dataset, alias: 'DATA', detect: true } })).json()
-  expect((await request.post(`${API}/projects/${pid}/imports`, { data: { preview_id: preview.preview_id } })).status()).toBe(202)
-  await expect
-    .poll(async () => (await (await request.get(`${API}/projects/${pid}/imports`)).json()).index.state, { timeout: 30_000 })
-    .toBe('ready')
-  return pid
-}
+import { importedProject } from './helpers'
 
 const section = (page: Page, name: string) => page.getByRole('listitem', { name })
 const row = (page: Page, name: string) => page.locator('.var-item').filter({ has: page.locator('.var-name .mono', { hasText: new RegExp(`^${name}$`) }) })
 
-test('variables view on the real API: review, overrides, derived, external', async ({ page, request, browserName }) => {
+test('variables view on the real API: review, overrides, derived, external', async ({ page, browserName }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  const pid = await importedProject(request, `E2E variables ${browserName} ${Date.now()}`)
+  const pid = await importedProject(`E2E variables ${browserName} ${Date.now()}`)
 
   await page.goto(`/p/${pid}`)
   await page.getByRole('navigation', { name: /Activity bar/i }).getByRole('button', { name: 'Variables' }).click()

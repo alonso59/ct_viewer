@@ -1,7 +1,7 @@
 // AUD-A1-19 (NFR-17, API-07): a path to open travels in the history state, never in the URL.
 import type { NavigateFunction } from 'react-router'
 
-import { openPath, pendingPath } from './navigate'
+import { openPath, pendingPath } from './openNavigate'
 
 test('openPath navigates to /open with the path in the state only', () => {
   const calls: unknown[][] = []

@@ -31,10 +31,11 @@ else
 endif
 
 .PHONY: help setup setup-backend setup-frontend setup-node dev-backend dev-frontend fixtures \
-        gen-api api-types lint typecheck test reqs check e2e image udocker-run container-smoke docs docs-srs trace
+        gen-api api-types bundle-size lint fix typecheck test reqs check e2e e2e-one e2e-servers record-mock \
+        image udocker-run container-smoke docs docs-srs trace
 
 help: ## List targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 	@echo "  RUNTIME=$(RUNTIME)  VENV=$(VENV)"
 
 setup: setup-backend setup-frontend ## Create the Python env and install both sides
@@ -62,6 +63,9 @@ dev-frontend: ## Vite dev server on 5173 (proxies /api -> 8000)
 fixtures: ## Generate the synthetic dataset into FIXTURES (TST-11)
 	cd backend && $(BPY) -m tools.make_fixtures --out "../$(FIXTURES)"
 
+record-mock: ## TST-04: re-record the mock API (frontend/src/api/mock/recorded.json) from the backend on the fixtures
+	cd backend && $(BPY) -m tools.record_mock
+
 gen-api: ## Write the OpenAPI snapshot and regenerate the frontend API types (FE-03, BE-10)
 	cd backend && $(BPY) -m tools.openapi_snapshot
 	$(NODE) npm run gen:api
@@ -86,13 +90,28 @@ test: ## Unit tests: pytest + vitest
 	cd backend && $(BPY) -m pytest
 	$(NODE) npm test
 
+bundle-size: ## NFR-07 gate: production build, initial JS (entry + modulepreload, gzip -9) <= 300 KiB (REL-04)
+	$(NODE) npx vite build --outDir .vite/bundle --emptyOutDir --logLevel error
+	$(NODE) node scripts/bundle-size.mjs .vite/bundle --budget-kib 300
+
 reqs: ## Requirement tables check (SRS §1.5; stdlib, < 1 s)
 	python3 docs/_sphinx/reqs.py check
 
-check: lint typecheck test api-types reqs ## Lint, type check, unit tests, API types and the requirement check (CI gate)
+check: lint typecheck test api-types bundle-size reqs ## Lint, type check, unit tests, API types, bundle budget and the requirement check (CI gate)
 
-e2e: ## Playwright (needs `npx playwright install` once)
-	$(NODE) npm run e2e
+e2e: ## Playwright, both browsers (SPEC=name PROJECT=chromium|firefox narrow it; `npx playwright install` once)
+	$(NODE) npx playwright test $(if $(SPEC),e2e/$(SPEC).spec.ts,) $(if $(PROJECT),--project=$(PROJECT),)
+
+e2e-one: ## One spec in one browser: make e2e-one SPEC=g1-open [PROJECT=firefox] [E2E_REUSE=1]
+	@test -n "$(SPEC)" || { echo "e2e-one: SPEC=<spec name without .spec.ts> is required"; exit 2; }
+	$(NODE) npx playwright test e2e/$(SPEC).spec.ts --project=$(or $(PROJECT),chromium)
+
+e2e-servers: ## E2E backend + web server in the foreground, for E2E_REUSE=1 runs (Ctrl-C stops)
+	$(NODE) node e2e/serve.ts
+
+fix: ## Autofix: ruff check --fix, ruff format, eslint --fix
+	cd backend && $(BPY) -m ruff check --fix . ../scripts ../plugins ../docs/_sphinx && $(BPY) -m ruff format . ../scripts ../plugins ../docs/_sphinx
+	$(NODE) npx eslint --fix .
 
 image: ## Build the OCI image radiology-workbench:VERSION (Docker; add PLATFORM=linux/amd64 for the server)
 	docker build $(if $(PLATFORM),--platform $(PLATFORM),) -t radiology-workbench:$(VERSION) .

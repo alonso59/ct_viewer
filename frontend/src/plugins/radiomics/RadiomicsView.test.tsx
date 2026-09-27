@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Runs list (RAD-06..08): live progress from the run's job, cancel/resume, failures; and FE-11
 // coverage of the temporary `rad` string bundle.
 import * as RTooltip from '@radix-ui/react-tooltip'

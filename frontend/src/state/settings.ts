@@ -9,7 +9,6 @@ interface SettingsState {
   /** UI-27 (AUD-A3-16): scale of every font and control size; Default = 14 px UI */
   uiSize: InterfaceSize
   rowDensity: 'thumbnails' | 'compact'
-  simulateReviewer: boolean
   /** UI-12: command id → key chord overrides */
   keybindings: Record<string, string>
   set: (patch: Partial<Omit<SettingsState, 'set' | 'setKeybinding'>>) => void
@@ -22,7 +21,6 @@ export const useSettings = create<SettingsState>()(
       theme: 'dark',
       uiSize: 'default',
       rowDensity: 'thumbnails',
-      simulateReviewer: true,
       keybindings: {},
       set: (patch) => set(patch),
       setKeybinding: (command, chord) =>

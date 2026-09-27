@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // ADR-0028 (UI-01, UI-13): one "Layout" menu replaces VS Code's three title-bar toggles; its items
 // are check items with the unchanged shortcuts
 import { fireEvent, render, screen } from '@testing-library/react'

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Settings tab against a stubbed API-30..37 (real engine schema fixture): engine defaults on open
 // (RAD-01/02), live + server validation gating Run (RAD-04), selection (RAD-05), estimate
 // (RAD-11), profiles (RAD-03) and the run request (RAD-06).

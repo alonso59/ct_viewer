@@ -4,9 +4,9 @@
 import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ReviewerCancelled, ProblemError, useAppendPhase, usePhaseEvents, useProject, type ItemRecord, type NewPhaseEvent } from '../../api'
+import { ReviewerCancelled, useAppendPhase, usePhaseEvents, useProject, type ItemRecord, type NewPhaseEvent } from '../../api'
 import { Dialog, PhaseChip, fmtAgo } from '../../lib'
-import { registry, toast } from '../../shell'
+import { registry, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { guessRun, phaseOptions } from './model'
 import './phase.css'
@@ -29,7 +29,7 @@ export function PhaseButtons({ pid, scan, className, variant = 'chips' }: { pid:
       { case_id: scan.case_id, scan_idx: scan.scan_idx, value, source: 'manual', ...extra },
       {
         onError: (e) => {
-          if (!(e instanceof ReviewerCancelled)) toast({ message: e instanceof ProblemError ? (e.detail ?? e.title) : t('common.saveFailed'), tone: 'error' })
+          if (!(e instanceof ReviewerCancelled)) toastProblem(e, t('common.saveFailed'))
         },
       },
     )
@@ -42,7 +42,7 @@ export function PhaseButtons({ pid, scan, className, variant = 'chips' }: { pid:
       {variant === 'seg' ? (
         <span className="seg">
           {options.map((p) => (
-            <button key={p} type="button" aria-pressed={cur.canonical === p} title={t(`phase.${p}`)} disabled={append.isPending} onClick={() => choose(p)}>
+            <button key={p} type="button" data-phase={p} aria-pressed={cur.canonical === p} title={t(`phase.${p}`)} disabled={append.isPending} onClick={() => choose(p)}>
               {p}
             </button>
           ))}

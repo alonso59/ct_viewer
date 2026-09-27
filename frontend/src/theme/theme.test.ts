@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-11 (AUD-A4-02): Dark by default; Light on request; System follows the OS preference
 import { afterEach, expect, test, vi } from 'vitest'
 

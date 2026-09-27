@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // AUD-A1-04 (CUR-08, UI-09, DB-04): navigation context and "next unreviewed case"
 import type { CaseSummary } from '../../api'
 import { navPosition, uniqueEntries, useNavContext, useViewerSync } from '../../state'

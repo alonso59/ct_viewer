@@ -5,8 +5,7 @@
 import { expect, test } from '@playwright/test'
 
 import { gotoOpen } from './openMode'
-
-const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8011}/api/v1`
+import { API } from './helpers'
 
 test('G2: convert DICOM, make a project, review phases and problems, read the DICOM tags', async ({ page, browserName }) => {
   test.setTimeout(150_000)
@@ -60,6 +59,9 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   expect(item.phase.canonical).toBe('NP')
   await tree.getByRole('treeitem', { name: /case_00000/ }).click()
   await expect(tree.getByText('NP').first()).toBeVisible()
+  // Thumbnails (UI-08, AUD-A6-16): the rows show the served slice once the thumbnail job made it
+  const shown = `[...document.querySelectorAll('[role=tree] .thumb img')].filter((i) => i.complete && i.naturalWidth > 0).length`
+  await expect.poll(async () => page.evaluate(shown), { timeout: 30_000 }).toBeGreaterThan(0)
 
   // Problems → the item opens in its case tab (UI-09)
   await page.getByRole('tab', { name: /Problems/ }).click()

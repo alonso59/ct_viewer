@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // UI-08 (AUD-A1-13): an item reads "case · phase · scope · side"; the raw item_id (DATA_MODEL
 // §item_id) stays in the tooltip and in copy actions
 import i18n from '../i18n'
