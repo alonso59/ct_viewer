@@ -77,7 +77,7 @@ from app.radiomics.models import (
     ValidateRequest,
     ValidateResult,
 )
-from app.variables.service import VariableService
+from app.selection import readiness
 
 log = logging.getLogger("app.radiomics")
 
@@ -126,12 +126,13 @@ def _row(item_id: str, label: int, kind: str, code: str, detail: str | None = No
 
 
 def _not_ready(it: Item, seg_id: str) -> str | None:
-    """TSK-04 preflight of one item for one set: the skip code, or None when ready."""
-    if it.image is None:
-        return "no_image"
-    if seg_id not in it.masks:
+    """TSK-04 preflight of one item for one set (`readiness.not_ready`): the skip code or None."""
+    r = readiness.not_ready(it, seg_id=seg_id)
+    if r is None:
+        return None
+    if r.code == "no_mask":
         return "missing_seg" if seg_id == "imported" else "no_mask"
-    return causes.blocking(it.warning_codes) if seg_id == "imported" else None
+    return r.params["qc"] if r.code == "blocked" else r.code
 
 
 def _empty_features() -> pa.Table:
@@ -422,42 +423,15 @@ class RadiomicsService:
                 )
             )
         idx = self.store.load(pid)
-        items = [i for i in idx.items if i.status == "active"]
-        if sel.item_ids is not None:
-            wanted = set(sel.item_ids)
-            for n, iid in enumerate(sel.item_ids):
-                it = idx.by_id.get(iid)
-                if it is None:
-                    issues.append(
-                        Issue(loc=["selection", "item_ids", n], msg="Unknown item", rule="unknown")
-                    )
-                elif it.status != "active":
-                    issues.append(
-                        Issue(
-                            loc=["selection", "item_ids", n],
-                            msg=f"Item is {it.status}",
-                            rule="inactive",
-                        )
-                    )
-            items = [i for i in items if i.item_id in wanted]
-        f = sel.filter
-        if f is not None:
-            if f.phase:
-                items = [i for i in items if i.phase.canonical in f.phase]
-            if f.side:
-                items = [i for i in items if i.side in f.side]
-            if f.var:
-                vs = VariableService(self.workspace, self.store, self.locks, self.bus)
-                ok_ids = (await vs.filter_ids(pid, f.var))["items"]
-                items = [i for i in items if i.item_id in ok_ids]
-        if sel.scope is not None:
-            items = [i for i in items if i.scope == sel.scope]
+        ids = readiness.var_ids(self.workspace, self.store, self.locks, self.bus, pid)
+        items, problems = await readiness.resolve(idx.items, idx.by_id, sel, ids)
+        issues += [Issue(loc=["selection", *p.loc], msg=p.msg, rule=p.rule) for p in problems]
         if not items and not issues:
             issues.append(_nothing(["selection"]))
         if issues:
             errs = issue_errors(issues, ["body"])
             raise ValidationProblem("Invalid selection", errors=errs)
-        return sorted(items, key=lambda i: i.item_id)
+        return items
 
     @staticmethod
     def filter_text(sel: Selection) -> str | None:
@@ -482,7 +456,7 @@ class RadiomicsService:
         `seg` (RAD-05): masks come from that set; project labels map to its values through the
         set's `label_mapping` (ADR-0015). `labels_present` and the IMP-08 codes describe the
         `imported` set only. An item without image or mask, or with a blocking code
-        (`causes.BLOCKING`), is skipped with that code, never failed (AUD-A2-05).
+        (`readiness.BLOCKING`), is skipped with that code, never failed (AUD-A2-05).
         """
         units: list[dict[str, Any]] = []
         skips: list[RunError] = []

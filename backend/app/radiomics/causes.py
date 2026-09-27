@@ -10,20 +10,11 @@ features of the wrong voxels.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 from typing import Final
 
-from app.ingest.codes import QcCode
+from app.selection.readiness import BLOCKING, blocking
 
-# IMP-08 codes that make an item unusable for extraction from its imported mask
-BLOCKING: Final[tuple[QcCode, ...]] = (
-    QcCode.MISSING_PATH,
-    QcCode.UNREADABLE_FILE,
-    QcCode.OUTSIDE_ROOT,
-    QcCode.MISSING_SEG,
-    QcCode.AFFINE_MISMATCH,
-    QcCode.SHAPE_MISMATCH,
-)
+__all__ = ["BLOCKING", "blocking", "explain", "text"]
 
 TEXT: Final[dict[str, str]] = {
     "no_image": "The item has no image.",
@@ -58,12 +49,6 @@ _ENGINE: Final[list[tuple[re.Pattern[str], str]]] = [
 
 def text(code: str) -> str:
     return TEXT.get(code, TEXT["engine"])
-
-
-def blocking(codes: Iterable[str]) -> str | None:
-    """The first IMP-08 code that blocks extraction, in `BLOCKING` order."""
-    have = set(codes)
-    return next((c.value for c in BLOCKING if c.value in have), None)
 
 
 def explain(raw: str) -> str:

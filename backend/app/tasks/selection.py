@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Final
 
 from app.core.errors import NotFound, ValidationProblem
 from app.ingest.models import Item
 from app.projects.models import ProjectConfig
+from app.selection import readiness
 from app.tasks.models import (
     VOLUME_OUTPUTS,
     PreflightRequest,
@@ -18,7 +19,15 @@ from app.tasks.models import (
     TaskSelection,
 )
 from app.tasks.records import TaskBase
-from app.variables.service import VariableService
+
+# TSK-04 reason codes → the `missing` keys of API-44 preflight
+_TEXT: Final[dict[str, str]] = {
+    "no_image": "no image",
+    "modality": "modality {modality}",
+    "no_mask": "no mask in {seg_id}",
+    "label_missing": "no {label} label in {seg_id}",
+    "blocked": "{qc} in {seg_id}",
+}
 
 
 class SelectionBase(TaskBase):
@@ -26,41 +35,13 @@ class SelectionBase(TaskBase):
 
     async def select(self, pid: str, sel: TaskSelection) -> list[Item]:
         """Active items matching an explicit list, or an Explorer filter, or all (TSK-03)."""
-        errors: list[dict[str, Any]] = []
-        if sel.item_ids is not None and sel.filter is not None:
-            errors.append(
-                {"loc": ["body", "selection", "filter"], "msg": "Use either item_ids or filter"}
-            )
         idx = self.store.load(pid)
-        items = [i for i in idx.items if i.status == "active"]
-        if sel.item_ids is not None:
-            for n, iid in enumerate(sel.item_ids):
-                it = idx.by_id.get(iid)
-                if it is None:
-                    errors.append(
-                        {"loc": ["body", "selection", "item_ids", n], "msg": "Unknown item"}
-                    )
-                elif it.status != "active":
-                    errors.append(
-                        {"loc": ["body", "selection", "item_ids", n], "msg": f"Item is {it.status}"}
-                    )
-            wanted = set(sel.item_ids)
-            items = [i for i in items if i.item_id in wanted]
-        f = sel.filter
-        if f is not None:
-            if f.phase:
-                items = [i for i in items if i.phase.canonical in f.phase]
-            if f.side:
-                items = [i for i in items if i.side in f.side]
-            if f.var:
-                vs = VariableService(self.workspace, self.store, self.locks, self.bus)
-                ok_ids = (await vs.filter_ids(pid, f.var))["items"]
-                items = [i for i in items if i.item_id in ok_ids]
-        if sel.scope is not None:
-            items = [i for i in items if i.scope == sel.scope]
-        if errors:
+        ids = readiness.var_ids(self.workspace, self.store, self.locks, self.bus, pid)
+        items, problems = await readiness.resolve(idx.items, idx.by_id, sel, ids)
+        if problems:
+            errors = [{"loc": ["body", "selection", *p.loc], "msg": p.msg} for p in problems]
             raise ValidationProblem("Invalid selection", errors=errors)
-        return sorted(items, key=lambda i: i.item_id)
+        return items
 
     def _seg_id(self, cfg: ProjectConfig, m: TaskManifest, sel: TaskSelection) -> str | None:
         if m.requires.seg is None:
@@ -76,22 +57,16 @@ class SelectionBase(TaskBase):
     def _not_ready(
         self, cfg: ProjectConfig, m: TaskManifest, it: Item, seg_id: str | None
     ) -> str | None:
-        """Why an item can't run (TSK-04), or None when it is ready."""
-        if m.input == "items" and it.image is None:
-            return "no image"
-        mods = m.requires.modality
-        if mods and it.modality is not None and it.modality not in mods:
-            return f"modality {it.modality}"
-        if m.requires.seg is not None and seg_id is not None:
-            if seg_id not in it.masks:
-                return f"no mask in {seg_id}"
-            names = m.requires.seg.labels
-            if names and seg_id == "imported" and it.labels_present:
-                by_name = {e.name: e.value for e in cfg.label_map}
-                for name in names:
-                    if by_name.get(name) not in it.labels_present:
-                        return f"no {name} label in {seg_id}"
-        return None
+        """Why an item can't run (TSK-04, `readiness.not_ready`) as text, or None when ready."""
+        r = readiness.not_ready(
+            it,
+            need_image=m.input == "items",
+            modalities=m.requires.modality,
+            seg_id=seg_id if m.requires.seg is not None else None,
+            labels=m.requires.seg.labels if m.requires.seg is not None else (),
+            label_map={e.name: e.value for e in cfg.label_map},
+        )
+        return None if r is None else _TEXT[r.code].format(**r.params)
 
     def _suggest(self, m: TaskManifest, missing: dict[str, int]) -> list[Suggestion]:
         out: list[Suggestion] = []

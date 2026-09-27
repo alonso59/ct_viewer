@@ -188,7 +188,12 @@ def test_preflight_and_suggestions(env: TestClient, proj: str) -> None:
     assert r.status_code == 200, r.text
     pre = r.json()
     assert pre["n_selected"] > pre["n_ready"] > 0
-    assert set(pre["missing"]) <= {"no image", "no mask in imported", "no tumor label in imported"}
+    # TSK-04: a blocking IMP-08 code on the imported set is a skip reason too (readiness.py)
+    known = {"no image", "no mask in imported", "no tumor label in imported"}
+    known |= {f"{c} in imported" for c in ("affine_mismatch", "shape_mismatch", "missing_path")}
+    known |= {f"{c} in imported" for c in ("unreadable_file", "outside_root", "missing_seg")}
+    assert set(pre["missing"]) <= known
+    assert "affine_mismatch in imported" in pre["missing"]
     assert "no mask in imported" in pre["missing"]
     assert {s["task_id"] for s in pre["suggestions"]} == {"test.segmenter"}  # test_only hidden
     thr = env.post(
