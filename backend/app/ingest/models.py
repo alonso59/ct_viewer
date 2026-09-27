@@ -11,7 +11,7 @@ from app.curation.models import ReviewState, RollupStatus
 from app.imaging.header import VolumeFormat
 from app.ingest.codes import QcCode, Severity
 
-Phase = str  # a code from the project's phase vocabulary (PRJ-12), or a raw value (`none`)
+Phase = str  # a code from the project's phase vocabulary (PRJ-16), or a raw value (`none`)
 # "phase.json" | "curated_phase" | "canonical_phase" | "phase" | "analyzer:{run_id}" (ANZ-04)
 # | "phase_guess" | "catalog" | "none"; "manual" = a native phase selection joined on read (PHS-03)
 PhaseSource = str

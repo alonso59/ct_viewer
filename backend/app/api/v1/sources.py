@@ -47,7 +47,7 @@ def svc(ctx: Ctx) -> OpenService:
         jobs=ctx.jobs,
         sessions=ctx.open_sessions,
         workspace_root=ctx.settings.workspace_root,
-        cache_max_gb=ctx.settings.cache_max_gb,
+        on_cache_write=ctx.cache_written,
     )
 
 

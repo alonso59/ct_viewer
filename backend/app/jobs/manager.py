@@ -58,6 +58,8 @@ class JobManager:
         self._shut_down = False
         self._jobs: dict[str, _Job] = {}
         self._terminal: deque[str] = deque()
+        # Called with the final JobInfo after `job.finished` (e.g. the cache budget, AUD-A4-16)
+        self.on_finished: list[Callable[[JobInfo], None]] = []
 
     async def start(self) -> None:
         asyncio.get_running_loop()  # must run inside the loop
@@ -316,6 +318,11 @@ class JobManager:
             extra={"job_id": info.job_id, "kind": info.kind, "status": info.status},
         )
         job.done_evt.set()
+        for hook in self.on_finished:
+            try:
+                hook(info)
+            except Exception:
+                log.exception("job finished hook failed", extra={"job_id": info.job_id})
         self._terminal.append(info.job_id)
         while len(self._terminal) > KEEP_TERMINAL:
             self._jobs.pop(self._terminal.popleft(), None)

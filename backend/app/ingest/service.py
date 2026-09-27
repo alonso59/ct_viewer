@@ -505,7 +505,7 @@ class IngestService:
         return VariableService(self.workspace, self.store, self.locks, self.bus)
 
     def phase_rules(self, project_id: str) -> PhaseRules:
-        """The project's phase vocabulary + mapping (PRJ-12)."""
+        """The project's phase vocabulary + mapping (PRJ-16)."""
         cfg = self.workspace.get(project_id)
         return PhaseRules(tuple(cfg.phase_vocabulary), dict(cfg.phase_mapping))
 

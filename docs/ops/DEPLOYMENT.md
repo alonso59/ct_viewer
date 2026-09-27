@@ -34,7 +34,7 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | `PUBLIC_BASE_URL` | `http://localhost:{PORT}` | Used in share links (PRJ-03) |
 | `JOB_WORKERS` | `2` | Worker processes (BE-06) |
 | `PROJECT_CACHE_MAX` | `4` | Projects kept in memory (BE-07) |
-| `CACHE_MAX_GB` | `20` | Per-project `cache/` cap; LRU purge |
+| `CACHE_MAX_GB` | `20` | One LRU budget for all disposable caches together: Open-mode `.scratch/open/` and every active project's `cache/` meshes, thumbnails and npy→NIfTI files (`core/cache_budget.py`). Swept after cache writes and every 10 min; least recently used first; entries used in the last minute and anything outside those folders are never touched (R1, PRJ-10). An evicted file is rebuilt on the next use |
 | `VIEWER_MAX_LOADED` | `3` | Loaded viewer tabs (VW-14) |
 | `LOG_LEVEL` | `info` | |
 | `CONTAINER_MODE` | `1` in the image | With `1`, an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) |

@@ -22,7 +22,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0014 | Source and derived roots (amends R1) | Accepted (amended by 0021) |
 | 0015 | Segmentation sets per item | Accepted |
 | 0016 | Tasks and plugins: one contract, builtin and external runtimes | Accepted (amended by 0018) |
-| 0017 | DICOM converter as a task; metadata analyzers as separate, composable tasks | Accepted (amended by 0020) |
+| 0017 | DICOM converter as a task; metadata analyzers as separate, composable tasks | Accepted (amended by 0020, 0026) |
 | 0018 | First-party plugin platform and Plugin Library | Accepted |
 | 0019 | Neutral projects, study packs, view-only links | Accepted |
 | 0020 | `metadata.jsonl` belongs to the converter; plugin data lives in layers | Accepted (amended by 0026) |

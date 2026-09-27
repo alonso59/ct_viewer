@@ -202,6 +202,25 @@ def test_plan_seg_dir_suffix_and_sequential(tmp_path: Path) -> None:
     assert [r["case_id"] for r in again.rows] == [r["case_id"] for r in p.rows]
 
 
+def test_modality_codes_mri_is_mr(tmp_path: Path) -> None:
+    """DCM-12: modality values are DICOM codes; `MRI` (file names, converter CLI) becomes `MR`."""
+    from plugins.dicom.rows import header_row
+    from plugins.dicom.scan import Inspection, Series
+    from pydicom.dataset import Dataset
+
+    root = tmp_path / "r"
+    nii(root / "01_MRI_alpha.nii.gz", ct())
+    nii(root / "01_CT_beta.nii.gz", ct())
+    pattern = r"^(?P<scan_idx>\d+)_(?P<modality>[A-Z]+)_(?P<case_id>.+)$"
+    p = plan(root, NiftiOptions(pattern=pattern), IdentityRegistry())
+    assert {r["case_id"]: r["modality"] for r in p.rows} == {"alpha": "MR", "beta": "CT"}
+    for code, want in (("MRI", "MR"), ("MR", "MR"), ("CT", "CT")):
+        ds = Dataset()
+        ds.Modality = code
+        row = header_row(ds, Series(tmp_path, "s1", (tmp_path / "a.dcm",)), "p1", Inspection())
+        assert row["modality"] == want
+
+
 def test_options_are_validated() -> None:
     with pytest.raises(ValueError, match="unknown named groups"):
         NiftiOptions(pattern=r"(?P<nope>.+)")

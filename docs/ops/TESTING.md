@@ -1,7 +1,7 @@
 # Testing
 
 Scope: test layers, fixtures, safety and compliance tests, CI gates.
-Read when: writing tests or adding a feature (every requirement ID should map to ≥1 test).
+Read when: writing tests or adding a feature (every requirement ID should map to ≥1 test that names it; see "Requirement IDs in tests").
 Depends: all domain docs.
 
 | ID | Layer | Tooling | Covers |
@@ -37,9 +37,11 @@ Fix batch FB4 (Open mode, import and converter, 2026-09-26): pytest `tests/test_
 
 Fix batch FB5 (radiomics, dashboard and analysis, 2026-09-26): pytest `tests/test_radiomics_api.py` (TSK-04/RAD-07 skips with plain causes and no `geometryTolerance` advice, AUD-A2-05; RAD-08 resume refuses changed inputs, A5-14; PHS-03 phase joined at read time with `phase_at_run`, A5-04), `tests/test_tasks.py::test_task_set_maps_the_labels_the_run_wrote` (A5-12), `tests/test_api_ingest.py::test_cases_filters` (one count definition, A2-08), `tests/test_projects_service.py::test_list_summary`; the TST-12 statistics tests are unchanged; Vitest `lib/format.test.ts` and `lib/NumberInput.test.tsx` (A3-04 / A3-15 number format, parsing `,` and `.`, units, middle ellipsis), `plugins/radiomics/RadiomicsView.test.tsx` (failures then skips, labelled actions), `i18n/keys.test.ts` (one run-state vocabulary, A3-10); Playwright journey spec `e2e/g4-radiomics.spec.ts` (G4, AUD-A6-01: settings → selection by variable + segmentation set → estimate → run → failures and skips → dashboard → outliers top 10 with `case_00062` first → viewer in one click → group comparison on a derived variable → wide CSV export).
 
-Import wizard UX (owner addendum 2026-09-25): Vitest `features/import/patternSuggest.test.ts` (SRC-17: stems, groups only when the sample shows them, no guess below half, highlight segments).
+Fix batch FB7 (docs conformance, 2026-09-27): Playwright `e2e/network-allowlist.spec.ts` (NFR-12, REL-06); pytest `tests/test_cache_budget.py` (OPS-03 `CACHE_MAX_GB`, AUD-A4-16), `tests/test_udocker_run.py` (OPS-09: the dry run equals the compose file's environment and mounts), `tests/test_sources.py::test_modality_codes_mri_is_mr` (DCM-12); Vitest `theme/theme.test.ts` (UI-11), `shell/EditorArea.test.ts` (FE-04 tabs per project). `make api-types` (in `make check`) regenerates `schema.d.ts` from the current OpenAPI and diffs (FE-03).
 
-P7c exit: `e2e/p7c-exit.spec.ts` walks the whole ROADMAP §P7c exit criterion in one journey (both browsers).
+Requirement IDs in tests (AUD-A4-01): a new or touched test names the IDs it covers in its docstring, `describe`/`test` title or header comment; `make trace` writes the ID → code/test citation report into `build/trace/` (a report, not a gate).
+
+Import wizard UX (owner addendum 2026-09-25): Vitest `features/import/patternSuggest.test.ts` (SRC-17: stems, groups only when the sample shows them, no guess below half, highlight segments).
 
 P7c files (Wave 5): TST-19 in `tests/test_labeling.py` (levels, progress, typed cells, LWW, history, rename/hide, column edits clearing min/max/unit, table delete → 404 + no layers/variables → restore (LBL-10), `lbl.*` variables and layers, CSV import report, export, view-only, live events); Vitest `plugins/labeling/{model,TableEditor}.test.ts(x)`; Playwright `e2e/labeling.spec.ts` (two browsers, live sync, variable, view-only read-only).
 
@@ -68,9 +70,20 @@ Variables (VAR/ANA): no `group` field; case-level numeric study variables with ~
 
 ## E2E specs (Playwright, Chromium + Firefox)
 
-`smoke`, `p2-flow` (50 cases / 89 scan rows on the fixtures), `variables` (API-16..18), `tst08-multiuser` (TST-08), `projects-bundle` (IMP-09 hash job, PRJ-08/09 export → import). Ports: `E2E_API_PORT`, `E2E_WEB_PORT`.
+All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Ports: `E2E_API_PORT`, `E2E_WEB_PORT`.
+
+| Spec | Covers |
+|---|---|
+| `g1-open` · `g2-dicom` · `g3-review` · `g4-radiomics` | Journeys G1..G4 (VISION §Journeys, REL-02) |
+| `network-allowlist` | NFR-12 / FE-06 / BE-11 (REL-06): no request or WebSocket outside the app origin across Home, Open mode, a case tab, radiomics, queue, settings and a dashboard; a foreign one is aborted and fails |
+| `smoke` · `p2-flow` | App boots; P2 exit (49 cases / 89 scan rows on the fixtures, AUD-A2-08; share link in a second browser) |
+| `p7c-exit` | The P7c exit criterion in one journey (`docs/archive/v3/ROADMAP-done.md` §P7c) |
+| `tst08-multiuser` · `labeling` · `view-only` | TST-08 · TST-19 · TST-18 |
+| `open-mode` · `tasks-dicom` · `converter` · `runner` | SRC-09..14 (TST-15) · DCM + UI-20 · UI-25 / TSK-13 · TST-14 external runner |
+| `variables` · `projects-bundle` | API-16..18 · IMP-09 hash job, PRJ-08/09 export → import, archive / restore |
+| `ct-tools` · `viewer-fov` | VW-17/22/23, UI-24 · VW-06/26 |
 
 ## CI gates
 
-Lint + typecheck · TST-01..04 · OpenAPI/TS types up to date · TST-07 · image build.
+Lint + typecheck · TST-01..04 · OpenAPI/TS types up to date (`make api-types`) · requirement tables (`make reqs`) · TST-07 · image build.
 TST-05/06/08/09/10 run nightly or before a release tag.

@@ -66,10 +66,10 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
         │   └── runs/{run_id}/     # run.json, parts/*.parquet, features.parquet, errors.jsonl, run.log
         ├── tasks/runs/{run_id}/   # other task runs: run.json, items.jsonl, log.jsonl, masks.jsonl, annotations.jsonl (TSK-10)
         ├── derived/runs.jsonl     # ledger of files written to the DERIVED root: run, task, refs, sha256 (ADR-0014)
-        ├── events/{namespace}.jsonl # core event store per plugin, e.g. labeling (ADR-0022); curation keeps curation/events.jsonl
+        ├── events/{namespace}.jsonl # core event store per namespace (plugins, e.g. labeling, and native `phase`; ADR-0022, ADR-0026); curation keeps curation/events.jsonl
         ├── plugins/{plugin_id}/   # plugin state, e.g. labeling/tables.json (PLG-07)
         ├── exports/               # user-requested outputs (CSV/Parquet, phase_selections.json PHS-06 ADR-0026); dataset_table.* (ADR-0020) and dataset.jsonl (ADR-0025) are downloads built on demand (API-59), not stored
-        ├── cache/                 # DISPOSABLE: meshes, npy→nii conversions
+        ├── cache/                 # DISPOSABLE: meshes, thumbs, npy→nii (CACHE_MAX_GB budget, DEPLOYMENT), import previews
         └── .lock                  # advisory lock held by the API process
 ```
 

@@ -52,7 +52,7 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | Labels | `tag` | Classes list | Project label map: swatch, visibility, opacity, hotkey; a name or colour saves on blur / Enter / picker close, 412 → reload + reapply (PRJ-15) |
 | History | `history` | Workflow | Curation event log for the case (CUR-14) |
 | Radiomics | `beaker` | — | Profiles, runs, "New run" |
-| Tasks | `tools` | Run analysis / scripts | Every task (TSK-01) with availability; runs with status (incl. `waiting_for_runner` + how to start the runner), outputs; annotation runs with Activate (ANZ-04) |
+| Tasks | `run-all` | Run analysis / scripts | Every task (TSK-01) with availability; runs with status (incl. `waiting_for_runner` + how to start the runner), outputs; annotation runs with Activate (ANZ-04) |
 | Dashboards | `graph` | — | Completed runs → dashboard tab (views + Analysis panel, DB-08) |
 | Search | `search` | — | Advanced filters on any visible variable, phase, status, warnings, VOI |
 | Variables | `symbol-variable` | — | Variable catalog (VAR-*): type/level/missing %, Review badges, visibility, tags, derived variables, external table import |
@@ -119,16 +119,17 @@ Implementation (P7b Wave 2): "Open file or folder…" is on the workspace home a
 
 | Keys | Command | Keys | Command |
 |---|---|---|---|
-| `Ctrl/Cmd+Shift+P` | Command palette | `Ctrl/Cmd+P` | Quick open case |
+| `Ctrl/Cmd+Shift+P` | Command palette | `Ctrl/Cmd+P` | Quick open case (home, Open mode: open recent project) |
 | `Ctrl/Cmd+B` | Toggle left pane | `Ctrl/Cmd+J` | Toggle panel |
 | `Ctrl/Cmd+Alt+B` | Toggle inspector | `Alt+W` | Close tab (browsers reserve `Ctrl/Cmd+W`; Electron uses `Ctrl/Cmd+W`) |
 | `Alt+↓` / `Alt+↑` | Next / previous case (navigation list, else filtered Explorer order) | `F8` | Next problem |
-| `Alt+Shift+↓` | Next unreviewed case (AUD-A1-04) | `Ctrl/Cmd+P` *(home, Open mode)* | Open recent project |
+| `Alt+Shift+↓` | Next unreviewed case (AUD-A1-04) | `Ctrl/Cmd+\` | Split editor |
 | `A` | Mark accepted* | `Shift+1` / `Shift+2` | Needs minor / major correction* |
 | `X` | Rejected* | `Q` | Add to correction queue* |
 | `1`–`9` | Toggle label visibility* | `L` | Cycle viewer layout* |
 | `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset all views* (VW-10) |
-| `F` | Fit the view under the pointer* (VW-26) | | |
+| `F` | Fit the view under the pointer* (VW-26) | `Esc` | Restore a maximized view* |
+| `Ctrl/Cmd+,` | Settings | `Ctrl/Cmd+Shift+E` / `F` | Project / Search view |
 
 \* Only while a viewer is shown (a case tab, or Open mode) and focus is not in a text field or menu; DOM focus inside the viewer is not needed, so `A → Alt+↓ → A` records both cases (AUD-A2-02). Curation keys wait until the new case's item has loaded and target it with the default target `seg`. No shortcut fires while a dialog is open (AUD-A2-09).
 

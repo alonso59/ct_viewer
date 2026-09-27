@@ -18,6 +18,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from app.core.cache_budget import touch
 from app.core.errors import (
     DerivedRootRequired,
     NotFound,
@@ -103,7 +104,7 @@ class OpenService:
         jobs: JobManager,
         sessions: om.OpenSessions,
         workspace_root: Path,
-        cache_max_gb: float,
+        on_cache_write: Callable[[], None] = lambda: None,
     ) -> None:
         self.guard = guard
         self.derived_guard = derived_guard
@@ -111,7 +112,7 @@ class OpenService:
         self.jobs = jobs
         self.sessions = sessions
         self.workspace_root = workspace_root
-        self.cache_max_gb = cache_max_gb
+        self.on_cache_write = on_cache_write  # CACHE_MAX_GB sweep (AUD-A4-16)
 
     # -- paths --------------------------------------------------------------------------------
 
@@ -175,16 +176,20 @@ class OpenService:
                 err = await convert_once(self.jobs, s.root, it.files or [it.rel], dst)
                 if err is not None or not dst.is_file():
                     raise UnsupportedFormat(f"{it.name}: cannot convert ({err})", actions=RETRY)
-                await asyncio.to_thread(om.purge_scratch, self.workspace_root, self.cache_max_gb)
+                self.on_cache_write()
+            else:
+                touch(dst)
             return dst, f"{fp}.dicom"
         order = om.need_axis_order(it, axis_order)
         geo = it.geometry
         spacing = geo.spacing if geo else [1.0, 1.0, 1.0]
         dst = om.scratch_dir(self.workspace_root, fp, order) / "volume.nii.gz"
+        cached = dst.is_file()
         out = await npy_convert.ensure_nifti(
             self.jobs, src, dst, spacing, order, geo.affine if geo else None
         )
-        await asyncio.to_thread(om.purge_scratch, self.workspace_root, self.cache_max_gb)
+        if not cached:
+            self.on_cache_write()
         return out, f"{fp}.{order}"
 
     async def dicom_tags(self, sid: str, n: int) -> dict[str, Any]:

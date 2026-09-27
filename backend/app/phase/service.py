@@ -51,7 +51,7 @@ class PhaseService:
     # -- write (PHS-01/02/04) -------------------------------------------------------------------
 
     def check_value(self, project_id: str, value: str) -> str:
-        """A `phase_vocabulary` value; an empty vocabulary is open (PRJ-12)."""
+        """A `phase_vocabulary` value; an empty vocabulary is open (PRJ-16)."""
         vocab = self.workspace.get(project_id).phase_vocabulary
         v = value.strip()
         if not v or (vocab and v not in vocab):

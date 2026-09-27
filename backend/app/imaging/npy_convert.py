@@ -22,6 +22,7 @@ from typing import Any, Literal, Protocol
 import nibabel as nib
 import numpy as np
 
+from app.core.cache_budget import touch
 from app.core.errors import ValidationProblem
 from app.core.paths import open_source
 
@@ -156,6 +157,7 @@ async def ensure_nifti(
 ) -> Path:
     """Return the cached NIfTI for `src`, converting once in a worker if needed (IMP-10)."""
     if dst.is_file():
+        touch(dst)  # LRU use (CACHE_MAX_GB, AUD-A4-16)
         return dst
     key = str(dst)
     loop = asyncio.get_running_loop()

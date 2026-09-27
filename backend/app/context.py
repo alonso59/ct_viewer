@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from app.config import Settings
+from app.core.cache_budget import CacheBudget, workspace_pools
 from app.core.locks import FileLock, ProjectLocks
 from app.core.paths import PathGuard
 from app.events.bus import EventBus
@@ -31,9 +32,16 @@ class AppContext:
     server_lock: FileLock
     registry: Registry
     plugins: PluginRegistry
+    # CACHE_MAX_GB: one LRU budget over Open scratch and every project `cache/` (AUD-A4-16)
+    cache_budget: CacheBudget | None = None
     open_sessions: OpenSessions = field(default_factory=OpenSessions)
     # Called with project_id after a successful index rebuild (e.g. thumbnails, IMP-12).
     after_index: list[IndexHook] = field(default_factory=list)
+
+    def cache_written(self) -> None:
+        """A disposable cache file was written: let the budget sweep soon."""
+        if self.cache_budget is not None:
+            self.cache_budget.request()
 
 
 def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContext:
@@ -61,4 +69,8 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
             settings.builtin_plugins_root, settings.plugins_root, plugins.task_owner()
         ),
         plugins=plugins,
+        cache_budget=CacheBudget(
+            lambda: workspace_pools(settings.workspace_root, workspace.projects_dir),
+            settings.cache_max_gb,
+        ),
     )

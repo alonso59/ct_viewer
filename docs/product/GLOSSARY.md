@@ -1,6 +1,8 @@
 # Glossary
 
-Scope: terms used across docs. Read when a term is unclear.
+Scope: terms used across docs.
+Read when: a term is unclear.
+Depends: none (terms point to their owning docs by ID).
 
 | Term | Meaning |
 |---|---|

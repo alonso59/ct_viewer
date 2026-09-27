@@ -28,27 +28,31 @@ Depends: backend/API.md, ADR-0001, ADR-0003, ADR-0008, ADR-0018.
 ```text
 frontend/src/
 ├── app/          # providers, router, bootstrap, error boundary
-├── shell/        # ActivityBar, SideBar, EditorArea(dockview), Panel, StatusBar, CommandPalette, keybindings
+├── shell/        # TitleBar, ActivityBar, SideBar, EditorArea (dockview), Panel, Inspector, StatusBar, CommandPalette, menus, keybindings, registry
 ├── features/
-│   ├── projects/   # workspace home, new project, relink, bundle export/import (lazy report), full-hash action
+│   ├── projects/   # workspace home, new project, settings tab (UI-23), relink, bundles, archive, share
 │   ├── import/     # import wizard: adapter detect, NIfTI pattern preview, identity (IMP-*, SRC-*)
 │   ├── open/       # Open mode: file/folder → viewer without a project; NumPy axis dialog (SRC-09..12)
-│   ├── tasks/      # generic schema form, selection, preflight, estimate, runs, annotations (TSK-*, ANZ-*)
-│   ├── explorer/   # case tree, filters, quick open
+│   ├── tasks/      # Tasks view + task tab: schema form, selection, preflight, estimate, runs, annotations (TSK-*, ANZ-*)
+│   ├── explorer/   # case tree, filters, quick open, navigation context
 │   ├── viewer/     # NiiVue wrapper, layouts, tools, overlays, 3D (VW-*)
+│   ├── phase/      # native phase buttons, history, export (PHS-*, ADR-0026)
+│   ├── variables/  # Variables view: catalog, overrides, derived + external variables (VAR-*)
 │   ├── library/    # Plugin Library view (UI-22, PLG-05)
 │   └── jobs/
 ├── plugins/        # host.ts (FrontendPlugin, activatePlugins, openerOf) + index.ts (FIRST_PARTY)
 │   ├── curation/   # inspector form, history, queue (CUR-*)
+│   ├── labeling/   # Labeling view + one tab per table (LBL-*)
 │   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*)
 │   ├── dashboard/  # views (DB-*)
-│   ├── dicom/      # converter command (overlay: P7c Wave 3)
-│   └── analyzers/  # opens the analyzer task tabs
+│   ├── dicom/      # converter command and overlay (DCM-*)
+│   ├── analyzers/  # opens the analyzer task tabs
+│   └── packs/      # study packs: Library entry → Project settings › Plugins (PRJ-16)
 ├── api/          # generated schema.d.ts, client, query keys, useProjectEvents (SSE)
-├── state/        # cross-feature stores: reviewer, layout, viewerSync, navContext
+├── state/        # cross-feature stores: settings, reviewer, layout, viewerSync, navContext
 ├── i18n/         # en.json (all UI strings); other locales later
-├── theme/        # tokens.css (dark/light), codicon import
-└── lib/
+├── theme/        # tokens.css (dark/light, interface sizes), codicons, CT icon set, label palette
+└── lib/          # shared UI pieces (ProblemCard, NumberInput, SliceThumb), number format, item names
 ```
 
 **Boundaries:** a feature or plugin exposes only its `index.ts` (plugins export `plugin: FrontendPlugin`). Features and plugins never import another one's internals; plugins may use feature `index.ts` exports.
@@ -56,14 +60,17 @@ frontend/src/
 
 ## Routes
 
+Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`); the app router mounts `/`, `/open[/:sid]`, `/v/:token/*` and `/p/:pid/*` (`app/App.tsx`).
+
 | Path | Opens |
 |---|---|
 | `/` | Workspace home (projects) |
 | `/p/:pid` | Workbench shell for the project |
 | `/p/:pid/case/:cid?item=&layout=` | Workbench + case editor tab |
-| `/p/:pid/run/:rid?view=` | Workbench + dashboard tab |
+| `/p/:pid/run/:rid` | Workbench + dashboard tab |
 | `/p/:pid/radiomics` | Workbench + radiomics settings tab |
-| `/p/:pid/task/:tid` | Workbench + task settings tab |
+| `/p/:pid/tasks/:tid` | Workbench + task tab (UI-17) |
+| `/p/:pid/queue` | Workbench + correction queue tab (CUR-09) |
 | `/p/:pid/settings` | Workbench + project settings tab (UI-23) |
 | `/p/:pid/labeling/:tid` | Workbench + label table tab (LBL-03) |
 | `/v/:token/*` | View-only workbench (UI-26, API-60); a deep path opens that tab |

@@ -51,7 +51,7 @@ Order is fixed; stop for owner review after A1 and after A3 (one triage each).
 | A6 | Code quality & tests | Is the code clean, non-repetitive and cheap to change? | Duplication (`npx jscpd`), dead code (`npx knip`, `vulture`), type escape hatches (`any`, `as`, `# type: ignore`, `noqa`), files > 500 lines, layering (features importing each other, plugins reaching into core), mock server drift vs real API; tests: coverage by golden path (which steps have no E2E), unit coverage of the A5 modules, slow tests, fixture gaps; developer loop cost (`make check` time, type generation, E2E startup) | `A6-code-tests.md` |
 | A7 | Documentation structure | Is the doc set clean, stable and publishable (Sphinx + MyST) with a PRD, an SRS and an MVP, without breaking the agent router? | See §A7 below | `A7-docs.md` + target tree and migration map |
 
-Tools are run through `npx`/`uvx` from the scratchpad; nothing is added to `package.json` or `pyproject.toml` during the audit (integrator files, ROADMAP §Lanes).
+Tools are run through `npx`/`uvx` from the scratchpad; nothing is added to `package.json` or `pyproject.toml` during the audit (integrator files, ops/AGENT_RUNBOOK.md §Lanes).
 
 ### Reachability matrix (A1)
 

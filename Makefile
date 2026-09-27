@@ -31,7 +31,7 @@ else
 endif
 
 .PHONY: help setup setup-backend setup-frontend setup-node dev-backend dev-frontend fixtures \
-        gen-api lint typecheck test reqs check e2e image udocker-run container-smoke docs docs-srs trace
+        gen-api api-types lint typecheck test reqs check e2e image udocker-run container-smoke docs docs-srs trace
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -62,9 +62,17 @@ dev-frontend: ## Vite dev server on 5173 (proxies /api -> 8000)
 fixtures: ## Generate the synthetic dataset into FIXTURES (TST-11)
 	cd backend && $(BPY) -m tools.make_fixtures --out "../$(FIXTURES)"
 
-gen-api: ## Regenerate frontend API types from OpenAPI (FE-03)
-	cd backend && $(BPY) -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=1))" > ../frontend/src/api/openapi.json
+gen-api: ## Write the OpenAPI snapshot and regenerate the frontend API types (FE-03, BE-10)
+	cd backend && $(BPY) -m tools.openapi_snapshot
 	$(NODE) npm run gen:api
+
+api-types: ## FE-03 gate: schema.d.ts equals the types generated from the current OpenAPI
+	mkdir -p frontend/.vite/api-types
+	cd backend && $(BPY) -m tools.openapi_snapshot --frontend ../frontend/.vite/api-types/openapi.json
+	$(NODE) npx openapi-typescript .vite/api-types/openapi.json -o .vite/api-types/schema.d.ts
+	@diff -q frontend/src/api/schema.d.ts frontend/.vite/api-types/schema.d.ts >/dev/null \
+	  || { echo "api-types: frontend/src/api/schema.d.ts is stale; run make gen-api (FE-03)"; exit 1; }
+	@echo "api-types: schema.d.ts up to date"
 
 lint: ## ruff + eslint
 	cd backend && $(BPY) -m ruff check . ../scripts ../plugins ../docs/_sphinx && $(BPY) -m ruff format --check . ../scripts ../plugins ../docs/_sphinx
@@ -81,7 +89,7 @@ test: ## Unit tests: pytest + vitest
 reqs: ## Requirement tables check (SRS §1.5; stdlib, < 1 s)
 	python3 docs/_sphinx/reqs.py check
 
-check: lint typecheck test reqs ## Lint, type check, unit tests and the requirement check (CI gate)
+check: lint typecheck test api-types reqs ## Lint, type check, unit tests, API types and the requirement check (CI gate)
 
 e2e: ## Playwright (needs `npx playwright install` once)
 	$(NODE) npm run e2e

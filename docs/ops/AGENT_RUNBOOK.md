@@ -24,6 +24,28 @@ Depends: product/ROADMAP.md.
 | 4 | Review | P7 on remote server (udocker, Dataset820, perf), after P7b | — | NFRs met |
 | 5 | P8 Electron | — | — | Release |
 
+## Lanes (parallel work; moved from ROADMAP 2026-09-27)
+
+A lane edits **only** the paths it owns. Anything it needs elsewhere goes into `LANE_NOTES.md` for the integrator.
+Every lane may also append to `LANE_NOTES.md` and tick its own lines in `product/ROADMAP.md`.
+
+| Step | Lane | Branch | Runs in | Owns |
+|---|---|---|---|---|
+| 0 | Bootstrap | `v3` | VS Code | Repo root, skeletons (done) |
+| 1 | P0.5 design + prototype | `lane/1-design` | VS Code | `frontend/**` except `frontend/src/features/viewer/engine/**` |
+| 1 | P1 backend core | `lane/1-backend` | Shell A | `backend/**` |
+| 2 | P2 shell + explorer | `lane/2-shell` | VS Code | `frontend/**` except `features/{viewer,curation,radiomics,dashboard}/**` |
+| 2 | P1b + P4-BE + P5-BE + P6-BE | `lane/2-backend` | Shell A | `backend/app/{variables,ingest,projects,curation,radiomics,analytics}/**`, `backend/tools/make_fixtures.py`, their routers in `backend/app/api/v1/`, their tests |
+| 2 | P3 viewer | `lane/2-viewer` | Shell B | `frontend/src/features/viewer/**`, `backend/app/imaging/mesh*` |
+| 3 | P4-FE + P6-FE | `lane/3-curation-dashboard` | VS Code | `frontend/src/features/{curation,dashboard}/**` |
+| 3 | P5-FE radiomics form | `lane/3-radiomics-ui` | Shell A | `frontend/src/features/radiomics/**` |
+| 3 | P7-prep packaging | `lane/3-packaging` | Shell B | `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/udocker-run.sh`, `.env.example`, `README.md` |
+| 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (udocker notes), `LANE_NOTES.md` |
+| P7b | Waves 1–4, sequential | `v3` | one Claude shell session (user decision 2026-09-24) | per wave, see §P7b |
+| 5 | P8 Electron | `lane/5-electron` | VS Code | `desktop/**` |
+
+Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml` dependency list, `frontend/package.json`/lockfile (lanes may add dependencies in their own branch; the integrator resolves lockfile conflicts at merge), `AGENTS.md`, `docs/INDEX.md`.
+
 ## Worktree setup (run once per step, from the repo root)
 
 ```bash

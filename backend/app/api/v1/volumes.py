@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response
 
 from app.api.v1.deps import Ctx
 from app.context import AppContext
+from app.core.cache_budget import touch
 from app.core.errors import NotFound, SourceMissing
 from app.imaging import npy_convert, streaming, thumbnails
 from app.imaging.fingerprint import quick_fingerprint
@@ -56,7 +57,10 @@ async def _serve(
         spacing = item.geometry.spacing if item.geometry is not None else [1.0, 1.0, 1.0]
         order = npy_convert.axis_order_of(item.extra.get("axis_order")) or "xyz"  # IMP-10
         dst = npy_convert.cache_path(ctx.workspace.project_dir(pid), fp, order)
+        cached = dst.is_file()
         path = await npy_convert.ensure_nifti(ctx.jobs, path, dst, spacing, order)
+        if not cached:
+            ctx.cache_written()
     return streaming.volume_response(path, fp, name, request)
 
 
@@ -107,5 +111,8 @@ async def get_thumbnail(pid: str, iid: str, request: Request, ctx: Ctx) -> Respo
         raise NotFound("thumbnail not generated")
     path = thumbnails.thumb_path(ctx.workspace.project_dir(pid), fp)
     if not path.is_file():
+        # evicted by CACHE_MAX_GB (or never made): the next thumbnail pass renders it again
+        await thumbnails.regenerate_soon(ctx.workspace, ctx.index, ctx.jobs, pid)
         raise NotFound("thumbnail not generated")
+    touch(path)  # LRU use (AUD-A4-16)
     return streaming.webp_response(path, fp, request)

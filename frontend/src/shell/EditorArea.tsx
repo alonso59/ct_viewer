@@ -16,6 +16,24 @@ import { openEditor, pinEditor, useWorkbench, type EditorParams } from './workbe
 const THEME = { name: 'rw', className: 'dockview-theme-dark dv-rw', gap: 0 }
 const tabsKey = (pid: string) => `rw.tabs.${pid}`
 
+/** FE-04: the saved dockview layout of one project's editor tabs, or null (none, unreadable) */
+export function loadTabs(pid: string): unknown {
+  try {
+    const saved = localStorage.getItem(tabsKey(pid))
+    return saved ? (JSON.parse(saved) as unknown) : null
+  } catch {
+    return null
+  }
+}
+
+export function saveTabs(pid: string, layout: unknown) {
+  try {
+    localStorage.setItem(tabsKey(pid), JSON.stringify(layout))
+  } catch {
+    // storage unavailable
+  }
+}
+
 function EditorHost(props: IDockviewPanelProps<EditorParams>) {
   const { t } = useTranslation()
   const [active, setActive] = useState(props.api.isActive)
@@ -108,19 +126,13 @@ export function EditorArea({ pid }: { pid: string }) {
 
   const onReady = (e: DockviewReadyEvent) => {
     setDock(e.api)
+    const saved = loadTabs(pid)
     try {
-      const saved = localStorage.getItem(tabsKey(pid))
-      if (saved) e.api.fromJSON(JSON.parse(saved))
+      if (saved) e.api.fromJSON(saved as Parameters<typeof e.api.fromJSON>[0])
     } catch {
       e.api.clear()
     }
-    e.api.onDidLayoutChange(() => {
-      try {
-        localStorage.setItem(tabsKey(pid), JSON.stringify(e.api.toJSON()))
-      } catch {
-        // storage unavailable
-      }
-    })
+    e.api.onDidLayoutChange(() => saveTabs(pid, e.api.toJSON()))
     e.api.onDidActivePanelChange(({ panel }) => setActive((panel?.params as EditorParams | undefined) ?? null))
     const initial = matchLocation(pid, location.pathname, location.search)
     if (initial) {

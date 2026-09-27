@@ -26,6 +26,7 @@ from app.core.logs import configure
 from app.imaging import thumbnails
 
 log = logging.getLogger("app.main")
+CACHE_WRITERS = frozenset({"mesh", "thumbnail", "open-convert"})
 
 
 def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -> FastAPI:
@@ -42,11 +43,15 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
             ctx.workspace.open()
             wire(ctx)
             await ctx.jobs.start()
+            if ctx.cache_budget is not None:
+                ctx.cache_budget.start()
             app.state.ctx = ctx
             if not ctx.guard.restricted:
                 log.warning("ALLOWED_DATA_ROOTS is empty: path access is unrestricted (dev only)")
             yield
         finally:
+            if ctx.cache_budget is not None:
+                await ctx.cache_budget.stop()
             await ctx.jobs.shutdown()  # BE-13
             ctx.bus.close()
             ctx.server_lock.release()
@@ -83,6 +88,10 @@ def mount_spa(app: FastAPI, static_root: Path) -> bool:
 def wire(ctx: AppContext) -> None:
     """Cross-service hooks (integration point)."""
     ctx.after_index.append(thumbnails.after_index_hook(ctx.workspace, ctx.index, ctx.jobs))
+    # AUD-A4-16: jobs that write disposable caches trigger a CACHE_MAX_GB sweep
+    ctx.jobs.on_finished.append(
+        lambda info: ctx.cache_written() if info.kind in CACHE_WRITERS else None
+    )
 
 
 app = create_app()

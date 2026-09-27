@@ -20,18 +20,25 @@ Depends: domain/*.md, API.md, ADR-0002, ADR-0003, ADR-0006, ADR-0014, ADR-0016, 
 
 ```text
 backend/app/
-├── main.py          # app factory, router mount, SPA static serving, lifespan (open locks, start job manager)
+├── main.py          # app factory, router mount, SPA static serving, lifespan (locks, job manager, cache budget)
+├── context.py       # service container built in the lifespan (routers get it via api/v1/deps)
 ├── config.py        # env settings (OPS-03)
-├── api/v1/          # thin routers only: validation + call service + map errors
-│   └── health, projects, fs, imports, cases, items, volumes, curation,
-│       radiomics, dashboard, jobs, events
-├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, redact (paths → alias refs, NFR-17)
+├── api/v1/          # thin routers only: validation + call service + map errors; paging helper (limits)
+│   └── health, projects, fs, imports, cases, items, volumes, segmentations, sources, curation,
+│       phase, labeling, annotations, variables, exports, radiomics, dashboard, tasks, plugins,
+│       jobs, events, view (API-60)
+├── core/            # errors (problem+json), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, logs, redact (paths → alias refs, NFR-17), cache_budget (CACHE_MAX_GB LRU)
 ├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
-├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, full-hash job (IMP-09)
+├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, sidecars (IMP-15), full-hash job (IMP-09)
 ├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions + service (open_service.py: open, attach, save; SRC-*)
+├── layers/          # metadata layers joined onto the rows; dataset table (API-59, ADR-0020)
 ├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*)
-├── imaging/         # header reader, fingerprint, npy→nii, mesh builder, file streaming
-├── curation/        # event store, reducer (derived state), queue, exports
+├── plugins/         # plugin.json loader, task ownership, Library status (PLG-*, API-49)
+├── eventstore/      # namespaced append-only log `events/{ns}.jsonl`, reviewer/session stamps, `{ns}.appended` SSE, LWW state (ADR-0022)
+├── curation/        # Curation & QC on the event store: reducer (derived state), queue, exports (CUR-*)
+├── labeling/        # Labeling tables on the event store: schemas, cells, layers (LBL-*)
+├── phase/           # native phase selection: events, read-time join, exports (PHS-*, ADR-0026)
+├── imaging/         # header reader, fingerprint, npy→nii, mesh builder + route (API-25), thumbnails, file streaming
 ├── radiomics/       # engine protocol, pyradiomics adapter, schema builder, ibsi_map.json; runs as builtin task (RAD-13)
 ├── variables/       # profiling, type inference, catalog overrides, derived + external variables (VAR-*)
 ├── analytics/       # DuckDB queries for dashboard views (DB-*) + guided statistics and recommendations (ANA-*)
@@ -39,9 +46,9 @@ backend/app/
 └── events/          # in-process pub/sub → SSE fan-out
 ```
 
-Outside `backend/`: `plugins/dicom/` (DCM), `plugins/analyzers/` (ANZ), `plugins/nnunet/` (external, deferred), `plugins/threshold/` (CI test plugin), each with a `task.json`. All plugins are first-party (PLG-01) with a `plugin.json`; builtin ones are installed into the image, and `PLUGINS_ROOT` is only the host copy the runner executes for `external` runtimes. `scripts/rw-runner.py` is the host runner (TSK-11). P7c adds `app/plugins/` (Wave 1: `plugin.json` loader, task ownership, Library status for API-49; new plugin routes mount under `/api/v1/plugins/{id}/`), `app/eventstore/` (Wave 5: namespaced append-only log `events/{ns}.jsonl` — `curation` keeps `curation/events.jsonl` —, reviewer/session stamps, `{ns}.appended` SSE, LWW state; used by curation and `app/labeling/`) and the view-only router (API-60).
+Outside `backend/`: task plugins `plugins/dicom/` (DCM), `plugins/analyzers/` (ANZ), `plugins/threshold/` (CI test plugin) with their `task*.json` manifests; `plugins/nnunet/` and `plugins/voi/` are pending manifests (PLG-09); `plugins/radiomics/` (the builtin `radiomics.pyradiomics` task in `app/radiomics/`), `plugins/curation/`, `plugins/labeling/`, `plugins/dashboard/` and the packs `plugins/ccrcc/`, `plugins/generic-ct/` contribute UI, routes or pack data only. All plugins are first-party (PLG-01) with a `plugin.json`; builtin ones are installed into the image, and `PLUGINS_ROOT` is only the host copy the runner executes for `external` runtimes. `scripts/rw-runner.py` is the host runner (TSK-11).
 
-**Layering:** `api → services (projects|sources|ingest|variables|imaging|curation|tasks|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`.
+**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|tasks|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`.
 Services never import `api`. All filesystem I/O goes through `core.fsio` or `core.paths`.
 
 ## Requirements
@@ -77,5 +84,5 @@ browser C ─┘   (single writer)     └─ …  → writes only inside runs/{
 
 ## Mesh generation
 
-A worker job runs marching cubes on `(mask_fp, label, smooth)`; the result is cached at `cache/meshes/{mask_fp}_{label}_{smooth}.{ext}`.
-The output format must be one NiiVue loads natively; this is decided in the P3 spike (VW open question).
+A worker job runs marching cubes on `(mask_fp, label, smooth)`; the result is cached at `cache/meshes/{mask_fp}_{label}_{smooth}.mz3`.
+The format is gzip MZ3 (VIEWER §Decisions).

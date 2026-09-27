@@ -2,7 +2,8 @@
 
 Sessions live in memory only: nothing is written to a project or to the workspace registry.
 NumPy (and, with the converter, DICOM) volumes are converted into the disposable
-`WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, LRU-purged with `CACHE_MAX_GB`.
+`WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, inside the global `CACHE_MAX_GB` LRU budget
+(`core/cache_budget.py`).
 Headers run in job workers (BE-12). An opened file is always an image; a segmentation
 comes only from attach (SRC-10: NIfTI, same geometry, from anywhere under ALLOWED_DATA_ROOTS,
 ADR-0027). The actions (open, attach, save) live in `open_service.py`.
@@ -12,7 +13,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import shutil
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Literal
@@ -316,25 +316,6 @@ def check_attach(image: OpenItem, label: OpenGeometry) -> None:
             "It is never resampled (SRC-10)",
             actions=["choose_another_path"],
         )
-
-
-def purge_scratch(workspace_root: Path, max_gb: float) -> None:
-    """LRU purge of `.scratch/open/` above `CACHE_MAX_GB` (oldest first)."""
-    d = workspace_root / OPEN_DIR
-    if not d.is_dir():
-        return
-    entries = []
-    total = 0
-    for sub in d.iterdir():
-        size = sum(p.stat().st_size for p in sub.rglob("*") if p.is_file())
-        total += size
-        entries.append((sub.stat().st_mtime, size, sub))
-    limit = max_gb * 1024**3
-    for _, size, sub in sorted(entries):
-        if total <= limit:
-            break
-        shutil.rmtree(sub, ignore_errors=True)
-        total -= size
 
 
 def fingerprint(path: Path) -> str:

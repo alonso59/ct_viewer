@@ -12,6 +12,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.api.v1.deps import Ctx
+from app.core.cache_budget import touch
 from app.core.errors import NotFound, SourceMissing
 from app.imaging import mesh, streaming
 from app.imaging.fingerprint import quick_fingerprint
@@ -81,6 +82,7 @@ async def get_mesh(
             status_code=202,
             headers={"Location": JOBS_PATH.format(job_id=result.job_id)},
         )
+    touch(result)  # LRU use (CACHE_MAX_GB, AUD-A4-16)
     return FileResponse(
         result,
         media_type=MESH_MEDIA_TYPE,

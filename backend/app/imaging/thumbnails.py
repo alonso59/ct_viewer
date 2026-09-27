@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import logging
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -198,6 +199,25 @@ async def schedule_thumbnails(
         )
     except JobConflict:
         return None
+
+
+_last_regen: dict[str, float] = {}
+REGEN_THROTTLE_S = 30.0
+
+
+async def regenerate_soon(
+    workspace: Workspace, store: IndexStore, jobs: JobManager, project_id: str
+) -> None:
+    """A thumbnail was asked for but is missing (evicted by CACHE_MAX_GB, AUD-A4-16): schedule
+    the idempotent pass again, at most once per `REGEN_THROTTLE_S` per project."""
+    now = time.monotonic()
+    if now - _last_regen.get(project_id, float("-inf")) < REGEN_THROTTLE_S:
+        return
+    _last_regen[project_id] = now
+    try:
+        await schedule_thumbnails(workspace, store, jobs, project_id)
+    except Exception:
+        log.exception("thumbnail scheduling failed", extra={"project_id": project_id})
 
 
 def after_index_hook(

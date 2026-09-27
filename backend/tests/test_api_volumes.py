@@ -207,8 +207,9 @@ def test_thumbnails(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
     async def schedule() -> Any:
         return await thumbnails.schedule_thumbnails(ctx.workspace, ctx.index, ctx.jobs, env.pid)
 
-    job = portal.call(schedule)
-    assert job is not None and job.kind == "thumbnail"
+    # A missing thumbnail (never made, or evicted by CACHE_MAX_GB) schedules the idempotent
+    # pass itself (OPS-03, AUD-A4-16)
+    [job] = [j for j in ctx.jobs.list(env.pid) if j.kind == "thumbnail"]
     done = portal.call(ctx.jobs.wait, job.job_id, 30.0)
     assert done.status == "succeeded"
 

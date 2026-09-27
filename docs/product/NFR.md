@@ -20,7 +20,7 @@ Reference volume: abdominal CT 512×512×600 int16 `.nii.gz` (~180 MB compressed
 | NFR-09 | Browser memory with `VIEWER_MAX_LOADED=3` | M | ≤ 3 GB |
 | NFR-10 | OCI image size | M | ≤ 1.5 GB |
 | NFR-11 | `source` roots never modified (R1); `derived` writes only inside run folders or append-only datasets; verified by TST-07 | M | mandatory |
-| NFR-12 | No telemetry, no external requests (R5), verified by E2E network allowlist | M | mandatory |
+| NFR-12 | No telemetry, no external requests (R5), verified by the E2E network allowlist (`e2e/network-allowlist.spec.ts`, TESTING §E2E specs) | M | mandatory |
 | NFR-13 | Browsers: Chromium ≥ 120, Firefox ≥ 120, Safari ≥ 17 (WebGL2 required) | M | must |
 | NFR-14 | Every curation event is durable once acknowledged (flushed before HTTP 201) | M | mandatory |
 | NFR-15 | Reproducibility: re-running the same profile on unchanged inputs gives identical features | M | bitwise, or ≤ 1e-9 relative |

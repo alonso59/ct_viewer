@@ -19,6 +19,7 @@ Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event s
 | CUR-03 | Decisions target an Item (and optionally a label) or a whole Case. | M |
 | CUR-04 | QC status set: see §Status. One-click buttons for the common ones, plus a keyboard shortcut per status (UI-12). | M |
 | CUR-05 | Free-text comment and priority (`low`, `medium`, `high`) on any decision. | M |
+| CUR-06 | *Retired by ADR-0026* (phase proposals moved to native phase selection, PHASE.md); the ID is not reused. | — |
 | CUR-07 | Side/laterality flag: `wrong_side_suspected` with optional `proposed_side`. | M |
 | CUR-08 | Derived state = latest event per `(item_id, target, seg_id)`. Case rollup = worst status by the severity order below; a case is **reviewed** only when every active item has a decision (a latest status other than `not_reviewed`). With decisions but an undecided active item it is **partial**: its rollup shows `partially_reviewed` unless the worst status is in the queue set. Badges, progress (API-02 `curation_progress`, overview %, Recent card) and "next unreviewed" count reviewed cases only. | M |
 | CUR-09 | Correction queue = items whose latest status is in the queue set, or with `add_to_queue=true`; exportable as CSV for 3D Slicer work. | M |
