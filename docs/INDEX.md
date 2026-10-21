@@ -15,6 +15,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | Importing `metadata.jsonl` / VOI catalog | `domain/INPUT_METADATA.md` |
 | File formats, NIfTI/DICOM/NumPy sources, Open mode, case identity | `domain/SOURCES.md` |
 | Tasks, plugins, runner, run protocol | `domain/TASKS.md` |
+| nnU-Net segmentation generation, model profiles, multi-GPU inference | `domain/SEGMENTATION.md` |
 | DICOM → NIfTI converter | `domain/DICOM_CONVERTER.md` |
 | Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
 | Native phase selection (one-click, precedence, exports) | `domain/PHASE.md` |
@@ -47,6 +48,7 @@ Read only the files routed for your task. Each file declares its scope in its he
 | `IMP-` | domain/INPUT_METADATA.md | Import and indexing |
 | `SRC-` | domain/SOURCES.md | Formats, adapters, Open mode, identity |
 | `TSK-` | domain/TASKS.md | Tasks, plugins, runtimes |
+| `SEG-` | domain/SEGMENTATION.md | nnU-Net segmentation generation |
 | `DCM-` | domain/DICOM_CONVERTER.md | DICOM conversion |
 | `ANZ-` | domain/ANALYZERS.md | Metadata analyzers |
 | `PHS-` | domain/PHASE.md | Native phase selection |

@@ -63,5 +63,5 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 | Dashboard & analysis (`dashboard`) | editor, panels | project | a features run | shipped |
 | Study packs `ccrcc`, `generic-ct` | pack | project | — | shipped |
 | `segment.threshold` (`threshold`, `hidden`) | task (test only, hidden from the Library) | project | runner | done (CI) |
-| nnU-Net segmentation (`nnunet`, `pending`) | task (external) | project | runner, GPU | **pending** (end) |
+| nnU-Net segmentation (`nnunet`, `pending`) | task (external) | project | runner, GPU | **planned** (P7e; P7d approval pending) |
 | VOI extractor (`voi`, `pending`) | task: crops VOIs (image + mask, per side) from a segmented mask | project | **a segmentation set** with the target labels | **pending** (end; reference code from the owner; settles the legacy `.npy` axis order, SRC-12) |

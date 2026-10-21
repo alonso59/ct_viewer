@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order from 2026-09-24 (user decision): **P7b → P7c (done 2026-09-25) → quality audit (A0..A8, FB1..FB12; closed 2026-09-27) → pending plugins (VOI extractor, nnU-Net) → P7 remote part (Step 4: udocker, server checks) → P8 Electron**.
+Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → VOI extractor → P7 remote checks → P8 Electron**.
 
 ## Progress
 
@@ -23,6 +23,8 @@ Order from 2026-09-24 (user decision): **P7b → P7c (done 2026-09-25) → quali
 | P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
 | P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
+| P7d | nnU-Net segmentation planning | 🟨 Draft complete; owner decisions and approval pending |
+| P7e | nnU-Net segmentation generation | ⬜ Starts only after P7d approval |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -52,13 +54,22 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 
 ### P7b — Sources, derived data, tasks & plugins (ADR-0013..0017)
 Done 2026-09-24 (exit met; archive).
-- [ ] **Deferred until the P7b amendments are stable (user decision 2026-09-24):** `plugins/nnunet/` (`dataset.json` labels, `_0000` staging, batches; ADR-0016 §6) and its human check on a GPU host (one item and a batch)
+- nnU-Net work moved to P7d/P7e after the P7b amendments became stable.
 - [ ] **Pending (user decision 2026-09-24):** a VOI extractor plugin that crops VOIs from a segmentation (reference code to be provided); it also settles the legacy `.npy` VOI axis order (IMP-10, SRC-12; default `xyz` until then). Keep `legacy/` until the owner decides to delete it (fully ported otherwise)
 - [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 
-### Pending plugins (after P7c, before Step 4)
-- [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10)
-- [ ] nnU-Net segmentation plugin (`plugins/nnunet/`, external runtime, GPU), deferred from P7b; also owns nnU-Net dataset naming on import/export (`imagesTr/`/`labelsTr/`, `_0000` channels), removed from core `nifti-files` (ADR-0024)
+### P7d — nnU-Net segmentation planning (current)
+- [x] Define the generation-only boundary, model profiles, upstream pipeline preservation, multi-GPU partitioning, output indexing and verification (ADR-0032, SEG-*, TST-21)
+- [ ] Owner supplies the kirck environment/model/GPU details in SEGMENTATION.md §Open questions and accepts ADR-0032
+**Exit:** ADR-0032 is Accepted, no SEG-* question blocks implementation, and the owner confirms P7e may start.
+
+### P7e — nnU-Net segmentation generation
+- [ ] Implement `plugins/nnunet/` in the five waves from SEGMENTATION.md; use the generic Tasks UI and existing TSK-09 index registration
+- [ ] Pass TST-21 locally with the fake CLI, then on kirck with one item and a multi-GPU batch
+**Exit:** generated masks form a new indexed segmentation set, source and existing masks remain byte-identical, partial failure/cancel/resume work, and the real profile completes on kirck.
+
+### Pending plugin after P7e
+- [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` axis order (SRC-12, IMP-10)
 
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
 - [x] Audits A0..A8 and fix batches FB1..FB12, 2026-09-25..27; **closed 2026-09-27**: 129 findings, all fixed. Frozen record: `docs/archive/v3/audit/` (PLAN §Status, REMEDIATION §Owner review). Its only deferred item, the udocker check on the remote server, is P7 above (Step 4).

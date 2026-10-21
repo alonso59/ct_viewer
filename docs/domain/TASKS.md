@@ -90,4 +90,4 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 | `analyzer.phase`, `analyzer.target`, `analyzer.readiness` | rows | annotations | ANALYZERS.md |
 | `segment.threshold` (test only, CI; runs under both runtimes, TST-14) | items | masks | TESTING.md |
 
-External (first, pending, ROADMAP §Pending plugins): `segment.nnunet` in `plugins/nnunet/`. The manifest above is its target shape.
+External (planned in ROADMAP P7e): `segment.nnunet` in `plugins/nnunet/`. The manifest above is its generic task shape; model profiles, official nnU-Net stages and multi-GPU partitioning are owned by SEG-*.
