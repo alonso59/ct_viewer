@@ -231,3 +231,37 @@ def test_convert_or_skip_decision(
     expected: tuple[bool, str],
 ) -> None:
     assert decide_conversion(row, role, reason, Settings.from_dict(settings)) == expected
+
+
+def test_discovery_reads_each_file_once_and_groups_like_gdcm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DCM-06 scan cost: one header read per file; two series sharing a folder are split by
+    SeriesInstanceUID, a non-DICOM file is ignored, and the slices come in GDCM's order."""
+    from tools.dicom_fixtures import write_series
+
+    folder = tmp_path / "flat"
+    a = write_series(folder / "a", shape=(4, 4, 5))
+    b = write_series(folder / "b", description="ARTERIAL", series_number=4, shape=(4, 4, 3))
+    for sub in ("a", "b"):  # one flat folder, the file names in reverse slice order
+        files = sorted((folder / sub).iterdir())
+        for k, f in enumerate(files):
+            f.rename(folder / f"{sub}{len(files) - k:03d}")
+        (folder / sub).rmdir()
+    (folder / "notes").write_bytes(b"not a dicom file at all")
+    reads: list[Path] = []
+    real = scan._scan_header
+    monkeypatch.setattr(scan, "_scan_header", lambda p: reads.append(p) or real(p))
+    ticks: list[int] = []
+    found = scan.discover(folder, [], tick=ticks.append)
+    assert sorted(reads) == sorted(folder.iterdir()) and sum(ticks) == 9
+    by_uid = {s.series_id: s for s in found}
+    assert set(by_uid) == {a["series_uid"], b["series_uid"]}
+    s = by_uid[a["series_uid"]]
+    assert len(s.files) == len(s.headers) == 5
+    assert s.source_bytes == sum(f.stat().st_size for f in s.files)  # no stat per file later
+    z = [float(h.ImagePositionPatient[2]) for h in s.headers]
+    assert z == sorted(z)  # along the slice normal, not by file name
+    diagnostics: list[scan.Diagnostic] = []
+    insp = scan.inspect(s, scan.first_header(s), diagnostics)
+    assert insp.geometry_status == "ok" and len(reads) == 9  # inspect reused the headers

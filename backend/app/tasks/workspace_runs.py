@@ -77,7 +77,8 @@ class WorkspaceRun(BaseModel):
     settings: dict[str, Any]
     settings_hash: str
     counts: dict[str, int] = Field(default_factory=dict)
-    progress: dict[str, int] = Field(default_factory=dict)  # {done, total}
+    # {done, total} series, and while it scans {stage, stage_done, stage_total} (DCM-06)
+    progress: dict[str, int | str] = Field(default_factory=dict)
     error: str | None = None
     job_id: str | None = None
 
@@ -191,19 +192,21 @@ class WorkspaceTasks:
 
     # -- API-62 -------------------------------------------------------------------------------
 
-    async def estimate(self, task_id: str, req: WorkspaceEstimateRequest) -> TaskEstimate:
+    async def estimate(
+        self, task_id: str, req: WorkspaceEstimateRequest, progress_id: str | None = None
+    ) -> TaskEstimate:
         """The dry run (DCM-06) without a project: counts and storage, nothing written."""
         m = self._manifest(task_id)
         settings, _ = self._settings(m, req.settings)
         source = self._source(req.selection)
-        await dry_run.require_dicom(m.id, source)
-        job_dir = self.settings.workspace_root / ".scratch" / "estimates" / new_ulid()
-        spec = self._spec(m, settings, source, job_dir / "out")
-        protocol.write_job(
-            job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
-        )
+        job_dir = dry_run.job_dir(self.settings.workspace_root, progress_id)
         t0 = time.monotonic()
         try:
+            await dry_run.require_dicom(m.id, source)
+            spec = self._spec(m, settings, source, job_dir / "out")
+            protocol.write_job(
+                job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
+            )
             assert m.runtime.entry is not None
             await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
             result = protocol.read_result(job_dir) or {}
@@ -276,6 +279,7 @@ class WorkspaceTasks:
         assert m.runtime.entry is not None
         fut = asyncio.ensure_future(h.run_in_worker(run_entry, m.runtime.entry, str(job_dir)))
         done = total = 0
+        stage: dict[str, int | str] = {}
         cancel_sent = False
         while True:
             for line in tail.read():
@@ -285,8 +289,14 @@ class WorkspaceTasks:
                 elif line.get("t") == "item":
                     done += 1
                     h.set_done(done)
+                elif line.get("t") == "stage":
+                    stage = {
+                        "stage": str(line.get("stage") or ""),
+                        "stage_done": int(line.get("done") or 0),
+                        "stage_total": int(line.get("total") or 0),
+                    }
             run = self._read(run_dir)
-            run.progress = {"done": done, "total": total}
+            run.progress = {"done": done, "total": total, **stage}
             self._write(run_dir, run)
             if fut.done():
                 break

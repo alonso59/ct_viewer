@@ -301,6 +301,9 @@ export const useWorkspaceRun = (rid: string | null) =>
     enabled: !!rid,
     refetchInterval: (q) => (q.state.data && !['queued', 'running'].includes(q.state.data.status) ? false : 800),
   })
+/** DCM-06: a named dry run's stage while it runs; `not-found` before it starts and after it returned */
+export const useEstimateProgress = (eid: string | null) =>
+  useQuery({ queryKey: keys.estimateProgress(eid ?? ''), queryFn: () => api.estimateProgress(eid ?? ''), enabled: !!eid, retry: false, refetchInterval: 500 })
 export const useLayers = (pid: string) => useQuery({ queryKey: keys.layers(pid), queryFn: () => api.listLayers(pid), enabled: enabled(pid) })
 export const useLabelTables = (pid: string) =>
   useQuery({ queryKey: keys.labelTables(pid), queryFn: () => api.listLabelTables(pid), enabled: enabled(pid) })

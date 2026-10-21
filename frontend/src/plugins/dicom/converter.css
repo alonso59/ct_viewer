@@ -9,3 +9,17 @@
 .conv-path { overflow-wrap: anywhere; font-size: var(--fs-panel); }
 .conv-help { font-size: var(--fs-badge); margin: 0; }
 .conv-check { display: flex; align-items: center; gap: 8px; }
+.conv-fields { display: flex; flex-direction: column; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
+/* DCM-06: the dry run's stages while it works */
+.conv-scan { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; }
+.conv-stages { display: flex; flex-direction: column; gap: 4px; list-style: none; margin: 0; padding: 0; font-size: var(--fs-panel); }
+.conv-stages li { display: flex; align-items: center; gap: 8px; color: var(--fg-muted); }
+.conv-stages li[data-state='current'] { color: var(--fg); }
+.conv-stages li[data-state='done'] { color: var(--ok); }
+.conv-indeterminate > span { width: 30%; animation: conv-slide 1.2s var(--ease) infinite; }
+@keyframes conv-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .conv-indeterminate > span { animation: none; width: 100%; opacity: 0.4; } }
+/* UI-25: the minimized window, bottom-left (toasts are bottom-right) */
+.conv-chip { position: fixed; left: var(--sp-3); bottom: calc(var(--h-statusbar) + var(--sp-3)); z-index: 1100; display: flex; align-items: center; gap: var(--sp-2); width: 360px; max-width: calc(100vw - 2 * var(--sp-3)); padding: var(--sp-2) var(--sp-3); animation: toast-in var(--dur-base) var(--ease); }
+.conv-chip-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; font-size: var(--fs-panel); }
+.conv-chip-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,14 +1,15 @@
-// Case editor tab: item switcher + the NiiVue viewer (VIEWER.md; VW-11, 12, 14).
+// Case editor tab: header (case, scan drop-down, scope, phase, review status) + the NiiVue viewer (VIEWER.md; VW-11, 12, 14).
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef, type Phase } from '../../api'
-import { CaseRollupBadge, PhaseChip, ProblemCard } from '../../lib'
+import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef } from '../../api'
+import { CaseRollupBadge, ProblemCard } from '../../lib'
 import { bindingOf, formatChord, pinEditor, registry, runCommand, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { PhaseButtons, PhaseHistoryButton } from '../phase'
 import { navPosition, resolveSeg, useNavContext, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
+import { ItemSwitcher } from './ItemSwitcher'
 import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
 import './viewer.css'
 
@@ -40,55 +41,6 @@ export const FATAL_CODES = ['missing_path', 'unreadable_file', 'outside_root']
 export function defaultItem(items: ItemRecord[]): ItemRecord | undefined {
   const complete = items.filter((i) => i.scope === 'complete' && i.status !== 'excluded_upstream')
   return complete.find((i) => i.phase.canonical === 'NP' && i.status === 'active') ?? complete.find((i) => i.status === 'active') ?? items[0]
-}
-
-function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current: ItemRecord; onPick: (id: string) => void }) {
-  const { t } = useTranslation()
-  const phases = [...new Set(items.map((i) => i.phase.canonical))] as Phase[]
-  const inPhase = items.filter((i) => i.phase.canonical === current.phase.canonical)
-  const scans = [...new Set(inPhase.map((i) => i.scan_idx))]
-  const inScan = inPhase.filter((i) => i.scan_idx === current.scan_idx)
-  const hasVoi = inScan.some((i) => i.scope === 'voi')
-  const sides = inScan.filter((i) => i.scope === 'voi').map((i) => i.side)
-  const pick = (f: (i: ItemRecord) => boolean) => {
-    const target = items.find((i) => f(i) && i.scope === current.scope && i.side === current.side) ?? items.find(f)
-    if (target) onPick(target.item_id)
-  }
-  return (
-    <div className="switcher" role="toolbar" aria-label={t('viewer.itemSwitcher')}>
-      {/* AUD-A1-12: these chips pick the scan to view (named by its phase); the phase itself is set in
-          the "Phase" control next to it */}
-      <span className="switcher-label">{t('viewer.scan')}</span>
-      {phases.map((p) => (
-        <PhaseChip key={p} phase={p} active={p === current.phase.canonical} onClick={() => pick((i) => i.phase.canonical === p)} />
-      ))}
-      {scans.length > 1
-        ? scans.map((s) => (
-            <button key={s} type="button" className="badge" aria-pressed={s === current.scan_idx} aria-label={t('viewer.scanIndex', { scan: s })} data-tone={s === current.scan_idx ? 'accent' : undefined} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === s)}>
-              {s}
-            </button>
-          ))
-        : null}
-      <span className="switcher-sep" />
-      <div className="seg" role="group" aria-label={t('viewer.scope')}>
-        <button type="button" data-scope="complete" aria-pressed={current.scope === 'complete'} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'complete')}>
-          {t('item.full')}
-        </button>
-        <button type="button" data-scope="voi" aria-pressed={current.scope === 'voi'} disabled={!hasVoi} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'voi')}>
-          {t('item.voi')}
-        </button>
-      </div>
-      {current.scope === 'voi' ? (
-        <div className="seg" role="group" aria-label={t('viewer.side')}>
-          {sides.map((s) => (
-            <button key={s} type="button" aria-pressed={current.side === s} onClick={() => pick((i) => i.phase.canonical === current.phase.canonical && i.scan_idx === current.scan_idx && i.scope === 'voi' && i.side === s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
 }
 
 /** AUD-A1-04: "Outliers 3/22 ›" while the case came from a list; × falls back to Explorer order */

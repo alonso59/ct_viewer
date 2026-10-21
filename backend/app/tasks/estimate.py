@@ -20,7 +20,9 @@ SAMPLE_ITEMS: Final = 3
 class EstimateBase(JobSpecBase):
     """Estimates: builtin sample, external manifest figures, source-task dry run (DCM-06)."""
 
-    async def estimate(self, pid: str, task_id: str, req: PreflightRequest) -> TaskEstimate:
+    async def estimate(
+        self, pid: str, task_id: str, req: PreflightRequest, progress_id: str | None = None
+    ) -> TaskEstimate:
         info = self.registry.get(task_id)
         m = info.manifest
         if task_id == RADIOMICS_TASK:
@@ -29,7 +31,7 @@ class EstimateBase(JobSpecBase):
         n_units = pre.n_ready
         skipped = pre.n_selected - pre.n_ready
         if m.input == "source" and m.runtime.type == "builtin":
-            return await self._dry_run(pid, m, req)
+            return await self._dry_run(pid, m, req, progress_id)
         if m.runtime.type == "external":
             spi = m.resources.seconds_per_item
             return TaskEstimate(
@@ -107,21 +109,23 @@ class EstimateBase(JobSpecBase):
             sample_errors=errors,
         )
 
-    async def _dry_run(self, pid: str, m: TaskManifest, req: PreflightRequest) -> TaskEstimate:
+    async def _dry_run(
+        self, pid: str, m: TaskManifest, req: PreflightRequest, progress_id: str | None
+    ) -> TaskEstimate:
         """A source task's estimate = its dry run (DCM-06): counts and storage, nothing written."""
         settings, _ = self._settings(m, req.settings)
         source = self._source(req.selection)
-        await dry_run.require_dicom(m.id, Path(source))
-        job_dir = self.settings.workspace_root / ".scratch" / "estimates" / new_ulid()
-        spec = self._job_spec(
-            pid, m, settings=settings, items=[], seg_id=None, output_dir=str(job_dir / "out"),
-            source=source, scratch=job_dir,
-        )  # fmt: skip
-        protocol.write_job(
-            job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
-        )
+        job_dir = dry_run.job_dir(self.settings.workspace_root, progress_id)
         t0 = time.monotonic()
         try:
+            await dry_run.require_dicom(m.id, Path(source))
+            spec = self._job_spec(
+                pid, m, settings=settings, items=[], seg_id=None, output_dir=str(job_dir / "out"),
+                source=source, scratch=job_dir,
+            )  # fmt: skip
+            protocol.write_job(
+                job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
+            )
             assert m.runtime.entry is not None
             await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
             result = protocol.read_result(job_dir) or {}

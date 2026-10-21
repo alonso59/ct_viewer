@@ -5,10 +5,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Query
 
 from app.api.v1.deps import Ctx
 from app.context import AppContext
+from app.tasks import dry_run
+from app.tasks.dry_run import EstimateProgress
 from app.tasks.models import (
     PreflightRequest,
     PreflightResult,
@@ -34,6 +36,8 @@ from app.tasks.workspace_runs import (
 
 router = APIRouter(tags=["tasks"])
 Reviewer = Annotated[str | None, Header(alias="X-Reviewer")]
+# names a dry run so `GET /task-estimates/{id}` can report its progress while it runs (DCM-06)
+ProgressId = Annotated[str | None, Query(max_length=64)]
 
 
 def svc(ctx: AppContext) -> TaskService:
@@ -63,8 +67,10 @@ async def preflight(ctx: Ctx, pid: str, tid: str, body: PreflightRequest) -> Pre
 
 
 @router.post("/projects/{pid}/tasks/{tid}/estimate", response_model=TaskEstimate)
-async def estimate(ctx: Ctx, pid: str, tid: str, body: PreflightRequest) -> TaskEstimate:
-    return await svc(ctx).estimate(pid, tid, body)
+async def estimate(
+    ctx: Ctx, pid: str, tid: str, body: PreflightRequest, progress_id: ProgressId = None
+) -> TaskEstimate:
+    return await svc(ctx).estimate(pid, tid, body, progress_id)
 
 
 @router.post("/projects/{pid}/task-runs", response_model=TaskRunStarted, status_code=202)
@@ -114,9 +120,22 @@ def wsvc(ctx: AppContext) -> WorkspaceTasks:
 
 
 @router.post("/tasks/{tid}/estimate", response_model=TaskEstimate)
-async def workspace_estimate(ctx: Ctx, tid: str, body: WorkspaceEstimateRequest) -> TaskEstimate:
+async def workspace_estimate(
+    ctx: Ctx, tid: str, body: WorkspaceEstimateRequest, progress_id: ProgressId = None
+) -> TaskEstimate:
     """The converter's dry run without a project (DCM-06, UI-25 step 3)."""
-    return await wsvc(ctx).estimate(tid, body)
+    return await wsvc(ctx).estimate(tid, body, progress_id)
+
+
+@router.get("/task-estimates/{eid}", response_model=EstimateProgress)
+def estimate_progress(ctx: Ctx, eid: str) -> EstimateProgress:
+    """Where a dry run started with `progress_id=eid` is (DCM-06); 404 once it has returned."""
+    return dry_run.progress(ctx.settings.workspace_root, eid)
+
+
+@router.post("/task-estimates/{eid}/cancel", status_code=204)
+def cancel_estimate(ctx: Ctx, eid: str) -> None:
+    dry_run.cancel(ctx.settings.workspace_root, eid)
 
 
 @router.post("/task-runs", response_model=TaskRunStarted, status_code=202)

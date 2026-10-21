@@ -38,7 +38,7 @@ test('a click sends the selection at once; the replaced value and the history sh
 })
 
 // PHS-01 / AUD-A1-12: in the case header the scan's phase is a segmented control with the effective
-// value pressed, apart from the scan chips of the item switcher
+// value pressed, apart from the scan drop-down of the item switcher
 test('the case header variant is a segmented control with the effective phase pressed', async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const scan = (await api.getCase(DEMO_PID, 'case_00001')).items.find((i) => i.scope === 'complete')!

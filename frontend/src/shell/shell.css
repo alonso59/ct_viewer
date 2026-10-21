@@ -111,6 +111,10 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
+/* tools cut off on a narrow window: the bar shows it can scroll */
+.toolbar:hover {
+  scrollbar-width: thin;
+}
 .toolbar-sep {
   width: 1px;
   height: 18px;

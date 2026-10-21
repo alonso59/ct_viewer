@@ -1,7 +1,7 @@
 // Replay of API exchanges recorded from the real backend on the synthetic fixtures (TST-04,
 // AUD-A6-03). `recorded.json` is written by `make record-mock` (backend/tools/record_mock.py);
 // never edit it by hand. A request is answered by the recording with the same method, path,
-// query (paging parameters dropped) and JSON body; failing that, the same request with any body;
+// query (paging parameters and the client-chosen `progress_id` dropped) and JSON body; failing that, the same request with any body;
 // failing that (GET only), the same path without its query. Nothing else is computed here: an
 // unrecorded request is a `not-recorded` problem, and a write changes no later answer.
 import recorded from './recorded.json'
@@ -23,7 +23,7 @@ const rec = recorded as unknown as Recording
 /** The recorded demo project (the recorder's fixed id) */
 export const RECORDED_PID = rec.project_id
 
-const PAGING = new Set(['limit', 'cursor'])
+const PAGING = new Set(['limit', 'cursor', 'progress_id'])
 
 /** Sorted-key JSON, so equal bodies give equal keys */
 function canonical(v: unknown): string {

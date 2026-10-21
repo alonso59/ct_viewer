@@ -10,7 +10,8 @@ const Overlay = lazy(() => Promise.all([import('./ConverterOverlay'), import('..
 
 function ConverterHost() {
   const open = useConverter((s) => s.open)
-  return open ? createElement(Suspense, { fallback: null }, createElement(Overlay)) : null
+  const session = useConverter((s) => s.session)
+  return open ? createElement(Suspense, { fallback: null }, createElement(Overlay, { key: session })) : null
 }
 
 /** Opens the converter; inside a project it can convert into that project (DCM-14). */

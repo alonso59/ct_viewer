@@ -2945,6 +2945,34 @@
     "title": "EngineInfo",
     "type": "object"
    },
+   "EstimateProgress": {
+    "description": "The last `stage` line of a running dry run (`listing` | `reading` | `planning`).",
+    "properties": {
+     "done": {
+      "default": 0,
+      "title": "Done",
+      "type": "integer"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage"
+     },
+     "total": {
+      "default": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "title": "EstimateProgress",
+    "type": "object"
+   },
    "EstimateResult": {
     "properties": {
      "estimated_total_s": {
@@ -11987,7 +12015,14 @@
      },
      "progress": {
       "additionalProperties": {
-       "type": "integer"
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        }
+       ]
       },
       "title": "Progress",
       "type": "object"
@@ -18196,6 +18231,23 @@
        "title": "Tid",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "progress_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 64,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Progress Id"
+      }
      }
     ],
     "requestBody": {
@@ -18897,6 +18949,84 @@
     ]
    }
   },
+  "/api/v1/task-estimates/{eid}": {
+   "get": {
+    "description": "Where a dry run started with `progress_id=eid` is (DCM-06); 404 once it has returned.",
+    "operationId": "estimate_progress_api_v1_task_estimates__eid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "eid",
+      "required": true,
+      "schema": {
+       "title": "Eid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EstimateProgress"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Estimate Progress",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/task-estimates/{eid}/cancel": {
+   "post": {
+    "operationId": "cancel_estimate_api_v1_task_estimates__eid__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "eid",
+      "required": true,
+      "schema": {
+       "title": "Eid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel Estimate",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
   "/api/v1/task-runs": {
    "get": {
     "operationId": "list_workspace_runs_api_v1_task_runs_get",
@@ -19120,6 +19250,23 @@
       "schema": {
        "title": "Tid",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "progress_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 64,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Progress Id"
       }
      }
     ],

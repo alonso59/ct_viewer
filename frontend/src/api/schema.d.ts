@@ -1332,6 +1332,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/task-estimates/{eid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estimate Progress
+         * @description Where a dry run started with `progress_id=eid` is (DCM-06); 404 once it has returned.
+         */
+        get: operations["estimate_progress_api_v1_task_estimates__eid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-estimates/{eid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Estimate */
+        post: operations["cancel_estimate_api_v1_task_estimates__eid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/task-runs": {
         parameters: {
             query?: never;
@@ -3012,6 +3049,24 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /**
+         * EstimateProgress
+         * @description The last `stage` line of a running dry run (`listing` | `reading` | `planning`).
+         */
+        EstimateProgress: {
+            /** Stage */
+            stage?: string | null;
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** EstimateResult */
         EstimateResult: {
@@ -6344,7 +6399,7 @@ export interface components {
             };
             /** Progress */
             progress?: {
-                [key: string]: number;
+                [key: string]: number | string;
             };
             /** Error */
             error?: string | null;
@@ -8898,7 +8953,9 @@ export interface operations {
     };
     estimate_api_v1_projects__pid__tasks__tid__estimate_post: {
         parameters: {
-            query?: never;
+            query?: {
+                progress_id?: string | null;
+            };
             header?: never;
             path: {
                 pid: string;
@@ -9164,7 +9221,9 @@ export interface operations {
     };
     workspace_estimate_api_v1_tasks__tid__estimate_post: {
         parameters: {
-            query?: never;
+            query?: {
+                progress_id?: string | null;
+            };
             header?: never;
             path: {
                 tid: string;
@@ -9185,6 +9244,66 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TaskEstimate"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_progress_api_v1_task_estimates__eid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateProgress"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_estimate_api_v1_task_estimates__eid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

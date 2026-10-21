@@ -53,7 +53,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   )
 })
 
-export function Dialog({ open, onOpenChange, title, icon, children, footer, size }: {
+export function Dialog({ open, onOpenChange, title, icon, children, footer, size, dismissible = true, actions }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: ReactNode
@@ -61,15 +61,24 @@ export function Dialog({ open, onOpenChange, title, icon, children, footer, size
   children: ReactNode
   footer?: ReactNode
   size?: 'lg'
+  /** false: a click outside does nothing (Escape and × still call `onOpenChange(false)`) */
+  dismissible?: boolean
+  /** Extra header buttons, before × */
+  actions?: ReactNode
 }) {
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
       <RDialog.Portal>
         <RDialog.Overlay className="dialog-scrim" />
-        <RDialog.Content className={`overlay dialog${size === 'lg' ? ' dialog-lg' : ''}`} aria-describedby={undefined}>
+        <RDialog.Content
+          className={`overlay dialog${size === 'lg' ? ' dialog-lg' : ''}`}
+          aria-describedby={undefined}
+          onInteractOutside={dismissible ? undefined : (e) => e.preventDefault()}
+        >
           <div className="dialog-header">
             {icon ? <Icon spec={icon} /> : null}
             <RDialog.Title style={{ margin: 0, fontSize: 'var(--fs-ui)', flex: 1 }}>{title}</RDialog.Title>
+            {actions}
             <RDialog.Close asChild>
               <button type="button" className="icon-btn" aria-label="close">
                 <Icon spec={{ codicon: 'close' }} />

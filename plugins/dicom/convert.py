@@ -33,8 +33,14 @@ def read_image(series: Series) -> Any:
         if image.GetDimension() == 2:
             image = sitk.JoinSeries([image])
         return image
+    # GDCM orders the slices it reads (DCM-02); discovery's own order only if GDCM doesn't
+    # know the series (its IDs are the SeriesInstanceUIDs discovery groups by)
     reader = sitk.ImageSeriesReader()
-    reader.SetFileNames([str(p) for p in series.files])
+    try:
+        names = list(reader.GetGDCMSeriesFileNames(str(series.dicom_dir), series.series_id))
+    except RuntimeError:
+        names = []
+    reader.SetFileNames(names or [str(p) for p in series.files])
     return reader.Execute()
 
 

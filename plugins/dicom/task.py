@@ -70,6 +70,7 @@ def run(job_dir: str) -> int:
         progress=progress,
         cancelled=job.cancelled,
         on_total=job.total,
+        on_stage=job.stage,
     )
     extra: dict[str, Any] = {
         "identity": identity.as_dict(),

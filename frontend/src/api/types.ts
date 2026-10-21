@@ -381,6 +381,7 @@ export type TaskSelection = S['TaskSelection']
 export type TaskValidateResult = S['TaskValidateResult']
 export type PreflightResult = S['PreflightResult']
 export type TaskEstimate = S['TaskEstimate']
+export type EstimateProgress = S['EstimateProgress']
 export type TaskRunRequest = S['TaskRunRequest']
 export type TaskRunStarted = S['TaskRunStarted']
 /** API-45 list row; a radiomics row carries its RAD-09 summary (`radiomics`) */

@@ -489,7 +489,7 @@
     "reset": "Reset view",
     "restore": "Restore layout",
     "scan": "Scan",
-    "scope": "Scope",
+    "scope": "Show",
     "screenshot": "Screenshot (PNG)",
     "side": "Side",
     "sliceOf": "{{index}} · {{total}}",
@@ -516,7 +516,15 @@
     },
     "segShown": "Showing segmentation set {{set}}",
     "caseNotFoundHelp": "The case {{id}} is not in this project (renamed, excluded or from another project).",
-    "scanIndex": "Scan {{scan}}"
+    "scanIndex": "Scan {{scan}}",
+    "scanPrev": "Previous scan",
+    "scanNext": "Next scan",
+    "scanPick": "Choose a scan of this case",
+    "scanPosition": "{{n}} of {{total}}",
+    "scanSlices": "{{n}} slices",
+    "scopeFullHelp": "The whole scan",
+    "scopeVoiHelp": "Only the cropped region around the organ",
+    "scopeNoVoi": "This scan has no cropped region"
   },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",

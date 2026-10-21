@@ -59,8 +59,9 @@ export function SlabControls() {
   if (!shown) return null
   return (
     <>
+      <span className="toolbar-label">{t('ct.slabLabel')}</span>
       <Menu.Root>
-        <Menu.Trigger className="toolbar-select" disabled={!enabled} aria-label={t('ct.slab')}>
+        <Menu.Trigger className="toolbar-select" disabled={!enabled} aria-label={t('ct.slab')} title={t('ct.slab')}>
           <Icon spec={codicon('layers-active')} />
           {t(`ct.slabMode.${display.slab.mode}`)}
           <Icon spec={codicon('chevron-down')} />

@@ -29,7 +29,7 @@ Phase selection is a native app capability (ADR-0026) — always available, not 
 ## Implementation (ADR-0026 amendment)
 
 - Backend `app/phase/` (API-63..65): events via the core event store; the effective phase is joined where the index is loaded (`phase.source = "manual"`, the replaced value in `phase.resolved`), never written to `index/`.
-- Frontend `features/phase/` (core, not a plugin): `PhaseButtons` in the case header ("Set phase", next to the scan switcher, whose chips only move between scans) and in each Explorer scan row (shown on hover, focus or the active row); "Accept guess" when the effective value comes from the active `analyzer.phase` run (`analyzer:{run_id}`); "was …" shows the replaced value; a history dialog per scan (PHS-07); "updated by" toasts for other browsers (PHS-05); the command "Export phase selections" (Project menu, PHS-06). View-only links show the chip only.
+- Frontend `features/phase/` (core, not a plugin): `PhaseButtons` in the case header ("Set phase", next to the scan switcher, whose drop-down only moves between scans) and in each Explorer scan row (shown on hover, focus or the active row); "Accept guess" when the effective value comes from the active `analyzer.phase` run (`analyzer:{run_id}`); "was …" shows the replaced value; a history dialog per scan (PHS-07); "updated by" toasts for other browsers (PHS-05); the command "Export phase selections" (Project menu, PHS-06). View-only links show the chip only.
 
 ## Relation to Curation & QC / Analyzers
 

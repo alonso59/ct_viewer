@@ -4,6 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
+import { vi } from 'vitest'
 
 import '../../i18n'
 import '../../i18n/lazy'
@@ -61,4 +62,38 @@ test('a dataset name that is taken is said in the settings step (DCM-14, AUD-A2-
   expect(await screen.findByText(`A dataset named ${name} exists; this one will be saved as ${name}-1.`)).toBeInTheDocument()
   fireEvent.change(screen.getByDisplayValue(name), { target: { value: 'fresh name' } })
   expect(screen.queryByText(/exists; this one will be saved/)).toBeNull()
+})
+
+test('a dry run shows its stages, minimizes to a chip while it works and can be cancelled (UI-25, DCM-06)', async () => {
+  // a dry run that is still scanning: its answer never comes
+  const est = vi.spyOn(api, 'estimateWorkspaceTask').mockReturnValue(new Promise(() => undefined))
+  const prog = vi.spyOn(api, 'estimateProgress').mockResolvedValue({ stage: 'reading', done: 120, total: 450 })
+  const cancel = vi.spyOn(api, 'cancelEstimate').mockResolvedValue(undefined)
+  useConverter.getState().show({ source: '/data/dicom/P900', pid: null })
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>
+        <ConverterOverlay />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  const progressId = est.mock.calls[0]?.[3]
+  expect(progressId).toMatch(/^[A-Za-z0-9_-]{8,64}$/)
+  expect(await screen.findByText('Reading headers: 120 / 450 files')).toBeInTheDocument()
+  expect(prog).toHaveBeenCalledWith(progressId)
+  // × while it works minimizes (nothing is lost); the chip says where it is
+  fireEvent.click(screen.getByRole('button', { name: 'close' }))
+  expect(useConverter.getState()).toMatchObject({ open: true, minimized: true, working: true })
+  const chip = await screen.findByTestId('conv-chip')
+  expect(chip).toHaveTextContent('Dry run · Reading headers: 120 / 450 files')
+  // opening the converter again shows the running window instead of starting over
+  useConverter.getState().show({ source: '/data/other', pid: null })
+  expect(useConverter.getState()).toMatchObject({ minimized: false, source: '/data/dicom/P900' })
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel dry run' }))
+  expect(cancel).toHaveBeenCalledWith(progressId)
+  expect(await screen.findByRole('button', { name: 'Dry run' })).toBeInTheDocument()
+  expect(useConverter.getState().working).toBe(false)
+  vi.restoreAllMocks()
 })

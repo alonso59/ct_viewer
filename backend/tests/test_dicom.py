@@ -426,3 +426,38 @@ def test_add_to_project_keeps_other_sources(
     assert set(items(dc, pid)) == {"case_00000.01.complete.-", "extra_scan.01.complete.-"}
     roots = {r["alias"]: r["role"] for r in dc.get(f"{API}/projects/{pid}/roots").json()}
     assert roots == {"DATA": "source", "DERIVED": "derived"}
+
+
+def test_named_dry_run_progress_and_cancel(
+    dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_path: Path
+) -> None:
+    """DCM-06 / API-62: a dry run named by `progress_id` reports its stages and can be
+    cancelled; once it has returned, its progress is gone (404)."""
+    from app.tasks import dry_run
+
+    root, _ = src
+    body = {"selection": {"source": str(root)}, "settings": {}}
+    r = dc.post(f"{API}/tasks/dicom.convert/estimate?progress_id=scan-0001", json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["n_units"] == 2
+    assert_problem(dc.get(f"{API}/task-estimates/scan-0001"), "not-found")
+    assert_problem(dc.get(f"{API}/task-estimates/bad%20id!"), "validation")
+    assert dc.post(f"{API}/task-estimates/scan-0001/cancel").status_code == 204
+    # while it runs: the last stage line of its progress.jsonl
+    ws = tmp_path / "ws"
+    d = dry_run.job_dir(ws, "scan-0002")
+    with pytest.raises(Exception, match="already running"):
+        dry_run.job_dir(ws, "scan-0002")
+    assert dc.get(f"{API}/task-estimates/scan-0002").json() == {
+        "stage": None, "done": 0, "total": 0
+    }  # fmt: skip
+    lines = [
+        {"t": "stage", "stage": "listing", "done": 3, "total": 0},
+        {"t": "stage", "stage": "reading", "done": 40, "total": 90},
+        {"t": "item", "item_id": "x", "status": "ok"},
+    ]
+    (d / "progress.jsonl").write_text("".join(json.dumps(x) + "\n" for x in lines))
+    got = dc.get(f"{API}/task-estimates/scan-0002").json()
+    assert got == {"stage": "reading", "done": 40, "total": 90}
+    assert dc.post(f"{API}/task-estimates/scan-0002/cancel").status_code == 204
+    assert (d / "cancel").exists()

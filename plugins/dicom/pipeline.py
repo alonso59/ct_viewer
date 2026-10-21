@@ -11,7 +11,7 @@ import fnmatch
 import json
 import math
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +82,9 @@ class Result:
 
 
 Progress = Callable[[str, str, list[dict[str, Any]], str], None]
+# (stage, done, total): `listing` folders → `reading` headers (files) → `planning` series
+# → `converting` series (the item events); what the overlay shows while it waits (DCM-06)
+Stage = Callable[[str, int, int], None]
 
 
 def patient_dirs(source: Path, pattern: str, limit: int | None) -> list[Path]:
@@ -105,8 +108,8 @@ def _key(row: dict[str, Any]) -> str:
 
 def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
     """(source bytes, estimated .nii.gz bytes) as the legacy dry run did (DCM-06)."""
-    src = 0
-    for p in s.files:
+    src = s.source_bytes
+    for p in s.files if not src else ():
         try:
             src += p.stat().st_size
         except OSError:
@@ -154,15 +157,36 @@ def run(
     progress: Progress | None = None,
     cancelled: Callable[[], bool] = lambda: False,
     on_total: Callable[[int], None] | None = None,
+    on_stage: Stage | None = None,
 ) -> Result:
     diagnostics: list[scan.Diagnostic] = []
     profile = target_rules.profile(settings.target_profile)
     anonymize = settings.anonymize == "basic"
+    stage: Stage = on_stage or (lambda _s, _d, _t: None)
     found: list[Series] = []
+    # one walk up front, so header reading has a file total to show
+    walked: list[tuple[Path, list[tuple[Path, list[Path]]] | None]] = []
     for pdir in patient_dirs(source, settings.patient_pattern, settings.patient_limit):
+        walked.append((pdir, scan.candidate_files(pdir) if pdir.is_dir() else None))
+        stage("listing", len(walked), 0)
+    n_files = sum(sum(len(f) for _, f in w) if w is not None else 1 for _, w in walked)
+    read = 0
+
+    def tick(n: int) -> None:
+        nonlocal read
+        read += n
+        stage("reading", read, n_files)
+
+    stage("reading", 0, n_files)
+    for pdir, files in walked:
+        if cancelled():
+            break
         folder = pdir.name if pdir.is_dir() else pdir.parent.name
         per_folder: list[Series] = []
-        for s in scan.discover(pdir, diagnostics):
+        discovered = scan.discover(pdir, diagnostics, files, tick)
+        if files is None:
+            tick(1)
+        for s in discovered:
             try:
                 ds = scan.first_header(s)
             except Exception as exc:
@@ -191,6 +215,7 @@ def run(
                 )
                 continue
             insp = scan.inspect(s, ds, diagnostics)
+            s = replace(s, headers=())  # inspected: only the first full header stays in memory
             per_folder.append(Series(s, ds, rows.header_row(ds, s, folder, insp)))
         patients = {r.row["patient_id"] for r in per_folder}
         if settings.mixed_folder_policy == "fail" and len(patients) > 1:
@@ -228,6 +253,7 @@ def run(
     outputs: list[dict[str, Any]] = []
     annotations: list[dict[str, Any]] = []
     plan: list[dict[str, Any]] = []
+    stage("planning" if dry_run else "converting", 0, len(found))
     for key, group in sorted(by_case.items()):
         case_id = identity.case_id(key)
         rows.apply_scan_timing([g.row for g in group])
@@ -389,6 +415,7 @@ def run(
                 sidecar.anonymize_row(row, case_id, salt)
             annotations += g.annotations
             outputs += item_outputs
+            stage("planning" if dry_run else "converting", len(plan), len(found))
             if progress is not None:
                 progress(
                     iid,

@@ -1,25 +1,57 @@
 // Converter overlay state (UI-25): opened from Welcome, Open mode on DICOM, the Library and a
 // project's Data tab. `pid` set = the window may convert into that project (DCM-14).
+// The window's work lives here, not in the component: minimizing it, or a route change that
+// remounts the shell overlays, keeps the dry run and the conversion (and their progress).
 import { create } from 'zustand'
 
-interface ConverterState {
-  open: boolean
+import type { TaskEstimate } from '../../api'
+
+export const STEPS = ['source', 'settings', 'estimate', 'run', 'result'] as const
+export type Step = (typeof STEPS)[number]
+export type Target = 'project' | 'dataset'
+
+export interface ConvSettings {
+  target_profile: string
+  phase_analyzer: boolean
+  anonymize: 'none' | 'basic'
+  name: string
+}
+
+/** A dry run in flight: `id` names it for `api.estimateProgress` (DCM-06) */
+export interface Scan {
+  id: string
+  started: number
+}
+
+export interface Draft {
+  step: Step
+  browse: string | null
   source: string | null
+  target: Target
+  settings: ConvSettings
+  estimate: TaskEstimate | null
+  error: unknown
+  scan: Scan | null
+  run: { kind: Target; rid: string } | null
+}
+
+interface ConverterState extends Draft {
+  open: boolean
+  /** Hidden behind the running-process chip; the window keeps its state and work (UI-25) */
+  minimized: boolean
+  /** A dry run or conversion is in progress: opening again shows it instead of starting over */
+  working: boolean
+  /** Bumped per new window, so a fresh one starts on its first step */
+  session: number
   pid: string | null
   /** A source with NIfTI instead of DICOM: "Create project from this" (AUD-A2-07) */
   createFrom: string | null
   show: (p?: { source?: string | null; pid?: string | null }) => void
+  patch: (p: Partial<Draft>) => void
+  minimize: () => void
+  restore: () => void
   close: () => void
 }
-
-export const useConverter = create<ConverterState>()((set) => ({
-  open: false,
-  source: null,
-  pid: null,
-  createFrom: null,
-  show: (p) => set({ open: true, source: p?.source ?? null, pid: p?.pid ?? null, createFrom: null }),
-  close: () => set({ open: false, createFrom: null }),
-}))
 
 const pad = (n: number) => String(n).padStart(2, '0')
 /** AUD-A5-16 (NFR-17): the suggested dataset name; never the source folder's (often a patient) name */
@@ -27,3 +59,38 @@ export const defaultDatasetName = (d = new Date()) => `dataset-${d.getFullYear()
 
 /** The folder name the server derives from a dataset name (`workspace_runs.dataset_name`) */
 export const datasetSlug = (raw: string) => raw.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 80) || 'dataset'
+
+const parent = (p: string) => p.replace(/\/[^/]*$/, '') || '/'
+
+const draft = (source: string | null, pid: string | null): Draft => ({
+  step: source ? 'settings' : 'source',
+  browse: source ? parent(source) : null,
+  source,
+  target: pid ? 'project' : 'dataset',
+  settings: { target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: defaultDatasetName() },
+  estimate: null,
+  error: null,
+  scan: null,
+  run: null,
+})
+
+export const useConverter = create<ConverterState>()((set) => ({
+  ...draft(null, null),
+  open: false,
+  minimized: false,
+  working: false,
+  session: 0,
+  pid: null,
+  createFrom: null,
+  show: (p) =>
+    set((s) => {
+      if (s.open && s.working) return { minimized: false }
+      const source = p?.source ?? null
+      const pid = p?.pid ?? null
+      return { ...draft(source, pid), open: true, minimized: false, session: s.session + 1, pid, createFrom: null }
+    }),
+  patch: (p) => set(p),
+  minimize: () => set({ minimized: true }),
+  restore: () => set({ minimized: false }),
+  close: () => set({ open: false, minimized: false, working: false, createFrom: null }),
+}))

@@ -693,8 +693,12 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send('POST', `/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/import`, fd, { ...reviewerHeader(reviewer), 'X-Session-Id': SESSION_ID })
     },
     labelExportUrl: (pid, tid, format) => viewPath(`${V1}/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}`),
-    estimateWorkspaceTask: (tid, selection, settings = {}) =>
-      unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid } }, body: { selection, settings } })),
+    estimateWorkspaceTask: (tid, selection, settings = {}, progressId) =>
+      unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid }, query: { progress_id: progressId ?? null } }, body: { selection, settings } })),
+    estimateProgress: (eid) => unwrap(client.GET('/api/v1/task-estimates/{eid}', { params: { path: { eid } } })),
+    cancelEstimate: async (eid) => {
+      await unwrap(client.POST('/api/v1/task-estimates/{eid}/cancel', { params: { path: { eid } } }))
+    },
     startWorkspaceRun: (body) => unwrap(client.POST('/api/v1/task-runs', { body })),
     listWorkspaceRuns: () => unwrap(client.GET('/api/v1/task-runs')),
     getWorkspaceRun: (rid) => unwrap(client.GET('/api/v1/task-runs/{rid}', { params: { path: { rid } } })),
@@ -706,8 +710,8 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     validateTask: (tid, settings) => unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid } }, body: { settings } })),
     preflightTask: (pid, tid, selection, settings = {}) =>
       unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/preflight', { params: { path: { pid, tid } }, body: { selection, settings } })),
-    estimateTask: (pid, tid, selection, settings = {}) =>
-      unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/estimate', { params: { path: { pid, tid } }, body: { selection, settings } })),
+    estimateTask: (pid, tid, selection, settings = {}, progressId) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/tasks/{tid}/estimate', { params: { path: { pid, tid }, query: { progress_id: progressId ?? null } }, body: { selection, settings } })),
     startTaskRun: (pid, body, reviewer) =>
       unwrap(
         client.POST('/api/v1/projects/{pid}/task-runs', {

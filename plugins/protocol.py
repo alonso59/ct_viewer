@@ -69,6 +69,7 @@ class Job:
         self.outputs_manifest: Outputs = []
         self.started_at = utc_now()
         self._fh = (self.dir / PROGRESS).open("a", encoding="utf-8")
+        self._stage: tuple[str, float] = ("", 0.0)
 
     # -- progress --------------------------------------------------------------------------
 
@@ -96,6 +97,14 @@ class Job:
     def total(self, n: int) -> None:
         """Unit count once known (source tasks discover theirs, e.g. DICOM series)."""
         self._line({"t": "total", "n": int(n)})
+
+    def stage(self, name: str, done: int, total: int) -> None:
+        """Where a long step is (e.g. a dry run reading headers); at most every 0.25 s per stage."""
+        now = time.monotonic()
+        if name == self._stage[0] and now - self._stage[1] < 0.25 and done != total:
+            return
+        self._stage = (name, now)
+        self._line({"t": "stage", "stage": name, "done": int(done), "total": int(total)})
 
     def heartbeat(self) -> None:
         self._line({"t": "heartbeat"})

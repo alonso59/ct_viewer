@@ -3,7 +3,10 @@ component inspection (DCM-03). Ported from `legacy/convert/{dicom_io,series_insp
 
 from __future__ import annotations
 
+import io
 import os
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
@@ -37,6 +40,10 @@ class Series:
     dicom_dir: Path
     series_id: str
     files: tuple[Path, ...]
+    # the discovery pass's per-file headers (`SCAN_TAGS` only), reused by `inspect`
+    headers: tuple[Any, ...] = field(default=(), compare=False, repr=False)
+    # the files' total size, known from that pass (0: unknown); a stat per file is a round trip
+    source_bytes: int = 0
 
 
 @dataclass
@@ -77,53 +84,144 @@ def has_dicom_files(folder: Path) -> bool:
 
 
 def candidate_dirs(root: Path) -> list[Path]:
-    out: list[Path] = []
+    return [d for d, _ in candidate_files(root)]
+
+
+def candidate_files(root: Path) -> list[tuple[Path, list[Path]]]:
+    """Folders under `root` with their possible DICOM files (one directory walk)."""
+    out: list[tuple[Path, list[Path]]] = []
     for cur, dirs, files in os.walk(root):
         dirs[:] = sorted(
             d for d in dirs if d.lower() not in IGNORED_DIR_NAMES and not d.startswith(".")
         )
-        if files and _possible_dicom(files):
-            out.append(Path(cur))
+        names = sorted(f for f in files if Path(f).suffix.lower() not in IGNORED_FILE_SUFFIXES)
+        if names:
+            out.append((Path(cur), [Path(cur) / f for f in names]))
     return out
 
 
-def discover(root: Path, diagnostics: list[Diagnostic]) -> list[Series]:
-    """GDCM series per folder (SimpleITK), sorted; one file → its own one-file series (DCM-10)."""
-    import SimpleITK as sitk
+# Everything grouping, ordering and `inspect` need; the discovery pass reads only these, once
+# per file, so a dry run reads each file one time (the full header only for a series' first)
+SCAN_TAGS = [
+    "SeriesInstanceUID", "SOPClassUID", "InstanceNumber", "Modality", "ImageOrientationPatient",
+    "ImagePositionPatient", "PixelSpacing", "Rows", "Columns", "NumberOfFrames", "EchoNumbers",
+    "TemporalPositionIdentifier", "DiffusionBValue", "GantryDetectorTilt",
+    "ComplexImageComponent", "ImageType", "SharedFunctionalGroupsSequence",
+    "PerFrameFunctionalGroupsSequence",
+]  # fmt: skip
+# Header reads overlap: sources are often on network or bind mounts, where latency dominates
+READ_THREADS = 16
+# One read per file: the header is parsed from memory. Many small reads (pydicom on a file
+# object) are one round trip each on a network or Docker Desktop bind mount (~10x slower).
+HEAD_BYTES = 16_384
+PIXEL_TAGS = (b"\xe0\x7f\x10\x00", b"\x7f\xe0\x00\x10")  # (7FE0,0010) little / big endian
 
+
+def _looks_dicom(head: bytes) -> bool:
+    """A `DICM` preamble, or a file starting at group 0002/0008 (GDCM reads those too)."""
+    return head[128:132] == b"DICM" or head[:2] in (b"\x02\x00", b"\x08\x00")
+
+
+def _head(path: Path, check: bool = False) -> tuple[bytes, bool, int] | None:
+    """(bytes up to the pixel data or the whole file, whether it is cut short, file size);
+    None when `check` and it doesn't look like DICOM (then only its first bytes were read)."""
+    with path.open("rb", buffering=0) as fh:
+        buf = fh.read(HEAD_BYTES)
+        if check and not _looks_dicom(buf):
+            return None
+        if len(buf) < HEAD_BYTES:
+            return buf, False, len(buf)
+        size = os.fstat(fh.fileno()).st_size
+        # a longer header (private tags, enhanced multi-frame): doubling reads, not the file
+        while not any(t in buf for t in PIXEL_TAGS):
+            more = fh.read(len(buf))
+            if not more:
+                return buf, False, size
+            buf += more
+        return buf, len(buf) < size, size
+
+
+def _parse(path: Path, head: tuple[bytes, bool, int], **kw: Any) -> Any:
+    """Headers only (`stop_before_pixels`) from memory; the whole file if a cut-short head
+    doesn't parse (a pixel-tag byte pattern inside an earlier value)."""
+    import pydicom
+    from pydicom import config as pydicom_config
+
+    pydicom_config.convert_wrong_length_to_UN = True
+    buf, cut, _ = head
+    try:
+        return pydicom.dcmread(io.BytesIO(buf), stop_before_pixels=True, force=True, **kw)
+    except Exception:
+        if not cut:
+            raise
+        data = io.BytesIO(path.read_bytes())
+        return pydicom.dcmread(data, stop_before_pixels=True, force=True, **kw)
+
+
+def _scan_header(path: Path) -> tuple[Any, int] | None:
+    """(`SCAN_TAGS` of one file, its size), or None when it isn't DICOM or can't be read."""
+    try:
+        head = _head(path, check=True)
+        return None if head is None else (_parse(path, head, specific_tags=SCAN_TAGS), head[2])
+    except Exception:
+        return None
+
+
+def _ipp_order(files: list[Path], headers: list[Any]) -> list[int]:
+    """GDCM's order: along the slice normal, else by InstanceNumber, else by file name."""
+    idx = list(range(len(files)))
+    by_name = sorted(idx, key=lambda i: str(files[i]))
+    o = _floats(headers[0], "ImageOrientationPatient", 6)
+    pos = [_floats(h, "ImagePositionPatient", 3) for h in headers]
+    if o is not None and all(p is not None for p in pos):
+        n = _normal(o)
+        dist = [sum(a * b for a, b in zip(p or (), n, strict=False)) for p in pos]
+        if len(set(dist)) == len(dist):
+            return sorted(by_name, key=lambda i: dist[i])
+    nums = [_int(getattr(h, "InstanceNumber", None)) for h in headers]
+    if all(v is not None for v in nums) and len(set(nums)) == len(nums):
+        return sorted(by_name, key=lambda i: nums[i] or 0)
+    return by_name
+
+
+def discover(
+    root: Path,
+    diagnostics: list[Diagnostic],
+    files: list[tuple[Path, list[Path]]] | None = None,
+    tick: Callable[[int], None] | None = None,
+) -> list[Series]:
+    """Series per folder by SeriesInstanceUID (as GDCM groups them), sorted; one file → its own
+    one-file series (DCM-10). One header read per file; `tick(1)` after each.
+    The pixel stage asks GDCM for its own file order again (DCM-02, `convert.read_image`)."""
     if root.is_file():
         return [Series(root.parent, _single_series_id(root), (root,))]
     found: list[Series] = []
-    seen: set[tuple[str, str]] = set()
-    for d in candidate_dirs(root):
-        try:
-            ids = sitk.ImageSeriesReader.GetGDCMSeriesIDs(str(d))
-        except RuntimeError as exc:
-            diagnostics.append(
-                Diagnostic("WARNING", "dicom_discovery", "DICOM_DISCOVERY_FAILED", str(exc), str(d))
-            )
-            continue
-        for sid in ids or ():
-            key = (str(d.resolve()), str(sid))
-            if key in seen:
-                continue
-            seen.add(key)
-            try:
-                names = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(str(d), sid)
-            except RuntimeError as exc:
+    with ThreadPoolExecutor(READ_THREADS, thread_name_prefix="dcm-scan") as pool:
+        for d, paths in files if files is not None else candidate_files(root):
+            groups: dict[str, tuple[list[Path], list[Any], list[int]]] = {}
+            for path, got in zip(paths, pool.map(_scan_header, paths), strict=True):
+                if tick is not None:
+                    tick(1)
+                if got is None:
+                    continue
+                ds, size = got
+                uid = value_to_text(getattr(ds, "SeriesInstanceUID", "")).strip()
+                if uid:
+                    g = groups.setdefault(uid, ([], [], []))
+                    g[0].append(path)
+                    g[1].append(ds)
+                    g[2].append(size)
+            if not groups and paths:
                 diagnostics.append(
                     Diagnostic(
-                        "WARNING",
-                        "dicom_discovery",
-                        "DICOM_DISCOVERY_FAILED",
-                        str(exc),
-                        str(d),
-                        str(sid),
+                        "INFO", "dicom_discovery", "NO_DICOM_SERIES",
+                        f"{len(paths)} files, none readable as DICOM", str(d),
                     )
-                )
-                continue
-            if names:
-                found.append(Series(d, str(sid), tuple(Path(n) for n in names)))
+                )  # fmt: skip
+            for uid, (ps, hs, sizes) in groups.items():
+                order = _ipp_order(ps, hs)
+                ordered = tuple(ps[i] for i in order)
+                found.append(Series(d, uid, ordered, tuple(hs[i] for i in order), sum(sizes)))
     return sorted(found, key=lambda s: (str(s.dicom_dir), s.series_id))
 
 
@@ -134,12 +232,9 @@ def _single_series_id(path: Path) -> str:
 
 def read_header(path: Path) -> Any:
     """Headers only (`stop_before_pixels`); sources are opened read-only (R1)."""
-    import pydicom
-    from pydicom import config as pydicom_config
-
-    pydicom_config.convert_wrong_length_to_UN = True
-    with path.open("rb") as fh:
-        return pydicom.dcmread(fh, stop_before_pixels=True, force=True)
+    head = _head(path)
+    assert head is not None
+    return _parse(path, head)
 
 
 def first_header(series: Series) -> Any:
@@ -149,7 +244,13 @@ def first_header(series: Series) -> Any:
 def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspection:
     out = Inspection()
     try:
-        headers = [read_header(p) for p in series.files] if len(series.files) > 1 else [first]
+        headers = (
+            list(series.headers)
+            if len(series.headers) == len(series.files) > 1
+            else [read_header(p) for p in series.files]
+            if len(series.files) > 1
+            else [first]
+        )
     except Exception as exc:
         diagnostics.append(
             Diagnostic(

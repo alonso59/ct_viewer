@@ -75,6 +75,7 @@ import type {
   LayerInfo,
   WorkspaceRun,
   WorkspaceRunRequest,
+  EstimateProgress,
   TaskEstimate,
   TaskInfo,
   TaskItemError,
@@ -214,7 +215,11 @@ export interface Api {
   listPlugins(pid?: string): Promise<PluginList>
 
   /** API-62 (TSK-13): workspace tasks without a project; estimate = the converter dry run */
-  estimateWorkspaceTask(taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<TaskEstimate>
+  /** `progressId` names the dry run, so `estimateProgress` can say where it is (DCM-06) */
+  estimateWorkspaceTask(taskId: string, selection: TaskSelection, settings?: Record<string, unknown>, progressId?: string): Promise<TaskEstimate>
+  /** A named dry run's stage while it runs (`not-found` once it has returned) */
+  estimateProgress(progressId: string): Promise<EstimateProgress>
+  cancelEstimate(progressId: string): Promise<void>
   startWorkspaceRun(body: WorkspaceRunRequest): Promise<TaskRunStarted>
   listWorkspaceRuns(): Promise<WorkspaceRun[]>
   getWorkspaceRun(rid: string): Promise<WorkspaceRun>
@@ -240,7 +245,7 @@ export interface Api {
   getTask(taskId: string): Promise<TaskInfo>
   validateTask(taskId: string, settings: Record<string, unknown>): Promise<TaskValidateResult>
   preflightTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<PreflightResult>
-  estimateTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<TaskEstimate>
+  estimateTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>, progressId?: string): Promise<TaskEstimate>
   startTaskRun(pid: string, body: TaskRunRequest, reviewer?: string): Promise<TaskRunStarted>
   listTaskRuns(pid: string, taskId?: string): Promise<TaskRunSummary[]>
   getTaskRun(pid: string, rid: string): Promise<TaskRunDetail>

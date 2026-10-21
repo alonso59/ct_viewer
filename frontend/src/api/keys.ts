@@ -51,6 +51,7 @@ export const keys = {
   labelHistory: (pid: string, tid: string, target: string, col: string) => ['project', pid, 'labeling', 'history', tid, target, col] as const,
   workspaceRuns: () => ['workspace-runs'] as const,
   workspaceRun: (rid: string) => ['workspace-runs', rid] as const,
+  estimateProgress: (eid: string) => ['task-estimates', eid] as const,
   layers: (pid: string) => ['project', pid, 'layers'] as const,
   segmentations: (pid: string) => ['project', pid, 'segmentations'] as const,
   taskRuns: (pid: string) => ['project', pid, 'task-runs'] as const,
