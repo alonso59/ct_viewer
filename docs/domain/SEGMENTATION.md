@@ -66,10 +66,18 @@ This phase generates masks and registers them as task-produced segmentation sets
 | 2 | Single-GPU staging and official prediction wrapper | Fake nnU-Net executable proves names, commands, cancellation, partial failures, resume and source immutability |
 | 3 | Multi-GPU partition controller | Fake GPUs prove disjoint `part_id` assignment, bounded workers and deterministic merge |
 | 4 | Output geometry/provenance and task registration | Backend test registers one new set, reindexes it and leaves imported masks byte-identical |
-| 5 | Generic Tasks UI integration and kirck acceptance | One item then a batch; two or more GPUs when available; masks open in the viewer; TST-21 |
+| 5 | Generic Tasks UI integration and GPU-host acceptance | One item then a batch; two or more GPUs when available; masks open in the viewer; TST-21 |
+
+## GPU host inventory (observed 2026-10-21)
+
+- Access: `ssh john-gpinedo`; hostname `john`.
+- Environment: `conda activate torch`; nnU-Net v2 2.8.1, PyTorch 2.6.0, CUDA runtime 12.6.
+- Capacity: eight NVIDIA A40 GPUs with 46,068 MiB each, 64 logical CPUs and 503 GiB RAM. The inventory records capacity, not permission to reserve every GPU.
+- Results root: `/home/alonso/Documents/radio-path-ccrcc/data/nnUNet_results`.
+- `Dataset220_KiTS2023`: `nnUNetTrainer`, `nnUNetResEncUNetXLPlans`, `3d_fullres`, folds 0–4, plus official inference information and postprocessing. Its saved instructions contain an obsolete `radio-ccrcc` path; profiles must resolve artifacts below the current results root.
+- `Dataset320_TCGA_KIRC`: `nnUNetTrainer`, `nnUNetResEncUNetPlans`, `3d_fullres`, folds 0–4. Validation probabilities and summaries exist, but an official best-configuration/postprocessing record has not been generated.
 
 ## Open questions
 
-- Kirck conda environment name and the command used to enter it.
-- `nnUNet_results` location and the first model profile: dataset, configuration(s), folds, checkpoint, ensemble and postprocessing instructions.
-- GPU IDs/count available to one run and the CPU/RAM budget that constrains preprocessing/export workers.
+- Expose Dataset220, Dataset320 or both in the first implementation; Dataset320 requires `nnUNetv2_find_best_configuration` before its production profile is accepted.
+- Maximum GPUs reserved by one web run. Recommended starting policy: at most 8 visible GPUs with preprocessing/export workers set to 2 per GPU, subject to other users of the host.

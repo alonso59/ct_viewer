@@ -60,13 +60,13 @@ Done 2026-09-24 (exit met; archive).
 
 ### P7d — nnU-Net segmentation planning (current)
 - [x] Define the generation-only boundary, model profiles, upstream pipeline preservation, multi-GPU partitioning, output indexing and verification (ADR-0032, SEG-*, TST-21)
-- [ ] Owner supplies the kirck environment/model/GPU details in SEGMENTATION.md §Open questions and accepts ADR-0032
+- [ ] Owner chooses the first model profile and GPU reservation policy in SEGMENTATION.md §Open questions, then accepts ADR-0032
 **Exit:** ADR-0032 is Accepted, no SEG-* question blocks implementation, and the owner confirms P7e may start.
 
 ### P7e — nnU-Net segmentation generation
 - [ ] Implement `plugins/nnunet/` in the five waves from SEGMENTATION.md; use the generic Tasks UI and existing TSK-09 index registration
-- [ ] Pass TST-21 locally with the fake CLI, then on kirck with one item and a multi-GPU batch
-**Exit:** generated masks form a new indexed segmentation set, source and existing masks remain byte-identical, partial failure/cancel/resume work, and the real profile completes on kirck.
+- [ ] Pass TST-21 locally with the fake CLI, then on `john-gpinedo` with one item and a multi-GPU batch
+**Exit:** generated masks form a new indexed segmentation set, source and existing masks remain byte-identical, partial failure/cancel/resume work, and the real profile completes on the GPU host.
 
 ### Pending plugin after P7e
 - [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` axis order (SRC-12, IMP-10)

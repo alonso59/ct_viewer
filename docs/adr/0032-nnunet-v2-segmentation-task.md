@@ -2,7 +2,7 @@
 Status: Proposed · Date: 2026-10-21
 Amends: ADR-0016 §6 and TSK-12 for one multi-GPU external run
 
-**Context.** nnU-Net v2 is installed in a conda environment on kirck and its trained models must stay outside the OCI image. A web run should use the host GPUs in parallel, preserve nnU-Net's inference pipeline, write only derived data and add predictions beside imported masks. This phase excludes mask editing and other segmentation pipelines.
+**Context.** nnU-Net v2 is installed in the `torch` conda environment on the `john-gpinedo` GPU host and its trained models must stay outside the OCI image. A web run should use the host GPUs in parallel, preserve nnU-Net's inference pipeline, write only derived data and add predictions beside imported masks. This phase excludes mask editing and other segmentation pipelines.
 
 **Decision.** Requirements and profile format: SEGMENTATION.md (SEG-*).
 1. Ship `segment.nnunet` as a first-party external task executed by the existing file-queue runner in the installed conda environment.
@@ -16,7 +16,7 @@ Amends: ADR-0016 §6 and TSK-12 for one multi-GPU external run
 - \+ Multi-GPU inference follows the upstream data-partition mechanism and retains fold/configuration ensemble and postprocessing semantics.
 - \+ The core image, API process and generic task/indexing contract remain unchanged.
 - \+ Predictions remain comparable with imported masks and can feed later pipelines.
-- − Kirck needs an operator-maintained model profile and a running host runner.
+- − The GPU host needs an operator-maintained model profile and a running host runner.
 - − A single case uses one GPU; acceleration comes from processing different cases concurrently.
 
 **Rejected.** Custom torch inference (diverges from nnU-Net); GPU code in the OCI image (OPS-08/R3); the API starting conda or SLURM processes (TSK-11); one independent web run per GPU (fragments provenance and segmentation sets).
