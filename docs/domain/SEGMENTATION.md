@@ -18,7 +18,7 @@ This phase generates masks and registers them as task-produced segmentation sets
 | SEG-04 | Preflight accepts ready NIfTI items whose modality and channel count match the profile. This phase supports one image channel per item; unsupported formats, missing files and blocking geometry warnings are skipped through TSK-04. | M |
 | SEG-05 | Pending items are staged as read-only symlinks in the queue job using opaque case tokens and nnU-Net channel suffixes (`_0000`). A mapping file relates tokens to `item_id`; source and existing masks are never renamed or written. | M |
 | SEG-06 | The plugin invokes official nnU-Net v2 entry points for prediction, ensemble and postprocessing. It does not reimplement preprocessing, sliding-window prediction, fold ensembling, resampling or export. Profile validation resolves labels from nnU-Net v2 `dataset.json`, including `regions_class_order`, or fails closed. | M |
-| SEG-07 | One prediction stage uses `P = min(pending items, visible GPUs, profile/task cap)` concurrent `nnUNetv2_predict` processes. Each gets one `CUDA_VISIBLE_DEVICES` value and the same input with `-num_parts P -part_id K`; prediction configurations in an ensemble run as sequential stages. | M |
+| SEG-07 | One prediction stage uses `P = min(pending items, visible GPUs, requested cap)` concurrent `nnUNetv2_predict` processes. Each gets one `CUDA_VISIBLE_DEVICES` value and the same input with `-num_parts P -part_id K`; prediction configurations in an ensemble run as sequential stages. The runner exposes 2–4 operator-approved GPUs, the task defaults to 2 and its requested cap cannot exceed 4. | M |
 | SEG-08 | The runner uses `--concurrency 1` for `segment.nnunet`. Per-process preprocessing/export worker counts come from the profile so multiple GPUs cannot multiply CPU or RAM use without a declared bound. The UI may lower the GPU cap but cannot select GPUs outside the runner's visible set. | M |
 | SEG-09 | Each part writes to its own scratch output. Successful parts are merged without overwriting, optional ensemble/postprocessing consumes only complete case artifacts, and final masks are geometry-checked against their input before atomic publication inside the run's `output_dir`. | M |
 | SEG-10 | Each valid final mask emits one TSK-07 `ok` item output with value-to-name labels. TSK-09 registers all successful masks under one new `seg_id`, appends provenance to the derived ledger and rebuilds the index; imported and earlier task sets remain unchanged. | M |
@@ -73,11 +73,13 @@ This phase generates masks and registers them as task-produced segmentation sets
 - Access: `ssh john-gpinedo`; hostname `john`.
 - Environment: `conda activate torch`; nnU-Net v2 2.8.1, PyTorch 2.6.0, CUDA runtime 12.6.
 - Capacity: eight NVIDIA A40 GPUs with 46,068 MiB each, 64 logical CPUs and 503 GiB RAM. The inventory records capacity, not permission to reserve every GPU.
-- Results root: `/home/alonso/Documents/radio-path-ccrcc/data/nnUNet_results`.
-- `Dataset220_KiTS2023`: `nnUNetTrainer`, `nnUNetResEncUNetXLPlans`, `3d_fullres`, folds 0–4, plus official inference information and postprocessing. Its saved instructions contain an obsolete `radio-ccrcc` path; profiles must resolve artifacts below the current results root.
+- Training results root: `/home/alonso/Documents/radio-path-ccrcc/data/nnUNet_results` (retained unchanged).
+- Runtime results root: `/home/alonso/nnUNet_models/nnUNet_results`. It contains a compact inference-only installation rather than cross-validation predictions.
+- `Dataset220_KiTS2023`: selected first production profile; `nnUNetTrainer`, `nnUNetResEncUNetXLPlans`, `3d_fullres`, folds 0–4, plus official inference information and postprocessing. Its saved instructions contain an obsolete `radio-ccrcc` path; the profile resolves artifacts below the configured runtime results root.
 - `Dataset320_TCGA_KIRC`: `nnUNetTrainer`, `nnUNetResEncUNetPlans`, `3d_fullres`, folds 0–4. Validation probabilities and summaries exist, but an official best-configuration/postprocessing record has not been generated.
 
-## Open questions
+## Approved P7d policy
 
-- Expose Dataset220, Dataset320 or both in the first implementation; Dataset320 requires `nnUNetv2_find_best_configuration` before its production profile is accepted.
-- Maximum GPUs reserved by one web run. Recommended starting policy: at most 8 visible GPUs with preprocessing/export workers set to 2 per GPU, subject to other users of the host.
+- Expose only `Dataset220_KiTS2023` in the first implementation.
+- The operator exposes 2–4 available GPUs to the runner. A task defaults to 2 GPUs and may request at most 4; the effective count can be lower when fewer items are pending.
+- Keep preprocessing and export workers at 2 per GPU unless GPU-host acceptance shows a lower bound is required.

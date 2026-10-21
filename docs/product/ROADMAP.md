@@ -23,8 +23,8 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
 | P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
-| P7d | nnU-Net segmentation planning | 🟨 Draft complete; owner decisions and approval pending |
-| P7e | nnU-Net segmentation generation | ⬜ Starts only after P7d approval |
+| P7d | nnU-Net segmentation planning | ✅ 2026-10-21 (ADR-0032 accepted; Dataset220; 2–4 GPU policy) |
+| P7e | nnU-Net segmentation generation | ⬜ Awaiting phase-start confirmation |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -58,10 +58,10 @@ Done 2026-09-24 (exit met; archive).
 - [ ] **Pending (user decision 2026-09-24):** a VOI extractor plugin that crops VOIs from a segmentation (reference code to be provided); it also settles the legacy `.npy` VOI axis order (IMP-10, SRC-12; default `xyz` until then). Keep `legacy/` until the owner decides to delete it (fully ported otherwise)
 - [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 
-### P7d — nnU-Net segmentation planning (current)
+### P7d — nnU-Net segmentation planning
 - [x] Define the generation-only boundary, model profiles, upstream pipeline preservation, multi-GPU partitioning, output indexing and verification (ADR-0032, SEG-*, TST-21)
-- [ ] Owner chooses the first model profile and GPU reservation policy in SEGMENTATION.md §Open questions, then accepts ADR-0032
-**Exit:** ADR-0032 is Accepted, no SEG-* question blocks implementation, and the owner confirms P7e may start.
+- [x] Owner selected `Dataset220_KiTS2023`, approved a 2–4 GPU runner pool and accepted ADR-0032 (2026-10-21)
+**Exit:** ADR-0032 is Accepted and no SEG-* question blocks implementation. P7e begins only after the phase-boundary confirmation.
 
 ### P7e — nnU-Net segmentation generation
 - [ ] Implement `plugins/nnunet/` in the five waves from SEGMENTATION.md; use the generic Tasks UI and existing TSK-09 index registration
