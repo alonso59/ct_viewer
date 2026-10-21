@@ -63,6 +63,39 @@ def load_manifests(plugins: Path, only: set[str]) -> dict[str, tuple[dict[str, A
     return out
 
 
+def checked_manifests(
+    manifests: dict[str, tuple[dict[str, Any], Path]],
+) -> dict[str, tuple[dict[str, Any], Path]]:
+    """Run optional plugin-owned startup checks before advertising a task."""
+    available: dict[str, tuple[dict[str, Any], Path]] = {}
+    for task_id, (manifest, plugin_dir) in manifests.items():
+        check = plugin_dir / "check.py"
+        if not check.is_file():
+            available[task_id] = (manifest, plugin_dir)
+            continue
+        try:
+            result = subprocess.run(
+                [sys.executable, str(check)],
+                cwd=plugin_dir,
+                env=os.environ,
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f"[rw-runner] {task_id}: startup check failed: {exc}", file=sys.stderr)
+            continue
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).decode(errors="replace").strip()[-1000:]
+            print(f"[rw-runner] {task_id}: startup check failed: {detail}", file=sys.stderr)
+            continue
+        detail = result.stdout.decode(errors="replace").strip()
+        if detail:
+            print(f"[rw-runner] {task_id}: {detail}", flush=True)
+        available[task_id] = (manifest, plugin_dir)
+    return available
+
+
 @dataclass
 class Running:
     job_dir: Path
@@ -80,7 +113,7 @@ class Runner:
         self.runner_id = f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
         self.running: dict[str, Running] = {}
         self.last_beat = 0.0
-        self.manifests = load_manifests(plugins, tasks)
+        self.manifests = checked_manifests(load_manifests(plugins, tasks))
 
     # -- heartbeat ----------------------------------------------------------------------------
 

@@ -20,8 +20,8 @@ test('lists the shipped plugins; Open reveals a ready plugin; pending plugins ar
   await screen.findByText('Curation & QC')
   const card = (id: string) => container.querySelector(`[data-plugin="${id}"]`) as HTMLElement
   for (const id of ['dicom', 'analyzers', 'curation', 'radiomics', 'dashboard', 'nnunet', 'voi']) expect(card(id)).not.toBeNull()
-  expect(within(card('nnunet')).getByText('pending')).toBeInTheDocument()
-  expect(within(card('nnunet')).getByRole('button', { name: 'Open nnU-Net segmentation' })).toBeDisabled()
+  expect(within(card('nnunet')).getByText('needs runner')).toBeInTheDocument()
+  expect(within(card('nnunet')).getByRole('button', { name: 'Open nnU-Net segmentation' })).toBeEnabled()
   expect(within(card('voi')).getByRole('button', { name: /Open VOI/ })).toBeDisabled()
   useLayout.getState().set({ activeView: 'project' })
   fireEvent.click(within(card('curation')).getByRole('button', { name: 'Open Curation & QC' }))

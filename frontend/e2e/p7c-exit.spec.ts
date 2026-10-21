@@ -80,7 +80,8 @@ test('the P7c journey', async ({ page, browserName }) => {
   const lib = page.locator('.plugin-list')
   for (const id of ['dicom', 'analyzers', 'curation', 'labeling', 'radiomics', 'dashboard', 'ccrcc', 'generic-ct'])
     await expect(lib.locator(`[data-plugin="${id}"]`).getByRole('button', { name: /^Open / })).toBeEnabled()
-  for (const id of ['nnunet', 'voi']) await expect(lib.locator(`[data-plugin="${id}"]`).getByRole('button', { name: /^Open / })).toBeDisabled()
+  await expect(lib.locator('[data-plugin="nnunet"]').getByRole('button', { name: /^Open / })).toBeEnabled()
+  await expect(lib.locator('[data-plugin="voi"]').getByRole('button', { name: /^Open / })).toBeDisabled()
 
   // 8 · A view-only link that cannot write
   const { view_token } = await json<{ view_token: string }>(await fetch(`${API}/projects/${pid}/view-token`, { method: 'POST' }))

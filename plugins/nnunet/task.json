@@ -1,0 +1,40 @@
+{
+  "manifest": 1,
+  "id": "segment.nnunet",
+  "version": "0.1.0",
+  "title": "nnU-Net kidney segmentation",
+  "description": "Generate an immutable kidney, mass and tumor segmentation set with Dataset220_KiTS2023.",
+  "kind": "segmentation",
+  "input": "items",
+  "outputs": ["masks"],
+  "requires": {"modality": ["CT"], "channels": 1},
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "profile": {
+        "type": "string",
+        "enum": ["kits2023-dataset220"],
+        "default": "kits2023-dataset220",
+        "x-help": "Validated Dataset220_KiTS2023 model profile"
+      },
+      "gpu_cap": {
+        "type": "integer",
+        "minimum": 2,
+        "maximum": 4,
+        "default": 2,
+        "x-help": "Maximum GPUs used when at least this many cases are pending"
+      },
+      "seg_id": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+      }
+    }
+  },
+  "runtime": {
+    "type": "external",
+    "command": ["{python}", "run.py", "{job_dir}"],
+    "env_hint": "conda activate torch; export nnUNet_results=/home/alonso/nnUNet_models/nnUNet_results"
+  },
+  "resources": {"gpu": "required", "seconds_per_item": 600},
+  "labels": {"names": {"1": "kidney", "2": "tumor", "3": "masses"}}
+}

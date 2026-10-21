@@ -284,6 +284,7 @@ class TaskRunRecord(TaskRunSummary):
     item_ids: list[str] = Field(default_factory=list)
     inputs: list[TaskRunInput] = Field(default_factory=list)
     versions: dict[str, str] = Field(default_factory=dict)
+    provenance: dict[str, Any] = Field(default_factory=dict)
     output_dir: str | None = None  # absolute, inside the project's derived root
     outputs: list[TaskRunOutput] = Field(default_factory=list)
     attempts: int = 0

@@ -1,0 +1,40 @@
+{
+  "profile": 1,
+  "id": "kits2023-dataset220",
+  "title": "KiTS 2023 kidney, mass and tumor",
+  "dataset": "Dataset220_KiTS2023",
+  "channels": {"0": "CT"},
+  "labels": {"1": "kidney", "2": "tumor", "3": "masses"},
+  "regions_class_order": [1, 3, 2],
+  "predictors": [
+    {
+      "configuration": "3d_fullres",
+      "trainer": "nnUNetTrainer",
+      "plans": "nnUNetResEncUNetXLPlans",
+      "folds": [0, 1, 2, 3, 4],
+      "checkpoint": "checkpoint_final.pth"
+    }
+  ],
+  "postprocessing": {
+    "pickle": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/postprocessing.pkl",
+    "plans": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/plans.json",
+    "dataset": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/dataset.json"
+  },
+  "processes": {"preprocessing_per_gpu": 2, "export_per_gpu": 2},
+  "artifacts": [
+    {"path": "inference_information.json", "sha256": "0f73ecfc71e82c2e36dbfa87d816e06499173381700a7585ca43d06a72c2807b"},
+    {"path": "inference_instructions.txt", "sha256": "a116f5686a86d6cb30b8c34745c12e33982e1e68d02417ebb0d3762ff81b02bf"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/dataset.json", "sha256": "047afa20d6dcb15951c1741abd62a4b70b2d60292a4afbec7d85386dca4762a2"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/plans.json", "sha256": "84300ecf5fd341e5657ba25e0e9a10d9415a83ba2a7b5c8f4a78473c60d136a1"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/postprocessing.json", "sha256": "80bcf0b92adecf3e10a149991f3ef37355affbbc3c85f1eb936323fd91ead41d"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/crossval_results_folds_0_1_2_3_4/postprocessing.pkl", "sha256": "675cb726efbb6286f8836cb48445360b9c7b8b1b3b4f59026eb016f82d332cc9"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/dataset.json", "sha256": "047afa20d6dcb15951c1741abd62a4b70b2d60292a4afbec7d85386dca4762a2"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/fold_0/checkpoint_final.pth", "sha256": "a86239ca3d7c0ff69679fe230f2f121a8e23b4ce04d168d9ea52fe58b941a41c"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/fold_1/checkpoint_final.pth", "sha256": "c24ab7dc852c0daeaf0c4ac22c34a52012a4ee5f7b7c09e1264c30dedb187eb3"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/fold_2/checkpoint_final.pth", "sha256": "b5f3419e25a7d6258a5ca0f8f7f42f61ba588a886aacc6ea46f7bea8cb3c5da1"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/fold_3/checkpoint_final.pth", "sha256": "1d784aee009022f60fca02c6dd4ab5c44148db439f599992a3f51e48ae3c0277"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/fold_4/checkpoint_final.pth", "sha256": "45df74bed57c91cab0f06b575393b9977f9b8e2edaef244d145e2e71ebb370a5"},
+    {"path": "nnUNetTrainer__nnUNetResEncUNetXLPlans__3d_fullres/plans.json", "sha256": "84300ecf5fd341e5657ba25e0e9a10d9415a83ba2a7b5c8f4a78473c60d136a1"}
+  ],
+  "artifacts_sha256": "063d16bd8f33738f00697a3994b3b2dfb00e04f340c264e15d5142bcdbae5534"
+}

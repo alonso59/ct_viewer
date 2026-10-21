@@ -2,9 +2,9 @@
 
 Builtin: `app/radiomics/task.json` and every `{builtin_plugins_root}/*/task*.json` whose runtime
 is `builtin` (external manifests shipped next to them, e.g. the CI `segment.threshold`, are for
-`PLUGINS_ROOT`). External: `PLUGINS_ROOT/*/task.json`, the host runner's copy of first-party
-plugins; it must use the external runtime and its id must be contributed by a `plugin.json`.
-Invalid manifests are listed with their error and never loaded.
+`PLUGINS_ROOT`). External: `PLUGINS_ROOT/*/task.json`, from the host runner's copy of
+first-party plugins. Builtin task manifests in that tree are ignored; external task ids must be
+contributed by a `plugin.json`. Invalid manifests are listed with their error and never loaded.
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ class Registry:
             try:
                 m, h = parse_manifest(p)
                 if source == "plugins_root" and m.runtime.type != "external":
-                    raise ValueError("manifests under PLUGINS_ROOT must use the external runtime")
+                    continue  # mounting the complete shipped plugins tree is supported
                 if source == "plugins_root" and self.owners is not None and m.id not in self.owners:
                     raise ValueError(
                         f"task {m.id!r} is not contributed by a first-party plugin (PLG-01)"

@@ -41,5 +41,5 @@ REL-03 counts audit findings whose Decision is not `fixed`, `defer` or `reject` 
 | `S` and `C` requirements not done by the cut | SRS §3 (Pri column) |
 | Targeted at v3.1: side-by-side compare, paired comparison, voxel-based feature maps | VW-18, ANA-10, RAD-14 |
 | Later: per-project plugin enable/disable, updates, management | PLG-10 |
-| Pending plugins: VOI extractor, nnU-Net | PLG-09, ROADMAP §Pending plugins |
+| Pending plugin: VOI extractor | PLG-09, ROADMAP §Pending plugin after P7e |
 | Electron desktop build | P8, ADR-0001 |

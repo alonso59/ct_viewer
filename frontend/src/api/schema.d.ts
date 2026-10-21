@@ -5997,6 +5997,10 @@ export interface components {
             versions?: {
                 [key: string]: string;
             };
+            /** Provenance */
+            provenance?: {
+                [key: string]: unknown;
+            };
             /** Output Dir */
             output_dir?: string | null;
             /** Outputs */

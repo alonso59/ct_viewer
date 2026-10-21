@@ -153,7 +153,7 @@ def test_plan_conventions(src: Path) -> None:
 
 
 def test_plan_nnunet_names_are_not_special(tmp_path: Path) -> None:
-    """nnU-Net naming belongs to the pending nnU-Net plugin (TSK-08), not to core import."""
+    """nnU-Net naming belongs to the nnU-Net plugin (TSK-08), not to core import."""
     root = tmp_path / "r"
     nii(root / "imagesTr" / "01_CT_alpha_0000.nii.gz", ct())
     nii(root / "imagesTr" / "01_CT_alpha_0001.nii.gz", ct())

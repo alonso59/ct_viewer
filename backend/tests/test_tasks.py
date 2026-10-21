@@ -119,7 +119,7 @@ def test_list_tasks_with_invalid_manifests(env: TestClient) -> None:
     assert rad["source"] == "builtin" and rad["settings_schema_url"] == "/api/v1/radiomics/schema"
     errors = {Path(i["path"]).parent.name: i["error"] for i in body["invalid"]}
     assert "not JSON" in errors["bad"]
-    assert "external runtime" in errors["builtin"]
+    assert "builtin" not in errors
     assert body["runners"] == []
     assert_problem(env.get(f"{API}/tasks/nope.task"), "not-found")
 

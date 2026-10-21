@@ -14,13 +14,13 @@ This phase generates masks and registers them as task-produced segmentation sets
 |---|---|---|
 | SEG-01 | `segment.nnunet` is a first-party, project-scoped external task with item input and mask output. It runs in the existing host conda environment through TSK-11; nnU-Net, torch and CUDA stay outside the OCI image. | M |
 | SEG-02 | An administrator creates a static, versioned model profile under `plugins/nnunet/profiles/`. Profiles are the allowlist shown in task settings; browser requests cannot supply executable names, arbitrary arguments or host paths. | M |
-| SEG-03 | A profile records the dataset name/ID, channels, normalized output labels, one or more prediction configurations (trainer, plans, configuration, folds and checkpoint), optional upstream ensemble/postprocessing stages, CPU worker limits and a fingerprint of every model artifact. Invalid or missing artifacts make the profile unavailable. | M |
+| SEG-03 | A profile records the dataset name/ID, channels, normalized output labels, exactly one prediction configuration (trainer, plans, configuration, folds and checkpoint), optional upstream postprocessing, CPU worker limits and a fingerprint of every model artifact. Multi-configuration profiles are refused in this phase. Invalid or missing artifacts make the profile unavailable. | M |
 | SEG-04 | Preflight accepts ready NIfTI items whose modality and channel count match the profile. This phase supports one image channel per item; unsupported formats, missing files and blocking geometry warnings are skipped through TSK-04. | M |
 | SEG-05 | Pending items are staged as read-only symlinks in the queue job using opaque case tokens and nnU-Net channel suffixes (`_0000`). A mapping file relates tokens to `item_id`; source and existing masks are never renamed or written. | M |
-| SEG-06 | The plugin invokes official nnU-Net v2 entry points for prediction, ensemble and postprocessing. It does not reimplement preprocessing, sliding-window prediction, fold ensembling, resampling or export. Profile validation resolves labels from nnU-Net v2 `dataset.json`, including `regions_class_order`, or fails closed. | M |
-| SEG-07 | One prediction stage uses `P = min(pending items, visible GPUs, requested cap)` concurrent `nnUNetv2_predict` processes. Each gets one `CUDA_VISIBLE_DEVICES` value and the same input with `-num_parts P -part_id K`; prediction configurations in an ensemble run as sequential stages. The runner exposes 2–4 operator-approved GPUs, the task defaults to 2 and its requested cap cannot exceed 4. | M |
+| SEG-06 | The plugin invokes official nnU-Net v2 entry points for prediction, including fold ensembling, and postprocessing. It does not reimplement preprocessing, sliding-window prediction, fold ensembling, resampling or export. Profile validation resolves labels from nnU-Net v2 `dataset.json`, including `regions_class_order`, or fails closed. | M |
+| SEG-07 | Prediction uses `P = min(pending items, visible GPUs, requested cap)` concurrent `nnUNetv2_predict` processes. Each gets one `CUDA_VISIBLE_DEVICES` value and the same input with `-num_parts P -part_id K`. The runner exposes 2–4 operator-approved GPUs, the task defaults to 2 and its requested cap cannot exceed 4. | M |
 | SEG-08 | The runner uses `--concurrency 1` for `segment.nnunet`. Per-process preprocessing/export worker counts come from the profile so multiple GPUs cannot multiply CPU or RAM use without a declared bound. The UI may lower the GPU cap but cannot select GPUs outside the runner's visible set. | M |
-| SEG-09 | Each part writes to its own scratch output. Successful parts are merged without overwriting, optional ensemble/postprocessing consumes only complete case artifacts, and final masks are geometry-checked against their input before atomic publication inside the run's `output_dir`. | M |
+| SEG-09 | Each part writes to its own scratch output. Successful parts are merged without overwriting, optional postprocessing consumes only complete case artifacts, and final masks are geometry-checked against their input before atomic publication inside the run's `output_dir`. | M |
 | SEG-10 | Each valid final mask emits one TSK-07 `ok` item output with value-to-name labels. TSK-09 registers all successful masks under one new `seg_id`, appends provenance to the derived ledger and rebuilds the index; imported and earlier task sets remain unchanged. | M |
 | SEG-11 | A part failure marks only its assigned items failed when the remaining pipeline can still finish. Cancel terminates every child process. Resume stages only non-`ok` items and uses upstream continue behavior without rewriting registered outputs. | M |
 | SEG-12 | `run.json` records the task/profile/settings hashes, input fingerprints, nnU-Net/torch/CUDA versions, visible GPU identifiers, effective official commands without absolute patient paths, model fingerprints, part assignment and final output hashes. | M |
@@ -41,10 +41,9 @@ This phase generates masks and registers them as task-produced segmentation sets
      "plans": "nnUNetPlans", "folds": [0, 1, 2, 3, 4],
      "checkpoint": "checkpoint_final"}
   ],
-  "ensemble": null,
   "postprocessing": null,
   "processes": {"preprocessing_per_gpu": 2, "export_per_gpu": 2},
-  "artifacts_sha256": "sha256:..."
+  "artifacts_sha256": "..."
 }
 ```
 
@@ -54,11 +53,13 @@ This phase generates masks and registers them as task-produced segmentation sets
 
 1. The generic Tasks flow validates settings, selection, derived root and a fresh runner heartbeat.
 2. The plugin validates the chosen profile and stages only pending items.
-3. Each predictor fans out with the official part flags across the visible GPU pool; later predictors wait for the current stage.
-4. The plugin merges part artifacts, then runs the profile's official ensemble and postprocessing stages when declared.
+3. The predictor fans out with the official part flags across the visible GPU pool; nnU-Net performs the configured fold ensemble.
+4. The plugin merges part artifacts, then runs the profile's official postprocessing stage when declared.
 5. Final geometry checks publish per-item mask outputs; the existing task driver creates and indexes one segmentation set.
 
 ## Implementation plan
+
+All five waves were completed in P7e on 2026-10-21.
 
 | Wave | Deliverable | Verification |
 |---|---|---|
@@ -83,3 +84,17 @@ This phase generates masks and registers them as task-produced segmentation sets
 - Expose only `Dataset220_KiTS2023` in the first implementation.
 - The operator exposes 2–4 available GPUs to the runner. A task defaults to 2 GPUs and may request at most 4; the effective count can be lower when fewer items are pending.
 - Keep preprocessing and export workers at 2 per GPU unless GPU-host acceptance shows a lower bound is required.
+
+## Host runner
+
+Activate `torch`, set `nnUNet_results=/home/alonso/nnUNet_models/nnUNet_results`, and expose two to four operator-approved devices with `CUDA_VISIBLE_DEVICES`. Start only one segmentation runner:
+
+```bash
+python scripts/rw-runner.py --workspace <WORKSPACE_HOST> --plugins "$PWD/plugins" --tasks segment.nnunet --concurrency 1
+```
+
+The runner executes `plugins/nnunet/check.py` before advertising the task. A missing command, model artifact/hash mismatch or invalid GPU pool leaves the plugin in `needs_runner` instead of accepting jobs.
+
+## P7e acceptance record
+
+TST-21 passed on `john-gpinedo` on 2026-10-21 with nnU-Net v2 2.8.1. The one-case run completed on GPU 0; the two-case run used upstream `num_parts=2` concurrently on GPUs 0 and 6. Both registered new segmentation sets after official postprocessing, and SHA-256 comparison reported no changes across all 191 synthetic source files. The repeatable command is `cd backend && .venv/bin/python -m tools.nnunet_acceptance --items N --gpus 0,6 --gpu-cap 2` for `N=1` and `N=2`.

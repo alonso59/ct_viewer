@@ -86,7 +86,7 @@ make image-tar                 # on the build machine: docker save -> build/rw-{
 | Execution mode: `P1` (proot, default) or `F3` (fakechroot, set `UDOCKER_EXECMODE=F3`) | Both pass the local simulation below; `F3` needs a username for the invoking uid (a normal server account has one). Benchmark I/O on the real server (Step 4) |
 | No compose | `udocker-run.sh` is the single source of the run command (OPS-09) |
 | Runs as the invoking user | `WORKSPACE_ROOT` must be writable by that user |
-| External tasks | Compose and `udocker-run.sh` both mount `PLUGINS_HOST` at `/plugins` (`PLUGINS_ROOT`) and the derived folder writable (§Docker); udocker volumes carry no read-only flag. Start `scripts/rw-runner.py` in the plugin env (e.g. `conda activate rw-nnunet`) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
+| External tasks | Compose and `udocker-run.sh` both mount `PLUGINS_HOST` at `/plugins` (`PLUGINS_ROOT`) and the derived folder writable (§Docker); `PLUGINS_HOST` defaults to the repository's shipped `plugins/` tree, and udocker volumes carry no read-only flag. Start `scripts/rw-runner.py` in the plugin environment (`conda activate torch` for SEG-*) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
 
 ### Local udocker simulation (`make udocker-selftest`)
 
@@ -125,7 +125,7 @@ The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or
 
 ## Implementation notes
 
-- Host-side `.env` keys: `DATA_HOST`, `DATA_MOUNT_MODE` (Docker), `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker), `DERIVED_HOST`, `PLUGINS_HOST`.
+- Host-side `.env` keys: `DATA_HOST`, `DATA_MOUNT_MODE` (Docker), `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker), `DERIVED_HOST`, `PLUGINS_HOST` (defaults to `./plugins`).
 - Image: 897 MB uncompressed on linux/arm64 (the build stage drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 935 MB before FB10 (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
 - Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).

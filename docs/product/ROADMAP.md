@@ -24,7 +24,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
 | P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
 | P7d | nnU-Net segmentation planning | ✅ 2026-10-21 (ADR-0032 accepted; Dataset220; 2–4 GPU policy) |
-| P7e | nnU-Net segmentation generation | ⬜ Awaiting phase-start confirmation |
+| P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -64,8 +64,8 @@ Done 2026-09-24 (exit met; archive).
 **Exit:** ADR-0032 is Accepted and no SEG-* question blocks implementation. P7e begins only after the phase-boundary confirmation.
 
 ### P7e — nnU-Net segmentation generation
-- [ ] Implement `plugins/nnunet/` in the five waves from SEGMENTATION.md; use the generic Tasks UI and existing TSK-09 index registration
-- [ ] Pass TST-21 locally with the fake CLI, then on `john-gpinedo` with one item and a multi-GPU batch
+- [x] Implement `plugins/nnunet/` in the five waves from SEGMENTATION.md; use the generic Tasks UI and existing TSK-09 index registration
+- [x] Pass TST-21 locally with the fake CLI, then on `john-gpinedo` with one item and a two-case batch on GPUs 0 and 6 (2026-10-21)
 **Exit:** generated masks form a new indexed segmentation set, source and existing masks remain byte-identical, partial failure/cancel/resume work, and the real profile completes on the GPU host.
 
 ### Pending plugin after P7e

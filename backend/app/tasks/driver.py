@@ -285,6 +285,9 @@ class DriverBase(RegistrationBase):
                 versions = result.get("versions")
                 if isinstance(versions, dict):
                     rec.versions = {str(k): str(v) for k, v in versions.items()}
+                provenance = result.get("provenance")
+                if isinstance(provenance, dict):
+                    rec.provenance = provenance
             rec.status = status
             rec.started_at = rec.started_at or info.started_at
             rec.finished_at = utc_now()

@@ -90,4 +90,6 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 | `analyzer.phase`, `analyzer.target`, `analyzer.readiness` | rows | annotations | ANALYZERS.md |
 | `segment.threshold` (test only, CI; runs under both runtimes, TST-14) | items | masks | TESTING.md |
 
-External (planned in ROADMAP P7e): `segment.nnunet` in `plugins/nnunet/`. The manifest above is its generic task shape; model profiles, official nnU-Net stages and multi-GPU partitioning are owned by SEG-*.
+External: `segment.nnunet` in `plugins/nnunet/`. The manifest above is its generic task shape; model profiles, official nnU-Net stages and multi-GPU partitioning are owned by SEG-*.
+
+An external plugin may provide `check.py`; the host runner executes it with its own Python once at startup. A nonzero result keeps that task out of the runner heartbeat, so the Library reports that no usable runner is available. The nnU-Net check validates the static profile, every model hash, the official CLI entry points and the operator-approved GPU pool before advertising `segment.nnunet`.

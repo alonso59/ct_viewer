@@ -410,8 +410,9 @@ def main() -> None:
         workspace, derived, plugins = tmp / "workspace", tmp / "derived", tmp / "plugins"
         derived.mkdir()
         plugins.mkdir()
-        # external manifests: the CI threshold plugin only, as in the E2E setup (TST-14)
+        # External manifests used by the mock: CI threshold plus the shipped nnU-Net task.
         (plugins / "threshold").symlink_to(REPO / "plugins" / "threshold")
+        (plugins / "nnunet").symlink_to(REPO / "plugins" / "nnunet")
         settings = Settings(
             workspace_root=workspace,
             allowed_data_roots=str(FIXTURES.resolve()),

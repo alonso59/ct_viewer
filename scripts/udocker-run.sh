@@ -60,7 +60,7 @@ else
   derived_host="$env_dir/derived"; derived_mount=/derived
 fi
 # External task manifests (TSK-01): mounted at /plugins, like compose (read-only there).
-plugins_host="$(get PLUGINS_HOST ./plugins-external)"
+plugins_host="$(get PLUGINS_HOST ./plugins)"
 [[ "$plugins_host" == /* ]] || plugins_host="$env_dir/${plugins_host#./}"
 port="$(get PORT 8000)"
 # RW_VERSION defaults to the backend package version (backend/pyproject.toml), like compose.
