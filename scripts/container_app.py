@@ -11,9 +11,8 @@ from __future__ import annotations
 
 import sys
 
-from pydantic import ValidationError
-
 from app.config import get_settings
+from pydantic import ValidationError
 
 
 def main() -> None:
@@ -24,7 +23,6 @@ def main() -> None:
         sys.exit("refusing to start: " + "; ".join(msgs))
 
     import uvicorn
-
     from app.main import app
 
     uvicorn.run(app, host=settings.host, port=settings.port, log_level=settings.log_level)

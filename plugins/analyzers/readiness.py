@@ -128,20 +128,8 @@ def analyze(rows: Sequence[dict[str, Any]], config: dict[str, Any]) -> list[Anno
         key = row_key(row)
         level = value_to_text(row.get("target_match", "")) or target_rules.match(row, p)[0]
         role, reason = output_role(row, level)
-        out.append(
-            annotation(key, "output_role", role, ROLE_CONFIDENCE[role], reason, RULES_VERSION)
-        )
+        out.append(annotation(key, "output_role", role, ROLE_CONFIDENCE[role], reason, RULES_VERSION))
         ready, reasons = readiness(row)
-        conf = (
-            "high"
-            if ready in {"ready", "unsuitable"}
-            else "medium"
-            if ready != "unknown"
-            else "unknown"
-        )
-        out.append(
-            annotation(
-                key, "readiness", ready, conf, ", ".join(reasons) or "no issues", RULES_VERSION
-            )
-        )
+        conf = "high" if ready in {"ready", "unsuitable"} else "medium" if ready != "unknown" else "unknown"
+        out.append(annotation(key, "readiness", ready, conf, ", ".join(reasons) or "no issues", RULES_VERSION))
     return out

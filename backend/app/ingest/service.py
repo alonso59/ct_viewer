@@ -27,7 +27,7 @@ from app.core.fsio import (
 )
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
-from app.core.paths import validate_alias
+from app.core.paths import PathResolver, validate_alias
 from app.curation.state import CaseReview, case_reviews
 from app.events.bus import EventBus
 from app.ingest import indexer, preview, sidecars
@@ -126,7 +126,7 @@ class IngestService:
             (r for r in self.workspace.get(project_id).path_roots if r.alias == alias), None
         )
         guard = (
-            self.workspace.derived_guard
+            self.workspace.project_derived_guard(project_id)
             if existing is not None and existing.role == "derived"
             else self.workspace.guard
         )
@@ -204,7 +204,15 @@ class IngestService:
                 errors=[{"loc": ["metadata"], "msg": "required input file missing"}],
                 actions=actions,
             )
-        parsed = parse_inputs({k: b.data for k, b in blobs.items()})
+        project_resolver = self.workspace.resolver(project_id)
+        resolver = PathResolver(
+            {alias: real},
+            guard,
+            roles={alias: project_resolver.role(alias)},
+            derived_guard=project_resolver.derived_guard,
+            source_exclusions=project_resolver.source_exclusions,
+        )
+        parsed = parse_inputs({k: b.data for k, b in blobs.items()}, resolver=resolver, alias=alias)
         pv = ImportPreview(
             preview_id=new_ulid(),
             root=os.path.normpath(root),
@@ -311,11 +319,11 @@ class IngestService:
             latest[rec.key] = rec
         return list(latest.values())
 
-    def _snapshot(self, pdir: Path, rec: ImportRecord) -> ParsedInputs:
+    def _snapshot(self, pdir: Path, rec: ImportRecord, resolver: PathResolver) -> ParsedInputs:
         data: dict[FileKind, bytes] = {}
         for f in rec.files:
             data[f.kind] = (pdir / SOURCES / rec.import_id / FILE_NAMES[f.kind]).read_bytes()
-        return parse_inputs(data)
+        return parse_inputs(data, resolver=resolver, alias=rec.alias)
 
     def annotations(self, project_id: str) -> Annotations:
         """Active annotation runs per field (ANZ-04) → field → item_id → annotation."""
@@ -381,10 +389,14 @@ class IngestService:
         pdir = self.workspace.project_dir(project_id)
         resolver = self.workspace.resolver(project_id)
         anns = self.annotations(project_id)
+        from app.ingest.recycle import excluded_items
+
+        excluded = excluded_items(pdir)
         per_source: list[list[Draft]] = []
         specs: list[sidecars.Spec] = []
         for rec in self.latest_sources(project_id):
-            ds = build_drafts(self._snapshot(pdir, rec), resolver, rec.alias, rules, anns)
+            ds = build_drafts(self._snapshot(pdir, rec, resolver), resolver, rec.alias, rules, anns)
+            ds = [d for d in ds if d.item_id not in excluded]
             for d in ds:
                 d.import_id = rec.import_id
             specs += self._plan_sidecars(project_id, rec, ds)

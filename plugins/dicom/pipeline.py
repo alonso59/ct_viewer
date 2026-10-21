@@ -34,9 +34,7 @@ STUDY_PREFIXES = ("phase_guess", "curated_", "target_match")
 
 def clean_row(row: dict[str, Any]) -> dict[str, Any]:
     """A converter row without study logic (also strips legacy rows carried over by DCM-07)."""
-    return {
-        k: v for k, v in row.items() if k not in STUDY_FIELDS and not k.startswith(STUDY_PREFIXES)
-    }
+    return {k: v for k, v in row.items() if k not in STUDY_FIELDS and not k.startswith(STUDY_PREFIXES)}
 
 
 @dataclass
@@ -115,11 +113,7 @@ def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
         except OSError:
             continue
     try:
-        voxels = (
-            int(row.get("dim_x") or 0)
-            * int(row.get("dim_y") or 0)
-            * int(row.get("num_slices") or 0)
-        )
+        voxels = int(row.get("dim_x") or 0) * int(row.get("dim_y") or 0) * int(row.get("num_slices") or 0)
     except ValueError:
         voxels = 0
     bits = int(value_to_text(getattr(ds, "BitsAllocated", "")) or 16)
@@ -127,9 +121,7 @@ def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
     return src, int(raw * 0.45) if raw else src
 
 
-def decide_conversion(
-    row: dict[str, Any], role: str, role_reason: str, settings: Settings
-) -> tuple[bool, str]:
+def decide_conversion(row: dict[str, Any], role: str, role_reason: str, settings: Settings) -> tuple[bool, str]:
     """DCM-06 convert / skip decision for one series: (planned, skip reason or "")."""
     planned = {
         "PRIMARY": settings.convert_primary,
@@ -189,7 +181,7 @@ def run(
         for s in discovered:
             try:
                 ds = scan.first_header(s)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - one bad series must not stop discovery
                 diagnostics.append(
                     scan.Diagnostic(
                         "ERROR",
@@ -267,9 +259,7 @@ def run(
             row.update({k: ("" if v is None else str(v)) for k, v in extras.items()})
             row["target_match_level"] = level
             row["output_role"] = role
-            row["include_guess"] = {"PRIMARY": "include", "SECONDARY": "secondary"}.get(
-                role, "exclude"
-            )
+            row["include_guess"] = {"PRIMARY": "include", "SECONDARY": "secondary"}.get(role, "exclude")
             row["exclude_reason"] = role_reason if role == "EXCLUDED" else ""
             planned, skip_reason = decide_conversion(row, role, role_reason, settings)
             if skip_reason:
@@ -361,7 +351,7 @@ def run(
                 else:
                     try:
                         c = convert.write_nifti(g.series, out)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - record a per-series conversion failure
                         status = row["status"] = "failed"
                         message = row["raw_metadata_error"] = f"{type(exc).__name__}: {exc}"
                         diagnostics.append(
@@ -375,26 +365,16 @@ def run(
                             )
                         )
                     else:
-                        rows.update_geometry(
-                            row, c.size, c.spacing, c.origin, c.direction, c.pixel_type
-                        )
+                        rows.update_geometry(row, c.size, c.spacing, c.origin, c.direction, c.pixel_type)
                         status = row["status"] = "converted"
                         item_outputs.append({"kind": "image", "path": str(out)})
                         if settings.sidecars:
-                            header = (
-                                sidecar.anonymize_dataset(g.header, case_id, salt)
-                                if anonymize
-                                else g.header
-                            )
+                            header = sidecar.anonymize_dataset(g.header, case_id, salt) if anonymize else g.header
                             side = sidecar_dir / f"{filename}.dicom.json"
                             if not side.exists():
                                 sha = sidecar.write_sidecar(header, side)
-                                item_outputs.append(
-                                    {"kind": "sidecar", "path": str(side), "sha256": sha}
-                                )
-                            row["dicom_sidecar"] = (
-                                f"{ref_alias}:{ref_rel}/sidecars/{filename}.dicom.json"
-                            )
+                                item_outputs.append({"kind": "sidecar", "path": str(side), "sha256": sha})
+                            row["dicom_sidecar"] = f"{ref_alias}:{ref_rel}/sidecars/{filename}.dicom.json"
             else:
                 row["status"] = "skipped"
             if status in counts:

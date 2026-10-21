@@ -1043,7 +1043,7 @@
     "done": "Import finished: {{cases}} cases indexed",
     "errors_one": "{{count}} validation error",
     "errors_other": "{{count}} validation errors",
-    "errorsHelp": "Rows with errors are indexed with a QC warning; they appear in the Problems panel.",
+    "errorsHelp": "Rows with parse errors or missing required fields are skipped. Accepted rows may receive QC warnings during indexing; those appear in the Problems panel.",
     "indexing": "Indexing…",
     "indexingHelp": "Thumbnails are generated in the background after indexing.",
     "kpiCases": "cases",

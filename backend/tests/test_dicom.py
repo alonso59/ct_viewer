@@ -209,6 +209,7 @@ def test_anonymize_basic(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_p
             None,
             [],
             [{"Alphabetic": "case_00000"}],
+            [{"Alphabetic": "case_00001"}],
         )
     assert tags["00100020"]["Value"] == [side.name.split("_")[2] + "_" + side.name.split("_")[3]]
     assert tags["00120062"]["Value"] == ["YES"]

@@ -17,11 +17,13 @@ import type { ItemRecord } from '../../../api'
 import { hexToRgb, lutRows, lutWidth, niivueLut } from '../model/labels'
 import { fitFov, fovOf, linkFov, setFov, zoomed, type Fov } from '../model/fov'
 import { PLANE_AXIS, PLANES } from '../model/layouts'
-import type { CursorReadout, DisplayOptions, LabelStyle, LoadOptions, MeshSpec, Plane, PlaneView, RoiStats, TileRect, Unsubscribe, ViewerContext, ViewerHandle, ViewportId, ViewState } from '../model/types'
+import { DEFAULT_SCENE_3D, project3D } from '../model/scene3d'
+import type { CursorReadout, DisplayOptions, LabelStyle, LoadOptions, MeshSpec, Plane, PlaneView, Render3DOptions, RoiStats, TileRect, Unsubscribe, ViewerContext, ViewerHandle, ViewportId, ViewState } from '../model/types'
 import { percentileWindow, windowToRange } from '../model/wl'
 import { fetchVolume } from './fetchVolume'
 import { LoadGate, type Ticket } from './loadGate'
 import { SLICE_FRAG, SliceRenderer } from './sliceRenderer'
+import { SceneRenderer } from './sceneRenderer'
 import { apply, fromGl, invert4, labelArray, niftiBytes, proxyGrid, resampleNearest, texMatrix, toGl, type Mat, type Vec3 } from './volumeMath'
 
 type Typed = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array
@@ -44,7 +46,8 @@ const PLANE_OF: Record<number, Plane> = { [SLICE_TYPE.AXIAL]: 'axial', [SLICE_TY
 /** Niivue with per-plane 2D pan/zoom (unlinked zoom, VW-06), a 2D slice hook and a post-draw hook */
 class TiledNiivue extends Niivue {
   planePan: Partial<Record<Plane, Fov>> = {}
-  showVolume3D = true
+  pan3d: [number, number] = [0, 0]
+  render3d: ((mvp: Float32Array, draw: () => void) => void) | null = null
   beforeSlice: ((program: WebGLProgram) => void) | null = null
   afterDraw: (() => void) | null = null
 
@@ -64,12 +67,27 @@ class TiledNiivue extends Niivue {
     }
   }
 
-  override drawImage3D(mvp: Parameters<Niivue['drawImage3D']>[0], azimuth: number, elevation: number): void {
-    if (this.showVolume3D) super.drawImage3D(mvp, azimuth, elevation)
+  override calculateMvpMatrix(...args: Parameters<Niivue['calculateMvpMatrix']>): ReturnType<Niivue['calculateMvpMatrix']> {
+    const matrices = super.calculateMvpMatrix(...args)
+    const m = matrices[0]
+    // Translate in clip space so volume, meshes and guides move together at any orbit/zoom.
+    if (m) for (let col = 0; col < 4; col++) {
+      const i = col * 4
+      m[i] = m[i]! + this.pan3d[0] * m[i + 3]!
+      m[i + 1] = m[i + 1]! + this.pan3d[1] * m[i + 3]!
+    }
+    return matrices
   }
 
-  override drawScene(): string | void {
-    const r = super.drawScene()
+  override drawImage3D(mvp: Parameters<Niivue['drawImage3D']>[0], azimuth: number, elevation: number): void {
+    const draw = () => super.drawImage3D(mvp, azimuth, elevation)
+    if (this.render3d) this.render3d(new Float32Array(mvp), draw)
+    else draw()
+  }
+
+  override drawSceneCore(): string | void {
+    // Decorations belong to the frame, before NiiVue finishes/submits its GL commands.
+    const r = super.drawSceneCore()
     this.afterDraw?.()
     return r
   }
@@ -118,6 +136,9 @@ export class NiivueViewer implements ViewerHandle {
   private display: DisplayOptions = { invert: false, slab: { mode: 'none', mm: 10 }, interpolation: 'linear', convention: 'radiological' }
   private proxy: NVImage | null = null
   private proxyMask: NVImage | null = null
+  private sceneRenderer: SceneRenderer | null = null
+  private renderMatrix: Float32Array | null = null
+  private render3d = { volume: true, mask: true, surfaces: false, opacity: 1, blend: 1, scene: DEFAULT_SCENE_3D }
   private labels: LabelStyle[] = []
   private overlay = { visible: true, opacity: 1 }
   private tiles: TileRect[] = []
@@ -154,6 +175,7 @@ export class NiivueViewer implements ViewerHandle {
       backColor: [0, 0, 0, 1],
       crosshairWidth: 0,
       show3Dcrosshair: false,
+      meshThicknessOn2D: 0, // Mask surfaces belong only to 3D; slices keep their label overlay.
       isColorbar: false,
       isRuler: false,
       isOrientCube: false,
@@ -166,11 +188,13 @@ export class NiivueViewer implements ViewerHandle {
       logLevel: 'error',
       loadingText: '',
     })
-    this.nv.afterDraw = () => this.emitView()
+    this.nv.afterDraw = () => { this.drawSceneGuides(); this.emitView() }
+    this.nv.render3d = (mvp, draw) => this.drawVolume3D(mvp, draw)
     this.nv.beforeSlice = (program) => this.slices?.prepare(program)
     this.ready = this.nv.attachToCanvas(canvas).then(() => {
       if (this.disposed) return
       this.slices = new SliceRenderer(this.nv.gl)
+      this.sceneRenderer = new SceneRenderer(this.nv.gl, canvas)
       this.nv.setCustomSliceShader(SLICE_FRAG)
     })
   }
@@ -250,7 +274,7 @@ export class NiivueViewer implements ViewerHandle {
       if (stale()) return
       pm.hdr!.intent_code = 1002 // exact-index label shader
       pm.setColormapLabel(niivueLut(this.labels, lutWidth(this.labels, max)))
-      pm.opacity = this.overlay.visible ? this.overlay.opacity : 0
+      pm.opacity = this.overlay.visible ? 1 : 0
       this.proxyMask = pm
       this.nv.addVolume(pm)
     }
@@ -272,6 +296,7 @@ export class NiivueViewer implements ViewerHandle {
   }
 
   private clearVolumes() {
+    this.nv.pan3d = [0, 0]
     for (const v of [...this.nv.volumes]) this.nv.removeVolume(v)
     for (const m of this.meshes.values()) this.nv.removeMesh(m)
     this.meshes.clear()
@@ -365,11 +390,11 @@ export class NiivueViewer implements ViewerHandle {
     const width = lutWidth(this.labels, this.maskMax)
     this.slices?.setLut(lutRows(this.labels, width), width)
     this.slices?.setOverlay(this.overlay.visible ? this.overlay.opacity : 0)
-    for (const [label, mesh] of this.meshes) mesh.visible = !!this.labels.find((x) => x.value === label)?.visible && this.overlay.visible
+    this.styleMeshes()
     const pm = this.proxyMask
     if (pm) {
       pm.setColormapLabel(niivueLut(this.labels, width))
-      pm.opacity = this.overlay.visible ? this.overlay.opacity : 0
+      pm.opacity = this.overlay.visible ? 1 : 0
     }
     this.schedule('draw')
     if (pm) {
@@ -387,12 +412,77 @@ export class NiivueViewer implements ViewerHandle {
     // Crosshair lines are drawn by the DOM overlay (VW-04 per-plane colours); nothing to do here
   }
 
-  setRender(p: { volume?: boolean; labels?: boolean; blend?: number }): void {
-    if (p.volume !== undefined) this.nv.showVolume3D = p.volume
-    if (p.blend !== undefined) this.nv.opts.renderOverlayBlend = p.blend
-    if (p.labels !== undefined) for (const mesh of this.meshes.values()) mesh.visible = p.labels
+  setRender(p: Render3DOptions): void {
+    this.render3d = { ...this.render3d, ...p }
+    this.nv.opts.isOrientCube = this.render3d.scene.orientationCube
+    this.nv.opts.fontColor = this.render3d.scene.background === 'white' ? [0, 0, 0, 1] : [1, 1, 1, 1]
+    this.styleMeshes()
     this.schedule('draw')
-    if (p.blend !== undefined) this.schedule3d()
+  }
+
+  /** Blank only the 3D background sampler: image geometry and the 2D textures stay intact. */
+  private drawVolume3D(mvp: Float32Array, draw: () => void) {
+    this.renderMatrix = mvp
+    const nv = this.nv
+    const gl = nv.gl
+    const renderer = this.sceneRenderer
+    if (!renderer || !nv.renderShader) return draw()
+    renderer.background(this.render3d.scene.background)
+    const shader = nv.renderShader
+    shader.use(gl)
+    const hideCT = !this.render3d.volume || this.render3d.opacity === 0
+    const surfaceReady = this.render3d.surfaces && this.meshes.size > 0
+    gl.activeTexture(gl.TEXTURE15)
+    gl.bindTexture(gl.TEXTURE_3D, renderer.emptyVolume)
+    gl.activeTexture(gl.TEXTURE0)
+    // NiiVue's uniform parser omits the first name in `uniform sampler3D volume, overlay`.
+    const volumeSampler = gl.getUniformLocation(shader.program, 'volume')
+    if (!volumeSampler) return draw()
+    const volumeUnit = gl.getUniform(shader.program, volumeSampler) as number
+    gl.uniform1i(volumeSampler, hideCT ? 15 : volumeUnit)
+    gl.uniform1f(shader.uniforms.backOpacity!, this.render3d.opacity)
+    gl.uniform1f(shader.uniforms.overlays!, this.render3d.mask && !surfaceReady ? nv.volumes.length - 1 : 0)
+    gl.uniform1f(shader.uniforms.renderOverlayBlend!, this.render3d.blend)
+    try { draw() } finally {
+      shader.use(gl)
+      gl.uniform1i(volumeSampler, volumeUnit)
+      gl.uniform1f(shader.uniforms.backOpacity!, this.proxy?.opacity ?? 1)
+      gl.uniform1f(shader.uniforms.overlays!, nv.volumes.length - 1)
+    }
+    const fracToMM = nv.back?.frac2mm
+    if (fracToMM) for (const plane of PLANES) {
+      if (this.render3d.scene.planes[plane] === 'slice') this.slices?.drawPlane(mvp, new Float32Array(fracToMM), PLANE_AXIS[plane], this.crosshair[PLANE_AXIS[plane]])
+    }
+  }
+
+  private styleMeshes() {
+    for (const [value, mesh] of this.meshes) {
+      const label = this.labels.find((l) => l.value === value)
+      mesh.visible = this.render3d.mask && this.render3d.surfaces && this.overlay.visible && (label?.visible ?? true)
+      mesh.opacity = this.render3d.blend
+    }
+  }
+
+  private drawSceneGuides() {
+    const tile = this.tiles.find((t) => t.id === '3d')
+    const matrix = this.renderMatrix
+    const fracToMM = this.nv.back?.frac2mm
+    if (!tile || !matrix || !fracToMM || !this.sceneRenderer) return
+    const gl = this.nv.gl
+    const k = this.dpr()
+    gl.viewport(tile.x * k, gl.canvas.height - (tile.y + tile.h) * k, tile.w * k, tile.h * k)
+    this.sceneRenderer.guides(matrix, fromGl(fracToMM), this.crosshair, this.render3d.scene)
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+    if (!this.render3d.scene.axisLabels) return
+    const names = [['L', 'R'], ['P', 'A'], ['I', 'S']]
+    for (const axis of [0, 1, 2] as const) for (const side of [0, 1] as const) {
+      const frac: Vec3 = [0.5, 0.5, 0.5]; frac[axis] = side === 0 ? -0.035 : 1.035
+      const mm = this.nv.frac2mm(frac, 0, true)
+      const point = project3D(matrix, [mm[0]!, mm[1]!, mm[2]!], tile.w * k, tile.h * k)
+      if (point && point[0] > 12 * k && point[0] < (tile.w - 20) * k && point[1] > 12 * k && point[1] < (tile.h - 12) * k) {
+        this.nv.drawText([tile.x * k + point[0], tile.y * k + point[1]], names[axis]![side]!, 0.8, this.nv.opts.fontColor)
+      }
+    }
   }
 
   async setMeshes(specs: MeshSpec[]): Promise<void> {
@@ -413,10 +503,10 @@ export class NiivueViewer implements ViewerHandle {
       const [r, g, b] = hexToRgb(s.color)
       const mesh = await NVMesh.readMesh(s.data.slice(0), `label${s.label}.mz3`, this.nv.gl, 1, new Uint8Array([r, g, b, 255]))
       if (!live() || this.meshes.has(s.label)) return
-      mesh.visible = this.labels.find((l) => l.value === s.label)?.visible ?? true
       this.meshes.set(s.label, mesh)
       this.nv.addMesh(mesh)
     }
+    this.styleMeshes()
     this.schedule('draw')
   }
 
@@ -588,7 +678,15 @@ export class NiivueViewer implements ViewerHandle {
   }
 
   pan(tile: ViewportId, dx: number, dy: number): void {
-    if (tile === '3d' || !this.image) return
+    if (!this.image || !Number.isFinite(dx) || !Number.isFinite(dy)) return
+    if (tile === '3d') {
+      const rect = this.tiles.find((t) => t.id === '3d')
+      if (!rect || rect.w <= 0 || rect.h <= 0) return
+      this.nv.pan3d[0] += 2 * dx / rect.w
+      this.nv.pan3d[1] -= 2 * dy / rect.h
+      this.schedule('draw')
+      return
+    }
     // Screen px → mm with the tile's field of view (recorded by NiiVue on the last draw)
     const s = this.nv.screenSlices.find((ss) => ss.axCorSag === SLICE[tile])
     if (!s) return
@@ -644,6 +742,7 @@ export class NiivueViewer implements ViewerHandle {
   /** VW-26: fit one view to its tile; the slice, crosshair and W/L stay as they are */
   fitView(tile: ViewportId): void {
     if (tile === '3d') {
+      this.nv.pan3d = [0, 0]
       this.nv.scene.volScaleMultiplier = 1
       this.nv.setRenderAzimuthElevation(AZIMUTH, ELEVATION)
     } else fitFov(this.nv.planePan, tile, this.linked)
@@ -711,6 +810,7 @@ export class NiivueViewer implements ViewerHandle {
     try {
       this.clearVolumes()
       this.slices?.dispose()
+      this.sceneRenderer?.dispose()
       this.nv.cleanup()
     } catch {
       // context may already be gone

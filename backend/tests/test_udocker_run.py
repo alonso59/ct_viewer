@@ -60,7 +60,7 @@ def compose_side(env: dict[str, str], env_dir: Path) -> tuple[dict[str, str], di
         if section == "environment" and (m := re.match(r"^      ([A-Z_]+):\s*(.+)$", code)):
             environment[m.group(1)] = interpolate(m.group(2).strip().strip('"'), env)
         elif section == "volumes" and (m := re.match(r"^      - (.+)$", code)):
-            spec = interpolate(m.group(1).strip(), env).removesuffix(":ro")
+            spec = interpolate(m.group(1).strip(), env).removesuffix(":ro").removesuffix(":rw")
             src, dst = spec.rsplit(":", 1)
             if not src.startswith("/"):
                 src = str(env_dir / src.removeprefix("./"))
@@ -97,6 +97,7 @@ def write_env(path: Path, values: dict[str, str]) -> None:
 
 CASES = {
     "minimal": {"DATA_HOST": "/data/ct"},
+    "writable sources opt-in": {"DATA_HOST": "/data/ct", "DATA_MOUNT_MODE": "rw"},
     "derived and overrides": {
         "DATA_HOST": "/data/ct",
         "DERIVED_HOST": "/scratch/rw-derived",

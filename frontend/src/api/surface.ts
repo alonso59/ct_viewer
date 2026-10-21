@@ -141,7 +141,8 @@ export interface Api {
   unarchiveProject(pid: string): Promise<Project>
   getProject(pid: string): Promise<Project>
   /** PRJ-14: neutral; a name and an optional default modality */
-  createProject(p: { name: string; description?: string; default_modality?: ProjectModality }): Promise<Project>
+  openDataset(path: string): Promise<Project[]>
+  createProject(p: { name: string; description?: string; default_modality?: ProjectModality; dataset_root?: string }): Promise<Project>
   /** API-03 PATCH with `If-Match: etag` (PRJ-15); a stale etag rejects with 412 `precondition-failed` */
   updateProject(pid: string, patch: ProjectPatch, etag: string): Promise<Project>
   updateLabelMap(pid: string, labels: LabelDef[], etag: string): Promise<Project>
@@ -202,6 +203,8 @@ export interface Api {
   listCases(pid: string, f?: CaseFilter): Promise<CaseSummary[]>
   getCase(pid: string, cid: string): Promise<CaseDetail>
   getItem(pid: string, iid: string): Promise<ItemDetail>
+  previewRecycle(pid: string, iid: string): Promise<import('./schema').components['schemas']['RecyclePlan']>
+  recycleScan(pid: string, iid: string, token: string, reviewer: string): Promise<import('./schema').components['schemas']['RecycleResult']>
   /** API-26 URL, or null when the binding renders thumbnails itself (mock) */
   thumbnailUrl(pid: string, iid: string): string | null
 

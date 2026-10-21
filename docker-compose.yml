@@ -22,7 +22,7 @@ services:
     ports: ["127.0.0.1:${PORT:-8000}:8000"]
     volumes:
       - ${WORKSPACE_HOST:-./workspace}:/workspace
-      - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:ro # mirror mount (OPS-05)
+      - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:${DATA_MOUNT_MODE:-ro} # mirror mount (OPS-05); opt in to rw for CUR-16
       - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived} # writable mirror mount (OPS-11)
       - ${PLUGINS_HOST:-./plugins-external}:/plugins:ro
     restart: unless-stopped

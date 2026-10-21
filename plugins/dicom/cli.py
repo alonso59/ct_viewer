@@ -23,7 +23,7 @@ def load(path: Path) -> dict[str, Any]:
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(raw, dict):
-        raise ValueError("config root must be a mapping")
+        raise ValueError("config root must be a mapping")  # noqa: TRY004 - invalid file content
     return raw
 
 
@@ -45,15 +45,9 @@ def main(argv: list[str]) -> int:
         include_modality_prefix=bool(outs.get("include_modality_prefix", True)),
     )
     registry_path = out / ".rw_identity.json"
-    identity = Identity.from_dict(
-        json.loads(registry_path.read_text()) if registry_path.is_file() else None
-    )
+    identity = Identity.from_dict(json.loads(registry_path.read_text()) if registry_path.is_file() else None)
     meta_path = out / str(outs.get("metadata_file") or "metadata.jsonl")
-    previous = (
-        [json.loads(x) for x in meta_path.read_text().splitlines() if x.strip()]
-        if meta_path.is_file()
-        else []
-    )
+    previous = [json.loads(x) for x in meta_path.read_text().splitlines() if x.strip()] if meta_path.is_file() else []
     nifti = str(outs.get("nifti_dir") or "nifti")
     result = pipeline.run(
         source, settings, identity, nifti_dir=out / nifti, sidecar_dir=out / "sidecars", ref_rel="",

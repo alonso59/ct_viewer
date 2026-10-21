@@ -24,6 +24,17 @@
 .case-header-end {
   flex: 1;
 }
+.icon-btn.recycle-scan-button {
+  background: var(--recycle-button-bg);
+  color: var(--recycle-button-fg);
+}
+.icon-btn.recycle-scan-button:hover:not(:disabled) {
+  background: var(--recycle-button-hover);
+  color: var(--recycle-button-fg);
+}
+.icon-btn.recycle-scan-button:active:not(:disabled) {
+  background: var(--recycle-button-active);
+}
 .case-id {
   font-weight: var(--fw-semibold);
   margin-right: var(--sp-2);
@@ -286,16 +297,7 @@
 .vp-3d-tools + .vp-fit {
   margin-left: 0;
 }
-.vp-legend {
-  display: flex;
-  gap: 10px;
-  font-style: normal;
-}
-.vp-legend > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
+
 .vp-veil {
   position: absolute;
   inset: 0;
@@ -424,3 +426,20 @@
 .nav-context { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; }
 .nav-context .icon-btn { width: 16px; height: 16px; }
 .case-editor-error { padding: var(--sp-3); max-width: 640px; }
+
+/* VW-27: a draggable portal escapes viewport clipping and keeps the viewer interactive. */
+.vp-3d-controller[aria-expanded='true'] { background: var(--bg-pressed); color: var(--fg); }
+.vp-3d-panel { position: fixed; z-index: 1000; width: min(340px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); display: flex; flex-direction: column; color: var(--fg); font-size: var(--fs-ui); user-select: auto; }
+.vp-3d-panel-header { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3); cursor: move; touch-action: none; user-select: none; border-bottom: 1px solid var(--border-muted); }
+.vp-3d-panel-header strong { flex: 1; }
+.vp-3d-panel-body { min-height: 0; overflow-y: auto; padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+.vp-3d-panel fieldset { border: 0; border-top: 1px solid var(--border-muted); padding: var(--sp-2) 0 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.vp-3d-panel legend { color: var(--fg-muted); padding: 0 var(--sp-2) 0 0; }
+.vp-3d-panel label { display: flex; align-items: center; gap: var(--sp-2); }
+.vp-3d-panel select, .vp-3d-panel input[type='range'] { flex: 1; min-width: 0; }
+.vp-3d-panel p { margin: 0; white-space: normal; font-size: var(--fs-badge); }
+.vp-3d-panel output { width: 4ch; text-align: right; }
+.vp-mask-only { height: 22px; padding-inline: var(--sp-2); }
+.vp-mask-only[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--fg-on-emphasis); }
+.vp-overlay[data-3d-background='white'] { color: var(--viewer-light-foreground); }
+.vp-overlay[data-3d-background='white'] .vp-corner { color: var(--viewer-light-foreground); text-shadow: 0 1px 1px var(--viewer-light-halo); }

@@ -13,6 +13,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from app.core.errors import NotFound
 from app.core.fsio import atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
@@ -146,15 +147,18 @@ class IndexStore:
         write_jsonl_atomic(d / CASES, (c.model_dump(mode="json") for c in cases))
         # `sha256` lives in hashes.json only (one fact, one place); `mask` is never stored, nor
         # is a phase selection joined on read (PHS-03): the index keeps the resolved value.
-        rows = []
-        for i in items:
-            row = i.model_dump(mode="json", exclude={"mask"})
-            row["phase"] = (i.phase.resolved or i.phase).model_dump(
-                mode="json", exclude={"resolved"}
-            )
-            for vol in (row.get("image"), *row["masks"].values()):
-                if vol is not None:
-                    vol.pop("sha256", None)
-            rows.append(row)
-        write_jsonl_atomic(d / ITEMS, rows)
+        write_jsonl_atomic(d / ITEMS, item_rows(items))
         self.invalidate(project_id)
+
+
+def item_rows(items: Sequence[Item]) -> list[dict[str, Any]]:
+    """Persist resolved phases and alias refs; full hashes stay in hashes.json."""
+    rows = []
+    for i in items:
+        row = i.model_dump(mode="json", exclude={"mask"})
+        row["phase"] = (i.phase.resolved or i.phase).model_dump(mode="json", exclude={"resolved"})
+        for vol in (row.get("image"), *row["masks"].values()):
+            if vol is not None:
+                vol.pop("sha256", None)
+        rows.append(row)
+    return rows

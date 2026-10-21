@@ -7,11 +7,14 @@ offending row is dropped. Unknown fields are kept in `Row.extra` (INPUT_METADATA
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.core.errors import Problem
 from app.core.ids import CASE_ID_RE
+from app.core.paths import PathResolver
 
 FileKind = Literal["metadata", "phase", "voi_catalog"]
 FILE_NAMES: dict[FileKind, str] = {
@@ -30,7 +33,18 @@ METADATA_FIELDS = frozenset(
     }
 )  # fmt: skip
 CATALOG_FIELDS = frozenset(
-    {"voi_id", "case_id", "scan_idx", "side", "image_path", "mask_path", "phase", "modality"}
+    {
+        "voi_id",
+        "case_id",
+        "scan_idx",
+        "side",
+        "image_path",
+        "mask_path",
+        "phase",
+        "modality",
+        "voi_image_path",
+        "voi_mask_path",
+    }
 )
 IMAGE_FIELDS = ("relative_path", "nifti_file", "filename")
 
@@ -178,14 +192,46 @@ def parse_metadata(data: bytes, file: str = "metadata.jsonl") -> tuple[list[Row]
     return rows, _by_line(errors)
 
 
+def _legacy_voi_path(raw: str, resolver: PathResolver, alias: str) -> str:
+    """Resolve an old catalog's dataset-relative or voi-relative path, without guessing."""
+    raw = raw.strip().replace("\\", "/")
+    ref = resolver.to_ref(alias, raw)
+    path = resolver.resolve(ref)
+    if raw.startswith("/") or raw.startswith("voi/"):
+        return ref.split(":", 1)[1]
+    local_ref = resolver.to_ref(alias, posixpath.join("voi", raw))
+    local_path = resolver.resolve(local_ref)
+    if path.is_file() and local_path.is_file() and path != local_path:
+        raise ValueError(
+            "matches files under both the dataset root and voi/; use an explicit "
+            "image_path/mask_path relative to the dataset root"
+        )
+    return (local_ref if local_path.is_file() else ref).split(":", 1)[1]
+
+
 def parse_voi_catalog(
-    data: bytes, file: str = "voi_catalog.jsonl"
+    data: bytes,
+    file: str = "voi_catalog.jsonl",
+    *,
+    resolver: PathResolver | None = None,
+    alias: str = "DATA",
 ) -> tuple[list[Row], list[ParseError]]:
     objs, errors = _jsonl_objects(data, file)
     rows: list[Row] = []
     for n, obj in objs:
         row = _split(n, obj, CATALOG_FIELDS)
         if not _check_ids(row, file, errors):
+            continue
+        invalid = False
+        for target, legacy in (("image_path", "voi_image_path"), ("mask_path", "voi_mask_path")):
+            if row.text(target) is not None or (raw := row.text(legacy)) is None:
+                continue
+            try:
+                row.data[target] = _legacy_voi_path(raw, resolver, alias) if resolver else raw
+            except (Problem, ValueError, OSError) as exc:
+                errors.append(ParseError(file, n, legacy, f"Cannot resolve VOI path: {exc}"))
+                invalid = True
+        if invalid:
             continue
         missing = [f for f in ("side", "image_path") if row.text(f) is None]
         for f in missing:
@@ -251,7 +297,9 @@ class ParsedInputs:
     errors: list[ParseError] = field(default_factory=list)
 
 
-def parse_inputs(files: dict[FileKind, bytes]) -> ParsedInputs:
+def parse_inputs(
+    files: dict[FileKind, bytes], *, resolver: PathResolver | None = None, alias: str = "DATA"
+) -> ParsedInputs:
     out = ParsedInputs()
     if "metadata" in files:
         out.metadata, errs = parse_metadata(files["metadata"])
@@ -260,6 +308,6 @@ def parse_inputs(files: dict[FileKind, bytes]) -> ParsedInputs:
         out.overrides, errs = parse_phase_json(files["phase"])
         out.errors += errs
     if "voi_catalog" in files:
-        out.catalog, errs = parse_voi_catalog(files["voi_catalog"])
+        out.catalog, errs = parse_voi_catalog(files["voi_catalog"], resolver=resolver, alias=alias)
         out.errors += errs
     return out

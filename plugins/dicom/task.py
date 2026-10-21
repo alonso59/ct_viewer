@@ -44,9 +44,7 @@ def run(job_dir: str) -> int:
     prev_path = spec.get("previous_metadata")
     if prev_path and Path(prev_path).is_file():
         previous = [
-            json.loads(line)
-            for line in Path(prev_path).read_text(encoding="utf-8").splitlines()
-            if line.strip()
+            json.loads(line) for line in Path(prev_path).read_text(encoding="utf-8").splitlines() if line.strip()
         ]
     identity = Identity.from_dict(spec.get("identity"))
     settings = pipeline.Settings.from_dict({**job.context, **job.settings})
@@ -89,13 +87,9 @@ def run(job_dir: str) -> int:
                 r["dicom_sidecar"] = f"sidecars/{r['filename']}.dicom.json"
     if not dry:
         pipeline.write_jsonl(out_dir / "metadata.jsonl", result.rows)
-        pipeline.write_jsonl(
-            out_dir / "diagnostics.jsonl", [d.as_dict() for d in result.diagnostics]
-        )
+        pipeline.write_jsonl(out_dir / "diagnostics.jsonl", [d.as_dict() for d in result.diagnostics])
         summary = {"counts": result.counts, "storage": result.storage, "versions": _versions()}
-        (out_dir / "summary.json").write_text(
-            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-        )
+        (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         pipeline.write_jsonl(job.rel("annotations.jsonl"), annotations)
         if workspace:
             pipeline.write_jsonl(out_dir / "annotations.jsonl", annotations)
@@ -114,9 +108,7 @@ def run(job_dir: str) -> int:
             {"kind": "metadata", "path": str(out_dir / "metadata.jsonl")},
             {"kind": "annotations", "path": "annotations.jsonl"},
         ]
-    failed_all = result.counts["failed"] and not (
-        result.counts["converted"] + result.counts["already_converted"]
-    )
+    failed_all = result.counts["failed"] and not (result.counts["converted"] + result.counts["already_converted"])
     job.finish(versions=_versions(), status="failed" if failed_all else None, extra=extra)
     return 0
 

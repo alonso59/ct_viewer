@@ -13,7 +13,7 @@ import './phase.css'
 
 type Scan = Pick<ItemRecord, 'case_id' | 'scan_idx' | 'phase'>
 
-// Inside an Explorer row: a click or key here must not also open the row
+// Keep phase controls from triggering surrounding viewer navigation or shortcuts.
 const stop = (e: SyntheticEvent) => e.stopPropagation()
 
 /** `variant="seg"` (case header, AUD-A1-12): a segmented control with the effective phase pressed,

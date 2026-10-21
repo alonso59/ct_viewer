@@ -36,6 +36,7 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
     default_modality: Modality = "CT"
+    dataset_root: str | None = None
     packs: list[str] = Field(default_factory=list, description="Study packs to apply (API-28)")
 
 
@@ -85,8 +86,23 @@ def list_projects(ctx: Ctx, archived: bool = False) -> list[ProjectSummary]:
 
 @router.post("/projects", response_model=ProjectDetail, status_code=201)
 async def create_project(ctx: Ctx, body: ProjectCreate) -> ProjectDetail:
-    cfg = await ctx.workspace.create(body.name, body.description, body.default_modality, body.packs)
+    cfg = await ctx.workspace.create(
+        body.name, body.description, body.default_modality, body.packs, body.dataset_root
+    )
     return ctx.workspace.detail(cfg.project_id)
+
+
+class DatasetOpen(BaseModel):
+    dataset_root: str
+
+
+@router.post("/projects/open", response_model=list[ProjectDetail])
+async def open_dataset(ctx: Ctx, body: DatasetOpen) -> list[ProjectDetail]:
+    """API-67 / PRJ-19: open saved dataset-local projects from their folder."""
+    result = await ctx.workspace.open_dataset(body.dataset_root)
+    for project in result:
+        ctx.index.invalidate(project.project_id)
+    return result
 
 
 @router.get("/projects/{pid}", response_model=ProjectDetail)
@@ -275,7 +291,7 @@ def _check_roots(ctx: AppContext, pid: str) -> list[BundleRoot]:
     resolver = ctx.workspace.resolver(pid)
     out: list[BundleRoot] = []
     for info in ctx.workspace.roots(pid):
-        guard = ctx.workspace.derived_guard if info.role == "derived" else ctx.guard
+        guard = ctx.workspace.project_derived_guard(pid) if info.role == "derived" else ctx.guard
         exists = info.exists and guard.is_allowed(Path(info.path))
         out.append(
             BundleRoot(

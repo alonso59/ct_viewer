@@ -27,6 +27,7 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | IMP-13 | The import wizard's Data root step offers "Skip for now", which closes the wizard without importing. The project already exists (PRJ-14, created before the wizard opens) and shows its empty state with an Import data entry point; nothing is lost. | S |
 | IMP-14 | The alias field (IMP-01) validates inline — format and collision with an existing alias of the project — instead of surfacing only as a preview/commit failure. | S |
 | IMP-15 | `metadata-v1` import offers, opt-in, reconstructed per-row DICOM sidecars from converter-extra fields already in the row (ADR-0025); never generated when a row's `dicom_sidecar` ref already resolves, never on by default. | S |
+| IMP-16 | Normalize legacy VOI path fields to contract v1 at import and reindex using §VOI path compatibility. Preserve source files and original snapshots; reject ambiguous or unsafe legacy paths in preview. | M |
 
 ## Implementation notes (IMP-15, ADR-0025 §2)
 
@@ -36,7 +37,7 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 
 ## Input files (contract v1, from the v2 converter/preprocessor)
 
-**Core** = the fields below marked ✓ plus `phase`, `seg_path`, `side`, `image_path`, `mask_path`, `modality`. Only core fields have fixed meaning.
+**Core** = the fields below marked ✓ plus `phase`, `seg_path`, `side`, `image_path`, `mask_path`, their legacy VOI aliases below, and `modality`. Only core fields have fixed meaning.
 **Every other field** (including `group` if present) is a study variable, profiled and typed on import (VARIABLES.md, ADR-0011).
 
 ### `metadata.jsonl`: one line per converted scan
@@ -72,6 +73,20 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | `image_path`, `mask_path` | ✓ / | VOI image / mask, relative to data root |
 | `phase` | | Informational; phase is **never** inferred from folders. `{group}` path segments are ignored |
 | any metrics | | Kept in `extra` |
+
+### VOI path compatibility (IMP-16)
+
+New catalogs use `image_path` and `mask_path`, with POSIX paths relative to **DatasetID**, including `voi/` when needed. Example:
+
+```json
+{"case_id":"case_00001","scan_idx":"01","side":"L","image_path":"voi/images/case_00001/crop.npy","mask_path":"voi/mask/case_00001/crop.npy","axis_order":"xyz","spacing":[0.8,0.8,1.5]}
+```
+
+- Accept old `voi_image_path` / `voi_mask_path` when the corresponding canonical field is empty. Canonical fields take precedence and always resolve from DatasetID.
+- For each legacy field, check exactly two locations: DatasetID + path, and DatasetID/voi + path. One existing file selects that location; two different existing files reject the row with an explicit-path action. No recursive filename search, parent-directory search, or pairing based on filenames. An absolute legacy path must already belong to DatasetID; a path already prefixed `voi/` is resolved once.
+- Both candidates pass the same alias-root, allowed-root and symlink guards as all source reads. Missing files keep their reference for indexing QC; paths that escape the root are rejected. Backslashes in legacy paths are accepted as separators.
+- Preview counts accepted rows; rows with parse errors or missing required fields are omitted, not indexed. Reindex repeats the normalization on the original snapshot. No source metadata or image bytes are rewritten.
+- Path detection does not infer NumPy geometry: new `.npy` catalogs must provide `axis_order` and `spacing` (SRC-12). Identity fields must match the parent scan exactly, including zero padding in `scan_idx`.
 
 ## Phase resolution
 

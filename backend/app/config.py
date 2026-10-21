@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     allowed_data_roots: str = ""
     # Writable roots for `derived` path roots (OPS-11, ADR-0014); empty = no derived root.
     allowed_derived_roots: str = ""
+    managed_derived_root: Path | None = None  # OPS-15: explicit sibling of global workspace
     # Read-only dir of external task manifests `*/task.json` (TSK-01); empty = none.
     plugins_root: Path | None = None
     # Builtin plugins (`plugins/` next to `backend/`, `/app/plugins` in the image).
@@ -63,7 +64,15 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _roots_must_not_overlap(self) -> Settings:
         """OPS-12 / BE-15: a derived root inside a data root (or vice versa) is refused."""
+        if self.managed_derived_root is not None:
+            expected = self.workspace_root.resolve().parent / "derived"
+            if self.managed_derived_root.resolve() != expected:
+                raise ValueError(
+                    "MANAGED_DERIVED_ROOT must be the derived sibling of WORKSPACE_ROOT"
+                )
         for d in self.derived_roots:
+            if self.managed_derived_root is not None and d == self.managed_derived_root.resolve():
+                continue
             for s in self.allowed_roots:
                 if d == s or s in d.parents or d in s.parents:
                     raise ValueError(

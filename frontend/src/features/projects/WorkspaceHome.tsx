@@ -12,6 +12,7 @@ import { NewProjectDialog } from '../import'
 import { openPath, useOpenDialog } from '../open'
 import { exportBundle } from './actions'
 import { RelinkDialog } from './RelinkDialog'
+import { OpenDatasetDialog } from './OpenDatasetDialog'
 import { useProjectDialogs } from './store'
 import './projects.css'
 
@@ -146,6 +147,7 @@ export function WorkspaceHome() {
   const setCreating = (creating: boolean) => useProjectDialogs.getState().set({ creating })
   const bundlePick = useProjectDialogs((s) => s.bundlePick)
   const [showArchived, setShowArchived] = useState(false)
+  const [openDataset, setOpenDataset] = useState(false)
   const [relink, setRelink] = useState<ProjectSummary | null>(null)
   const [fromDataset, setFromDataset] = useState<string | null>(null)
   const [bundle, setBundle] = useState<File | null>(null)
@@ -162,6 +164,7 @@ export function WorkspaceHome() {
     .sort((a, b) => (b.last_opened_at ?? b.created_at).localeCompare(a.last_opened_at ?? a.created_at))
   return (
     <div className="home">
+      {openDataset ? <OpenDatasetDialog onClose={() => setOpenDataset(false)} /> : null}
       <div className="home-inner">
         <header className="home-hero">
           <span className="home-logo"><BrandMark size={48} /></span>
@@ -174,6 +177,10 @@ export function WorkspaceHome() {
           <section>
             <h2>{t('home.start')}</h2>
             <div className="home-actions">
+              <button type="button" className="home-action" onClick={() => setOpenDataset(true)}>
+                <Icon spec={codicon('folder-library')} size={20} />
+                <span><strong>{t('dataset.open')}</strong><span className="muted">{t('dataset.openHelp')}</span></span>
+              </button>
               <button type="button" className="home-action" onClick={() => setCreating(true)}>
                 <Icon spec={codicon('new-folder')} size={20} />
                 <span>

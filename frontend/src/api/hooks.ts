@@ -236,7 +236,7 @@ export function useImportV2(pid: string) {
 export function useCreateProject() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (p: { name: string; default_modality?: ProjectModality }) => api.createProject(p),
+    mutationFn: (p: { name: string; default_modality?: ProjectModality; dataset_root?: string }) => api.createProject(p),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.projects() }),
   })
 }
@@ -551,6 +551,10 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
     void qc.invalidateQueries({ queryKey: keys.project(pid) })
     void qc.invalidateQueries({ queryKey: keys.projects() })
   }
+  if (e.event === 'project.updated' && e.data.fields.includes('recycle')) {
+    void refreshQueries(qc, keys.project(pid))
+    void refreshQueries(qc, keys.projects())
+  }
   if (e.event === 'project.updated') {
     void qc.invalidateQueries({ queryKey: keys.project(pid) })
     if (e.data.fields.includes('variables')) invalidateVariables(qc, pid)
@@ -587,3 +591,19 @@ export const useTaskRuns = (pid: string) =>
   useQuery({ queryKey: keys.taskRuns(pid), queryFn: () => api.listTaskRuns(pid), enabled: enabled(pid) })
 export const useTaskRun = (pid: string, rid: string | null) =>
   useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid) })
+
+/** CUR-16: recycle the whole scan only after a preview and explicit confirmation. */
+export function useRecycleScan(pid: string, iid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.recycleScan(pid, iid, token, reviewer)
+    },
+    onSuccess: () => {
+      void refreshQueries(qc, keys.project(pid))
+      void refreshQueries(qc, keys.projects())
+    },
+  })
+}

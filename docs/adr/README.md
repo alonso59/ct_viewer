@@ -19,18 +19,21 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0011 | Study-agnostic variable catalog | Accepted (extended by 0019) |
 | 0012 | Simple guided statistics in-app (supersedes QC-only dashboard) | Accepted |
 | 0013 | Source adapters with one internal contract; Open mode; identity policy | Accepted (§3 attach location superseded by 0027) |
-| 0014 | Source and derived roots (amends R1) | Accepted (amended by 0021) |
+| 0014 | Source and derived roots (amends R1) | Accepted (amended by 0021; partially superseded by 0029) |
 | 0015 | Segmentation sets per item | Accepted |
 | 0016 | Tasks and plugins: one contract, builtin and external runtimes | Accepted (amended by 0018) |
 | 0017 | DICOM converter as a task; metadata analyzers as separate, composable tasks | Accepted (amended by 0020, 0026) |
 | 0018 | First-party plugin platform and Plugin Library | Accepted |
 | 0019 | Neutral projects, study packs, view-only links | Accepted |
 | 0020 | `metadata.jsonl` belongs to the converter; plugin data lives in layers | Accepted (amended by 0026) |
-| 0021 | CT tools without a project; workspace tasks; the converter overlay | Accepted |
+| 0021 | CT tools without a project; workspace tasks; the converter overlay | Accepted (write-once clause partially superseded by 0029) |
 | 0022 | Shared event store; Curation & QC and Labeling table as plugins | Accepted (amended by 0026) |
 | 0023 | Decouple literal VS Code/GitHub signals from the shell's visual identity | Accepted (scope clause on title-bar toggles and the active indicator superseded by 0028) |
 | 0024 | Open mode shows images only (segmentations by attach); nnU-Net naming moves to the nnU-Net plugin | Accepted (amended by 0027) |
 | 0025 | A JSONL whole-project export; reconstructed sidecars for `metadata-v1` imports | Accepted (amended by 0026) |
-| 0026 | Phase selection is native to the app, not a curation decision | Accepted |
+| 0026 | Phase selection is native to the app, not a curation decision | Accepted (Explorer editing clause superseded by 0031) |
 | 0027 | Open mode: attach a segmentation from anywhere under the shared folders; it travels into the import | Accepted |
 | 0028 | One "Layout" menu in the title bar; a neutral active indicator | Accepted |
+| 0029 | Explicit scan recycling with full audit metadata | Accepted (partially supersedes 0014 and 0021 for CUR-16) |
+| 0030 | Dataset-local projects with a lightweight global workspace | Accepted (partially supersedes 0002 and 0014) |
+| 0031 | Explorer phases are read-only indicators | Accepted (partially supersedes 0026) |

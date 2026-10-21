@@ -21,6 +21,7 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | OPS-11 | Derived roots are a third, **writable**, mirror-mounted mount (`DERIVED_HOST`), listed in `ALLOWED_DERIVED_ROOTS` (ADR-0014). | M |
 | OPS-12 | Startup refuses a derived root that overlaps a data root, or vice versa (`roots-overlap`). | M |
 | OPS-13 | External tasks run through `scripts/rw-runner.py` on the host (Docker or udocker alike), in the plugin's own environment; `WORKSPACE_HOST`, the data and the derived roots must be visible to it at the same paths as in the container, except the workspace, which the runner addresses by its host path (TSK-11). | M |
+| OPS-15 | Optional `MANAGED_DERIVED_ROOT` must equal the sibling `derived/` of `WORKSPACE_ROOT`. Only that explicitly managed root may overlap an allowed source browsing root; PRJ-19 independently controls dataset-local outputs. | M |
 | OPS-14 | Builtin tasks (converter, analyzers, radiomics) stay in the image within OPS-08; heavy plugins (torch, GPU) never go into the image. | M |
 
 ## Config (env vars)
@@ -39,6 +40,7 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | `LOG_LEVEL` | `info` | |
 | `CONTAINER_MODE` | `1` in the image | With `1`, an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) |
 | `STATIC_ROOT` | `/app/static` | SPA build |
+| `MANAGED_DERIVED_ROOT` | *(unset)* | OPS-15: persistent global fallback when datasets are browsable anywhere under HOME |
 | `ALLOWED_DERIVED_ROOTS` | *(empty = no derived root; tasks that write volumes are unavailable)* | `:`-separated absolute writable dirs for `derived` roots (OPS-11) |
 | `PLUGINS_ROOT` | *(empty)* | Read-only dir of external task manifests (TSK-01); the runner uses the same dir on the host |
 | `BUILTIN_PLUGINS_ROOT` | `plugins/` next to `backend/` (`/app/plugins` in the image) | Builtin task plugins (converter, analyzers); normally left unset |
@@ -60,6 +62,8 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 ## Docker (local machine)
 
 `docker-compose.yml` is the Docker run definition (plain compose v2, R3): `.env` as `env_file`, the container-side paths fixed in `environment:`, the mirror mounts of OPS-05/OPS-11 and `127.0.0.1:${PORT}` published. `tests/test_udocker_run.py` checks that `udocker-run.sh` resolves the same environment and volumes.
+
+**Source recycling:** Docker keeps the source mount `ro` by default. To enable CUR-16 on imported source datasets, set `DATA_MOUNT_MODE=rw` in `.env` and recreate the container. Ordinary source operations still follow R1. udocker relies on the application’s path guards and explicit confirmation.
 
 **Derived roots (owner decision 2026-09-27):** the default stays `./derived` (next to `.env`) mounted at `/derived` for both compose and udocker, so `ALLOWED_DERIVED_ROOTS=/derived`; set `DERIVED_HOST` to an absolute path to mirror-mount it instead. The external runner (nnU-Net, OPS-13) is out of scope for this default: it lives on the remote server where the repo is installed, and is configured there.
 
@@ -90,13 +94,38 @@ make image-tar                 # on the build machine: docker save -> build/rw-{
 
 Result 2026-09-27 (linux/arm64 under colima, default Docker seccomp profile, no extra capabilities): **P1 pass** (healthy after ~13 s, TST-10 in 3 s), **F3 pass** (healthy after ~12 s including the F3 setup, TST-10 in 1 s); 191 source files unchanged. P1 (proot/ptrace) needed no `--cap-add SYS_PTRACE` or `seccomp=unconfined` on the outer container; if a stricter Docker host blocks ptrace, pass them through `OUTER_OPTS` (outer test container only; a real server has no such limit). The real remote check (amd64, real data, I/O benchmark) stays open (REL-07).
 
+## Persistent local user service
+
+An installation may live in `$HOME/.local/share/radiology-workbench/` independently
+of the development checkout: `launcher/` (udocker + its Python environment),
+`udocker/` (loaded release image and production container), `workspace/` (registry),
+`derived/` (global conversion fallback), and `config/runtime.env` + `release.json`.
+The container carries the compiled SPA, backend and builtin plugins; source code
+is not mounted. Dataset locations are chosen through PRJ-19 inside the explicitly
+authorized browsing root. HOME-wide access requires explicit owner authorization;
+it is not the default source mount policy. Bind only `127.0.0.1`; the persistent
+Web UI uses port **5180** for both the compiled frontend and API. Set `PORT` and
+`PUBLIC_BASE_URL` together in `config/runtime.env` and restart the user service
+to change it. Development Vite keeps its separate 5173 convention (DEV_ENV.md).
+
+`radiology-workbench.service` under `$HOME/.config/systemd/user/` runs that release,
+uses `Restart=always`, and is enabled for the user’s session. With user lingering
+disabled it starts at login rather than running independently of all sessions.
+
+```bash
+systemctl --user status radiology-workbench
+systemctl --user restart radiology-workbench
+systemctl --user stop radiology-workbench
+journalctl --user -u radiology-workbench -n 100
+```
+
 ## Electron (phase P8)
 
 The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or a forwarded remote). It adds native folder dialogs through a preload bridge. The backend packaging is unchanged (ADR-0001).
 
 ## Implementation notes
 
-- Host-side `.env` keys: `DATA_HOST`, `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker), `DERIVED_HOST`, `PLUGINS_HOST`.
+- Host-side `.env` keys: `DATA_HOST`, `DATA_MOUNT_MODE` (Docker), `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker), `DERIVED_HOST`, `PLUGINS_HOST`.
 - Image: 897 MB uncompressed on linux/arm64 (the build stage drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 935 MB before FB10 (277 MB compressed, `docker save | gzip` 273 MB) on linux/amd64, built in ~4 min under colima qemu on an M-series Mac (needs colima `binfmt: true`); the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
 - Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).

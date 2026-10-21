@@ -32,9 +32,7 @@ def blob(tar: tarfile.TarFile, digest: str) -> Any:
     return json.load(member)
 
 
-def flatten(
-    tar: tarfile.TarFile, entries: list[dict[str, Any]], inherited: dict[str, str]
-) -> list[dict[str, Any]]:
+def flatten(tar: tarfile.TarFile, entries: list[dict[str, Any]], inherited: dict[str, str]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for entry in entries:
         notes = {**inherited, **entry.get("annotations", {})}

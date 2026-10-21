@@ -444,6 +444,13 @@ def main() -> None:
         )
         kib = OUT.stat().st_size // 1024
         print(f"record-mock: {len(rec.log)} exchanges → {OUT.relative_to(REPO)} ({kib} KiB)")
+        # CUR-16 needs its own disposable source dataset; the demo fixtures stay immutable.
+        from tools.record_recycle import main as record_recycle
+
+        record_recycle()
+        from tools.record_dataset_projects import main as record_dataset_projects
+
+        record_dataset_projects()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

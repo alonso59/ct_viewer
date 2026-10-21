@@ -131,9 +131,7 @@ def parse() -> Model:
             header = tuple(split_cells(block[0]))
             first = split_cells(block[0])[0] if block else ""
             if ID_RE.match(first):
-                model.errors.append(
-                    f"{rel}:{start}: ID rows without a header (blank line in a table?)"
-                )
+                model.errors.append(f"{rel}:{start}: ID rows without a header (blank line in a table?)")
                 continue
             if header[:1] != ("ID",):
                 continue
@@ -148,8 +146,7 @@ def parse() -> Model:
                     continue
                 if len(cells) != len(header):
                     model.errors.append(
-                        f"{where}: {cells[0]} has {len(cells)} cells, header {len(header)}"
-                        " (unescaped `|`?)"
+                        f"{where}: {cells[0]} has {len(cells)} cells, header {len(header)} (unescaped `|`?)"
                     )
                     continue
                 row = Row(cells[0], rel, off, kind, header, cells)
@@ -182,7 +179,7 @@ def check_citations(model: Model) -> None:
                     model.warnings.append(f"{rel}:{n}: {rid} cited but not defined")
 
 
-SRS_DIRECTIVE = re.compile(r"^```\{srs-table\}\s+(.+)$", re.M)
+SRS_DIRECTIVE = re.compile(r"^```\{srs-table\}\s+(.+)$", re.MULTILINE)
 
 
 def srs_groups() -> list[list[str]]:
@@ -200,9 +197,7 @@ def check_srs_directives(model: Model) -> None:
     used = {r.prefix for r in model.rows if r.kind in SRS_KINDS}
     for pre in sorted(used):
         if placed[pre] != 1:
-            model.errors.append(
-                f"product/SRS.md: {pre}- in {placed[pre]} srs-table directives, need 1"
-            )
+            model.errors.append(f"product/SRS.md: {pre}- in {placed[pre]} srs-table directives, need 1")
 
 
 # -- journeys (VISION §Journeys) -------------------------------------------------------------------
@@ -337,8 +332,10 @@ def write_srs(model: Model, out: Path) -> None:
     lines += [
         "## Counts",
         "",
-        f"- M {len(m)} · behind a journey {sum(1 for r in m if r.id in jr)}"
-        f" · without a test citing them {sum(1 for r in m if not test[r.id])}",
+        (
+            f"- M {len(m)} · behind a journey {sum(1 for r in m if r.id in jr)}"
+            f" · without a test citing them {sum(1 for r in m if not test[r.id])}"
+        ),
         f"- Open audit findings: P0 {of['P0']} · P1 {of['P1']} · P2 {of['P2']}",
     ]
     (out / "srs.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -409,11 +406,7 @@ def setup(app):  # type: ignore[no-untyped-def]
             want = set(self.arguments)
             md: list[str] = []
             for o in model.owners:
-                group = [
-                    r
-                    for r in model.rows
-                    if r.owner == o.path and r.prefix in want and r.kind in SRS_KINDS
-                ]
+                group = [r for r in model.rows if r.owner == o.path and r.prefix in want and r.kind in SRS_KINDS]
                 if not group:
                     continue
                 rel = os.path.relpath(o.path, os.path.dirname(self.env.docname))
@@ -439,7 +432,7 @@ def setup(app):  # type: ignore[no-untyped-def]
             return [box]
 
     def resolve_doc(env, docname: str, target: str) -> str | None:  # type: ignore[no-untyped-def]
-        t = target[:-3] if target.endswith(".md") else target
+        t = target.removesuffix(".md")
         t = t.removeprefix("docs/")
         cands = [os.path.normpath(os.path.join(os.path.dirname(docname), t)), t]
         cands += [d for d in env.found_docs if d.rsplit("/", 1)[-1] == Path(t).name]

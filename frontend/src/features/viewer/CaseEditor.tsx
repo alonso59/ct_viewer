@@ -10,6 +10,7 @@ import { navPosition, resolveSeg, useNavContext, useViewerSync } from '../../sta
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
 import { ItemSwitcher } from './ItemSwitcher'
+import { RecycleScan } from './RecycleScan'
 import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
 import './viewer.css'
 
@@ -154,6 +155,11 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
             {shownSeg ? t('viewer.segMissing', { set: setName(missing), shown: setName(shownSeg) }) : t('viewer.segMissingNone', { set: setName(missing) })}
           </span>
         ) : null}
+        <RecycleScan pid={pid} item={current} onRecycled={() => {
+          const next = items.find((i) => i.scan_idx !== current.scan_idx)
+          if (next) pick(next.item_id)
+          else runCommand('workbench.closeTab')
+        }} />
         <CaseRollupBadge summary={data.summary} />
       </div>
       {fatal || current.status === 'missing' ? (

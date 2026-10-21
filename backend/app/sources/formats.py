@@ -76,13 +76,20 @@ def scan(root: Path, include: Iterable[str] | None = None) -> Scan:
     else:
         candidates = []
         for p in sorted(root.rglob("*")):
-            if any(part.startswith(".") for part in p.relative_to(root).parts):
+            if any(
+                part.startswith(".") or part in {"recycle_bin", "derived"}
+                for part in p.relative_to(root).parts
+            ):
                 continue
             candidates.append(p)
             if len(candidates) >= MAX_FILES:
                 out.truncated = True
                 break
     for p in candidates:
+        if any(
+            part in {"recycle_bin", "derived", ".workbench"} for part in p.relative_to(root).parts
+        ):
+            continue
         if not p.is_file() or p.name in SKIP_NAMES:
             continue
         rel = p.relative_to(root).as_posix()

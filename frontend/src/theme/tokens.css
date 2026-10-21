@@ -8,6 +8,12 @@
  */
 
 :root {
+  --recycle-button-bg: #e02020;
+  --recycle-button-hover: #f02c2c;
+  --recycle-button-active: #c91414;
+  --recycle-button-fg: #fff;
+  --viewer-light-foreground: #111;
+  --viewer-light-halo: #fff;
   /* Typography (Default interface size: 14 px UI, UI-27) */
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;

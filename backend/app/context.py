@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from app.config import Settings
-from app.core.cache_budget import CacheBudget, workspace_pools
+from app.core.cache_budget import PROJECT_POOLS, CacheBudget, Pool, workspace_pools
 from app.core.locks import FileLock, ProjectLocks
 from app.core.paths import PathGuard
 from app.events.bus import EventBus
@@ -70,7 +70,15 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
         ),
         plugins=plugins,
         cache_budget=CacheBudget(
-            lambda: workspace_pools(settings.workspace_root, workspace.projects_dir),
+            lambda: [
+                *workspace_pools(settings.workspace_root, workspace.projects_dir),
+                *(
+                    Pool(workspace.folder(p.project_id) / "cache" / name, "file")
+                    for p in workspace.list()
+                    if p.dataset_root
+                    for name in PROJECT_POOLS
+                ),
+            ],
             settings.cache_max_gb,
         ),
     )

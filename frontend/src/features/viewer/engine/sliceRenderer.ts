@@ -5,6 +5,8 @@
 // level, label colours, per-label opacity and outline are shader inputs, so a W/L drag only
 // changes uniforms. NiiVue still owns layout, pan/zoom, picking and the 3D tile.
 
+import { glProgram, withGLState } from './glProgram'
+
 /** Texture units NiiVue does not use (it stays below 10) */
 const UNIT = { image: 12, label: 13, lut: 14 } as const
 
@@ -116,6 +118,8 @@ export class SliceRenderer {
   private slab: { mode: number; half: [number, number, number] } = { mode: 0, half: [0, 0, 0] }
   private linear = true
   hasLabel = false
+  private planeProgram: WebGLProgram | null = null
+  private planeVao: WebGLVertexArrayObject | null = null
 
   constructor(private gl: WebGL2RenderingContext) {}
 
@@ -260,6 +264,41 @@ export class SliceRenderer {
     gl.useProgram(prev)
   }
 
+  /** VW-27: the same full-resolution slice in the 3D scene, at the current slider position. */
+  drawPlane(mvp: Float32Array, fracToMM: Float32Array, axis: number, position: number) {
+    if (!this.image) return
+    const gl = this.gl
+    this.planeProgram ??= glProgram(gl, `#version 300 es
+      uniform mat4 rwMvp, rwFracToMM;
+      uniform int rwAxis;
+      uniform float rwPosition;
+      out vec3 texPos;
+      void main() {
+        vec2 points[6] = vec2[6](vec2(0,0),vec2(1,0),vec2(1,1),vec2(0,0),vec2(1,1),vec2(0,1));
+        vec2 p = points[gl_VertexID];
+        texPos = rwAxis == 0 ? vec3(rwPosition,p.x,p.y) : rwAxis == 1 ? vec3(p.x,rwPosition,p.y) : vec3(p.x,p.y,rwPosition);
+        gl_Position = rwMvp * rwFracToMM * vec4(texPos,1.0);
+      }`, SLICE_FRAG)
+    this.planeVao ??= gl.createVertexArray()
+    const program = this.planeProgram
+    withGLState(gl, () => {
+      this.prepare(program)
+      gl.useProgram(program)
+      gl.bindVertexArray(this.planeVao)
+      gl.disable(gl.CULL_FACE)
+      gl.enable(gl.DEPTH_TEST)
+      gl.depthFunc(gl.LEQUAL)
+      gl.depthMask(true)
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, 'rwMvp'), false, mvp)
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, 'rwFracToMM'), false, fracToMM)
+      gl.uniform1i(gl.getUniformLocation(program, 'rwAxis'), axis)
+      gl.uniform1f(gl.getUniformLocation(program, 'rwPosition'), position)
+      gl.uniform1i(gl.getUniformLocation(program, 'rwSlabMode'), 0)
+      gl.uniform1i(gl.getUniformLocation(program, 'axCorSag'), axis === 2 ? 0 : axis === 1 ? 1 : 2)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+    })
+  }
+
   private drop(which: 'image' | 'label') {
     const t = this[which]
     if (t) this.gl.deleteTexture(t)
@@ -271,5 +310,7 @@ export class SliceRenderer {
     this.drop('label')
     if (this.lut) this.gl.deleteTexture(this.lut)
     this.lut = null
+    if (this.planeProgram) this.gl.deleteProgram(this.planeProgram)
+    if (this.planeVao) this.gl.deleteVertexArray(this.planeVao)
   }
 }

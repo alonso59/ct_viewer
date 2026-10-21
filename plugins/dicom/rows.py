@@ -124,9 +124,7 @@ def header_row(ds: Any, series: Series, patient_folder: str, insp: Inspection) -
         "number_of_frames": _t(ds, "NumberOfFrames"),
         "geometry_status": insp.geometry_status,
         "geometry_warning_codes": ";".join(insp.geometry_codes),
-        "nominal_slice_spacing": ""
-        if insp.nominal_slice_spacing is None
-        else str(insp.nominal_slice_spacing),
+        "nominal_slice_spacing": "" if insp.nominal_slice_spacing is None else str(insp.nominal_slice_spacing),
         "advanced_dicom_status": insp.advanced_status,
         "advanced_dicom_warning_codes": ";".join(insp.advanced_codes),
         "mri_image_component": insp.mri_component,
@@ -149,9 +147,7 @@ SCAN_TIME_SOURCES = (
 def apply_scan_timing(rows: Sequence[dict[str, Any]]) -> None:
     """Best scan date/time per series, days from the first scan, study order (legacy rules)."""
     for row in rows:
-        row.update(
-            {"scan_date": "", "scan_time": "", "scan_datetime": "", "scan_datetime_source": ""}
-        )
+        row.update({"scan_date": "", "scan_time": "", "scan_datetime": "", "scan_datetime_source": ""})
         for source, dk, tk in SCAN_TIME_SOURCES:
             combined = combine_date_time(row.get(dk, ""), row.get(tk, ""))
             if combined:
@@ -192,15 +188,11 @@ def update_geometry(
     direction: Sequence[float],
     pixel_type: str,
 ) -> None:
-    row["dim_x"], row["dim_y"], row["dim_z"] = (
-        str(size[i]) if len(size) > i else "1" for i in range(3)
-    )
+    row["dim_x"], row["dim_y"], row["dim_z"] = (str(size[i]) if len(size) > i else "1" for i in range(3))
     row["spacing_x"], row["spacing_y"], row["spacing_z"] = (
         str(spacing[i]) if len(spacing) > i else "" for i in range(3)
     )
-    row["origin_x"], row["origin_y"], row["origin_z"] = (
-        str(origin[i]) if len(origin) > i else "" for i in range(3)
-    )
+    row["origin_x"], row["origin_y"], row["origin_z"] = (str(origin[i]) if len(origin) > i else "" for i in range(3))
     row["direction"] = "\\".join(str(v) for v in direction)
     row["pixel_type"] = pixel_type
     row["num_slices"] = row["dim_z"]

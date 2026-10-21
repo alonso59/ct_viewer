@@ -66,7 +66,16 @@ META_CONSUMED = frozenset(
     {"case_id", "scan_idx", "patient_id", "filename", "relative_path", "nifti_file", "seg_path"}
 )
 CATALOG_CONSUMED = frozenset(
-    {"case_id", "scan_idx", "patient_id", "side", "image_path", "mask_path"}
+    {
+        "case_id",
+        "scan_idx",
+        "patient_id",
+        "side",
+        "image_path",
+        "mask_path",
+        "voi_image_path",
+        "voi_mask_path",
+    }
 )
 
 

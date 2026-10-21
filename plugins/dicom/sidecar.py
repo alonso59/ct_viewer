@@ -186,9 +186,7 @@ def to_json_model(ds: Any) -> dict[str, Any]:
     clean = ds.copy()
     if "PixelData" in clean:
         del clean.PixelData
-    model: dict[str, Any] = clean.to_json_dict(
-        bulk_data_threshold=BULK_LIMIT, bulk_data_element_handler=bulk
-    )
+    model: dict[str, Any] = clean.to_json_dict(bulk_data_threshold=BULK_LIMIT, bulk_data_element_handler=bulk)
     for tag in omitted:
         model.pop(tag, None)
     model["_omitted"] = sorted(omitted)

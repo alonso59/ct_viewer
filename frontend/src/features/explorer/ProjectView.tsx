@@ -18,10 +18,10 @@ import {
   type Variable,
 } from '../../api'
 import { PhaseChip, rollupTitle, SliceThumb, StatusIcon } from '../../lib'
-import { registry, useWorkbench } from '../../shell'
+import { useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
-import { PhaseButtons } from '../phase'
+import { ActiveFilterChips, FilterFields, PhaseFilter } from './FilterControls'
 import { itemLabel } from './itemLabel'
 import { openFromExplorer } from './navigate'
 import { activeFilterCount, useExplorer, useExplorerPrefs, usePrefs } from './store'
@@ -75,6 +75,7 @@ export function ProjectView() {
   const colorVar = prefs.colorBy ? byName.get(prefs.colorBy) : undefined
   const [itemsByCase, setItemsByCase] = useState<Record<string, ItemRecord[]>>({})
   const [cursor, setCursor] = useState(0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const onItems = useMemo(
@@ -86,7 +87,7 @@ export function ProjectView() {
     if (cases.data) setOrder(cases.data.map((c) => c.case_id))
   }, [cases.data, setOrder])
 
-  const itemIds = filter.itemIds
+  const { itemIds, phase } = filter
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
     // DB-04 item filter: an expanded case lists only the chosen items
@@ -96,11 +97,13 @@ export function ProjectView() {
       if (expanded[c.case_id]) {
         const items = itemsByCase[c.case_id]
         if (!items) out.push({ kind: 'loading', caseId: c.case_id })
-        else for (const item of items) if (!only || only.has(item.item_id)) out.push({ kind: 'item', item, caseId: c.case_id })
+        else for (const item of items) {
+          if ((!only || only.has(item.item_id)) && (!phase || item.phase.canonical === phase)) out.push({ kind: 'item', item, caseId: c.case_id })
+        }
       }
     }
     return out
-  }, [cases.data, expanded, itemsByCase, itemIds])
+  }, [cases.data, expanded, itemsByCase, itemIds, phase])
 
   // UI-08 / UI-27: row heights come from the tokens of the current interface size
   const uiSize = useSettings((s) => s.uiSize)
@@ -168,16 +171,28 @@ export function ProjectView() {
 
   return (
     <div className="fill">
-      <div className="pv-filter">
-        <input
-          className="input input-sm"
-          placeholder={t('explorer.filterPlaceholder')}
-          value={filter.q ?? ''}
-          onChange={(e) => setFilter({ q: e.target.value })}
-          aria-label={t('explorer.filterPlaceholder')}
-        />
-        <Icon spec={codicon('filter')} />
+      <div className="pv-filter-toolbar">
+        <div className="pv-filter">
+          <input
+            className="input input-sm"
+            placeholder={t('explorer.filterPlaceholder')}
+            value={filter.q ?? ''}
+            onChange={(e) => setFilter({ q: e.target.value })}
+            aria-label={t('explorer.filterPlaceholder')}
+          />
+          <Icon spec={codicon('search')} />
+        </div>
+        <button type="button" className="icon-btn" aria-label={t('explorer.filters')} title={t('explorer.filters')} aria-expanded={filtersOpen} aria-controls="project-filter-panel" aria-pressed={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
+          <Icon spec={codicon('filter')} />
+        </button>
       </div>
+      <div className="pv-phase-filter"><PhaseFilter /></div>
+      {filtersOpen ? (
+        <div id="project-filter-panel" className="pv-filter-panel" role="region" aria-label={t('explorer.filters')}>
+          <FilterFields />
+        </div>
+      ) : null}
+      <ActiveFilterChips />
       {colorVar ? <ColorLegend v={colorVar} /> : null}
       {itemIds ? <ItemFilterChip ids={itemIds} /> : null}
       {activeFilterCount(filter) > 0 ? (
@@ -217,7 +232,7 @@ export function ProjectView() {
             if (r.kind === 'item') {
               const it = r.item
               const excluded = it.status === 'excluded_upstream'
-              // A div, not a button: the row holds the PHS-01 phase buttons (the tree handles keys)
+              // The tree handles navigation keys; phase badges are read-only (PHS-01).
               return (
                 <div
                   key={it.item_id}
@@ -233,7 +248,7 @@ export function ProjectView() {
                   onClick={() => { if (!excluded) { setCursor(v.index); activate(r) } }}
                   onDoubleClick={() => !excluded && activate(r, false)}
                 >
-                  <span className="phase-row-static"><PhaseChip phase={it.phase.canonical} /></span>
+                  <PhaseChip phase={it.phase.canonical} active />
                   <span className="item-label">{itemLabel(it, t)}</span>
                   {it.warning_codes.length ? (
                     <span className="pv-warn pv-end" title={it.warning_codes.join(', ')}>
@@ -241,7 +256,6 @@ export function ProjectView() {
                     </span>
                   ) : null}
                   {it.status === 'missing' ? <span className="badge" data-tone="error">{t('explorer.missing')}</span> : null}
-                  {excluded || registry.readOnly ? null : <PhaseButtons pid={pid} scan={it} className="phase-row-actions" />}
                 </div>
               )
             }
@@ -294,7 +308,7 @@ export function ProjectView() {
                     <span className="muted pv-case-meta">
                       <VarColumns c={c} columns={columns} />
                       {c.phases.map((p) => (
-                        <PhaseChip key={p} phase={p} />
+                        <PhaseChip key={p} phase={p} active />
                       ))}
                       {c.has_voi_L || c.has_voi_R ? <span className="badge">{t('explorer.voi')}</span> : null}
                       {c.excluded ? <span className="badge">{t('explorer.excluded')}</span> : null}

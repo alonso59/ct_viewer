@@ -169,6 +169,7 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 - **Shape:** 6 px radius on buttons, inputs and cards; 1 px borders; no shadows except overlays.
 - **Badges:** Primer "Label" pills (outline in the status color, `--fs-chip`), used for phase chips and QC status; a pressed chip is `--fg` on `--bg-selected` (AUD-A3-19). Segmented controls (`.seg`, `theme/base.css`) are as wide as their options (AUD-A3-08).
 - **Icons:** codicons (VS Code) plus the custom CT set (UI-15). Octicons are not mixed in.
+- **Recycle scan (CUR-16):** the case-header trash button has an opaque vivid red fill and a white icon; hover and pressed states remain red, with the standard keyboard focus outline.
 - Viewport accent colors (per-plane borders and crosshairs) are owned by VW-04.
 - Light values and the categorical palette (`--cat-1..8`, DB-07) are in `theme/tokens.css`; viewports stay black in both themes.
 - The Design reference tab (Help → Open design reference) shows all tokens, type, badges and icons.
@@ -181,6 +182,7 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 ## Implementation notes
 
 - Project view has a "Columns and colour" menu: extra columns and a colour stripe + legend from any visible case-level variable (VAR-10). The share link is the current deep link.
+- Project view (UI-08) has a quick phase selector and a collapsible Filters panel beside the text search. It shares Search’s case-level review status, warnings, VOI and variable controls (VAR-10); conditions combine with text and item-id filters. Active conditions appear as individually removable chips, with Clear filters to reset all. A phase filter uses PHS-03 and also hides nonmatching scan/item rows in expanded cases; the dashboard item-id filter still intersects those rows. Filtering changes only the view.
 - Project and Search views show a clearable "N items" chip while an item-id filter is active (set by the dashboard's "Send to Explorer", DB-04).
 - Bundles (PRJ-08/09): "Export bundle" on each home project card, on Welcome and in the palette (`project.exportBundle`); "Import project bundle…" on the home opens a report dialog (id change, per-alias resolve) with Relink when needed. "Compute full hashes" / "Recompute all" (IMP-09) on Welcome and in the palette; progress in the Jobs panel.
 - Mock-only settings (Settings › Prototype: reset the prototype's tabs and layout) exist only with `VITE_API_MODE=mock`; Settings hides them otherwise.

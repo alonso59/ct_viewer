@@ -20,7 +20,7 @@ codicons) with a 3D Slicer-style 2×2 CT viewer.
 
 | # | Rule |
 |---|---|
-| R1 | Never write to `source` roots (images, masks, input metadata). App state lives in the project folder; task outputs are written only into `derived` roots. See ADR-0002, ADR-0014. |
+| R1 | Never write to `source` roots (images, masks, input metadata). App state lives in the project folder; task outputs are written only into `derived` roots. Exceptions: CUR-16 (ADR-0029), PRJ-19 managed-folder writes (ADR-0030). See ADR-0002, ADR-0014. |
 | R2 | No accounts, no passwords. Reviewer name is a free-text stamp. See ADR-0004. |
 | R3 | One OCI image must run on Docker (local) **and** udocker (remote, no sudo). No compose-only features. See ADR-0007. |
 | R4 | No sudo, apt, brew, or system installs on remote servers. Node runs only inside a container there. |

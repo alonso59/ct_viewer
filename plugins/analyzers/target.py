@@ -92,9 +92,7 @@ PROFILES: dict[str, Profile] = {
 def profile(name: str | None) -> Profile:
     key = (name or "generic").strip().lower()
     if key not in PROFILES:
-        raise ValueError(
-            f"Unknown target profile {name!r}; available: {', '.join(sorted(PROFILES))}"
-        )
+        raise ValueError(f"Unknown target profile {name!r}; available: {', '.join(sorted(PROFILES))}")
     return PROFILES[key]
 
 
@@ -103,9 +101,7 @@ def _first(text: str, terms: tuple[str, ...]) -> str:
 
     for term in terms:
         t = re.sub(r"[^A-Z0-9]+", " ", term.upper()).strip()
-        if t and (
-            (" " in t and t in text) or (" " not in t and re.search(rf"\b{re.escape(t)}\b", text))
-        ):
+        if t and ((" " in t and t in text) or (" " not in t and re.search(rf"\b{re.escape(t)}\b", text))):
             return term
     return ""
 
@@ -143,9 +139,5 @@ def analyze(rows: Sequence[dict[str, Any]], config: dict[str, Any]) -> list[Anno
     out: list[Annotation] = []
     for row in rows:
         level, evidence = match(row, p)
-        out.append(
-            annotation(
-                row_key(row), "target_match", level, CONFIDENCE[level], evidence, RULES_VERSION
-            )
-        )
+        out.append(annotation(row_key(row), "target_match", level, CONFIDENCE[level], evidence, RULES_VERSION))
     return out

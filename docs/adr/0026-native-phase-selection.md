@@ -1,5 +1,5 @@
 # ADR-0026 Phase selection is native to the app, not a curation decision
-Status: Accepted · Date: 2026-09-25
+Status: Accepted (Explorer editing clause superseded by ADR-0031) · Date: 2026-09-25
 Amends: ADR-0020 §3 (adds a native, non-plugin layer), ADR-0022 (adds the `phase` namespace to the shared event store, consumed natively), ADR-0025 (`dataset.jsonl` `phase` provenance)
 Refines: CUR-06/07/08/10/15, ANZ-07, LBL-02
 

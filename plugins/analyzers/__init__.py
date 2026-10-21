@@ -12,9 +12,7 @@ from typing import Any
 Annotation = dict[str, Any]
 
 
-def annotation(
-    key: str, field: str, value: Any, confidence: str, evidence: str, version: str
-) -> Annotation:
+def annotation(key: str, field: str, value: Any, confidence: str, evidence: str, version: str) -> Annotation:
     return {
         "key": key,
         "field": field,

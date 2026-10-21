@@ -24,6 +24,7 @@ from app.context import AppContext, build_context
 from app.core.errors import install_handlers
 from app.core.logs import configure
 from app.imaging import thumbnails
+from app.ingest.recycle import RecycleService
 
 log = logging.getLogger("app.main")
 CACHE_WRITERS = frozenset({"mesh", "thumbnail", "open-convert"})
@@ -41,6 +42,7 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
         ctx.server_lock.acquire()  # BE-05: refuse to start if another server holds it
         try:
             ctx.workspace.open()
+            RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).recover()
             wire(ctx)
             await ctx.jobs.start()
             if ctx.cache_budget is not None:
@@ -54,6 +56,7 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
                 await ctx.cache_budget.stop()
             await ctx.jobs.shutdown()  # BE-13
             ctx.bus.close()
+            ctx.workspace.close()
             ctx.server_lock.release()
 
     app = FastAPI(title="Radiology Workbench", version=__version__, lifespan=lifespan)

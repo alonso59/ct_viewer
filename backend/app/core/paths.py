@@ -115,10 +115,12 @@ class PathResolver:
         *,
         roles: Mapping[str, RootRole] | None = None,
         derived_guard: PathGuard | None = None,
+        source_exclusions: Sequence[Path] = (),
     ) -> None:
         self.roots = {a: Path(p) for a, p in roots.items()}
         self.guard = guard
         self.roles: dict[str, RootRole] = dict(roles or {})
+        self.source_exclusions = [realpath(p) for p in source_exclusions]
         self.derived_guard = derived_guard or PathGuard(
             [], name="ALLOWED_DERIVED_ROOTS", strict=True
         )
@@ -141,6 +143,10 @@ class PathResolver:
         cand = realpath(root_real / r.rel)
         if not is_within(cand, root_real):
             raise PathOutsideRoot(f"{r.alias}: path escapes its alias root")
+        if self.role(r.alias) == "source" and any(
+            is_within(cand, p) for p in self.source_exclusions
+        ):
+            raise PathOutsideRoot("Managed dataset artifacts cannot be used as source inputs")
         return self.guard_for(r.alias).check(cand)
 
     def to_ref(self, alias: str, raw: str) -> str:

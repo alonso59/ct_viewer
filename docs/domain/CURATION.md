@@ -1,6 +1,6 @@
 # Curation
 
-Scope: reviewer identity, curation events, statuses, rollups, correction queue, exports.
+Scope: reviewer identity, curation events, statuses, rollups, correction queue, exports, scan recycling.
 Read when: building curation UI/API, audit, or multi-user sync.
 Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004, ADR-0022, ADR-0026 (phase moved to PHASE.md, not a curation target).
 
@@ -29,6 +29,12 @@ Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event s
 | CUR-13 | Import v2 `curation_review.csv` as events (`source: "v2_import"`). | S |
 | CUR-14 | History panel per item and per case, newest first. | M |
 | CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_quality`, `notes` map to status and comment (DCM-08); target `seg`: keep false → `rejected`, quality poor/bad/low → major, fair/medium → minor correction, keep true or quality good → `accepted`. `curated_phase` maps to a native phase event instead (PHS-08), not a curation decision. One import per `case_id\|scan_idx`. | S |
+
+## Scan recycle bin (native action)
+
+| ID | Requirement | Pri |
+|---|---|---|
+| CUR-16 | The case header offers “Move scan to recycle bin”, hidden on view-only links. Preview the whole scan (all scopes/sides), file/metadata counts and shared active projects; require confirmation, a current preview token and reviewer stamp. Move images, VOIs, all registered segmentations/outputs and sidecars to `DatasetID/recycle_bin/{recycle_id}/files/`. Clean that scan’s rows from dataset `metadata.jsonl`, VOI catalog and annotations, task manifests/ledgers and radiomics JSONL/Parquet tables. Keep other scans. Store full indexed items, removed metadata/layer events, original file locations and original metadata/table backups in `manifest.json` plus `metadata/` there. Append only a deletion reference and item IDs to each affected project’s `logs/recycle.jsonl`; never add deletion records to `metadata.jsonl`. Update all active projects sharing the scan and their clients. Snapshot imports and event histories remain historical; the journal prevents index rebuilds from restoring deleted items, and discovery skips `recycle_bin/`. Refuse active jobs, unsafe paths, read-only destinations, archived projects using the scan, or files shared with unrelated scans. Roll back failed writes/moves and recover interrupted transactions at startup; verify copies before unlinking across filesystems. The action is an explicit exception to R1 and finished-output immutability (ADR-0029). No permanent-delete or restore UI. | M |
 
 ## Status
 

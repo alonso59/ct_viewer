@@ -62,6 +62,7 @@ interface Drag {
   x: number
   y: number
   start: [number, number]
+  last: [number, number]
 }
 
 const sameGeometry = (a: ItemRecord['geometry'], b: ItemRecord['geometry']) =>
@@ -209,7 +210,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => handle?.setLabels(styles), [handle, styles])
   useEffect(() => handle?.setOverlay({ visible: v.overlay, opacity: v.overlayOpacity }), [handle, v.overlay, v.overlayOpacity])
   useEffect(() => handle?.setLinkedZoom(local.linkZoom), [handle, local.linkZoom])
-  useEffect(() => handle?.setRender({ volume: local.volume3d, labels: local.surfaces, blend: local.blend }), [handle, local.volume3d, local.surfaces, local.blend])
+  useEffect(() => handle?.setRender({ volume: !hasMask || local.volume3d, mask: hasMask && local.mask3d, surfaces: local.surfaces && !!meshUrl, opacity: local.ctOpacity, blend: local.blend, scene: local.scene3d }), [handle, hasMask, meshUrl, local.volume3d, local.mask3d, local.surfaces, local.ctOpacity, local.blend, local.scene3d])
   const resetToken = useRef(v.resetToken)
   useEffect(() => {
     if (resetToken.current === v.resetToken) return
@@ -313,7 +314,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     if (!handle || load.phase !== 'ready') return
     const tool = useViewerSync.getState().tool
     let mode: Drag['mode'] | null = null
-    if (e.button === 2) mode = tile === '3d' ? 'zoom' : 'window'
+    if (e.button === 2) mode = tile === '3d' ? 'pan' : 'window'
     else if (e.button === 1 || (e.button === 0 && (space.current || tool === 'pan'))) mode = 'pan'
     else if (e.button === 0 && tile !== '3d' && (tool === 'distance' || tool === 'angle' || tool === 'roi')) {
       e.preventDefault()
@@ -324,7 +325,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     const { ww, wl } = useViewerSync.getState()
-    drag.current = { mode, tile, x: e.clientX, y: e.clientY, start: [ww, wl] }
+    drag.current = { mode, tile, x: e.clientX, y: e.clientY, start: [ww, wl], last: [e.clientX, e.clientY] }
     if (mode === 'pick') handle.pick(...local2canvas(e))
   }
 
@@ -336,12 +337,15 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     if (!d) return
     const dx = e.clientX - d.x
     const dy = e.clientY - d.y
+    const stepX = e.clientX - d.last[0]
+    const stepY = e.clientY - d.last[1]
+    d.last = [e.clientX, e.clientY]
     if (d.mode === 'pick') handle.pick(x, y)
     else if (d.mode === 'window') {
       const [ww, wl] = dragWindow(d.start, dx, dy, 1000)
       useViewerSync.getState().setWindow(ww, wl)
     } else if (d.mode === 'pan') {
-      handle.pan(d.tile, e.movementX, e.movementY)
+      handle.pan(d.tile, stepX, stepY)
     } else if (d.mode === 'zoom') {
       handle.zoom(d.tile, Math.exp(-e.movementY / 150))
     } else handle.orbit(e.movementX * 0.5, e.movementY * 0.5)
@@ -393,21 +397,24 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         {viewports.map((id) => (
           <Viewport
             key={id}
+            active={active}
             id={id}
             plane={isPlane(id) ? (view?.planes[id] ?? null) : null}
+            ras={view?.ras}
             hasMask={hasMask}
-            labels={labels.filter((l) => item.labels_present.includes(l.value))}
+            canSurface={!!meshUrl}
             maximized={v.maximized === id}
             onMaximize={() => v.set({ maximized: v.maximized === id ? null : id })}
             onFit={() => handle?.fitView(id)}
             onGoto={(i) => isPlane(id) && handle?.goto(id as Plane, i)}
             meshState={meshState}
-            probe={load.phase === 'ready' && active && local.hovered === id && isPlane(id) ? <ProbeReadout /> : null}
+            probe={local.scene3d.annotations !== 'none' && load.phase === 'ready' && active && local.hovered === id && isPlane(id) ? <ProbeReadout /> : null}
             bodyProps={{
               onPointerDown: onPointerDown(id),
               onPointerMove,
               onPointerUp,
               onPointerCancel: onPointerUp,
+              onLostPointerCapture: onPointerUp,
               onPointerEnter: () => useViewerLocal.setState({ hovered: id }),
               onPointerLeave: () => {
                 useViewerSync.setState({ cursor: null })

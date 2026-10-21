@@ -1,5 +1,5 @@
 # ADR-0014 Source and derived roots
-Status: Accepted · Date: 2026-09-24
+Status: Accepted (partially superseded by ADR-0029 for CUR-16) · Date: 2026-09-24
 Amends: AGENTS.md R1, ADR-0002, ADR-0005 (aliases gain a role), ADR-0007 (a third mount)
 
 **Context.** Until now the app never created image data. The DICOM converter (volumes, sidecars) and segmentation tasks (masks) must write volumes somewhere. Writing next to source data breaks R1. Writing into the project folder makes projects huge and mixes study state with bulk data.
@@ -35,3 +35,5 @@ Amends: AGENTS.md R1, ADR-0002, ADR-0005 (aliases gain a role), ADR-0007 (a thir
 - A managed blob store: ADR-0002, ADR-0005.
 
 **Amended by ADR-0021.** Workspace tasks (no project) write to `{derived root}/_datasets/{name}/`, write-once, next to the Open-mode `_open/` exports.
+
+**Partially superseded by ADR-0030:** PRJ-19 managed dataset-local project storage.

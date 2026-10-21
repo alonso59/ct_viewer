@@ -39,6 +39,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Dataset
+         * @description API-67 / PRJ-19: open saved dataset-local projects from their folder.
+         */
+        post: operations["open_dataset_api_v1_projects_open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}": {
         parameters: {
             query?: never;
@@ -658,6 +678,30 @@ export interface paths {
         get: operations["get_dicom_tags_api_v1_projects__pid__items__iid__dicom_tags_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/items/{iid}/recycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Recycle
+         * @description API-66 / CUR-16: preview the whole scan, related outputs and default recycle bin.
+         */
+        get: operations["preview_recycle_api_v1_projects__pid__items__iid__recycle_get"];
+        put?: never;
+        /**
+         * Recycle Scan
+         * @description API-66: confirmed, audited removal; never a permanent delete.
+         */
+        post: operations["recycle_scan_api_v1_projects__pid__items__iid__recycle_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2850,6 +2894,11 @@ export interface components {
             /** Cases */
             cases: components["schemas"]["CaseState"][];
         };
+        /** DatasetOpen */
+        DatasetOpen: {
+            /** Dataset Root */
+            dataset_root: string;
+        };
         /**
          * DescriptiveRow
          * @description ANA-07 per feature x group.
@@ -4774,6 +4823,8 @@ export interface components {
              * @enum {string}
              */
             default_modality: "CT" | "MR" | "mixed";
+            /** Dataset Root */
+            dataset_root?: string | null;
             /**
              * Packs
              * @description Study packs to apply (API-28)
@@ -4800,6 +4851,8 @@ export interface components {
             project_id: string;
             /** Name */
             name: string;
+            /** Dataset Root */
+            dataset_root?: string | null;
             /**
              * Description
              * @default
@@ -4898,6 +4951,8 @@ export interface components {
              * @default false
              */
             archived: boolean;
+            /** Dataset Root */
+            dataset_root?: string | null;
             /**
              * N Cases
              * @default 0
@@ -5049,6 +5104,43 @@ export interface components {
             params?: {
                 [key: string]: string | number | boolean | string[] | null;
             };
+        };
+        /** RecyclePlan */
+        RecyclePlan: {
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /** Item Ids */
+            item_ids: string[];
+            /** Recycle Bin */
+            recycle_bin: string;
+            /** N Files */
+            n_files: number;
+            /** N Metadata Rows */
+            n_metadata_rows: number;
+            /** Projects */
+            projects: string[];
+            /** Token */
+            token: string;
+        };
+        /** RecycleRequest */
+        RecycleRequest: {
+            /** Confirmed */
+            confirmed: boolean;
+            /** Token */
+            token: string;
+        };
+        /** RecycleResult */
+        RecycleResult: {
+            /** Recycle Id */
+            recycle_id: string;
+            /** Recycle Dir */
+            recycle_dir: string;
+            /** Item Ids */
+            item_ids: string[];
+            /** Project Ids */
+            project_ids: string[];
         };
         /** RelinkResult */
         RelinkResult: {
@@ -6600,6 +6692,39 @@ export interface operations {
             };
         };
     };
+    open_dataset_api_v1_projects_open_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetOpen"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectDetail"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_project_api_v1_projects__pid__get: {
         parameters: {
             query?: never;
@@ -7843,6 +7968,76 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_recycle_api_v1_projects__pid__items__iid__recycle_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                iid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecyclePlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recycle_scan_api_v1_projects__pid__items__iid__recycle_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+                iid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecycleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycleResult"];
                 };
             };
             /** @description Validation Error */

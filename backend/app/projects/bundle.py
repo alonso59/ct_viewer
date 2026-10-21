@@ -190,9 +190,10 @@ def _redacted_rows(data: bytes, red: Redactor) -> bytes | None:
 def _without_view_token(data: bytes) -> bytes | None:
     """PRJ-17: a bundle never carries the view-only token (reset to null)."""
     raw = json.loads(data)
-    if not isinstance(raw, dict) or not raw.get("view_token"):
+    if not isinstance(raw, dict) or not (raw.get("view_token") or raw.get("dataset_root")):
         return None
     raw["view_token"] = None
+    raw["dataset_root"] = None
     return json.dumps(raw, indent=2).encode("utf-8")
 
 

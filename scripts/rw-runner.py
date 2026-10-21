@@ -55,11 +55,7 @@ def load_manifests(plugins: Path, only: set[str]) -> dict[str, tuple[dict[str, A
             continue
         runtime = m.get("runtime") or {}
         tid = m.get("id")
-        if (
-            not isinstance(tid, str)
-            or runtime.get("type") != "external"
-            or not runtime.get("command")
-        ):
+        if not isinstance(tid, str) or runtime.get("type") != "external" or not runtime.get("command"):
             continue
         if only and tid not in only:
             continue
@@ -200,9 +196,7 @@ def _stop(_signum: int, _frame: Any) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Radiology Workbench host runner (TSK-11)")
-    ap.add_argument(
-        "--workspace", type=Path, required=True, help="WORKSPACE_ROOT as seen on the host"
-    )
+    ap.add_argument("--workspace", type=Path, required=True, help="WORKSPACE_ROOT as seen on the host")
     ap.add_argument("--plugins", type=Path, required=True, help="PLUGINS_ROOT (external manifests)")
     ap.add_argument("--tasks", default="", help="comma-separated task ids (default: all)")
     ap.add_argument("--concurrency", type=int, default=1)

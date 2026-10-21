@@ -85,9 +85,7 @@ def contrast_delay(row: dict[str, Any]) -> tuple[int | None, str]:
         t = parse_time_of_day(row.get(key, ""))
         if t is None:
             continue
-        delay = (t.hour * 3600 + t.minute * 60 + t.second) - (
-            start.hour * 3600 + start.minute * 60 + start.second
-        )
+        delay = (t.hour * 3600 + t.minute * 60 + t.second) - (start.hour * 3600 + start.minute * 60 + start.second)
         if delay < 0:
             if delay + 24 * 3600 > 6 * 3600:
                 continue
@@ -103,9 +101,7 @@ def timing_guess(row: dict[str, Any], delay: int | None, source: str) -> tuple[s
     if 15 <= delay <= 24 or 46 <= delay <= 60:
         return "CMP", "low", evidence, True
     if 25 <= delay <= 45:
-        if matches_any(
-            normalized_text(row, TEXT_KEYS), ("CORTICOMEDULLARY", "CORTICO MEDULLARY", "CMP")
-        ):
+        if matches_any(normalized_text(row, TEXT_KEYS), ("CORTICOMEDULLARY", "CORTICO MEDULLARY", "CMP")):
             return "CMP", "medium", evidence, False
         return "CMP", "low", evidence, True
     if 70 <= delay <= 130:

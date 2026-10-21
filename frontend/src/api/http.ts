@@ -122,6 +122,7 @@ export const DEFAULT_DISPLAY: Project['display'] = {
 }
 
 const normalizeProject = (p: Schemas['ProjectDetail']): Project => ({
+  dataset_root: null,
   path_roots: [],
   phase_vocabulary: [],
   phase_priority: [],
@@ -411,8 +412,9 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     archiveProject: async (pid) => (await unwrap(client.POST('/api/v1/projects/{pid}/archive', { params: { path: { pid } } }))) as ProjectSummary,
     unarchiveProject: async (pid) => normalizeProject(await unwrap(client.POST('/api/v1/projects/{pid}/unarchive', { params: { path: { pid } } }))),
     getProject: async (pid) => normalizeProject(await unwrap(client.GET('/api/v1/projects/{pid}', { params: { path: { pid } } }))),
-    createProject({ name, description = '', default_modality = 'CT' }) {
-      return unwrap(client.POST('/api/v1/projects', { body: { name, description, default_modality } })).then(normalizeProject)
+    openDataset: async (dataset_root) => (await unwrap(client.POST('/api/v1/projects/open', { body: { dataset_root } }))).map(normalizeProject),
+    createProject({ name, description = '', default_modality = 'CT', dataset_root }) {
+      return unwrap(client.POST('/api/v1/projects', { body: { name, description, default_modality, ...(dataset_root ? { dataset_root } : {}) } })).then(normalizeProject)
     },
     updateProject: (pid, body, etag) =>
       unwrap(client.PATCH('/api/v1/projects/{pid}', { params: { path: { pid }, header: { 'If-Match': etag } }, body })).then(normalizeProject),
@@ -543,6 +545,8 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       const mask_path = d.advanced.mask_path ?? null
       return { ...normalizeItem(d), advanced: { image_path, mask_path, image_abs: image_path, mask_abs: mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
     },
+    previewRecycle: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } } })),
+    recycleScan: (pid, iid, token, reviewer) => unwrap(client.POST('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),
     thumbnailUrl: (pid, iid) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`),
 
     // API-50..54

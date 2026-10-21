@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.v1.imports import ingest_service
 from app.context import AppContext
 from app.ingest.models import IndexStatus
 from app.jobs.types import JobInfo
@@ -80,6 +81,44 @@ def test_preview_detect(client: TestClient, pid: str, data_root: Path) -> None:
     pdir = ctx_of(client).workspace.project_dir(pid)
     cached = pdir / "cache/previews" / pv["preview_id"]
     assert (cached / "preview.json").is_file() and (cached / "metadata.jsonl").is_file()
+
+
+@pytest.mark.parametrize("catalog_relative", [True, False])
+def test_legacy_voi_paths_preview_commit_and_reindex(
+    client: TestClient, pid: str, data_root: Path, catalog_relative: bool
+) -> None:
+    image = data_root / "voi/images/case_00001/crop.npy"
+    mask = data_root / "voi/mask/case_00001/crop.npy"
+    for path in (image, mask):
+        path.parent.mkdir(parents=True)
+        np.save(path, np.ones((4, 5, 6), dtype=np.int16))
+    base = data_root / "voi" if catalog_relative else data_root
+    row = {
+        "case_id": "case_00001",
+        "scan_idx": "01",
+        "side": "L",
+        "voi_image_path": str(image.relative_to(base)),
+        "voi_mask_path": str(mask.relative_to(base)),
+        "spacing": [0.8, 0.8, 1.5],
+        "axis_order": "zyx",
+    }
+    original = (json.dumps(row) + "\n").encode()
+    catalog = data_root / "voi/voi_catalog.jsonl"
+    catalog.write_bytes(original)
+    pv, commit = do_import(client, pid, data_root)
+    assert pv["n_errors"] == 0 and pv["counts"]["voi_rows"] == 1
+    ctx = ctx_of(client)
+    for _ in range(2):
+        item = ctx.index.get_item(pid, "case_00001.01.voi.L")
+        assert item.image and item.image.ref == "DATA:voi/images/case_00001/crop.npy"
+        assert item.masks["imported"].ref == "DATA:voi/mask/case_00001/crop.npy"
+        assert item.geometry and item.geometry.shape == [6, 5, 4]
+        assert item.geometry.spacing == [0.8, 0.8, 1.5]
+        job_id = client.portal.call(ingest_service(ctx).reindex, pid)  # type: ignore[union-attr]
+        assert job_id and wait(client, job_id).status == "succeeded"
+    snapshot = ctx.workspace.project_dir(pid) / "sources" / commit["import_id"]
+    assert (snapshot / "voi_catalog.jsonl").read_bytes() == original
+    assert catalog.read_bytes() == original
 
 
 def test_preview_multipart_and_errors(client: TestClient, pid: str, data_root: Path) -> None:

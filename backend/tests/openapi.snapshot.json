@@ -2396,6 +2396,19 @@
     "title": "CurationState",
     "type": "object"
    },
+   "DatasetOpen": {
+    "properties": {
+     "dataset_root": {
+      "title": "Dataset Root",
+      "type": "string"
+     }
+    },
+    "required": [
+     "dataset_root"
+    ],
+    "title": "DatasetOpen",
+    "type": "object"
+   },
    "DescriptiveRow": {
     "description": "ANA-07 per feature x group.",
     "properties": {
@@ -7464,6 +7477,17 @@
    "ProjectCreate": {
     "description": "PRJ-14: a name and an optional default modality; `packs` is for scripts (PRJ-16).",
     "properties": {
+     "dataset_root": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset Root"
+     },
      "default_modality": {
       "default": "CT",
       "enum": [
@@ -7520,6 +7544,17 @@
      "created_at": {
       "title": "Created At",
       "type": "string"
+     },
+     "dataset_root": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset Root"
      },
      "default_modality": {
       "default": "CT",
@@ -7805,6 +7840,17 @@
       "default": 0.0,
       "title": "Curation Progress",
       "type": "number"
+     },
+     "dataset_root": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset Root"
      },
      "last_opened_at": {
       "anyOf": [
@@ -8279,6 +8325,113 @@
      "view"
     ],
     "title": "Recommendation",
+    "type": "object"
+   },
+   "RecyclePlan": {
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "item_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Item Ids",
+      "type": "array"
+     },
+     "n_files": {
+      "title": "N Files",
+      "type": "integer"
+     },
+     "n_metadata_rows": {
+      "title": "N Metadata Rows",
+      "type": "integer"
+     },
+     "projects": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Projects",
+      "type": "array"
+     },
+     "recycle_bin": {
+      "title": "Recycle Bin",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "token": {
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "case_id",
+     "scan_idx",
+     "item_ids",
+     "recycle_bin",
+     "n_files",
+     "n_metadata_rows",
+     "projects",
+     "token"
+    ],
+    "title": "RecyclePlan",
+    "type": "object"
+   },
+   "RecycleRequest": {
+    "properties": {
+     "confirmed": {
+      "title": "Confirmed",
+      "type": "boolean"
+     },
+     "token": {
+      "minLength": 1,
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "confirmed",
+     "token"
+    ],
+    "title": "RecycleRequest",
+    "type": "object"
+   },
+   "RecycleResult": {
+    "properties": {
+     "item_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Item Ids",
+      "type": "array"
+     },
+     "project_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Project Ids",
+      "type": "array"
+     },
+     "recycle_dir": {
+      "title": "Recycle Dir",
+      "type": "string"
+     },
+     "recycle_id": {
+      "title": "Recycle Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "recycle_id",
+     "recycle_dir",
+     "item_ids",
+     "project_ids"
+    ],
+    "title": "RecycleResult",
     "type": "object"
    },
    "RelinkResult": {
@@ -13870,6 +14023,52 @@
     ]
    }
   },
+  "/api/v1/projects/open": {
+   "post": {
+    "description": "API-67 / PRJ-19: open saved dataset-local projects from their folder.",
+    "operationId": "open_dataset_api_v1_projects_open_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DatasetOpen"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ProjectDetail"
+         },
+         "title": "Response Open Dataset Api V1 Projects Open Post",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Dataset",
+    "tags": [
+     "projects"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}": {
    "get": {
     "operationId": "get_project_api_v1_projects__pid__get",
@@ -16065,6 +16264,134 @@
     "summary": "Surface mesh of one mask label (202 + job if not cached)",
     "tags": [
      "volumes"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/items/{iid}/recycle": {
+   "get": {
+    "description": "API-66 / CUR-16: preview the whole scan, related outputs and default recycle bin.",
+    "operationId": "preview_recycle_api_v1_projects__pid__items__iid__recycle_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecyclePlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Preview Recycle",
+    "tags": [
+     "items"
+    ]
+   },
+   "post": {
+    "description": "API-66: confirmed, audited removal; never a permanent delete.",
+    "operationId": "recycle_scan_api_v1_projects__pid__items__iid__recycle_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RecycleRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecycleResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Recycle Scan",
+    "tags": [
+     "items"
     ]
    }
   },

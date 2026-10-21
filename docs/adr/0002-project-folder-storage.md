@@ -10,3 +10,5 @@ Status: Accepted · Date: 2026-09-23
 **Rejected.** PostgreSQL (an extra service under udocker; not portable per project). SQLite per project (a good option, but less transparent; keep as a fallback if JSONL performance becomes a problem).
 
 **Amended by ADR-0014.** Task outputs (volumes) live in a user-chosen `derived` root, not in the project folder; the project keeps their manifest.
+
+**Partially superseded by ADR-0030:** PRJ-19 managed dataset-local project storage.

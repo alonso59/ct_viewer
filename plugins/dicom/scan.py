@@ -16,7 +16,7 @@ from plugins.text import split_multi_value, value_to_text
 
 IGNORED_DIR_NAMES = {
     ".git", "__pycache__", "autorun", "bin", "configuration", "help", "java", "jre", "lib",
-    "modules", "plugins", "resource", "resources",
+    "modules", "plugins", "resource", "resources", "recycle_bin", "derived",
 }  # fmt: skip
 IGNORED_FILE_SUFFIXES = {
     ".ags", ".agm", ".bmp", ".cmd", ".csv", ".doc", ".docx", ".dll", ".exe", ".gz", ".inf",
@@ -91,9 +91,7 @@ def candidate_files(root: Path) -> list[tuple[Path, list[Path]]]:
     """Folders under `root` with their possible DICOM files (one directory walk)."""
     out: list[tuple[Path, list[Path]]] = []
     for cur, dirs, files in os.walk(root):
-        dirs[:] = sorted(
-            d for d in dirs if d.lower() not in IGNORED_DIR_NAMES and not d.startswith(".")
-        )
+        dirs[:] = sorted(d for d in dirs if d.lower() not in IGNORED_DIR_NAMES and not d.startswith("."))
         names = sorted(f for f in files if Path(f).suffix.lower() not in IGNORED_FILE_SUFFIXES)
         if names:
             out.append((Path(cur), [Path(cur) / f for f in names]))
@@ -163,7 +161,7 @@ def _scan_header(path: Path) -> tuple[Any, int] | None:
     try:
         head = _head(path, check=True)
         return None if head is None else (_parse(path, head, specific_tags=SCAN_TAGS), head[2])
-    except Exception:
+    except Exception:  # noqa: BLE001 - any malformed candidate is not DICOM
         return None
 
 
@@ -238,7 +236,7 @@ def read_header(path: Path) -> Any:
 
 
 def first_header(series: Series) -> Any:
-    return read_header(sorted(series.files, key=str)[0])
+    return read_header(min(series.files, key=str))
 
 
 def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspection:
@@ -251,7 +249,7 @@ def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspec
             if len(series.files) > 1
             else [first]
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - surface malformed headers as diagnostics
         diagnostics.append(
             Diagnostic(
                 "WARNING",
@@ -339,25 +337,19 @@ def _check_missing(g: _Headers) -> str | None:
 
 def _check_orientation(g: _Headers) -> str | None:
     o0 = _first(g.orientations)
-    bad = o0 is not None and any(
-        o is not None and _delta(o, o0) > ORIENTATION_TOLERANCE for o in g.orientations
-    )
+    bad = o0 is not None and any(o is not None and _delta(o, o0) > ORIENTATION_TOLERANCE for o in g.orientations)
     return "ORIENTATION_CONFLICT" if bad else None
 
 
 def _check_in_plane(g: _Headers) -> str | None:
     s0 = _first(g.spacings)
-    bad = s0 is not None and any(
-        s is not None and _delta(s, s0) > IN_PLANE_SPACING_TOLERANCE_MM for s in g.spacings
-    )
+    bad = s0 is not None and any(s is not None and _delta(s, s0) > IN_PLANE_SPACING_TOLERANCE_MM for s in g.spacings)
     return "IN_PLANE_SPACING_CONFLICT" if bad else None
 
 
 def _check_matrix(g: _Headers) -> str | None:
     r0, c0 = _first(g.rows), _first(g.cols)
-    bad = any(v is not None and v != r0 for v in g.rows) or any(
-        v is not None and v != c0 for v in g.cols
-    )
+    bad = any(v is not None and v != r0 for v in g.rows) or any(v is not None and v != c0 for v in g.cols)
     return "MATRIX_SIZE_CONFLICT" if bad else None
 
 
@@ -403,9 +395,7 @@ def _advanced(datasets: list[Any], out: Inspection) -> None:
         _add(codes, "SHARED_FUNCTIONAL_GROUPS_PRESENT")
     if any(getattr(ds, "PerFrameFunctionalGroupsSequence", None) for ds in datasets):
         _add(codes, "PER_FRAME_FUNCTIONAL_GROUPS_PRESENT")
-    echoes = {
-        value_to_text(getattr(ds, k, "")) for ds in datasets for k in ("EchoNumbers", "EchoNumber")
-    } - {""}
+    echoes = {value_to_text(getattr(ds, k, "")) for ds in datasets for k in ("EchoNumbers", "EchoNumber")} - {""}
     if len(echoes) > 1:
         _add(codes, "MULTI_ECHO_INDICATORS")
     if any(value_to_text(getattr(ds, "TemporalPositionIdentifier", "")) for ds in datasets):
@@ -427,9 +417,7 @@ MRI_ALIASES = {
 def _mri(datasets: list[Any], out: Inspection) -> None:
     seen: set[str] = set()
     for ds in datasets:
-        comp = MRI_ALIASES.get(
-            value_to_text(getattr(ds, "ComplexImageComponent", "")).strip().upper(), ""
-        )
+        comp = MRI_ALIASES.get(value_to_text(getattr(ds, "ComplexImageComponent", "")).strip().upper(), "")
         if not comp:
             for tok in split_multi_value(getattr(ds, "ImageType", "")):
                 comp = MRI_ALIASES.get(tok.upper(), "")

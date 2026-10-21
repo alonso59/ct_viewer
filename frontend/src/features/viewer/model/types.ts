@@ -90,6 +90,25 @@ export interface MeshSpec {
   data: ArrayBuffer
 }
 
+export interface Scene3DOptions {
+  background: 'slicer' | 'black' | 'white'
+  annotations: 'none' | 'basic' | 'full'
+  bounds: boolean
+  axisLabels: boolean
+  orientationCube: boolean
+  axes: boolean
+  planes: Record<Plane, 'off' | 'outline' | 'slice'>
+}
+
+export interface Render3DOptions {
+  volume?: boolean
+  mask?: boolean
+  surfaces?: boolean
+  opacity?: number
+  blend?: number
+  scene?: Scene3DOptions
+}
+
 export interface ViewerHandle {
   /** Resolves once image and mask are in; `onImage` fires at the first rendered slice (VW-13) */
   load(item: ItemRecord, opts: LoadOptions): Promise<void>
@@ -109,7 +128,7 @@ export interface ViewerHandle {
   setOverlay(p: { visible?: boolean; opacity?: number }): void
   setCrosshairVisible(v: boolean): void
   setLinkedZoom(linked: boolean): void
-  setRender(p: { volume?: boolean; labels?: boolean; blend?: number }): void
+  setRender(p: Render3DOptions): void
   setMeshes(meshes: MeshSpec[]): Promise<void>
   /** Wheel / slider: move `plane` by `delta` slices, or to 1-based `index` */
   step(plane: Plane, delta: number): void

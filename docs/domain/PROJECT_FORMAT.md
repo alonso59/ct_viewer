@@ -6,7 +6,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 
 ## Model (QuPath-like)
 
-- A **workspace** is one server-side directory (`WORKSPACE_ROOT`) that holds many projects.
+- A **workspace** is one server-side directory (`WORKSPACE_ROOT`) that registers projects; legacy projects remain stored there, dataset-local projects follow PRJ-19.
 - A **project** is a folder. It references images by **path alias** and never copies them.
 - Anyone who can reach the server and has the project link can open and edit it. There is no auth (ADR-0004).
 
@@ -31,6 +31,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 | PRJ-15 | Settings writes (API-03) need `If-Match` with the project ETag; a stale write gets `412 conflict` and the UI offers reload + reapply. | M |
 | PRJ-16 | Study packs (first-party plugin `packs`, PLG-) are applied from Project settings at any time: label map, phase vocabulary + mapping, organ profile (ANZ-05), optional radiomics profile. Applying one records it in `packs[]`; it never deletes curation, labels or data. With no pack, labels come from mask values (PRJ-07) and phases stay raw. | M |
 | PRJ-17 | View-only link `/v/{view_token}`: a random, rotatable token served only by the read-only routes (API-60), which never reveal `project_id`; every editing control is hidden. | M |
+| PRJ-19 | New GUI projects select a dataset folder (create one when its parent exists); state lives in `.workbench/projects/{project_id}/`, archived state in `.workbench/.archive/`, and DERIVED defaults to `derived/` below that dataset. The workspace registry stores its location. “Open dataset project…” registers saved projects, including a moved dataset, and rebases its dataset-relative roots; absolute paths in legacy metadata need relinking/reimporting. Existing global projects stay in place. Per-project filesystem locks prevent simultaneous writers from different workspaces. Managed folders are excluded from source discovery and source aliases; append their anchored entries to the dataset `.gitignore`. GUI folder paths must be inside the server’s allowed roots. Bundles import as independent global projects. | M |
 | PRJ-18 | Project settings view with tabs General · Display · Labels · Data · Plugins (UI-23); `display` holds the layout, the initial W/L per modality (DICOM `WindowCenter/Width` first), editable W/L presets, interpolation and the radiological (default) / neurological convention. | M |
 
 ## Folder layout
@@ -68,6 +69,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
         ├── derived/runs.jsonl     # ledger of files written to the DERIVED root: run, task, refs, sha256 (ADR-0014)
         ├── events/{namespace}.jsonl # core event store per namespace (plugins, e.g. labeling, and native `phase`; ADR-0022, ADR-0026); curation keeps curation/events.jsonl
         ├── plugins/{plugin_id}/   # plugin state, e.g. labeling/tables.json (PLG-07)
+        ├── logs/recycle.jsonl     # CUR-16 deletion references and rebuild exclusions
         ├── exports/               # user-requested outputs (CSV/Parquet, phase_selections.json PHS-06 ADR-0026); dataset_table.* (ADR-0020) and dataset.jsonl (ADR-0025) are downloads built on demand (API-59), not stored
         ├── cache/                 # DISPOSABLE: meshes, thumbs, npy→nii (CACHE_MAX_GB budget, DEPLOYMENT), import previews
         └── .lock                  # advisory lock held by the API process
@@ -129,10 +131,10 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 | `*.json` | Write to a temp file in the same dir, `fsync`, then atomic `rename`; keep `.bak` of previous version for `project.json` |
 | `*.jsonl` (append-only) | Only the API process appends; one JSON object per line, `\n`-terminated, flushed per write |
 | Run outputs | Written by workers only inside their own `runs/{run_id}/`; committed by renaming `run.json.tmp` |
-| `source` roots | Never opened for writing (R1) |
-| `derived` roots | Written only by task runs, inside `{project_id}/{task_id}/runs/{run_id}/` or the task's append-only `dataset/`; finished files are never rewritten; deleted only by a confirmed user action (ADR-0014) |
+| `source` roots | Never opened for writing (R1), except CUR-16 (ADR-0029) and PRJ-19 managed-folder writes (ADR-0030) |
+| `derived` roots | Written only by task runs, inside `{project_id}/{task_id}/runs/{run_id}/` or the task's append-only `dataset/`; finished files are never rewritten; deleted only by a confirmed user action (ADR-0014); CUR-16 is the exception for rewriting finished outputs |
 | `{derived root}/_open/` | Open-mode "Save as NIfTI…" only (SRC-14): new files, never overwritten (`-1`, `-2` … suffixes), never modified afterwards; not part of any project |
-| `{derived root}/_datasets/{name}/` | Workspace task outputs only (TSK-13): a new folder per run (`-1`, `-2` … when taken), never modified afterwards. It is readable like a source root (the source guard includes every `{ALLOWED_DERIVED_ROOTS}/_datasets`), so it opens in Open mode and imports as a `source` alias; such an alias may sit under the project's `DERIVED` root because project tasks never write under `_datasets/` |
+| `{derived root}/_datasets/{name}/` | Workspace task outputs only (TSK-13): a new folder per run (`-1`, `-2` … when taken), never modified afterwards except CUR-16. It is readable like a source root (the source guard includes every `{ALLOWED_DERIVED_ROOTS}/_datasets`), so it opens in Open mode and imports as a `source` alias; such an alias may sit under the project's `DERIVED` root because project tasks never write under `_datasets/` |
 
 Single-writer model and locking: BE-05.
 

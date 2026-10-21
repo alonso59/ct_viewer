@@ -77,9 +77,7 @@ class Job:
         self._fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
         self._fh.flush()
 
-    def item(
-        self, item_id: str, status: str, outputs: Outputs | None = None, message: str = ""
-    ) -> None:
+    def item(self, item_id: str, status: str, outputs: Outputs | None = None, message: str = "") -> None:
         self.counts[status] = self.counts.get(status, 0) + 1
         self._line(
             {
@@ -131,14 +129,12 @@ class Job:
                 outputs = fn(self, it)
             except SkipItem as exc:
                 self.item(iid, "skipped", message=str(exc))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - protocol isolates failures per item
                 self.item(iid, "failed", message=f"{type(exc).__name__}: {exc}")
                 self.log(traceback.format_exc(limit=5), "debug")
             else:
                 self.item(iid, "ok", outputs)
-        self.counts["items"] = max(
-            self.counts["items"], sum(self.counts[k] for k in ("ok", "failed", "skipped"))
-        )
+        self.counts["items"] = max(self.counts["items"], sum(self.counts[k] for k in ("ok", "failed", "skipped")))
 
     def finish(
         self,

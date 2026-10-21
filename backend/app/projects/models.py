@@ -120,6 +120,7 @@ class ProjectConfig(BaseModel):
     format_version: int = FORMAT_VERSION
     project_id: str
     name: str = Field(min_length=1, max_length=200)
+    dataset_root: str | None = None  # PRJ-19: dataset-local project, legacy projects stay global
     description: str = ""
     created_at: str
     updated_at: str
@@ -180,6 +181,7 @@ class WorkspaceEntry(BaseModel):
     created_at: str
     last_opened_at: str | None = None
     archived: bool = False
+    dataset_root: str | None = None
 
 
 class ProjectSummary(BaseModel):
@@ -190,6 +192,7 @@ class ProjectSummary(BaseModel):
     created_at: str
     last_opened_at: str | None = None
     archived: bool = False
+    dataset_root: str | None = None
     n_cases: int = 0  # cases with an item not excluded upstream (AUD-A2-08)
     n_cases_excluded: int = 0  # cases whose every item is excluded upstream
     curation_progress: float = 0.0  # 0..1; filled by curation (lane P4)

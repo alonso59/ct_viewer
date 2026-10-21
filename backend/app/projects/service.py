@@ -24,15 +24,22 @@ from app.config import Settings
 from app.core.errors import (
     DerivedRootRequired,
     FormatVersionUnsupported,
+    JobConflict,
     NotFound,
     PreconditionFailed,
     PreconditionRequired,
     RootsOverlap,
     ValidationProblem,
 )
-from app.core.fsio import atomic_write_json, iter_jsonl, read_json
+from app.core.fsio import (
+    atomic_write_bytes,
+    atomic_write_json,
+    iter_jsonl,
+    read_json,
+    write_jsonl_atomic,
+)
 from app.core.ids import is_ulid, new_ulid, utc_now
-from app.core.locks import ProjectLocks
+from app.core.locks import FileLock, LockHeldError, ProjectLocks
 from app.core.paths import PathGuard, PathResolver, is_within, realpath
 from app.curation.state import case_reviews
 from app.ingest.counting import split_cases
@@ -91,6 +98,7 @@ class Workspace:
         self.registry_path = self.root / "workspace.json"
         # Bundle export/import scratch space; same filesystem as projects/ (atomic rename).
         self.staging_dir = self.root / ".staging"
+        self._local_locks: dict[str, FileLock] = {}
         self._registry: dict[str, WorkspaceEntry] | None = None
         self._cache: OrderedDict[str, ProjectConfig] = OrderedDict()
 
@@ -123,7 +131,12 @@ class Workspace:
         doc = {
             "format": WORKSPACE_FORMAT,
             "format_version": WORKSPACE_FORMAT_VERSION,
-            "projects": [e.model_dump(mode="json") for e in self._entries().values()],
+            "projects": [
+                e.model_dump(
+                    mode="json", exclude={"dataset_root"} if e.dataset_root is None else set()
+                )
+                for e in self._entries().values()
+            ],
         }
         atomic_write_json(self.registry_path, doc)
 
@@ -144,14 +157,59 @@ class Workspace:
         return f"{self.settings.base_url}/p/{project_id}"
 
     def _folder(self, entry: WorkspaceEntry) -> Path:
+        if entry.dataset_root:
+            root = self.guard.check(Path(entry.dataset_root))
+            part = ".archive" if entry.archived else "projects"
+            folder = root / ".workbench" / part / entry.project_id
+            if realpath(folder) != folder:
+                raise ValidationProblem("Dataset project folders cannot contain symlinks")
+            return folder
         return (self.archive_dir if entry.archived else self.projects_dir) / entry.project_id
+
+    def folder(self, project_id: str) -> Path:
+        """PRJ-19: the registered project folder, including archived projects."""
+        return self._folder(self.entry(project_id))
+
+    def project_derived_guard(self, project_id: str) -> PathGuard:
+        cfg = self.get(project_id)
+        roots = list(self.derived_guard.allowed_roots)
+        if cfg.dataset_root:
+            root = self.guard.check(Path(cfg.dataset_root))
+            derived = root / "derived"
+            if realpath(derived) != derived:
+                raise ValidationProblem("Dataset derived folder cannot be a symlink")
+            roots.append(derived)
+        return PathGuard(
+            roots,
+            name="ALLOWED_DERIVED_ROOTS or the project managed derived root",
+            strict=True,
+        )
+
+    def _lock_local(self, pid: str, folder: Path) -> None:
+        if pid not in self._local_locks:
+            lock = FileLock(folder / ".lock")
+            try:
+                lock.acquire()
+            except LockHeldError:
+                raise JobConflict(
+                    "This dataset project is open in another running workspace"
+                ) from None
+            self._local_locks[pid] = lock
+
+    def close(self) -> None:
+        for lock in self._local_locks.values():
+            lock.release()
+        self._local_locks.clear()
 
     def project_dir(self, project_id: str) -> Path:
         """Active project folder; NotFound if unknown or archived."""
         entry = self.entry(project_id)
         if entry.archived:
             raise NotFound(f"Project {project_id!r} is archived")
-        return self._folder(entry)
+        folder = self._folder(entry)
+        if entry.dataset_root and folder.is_dir():
+            self._lock_local(project_id, folder)
+        return folder
 
     def summary(self, project_id: str) -> ProjectSummary:
         entry = self.entry(project_id)
@@ -250,7 +308,14 @@ class Workspace:
             {r.alias: r.path for r in cfg.path_roots},
             self.guard,
             roles={r.alias: r.role for r in cfg.path_roots},
-            derived_guard=self.derived_guard,
+            derived_guard=self.project_derived_guard(project_id),
+            source_exclusions=[
+                Path(cfg.dataset_root) / ".workbench",
+                Path(cfg.dataset_root) / "derived",
+                Path(cfg.dataset_root) / "recycle_bin",
+            ]
+            if cfg.dataset_root
+            else (),
         )
 
     def derived_root(self, project_id: str) -> PathRoot:
@@ -307,6 +372,7 @@ class Workspace:
         description: str = "",
         default_modality: Modality = "CT",
         packs: builtins.list[str] | None = None,
+        dataset_root: str | None = None,
     ) -> ProjectConfig:
         """PRJ-14: neutral; `packs` (scripts, tests) are applied as by API-28."""
         now = utc_now()
@@ -328,15 +394,113 @@ class Workspace:
                 cfg = with_pack(cfg, pack_id)
         except ValidationError as exc:
             raise ValidationProblem("Invalid project", errors=_errors(exc)) from None
-        folder = self.projects_dir / cfg.project_id
+        if dataset_root:
+            root = self._dataset_root(dataset_root, create=True)
+            cfg = cfg.model_copy(
+                update={
+                    "dataset_root": str(root),
+                    "path_roots": [
+                        PathRoot(alias="DATA", path=str(root), role="source"),
+                        PathRoot(alias="DERIVED", path=str(root / "derived"), role="derived"),
+                    ],
+                }
+            )
+            (root / "derived").mkdir(exist_ok=True)
+            ignore = root / ".gitignore"
+            if ignore.is_symlink():
+                raise ValidationProblem("Dataset .gitignore cannot be a symlink")
+            previous = ignore.read_bytes() if ignore.exists() else b""
+            entries = [b"/.workbench/", b"/derived/", b"/recycle_bin/"]
+            missing = [line for line in entries if line not in previous.splitlines()]
+            if missing:
+                atomic_write_bytes(
+                    ignore,
+                    previous
+                    + (b"\n" if previous and not previous.endswith(b"\n") else b"")
+                    + b"\n".join(missing)
+                    + b"\n",
+                )
+        entry = WorkspaceEntry(
+            project_id=cfg.project_id, name=cfg.name, created_at=now, dataset_root=cfg.dataset_root
+        )
+        folder = self._folder(entry)
         async with self.locks(cfg.project_id):
             for sub in SUBDIRS:
                 (folder / sub).mkdir(parents=True, exist_ok=True)
             self._write_config(folder, cfg)
-            entry = WorkspaceEntry(project_id=cfg.project_id, name=cfg.name, created_at=now)
+            if entry.dataset_root:
+                self._lock_local(cfg.project_id, folder)
             await self._set_entry(entry)
             self._remember(cfg)
         return cfg
+
+    def _dataset_root(self, raw: str, *, create: bool = False) -> Path:
+        path = Path(raw)
+        if not path.is_absolute():
+            raise ValidationProblem("Dataset folder must be an absolute path")
+        root = self.guard.check(path)
+        if root != path or any(
+            p in {".workbench", "derived", "recycle_bin", ".git"} for p in path.parts
+        ):
+            raise ValidationProblem("Choose a dataset folder outside managed or symlinked folders")
+        if create and not root.exists():
+            if not root.parent.is_dir():
+                raise ValidationProblem("The parent folder must exist before creating a dataset")
+            root.mkdir()
+        if not root.is_dir():
+            raise ValidationProblem("Dataset folder does not exist")
+        for name in (".workbench", "derived", "recycle_bin"):
+            if realpath(root / name) != root / name:
+                raise ValidationProblem("Managed dataset folders cannot be symlinks")
+        return root
+
+    async def open_dataset(self, raw: str) -> builtins.list[ProjectDetail]:
+        """PRJ-19: register existing local projects; opening a moved folder rebases its roots."""
+        root = self._dataset_root(raw)
+        found = []
+        for folder in sorted((root / ".workbench/projects").glob("*")):
+            if not folder.is_dir() or not is_ulid(folder.name):
+                continue
+            if folder.is_symlink():
+                raise ValidationProblem("Project folders cannot be symlinks")
+            self._lock_local(folder.name, folder)
+            cfg = self._load(folder)
+            if cfg.project_id != folder.name or not cfg.dataset_root:
+                raise ValidationProblem("Invalid dataset project identity")
+            existing = self._entries().get(cfg.project_id)
+            if existing and existing.dataset_root != str(root) and self._folder(existing).exists():
+                raise ValidationProblem("A different folder already owns this project ID")
+            async with self.locks(cfg.project_id):
+                old = realpath(Path(cfg.dataset_root))
+                roots = [
+                    r.model_copy(update={"path": str(root / realpath(r.path).relative_to(old))})
+                    if is_within(realpath(r.path), old)
+                    else r
+                    for r in cfg.path_roots
+                ]
+                cfg = cfg.model_copy(update={"dataset_root": str(root), "path_roots": roots})
+                if old != root:
+                    records = list(iter_jsonl(folder / "sources/imports.jsonl"))
+                    for rec in records:
+                        path = realpath(rec["root"])
+                        if is_within(path, old):
+                            rec["root"] = str(root / path.relative_to(old))
+                    write_jsonl_atomic(folder / "sources/imports.jsonl", records)
+                self._write_config(folder, cfg)
+                await self._set_entry(
+                    WorkspaceEntry(
+                        project_id=cfg.project_id,
+                        name=cfg.name,
+                        created_at=cfg.created_at,
+                        last_opened_at=utc_now(),
+                        dataset_root=str(root),
+                    )
+                )
+                self._remember(cfg)
+            found.append(self.detail(cfg.project_id))
+        if not found:
+            raise NotFound("This folder has no saved projects; use New project to create one")
+        return found
 
     async def update(self, project_id: str, patch: ProjectPatch) -> ProjectConfig:
         async with self.locks(project_id):
@@ -385,15 +549,22 @@ class Workspace:
                 "Root path must be absolute", errors=[{"loc": ["path"], "msg": "not absolute"}]
             )
         if root.role == "derived":
-            if not self.derived_guard.allowed_roots:
+            derived_guard = self.project_derived_guard(project_id)
+            if not derived_guard.allowed_roots:
                 raise DerivedRootRequired(
                     "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder "
                     "(OPS-11)",
                     actions=["configure:ALLOWED_DERIVED_ROOTS"],
                 )
-            self.derived_guard.check(path)
+            derived_guard.check(path)
         else:
             self.guard.check(path)
+            cfg = self.get(project_id)
+            if cfg.dataset_root and any(
+                is_within(realpath(path), realpath(Path(cfg.dataset_root) / name))
+                for name in ("derived", ".workbench", "recycle_bin")
+            ):
+                raise ValidationProblem("Managed dataset artifacts cannot be registered as sources")
         if not path.is_dir():
             raise ValidationProblem(
                 "Root path must be an existing directory",
@@ -415,6 +586,12 @@ class Workspace:
                 o = realpath(Path(r.path))
                 if any(is_within(p, d) for p in (real, o) for d in datasets):
                     continue  # a write-once dataset: project tasks never write under `_datasets/`
+                managed = realpath(Path(cur.dataset_root) / "derived") if cur.dataset_root else None
+                if managed is not None and (
+                    (root.role == "derived" and real == managed and is_within(managed, o))
+                    or (r.role == "derived" and o == managed and is_within(managed, real))
+                ):
+                    continue
                 if is_within(real, o) or is_within(o, real):
                     raise RootsOverlap(
                         f"{root.alias} ({root.role}) overlaps {r.alias} ({r.role}): source and "
@@ -465,11 +642,11 @@ class Workspace:
         async with self.locks(project_id):
             folder = self.project_dir(project_id)
             entry = self.entry(project_id)
-            dest = self.archive_dir / project_id
+            dest = self._folder(entry.model_copy(update={"archived": True}))
             if dest.exists():
                 raise ValidationProblem(f"Archive folder already exists for {project_id}")
             _purge(folder / "cache")
-            self.archive_dir.mkdir(parents=True, exist_ok=True)
+            dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(folder, dest)
             self.invalidate(project_id)
             await self._set_entry(entry.model_copy(update={"archived": True}))
@@ -479,7 +656,7 @@ class Workspace:
             entry = self.entry(project_id)
             if not entry.archived:
                 raise NotFound(f"Project {project_id!r} is not archived")
-            dest = self.projects_dir / project_id
+            dest = self._folder(entry.model_copy(update={"archived": False}))
             if dest.exists():
                 raise ValidationProblem(f"Active folder already exists for {project_id}")
             shutil.move(self._folder(entry), dest)
@@ -523,6 +700,9 @@ class Workspace:
         staging = self.staging_dir / new_ulid()
         try:
             cfg, original, _ = await asyncio.to_thread(extract_bundle, fileobj, staging, taken)
+            if cfg.dataset_root is not None:
+                cfg = cfg.model_copy(update={"dataset_root": None})
+                self._write_config(staging, cfg)
             async with self.locks(cfg.project_id):
                 dest = self.projects_dir / cfg.project_id
                 if dest.exists() or cfg.project_id in self._entries():
