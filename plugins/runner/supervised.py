@@ -16,6 +16,12 @@ from plugins.runner import gpu, service
 from plugins.runner.deployment import managed_output, overlaps, validate_config
 
 
+def isolated_argv(python: Path | str, script: Path, *args: str) -> list[str]:
+    """`-I`: the script's folder is not on sys.path, so plugin modules such as nnunet's
+    `profile.py` cannot shadow the standard library (torch imports cProfile)."""
+    return [str(python), "-I", str(script), *args]
+
+
 def stopping(job: Path) -> bool:
     return (job / "cancel").exists() or (job / "pause").exists()
 
@@ -228,7 +234,7 @@ class Supervisor:
             if self.config["limits"]["cpus"] < 3:
                 raise ValueError("nnU-Net admission requires at least 3 CPU workers")
             result = subprocess.run(
-                [str(self.python), str(plugin / "verify.py"), str(job)],
+                isolated_argv(self.python, plugin / "verify.py", str(job)),
                 cwd=plugin,
                 env=self.environment(),
                 capture_output=True,

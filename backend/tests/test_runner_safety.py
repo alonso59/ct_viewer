@@ -264,3 +264,19 @@ def test_log_symlink_is_refused_without_modifying_target(tmp_path: Path) -> None
         assert json.loads((job / "exit.json").read_text())["code"] == 1
     finally:
         runner.stop_tasks()
+
+
+def test_plugin_scripts_run_isolated_from_their_own_folder(tmp_path: Path) -> None:
+    """A plugin module named like a stdlib module (nnunet's `profile.py`) must not shadow it."""
+    from plugins.runner.supervised import isolated_argv
+
+    (tmp_path / "profile.py").write_text("raise SystemExit(3)\n")
+    (tmp_path / "check.py").write_text("import cProfile\nprint('{}')\n")
+    shadowed = subprocess.run(
+        [sys.executable, str(tmp_path / "check.py")], cwd=tmp_path, check=False
+    )
+    assert shadowed.returncode != 0, "fixture no longer reproduces the shadowing"
+    isolated = subprocess.run(
+        isolated_argv(sys.executable, tmp_path / "check.py"), cwd=tmp_path, check=False
+    )
+    assert isolated.returncode == 0

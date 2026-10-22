@@ -26,7 +26,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7d | nnU-Net segmentation planning | ✅ 2026-10-21 (ADR-0032 accepted; Dataset220; 2–4 GPU policy) |
 | P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
-| P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle and its UI verified by unit/API tests; browser journeys, CI image build and GPU host acceptance of the lifecycle remain open (domain/SEGMENTATION_JOB_PLAN.md) |
+| P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.

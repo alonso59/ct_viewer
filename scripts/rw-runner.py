@@ -34,7 +34,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from plugins.runner.preflight import inspect_host
-from plugins.runner.supervised import Supervisor
+from plugins.runner.supervised import Supervisor, isolated_argv
 
 HEARTBEAT_S = 10.0
 KILL_AFTER_S = 30.0
@@ -111,7 +111,7 @@ def checked_manifests(
             continue
         try:
             result = subprocess.run(
-                [str(supervisor.python) if supervisor else sys.executable, str(check)],
+                isolated_argv(supervisor.python if supervisor else sys.executable, check),
                 cwd=plugin_dir,
                 env={
                     **supervisor.environment(),
