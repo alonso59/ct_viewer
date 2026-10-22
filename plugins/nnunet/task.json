@@ -13,12 +13,14 @@
     "required": ["profile"],
     "properties": {
       "profile": {
+        "title": "Model",
         "type": "string",
         "enum": ["kits2023-dataset220"],
         "default": "kits2023-dataset220",
         "x-help": "Operator-validated model profile"
       },
       "gpu_cap": {
+        "title": "Max GPUs",
         "type": "integer",
         "minimum": 1,
         "maximum": 4,
@@ -26,6 +28,7 @@
         "x-help": "Maximum GPUs used when at least this many cases are pending"
       },
       "gpu_ids": {
+        "title": "GPUs",
         "type": "array",
         "items": {"type": "string", "enum": ["0", "1", "2", "3", "4", "5", "6"]},
         "maxItems": 4,
@@ -34,8 +37,10 @@
         "x-help": "Select physical GPU IDs, or leave empty for automatic idle selection. Used up to gpu_cap and the number of pending cases; busy devices wait."
       },
       "seg_id": {
+        "title": "Segmentation set name",
         "type": "string",
-        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+        "x-help": "Optional: lower-case letters, digits, - or _. Empty uses nnunet-<run>."
       }
     }
   },

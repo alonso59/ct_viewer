@@ -1,4 +1,5 @@
-// The generic settings form (TSK-02, UI-20): boolean, number, integer, string (enum → select).
+// The generic settings form (TSK-02, UI-20): boolean, number, integer, string (enum → select),
+// array of enum (→ toggle chips). `title` labels a field, `x-enumNames` names enum values.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -8,12 +9,27 @@ import { fields, type FieldSchema } from './schema'
 function Field({ name, schema, value, error, onChange }: { name: string; schema: FieldSchema; value: unknown; error?: string; onChange: (v: unknown) => void }) {
   const { t } = useTranslation()
   const id = `task-field-${name}`
+  const label = (s: FieldSchema, i: number, o: unknown) => s['x-enumNames']?.[i] ?? String(o)
   let input
   if (schema.type === 'array' && schema.items?.enum) {
+    const items = schema.items
+    const picked = Array.isArray(value) ? value.map(String) : []
+    const full = schema.maxItems !== undefined && picked.length >= schema.maxItems
+    const toggle = (o: string) => onChange(picked.includes(o) ? picked.filter((p) => p !== o) : [...picked, o])
     input = (
-      <select id={id} className="select" multiple value={Array.isArray(value) ? value.map(String) : []} onChange={(e) => onChange(Array.from(e.target.selectedOptions, (option) => option.value))}>
-        {schema.items.enum.map((option) => <option key={String(option)} value={String(option)}>{String(option)}</option>)}
-      </select>
+      <div className="task-chips">
+        <span id={id} role="group" aria-labelledby={`${id}-label`} className="seg">
+          {items.enum?.map((o, i) => {
+            const on = picked.includes(String(o))
+            return (
+              <button key={String(o)} type="button" aria-pressed={on} disabled={!on && full} onClick={() => toggle(String(o))}>
+                {label(items, i, o)}
+              </button>
+            )
+          })}
+        </span>
+        {!picked.length ? <span className="muted task-help">{t('tasks.noneSelected')}</span> : null}
+      </div>
     )
   } else if (schema.type === 'boolean') {
     input = <input id={id} type="checkbox" checked={Boolean(value ?? schema.default)} onChange={(e) => onChange(e.target.checked)} />
@@ -21,8 +37,8 @@ function Field({ name, schema, value, error, onChange }: { name: string; schema:
     input = (
       <select id={id} className="select" value={String(value ?? schema.default ?? '')} onChange={(e) => onChange(e.target.value || undefined)}>
         {schema.default === undefined ? <option value="">{t('tasks.fromProject')}</option> : null}
-        {schema.enum.map((o) => (
-          <option key={String(o)} value={String(o)}>{String(o)}</option>
+        {schema.enum.map((o, i) => (
+          <option key={String(o)} value={String(o)}>{label(schema, i, o)}</option>
         ))}
       </select>
     )
@@ -46,7 +62,7 @@ function Field({ name, schema, value, error, onChange }: { name: string; schema:
   }
   return (
     <div className="task-field">
-      <label className="field-label" htmlFor={id}>{name}</label>
+      <label id={`${id}-label`} className="field-label" htmlFor={id}>{schema.title ?? name}</label>
       {input}
       {schema['x-help'] ? <span className="muted task-help">{schema['x-help']}</span> : null}
       {error ? <span className="field-error">{t(error, { min: schema.minimum ?? schema.minItems, max: schema.maximum ?? schema.maxItems })}</span> : null}

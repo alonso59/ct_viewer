@@ -16,6 +16,8 @@ import { check, toSettings } from './schema'
 import { SchemaForm } from './SchemaForm'
 import './tasks.css'
 
+const CONFIRM_ABOVE = 20
+
 export interface TaskParams {
   taskId: string
 }
@@ -84,9 +86,11 @@ function ArchivedRuns({ pid, taskId }: { pid: string; taskId: string }) {
   const runs = (useArchivedTaskRuns(pid, open).data ?? []).filter((r) => r.task.id === taskId)
   return (
     <>
-      <button type="button" className="btn btn-sm" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {t(open ? 'tasks.hideArchived' : 'tasks.showArchived')}
-      </button>
+      <div className="task-run-actions">
+        <button type="button" className="btn btn-sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {t(open ? 'tasks.hideArchived' : 'tasks.showArchived')}
+        </button>
+      </div>
       {open ? runs.length ? <ul className="task-runs">{runs.map((r) => <RunRow key={r.run_id} pid={pid} run={r} />)}</ul> : <p className="muted">{t('tasks.noArchived')}</p> : null}
     </>
   )
@@ -185,6 +189,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
   const [askDerived, setAskDerived] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const runs = (useTaskRuns(pid).data ?? []).filter((r) => r.task.id === m.id)
   const readsMasks = !!m.requires?.seg
   const selection = useMemo(
@@ -202,7 +207,10 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const pre = preflight.data
   const onAction = { choose_derived_root: () => setAskDerived(true), choose_source: () => setBrowse(null) }
 
+  // a GPU task over many items runs for hours: ask once before starting it
+  const heavy = m.resources?.gpu !== undefined && m.resources.gpu !== 'none' && (pre?.n_ready ?? 0) > CONFIRM_ABOVE
   const run = async () => {
+    setConfirming(false)
     setError(null)
     setBusy(true)
     try {
@@ -303,11 +311,19 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
         ) : null}
         <div className="task-run-actions">
           <button type="button" className="btn" onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
-          <button type="button" className="btn btn-primary" disabled={busy || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)} onClick={() => void run()}>
+          <button type="button" className="btn btn-primary" disabled={busy || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)} onClick={() => (heavy ? setConfirming(true) : void run())}>
             <Icon spec={codicon('play')} />
             {t('tasks.run')}
           </button>
         </div>
+        {pre && pre.n_selected === 0 ? <p className="muted">{t(mode === 'list' ? 'tasks.listEmpty' : 'tasks.nothingSelected')}</p> : null}
+        {confirming ? (
+          <div className="task-confirm" role="alert">
+            <span>{t('tasks.confirmRun', { n: pre?.n_ready ?? 0, title: m.title })}</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => void run()}>{t('tasks.confirmStart')}</button>
+            <button type="button" className="btn btn-sm" onClick={() => setConfirming(false)}>{t('common.cancel')}</button>
+          </div>
+        ) : null}
         {estimate ? <EstimateView est={estimate} /> : null}
         {error ? <ProblemCard error={error} onAction={onAction} /> : null}
       </Section>

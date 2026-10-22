@@ -13,7 +13,10 @@ export interface FieldSchema {
   maxItems?: number
   uniqueItems?: boolean
   properties?: Record<string, FieldSchema>
+  title?: string
   'x-help'?: string
+  /** Display names for `enum` values, same order (e.g. a model title for its profile id) */
+  'x-enumNames'?: string[]
   'x-advanced'?: boolean
   'x-group'?: string
 }
