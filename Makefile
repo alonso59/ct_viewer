@@ -23,9 +23,9 @@ UDOCKER_NODE ?= rw-node
 ifeq ($(RUNTIME),native)
   NODE := cd frontend &&
 else ifeq ($(RUNTIME),docker)
-  NODE := docker run --rm -v "$(CURDIR)/frontend:/app" -w /app -e VITE_HOST=0.0.0.0 -p 5173:5173 $(NODE_IMAGE)
+  NODE := docker run --rm -v "$(CURDIR):/repo" -w /repo/frontend -e VITE_HOST=0.0.0.0 -p 5173:5173 $(NODE_IMAGE)
 else ifeq ($(RUNTIME),udocker)
-  NODE := python3 udocker.py run --hostenv --volume="$(CURDIR)/frontend:/app" --workdir=/app $(UDOCKER_NODE)
+  NODE := python3 udocker.py run --hostenv --volume="$(CURDIR):/repo" --workdir=/repo/frontend $(UDOCKER_NODE)
 else
   $(error RUNTIME must be native, docker or udocker)
 endif

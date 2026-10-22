@@ -33,7 +33,7 @@
   "runtime": {
     "type": "external",
     "command": ["{python}", "run.py", "{job_dir}"],
-    "env_hint": "conda activate torch; export nnUNet_results=/home/alonso/nnUNet_models/nnUNet_results"
+    "env_hint": "Activate the torch conda environment and set nnUNet_results to the model results root"
   },
   "resources": {"gpu": "required", "seconds_per_item": 600},
   "labels": {"names": {"1": "kidney", "2": "tumor", "3": "masses"}}
