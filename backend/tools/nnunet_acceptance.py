@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import nibabel as nib
+import numpy as np
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -110,9 +111,14 @@ def run(args: argparse.Namespace) -> int:
     derived = workspace / "derived"
     derived.mkdir(exist_ok=True)
     before = sha_tree(root)
+    models_before = sha_tree(args.results_root.resolve())
     gpu_ids = [value.strip() for value in args.gpus.split(",") if value.strip()]
-    if not 2 <= len(gpu_ids) <= 4 or len(set(gpu_ids)) != len(gpu_ids):
-        raise ValueError("--gpus must list 2 to 4 distinct GPU ids")
+    if (
+        not 1 <= len(gpu_ids) <= 7
+        or len(set(gpu_ids)) != len(gpu_ids)
+        or any(value not in {str(index) for index in range(7)} for value in gpu_ids)
+    ):
+        raise ValueError("--gpus must list unique approved physical GPU IDs from 0 to 6")
     settings = Settings(
         workspace_root=workspace / "app",
         allowed_data_roots=str(root),
@@ -122,6 +128,27 @@ def run(args: argparse.Namespace) -> int:
         _env_file=None,  # type: ignore[call-arg]
     )
     runner_log = workspace / "runner.log"
+    deployment = workspace / "deployment.json"
+    deployment_config = {
+        "deployment": 1,
+        "backend": args.backend,
+        "environment": str(args.runner_python.absolute().parent.parent),
+        "workspace": str(settings.workspace_root),
+        "source_roots": [str(root)],
+        "model_roots": [str(args.results_root.resolve())],
+        "derived_roots": [str(derived)],
+        "gpu_pool": gpu_ids,
+        "limits": {
+            "cpus": 12,
+            "memory_mb": 32768,
+            "tasks": 128,
+            "seconds": max(60, int(args.timeout)),
+            "gpus": 4,
+        },
+    }
+    descriptor = os.open(deployment, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "w") as handle:
+        json.dump(deployment_config, handle, indent=2)
     runner: subprocess.Popen[bytes] | None = None
     ok = False
     summary: dict[str, Any] = {"workspace": str(workspace), "root": str(root)}
@@ -158,6 +185,8 @@ def run(args: argparse.Namespace) -> int:
                         "segment.nnunet",
                         "--concurrency",
                         "1",
+                        "--deployment",
+                        str(deployment),
                         "--poll",
                         "0.5",
                     ],
@@ -198,14 +227,33 @@ def run(args: argparse.Namespace) -> int:
                     headers={"Range": "bytes=0-99"},
                 )
                 masks_servable = masks_servable and response.status_code in {200, 206}
+            geometry_ok = True
+            resolver = context(client).workspace.resolver(project_id)
+            indexed = {item.item_id: item for item in context(client).index.load(project_id).items}
+            for item_id in item_ids:
+                item = indexed[item_id]
+                mask_ref = item.masks.get(seg_id)
+                if item.image is None or mask_ref is None:
+                    geometry_ok = False
+                    continue
+                image: Any = nib.load(resolver.resolve(item.image.ref))
+                mask: Any = nib.load(resolver.resolve(mask_ref.ref))
+                geometry_ok = geometry_ok and (
+                    image.shape == mask.shape
+                    and np.allclose(image.affine, mask.affine, rtol=0, atol=1e-4)
+                    and set(np.unique(np.asanyarray(mask.dataobj))).issubset({0, 1, 2, 3})
+                )
             source_after = sha_tree(root)
+            models_after = sha_tree(args.results_root.resolve())
             ok = (
                 job["status"] == "succeeded"
                 and run_detail["status"] == "completed"
                 and run_detail["counts"]["ok"] == args.items
                 and sets.get(seg_id, {}).get("n_items") == args.items
                 and masks_servable
+                and geometry_ok
                 and before == source_after
+                and models_before == models_after
             )
             summary.update(
                 {
@@ -216,10 +264,19 @@ def run(args: argparse.Namespace) -> int:
                     "counts": run_detail["counts"],
                     "segmentation": sets.get(seg_id),
                     "masks_servable": masks_servable,
+                    "geometry_and_labels": bool(geometry_ok),
                     "provenance": run_detail.get("provenance"),
                     "sources_hashed": len(before),
                     "sources_changed": sorted(
-                        key for key, digest in source_after.items() if before.get(key) != digest
+                        key
+                        for key in before.keys() | source_after.keys()
+                        if before.get(key) != source_after.get(key)
+                    ),
+                    "models_hashed": len(models_before),
+                    "models_changed": sorted(
+                        key
+                        for key in models_before.keys() | models_after.keys()
+                        if models_before.get(key) != models_after.get(key)
                     ),
                     "runner_log": str(runner_log),
                     "pass": ok,
@@ -243,8 +300,11 @@ def main() -> None:
     parser.add_argument("--root", type=Path, help="existing dataset root; default: synthetic")
     parser.add_argument("--workspace", type=Path, help="audit workspace; default: new /tmp folder")
     parser.add_argument("--items", type=int, choices=range(1, 5), default=1)
-    parser.add_argument("--gpus", default="0,1", help="2 to 4 CUDA_VISIBLE_DEVICES ids")
-    parser.add_argument("--gpu-cap", type=int, choices=range(2, 5), default=2)
+    parser.add_argument(
+        "--gpus", default="0", help="Approved physical GPU IDs 0..6, checked before allocation"
+    )
+    parser.add_argument("--gpu-cap", type=int, choices=range(1, 5), default=1)
+    parser.add_argument("--backend", choices=("local", "server"), default="server")
     parser.add_argument(
         "--results-root", type=Path, default=Path("/home/alonso/nnUNet_models/nnUNet_results")
     )

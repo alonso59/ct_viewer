@@ -3,8 +3,9 @@
 // `seg/` folder → Save as NIfTI → Create project from this (the mask travels) → Close.
 // SRC-09/10/14/05, VW-05/08/22/26, UI-17/24; AUD-A2-03, A2-11, A2-12, A3-05, A1-16 (FB4).
 import { expect, test, type Page } from '@playwright/test'
+import { basename } from 'node:path'
 
-import { API } from './helpers'
+import { API, managedDataset } from './helpers'
 
 const IMAGE = '01_case_00030_0000.nii.gz'
 const MASK = '01_case_00030.nii.gz'
@@ -13,6 +14,7 @@ const view = (page: Page, name: string) => page.getByRole('region', { name, exac
 
 test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, close', async ({ page, browserName }) => {
   test.setTimeout(120_000)
+  const dataset = managedDataset(`g1-${browserName}-${Date.now()}`)
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
 
@@ -21,9 +23,9 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await page.getByRole('button', { name: /Open file or folder/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Open file or folder' })
   const folders = dialog.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: /synthetic/ }).click()
+  await folders.getByRole('button', { name: process.env.E2E_DATASETS!, exact: true }).click()
   await expect(folders.getByRole('button', { name: 'Parent folder' })).toHaveCount(0) // a shared root
-  await folders.getByRole('button', { name: /Dataset900/ }).click()
+  await folders.getByRole('button', { name: new RegExp(`^${basename(dataset)}`) }).click()
   await folders.getByRole('button', { name: /^nifti$/ }).click()
   await dialog.getByRole('searchbox', { name: 'Filter this folder' }).fill('00030')
   await folders.getByRole('button', { name: IMAGE }).click()
@@ -59,7 +61,7 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   const actions = page.getByRole('toolbar', { name: 'Open-mode actions' })
   await actions.getByRole('button', { name: 'Attach segmentation…' }).click()
   const attach = page.getByRole('dialog', { name: 'Attach a segmentation' })
-  await expect(attach.locator('.fs-path')).toContainText(/Dataset900\/seg$/)
+  await expect(attach.locator('.fs-path')).toContainText(`${basename(dataset)}/seg`)
   await attach.getByRole('searchbox', { name: 'Filter this folder' }).fill('00030')
   await attach.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: MASK }).click()
   await attach.getByRole('button', { name: 'Attach', exact: true }).click()
@@ -79,7 +81,9 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await actions.getByRole('button', { name: 'Create project from this' }).click()
   const create = page.getByRole('dialog', { name: 'New project' })
   await create.getByLabel('Project name').fill(`G1 ${browserName} ${Date.now()}`)
+  const detection = page.waitForResponse((r) => r.url().endsWith('/sources/detect') && r.request().method() === 'POST', { timeout: 30_000 })
   await create.getByRole('button', { name: 'Create and import' }).click()
+  expect((await detection).ok()).toBe(true)
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
   const wizard = page.getByRole('dialog', { name: 'Import data' })

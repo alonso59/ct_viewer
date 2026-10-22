@@ -154,19 +154,22 @@ def runners(queue_dir: Path, now: datetime | None = None) -> list[RunnerInfo]:
     for p in sorted((queue_dir / "runners").glob("*.json")):
         try:
             raw = json.loads(p.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                continue
             at = datetime.fromisoformat(str(raw["at"]).replace("Z", "+00:00"))
-        except (OSError, ValueError, KeyError, TypeError):
-            continue
-        out.append(
-            RunnerInfo(
+            runner = RunnerInfo(
                 runner_id=p.stem,
                 tasks=[str(t) for t in raw.get("tasks") or []],
                 gpu=raw.get("gpu"),
                 pid=raw.get("pid"),
                 at=str(raw["at"]),
-                fresh=(now - at).total_seconds() <= RUNNER_FRESH_S,
+                fresh=-5 <= (now - at).total_seconds() <= RUNNER_FRESH_S,
+                model_catalog=raw.get("model_catalog"),
+                execution=raw.get("execution"),
             )
-        )
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        out.append(runner)
     return out
 
 

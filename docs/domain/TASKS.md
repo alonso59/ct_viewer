@@ -22,6 +22,8 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-10 | Run record `tasks/runs/{run_id}/run.json`: task id + version, manifest hash, settings + hash, selection, inputs with fingerprints, dependency versions, counts, outputs (NFR-15). Radiomics keeps `radiomics/runs/{run_id}/` (RAD-09). | M |
 | TSK-11 | External runtime through the file queue (§External runtime); the backend never starts containers or host processes. | M |
 | TSK-12 | One run per `(project, task)` at a time; the runner caps concurrency (default 1 per GPU). | S |
+| TSK-14 | Supervised external completion requires a matching attempt generation and verified cleanup acknowledgement. Missing runner heartbeat alone never permits a replacement GPU attempt; recover the durable backend ownership before retry/release (ADR-0034). | M |
+| TSK-15 | Supervised GPU jobs persist versioned attempt/control records and acknowledge pause/cancel only after TSK-14 cleanup. Queued pause prevents launch; running pause stops dispatch and allows at most 10 seconds for in-flight work before bounded interruption. Resume/retry uses the same logical run and output set with a fresh fenced attempt; partially successful runs may retry failed items. Archive hides an inactive, cleanup-verified run while retaining its audit and outputs. Active or uncertain runs cannot be archived. Controls are idempotent; incompatible transitions return 409. | M |
 | TSK-13 | `scope: workspace` tasks (e.g. `dicom.convert`) run without a project (API-62): inputs come from a source path, outputs go to `{derived root}/_datasets/{name}/` (write-once), run records to `WORKSPACE_ROOT/plugins/{plugin}/runs/`. Project-bound tasks keep `scope: project`. | M |
 
 Implementation (TSK-13): the manifest key `scope` (`project` default, `workspace` = may also run without a project; only builtin `input: source` tasks, today `dicom.convert`). API-62: `POST /tasks/{tid}/estimate` (dry run), `POST /task-runs` `{task_id, settings, selection: {source}, name?}` → `202`, `GET /task-runs[/{rid}]`, `POST /task-runs/{rid}/cancel`. The dataset folder name is a slug of `name` (default: the source folder), with `-1`, `-2` … when taken; the job runs under the JobManager key `_workspace`, one per task at a time. Importing a dataset into a project (API-12) first records its `annotations.jsonl` as a completed run of the project and activates each field that has no active run (ANZ-04), so the index is built with the phase layer.
@@ -57,6 +59,8 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 | `progress.jsonl` | task | `{t: "item", item_id, status: ok\|failed\|skipped, outputs: [{kind, path, seg_id?, labels?, sha256?}], message}` · `{t: "total", n}` (a source task's unit count once known) · `{t: "log", level, message}` · `{t: "heartbeat"}` |
 | `result.json` | task | `{status, counts, outputs_manifest[], versions, started_at, finished_at, error?}`; written last, atomically |
 | `cancel` | backend | Presence = cancel. Builtin: checked between items. External: the runner sends SIGTERM, then SIGKILL after 30 s |
+| `pause` · `control.json` | backend | Supervised runs only (TSK-15). `control.json` = the latest request `{id, action: pause\|cancel, attempt, deadline_mono}`; `pause` stops dispatch between batches (in-flight work until the deadline). A job with `pause` or `cancel` is never claimed |
+| `attempt.json` · `exit.json` · `control-ack.json` | supervisor | Attempt generation; `exit.json {attempt, code, cleanup_verified}` after the owned boundary is empty and GPUs are released (TSK-14); `control-ack.json {id, attempt}` answers the `control.json` request it saw |
 
 - Paths: data and derived roots are absolute and mirror-mounted (OPS-05), so they are the same inside the container and on the host. Workspace files are referenced **relative to the job dir**, because the workspace path differs across the container boundary.
 - Exit code 0 = see `result.json`; non-zero or no `result.json` = `failed`, with the tail of the log kept.
@@ -66,10 +70,13 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 
 ## External runtime
 
+P7g admission follows OPS-16..20 and ADR-0034. GPU tasks require an operator-configured, verified local/server backend; unconfigured execution remains unavailable. CPU-only test tasks keep their existing path. Configuration and backend boundaries: SEGMENTATION_RUNTIMES.md.
+
 - `scripts/rw-runner.py` (stdlib only) runs on the host inside the plugin's environment (e.g. an activated conda env; R4):
   `python scripts/rw-runner.py --workspace <WORKSPACE_HOST> --plugins <PLUGINS_ROOT> [--tasks segment.nnunet] [--concurrency 1]`.
 - Heartbeat: `queue/runners/{runner_id}.json` `{tasks[], gpu, pid, at}` every 10 s. With no fresh heartbeat for the task, a job shows `waiting_for_runner` (not an error) and the UI shows how to start the runner.
-- Writers: the backend writes only `job.json` and `cancel`, and the runner/task writes the rest. `queue/` is the only workspace directory with a second writer; project files keep the single writer (BE-05).
+- Writers: the backend writes only `job.json`, `cancel`, `pause` and `control.json`, and the runner/supervisor/task writes the rest.
+- Supervised run states (TSK-15): a request moves the run to `pausing`/`cancelling`; it becomes `paused`/`cancelled` only once the same attempt's verified cleanup is seen. A stop without verified cleanup (lost runner) is `cleanup_pending`: archive, resume and new runs of the task return 409 until the supervisor confirms it. Cancel supersedes a pending pause; a pause after a pending cancel is 409. `queue/` is the only workspace directory with a second writer; project files keep the single writer (BE-05).
 - Implementation: the runner substitutes `{python}` (its own interpreter) and `{job_dir}` in `runtime.command`, runs it in the plugin folder with output to `task.log`, and writes `exit.json {code, at, runner_id}` when the process ends (a crash without `result.json` becomes `failed` with the code and the log tail). A job cancelled before its claim is never claimed. A claimed job whose runner sends no heartbeat for 60 s fails ("runner stopped sending heartbeats"). Queue folders are kept after the run for audit. Options: `--tasks`, `--concurrency`, `--poll`, `--once` (tests); SIGTERM stops it cleanly (children terminated, heartbeat removed).
 
 ## Outputs

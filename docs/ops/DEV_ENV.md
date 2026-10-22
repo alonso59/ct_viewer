@@ -24,7 +24,8 @@ Depends: DEPLOYMENT.md.
 | `make dev-frontend` | Vite dev server on 5173, proxying `/api` → 8000 |
 | `make fixtures` | Generate the synthetic test dataset (TST-11) |
 | `make gen-api` | Regenerate TS types from OpenAPI (FE-03) |
-| `make test` | Backend unit tests in parallel (`pytest -n auto --dist loadscope`, pytest-xdist: one worker per test module, so module fixtures run once) + frontend unit tests |
+| `make test` | Backend `pytest -n $(PYTEST_WORKERS) --dist loadscope` (default 4, one worker per module) + frontend units (default `VITEST_WORKERS=2`); numerical-library threads are bounded to 1 |
+| `make test-env` · `make test-runner` | Prerequisite check · safety regressions; `FULL_TESTS=1` requires radiomics and forbids skipped coverage; `PYTEST_WORKERS=0` runs serially |
 | `make deadcode` | Dead-code gate (part of `make check`): `knip` (frontend unused files, exports, dependencies; `frontend/knip.json`) + `vulture` (backend, confidence ≥ 80; false positives go to `backend/vulture_allowlist.py`) |
 | `make coverage` | Vitest coverage (`@vitest/coverage-v8`) → `build/coverage/frontend/` (summary printed; a report, not a gate) |
 | `make bundle-baseline` | Record the current initial JS in `frontend/bundle-baseline.json` (commit it) after an intended growth (NFR-07) |
@@ -54,3 +55,5 @@ Depends: DEPLOYMENT.md.
 - `make e2e` starts its own backend (port 8011) and Vite (5174) on a temporary workspace (removed afterwards unless `E2E_KEEP=1`); run `make fixtures` first and keep 5174 free, or set `E2E_API_PORT` / `E2E_WEB_PORT`.
 - Dev-only tools (`backend[dev]`: pytest-xdist, vulture; `frontend` devDependencies: knip, @vitest/coverage-v8) are never in the image (the Dockerfile installs `backend[radiomics]` and the built frontend only; R5).
 - PyRadiomics is optional: `VIRTUAL_ENV=backend/.venv uv pip install -e 'backend[radiomics]'` (needs a C compiler). Without it, 3 test modules are skipped.
+- Full verification uses `backend/requirements-ci.lock` (Python 3.12, uv 0.9.2); sync into an explicitly selected disposable venv, then install `backend` editable with `--no-deps`. Pass that absolute venv as `VENV` to Make. The existing development environment need not be upgraded.
+- `Dockerfile.verify` is CI-only: Node 22 and Python 3.12 on matching Debian bases, locked Python/Node dependencies, browser binaries installed by the locked Playwright CLI. It is separate from the product image; its strict source allowlist excludes data, local settings, venvs and legacy reference. Image publication depends on this verification workflow.

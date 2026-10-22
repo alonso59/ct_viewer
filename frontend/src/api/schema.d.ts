@@ -1260,7 +1260,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Runs */
+        /**
+         * List Runs
+         * @description API-45; `archived=true` lists the archived runs instead (J6).
+         */
         get: operations["list_runs_api_v1_projects__pid__task_runs_get"];
         put?: never;
         /** Start Run */
@@ -1299,6 +1302,46 @@ export interface paths {
         put?: never;
         /** Cancel Run */
         post: operations["cancel_run_api_v1_projects__pid__task_runs__rid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Run
+         * @description API-46 supervised runs (TSK-15): idempotent; `pausing` until cleanup is verified.
+         */
+        post: operations["pause_run_api_v1_projects__pid__task_runs__rid__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/task-runs/{rid}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Run
+         * @description API-46 supervised runs (TSK-15): 409 while active or cleanup is pending.
+         */
+        post: operations["archive_run_api_v1_projects__pid__task_runs__rid__archive_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4175,6 +4218,38 @@ export interface components {
              */
             truncated: boolean;
         };
+        /** ModelCatalog */
+        ModelCatalog: {
+            /** Generation */
+            generation: string;
+            /** Profiles */
+            profiles: components["schemas"]["ModelProfileInfo"][];
+        };
+        /** ModelProfileInfo */
+        ModelProfileInfo: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Available */
+            available: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Profile Sha256 */
+            profile_sha256?: string | null;
+            /** Artifacts Sha256 */
+            artifacts_sha256?: string | null;
+            /** Channels */
+            channels?: {
+                [key: string]: string;
+            };
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Dataset */
+            dataset?: string | null;
+        };
         /** OpenGeometry */
         OpenGeometry: {
             /** Shape */
@@ -5425,6 +5500,11 @@ export interface components {
             at: string;
             /** Fresh */
             fresh: boolean;
+            model_catalog?: components["schemas"]["ModelCatalog"] | null;
+            /** Execution */
+            execution?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** RuntimeSpec */
         RuntimeSpec: {
@@ -5770,6 +5850,32 @@ export interface components {
             /** Proposed Side */
             proposed_side?: ("L" | "R") | null;
         };
+        /** TaskControl */
+        TaskControl: {
+            /**
+             * Control
+             * @default 1
+             * @constant
+             */
+            control: 1;
+            /** Id */
+            id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "pause" | "cancel";
+            /** Job Id */
+            job_id: string;
+            /** Attempt */
+            attempt?: string | null;
+            /** Requested At */
+            requested_at: string;
+            /** Deadline Mono */
+            deadline_mono: number;
+            /** Acknowledged At */
+            acknowledged_at?: string | null;
+        };
         /**
          * TaskEstimate
          * @description TSK-05.
@@ -5833,6 +5939,11 @@ export interface components {
             runner_online?: boolean | null;
             /** Settings Schema Url */
             settings_schema_url?: string | null;
+            model_catalog?: components["schemas"]["ModelCatalog"] | null;
+            /** Execution */
+            execution?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** TaskItemError */
         TaskItemError: {
@@ -5963,7 +6074,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted" | "waiting_for_resources" | "pausing" | "paused" | "cancelling" | "reconciling" | "cleanup_pending";
             /** Created At */
             created_at: string;
             /** Started At */
@@ -5977,6 +6088,21 @@ export interface components {
             counts?: components["schemas"]["TaskRunCounts"];
             /** Error */
             error?: string | null;
+            /**
+             * Supervised
+             * @default false
+             */
+            supervised: boolean;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /** Execution */
+            execution?: {
+                [key: string]: unknown;
+            } | null;
+            control?: components["schemas"]["TaskControl"] | null;
             /**
              * Runtime
              * @enum {string}
@@ -6001,6 +6127,11 @@ export interface components {
             provenance?: {
                 [key: string]: unknown;
             };
+            /** Identity */
+            identity?: {
+                [key: string]: unknown;
+            };
+            manifest_snapshot?: components["schemas"]["TaskManifest"] | null;
             /** Output Dir */
             output_dir?: string | null;
             /** Outputs */
@@ -6010,6 +6141,16 @@ export interface components {
              * @default 0
              */
             attempts: number;
+            /**
+             * Progress Cursor
+             * @default 0
+             */
+            progress_cursor: number;
+            /**
+             * Progress Done
+             * @default 0
+             */
+            progress_done: number;
             progress?: components["schemas"]["TaskRunProgress"] | null;
             radiomics?: components["schemas"]["RunDetail"] | null;
         };
@@ -6038,7 +6179,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted" | "waiting_for_resources" | "pausing" | "paused" | "cancelling" | "reconciling" | "cleanup_pending";
             /** Created At */
             created_at: string;
             /** Started At */
@@ -6052,6 +6193,21 @@ export interface components {
             counts?: components["schemas"]["TaskRunCounts"];
             /** Error */
             error?: string | null;
+            /**
+             * Supervised
+             * @default false
+             */
+            supervised: boolean;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /** Execution */
+            execution?: {
+                [key: string]: unknown;
+            } | null;
+            control?: components["schemas"]["TaskControl"] | null;
             radiomics?: components["schemas"]["RunSummary"] | null;
         };
         /**
@@ -6103,7 +6259,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted" | "waiting_for_resources" | "pausing" | "paused" | "cancelling" | "reconciling" | "cleanup_pending";
         };
         /**
          * TaskSelection
@@ -6472,7 +6628,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted";
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted" | "waiting_for_resources" | "pausing" | "paused" | "cancelling" | "reconciling" | "cleanup_pending";
             /** Created At */
             created_at: string;
             /** Started At */
@@ -9192,6 +9348,7 @@ export interface operations {
         parameters: {
             query?: {
                 task?: string | null;
+                archived?: boolean;
             };
             header?: never;
             path: {
@@ -9291,6 +9448,70 @@ export interface operations {
         };
     };
     cancel_run_api_v1_projects__pid__task_runs__rid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_run_api_v1_projects__pid__task_runs__rid__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_run_api_v1_projects__pid__task_runs__rid__archive_post: {
         parameters: {
             query?: never;
             header?: never;

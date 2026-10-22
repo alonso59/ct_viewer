@@ -23,6 +23,11 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | OPS-13 | External tasks run through `scripts/rw-runner.py` on the host (Docker or udocker alike), in the plugin's own environment; `WORKSPACE_HOST`, the data and the derived roots must be visible to it at the same paths as in the container, except the workspace, which the runner addresses by its host path (TSK-11). | M |
 | OPS-15 | Optional `MANAGED_DERIVED_ROOT` must equal the sibling `derived/` of `WORKSPACE_ROOT`. Only that explicitly managed root may overlap an allowed source browsing root; PRJ-19 independently controls dataset-local outputs. | M |
 | OPS-14 | Builtin tasks (converter, analyzers, radiomics) stay in the image within OPS-08; heavy plugins (torch, GPU) never go into the image. | M |
+| OPS-16 | Production GPU tasks require an accepted execution backend with verified attempt ownership/whole-tree cleanup and bounded CPU, RAM, tasks and runtime. Capabilities are per deployment under ADR-0034; local/server execution requires the effective user-cgroup and Landlock/seccomp gate. Device visibility/reservations are cooperative; quota and logout persistence are reported separately. | M |
+| OPS-17 | Runner diagnostics inspect capabilities without changing host policy or starting inference. Reports distinguish observed prerequisites, verified enforcement and advisory/unavailable controls. Never install system tools, enable lingering or change driver/GPU policy as a diagnostic side effect. | M |
+| OPS-18 | Operator-owned private deployment configuration selects `local`, `server` or future `slurm`, an existing Python/conda environment, approved roots, resource limits and GPU pool. No browser executable, shell text, host paths or scheduler flags. CPU quota is at most 12 and each attempt uses at most four approved GPUs. | M |
+| OPS-19 | Where the accepted backend uses an unprivileged sandbox, verify write/network effects and inheritance before GPU admission. Sandbox installation failure refuses launch; conda, torchrun, visibility variables and udocker never certify OS isolation. Explicit runtime filesystem/device allowances and syscall limitations remain documented in domain/SEGMENTATION_RUNTIMES.md. | M |
+| OPS-20 | SLURM execution is a separate deployment acceptance gate: approved scheduler resources, shared filesystem/environment visibility, durable scheduler identity and cleanup reconciliation. Configuration validation or fake scheduler tests do not certify an inaccessible cluster. | M |
 
 ## Config (env vars)
 
@@ -95,6 +100,10 @@ make image-tar                 # on the build machine: docker save -> build/rw-{
 Result 2026-09-27 (linux/arm64 under colima, default Docker seccomp profile, no extra capabilities): **P1 pass** (healthy after ~13 s, TST-10 in 3 s), **F3 pass** (healthy after ~12 s including the F3 setup, TST-10 in 1 s); 191 source files unchanged. P1 (proot/ptrace) needed no `--cap-add SYS_PTRACE` or `seccomp=unconfined` on the outer container; if a stricter Docker host blocks ptrace, pass them through `OUTER_OPTS` (outer test container only; a real server has no such limit). The real remote check (amd64, real data, I/O benchmark) stays open (REL-07).
 
 ## Persistent local user service
+
+P7g GPU admission follows OPS-16..20 and ADR-0034. Unconfigured GPU execution stays unavailable; an operator-configured local/server backend must pass effective checks before advertising tasks. Setup and trust/limit details have one owner: `../domain/SEGMENTATION_RUNTIMES.md`. `--preflight` without a deployment retains the original strict prerequisite report for diagnostics.
+`RW_RUNNER_STORAGE_ROOT` and `RW_RUNNER_STORAGE_MAX_BYTES` are host-diagnostic inputs for an independently bounded, privately owned mounted filesystem; they do not configure a quota. `/`, symlinks and group/world-writable storage are refused. A free-space check is not an enforced budget.
+For explicitly authorized, GPU-free effect testing, use `backend`'s `tools.runner_host_probe --run`; details/results belong to `SEGMENTATION_JOB_TEST_PLAN.md`. It never enables lingering, installs tools, changes driver policy or touches input/model roots.
 
 An installation may live in `$HOME/.local/share/radiology-workbench/` independently
 of the development checkout: `launcher/` (udocker + its Python environment),

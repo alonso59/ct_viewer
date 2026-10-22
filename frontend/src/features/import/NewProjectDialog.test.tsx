@@ -25,3 +25,20 @@ test('PRJ-19 requires a dataset folder and forwards it to create and import', as
   await waitFor(() => expect(close).toHaveBeenCalledWith(false))
   expect(useImportWizard.getState().prefill?.path).toBe('/data/Dataset900')
 })
+
+test('retains the attached mask and adapter when the import root is the dataset itself', async () => {
+  const prefill = { path: '/data/Dataset900', adapter: 'nifti-files' as const, options: { include: ['nifti/one.nii.gz'], masks: { 'nifti/one.nii.gz': 'seg/one.nii.gz' } } }
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<MemoryRouter><QueryClientProvider client={qc}><NewProjectDialog open onOpenChange={vi.fn()} prefill={prefill} /></QueryClientProvider></MemoryRouter>)
+  fireEvent.change(screen.getByLabelText('Project name'), { target: { value: 'Dataset project' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Create and import' }))
+  await waitFor(() => expect(useImportWizard.getState().prefill).toEqual(prefill))
+})
+
+test('opens with the latest source after a mask was attached while the dialog was closed', () => {
+  const qc = new QueryClient()
+  const dialog = (open: boolean, path: string) => <MemoryRouter><QueryClientProvider client={qc}><NewProjectDialog open={open} onOpenChange={vi.fn()} prefill={{ path }} /></QueryClientProvider></MemoryRouter>
+  const view = render(dialog(false, '/data/Dataset900/nifti/one.nii.gz'))
+  view.rerender(dialog(true, '/data/Dataset900'))
+  expect(screen.getByLabelText('Dataset folder')).toHaveValue('/data/Dataset900')
+})

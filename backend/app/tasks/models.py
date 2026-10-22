@@ -23,11 +23,19 @@ TaskRunStatus = Literal[
     "failed",
     "cancelled",
     "interrupted",
+    "waiting_for_resources",
+    "pausing",
+    "paused",
+    "cancelling",
+    "reconciling",
+    "cleanup_pending",
 ]
 TERMINAL_TASK_RUN: frozenset[str] = frozenset(
-    {"completed", "completed_with_errors", "failed", "cancelled", "interrupted"}
+    {"completed", "completed_with_errors", "failed", "cancelled", "interrupted", "paused"}
 )
-RESUMABLE_TASK_RUN: frozenset[str] = frozenset({"failed", "cancelled", "interrupted"})
+RESUMABLE_TASK_RUN: frozenset[str] = frozenset(
+    {"failed", "cancelled", "interrupted", "paused", "completed_with_errors"}
+)
 ItemState = Literal["ok", "failed", "skipped"]
 
 
@@ -88,6 +96,23 @@ class TaskManifest(BaseModel):
     scope: Literal["project", "workspace"] = "project"
 
 
+class ModelProfileInfo(BaseModel):
+    id: str
+    title: str
+    available: bool
+    reason: str | None = None
+    profile_sha256: str | None = None
+    artifacts_sha256: str | None = None
+    channels: dict[str, str] = Field(default_factory=dict)
+    labels: dict[str, str] = Field(default_factory=dict)
+    dataset: str | None = None
+
+
+class ModelCatalog(BaseModel):
+    generation: str
+    profiles: list[ModelProfileInfo]
+
+
 class TaskInfo(BaseModel):
     """API-42 row: a loaded manifest plus where it came from and whether it can run now."""
 
@@ -102,6 +127,8 @@ class TaskInfo(BaseModel):
     runner_online: bool | None = None
     # Radiomics keeps its richer schema behind API-30 (TSK-02, RAD-01).
     settings_schema_url: str | None = None
+    model_catalog: ModelCatalog | None = None
+    execution: dict[str, Any] | None = None
 
 
 class InvalidManifest(BaseModel):
@@ -116,6 +143,8 @@ class RunnerInfo(BaseModel):
     pid: int | None = None
     at: str
     fresh: bool
+    model_catalog: ModelCatalog | None = None
+    execution: dict[str, Any] | None = None
 
 
 class TaskList(BaseModel):
@@ -254,6 +283,17 @@ class TaskRef(BaseModel):
     manifest_hash: str
 
 
+class TaskControl(BaseModel):
+    control: Literal[1] = 1
+    id: str
+    action: Literal["pause", "cancel"]
+    job_id: str
+    attempt: str | None = None
+    requested_at: str
+    deadline_mono: float
+    acknowledged_at: str | None = None
+
+
 class TaskRunSummary(BaseModel):
     run_id: str
     task: TaskRef
@@ -266,6 +306,10 @@ class TaskRunSummary(BaseModel):
     job_id: str | None = None
     counts: TaskRunCounts = Field(default_factory=TaskRunCounts)
     error: str | None = None
+    supervised: bool = False
+    archived: bool = False
+    execution: dict[str, Any] | None = None
+    control: TaskControl | None = None
 
 
 class TaskRunListItem(TaskRunSummary):
@@ -285,9 +329,13 @@ class TaskRunRecord(TaskRunSummary):
     inputs: list[TaskRunInput] = Field(default_factory=list)
     versions: dict[str, str] = Field(default_factory=dict)
     provenance: dict[str, Any] = Field(default_factory=dict)
+    identity: dict[str, Any] = Field(default_factory=dict)
+    manifest_snapshot: TaskManifest | None = None
     output_dir: str | None = None  # absolute, inside the project's derived root
     outputs: list[TaskRunOutput] = Field(default_factory=list)
     attempts: int = 0
+    progress_cursor: int = 0
+    progress_done: int = 0
 
 
 class TaskRunProgress(BaseModel):

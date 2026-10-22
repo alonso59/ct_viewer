@@ -48,6 +48,13 @@ def test_api_paths_never_fall_back_to_the_spa(tmp_path: Path) -> None:
             assert "root" not in r.text
 
 
+def test_spa_preserves_api_method_not_allowed(tmp_path: Path) -> None:
+    with TestClient(create_app(_spa_settings(tmp_path), inline_jobs=True)) as client:
+        response = client.get("/api/v1/fs/list")
+        assert response.status_code == 405
+        assert "POST" in response.headers["allow"]
+
+
 def test_no_spa_without_index_html(tmp_path: Path) -> None:
     settings = make_settings(tmp_path).model_copy(update={"static_root": tmp_path / "none"})
     app = create_app(settings, inline_jobs=True)

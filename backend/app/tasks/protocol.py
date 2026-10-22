@@ -1,5 +1,6 @@
 """Backend side of the run protocol (TASKS.md §Protocol): write `job.json`, tail `progress.jsonl`,
-read `result.json`. The backend writes only `job.json` and `cancel` (TSK-11)."""
+read `result.json`. The backend writes only `job.json` and `cancel` (TSK-11), plus `pause` and
+`control.json` for supervised runs (TSK-15); the supervisor answers with `control-ack.json`."""
 
 from __future__ import annotations
 
@@ -38,6 +39,7 @@ class Tail:
 
     path: Path
     offset: int = 0
+    include_offsets: bool = False
 
     def read(self) -> list[dict[str, Any]]:
         try:
@@ -49,9 +51,11 @@ class Tail:
         end = data.rfind(b"\n")
         if end < 0:
             return []
+        cursor = self.offset
         self.offset += end + 1
         out: list[dict[str, Any]] = []
-        for raw in data[: end + 1].splitlines():
+        for raw in data[: end + 1].splitlines(keepends=True):
+            cursor += len(raw)
             line = raw.strip()
             if not line:
                 continue
@@ -60,6 +64,8 @@ class Tail:
             except (UnicodeDecodeError, json.JSONDecodeError):
                 continue  # a task bug must not break the relay
             if isinstance(obj, dict):
+                if self.include_offsets:
+                    obj["_offset"] = cursor
                 out.append(obj)
         return out
 
@@ -73,6 +79,18 @@ def read_result(job_dir: Path) -> dict[str, Any] | None:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     return raw if isinstance(raw, dict) else None
+
+
+def external_finished(job_dir: Path) -> bool:
+    attempt = read_attempt(job_dir)
+    if attempt is not None:
+        outcome = read_exit(job_dir)
+        return bool(
+            outcome
+            and outcome.get("cleanup_verified") is True
+            and outcome.get("attempt") == attempt.get("attempt")
+        )
+    return (job_dir / RESULT).is_file() or (job_dir / EXIT).is_file()
 
 
 def log_tail(job_dir: Path) -> str:
@@ -101,3 +119,8 @@ def read_claim(job_dir: Path) -> dict[str, Any] | None:
 
 def read_exit(job_dir: Path) -> dict[str, Any] | None:
     return _json(job_dir / EXIT)
+
+
+def read_attempt(job_dir: Path) -> dict[str, Any] | None:
+    """The supervisor's `attempt.json` (attempt generation, state); None before launch."""
+    return _json(job_dir / "attempt.json")

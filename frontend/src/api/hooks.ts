@@ -587,8 +587,18 @@ export const usePlugins = (pid: string | null) =>
 export const useTasks = () => useQuery({ queryKey: keys.tasks(), queryFn: () => api.listTasks(), staleTime: 30_000 })
 export const useSegmentations = (pid: string) =>
   useQuery({ queryKey: keys.segmentations(pid), queryFn: () => api.listSegmentations(pid), enabled: enabled(pid) })
+/** Polls while a supervised run waits for its verified cleanup (TSK-15): no job event announces it */
+const STOPPING_RUN: readonly string[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
 export const useTaskRuns = (pid: string) =>
-  useQuery({ queryKey: keys.taskRuns(pid), queryFn: () => api.listTaskRuns(pid), enabled: enabled(pid) })
+  useQuery({
+    queryKey: keys.taskRuns(pid),
+    queryFn: () => api.listTaskRuns(pid),
+    enabled: enabled(pid),
+    refetchInterval: (q) => (q.state.data?.some((r) => STOPPING_RUN.includes(r.status)) ? 2000 : false),
+  })
+/** J6: archived supervised runs, fetched only when asked */
+export const useArchivedTaskRuns = (pid: string, on: boolean) =>
+  useQuery({ queryKey: keys.archivedTaskRuns(pid), queryFn: () => api.listTaskRuns(pid, undefined, true), enabled: on && enabled(pid) })
 export const useTaskRun = (pid: string, rid: string | null) =>
   useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid) })
 

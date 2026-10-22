@@ -5,6 +5,7 @@ item outcomes and logs, finish the run record.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import shutil
 import time
@@ -14,13 +15,14 @@ from pathlib import Path
 from typing import Any, Final
 
 from app.core.errors import JobConflict
-from app.core.fsio import append_jsonl
+from app.core.fsio import append_jsonl, iter_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.ingest.models import Item
 from app.ingest.segsets import record_masks
 from app.jobs.types import JobHandle, JobInfo, JobSpec
-from app.tasks import protocol, registry
+from app.tasks import control, protocol, registry
 from app.tasks.builtin import run_entry
+from app.tasks.identity import committed_outputs
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
     TaskManifest,
@@ -54,38 +56,69 @@ class DriverBase(RegistrationBase):
         items: Sequence[Item],
         seg_id: str | None,
         skip: Sequence[str],
+        *,
+        recover: bool = False,
     ) -> TaskRunStarted:
         rid = run_dir.name
         rec = self.runs.read(run_dir)
-        job_id = new_ulid()
+        job_id = rec.job_id if recover else new_ulid()
+        if job_id is None:
+            raise JobConflict("External recovery has no recorded job identity")
         job_dir = self.job_dir(m, job_id)
-        spec = self._job_spec(
-            pid,
-            m,
-            settings=rec.settings,
-            items=items,
-            seg_id=seg_id,
-            output_dir=rec.output_dir,
-            source=rec.selection.source,
+        spec = (
+            json.loads((job_dir / "job.json").read_text())
+            if recover
+            else self._job_spec(
+                pid,
+                m,
+                settings=rec.settings,
+                items=items,
+                seg_id=seg_id,
+                output_dir=rec.output_dir,
+                source=rec.selection.source,
+            )
         )
-        protocol.write_job(
-            job_dir,
-            {
-                **spec,
-                "job_id": job_id,
-                "run_id": rid,
-                "mode": "run",
-                "resume": {"skip": list(skip)},
-                "batch": {"size": m.resources.max_batch or max(1, len(items))},
-            },
-        )
+        if not recover:
+            protocol.write_job(
+                job_dir,
+                {
+                    **spec,
+                    "job_id": job_id,
+                    "run_id": rid,
+                    "mode": "run",
+                    "resume": {"skip": list(skip)},
+                    "batch": {"size": m.resources.max_batch or max(1, len(items))},
+                    **(
+                        {
+                            "identity": rec.identity,
+                            "committed_outputs": committed_outputs(
+                                rec.outputs, self.workspace.resolver(pid).resolve
+                            ),
+                        }
+                        if rec.identity
+                        else {}
+                    ),
+                },
+            )
         live = Live(pid, rid, run_dir, job_dir, m, rec.selection.seg_id)
+        events = [*iter_jsonl(run_dir / ITEMS), *iter_jsonl(run_dir / LOGS)]
+        live.seen_events = {str(row["event_id"]) for row in events if row.get("event_id")}
+        live.seen_items = {
+            str(row["item_id"])
+            for row in events
+            if row.get("item_id") and str(row.get("event_id", "")).startswith(f"{job_id}:")
+        }
+        live.done = rec.progress_done if recover else 0
         live.dataset_dir = Path(spec["dataset_dir"]) if "dataset_dir" in spec else None
         live.registered = any(
             s.producer is not None and s.producer.run_id == rid
             for s in self.workspace.get(pid).segmentations
         )
-        n_todo = len([i for i in items if i.item_id not in set(skip)])
+        n_todo = (
+            len(spec.get("items", []))
+            if recover
+            else len([i for i in items if i.item_id not in set(skip)])
+        )
 
         async def driver(h: JobHandle) -> None:
             if m.runtime.type == "external":
@@ -107,23 +140,75 @@ class DriverBase(RegistrationBase):
             job_id=job_id,
             key=m.id,
             meta={"run_id": rid, "task_id": m.id},
+            detach_on_shutdown=m.runtime.type == "external"
+            and m.resources.gpu in {"required", "optional"},
         )
 
         def prepare(rec: TaskRunRecord) -> None:
             rec.error, rec.finished_at = None, None
             rec.attempts += 1
+            rec.progress_cursor, rec.progress_done = 0, 0
 
-        await self.runs.submit(
-            pid,
-            run_dir,
-            job_spec,
-            prepare=prepare,
-            on_error=lambda: shutil.rmtree(job_dir, ignore_errors=True),
-        )
+        if recover:
+            self.jobs.submit(job_spec)
+
+            def reattached(rec: TaskRunRecord) -> None:
+                if not control.pending(rec):  # a pending pause/cancel keeps its stopping state
+                    claimed = protocol.read_claim(job_dir) is not None
+                    rec.status = "running" if claimed else "queued"
+                rec.finished_at = None
+
+            await self.runs.update(pid, run_dir, reattached)
+        else:
+            await self.runs.submit(
+                pid,
+                run_dir,
+                job_spec,
+                prepare=prepare,
+                on_error=lambda: shutil.rmtree(job_dir, ignore_errors=True),
+            )
         return TaskRunStarted(run_id=rid, job_id=job_id, status="queued")
 
+    async def _recover_external(self, pid: str, run_dir: Path) -> None:
+        rec = self.runs.read(run_dir)
+        if (
+            rec.runtime != "external"
+            or rec.job_id is None
+            or rec.status in TERMINAL_TASK_RUN
+            or self.runs.job(rec.job_id) is not None
+        ):
+            return
+        job = self.queue_dir / rec.job_id
+        if not (job / "job.json").is_file():
+            return
+        if rec.manifest_snapshot is not None:
+            manifest = rec.manifest_snapshot
+        else:
+            info = self.registry.get(rec.task.id)
+            if info.manifest_hash != rec.task.manifest_hash:
+                raise JobConflict(
+                    "Installed task manifest changed; external recovery requires review"
+                )
+            manifest = info.manifest
+        if manifest.resources.gpu not in {"required", "optional"}:
+            return
+        spec = json.loads((job / "job.json").read_text())
+        if spec.get("run_id") != rec.run_id or spec.get("job_id") != rec.job_id:
+            raise JobConflict("External attempt identity does not match the run")
+        await self._submit(pid, run_dir, manifest, [], rec.selection.seg_id, [], recover=True)
+
     async def _set_status(self, live: Live, status: TaskRunStatus) -> None:
-        await self.runs.set_status(live.pid, live.run_dir, status)
+        """Forward only, as `RunStore.set_status`; a pending control keeps pausing/cancelling."""
+
+        def edit(rec: TaskRunRecord) -> bool:
+            if rec.status in TERMINAL_TASK_RUN or rec.status == status or control.pending(rec):
+                return False
+            rec.status = status
+            if status == "running":
+                rec.started_at = rec.started_at or utc_now()
+            return True
+
+        await self.runs.update(live.pid, live.run_dir, edit)
 
     async def _drive(self, h: JobHandle, live: Live, total: int) -> None:
         """Builtin: run the entry in a worker and tail its progress (TSK-07)."""
@@ -164,19 +249,22 @@ class DriverBase(RegistrationBase):
         """External: the host runner claims `queue/{job_id}` (TSK-11, BE-14); we only tail it."""
         h.set_total(total)
         live.set_total = h.set_total
-        tail = protocol.Tail(live.job_dir / protocol.PROGRESS)
+        rec = self.runs.read(live.run_dir)
+        tail = protocol.Tail(
+            live.job_dir / protocol.PROGRESS, offset=rec.progress_cursor, include_offsets=True
+        )
         task_id = live.manifest.id
         claimed_by: str | None = None
         lost_since: float | None = None
         stop_at: float | None = None
         while True:
-            await self._on_lines(live, tail.read())
+            await self._on_lines(live, tail.read(), cursor=tail.offset)
             h.set_done(live.done)
-            if (live.job_dir / protocol.RESULT).is_file() or (
-                live.job_dir / protocol.EXIT
-            ).is_file():
+            if protocol.external_finished(live.job_dir):
                 break
             claim = protocol.read_claim(live.job_dir)
+            if claim is None and (live.job_dir / "pause").exists():
+                break  # never claimed: the runner skips paused jobs (J3)
             if claim is None:
                 waiting = not registry.runner_online(self.queue_dir, task_id)
                 status: TaskRunStatus = "waiting_for_runner" if waiting else "queued"
@@ -191,28 +279,43 @@ class DriverBase(RegistrationBase):
                     r.runner_id == claimed_by and r.fresh for r in registry.runners(self.queue_dir)
                 )
                 lost_since = None if alive else (lost_since or time.monotonic())
-                if lost_since is not None and time.monotonic() - lost_since > RUNNER_LOST_S:
+                if (
+                    lost_since is not None
+                    and time.monotonic() - lost_since > RUNNER_LOST_S
+                    and not (live.job_dir / "attempt.json").exists()
+                ):
                     raise RuntimeError(f"runner {claimed_by} stopped sending heartbeats")
             if h.stopped:
                 if not live.cancel_sent:
                     protocol.request_cancel(live.job_dir)
                     live.cancel_sent = True
                     stop_at = time.monotonic()
-                if claimed_by is None:
+                if protocol.read_claim(live.job_dir) is None:
                     break  # never claimed: the runner skips cancelled jobs
-                if stop_at is not None and time.monotonic() - stop_at > CANCEL_GRACE_S + 10:
+                if (
+                    stop_at is not None
+                    and time.monotonic() - stop_at > CANCEL_GRACE_S + 10
+                    and not (live.job_dir / "attempt.json").exists()
+                ):
                     break
             await asyncio.sleep(POLL_S)
-        await self._on_lines(live, tail.read())
+        await self._on_lines(live, tail.read(), cursor=tail.offset)
         h.set_done(live.done)
 
-    async def _on_lines(self, live: Live, lines: Sequence[dict[str, Any]]) -> None:
+    async def _on_lines(
+        self, live: Live, lines: Sequence[dict[str, Any]], *, cursor: int | None = None
+    ) -> None:
         if not lines:
             return
         item_rows: list[dict[str, Any]] = []
         logs: list[dict[str, Any]] = []
         masks: list[dict[str, Any]] = []
         for line in lines:
+            event = f"{live.job_dir.name}:{line['_offset']}" if "_offset" in line else None
+            if event and event in live.seen_events:
+                continue
+            if event:
+                live.seen_events.add(event)
             t = line.get("t")
             if t == "total" and live.set_total is not None:
                 live.set_total(int(line.get("n") or 0))
@@ -222,6 +325,7 @@ class DriverBase(RegistrationBase):
                         "at": utc_now(),
                         "level": line.get("level", "info"),
                         "message": str(line.get("message", ""))[:2000],
+                        **({"event_id": event} if event else {}),
                     }
                 )
             elif t == "item":
@@ -233,13 +337,16 @@ class DriverBase(RegistrationBase):
                     "item_id": iid,
                     "status": status,
                     "message": str(line.get("message") or "")[:2000],
+                    **({"event_id": event} if event else {}),
                 }
                 if status == "ok":
                     try:
                         masks += await self._item_outputs(live, iid, line.get("outputs") or [])
                     except ValueError as exc:
-                        row = {"item_id": iid, "status": "failed", "message": f"output: {exc}"}
-                live.done += 1
+                        row.update(status="failed", message=f"output: {exc}")
+                if iid not in live.seen_items:
+                    live.done += 1
+                    live.seen_items.add(iid)
                 item_rows.append(row)
         if masks and not live.registered:
             await self._register_set(live, masks)
@@ -250,6 +357,15 @@ class DriverBase(RegistrationBase):
                 append_jsonl(live.run_dir / LOGS, logs)
             if masks:
                 record_masks(self.workspace.project_dir(live.pid), live.rid, masks)
+            rec = self.runs.read(live.run_dir)
+            rec.outputs += [output for output in live.outputs if output not in rec.outputs]
+            if cursor is not None:
+                rec.progress_cursor, rec.progress_done = cursor, live.done
+            if live.manifest.resources.gpu == "required":
+                self._record_gpu_ledger(live)
+            self.runs.write(live.run_dir, rec)
+        if masks and live.manifest.resources.gpu == "required":
+            await self._reindex_masks(live.pid)
 
     async def _finish(self, live: Live, info: JobInfo) -> None:
         result = protocol.read_result(live.job_dir)
@@ -289,15 +405,26 @@ class DriverBase(RegistrationBase):
                 if isinstance(provenance, dict):
                     rec.provenance = provenance
             rec.status = status
+            if control.pending(rec):
+                if control.acknowledge(rec, live.job_dir):
+                    status = rec.status
+                    rec.error = rec.error if result is not None else None
+                else:  # stopped without verified cleanup: allocation stays blocked (S4)
+                    status = rec.status = "cleanup_pending"
             rec.started_at = rec.started_at or info.started_at
             rec.finished_at = utc_now()
-            rec.outputs = [*rec.outputs, *live.outputs]
+            rec.outputs = [
+                *rec.outputs,
+                *(output for output in live.outputs if output not in rec.outputs),
+            ]
             if live.registered:
                 seg = self._target_seg(live)
                 if not any(o.kind == "segmentation_set" and o.seg_id == seg for o in rec.outputs):
                     rec.outputs.append(TaskRunOutput(kind="segmentation_set", seg_id=seg))
             self.runs.write(live.run_dir, rec)
-            if live.outputs:
+            if live.manifest.resources.gpu == "required":
+                self._record_gpu_ledger(live)
+            elif live.outputs:
                 append_jsonl(
                     self.workspace.project_dir(live.pid) / LEDGER,
                     [

@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → VOI extractor → P7 remote checks → P8 Electron**.
+Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → VOI extractor → P7 remote checks → P8 Electron**.
 
 ## Progress
 
@@ -25,6 +25,8 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
 | P7d | nnU-Net segmentation planning | ✅ 2026-10-21 (ADR-0032 accepted; Dataset220; 2–4 GPU policy) |
 | P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
+| P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
+| P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle and its UI verified by unit/API tests; browser journeys, CI image build and GPU host acceptance of the lifecycle remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -68,7 +70,23 @@ Done 2026-09-24 (exit met; archive).
 - [x] Pass TST-21 locally with the fake CLI, then on `john-gpinedo` with one item and a two-case batch on GPUs 0 and 6 (2026-10-21)
 **Exit:** generated masks form a new indexed segmentation set, source and existing masks remain byte-identical, partial failure/cancel/resume work, and the real profile completes on the GPU host.
 
-### Pending plugin after P7e
+### P7f — Supervised segmentation job planning
+
+- [x] Audit existing model, GPU, lifecycle and isolation contracts against the owner's requested controls; record code evidence and platform limitations
+- [x] Define proposed acceptance criteria, test cases, test-environment/CI audit, failure-investigation policy and tests-first implementation waves
+- [x] Owner accepts ADR-0033 and confirms the P7g phase boundary (2026-10-22)
+**Exit:** review `domain/SEGMENTATION_JOB_PLAN.md` and `ops/SEGMENTATION_JOB_TEST_PLAN.md`; ADR-0033 is Accepted before changing ADR-0032 policies.
+
+### P7g — Supervised segmentation jobs, tests first
+
+- [x] Accept ADR-0033; add bounded/full test gates, locked test environment and regression-driven initial runner fixes
+- [x] Rebaseline failed strict host requirements through accepted ADR-0034; implement the per-attempt supervisor and pass the effective local/server containment gate
+- [x] Verify official prediction/postprocessing with one and two GPUs, immutable sources/models, geometry and indexing
+- [ ] Run the ordered implementation waves and their red/green checkpoints from `domain/SEGMENTATION_JOB_PLAN.md`
+- [ ] Pass the required environment lanes from `ops/SEGMENTATION_JOB_TEST_PLAN.md`; real host safety/GPU acceptance is mandatory and missing capabilities remain explicit blockers
+**Exit:** accepted criteria have requirement IDs, passing regression tests and real isolation/cleanup evidence; no unrelated process affected, no source/model mutation and no duplicate attempts/output registration.
+
+### Pending plugin after P7g
 - [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` axis order (SRC-12, IMP-10)
 
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)

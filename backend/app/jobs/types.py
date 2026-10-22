@@ -77,3 +77,4 @@ class JobSpec:
     driver: Callable[[JobHandle], Awaitable[None]] | None = None
     # (kind, key) exclusivity instead of (kind): one task run per (project, task_id) (TSK-12).
     key: str | None = None
+    detach_on_shutdown: bool = False  # supervised external work is owned outside the API

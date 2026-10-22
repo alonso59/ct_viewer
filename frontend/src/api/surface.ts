@@ -250,9 +250,14 @@ export interface Api {
   preflightTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>): Promise<PreflightResult>
   estimateTask(pid: string, taskId: string, selection: TaskSelection, settings?: Record<string, unknown>, progressId?: string): Promise<TaskEstimate>
   startTaskRun(pid: string, body: TaskRunRequest, reviewer?: string): Promise<TaskRunStarted>
-  listTaskRuns(pid: string, taskId?: string): Promise<TaskRunSummary[]>
+  /** `archived`: the archived supervised runs instead (J6) */
+  listTaskRuns(pid: string, taskId?: string, archived?: boolean): Promise<TaskRunSummary[]>
   getTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
   cancelTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
+  /** TSK-15 supervised runs: `pausing` until the supervisor confirms cleanup (J3) */
+  pauseTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
+  /** TSK-15: hide an inactive supervised run; its records and masks stay (J6) */
+  archiveTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
   resumeTaskRun(pid: string, rid: string): Promise<TaskRunStarted>
   taskRunErrors(pid: string, rid: string): Promise<TaskItemError[]>
   taskRunOutputs(pid: string, rid: string): Promise<TaskRunOutput[]>

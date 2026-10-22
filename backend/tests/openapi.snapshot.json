@@ -5822,6 +5822,108 @@
     "title": "MissingMatrixResponse",
     "type": "object"
    },
+   "ModelCatalog": {
+    "properties": {
+     "generation": {
+      "title": "Generation",
+      "type": "string"
+     },
+     "profiles": {
+      "items": {
+       "$ref": "#/components/schemas/ModelProfileInfo"
+      },
+      "title": "Profiles",
+      "type": "array"
+     }
+    },
+    "required": [
+     "generation",
+     "profiles"
+    ],
+    "title": "ModelCatalog",
+    "type": "object"
+   },
+   "ModelProfileInfo": {
+    "properties": {
+     "artifacts_sha256": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artifacts Sha256"
+     },
+     "available": {
+      "title": "Available",
+      "type": "boolean"
+     },
+     "channels": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Channels",
+      "type": "object"
+     },
+     "dataset": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "labels": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "object"
+     },
+     "profile_sha256": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Profile Sha256"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "available"
+    ],
+    "title": "ModelProfileInfo",
+    "type": "object"
+   },
    "OpenGeometry": {
     "properties": {
      "affine": {
@@ -9255,6 +9357,18 @@
       "title": "At",
       "type": "string"
      },
+     "execution": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Execution"
+     },
      "fresh": {
       "title": "Fresh",
       "type": "boolean"
@@ -9269,6 +9383,16 @@
        }
       ],
       "title": "Gpu"
+     },
+     "model_catalog": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ModelCatalog"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "pid": {
       "anyOf": [
@@ -10140,6 +10264,71 @@
     "title": "TargetState",
     "type": "object"
    },
+   "TaskControl": {
+    "properties": {
+     "acknowledged_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Acknowledged At"
+     },
+     "action": {
+      "enum": [
+       "pause",
+       "cancel"
+      ],
+      "title": "Action",
+      "type": "string"
+     },
+     "attempt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attempt"
+     },
+     "control": {
+      "const": 1,
+      "default": 1,
+      "title": "Control",
+      "type": "integer"
+     },
+     "deadline_mono": {
+      "title": "Deadline Mono",
+      "type": "number"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "string"
+     },
+     "requested_at": {
+      "title": "Requested At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "action",
+     "job_id",
+     "requested_at",
+     "deadline_mono"
+    ],
+    "title": "TaskControl",
+    "type": "object"
+   },
    "TaskEstimate": {
     "description": "TSK-05.",
     "properties": {
@@ -10253,12 +10442,34 @@
       "title": "Available",
       "type": "boolean"
      },
+     "execution": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Execution"
+     },
      "manifest": {
       "$ref": "#/components/schemas/TaskManifest"
      },
      "manifest_hash": {
       "title": "Manifest Hash",
       "type": "string"
+     },
+     "model_catalog": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ModelCatalog"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "plugin": {
       "anyOf": [
@@ -10564,10 +10775,25 @@
    },
    "TaskRunDetail": {
     "properties": {
+     "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
+     },
      "attempts": {
       "default": 0,
       "title": "Attempts",
       "type": "integer"
+     },
+     "control": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskControl"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "counts": {
       "$ref": "#/components/schemas/TaskRunCounts"
@@ -10587,6 +10813,18 @@
       ],
       "title": "Error"
      },
+     "execution": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Execution"
+     },
      "finished_at": {
       "anyOf": [
        {
@@ -10597,6 +10835,11 @@
        }
       ],
       "title": "Finished At"
+     },
+     "identity": {
+      "additionalProperties": true,
+      "title": "Identity",
+      "type": "object"
      },
      "inputs": {
       "items": {
@@ -10622,6 +10865,16 @@
        }
       ],
       "title": "Job Id"
+     },
+     "manifest_snapshot": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskManifest"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "name": {
       "title": "Name",
@@ -10654,6 +10907,16 @@
         "type": "null"
        }
       ]
+     },
+     "progress_cursor": {
+      "default": 0,
+      "title": "Progress Cursor",
+      "type": "integer"
+     },
+     "progress_done": {
+      "default": 0,
+      "title": "Progress Done",
+      "type": "integer"
      },
      "provenance": {
       "additionalProperties": true,
@@ -10725,10 +10988,21 @@
        "completed_with_errors",
        "failed",
        "cancelled",
-       "interrupted"
+       "interrupted",
+       "waiting_for_resources",
+       "pausing",
+       "paused",
+       "cancelling",
+       "reconciling",
+       "cleanup_pending"
       ],
       "title": "Status",
       "type": "string"
+     },
+     "supervised": {
+      "default": false,
+      "title": "Supervised",
+      "type": "boolean"
      },
      "task": {
       "$ref": "#/components/schemas/TaskRef"
@@ -10804,6 +11078,21 @@
    "TaskRunListItem": {
     "description": "API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13).",
     "properties": {
+     "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
+     },
+     "control": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskControl"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "counts": {
       "$ref": "#/components/schemas/TaskRunCounts"
      },
@@ -10821,6 +11110,18 @@
        }
       ],
       "title": "Error"
+     },
+     "execution": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Execution"
      },
      "finished_at": {
       "anyOf": [
@@ -10893,10 +11194,21 @@
        "completed_with_errors",
        "failed",
        "cancelled",
-       "interrupted"
+       "interrupted",
+       "waiting_for_resources",
+       "pausing",
+       "paused",
+       "cancelling",
+       "reconciling",
+       "cleanup_pending"
       ],
       "title": "Status",
       "type": "string"
+     },
+     "supervised": {
+      "default": false,
+      "title": "Supervised",
+      "type": "boolean"
      },
      "task": {
       "$ref": "#/components/schemas/TaskRef"
@@ -11069,7 +11381,13 @@
        "completed_with_errors",
        "failed",
        "cancelled",
-       "interrupted"
+       "interrupted",
+       "waiting_for_resources",
+       "pausing",
+       "paused",
+       "cancelling",
+       "reconciling",
+       "cleanup_pending"
       ],
       "title": "Status",
       "type": "string"
@@ -12222,7 +12540,13 @@
        "completed_with_errors",
        "failed",
        "cancelled",
-       "interrupted"
+       "interrupted",
+       "waiting_for_resources",
+       "pausing",
+       "paused",
+       "cancelling",
+       "reconciling",
+       "cleanup_pending"
       ],
       "title": "Status",
       "type": "string"
@@ -18153,6 +18477,7 @@
   },
   "/api/v1/projects/{pid}/task-runs": {
    "get": {
+    "description": "API-45; `archived=true` lists the archived runs instead (J6).",
     "operationId": "list_runs_api_v1_projects__pid__task_runs_get",
     "parameters": [
      {
@@ -18178,6 +18503,16 @@
         }
        ],
        "title": "Task"
+      }
+     },
+     {
+      "in": "query",
+      "name": "archived",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Archived",
+       "type": "boolean"
       }
      }
     ],
@@ -18325,6 +18660,58 @@
      }
     },
     "summary": "Get Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}/archive": {
+   "post": {
+    "description": "API-46 supervised runs (TSK-15): 409 while active or cleanup is pending.",
+    "operationId": "archive_run_api_v1_projects__pid__task_runs__rid__archive_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Archive Run",
     "tags": [
      "tasks"
     ]
@@ -18486,6 +18873,58 @@
      }
     },
     "summary": "Run Outputs",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/task-runs/{rid}/pause": {
+   "post": {
+    "description": "API-46 supervised runs (TSK-15): idempotent; `pausing` until cleanup is verified.",
+    "operationId": "pause_run_api_v1_projects__pid__task_runs__rid__pause_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Pause Run",
     "tags": [
      "tasks"
     ]

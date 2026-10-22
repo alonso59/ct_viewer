@@ -7,14 +7,16 @@ import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 import { api, importedProject } from './helpers'
+import { stopProcess } from './processes'
 
 const REPO = resolve(import.meta.dirname, '../..')
 const ITEM = 'case_00001.01.complete.-'
 
 let runner: ChildProcess | null = null
-test.afterEach(() => {
-  runner?.kill('SIGTERM')
+test.afterEach(async () => {
+  const child = runner
   runner = null
+  if (child) await stopProcess(child)
 })
 
 test('the fake segmentation plugin adds a set through the host runner', async ({ page }) => {

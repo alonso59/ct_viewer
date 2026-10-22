@@ -213,7 +213,13 @@
   "runStatus": {
     "queued": "Queued",
     "waiting_for_runner": "Waiting for runner",
+    "waiting_for_resources": "Waiting for GPUs",
     "running": "Running",
+    "pausing": "Pausing",
+    "paused": "Paused",
+    "cancelling": "Cancelling",
+    "reconciling": "Reconciling",
+    "cleanup_pending": "Cleanup pending",
     "completed": "Completed",
     "completed_with_errors": "Completed with errors",
     "failed": "Failed",

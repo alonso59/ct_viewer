@@ -16,6 +16,9 @@ Read only the files routed for your task. Each file declares its scope in its he
 | File formats, NIfTI/DICOM/NumPy sources, Open mode, case identity | `domain/SOURCES.md` |
 | Tasks, plugins, runner, run protocol | `domain/TASKS.md` |
 | nnU-Net segmentation generation, model profiles, multi-GPU inference | `domain/SEGMENTATION.md` |
+| Local/server execution and future SLURM deployment configuration | `domain/SEGMENTATION_RUNTIMES.md`; `adr/0034-capability-based-segmentation-runtimes.md` |
+| Supervised segmentation jobs: approved plan, GPU safety, implementation progress | `domain/SEGMENTATION_JOB_PLAN.md`; `adr/0033-supervised-segmentation-jobs.md` |
+| Tests-first segmentation job work, acceptance matrix, environment/CI audit | `ops/SEGMENTATION_JOB_TEST_PLAN.md` |
 | DICOM → NIfTI converter | `domain/DICOM_CONVERTER.md` |
 | Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
 | Native phase selection (one-click, precedence, exports) | `domain/PHASE.md` |

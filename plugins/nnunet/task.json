@@ -2,27 +2,36 @@
   "manifest": 1,
   "id": "segment.nnunet",
   "version": "0.1.0",
-  "title": "nnU-Net kidney segmentation",
-  "description": "Generate an immutable kidney, mass and tumor segmentation set with Dataset220_KiTS2023.",
+  "title": "nnU-Net segmentation",
+  "description": "Generate an immutable segmentation set with an operator-validated nnU-Net model.",
   "kind": "segmentation",
   "input": "items",
   "outputs": ["masks"],
   "requires": {"modality": ["CT"], "channels": 1},
   "settings_schema": {
     "type": "object",
+    "required": ["profile"],
     "properties": {
       "profile": {
         "type": "string",
         "enum": ["kits2023-dataset220"],
         "default": "kits2023-dataset220",
-        "x-help": "Validated Dataset220_KiTS2023 model profile"
+        "x-help": "Operator-validated model profile"
       },
       "gpu_cap": {
         "type": "integer",
-        "minimum": 2,
+        "minimum": 1,
         "maximum": 4,
         "default": 2,
         "x-help": "Maximum GPUs used when at least this many cases are pending"
+      },
+      "gpu_ids": {
+        "type": "array",
+        "items": {"type": "string", "enum": ["0", "1", "2", "3", "4", "5", "6"]},
+        "maxItems": 4,
+        "uniqueItems": true,
+        "default": [],
+        "x-help": "Select physical GPU IDs, or leave empty for automatic idle selection. Used up to gpu_cap and the number of pending cases; busy devices wait."
       },
       "seg_id": {
         "type": "string",
@@ -36,5 +45,5 @@
     "env_hint": "Activate the torch conda environment and set nnUNet_results to the model results root"
   },
   "resources": {"gpu": "required", "seconds_per_item": 600},
-  "labels": {"names": {"1": "kidney", "2": "tumor", "3": "masses"}}
+  "labels": {"from": "dataset.json"}
 }

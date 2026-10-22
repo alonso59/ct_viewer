@@ -1,0 +1,43 @@
+name: Verify application and task safety
+
+on:
+  pull_request:
+  push:
+    branches: [version_3-dev-seg]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build isolated full-test environment
+        run: >-
+          docker build -f Dockerfile.verify
+          --build-arg VERIFY_UID="$(id -u)" --build-arg VERIFY_GID="$(id -g)"
+          -t rw-verification .
+      - name: Lint, types, full tests, API contracts, requirements and bundle
+        run: docker run --rm --init rw-verification make check RUNTIME=native VENV=/opt/ci FULL_TESTS=1
+      - name: Serial runner safety regressions
+        run: docker run --rm --init rw-verification make test-runner VENV=/opt/ci FULL_TESTS=1 PYTEST_WORKERS=0
+      - name: Real-backend browser regressions, Chromium and Firefox
+        run: |
+          mkdir -p build/ci/browser-results build/ci/browser-report
+          docker run --rm --init --shm-size=1g \
+            -e E2E_XVFB=1 -e LIBGL_ALWAYS_SOFTWARE=1 -e LP_NUM_THREADS=2 \
+            -v "$PWD/build/ci/browser-results:/repo/frontend/test-results" \
+            -v "$PWD/build/ci/browser-report:/repo/frontend/playwright-report" \
+            rw-verification xvfb-run -a make fixtures e2e RUNTIME=native VENV=/opt/ci
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: verification-diagnostics
+          path: build/ci/
+          if-no-files-found: ignore
+          retention-days: 7

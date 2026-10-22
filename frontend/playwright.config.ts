@@ -18,7 +18,22 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure' },
   webServer: serverCommands().map(({ command, url }) => ({ command, url, reuseExistingServer: REUSE, timeout: 120_000 })),
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+      },
+    },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        ...(process.env.E2E_XVFB === '1' ? {
+          headless: false,
+          launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+        } : {}),
+      },
+    },
   ],
 })

@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from app.core.fsio import iter_jsonl, write_jsonl_atomic
+from app.core.fsio import append_jsonl, iter_jsonl, write_jsonl_atomic
 from app.core.ids import utc_now
 from app.core.paths import is_within, realpath
 from app.imaging.fingerprint import quick_fingerprint
@@ -18,11 +18,36 @@ from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.sources import identity as identity_store
 from app.tasks.estimate import EstimateBase
 from app.tasks.models import TaskRunOutput
-from app.tasks.records import ANNOTATIONS, Live, default_seg_id, sha256_file
+from app.tasks.records import ANNOTATIONS, LEDGER, Live, default_seg_id, sha256_file
 
 
 class RegistrationBase(EstimateBase):
     """Validates and registers what a run wrote (TSK-09, ADR-0014/0015)."""
+
+    def _record_gpu_ledger(self, live: Live) -> None:
+        """Caller holds the project lock; replay appends only previously unrecorded outputs."""
+        path = self.workspace.project_dir(live.pid) / LEDGER
+        seen = {
+            (entry["run_id"], output.get("ref"), output.get("sha256"))
+            for entry in iter_jsonl(path)
+            for output in entry.get("outputs", [])
+        }
+        outputs = [o for o in live.outputs if (live.rid, o.ref, o.sha256) not in seen]
+        if outputs:
+            rec = self.runs.read(live.run_dir)
+            append_jsonl(
+                path,
+                [
+                    {
+                        "run_id": live.rid,
+                        "task_id": rec.task.id,
+                        "version": rec.task.version,
+                        "settings_hash": rec.settings_hash,
+                        "at": utc_now(),
+                        "outputs": [{"ref": o.ref, "sha256": o.sha256} for o in outputs],
+                    }
+                ],
+            )
 
     async def _item_outputs(
         self, live: Live, item_id: str, outputs: Sequence[dict[str, Any]]
@@ -49,7 +74,13 @@ class RegistrationBase(EstimateBase):
             rel = path.relative_to(realpath(Path(root.path))).as_posix()
             fp = await asyncio.to_thread(quick_fingerprint, path)
             ref = f"{root.alias}:{rel}"
-            sha = o.get("sha256") or await asyncio.to_thread(sha256_file, path)
+            sha = await asyncio.to_thread(sha256_file, path)
+            if any(
+                output.ref == ref and output.sha256 != sha
+                for output in rec.outputs
+                if output.kind == "mask"
+            ):
+                raise ValueError("committed mask content changed")
             rows.append(
                 {
                     "item_id": item_id,

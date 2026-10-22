@@ -97,13 +97,34 @@ export function SeverityIcon({ severity }: { severity: 'error' | 'warning' | 'in
 }
 
 // ---- run and job states: one vocabulary, sentence case (UI-15, TSK-06; AUD-A3-10) ------------------
-export const RUN_STATES = ['queued', 'waiting_for_runner', 'running', 'completed', 'completed_with_errors', 'failed', 'cancelled', 'interrupted'] as const
+export const RUN_STATES = [
+  'queued',
+  'waiting_for_runner',
+  'waiting_for_resources',
+  'running',
+  'pausing',
+  'paused',
+  'cancelling',
+  'reconciling',
+  'cleanup_pending',
+  'completed',
+  'completed_with_errors',
+  'failed',
+  'cancelled',
+  'interrupted',
+] as const
 export type RunState = (typeof RUN_STATES)[number]
 
 export const RUN_TONE: Record<RunState, Tone> = {
   queued: undefined,
   waiting_for_runner: 'warn',
+  waiting_for_resources: 'warn',
   running: 'accent',
+  pausing: 'warn',
+  paused: undefined,
+  cancelling: 'warn',
+  reconciling: 'warn',
+  cleanup_pending: 'error',
   completed: 'ok',
   completed_with_errors: 'warn',
   failed: 'error',

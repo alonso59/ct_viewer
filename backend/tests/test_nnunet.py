@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -218,7 +218,7 @@ def write_job(
 def plugin_env(tmp_path: Path, results: Path, profiles: Path, **extra: str) -> dict[str, str]:
     bindir, log = make_fake_cli(tmp_path)
     return {
-        **os.environ,
+        **{key: value for key, value in os.environ.items() if not key.startswith("FAKE_NNUNET_")},
         "PATH": f"{bindir}:{os.environ['PATH']}",
         "FAKE_NNUNET_LOG": str(log),
         "nnUNet_results": str(results),
@@ -229,6 +229,12 @@ def plugin_env(tmp_path: Path, results: Path, profiles: Path, **extra: str) -> d
 
 
 def run_plugin(job_dir: Path, env: dict[str, str]) -> subprocess.CompletedProcess[bytes]:
+    bindir = Path(env["PATH"].split(os.pathsep)[0]).resolve()
+    for name in ("nnUNetv2_predict", "nnUNetv2_apply_postprocessing"):
+        executable = shutil.which(name, path=env["PATH"])
+        assert executable is not None and Path(executable).resolve().parent == bindir, (
+            "fake executable missing"
+        )
     return subprocess.run(
         [sys.executable, str(RUN), str(job_dir)], env=env, timeout=30, check=False
     )
@@ -351,19 +357,29 @@ def test_cancel_terminates_prediction_group(tmp_path: Path) -> None:
     write_job(job_dir, items, tmp_path / "derived")
     env = plugin_env(tmp_path / "fake", results, profiles, FAKE_NNUNET_SLEEP="20")
     process = subprocess.Popen([sys.executable, str(RUN), str(job_dir)], env=env)
-    log = Path(env["FAKE_NNUNET_LOG"])
-    deadline = time.monotonic() + 10
-    while not log.is_file() or len(log.read_text().splitlines()) < 2:
-        assert time.monotonic() < deadline
-        time.sleep(0.05)
-    child_pids = [row["pid"] for row in read_jsonl(log)]
-    (job_dir / "cancel").touch()
-    assert process.wait(15) == 0
-    result = json.loads((job_dir / "result.json").read_text())
-    assert result["status"] == "cancelled"
-    for pid in child_pids:
-        with pytest.raises(ProcessLookupError):
-            os.kill(pid, signal.SIGCONT)
+    try:
+        log = Path(env["FAKE_NNUNET_LOG"])
+        deadline = time.monotonic() + 10
+        while not log.is_file() or len(log.read_text().splitlines()) < 2:
+            assert time.monotonic() < deadline
+            time.sleep(0.05)
+        child_pids = [row["pid"] for row in read_jsonl(log)]
+        (job_dir / "cancel").touch()
+        assert process.wait(15) == 0
+        result = json.loads((job_dir / "result.json").read_text())
+        assert result["status"] == "cancelled"
+        for pid in child_pids:
+            with pytest.raises(ProcessLookupError):
+                os.kill(pid, 0)  # existence check; never signal a possibly reused PID
+    finally:
+        if process.poll() is None:
+            (job_dir / "cancel").touch()
+            process.terminate()
+            try:
+                process.wait(15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(5)
 
 
 @pytest.fixture
@@ -374,9 +390,21 @@ def external_env(
     derived.mkdir()
     plugins = tmp_path / "plugins"
     plugins.mkdir()
-    (plugins / "nnunet").symlink_to(REPO / "plugins" / "nnunet")
+    shutil.copytree(
+        REPO / "plugins" / "nnunet",
+        plugins / "nnunet",
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    manifest_path = plugins / "nnunet" / "task.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["resources"]["gpu"] = "none"  # fake CLI only; never opt out a production GPU task
+    manifest["test_only"] = True
+    manifest_path.write_text(json.dumps(manifest))
+    # Fake-CLI integration does not certify the installed nnU-Net trainer environment.
+    (plugins / "nnunet/check.py").write_text("print('{}')\n")
     results, profiles = make_model(tmp_path / "runtime")
     env = plugin_env(tmp_path / "fake-runtime", results, profiles)
+    env["PYTHONPATH"] = str(REPO)
     settings = Settings(
         workspace_root=tmp_path / "workspace",
         allowed_data_roots=str((fixtures_copy / DATASET).resolve()),

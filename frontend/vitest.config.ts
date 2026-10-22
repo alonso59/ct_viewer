@@ -29,6 +29,7 @@ const cssRaw = (): Plugin => ({
 export default defineConfig({
   plugins: [react(), cssRaw()],
   test: {
+    maxWorkers: 2,
     environment: 'node',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],

@@ -1,5 +1,5 @@
 # ADR-0032 nnU-Net v2 inference as a partitioned external segmentation task
-Status: Accepted · Date: 2026-10-21
+Status: Superseded by ADR-0033 · Date: 2026-10-21
 Amends: ADR-0016 §6 and TSK-12 for one multi-GPU external run
 
 **Context.** nnU-Net v2 is installed in the `torch` conda environment on the `john-gpinedo` GPU host and its trained models must stay outside the OCI image. A web run should use the host GPUs in parallel, preserve nnU-Net's inference pipeline, write only derived data and add predictions beside imported masks. This phase excludes mask editing and other segmentation pipelines.

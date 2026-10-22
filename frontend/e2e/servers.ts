@@ -18,11 +18,12 @@ const BUILD = !!process.env.E2E_BUILD
 const KEYS = [
   ['E2E_WORKSPACE', 'rw-e2e-'],
   ['E2E_DERIVED', 'rw-e2e-derived-'],
+  ['E2E_DATASETS', 'rw-e2e-datasets-'],
   ['E2E_PLUGINS', 'rw-e2e-plugins-'],
 ] as const
 
 /** Workspace, derived and plugins folders; fresh temp folders unless given or reused */
-export function e2eDirs(): { workspace: string; derived: string; plugins: string } {
+export function e2eDirs(): { workspace: string; derived: string; datasets: string; plugins: string } {
   const created: string[] = JSON.parse(process.env.E2E_CREATED ?? '[]')
   for (const [key, prefix] of KEYS) {
     if (process.env[key]) continue
@@ -41,7 +42,7 @@ export function e2eDirs(): { workspace: string; derived: string; plugins: string
   const plugins = process.env.E2E_PLUGINS!
   // External manifests (TSK-01): the CI plugin only, never `plugins/` itself (TESTING.md)
   if (!existsSync(join(plugins, 'threshold'))) symlinkSync(resolve(here, '../../plugins/threshold'), join(plugins, 'threshold'))
-  return { workspace: process.env.E2E_WORKSPACE!, derived: process.env.E2E_DERIVED!, plugins }
+  return { workspace: process.env.E2E_WORKSPACE!, derived: process.env.E2E_DERIVED!, datasets: process.env.E2E_DATASETS!, plugins }
 }
 
 /** Folders this run created (removed by the global teardown unless `E2E_KEEP` is set) */
@@ -58,8 +59,8 @@ export function serverCommands(d = e2eDirs()) {
     {
       name: 'api',
       command:
-        `cd ${q(backend)} && WORKSPACE_ROOT=${q(d.workspace)} ALLOWED_DATA_ROOTS=${q(fixtures)} ALLOWED_DERIVED_ROOTS=${q(d.derived)} PLUGINS_ROOT=${q(d.plugins)} ` +
-        `PUBLIC_BASE_URL=http://127.0.0.1:${WEB_PORT} .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
+        `cd ${q(backend)} && WORKSPACE_ROOT=${q(d.workspace)} ALLOWED_DATA_ROOTS=${q(`${fixtures}:${d.datasets}`)} ALLOWED_DERIVED_ROOTS=${q(d.derived)} PLUGINS_ROOT=${q(d.plugins)} ` +
+        `PUBLIC_BASE_URL=http://127.0.0.1:${WEB_PORT} ${q(process.env.E2E_PYTHON ?? '.venv/bin/python')} -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/api/v1/health`,
     },
     {

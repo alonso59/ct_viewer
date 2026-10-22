@@ -2,6 +2,8 @@
 // second browser. Real backend on the synthetic fixtures (TST-11); see playwright.config.ts.
 import { expect, test, type Page } from '@playwright/test'
 
+import { managedDataset } from './helpers'
+
 const collectErrors = (page: Page) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
@@ -9,28 +11,27 @@ const collectErrors = (page: Page) => {
 }
 
 test('new project → import → browse → share link', async ({ page, browser, browserName }) => {
+  test.setTimeout(120_000)
   const errors = collectErrors(page)
   const name = `E2E ${browserName} ${Date.now()}`
+  const dataset = managedDataset(`p2-${browserName}-${Date.now()}`)
 
-  // Workspace home → New project: a name and the default modality only (PRJ-14)
+  // Workspace home → New project: name, default modality and a disposable dataset (PRJ-19).
   await page.goto('/')
   await page.getByRole('button', { name: /New project/ }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Project name').fill(name)
+  await dialog.getByLabel('Dataset folder').fill(dataset)
   await expect(dialog.getByRole('button', { name: 'CT', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  const detection = page.waitForResponse((r) => r.url().endsWith('/sources/detect') && r.request().method() === 'POST', { timeout: 30_000 })
   await dialog.getByRole('button', { name: 'Create and import' }).click()
+  expect((await detection).ok()).toBe(true)
 
   // Import wizard on /p/{pid}
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
   const wizard = page.getByRole('dialog', { name: 'Import data' })
   await expect(wizard).toBeVisible()
-  const folders = wizard.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: /synthetic/ }).click()
-  const dataset = folders.getByRole('button', { name: /Dataset900/ })
-  await expect(dataset).toContainText('metadata.jsonl')
-  await dataset.click()
-  await wizard.getByRole('button', { name: 'Next' }).click()
 
   // Detect (API-19): contract v1 is the best match, NIfTI files also possible (SRC-01)
   await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()

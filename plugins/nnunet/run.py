@@ -12,17 +12,18 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 try:
     from plugins.nnunet.profile import Predictor, Profile, load_profile
-    from plugins.protocol import Job
+    from plugins.protocol import Job, pause_expired
 except ImportError:  # runner cwd is plugins/nnunet
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from plugins.nnunet.profile import Predictor, Profile, load_profile
-    from plugins.protocol import Job
+    from plugins.protocol import Job, pause_expired
 
 VERSION = "0.1.0"
 PREDICT = "nnUNetv2_predict"
@@ -33,6 +34,10 @@ _cancelled = threading.Event()
 
 
 class Cancelled(Exception):
+    provenance: dict[str, Any] | None = None
+
+
+class Paused(Cancelled):
     pass
 
 
@@ -56,8 +61,8 @@ def _on_signal(_signum: int, _frame: Any) -> None:
 def _gpu_ids() -> list[str]:
     raw = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     values = [value.strip() for value in raw.split(",") if value.strip()]
-    if not 2 <= len(values) <= 4 or len(set(values)) != len(values) or "-1" in values:
-        raise ValueError("CUDA_VISIBLE_DEVICES must expose 2 to 4 distinct GPUs")
+    if not 1 <= len(values) <= 4 or len(set(values)) != len(values) or "-1" in values:
+        raise ValueError("CUDA_VISIBLE_DEVICES must expose 1 to 4 distinct GPUs")
     return values
 
 
@@ -94,6 +99,14 @@ def _stage(job: Job, scratch: Path) -> list[Staged]:
     return staged
 
 
+def _worker_counts(profile: Profile, parts: int) -> tuple[int, int]:
+    budget = int(os.environ.get("RW_CPU_WORKERS", "12"))
+    if not 3 * parts <= budget <= 12:
+        raise ValueError("CPU worker budget must allow one predictor, preprocessor and exporter per GPU (maximum 12)")
+    per_kind = (budget - parts) // (2 * parts)
+    return min(profile.preprocessing_per_gpu, per_kind), min(profile.export_per_gpu, per_kind)
+
+
 def _predict_command(
     profile: Profile,
     predictor: Predictor,
@@ -102,6 +115,7 @@ def _predict_command(
     parts: int,
     part_id: int,
 ) -> list[str]:
+    preprocessing, export = _worker_counts(profile, parts)
     return [
         PREDICT,
         "-d",
@@ -121,9 +135,9 @@ def _predict_command(
         "-chk",
         predictor.checkpoint,
         "-npp",
-        str(profile.preprocessing_per_gpu),
+        str(preprocessing),
         "-nps",
-        str(profile.export_per_gpu),
+        str(export),
         "-num_parts",
         str(parts),
         "-part_id",
@@ -136,6 +150,13 @@ def _predict_command(
 
 
 def _spawn(name: str, command: list[str], env: dict[str, str]) -> Child:
+    if env.get("RW_NATIVE_SOCKET"):
+        command = [
+            sys.executable,
+            "-I",
+            str(Path(__file__).parents[1] / "runner/native.py"),
+            *command,
+        ]
     return Child(
         name,
         subprocess.Popen(command, env=env, start_new_session=True),
@@ -158,6 +179,8 @@ def _terminate(children: list[Child]) -> None:
             os.killpg(child.process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+    for child in children:
+        child.process.wait(timeout=TERM_GRACE_S + 5)
 
 
 def _wait(job: Job, children: list[Child], stage: str) -> dict[str, int]:
@@ -167,6 +190,8 @@ def _wait(job: Job, children: list[Child], stage: str) -> dict[str, int]:
         while pending:
             if _cancelled.is_set() or job.cancelled():
                 raise Cancelled
+            if pause_expired(job.dir):
+                raise Paused
             for child in list(pending):
                 code = child.process.poll()
                 if code is not None:
@@ -246,11 +271,11 @@ def _publish(job: Job, item: Staged, mask: Path, labels: dict[str, str]) -> list
     job.output_dir.mkdir(parents=True, exist_ok=True)
     target = job.output_dir / f"{item.token}.nii.gz"
     if target.exists():
-        raise ValueError("derived output already exists")
+        target = target.with_name(f"{item.token}-{uuid.uuid4().hex}.nii.gz")
     temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
     try:
         shutil.copyfile(mask, temporary)
-        os.replace(temporary, target)
+        os.link(temporary, target)
     finally:
         temporary.unlink(missing_ok=True)
     return [{"kind": "mask", "path": str(target), "labels": labels}]
@@ -295,46 +320,37 @@ def _command_templates(profile: Profile, predictor: Predictor, parts: int) -> li
     return commands
 
 
-def _execute(job: Job, profile: Profile, gpus: list[str]) -> dict[str, Any]:
-    scratch = job.dir / "nnunet"
+def _batch(job: Job, profile: Profile, gpus: list[str], parts: int, staged: list[Staged], scratch: Path) -> None:
     scratch.mkdir(parents=True, exist_ok=True)
-    staged = _stage(job, scratch)
-    if not staged:
-        return {
-            "profile": profile.id,
-            "profile_sha256": profile.profile_sha256,
-            "model_artifacts_sha256": "sha256:" + profile.artifacts_sha256,
-            "visible_gpus": gpus,
-            "effective_gpus": [],
-            "part_assignments": {},
-            "commands": [],
-        }
-    gpu_cap = int(job.settings.get("gpu_cap", 2))
-    if not 2 <= gpu_cap <= 4:
-        raise ValueError("gpu_cap must be from 2 to 4")
-    parts = min(len(staged), len(gpus), gpu_cap)
+    input_dir = scratch / "input"
+    input_dir.mkdir()
+    for item in staged:
+        (input_dir / f"{item.token}_0000.nii.gz").symlink_to(item.image)
     predictor = profile.predictors[0]
-    part_dirs = [scratch / "predict" / f"part-{part_id}" for part_id in range(parts)]
+    part_dirs = [scratch / "predict" / f"part-{part_id}" for part_id in range(min(parts, len(staged)))]
     children: list[Child] = []
-    for part_id, part_dir in enumerate(part_dirs):
-        part_dir.mkdir(parents=True, exist_ok=True)
-        env = {**os.environ, "CUDA_VISIBLE_DEVICES": gpus[part_id]}
-        children.append(
-            _spawn(
-                f"part-{part_id}",
-                _predict_command(profile, predictor, scratch / "input", part_dir, parts, part_id),
-                env,
+    try:
+        for part_id, part_dir in enumerate(part_dirs):
+            part_dir.mkdir(parents=True, exist_ok=True)
+            env = {**os.environ, "CUDA_VISIBLE_DEVICES": gpus[part_id]}
+            children.append(
+                _spawn(
+                    f"part-{part_id}",
+                    _predict_command(profile, predictor, input_dir, part_dir, parts, part_id),
+                    env,
+                )
             )
-        )
+    except BaseException:
+        _terminate(children)
+        raise
     codes = _wait(job, children, "prediction")
     merged = scratch / "merged"
     for part_id, part_dir in enumerate(part_dirs):
         if codes[f"part-{part_id}"] == 0:
             _link_outputs(part_dir, merged)
     final = scratch / "postprocessed"
-    successful_parts = {part_id for part_id in range(parts) if codes[f"part-{part_id}"] == 0}
+    successful_parts = {part_id for part_id in range(len(part_dirs)) if codes[f"part-{part_id}"] == 0}
     post_code = _postprocess(job, profile, merged, final) if successful_parts else 1
-    assignments = {str(part_id): [item.item_id for item in staged[part_id::parts]] for part_id in range(parts)}
     for index, item in enumerate(staged):
         part_id = index % parts
         if part_id not in successful_parts:
@@ -353,7 +369,30 @@ def _execute(job: Job, profile: Profile, gpus: list[str]) -> dict[str, Any]:
             job.item(item.item_id, "failed", message=f"{type(exc).__name__}: {exc}")
         else:
             job.item(item.item_id, "ok", output)
-    return {
+
+
+def _execute(job: Job, profile: Profile, gpus: list[str]) -> dict[str, Any]:
+    scratch = job.dir / "nnunet"
+    scratch.mkdir(parents=True, exist_ok=True)
+    staged = _stage(job, scratch)
+    if not staged:
+        return {
+            "profile": profile.id,
+            "profile_sha256": profile.profile_sha256,
+            "model_artifacts_sha256": "sha256:" + profile.artifacts_sha256,
+            "visible_gpus": gpus,
+            "effective_gpus": [],
+            "part_assignments": {},
+            "commands": [],
+        }
+    gpu_cap = int(job.settings.get("gpu_cap", 2))
+    if not 1 <= gpu_cap <= 4:
+        raise ValueError("gpu_cap must be from 1 to 4")
+    parts = min(len(staged), len(gpus), gpu_cap, int(os.environ.get("RW_CPU_WORKERS", "12")) // 3)
+    if parts < 1:
+        raise ValueError("nnU-Net requires a CPU worker budget of at least 3")
+    predictor = profile.predictors[0]
+    provenance: dict[str, Any] = {
         "profile": profile.id,
         "profile_sha256": profile.profile_sha256,
         "model_artifacts_sha256": "sha256:" + profile.artifacts_sha256,
@@ -370,13 +409,33 @@ def _execute(job: Job, profile: Profile, gpus: list[str]) -> dict[str, Any]:
         ],
         "visible_gpus": gpus,
         "effective_gpus": gpus[:parts],
-        "part_assignments": assignments,
-        "processes": {
-            "preprocessing_per_gpu": profile.preprocessing_per_gpu,
-            "export_per_gpu": profile.export_per_gpu,
+        "part_assignments": {
+            str(part_id): [item.item_id for item in staged[part_id::parts]] for part_id in range(parts)
         },
-        "commands": _command_templates(profile, predictor, parts),
+        "processes": {
+            "preprocessing_per_gpu": _worker_counts(profile, parts)[0],
+            "export_per_gpu": _worker_counts(profile, parts)[1],
+        },
+        "commands": [],
+        "batches": [],
     }
+    try:
+        for ordinal, start in enumerate(range(0, len(staged), parts)):
+            if _cancelled.is_set() or job.cancelled():
+                raise Cancelled
+            if (job.dir / "pause").exists():
+                raise Paused
+            batch = staged[start : start + parts]
+            commands = _command_templates(profile, predictor, parts)
+            provenance["commands"] += [*commands[: len(batch)], *commands[parts:]]
+            entry = {"batch": ordinal, "items": [item.item_id for item in batch], "state": "running"}
+            provenance["batches"].append(entry)
+            _batch(job, profile, gpus, parts, batch, scratch / f"batch-{ordinal}")
+            entry["state"] = "finished"
+    except Cancelled as exc:
+        exc.provenance = provenance
+        raise
+    return provenance
 
 
 def run(job_dir: str) -> int:
@@ -389,13 +448,28 @@ def run(job_dir: str) -> int:
         _command_exists(PREDICT)
         _command_exists(POSTPROCESS)
         profile = load_profile(str(job.settings.get("profile", "kits2023-dataset220")))
+        if job.spec.get("identity") or os.environ.get("RW_NATIVE_SOCKET"):
+            from plugins.runner.identity import verify_job
+
+            verify_job(
+                job.spec,
+                Path(__file__).with_name("task.json"),
+                {
+                    "id": profile.id,
+                    "profile_sha256": profile.profile_sha256,
+                    "artifacts_sha256": profile.artifacts_sha256,
+                },
+            )
         gpus = _gpu_ids()
-        provenance = _execute(job, profile, gpus)
         versions = _versions()
+        provenance = _execute(job, profile, gpus)
         job.finish(versions=versions, extra={"provenance": provenance})
         return 0
-    except Cancelled:
-        job.finish(versions=versions, status="cancelled")
+    except Paused as exc:
+        job.finish(versions=versions, status="paused", extra={"provenance": exc.provenance or {}})
+        return 0
+    except Cancelled as exc:
+        job.finish(versions=versions, status="cancelled", extra={"provenance": exc.provenance or {}})
         return 0
     except Exception as exc:  # noqa: BLE001 - protocol must return a terminal result
         already = job.counts["ok"] + job.counts["failed"] + job.counts["skipped"]

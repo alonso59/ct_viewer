@@ -24,7 +24,16 @@ def masks_path(project_dir: Path, run_id: str) -> Path:
 
 def record_masks(project_dir: Path, run_id: str, rows: Sequence[dict[str, Any]]) -> None:
     """API process only, under the project lock (BE-05)."""
-    append_jsonl(masks_path(project_dir, run_id), rows)
+    path = masks_path(project_dir, run_id)
+    seen = {(row["item_id"], row["ref"]) for row in iter_jsonl(path)}
+    fresh: list[dict[str, Any]] = []
+    for row in rows:
+        key = row["item_id"], row["ref"]
+        if key not in seen:
+            fresh.append(row)
+            seen.add(key)
+    if fresh:
+        append_jsonl(path, fresh)
 
 
 def task_masks(project_dir: Path, cfg: ProjectConfig) -> dict[str, dict[str, VolumeRef]]:

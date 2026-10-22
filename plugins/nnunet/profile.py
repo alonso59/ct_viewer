@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -93,14 +94,30 @@ def _sha256(path: Path) -> str:
 
 def _derived_labels(dataset_json: dict[str, Any]) -> tuple[dict[str, str], tuple[int, ...]]:
     raw_labels = _object(dataset_json.get("labels"), "dataset.json labels")
+    if type(raw_labels.get("background")) is not int or raw_labels["background"] != 0:
+        raise ValueError("dataset.json background must be integer zero")
+    foreground = {name: value for name, value in raw_labels.items() if name not in {"background", "ignore"}}
+    if not foreground:
+        raise ValueError("dataset.json has no foreground labels")
+    for name, value in foreground.items():
+        values = value if isinstance(value, list) else [value]
+        if not name or not values or any(type(number) is not int or number <= 0 for number in values):
+            raise ValueError("dataset.json labels must contain positive integers")
+    if not any(isinstance(value, list) and len(value) > 1 for value in foreground.values()):
+        if any(type(value) is not int for value in foreground.values()):
+            raise ValueError("class labels must be integers")
+        if len(set(foreground.values())) != len(foreground):
+            raise ValueError("duplicate class label values")
+        return {str(value): name for name, value in foreground.items()}, ()
     class_order_raw = dataset_json.get("regions_class_order")
-    if not isinstance(class_order_raw, list) or not all(
-        isinstance(value, int) and value > 0 for value in class_order_raw
-    ):
+    if not isinstance(class_order_raw, list) or not all(type(value) is int and value > 0 for value in class_order_raw):
         raise ValueError("dataset.json regions_class_order must be a list of positive integers")
-    region_names = [str(name) for name in raw_labels if name != "background"]
-    if len(region_names) != len(class_order_raw):
+    region_names = list(foreground)
+    if len(region_names) != len(class_order_raw) or len(set(class_order_raw)) != len(class_order_raw):
         raise ValueError("dataset.json regions do not match regions_class_order")
+    for value, region in zip(class_order_raw, foreground.values(), strict=True):
+        if value not in (region if isinstance(region, list) else [region]):
+            raise ValueError("region export value is not in its region")
     return (
         {str(value): name for name, value in zip(region_names, class_order_raw, strict=True)},
         tuple(class_order_raw),
@@ -124,15 +141,17 @@ def load_profile(profile_id: str, *, verify_hashes: bool = True) -> Profile:
     unknown = set(raw) - PROFILE_KEYS
     if unknown:
         raise ValueError(f"unknown profile fields: {sorted(unknown)}")
-    if raw.get("profile") != 1 or raw.get("id") != profile_id:
+    if type(raw.get("profile")) is not int or raw["profile"] != 1 or raw.get("id") != profile_id:
         raise ValueError("profile version or id does not match its filename")
     results_value = os.environ.get("nnUNet_results")
     if not results_value:
         raise ValueError("nnUNet_results is not configured in the runner environment")
     results_root = Path(results_value).resolve()
     dataset = str(raw.get("dataset") or "")
-    if not dataset.startswith("Dataset") or "/" in dataset or ".." in dataset:
+    if not re.fullmatch(r"Dataset[0-9]+_[A-Za-z0-9_-]+", dataset):
         raise ValueError("profile dataset is invalid")
+    if not (results_root / dataset).resolve().is_relative_to(results_root):
+        raise ValueError("model dataset escapes results root")
 
     predictors_raw = raw.get("predictors")
     if not isinstance(predictors_raw, list) or len(predictors_raw) != 1:
@@ -143,8 +162,24 @@ def load_profile(profile_id: str, *, verify_hashes: bool = True) -> Profile:
         if set(item) != {"configuration", "trainer", "plans", "folds", "checkpoint"}:
             raise ValueError("predictor fields are invalid")
         folds = item["folds"]
-        if not isinstance(folds, list) or not folds or not all(isinstance(fold, int) and fold >= 0 for fold in folds):
+        if (
+            not isinstance(folds, list)
+            or not folds
+            or not all(type(fold) is int and fold >= 0 for fold in folds)
+            or len(set(folds)) != len(folds)
+        ):
             raise ValueError("predictor folds are invalid")
+        if any(
+            not isinstance(item[key], str) or not re.fullmatch(r"[A-Za-z0-9_]+", item[key])
+            for key in ("configuration", "trainer", "plans")
+        ):
+            raise ValueError("predictor names must be identifiers")
+        if not isinstance(item["checkpoint"], str) or not re.fullmatch(
+            r"[A-Za-z0-9_][A-Za-z0-9_.-]*", item["checkpoint"]
+        ):
+            raise ValueError("invalid checkpoint filename")
+        if "cascade" in item["configuration"].lower():
+            raise ValueError("cascade models are not supported")
         predictors.append(
             Predictor(
                 configuration=str(item["configuration"]),
@@ -206,12 +241,15 @@ def load_profile(profile_id: str, *, verify_hashes: bool = True) -> Profile:
     expected_labels = {str(k): str(v) for k, v in _object(raw.get("labels"), "labels").items()}
     if channels != actual_channels or expected_labels != labels:
         raise ValueError("profile channels or labels differ from nnU-Net dataset.json")
+    if channels != {"0": "CT"}:
+        raise ValueError("only single-channel CT profiles are supported")
     expected_order = raw.get("regions_class_order")
-    if expected_order != list(class_order):
+    valid_order = expected_order == list(class_order) if class_order else expected_order in (None, [])
+    if not valid_order:
         raise ValueError("profile regions_class_order differs from nnU-Net dataset.json")
     processes = _object(raw.get("processes"), "processes")
     npp, nps = processes.get("preprocessing_per_gpu"), processes.get("export_per_gpu")
-    if not isinstance(npp, int) or not isinstance(nps, int) or not (1 <= npp <= 4 and 1 <= nps <= 4):
+    if type(npp) is not int or type(nps) is not int or not (1 <= npp <= 4 and 1 <= nps <= 4):
         raise ValueError("profile process counts must be integers from 1 to 4")
 
     return Profile(

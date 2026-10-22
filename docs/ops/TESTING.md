@@ -27,8 +27,10 @@ Depends: all domain docs.
 | TST-19 | Labeling | pytest + Playwright | Tables at case/scan/item level, cell events, two-browser live sync, `lbl.*` variables, CSV import report, edit / delete / restore of tables and columns (LBL-*) |
 | TST-20 | Metadata ownership | pytest | Converter output (app + CLI) has no phase/curation/group/selection fields; legacy files with them still import; dataset-table export joins active layers (DCM-13, ADR-0020) |
 | TST-21 | nnU-Net segmentation | pytest + GPU-host acceptance | SEG-* with a fake official CLI: profile validation, staging, disjoint GPU parts, bounded workers, merge, partial failure, cancel/resume, geometry rejection, provenance, immutable sources and segmentation-set indexing; on `john-gpinedo`, one item and a 2–4 GPU batch with the `Dataset220_KiTS2023` profile |
+| TST-22 | Supervised-job verification gates | pytest + CI + host preflight | ADR-0034: fail-closed required backend/environment protections, bounded workers, hermetic fake processes, first-failure diagnostics and enforced pre-publication checks; further P7g cases/gates in SEGMENTATION_JOB_TEST_PLAN.md |
+| TST-23 | Effective local/server containment | opt-in Linux host pytest | OPS-16..19: bounded owned services, actual source-write/network restrictions and native IPC, inherited confinement, descendant cancel/crash cleanup, unaffected sentinel and verified generation release. `make test-host` runs serially and never skips missing prerequisites; normal container CI does not certify host effects |
 
-TST-21 commands: `cd backend && .venv/bin/pytest -q tests/test_nnunet.py`; real host acceptance: `.venv/bin/python -m tools.nnunet_acceptance --items 1 --gpus 0,6 --gpu-cap 2`, then repeat with `--items 2`. Both real runs passed on 2026-10-21 with zero source hash changes.
+TST-21 commands: `cd backend && .venv/bin/pytest -q tests/test_nnunet.py`; real host acceptance: `.venv/bin/python -m tools.nnunet_acceptance --items 1 --gpus 0 --gpu-cap 1 --backend server`, then `--items 2 --gpus 0,6 --gpu-cap 2 --backend local`. Authorized idle devices only; full source/model hashes and geometry/index checks are required. Current evidence is owned by SEGMENTATION_JOB_TEST_PLAN.md.
 
 ADR-0025/0026 (2026-09-25): `tests/test_phase.py` (PHS-*), `tests/test_dataset_export.py` (`dataset.jsonl` one line per item with the effective phase and layers; VAR-09 sensitive fields only on request, CSV and JSONL); `tests/test_labeling.py::test_reference_column_mirrors_a_comparable_variable` (LBL-09 / VAR-13) and `tests/test_api_variables.py` (`phase.effective` comparable); `tests/test_sidecars.py` (IMP-15: tag mapping, partial marker, derived root only, off by default); Vitest `features/phase/{model,PhaseButtons}.test.ts(x)`, `plugins/labeling/TableEditor.test.tsx` (LBL-09 read-only reference); Playwright `p7c-exit` (view-only refuses a phase write).
 
@@ -90,10 +92,14 @@ All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Port
 | `variables` · `projects-bundle` | API-16..18 · IMP-09 hash job, PRJ-08/09 export → import, archive / restore |
 | `ct-tools` · `viewer-fov` | VW-17/22/23, UI-24 · VW-06/26 |
 
-## CI gates
+## Verification gates and CI wiring
 
-Lint + typecheck · TST-01..04 (pytest in parallel, pytest-xdist) · dead code (`make deadcode`: knip + vulture) · OpenAPI/TS types up to date (`make api-types`) · initial JS within NFR-07 (`make bundle-size`) · requirement tables (`make reqs`) · TST-07 · image build. The `make check` prerequisites are independent, so `make -j4 check` runs them in parallel.
-TST-05/06/08/09/10 run nightly or before a release tag.
+Verify full backend dependencies and actual WebGL2 before the browser lane. In Linux containers, CPU-only rendering uses Chromium SwiftShader and Firefox with existing Xvfb: `E2E_XVFB=1 LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 xvfb-run -a make e2e`. Firefox headless on this host lacks WebGL2; a page-loading pass cannot certify the viewer. Node stays container-only remotely. Makefile explicitly selects Ruff's backend/root settings so external parent configuration cannot affect CI formatting.
+
+Local verification: lint + typecheck · TST-01..04 (pytest in parallel, pytest-xdist) · dead code (`make deadcode`: knip + vulture) · OpenAPI/TS types up to date (`make api-types`) · initial JS within NFR-07 (`make bundle-size`) · requirement tables (`make reqs`) · TST-07 · image build. The `make check` prerequisites are independent, so `make -j4 check` runs them in parallel; on shared hosts, bound workers and numerical-library threads (SEGMENTATION_JOB_TEST_PLAN.md).
+The publication workflow now depends on reusable `.github/workflows/verify.yml`: isolated full checks, serial safety regressions and both-browser E2E in `Dockerfile.verify`. This wiring is covered by TST-22; actual CI execution is separate evidence. No scheduled nightly lane is configured; remaining TST-06/09/10 release/host obligations stay explicit.
+
+P7f/P7g: `SEGMENTATION_JOB_TEST_PLAN.md` owns the measured baseline, implementation evidence, remaining cases, environment gates and failure-investigation policy. Use `make test-env FULL_TESTS=1` to fail before collection on missing full dependencies; `make test-runner PYTEST_WORKERS=0 FULL_TESTS=1` exercises safety serially. Full pytest coverage also refuses skipped tests (`--require-full` or `RW_TEST_REQUIRE_FULL=1`).
 
 PRJ-19 / API-67: `tests/test_dataset_projects.py` verifies local state/output layout, archive/restore, reopening a moved dataset, managed-path guards, independent bundles and legacy compatibility; Vitest `features/import/NewProjectDialog.test.tsx` and `features/projects/OpenDatasetDialog.test.tsx` cover folder selection using responses from `tools.record_dataset_projects` on disposable data.
 

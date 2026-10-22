@@ -56,6 +56,7 @@ export const keys = {
   layers: (pid: string) => ['project', pid, 'layers'] as const,
   segmentations: (pid: string) => ['project', pid, 'segmentations'] as const,
   taskRuns: (pid: string) => ['project', pid, 'task-runs'] as const,
+  archivedTaskRuns: (pid: string) => ['project', pid, 'task-runs', 'archived'] as const,
   taskRun: (pid: string, rid: string) => ['project', pid, 'task-runs', rid] as const,
   taskRunOutputs: (pid: string, rid: string) => ['project', pid, 'task-runs', rid, 'outputs'] as const,
   taskPreflight: (pid: string, tid: string, selection: unknown) => ['project', pid, 'task-preflight', tid, selection] as const,

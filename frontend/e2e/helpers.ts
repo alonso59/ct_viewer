@@ -4,11 +4,15 @@ import { resolve } from 'node:path'
 
 import { expect } from '@playwright/test'
 
+import { copyDataset } from './fixtures'
+
 /** The app origin (Vite dev server or a reused one, playwright.config.ts) */
 export const WEB = `http://127.0.0.1:${process.env.E2E_WEB_PORT ?? 5174}`
 export const API = `${WEB}/api/v1`
 export const FIXTURES = resolve(import.meta.dirname, '../../.fixtures/synthetic')
 export const DATASET = `${FIXTURES}/Dataset900`
+
+export const managedDataset = (name: string): string => copyDataset(DATASET, process.env.E2E_DATASETS!, name)
 
 /** JSON request to the API; `X-Reviewer: E2E` unless `headers` says otherwise; 204 → null */
 export async function api<T = unknown>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {

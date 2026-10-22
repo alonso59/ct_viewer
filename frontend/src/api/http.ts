@@ -723,10 +723,16 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
           body,
         }),
       ),
-    listTaskRuns: (pid, task) =>
-      unwrap(client.GET('/api/v1/projects/{pid}/task-runs', { params: { path: { pid }, query: task ? { task } : {} } })),
+    listTaskRuns: (pid, task, archived) =>
+      unwrap(
+        client.GET('/api/v1/projects/{pid}/task-runs', {
+          params: { path: { pid }, query: { ...(task ? { task } : {}), ...(archived ? { archived } : {}) } },
+        }),
+      ),
     getTaskRun: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}', { params: { path: { pid, rid } } })),
     cancelTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/cancel', { params: { path: { pid, rid } } })),
+    pauseTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/pause', { params: { path: { pid, rid } } })),
+    archiveTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/archive', { params: { path: { pid, rid } } })),
     resumeTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } })),
     taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
     taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),

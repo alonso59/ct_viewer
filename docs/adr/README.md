@@ -37,4 +37,6 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0029 | Explicit scan recycling with full audit metadata | Accepted (partially supersedes 0014 and 0021 for CUR-16) |
 | 0030 | Dataset-local projects with a lightweight global workspace | Accepted (partially supersedes 0002 and 0014) |
 | 0031 | Explorer phases are read-only indicators | Accepted (partially supersedes 0026) |
-| 0032 | nnU-Net v2 inference as a partitioned external segmentation task | Accepted |
+| 0032 | nnU-Net v2 inference as a partitioned external segmentation task | Superseded by 0033 |
+| 0033 | Supervised segmentation jobs and approved GPU allocation | Superseded by 0034 |
+| 0034 | Capability-based segmentation runtimes without administrator access | Accepted |

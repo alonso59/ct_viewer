@@ -15,6 +15,7 @@ from tools.make_fixtures import DATASET, generate
 
 REPO = Path(__file__).resolve().parents[2]
 SYNTHETIC = REPO / ".fixtures" / "synthetic"
+pytest_plugins = ["tools.pytest_gate"]
 
 
 @pytest.fixture(scope="session")

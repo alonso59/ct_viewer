@@ -5,7 +5,7 @@ import {
   type IDockviewPanelHeaderProps,
   type IDockviewPanelProps,
 } from 'dockview-react'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 
@@ -36,11 +36,12 @@ export function saveTabs(pid: string, layout: unknown) {
 
 function EditorHost(props: IDockviewPanelProps<EditorParams>) {
   const { t } = useTranslation()
-  const [active, setActive] = useState(props.api.isActive)
-  useEffect(() => {
-    const d = props.api.onDidActiveChange((e) => setActive(e.isActive))
+  const subscribe = useCallback((changed: () => void) => {
+    const d = props.api.onDidActiveChange(changed)
     return () => d.dispose()
   }, [props.api])
+  const getActive = useCallback(() => props.api.isActive, [props.api])
+  const active = useSyncExternalStore(subscribe, getActive)
   const contrib = registry.getEditor<EditorParams>(props.params.type)
   if (!contrib) return <div className="empty">{t('shell.unknownEditor', { type: props.params.type })}</div>
   const C = contrib.component

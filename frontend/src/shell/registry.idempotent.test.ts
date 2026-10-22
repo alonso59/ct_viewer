@@ -5,10 +5,14 @@
 // size, and the re-executed module's component replaces the old one.
 import type { ComponentType } from 'react'
 
+// The cold app graph is fixture setup; its transforms must finish before the timed HMR exercise.
+import { bootstrap } from '../app/bootstrap'
 import '../i18n'
 import * as registryModule from './registry'
 
 const { registry } = registryModule
+
+afterEach(() => vi.doUnmock('./registry'))
 
 type Entry = { id: string; component?: unknown }
 const lists = () => ({
@@ -51,7 +55,6 @@ test('every register* call replaces an entry with the same id (then sorts)', () 
 })
 
 test('re-executed bootstrap, features and plugins (HMR) do not duplicate contributions', async () => {
-  const { bootstrap } = await import('../app/bootstrap')
   bootstrap()
   const before = snapshot()
   const nCommands = registry.commands.size
@@ -78,5 +81,4 @@ test('re-executed bootstrap, features and plugins (HMR) do not duplicate contrib
   expect(newProject).not.toBe(oldProject)
   const { SettingsView } = await import('../app/Settings')
   expect(after.views?.find((v) => v.id === 'settings')?.component).toBe(SettingsView)
-  vi.doUnmock('./registry')
 })

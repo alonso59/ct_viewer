@@ -29,6 +29,16 @@ def utc_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def pause_expired(job: Path) -> bool:
+    if not (job / "pause").exists():
+        return False
+    try:
+        request = json.loads((job / "control.json").read_text())
+        return time.monotonic() >= float(request["deadline_mono"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return time.time() >= (job / "pause").stat().st_mtime + 10
+
+
 def write_json_atomic(path: Path, obj: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)

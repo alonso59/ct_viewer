@@ -122,6 +122,10 @@ def _check(value: Any, schema: Mapping[str, Any], loc: Loc, issues: list[Setting
             bad(f"At least {schema['minItems']} entries", "range")
         if "maxItems" in schema and len(value) > schema["maxItems"]:
             bad(f"At most {schema['maxItems']} entries", "range")
+        if schema.get("uniqueItems") and len(
+            {json.dumps(item, sort_keys=True) for item in value}
+        ) != len(value):
+            bad("Entries must be unique", "unique")
         return [_check(v, schema["items"], [*loc, i], issues) for i, v in enumerate(value)]
     return value
 

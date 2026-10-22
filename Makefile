@@ -9,6 +9,10 @@ HOST ?= 127.0.0.1
 VERSION ?= $(shell sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml)
 FIXTURES ?= .fixtures/synthetic
 PYTHON_VERSION ?= 3.12
+PYTEST_WORKERS ?= 4
+VITEST_WORKERS ?= 2
+FULL_TESTS ?= 0
+TEST_ENV := OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 RW_TEST_REQUIRE_FULL=$(FULL_TESTS)
 # Python env: a venv by default; on remote servers pass VENV=$$CONDA_PREFIX (conda env `rw`).
 VENV ?= backend/.venv
 BPY := $(if $(filter /%,$(VENV)),$(VENV),../$(VENV))/bin/python
@@ -30,7 +34,7 @@ else
   $(error RUNTIME must be native, docker or udocker)
 endif
 
-.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
+.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test test-env test-runner test-host deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^##@ / {printf "\n%s\n", substr($$0, 5)} /^[a-z0-9-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -77,16 +81,27 @@ record-mock: ## TST-04: re-record the mock API (frontend/src/api/mock/recorded.j
 check: lint typecheck test deadcode api-types bundle-size reqs ## Lint, type check, unit tests, dead code, API types, bundle budget and the requirement check (CI gate)
 
 lint: ## ruff + eslint
-	cd backend && $(BPY) -m ruff check . ../scripts ../plugins ../docs/_sphinx && $(BPY) -m ruff format --check . ../scripts ../plugins ../docs/_sphinx
+	cd backend && $(BPY) -m ruff check --config pyproject.toml . && $(BPY) -m ruff format --config pyproject.toml --check .
+	$(BPY) -m ruff check --config ruff.toml scripts plugins docs/_sphinx
+	$(BPY) -m ruff format --config ruff.toml --check scripts plugins docs/_sphinx
 	$(NODE) npm run lint
 
 typecheck: ## mypy (strict) + tsc (strict)
 	cd backend && $(BPY) -m mypy && $(BPY) -m mypy --strict ../scripts/*.py
 	$(NODE) npm run typecheck
 
-test: ## Unit tests: pytest (parallel, pytest-xdist; one worker per module) + vitest
-	cd backend && $(BPY) -m pytest -n auto --dist loadscope
-	$(NODE) npm test
+test-env: ## Fail early on missing test prerequisites (FULL_TESTS=1 requires radiomics)
+	cd backend && $(TEST_ENV) $(BPY) -m tools.verify_environment $(if $(filter 1,$(FULL_TESTS)),--full,)
+
+test: test-env ## Unit tests with bounded workers; FULL_TESTS=1 refuses missing/skip coverage
+	cd backend && $(TEST_ENV) $(BPY) -m pytest -n $(PYTEST_WORKERS) --dist loadscope
+	$(NODE) npm test -- --maxWorkers=$(VITEST_WORKERS)
+
+test-runner: test-env ## Runner safety regression gate (PYTEST_WORKERS=0 for serial)
+	cd backend && $(TEST_ENV) $(BPY) -m pytest -n $(PYTEST_WORKERS) --dist loadscope tests/test_verification_environment.py tests/test_verification_pipeline.py tests/test_full_test_gate.py tests/test_runner_capabilities.py tests/test_runner_host_probe.py tests/test_runner_safety.py tests/test_runner_deployment.py tests/test_gpu_allocation.py tests/test_native_launch.py tests/test_external_completion.py tests/test_external_recovery.py tests/test_nnunet_resources.py tests/test_nnunet_cleanup.py tests/test_nnunet.py tests/test_runner.py
+
+test-host: test-env ## Opt-in GPU-free Linux kernel/user-service effect tests (no skipped prerequisites)
+	cd backend && $(TEST_ENV) $(BPY) -m pytest -n 0 host_tests -ra
 
 deadcode: ## Dead-code gate: knip (frontend: files, exports, deps) + vulture (backend, confidence >= 80)
 	$(NODE) npx knip
@@ -108,7 +123,9 @@ reqs: ## Requirement tables check (SRS §1.5; stdlib, < 1 s)
 	python3 docs/_sphinx/reqs.py check
 
 fix: ## Autofix: ruff check --fix, ruff format, eslint --fix
-	cd backend && $(BPY) -m ruff check --fix . ../scripts ../plugins ../docs/_sphinx && $(BPY) -m ruff format . ../scripts ../plugins ../docs/_sphinx
+	cd backend && $(BPY) -m ruff check --config pyproject.toml --fix . && $(BPY) -m ruff format --config pyproject.toml .
+	$(BPY) -m ruff check --config ruff.toml --fix scripts plugins docs/_sphinx
+	$(BPY) -m ruff format --config ruff.toml scripts plugins docs/_sphinx
 	$(NODE) npx eslint --fix .
 
 bundle-baseline: ## NFR-07: record the current initial JS size in frontend/bundle-baseline.json (commit it)

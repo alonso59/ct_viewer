@@ -9,18 +9,21 @@ Modules: `records` → `selection` → `jobspec` → `estimate` → `registratio
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from app.core import reviewer as reviewer_stamp
-from app.core.errors import JobConflict, ValidationProblem
+from app.core.errors import JobConflict, Problem, ValidationProblem
 from app.core.fsio import append_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.jobs.types import TERMINAL
 from app.projects.models import SEG_ID_RE
-from app.tasks import dry_run, registry
+from app.tasks import control, dry_run, protocol, registry
 from app.tasks.driver import DriverBase
+from app.tasks.identity import committed_outputs, create_identity, verify_resume
 from app.tasks.models import (
     TaskInfo,
     TaskItemError,
@@ -42,17 +45,21 @@ from app.tasks.registry import RADIOMICS_TASK
 from app.tasks.schema import normalize, settings_hash
 
 _SEG_RE = re.compile(SEG_ID_RE)
+log = logging.getLogger("app.tasks")
 
 
 class TaskService(DriverBase):
     """Stateless facade of API-42..47: routers build one per request from the app context."""
 
-    def _info(self, info: TaskInfo) -> TaskInfo:
-        if info.manifest.runtime.type != "external":
-            return info
-        return info.model_copy(
-            update={"runner_online": registry.runner_online(self.queue_dir, info.manifest.id)}
-        )
+    async def recover_all(self) -> None:
+        for project in self.workspace.list():
+            try:
+                for run_dir in self.runs.run_dirs(project.project_id):
+                    await self._recover_external(project.project_id, run_dir)
+            except (Problem, OSError, ValueError):
+                log.warning(
+                    "External recovery needs review", extra={"project_id": project.project_id}
+                )
 
     def list_tasks(self) -> TaskList:
         return TaskList(
@@ -71,7 +78,7 @@ class TaskService(DriverBase):
         labels: list[int] | None = None,
         n_items: int | None = None,
     ) -> TaskValidateResult:
-        info = self.registry.get(task_id)
+        info = self.get(task_id)
         if task_id == RADIOMICS_TASK:
             return self._radiomics().validate_task(raw, labels, n_items)
         m = info.manifest
@@ -87,7 +94,15 @@ class TaskService(DriverBase):
     async def start(self, pid: str, req: TaskRunRequest, reviewer: str | None) -> TaskRunStarted:
         if req.task_id == RADIOMICS_TASK:
             return await self._radiomics().start_task(pid, req, reviewer)
-        info = self.registry.get(req.task_id)
+        info = self.get(req.task_id)
+        for previous in self.runs.run_dirs(pid):
+            if self.runs.read(previous).task.id == req.task_id:
+                await self._recover_external(pid, previous)
+                await control.settle(self, pid, previous)
+                if self.runs.read(previous).status in control.STOPPING:
+                    raise JobConflict(
+                        f"Run {previous.name} is still stopping; wait for its verified cleanup"
+                    )
         m = info.manifest
         if not info.available:
             raise ValidationProblem(f"Task {m.id} is unavailable: {info.unavailable_reason}")
@@ -117,6 +132,9 @@ class TaskService(DriverBase):
                 errors=[{"loc": ["body", "settings", "seg_id"], "msg": "exists"}],
             )
         self._check_conflict(pid, m.id)
+        identity = await asyncio.to_thread(
+            create_identity, info, settings, self._job_items(pid, ready, seg_id)
+        )
         rid = new_ulid()
         out_dir = self._output_dir(pid, m, rid)
         now = utc_now()
@@ -130,6 +148,9 @@ class TaskService(DriverBase):
             runtime=m.runtime.type,
             settings=settings,
             settings_hash=shash,
+            identity=identity,
+            supervised=m.runtime.type == "external" and m.resources.gpu in {"required", "optional"},
+            manifest_snapshot=m.model_copy(deep=True),
             selection=req.selection.model_copy(update={"seg_id": seg_id, "source": source}),
             item_ids=[i.item_id for i in ready],
             inputs=[
@@ -166,6 +187,8 @@ class TaskService(DriverBase):
         if rad.has_run(pid, rid):
             return await rad.task_detail(pid, rid)
         run_dir = self.runs.run_dir(pid, rid)
+        await self._recover_external(pid, run_dir)
+        await control.settle(self, pid, run_dir)
         rec = await self.runs.reconcile(pid, run_dir)
         job = self.runs.job(rec.job_id)
         progress = None
@@ -175,12 +198,19 @@ class TaskService(DriverBase):
                 rec.status = "waiting_for_runner"
         return TaskRunDetail(**rec.model_dump(), progress=progress)
 
-    async def list_runs(self, pid: str, task_id: str | None = None) -> list[TaskRunListItem]:
+    async def list_runs(
+        self, pid: str, task_id: str | None = None, *, archived: bool = False
+    ) -> list[TaskRunListItem]:
+        """Archived runs are listed only on request (J6); their records stay on disk."""
         out: list[TaskRunListItem] = []
         for run_dir in self.runs.run_dirs(pid):
+            await self._recover_external(pid, run_dir)
+            await control.settle(self, pid, run_dir)
             rec = await self.runs.reconcile(pid, run_dir)
-            out.append(TaskRunListItem.model_validate(rec.model_dump()))
-        out += await self._radiomics().task_summaries(pid)
+            if rec.archived == archived:
+                out.append(TaskRunListItem.model_validate(rec.model_dump()))
+        if not archived:
+            out += await self._radiomics().task_summaries(pid)
         if task_id is not None:
             out = [r for r in out if r.task.id == task_id]
         return sorted(out, key=lambda r: r.run_id, reverse=True)
@@ -190,8 +220,22 @@ class TaskService(DriverBase):
         if rad.has_run(pid, rid):
             await rad.cancel(pid, rid)
             return await rad.task_detail(pid, rid)
+        if self.runs.read(self.runs.run_dir(pid, rid)).supervised:
+            return await control.request_control(self, pid, rid, "cancel")  # J5
         await self.runs.cancel(pid, self.runs.run_dir(pid, rid), CANCEL_GRACE_S + 5)
         return await self.get_run(pid, rid)
+
+    async def pause(self, pid: str, rid: str) -> TaskRunDetail:
+        """J3: stop dispatch, keep committed cases; `paused` once cleanup is verified."""
+        if self._radiomics().has_run(pid, rid):
+            raise JobConflict("This run does not support supervised controls")
+        return await control.request_control(self, pid, rid, "pause")
+
+    async def archive(self, pid: str, rid: str) -> TaskRunDetail:
+        """J6: hide an inactive supervised run; records, masks and sources are kept."""
+        if self._radiomics().has_run(pid, rid):
+            raise JobConflict("Only inactive supervised runs can be archived")
+        return await control.archive(self, pid, rid)
 
     async def resume(self, pid: str, rid: str) -> TaskRunStarted:
         """TSK-07: a new attempt that skips the items already `ok` (resume.skip)."""
@@ -200,8 +244,17 @@ class TaskService(DriverBase):
             d = await rad.resume(pid, rid)
             return TaskRunStarted(run_id=rid, job_id=d.job_id, status="queued")
         run_dir = self.runs.run_dir(pid, rid)
+        await self._recover_external(pid, run_dir)
+        await control.settle(self, pid, run_dir)
+        previous = self.runs.read(run_dir)
+        if previous.archived:
+            raise JobConflict("Archived runs are read-only")
+        if previous.runtime == "external" and previous.job_id:
+            job = self.queue_dir / previous.job_id
+            if (job / "attempt.json").exists() and not protocol.external_finished(job):
+                raise JobConflict("Prior external attempt cleanup is pending; resume is blocked")
         rec = await self.runs.resumable(pid, run_dir)
-        info = self.registry.get(rec.task.id)
+        info = self.get(rec.task.id)
         m = info.manifest
         if m.version != rec.task.version:
             raise JobConflict(
@@ -210,6 +263,22 @@ class TaskService(DriverBase):
         self._check_conflict(pid, m.id)
         idx = self.store.load(pid)
         items = [idx.by_id[i] for i in rec.item_ids if i in idx.by_id]
+        if m.id == "segment.nnunet" and m.resources.gpu == "required":
+            try:
+                outputs = committed_outputs(rec.outputs, self.workspace.resolver(pid).resolve)
+                await asyncio.to_thread(
+                    verify_resume,
+                    rec.identity,
+                    info,
+                    rec.settings,
+                    self._job_items(pid, items, rec.selection.seg_id),
+                    outputs,
+                )
+            except (OSError, ValueError, Problem) as exc:
+                raise JobConflict(
+                    "Cannot resume: pinned model, inputs or committed outputs changed or are "
+                    "unavailable. Start a new run."
+                ) from exc
         ok = [k for k, v in item_outcomes(run_dir).items() if v["status"] == "ok"]
         return await self._submit(pid, run_dir, m, items, rec.selection.seg_id, skip=ok)
 

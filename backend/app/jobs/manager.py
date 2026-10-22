@@ -80,6 +80,10 @@ class JobManager:
         self._closing = True
         live = [j for j in self._jobs.values() if not j.done_evt.is_set()]
         for job in live:
+            if job.spec.detach_on_shutdown:
+                if job.task is not None:
+                    job.task.cancel()
+                continue
             if job.info.status not in TERMINAL:
                 self._set_terminal(job, "interrupted")
             self._halt(job)

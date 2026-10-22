@@ -11,7 +11,13 @@ import { codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from './store'
 
 /** `prefill`: "Create project from this" (Open mode) starts the import wizard on that path */
-export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill }) {
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill }
+
+export function NewProjectDialog(props: Props) {
+  return props.open ? <ProjectDialog {...props} /> : null
+}
+
+function ProjectDialog({ open, onOpenChange, prefill }: Props) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [dataset, setDataset] = useState((prefill?.path ?? '').replace(/\/[^/]+\.(nii(?:\.gz)?|npy|dcm)$/i, ''))
@@ -24,7 +30,9 @@ export function NewProjectDialog({ open, onOpenChange, prefill }: { open: boolea
     onOpenChange(false)
     setName('')
     navigate(`/p/${p.project_id}`)
-    useImportWizard.getState().open(p.project_id, prefill?.path?.startsWith(`${dataset.trim()}/`) ? prefill : { path: dataset.trim() })
+    const root = dataset.trim()
+    const keepPrefill = prefill?.path === root || prefill?.path?.startsWith(`${root}/`)
+    useImportWizard.getState().open(p.project_id, keepPrefill ? prefill : { path: root })
   }
   return (
     <Dialog

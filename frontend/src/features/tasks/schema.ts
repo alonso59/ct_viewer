@@ -9,6 +9,9 @@ export interface FieldSchema {
   maximum?: number
   pattern?: string
   items?: FieldSchema
+  minItems?: number
+  maxItems?: number
+  uniqueItems?: boolean
   properties?: Record<string, FieldSchema>
   'x-help'?: string
   'x-advanced'?: boolean
@@ -37,6 +40,12 @@ export function check(schema: unknown, values: Record<string, unknown>): Record<
   for (const { name, schema: s } of fields(schema)) {
     const v = values[name]
     if (v === undefined || v === '') continue
+    if (s.type === 'array') {
+      if (!Array.isArray(v) || (s.items?.enum && v.some((item) => !s.items!.enum!.includes(item))) || (s.uniqueItems && new Set(v).size !== v.length)) out[name] = 'tasks.err.enum'
+      else if (s.minItems !== undefined && v.length < s.minItems) out[name] = 'tasks.err.min'
+      else if (s.maxItems !== undefined && v.length > s.maxItems) out[name] = 'tasks.err.max'
+      continue
+    }
     if ((s.type === 'integer' || s.type === 'number') && (typeof v !== 'number' || Number.isNaN(v))) out[name] = 'tasks.err.number'
     else if (s.type === 'integer' && typeof v === 'number' && !Number.isInteger(v)) out[name] = 'tasks.err.integer'
     else if (typeof v === 'number' && s.minimum !== undefined && v < s.minimum) out[name] = 'tasks.err.min'

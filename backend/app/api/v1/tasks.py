@@ -81,8 +81,11 @@ async def start_run(
 
 
 @router.get("/projects/{pid}/task-runs", response_model=list[TaskRunListItem])
-async def list_runs(ctx: Ctx, pid: str, task: str | None = None) -> list[TaskRunListItem]:
-    return await svc(ctx).list_runs(pid, task)
+async def list_runs(
+    ctx: Ctx, pid: str, task: str | None = None, archived: bool = False
+) -> list[TaskRunListItem]:
+    """API-45; `archived=true` lists the archived runs instead (J6)."""
+    return await svc(ctx).list_runs(pid, task, archived=archived)
 
 
 @router.get("/projects/{pid}/task-runs/{rid}", response_model=TaskRunDetail)
@@ -93,6 +96,18 @@ async def get_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
 @router.post("/projects/{pid}/task-runs/{rid}/cancel", response_model=TaskRunDetail)
 async def cancel_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
     return await svc(ctx).cancel(pid, rid)
+
+
+@router.post("/projects/{pid}/task-runs/{rid}/pause", response_model=TaskRunDetail)
+async def pause_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
+    """API-46 supervised runs (TSK-15): idempotent; `pausing` until cleanup is verified."""
+    return await svc(ctx).pause(pid, rid)
+
+
+@router.post("/projects/{pid}/task-runs/{rid}/archive", response_model=TaskRunDetail)
+async def archive_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
+    """API-46 supervised runs (TSK-15): 409 while active or cleanup is pending."""
+    return await svc(ctx).archive(pid, rid)
 
 
 @router.post(

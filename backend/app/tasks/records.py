@@ -25,6 +25,7 @@ from app.projects.service import Workspace
 from app.tasks.models import (
     RESUMABLE_TASK_RUN,
     TERMINAL_TASK_RUN,
+    TaskInfo,
     TaskManifest,
     TaskRunOutput,
     TaskRunRecord,
@@ -80,6 +81,8 @@ class Live:
     cancel_sent: bool = False
     dataset_dir: Path | None = None
     set_total: Callable[[int], None] | None = None
+    seen_events: set[str] = field(default_factory=set)
+    seen_items: set[str] = field(default_factory=set)
 
 
 class TaskBase:
@@ -115,6 +118,11 @@ class TaskBase:
     @property
     def queue_dir(self) -> Path:
         return self.settings.workspace_root / "queue"
+
+    def _info(self, info: TaskInfo) -> TaskInfo:
+        from app.tasks.catalog import task_info
+
+        return task_info(info, self.queue_dir)
 
     def _runs_dir(self, pid: str) -> Path:
         return self.workspace.project_dir(pid) / TASKS / RUNS

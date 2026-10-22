@@ -21,7 +21,9 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await folders.getByRole('button', { name: /^dicom$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
   await dialog.getByLabel('Dataset name').fill(name)
+  const estimate = page.waitForResponse((r) => r.url().includes('/tasks/dicom.convert/estimate') && r.request().method() === 'POST', { timeout: 30_000 })
   await dialog.getByRole('button', { name: 'Dry run' }).click()
+  expect((await estimate).ok()).toBe(true)
 
   // DCM-06 (AUD-A2-13): every series, the skipped one with its reason, sizes with their unit
   const plan = dialog.locator('details.conv-plan')
@@ -42,7 +44,9 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await dialog.getByRole('button', { name: 'Create project from this' }).click()
   const create = page.getByRole('dialog', { name: 'New project' })
   await create.getByLabel('Project name').fill(`G2 ${name}`)
+  const detection = page.waitForResponse((r) => r.url().endsWith('/sources/detect') && r.request().method() === 'POST', { timeout: 30_000 })
   await create.getByRole('button', { name: 'Create and import' }).click()
+  expect((await detection).ok()).toBe(true)
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
   const wizard = page.getByRole('dialog', { name: 'Import data' })

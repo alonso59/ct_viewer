@@ -1,0 +1,27 @@
+# CI source allowlist: no datasets, personal settings, caches or legacy reference.
+*
+!AGENTS.md
+!Makefile
+!Dockerfile
+!Dockerfile.verify
+!docker-compose.yml
+!.env.example
+!rw
+!udocker.py
+!backend/
+!frontend/
+!plugins/
+!scripts/
+!docs/
+!.github/
+backend/.venv
+**/__pycache__
+**/*.py[cod]
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/playwright-report
+frontend/test-results
+frontend/coverage
+docs/archive
+**/.DS_Store

@@ -9,7 +9,13 @@ function Field({ name, schema, value, error, onChange }: { name: string; schema:
   const { t } = useTranslation()
   const id = `task-field-${name}`
   let input
-  if (schema.type === 'boolean') {
+  if (schema.type === 'array' && schema.items?.enum) {
+    input = (
+      <select id={id} className="select" multiple value={Array.isArray(value) ? value.map(String) : []} onChange={(e) => onChange(Array.from(e.target.selectedOptions, (option) => option.value))}>
+        {schema.items.enum.map((option) => <option key={String(option)} value={String(option)}>{String(option)}</option>)}
+      </select>
+    )
+  } else if (schema.type === 'boolean') {
     input = <input id={id} type="checkbox" checked={Boolean(value ?? schema.default)} onChange={(e) => onChange(e.target.checked)} />
   } else if (schema.enum) {
     input = (
@@ -43,7 +49,7 @@ function Field({ name, schema, value, error, onChange }: { name: string; schema:
       <label className="field-label" htmlFor={id}>{name}</label>
       {input}
       {schema['x-help'] ? <span className="muted task-help">{schema['x-help']}</span> : null}
-      {error ? <span className="field-error">{t(error, { min: schema.minimum, max: schema.maximum })}</span> : null}
+      {error ? <span className="field-error">{t(error, { min: schema.minimum ?? schema.minItems, max: schema.maximum ?? schema.maxItems })}</span> : null}
     </div>
   )
 }

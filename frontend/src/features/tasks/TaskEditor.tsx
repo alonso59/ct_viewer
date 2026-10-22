@@ -4,14 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
+import { api, keys, useArchivedTaskRuns, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
 import { Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
-import { openEditor, toast, useWorkbench, type EditorProps } from '../../shell'
+import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
 import { useExplorerFilter } from '../explorer'
-import { ACTIVE_RUN, RESUMABLE_RUN, selectionFor, type SelectionMode } from './model'
+import { ACTIVE_RUN, STOPPING_RUN, runActions, selectionFor, type RunAction, type SelectionMode } from './model'
 import { check, toSettings } from './schema'
 import { SchemaForm } from './SchemaForm'
 import './tasks.css'
@@ -35,9 +35,12 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const jobs = useJobs(pid).data ?? []
   const job = jobs.find((j) => j.job_id === run.job_id)
   const live = ACTIVE_RUN.includes(run.status) && job && job.status !== 'succeeded'
-  const control = async (action: 'cancel' | 'resume') => {
+  const actions = runActions(run, registry.readOnly)
+  const control = async (action: RunAction) => {
     try {
       if (action === 'cancel') await api.cancelTaskRun(pid, run.run_id)
+      else if (action === 'pause') await api.pauseTaskRun(pid, run.run_id)
+      else if (action === 'archive') await api.archiveTaskRun(pid, run.run_id)
       else await api.resumeTaskRun(pid, run.run_id)
     } catch (e) {
       toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
@@ -55,16 +58,37 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       {live ? <Progress value={job.done} total={job.total || 1} /> : null}
       {live && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
       {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingHelp')}</p> : null}
+      {STOPPING_RUN.includes(run.status) ? (
+        <p className={run.status === 'cleanup_pending' ? 'field-error' : 'muted'} role="status">
+          {t(run.status === 'cleanup_pending' ? 'tasks.cleanupPendingHelp' : 'tasks.stoppingHelp')}
+        </p>
+      ) : null}
       <span className="muted num">{t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <span className="field-error">{run.error}</span> : null}
       <div className="task-run-actions">
-        {ACTIVE_RUN.includes(run.status) ? <button type="button" className="btn btn-sm" onClick={() => void control('cancel')}>{t('common.cancel')}</button> : null}
-        {RESUMABLE_RUN.includes(run.status) && run.task.id !== 'radiomics.pyradiomics' ? (
-          <button type="button" className="btn btn-sm" onClick={() => void control('resume')}>{t('tasks.resume')}</button>
-        ) : null}
+        {actions.map((a) => (
+          <button key={a} type="button" className="btn btn-sm" onClick={() => void control(a)}>
+            {t(a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' ? 'tasks.retryFailed' : `tasks.${a}`)}
+          </button>
+        ))}
       </div>
       <Outputs pid={pid} run={run} />
     </li>
+  )
+}
+
+/** J6: archived supervised runs stay listed on request, read-only, outputs reachable */
+function ArchivedRuns({ pid, taskId }: { pid: string; taskId: string }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const runs = (useArchivedTaskRuns(pid, open).data ?? []).filter((r) => r.task.id === taskId)
+  return (
+    <>
+      <button type="button" className="btn btn-sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {t(open ? 'tasks.hideArchived' : 'tasks.showArchived')}
+      </button>
+      {open ? runs.length ? <ul className="task-runs">{runs.map((r) => <RunRow key={r.run_id} pid={pid} run={r} />)}</ul> : <p className="muted">{t('tasks.noArchived')}</p> : null}
+    </>
   )
 }
 
@@ -290,6 +314,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
 
       <Section title={t('tasks.runs')}>
         {runs.length ? <ul className="task-runs">{runs.map((r) => <RunRow key={r.run_id} pid={pid} run={r} />)}</ul> : <p className="muted">{t('tasks.noRuns')}</p>}
+        {info.manifest.resources?.gpu && info.manifest.resources.gpu !== 'none' ? <ArchivedRuns pid={pid} taskId={m.id} /> : null}
       </Section>
       {askDerived ? (
         <DerivedRootDialog
