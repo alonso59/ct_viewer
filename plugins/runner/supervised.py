@@ -70,7 +70,7 @@ class Supervisor:
             "backend": self.config["backend"],
             "limits": self.config["limits"],
             "gpu_inventory": [
-                {key: value for key, value in row.items() if key != "pids"} | {"busy": bool(row["pids"])}
+                {key: value for key, value in row.items() if key != "pids"} | {"busy": not gpu.idle(row)}
                 for row in gpu.inventory()
             ],
             "limitations": [
@@ -89,7 +89,7 @@ class Supervisor:
                 "at": utc_now(),
                 "error": None,
                 "devices": [
-                    {key: value for key, value in row.items() if key != "pids"} | {"busy": bool(row["pids"])}
+                    {key: value for key, value in row.items() if key != "pids"} | {"busy": not gpu.idle(row)}
                     for row in rows
                 ],
             }

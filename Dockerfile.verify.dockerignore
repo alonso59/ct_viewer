@@ -2,8 +2,10 @@
 *
 !AGENTS.md
 !Makefile
+!ruff.toml
 !Dockerfile
 !Dockerfile.verify
+!Dockerfile.verify.dockerignore
 !docker-compose.yml
 !.env.example
 !rw

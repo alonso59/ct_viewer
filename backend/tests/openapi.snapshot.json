@@ -6611,6 +6611,38 @@
     "title": "Page[CurationEvent]",
     "type": "object"
    },
+   "Page_Item_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/Item"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[Item]",
+    "type": "object"
+   },
    "Page_PhaseEvent_": {
     "properties": {
      "items": {
@@ -16269,6 +16301,166 @@
     "summary": "Preview Import",
     "tags": [
      "imports"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/items": {
+   "get": {
+    "description": "API-68: active indexed items, filtered before paging; no source reads or ID inference.",
+    "operationId": "list_items_api_v1_projects__pid__items_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 256,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "complete",
+          "voi"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Scope"
+      }
+     },
+     {
+      "in": "query",
+      "name": "phase",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phase"
+      }
+     },
+     {
+      "in": "query",
+      "name": "modality",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Modality"
+      }
+     },
+     {
+      "in": "query",
+      "name": "has_mask",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Has Mask"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_Item_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Items",
+    "tags": [
+     "items"
     ]
    }
   },

@@ -21,8 +21,9 @@ Support compatible nnU-Net v2 **single-channel NIfTI** models first. Multi-chann
 - Wave 4 lifecycle (2026-10-22): batch pause keeps committed cases and dispatches no remaining ones; publication never overwrites. API-46 pause/archive and supervised cancel record durable `control.json` requests; runs stay `pausing`/`cancelling` until the same attempt's verified cleanup, a stop without it is `cleanup_pending` (archive/resume/new runs 409), archived runs are hidden from API-45 unless `archived=true`. The runner never claims a paused job and answers with `control-ack.json` (`test_segmentation_controls`, `test_task_archive`, `test_runner_safety`).
 - Wave 5 UI (unit level): every lifecycle state is labelled and translated, Pause/Cancel/Resume/Retry failed/Archive follow the state, cleanup-pending text stays until confirmation, view-only shows no action (`features/tasks/model.test.ts`, `RunRow.test.tsx`). `reconciling` is typed but not emitted: an API restart reattaches straight to the observed state.
 - Wave 6 lifecycle host acceptance passed on 2026-10-22 (evidence in `../ops/SEGMENTATION_JOB_TEST_PLAN.md`). It found and fixed a real-host defect: plugin scripts run without `-I` let `plugins/nnunet/profile.py` shadow the stdlib `profile`, so the trainer check failed and the runner refused the model.
-- Still open: Playwright journeys on the real API/supervisor (U1/J2), the full Chromium/Firefox lane and a CI image build. No full P7g exit is claimed.
-- Unconfigured GPU launches remain blocked. Existing deployed/running production services have not been replaced by this work.
+- U1/J2 real API/supervisor browser acceptance now passes in Chromium and Firefox: tab reconnect, API restart preserving the same attempt, pause/resume/cancel/archive, verified cleanup and lease release. The fixture runs only CPU work with synthetic GPU telemetry; native nnU-Net acceptance stays separate.
+- Still open: final full Chromium/Firefox regression and CI product-image/Docker acceptance. No full P7g exit is claimed until those lanes pass.
+- Unconfigured GPU launches remain blocked. Production uses frozen releases with explicit health/asset/runner verification; deployment identity and remaining acceptance gates belong to `../ops/SEGMENTATION_JOB_TEST_PLAN.md`.
 
 ## Audit of the current implementation
 
@@ -91,7 +92,7 @@ If required backend boundaries cannot be enforced without privileges, stop with 
 | paused / cancelled / failed / interrupted / completed_with_errors | resume/retry, no prior live attempt | queued; new attempt generation |
 | inactive, cleanup verified | archive | hidden from default list; retained audit/output references |
 
-Transition names above are not implemented yet; update all shared types, API snapshots, recorded mocks, i18n and UI together in P7g.
+The implemented states are shared by types, API snapshots, recorded mocks, i18n and UI; the `reconciling` exception is recorded in the execution status above.
 GPU selection applies to the next attempt, not a live worker. Resume on different approved GPUs is allowed without changing the pinned model/input identity.
 Normal pause finishes the bounded in-flight work; immediate stop may repeat that work on resume. No mid-case checkpoint or SIGSTOP-based memory-release claim.
 

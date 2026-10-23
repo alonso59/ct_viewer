@@ -104,7 +104,10 @@ def test_browser_commands_and_unrecognized_configuration_are_refused() -> None:
         validate_config(raw)
 
 
-def test_default_pool_state_cannot_be_written_inside_a_source_root() -> None:
+def test_default_pool_state_cannot_be_written_inside_a_source_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "operator-home"))
     raw = config()
     raw["source_roots"] = [str(Path.home())]
     with pytest.raises(ValueError, match=r"state.*overlap"):

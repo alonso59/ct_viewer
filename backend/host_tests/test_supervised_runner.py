@@ -197,7 +197,11 @@ def native_command(deployment: dict[str, Any], script: str, arguments: list[str]
     config_path = root / "deployment.json"
     config = json.loads(config_path.read_text())
     config["environment"] = str(prefix)
+    config["limits"]["cpus"] = 3
     config_path.write_text(json.dumps(config))
+    # This fixture tests the native broker, not model validation (covered by SEG-02 tests).
+    # Meet the real admission contract; the synthetic CLI has no checkpoint to validate.
+    deployment["manifest"].with_name("verify.py").write_text("pass\n")
     manifest = json.loads(deployment["manifest"].read_text())
     manifest["id"] = "segment.nnunet"
     manifest["runtime"]["command"] = [

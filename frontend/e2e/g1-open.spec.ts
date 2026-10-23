@@ -87,6 +87,8 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
   const wizard = page.getByRole('dialog', { name: 'Import data' })
+  // The prefilled wizard performs its own detection after project creation.
+  await expect(wizard.getByText('Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…')).toBeHidden({ timeout: 30_000 })
   await expect(wizard.getByRole('radio', { name: /NIfTI files/ })).toBeChecked()
   await expect(wizard.getByRole('note').filter({ hasText: `seg/${MASK}` })).toBeVisible()
   await expect(wizard.getByLabel('File name pattern')).toHaveValue(/\(\?P<scan_idx>/)

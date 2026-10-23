@@ -18,6 +18,16 @@ from typing import Any
 from plugins.protocol import write_json_atomic
 
 
+def idle(row: dict[str, Any]) -> bool:
+    return (
+        type(row.get("used_mb")) is int
+        and 0 <= row["used_mb"] <= 64
+        and type(row.get("utilization")) is int
+        and 0 <= row["utilization"] <= 5
+        and row.get("pids") == []
+    )
+
+
 def select_devices(rows: list[dict[str, Any]], pool: list[str], requested: list[str], count: int) -> list[str]:
     if not 1 <= count <= 4:
         raise ValueError("GPU count must be 1..4")
@@ -33,15 +43,6 @@ def select_devices(rows: list[dict[str, Any]], pool: list[str], requested: list[
     explicit = [str(aliases[value]["uuid"]) for value in requested]
     if len(explicit) != len(set(explicit)) or not set(explicit) <= approved:
         raise ValueError("duplicate or outside-pool GPU request")
-
-    def idle(row: dict[str, Any]) -> bool:
-        return (
-            type(row.get("used_mb")) is int
-            and 0 <= row["used_mb"] <= 64
-            and type(row.get("utilization")) is int
-            and 0 <= row["utilization"] <= 5
-            and row.get("pids") == []
-        )
 
     if requested:
         chosen = explicit[:count]

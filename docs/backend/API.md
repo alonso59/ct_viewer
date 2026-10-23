@@ -84,6 +84,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-65 | `POST /projects/{pid}/phase/exports` | Write `exports/phase_selections.json` | PHS-06 |
 | API-67 | `POST /projects/open` | `{dataset_root}` → saved ProjectDetail list; registers PRJ-19 projects from a folder. API-02 accepts optional `dataset_root`; omitting it preserves global-project behavior for existing clients. | PRJ-19 |
 | API-66 | `GET·POST /projects/{pid}/items/{iid}/recycle` | Preview → RecyclePlan (counts, destination, affected projects, token); POST `{confirmed: true, token}` with `X-Reviewer` → RecycleResult. `412` if preview changed, `409` for active jobs. | CUR-16 |
+| API-68 | `GET /projects/{pid}/items` | Active indexed items, sorted by case/scan/item, filtered before cursor paging. `q` searches case/patient/item IDs and image reference (case-insensitive); `scope`, `phase`, `modality`, `has_mask` filter metadata. Returns `{items, next_cursor, total}` without source/header reads. Also available through API-60 redaction. | TSK-03 |
 
 Radiomics is the task `radiomics.pyradiomics` (RAD-13): validate, estimate, runs, control and errors are API-43..47, whose answers carry the radiomics record as `radiomics` (API-43 `ValidateResult`, API-44 `EstimateResult`, API-45 list `RunSummary` / detail and API-46 cancel `RunDetail`, API-47 `RunError` per row). Only the engine schema (API-30), profiles (API-32), feature exports (API-36) and dashboard views (API-38) are radiomics routes.
 

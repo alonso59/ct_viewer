@@ -24,6 +24,8 @@ import type {
   ImportHistory,
   ImportPreview,
   ItemDetail,
+  ItemFilter,
+  ItemPage,
   Job,
   LabelDef,
   NewCurationEvent,
@@ -200,6 +202,8 @@ export interface Api {
   importExternal(pid: string, file: File, key: 'case_id' | 'patient_id'): Promise<ExternalImportResult>
 
   // Cases and items (API-20..26)
+  listItems(pid: string, f?: ItemFilter): Promise<ItemPage>
+  listItemIds(pid: string, f?: ItemFilter): Promise<string[]>
   listCases(pid: string, f?: CaseFilter): Promise<CaseSummary[]>
   getCase(pid: string, cid: string): Promise<CaseDetail>
   getItem(pid: string, iid: string): Promise<ItemDetail>

@@ -41,3 +41,30 @@ jobs:
           path: build/ci/
           if-no-files-found: ignore
           retention-days: 7
+  image:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the product image
+        run: docker build -t radiology-workbench:verification .
+      - name: Generate disposable synthetic sources
+        run: |
+          mkdir -p .fixtures
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$PWD/.fixtures:/fixtures" radiology-workbench:verification \
+            python -m tools.make_fixtures --out /fixtures/synthetic
+      - name: Verify Docker runtime, arbitrary UID, health, IBSI and immutable sources
+        run: IMAGE=radiology-workbench:verification scripts/container-smoke.sh
+      - name: Save the tested image for udocker acceptance
+        run: |
+          mkdir -p build/ci
+          docker save radiology-workbench:verification -o build/ci/radiology-workbench.tar
+          sha256sum build/ci/radiology-workbench.tar > build/ci/radiology-workbench.tar.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-product-image
+          path: build/ci/radiology-workbench.tar*
+          retention-days: 7

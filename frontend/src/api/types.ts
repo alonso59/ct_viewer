@@ -43,6 +43,16 @@ export type ViewToken = S['ViewToken']
 
 /** API-22 item; server defaults make every field present */
 export type ItemRecord = Required<S['Item']>
+export type ItemPage = S['Page_Item_']
+export interface ItemFilter {
+  q?: string
+  scope?: Scope
+  phase?: string
+  modality?: string
+  has_mask?: boolean
+  cursor?: string
+  limit?: number
+}
 export type ItemDetail = ItemRecord & {
   /** `image_abs`/`mask_abs` alias the API names for P0.5 code (viewer ImageSection); drop after lane/2-viewer merges */
   advanced: Required<S['ItemAdvanced']> & { image_abs: string | null; mask_abs: string | null }

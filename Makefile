@@ -34,7 +34,7 @@ else
   $(error RUNTIME must be native, docker or udocker)
 endif
 
-.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test test-env test-runner test-host deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
+.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^##@ / {printf "\n%s\n", substr($$0, 5)} /^[a-z0-9-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -102,6 +102,10 @@ test-runner: test-env ## Runner safety regression gate (PYTEST_WORKERS=0 for ser
 
 test-host: test-env ## Opt-in GPU-free Linux kernel/user-service effect tests (no skipped prerequisites)
 	cd backend && $(TEST_ENV) $(BPY) -m pytest -n 0 host_tests -ra
+
+test-host-browser: ## Real API/supervisor Chromium + Firefox controls/restart, CPU fixture; requires prepared browser container
+	$(NODE) npm run build
+	cd backend && $(TEST_ENV) $(BPY) -m tools.runner_browser_acceptance
 
 deadcode: ## Dead-code gate: knip (frontend: files, exports, deps) + vulture (backend, confidence >= 80)
 	$(NODE) npx knip

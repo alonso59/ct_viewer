@@ -10,6 +10,11 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_verification_context_includes_the_root_lint_configuration() -> None:
+    context = (REPO / "Dockerfile.verify.dockerignore").read_text().splitlines()
+    assert "!ruff.toml" in context, "the built verification image cannot run make lint"
+
+
 def test_image_publication_depends_on_reusable_verification() -> None:
     workflow = yaml.safe_load((REPO / ".github/workflows/build.yml").read_text())
     jobs = workflow["jobs"]

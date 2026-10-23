@@ -25,8 +25,9 @@ test('the fake segmentation plugin adds a set through the host runner', async ({
   await api('PUT', `/projects/${pid}/roots/DERIVED`, { path: process.env.E2E_DERIVED, role: 'derived' })
 
   await page.goto(`/p/${pid}/tasks/segment.threshold`)
-  await expect(page.getByRole('heading', { name: 'Threshold segmentation (test)' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Threshold segmentation (test)' })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('radio', { name: 'Item list' }).click()
+  await page.getByText('Paste or edit item IDs').click()
   await page.getByPlaceholder('Item ids, separated by spaces, commas or new lines').fill(ITEM)
   await expect(page.getByText('1 of 1 ready')).toBeVisible()
   await page.getByRole('button', { name: 'Run', exact: true }).click()

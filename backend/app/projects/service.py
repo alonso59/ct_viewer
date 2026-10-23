@@ -232,7 +232,7 @@ class Workspace:
         )
 
     def list(self, *, archived: bool = False) -> list[ProjectSummary]:
-        rows = [self.summary(e.project_id) for e in self._entries().values()]
+        rows = [self.summary(e.project_id) for e in tuple(self._entries().values())]
         rows = [r for r in rows if r.archived == archived]
         rows.sort(key=lambda r: r.last_opened_at or r.created_at, reverse=True)
         return rows
@@ -242,7 +242,7 @@ class Workspace:
         (TSK-13) and every project's task tree `{derived root}/{project_id}/` (PROJECT_FORMAT
         §Write rules), archived projects included."""
         roots = [realpath(d) for d in self.settings.dataset_roots]
-        for pid, entry in self._entries().items():
+        for pid, entry in tuple(self._entries().items()):
             # an archived project is not `get`-able, but its task tree stays reserved
             cfg = self.get(pid) if not entry.archived else self._load(self._folder(entry))
             root = cfg.derived_root()
@@ -291,7 +291,7 @@ class Workspace:
     def by_view_token(self, token: str) -> str:
         """PRJ-17: the active project whose `view_token` is `token`; NotFound otherwise."""
         if token and VIEW_TOKEN_RE.fullmatch(token):
-            for e in self._entries().values():
+            for e in tuple(self._entries().values()):
                 if e.archived:
                     continue
                 t = self.get(e.project_id).view_token

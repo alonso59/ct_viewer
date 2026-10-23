@@ -1,6 +1,6 @@
 // Central query keys (FE-02)
 import type { CaseFilter } from './surface'
-import type { DashboardView } from './types'
+import type { DashboardView, ItemFilter } from './types'
 
 /** Parts of a project that are invalidated as a whole (a prefix of the keys below) */
 export type ProjectScope = 'cases' | 'case' | 'item' | 'curation' | 'events' | 'labeling' | 'run' | 'analyses'
@@ -17,6 +17,7 @@ export const keys = {
   cases: (pid: string, f: CaseFilter = {}) => ['project', pid, 'cases', f] as const,
   case: (pid: string, cid: string) => ['project', pid, 'case', cid] as const,
   item: (pid: string, iid: string) => ['project', pid, 'item', iid] as const,
+  items: (pid: string, f: ItemFilter) => ['project', pid, 'item', 'list', f] as const,
   recycle: (pid: string, iid: string) => ['project', pid, 'item', iid, 'recycle'] as const,
   dicomTags: (pid: string, iid: string) => ['project', pid, 'item', iid, 'dicom-tags'] as const,
   warnings: (pid: string) => ['project', pid, 'warnings'] as const,

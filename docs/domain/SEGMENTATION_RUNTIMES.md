@@ -59,6 +59,8 @@ Then start `scripts/rw-runner.py` with `--deployment /absolute/deployment.json`,
 
 `gpu_cap` supports 1..4; optional `gpu_ids` selects physical indices 0..6, resolved against fresh inventory to UUIDs. Empty selection uses available approved devices automatically. Effective count is capped by pending cases; requested devices are never replaced with outside devices. nnU-Net uses its official partitioned inference CLI. `torchrun` is not required for independent cases and supplies no isolation/reservation boundary.
 
+The task's **Check GPUs** button waits up to 20 seconds for a new runner inventory reading and refreshes the approved-device choices. It does not reserve devices or start inference. The idle/busy display uses the allocator's own admission rule; launch still checks availability again.
+
 ## SLURM preparation (deferred)
 
 Reported: quota-controlled `/lustre/`, separate from HOME and compute-node storage. Unverified: shared visibility on submission/compute nodes, quota/headroom, environment availability, partition/account/QOS/GRES policy and permitted background submission.

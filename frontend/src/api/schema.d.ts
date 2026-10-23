@@ -644,6 +644,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Items
+         * @description API-68: active indexed items, filtered before paging; no source reads or ID inference.
+         */
+        get: operations["list_items_api_v1_projects__pid__items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/items/{iid}": {
         parameters: {
             query?: never;
@@ -4493,6 +4513,15 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[Item] */
+        Page_Item_: {
+            /** Items */
+            items: components["schemas"]["Item"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
         /** Page[PhaseEvent] */
         Page_PhaseEvent_: {
             /** Items */
@@ -8062,6 +8091,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_items_api_v1_projects__pid__items_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                scope?: ("complete" | "voi") | null;
+                phase?: string | null;
+                modality?: string | null;
+                has_mask?: boolean | null;
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Item_"];
                 };
             };
             /** @description Validation Error */

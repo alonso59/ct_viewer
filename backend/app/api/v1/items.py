@@ -5,18 +5,55 @@ from __future__ import annotations
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Query
 
 from app.api.v1.deps import Ctx
 from app.api.v1.imports import ingest_service
+from app.api.v1.paging import Page, Paging, paginate
 from app.core.errors import NotFound, SourceMissing
 from app.core.fsio import read_json
+from app.core.ids import Scope
+from app.ingest.models import Item
 from app.ingest.recycle import RecyclePlan, RecycleRequest, RecycleResult, RecycleService
 from app.ingest.schemas import ItemDetail
 from app.variables.rebuild import schedule_variables_rebuild
 from app.variables.service import VariableService
 
 router = APIRouter(tags=["items"])
+
+
+@router.get("/projects/{pid}/items", response_model=Page[Item])
+def list_items(
+    pid: str,
+    ctx: Ctx,
+    paging: Paging,
+    q: Annotated[str | None, Query(max_length=256)] = None,
+    scope: Annotated[Scope | None, Query()] = None,
+    phase: Annotated[str | None, Query(max_length=128)] = None,
+    modality: Annotated[str | None, Query(max_length=128)] = None,
+    has_mask: Annotated[bool | None, Query()] = None,
+) -> Page[Item]:
+    """API-68: active indexed items, filtered before paging; no source reads or ID inference."""
+    ctx.workspace.get(pid)
+    needle = (q or "").strip().casefold()
+    rows = [
+        it
+        for it in ctx.index.load(pid).items
+        if it.status == "active"
+        and (scope is None or it.scope == scope)
+        and (phase is None or it.phase.canonical.casefold() == phase.casefold())
+        and (modality is None or (it.modality or "").casefold() == modality.casefold())
+        and (has_mask is None or bool(it.masks) == has_mask)
+        and (
+            not needle
+            or needle
+            in "\n".join(
+                [it.item_id, it.case_id, it.patient_id or "", it.image.ref if it.image else ""]
+            ).casefold()
+        )
+    ]
+    rows.sort(key=lambda it: (it.case_id, it.scan_idx, it.item_id))
+    return paginate(rows, paging)
 
 
 @router.get("/projects/{pid}/items/{iid}", response_model=ItemDetail)

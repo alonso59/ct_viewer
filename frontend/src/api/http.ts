@@ -517,6 +517,17 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     },
 
     // API-20..26
+    async listItemIds(pid, f = {}) {
+      const ids = await allPages(async (cursor) => {
+        const page = await unwrap(client.GET('/api/v1/projects/{pid}/items', { params: { path: { pid }, query: { ...f, limit: 500, cursor } } }))
+        return { items: page.items.map((row) => row.item_id), next_cursor: page.next_cursor }
+      })
+      return [...new Set(ids)]
+    },
+    async listItems(pid, f = {}) {
+      const query = Object.fromEntries(Object.entries(f).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)]))
+      return unwrap(client.GET('/api/v1/projects/{pid}/items', { params: { path: { pid }, query } }))
+    },
     async listCases(pid, f = {}) {
       const out: CaseSummary[] = []
       let cursor: string | undefined

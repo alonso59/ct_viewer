@@ -349,6 +349,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     get(f"{T}?deleted=true")
     get(f"{API}/jobs?project={pid}")
     cases = get(f"{P}/cases", paged=True)
+    get(f"{P}/items", paged=True)
     for q in (
         "phase=NP",
         "curation_status=accepted",

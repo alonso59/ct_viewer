@@ -33,7 +33,7 @@ router = APIRouter(tags=["view"])
 READ_ONLY = re.compile(
     r"^/(?:"
     r"cases(?:/[^/]+)?"
-    r"|items/[^/]+(?:/(?:image|mask|thumbnail|dicom-tags|mesh/\d+))?"
+    r"|items(?:/[^/]+(?:/(?:image|mask|thumbnail|dicom-tags|mesh/\d+))?)?"
     r"|warnings|segmentations|variables|annotations|annotation-sources|events"
     r"|curation/(?:state|events|queue)"
     r"|phase/(?:state|events)"

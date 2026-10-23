@@ -14,6 +14,8 @@ import { useExplorerFilter } from '../explorer'
 import { ACTIVE_RUN, STOPPING_RUN, runActions, selectionFor, type RunAction, type SelectionMode } from './model'
 import { check, toSettings } from './schema'
 import { SchemaForm } from './SchemaForm'
+import { ItemPicker } from './ItemPicker'
+import { GpuAvailability } from './GpuAvailability'
 import './tasks.css'
 
 const CONFIRM_ABOVE = 20
@@ -188,6 +190,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const [estimate, setEstimate] = useState<TaskEstimate | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
+  const [selecting, setSelecting] = useState(false)
   const [askDerived, setAskDerived] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const runs = (useTaskRuns(pid).data ?? []).filter((r) => r.task.id === m.id)
@@ -199,7 +202,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const settings = toSettings(values)
   const errors = check(m.settings_schema, values)
   const preflight = useQuery({
-    queryKey: keys.taskPreflight(pid, m.id, selection),
+    queryKey: keys.taskPreflight(pid, m.id, { selection, settings }),
     queryFn: () => api.preflightTask(pid, m.id, selection, settings),
     enabled: m.input !== 'source' || !!source,
     retry: false,
@@ -271,7 +274,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
                 </button>
               ))}
             </div>
-            {mode === 'list' ? <textarea className="input mono" rows={3} value={list} placeholder={t('tasks.listHelp')} onChange={(e) => setList(e.target.value)} /> : null}
+            {mode === 'list' ? <ItemPicker pid={pid} value={list} onChange={setList} onBusyChange={setSelecting} /> : null}
             {readsMasks ? (
               <label className="field">
                 <span className="field-label">{t('tasks.segSet')}</span>
@@ -285,6 +288,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
       </Section>
 
       <Section title={t('tasks.settings')}>
+        {m.runtime.type === 'external' && m.resources?.gpu && m.resources.gpu !== 'none' ? <GpuAvailability info={info} /> : null}
         <SchemaForm schema={m.settings_schema} values={values} errors={errors} onChange={setValues} />
       </Section>
 
@@ -310,8 +314,8 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
           </>
         ) : null}
         <div className="task-run-actions">
-          <button type="button" className="btn" onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
-          <button type="button" className="btn btn-primary" disabled={busy || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)} onClick={() => (heavy ? setConfirming(true) : void run())}>
+          <button type="button" className="btn" disabled={selecting} onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
+          <button type="button" className="btn btn-primary" disabled={busy || selecting || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)} onClick={() => (heavy ? setConfirming(true) : void run())}>
             <Icon spec={codicon('play')} />
             {t('tasks.run')}
           </button>
