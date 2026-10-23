@@ -1,7 +1,7 @@
 # Frontend Architecture
 
 Scope: stack, folder layout, state, routing, boundaries.
-Read when: writing any frontend code. UI look: UI_SHELL.md. Viewer: VIEWER.md.
+Read when: changing folder layout, state, routing, boundaries or the API layer (start frontend tasks at `frontend/AGENTS.md`). UI look: UI_SHELL.md. Viewer: VIEWER.md.
 Depends: backend/API.md, ADR-0001, ADR-0003, ADR-0008, ADR-0018.
 
 ## Stack
