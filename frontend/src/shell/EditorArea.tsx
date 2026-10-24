@@ -174,7 +174,8 @@ export function EditorArea({ pid }: { pid: string }) {
     nav.current = navigate
   }, [navigate])
   useEffect(() => {
-    if (!ready.current) return
+    // History reconciliation may have activated another panel earlier in this effect flush.
+    if (!ready.current || active !== useWorkbench.getState().active) return
     const path = pathFor(pid, active)
     if (path !== lastPath.current) {
       const replace = !lastPath.current || !isNewEntry(lastPath.current, path)
