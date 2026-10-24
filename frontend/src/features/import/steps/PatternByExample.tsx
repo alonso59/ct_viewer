@@ -54,7 +54,7 @@ export function PatternByExample({ root, stems, value, onChange }: { root: strin
     const rel = abs.startsWith(`${dir}/`) ? abs.slice(dir.length + 1) : null
     const next = !pattern ? 'noCase' : rel === null ? 'outside' : templateFrom(pattern, path, rel)
     if (next === null || next === 'noCase' || next === 'outside') {
-      setMaskError(t(`import.byExample.mask_${next ?? 'same'}`))
+      setMaskError(t(next === 'noCase' ? 'import.byExample.mask_noCase' : next === 'outside' ? 'import.byExample.mask_outside' : 'import.byExample.mask_same'))
       return
     }
     setMaskError(null)
