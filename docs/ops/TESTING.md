@@ -92,6 +92,7 @@ Verify full backend dependencies and actual WebGL2 before the browser lane. In L
 
 Local verification: lint + typecheck · TST-01..04 (pytest in parallel, pytest-xdist) · dead code (`make deadcode`: knip + vulture) · OpenAPI/TS types up to date (`make api-types`) · initial JS within NFR-07 (`make bundle-size`) · requirement tables (`make reqs`) · TST-07 · image build. The `make check` prerequisites are independent, so `make -j4 check` runs them in parallel; on shared hosts, bound workers and numerical-library threads (SEGMENTATION_JOB_TEST_PLAN.md).
 The publication workflow now depends on reusable `.github/workflows/verify.yml`: isolated full checks, serial safety regressions and both-browser E2E in `Dockerfile.verify`. This wiring is covered by TST-22; actual CI execution is separate evidence. No scheduled nightly lane is configured; remaining TST-06/09/10 release/host obligations stay explicit.
+The verification image installs `xauth` and checks `xvfb-run -a true` during its build, so missing display-startup dependencies fail before the test suite.
 
 P7f/P7g: `SEGMENTATION_JOB_TEST_PLAN.md` owns the measured baseline, implementation evidence, remaining cases, environment gates and failure-investigation policy. Use `make test-env FULL_TESTS=1` to fail before collection on missing full dependencies; `make test-runner PYTEST_WORKERS=0 FULL_TESTS=1` exercises safety serially. Full pytest coverage also refuses skipped tests (`--require-full` or `RW_TEST_REQUIRE_FULL=1`).
 
