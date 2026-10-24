@@ -229,6 +229,126 @@ def test_bounded_inflight() -> None:
     run(body())
 
 
+@pytest.mark.parametrize("worker_raises", [False, True])
+def test_drain_cancel_waits_for_all_workers_and_blocks_replacement(worker_raises: bool) -> None:
+    """BE-06/D16: a stopped metadata job is not proof its shared workers returned."""
+
+    async def body() -> None:
+        bus, jm = await started(workers=2)
+        entered = [threading.Event(), threading.Event()]
+        release = [threading.Event(), threading.Event()]
+        calls: list[int] = []
+        results: list[int] = []
+
+        def work(index: int) -> int:
+            calls.append(index)
+            if index < 2:
+                entered[index].set()
+                assert release[index].wait(5)
+            if index == 1 and worker_raises:
+                raise OSError("Cancelled worker still has to be drained")
+            return index
+
+        async def result(value: int) -> None:
+            results.append(value)
+
+        info = jm.submit(JobSpec("p", "index", [WorkUnit(work, (i,)) for i in range(3)], result))
+        try:
+            await until(lambda: all(e.is_set() for e in entered))
+            jm.cancel(info.job_id, drain=True)
+            assert jm.active("p", "index") is info
+            with pytest.raises(JobConflict):
+                jm.submit(JobSpec("p", "index", []))
+            jm.cancel(info.job_id, drain=True)
+            waiter = asyncio.create_task(jm.wait(info.job_id))
+            release[0].set()
+            other = jm.submit(JobSpec("q", "hash", [WorkUnit(square, (7,))]))
+            assert (await jm.wait(other.job_id, 2)).status == "succeeded"
+            assert not waiter.done() and results == []
+            assert not [e for e in events(bus, "job.finished") if e.data["job_id"] == info.job_id]
+            release[1].set()
+            done = await asyncio.wait_for(waiter, 2)
+            assert done.status == "cancelled" and done.done == 0
+            assert sorted(calls) == [0, 1] and results == []
+            assert jm.active("p", "index") is None
+            assert (
+                len([e for e in events(bus, "job.finished") if e.data["job_id"] == info.job_id])
+                == 1
+            )
+        finally:
+            for gate in release:
+                gate.set()
+            await jm.shutdown()
+
+    run(body())
+
+
+def test_shutdown_cannot_announce_unfinished_drain_as_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """BE-13/D16: a finalizer timeout cannot turn a live future into cleanup evidence."""
+    monkeypatch.setattr(manager_mod, "SHUTDOWN_FINISH_TIMEOUT_S", 0.01)
+
+    async def body() -> None:
+        bus, jm = await started(workers=1)
+        entered, release = threading.Event(), threading.Event()
+
+        def work() -> None:
+            entered.set()
+            assert release.wait(5)
+
+        info = jm.submit(JobSpec("p", "index", [WorkUnit(work)]))
+        try:
+            await until(entered.is_set)
+            jm.cancel(info.job_id, drain=True)
+            await jm.shutdown()
+            assert jm.active("p", "index") is info
+            assert not events(bus, "job.finished")
+            with pytest.raises(asyncio.TimeoutError):
+                await jm.wait(info.job_id, 0.01)
+        finally:
+            release.set()
+
+    run(body())
+
+
+def test_failed_index_drains_other_workers_before_releasing_exclusivity() -> None:
+    """BE-06/D16: a failed unit cannot orphan another index reader behind a finished job."""
+
+    async def body() -> None:
+        bus, jm = await started(workers=2)
+        entered, release = threading.Event(), threading.Event()
+
+        def fail() -> None:
+            assert entered.wait(5)
+            raise OSError("Index failure while another probe is live")
+
+        def blocked() -> None:
+            entered.set()
+            assert release.wait(5)
+
+        info = jm.submit(
+            JobSpec(
+                "p",
+                "index",
+                [WorkUnit(fail), WorkUnit(blocked)],
+                drain_workers=True,
+            )
+        )
+        try:
+            await until(lambda: info.status == "failed")
+            assert jm.active("p", "index") is info and jm.busy("p") is info
+            assert not events(bus, "job.finished")
+            release.set()
+            assert (await jm.wait(info.job_id, 2)).status == "failed"
+            assert jm.active("p", "index") is None
+        finally:
+            release.set()
+            await jm.shutdown()
+
+    run(body())
+
+
 def test_progress_is_throttled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(manager_mod, "PROGRESS_INTERVAL_S", 0.1)
 

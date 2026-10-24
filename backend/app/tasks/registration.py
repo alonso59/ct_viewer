@@ -16,6 +16,7 @@ from app.core.fsio import append_jsonl, atomic_write_json, iter_jsonl, read_json
 from app.core.ids import utc_now
 from app.core.paths import is_within, realpath
 from app.imaging.fingerprint import quick_fingerprint
+from app.jobs.types import JobInfo
 from app.projects.models import LabelEntry, SegmentationSet, SegProducer
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.sources import identity as identity_store
@@ -23,6 +24,10 @@ from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.estimate import EstimateBase
 from app.tasks.models import TaskRunOutput
 from app.tasks.records import ANNOTATIONS, LEDGER, Live, default_seg_id, sha256_file
+
+
+class _RegistrationCancelled(Exception):
+    """A durable cancellation fences subsequent metadata dispatch."""
 
 
 class RegistrationBase(EstimateBase):
@@ -47,6 +52,7 @@ class RegistrationBase(EstimateBase):
                     "pending",
                     "completed",
                     "failed",
+                    "cancelled",
                 }:
                     raise JobConflict("Conversion registration checkpoint is corrupt")
                 if any(previous.get(key) != value for key, value in identity.items()):
@@ -63,6 +69,8 @@ class RegistrationBase(EstimateBase):
             atomic_write_json(path, {**identity, "status": "pending"})
             try:
                 async with self.locks(live.pid):
+                    record = self.runs.read(live.run_dir)
+                    self._check_registration_active(live)
                     record.execution = {**(record.execution or {}), "registration_pending": True}
                     if record.error and record.error.startswith("output registration:"):
                         record.error = None
@@ -84,10 +92,26 @@ class RegistrationBase(EstimateBase):
                 if index.kind != "index" or index.project_id != live.pid:
                     raise JobConflict("Conversion index receipt belongs to another operation")
                 index = await self.jobs.wait(index.job_id)
+                self._check_registration_active(live)
                 if index.status != "succeeded":
                     raise JobConflict("Conversion index did not finish; retry output registration")
                 atomic_write_json(path, {**identity, "status": "completed", "index_verified": True})
                 await self._clear_registration_error(live)
+            except _RegistrationCancelled:
+                cancelled_index = self._registration_index(live.pid, live.rid)
+                if cancelled_index is not None:
+                    self.jobs.cancel(cancelled_index.job_id, drain=True)
+                    await self.jobs.wait(cancelled_index.job_id)
+                atomic_write_json(path, {**identity, "status": "cancelled"})
+                async with self.locks(live.pid):
+                    current = self.runs.read(live.run_dir)
+                    current.execution = {
+                        **(current.execution or {}),
+                        "registration_cancelled": True,
+                    }
+                    current.execution.pop("registration_pending", None)
+                    current.error = None
+                    self.runs.write(live.run_dir, current)
             except Exception as exc:
                 atomic_write_json(
                     path, {**identity, "status": "failed", "error": type(exc).__name__}
@@ -97,6 +121,45 @@ class RegistrationBase(EstimateBase):
                     current.error = f"output registration: {type(exc).__name__}: {exc}"
                     self.runs.write(live.run_dir, current)
                 raise
+
+    def _check_registration_active(self, live: Live) -> None:
+        if (self.runs.read(live.run_dir).execution or {}).get("registration_cancel_requested"):
+            raise _RegistrationCancelled()
+
+    def _registration_index(self, pid: str, rid: str) -> JobInfo | None:
+        status = self.store.status(pid)
+        if status.import_id != rid or not status.job_id:
+            return None
+        job = self.runs.job(status.job_id)
+        if job is not None and (job.kind != "index" or job.project_id != pid):
+            raise JobConflict("Conversion index receipt belongs to another operation")
+        return job
+
+    async def _cancel_registration(self, pid: str, rid: str, run_dir: Path) -> None:
+        # The same gate encloses generated-import dispatch; acknowledgement cannot overtake it.
+        async with self.locks(f"_generated_import:{pid}"):
+            async with self.locks(pid):
+                current = self.runs.read(run_dir)
+                if (current.execution or {}).get("registration_cancelled"):
+                    return
+                path = run_dir / "registration.json"
+                completed = read_json(path) if path.exists() else None
+                if (
+                    isinstance(completed, dict)
+                    and completed.get("status") == "completed"
+                    and completed.get("index_verified") is True
+                ):
+                    return
+                current.execution = {
+                    **(current.execution or {}),
+                    "registration_cancel_requested": True,
+                    "registration_pending": True,
+                }
+                current.error = None
+                self.runs.write(run_dir, current)
+            index = self._registration_index(pid, rid)
+            if index is not None:
+                self.jobs.cancel(index.job_id, drain=True)
 
     async def _clear_registration_error(self, live: Live) -> None:
         async with self.locks(live.pid):
@@ -319,6 +382,11 @@ class RegistrationBase(EstimateBase):
                     alias=root.alias,
                     source_key=f"task:{m.id}",
                     run_id=rid if m.id == "dicom.convert" else None,
+                    check_active=(
+                        (lambda: self._check_registration_active(live))
+                        if m.id == "dicom.convert"
+                        else None
+                    ),
                 )
                 imported = True
                 new_outputs.append(

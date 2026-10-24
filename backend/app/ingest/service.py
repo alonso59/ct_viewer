@@ -374,13 +374,21 @@ class IngestService:
         alias: str,
         source_key: str,
         run_id: str | None = None,
+        check_active: Callable[[], None] | None = None,
     ) -> CommitResult:
         """A task's `metadata.jsonl` as a new snapshot of its own source (DCM-07, TSK-09)."""
         if run_id is not None:
             from app.ingest.generated import import_once
 
             return await import_once(
-                self, project_id, run_id, metadata, root=root, alias=alias, source_key=source_key
+                self,
+                project_id,
+                run_id,
+                metadata,
+                root=root,
+                alias=alias,
+                source_key=source_key,
+                check_active=check_active,
             )
         uploads: dict[FileKind, tuple[str, bytes]] = {"metadata": ("metadata.jsonl", metadata)}
         pv = await self.preview(
@@ -512,6 +520,7 @@ class IngestService:
             ref=import_id,
             job_id=job_id,
             meta={"import_id": import_id},
+            drain_workers=True,
         )
         try:
             self.jobs.submit(spec)

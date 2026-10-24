@@ -118,6 +118,12 @@ Polling does not wait for indexing. Registration-only Resume also replays a lost
 another pixel attempt; failed registration remains visible until that control or restart recovery.
 An occupied project index is also a registration failure with that remedy; it does not leave
 the operation indefinitely reporting active reconciliation after its job has stopped.
+API-69 registration Cancel persists `execution.registration_cancel_requested` on the linked
+API-45 run, reports `cancelling` while metadata workers drain, then `cancelled` after
+`registration_cancelled` is recorded. Native conversion stays completed. Resume before that
+point returns 409; afterward it retries registration in the same native attempt. Controls share
+the generated-import dispatch gate and replay lost acknowledgments. Committed artifacts and
+already registered rows are retained; cancellation does not roll them back.
 
 Radiomics is the task `radiomics.pyradiomics` (RAD-13): validate, estimate, runs, control and errors are API-43..47, whose answers carry the radiomics record as `radiomics` (API-43 `ValidateResult`, API-44 `EstimateResult`, API-45 list `RunSummary` / detail and API-46 cancel `RunDetail`, API-47 `RunError` per row). Only the engine schema (API-30), profiles (API-32), feature exports (API-36) and dashboard views (API-38) are radiomics routes.
 

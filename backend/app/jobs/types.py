@@ -78,3 +78,4 @@ class JobSpec:
     # (kind, key) exclusivity instead of (kind): one task run per (project, task_id) (TSK-12).
     key: str | None = None
     detach_on_shutdown: bool = False  # supervised external work is owned outside the API
+    drain_workers: bool = False  # completion waits for stopped worker calls, retaining exclusivity

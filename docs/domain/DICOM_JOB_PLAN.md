@@ -241,10 +241,21 @@ passing (`dicom-crash-isolated-static.log`, `dicom-crash-isolated-deadcode.log`)
 The window gate passes 27 cases (`dicom-registration-window.log`).
 `dicom-index-conflict-status-red.log` reproduces an occupied index leaving a stopped registration
 reported as active reconciliation. It now stays failed and offers metadata-only retry.
-An additional disposable Cancel-during-registration probe fails: the control returns 200 while
-registration continues (`dicom-registration-cancel-probe.log`). Registration-stage cancellation
-and its durable replay/cleanup evidence remain release blockers; the native cleanup proof alone
-does not certify completion of metadata work.
+The disposable Cancel-during-registration probe originally failed: HTTP 200 left registration
+running (`dicom-registration-cancel-probe.log`). Focused regressions now cover cancellation before
+import/index dispatch and during probing, lost replies, early-resume refusal, metadata-only
+continuation and acknowledged cancellation followed by real API SIGKILL. Worker-drain tests
+cover unrelated work, failure, exclusivity and an unfinished shutdown timeout. Full cancellation
+barrier/latency/shared-runtime/browser acceptance still requires its remaining matrix evidence;
+the native cleanup proof alone does not certify completion of metadata work.
+The cancellation publication tree passes 146 affected backend cases
+(`dicom-registration-cancel-isolated-area.log`), 28 window cases
+(`dicom-registration-cancel-window-green.log`), 107 serial runner cases and 21 real GPU-free
+host-effect cases (`dicom-registration-cancel-runner.log`, `dicom-registration-cancel-host.log`).
+Six existing Chromium/Firefox converter journeys pass with unchanged source hashes
+(`dicom-registration-cancel-browser.log`); these remain regression evidence, not full B06.
+Lint/types/contracts, 426 requirements and dead-code checks pass on the isolated tree
+(`dicom-registration-cancel-isolated-static.log`).
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 

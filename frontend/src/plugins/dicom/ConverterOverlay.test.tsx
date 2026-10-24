@@ -293,6 +293,35 @@ test('D24 waits for registration while native conversion is complete and can min
   await waitFor(() => expect(screen.getByTestId('conv-chip')).toHaveTextContent('Completed'), { timeout: 3000 })
 })
 
+test('U09 cancels registration, waits for workers and resumes metadata despite completed pixels', async () => {
+  const completed = await recordedOperation()
+  const [project] = await api.listProjects()
+  if (!project) throw new Error('Missing recorded project')
+  const [summary] = await api.listTaskRuns(project.project_id)
+  if (!summary) throw new Error('Missing recorded task run')
+  const native = await api.getTaskRun(project.project_id, summary.run_id)
+  const registering: SourceOperation = { ...completed, project_id: project.project_id, conversion_run_id: native.run_id, conversion_run: { ...native, status: 'completed', phase_run_id: null }, status: 'reconciling', stage: 'registering', phase_run: null }
+  const stopping: SourceOperation = { ...registering, status: 'cancelling' }
+  const stopped: SourceOperation = { ...registering, status: 'cancelled', cleanup_verified: true }
+  const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(registering)
+  const cancel = vi.spyOn(api, 'cancelSourceOperation').mockImplementation(async () => { get.mockResolvedValue(stopping); return stopping })
+  const resume = vi.spyOn(api, 'resumeSourceOperation').mockImplementation(async () => { get.mockResolvedValue(registering); return registering })
+  useConverter.getState().attach(registering.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel conversion' }))
+  await screen.findByText('Cancelling…')
+  expect(cancel).toHaveBeenCalledWith(registering.operation_id, expect.objectContaining({ expected_run_attempt: native.attempts }))
+  expect(screen.queryByRole('button', { name: 'Resume pending work' })).toBeNull()
+  get.mockResolvedValue(stopped)
+  await screen.findByRole('button', { name: 'Resume pending work' }, { timeout: 2500 })
+  fireEvent.click(screen.getByRole('button', { name: 'Show the result' }))
+  expect(screen.getByText('Conversion is unfinished or output registration needs attention.')).toBeVisible()
+  expect(screen.queryByText('The converted series were imported into the project.')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Resume pending work' }))
+  await waitFor(() => expect(resume).toHaveBeenCalledWith(registering.operation_id, expect.objectContaining({ expected_run_attempt: native.attempts })))
+})
+
 test('converts a DICOM folder into a workspace dataset without a project', async () => {
   const completed = await recordedOperation()
   const ready: SourceOperation = { ...completed, stage: 'ready', work_kind: 'estimate', conversion_run_id: null, conversion_run: null }
