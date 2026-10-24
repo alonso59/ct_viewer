@@ -64,7 +64,13 @@ _converting: dict[str, asyncio.Future[str | None]] = {}
 
 
 async def convert_once(
-    jobs: JobManager, root: str, files: list[str], dst: Path, *, settings: Settings | None = None
+    jobs: JobManager,
+    root: str,
+    files: list[str],
+    dst: Path,
+    *,
+    settings: Settings | None = None,
+    expected_fingerprint: str | None = None,
 ) -> str | None:
     key = str(dst)
     running = _converting.get(key)
@@ -78,7 +84,9 @@ async def convert_once(
         else:
             from app.tasks.dicom_open import convert_volume
 
-            err = await convert_volume(settings, root, files, dst)
+            err = await convert_volume(
+                settings, root, files, dst, expected_fingerprint=expected_fingerprint
+            )
         fut.set_result(err)
         return err
     except BaseException as exc:
@@ -177,15 +185,29 @@ class OpenService:
         self.guard.check(src)
         if it.error:
             raise UnsupportedFormat(it.error, actions=RETRY)
-        fp = await asyncio.to_thread(om.fingerprint, src)
         if it.format == "nifti":
+            fp = await asyncio.to_thread(om.fingerprint, src)
             return src, fp
         if it.format == "dicom":  # SRC-13: the convert stage into `.scratch/` only
+            try:
+                fp = await self.jobs.run_in_worker(
+                    dicom_stage.series_fingerprint, s.root, it.files or [it.rel]
+                )
+            except (OSError, ValueError):
+                raise UnsupportedFormat(
+                    "DICOM series changed or a member cannot be read safely; reopen the source",
+                    actions=RETRY,
+                ) from None
             dst = om.scratch_dir(self.workspace_root, fp, "dicom") / "volume.nii.gz"
             if not dst.is_file():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 err = await convert_once(
-                    self.jobs, s.root, it.files or [it.rel], dst, settings=self.settings
+                    self.jobs,
+                    s.root,
+                    it.files or [it.rel],
+                    dst,
+                    settings=self.settings,
+                    expected_fingerprint=fp,
                 )
                 if err is not None or not dst.is_file():
                     raise UnsupportedFormat(f"{it.name}: cannot convert ({err})", actions=RETRY)
@@ -193,6 +215,7 @@ class OpenService:
             else:
                 touch(dst)
             return dst, f"{fp}.dicom"
+        fp = await asyncio.to_thread(om.fingerprint, src)
         order = om.need_axis_order(it, axis_order)
         geo = it.geometry
         spacing = geo.spacing if geo else [1.0, 1.0, 1.0]

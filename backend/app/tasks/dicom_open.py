@@ -12,7 +12,14 @@ from app.tasks.dicom_execution import run_dicom_job
 from app.tasks.dicom_resources import require_pixel_budget
 
 
-async def convert_volume(settings: Settings, root: str, files: list[str], dst: Path) -> str | None:
+async def convert_volume(
+    settings: Settings,
+    root: str,
+    files: list[str],
+    dst: Path,
+    *,
+    expected_fingerprint: str | None = None,
+) -> str | None:
     require_pixel_budget(settings)
     job = settings.workspace_root / ".scratch/open-executions" / new_ulid()
     protocol.write_job(
@@ -24,6 +31,7 @@ async def convert_volume(settings: Settings, root: str, files: list[str], dst: P
             "source": root,
             "files": files,
             "destination": str(dst),
+            "expected_fingerprint": expected_fingerprint,
         },
     )
     outcome = await run_dicom_job(job, workspace=settings.workspace_root, settings=settings)
