@@ -84,7 +84,9 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
             workspace,
             locks,
             tasks,
-            WorkspaceTasks(settings, registry, guard, jobs, plugins.task_owner(), tasks.phase_runs),
+            WorkspaceTasks(
+                settings, registry, guard, jobs, plugins.task_owner(), tasks.phase_runs, locks
+            ),
         ),
         cache_budget=CacheBudget(
             lambda: [

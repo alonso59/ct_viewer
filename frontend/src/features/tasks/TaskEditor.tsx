@@ -43,14 +43,15 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const actions = runActions(run, registry.readOnly)
   const control = async (action: RunAction) => {
     try {
-      const phase = run.execution?.phase_step === true
+      const fenced = run.execution?.phase_step === true || run.task.id === 'dicom.convert'
       if (action === 'cancel') {
-        if (phase) await api.cancelTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
+        if (fenced) await api.cancelTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
         else await api.cancelTaskRun(pid, run.run_id)
       }
       else if (action === 'pause') await api.pauseTaskRun(pid, run.run_id)
       else if (action === 'archive') await api.archiveTaskRun(pid, run.run_id)
-      else if (phase) await api.resumeTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
+      else if (action === 'retry_failed') await api.retryFailedTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
+      else if (fenced) await api.resumeTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
       else await api.resumeTaskRun(pid, run.run_id)
     } catch (e) {
       toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
@@ -73,12 +74,12 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
           {t(run.execution?.phase_step && run.status === 'cleanup_pending' ? 'conv.phaseCleanup' : run.status === 'cleanup_pending' ? 'tasks.cleanupPendingHelp' : 'tasks.stoppingHelp')}
         </p>
       ) : null}
-      <span className="muted num">{t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
+      <span className="muted num">{run.task.id === 'dicom.convert' ? t('conv.recoveryCounts', { complete: c?.ok ?? 0, failed: c?.failed ?? 0, pending: c?.pending ?? 0 }) : t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <span className="field-error">{run.error}</span> : null}
       <div className="task-run-actions">
         {actions.map((a) => (
-          <button key={a} type="button" className="btn btn-sm" disabled={a === 'resume' && run.execution?.phase_step === true && run.execution.cleanup_verified !== true} onClick={() => void control(a)}>
-            {t(a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' ? 'tasks.retryFailed' : `tasks.${a}`)}
+          <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && (run.execution?.phase_step === true || run.task.id === 'dicom.convert') && run.execution?.cleanup_verified !== true} onClick={() => void control(a)}>
+            {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
           </button>
         ))}
       </div>

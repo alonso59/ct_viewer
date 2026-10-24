@@ -134,9 +134,14 @@ def commit_series(
     version: str,
     sidecars: bool,
     before_pixels: Callable[[], None] | None = None,
-) -> tuple[convert.Converted, bool, list[dict[str, Any]]]:
+    verify_only: bool = False,
+) -> tuple[convert.Converted, bool, list[dict[str, Any]]] | None:
     """Return geometry, reused flag and outputs only after durable commit of all artifacts."""
     state = out.parent / ".checkpoints" / out.name
+    if verify_only and not state.exists():
+        if out.exists() or side.exists():
+            raise CommitConflict("Resume conflict: existing artifacts have no verified checkpoint")
+        return None
     state.mkdir(parents=True, exist_ok=True)
     lock_fd = os.open(state / "lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
@@ -144,7 +149,7 @@ def commit_series(
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise CommitConflict("Resume conflict: another writer owns this series") from None
-        return _commit(series, header, out, side, state, settings, version, sidecars, before_pixels)
+        return _commit(series, header, out, side, state, settings, version, sidecars, before_pixels, verify_only)
     finally:
         os.close(lock_fd)
 
@@ -159,7 +164,8 @@ def _commit(
     version: str,
     sidecars: bool,
     before_pixels: Callable[[], None] | None,
-) -> tuple[convert.Converted, bool, list[dict[str, Any]]]:
+    verify_only: bool,
+) -> tuple[convert.Converted, bool, list[dict[str, Any]]] | None:
     manifest = input_manifest(series)
     identity = {"inputs": manifest, "settings": settings, "versions": reader_versions(version)}
     path = state / "commit.json"
@@ -177,6 +183,8 @@ def _commit(
                         _verify(target, record["artifacts"][name])
                 _geometry(out, record["geometry"])
             elif record["status"] == "prepared":
+                if verify_only:
+                    return None
                 _publish(record, out, side, stage)
             else:
                 raise CommitConflict("Resume conflict: checkpoint status is not supported")
@@ -185,6 +193,8 @@ def _commit(
     else:
         if out.exists() or side.exists():
             raise CommitConflict("Resume conflict: existing artifacts have no verified checkpoint")
+        if verify_only:
+            return None
         stage.mkdir(exist_ok=True)
         # Unpublished staging left before the prepared record is disposable owned scratch.
         for entry in stage.iterdir():
@@ -218,7 +228,7 @@ def _commit(
         record["status"] = "committed"
         _write(path, record)
     # The manifest is durable before staging is removed or any progress is acknowledged.
-    if stage.exists():
+    if stage.exists() and not verify_only:
         for entry in stage.iterdir():
             with contextlib.suppress(FileNotFoundError):
                 entry.unlink()

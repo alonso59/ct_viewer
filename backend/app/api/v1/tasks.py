@@ -122,6 +122,13 @@ async def resume_run(
     return await svc(ctx).resume(pid, rid, expected_attempt=body.expected_attempt if body else None)
 
 
+@router.post(
+    "/projects/{pid}/task-runs/{rid}/retry-failed", response_model=TaskRunStarted, status_code=202
+)
+async def retry_failed_run(ctx: Ctx, pid: str, rid: str, body: RunAttemptControl) -> TaskRunStarted:
+    return await svc(ctx).resume(pid, rid, expected_attempt=body.expected_attempt, failed_only=True)
+
+
 @router.get("/projects/{pid}/task-runs/{rid}/errors", response_model=list[TaskItemError])
 def run_errors(ctx: Ctx, pid: str, rid: str) -> list[TaskItemError]:
     return svc(ctx).errors(pid, rid)
@@ -185,3 +192,8 @@ async def resume_workspace_run(
     ctx: Ctx, rid: str, body: RunAttemptControl | None = None
 ) -> TaskRunStarted:
     return await wsvc(ctx).resume(rid, expected_attempt=body.expected_attempt if body else None)
+
+
+@router.post("/task-runs/{rid}/retry-failed", response_model=TaskRunStarted, status_code=202)
+async def retry_failed_workspace_run(ctx: Ctx, rid: str, body: RunAttemptControl) -> TaskRunStarted:
+    return await wsvc(ctx).resume(rid, expected_attempt=body.expected_attempt, failed_only=True)

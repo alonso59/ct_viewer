@@ -82,6 +82,7 @@ def run(
         memory_mb=runtime.get("memory_mb"),
         cached_discover=cached_discover,
         cached_file_total=cached_file_total,
+        retry_item_ids=spec.get("retry_item_ids"),
     )
     extra: dict[str, Any] = {
         "identity": identity.as_dict(),
@@ -98,6 +99,7 @@ def run(
         and job.settings.get("phase_analyzer", True)
         and not job.cancelled()
         and not result.counts["failed"]
+        and not result.counts["pending"]
         and result.resource_wait is None
         and result.analyzer_rows
     ):
@@ -146,7 +148,13 @@ def run(
         summary = {"counts": result.counts, "storage": result.storage, "versions": _versions(), "analysis": analysis}
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         pipeline.write_jsonl(job.rel("annotations.jsonl"), annotations)
-        if workspace and not job.cancelled() and not result.counts["failed"] and result.resource_wait is None:
+        if (
+            workspace
+            and not job.cancelled()
+            and not result.counts["failed"]
+            and not result.counts["pending"]
+            and result.resource_wait is None
+        ):
             pipeline.write_jsonl(out_dir / "annotations.jsonl", annotations)
             manifest = {
                 "dataset": 1,
@@ -169,9 +177,19 @@ def run(
             {"kind": "annotations", "path": "annotations.jsonl", "sha256": _digest(job.rel("annotations.jsonl"))},
         ]
     failed_all = result.counts["failed"] and not (result.counts["converted"] + result.counts["already_converted"])
+    status = None
+    error = None
+    if result.resource_wait is not None:
+        status = "waiting_for_resources"
+    elif not job.cancelled() and result.counts["pending"]:
+        status = "interrupted"
+        error = "Unattempted series remain; Resume pending to finish this conversion"
+    elif failed_all:
+        status = "failed"
     job.finish(
         versions=_versions(),
-        status="waiting_for_resources" if result.resource_wait is not None else "failed" if failed_all else None,
+        status=status,
+        error=error,
         extra=extra,
     )
     return 0

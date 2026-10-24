@@ -156,7 +156,11 @@ def run(
     cached_file_total: int = 0,
     checkpoint: Path | None = None,
     memory_mb: int | None = None,
+    retry_item_ids: list[str] | None = None,
 ) -> Result:
+    retry_ids = set(retry_item_ids) if retry_item_ids is not None else None
+    if retry_ids is not None and (not retry_ids or dry_run):
+        raise ValueError("Retry requires a nonempty failed-series selection and a conversion run")
     diagnostics: list[scan.Diagnostic] = []
     profile = target_rules.profile(settings.target_profile)
     anonymize = settings.anonymize == "basic"
@@ -265,6 +269,19 @@ def run(
                     stage("verifying_inputs", len(manifests), selected_total)
         commits.pin_run(checkpoint, {**asdict(settings), "salt": salt}, VERSION, identity, manifests)
 
+    if retry_ids is not None:
+        available = set()
+        for key, group in sorted(by_case.items()):
+            for g in sorted(group, key=lambda g: rows.series_sort_key(g.row)):
+                level, _ = target_rules.match(g.row, profile)
+                role, reason = readiness_rules.output_role(g.row, level)
+                if decide_conversion(g.row, role, reason, settings)[0]:
+                    case = identity.case_id(key)
+                    scan_idx = identity.scan_idx(key, g.row["series_uid"])
+                    available.add(f"{case}.{scan_idx}.complete.-")
+        if retry_ids - available:
+            raise ValueError("Retry selection contains unavailable series; recover its original plan")
+
     counts = {
         "series": len(found),
         "selected": 0,
@@ -359,7 +376,7 @@ def run(
                 side = sidecar_dir / f"{filename}.dicom.json"
                 try:
                     header = sidecar.anonymize_dataset(g.header, case_id, salt) if anonymize else g.header
-                    converted, reused, item_outputs = commits.commit_series(
+                    publication = commits.commit_series(
                         g.series,
                         header,
                         out,
@@ -368,18 +385,23 @@ def run(
                         version=VERSION,
                         sidecars=settings.sidecars,
                         before_pixels=partial(resources.require_memory, row, g.header, memory_mb),
+                        verify_only=retry_ids is not None and iid not in retry_ids,
                     )
-                    rows.update_geometry(
-                        row,
-                        converted.size,
-                        converted.spacing,
-                        converted.origin,
-                        converted.direction,
-                        converted.pixel_type,
-                    )
-                    status = row["status"] = "already_converted" if reused else "converted"
-                    if settings.sidecars:
-                        row["dicom_sidecar"] = f"{ref_alias}:{ref_rel}/sidecars/{filename}.dicom.json"
+                    if publication is None:
+                        status = row["status"] = "pending"
+                    else:
+                        converted, reused, item_outputs = publication
+                        rows.update_geometry(
+                            row,
+                            converted.size,
+                            converted.spacing,
+                            converted.origin,
+                            converted.direction,
+                            converted.pixel_type,
+                        )
+                        status = row["status"] = "already_converted" if reused else "converted"
+                        if settings.sidecars:
+                            row["dicom_sidecar"] = f"{ref_alias}:{ref_rel}/sidecars/{filename}.dicom.json"
                 except resources.MemoryBudgetExceeded as exc:
                     row["status"] = "waiting_for_resources"
                     resource_wait = exc.detail
@@ -424,13 +446,17 @@ def run(
                 stage("planning", len(plan), len(found))
             else:
                 stage("converting", counts["converted"] + counts["already_converted"], selected_total)
-            if progress is not None:
+            if progress is not None and status != "pending":
                 progress(
                     iid,
                     "failed" if status == "failed" else "ok" if planned else "skipped",
                     item_outputs,
                     message,
                 )
+    counts["selected"] = selected_total
+    counts["pending"] = (
+        0 if dry_run else max(0, selected_total - counts["converted"] - counts["already_converted"] - counts["failed"])
+    )
     current = [g.row for g in found]
     merged = {_key(r): r for r in previous}
     merged.update({_key(r): r for r in current})  # DCM-07: the full current row set

@@ -24,7 +24,7 @@ def run_conversion(source: Path, output: Path, **kwargs: Any) -> pipeline.Result
         ref_rel="dataset",
         ref_alias="DERIVED",
         salt="test",
-        previous=[],
+        previous=kwargs.pop("previous", []),
         dry_run=False,
         **kwargs,
     )

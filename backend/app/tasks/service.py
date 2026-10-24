@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +46,7 @@ from app.tasks.models import (
     TaskRunStarted,
     TaskValidateResult,
 )
-from app.tasks.records import CANCEL_GRACE_S, ITEMS, Live, item_outcomes
+from app.tasks.records import CANCEL_GRACE_S, ITEMS, Live, dicom_history, item_outcomes
 from app.tasks.registry import RADIOMICS_TASK
 from app.tasks.schema import normalize, settings_hash
 
@@ -97,8 +98,23 @@ class TaskService(DriverBase):
             return
         job = run_dir / "attempts" / rec.job_id
         cleaned = attempt_cleaned(job, rec.attempts)
+        outcomes, total = await asyncio.to_thread(dicom_history, run_dir, rec.attempts)
+        n = Counter(event["status"] for event in outcomes.values())
 
         def recover(current: TaskRunRecord) -> None:
+            if (
+                current.attempts != rec.attempts
+                or current.job_id != rec.job_id
+                or current.status in TERMINAL_TASK_RUN
+            ):
+                return
+            current.counts = TaskRunCounts(
+                items=total + n["skipped"],
+                ok=n["ok"],
+                failed=n["failed"],
+                skipped=n["skipped"],
+                pending=max(0, total - n["ok"] - n["failed"]),
+            )
             current.execution = {
                 **(current.execution or {}),
                 "attempt": current.attempts,
@@ -389,19 +405,30 @@ class TaskService(DriverBase):
         *,
         expected_attempt: int | None = None,
         request_id: str | None = None,
+        failed_only: bool = False,
     ) -> TaskRunStarted:
         """TSK-07: a new attempt that skips the items already `ok` (resume.skip)."""
         if not self._radiomics().has_run(pid, rid):
             rec = self.runs.read(self.runs.run_dir(pid, rid))
+            if failed_only and (rec.task.id != "dicom.convert" or expected_attempt is None):
+                raise JobConflict("Retry failed requires a conversion run and its current attempt")
             if (rec.execution or {}).get("phase_step"):
                 return await self.phase_runs.resume(pid, rid, expected_attempt)
             if rec.task.id == "dicom.convert":
                 async with self.locks(f"_dicom_control:{pid}:{rid}"):
                     return await self._resume(
-                        pid, rid, expected_attempt=expected_attempt, request_id=request_id
+                        pid,
+                        rid,
+                        expected_attempt=expected_attempt,
+                        request_id=request_id,
+                        failed_only=failed_only,
                     )
         return await self._resume(
-            pid, rid, expected_attempt=expected_attempt, request_id=request_id
+            pid,
+            rid,
+            expected_attempt=expected_attempt,
+            request_id=request_id,
+            failed_only=failed_only,
         )
 
     async def _resume(
@@ -411,9 +438,12 @@ class TaskService(DriverBase):
         *,
         expected_attempt: int | None = None,
         request_id: str | None = None,
+        failed_only: bool = False,
     ) -> TaskRunStarted:
         rad = self._radiomics()
         if rad.has_run(pid, rid):
+            if failed_only:
+                raise JobConflict("Retry failed is supported only for DICOM conversion")
             d = await rad.resume(pid, rid)
             return TaskRunStarted(run_id=rid, job_id=d.job_id, status="queued")
         run_dir = self.runs.run_dir(pid, rid)
@@ -421,6 +451,13 @@ class TaskService(DriverBase):
         await self._recover_external(pid, run_dir)
         await control.settle(self, pid, run_dir)
         previous = self.runs.read(run_dir)
+        if failed_only:
+            request_id = request_id or f"retry-failed:{rid}:{expected_attempt}"
+            if (
+                previous.attempts == (expected_attempt or 0) + 1
+                and previous.resume_request_id == request_id
+            ):
+                return TaskRunStarted(run_id=rid, job_id=previous.job_id, status=previous.status)
         if previous.archived:
             raise JobConflict("Archived runs are read-only")
         if previous.runtime == "external" and previous.job_id:
@@ -464,8 +501,25 @@ class TaskService(DriverBase):
                     "unavailable. Start a new run."
                 ) from exc
         ok = [k for k, v in item_outcomes(run_dir).items() if v["status"] == "ok"]
+        retry_item_ids = None
+        if failed_only:
+            outcomes, _ = await asyncio.to_thread(dicom_history, run_dir, rec.attempts)
+            retry_item_ids = [
+                iid for iid, outcome in outcomes.items() if outcome["status"] == "failed"
+            ]
+            if not retry_item_ids:
+                raise JobConflict(
+                    "No recorded failed series remain; Resume pending for unattempted series"
+                )
         return await self._submit(
-            pid, run_dir, m, items, rec.selection.seg_id, skip=ok, resume_request_id=request_id
+            pid,
+            run_dir,
+            m,
+            items,
+            rec.selection.seg_id,
+            skip=ok,
+            resume_request_id=request_id,
+            retry_item_ids=retry_item_ids,
         )
 
     def errors(self, pid: str, rid: str) -> list[TaskItemError]:

@@ -8,13 +8,14 @@ next: records → selection → jobspec → estimate → registration → driver
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
 from app.config import Settings
-from app.core.errors import ValidationProblem, issue_errors
+from app.core.errors import JobConflict, ValidationProblem, issue_errors
 from app.core.fsio import iter_jsonl
 from app.core.locks import ProjectLocks
 from app.events.bus import EventBus
@@ -57,6 +58,63 @@ def item_outcomes(run_dir: Path) -> dict[str, dict[str, Any]]:
     for row in iter_jsonl(run_dir / ITEMS):
         out[str(row["item_id"])] = row
     return out
+
+
+def dicom_history(run_dir: Path, attempt: int) -> tuple[dict[str, dict[str, Any]], int]:
+    """Recover outcomes from native attempts, including events never relayed before API death."""
+    try:
+        jobs: dict[int, Path] = {}
+        for job in (run_dir / "attempts").iterdir():
+            path = job / "job.json"
+            if not path.exists() and not (job / "progress.jsonl").exists():
+                continue  # A reserved attempt may never have reached dispatch.
+            spec = json.loads(path.read_text(encoding="utf-8"))
+            epoch = spec.get("attempt", 1)
+            if (
+                spec.get("run_id") != run_dir.name
+                or spec.get("task", {}).get("id") != "dicom.convert"
+                or type(epoch) is not int
+                or epoch < 1
+            ):
+                raise ValueError("Invalid attempt identity")
+            if epoch > attempt:
+                continue
+            if epoch in jobs:
+                raise ValueError("Duplicate attempt identity")
+            jobs[epoch] = job
+        out: dict[str, dict[str, Any]] = {}
+        total = 0
+        for _, job in sorted(jobs.items()):
+            progress = job / "progress.jsonl"
+            if not progress.exists():
+                continue
+            with progress.open("rb") as fh:
+                for raw in fh:
+                    if not raw.endswith(b"\n"):
+                        break  # A torn last event was never acknowledged.
+                    event = json.loads(raw)
+                    if not isinstance(event, dict):
+                        raise ValueError("Invalid progress event")
+                    if event.get("t") == "total":
+                        value = event.get("n")
+                        if type(value) is not int or value < 0:
+                            raise ValueError("Invalid series total")
+                        total = value
+                    if event.get("t") == "item":
+                        iid = event.get("item_id")
+                        if (
+                            not isinstance(iid, str)
+                            or not iid
+                            or event.get("status") not in {"ok", "failed", "skipped"}
+                        ):
+                            raise ValueError("Invalid outcome")
+                        out[iid] = event
+        return out, total
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        raise JobConflict(
+            "Conversion outcomes are unavailable or inconsistent; "
+            "review retained attempts before retry"
+        ) from exc
 
 
 def default_seg_id(task_id: str, run_id: str) -> str:

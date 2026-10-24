@@ -351,12 +351,12 @@ export default function ConverterOverlay() {
     saveOperation(value)
     patch({ operationId: value.operation_id, estimate: null, run: null, scan: null, step: 'settings' })
   })
-  const control = (action: 'cancel' | 'resume') => guard(async () => {
+  const control = (action: 'cancel' | 'resume' | 'retry_failed') => guard(async () => {
     if (!operation) return
     const body = operation.pending_control?.action === action ? operation.pending_control.request : { expected_revision: operation.revision, expected_attempt: operation.attempt, ...(operation.conversion_run ? { expected_run_attempt: operation.conversion_run.attempts } : {}) }
-    const value = await (action === 'cancel' ? api.cancelSourceOperation(operation.operation_id, body) : api.resumeSourceOperation(operation.operation_id, body))
+    const value = await (action === 'cancel' ? api.cancelSourceOperation(operation.operation_id, body) : action === 'retry_failed' ? api.retryFailedSourceOperation(operation.operation_id, body) : api.resumeSourceOperation(operation.operation_id, body))
     saveOperation(value)
-    if (action === 'resume') patch({ step: value.work_kind === 'convert' ? 'run' : 'settings' })
+    if (action !== 'cancel') patch({ step: value.work_kind === 'convert' ? 'run' : 'settings' })
   })
   const cancelScan = () => {
     if (operation) void control('cancel')
@@ -393,6 +393,9 @@ export default function ConverterOverlay() {
   }
   const dataset = ws?.dataset_dir ?? ''
   const resumable = operation && ['cancelled', 'interrupted', 'failed', 'completed_with_errors'].includes(operation.status)
+  const recovery = operation?.conversion_run
+  const recoveryCounts = recovery?.counts
+  const recoveryOutput = recovery ? ('dataset_dir' in recovery ? recovery.dataset_dir : recovery.output_dir) : null
   const openDataset = () => {
     close()
     openPath(navigate, dataset)
@@ -545,10 +548,15 @@ export default function ConverterOverlay() {
               <div className="conv-row conv-actions"><button type="button" className="btn btn-primary" onClick={close}>{t('conv.close')}</button></div>
             </div>
           ) : null}
-          {phase ? <PhasePanel phase={phase} busy={busy} onControl={(action) => void controlPhase(action)} /> : null}
-          {resumable ? <div className="conv-row conv-actions">
-            <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified} onClick={() => void control('resume')}>{t('conv.resumePending')}</button>
+          {phase ? <PhasePanel phase={phase} busy={busy} conversionComplete={recovery?.status === 'completed'} onControl={(action) => void controlPhase(action)} /> : null}
+          {resumable ? <div className="conv-body">
+            {recoveryCounts ? <p className="muted num">{t('conv.recoveryCounts', { complete: 'ok' in recoveryCounts ? recoveryCounts.ok : (recoveryCounts.converted ?? 0) + (recoveryCounts.already_converted ?? 0), failed: recoveryCounts.failed ?? 0, pending: recoveryCounts.pending ?? 0 })}</p> : null}
+            {recoveryOutput ? <code>{recoveryOutput}</code> : null}
+            <div className="conv-row conv-actions">
+            <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</button>
+            {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <button type="button" className="btn" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</button> : null}
             <button type="button" className="btn" disabled={busy} onClick={() => patch({ operationId: null, requestKey: null, step: 'settings', run: null })}>{t('conv.newDryRun')}</button>
+            </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}
           {shownError ? (

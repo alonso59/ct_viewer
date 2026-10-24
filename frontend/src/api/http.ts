@@ -719,6 +719,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     getWorkspaceRun: (rid) => unwrap(client.GET('/api/v1/task-runs/{rid}', { params: { path: { rid } } })),
     cancelWorkspaceRun: (rid, body) => unwrap(client.POST('/api/v1/task-runs/{rid}/cancel', { params: { path: { rid } }, body })),
     resumeWorkspaceRun: (rid, body) => unwrap(client.POST('/api/v1/task-runs/{rid}/resume', { params: { path: { rid } }, body })),
+    retryFailedWorkspaceRun: (rid, body) => unwrap(client.POST('/api/v1/task-runs/{rid}/retry-failed', { params: { path: { rid } }, body })),
     startSourceOperation: (body) => unwrap(client.POST('/api/v1/source-operations', { body })),
     listSourceOperations: () => allPages((cursor) => unwrap(client.GET('/api/v1/source-operations', { params: { query: { cursor, limit: 50 } } }))),
     getSourceOperation: (oid) => unwrap(client.GET('/api/v1/source-operations/{oid}', { params: { path: { oid } } })),
@@ -726,6 +727,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     convertSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/convert', { params: { path: { oid } }, body })),
     cancelSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/cancel', { params: { path: { oid } }, body })),
     resumeSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/resume', { params: { path: { oid } }, body })),
+    retryFailedSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/retry-failed', { params: { path: { oid } }, body })),
     sourceOperationSeries: (oid, cursor, limit = 50) => unwrap(client.GET('/api/v1/source-operations/{oid}/series', { params: { path: { oid }, query: { cursor, limit } } })),
     sourceOperationPlan: (oid, options = {}) => unwrap(client.GET('/api/v1/source-operations/{oid}/plan', { params: { path: { oid }, query: { limit: 50, ...options } } })),
     listLayers: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/layers', { params: { path: { pid } } })),
@@ -755,6 +757,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     pauseTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/pause', { params: { path: { pid, rid } } })),
     archiveTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/archive', { params: { path: { pid, rid } } })),
     resumeTaskRun: (pid, rid, body) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } }, body })),
+    retryFailedTaskRun: (pid, rid, body) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/retry-failed', { params: { path: { pid, rid } }, body })),
     taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
     taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),
 

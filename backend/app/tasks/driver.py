@@ -36,7 +36,15 @@ from app.tasks.models import (
     TaskRunStarted,
     TaskRunStatus,
 )
-from app.tasks.records import CANCEL_GRACE_S, ITEMS, LEDGER, LOGS, Live, item_outcomes
+from app.tasks.records import (
+    CANCEL_GRACE_S,
+    ITEMS,
+    LEDGER,
+    LOGS,
+    Live,
+    dicom_history,
+    item_outcomes,
+)
 from app.tasks.registration import RegistrationBase
 
 log = logging.getLogger("app.tasks")
@@ -63,6 +71,7 @@ class DriverBase(RegistrationBase):
         *,
         recover: bool = False,
         resume_request_id: str | None = None,
+        retry_item_ids: list[str] | None = None,
     ) -> TaskRunStarted:
         rid = run_dir.name
         rec = self.runs.read(run_dir)
@@ -99,6 +108,7 @@ class DriverBase(RegistrationBase):
                     "run_id": rid,
                     "mode": "run",
                     "resume": {"skip": list(skip)},
+                    **({"retry_item_ids": retry_item_ids} if retry_item_ids is not None else {}),
                     "batch": {"size": m.resources.max_batch or max(1, len(items))},
                     **(
                         {
@@ -490,6 +500,11 @@ class DriverBase(RegistrationBase):
                 or v["status"] == "skipped"
                 or rec.task.id == "dicom.convert"
             }
+            selected_total = info.total
+            if rec.task.id == "dicom.convert" and result is None:
+                outcomes, selected_total = await asyncio.to_thread(
+                    dicom_history, live.run_dir, rec.attempts
+                )
             n = Counter(v["status"] for v in outcomes.values())
             rec.counts = TaskRunCounts(
                 items=len(rec.item_ids), ok=n["ok"], failed=n["failed"], skipped=n["skipped"]
@@ -502,6 +517,9 @@ class DriverBase(RegistrationBase):
                     + int(counts.get("already_converted", n["ok"])),
                     failed=int(counts.get("failed", n["failed"])),
                     skipped=int(counts.get("skipped", n["skipped"])),
+                    pending=int(
+                        counts.get("pending", max(0, selected_total - n["ok"] - n["failed"]))
+                    ),
                 )
             status: TaskRunStatus
             if info.status == "cancelled":

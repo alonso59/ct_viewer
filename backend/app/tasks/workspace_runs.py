@@ -15,6 +15,7 @@ import contextlib
 import re
 import shutil
 import time
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from typing import Any, Final
@@ -25,6 +26,7 @@ from app.config import Settings
 from app.core.errors import DerivedRootRequired, JobConflict, NotFound, ValidationProblem
 from app.core.fsio import atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
 from app.core.ids import is_ulid, new_ulid, utc_now
+from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
@@ -46,6 +48,7 @@ from app.tasks.models import (
     TaskRunStatus,
     TaskSelection,
 )
+from app.tasks.records import dicom_history
 from app.tasks.registry import Registry
 from app.tasks.schema import normalize, settings_hash
 
@@ -109,7 +112,7 @@ def dataset_name(raw: str) -> str:
 class WorkspaceTasks:
     def __init__(
         self, settings: Settings, registry: Registry, guard: PathGuard, jobs: JobManager,
-        owners: dict[str, str], phase_runs: PhaseRuns,
+        owners: dict[str, str], phase_runs: PhaseRuns, locks: ProjectLocks,
     ) -> None:  # fmt: skip
         self.settings = settings
         self.phase_runs = phase_runs
@@ -117,6 +120,7 @@ class WorkspaceTasks:
         self.guard = guard
         self.jobs = jobs
         self.owners = owners
+        self.locks = locks
 
     # -- helpers ------------------------------------------------------------------------------
 
@@ -451,7 +455,7 @@ class WorkspaceTasks:
             status = "interrupted"
         elif info.status == "failed" or result.get("status") == "failed":
             status = "failed"
-        elif result.get("status") in {"cancelled", "completed_with_errors"}:
+        elif result.get("status") in {"cancelled", "completed_with_errors", "interrupted"}:
             status = result["status"]
         else:
             status = "completed"
@@ -461,7 +465,10 @@ class WorkspaceTasks:
             if not run.cleanup_verified:
                 status = "cleanup_pending"
         counts = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
-        run.counts = {k: int(v) for k, v in (counts or {}).items() if isinstance(v, int)}
+        if run.task.id == "dicom.convert" and not counts:
+            self._recover_counts(run_dir, run)
+        else:
+            run.counts = {k: int(v) for k, v in (counts or {}).items() if isinstance(v, int)}
         run.error = info.error or (str(result["error"]) if result.get("error") else None)
         run.provenance = result.get("provenance") or {}
         if status == "completed" and not run.counts.get("series"):  # AUD-A2-07
@@ -470,6 +477,19 @@ class WorkspaceTasks:
         self._write(run_dir, run)
         if run.task.id != "dicom.convert":
             shutil.rmtree(job_dir, ignore_errors=True)
+
+    def _recover_counts(self, run_dir: Path, run: WorkspaceRun) -> None:
+        outcomes, total = dicom_history(run_dir, run.attempts)
+        n = Counter(event["status"] for event in outcomes.values())
+        run.counts = {
+            **run.counts,
+            "selected": total,
+            "already_converted": n["ok"],
+            "failed": n["failed"],
+            "skipped": n["skipped"],
+            "converted": 0,
+            "pending": max(0, total - n["ok"] - n["failed"]),
+        }
 
     def list(self) -> list[WorkspaceRun]:
         out = [self.get(d.parent.name) for d in (self.settings.workspace_root / "plugins").glob(
@@ -487,15 +507,36 @@ class WorkspaceTasks:
                 run.cleanup_verified = attempt_cleaned(job, run.attempts)
                 run.status = "interrupted" if run.cleanup_verified else "cleanup_pending"
                 run.error = "Backend interrupted; resume after verified cleanup"
+                self._recover_counts(run_dir, run)
                 self._write(run_dir, run)
         return run
 
     async def resume(
-        self, rid: str, *, expected_attempt: int | None = None, request_id: str | None = None
+        self,
+        rid: str,
+        *,
+        expected_attempt: int | None = None,
+        request_id: str | None = None,
+        failed_only: bool = False,
     ) -> TaskRunStarted:
         run = self.get(rid)
         if run.task.id == "analyzer.phase" and run.provenance.get("source_conversion_run_id"):
+            if failed_only:
+                raise JobConflict("Retry failed is supported only for DICOM conversion")
             return await self.phase_runs.resume(None, rid, expected_attempt)
+        async with self.locks(f"_dicom_control:{WORKSPACE_JOBS}:{rid}"):
+            return await self._resume(rid, expected_attempt, request_id, failed_only)
+
+    async def _resume(
+        self, rid: str, expected_attempt: int | None, request_id: str | None, failed_only: bool
+    ) -> TaskRunStarted:
+        run = self.get(rid)
+        if failed_only:
+            if expected_attempt is None:
+                raise JobConflict("Retry failed requires the conversion's current attempt")
+            request_id = request_id or f"retry-failed:{rid}:{expected_attempt}"
+            if run.attempts == expected_attempt + 1 and run.resume_request_id == request_id:
+                return TaskRunStarted(run_id=rid, job_id=run.job_id, status=run.status)
         if expected_attempt is not None and run.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
         run_dir = self._find(rid)
@@ -514,6 +555,16 @@ class WorkspaceTasks:
         if manifest.version != run.task.version:
             raise JobConflict("The reader version changed; start a new conversion")
         source = self._source(TaskSelection(source=run.source))
+        retry_item_ids = None
+        if failed_only:
+            outcomes, _ = await asyncio.to_thread(dicom_history, run_dir, run.attempts)
+            retry_item_ids = [
+                iid for iid, outcome in outcomes.items() if outcome["status"] == "failed"
+            ]
+            if not retry_item_ids:
+                raise JobConflict(
+                    "No recorded failed series remain; Resume pending for unattempted series"
+                )
         job_id = new_ulid()
         job = run_dir / "attempts" / job_id
         atomic_write_json(job / "reserved.json", {"attempt": run.attempts + 1})
@@ -532,6 +583,7 @@ class WorkspaceTasks:
                 "run_id": rid,
                 "mode": "run",
                 "attempt": run.attempts,
+                **({"retry_item_ids": retry_item_ids} if retry_item_ids is not None else {}),
                 "analysis_state": str(run_dir / "phase-analyzer"),
                 "phase_run_id": run.phase_run_id,
                 "phase_cancel": str(
@@ -569,6 +621,11 @@ class WorkspaceTasks:
         if run.task.id == "analyzer.phase" and run.provenance.get("source_conversion_run_id"):
             await self.phase_runs.cancel(None, rid, expected_attempt)
             return self.get(rid)
+        async with self.locks(f"_dicom_control:{WORKSPACE_JOBS}:{rid}"):
+            return self._cancel(rid, expected_attempt)
+
+    def _cancel(self, rid: str, expected_attempt: int | None) -> WorkspaceRun:
+        run = self.get(rid)
         if expected_attempt is not None and run.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
         if run.job_id and run.status in ("queued", "running", "waiting_for_resources"):
