@@ -25,7 +25,7 @@ test.each([false, true])('D29 retries and cancels only the separate phase run (p
   const recorded = await recordedOperation()
   if (!recorded.conversion_run) throw new Error('Missing recorded conversion run')
   const phaseId = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
-  const phase = { ...recorded.conversion_run, run_id: phaseId, task: { id: 'analyzer.phase', version: '1.0.0', manifest_hash: 'phase' }, status: 'failed' as const, attempts: 2, cleanup_verified: true, execution: { phase_step: true, cleanup_verified: true }, progress: { done: 0, total: 1, stage_done: 0, stage_total: 1 }, counts: { items: 1, ok: 0, failed: 1, skipped: 0 }, error: 'Phase batch failed' }
+  const phase = { ...recorded.conversion_run, run_id: phaseId, task: { id: 'analyzer.phase', version: '1.0.0', manifest_hash: 'phase' }, status: 'failed' as const, attempts: 2, cleanup_verified: true, execution: { phase_step: true, cleanup_verified: true }, progress: { done: 0, total: 1, stage_done: 0, stage_total: 1 }, counts: { items: 1, ok: 0, failed: 1, skipped: 0, pending: 0 }, error: 'Phase batch failed' }
   const operation: SourceOperation = { ...recorded, project_id: inProject ? 'project-phase' : null, phase_run: phase }
   const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
   const start = { run_id: phaseId, job_id: 'phase-attempt-3', status: 'queued' as const }
@@ -75,6 +75,16 @@ test('D29 never enables phase retry with unverified cleanup', async () => {
   expect(await screen.findByRole('button', { name: 'Retry phase analysis' })).toBeDisabled()
 })
 
+test('D29 requires completed conversion before retrying phase', async () => {
+  const recorded = await recordedOperation()
+  if (!recorded.phase_run || !recorded.conversion_run) throw new Error('Missing recorded runs')
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue({ ...recorded, status: 'interrupted', conversion_run: { ...recorded.conversion_run, status: 'interrupted' }, phase_run: { ...recorded.phase_run, status: 'interrupted', cleanup_verified: true, execution: { phase_step: true, cleanup_verified: true } } })
+  useConverter.getState().attach(recorded.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByRole('button', { name: 'Retry phase analysis' })).toBeDisabled()
+})
+
 test('UI-28 restores a conversion from the server using its stored opaque ID', async () => {
   const operation = await recordedOperation()
   const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
@@ -106,6 +116,42 @@ test.each([false, true])('UI-28 resumes the same interrupted server operation (p
   expect(await screen.findByRole('button', { name: 'Cancel conversion' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
   expect(useConverter.getState().run?.rid).toBe(completed.conversion_run_id)
+})
+
+test.each([false, true])('D23 retries only recorded failures and shows pending work (pending receipt: %s)', async (pending) => {
+  const completed = await recordedOperation()
+  if (!completed.conversion_run) throw new Error('Missing recorded conversion run')
+  const command = { expected_revision: completed.revision, expected_attempt: completed.attempt, expected_run_attempt: completed.conversion_run.attempts }
+  const interrupted: SourceOperation = { ...completed, status: 'interrupted', cleanup_verified: true, conversion_run: { ...completed.conversion_run, status: 'interrupted', counts: { items: 3, ok: 1, failed: 1, pending: 1, skipped: 0, converted: 1 } }, pending_control: pending ? { action: 'retry_failed', request: command, run_attempt: completed.conversion_run.attempts, request_id: 'retry-receipt' } : null }
+  const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(interrupted)
+  const retry = vi.spyOn(api, 'retryFailedSourceOperation').mockImplementation(async () => {
+    const running = { ...interrupted, status: 'running' as const, pending_control: null, cleanup_verified: false }
+    get.mockResolvedValue(running)
+    return running
+  })
+  const resume = vi.spyOn(api, 'resumeSourceOperation')
+  useConverter.getState().attach(interrupted.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText('1 verified complete · 1 failed · 1 pending')).toBeInTheDocument()
+  if (pending) expect(screen.getByRole('button', { name: 'Resume pending work' })).toBeDisabled()
+  else expect(screen.getByRole('button', { name: 'Resume pending work' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry failed series' }))
+  await waitFor(() => expect(retry).toHaveBeenCalledWith(interrupted.operation_id, command))
+  expect(resume).not.toHaveBeenCalled()
+})
+
+test.each([false, true])('D23 blocks retry when cleanup is unknown or no failures remain (%s)', async (noFailures) => {
+  const completed = await recordedOperation()
+  if (!completed.conversion_run) throw new Error('Missing recorded conversion run')
+  const interrupted: SourceOperation = { ...completed, status: 'interrupted', cleanup_verified: noFailures, conversion_run: { ...completed.conversion_run, status: 'interrupted', counts: { items: 2, ok: 1, failed: noFailures ? 0 : 1, pending: noFailures ? 1 : 0, skipped: 0 } } }
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue(interrupted)
+  useConverter.getState().attach(interrupted.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  await screen.findByRole('button', { name: 'Resume pending work' })
+  if (noFailures) expect(screen.queryByRole('button', { name: 'Retry failed series' })).toBeNull()
+  else expect(screen.getByRole('button', { name: 'Retry failed series' })).toBeDisabled()
 })
 
 test('UI-28 reads bounded plan pages and forwards filter/cursor controls', async () => {

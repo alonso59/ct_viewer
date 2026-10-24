@@ -79,7 +79,7 @@ class SourceOperationConvert(SourceOperationControl):
 
 
 class PendingSourceControl(BaseModel):
-    action: Literal["cancel", "resume"]
+    action: Literal["cancel", "resume", "retry_failed"]
     request: SourceOperationControl
     request_id: str
     run_attempt: int
@@ -249,7 +249,7 @@ class SourceOperations:
         record: SourceOperation,
         native: TaskRunDetail | WorkspaceRun,
         request: SourceOperationControl,
-        action: Literal["cancel", "resume"],
+        action: Literal["cancel", "resume", "retry_failed"],
     ) -> PendingSourceControl:
         self._check_run_control(native, request)
         if record.pending_control is None:
@@ -263,7 +263,7 @@ class SourceOperations:
         pending = record.pending_control
         assert pending is not None
         record.control = {"action": pending.action, **pending.request.model_dump()}
-        if pending.action == "resume":
+        if pending.action in {"resume", "retry_failed"}:
             record.attempt += 1
         record.pending_control = None
         self._write(record)
@@ -275,7 +275,7 @@ class SourceOperations:
         if pending is None:
             return False
         resumed = (
-            pending.action == "resume"
+            pending.action in {"resume", "retry_failed"}
             and native.attempts == pending.run_attempt + 1
             and native.resume_request_id == pending.request_id
         )
@@ -721,39 +721,56 @@ class SourceOperations:
             record.status = "cancelling"
             return self._write(record)
 
-    async def resume(self, operation: str, request: SourceOperationControl) -> SourceOperation:
+    async def resume(
+        self, operation: str, request: SourceOperationControl, *, failed_only: bool = False
+    ) -> SourceOperation:
+        action: Literal["retry_failed", "resume"] = "retry_failed" if failed_only else "resume"
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
-            if not self._check_control(record, request, "resume"):
+            if not self._check_control(record, request, action):
                 return await self.view(operation)
+            if failed_only and request.expected_run_attempt is None:
+                raise JobConflict("Retry failed requires the conversion's current attempt")
             native = await self._conversion_run(record)
             if native is not None:
                 if self._settle_native_control(record, native):
                     return await self.view(operation)
-                pending = self._begin_native_control(record, native, request, "resume")
+                pending = self._begin_native_control(record, native, request, action)
                 assert record.conversion_run_id is not None
                 registration_only = (
-                    native.status == "completed"
+                    not failed_only
+                    and native.status == "completed"
                     and native.error
                     and native.error.startswith("output registration:")
                 )
-                if registration_only and record.project_id:
-                    await self.tasks.get_run(record.project_id, record.conversion_run_id)
-                elif record.project_id:
-                    await self.tasks.resume(
-                        record.project_id,
-                        record.conversion_run_id,
-                        expected_attempt=native.attempts,
-                        request_id=pending.request_id,
-                    )
-                else:
-                    await self.workspace_tasks.resume(
-                        record.conversion_run_id,
-                        expected_attempt=native.attempts,
-                        request_id=pending.request_id,
-                    )
+                try:
+                    if registration_only and record.project_id:
+                        await self.tasks.get_run(record.project_id, record.conversion_run_id)
+                    elif record.project_id:
+                        await self.tasks.resume(
+                            record.project_id,
+                            record.conversion_run_id,
+                            expected_attempt=native.attempts,
+                            request_id=pending.request_id,
+                            failed_only=failed_only,
+                        )
+                    else:
+                        await self.workspace_tasks.resume(
+                            record.conversion_run_id,
+                            expected_attempt=native.attempts,
+                            request_id=pending.request_id,
+                            failed_only=failed_only,
+                        )
+                except JobConflict:
+                    latest = await self._conversion_run(record)
+                    if latest is not None and latest.attempts == pending.run_attempt:
+                        record.pending_control = None
+                        self._write(record)
+                    raise
                 self._ack_native_control(record)
                 return await self.view(operation)
+            if failed_only:
+                raise JobConflict("Retry failed requires a linked conversion run")
             limited = record.status == "completed_with_errors" and record.summary.get("limited")
             if (
                 record.status not in {"interrupted", "cancelled", "failed"} and not limited

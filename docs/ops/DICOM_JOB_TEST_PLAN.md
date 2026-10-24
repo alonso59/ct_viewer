@@ -52,7 +52,7 @@ Tests extend existing files where the feature already lives; new filenames are p
 | D20 | Resume in both contexts reuses original logical run and allocated output directory; new attempt ID only, no `_datasets/name-1`, no hidden project, no duplicate import/index rows/layers. | DCM-07/14, TSK-09/13; new `test_dicom_resume.py`, `test_metadata_ownership.py` |
 | D21 | Resume rejects changed/deleted source, incompatible settings/reader, changed output bytes/geometry, missing required sidecar. No existence-only skip. Explain conflict; preserve valid outputs and offer explicit new operation/recovery. | DCM-02/04/07, TSK-07; new `test_dicom_resume.py` |
 | D22 | Double resume, resume-vs-cancel, two-tab convert, and late old-worker progress/result cannot duplicate writers or registration. Stale attempt/revision fenced; cleanup_pending never resumable. | BE-05, TSK-06/07/09; new controls/recovery tests |
-| D23 | Resume skips only verified commits; restarts incomplete series from beginning; Retry failed selects failures only. No missing/duplicated checkpoint after torn write. Cancel preserves completed artifacts. | DCM-07, TSK-07/09; new `test_dicom_resume.py` |
+| D23 | Resume skips only verified commits; restarts incomplete series from beginning; Retry failed selects failures only. No missing/duplicated checkpoint after torn write. Cancel preserves completed artifacts. | DCM-07, TSK-07/09; `test_dicom_resume.py`, `test_dicom_retry_failed.py`, `test_source_operation_conversion.py` |
 | D24 | Workspace dataset is not advertised as ready during partial commit; completed dataset sealed. Repeated finalization/registration after crash creates exactly one valid result/import. | DCM-07/14, TSK-09/13, SRC-16; new recovery + `test_metadata_ownership.py` |
 | D25 | ETA unknown without compatible history; correct units/basis/range/sample count, no negative/NaN ETA, no pixel calibration. Codec/host/storage/concurrency/version mismatches excluded; pauses/restart downtime excluded. | TSK-05, DCM-06; new `test_dicom_eta.py` |
 | D26 | ETA after resume excludes verified completions; updates from committed series, not failed/unfinished units. Deterministic hold-out observations validate range coverage; zero throughput remains unknown. | TSK-05, DCM-06/07; new `test_dicom_eta.py` |
@@ -162,4 +162,8 @@ Independent phase run/API/window retry has focused evidence; complete D29 and re
 CLI cases now cover a real post-commit SIGKILL, strong resume conflicts, single-writer output locking,
 failed-series status/retry, dry-run immutability, legacy YAML names and stable incremental identities.
 They do not replace complete D34/D35 crash/migration/resource acceptance.
+Failure-only retry now has native/project/workspace API and window evidence, including missing cleanup
+proof, stale/missing fences, duplicate/lost acknowledgments and preservation of committed images.
+Partial retry leaves unattempted series pending and blocks phase, dataset sealing and registration.
+These checks do not certify every abrupt retry/registration barrier, CLI failure-only selection or B07.
 No closure checkbox is certified by these narrower checks.

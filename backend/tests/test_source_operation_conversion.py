@@ -22,10 +22,14 @@ from tools.dicom_fixtures import write_series
 
 @contextmanager
 def prepared_operation(
-    tmp_path: Path, in_project: bool
+    tmp_path: Path, in_project: bool, *, series_count: int = 1
 ) -> Iterator[tuple[TestClient, Settings, Path, Path, dict[str, Any], dict[str, Any]]]:
     source, derived = tmp_path / "source", tmp_path / "derived"
-    write_series(source)
+    if series_count == 1:
+        write_series(source)
+    else:
+        for n in range(series_count):
+            write_series(source / f"P{n}", patient_id=f"P{n}")
     derived.mkdir()
     settings = Settings(
         workspace_root=tmp_path / "workspace",
@@ -85,6 +89,133 @@ def native_run(client: TestClient, operation: str) -> dict[str, Any]:
             raise AssertionError(record)
         time.sleep(0.02)
     raise AssertionError("Conversion run was not linked")
+
+
+@pytest.mark.parametrize("in_project", [False, True])
+@pytest.mark.parametrize(
+    "via_native,failure_point", [(False, None), (True, None), (False, "before"), (False, "after")]
+)
+def test_retry_failed_is_fenced_idempotent_and_preserves_committed_series(
+    tmp_path: Path,
+    in_project: bool,
+    via_native: bool,
+    failure_point: str | None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.test_dicom_resume import digest
+
+    with prepared_operation(tmp_path, in_project, series_count=2) as planned:
+        client, _, source, derived, record, request = planned
+        operation = record["operation_id"]
+        inputs = {p: digest(p) for p in source.rglob("*") if p.is_file()}
+        plan = client.get(f"{API}/{operation}/plan").json()["items"]
+        assert len(plan) == 2
+        target = plan[1]
+        filename = f"{target['scan_idx']}_CT_{target['case_id']}_0000.nii.gz"
+        obstacle = None
+
+        async def fail_one_commit(job: Path, **kwargs: Any) -> dict[str, Any]:
+            nonlocal obstacle
+            spec = json.loads((job / "job.json").read_text())
+            if not spec.get("retry_item_ids"):
+                obstacle = Path(spec["dataset_dir"]) / "nifti/.checkpoints" / filename
+                obstacle.parent.mkdir(parents=True, exist_ok=True)
+                obstacle.touch()
+            return await dicom_execution.run_dicom_job(job, **kwargs)
+
+        monkeypatch.setattr(driver, "run_dicom_job", fail_one_commit)
+        monkeypatch.setattr(workspace_runs, "run_dicom_job", fail_one_commit)
+        assert client.post(f"{API}/{operation}/convert", json=request).status_code == 202
+        first = native_run(client, operation)
+        wait(client, first["job_id"])
+        failed = wait_operation(client, operation)
+        assert failed["status"] == "completed_with_errors", failed
+        assert failed["conversion_run"]["counts"]["failed"] == 1
+        [saved] = [p for p in derived.rglob("*.nii.gz") if p.parent.name == "nifti"]
+        before = digest(saved), saved.stat().st_mtime_ns
+        assert obstacle is not None
+        obstacle.unlink()
+        operations = ctx_of(client).source_operations
+        run_dir = (
+            operations.tasks.runs.run_dir(record["project_id"], first["run_id"])
+            if in_project
+            else operations.workspace_tasks._find(first["run_id"])
+        )
+        job = run_dir / "attempts" / first["job_id"]
+        evidence = {name: (job / name).read_bytes() for name in ("exit.json", "process.json")}
+        try:
+            (job / "exit.json").write_text(json.dumps({"attempt": 1, "cleanup_verified": False}))
+            (job / "process.json").write_text(json.dumps({"attempt": 999}))
+            blocked = client.post(
+                f"{API}/{operation}/retry-failed",
+                json={
+                    "expected_revision": failed["revision"],
+                    "expected_attempt": failed["attempt"],
+                    "expected_run_attempt": 1,
+                },
+            )
+            assert blocked.status_code == 409, blocked.text
+            assert client.get(f"{API}/{operation}").json()["conversion_run"]["attempts"] == 1
+            assert len(list((run_dir / "attempts").iterdir())) == 1
+        finally:
+            for name, value in evidence.items():
+                (job / name).write_bytes(value)
+        failed = client.get(f"{API}/{operation}").json()
+        command = {
+            "expected_revision": failed["revision"],
+            "expected_attempt": failed["attempt"],
+            "expected_run_attempt": 1,
+        }
+        missing_fence = {k: v for k, v in command.items() if k != "expected_run_attempt"}
+        assert client.post(f"{API}/{operation}/retry-failed", json=missing_fence).status_code == 409
+        endpoint = (
+            (
+                f"/api/v1/projects/{record['project_id']}/task-runs/{first['run_id']}/retry-failed"
+                if in_project
+                else f"/api/v1/task-runs/{first['run_id']}/retry-failed"
+            )
+            if via_native
+            else f"{API}/{operation}/retry-failed"
+        )
+        body = {"expected_attempt": 1} if via_native else command
+        if failure_point:
+            operations = ctx_of(client).source_operations
+            service = operations.tasks if in_project else operations.workspace_tasks
+            original = service.resume
+
+            async def lose_response(*args: Any, **kwargs: Any) -> Any:
+                if failure_point == "after":
+                    await original(*args, **kwargs)
+                raise OSError("Synthetic lost retry acknowledgment")
+
+            with monkeypatch.context() as lost:
+                lost.setattr(service, "resume", lose_response)
+                with pytest.raises(OSError, match="lost retry acknowledgment"):
+                    client.post(endpoint, json=body)
+            assert operations.get(operation).pending_control is not None
+        response = client.post(endpoint, json=body)
+        assert response.status_code == 202, response.text
+        second = response.json() if via_native else response.json()["conversion_run"]
+        assert second["run_id"] == first["run_id"] and second["job_id"] != first["job_id"]
+        repeated = client.post(endpoint, json=body)
+        assert repeated.status_code == 202, repeated.text
+        repeated_run = repeated.json() if via_native else repeated.json()["conversion_run"]
+        assert repeated_run["job_id"] == second["job_id"]
+        wait(client, second["job_id"])
+        final = wait_operation(client, operation)
+        assert final["status"] == "completed", final
+        assert final["conversion_run"]["counts"]["failed"] == 0
+        assert final["conversion_run"]["attempts"] == 2
+        assert (digest(saved), saved.stat().st_mtime_ns) == before
+        assert len([p for p in derived.rglob("*.nii.gz") if p.parent.name == "nifti"]) == 2
+        assert {p: digest(p) for p in source.rglob("*") if p.is_file()} == inputs
+        no_failures = {
+            "expected_revision": final["revision"],
+            "expected_attempt": final["attempt"],
+            "expected_run_attempt": 2,
+        }
+        assert client.post(f"{API}/{operation}/retry-failed", json=no_failures).status_code == 409
+        assert client.get(f"{API}/{operation}").json()["pending_control"] is None
 
 
 @pytest.mark.parametrize("in_project", [False, True])

@@ -59,6 +59,13 @@ scan (headers only) → select (analyzers, optional) → convert (pixels, select
 
 Case identity is **not** a converter setting in the app: it comes from `sources/identity.json` (SRC-07) with strategy `dicom_patient_id` by default.
 
+For DCM-17, **Retry failed series** selects the latest recorded failures across native attempts.
+It verifies existing commits and processes only those failures; unattempted series remain pending.
+**Resume pending work** continues the original selection. Both preserve the run, output allocation
+and strong plan pins. A retry with pending series ends `interrupted`; it neither advertises a
+completed workspace dataset nor starts phase analysis or project registration. The window reports
+completed/failed/pending counts and the original destination. Phase retry requires completed conversion.
+
 ## Output layout
 
 ```text

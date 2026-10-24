@@ -240,6 +240,7 @@ export interface Api {
   getWorkspaceRun(rid: string): Promise<WorkspaceRun>
   cancelWorkspaceRun(rid: string, body?: RunAttemptControl): Promise<WorkspaceRun>
   resumeWorkspaceRun(rid: string, body?: RunAttemptControl): Promise<TaskRunStarted>
+  retryFailedWorkspaceRun(rid: string, body: RunAttemptControl): Promise<TaskRunStarted>
   startSourceOperation(body: SourceOperationStart): Promise<SourceOperation>
   listSourceOperations(): Promise<SourceOperation[]>
   getSourceOperation(id: string): Promise<SourceOperation>
@@ -247,6 +248,7 @@ export interface Api {
   convertSourceOperation(id: string, body: SourceOperationConvert): Promise<SourceOperation>
   cancelSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
   resumeSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
+  retryFailedSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
   sourceOperationSeries(id: string, cursor?: string, limit?: number): Promise<InventoryPage>
   sourceOperationPlan(id: string, options?: { cursor?: string; limit?: number; action?: 'convert' | 'skip' }): Promise<SourcePlanPage>
   /** API-59 (ADR-0020): active layers and the dataset table download URL */
@@ -281,6 +283,7 @@ export interface Api {
   /** TSK-15: hide an inactive supervised run; its records and masks stay (J6) */
   archiveTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
   resumeTaskRun(pid: string, rid: string, body?: RunAttemptControl): Promise<TaskRunStarted>
+  retryFailedTaskRun(pid: string, rid: string, body: RunAttemptControl): Promise<TaskRunStarted>
   taskRunErrors(pid: string, rid: string): Promise<TaskItemError[]>
   taskRunOutputs(pid: string, rid: string): Promise<TaskRunOutput[]>
   /** API-48 (ANZ-01/04) */

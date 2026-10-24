@@ -62,7 +62,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-43 | `POST /tasks/{tid}/validate` | Settings → issues (`radiomics.pyradiomics`: optional `labels`, `n_items` checked as well) | TSK-02, RAD-04 |
 | API-44 | `POST /projects/{pid}/tasks/{tid}/preflight` · `…/estimate` | Selection → readiness + suggestions / estimate (source tasks: the dry run with `series[]` + `series_truncated`, DCM-06) | TSK-04/05, RAD-11 |
 | API-45 | `POST·GET /projects/{pid}/task-runs?task=&archived=` · `GET …/task-runs/{rid}` | Start (`{task_id, settings, selection, name?}`, optional `X-Reviewer` → `202 {run_id, job_id, status}`) / list (radiomics runs included; archived supervised runs only with `archived=true`) / detail | TSK-06/10/15, RAD-06/09 |
-| API-46 | `POST …/task-runs/{rid}/cancel` · `…/resume` · `…/pause` · `…/archive` | Control. `pause`/`archive` and the supervised `cancel` are idempotent and answer the detail with its `control` request; incompatible transitions → 409 | TSK-07/15, RAD-08 |
+| API-46 | `POST …/task-runs/{rid}/cancel` · `…/resume` · `…/retry-failed` · `…/pause` · `…/archive` | Control. `retry-failed` is DICOM-only and requires `{expected_attempt}`; ordinary controls retain their contracts. `pause`/`archive` and the supervised `cancel` are idempotent and answer the detail with its `control` request; incompatible transitions → 409 | TSK-07/15, DCM-17, RAD-08 |
 | API-47 | `GET …/task-runs/{rid}/errors` · `GET …/task-runs/{rid}/outputs` | Per-item failures / registered outputs | TSK-09, RAD-07 |
 | API-48 | `GET /projects/{pid}/annotations?field=&run=&item_id=` · `GET …/annotation-sources` · `PUT …/annotation-sources/{field}` | Annotations with confidence/evidence and `active` / active runs / activate a run (`{run_id\|null}` → `{annotation_sources, job_id}`, the reindex job) | ANZ-01/04 |
 | API-49 | `GET /plugins` · `GET /plugins/{id}` | Plugin Library: installed first-party plugins, contributions, status (`ready`, `needs runner`, `needs derived root`, `needs segmentation`, `pending`) with the reason | PLG-05/06 |
@@ -98,7 +98,14 @@ Duplicate acknowledged commands return current state without creating another at
 Native API-46/47 DICOM controls and operation controls share the run lock.
 API-45 list rows include `attempts`. API-46/62 cancel/resume accept an optional `{expected_attempt}` body; it is required for the linked phase run and stale attempts return 409. Other task runtimes retain their existing controls.
 Conversion details expose `phase_run_id`; API-69 `phase_run` projects the child's API-45/62 record. Phase retry uses the child's control endpoint and returns its new job; repeating the same retry fence returns that attempt without launching another worker. Phase and conversion outcomes remain independent (ANZ-02/04).
-`retry-failed` remains planned; the current implementation checkpoint is DICOM_JOB_PLAN.md.
+`retry-failed` delegates to the linked API-46/62 conversion run and always requires
+`expected_run_attempt`. API-62 also exposes `POST /task-runs/{rid}/retry-failed`
+with `{expected_attempt}`. Both native routes return 202 `TaskRunStarted`.
+Only stopped, cleanup-verified, unsealed conversions with recorded failures may retry;
+missing/stale fences, unavailable outcome history and an empty failure selection return 409.
+Native duplicate retry fences identify the same attempt; the source facade persists a distinct
+`retry_failed` receipt. Its incompatible controls remain blocked until that receipt settles.
+Project counts add `pending`; workspace counts retain converter names including `pending`.
 Failed background plans persist `problem` details/actions; non-DICOM refusals retain API-44/62 remedies.
 API-69 Estimate accepts an optional `name`: omitted/null preserves it; an empty string restores the neutral default.
 Settings-only Estimate retains the operation/inventory but replaces the plan attempt; previous conversion fences return 409.

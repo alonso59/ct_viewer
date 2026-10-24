@@ -66,6 +66,13 @@ async def resume(ctx: Ctx, oid: str, body: SourceOperationControl) -> SourceOper
     return await ctx.source_operations.resume(oid, body)
 
 
+@router.post(
+    "/source-operations/{oid}/retry-failed", response_model=SourceOperation, status_code=202
+)
+async def retry_failed(ctx: Ctx, oid: str, body: SourceOperationControl) -> SourceOperation:
+    return await ctx.source_operations.resume(oid, body, failed_only=True)
+
+
 @router.post("/source-operations/{oid}/estimate", response_model=SourceOperation, status_code=202)
 async def estimate(ctx: Ctx, oid: str, body: SourceOperationEstimate) -> SourceOperation:
     return await ctx.source_operations.estimate(oid, body)

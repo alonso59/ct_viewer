@@ -817,6 +817,8 @@
     "partialHelp": "Images already converted are preserved. Resume to finish this dataset.",
     "projectPartial": "Conversion is unfinished or output registration needs attention.",
     "resumePending": "Resume pending work",
+    "retryFailed": "Retry failed series",
+    "recoveryCounts": "{{complete}} verified complete · {{failed}} failed · {{pending}} pending",
     "phaseTitle": "Phase analysis",
     "phaseStatus": "Phase analysis · {{status}}",
     "phaseProgress": "{{done}} of {{total}} metadata rows analyzed",

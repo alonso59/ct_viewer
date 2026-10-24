@@ -257,6 +257,7 @@ class TaskRunCounts(BaseModel):
     ok: int = 0
     failed: int = 0
     skipped: int = 0
+    pending: int = 0
 
 
 class TaskRunInput(BaseModel):

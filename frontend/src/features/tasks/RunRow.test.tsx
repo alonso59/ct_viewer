@@ -72,3 +72,18 @@ test('D29 phase controls use the displayed attempt and preserve the ordinary tas
   fireEvent.click(await screen.findByRole('button', { name: 'Resume' }))
   await waitFor(() => expect(resume).toHaveBeenCalledWith(DEMO_PID, base.run_id, { expected_attempt: 3 }))
 })
+
+test('D23 DICOM partial failures offer a separately fenced retry', async () => {
+  const retry = vi.spyOn(api, 'retryFailedTaskRun').mockResolvedValue({} as never)
+  const resume = vi.spyOn(api, 'resumeTaskRun')
+  show({ status: 'completed_with_errors', supervised: false, task: { ...base.task, id: 'dicom.convert' }, attempts: 2, counts: { items: 3, ok: 1, failed: 1, pending: 1, skipped: 0 }, execution: { cleanup_verified: true } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry failed series' }))
+  await waitFor(() => expect(retry).toHaveBeenCalledWith(DEMO_PID, base.run_id, { expected_attempt: 2 }))
+  expect(resume).not.toHaveBeenCalled()
+})
+
+test('D23 DICOM retry and resume stay disabled while cleanup is unverified', async () => {
+  show({ status: 'interrupted', supervised: false, task: { ...base.task, id: 'dicom.convert' }, attempts: 2, counts: { items: 2, ok: 1, failed: 1, pending: 0, skipped: 0 }, execution: { cleanup_verified: false } })
+  expect(await screen.findByRole('button', { name: 'Resume' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Retry failed series' })).toBeDisabled()
+})

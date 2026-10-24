@@ -527,6 +527,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-operations/{oid}/retry-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Failed */
+        post: operations["retry_failed_api_v1_source_operations__oid__retry_failed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-operations/{oid}/estimate": {
         parameters: {
             query?: never;
@@ -1542,6 +1559,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/task-runs/{rid}/retry-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Failed Run */
+        post: operations["retry_failed_run_api_v1_projects__pid__task_runs__rid__retry_failed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/task-runs/{rid}/errors": {
         parameters: {
             query?: never;
@@ -1696,6 +1730,23 @@ export interface paths {
         put?: never;
         /** Resume Workspace Run */
         post: operations["resume_workspace_run_api_v1_task_runs__rid__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-runs/{rid}/retry-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Failed Workspace Run */
+        post: operations["retry_failed_workspace_run_api_v1_task_runs__rid__retry_failed_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4855,7 +4906,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "cancel" | "resume";
+            action: "cancel" | "resume" | "retry_failed";
             request: components["schemas"]["SourceOperationControl"];
             /** Request Id */
             request_id: string;
@@ -6526,6 +6577,11 @@ export interface components {
              * @default 0
              */
             skipped: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
         };
         /** TaskRunDetail */
         TaskRunDetail: {
@@ -8326,6 +8382,41 @@ export interface operations {
         };
     };
     resume_api_v1_source_operations__oid__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_failed_api_v1_source_operations__oid__retry_failed_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -10473,6 +10564,42 @@ export interface operations {
             };
         };
     };
+    retry_failed_run_api_v1_projects__pid__task_runs__rid__retry_failed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunAttemptControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     run_errors_api_v1_projects__pid__task_runs__rid__errors_get: {
         parameters: {
             query?: never;
@@ -10765,6 +10892,41 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["RunAttemptControl"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_failed_workspace_run_api_v1_task_runs__rid__retry_failed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunAttemptControl"];
             };
         };
         responses: {

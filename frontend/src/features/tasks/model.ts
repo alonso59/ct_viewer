@@ -8,8 +8,8 @@ export const ACTIVE_RUN: TaskRunStatus[] = ['queued', 'waiting_for_runner', 'wai
 export const STOPPING_RUN: TaskRunStatus[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
 export const RESUMABLE_RUN: TaskRunStatus[] = ['failed', 'cancelled', 'interrupted', 'paused', 'completed_with_errors']
 
-type Run = Pick<TaskRunSummary, 'status' | 'supervised' | 'archived' | 'control' | 'task'>
-export type RunAction = 'pause' | 'cancel' | 'resume' | 'archive'
+type Run = Pick<TaskRunSummary, 'status' | 'supervised' | 'archived' | 'control' | 'task'> & Partial<Pick<TaskRunSummary, 'counts'>>
+export type RunAction = 'pause' | 'cancel' | 'resume' | 'archive' | 'retry_failed'
 
 /** The lifecycle actions a run offers (J3..J6); none on view-only links (U1) */
 export function runActions(run: Run, readOnly: boolean): RunAction[] {
@@ -20,7 +20,8 @@ export function runActions(run: Run, readOnly: boolean): RunAction[] {
   if (supervised && ACTIVE_RUN.includes(run.status)) out.push('pause')
   if (ACTIVE_RUN.includes(run.status) || (supervised && STOPPING_RUN.includes(run.status) && !cancelPending)) out.push('cancel')
   const resumable = run.task.id !== 'radiomics.pyradiomics' && RESUMABLE_RUN.includes(run.status)
-  if (resumable && (supervised || !['paused', 'completed_with_errors'].includes(run.status))) out.push('resume')
+  if (resumable && (supervised || run.task.id === 'dicom.convert' || !['paused', 'completed_with_errors'].includes(run.status))) out.push('resume')
+  if (resumable && run.task.id === 'dicom.convert' && (run.counts?.failed ?? 0) > 0) out.push('retry_failed')
   if (supervised && !ACTIVE_RUN.includes(run.status) && !STOPPING_RUN.includes(run.status)) out.push('archive')
   return out
 }

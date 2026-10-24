@@ -7106,7 +7106,8 @@
      "action": {
       "enum": [
        "cancel",
-       "resume"
+       "resume",
+       "retry_failed"
       ],
       "title": "Action",
       "type": "string"
@@ -11565,6 +11566,11 @@
      "ok": {
       "default": 0,
       "title": "Ok",
+      "type": "integer"
+     },
+     "pending": {
+      "default": 0,
+      "title": "Pending",
       "type": "integer"
      },
      "skipped": {
@@ -20171,6 +20177,67 @@
     ]
    }
   },
+  "/api/v1/projects/{pid}/task-runs/{rid}/retry-failed": {
+   "post": {
+    "operationId": "retry_failed_run_api_v1_projects__pid__task_runs__rid__retry_failed_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RunAttemptControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Retry Failed Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}/tasks/{tid}/estimate": {
    "post": {
     "operationId": "estimate_api_v1_projects__pid__tasks__tid__estimate_post",
@@ -21310,6 +21377,58 @@
     ]
    }
   },
+  "/api/v1/source-operations/{oid}/retry-failed": {
+   "post": {
+    "operationId": "retry_failed_api_v1_source_operations__oid__retry_failed_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Retry Failed",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
   "/api/v1/source-operations/{oid}/series": {
    "get": {
     "operationId": "series_api_v1_source_operations__oid__series_get",
@@ -21719,6 +21838,58 @@
      }
     },
     "summary": "Resume Workspace Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/task-runs/{rid}/retry-failed": {
+   "post": {
+    "operationId": "retry_failed_workspace_run_api_v1_task_runs__rid__retry_failed_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RunAttemptControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Retry Failed Workspace Run",
     "tags": [
      "tasks"
     ]
