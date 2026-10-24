@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +25,7 @@ async def import_once(
     root: str,
     alias: str,
     source_key: str,
+    check_active: Callable[[], None] | None = None,
 ) -> CommitResult:
     from app.ingest.service import SOURCES
 
@@ -40,6 +42,8 @@ async def import_once(
         "source_key": source_key,
     }
     async with service.locks(f"_generated_import:{project}"):
+        if check_active is not None:
+            check_active()
         receipt: dict[str, Any] = read_json(path) if path.exists() else identity
         if not isinstance(receipt, dict) or any(
             receipt.get(k) != value for k, value in identity.items()

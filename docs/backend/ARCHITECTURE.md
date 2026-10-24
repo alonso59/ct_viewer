@@ -82,6 +82,9 @@ browser C ─┘   (single writer)     └─ …  → writes only inside runs/{
 ```
 
 - Multi-user safety comes from the single-writer API process, not from file locking between processes.
+- Index jobs retain their exclusivity until stopped worker calls return. Cancellation/failure
+  stops new unit dispatch and discards late results without terminating the shared pool.
+  A shutdown timeout cannot announce an unfinished drain as a finished job.
 - NFS/GPFS caveat: `fcntl` may be unreliable. Put `WORKSPACE_ROOT` on local disk when possible (OPS-06).
 
 ## Mesh generation

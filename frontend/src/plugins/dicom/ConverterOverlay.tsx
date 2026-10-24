@@ -544,7 +544,7 @@ export default function ConverterOverlay() {
           ) : null}
           {step === 'result' && run?.kind === 'project' ? (
             <div className="conv-body">
-              <p>{t(prun?.status === 'completed' && !prun.error ? 'conv.projectDone' : 'conv.projectPartial')}</p>
+              <p>{t(runStatus === 'completed' && !prun?.error ? 'conv.projectDone' : 'conv.projectPartial')}</p>
               <div className="conv-row conv-actions"><button type="button" className="btn btn-primary" onClick={close}>{t('conv.close')}</button></div>
             </div>
           ) : null}

@@ -75,11 +75,24 @@ class TaskService(DriverBase):
         if (rec.execution or {}).get("phase_step"):
             self.phase_runs.recover(pid, rec.run_id)
             return
-        if rec.task.id != "dicom.convert" or not rec.job_id:
+        native_job_id = rec.job_id
+        if rec.task.id != "dicom.convert" or not native_job_id:
             return
         if rec.status == "completed":
             key = f"dicom.registration:{rec.run_id}"
             lock = self.locks(f"_dicom_registration:{pid}:{rec.run_id}")
+            if (rec.execution or {}).get("registration_cancel_requested"):
+                if retry_registration:
+                    if not (rec.execution or {}).get("registration_cancelled"):
+                        raise JobConflict("Wait for metadata registration to stop before resuming")
+                    async with self.locks(pid):
+                        rec = self.runs.read(run_dir)
+                        for field in ("registration_cancel_requested", "registration_cancelled"):
+                            if rec.execution is not None:
+                                rec.execution.pop(field, None)
+                        self.runs.write(run_dir, rec)
+                elif (rec.execution or {}).get("registration_cancelled"):
+                    return
             if lock.locked() or self.jobs.active(pid, "task", key) is not None:
                 return
             if (
@@ -92,7 +105,7 @@ class TaskService(DriverBase):
                 )
             ):
                 return
-            job = run_dir / "attempts" / rec.job_id
+            job = run_dir / "attempts" / native_job_id
             result = protocol.read_result(job)
             if result is None or not attempt_cleaned(job, rec.attempts):
                 return
@@ -161,7 +174,7 @@ class TaskService(DriverBase):
             self.runs.job(rec.job_id) is not None and rec.status != "cleanup_pending"
         ):
             return
-        job = run_dir / "attempts" / rec.job_id
+        job = run_dir / "attempts" / native_job_id
         cleaned = attempt_cleaned(job, rec.attempts)
         outcomes, total = await asyncio.to_thread(dicom_history, run_dir, rec.attempts)
         n = Counter(event["status"] for event in outcomes.values())
@@ -433,6 +446,9 @@ class TaskService(DriverBase):
         rec = self.runs.read(run_dir)
         if expected_attempt is not None and rec.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
+        if rec.task.id == "dicom.convert" and rec.status == "completed":
+            await self._cancel_registration(pid, rid, run_dir)
+            return await self.get_run(pid, rid)
         if rec.task.id == "dicom.convert" and rec.status not in TERMINAL_TASK_RUN:
             if rec.job_id and self.runs.job(rec.job_id) is not None:
                 protocol.request_cancel(run_dir / "attempts" / rec.job_id)

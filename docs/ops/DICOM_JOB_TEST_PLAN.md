@@ -173,7 +173,10 @@ barrier or B07.
 barriers, independent world-coordinate/voxel checks, legacy early-registration recovery,
 directory-sync ordering, responsive polling during indexing and registration-only response replay.
 The remaining index-file/metadata/torn-record/migration barriers still need their own evidence.
-Cancel during project registration currently has a failing disposable probe: HTTP 200 leaves
-the metadata job running. D16/U09/B06 remain open until cancellation, replay, dispatch fencing
-and metadata-worker completion have positive evidence; native pixel cleanup is insufficient.
+The failing disposable Cancel-during-registration probe led to
+`test_dicom_registration_cancel.py`: pre-import/dispatch/probe cancellation, lost replies,
+metadata-only resume and actual API SIGKILL after acknowledgment. Shared-job cases verify
+all stopped workers return before completion/exclusivity release, including worker failure;
+a timed-out shutdown leaves completion unconfirmed. Complete D16/U09/B06 barrier, browser,
+latency and shared-runtime acceptance remain open; native pixel cleanup is insufficient.
 No closure checkbox is certified by these narrower checks.

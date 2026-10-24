@@ -194,6 +194,15 @@ class SourceOperations:
         ):
             record.stage = "registering"
             record.status = "failed"
+        if isinstance(native, TaskRunDetail) and (native.execution or {}).get(
+            "registration_cancel_requested"
+        ):
+            record.stage = "registering"
+            record.status = (
+                "cancelled"
+                if (native.execution or {}).get("registration_cancelled")
+                else "cancelling"
+            )
         record.cleanup_verified = (
             native.cleanup_verified
             if isinstance(native, WorkspaceRun)
@@ -288,6 +297,11 @@ class SourceOperations:
             pending.action == "cancel"
             and native.attempts == pending.run_attempt
             and native.status in TERMINAL_TASK_RUN | {"cancelling"}
+            and not (
+                isinstance(native, TaskRunDetail)
+                and native.status == "completed"
+                and not (native.execution or {}).get("registration_cancel_requested")
+            )
         )
         if resumed or cancelled:
             self._ack_native_control(record)
@@ -748,6 +762,10 @@ class SourceOperations:
                     and native.status == "completed"
                     and (
                         (native.error and native.error.startswith("output registration:"))
+                        or (
+                            isinstance(native, TaskRunDetail)
+                            and (native.execution or {}).get("registration_cancel_requested")
+                        )
                         or was_pending
                     )
                 )

@@ -41,6 +41,7 @@ class _Job:
     last_progress_mono: float = float("-inf")
     last_progress_done: int = -1
     announced: bool = False  # job.finished published
+    drain_on_stop: bool = False
 
 
 def _err(e: BaseException) -> str:
@@ -123,7 +124,7 @@ class JobManager:
             created_at=utc_now(),
             key=spec.key,
         )
-        job = _Job(spec=spec, info=info)
+        job = _Job(spec=spec, info=info, drain_on_stop=spec.drain_workers)
         self._jobs[job_id] = job
         job.task = asyncio.get_running_loop().create_task(self._run(job), name=f"job-{job_id}")
         log.info("job queued", extra={"job_id": job_id, "kind": spec.kind, "total": info.total})
@@ -146,7 +147,11 @@ class JobManager:
     def active(self, project_id: str, kind: JobKind, key: str | None = None) -> JobInfo | None:
         for j in self._jobs.values():
             i = j.info
-            live = i.project_id == project_id and i.kind == kind and i.status not in TERMINAL
+            live = (
+                i.project_id == project_id
+                and i.kind == kind
+                and (i.status not in TERMINAL or (j.drain_on_stop and not j.done_evt.is_set()))
+            )
             if live and (key is None or i.key == key):
                 return i
         return None
@@ -154,16 +159,19 @@ class JobManager:
     def busy(self, project_id: str) -> JobInfo | None:
         """Any live job of the project, whatever its kind (PRJ-06: no archive while one runs)."""
         for j in self._jobs.values():
-            if j.info.project_id == project_id and j.info.status not in TERMINAL:
+            if j.info.project_id == project_id and (
+                j.info.status not in TERMINAL or (j.drain_on_stop and not j.done_evt.is_set())
+            ):
                 return j.info
         return None
 
-    def cancel(self, job_id: str) -> JobInfo:
+    def cancel(self, job_id: str, *, drain: bool = False) -> JobInfo:
         job = self._jobs.get(job_id)
         if job is None:
             raise NotFound(f"Job not found: {job_id}")
         if job.info.status in TERMINAL:
             return job.info
+        job.drain_on_stop = job.drain_on_stop or drain
         self._set_terminal(job, "cancelled")
         self._halt(job)
         log.info("job cancelled", extra={"job_id": job_id, "kind": job.info.kind})
@@ -197,6 +205,9 @@ class JobManager:
                     await self._drive(job)
                 else:
                     await self._execute(job)
+            if job.drain_on_stop and job.inflight:
+                await asyncio.shield(asyncio.gather(*job.inflight, return_exceptions=True))
+                job.inflight.clear()
             if info.status not in TERMINAL:
                 self._set_terminal(job, "succeeded")
             self._progress(job, force=True)
@@ -235,6 +246,8 @@ class JobManager:
                     break
                 done, _ = await asyncio.wait(job.inflight, return_when=asyncio.FIRST_COMPLETED)
                 for fut in done:
+                    if job.stop and job.drain_on_stop:
+                        continue
                     job.inflight.discard(fut)
                     if job.stop or fut.cancelled():
                         continue
@@ -274,6 +287,8 @@ class JobManager:
 
     def _halt(self, job: _Job) -> None:
         job.stop = True
+        if job.drain_on_stop:
+            return
         for fut in job.inflight:
             fut.cancel()  # not-started units are dropped; running ones finish, result ignored
         job.inflight.clear()
@@ -309,6 +324,8 @@ class JobManager:
 
     def _announce(self, job: _Job) -> None:
         if job.announced:
+            return
+        if job.drain_on_stop and any(not future.done() for future in job.inflight):
             return
         job.announced = True
         info = job.info
