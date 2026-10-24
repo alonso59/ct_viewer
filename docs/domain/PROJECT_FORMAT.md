@@ -143,7 +143,7 @@ Single-writer model and locking: BE-05.
 | Rule | Detail |
 |---|---|
 | Layout | One zip with one top-level folder `{project_id}/` |
-| Excluded | `view_token` (reset to null in the bundle, also in `project.json.bak`), `cache/`, `index/variables.parquet` (rebuilt on first access, VAR-01), `.lock`, `.*.tmp`, symlinks, image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) and DICOM sidecars (`*.dicom.json`) anywhere |
+| Excluded | `view_token` (reset to null in the bundle, also in `project.json.bak`), `cache/`, `index/variables.parquet` (rebuilt on first access, VAR-01), `.lock`, `.*.tmp`, symlinks, image files (`.nii`, `.nii.gz`, `.npy`, `.npz`, `.nrrd`, `.mha`, `.mhd`, `.dcm`) and DICOM sidecars (`*.dicom.json`) anywhere; private `tasks/runs/{id}/attempts/` execution state and `tasks/runs/{id}/phase-analyzer/` inputs/checkpoints. Public run records and annotation layers remain included, with source paths removed. |
 | Export | Built under the project lock in `WORKSPACE_ROOT/.staging/`, deleted after sending |
 | Import id | Keeps the bundle's `project_id` unless the workspace already uses it (active or archived); then a new ULID is written to `project.json` |
 | Import guards | Zip-slip, symlinks, ≤ 1M entries, ≤ 50 GiB uncompressed; extracted in `.staging/` then renamed into `projects/`; migrations run on open (PRJ-11) |

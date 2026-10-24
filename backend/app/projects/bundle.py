@@ -48,6 +48,12 @@ def _excluded(rel: str) -> bool:
         or (len(parts) == 1 and name in EXCLUDED_FILES)
         or (name.startswith(".") and name.endswith(".tmp"))  # core.fsio temp files
         or name.lower().endswith(IMAGE_SUFFIXES)
+        or name.lower().endswith(".dicom.json")
+        or (
+            len(parts) >= 4
+            and parts[:2] == ["tasks", "runs"]
+            and parts[3] in {"attempts", "phase-analyzer"}
+        )
     )
 
 
@@ -131,11 +137,17 @@ def _is_task_run(rel: str) -> bool:
 def _without_source_path(data: bytes) -> bytes | None:
     """NFR-17: the absolute input path of a task run (a DICOM folder is often a patient name)."""
     raw = json.loads(data)
-    sel = raw.get("selection") if isinstance(raw, dict) else None
-    if not isinstance(sel, dict) or not sel.get("source"):
+    if not isinstance(raw, dict):
         return None
-    sel["source"] = None
-    return json.dumps(raw, indent=2).encode("utf-8")
+    changed = False
+    sel = raw.get("selection")
+    if isinstance(sel, dict) and sel.get("source"):
+        sel["source"] = None
+        changed = True
+    if raw.get("source"):
+        raw["source"] = None
+        changed = True
+    return json.dumps(raw, indent=2).encode("utf-8") if changed else None
 
 
 def _without_profile_values(data: bytes) -> bytes | None:

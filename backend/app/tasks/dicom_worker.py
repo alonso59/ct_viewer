@@ -45,8 +45,11 @@ def main(job_dir: Path) -> int:
         from plugins.analyzers.checkpoint import AnalysisConflict, retry_phase
 
         try:
+            seed = spec.get("analysis_seed")
             analysis = retry_phase(
                 Path(spec["analysis_state"]),
+                seed=Path(seed["path"]) if seed else None,
+                seed_sha256=seed["sha256"] if seed else None,
                 cancelled=lambda: (job_dir / protocol.CANCEL).exists(),
                 on_progress=lambda done, total: append_jsonl(
                     job_dir / protocol.PROGRESS,

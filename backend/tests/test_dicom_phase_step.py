@@ -296,3 +296,74 @@ def test_completed_analysis_is_idempotent_and_cannot_be_cancelled_retroactively(
     second = retry_phase(state, cancelled=lambda: True)
     assert second == first
     assert {p.name: p.read_bytes() for p in state.iterdir() if p.is_file()} == before
+
+
+def test_recovery_seed_restores_missing_inputs_and_reuses_committed_phase_batches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D29: recovery needs only private metadata, including before anonymization."""
+    from plugins.analyzers.checkpoint import analyze_phase, retry_phase, write_seed
+
+    rows = [
+        {"item_id": str(i), "series_description": "NONCONTRAST", "patient_id": "omit-me"}
+        for i in range(130)
+    ]
+    seed_dir, state = tmp_path / "private-seed", tmp_path / "phase"
+    seed = write_seed(seed_dir, rows, {})
+    seed_path = seed_dir / "seed.json"
+    assert seed_dir.stat().st_mode & 0o077 == 0
+    assert "omit-me" not in seed_path.read_text()
+    stopped = False
+
+    def progress(done: int, total: int) -> None:
+        nonlocal stopped
+        stopped = done >= 64
+
+    assert (
+        analyze_phase(state, rows, {}, cancelled=lambda: stopped, on_progress=progress)["done"]
+        == 64
+    )
+    (state / "inputs.json").unlink()
+    calls = []
+    original = phase.analyze
+
+    def tracked(batch: Any, config: Any) -> Any:
+        calls.extend(row["item_id"] for row in batch)
+        return original(batch, config)
+
+    monkeypatch.setattr(phase, "analyze", tracked)
+    recovered = retry_phase(state, seed=seed_path, seed_sha256=seed["sha256"])
+    assert recovered["status"] == "completed" and recovered["done"] == 130
+    assert calls == [str(i) for i in range(64, 130)]
+
+
+@pytest.mark.parametrize("conflict", ["content", "rules", "checkpoint"])
+def test_invalid_recovery_seed_preserves_the_original_phase_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, conflict: str
+) -> None:
+    """D29: a recovery seed cannot bypass content, rules or checkpoint identity pins."""
+    from plugins.analyzers.checkpoint import (
+        AnalysisConflict,
+        analyze_phase,
+        retry_phase,
+        write_seed,
+    )
+
+    state, seed_dir = tmp_path / "phase", tmp_path / "private-seed"
+    rows = [{"item_id": "1", "series_description": "NONCONTRAST"}]
+    analyze_phase(state, rows, {})
+    (state / "inputs.json").unlink()
+    original_checkpoint = (state / "checkpoint.json").read_bytes()
+    seed = write_seed(
+        seed_dir, [{**rows[0], "item_id": "other"}] if conflict == "checkpoint" else rows, {}
+    )
+    seed_path = seed_dir / "seed.json"
+    if conflict == "content":
+        seed_path.write_text("{}")
+    elif conflict == "rules":
+        monkeypatch.setattr(phase, "RULES_VERSION", "incompatible-rules")
+    monkeypatch.setattr(phase, "analyze", no_phase)
+    with pytest.raises(AnalysisConflict):
+        retry_phase(state, seed=seed_path, seed_sha256=seed["sha256"])
+    assert (state / "checkpoint.json").read_bytes() == original_checkpoint
+    assert not (state / "inputs.json").exists()
