@@ -167,6 +167,48 @@ def test_source_polling_does_not_wait_for_index_registration(
         assert final["status"] == "completed" and final["error"] is None
 
 
+def test_native_completion_marks_registration_pending_before_finalization_starts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D24: native success cannot expose an empty project as a completed import."""
+    import asyncio
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.tasks.registration import RegistrationBase
+    from tests.test_api_ingest import wait
+    from tests.test_source_operation_conversion import native_run, prepared_operation
+    from tests.test_source_operations_api import API
+
+    original = RegistrationBase._finalize_dicom
+    entered, release = threading.Event(), asyncio.Event()
+
+    async def finalize(service: Any, live: Any, result: Any) -> None:
+        async with service.locks(f"_dicom_registration:{live.pid}:{live.rid}"):
+            entered.set()
+            await release.wait()
+        await original(service, live, result)
+
+    monkeypatch.setattr(RegistrationBase, "_finalize_dicom", finalize)
+    with prepared_operation(tmp_path, True) as prepared:
+        client, _, _, _, record, request = prepared
+        oid = record["operation_id"]
+        assert client.post(f"{API}/{oid}/convert", json=request).status_code == 202
+        native = native_run(client, oid)
+        requests = ThreadPoolExecutor(max_workers=1)
+        try:
+            assert entered.wait(10)
+            response = requests.submit(client.get, f"{API}/{oid}").result(1)
+            assert response.status_code == 200, response.text
+            assert response.json()["status"] == "reconciling", response.json()
+            assert response.json()["stage"] == "registering"
+        finally:
+            client.portal.call(release.set)
+            requests.shutdown(wait=True)
+        wait(client, native["job_id"])
+        assert client.get(f"{API}/{oid}").json()["status"] == "completed"
+
+
 @pytest.mark.parametrize("lost_response", [None, "before", "after"])
 @pytest.mark.parametrize("fault_kind", ["worker", "busy"])
 def test_failed_index_retries_only_registration_and_replays_a_lost_response(
@@ -312,6 +354,7 @@ def registration_child(root: Path, barrier: str) -> None:
 
     from app.config import Settings
     from app.ingest import service as ingest_module
+    from app.ingest import store as index_store
     from app.jobs.manager import JobManager
     from app.jobs.runs import RunStore
     from app.main import create_app
@@ -322,6 +365,10 @@ def registration_child(root: Path, barrier: str) -> None:
     original_run = RunStore.write
     original_registration = registration.atomic_write_json
     original_execute = JobManager._execute
+    original_index_rows = index_store.write_jsonl_atomic
+    original_index_status = index_store.atomic_write_json
+    original_identity = registration.identity_store.save
+    original_annotations = registration.write_jsonl_atomic
     pending: tuple[Path, dict[str, Any]] | None = None
 
     async def execute(manager: Any, job: Any) -> None:
@@ -364,10 +411,38 @@ def registration_child(root: Path, barrier: str) -> None:
         ):
             stop()
 
+    def index_rows(path: Path, rows: Any) -> None:
+        original_index_rows(path, rows)
+        if (barrier, path.name) in {
+            ("index_warnings", index_store.WARNINGS),
+            ("index_cases", index_store.CASES),
+            ("index_items", index_store.ITEMS),
+        }:
+            stop()
+
+    def index_status(path: Path, record: Any) -> None:
+        original_index_status(path, record)
+        if barrier == "index_ready" and record.get("state") == "ready":
+            stop()
+
+    def identity(path: Path, registry: Any) -> None:
+        original_identity(path, registry)
+        if barrier == "identity_commit":
+            stop()
+
+    def annotations(path: Path, rows: Any) -> None:
+        original_annotations(path, rows)
+        if barrier == "annotations_commit":
+            stop()
+
     ingest_module.append_jsonl = append
     RunStore.write = run
     registration.atomic_write_json = checkpoint
     JobManager._execute = execute
+    index_store.write_jsonl_atomic = index_rows
+    index_store.atomic_write_json = index_status
+    registration.identity_store.save = identity
+    registration.write_jsonl_atomic = annotations
     settings = Settings(
         workspace_root=root / "workspace",
         allowed_data_roots=str(root / "source"),
@@ -406,6 +481,12 @@ def registration_child(root: Path, barrier: str) -> None:
         "after_index",
         "registration_complete",
         "legacy_registration_complete",
+        "identity_commit",
+        "annotations_commit",
+        "index_warnings",
+        "index_cases",
+        "index_items",
+        "index_ready",
     ],
 )
 def test_api_sigkill_during_registration_recovers_exactly_one_indexed_import(

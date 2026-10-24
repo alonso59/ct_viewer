@@ -572,6 +572,8 @@ class DriverBase(RegistrationBase):
                 seg = self._target_seg(live)
                 if not any(o.kind == "segmentation_set" and o.seg_id == seg for o in rec.outputs):
                     rec.outputs.append(TaskRunOutput(kind="segmentation_set", seg_id=seg))
+            if rec.task.id == "dicom.convert" and rec.status == "completed" and result is not None:
+                rec.execution = {**(rec.execution or {}), "registration_pending": True}
             self.runs.write(live.run_dir, rec)
             if live.manifest.resources.gpu == "required":
                 self._record_gpu_ledger(live)

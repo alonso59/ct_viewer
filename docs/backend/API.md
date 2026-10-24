@@ -124,6 +124,15 @@ API-45 run, reports `cancelling` while metadata workers drain, then `cancelled` 
 point returns 409; afterward it retries registration in the same native attempt. Controls share
 the generated-import dispatch gate and replay lost acknowledgments. Committed artifacts and
 already registered rows are retained; cancellation does not roll them back.
+API-69 reconfirms metadata durability before acknowledging repeated controls. Creation reserves
+its request receipt before installing the operation; a pending creation can be reconstructed
+before dispatch, while a committed receipt with a missing operation is refused. Replaying a
+queued discovery/Estimate or conversion handoff whose submission never occurred reuses its operation
+and attempt; retained execution evidence blocks redispatch until cleanup is reconciled. Legacy creation receipts
+without a completion field remain readable when their operation exists.
+When a source job stops before publishing its final state, subsequent reads reconcile the operation
+against finished-job and native cleanup evidence. Verified failure/interruption is resumable;
+unconfirmed cleanup remains `cleanup_pending`, and a still-finalizing job is not treated as stopped.
 
 Radiomics is the task `radiomics.pyradiomics` (RAD-13): validate, estimate, runs, control and errors are API-43..47, whose answers carry the radiomics record as `radiomics` (API-43 `ValidateResult`, API-44 `EstimateResult`, API-45 list `RunSummary` / detail and API-46 cancel `RunDetail`, API-47 `RunError` per row). Only the engine schema (API-30), profiles (API-32), feature exports (API-36) and dashboard views (API-38) are radiomics routes.
 

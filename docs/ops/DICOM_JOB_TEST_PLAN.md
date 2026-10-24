@@ -172,11 +172,19 @@ barrier or B07.
 `test_dicom_operation_recovery.py` adds actual SIGKILL at native publication and API registration
 barriers, independent world-coordinate/voxel checks, legacy early-registration recovery,
 directory-sync ordering, responsive polling during indexing and registration-only response replay.
-The remaining index-file/metadata/torn-record/migration barriers still need their own evidence.
+Additional SIGKILL cases cover identity/annotations and the index warnings/cases/items/ready
+publications. The remaining within-write/sync/rename, torn-record and migration barriers
+still need their own evidence.
 The failing disposable Cancel-during-registration probe led to
 `test_dicom_registration_cancel.py`: pre-import/dispatch/probe cancellation, lost replies,
 metadata-only resume and actual API SIGKILL after acknowledgment. Shared-job cases verify
 all stopped workers return before completion/exclusivity release, including worker failure;
 a timed-out shutdown leaves completion unconfirmed. Complete D16/U09/B06 barrier, browser,
 latency and shared-runtime acceptance remain open; native pixel cleanup is insufficient.
+`test_dicom_metadata_durability.py` injects directory-sync failures during creation, submission,
+Estimate, Convert and Cancel acknowledgment. Replays must reconfirm durability, admit unlaunched work
+once and refuse retained execution/lost committed state; legacy receipt compatibility is covered.
+Cases also cover a missing queued job, missing launch files with retained process/dispatch evidence,
+and read-time recovery after a failed state publication. Resume remains blocked without cleanup proof.
+`test_core.py` checks propagation of directory open/sync errors and descriptor cleanup.
 No closure checkbox is certified by these narrower checks.

@@ -90,7 +90,7 @@ def wait_operation(client: TestClient, operation: str) -> dict[str, Any]:
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         record = client.get(f"{API}/{operation}").json()
-        if record["status"] not in {"queued", "running", "cancelling"}:
+        if record["status"] not in {"queued", "running", "cancelling", "reconciling"}:
             return dict(record)
         time.sleep(0.02)
     raise AssertionError("Source operation did not finish")

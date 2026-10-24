@@ -263,6 +263,40 @@ preserves the page/trace. G2 now waits for the ready conversion action before as
 contents; both real Chromium/Firefox G2 journeys pass with unchanged sources
 (`dicom-g2-async-ready-browser.log`), as do frontend lint/types
 (`dicom-g2-async-ready-static.log`). Its next full CI and product image remain required.
+The API crash harness additionally kills after identity/annotation publication and after each
+index warnings/cases/items/ready-status write. All 27 recovery-file cases pass
+(`dicom-api-index-crash-final.log`), retaining one import and unchanged image bytes/source hashes.
+`dicom-dir-sync-ack-red.log` and `dicom-core-dir-sync-red.log` reproduce swallowed directory
+open/sync errors; `dicom-control-dir-sync-red.log` reproduces a repeated creation request
+acknowledging an unconfirmed receipt. The writer now propagates errors, and source-operation
+replay reconfirms intent/metadata and recovers only never-launched discovery/Estimate work
+or conversion handoffs in their original reserved attempt.
+Retained launch evidence and a lost committed operation are refused; legacy receipts with
+existing records remain supported. These cases do not certify all filesystem failure,
+parent-directory creation, torn-journal, power-loss or migration/rollback barriers.
+CI 40122160596 passed 1,030 backend, 394 frontend and 107 serial runner cases, then failed
+Chromium G3 (67 browser cases passed): after browser Back the URL named case 60 while the
+active editor still showed case 61. Diagnostics artifact 12571991961 preserves this release
+blocker. `EditorArea.navigation.test.tsx` reproduces extra navigation when history reconciliation
+and a layout refresh share an effect flush (`dicom-g3-history-layout-red.log`); the URL writer
+now ignores an earlier active-panel snapshot. Four shell cases pass
+(`dicom-g3-history-layout-green.log`). Four real Chromium/Firefox G2/G3 journeys pass with
+unchanged source hashes (`dicom-durability-navigation-browser.log`); full CI acceptance
+for the final publication tree remains required.
+The broader backend check exposed a native-completion/registration handoff race: a project
+could appear completed before its index started. `dicom-initial-registration-pending-red.log`
+reproduces it deterministically; the pending marker now accompanies native completion in one
+write. The targeted regression passes (`dicom-initial-registration-pending-green.log`).
+Twenty-six metadata durability cases pass (`dicom-source-durability-recovery-final.log`),
+covering project/workspace submission replay, queued cancellation with a missing job and
+read-time reconciliation after failed state publication. Retained process/dispatch evidence
+blocks replacement; a stopped source job can resume without restarting the API only when
+cleanup is proven. These counts are focused evidence, not completion of the full D35 matrix.
+The final isolated publication candidate passes 237 affected backend cases
+(`dicom-durability-dispatch-area.log`), nine shell/boundary cases across five frontend files
+(`dicom-durability-dispatch-frontend.log`, `dicom-durability-dispatch-editors.log`) and
+lint/types/contracts/426 requirements/dead-code checks (`dicom-durability-dispatch-static.log`).
+The runner gate passes 107 serial cases (`dicom-durability-final-runner.log`); no GPU was launched.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 
