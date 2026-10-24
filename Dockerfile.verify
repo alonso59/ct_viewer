@@ -17,7 +17,10 @@ COPY backend/pyproject.toml backend/requirements-ci.lock /repo/backend/
 RUN uv pip sync --python /opt/ci/bin/python backend/requirements-ci.lock
 COPY frontend/package.json frontend/package-lock.json /repo/frontend/
 RUN cd frontend && npm ci --no-audit --no-fund \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends xauth \
  && npx playwright install --with-deps chromium firefox \
+ && xvfb-run -a true \
  && rm -rf /var/lib/apt/lists/*
 COPY . .
 RUN ln -s /opt/ci backend/.venv \
