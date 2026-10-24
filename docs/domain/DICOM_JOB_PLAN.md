@@ -135,6 +135,7 @@ Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asyn
 | Plan/reuse | All 1,027 planned rows page through stable cursors. Conversion reuses cached scan facts, and revalidates source generation before allocation and again after its native queue wait. |
 | Owned execution | Parent-death/dispatch handshake, PID/start/boot/namespace proof, bounded native threads/memory and participating runner admission are tested. Unknown cleanup blocks replacement. Full shared-CPU and cross-container acceptance remains open. |
 | Native commits | Strong selected-input/settings/identity pins; prepared/committed artifact journals and no-clobber publication. ENOSPC/source/output conflicts and same-run project/workspace resume have focused tests. Full crash-barrier coverage remains open. |
+| Standalone CLI | `test_dicom_cli_resume.py` covers actual SIGKILL after a commit, unchanged images/world landmarks on resume, strong refusal of added/restored-mtime inputs or changed configuration, output-root serialization, failed-series exit/retry, dry-run immutability, incremental case IDs, unusable journals/pins and custom YAML output names. It uses the shared pipeline and commits; complete filesystem/crash/resource acceptance remains open. |
 | Generated import | `dicom-registration.xml`: five cases, including injected registration faults and changed image/metadata refusal. Metadata-only recovery preserves one import/run. Torn journals and actual SIGKILL at every registration/index barrier remain open. |
 | Phase | `test_dicom_phase_step.py` covers disabled/core separation, batch cancellation, actual abrupt analyzer exit, corruption/rules conflicts and sealed-output preservation. `test_dicom_phase_runs.py` covers independent records, fenced/idempotent metadata-only API retry/cancel, restart cleanup admission and later dataset import. Window tests cover child controls, polling and minimizing. Initial execution shares the owned conversion carrier; retries have their own worker. Private, hash-pinned metadata seeds recover missing analyzer inputs, including basic anonymization. Recovery without either metadata copy, full crash-barrier and migration acceptance remain open; D29 is not closed. |
 | Operation facade | Durable discovery-to-plan intent and reserved run ID; conversion delegates existing project/workspace authority. Generation changes refuse launch. Duplicate handoff commands retain one run/allocation. |
@@ -194,13 +195,26 @@ anonymization and rejection of altered seeds/rules/checkpoints. Nine bundle test
 private execution/phase state. CI run 40090535142 passed 938 backend cases and failed two
 obsolete single-run assertions; their replacement requires exactly one conversion plus its
 linked phase run. Final CI remains required.
+CLI regression evidence: `dicom-cli-failed-series-red.log` reproduces exit 0 after a decoder failure
+against the pre-change CLI. `dicom-cli-final-area.log` passes 29 CLI/metadata/layering cases,
+including plan-digest read failure before pixel dispatch, restored-mtime source mutation,
+changed identity pins and private error reporting. Static checks and 426 requirement IDs pass
+in `dicom-cli-open-final-static.log`. These do not certify full D34/D35 or performance acceptance.
+CI run 40091578938 passed 949 backend and 380 frontend cases, the full static/contract gate
+and 107 serial runner cases. It passed 67 browser cases and failed Firefox Open mode on an
+unhandled lazy-engine import cancelled during reload (`NS_BINDING_ABORTED` in its trace).
+`ViewerSurface.test.tsx` reproduces the missing recovery/unhandled rejection; startup failures
+now belong to the tab lifecycle. Seven engine/gate tests and six real Open-mode browser cases
+pass (`dicom-open-engine-final.log`, `dicom-open-ci-browser.log`) without source changes.
+Final CI and image acceptance remain required.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 
 Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, including:
 
 - Every conversion/registration/index crash barrier, torn-record recovery, migrations and rollback;
-  strong conflict preflight, identity reservations across unregistered runs, Retry failed and complete CLI resume parity.
+  strong conflict preflight, identity reservations across unregistered runs, Retry failed and
+  complete CLI crash/migration/resource parity beyond the focused SIGKILL/resume cases.
 - Aggregate inventory retention/quota, duplicate SOP/UID/missing-identity diagnostics,
   independent GDCM encoding/multiframe oracle, shared-worker/multi-workspace CPU accounting
   and independent same-image cross-container ownership/cleanup evidence.

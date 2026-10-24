@@ -9,28 +9,76 @@ imported once as curation events (CUR-15).
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 import sys
+import uuid
+from contextlib import ExitStack, suppress
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from plugins.dicom import pipeline
+from plugins.dicom import commits, pipeline
 from plugins.dicom.identity import Identity
+from plugins.protocol import utc_now, write_json_atomic
 
 
 def load(path: Path) -> dict[str, Any]:
     import yaml  # the CLI keeps the legacy YAML format (PyYAML is a CLI-only dependency)
 
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        raise ValueError("Invalid converter YAML; check its formatting") from None
     if not isinstance(raw, dict):
         raise ValueError("config root must be a mapping")  # noqa: TRY004 - invalid file content
     return raw
 
 
-def main(argv: list[str]) -> int:
-    cfg = load(Path(argv[0] if argv else "config/converter.yaml"))
-    source = Path(cfg["dataset_root"])
-    out = Path(cfg["output_root"])
+def _read(path: Path) -> dict[str, Any]:
+    raw = json.loads(path.read_text())
+    if not isinstance(raw, dict):
+        raise ValueError("CLI state must be a JSON object")  # noqa: TRY004
+    return raw
+
+
+def _write(path: Path, record: dict[str, Any]) -> None:
+    write_json_atomic(path, record)
+    fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _output(out: Path, name: str) -> Path:
+    relative = Path(name)
+    first = relative.parts[0] if relative.parts else ""
+    path = (out / relative).resolve()
+    if (
+        relative.is_absolute()
+        or ".." in relative.parts
+        or not path.is_relative_to(out)
+        or first
+        in {
+            ".rw_identity.json",
+            ".rw_active.json",
+            ".rw-runs",
+            ".rw-cli.lock",
+        }
+    ):
+        raise ValueError("CLI output paths must remain inside the output root and avoid its control files")
+    return path
+
+
+def _run(cfg: dict[str, Any]) -> int:
+    source = Path(cfg["dataset_root"]).resolve()
+    out = Path(cfg["output_root"]).resolve()
+    if not source.exists():
+        raise ValueError("DICOM source is unavailable")
+    if source.is_relative_to(out) or out.is_relative_to(source):
+        raise ValueError("DICOM source and output roots must not overlap")
     conv = cfg.get("conversion") or {}
     outs = cfg.get("outputs") or {}
     settings = pipeline.Settings(
@@ -44,24 +92,137 @@ def main(argv: list[str]) -> int:
         patient_limit=cfg.get("patient_limit"),
         include_modality_prefix=bool(outs.get("include_modality_prefix", True)),
     )
-    registry_path = out / ".rw_identity.json"
-    identity = Identity.from_dict(json.loads(registry_path.read_text()) if registry_path.is_file() else None)
-    meta_path = out / str(outs.get("metadata_file") or "metadata.jsonl")
-    previous = [json.loads(x) for x in meta_path.read_text().splitlines() if x.strip()] if meta_path.is_file() else []
     nifti = str(outs.get("nifti_dir") or "nifti")
-    result = pipeline.run(
-        source, settings, identity, nifti_dir=out / nifti, sidecar_dir=out / "sidecars", ref_rel="",
-        ref_alias="DATA", salt="", previous=previous, dry_run=cfg.get("mode") == "dry_run",
-    )  # fmt: skip
-    for r in result.rows:  # contract v1 relative to the output folder (the imported root)
-        r["relative_path"] = f"{nifti}/{r.get('filename', '')}"
-        if r.get("dicom_sidecar"):
-            r["dicom_sidecar"] = f"sidecars/{r['filename']}.dicom.json"
-    if cfg.get("mode") != "dry_run":
-        pipeline.write_jsonl(meta_path, result.rows)
-        registry_path.write_text(json.dumps(identity.as_dict(), indent=2))
+    image_dir = _output(out, nifti)
+    meta_path = _output(out, str(outs.get("metadata_file") or "metadata.jsonl"))
+    if meta_path == out or meta_path.is_dir():
+        raise ValueError("CLI metadata output must name a file inside the output root")
+    sidecar_dir = _output(out, "sidecars")
+    dry = cfg.get("mode") == "dry_run"
+    with ExitStack() as stack:
+        if not dry:
+            out.mkdir(parents=True, exist_ok=True)
+            fd = os.open(out / ".rw-cli.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            stack.callback(os.close, fd)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        registry_path = out / ".rw_identity.json"
+        identity = Identity.from_dict(_read(registry_path) if registry_path.is_file() else None)
+        previous = (
+            [json.loads(x) for x in meta_path.read_text().splitlines() if x.strip()] if meta_path.is_file() else []
+        )
+        checkpoint = None
+        record: dict[str, Any] = {}
+        record_path = out / ".rw_active.json"
+        if not dry:
+            request = {
+                "source": str(source),
+                "settings": asdict(settings),
+                "metadata": str(meta_path.relative_to(out)),
+                "nifti": nifti,
+            }
+            if record_path.exists():
+                record = _read(record_path)
+                if record.get("version") != 1 or record.get("status") not in {
+                    "running",
+                    "failed",
+                    "interrupted",
+                    "completed",
+                }:
+                    raise ValueError("CLI journal is damaged or incompatible; preserve it and use a new output root")
+                if record["status"] != "completed" and record.get("request") != request:
+                    raise ValueError(
+                        "Resume conflict: CLI source/settings/output changed; restore them or use a new output root"
+                    )
+            if not record or record["status"] == "completed":
+                record = {
+                    "version": 1,
+                    "run_id": uuid.uuid4().hex,
+                    "attempts": 0,
+                    "request": request,
+                    "created_at": utc_now(),
+                    "plan_pinned": False,
+                }
+            rid = record.get("run_id")
+            if not isinstance(rid, str) or len(rid) != 32 or any(c not in "0123456789abcdef" for c in rid):
+                raise ValueError("CLI run identity is invalid; preserve its journal")
+            checkpoint = out / ".rw-runs" / rid / "pin.json"
+            if record.get("plan_pinned") and not checkpoint.is_file():
+                raise ValueError(
+                    "Resume conflict: pinned CLI plan is missing; preserve the outputs and recover its journal"
+                )
+            if record.get("plan_pinned") and commits.file_digest(checkpoint)["sha256"] != record.get("pin_sha256"):
+                raise ValueError("Resume conflict: pinned CLI plan changed; preserve its journal and outputs")
+            run_dirs = checkpoint.parent.parent
+            run_dirs.mkdir(mode=0o700, exist_ok=True)
+            if run_dirs.is_symlink() or run_dirs.stat().st_mode & 0o077:
+                raise ValueError("CLI plan directory must be private (0700) and cannot be a symlink")
+            checkpoint.parent.mkdir(mode=0o700, exist_ok=True)
+            fd = os.open(checkpoint.parent.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            record.update(
+                status="running",
+                attempts=int(record["attempts"]) + 1,
+                attempt_id=uuid.uuid4().hex,
+                updated_at=utc_now(),
+            )
+            _write(record_path, record)
+
+        def stage(name: str, done: int, total: int) -> None:
+            if not dry and name == "converting" and not record.get("plan_pinned"):
+                assert checkpoint is not None
+                record.update(plan_pinned=True, pin_sha256=commits.file_digest(checkpoint)["sha256"])
+                _write(record_path, record)
+
+        try:
+            result = pipeline.run(
+                source,
+                settings,
+                identity,
+                nifti_dir=image_dir,
+                sidecar_dir=sidecar_dir,
+                ref_rel="",
+                ref_alias="DATA",
+                salt="",
+                previous=previous,
+                dry_run=dry,
+                checkpoint=checkpoint,
+                on_stage=stage,
+            )
+            for row in result.rows:
+                row["relative_path"] = f"{nifti}/{row.get('filename', '')}"
+                if row.get("dicom_sidecar"):
+                    row["dicom_sidecar"] = f"sidecars/{row['filename']}.dicom.json"
+            successful = result.counts["failed"] == 0 and result.resource_wait is None and result.counts["series"] > 0
+            if not dry:
+                pipeline.write_jsonl(meta_path, result.rows)
+                _write(registry_path, identity.as_dict())
+                record.update(
+                    status="completed" if successful else "failed", counts=result.counts, updated_at=utc_now()
+                )
+                _write(record_path, record)
+        except BaseException:
+            if not dry:
+                record.update(status="interrupted", updated_at=utc_now())
+                with suppress(OSError):
+                    _write(record_path, record)
+            raise
     print(json.dumps({"counts": result.counts, "storage": result.storage}, indent=2))
-    return 0
+    return 0 if successful else 1
+
+
+def main(argv: list[str]) -> int:
+    try:
+        return _run(load(Path(argv[0] if argv else "config/converter.yaml")))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        if isinstance(exc, OSError):
+            message = os.strerror(exc.errno) if exc.errno else type(exc).__name__
+        else:
+            message = str(exc)
+        print(f"Conversion refused: {message}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
