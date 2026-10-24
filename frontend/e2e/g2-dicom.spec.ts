@@ -21,7 +21,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await folders.getByRole('button', { name: /^dicom$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
   await dialog.getByLabel('Dataset name').fill(name)
-  const estimate = page.waitForResponse((r) => r.url().includes('/tasks/dicom.convert/estimate') && r.request().method() === 'POST', { timeout: 30_000 })
+  const estimate = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
   await dialog.getByRole('button', { name: 'Dry run' }).click()
   expect((await estimate).ok()).toBe(true)
 

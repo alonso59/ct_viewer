@@ -10,9 +10,9 @@ type Row = ItemPage['items'][number]
 const filename = (row: Row) => row.image?.ref.split('/').pop()?.replace(/^[^:]+:/, '') || row.item_id
 const PAGE_SIZES = [50, 100, 200, 500]
 
-function SelectionBox({ ids, selected, label, onChange }: { ids: string[]; selected: Set<string>; label: string; onChange: (ids: string[], checked: boolean) => void }) {
+function SelectionBox({ ids, selected, label, disabled, onChange }: { ids: string[]; selected: Set<string>; label: string; disabled: boolean; onChange: (ids: string[], checked: boolean) => void }) {
   const count = ids.filter((id) => selected.has(id)).length
-  return <input type="checkbox" aria-label={label} checked={!!ids.length && count === ids.length} disabled={!ids.length} ref={(node) => { if (node) node.indeterminate = count > 0 && count < ids.length }} onChange={(e) => onChange(ids, e.target.checked)} />
+  return <input type="checkbox" aria-label={label} checked={!!ids.length && count === ids.length} disabled={disabled || !ids.length} ref={(node) => { if (node) node.indeterminate = count > 0 && count < ids.length }} onChange={(e) => onChange(ids, e.target.checked)} />
 }
 
 export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string; value: string; onChange: (value: string) => void; onBusyChange?: (busy: boolean) => void }) {
@@ -21,7 +21,8 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
   const [search, setSearch] = useState('')
   const [cursors, setCursors] = useState<string[]>([])
   const [pageSize, setPageSize] = useState(50)
-  const [selecting, setSelecting] = useState(false)
+  const [selectionIntent, setSelectionIntent] = useState<boolean | null>(null)
+  const selecting = selectionIntent !== null
   const [selectionError, setSelectionError] = useState<unknown>(null)
   const [bulk, setBulk] = useState<{ key: string; ids: string[] } | null>(null)
   const version = useRef(0)
@@ -41,6 +42,7 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
   }, [search, filters.q])
   const filter: ItemFilter = { ...filters, cursor: cursors.at(-1), limit: pageSize }
   const { data, error, isFetching } = useQuery({ queryKey: keys.items(pid, filter), queryFn: () => api.listItems(pid, filter), retry: false })
+  const selectionPending = isFetching || search.trim() !== (filters.q ?? '')
   const rows = data?.items ?? []
   const groups = new Map<string, Row[]>()
   for (const row of rows) {
@@ -66,7 +68,7 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
   const someChecked = (matchingIds ?? pageIds).some((id) => selected.has(id))
   const selectAll = async (checked: boolean) => {
     const current = ++version.current
-    setSelecting(true); onBusyChange?.(true); setSelectionError(null)
+    setSelectionIntent(checked); onBusyChange?.(true); setSelectionError(null)
     try {
       const ids = await api.listItemIds(pid, filters)
       if (current !== version.current) return
@@ -75,7 +77,7 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
     } catch (e) {
       if (current === version.current) setSelectionError(e)
     } finally {
-      if (current === version.current) { setSelecting(false); onBusyChange?.(false) }
+      if (current === version.current) { setSelectionIntent(null); onBusyChange?.(false) }
     }
   }
   return (
@@ -88,7 +90,7 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
         <label><span>{t('tasks.pick.masks')}</span><select className="select" value={filters.has_mask === undefined ? '' : String(filters.has_mask)} onChange={(e) => update({ has_mask: e.target.value ? e.target.value === 'true' : undefined })}><option value="">{t('tasks.pick.any')}</option><option value="false">{t('tasks.pick.noMasks')}</option><option value="true">{t('tasks.pick.hasMasks')}</option></select></label>
       </div>
       <div className="task-picker-summary">
-        <label className="task-picker-all"><input type="checkbox" aria-label={t('tasks.pick.all')} checked={allChecked} ref={(node) => { if (node) node.indeterminate = !allChecked && someChecked }} disabled={isFetching || !data?.total || search.trim() !== (filters.q ?? '')} onChange={(e) => void selectAll(e.target.checked)} />{t('tasks.pick.all')}</label>
+        <label className="task-picker-all"><input type="checkbox" aria-label={t('tasks.pick.all')} checked={selectionIntent ?? allChecked} ref={(node) => { if (node) node.indeterminate = !selecting && !allChecked && someChecked }} disabled={selectionPending || !data?.total} onChange={(e) => void selectAll(e.target.checked)} />{t('tasks.pick.all')}</label>
         <strong className="num" role="status">{t('tasks.pick.selected', { count: selected.size })}</strong>
         <button className="btn btn-sm" type="button" disabled={!selected.size} onClick={() => onChange('')}>{t('tasks.pick.clear')}</button>
         <label className="task-picker-group"><input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />{t('tasks.pick.group')}</label>
@@ -96,20 +98,20 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
       <p className="muted task-help">{t('tasks.pick.help')}</p>
       {selecting ? <p role="status" className="muted">{t('tasks.pick.selecting')}</p> : null}
       {error || selectionError ? <ProblemCard error={error ?? selectionError} /> : null}
-      <div ref={grid} className="task-picker-grid" aria-busy={isFetching || selecting}>
+      <div ref={grid} className="task-picker-grid" aria-busy={selectionPending || selecting}>
         <table aria-label={t('tasks.pick.table')}>
           <thead><tr>
-            <th><SelectionBox ids={pageIds} selected={selected} label={t('tasks.pick.pageSelect')} onChange={toggle} /></th>
+            <th><SelectionBox ids={pageIds} selected={selected} label={t('tasks.pick.pageSelect')} disabled={selectionPending} onChange={toggle} /></th>
             <th>{t('tasks.pick.file')}</th><th>{t('tasks.pick.scan')}</th><th>{t('tasks.pick.phase')}</th><th>{t('tasks.pick.modality')}</th><th>{t('tasks.pick.scope')}</th><th>{t('tasks.pick.masks')}</th>
           </tr></thead>
           {[...groups].map(([caseId, items]) => (
             <tbody key={caseId}>
               {grouped ? <tr className="task-picker-case">
-                <td><SelectionBox ids={items.map((row) => row.item_id)} selected={selected} label={t('tasks.pick.caseSelect', { caseId })} onChange={toggle} /></td>
+                <td><SelectionBox ids={items.map((row) => row.item_id)} selected={selected} label={t('tasks.pick.caseSelect', { caseId })} disabled={selectionPending} onChange={toggle} /></td>
                 <th scope="rowgroup" colSpan={6}><button type="button" aria-expanded={!collapsed.has(caseId)} onClick={() => collapse(caseId)}><span aria-hidden="true">{collapsed.has(caseId) ? '▸' : '▾'}</span> {caseId} <span className="muted">{t('tasks.pick.groupCount', { count: items.length })}</span></button></th>
               </tr> : null}
               {(!grouped || !collapsed.has(caseId)) ? items.map((row) => <tr key={row.item_id} data-selected={selected.has(row.item_id)}>
-                <td><SelectionBox ids={[row.item_id]} selected={selected} label={t('tasks.pick.fileSelect', { file: filename(row) })} onChange={toggle} /></td>
+                <td><SelectionBox ids={[row.item_id]} selected={selected} label={t('tasks.pick.fileSelect', { file: filename(row) })} disabled={selectionPending} onChange={toggle} /></td>
                 <td title={`${row.item_id}\n${row.image?.ref ?? ''}`}><span className="task-picker-filename">{filename(row)}</span>{!grouped ? <span className="muted task-help">{row.case_id}</span> : null}</td>
                 <td className="num">{row.scan_idx}</td><td>{row.phase.canonical}</td><td>{row.modality ?? '—'}</td><td>{row.scope}</td><td>{Object.keys(row.masks ?? {}).join(', ') || '—'}</td>
               </tr>) : null}
