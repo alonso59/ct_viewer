@@ -37,6 +37,143 @@ def configured(tmp_path: Path) -> tuple[Path, Path, Path]:
     return source, out, config
 
 
+def test_cli_failure_only_retry_after_sigkill_leaves_unattempted_series_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, out, config = configured(tmp_path)
+    write_series(source / "P003", patient_id="P003", shape=(5, 4, 12), marker=(2, 1, 3))
+    before_source = contents(source)
+    code = """
+import os, signal, sys
+from plugins.dicom import cli, convert
+original = convert.write_nifti
+def fault(series, path):
+    if series.dicom_dir.name == 'P002':
+        raise OSError('Synthetic decode failure')
+    if series.dicom_dir.name == 'P003':
+        os.kill(os.getpid(), signal.SIGKILL)
+    return original(series, path)
+convert.write_nifti = fault
+raise SystemExit(cli.main([sys.argv[1]]))
+"""
+    killed = subprocess.run(
+        [sys.executable, "-c", code, str(config)],
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert killed.returncode == -signal.SIGKILL, killed.stderr
+    [saved] = list((out / "nifti").glob("*.nii.gz"))
+    before = saved.read_bytes(), saved.stat().st_mtime_ns
+    journal = json.loads((out / ".rw_active.json").read_text())
+    original = convert.write_nifti
+    dispatched = []
+
+    def tracked(series: Any, path: Path) -> Any:
+        dispatched.append(series.dicom_dir.name)
+        return original(series, path)
+
+    monkeypatch.setattr(convert, "write_nifti", tracked)
+    config.write_text(config.read_text() + "mode: retry_failed\n")
+    assert cli.main([str(config)]) == 1  # One never-attempted series remains.
+    assert dispatched == ["P002"]
+    partial = json.loads((out / ".rw_active.json").read_text())
+    assert partial["run_id"] == journal["run_id"] and partial["attempts"] == 2
+    assert partial["status"] == "interrupted" and partial["counts"]["pending"] == 1
+    assert len(list((out / "nifti").glob("*.nii.gz"))) == 2
+    assert (saved.read_bytes(), saved.stat().st_mtime_ns) == before
+    dispatched.clear()
+    unchanged = contents(out)
+    assert cli.main([str(config)]) == 1  # No recorded failures remain to retry.
+    assert contents(out) == unchanged and not dispatched
+    config.write_text(config.read_text().replace("mode: retry_failed\n", ""))
+    assert cli.main([str(config)]) == 0
+    assert dispatched == ["P003"] and len(list((out / "nifti").glob("*.nii.gz"))) == 3
+    assert contents(source) == before_source
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_cli_failure_only_retry_requires_an_unfinished_recorded_run(
+    tmp_path: Path, existing: bool
+) -> None:
+    _, out, config = configured(tmp_path)
+    if existing:
+        assert cli.main([str(config)]) == 0
+    config.write_text(config.read_text() + "mode: retry_failed\n")
+    before = contents(out)
+    assert cli.main([str(config)]) == 1
+    assert contents(out) == before
+
+
+@pytest.mark.parametrize("damage", ["torn", "corrupt_complete", "missing", "legacy"])
+def test_cli_failure_only_retry_recovers_only_complete_recorded_outcomes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, damage: str
+) -> None:
+    _, out, config = configured(tmp_path)
+    original = convert.write_nifti
+
+    def fail_second(series: Any, path: Path) -> Any:
+        if series.dicom_dir.name == "P002":
+            raise OSError("Synthetic decode failure")
+        return original(series, path)
+
+    with monkeypatch.context() as failing:
+        failing.setattr(convert, "write_nifti", fail_second)
+        assert cli.main([str(config)]) == 1
+    record_path = out / ".rw_active.json"
+    record = json.loads(record_path.read_text())
+    history = out / ".rw-runs" / record["run_id"] / "outcomes.jsonl"
+    if damage in {"torn", "corrupt_complete"}:
+        with history.open("ab") as fh:
+            fh.write(b'{"item_id":"unacknowledged"' if damage == "torn" else b"invalid\n")
+    elif damage == "missing":
+        history.unlink()
+    else:
+        record.pop("outcomes_version", None)
+        record_path.write_text(json.dumps(record))
+    config.write_text(config.read_text() + "mode: retry_failed\n")
+    before = contents(out)
+    if damage != "torn":
+        assert cli.main([str(config)]) == 1
+        assert contents(out) == before
+        return
+    assert cli.main([str(config)]) == 0
+    saved = list(history.parent.glob("torn-*.json"))
+    assert len(saved) == 1
+    assert (
+        bytes.fromhex(json.loads(saved[0].read_text())["fragment"])
+        == b'{"item_id":"unacknowledged"'
+    )
+    assert all(
+        json.loads(line)["status"] in {"ok", "failed"} for line in history.read_text().splitlines()
+    )
+
+
+def test_cli_outcome_sync_failure_cannot_acknowledge_success_and_resumes_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import errno
+
+    _, out, config = configured(tmp_path)
+    original = os.fsync
+
+    def no_outcome_space(fd: int) -> None:
+        if Path(f"/proc/self/fd/{fd}").resolve().name == "outcomes.jsonl" and os.fstat(fd).st_size:
+            raise OSError(errno.ENOSPC, "Synthetic outcome journal outage")
+        original(fd)
+
+    with monkeypatch.context() as fault:
+        fault.setattr(os, "fsync", no_outcome_space)
+        assert cli.main([str(config)]) == 1
+    assert json.loads((out / ".rw_active.json").read_text())["status"] == "interrupted"
+    [saved] = list((out / "nifti").glob("*.nii.gz"))
+    before = saved.read_bytes(), saved.stat().st_mtime_ns
+    assert cli.main([str(config)]) == 0
+    assert (saved.read_bytes(), saved.stat().st_mtime_ns) == before
+    assert len(list((out / "nifti").glob("*.nii.gz"))) == 2
+
+
 def interrupted_cli(config: Path, marker: Path, *, stop: bool = False) -> subprocess.Popen[str]:
     code = """
 import os, signal, sys

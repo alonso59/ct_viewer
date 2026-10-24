@@ -165,5 +165,8 @@ They do not replace complete D34/D35 crash/migration/resource acceptance.
 Failure-only retry now has native/project/workspace API and window evidence, including missing cleanup
 proof, stale/missing fences, duplicate/lost acknowledgments and preservation of committed images.
 Partial retry leaves unattempted series pending and blocks phase, dataset sealing and registration.
-These checks do not certify every abrupt retry/registration barrier, CLI failure-only selection or B07.
+CLI failure-only selection additionally survives actual SIGKILL after a recorded failure, preserves
+unattempted work and refuses unusable histories; a torn fragment is retained and outcome-sync
+failure cannot acknowledge completion. These checks do not certify every abrupt retry/registration
+barrier or B07.
 No closure checkbox is certified by these narrower checks.

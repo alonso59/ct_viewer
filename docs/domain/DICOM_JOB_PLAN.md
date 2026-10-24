@@ -140,7 +140,7 @@ Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asyn
 | Phase | `test_dicom_phase_step.py` covers disabled/core separation, batch cancellation, actual abrupt analyzer exit, corruption/rules conflicts and sealed-output preservation. `test_dicom_phase_runs.py` covers independent records, fenced/idempotent metadata-only API retry/cancel, restart cleanup admission and later dataset import. Window tests cover child controls, polling and minimizing. Initial execution shares the owned conversion carrier; retries have their own worker. Private, hash-pinned metadata seeds recover missing analyzer inputs, including basic anonymization. Recovery without either metadata copy, full crash-barrier and migration acceptance remain open; D29 is not closed. |
 | Operation facade | Durable discovery-to-plan intent and reserved run ID; conversion delegates existing project/workspace authority. Generation changes refuse launch. Duplicate handoff commands retain one run/allocation. |
 | Native controls | Handoff/run-control locking and native-attempt fences; durable pending controls and run-side resume receipts reconcile lost responses. Restart/replay preserves the destination. Native Tasks controls share the DICOM run lock. |
-| Retry failed | Native/project/workspace and source-operation controls select recorded failures, preserving strong plan pins and verified commits. Complete native progress lines survive missed API relay; attempt epochs order outcomes and ambiguous/corrupt history refuses retry. Unattempted series remain pending, without phase/sealing/registration. Focused tests cover selectors, task boundaries, native processes, duplicate/lost controls and window controls. Complete D23/B07 crash acceptance and CLI failure-only selection remain open. |
+| Retry failed | Native/project/workspace and source-operation controls select recorded failures, preserving strong plan pins and verified commits. Complete native progress lines survive missed API relay; attempt epochs order outcomes and ambiguous/corrupt history refuses retry. Unattempted series remain pending, without phase/sealing/registration. Focused tests cover selectors, task boundaries, native processes, duplicate/lost controls and window controls. CLI failure-only selection additionally survives SIGKILL after recorded failure and leaves unattempted work pending. Complete D23/B07 crash acceptance remains open. |
 | Window/picker | Server operation restoration, recent-operation selection, explicit new draft, bounded plan pages/filters, provisional counts and resume/cancel. Browser storage holds only operation ID/minimized preference. Source pickers accept extensionless files. |
 | Re-estimate/progress | Settings-only Estimate retains its inventory/name/context; a destination change creates another operation. Stale 409 refreshes without replay. Committed selected-series totals, separate stage units, typed memory remedies and late-callback fencing have backend/window regressions. Historical ETA calibration remains open. |
 
@@ -220,6 +220,12 @@ exercise existing conversion/import/reload flows; they do not certify B07's fail
 The affected backend regression passes 119 cases (`dicom-retry-final-area.log`);
 12 final native-control/late-callback cases pass after the last driver change
 (`dicom-retry-final-driver.log`). No release closure follows from these counts alone.
+CLI `mode: retry_failed` has a genuine red reproduction of converting unattempted series
+(`dicom-cli-failure-only-red.log`). The expanded CLI suite covers post-failure SIGKILL,
+same-run selection, pending/nonzero status, empty/completed/legacy/missing/corrupt history
+refusal, preserved torn fragments and outcome-journal ENOSPC before success acknowledgment.
+The affected CLI/metadata/layering gate passes 37 cases
+(`dicom-cli-failure-only-final-area.log`); lint/types and requirement checks pass.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 
@@ -227,7 +233,7 @@ Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, includi
 
 - Every conversion/registration/index crash barrier, torn-record recovery, migrations and rollback;
   strong conflict preflight, identity reservations across unregistered runs, complete Retry failed
-  crash acceptance and CLI failure-only selection/crash/migration/resource parity beyond focused cases.
+  crash acceptance and CLI crash/migration/resource parity beyond focused cases.
 - Aggregate inventory retention/quota, duplicate SOP/UID/missing-identity diagnostics,
   independent GDCM encoding/multiframe oracle, shared-worker/multi-workspace CPU accounting
   and independent same-image cross-container ownership/cleanup evidence.
