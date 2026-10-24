@@ -91,7 +91,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const viewports = visibleViewports(v.layout, v.maximized)
   const [handleId, setHandleId] = useState(0)
   const loadKey = `${handleId}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
-  const load = loadState.key === loadKey ? loadState : LOADING(loadKey)
+  const load = loadState.error?.code === 'viewer-init' || loadState.key === loadKey ? loadState : LOADING(loadKey)
 
   // Engine lifecycle: one per tab while it holds volumes (VW-14)
   useEffect(() => {
@@ -103,7 +103,10 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
       if (cancelled) return created.dispose()
       h = created
       setHandle(created)
+      setLoad(LOADING(''))
       setHandleId((n) => n + 1)
+    }).catch(() => {
+      if (!cancelled) setLoad({ ...LOADING(''), phase: 'error', error: { status: 0, code: 'viewer-init', message: '' } })
     })
     return () => {
       cancelled = true
@@ -444,7 +447,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
               <strong>{t('vw.loadError')}</strong>
               {load.error.status ? <span className="badge mono">{t('vw.errorCode', { status: load.error.status, code: load.error.code ?? '—' })}</span> : null}
             </div>
-            <div className="muted">{load.error.message}</div>
+            <div className="muted">{load.error.code === 'viewer-init' ? t('vw.engineError') : load.error.message}</div>
+            {load.error.code === 'viewer-init' ? <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button> : null}
           </div>
         </div>
       ) : null}

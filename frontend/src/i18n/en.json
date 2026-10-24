@@ -681,6 +681,8 @@
     "loading": "Loading {{pct}} %",
     "decoding": "Decoding…",
     "loadError": "The image could not be loaded",
+    "engineError": "The viewer could not start. Reload the app to try again; your saved project and Open session are preserved.",
+    "reloadApp": "Reload app",
     "maskError": "The segmentation could not be loaded",
     "errorCode": "HTTP {{status}} · {{code}}",
     "noWebgl": "This viewer needs WebGL2, which this browser does not provide.",

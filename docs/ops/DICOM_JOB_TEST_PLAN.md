@@ -158,5 +158,8 @@ Six real Chromium/Firefox converter cases now cover conversion/import, non-DICOM
 Source hashes remain unchanged. These cases do not certify all B rows or real WebGL viewer acceptance.
 
 Verification counts, artifact names and remaining closure work live in DICOM_JOB_PLAN.md §Implementation evidence.
-Independent phase run/API/window retry and all release gates remain open.
+Independent phase run/API/window retry has focused evidence; complete D29 and release gates remain open.
+CLI cases now cover a real post-commit SIGKILL, strong resume conflicts, single-writer output locking,
+failed-series status/retry, dry-run immutability, legacy YAML names and stable incremental identities.
+They do not replace complete D34/D35 crash/migration/resource acceptance.
 No closure checkbox is certified by these narrower checks.
