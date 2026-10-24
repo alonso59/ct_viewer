@@ -256,6 +256,13 @@ Six existing Chromium/Firefox converter journeys pass with unchanged source hash
 (`dicom-registration-cancel-browser.log`); these remain regression evidence, not full B06.
 Lint/types/contracts, 426 requirements and dead-code checks pass on the isolated tree
 (`dicom-registration-cancel-isolated-static.log`).
+CI 40120160366 passed 1,016 backend, 393 frontend and 107 serial runner cases, then passed
+67 browser cases and failed Firefox G2: its five-second plan assertion ran while discovery
+was still active after the asynchronous 202 acknowledgment. Diagnostics artifact 12570649014
+preserves the page/trace. G2 now waits for the ready conversion action before asserting plan
+contents; both real Chromium/Firefox G2 journeys pass with unchanged sources
+(`dicom-g2-async-ready-browser.log`), as do frontend lint/types
+(`dicom-g2-async-ready-static.log`). Its next full CI and product image remain required.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 

@@ -24,6 +24,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   const estimate = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
   await dialog.getByRole('button', { name: 'Dry run' }).click()
   expect((await estimate).ok()).toBe(true)
+  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeEnabled({ timeout: 30_000 })
 
   // DCM-06 (AUD-A2-13): every series, the skipped one with its reason, sizes with their unit
   const plan = dialog.locator('details.conv-plan')
