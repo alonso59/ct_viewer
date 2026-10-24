@@ -8,6 +8,10 @@
 .conv-actions { justify-content: flex-start; }
 .conv-path { overflow-wrap: anywhere; font-size: var(--fs-panel); }
 .conv-help { font-size: var(--fs-badge); margin: 0; }
+.conv-inventory { display: flex; flex-direction: column; gap: var(--sp-2); }
+.conv-inventory dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--sp-2); margin: 0; }
+.conv-inventory dt { color: var(--fg-muted); font-size: var(--fs-badge); }
+.conv-inventory dd { margin: 0; font-size: var(--fs-panel); }
 .conv-check { display: flex; align-items: center; gap: 8px; }
 .conv-fields { display: flex; flex-direction: column; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
 /* DCM-06: the dry run's stages while it works */

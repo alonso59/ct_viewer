@@ -4,8 +4,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
+import { vi } from 'vitest'
 
 import '../../i18n'
+import { api } from '../../api'
 import { FolderBrowser } from './FolderBrowser'
 
 function Host({ start }: { start: string }) {
@@ -37,4 +39,29 @@ test('a long folder gets a filter box and type-to-select', async () => {
   const list = screen.getByRole('listbox', { name: 'Folders' })
   fireEvent.keyDown(list, { key: '0' })
   expect(document.activeElement?.textContent).toBe('01_case_00001_0000.nii.gz') // the folder's first file
+})
+
+test('SRC-18 content discovery can select unknown suffixes while directories use server kind', async () => {
+  const sample = await api.fsList('/data')
+  const first = sample.entries[0]!
+  const listing = { ...sample, path: '/data/series', parent: '/data', entries: [
+    { ...first, name: 'slice.001', path: '/data/series/slice.001', kind: 'file' as const },
+    { ...first, name: 'image', path: '/data/series/image', kind: 'file' as const },
+    { ...first, name: 'study.dcm', path: '/data/series/study.dcm', kind: 'dir' as const },
+  ] }
+  vi.spyOn(api, 'fsList').mockResolvedValue(listing)
+  const pick = vi.fn()
+  const navigate = vi.fn()
+  try {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <FolderBrowser path="/data/series" onPath={navigate} onSelectFile={pick} fileFilter={() => true} />
+    </QueryClientProvider>)
+    const slice = await screen.findByRole('button', { name: /slice\.001/ })
+    expect(slice).toBeEnabled()
+    fireEvent.click(slice)
+    fireEvent.click(screen.getByRole('button', { name: /^image/ }))
+    expect(pick.mock.calls.map(([path]) => path)).toEqual(['/data/series/slice.001', '/data/series/image'])
+    fireEvent.click(screen.getByRole('button', { name: /study\.dcm/ }))
+    expect(navigate).toHaveBeenCalledWith('/data/series/study.dcm')
+  } finally { vi.restoreAllMocks() }
 })

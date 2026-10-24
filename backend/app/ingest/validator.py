@@ -27,7 +27,8 @@ def probes_for(drafts: Sequence[Draft]) -> list[ItemProbe]:
             else None
         )
         msk = (
-            FileProbe(d.mask.path, d.spacing, labels=True, axis_order=order)
+            # a mask set's values come from the import, not from decoding every member
+            FileProbe(d.mask.path, d.spacing, labels=d.mask.labels is None, axis_order=order)
             if d.mask and d.mask.path
             else None
         )
@@ -37,7 +38,9 @@ def probes_for(drafts: Sequence[Draft]) -> list[ItemProbe]:
 
 
 def _ref(f: FileDraft, r: FileResult | None) -> VolumeRef | None:
-    return VolumeRef(ref=f.ref, format=f.format, fp=r.fp if r else None) if f.ref else None
+    if not f.ref:
+        return None
+    return VolumeRef(ref=f.ref, format=f.format, fp=r.fp if r else None, labels=f.labels)
 
 
 def finalize(
@@ -105,7 +108,7 @@ def _finalize_one(
             if msk_r.error:
                 warn(QcCode.UNREADABLE_FILE, "mask", msk_r.error, d.mask.ref)
             elif msk_r.header is not None:
-                labels = list(msk_r.labels)
+                labels = sorted(d.mask.labels.values()) if d.mask.labels else list(msk_r.labels)
                 if img_r is not None and img_r.header is not None:
                     for issue in compare_geometry(img_r.header, msk_r.header):
                         code = QcCode.SHAPE_MISMATCH if issue == "shape" else QcCode.AFFINE_MISMATCH

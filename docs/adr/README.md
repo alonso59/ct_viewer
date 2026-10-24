@@ -21,7 +21,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0013 | Source adapters with one internal contract; Open mode; identity policy | Accepted (§3 attach location superseded by 0027) |
 | 0014 | Source and derived roots (amends R1) | Accepted (amended by 0021; partially superseded by 0029) |
 | 0015 | Segmentation sets per item | Accepted |
-| 0016 | Tasks and plugins: one contract, builtin and external runtimes | Accepted (amended by 0018) |
+| 0016 | Tasks and plugins: one contract, builtin and external runtimes | Accepted (amended by 0018; DICOM execution in §3 partially superseded by 0035) |
 | 0017 | DICOM converter as a task; metadata analyzers as separate, composable tasks | Accepted (amended by 0020, 0026) |
 | 0018 | First-party plugin platform and Plugin Library | Accepted |
 | 0019 | Neutral projects, study packs, view-only links | Accepted |
@@ -40,3 +40,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0032 | nnU-Net v2 inference as a partitioned external segmentation task | Superseded by 0033 |
 | 0033 | Supervised segmentation jobs and approved GPU allocation | Superseded by 0034 |
 | 0034 | Capability-based segmentation runtimes without administrator access | Accepted |
+| 0035 | Durable DICOM source operations and verified resume | Accepted |
+| 0036 | Folder-per-case import, mask path templates and mask sets | Accepted (partially supersedes 0027 §3) |

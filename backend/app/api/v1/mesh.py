@@ -13,6 +13,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.api.v1.deps import Ctx
+from app.api.v1.volumes import composed_mask
 from app.core.cache_budget import touch
 from app.core.errors import NotFound, SourceMissing
 from app.imaging import mesh, streaming
@@ -56,11 +57,14 @@ async def get_mesh(
     if seg_id == "imported" and item.labels_present and label not in item.labels_present:
         raise NotFound(f"label {label} is not present in the mask")
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
-    if not path.is_file():
+    fmt = vol.format
+    if fmt == "nifti_dir" and vol.labels and path.is_dir():  # a mask set: its composed label map
+        path, fp = await composed_mask(ctx, pid, path, vol.labels)
+        fmt = "nifti"
+    elif not path.is_file():
         raise SourceMissing("mask file is missing")
-    fp = vol.fp
-    if fp is None:
-        fp = await asyncio.to_thread(quick_fingerprint, path)
+    else:
+        fp = vol.fp if vol.fp is not None else await asyncio.to_thread(quick_fingerprint, path)
     key = mesh.cache_key(fp, label, smooth)
     etag = streaming.quote_etag(key)
     if streaming.is_not_modified(request, key):
@@ -74,7 +78,7 @@ async def get_mesh(
         fp,
         label,
         smooth,
-        fmt=vol.format,
+        fmt=fmt,
         spacing=spacing,
     )
     if isinstance(result, JobInfo):

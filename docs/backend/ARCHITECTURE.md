@@ -1,7 +1,7 @@
 # Backend Architecture
 
 Scope: stack, module layout, layering rules, concurrency, jobs, streaming.
-Read when: writing any backend code.
+Read when: changing module layout, layering, jobs, concurrency or streaming (start backend tasks at `backend/AGENTS.md`).
 Depends: domain/*.md, API.md, ADR-0002, ADR-0003, ADR-0006, ADR-0014, ADR-0016, ADR-0018, ADR-0022.
 
 ## Stack
@@ -47,7 +47,7 @@ backend/app/
 └── events/          # in-process pub/sub → SSE fan-out
 ```
 
-Outside `backend/`: task plugins `plugins/dicom/` (DCM), `plugins/analyzers/` (ANZ), `plugins/threshold/` (CI test plugin) and `plugins/nnunet/` (SEG) have `task*.json` manifests; `plugins/voi/` is pending (PLG-09); `plugins/radiomics/` (the builtin `radiomics.pyradiomics` task in `app/radiomics/`), `plugins/curation/`, `plugins/labeling/`, `plugins/dashboard/` and the packs `plugins/ccrcc/`, `plugins/generic-ct/` contribute UI, routes or pack data only. All plugins are first-party (PLG-01) with a `plugin.json`; builtin ones are installed into the image, and `PLUGINS_ROOT` is only the host copy the runner executes for `external` runtimes. `scripts/rw-runner.py` is the host runner (TSK-11).
+Outside `backend/`: first-party plugins and the host runner, mapped in `plugins/AGENTS.md`.
 
 **Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|selection|tasks|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
 Services never import `api`. All filesystem I/O goes through `core.fsio` or `core.paths`.
@@ -71,6 +71,7 @@ Services never import `api`. All filesystem I/O goes through `core.fsio` or `cor
 | BE-13 | Graceful shutdown: stop accepting jobs, mark running jobs `interrupted`, flush logs. | S |
 | BE-14 | External tasks: the API process writes `queue/{job_id}/job.json` and `cancel`, tails `progress.jsonl` and relays it as job events; it never starts external processes (TSK-11). A job with no fresh runner heartbeat is `waiting_for_runner`. | M |
 | BE-15 | Startup refuses overlapping `ALLOWED_DATA_ROOTS` / `ALLOWED_DERIVED_ROOTS` (`roots-overlap`, OPS-12). | M |
+| BE-16 | DICOM source work runs in bounded owned processes inside the same OCI image, supervised by the existing job driver (ADR-0035 exception to BE-06 shared-pool execution). Cleanup evidence fences resume/replacement. Aggregate CPU/thread/memory admission accounts for application runner reservations; missing memory configuration blocks pixel conversion actionably. It never kills shared-pool or unrelated work. | M |
 
 ## Concurrency model
 

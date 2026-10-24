@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from plugins.analyzers import Annotation, annotation, row_key
-from plugins.text import matches_any, normalized_text, parse_time_of_day, value_to_text
+from plugins.text import contrast_delay, matches_any, normalized_text, value_to_text
 
 RULES_VERSION = "phase-1"
 TEXT_KEYS = (
@@ -18,6 +18,25 @@ TEXT_KEYS = (
     "scan_options",
 )
 PHASE_KEYS = ("study_description", "series_description", "protocol_name")
+CONTRAST_KEYS = (
+    "contrast_agent",
+    "contrast_route",
+    "contrast_volume",
+    "contrast_start_time",
+    "contrast_stop_time",
+    "contrast_flow_rate",
+    "contrast_flow_duration",
+)
+INPUT_FIELDS = (
+    *TEXT_KEYS,
+    *CONTRAST_KEYS,
+    "modality",
+    "acquisition_time",
+    "series_time",
+    "content_time",
+    "scan_time",
+    "scan_datetime_source",
+)
 # Canonical guesses → vocabulary candidates, first one in the project vocabulary wins (ANZ-05/06)
 VOCAB = {"NC": ("NC",), "CMP": ("CMP", "ART"), "NP": ("NP", "PV"), "EX": ("EP", "DELAYED")}
 UNKNOWN = "UNK"
@@ -74,26 +93,6 @@ def text_guess(row: dict[str, Any]) -> tuple[str, str, str, bool]:
     return "", "", "", False
 
 
-def contrast_delay(row: dict[str, Any]) -> tuple[int | None, str]:
-    start = parse_time_of_day(row.get("contrast_start_time", ""))
-    if start is None:
-        return None, ""
-    keys = ["acquisition_time", "series_time", "content_time"]
-    if row.get("scan_datetime_source") != "study":
-        keys.append("scan_time")
-    for key in keys:
-        t = parse_time_of_day(row.get(key, ""))
-        if t is None:
-            continue
-        delay = (t.hour * 3600 + t.minute * 60 + t.second) - (start.hour * 3600 + start.minute * 60 + start.second)
-        if delay < 0:
-            if delay + 24 * 3600 > 6 * 3600:
-                continue
-            delay += 24 * 3600
-        return delay, key
-    return None, ""
-
-
 def timing_guess(row: dict[str, Any], delay: int | None, source: str) -> tuple[str, str, str, bool]:
     if value_to_text(row.get("modality", "")).upper() != "CT" or delay is None:
         return "", "", "", False
@@ -112,16 +111,7 @@ def timing_guess(row: dict[str, Any], delay: int | None, source: str) -> tuple[s
 
 
 def _has_contrast(row: dict[str, Any]) -> bool:
-    keys = (
-        "contrast_agent",
-        "contrast_route",
-        "contrast_volume",
-        "contrast_start_time",
-        "contrast_stop_time",
-        "contrast_flow_rate",
-        "contrast_flow_duration",
-    )
-    return any(value_to_text(row.get(k, "")).strip() for k in keys)
+    return any(value_to_text(row.get(k, "")).strip() for k in CONTRAST_KEYS)
 
 
 def to_vocabulary(canonical: str, vocabulary: Sequence[str]) -> str:

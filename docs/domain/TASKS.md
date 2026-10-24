@@ -25,6 +25,7 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-14 | Supervised external completion requires a matching attempt generation and verified cleanup acknowledgement. Missing runner heartbeat alone never permits a replacement GPU attempt; recover the durable backend ownership before retry/release (ADR-0034). | M |
 | TSK-15 | Supervised GPU jobs persist versioned attempt/control records and acknowledge pause/cancel only after TSK-14 cleanup. Queued pause prevents launch; running pause stops dispatch and allows at most 10 seconds for in-flight work before bounded interruption. Resume/retry uses the same logical run and output set with a fresh fenced attempt; partially successful runs may retry failed items. Archive hides an inactive, cleanup-verified run while retaining its audit and outputs. Active or uncertain runs cannot be archived. Controls are idempotent; incompatible transitions return 409. | M |
 | TSK-13 | `scope: workspace` tasks (e.g. `dicom.convert`) run without a project (API-62): inputs come from a source path, outputs go to `{derived root}/_datasets/{name}/` (write-once), run records to `WORKSPACE_ROOT/plugins/{plugin}/runs/`. Project-bound tasks keep `scope: project`. | M |
+| TSK-16 | Durable source operations (ADR-0035) own discovery/estimate state and link existing project/workspace conversion runs without duplicating their authority. Persist controls/idempotency and fenced attempts before acknowledgment, recover after browser/backend interruption, and retain active/recoverable inventory. API-69 adds asynchronous controls while legacy synchronous APIs remain compatible. | M |
 
 Implementation (TSK-13): the manifest key `scope` (`project` default, `workspace` = may also run without a project; only builtin `input: source` tasks, today `dicom.convert`). API-62: `POST /tasks/{tid}/estimate` (dry run), `POST /task-runs` `{task_id, settings, selection: {source}, name?}` → `202`, `GET /task-runs[/{rid}]`, `POST /task-runs/{rid}/cancel`. The dataset folder name is a slug of `name` (default: the source folder), with `-1`, `-2` … when taken; the job runs under the JobManager key `_workspace`, one per task at a time. Importing a dataset into a project (API-12) first records its `annotations.jsonl` as a completed run of the project and activates each field that has no active run (ANZ-04), so the index is built with the phase layer.
 
@@ -54,7 +55,7 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 
 | File | Writer | Content |
 |---|---|---|
-| `job.json` | backend | `{protocol: 1, job_id, run_id, mode: run\|estimate, task: {id, version}, settings, items[] \| rows[], output_dir, identity?, resume: {skip[]}, batch: {size}}`. Each item has `item_id`, `case_id`, `image {path, format}`, `masks {seg_id: {path, format}}` (only the selected set when the task reads masks), `geometry`, `meta` (scan_idx, scope, side, modality, phase, phase_raw, patient_id, labels_present, extra). `mode: estimate` = the TSK-05 sample run into a disposable `output_dir` |
+| `job.json` | backend | `{protocol: 1, job_id, run_id, mode: run\|estimate, task: {id, version}, settings, items[] \| rows[], output_dir, identity?, resume: {skip[]}, batch: {size}}`. Each item has `item_id`, `case_id`, `image {path, format}`, `masks {seg_id: {path, format}}` (only the selected set when the task reads masks; a mask set is `{path: folder, format: "nifti_dir", labels: {name: value}}`, ADR-0036), `geometry`, `meta` (scan_idx, scope, side, modality, phase, phase_raw, patient_id, labels_present, extra). `mode: estimate` = the TSK-05 sample run into a disposable `output_dir` |
 | `claim` | runner | Created with `O_EXCL`; `{runner_id, pid, at}` (external only) |
 | `progress.jsonl` | task | `{t: "item", item_id, status: ok\|failed\|skipped, outputs: [{kind, path, seg_id?, labels?, sha256?}], message}` · `{t: "total", n}` (a source task's unit count once known) · `{t: "log", level, message}` · `{t: "heartbeat"}` |
 | `result.json` | task | `{status, counts, outputs_manifest[], versions, started_at, finished_at, error?}`; written last, atomically |
@@ -87,6 +88,13 @@ P7g admission follows OPS-16..20 and ADR-0034. GPU tasks require an operator-con
 | `images` + `metadata` | A new import through `metadata-v1` with alias `DERIVED` (IMP-06); the converter writes the full current `metadata.jsonl` per run (DCM-07) |
 | `features` | A Parquet run in `tasks/runs/{run_id}/` (radiomics: RAD-10); the dashboard reads any features run |
 | `annotations` | `tasks/runs/{run_id}/annotations.jsonl`, active per field through `project.json.annotation_sources` (ANZ-04) |
+
+DICOM registration (DCM-18): a durable `registration.json` fences finalization to its stopped attempt and result digest.
+Before publishing an import, the API verifies image/sidecar hashes plus fsynced metadata/annotation manifest digests.
+`sources/generated/{run_id}.json` pins one import identity and snapshot digest per logical conversion; restart recovery reuses that snapshot and repairs a missing/interrupted index submission.
+Repeated reconciliation replaces the corresponding output reference rather than adding another import or annotation entry; ordinary manual imports keep their existing behavior.
+Recovery errors stay visible on the run and preserve incompatible snapshots/outputs.
+Full native/API crash barriers, torn-journal repair and registration/index progress controls remain gates in DICOM_JOB_TEST_PLAN.md.
 
 ## Builtin tasks
 

@@ -28,8 +28,8 @@ METADATA_FIELDS = frozenset(
     {
         "case_id", "scan_idx", "filename", "relative_path", "nifti_file", "patient_id",
         "dataset_id", "study_uid", "series_uid", "phase", "curated_phase", "canonical_phase",
-        "phase_guess", "phase_guess_confidence", "seg_path", "status", "planned_conversion",
-        "curated_keep", "modality",
+        "phase_guess", "phase_guess_confidence", "seg_path", "seg_labels", "status",
+        "planned_conversion", "curated_keep", "modality",
     }
 )  # fmt: skip
 CATALOG_FIELDS = frozenset(

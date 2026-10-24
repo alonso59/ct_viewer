@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from app.api.v1.deps import Ctx
+from app.api.v1.paging import Page, Paging, paginate
 from app.imaging import streaming
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult, detect
@@ -47,6 +48,7 @@ def svc(ctx: Ctx) -> OpenService:
         jobs=ctx.jobs,
         sessions=ctx.open_sessions,
         workspace_root=ctx.settings.workspace_root,
+        settings=ctx.settings,
         on_cache_write=ctx.cache_written,
     )
 
@@ -59,7 +61,13 @@ async def open_path(ctx: Ctx, body: PathBody) -> open_mode.OpenSession:
 
 @router.get("/open/{sid}", response_model=open_mode.OpenSession)
 def get_open(ctx: Ctx, sid: str) -> open_mode.OpenSession:
-    return ctx.open_sessions.get(sid)
+    return open_mode.preview(ctx.open_sessions.get(sid))
+
+
+@router.get("/open/{sid}/items", response_model=Page[open_mode.OpenItem])
+def open_items(ctx: Ctx, sid: str, pg: Paging) -> Page[open_mode.OpenItem]:
+    """API-07 / SRC-18: stable paging over complete series, never a prefix of slices."""
+    return paginate(ctx.open_sessions.get(sid).items, pg)
 
 
 @router.delete("/open/{sid}", status_code=204)

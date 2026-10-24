@@ -103,8 +103,8 @@ async def start_hash_job(
     skipped = 0
     for item in items:
         for vol in item.volumes():
-            if vol is None or vol.fp is None or vol.ref in tasks:
-                continue
+            if vol is None or vol.fp is None or vol.ref in tasks or vol.format == "nifti_dir":
+                continue  # a mask set folder has no single file to hash
             known = current.get(vol.ref)
             if not force and known is not None and known.fp == vol.fp:
                 skipped += 1

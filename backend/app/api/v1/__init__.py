@@ -21,6 +21,7 @@ from app.api.v1 import (
     projects,
     radiomics,
     segmentations,
+    source_operations,
     sources,
     tasks,
     variables,
@@ -30,9 +31,9 @@ from app.api.v1 import (
 
 router = APIRouter()
 for _module in (
-    health, projects, fs, sources, imports, variables, cases, items, volumes, segmentations,
-    curation, phase, annotations, exports, radiomics, tasks, plugins, labeling, dashboard, jobs,
-    events, view,
+    health, projects, fs, sources, source_operations, imports, variables, cases, items, volumes,
+    segmentations, curation, phase, annotations, exports, radiomics, tasks, plugins, labeling,
+    dashboard, jobs, events, view,
 ):  # fmt: skip
     router.include_router(_module.router)
 router.include_router(mesh.router)  # API-25

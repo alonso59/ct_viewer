@@ -38,6 +38,7 @@ def data(tmp_path: Path) -> Path:
 @pytest.fixture
 def oc(tmp_path: Path, data: Path) -> Iterator[TestClient]:
     s = Settings(
+        dicom_memory_mb=1024,
         workspace_root=tmp_path / "ws",
         allowed_data_roots=str(data.resolve()),
         _env_file=None,  # type: ignore[call-arg]

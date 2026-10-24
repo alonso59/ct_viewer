@@ -8,9 +8,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.core.errors import UnsupportedFormat
+from app.projects.relink import evenly_spaced
 from app.sources import formats
 
 Confidence = Literal["high", "medium", "low"]
+SAMPLE = 50
 
 
 class Candidate(BaseModel):
@@ -21,6 +23,8 @@ class Candidate(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
     available: bool = True
     unavailable_reason: str | None = None
+    # `nifti-files`: relative NIfTI paths spread over the folder (SRC-17 pattern suggester)
+    sample: list[str] = Field(default_factory=list)
 
 
 class DetectResult(BaseModel):
@@ -103,6 +107,7 @@ def detect(path: Path, *, dicom_available: bool) -> DetectResult:
                 reason=f"{counts['nifti']} NIfTI files",
                 counts=counts,
                 confidence="low" if has_meta else "high",
+                sample=evenly_spaced(s.files["nifti"], SAMPLE),
             )
         )
     if counts["dicom"]:

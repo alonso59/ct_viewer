@@ -99,11 +99,20 @@ class Supervisor:
     def verify(self) -> dict[str, Any]:
         from plugins.runner.probe import run_probe
 
+        self.verify_allocation_policy()
         report = run_probe(unprivileged=True)
         if not report["ready"]:
             raise ValueError("unprivileged containment failed: " + ", ".join(report.get("blockers", [])))
         self.recover()
         return report
+
+    def verify_allocation_policy(self) -> None:
+        path = self.workspace / gpu.RESOURCE_POLICY
+        if not path.exists():
+            return
+        policy = json.loads(path.read_text())
+        if policy.get("policy") != 1 or policy.get("pool") != self.pool.identity():
+            raise ValueError("DICOM/runner allocation differs; configure one shared HOST_ALLOCATION_ROOT/state_dir")
 
     def environment(self) -> dict[str, str]:
         return {
@@ -130,6 +139,9 @@ class Supervisor:
     def recover(self) -> None:
         record = self.pool.read()
         if record is None:
+            return
+        if record.get("owner") == "dicom":
+            self.last_error = "waiting for the participating DICOM allocation"
             return
         if record.get("workspace") != str(self.workspace):
             return  # another participating workspace owns the conservative host slot
@@ -229,6 +241,7 @@ class Supervisor:
     def start(self, job: Path, manifest: dict[str, Any], plugin: Path, claim: Any) -> bool:
         if self.record is not None or stopping(job):
             return False
+        self.verify_allocation_policy()
         spec = json.loads((job / "job.json").read_text())
         if manifest.get("id") == "segment.nnunet":
             if self.config["limits"]["cpus"] < 3:

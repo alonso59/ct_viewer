@@ -80,6 +80,7 @@ export function RootStep(p: {
           p.onFile(null)
         }}
         selected={p.file}
+        fileFilter={() => true}
         onSelectFile={(f) => p.onFile(p.file === f ? null : f)}
       />
     </div>

@@ -178,6 +178,18 @@ class IngestService:
                     "No NIfTI image under the root (masks found by convention are not items)",
                     actions=["choose_another_path"],
                 )
+            if plan.collisions:  # SRC-04: never collapse files into one item silently
+                folder = any("/" in r["relative_path"] for r in plan.rows)
+                use = folder and opts.pattern != nifti_files.FOLDER_PATTERN
+                raise ValidationProblem(
+                    f"{len(plan.collisions)} files give a case and scan already used by another "
+                    f"file, so they would collapse into one item. First: {plan.collisions[0]}",
+                    errors=[
+                        {"loc": ["body", "options", "pattern"], "msg": c}
+                        for c in plan.collisions[:SAMPLE_NAMES]
+                    ],
+                    actions=[f"use_pattern:{nifti_files.FOLDER_PATTERN}"] if use else [],
+                )
             data = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in plan.rows).encode()
             blobs: dict[FileKind, preview.InputBlob] = {
                 "metadata": preview.InputBlob("metadata", FILE_NAMES["metadata"], "generated", data)
@@ -251,12 +263,16 @@ class IngestService:
     def preview_of(self, project_id: str, preview_id: str) -> ImportPreview:
         return self._load_preview(self.workspace.project_dir(project_id), preview_id)[0]
 
-    async def commit(self, project_id: str, preview_id: str) -> CommitResult:
+    async def commit(
+        self, project_id: str, preview_id: str, *, import_id: str | None = None
+    ) -> CommitResult:
         """IMP-04/05/06: snapshot inputs, record the import, set the root, start indexing."""
         pdir = self.workspace.project_dir(project_id)
         pv, data = self._load_preview(pdir, preview_id)
         self._check_no_index_job(project_id)
-        import_id = new_ulid()
+        import_id = import_id or new_ulid()
+        if not is_ulid(import_id):
+            raise JobConflict("Invalid import identity")
         record = ImportRecord(
             import_id=import_id,
             at=utc_now(),
@@ -350,9 +366,22 @@ class IngestService:
         return await self._start_index(project_id, latest[-1].import_id)
 
     async def import_generated(
-        self, project_id: str, metadata: bytes, *, root: str, alias: str, source_key: str
+        self,
+        project_id: str,
+        metadata: bytes,
+        *,
+        root: str,
+        alias: str,
+        source_key: str,
+        run_id: str | None = None,
     ) -> CommitResult:
         """A task's `metadata.jsonl` as a new snapshot of its own source (DCM-07, TSK-09)."""
+        if run_id is not None:
+            from app.ingest.generated import import_once
+
+            return await import_once(
+                self, project_id, run_id, metadata, root=root, alias=alias, source_key=source_key
+            )
         uploads: dict[FileKind, tuple[str, bytes]] = {"metadata": ("metadata.jsonl", metadata)}
         pv = await self.preview(
             project_id, root, alias=alias, uploads=uploads, source_key=source_key
@@ -522,17 +551,20 @@ class IngestService:
         return PhaseRules(tuple(cfg.phase_vocabulary), dict(cfg.phase_mapping))
 
     async def _seed_label_map(self, project_id: str) -> None:
-        """PRJ-07: with no preset labels, name the mask values found as `label_{value}`."""
+        """PRJ-07: with no preset labels, name the mask values found as `label_{value}`, or by
+        their mask set member name (SRC-04)."""
         if self.workspace.get(project_id).label_map:
             return
-        values = sorted({v for i in self.store.load(project_id).items for v in i.labels_present})
+        items = self.store.load(project_id).items
+        values = sorted({v for i in items for v in i.labels_present})
         values = [v for v in values if v > 0]
+        names = {v: n for i in items for m in i.masks.values() for n, v in (m.labels or {}).items()}
         if not values:
             return
         labels = [
             LabelEntry(
                 value=v,
-                name=auto_label_name(v),
+                name=names.get(v, auto_label_name(v)),
                 color=AUTO_LABEL_COLORS[n % len(AUTO_LABEL_COLORS)],
                 opacity=0.2,
             )

@@ -58,6 +58,7 @@ def src(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
 def dc(tmp_path: Path, src: tuple[Path, dict[str, Any]]) -> Iterator[TestClient]:
     (tmp_path / "derived").mkdir()
     s = Settings(
+        dicom_memory_mb=1024,
         workspace_root=tmp_path / "ws",
         allowed_data_roots=str(src[0].resolve()),
         allowed_derived_roots=str((tmp_path / "derived").resolve()),
@@ -167,14 +168,14 @@ def test_incremental_run_keeps_files_and_identity(
     nifti = tmp_path / "derived" / pid / "dicom.convert" / "dataset" / "nifti"
     first = {
         p.name: (p.stat().st_mtime_ns, hashlib.sha256(p.read_bytes()).hexdigest())
-        for p in nifti.iterdir()
+        for p in nifti.glob("*.nii.gz")
     }
     write_series(root / "P003" / "ct", patient_id="P003")  # a new patient arrives
     run2 = convert(dc, pid, root)
     assert run2["status"] == "completed"
     again = {
         p.name: (p.stat().st_mtime_ns, hashlib.sha256(p.read_bytes()).hexdigest())
-        for p in nifti.iterdir()
+        for p in nifti.glob("*.nii.gz")
     }
     assert {k: again[k] for k in first} == first  # never rewritten (DCM-07, ADR-0014)
     assert len(again) == len(first) + 1
@@ -395,6 +396,7 @@ def test_save_as_nifti(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_pat
 
 def test_save_needs_derived_roots(tmp_path: Path, src: tuple[Path, dict[str, Any]]) -> None:
     s = Settings(
+        dicom_memory_mb=1024,
         workspace_root=tmp_path / "ws2",
         allowed_data_roots=str(src[0].resolve()),
         _env_file=None,  # type: ignore[call-arg]

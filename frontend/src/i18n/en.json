@@ -816,7 +816,8 @@
     "quick_open": "Go to case…",
     "close_tab": "Close tab",
     "relink_root": "Relink data root…",
-    "show_problems": "Show in Problems"
+    "show_problems": "Show in Problems",
+    "use_pattern": "Use one case per folder"
   },
   "open": {
     "command": "Open file or folder…"

@@ -14,7 +14,7 @@ import { toast } from '../../shell'
 import { useReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog } from './DerivedRootDialog'
-import { aliasProblem, autoPattern, canNext, firstAdapter, imageStems, IMPORTABLE, initialState, jobFailed, nextAction, STEPS, type Step } from './model'
+import { aliasProblem, autoOptions, canNext, firstAdapter, imageStems, IMPORTABLE, initialState, jobFailed, nextAction, STEPS, type Step } from './model'
 import { DetectStep } from './steps/DetectStep'
 import { IndexStep } from './steps/IndexStep'
 import { PreviewStep } from './steps/PreviewStep'
@@ -49,12 +49,14 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const qc = useQueryClient()
   const p = preview.data
   const path = file ?? dir
-  // SRC-17 sample: the browsed folder's listing, the same query as the Data root step's browser
+  // SRC-17 sample: relative paths spread over the folder (API-19), else the browsed folder's
+  // listing, the same query as the Data root step's browser
   const listing = useFsList(dir, 'source').data
-  const fileNames = useMemo(() => (listing?.entries ?? []).filter((e) => e.kind === 'file').map((e) => e.name), [listing])
+  const detected = detect.data?.candidates.find((c) => c.adapter === 'nifti-files')?.sample
+  const fileNames = useMemo(() => (detected?.length ? detected : (listing?.entries ?? []).filter((e) => e.kind === 'file').map((e) => e.name)), [detected, listing])
   const stems = useMemo(() => imageStems(options, file, fileNames), [options, file, fileNames])
-  const auto = autoPattern(adapter, touched, options, stems)
-  const niftiOptions = auto ? { ...options, pattern: auto } : options
+  const auto = autoOptions(adapter, touched, options, stems, file || options.include ? [] : fileNames)
+  const niftiOptions = auto ? { ...options, ...auto } : options
   const taken = (useRoots(pid).data ?? []).find((r) => r.alias === alias)
   const aliasKind = aliasProblem(alias, taken, prefill?.add ?? false, dir)
   const aliasError = aliasKind === 'invalid' ? t('import.aliasInvalid') : aliasKind === 'taken' ? t('import.aliasTaken', { alias, path: taken?.path ?? '' }) : null
@@ -83,10 +85,10 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const runPreview = (a: ImportAdapter) => {
+  const runPreview = (a: ImportAdapter, nifti: NiftiOptions = niftiOptions) => {
     if (!path) return
     const req: PreviewRequest = { root: path, alias, adapter: a, add: prefill?.add ?? false }
-    if (a === 'nifti-files') req.options = niftiOptions
+    if (a === 'nifti-files') req.options = nifti
     if (a === 'metadata-v1' && reconstruct) req.options = { reconstruct_sidecars: true } // IMP-15
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
@@ -130,6 +132,14 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       if (!a) return
       setAdapter(a)
       if (IMPORTABLE.has(a)) runPreview(a as ImportAdapter)
+    },
+    // SRC-04: files that would collapse into one item; the refusal offers the folder pattern
+    use_pattern: (pattern: string | null) => {
+      if (!pattern) return
+      const o = { ...niftiOptions, pattern }
+      setTouched(true)
+      setOptions(o)
+      runPreview('nifti-files', o)
     },
     open: openInstead,
     choose_another_path: () => setStep('root'),
@@ -200,7 +210,8 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             setTouched(true)
             setOptions(o)
           }}
-          names={fileNames}
+          stems={stems}
+          dir={file ? null : dir}
           prefilled={auto !== null}
           anonymize={anonymize}
           onAnonymize={setAnonymize}

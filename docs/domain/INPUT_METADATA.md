@@ -50,7 +50,8 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD); parsed into `Item.modality` and also kept in `extra` |
 | `study_uid`, `series_uid` | | Provenance (advanced) |
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |
-| `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}` |
+| `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}`. With `seg_labels`, a folder: a mask set (ADR-0036) |
+| `seg_labels` *(v1.2)* | | Mask set only: `{member name: label value}` for the binary NIfTI files in the `seg_path` folder; set by `nifti-files` (SOURCES §NIfTI files) |
 | `status`, `planned_conversion`, `curated_keep` | | Upstream skip/exclude (IMP-07) |
 | `dicom_sidecar` *(v1.1)* | | Ref to the DICOM JSON sidecar (DCM-04); a path relative to the import root (a workspace dataset's `sidecars/…`) becomes a ref under the import's alias, like `relative_path` (AUD-A2-04) |
 | `source_kind` *(v1.1)* | | `dicom` \| `nifti` \| `npy`; set by adapters and the converter |

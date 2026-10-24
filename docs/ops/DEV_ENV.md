@@ -13,34 +13,9 @@ Depends: DEPLOYMENT.md.
 
 ## Make targets (runtime-agnostic)
 
-`make help` lists them by group (setup, dev, check, E2E, docs, image, deploy).
+`make help` lists every target with its purpose, by group (setup, dev, check, E2E, docs, image, deploy); the Makefile is the single source.
 
-`RUNTIME=docker|udocker|native` selects how Node commands run (default: `native` locally, `udocker` if `node` is missing).
-
-| Target | Does |
-|---|---|
-| `make setup` | Create the Python env, install `backend[dev]`, install frontend deps (via RUNTIME) |
-| `make dev-backend` | `uvicorn app.main:app --reload --host $HOST --port 8000` |
-| `make dev-frontend` | Vite dev server on 5173, proxying `/api` → 8000 |
-| `make fixtures` | Generate the synthetic test dataset (TST-11) |
-| `make gen-api` | Regenerate TS types from OpenAPI (FE-03) |
-| `make test` | Backend `pytest -n $(PYTEST_WORKERS) --dist loadscope` (default 4, one worker per module) + frontend units (default `VITEST_WORKERS=2`); numerical-library threads are bounded to 1 |
-| `make test-env` · `make test-runner` | Prerequisite check · safety regressions; `FULL_TESTS=1` requires radiomics and forbids skipped coverage; `PYTEST_WORKERS=0` runs serially |
-| `make deadcode` | Dead-code gate (part of `make check`): `knip` (frontend unused files, exports, dependencies; `frontend/knip.json`) + `vulture` (backend, confidence ≥ 80; false positives go to `backend/vulture_allowlist.py`) |
-| `make coverage` | Vitest coverage (`@vitest/coverage-v8`) → `build/coverage/frontend/` (summary printed; a report, not a gate) |
-| `make bundle-baseline` | Record the current initial JS in `frontend/bundle-baseline.json` (commit it) after an intended growth (NFR-07) |
-| `make check` | The CI gate: lint, types, unit tests, `make deadcode`, API types, `make bundle-size` (NFR-07), requirement check; `make -j4 check` runs the parts in parallel |
-| `make fix` | Autofix: `ruff check --fix`, `ruff format`, `eslint --fix` |
-| `make e2e` | Playwright, both browsers, own servers (`SPEC=…`, `PROJECT=chromium\|firefox` narrow it) |
-| `make e2e-one SPEC=…` | One spec in one browser (Chromium unless `PROJECT=`) |
-| `make e2e-servers` | The E2E backend + web server in the foreground; then `E2E_REUSE=1 make e2e-one SPEC=…` reuses them |
-| `make record-mock` | Re-record the mock API from the backend on the fixtures (TESTING §Mock API) |
-| `make image` · `make image-tar` · `make container-smoke` | Build the OCI image (Docker only) · `docker save` it to `build/rw-{version}.tar` · TST-10 against it |
-| `make udocker-selftest` | The image under udocker as a non-root user in a throwaway container (DEPLOYMENT §udocker) |
-| `make up` · `make down` · `make logs` | `./rw up` · `./rw stop` · `./rw logs` (DEPLOYMENT §Quick start) |
-| `make udocker-run` | `scripts/udocker-run.sh` in the foreground |
-| `make reqs` | Requirement tables check (part of `make check`; SRS §1.5) |
-| `make docs` · `make docs-srs` · `make trace` | Docs site → `build/docs/` (pinned Sphinx via `uvx`) · SRS review table → `build/docs-srs/` · ID → code/test citations → `build/trace/` |
+Knobs: `RUNTIME=native|docker|udocker` selects how Node commands run (default: `native` locally, `udocker` if `node` is missing); `VENV` selects the Python env (`$CONDA_PREFIX` on remote servers); `PYTEST_WORKERS` / `VITEST_WORKERS` bound test workers (`PYTEST_WORKERS=0` runs serially); `FULL_TESTS=1` requires radiomics and refuses skipped coverage; `make -j4 check` runs the independent gates in parallel.
 
 ## Rules
 

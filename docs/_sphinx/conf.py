@@ -20,6 +20,7 @@ exclude_patterns = [
     "archive/**",
     "_sphinx/**",
     "INDEX.md",
+    "CONVENTIONS.md",
     "ops/AGENT_RUNBOOK.md",
     "**/.DS_Store",
 ]

@@ -91,10 +91,27 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 | UI-26 | View-only mode (`/v/{token}`, PRJ-17): the shell shows a "View only" badge, hides every editing control, command and shortcut, and keeps all viewer tools. | M |
 | UI-21 | The app logo (§Brand) appears only as identity, never as decoration: browser tab icon, title-bar project switcher, workspace home header, Open-mode home button. | S |
 | UI-27 | Settings › **Interface size**: Compact · Default · Large (per browser). Every font size, control and row height is a token that the size sets (`<html data-size>`); Compact is the P7 scale (13 px UI), Default 14 px, Large 16 px (AUD-A3-16). | S |
+| UI-28 | The existing converter work window unifies DICOM import/conversion and long source-loading progress in project/workspace contexts. Show files/confirmed DICOM/complete series, paged dry-run plan, stage progress/elapsed/ETA basis, minimize/restore/cancel and verified resume/retry controls. Restore server operations after reload; cancel waits for acknowledgment; multiple operations are not silently replaced. Other source adapters retain their workflow. | M |
 
 Implementation (UI-24): File › Close project (palette "Close project") goes to the workspace home with a page change, which releases every loaded volume; Open mode's Close (last in the action row) calls `DELETE /open/{sid}` and returns home. Open mode shows the CT tool bar under its action row (VW-22).
 
-Implementation (UI-25): the converter overlay is the `dicom` plugin's `overlays` contribution (the shell renders overlays on every route; `plugins/dicom/ConverterOverlay.tsx` loads on first open). Entry points: Welcome "Convert DICOM…", Open mode "Convert DICOM…" (only when the session has DICOM items; starts on Settings with the path), the Library's Open and the Project › Convert DICOM command (also the Data tab), which inside a project offers "Into {project}" or "As a dataset". Settings = dataset name, organ focus, phase analyzer (on), anonymize; the dry run shows series found / to convert / skipped / size. Result for a dataset: Open · Create project from this (the import wizard on the dataset) · Add to project (pick a project; the wizard with `add`). The Data tab lists the active layers and downloads the dataset table (CSV / Parquet). The window's work lives in its store (`plugins/dicom/store.ts`), so a route change or minimizing never loses a dry run or a run. A click outside does nothing; × and Escape close it when idle and minimize it while a dry run or run is in progress; the header's minimize button always does. Minimized, it is a chip at the bottom left (toasts are bottom-right) with the stage, a progress bar and Show; opening the converter again while it works shows it instead of starting over. The dry run shows its stages (looking for DICOM → listing folders → reading headers n / N files → planning series) with elapsed time and Cancel (DCM-06 `progress_id`); a run shows the same scan stages until its series total is known, then series converted, and has Cancel conversion.
+Implementation (UI-25/28): the `dicom` plugin contributes the converter overlay on every route.
+Welcome, Open mode, Library and Project commands retain their existing entry points and destination choices.
+Settings and result actions retain UI-25; unfinished workspace outputs cannot be opened/imported as complete datasets.
+Dry run creates a server source operation whose persisted intent chains discovery to header-only planning.
+The window retrieves the linked run and pages the complete plan; API-69 owns commands and recovery.
+Back edits/re-estimates the existing operation; a changed destination starts a new context. A stale fence refetches state without replaying the command.
+Only the operation ID and minimized preference persist in `rw.converter`; server state uses TanStack Query.
+The host restores active/recent operations and provides explicit selection/new conversion without replacing running work.
+Source pickers use server file/directory kinds and permit extensionless files for content validation.
+The source folder tree is collapsible; a directory named `.dcm` is still navigated as a directory.
+Outside clicks do nothing; ×/Escape minimize during work, and the compact chip restores the window.
+Cancellation keeps polling until authoritative stopping/terminal state; cleanup uncertainty never becomes a success result.
+Resume pending targets the same operation/run/destination with current fences or its persisted pending command.
+Counts remain provisional during discovery; conversion ETA remains Unknown until compatible history is implemented.
+DCM-16 overall/stage progress is labeled separately. A memory wait shows its estimate/budget or an unknown-geometry remedy, while Cancel remains available.
+Background refusals retain UI-18 actions, including Open/import for detected NIfTI and choosing another source.
+Remaining UI/browser acceptance is tracked in DICOM_JOB_PLAN.md; this checkpoint is not production certification.
 
 Implementation (UI-23, UI-26): New project asks for a name and the default modality (CT · MR · Mixed). The settings tab (`/p/{pid}/settings`, Project › Project settings, Welcome) saves only the changed fields with the ETag of the version the form was loaded from; a 412 shows "Reload and reapply" (the same changes on the fresh version) and "Discard my changes". Labels import `.ctbl` / ITK-SNAP / `dataset.json` in the browser (`settings/labelFiles.ts`) and merge by value. View-only (`/v/{token}` redirects to `/p/view-{token}`): contributions flagged `writes` are hidden (views Curation, Tasks, Radiomics, Dashboards, Variables, Labels, Plugin Library; the curation inspector section; editors task, radiomics, run, queue, settings; every data-changing command and shortcut); Project, Search, Image, History, the viewer tools and the panels stay.
 
@@ -195,3 +212,6 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 - **Two-line list rows (AUD-A3-21):** `.list-row-2` (title, meta lines, labelled trailing actions) for the Dashboards and Radiomics views; empty states use `.empty`.
 - **One icon per meaning (UI-15, AUD-A3-11/12):** a missing thumbnail is a muted `slice-stack` on `--bg-inset` with a tooltip (real slices stay on black); "No segmentation" `label-outline`; analyzer tasks `symbol-property`; each radiomics settings group its own codicon; `circle-slash` only means Rejected.
 - **Task outputs (TSK-09, AUD-A3-09):** a run's outputs are named links (segmentation set → shown in the viewer, features → its dashboard, import → Explorer); API paths and ids only in the tooltip. User-facing strings never cite requirement or ADR IDs (`i18n/keys.test.ts`, AUD-A1-14).
+
+DICOM acceptance evidence and remaining gates live in DICOM_JOB_PLAN.md §Implementation evidence.
+Resource waits, cancellation and unknown cleanup remain active until the server confirms completion.

@@ -34,6 +34,8 @@ class VolumeRef(BaseModel):
     fp: str | None = None  # quick fingerprint; None when missing/unreadable
     # Full SHA-256 (IMP-09) from `index/hashes.json`, attached on load while `fp` matches.
     sha256: str | None = None
+    # `nifti_dir` mask set: member name → label value (SRC-04 `mask_template`)
+    labels: dict[str, int] | None = None
 
 
 class Geometry(BaseModel):

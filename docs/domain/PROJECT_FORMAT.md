@@ -71,7 +71,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
         ├── plugins/{plugin_id}/   # plugin state, e.g. labeling/tables.json (PLG-07)
         ├── logs/recycle.jsonl     # CUR-16 deletion references and rebuild exclusions
         ├── exports/               # user-requested outputs (CSV/Parquet, phase_selections.json PHS-06 ADR-0026); dataset_table.* (ADR-0020) and dataset.jsonl (ADR-0025) are downloads built on demand (API-59), not stored
-        ├── cache/                 # DISPOSABLE: meshes, thumbs, npy→nii (CACHE_MAX_GB budget, DEPLOYMENT), import previews
+        ├── cache/                 # DISPOSABLE: meshes, thumbs, npy→nii, composed mask sets (CACHE_MAX_GB budget, DEPLOYMENT), import previews
         └── .lock                  # advisory lock held by the API process
 ```
 

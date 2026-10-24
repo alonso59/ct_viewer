@@ -193,7 +193,7 @@ def test_inspect_reports_unreadable_headers_and_skips_multiframe_geometry(
 def test_inspect_turns_geometry_codes_into_diagnostics(monkeypatch: pytest.MonkeyPatch) -> None:
     ds = slices(3, Rows=at(1, 256))
     by_path = dict(zip((Path(f"/in/s/{i}") for i in range(3)), ds, strict=True))
-    monkeypatch.setattr(scan, "read_header", lambda p: by_path[p])
+    monkeypatch.setattr(scan, "read_header", lambda p, root=None: by_path[p])
     diags: list[scan.Diagnostic] = []
     out = scan.inspect(scan.Series(Path("/in/s"), "s", tuple(by_path)), ds[0], diags)
     assert out.geometry_codes == ["MATRIX_SIZE_CONFLICT"]
@@ -251,7 +251,7 @@ def test_discovery_reads_each_file_once_and_groups_like_gdcm(
     (folder / "notes").write_bytes(b"not a dicom file at all")
     reads: list[Path] = []
     real = scan._scan_header
-    monkeypatch.setattr(scan, "_scan_header", lambda p: reads.append(p) or real(p))
+    monkeypatch.setattr(scan, "_scan_header", lambda p, root=None: reads.append(p) or real(p, root))
     ticks: list[int] = []
     found = scan.discover(folder, [], tick=ticks.append)
     assert sorted(reads) == sorted(folder.iterdir()) and sum(ticks) == 9

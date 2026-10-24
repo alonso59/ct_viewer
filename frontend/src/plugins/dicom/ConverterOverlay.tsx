@@ -4,6 +4,7 @@
 // A click outside never closes it; while it works, × and Escape minimize it to a chip that
 // shows the progress, and the work goes on (the dry run and the run are server-side).
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -14,19 +15,25 @@ import {
   useProjects,
   useTaskRun,
   useTasks,
+  isTaskRunPending,
   useWorkspaceRun,
   useWorkspaceRuns,
+  useSourceOperation,
+  useSourceOperations,
+  useSourcePlan,
+  keys,
+  type SourceOperation,
   type EstimateProgress,
   type TaskEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, useImportWizard } from '../../features/import'
+import { ProblemError, toProblemError } from '../../api/problem'
 import { NewProjectDialog } from '../../features/import'
 import { Dialog, fmtBytes, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
-import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Scan, type Step } from './store'
+import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import './converter.css'
 
-const ACTIVE = ['queued', 'running', 'waiting_for_runner']
 /** The dry run's stages in order (`pipeline.Stage`); `check` = the source is searched for DICOM */
 const SCAN_STAGES = ['check', 'listing', 'reading', 'planning'] as const
 
@@ -56,14 +63,21 @@ function StepBar({ step }: { step: Step }) {
 }
 
 /** DCM-06 (AUD-A2-13): every series of the dry run, what happens to it and why, with its size */
-function SeriesPlanTable({ estimate }: { estimate: TaskEstimate }) {
+function SeriesPlanTable({ estimate, operation }: { estimate: TaskEstimate; operation?: SourceOperation }) {
   const { t } = useTranslation()
-  const rows = estimate.series ?? []
-  const skipped = rows.filter((r) => r.action === 'skip').length
-  if (!rows.length) return null
+  const [cursors, setCursors] = useState<string[]>([])
+  const [action, setAction] = useState<'' | 'convert' | 'skip'>('')
+  const page = useSourcePlan(operation?.operation_id ?? null, operation?.plan_attempt ?? null, cursors.at(-1), action || undefined)
+  const rows = operation ? page.data?.items ?? [] : estimate.series ?? []
+  const skipped = operation ? estimate.n_skipped : rows.filter((r) => r.action === 'skip').length
+  const total = operation ? page.data?.total ?? operation.plan_total : rows.length
+  if (!operation && !rows.length) return null
   return (
-    <details className="conv-plan" open={skipped > 0 && rows.length <= 20}>
-      <summary>{t('conv.plan', { count: rows.length, skipped })}</summary>
+    <details className="conv-plan" open={skipped > 0 && total <= 20}>
+      <summary>{t('conv.plan', { count: total, skipped })}</summary>
+      {operation ? <label className="conv-row"><span>{t('conv.planFilter')}</span><select className="input" value={action} onChange={(e) => { setAction(e.target.value as typeof action); setCursors([]) }}>
+        <option value="">{t('conv.planAll')}</option><option value="convert">{t('conv.actionConvert')}</option><option value="skip">{t('conv.planSkipped')}</option>
+      </select></label> : null}
       <div className="table-scroll">
         <table className="table">
           <thead>
@@ -90,6 +104,12 @@ function SeriesPlanTable({ estimate }: { estimate: TaskEstimate }) {
           </tbody>
         </table>
       </div>
+      {page.isFetching ? <p role="status">{t('common.loading')}</p> : null}
+      {page.error ? <ProblemCard error={page.error} /> : null}
+      {operation ? <div className="conv-row"><span className="muted">{t('conv.planPage', { n: rows.length, total })}</span>
+        <button type="button" className="btn btn-sm" disabled={!cursors.length || page.isFetching} onClick={() => setCursors((values) => values.slice(0, -1))}>{t('conv.previousPage')}</button>
+        <button type="button" className="btn btn-sm" disabled={!page.data?.next_cursor || page.isFetching} onClick={() => page.data?.next_cursor && setCursors((values) => [...values, page.data!.next_cursor!])}>{t('conv.nextPage')}</button>
+      </div> : null}
       {estimate.series_truncated ? <p className="muted conv-help">{t('conv.planTruncated', { n: rows.length })}</p> : null}
     </details>
   )
@@ -110,7 +130,7 @@ function useElapsed(since: number | null) {
 function ScanPanel({ progress, elapsed, onCancel, onMinimize }: { progress: EstimateProgress | undefined; elapsed: number; onCancel: () => void; onMinimize: () => void }) {
   const { t } = useTranslation()
   const current = progress?.stage ?? 'check'
-  const at = Math.max(0, SCAN_STAGES.indexOf(current as (typeof SCAN_STAGES)[number]))
+  const at = SCAN_STAGES.indexOf(current as (typeof SCAN_STAGES)[number])
   const determinate = (current === 'reading' || current === 'planning') && !!progress?.total
   return (
     <div className="conv-scan" data-testid="conv-scan" role="status" aria-live="polite">
@@ -122,6 +142,7 @@ function ScanPanel({ progress, elapsed, onCancel, onMinimize }: { progress: Esti
           </li>
         ))}
       </ol>
+      {at < 0 ? <p>{t(`conv.status.${current}`, { defaultValue: t(`conv.stage.${current}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) })}</p> : null}
       {determinate && progress ? <Progress value={progress.done} total={progress.total} /> : <div className="progress conv-indeterminate"><span /></div>}
       <div className="conv-row">
         <span className="muted conv-help">{t('conv.elapsed', { s: elapsed })}</span>
@@ -179,7 +200,11 @@ export default function ConverterOverlay() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const c = useConverter()
-  const { pid, close, createFrom, patch, step, source, browse, target, settings, estimate, error, scan, run, minimized } = c
+  const { pid, close, createFrom, patch, step, source, browse, target, settings, estimate, error, scan, run, minimized, operationId } = c
+  const qc = useQueryClient()
+  const operationQuery = useSourceOperation(operationId)
+  const operation = operationQuery.data
+  const operations = useSourceOperations().data ?? []
   const project = useProject(pid ?? '').data
   const manifest = useTasks().data?.tasks.find((x) => x.manifest.id === 'dicom.convert')?.manifest
   const profiles = ((manifest?.settings_schema?.properties as Record<string, { enum?: string[] }> | undefined)?.target_profile?.enum ?? ['generic']) as string[]
@@ -194,20 +219,57 @@ export default function ConverterOverlay() {
   const clash = target === 'dataset' && taken.has(slug) ? { name: slug } : null
   let nextFree = slug
   for (let n = 1; taken.has(nextFree); n++) nextFree = `${slug}-${n}`
-  const ws = useWorkspaceRun(run?.kind === 'dataset' ? run.rid : null).data
-  const prun = useTaskRun(pid ?? '', run?.kind === 'project' ? run.rid : null).data
+  const legacyWorkspace = useWorkspaceRun(!operationId && run?.kind === 'dataset' ? run.rid : null).data
+  const legacyProject = useTaskRun(pid ?? '', !operationId && run?.kind === 'project' ? run.rid : null).data
+  const linked = operation?.conversion_run
+  const ws = linked && 'dataset_dir' in linked ? linked : legacyWorkspace
+  const prun = linked && 'runtime' in linked ? linked : legacyProject
+  const resourceWait = ws?.resource_wait ?? prun?.resource_wait
   const intoProject = target === 'project' && !!pid
   const needsDerived = intoProject && !!project && !project.path_roots.some((r) => r.role === 'derived')
   const taskSettings = { target_profile: settings.target_profile, phase_analyzer: settings.phase_analyzer, anonymize: settings.anonymize }
-  const setSettings = (s: Partial<Draft['settings']>) => patch({ settings: { ...settings, ...s } })
+  const setSettings = (s: Partial<Draft['settings']>) => patch({ requestKey: null, settings: { ...settings, ...s } })
   const scanProgress = useEstimateProgress(scan?.id ?? null).data
-  const elapsed = useElapsed(scan?.started ?? null)
+  const elapsed = useElapsed(operation ? Date.parse(operation.created_at) : scan?.started ?? null)
+  const inventoryCounts = operation?.summary?.complete && (!isTaskRunPending(operation.status) || linked) ? operation.summary : operation?.progress
+  const shownError = error ?? (operation?.problem ? toProblemError(Number(operation.problem.status ?? 500), operation.problem, operation.error ?? t('problemTitle.unknown')) : operation?.error && operation.status !== 'waiting_for_resources' ? new Error(operation.error) : null)
+  useEffect(() => {
+    if (!operation) return
+    const current = useConverter.getState()
+    const native = operation.conversion_run
+    const snapshot = operation.settings ?? {}
+    patch({
+      source: operation.source, pid: operation.project_id,
+      target: operation.project_id ? 'project' : 'dataset',
+      settings: {
+        ...current.settings,
+        target_profile: typeof snapshot.target_profile === 'string' ? snapshot.target_profile : 'generic',
+        anonymize: snapshot.anonymize === 'basic' ? 'basic' : 'none', phase_analyzer: snapshot.phase_analyzer !== false,
+        name: native && 'dataset_dir' in native ? native.name : operation.dataset_name ?? current.settings.name,
+      },
+      estimate: operation.estimate ?? null,
+      run: native ? { kind: operation.project_id ? 'project' : 'dataset', rid: native.run_id } : null,
+      step: native ? current.step === 'result' && !isTaskRunPending(native.status) ? 'result' : 'run'
+        : operation.work_kind === 'convert' ? 'run' : operation.stage === 'ready' ? 'estimate' : 'settings',
+    })
+  }, [operation, patch])
 
   // What is going on, for the run panel and the chip
-  const runStatus = run?.kind === 'dataset' ? ws?.status : prun?.status
-  const runFinished = !!runStatus && !ACTIVE.includes(runStatus)
+  const runStatus = operation?.status ?? (run?.kind === 'dataset' ? ws?.status : prun?.status)
+  const memoryMessage = runStatus !== 'waiting_for_resources' ? null
+    : resourceWait?.reason === 'unknown_geometry' ? t('conv.memoryUnknown')
+    : resourceWait?.reason === 'memory_budget' && typeof resourceWait.required_mb === 'number' && typeof resourceWait.budget_mb === 'number'
+      ? t('conv.memoryBudget', { required: resourceWait.required_mb, budget: resourceWait.budget_mb }) : null
+  const runFinished = !!runStatus && !isTaskRunPending(runStatus)
   let activity: Activity | null = null
-  if (scan) {
+  if ((busy && !operation && !run && !scan) || (operationId && !operation)) {
+    activity = { label: t('conv.connecting'), done: 0, total: 0, finished: false }
+  } else if (operation && !linked && operation.stage !== 'ready') {
+    const progress = operation.progress ?? {}
+    const stage = operation.progress_stage ?? (operation.stage === 'discovering' ? 'listing' : 'planning')
+    const finished = !isTaskRunPending(operation.status)
+    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : t(`conv.stage.${stage}`, { done: progress.done ?? progress.files ?? 0, total: progress.total ?? 0 }), done: progress.done ?? 0, total: progress.total ?? 0, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
+  } else if (scan) {
     const s = scanProgress?.stage ?? 'check'
     activity = { label: `${t('conv.dryRunning')} · ${t(`conv.stage.${s}`, { done: scanProgress?.done ?? 0, total: scanProgress?.total ?? 0 })}`, done: scanProgress?.done ?? 0, total: s === 'reading' || s === 'planning' ? scanProgress?.total ?? 0 : 0, finished: false }
   } else if (run) {
@@ -217,18 +279,23 @@ export default function ConverterOverlay() {
     if (runFinished) {
       const tone = runStatus === 'completed' ? 'ok' : runStatus === 'completed_with_errors' ? 'warn' : 'error'
       activity = { label: t(`conv.status.${runStatus}`, { defaultValue: runStatus }), done, total, finished: true, tone }
+    } else if (runStatus === 'waiting_for_resources' || runStatus === 'cancelling' || runStatus === 'cleanup_pending' || runStatus === 'reconciling') {
+      activity = { label: t(`conv.status.${runStatus}`), done, total, finished: false }
     } else if (total === 0 && p?.stage) {
       // still scanning headers: the run reports the same stages as the dry run
       const sd = Number(p.stage_done ?? 0)
       const st = Number(p.stage_total ?? 0)
       activity = { label: `${t('conv.status.running')} · ${t(`conv.stage.${String(p.stage)}`, { done: sd, total: st })}`, done: sd, total: p.stage === 'reading' ? st : 0, finished: false }
     } else {
-      activity = { label: total ? t('conv.converting', { done, total }) : t('conv.status.running'), done, total, finished: false }
+      const overall = total ? t('conv.converting', { done, total }) : t('conv.status.running')
+      const label = p?.stage && p.stage !== 'converting' && p.stage !== 'admitted'
+        ? t('conv.progressStage', { progress: overall, stage: t(`conv.stage.${String(p.stage)}`, { done: Number(p.stage_done ?? 0), total: Number(p.stage_total ?? 0) }) }) : overall
+      activity = { label, done, total, finished: false }
     }
   } else if (estimate && step === 'estimate') {
     activity = { label: t('conv.dryRunDone', { n: estimate.n_units }), done: 1, total: 1, finished: true, tone: 'ok' }
   }
-  const working = !!scan || (!!run && !runFinished)
+  const working = busy || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
   useEffect(() => {
     useConverter.setState({ working })
   }, [working])
@@ -240,32 +307,50 @@ export default function ConverterOverlay() {
       await fn()
     } catch (e) {
       patch({ error: e })
+      if (operationId && e instanceof ProblemError && e.status === 409) {
+        void qc.invalidateQueries({ queryKey: keys.sourceOperation(operationId), exact: true })
+      }
     } finally {
       setBusy(false)
     }
   }
-  // Writes to the store, not to this component: the result lands even if the window was
-  // minimized or remounted meanwhile; a cancelled dry run's answer is dropped
-  const dryRun = async () => {
-    if (!source) return
-    const me: Scan = { id: scanId(), started: Date.now() }
-    patch({ error: null, scan: me })
-    const sel = { source }
-    try {
-      const est = intoProject && pid ? await api.estimateTask(pid, 'dicom.convert', sel, taskSettings, me.id) : await api.estimateWorkspaceTask('dicom.convert', sel, taskSettings, me.id)
-      if (useConverter.getState().scan?.id === me.id) patch({ estimate: est, step: 'estimate', scan: null })
-    } catch (e) {
-      if (useConverter.getState().scan?.id === me.id) patch({ error: e, scan: null })
-    }
+  const saveOperation = (value: SourceOperation) => {
+    qc.setQueryData(keys.sourceOperation(value.operation_id), value)
+    void qc.invalidateQueries({ queryKey: keys.sourceOperations(), exact: true })
   }
+  const dryRun = () => guard(async () => {
+    if (!source) return
+    if (operation?.stage === 'ready' && !operation.conversion_run_id && operation.source === source && operation.project_id === (intoProject ? pid : null)) {
+      saveOperation(await api.estimateSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, settings: taskSettings, name: settings.name.trim() }))
+      patch({ estimate: null, step: 'settings' })
+      return
+    }
+    const requestKey = useConverter.getState().requestKey ?? scanId()
+    patch({ requestKey })
+    const value = await api.startSourceOperation({ path: source, project_id: intoProject ? pid : null, purpose: 'convert', prepare_plan: true, settings: taskSettings, name: settings.name.trim() || null, idempotency_key: requestKey })
+    saveOperation(value)
+    patch({ operationId: value.operation_id, estimate: null, run: null, scan: null, step: 'settings' })
+  })
+  const control = (action: 'cancel' | 'resume') => guard(async () => {
+    if (!operation) return
+    const body = operation.pending_control?.action === action ? operation.pending_control.request : { expected_revision: operation.revision, expected_attempt: operation.attempt, ...(operation.conversion_run ? { expected_run_attempt: operation.conversion_run.attempts } : {}) }
+    const value = await (action === 'cancel' ? api.cancelSourceOperation(operation.operation_id, body) : api.resumeSourceOperation(operation.operation_id, body))
+    saveOperation(value)
+    if (action === 'resume') patch({ step: value.work_kind === 'convert' ? 'run' : 'settings' })
+  })
   const cancelScan = () => {
-    if (!scan) return
-    void api.cancelEstimate(scan.id).catch(() => undefined)
-    patch({ scan: null })
+    if (operation) void control('cancel')
   }
   const start = () =>
     guard(async () => {
       if (!source) return
+      if (operation) {
+        const generation = operation.summary?.generation
+        if (typeof generation !== 'string' || !operation.plan_attempt) throw new Error(t('conv.planChanged'))
+        saveOperation(await api.convertSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, inventory_generation: generation, plan_attempt: operation.plan_attempt, name: settings.name.trim() || null }))
+        patch({ step: 'run' })
+        return
+      }
       const selection = { source }
       if (intoProject && pid) {
         const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings: taskSettings, selection })
@@ -275,8 +360,7 @@ export default function ConverterOverlay() {
         patch({ run: { kind: 'dataset', rid: r.run_id }, step: 'run' })
       }
     })
-  const cancelRun = () =>
-    guard(async () => {
+  const cancelRun = () => operation ? control('cancel') : guard(async () => {
       if (!run) return
       if (run.kind === 'project' && pid) await api.cancelTaskRun(pid, run.rid)
       else await api.cancelWorkspaceRun(run.rid)
@@ -288,6 +372,7 @@ export default function ConverterOverlay() {
     else close()
   }
   const dataset = ws?.dataset_dir ?? ''
+  const resumable = operation && ['cancelled', 'interrupted', 'failed', 'completed_with_errors'].includes(operation.status)
   const openDataset = () => {
     close()
     openPath(navigate, dataset)
@@ -316,11 +401,26 @@ export default function ConverterOverlay() {
         }
       >
         <div className="conv">
+          <div className="conv-row">
+            <label className="conv-row"><span className="muted">{t('conv.recentOperations')}</span>
+              <select className="input" aria-label={t('conv.recentOperations')} value={operationId ?? ''} onChange={(e) => { if (e.target.value) c.attach(e.target.value) }}>
+                <option value="" disabled>{t('conv.chooseOperation')}</option>
+                {operationId && !operations.some((value) => value.operation_id === operationId) ? <option value={operationId}>{t('conv.currentOperation')}</option> : null}
+                {operations.map((value) => <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { source: value.source.split('/').at(-1), status: t(`conv.status.${value.status}`, { defaultValue: value.status }) })}</option>)}
+              </select>
+            </label>
+            <button type="button" className="btn btn-sm" disabled={busy} onClick={c.newOperation}>{t('conv.newOperation')}</button>
+          </div>
           <StepBar step={step} />
+          {operation ? <div className="conv-inventory" role="status" aria-live="polite">
+            <dl>{(['folders', 'files', 'dicom', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
+            <p className="muted conv-help">{t('conv.etaUnknown')}</p>
+            {!operation.summary?.complete && !operation.conversion_run ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
+          </div> : null}
           {step === 'source' ? (
             <div className="conv-body">
               <p className="muted">{t('conv.sourceHelp')}</p>
-              <FolderBrowser path={browse} onPath={(p) => patch({ browse: p, source: p })} selected={source} onSelectFile={(p) => patch({ source: p })} />
+              <details open><summary>{t('conv.browseFolders')}</summary><FolderBrowser path={browse} onPath={(p) => patch({ browse: p, source: p, requestKey: null })} selected={source} onSelectFile={(p) => patch({ source: p, requestKey: null })} fileFilter={() => true} /></details>
               <div className="conv-row">
                 <span className="mono conv-path">{source ?? t('conv.noSource')}</span>
                 <button type="button" className="btn btn-primary" disabled={!source} onClick={() => patch({ step: 'settings', settings: { ...settings, name: settings.name || defaultDatasetName() } })}>{t('conv.next')}</button>
@@ -329,21 +429,21 @@ export default function ConverterOverlay() {
           ) : null}
           {step === 'settings' ? (
             <div className="conv-body">
-              <div className="conv-row"><span className="muted">{t('conv.source')}</span><span className="mono conv-path">{source}</span><button type="button" className="btn btn-sm" disabled={!!scan} onClick={() => patch({ step: 'source' })}>{t('conv.change')}</button></div>
-              <fieldset className="conv-fields" disabled={!!scan}>
+              <div className="conv-row"><span className="muted">{t('conv.source')}</span><span className="mono conv-path">{source}</span><button type="button" className="btn btn-sm" disabled={working} onClick={() => patch({ step: 'source', operationId: null, requestKey: null })}>{t('conv.change')}</button></div>
+              <fieldset className="conv-fields" disabled={working}>
                 {pid ? (
                   <div className="field">
                     <span className="field-label">{t('conv.output')}</span>
                     <div className="seg" role="group">
-                      <button type="button" aria-pressed={target === 'project'} onClick={() => patch({ target: 'project' })}>{t('conv.intoProject', { name: project?.name ?? '' })}</button>
-                      <button type="button" aria-pressed={target === 'dataset'} onClick={() => patch({ target: 'dataset' })}>{t('conv.asDataset')}</button>
+                      <button type="button" aria-pressed={target === 'project'} onClick={() => patch({ target: 'project', requestKey: null })}>{t('conv.intoProject', { name: project?.name ?? '' })}</button>
+                      <button type="button" aria-pressed={target === 'dataset'} onClick={() => patch({ target: 'dataset', requestKey: null })}>{t('conv.asDataset')}</button>
                     </div>
                   </div>
                 ) : null}
                 {target === 'dataset' ? (
                   <label className="field">
                     <span className="field-label">{t('conv.name')}</span>
-                    <input className="input" value={settings.name} onChange={(e) => setSettings({ name: e.target.value })} />
+                    <input className="input" aria-label={t('conv.name')} value={settings.name} onChange={(e) => setSettings({ name: e.target.value })} />
                     {/* DCM-14 (AUD-A2-14): a taken name is said here, not silently suffixed later */}
                     {clash ? <span className="conv-help" role="note" style={{ color: 'var(--warn)' }}>{t('conv.nameTaken', { name: clash.name, next: nextFree })}</span> : null}
                     <span className="muted conv-help">{t('conv.nameHelp')}</span>
@@ -371,11 +471,11 @@ export default function ConverterOverlay() {
                   {t('conv.needsDerived')} <button type="button" className="btn btn-sm" onClick={() => setDerivedPrompt(true)}>{t('conv.chooseDerived')}</button>
                 </div>
               ) : null}
-              {scan ? (
-                <ScanPanel progress={scanProgress} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} />
+              {working ? (
+                <ScanPanel progress={operation ? { stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage ?? 'listing', done: operation.progress?.done ?? operation.progress?.files ?? 0, total: operation.progress?.total ?? 0 } : scanProgress} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} />
               ) : (
                 <div className="conv-row conv-actions">
-                  <button type="button" className="btn btn-primary" disabled={needsDerived} onClick={() => void dryRun()}>{t('conv.dryRun')}</button>
+                  <button type="button" className="btn btn-primary" disabled={needsDerived || busy} onClick={() => void dryRun()}>{t('conv.dryRun')}</button>
                   <span className="muted conv-help">{t('conv.dryRunHelp')}</span>
                 </div>
               )}
@@ -389,7 +489,7 @@ export default function ConverterOverlay() {
                 <div className="card"><span className="kpi num">{estimate.n_skipped}</span><span className="muted">{t('conv.skipped')}</span></div>
                 <div className="card"><span className="kpi num">{fmtBytes(estimate.output_bytes)}</span><span className="muted">{t('conv.storage')}</span></div>
               </div>
-              <SeriesPlanTable estimate={estimate} />
+              <SeriesPlanTable key={`${operationId ?? 'legacy'}.${operation?.plan_attempt ?? ''}`} estimate={estimate} operation={operation} />
               {estimate.sample_errors?.length ? <div className="error-card">{estimate.sample_errors.join('; ')}</div> : null}
               <div className="conv-row conv-actions">
                 <button type="button" className="btn" onClick={() => patch({ step: 'settings' })}>{t('conv.back')}</button>
@@ -398,35 +498,41 @@ export default function ConverterOverlay() {
             </div>
           ) : null}
           {step === 'run' && activity ? <RunPanel activity={activity} onResult={() => patch({ step: 'result' })} onCancel={() => void cancelRun()} /> : null}
-          {step === 'run' && (ws?.error || prun?.error) ? <div className="error-card">{ws?.error ?? prun?.error}</div> : null}
+          {step === 'run' && memoryMessage ? <p className="muted conv-help" role="status">{memoryMessage}</p> : null}
+          {step === 'run' && runStatus !== 'waiting_for_resources' && (ws?.error || prun?.error) ? <div className="error-card">{ws?.error ?? prun?.error}</div> : null}
           {step === 'result' && run?.kind === 'dataset' && ws ? (
             <div className="conv-body" data-testid="conv-result">
               <p>{t(ws.status === 'completed' ? 'conv.datasetReady' : 'conv.datasetPartial', { name: ws.name })}</p>
               <p className="mono conv-path">{dataset}</p>
-              <p className="muted conv-help">{t('conv.datasetHelp')}</p>
+              <p className="muted conv-help">{t(ws.status === 'completed' ? 'conv.datasetHelp' : 'conv.partialHelp')}</p>
               <div className="conv-row conv-actions">
-                <button type="button" className="btn" onClick={openDataset}>{t('conv.open')}</button>
-                <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>{t('conv.createProject')}</button>
+                <button type="button" className="btn" disabled={ws.status !== 'completed'} onClick={openDataset}>{t('conv.open')}</button>
+                <button type="button" className="btn btn-primary" disabled={ws.status !== 'completed'} onClick={() => setCreating(true)}>{t('conv.createProject')}</button>
               </div>
               <div className="conv-row">
                 <select className="input" aria-label={t('conv.addTo')} value={addTo} onChange={(e) => setAddTo(e.target.value)}>
                   <option value="">{t('conv.pickProject')}</option>
                   {projects.map((p) => <option key={p.project_id} value={p.project_id}>{p.name}</option>)}
                 </select>
-                <button type="button" className="btn" disabled={!addTo} onClick={addToProject}>{t('conv.addTo')}</button>
+                <button type="button" className="btn" disabled={!addTo || ws.status !== 'completed'} onClick={addToProject}>{t('conv.addTo')}</button>
               </div>
               <NewProjectDialog open={creating} onOpenChange={(o) => { setCreating(o); if (!o) close() }} prefill={{ path: dataset }} />
             </div>
           ) : null}
           {step === 'result' && run?.kind === 'project' ? (
             <div className="conv-body">
-              <p>{t('conv.projectDone')}</p>
+              <p>{t(prun?.status === 'completed' && !prun.error ? 'conv.projectDone' : 'conv.projectPartial')}</p>
               <div className="conv-row conv-actions"><button type="button" className="btn btn-primary" onClick={close}>{t('conv.close')}</button></div>
             </div>
           ) : null}
-          {error ? (
+          {resumable ? <div className="conv-row conv-actions">
+            <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified} onClick={() => void control('resume')}>{t('conv.resumePending')}</button>
+            <button type="button" className="btn" disabled={busy} onClick={() => patch({ operationId: null, requestKey: null, step: 'settings', run: null })}>{t('conv.newDryRun')}</button>
+          </div> : null}
+          {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}
+          {shownError ? (
             <ProblemCard
-              error={error}
+              error={shownError}
               labels={{ import_as: t('conv.createProject') }}
               onAction={{
                 // AUD-A2-07: no DICOM here → view it, or make a project from its NIfTI files
@@ -435,7 +541,7 @@ export default function ConverterOverlay() {
                   if (source) openPath(navigate, source)
                 },
                 import_as: () => source && useConverter.setState({ createFrom: source }),
-                choose_another_path: () => patch({ error: null, step: 'source' }),
+                choose_another_path: () => patch({ error: null, step: 'source', operationId: null, requestKey: null }),
               }}
             />
           ) : null}

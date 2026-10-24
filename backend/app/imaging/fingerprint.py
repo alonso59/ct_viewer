@@ -9,11 +9,14 @@ import hashlib
 from pathlib import Path
 
 from app.core.paths import open_source
+from app.imaging import maskset
 
 CHUNK = 64 * 1024
 
 
 def quick_fingerprint(path: Path) -> str:
+    if path.is_dir():
+        return maskset.fingerprint(path)
     with open_source(path) as fh:
         fh.seek(0, 2)
         size = fh.tell()

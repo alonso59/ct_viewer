@@ -171,3 +171,8 @@ def get_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
 @router.post("/task-runs/{rid}/cancel", response_model=WorkspaceRun)
 def cancel_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
     return wsvc(ctx).cancel(rid)
+
+
+@router.post("/task-runs/{rid}/resume", response_model=TaskRunStarted, status_code=202)
+async def resume_workspace_run(ctx: Ctx, rid: str) -> TaskRunStarted:
+    return await wsvc(ctx).resume(rid)

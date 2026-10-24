@@ -12,12 +12,9 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
+from plugins.dicom import files as source_files
 from plugins.text import split_multi_value, value_to_text
 
-IGNORED_DIR_NAMES = {
-    ".git", "__pycache__", "autorun", "bin", "configuration", "help", "java", "jre", "lib",
-    "modules", "plugins", "resource", "resources", "recycle_bin", "derived",
-}  # fmt: skip
 IGNORED_FILE_SUFFIXES = {
     ".ags", ".agm", ".bmp", ".cmd", ".csv", ".doc", ".docx", ".dll", ".exe", ".gz", ".inf",
     ".ini", ".jar", ".json", ".jsonl", ".log", ".md", ".nii", ".npy", ".pdf", ".sh", ".tar",
@@ -33,6 +30,7 @@ MULTIPLE_STACK_GAP_FACTOR = 3.0
 ENHANCED_CT_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.2.1"
 ENHANCED_MR_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.4.1"
 DICOM_SEG_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.66.4"
+INVENTORY_VERSION = "1"
 
 
 @dataclass(frozen=True)
@@ -44,6 +42,7 @@ class Series:
     headers: tuple[Any, ...] = field(default=(), compare=False, repr=False)
     # the files' total size, known from that pass (0: unknown); a stat per file is a round trip
     source_bytes: int = 0
+    source_root: Path | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass
@@ -90,11 +89,10 @@ def candidate_dirs(root: Path) -> list[Path]:
 def candidate_files(root: Path) -> list[tuple[Path, list[Path]]]:
     """Folders under `root` with their possible DICOM files (one directory walk)."""
     out: list[tuple[Path, list[Path]]] = []
-    for cur, dirs, files in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if d.lower() not in IGNORED_DIR_NAMES and not d.startswith("."))
-        names = sorted(f for f in files if Path(f).suffix.lower() not in IGNORED_FILE_SUFFIXES)
-        if names:
-            out.append((Path(cur), [Path(cur) / f for f in names]))
+    for folder, paths in source_files.folders(root):
+        candidates = [p for p in paths if p.suffix.lower() not in IGNORED_FILE_SUFFIXES]
+        if candidates:
+            out.append((folder, candidates))
     return out
 
 
@@ -108,22 +106,28 @@ SCAN_TAGS = [
     "PerFrameFunctionalGroupsSequence",
 ]  # fmt: skip
 # Header reads overlap: sources are often on network or bind mounts, where latency dominates
-READ_THREADS = 16
+READ_THREADS = 4
 # One read per file: the header is parsed from memory. Many small reads (pydicom on a file
 # object) are one round trip each on a network or Docker Desktop bind mount (~10x slower).
 HEAD_BYTES = 16_384
+MAX_HEADER_BYTES = 8 * 1024 * 1024
 PIXEL_TAGS = (b"\xe0\x7f\x10\x00", b"\x7f\xe0\x00\x10")  # (7FE0,0010) little / big endian
 
 
 def _looks_dicom(head: bytes) -> bool:
     """A `DICM` preamble, or a file starting at group 0002/0008 (GDCM reads those too)."""
-    return head[128:132] == b"DICM" or head[:2] in (b"\x02\x00", b"\x08\x00")
+    return head[128:132] == b"DICM" or head[:2] in (
+        b"\x02\x00",
+        b"\x08\x00",
+        b"\x00\x02",
+        b"\x00\x08",
+    )
 
 
-def _head(path: Path, check: bool = False) -> tuple[bytes, bool, int] | None:
+def _head(path: Path, check: bool = False, root: Path | None = None) -> tuple[bytes, bool, int] | None:
     """(bytes up to the pixel data or the whole file, whether it is cut short, file size);
     None when `check` and it doesn't look like DICOM (then only its first bytes were read)."""
-    with path.open("rb", buffering=0) as fh:
+    with source_files.open_file(path, root) as fh:
         buf = fh.read(HEAD_BYTES)
         if check and not _looks_dicom(buf):
             return None
@@ -132,37 +136,87 @@ def _head(path: Path, check: bool = False) -> tuple[bytes, bool, int] | None:
         size = os.fstat(fh.fileno()).st_size
         # a longer header (private tags, enhanced multi-frame): doubling reads, not the file
         while not any(t in buf for t in PIXEL_TAGS):
-            more = fh.read(len(buf))
+            if len(buf) >= MAX_HEADER_BYTES:
+                raise ValueError("DICOM header exceeds the configured read budget")
+            more = fh.read(min(len(buf), MAX_HEADER_BYTES - len(buf)))
             if not more:
                 return buf, False, size
             buf += more
         return buf, len(buf) < size, size
 
 
-def _parse(path: Path, head: tuple[bytes, bool, int], **kw: Any) -> Any:
-    """Headers only (`stop_before_pixels`) from memory; the whole file if a cut-short head
-    doesn't parse (a pixel-tag byte pattern inside an earlier value)."""
+class _HeaderIncomplete(Exception):
+    pass
+
+
+class _HeaderBuffer(io.BytesIO):
+    """Make pydicom's skipped values distinguish a truncated buffer from real EOF."""
+
+    def __init__(self, data: bytes, cut: bool):
+        super().__init__(data)
+        self._limit = len(data) if cut else None
+
+    def read(self, size: int | None = -1) -> bytes:
+        if self._limit is not None and (size is None or size < 0 or self.tell() + size > self._limit):
+            raise _HeaderIncomplete
+        return super().read(size)
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        position = offset if whence == 0 else self.tell() + offset if whence == 1 else len(self.getbuffer()) + offset
+        if self._limit is not None and position > self._limit:
+            raise _HeaderIncomplete
+        return super().seek(offset, whence)
+
+
+def _parse(path: Path, head: tuple[bytes, bool, int], root: Path | None = None, **kw: Any) -> Any:
+    """Retry a truncated header within the budget; pixel-tag bytes may occur in values."""
     import pydicom
     from pydicom import config as pydicom_config
 
     pydicom_config.convert_wrong_length_to_UN = True
     buf, cut, _ = head
-    try:
-        return pydicom.dcmread(io.BytesIO(buf), stop_before_pixels=True, force=True, **kw)
-    except Exception:
-        if not cut:
-            raise
-        data = io.BytesIO(path.read_bytes())
-        return pydicom.dcmread(data, stop_before_pixels=True, force=True, **kw)
+    while True:
+        try:
+            return pydicom.dcmread(_HeaderBuffer(buf, cut), stop_before_pixels=True, force=True, **kw)
+        except _HeaderIncomplete:
+            if len(buf) >= MAX_HEADER_BYTES:
+                raise ValueError("DICOM header exceeds the configured read budget") from None
+            with source_files.open_file(path, root) as fh:
+                fh.seek(len(buf))
+                more = fh.read(min(max(len(buf), HEAD_BYTES), MAX_HEADER_BYTES - len(buf)))
+                cut = len(buf) + len(more) < os.fstat(fh.fileno()).st_size
+            buf += more
 
 
-def _scan_header(path: Path) -> tuple[Any, int] | None:
+def _scan_header(path: Path, root: Path | None = None) -> tuple[Any, int] | None:
     """(`SCAN_TAGS` of one file, its size), or None when it isn't DICOM or can't be read."""
     try:
-        head = _head(path, check=True)
-        return None if head is None else (_parse(path, head, specific_tags=SCAN_TAGS), head[2])
+        return image_info(path, root)
     except Exception:  # noqa: BLE001 - any malformed candidate is not DICOM
         return None
+
+
+def image_info(path: Path, root: Path | None = None) -> tuple[Any, int] | None:
+    """Validated header facts for inventory; preserve read/budget errors as diagnostics."""
+    head = _head(path, check=True, root=root)
+    if head is None:
+        return None
+    ds = _parse(path, head, root=root, specific_tags=SCAN_TAGS)
+    return (ds, head[2]) if image_header(ds) else None
+
+
+def image_header(ds: Any) -> bool:
+    """Enough image identity/geometry to distinguish an image from a magic-byte stub."""
+    return bool(
+        getattr(ds, "SeriesInstanceUID", None)
+        and getattr(ds, "SOPClassUID", None)
+        and (_int(getattr(ds, "Rows", None)) or 0) > 0
+        and (_int(getattr(ds, "Columns", None)) or 0) > 0
+    )
+
+
+def is_dicom_image(path: Path, root: Path | None = None) -> bool:
+    return _scan_header(path, root) is not None
 
 
 def _ipp_order(files: list[Path], headers: list[Any]) -> list[int]:
@@ -192,12 +246,13 @@ def discover(
     one-file series (DCM-10). One header read per file; `tick(1)` after each.
     The pixel stage asks GDCM for its own file order again (DCM-02, `convert.read_image`)."""
     if root.is_file():
-        return [Series(root.parent, _single_series_id(root), (root,))]
+        return [Series(root.parent, _single_series_id(root), (root,), source_root=root.parent)]
     found: list[Series] = []
     with ThreadPoolExecutor(READ_THREADS, thread_name_prefix="dcm-scan") as pool:
         for d, paths in files if files is not None else candidate_files(root):
             groups: dict[str, tuple[list[Path], list[Any], list[int]]] = {}
-            for path, got in zip(paths, pool.map(_scan_header, paths), strict=True):
+            headers = pool.map(lambda p: _scan_header(p, root), paths)
+            for path, got in zip(paths, headers, strict=True):
                 if tick is not None:
                     tick(1)
                 if got is None:
@@ -219,7 +274,7 @@ def discover(
             for uid, (ps, hs, sizes) in groups.items():
                 order = _ipp_order(ps, hs)
                 ordered = tuple(ps[i] for i in order)
-                found.append(Series(d, uid, ordered, tuple(hs[i] for i in order), sum(sizes)))
+                found.append(Series(d, uid, ordered, tuple(hs[i] for i in order), sum(sizes), root))
     return sorted(found, key=lambda s: (str(s.dicom_dir), s.series_id))
 
 
@@ -228,15 +283,15 @@ def _single_series_id(path: Path) -> str:
     return value_to_text(getattr(ds, "SeriesInstanceUID", "")) or path.name
 
 
-def read_header(path: Path) -> Any:
+def read_header(path: Path, root: Path | None = None) -> Any:
     """Headers only (`stop_before_pixels`); sources are opened read-only (R1)."""
-    head = _head(path)
+    head = _head(path, root=root)
     assert head is not None
-    return _parse(path, head)
+    return _parse(path, head, root=root)
 
 
 def first_header(series: Series) -> Any:
-    return read_header(min(series.files, key=str))
+    return read_header(min(series.files, key=str), series.source_root)
 
 
 def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspection:
@@ -245,7 +300,7 @@ def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspec
         headers = (
             list(series.headers)
             if len(series.headers) == len(series.files) > 1
-            else [read_header(p) for p in series.files]
+            else [read_header(p, series.source_root) for p in series.files]
             if len(series.files) > 1
             else [first]
         )

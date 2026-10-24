@@ -323,6 +323,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/open/{sid}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Items
+         * @description API-07 / SRC-18: stable paging over complete series, never a prefix of slices.
+         */
+        get: operations["open_items_api_v1_open__sid__items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/open/{sid}/items/{n}/image": {
         parameters: {
             query?: never;
@@ -415,6 +435,143 @@ export interface paths {
          * @description SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once.
          */
         post: operations["open_save_api_v1_open__sid__items__n__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Operations */
+        get: operations["list_operations_api_v1_source_operations_get"];
+        put?: never;
+        /** Start */
+        post: operations["start_api_v1_source_operations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["get_api_v1_source_operations__oid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Series */
+        get: operations["series_api_v1_source_operations__oid__series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_source_operations__oid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume */
+        post: operations["resume_api_v1_source_operations__oid__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate */
+        post: operations["estimate_api_v1_source_operations__oid__estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Convert */
+        post: operations["convert_api_v1_source_operations__oid__convert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plan */
+        get: operations["plan_api_v1_source_operations__oid__plan_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1528,6 +1685,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/task-runs/{rid}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Workspace Run */
+        post: operations["resume_workspace_run_api_v1_task_runs__rid__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins": {
         parameters: {
             query?: never;
@@ -2434,6 +2608,8 @@ export interface components {
             available: boolean;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Sample */
+            sample?: string[];
         };
         /** CaseDetail */
         CaseDetail: {
@@ -3862,6 +4038,32 @@ export interface components {
             /** Error */
             error: string;
         };
+        /** InventoryPage */
+        InventoryPage: {
+            /** Items */
+            items: components["schemas"]["InventorySeries"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Generation */
+            generation?: string | null;
+            /** Total */
+            total: number;
+        };
+        /** InventorySeries */
+        InventorySeries: {
+            /** Key */
+            key: string;
+            /** Directory */
+            directory: string;
+            /** Uid */
+            uid: string;
+            /** N Files */
+            n_files: number;
+            /** Source Bytes */
+            source_bytes: number;
+            /** First Rel */
+            first_rel: string;
+        };
         /** Issue */
         Issue: {
             /** Loc */
@@ -4522,6 +4724,15 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[OpenItem] */
+        Page_OpenItem_: {
+            /** Items */
+            items: components["schemas"]["OpenItem"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
         /** Page[PhaseEvent] */
         Page_PhaseEvent_: {
             /** Items */
@@ -4544,6 +4755,15 @@ export interface components {
         Page_QcWarning_: {
             /** Items */
             items: components["schemas"]["QcWarning"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
+        /** Page[SourceOperation] */
+        Page_SourceOperation_: {
+            /** Items */
+            items: components["schemas"]["SourceOperation"][];
             /** Next Cursor */
             next_cursor?: string | null;
             /** Total */
@@ -4628,6 +4848,19 @@ export interface components {
              * @enum {string}
              */
             role: "source" | "derived";
+        };
+        /** PendingSourceControl */
+        PendingSourceControl: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "cancel" | "resume";
+            request: components["schemas"]["SourceOperationControl"];
+            /** Request Id */
+            request_id: string;
+            /** Run Attempt */
+            run_attempt: number;
         };
         /**
          * PhaseChange
@@ -5784,6 +6017,190 @@ export interface components {
             /** Run Id */
             run_id?: string | null;
         };
+        /** SourceOperation */
+        SourceOperation: {
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+            /** Operation Id */
+            operation_id: string;
+            /** Source */
+            source: string;
+            /** Project Id */
+            project_id: string | null;
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "discover" | "open" | "convert";
+            /**
+             * Status
+             * @default queued
+             * @enum {string}
+             */
+            status: "queued" | "waiting_for_runner" | "running" | "completed" | "completed_with_errors" | "failed" | "cancelled" | "interrupted" | "waiting_for_resources" | "pausing" | "paused" | "cancelling" | "reconciling" | "cleanup_pending";
+            /**
+             * Stage
+             * @default discovering
+             */
+            stage: string;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /**
+             * Attempt
+             * @default 1
+             */
+            attempt: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Request Hash */
+            request_hash: string;
+            /**
+             * Cleanup Verified
+             * @default true
+             */
+            cleanup_verified: boolean;
+            /** Progress */
+            progress?: {
+                [key: string]: number;
+            };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            };
+            /** Control */
+            control?: {
+                [key: string]: unknown;
+            };
+            pending_control?: components["schemas"]["PendingSourceControl"] | null;
+            /**
+             * Work Kind
+             * @default inventory
+             * @enum {string}
+             */
+            work_kind: "inventory" | "estimate" | "convert";
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            estimate?: components["schemas"]["TaskEstimate"] | null;
+            /** Plan Attempt */
+            plan_attempt?: number | null;
+            /**
+             * Plan Total
+             * @default 0
+             */
+            plan_total: number;
+            /** Progress Stage */
+            progress_stage?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Problem */
+            problem?: {
+                [key: string]: unknown;
+            } | null;
+            /** Conversion Run Id */
+            conversion_run_id?: string | null;
+            /** Conversion Request */
+            conversion_request?: {
+                [key: string]: unknown;
+            };
+            /** Conversion Run */
+            conversion_run?: components["schemas"]["TaskRunDetail"] | components["schemas"]["WorkspaceRun"] | null;
+            /**
+             * Prepare Plan
+             * @default false
+             */
+            prepare_plan: boolean;
+            /** Dataset Name */
+            dataset_name?: string | null;
+        };
+        /** SourceOperationControl */
+        SourceOperationControl: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Expected Attempt */
+            expected_attempt: number;
+            /** Expected Run Attempt */
+            expected_run_attempt?: number | null;
+        };
+        /** SourceOperationConvert */
+        SourceOperationConvert: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Expected Attempt */
+            expected_attempt: number;
+            /** Expected Run Attempt */
+            expected_run_attempt?: number | null;
+            /** Inventory Generation */
+            inventory_generation: string;
+            /** Plan Attempt */
+            plan_attempt: number;
+            /** Name */
+            name?: string | null;
+        };
+        /** SourceOperationEstimate */
+        SourceOperationEstimate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Expected Attempt */
+            expected_attempt: number;
+            /** Expected Run Attempt */
+            expected_run_attempt?: number | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name?: string | null;
+        };
+        /** SourceOperationStart */
+        SourceOperationStart: {
+            /** Path */
+            path: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * Purpose
+             * @default convert
+             * @enum {string}
+             */
+            purpose: "discover" | "open" | "convert";
+            /**
+             * Prepare Plan
+             * @default false
+             */
+            prepare_plan: boolean;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name?: string | null;
+        };
+        /** SourcePlanPage */
+        SourcePlanPage: {
+            /** Items */
+            items: components["schemas"]["SeriesPlan"][];
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Generation */
+            generation?: string | null;
+        };
         /** Suggestion */
         Suggestion: {
             /** Task Id */
@@ -6069,6 +6486,17 @@ export interface components {
             /** Manifest Hash */
             manifest_hash: string;
         };
+        /** TaskResourceWait */
+        TaskResourceWait: {
+            /** Reason */
+            reason: string;
+            /** Required Mb */
+            required_mb?: number | null;
+            /** Budget Mb */
+            budget_mb?: number | null;
+            /** Remedy */
+            remedy?: string | null;
+        };
         /** TaskRunCounts */
         TaskRunCounts: {
             /**
@@ -6170,6 +6598,8 @@ export interface components {
              * @default 0
              */
             attempts: number;
+            /** Resume Request Id */
+            resume_request_id?: string | null;
             /**
              * Progress Cursor
              * @default 0
@@ -6181,6 +6611,7 @@ export interface components {
              */
             progress_done: number;
             progress?: components["schemas"]["TaskRunProgress"] | null;
+            resource_wait?: components["schemas"]["TaskResourceWait"] | null;
             radiomics?: components["schemas"]["RunDetail"] | null;
         };
         /** TaskRunInput */
@@ -6265,6 +6696,18 @@ export interface components {
             total: number;
             /** Eta S */
             eta_s?: number | null;
+            /** Stage */
+            stage?: string | null;
+            /**
+             * Stage Done
+             * @default 0
+             */
+            stage_done: number;
+            /**
+             * Stage Total
+             * @default 0
+             */
+            stage_total: number;
         };
         /** TaskRunRequest */
         TaskRunRequest: {
@@ -6611,11 +7054,15 @@ export interface components {
              * @default nifti
              * @enum {string}
              */
-            format: "nifti" | "npy";
+            format: "nifti" | "npy" | "nifti_dir";
             /** Fp */
             fp?: string | null;
             /** Sha256 */
             sha256?: string | null;
+            /** Labels */
+            labels?: {
+                [key: string]: number;
+            } | null;
         };
         /** WindowLevel */
         WindowLevel: {
@@ -6686,6 +7133,23 @@ export interface components {
             error?: string | null;
             /** Job Id */
             job_id?: string | null;
+            /**
+             * Attempts
+             * @default 1
+             */
+            attempts: number;
+            /** Resume Request Id */
+            resume_request_id?: string | null;
+            /**
+             * Cleanup Verified
+             * @default true
+             */
+            cleanup_verified: boolean;
+            /** Provenance */
+            provenance?: {
+                [key: string]: unknown;
+            };
+            resource_wait?: components["schemas"]["TaskResourceWait"] | null;
         };
         /** WorkspaceRunRequest */
         WorkspaceRunRequest: {
@@ -7463,6 +7927,41 @@ export interface operations {
             };
         };
     };
+    open_items_api_v1_open__sid__items_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OpenItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     open_image_api_v1_open__sid__items__n__image_get: {
         parameters: {
             query?: {
@@ -7631,6 +8130,312 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Saved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_operations_api_v1_source_operations_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SourceOperation_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_v1_source_operations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_api_v1_source_operations__oid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    series_api_v1_source_operations__oid__series_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_source_operations__oid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_api_v1_source_operations__oid__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_api_v1_source_operations__oid__estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationEstimate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_api_v1_source_operations__oid__convert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationConvert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_api_v1_source_operations__oid__plan_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+                action?: ("convert" | "skip") | null;
+            };
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePlanPage"];
                 };
             };
             /** @description Validation Error */
@@ -9907,6 +10712,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_workspace_run_api_v1_task_runs__rid__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunStarted"];
                 };
             };
             /** @description Validation Error */

@@ -334,6 +334,7 @@ class TaskRunRecord(TaskRunSummary):
     output_dir: str | None = None  # absolute, inside the project's derived root
     outputs: list[TaskRunOutput] = Field(default_factory=list)
     attempts: int = 0
+    resume_request_id: str | None = None
     progress_cursor: int = 0
     progress_done: int = 0
 
@@ -342,10 +343,21 @@ class TaskRunProgress(BaseModel):
     done: int
     total: int
     eta_s: float | None = None
+    stage: str | None = None
+    stage_done: int = 0
+    stage_total: int = 0
+
+
+class TaskResourceWait(BaseModel):
+    reason: str
+    required_mb: int | None = None
+    budget_mb: int | None = None
+    remedy: str | None = None
 
 
 class TaskRunDetail(TaskRunRecord):
     progress: TaskRunProgress | None = None
+    resource_wait: TaskResourceWait | None = None
     # radiomics.pyradiomics runs live in `radiomics/runs/` (RAD-13): their RAD-09 record
     radiomics: RunDetail | None = None
 

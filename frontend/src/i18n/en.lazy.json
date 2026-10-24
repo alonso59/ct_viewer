@@ -798,6 +798,33 @@
     "exportSensitive": "Include sensitive fields (patient id, dates, UIDs, accession numbers)"
   },
   "conv": {
+    "connecting": "Connecting to the operation…",
+    "recentOperations": "Recent operations",
+    "operationOption": "{{source}} · {{status}}",
+    "chooseOperation": "Choose an operation…",
+    "currentOperation": "Current operation",
+    "newOperation": "New conversion",
+    "planFilter": "Show series",
+    "planAll": "All series",
+    "planSkipped": "Skipped",
+    "planPage": "{{n}} of {{total}} matching series on this page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "planChanged": "The source plan changed. Start a new dry run.",
+    "browseFolders": "Browse files and folders",
+    "etaUnknown": "Conversion time: unknown until compatible measurements are available.",
+    "provisional": "Discovery counts are provisional until the scan finishes.",
+    "partialHelp": "Images already converted are preserved. Resume to finish this dataset.",
+    "projectPartial": "Conversion is unfinished or output registration needs attention.",
+    "resumePending": "Resume pending work",
+    "newDryRun": "Start a new dry run",
+    "counts": {
+      "folders": "Folders visited",
+      "files": "Files examined",
+      "dicom": "DICOM confirmed",
+      "series": "Complete series",
+      "errors": "Read errors"
+    },
     "title": "Convert DICOM",
     "steps": "Converter steps",
     "step": {
@@ -841,14 +868,22 @@
       "listing": "Listing folders ({{done}} so far)",
       "reading": "Reading headers: {{done}} / {{total}} files",
       "planning": "Planning series: {{done}} / {{total}}",
-      "converting": "Converting: {{done}} / {{total}} series"
+      "converting": "Converted: {{done}} / {{total}} selected series",
+      "admitted": "Starting conversion",
+      "verifying_inputs": "Verifying source files",
+      "analyzing": "Analyzing phase: {{done}} / {{total}} rows",
+      "memory_budget": "Checking memory requirements",
+      "waiting_for_resources": "Waiting for resources"
     },
     "elapsed": "{{s}} s · you can minimize this window, the dry run goes on",
     "minimize": "Minimize",
     "minimizeHint": "Minimize: it keeps running and shows its progress at the bottom left",
     "cancelScan": "Cancel dry run",
     "cancelRun": "Cancel conversion",
-    "converting": "Converting: {{done}} / {{total}} series",
+    "converting": "Converted: {{done}} / {{total}} selected series",
+    "progressStage": "{{progress}} · {{stage}}",
+    "memoryBudget": "Estimated memory: {{required}} MiB. Current budget: {{budget}} MiB. Cancel this attempt and increase its approved memory budget before resuming.",
+    "memoryUnknown": "The series geometry does not provide a reliable memory estimate. Review the source before resuming.",
     "show": "Show",
     "idle": "Ready",
     "found": "series found",
@@ -859,6 +894,10 @@
     "run": "Convert {{n}} series",
     "status": {
       "running": "Converting…",
+      "waiting_for_resources": "Waiting for resources…",
+      "cancelling": "Cancelling…",
+      "cleanup_pending": "Verifying that execution stopped…",
+      "reconciling": "Registering results…",
       "completed": "Completed",
       "completed_with_errors": "Completed with errors",
       "failed": "Failed",
@@ -1090,7 +1129,7 @@
     "suggestPattern": "Suggest a pattern",
     "suggestHelp": "Built from the file names in this folder. Picking one fills the pattern field; review and edit it before Preview.",
     "suggestMatches": "matches {{n}} of {{total}} sampled names",
-    "suggestNone": "No NIfTI or NumPy files directly in this folder to suggest from.",
+    "suggestNone": "No NIfTI or NumPy files in this folder to suggest from.",
     "suggestNoMatch": "No common structure found in these file names; the default (one case per file) applies.",
     "commit": "Import and index",
     "detectTitle": "Detected source",
@@ -1163,7 +1202,7 @@
     "nifti": {
       "pattern": "File name pattern",
       "patternDefault": "Default: ^(?P<case_id>.+)$ (one case per file)",
-      "patternHelp": "A regular expression on the file name without extension; named groups case_id, scan_idx, channel, modality, phase, side. Unmatched names become one case per file.",
+      "patternHelp": "A regular expression on the file name without extension, or on the relative path when it contains /; named groups case_id, scan_idx, channel, modality, phase, side. Unmatched names become one case per file.",
       "caseIdFrom": "Case id from",
       "from": {
         "pattern": "the pattern",
@@ -1180,7 +1219,12 @@
       "orphans_one": "{{count}} mask has no image",
       "orphans_other": "{{count}} masks have no image",
       "withMask": "With the segmentation attached in Open mode: {{mask}}",
-      "patternPrefilled": "Filled from the file names (the converter's naming: scan, case, channel). Edit it, or clear it for one case per file."
+      "patternPrefilled": "Filled from the file names (the converter's naming: scan, case, channel). Edit it, or clear it for one case per file.",
+      "patternPrefilledFolder": "File names repeat across folders, so each image's folder is its case (several images in one folder become scans 01, 02…). Edit it, or clear it for one case per file.",
+      "maskTemplate": "Mask path template (optional)",
+      "maskTemplatePlaceholder": "e.g. labels/{case_id}.nii.gz or LabelTr/{case_id}/segmentations",
+      "maskTemplateHelp": "Relative to the root; fields are the pattern's groups plus {stem} and {dir}. A folder of NIfTI files is a mask set: one binary mask per structure, shown as one label map named after the files.",
+      "patternPrefilledPaired": "Filled from the image and label folders side by side: each image's case folder, and its mask at the same place under the label folder. Check it below, or change it."
     },
     "converted": "DICOM converted; the converted series are being indexed",
     "adapterHint": {
@@ -1189,7 +1233,34 @@
       "dicom_convert": "Task dicom.convert: DICOM series → NIfTI with sidecars (DCM-*)",
       "open": "Open mode: view without a project"
     },
-    "kpiCasesHelp": "Cases with at least one row that is not excluded upstream; {{excluded}} case(s) whose every row is excluded are counted only under \"excluded upstream\"."
+    "kpiCasesHelp": "Cases with at least one row that is not excluded upstream; {{excluded}} case(s) whose every row is excluded are counted only under \"excluded upstream\".",
+    "byExample": {
+      "title": "Cases and masks, by example",
+      "help": "This is one of your images. Mark the part of its path that names the case (and the scan, side or channel if there is one); the rest stays as it is. The pattern is built for you.",
+      "example": "Example image",
+      "tokens": "Parts of the example path",
+      "roleOf": "What {{text}} is",
+      "role": {
+        "case_id": "Case",
+        "scan_idx": "Scan",
+        "side": "Side (L/R)",
+        "channel": "Channel",
+        "fixed": "Same in every file",
+        "any": "Varies, ignore"
+      },
+      "matches": "{{n}} of {{total}} sampled images follow this example",
+      "noCase": "No part is marked as the case yet: every file is its own case.",
+      "maskOf": "Mask of this image:",
+      "maskNone": "none",
+      "chooseMask": "Choose its mask…",
+      "clearMask": "No masks",
+      "useFolder": "Use folder {{name}} (one mask per structure)",
+      "maskHelp": "Pick the mask file of {{example}}, or open its folder of masks and use the folder. The same place is used for every case.",
+      "mask_noCase": "Mark the case first: the mask is found from it.",
+      "mask_outside": "The mask must be inside the chosen folder.",
+      "mask_same": "This path does not contain the example's case, so every image would get the same mask. Pick the mask that belongs to this image.",
+      "advanced": "Advanced: pattern and mask template as text"
+    }
   },
   "lbl": {
     "derivedUsers_one": "The derived variable {{list}} uses it and will show as broken until you delete it in Variables.",

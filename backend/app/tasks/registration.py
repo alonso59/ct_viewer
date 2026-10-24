@@ -5,17 +5,21 @@ derived ledger, identity / annotations / metadata → an import.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from app.core.fsio import append_jsonl, iter_jsonl, write_jsonl_atomic
+from app.core.errors import JobConflict
+from app.core.fsio import append_jsonl, atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
 from app.core.ids import utc_now
 from app.core.paths import is_within, realpath
 from app.imaging.fingerprint import quick_fingerprint
 from app.projects.models import LabelEntry, SegmentationSet, SegProducer
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.sources import identity as identity_store
+from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.estimate import EstimateBase
 from app.tasks.models import TaskRunOutput
 from app.tasks.records import ANNOTATIONS, LEDGER, Live, default_seg_id, sha256_file
@@ -23,6 +27,68 @@ from app.tasks.records import ANNOTATIONS, LEDGER, Live, default_seg_id, sha256_
 
 class RegistrationBase(EstimateBase):
     """Validates and registers what a run wrote (TSK-09, ADR-0014/0015)."""
+
+    async def _finalize_dicom(self, live: Live, result: dict[str, Any]) -> None:
+        """Replay metadata finalization only after proof that the native writer stopped."""
+        async with self.locks(f"_dicom_registration:{live.pid}:{live.rid}"):
+            record = self.runs.read(live.run_dir)
+            path = live.run_dir / "registration.json"
+            identity = {
+                "version": 1,
+                "job_id": record.job_id,
+                "attempt": record.attempts,
+                "result_sha256": hashlib.sha256(
+                    json.dumps(result, sort_keys=True).encode()
+                ).hexdigest(),
+            }
+            previous = read_json(path) if path.exists() else None
+            if previous is not None:
+                if not isinstance(previous, dict) or previous.get("status") not in {
+                    "pending",
+                    "completed",
+                    "failed",
+                }:
+                    raise JobConflict("Conversion registration checkpoint is corrupt")
+                if any(previous.get(key) != value for key, value in identity.items()):
+                    raise JobConflict(
+                        "Conversion registration attempt/result changed; review before recovery"
+                    )
+                if previous.get("status") == "completed":
+                    await self._clear_registration_error(live)
+                    return
+            if record.status != "completed" or not attempt_cleaned(live.job_dir, record.attempts):
+                raise JobConflict(
+                    "Conversion registration requires completed work and verified cleanup"
+                )
+            atomic_write_json(path, {**identity, "status": "pending"})
+            try:
+                resolver = self.workspace.resolver(live.pid)
+                for output in record.outputs:
+                    if output.kind in {"image", "sidecar"} and output.ref and output.sha256:
+                        digest = await asyncio.to_thread(sha256_file, resolver.resolve(output.ref))
+                        if digest != output.sha256:
+                            raise JobConflict(
+                                "A committed conversion artifact changed before registration"
+                            )
+                await self._register_tabular(live, result)
+                atomic_write_json(path, {**identity, "status": "completed"})
+                await self._clear_registration_error(live)
+            except Exception as exc:
+                atomic_write_json(
+                    path, {**identity, "status": "failed", "error": type(exc).__name__}
+                )
+                async with self.locks(live.pid):
+                    current = self.runs.read(live.run_dir)
+                    current.error = f"output registration: {type(exc).__name__}: {exc}"
+                    self.runs.write(live.run_dir, current)
+                raise
+
+    async def _clear_registration_error(self, live: Live) -> None:
+        async with self.locks(live.pid):
+            current = self.runs.read(live.run_dir)
+            if current.error and current.error.startswith("output registration:"):
+                current.error = None
+                self.runs.write(live.run_dir, current)
 
     def _record_gpu_ledger(self, live: Live) -> None:
         """Caller holds the project lock; replay appends only previously unrecorded outputs."""
@@ -179,6 +245,10 @@ class RegistrationBase(EstimateBase):
                 src = (live.job_dir / str(o.get("path", ""))).resolve()
                 if not src.is_file() or not src.is_relative_to(live.job_dir.resolve()):
                     continue
+                if m.id == "dicom.convert" and (
+                    not o.get("sha256") or await asyncio.to_thread(sha256_file, src) != o["sha256"]
+                ):
+                    raise JobConflict("Committed converter annotations changed before registration")
                 rows = [r for r in iter_jsonl(src) if r.get("item_id") and r.get("field")]
                 async with self.locks(pid):
                     write_jsonl_atomic(live.run_dir / ANNOTATIONS, rows)
@@ -206,8 +276,17 @@ class RegistrationBase(EstimateBase):
                     raise ValueError("metadata.jsonl must be inside the run's output_dir")
                 root = self.workspace.derived_root(pid)
                 data = await asyncio.to_thread(path.read_bytes)
+                if m.id == "dicom.convert" and (
+                    not o.get("sha256") or hashlib.sha256(data).hexdigest() != o["sha256"]
+                ):
+                    raise JobConflict("Committed converter metadata changed before registration")
                 commit = await ingest.import_generated(
-                    pid, data, root=root.path, alias=root.alias, source_key=f"task:{m.id}"
+                    pid,
+                    data,
+                    root=root.path,
+                    alias=root.alias,
+                    source_key=f"task:{m.id}",
+                    run_id=rid if m.id == "dicom.convert" else None,
                 )
                 imported = True
                 new_outputs.append(
@@ -217,7 +296,11 @@ class RegistrationBase(EstimateBase):
             if new_outputs:
                 async with self.locks(pid):
                     rec = self.runs.read(live.run_dir)
-                    rec.outputs = [*rec.outputs, *new_outputs]
+                    for output in new_outputs:
+                        rec.outputs = [
+                            o for o in rec.outputs if (o.kind, o.ref) != (output.kind, output.ref)
+                        ]
+                        rec.outputs.append(output)
                     self.runs.write(live.run_dir, rec)
         if activated and not imported:
             await ingest.reindex(pid)

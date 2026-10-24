@@ -44,6 +44,9 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
         ctx.server_lock.acquire()  # BE-05: refuse to start if another server holds it
         try:
             ctx.workspace.open()
+            from app.tasks.dicom_resources import initialize as initialize_dicom_resources
+
+            initialize_dicom_resources(s)
             RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).recover()
             wire(ctx)
             await ctx.jobs.start()
@@ -53,6 +56,7 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
             await TaskService(
                 s, ctx.registry, ctx.workspace, ctx.index, ctx.jobs, ctx.bus, ctx.locks
             ).recover_all()
+            await ctx.source_operations.recover_all()
             if not ctx.guard.restricted:
                 log.warning("ALLOWED_DATA_ROOTS is empty: path access is unrestricted (dev only)")
             yield

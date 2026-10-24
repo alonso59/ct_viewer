@@ -42,7 +42,11 @@ def _no_dicom(path: Path) -> UnsupportedFormat | None:
     s = formats.scan(path.parent, [path.name]) if path.is_file() else formats.scan(path)
     if s.files["dicom"]:
         return None
-    n_nifti = len(s.files["nifti"])
+    return no_dicom_problem(path, len(s.files["nifti"]))
+
+
+def no_dicom_problem(path: Path, n_nifti: int) -> UnsupportedFormat:
+    """Use the same refusal/actions for synchronous and persisted background plans."""
     found = f"{n_nifti} NIfTI files found" if n_nifti else "no NIfTI files either"
     actions = ["open", "import_as:nifti-files"] if n_nifti else []
     return UnsupportedFormat(

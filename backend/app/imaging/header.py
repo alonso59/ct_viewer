@@ -14,8 +14,9 @@ import nibabel as nib
 import numpy as np
 
 from app.core.paths import open_source
+from app.imaging import maskset
 
-VolumeFormat = Literal["nifti", "npy"]
+VolumeFormat = Literal["nifti", "npy", "nifti_dir"]  # nifti_dir: a mask set (maskset.py)
 AFFINE_ATOL_MM = 1e-3
 
 
@@ -50,7 +51,10 @@ def read_header(
     path: Path, *, spacing: tuple[float, ...] | None = None, axis_order: str = "xyz"
 ) -> HeaderInfo:
     """Read geometry without decoding voxels. `spacing` / `axis_order` apply to `.npy` (SRC-12):
-    a `zyx` array reports the NIfTI (x, y, z) shape it converts to."""
+    a `zyx` array reports the NIfTI (x, y, z) shape it converts to. A folder is a mask set: its
+    members must share one geometry."""
+    if path.is_dir():
+        return _read_set(path)
     if volume_format(path) == "npy":
         info = _read_npy(path, spacing)
         if axis_order == "zyx":
@@ -93,6 +97,20 @@ def _read_npy(path: Path, spacing: tuple[float, ...] | None) -> HeaderInfo:
         raise HeaderError(f"expected a 3D array, got shape {shape}")
     sp = tuple(float(s) for s in (spacing or (1.0, 1.0, 1.0)))
     return HeaderInfo("npy", tuple(int(s) for s in shape), sp, str(np.dtype(dtype)), None, None)
+
+
+def _read_set(folder: Path) -> HeaderInfo:
+    files = maskset.members(folder)
+    if not files:
+        raise HeaderError("mask set folder has no NIfTI file")
+    first = read_header(files[0])
+    for p in files[1:]:
+        issues = compare_geometry(first, read_header(p))
+        if issues:
+            raise HeaderError(f"mask set member {p.name}: {' and '.join(issues)} differ")
+    return HeaderInfo(
+        "nifti_dir", first.shape, first.spacing, first.dtype, first.orientation, first.affine
+    )
 
 
 def compare_geometry(image: HeaderInfo, mask: HeaderInfo) -> list[Literal["shape", "affine"]]:

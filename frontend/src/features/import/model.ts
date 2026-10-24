@@ -1,7 +1,8 @@
 // Import wizard model (IMP-01..05, SRC-01..06; AUD-A6-07): the pure rules of the four steps, so
 // the wizard component only wires state to them and each step renders its own part.
 import type { DetectCandidate, ImportPreview, JobStatus, NiftiOptions } from '../../api'
-import { converterPattern, sampleStems } from './patternSuggest'
+import { pairedFolders } from './byExample'
+import { prefillPattern, sampleStems } from './patternSuggest'
 import { ACCEPTED, type WizardPrefill } from './store'
 
 export const STEPS = ['root', 'detect', 'preview', 'index'] as const
@@ -40,17 +41,20 @@ export function firstAdapter(cands: DetectCandidate[], want?: string | null): st
   return pick?.adapter ?? null
 }
 
-/** The image names being imported (AUD-A2-12, ADR-0027): an Open-mode include list without its
- *  masks, one file, or the browsed folder's files */
-export function imageStems(options: NiftiOptions, file: string | null, folderFiles: string[]): string[] {
+/** The image paths being imported, relative to the root and without extension (AUD-A2-12,
+ *  ADR-0027): an Open-mode include list without its masks, one file, or the folder's sample */
+export function imageStems(options: NiftiOptions, file: string | null, sample: string[]): string[] {
   const masks = new Set(Object.values(options.masks ?? {}))
-  const names = options.include ? options.include.filter((f) => !masks.has(f)) : file ? [file] : folderFiles
-  return sampleStems(names.map((n) => n.slice(n.lastIndexOf('/') + 1)))
+  const names = options.include ? options.include.filter((f) => !masks.has(f)) : file ? [file.slice(file.lastIndexOf('/') + 1)] : sample
+  return sampleStems(names)
 }
 
-/** SRC-17: until the user edits the options, the converter naming fills the pattern when every name follows it */
-export function autoPattern(adapter: string | null, touched: boolean, options: NiftiOptions, stems: string[]): string | null {
-  return adapter === 'nifti-files' && !touched && options.pattern === undefined ? converterPattern(stems) : null
+/** SRC-17: until the user edits the options, a pattern the sample clearly follows fills the field;
+ *  paired image and label folders in the folder's sample (`names`) also fill the mask template */
+export function autoOptions(adapter: string | null, touched: boolean, options: NiftiOptions, stems: string[], names: string[]): { pattern: string; mask_template?: string } | null {
+  if (adapter !== 'nifti-files' || touched || options.pattern !== undefined || options.mask_template !== undefined) return null
+  const pattern = prefillPattern(stems)
+  return pairedFolders(names) ?? (pattern ? { pattern } : null)
 }
 
 export interface NextInput {

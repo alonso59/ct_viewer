@@ -18,6 +18,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from app.config import Settings
 from app.core.cache_budget import touch
 from app.core.errors import (
     DerivedRootRequired,
@@ -62,7 +63,9 @@ class Saved(BaseModel):
 _converting: dict[str, asyncio.Future[str | None]] = {}
 
 
-async def convert_once(jobs: JobManager, root: str, files: list[str], dst: Path) -> str | None:
+async def convert_once(
+    jobs: JobManager, root: str, files: list[str], dst: Path, *, settings: Settings | None = None
+) -> str | None:
     key = str(dst)
     running = _converting.get(key)
     if running is not None:
@@ -70,7 +73,12 @@ async def convert_once(jobs: JobManager, root: str, files: list[str], dst: Path)
     fut: asyncio.Future[str | None] = asyncio.get_running_loop().create_future()
     _converting[key] = fut
     try:
-        err: str | None = await jobs.run_in_worker(dicom_stage.convert_series, root, files, key)
+        if settings is None:
+            err: str | None = await jobs.run_in_worker(dicom_stage.convert_series, root, files, key)
+        else:
+            from app.tasks.dicom_open import convert_volume
+
+            err = await convert_volume(settings, root, files, dst)
         fut.set_result(err)
         return err
     except BaseException as exc:
@@ -104,6 +112,7 @@ class OpenService:
         jobs: JobManager,
         sessions: om.OpenSessions,
         workspace_root: Path,
+        settings: Settings,
         on_cache_write: Callable[[], None] = lambda: None,
     ) -> None:
         self.guard = guard
@@ -112,6 +121,7 @@ class OpenService:
         self.jobs = jobs
         self.sessions = sessions
         self.workspace_root = workspace_root
+        self.settings = settings
         self.on_cache_write = on_cache_write  # CACHE_MAX_GB sweep (AUD-A4-16)
 
     # -- paths --------------------------------------------------------------------------------
@@ -148,11 +158,12 @@ class OpenService:
         rels = om.accepted(scan)
         if not rels:
             raise om.refuse_empty(real, scan)
-        rows = await self.jobs.run_in_worker(om.probe, str(scan.root), rels)
+        kinds = {rel: kind for kind, files in scan.files.items() for rel in files}
+        rows = await self.jobs.run_in_worker(om.probe, str(scan.root), rels, kinds)
         modalities = await asyncio.to_thread(om.row_modalities, scan.root)
         session = om.build_session(real, rows, scan, modalities)
         self.sessions.put(session)
-        return session
+        return om.preview(session)
 
     # -- API-08 -------------------------------------------------------------------------------
 
@@ -173,7 +184,9 @@ class OpenService:
             dst = om.scratch_dir(self.workspace_root, fp, "dicom") / "volume.nii.gz"
             if not dst.is_file():
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                err = await convert_once(self.jobs, s.root, it.files or [it.rel], dst)
+                err = await convert_once(
+                    self.jobs, s.root, it.files or [it.rel], dst, settings=self.settings
+                )
                 if err is not None or not dst.is_file():
                     raise UnsupportedFormat(f"{it.name}: cannot convert ({err})", actions=RETRY)
                 self.on_cache_write()

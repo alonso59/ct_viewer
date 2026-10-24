@@ -6,6 +6,7 @@ import { requireReviewer } from '../state'
 import { api } from './client'
 import { useConnection } from './connection'
 import { keys } from './keys'
+import { isTaskRunPending } from './taskStatus'
 import type { CaseFilter } from './surface'
 import type {
   AnalysisSpec,
@@ -294,12 +295,21 @@ export function useUpdateProject(pid: string) {
 
 /** API-62: workspace task runs, newest first (the converted datasets on the home, AUD-A2-14) */
 export const useWorkspaceRuns = () => useQuery({ queryKey: keys.workspaceRuns(), queryFn: () => api.listWorkspaceRuns() })
+export const useSourceOperations = (on = true) => useQuery({ queryKey: keys.sourceOperations(), queryFn: () => api.listSourceOperations(), enabled: on, refetchInterval: 3000 })
+export const useSourceOperation = (id: string | null) => useQuery({
+  queryKey: keys.sourceOperation(id ?? ''), queryFn: () => api.getSourceOperation(id ?? ''), enabled: !!id,
+  refetchInterval: (q) => isTaskRunPending(q.state.data?.status) ? 800 : false,
+})
+export const useSourcePlan = (id: string | null, attempt: number | null, cursor?: string, action?: 'convert' | 'skip') => useQuery({
+  queryKey: keys.sourcePlan(id ?? '', attempt, cursor, action),
+  queryFn: () => api.sourceOperationPlan(id ?? '', { cursor, action }), enabled: !!id && attempt !== null,
+})
 export const useWorkspaceRun = (rid: string | null) =>
   useQuery({
     queryKey: keys.workspaceRun(rid ?? ''),
     queryFn: () => api.getWorkspaceRun(rid ?? ''),
     enabled: !!rid,
-    refetchInterval: (q) => (q.state.data && !['queued', 'running'].includes(q.state.data.status) ? false : 800),
+    refetchInterval: (q) => (isTaskRunPending(q.state.data?.status) ? 800 : false),
   })
 /** DCM-06: a named dry run's stage while it runs; `not-found` before it starts and after it returned */
 export const useEstimateProgress = (eid: string | null) =>
@@ -600,7 +610,7 @@ export const useTaskRuns = (pid: string) =>
 export const useArchivedTaskRuns = (pid: string, on: boolean) =>
   useQuery({ queryKey: keys.archivedTaskRuns(pid), queryFn: () => api.listTaskRuns(pid, undefined, true), enabled: on && enabled(pid) })
 export const useTaskRun = (pid: string, rid: string | null) =>
-  useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid) })
+  useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid), refetchInterval: (q) => q.state.data?.task.id === 'dicom.convert' && isTaskRunPending(q.state.data.status) ? 800 : false })
 
 /** CUR-16: recycle the whole scan only after a preview and explicit confirmation. */
 export function useRecycleScan(pid: string, iid: string) {

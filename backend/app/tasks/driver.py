@@ -5,6 +5,7 @@ item outcomes and logs, finish the run record.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import shutil
@@ -22,12 +23,15 @@ from app.ingest.segsets import record_masks
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks import control, protocol, registry
 from app.tasks.builtin import run_entry
+from app.tasks.dicom_execution import attempt_cleaned, run_dicom_job
 from app.tasks.identity import committed_outputs
+from app.tasks.jobspec import inventory_spec
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
     TaskManifest,
     TaskRunCounts,
     TaskRunOutput,
+    TaskRunProgress,
     TaskRunRecord,
     TaskRunStarted,
     TaskRunStatus,
@@ -58,13 +62,17 @@ class DriverBase(RegistrationBase):
         skip: Sequence[str],
         *,
         recover: bool = False,
+        resume_request_id: str | None = None,
     ) -> TaskRunStarted:
         rid = run_dir.name
         rec = self.runs.read(run_dir)
+        prior_attempt = rec.attempts
         job_id = rec.job_id if recover else new_ulid()
         if job_id is None:
             raise JobConflict("External recovery has no recorded job identity")
         job_dir = self.job_dir(m, job_id)
+        if m.id == "dicom.convert":
+            job_dir = run_dir / "attempts" / job_id
         spec = (
             json.loads((job_dir / "job.json").read_text())
             if recover
@@ -83,11 +91,21 @@ class DriverBase(RegistrationBase):
                 job_dir,
                 {
                     **spec,
+                    **inventory_spec(run_dir, self.settings.workspace_root),
                     "job_id": job_id,
                     "run_id": rid,
                     "mode": "run",
                     "resume": {"skip": list(skip)},
                     "batch": {"size": m.resources.max_batch or max(1, len(items))},
+                    **(
+                        {
+                            "attempt": rec.attempts + 1,
+                            "dicom_process_protocol": 1,
+                            "analysis_state": str(run_dir / "phase-analyzer"),
+                        }
+                        if m.id == "dicom.convert"
+                        else {}
+                    ),
                     **(
                         {
                             "identity": rec.identity,
@@ -145,9 +163,18 @@ class DriverBase(RegistrationBase):
         )
 
         def prepare(rec: TaskRunRecord) -> None:
+            if m.id == "dicom.convert" and rec.attempts != prior_attempt:
+                raise JobConflict("Conversion run attempt changed; reload before resuming")
             rec.error, rec.finished_at = None, None
             rec.attempts += 1
+            rec.resume_request_id = resume_request_id
             rec.progress_cursor, rec.progress_done = 0, 0
+            if m.id == "dicom.convert":
+                rec.execution = {
+                    "attempt": rec.attempts,
+                    "cleanup_verified": False,
+                    "progress": TaskRunProgress(done=0, total=0).model_dump(),
+                }
 
         if recover:
             self.jobs.submit(job_spec)
@@ -201,6 +228,8 @@ class DriverBase(RegistrationBase):
         """Forward only, as `RunStore.set_status`; a pending control keeps pausing/cancelling."""
 
         def edit(rec: TaskRunRecord) -> bool:
+            if live.manifest.id == "dicom.convert" and rec.job_id != live.job_dir.name:
+                return False
             if rec.status in TERMINAL_TASK_RUN or rec.status == status or control.pending(rec):
                 return False
             rec.status = status
@@ -218,7 +247,17 @@ class DriverBase(RegistrationBase):
         entry = live.manifest.runtime.entry
         assert entry is not None
         await self._set_status(live, "running")
-        fut = asyncio.ensure_future(h.run_in_worker(run_entry, entry, str(live.job_dir)))
+        dicom = live.manifest.id == "dicom.convert"
+        fut = asyncio.ensure_future(
+            run_dicom_job(
+                live.job_dir,
+                workspace=self.settings.workspace_root,
+                settings=self.settings,
+                cancelled=lambda: h.stopped,
+            )
+            if dicom
+            else h.run_in_worker(run_entry, entry, str(live.job_dir))
+        )
         stop_at: float | None = None
         try:
             while True:
@@ -231,10 +270,18 @@ class DriverBase(RegistrationBase):
                         protocol.request_cancel(live.job_dir)
                         live.cancel_sent = True
                         stop_at = time.monotonic()
-                    elif stop_at is not None and time.monotonic() - stop_at > CANCEL_GRACE_S:
+                    elif (
+                        not dicom
+                        and stop_at is not None
+                        and time.monotonic() - stop_at > CANCEL_GRACE_S
+                    ):
                         break
                 await asyncio.sleep(POLL_S)
         finally:
+            if dicom and not fut.done():
+                fut.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await fut
             if fut.done() and not fut.cancelled():
                 exit_code = int((fut.result() or {}).get("exit_code", 1))
                 if exit_code != 0 and protocol.read_result(live.job_dir) is None:
@@ -307,9 +354,14 @@ class DriverBase(RegistrationBase):
     ) -> None:
         if not lines:
             return
+        if live.manifest.id == "dicom.convert":
+            current = self.runs.read(live.run_dir)
+            if current.job_id != live.job_dir.name or current.status in TERMINAL_TASK_RUN:
+                return
         item_rows: list[dict[str, Any]] = []
         logs: list[dict[str, Any]] = []
         masks: list[dict[str, Any]] = []
+        stage_progress: dict[str, int | str] = {}
         for line in lines:
             event = f"{live.job_dir.name}:{line['_offset']}" if "_offset" in line else None
             if event and event in live.seen_events:
@@ -319,6 +371,7 @@ class DriverBase(RegistrationBase):
             t = line.get("t")
             if t == "total" and live.set_total is not None:
                 live.set_total(int(line.get("n") or 0))
+                stage_progress["total"] = int(line.get("n") or 0)
             elif t == "log":
                 logs.append(
                     {
@@ -345,19 +398,61 @@ class DriverBase(RegistrationBase):
                     except ValueError as exc:
                         row.update(status="failed", message=f"output: {exc}")
                 if iid not in live.seen_items:
-                    live.done += 1
+                    if live.manifest.id != "dicom.convert" or row["status"] == "ok":
+                        live.done += 1
                     live.seen_items.add(iid)
                 item_rows.append(row)
+            elif (
+                t == "stage"
+                and live.manifest.id == "dicom.convert"
+                and line.get("stage") == "admitted"
+            ):
+                await self._set_status(live, "running")
+            elif (
+                t == "stage"
+                and live.manifest.id == "dicom.convert"
+                and line.get("stage") == "waiting_for_resources"
+            ):
+                await self._set_status(live, "waiting_for_resources")
+                async with self.locks(live.pid):
+                    current = self.runs.read(live.run_dir)
+                    if current.job_id != live.job_dir.name or current.status in TERMINAL_TASK_RUN:
+                        return
+                    current.execution = {
+                        **(current.execution or {}),
+                        "resource_wait": line.get("resource_wait"),
+                    }
+                    self.runs.write(live.run_dir, current)
+            if t == "stage" and live.manifest.id == "dicom.convert":
+                stage_progress.update(
+                    stage=str(line.get("stage") or ""),
+                    stage_done=int(line.get("done") or 0),
+                    stage_total=int(line.get("total") or 0),
+                )
         if masks and not live.registered:
             await self._register_set(live, masks)
         async with self.locks(live.pid):
+            rec = self.runs.read(live.run_dir)
+            if live.manifest.id == "dicom.convert" and (
+                rec.job_id != live.job_dir.name or rec.status in TERMINAL_TASK_RUN
+            ):
+                return
             if item_rows:
                 append_jsonl(live.run_dir / ITEMS, item_rows)
             if logs:
                 append_jsonl(live.run_dir / LOGS, logs)
             if masks:
                 record_masks(self.workspace.project_dir(live.pid), live.rid, masks)
-            rec = self.runs.read(live.run_dir)
+            if live.manifest.id == "dicom.convert":
+                previous = (rec.execution or {}).get("progress", {})
+                rec.execution = {
+                    **(rec.execution or {}),
+                    "progress": TaskRunProgress.model_validate(
+                        {"total": 0, **previous, **stage_progress, "done": live.done}
+                    ).model_dump(),
+                }
+                if stage_progress.get("stage") == "admitted":
+                    rec.execution["resource_wait"] = None
             rec.outputs += [output for output in live.outputs if output not in rec.outputs]
             if cursor is not None:
                 rec.progress_cursor, rec.progress_done = cursor, live.done
@@ -371,15 +466,28 @@ class DriverBase(RegistrationBase):
         result = protocol.read_result(live.job_dir)
         async with self.locks(live.pid):
             rec = self.runs.read(live.run_dir)
+            if rec.task.id == "dicom.convert" and rec.job_id != live.job_dir.name:
+                return
             outcomes = {
                 k: v
                 for k, v in item_outcomes(live.run_dir).items()
-                if k in set(rec.item_ids) or v["status"] == "skipped"
+                if k in set(rec.item_ids)
+                or v["status"] == "skipped"
+                or rec.task.id == "dicom.convert"
             }
             n = Counter(v["status"] for v in outcomes.values())
             rec.counts = TaskRunCounts(
                 items=len(rec.item_ids), ok=n["ok"], failed=n["failed"], skipped=n["skipped"]
             )
+            if rec.task.id == "dicom.convert":
+                counts = (result or {}).get("estimate", {})
+                rec.counts = TaskRunCounts(
+                    items=int(counts.get("series", max(info.total, len(outcomes)))),
+                    ok=int(counts.get("converted", 0))
+                    + int(counts.get("already_converted", n["ok"])),
+                    failed=int(counts.get("failed", n["failed"])),
+                    skipped=int(counts.get("skipped", n["skipped"])),
+                )
             status: TaskRunStatus
             if info.status == "cancelled":
                 status = "cancelled"
@@ -405,6 +513,15 @@ class DriverBase(RegistrationBase):
                 if isinstance(provenance, dict):
                     rec.provenance = provenance
             rec.status = status
+            if rec.task.id == "dicom.convert":
+                cleaned = attempt_cleaned(live.job_dir, rec.attempts)
+                rec.execution = {
+                    **(rec.execution or {}),
+                    "attempt": rec.attempts,
+                    "cleanup_verified": cleaned,
+                }
+                if not cleaned:
+                    status = rec.status = "cleanup_pending"
             if control.pending(rec):
                 if control.acknowledge(rec, live.job_dir):
                     status = rec.status
@@ -440,14 +557,20 @@ class DriverBase(RegistrationBase):
                 )
         if live.registered:
             await self._reindex_masks(live.pid)
-        if result is not None and status in ("completed", "completed_with_errors"):
+        if result is not None and (
+            status == "completed"
+            or (status == "completed_with_errors" and live.manifest.id != "dicom.convert")
+        ):
             try:
-                await self._register_tabular(live, result)
+                if live.manifest.id == "dicom.convert":
+                    await self._finalize_dicom(live, result)
+                else:
+                    await self._register_tabular(live, result)
             except Exception as exc:  # the run is done; a registration failure is recorded
                 log.exception("task output registration failed", extra={"run_id": live.rid})
                 async with self.locks(live.pid):
                     rec = self.runs.read(live.run_dir)
                     rec.error = f"output registration: {type(exc).__name__}: {exc}"
                     self.runs.write(live.run_dir, rec)
-        if live.manifest.runtime.type == "builtin":
+        if live.manifest.runtime.type == "builtin" and live.manifest.id != "dicom.convert":
             shutil.rmtree(live.job_dir, ignore_errors=True)  # disposable scratch (PRJ layout)

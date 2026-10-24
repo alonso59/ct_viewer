@@ -11,12 +11,13 @@ run records live in `WORKSPACE_ROOT/plugins/{plugin}/runs/{run_id}/run.json`. Th
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 import shutil
 import time
 from datetime import date
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Any, Final
 
 from pydantic import BaseModel, Field
 
@@ -29,10 +30,16 @@ from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks import dry_run, protocol
 from app.tasks.builtin import run_entry
+from app.tasks.dicom_execution import attempt_cleaned, run_dicom_job
+from app.tasks.dicom_resources import require_pixel_budget
+from app.tasks.jobspec import bind_inventory, inventory_spec
 from app.tasks.models import (
+    RESUMABLE_TASK_RUN,
+    TERMINAL_TASK_RUN,
     TaskEstimate,
     TaskManifest,
     TaskRef,
+    TaskResourceWait,
     TaskRunRecord,
     TaskRunStarted,
     TaskRunStatus,
@@ -81,6 +88,11 @@ class WorkspaceRun(BaseModel):
     progress: dict[str, int | str] = Field(default_factory=dict)
     error: str | None = None
     job_id: str | None = None
+    attempts: int = 1
+    resume_request_id: str | None = None
+    cleanup_verified: bool = True
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    resource_wait: TaskResourceWait | None = None
 
 
 def default_dataset_name(today: date | None = None) -> str:
@@ -188,9 +200,21 @@ class WorkspaceTasks:
             "workspace": True,  # rows relative to the dataset root (SRC-16)
             "source": {"path": str(source)},
             "project_id": "",
+            **({"dicom_process_protocol": 1} if m.id == "dicom.convert" else {}),
         }
 
     # -- API-62 -------------------------------------------------------------------------------
+
+    def source_estimate_spec(
+        self,
+        task_id: str,
+        source: str,
+        settings: dict[str, Any],
+        scratch: Path,
+    ) -> dict[str, Any]:
+        manifest = self._manifest(task_id)
+        normalized, _ = self._settings(manifest, settings)
+        return dict(self._spec(manifest, normalized, Path(source), scratch / "out"))
 
     async def estimate(
         self, task_id: str, req: WorkspaceEstimateRequest, progress_id: str | None = None
@@ -208,30 +232,65 @@ class WorkspaceTasks:
                 job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
             )
             assert m.runtime.entry is not None
-            await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
+            if m.id == "dicom.convert":
+                await run_dicom_job(
+                    job_dir, workspace=self.settings.workspace_root, settings=self.settings
+                )
+            else:
+                await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
             result = protocol.read_result(job_dir) or {}
         finally:
-            shutil.rmtree(job_dir, ignore_errors=True)
+            if (
+                not (job_dir / "resources.json").exists()
+                or (job_dir / "allocation-exit.json").exists()
+            ):
+                shutil.rmtree(job_dir, ignore_errors=True)
         return dry_run.estimate_of(result, time.monotonic() - t0, source)
 
-    async def start(self, req: WorkspaceRunRequest) -> TaskRunStarted:
+    async def start(
+        self,
+        req: WorkspaceRunRequest,
+        *,
+        run_id: str | None = None,
+        source_inventory: dict[str, Any] | None = None,
+    ) -> TaskRunStarted:
         m = self._manifest(req.task_id)
         settings, shash = self._settings(m, req.settings)
+        if run_id is not None:
+            if not is_ulid(run_id) or m.id != "dicom.convert":
+                raise JobConflict("Reserved run identity is invalid")
+            reserved = self._runs_dir(self._plugin(m)) / run_id
+            if (reserved / "run.json").exists():
+                prior = self.get(run_id)
+                if (
+                    prior.task.id != m.id
+                    or prior.settings_hash != shash
+                    or prior.source != req.selection.source
+                ):
+                    raise JobConflict("Reserved conversion request changed")
+                bind_inventory(reserved, self.settings.workspace_root, source_inventory)
+                return TaskRunStarted(run_id=run_id, job_id=prior.job_id, status=prior.status)
+            if reserved.exists() and any(reserved.iterdir()):
+                raise JobConflict(
+                    "Reserved conversion record is missing; review retained attempt evidence"
+                )
         source = self._source(req.selection)
-        await dry_run.require_dicom(m.id, source)  # never an empty dataset (AUD-A2-07)
+        if source_inventory is None:
+            await dry_run.require_dicom(m.id, source)  # AUD-A2-07
         if self.jobs.active(WORKSPACE_JOBS, "task", m.id) is not None:
             raise JobConflict(f"A {m.id} workspace run is already active")
         base = self._derived() / DATASETS
+        if m.id == "dicom.convert":
+            require_pixel_budget(self.settings)
         # never the source folder's name: DICOM folders are often patient names (NFR-17)
         stem = dataset_name(req.name or default_dataset_name())
         out, n = base / stem, 0
         while out.exists():  # write-once: never reuse a dataset folder
             n += 1
             out = base / f"{stem}-{n}"
-        out.mkdir(parents=True)
         info = self.registry.get(m.id)
         plugin = self._plugin(m)
-        rid, job_id = new_ulid(), new_ulid()
+        rid, job_id = run_id or new_ulid(), new_ulid()
         run_dir = self._runs_dir(plugin) / rid
         run_dir.mkdir(parents=True)
         run = WorkspaceRun(
@@ -247,13 +306,29 @@ class WorkspaceTasks:
             settings_hash=shash,
             job_id=job_id,
         )
+        job_dir = (
+            run_dir / "attempts" / job_id
+            if m.id == "dicom.convert"
+            else self.settings.workspace_root / ".scratch" / "jobs" / job_id
+        )
+        if m.id == "dicom.convert":
+            atomic_write_json(job_dir / "reserved.json", {"attempt": 1})
         self._write(run_dir, run)
-        job_dir = self.settings.workspace_root / ".scratch" / "jobs" / job_id
+        bind_inventory(run_dir, self.settings.workspace_root, source_inventory)
+        out.mkdir(parents=True)
         protocol.write_job(
             job_dir,
-            {**self._spec(m, settings, source, out), "job_id": job_id, "run_id": rid,
-             "mode": "run", "resume": {"skip": []}, "batch": {"size": 1}},
-        )  # fmt: skip
+            {
+                **self._spec(m, settings, source, out),
+                **inventory_spec(run_dir, self.settings.workspace_root),
+                "job_id": job_id,
+                "run_id": rid,
+                "mode": "run",
+                "resume": {"skip": []},
+                "batch": {"size": 1},
+                "analysis_state": str(run_dir / "phase-analyzer"),
+            },
+        )
 
         async def driver(h: JobHandle) -> None:
             await self._drive(h, m, run_dir, job_dir)
@@ -274,70 +349,196 @@ class WorkspaceTasks:
     async def _drive(self, h: JobHandle, m: TaskManifest, run_dir: Path, job_dir: Path) -> None:
         run = self._read(run_dir)
         run.status, run.started_at = "running", utc_now()
+        if m.id == "dicom.convert":
+            run.cleanup_verified = False
         self._write(run_dir, run)
         tail = protocol.Tail(job_dir / protocol.PROGRESS)
         assert m.runtime.entry is not None
-        fut = asyncio.ensure_future(h.run_in_worker(run_entry, m.runtime.entry, str(job_dir)))
+        fut = asyncio.ensure_future(
+            run_dicom_job(
+                job_dir,
+                workspace=self.settings.workspace_root,
+                settings=self.settings,
+                cancelled=lambda: h.stopped,
+            )
+            if m.id == "dicom.convert"
+            else h.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
+        )
         done = total = 0
         stage: dict[str, int | str] = {}
+        resource_wait: TaskResourceWait | None = None
         cancel_sent = False
-        while True:
-            for line in tail.read():
-                if line.get("t") == "total":
-                    total = int(line.get("n") or 0)
-                    h.set_total(total)
-                elif line.get("t") == "item":
-                    done += 1
-                    h.set_done(done)
-                elif line.get("t") == "stage":
-                    stage = {
-                        "stage": str(line.get("stage") or ""),
-                        "stage_done": int(line.get("done") or 0),
-                        "stage_total": int(line.get("total") or 0),
-                    }
-            run = self._read(run_dir)
-            run.progress = {"done": done, "total": total, **stage}
-            self._write(run_dir, run)
-            if fut.done():
-                break
-            if h.stopped and not cancel_sent:
-                protocol.request_cancel(job_dir)
-                cancel_sent = True
-            await asyncio.sleep(POLL_S)
+        try:
+            while True:
+                for line in tail.read():
+                    if line.get("t") == "total":
+                        total = int(line.get("n") or 0)
+                        h.set_total(total)
+                    elif line.get("t") == "item":
+                        if m.id != "dicom.convert" or line.get("status") == "ok":
+                            done += 1
+                        h.set_done(done)
+                    elif line.get("t") == "stage":
+                        if isinstance(line.get("resource_wait"), dict):
+                            resource_wait = TaskResourceWait.model_validate(line["resource_wait"])
+                        elif line.get("stage") == "admitted":
+                            resource_wait = None
+                        stage = {
+                            "stage": str(line.get("stage") or ""),
+                            "stage_done": int(line.get("done") or 0),
+                            "stage_total": int(line.get("total") or 0),
+                        }
+                run = self._read(run_dir)
+                run.progress = {"done": done, "total": total, **stage}
+                if stage.get("stage") == "waiting_for_resources":
+                    run.status = "waiting_for_resources"
+                    pending = (protocol.read_result(job_dir) or {}).get("resource_wait", {})
+                    run.resource_wait = resource_wait
+                    run.error = (
+                        "Waiting for DICOM_MEMORY_MB; increase the budget and resume"
+                        if pending
+                        else "Waiting for a verified shared host allocation"
+                    )
+                elif stage.get("stage") == "admitted":
+                    run.status, run.error = "running", None
+                    run.resource_wait = None
+                self._write(run_dir, run)
+                if fut.done():
+                    break
+                if h.stopped and not cancel_sent:
+                    protocol.request_cancel(job_dir)
+                    cancel_sent = True
+                await asyncio.sleep(POLL_S)
+        finally:
+            if m.id == "dicom.convert" and not fut.done():
+                fut.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await fut
         res = fut.result() or {}
         if int(res.get("exit_code", 1)) != 0 and protocol.read_result(job_dir) is None:
             raise RuntimeError(protocol.log_tail(job_dir)[-500:] or "task failed")
 
     def _finish(self, run_dir: Path, job_dir: Path, info: JobInfo) -> None:
         run = self._read(run_dir)
+        if run.task.id == "dicom.convert" and run.job_id != job_dir.name:
+            return
         result = protocol.read_result(job_dir) or {}
-        status: Literal["completed", "failed", "cancelled"]
+        status: TaskRunStatus
         if info.status == "cancelled":
             status = "cancelled"
+        elif info.status == "interrupted":
+            status = "interrupted"
         elif info.status == "failed" or result.get("status") == "failed":
             status = "failed"
+        elif result.get("status") in {"cancelled", "completed_with_errors"}:
+            status = result["status"]
         else:
             status = "completed"
+        if run.task.id == "dicom.convert":
+            run.cleanup_verified = attempt_cleaned(job_dir, run.attempts)
+            if not run.cleanup_verified:
+                status = "cleanup_pending"
         counts = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
         run.counts = {k: int(v) for k, v in (counts or {}).items() if isinstance(v, int)}
         run.error = info.error or (str(result["error"]) if result.get("error") else None)
+        run.provenance = result.get("provenance") or {}
         if status == "completed" and not run.counts.get("series"):  # AUD-A2-07
             status, run.error = "failed", run.error or "No DICOM series found in the source"
         run.status, run.finished_at = status, utc_now()
         self._write(run_dir, run)
-        shutil.rmtree(job_dir, ignore_errors=True)
+        if run.task.id != "dicom.convert":
+            shutil.rmtree(job_dir, ignore_errors=True)
 
     def list(self) -> list[WorkspaceRun]:
-        out = [self._read(d.parent) for d in (self.settings.workspace_root / "plugins").glob(
+        out = [self.get(d.parent.name) for d in (self.settings.workspace_root / "plugins").glob(
             "*/runs/*/run.json")]  # fmt: skip
         return sorted(out, key=lambda r: r.created_at, reverse=True)
 
     def get(self, rid: str) -> WorkspaceRun:
-        return self._read(self._find(rid))
+        run_dir = self._find(rid)
+        run = self._read(run_dir)
+        if run.task.id == "dicom.convert" and run.status not in TERMINAL_TASK_RUN:
+            try:
+                self.jobs.get(str(run.job_id))
+            except NotFound:
+                job = run_dir / "attempts" / str(run.job_id)
+                run.cleanup_verified = attempt_cleaned(job, run.attempts)
+                run.status = "interrupted" if run.cleanup_verified else "cleanup_pending"
+                run.error = "Backend interrupted; resume after verified cleanup"
+                self._write(run_dir, run)
+        return run
 
-    def cancel(self, rid: str) -> WorkspaceRun:
+    async def resume(
+        self, rid: str, *, expected_attempt: int | None = None, request_id: str | None = None
+    ) -> TaskRunStarted:
         run = self.get(rid)
-        if run.job_id and run.status in ("queued", "running"):
+        if expected_attempt is not None and run.attempts != expected_attempt:
+            raise JobConflict("Conversion run attempt changed; reload before controlling it")
+        run_dir = self._find(rid)
+        if run.task.id != "dicom.convert":
+            raise JobConflict("This workspace task does not support durable resume")
+        require_pixel_budget(self.settings)
+        if run.status not in RESUMABLE_TASK_RUN or not run.cleanup_verified:
+            raise JobConflict("Only unfinished, cleanup-verified conversion runs may resume")
+        if not run.job_id or not attempt_cleaned(run_dir / "attempts" / run.job_id, run.attempts):
+            raise JobConflict("Prior DICOM execution cleanup is unconfirmed; resume is blocked")
+        if (Path(run.dataset_dir) / DATASET_JSON).exists():
+            raise JobConflict("Completed datasets are sealed; start a new conversion")
+        if self.jobs.active(WORKSPACE_JOBS, "task", run.task.id) is not None:
+            raise JobConflict("A DICOM workspace attempt is already active")
+        manifest = self._manifest(run.task.id)
+        if manifest.version != run.task.version:
+            raise JobConflict("The reader version changed; start a new conversion")
+        source = self._source(TaskSelection(source=run.source))
+        job_id = new_ulid()
+        job = run_dir / "attempts" / job_id
+        atomic_write_json(job / "reserved.json", {"attempt": run.attempts + 1})
+        run.attempts += 1
+        run.resume_request_id = request_id
+        run.progress, run.resource_wait = {}, None
+        run.job_id, run.status, run.error, run.finished_at = job_id, "queued", None, None
+        self._write(run_dir, run)
+        protocol.write_job(
+            job,
+            {
+                **self._spec(manifest, run.settings, source, Path(run.dataset_dir)),
+                **inventory_spec(run_dir, self.settings.workspace_root),
+                "job_id": job_id,
+                "run_id": rid,
+                "mode": "run",
+                "attempt": run.attempts,
+                "analysis_state": str(run_dir / "phase-analyzer"),
+            },
+        )
+
+        async def finish(info: JobInfo) -> str:
+            self._finish(run_dir, job, info)
+            return rid
+
+        self.jobs.submit(
+            JobSpec(
+                project_id=WORKSPACE_JOBS,
+                kind="task",
+                units=[],
+                ref=rid,
+                job_id=job_id,
+                key=run.task.id,
+                driver=lambda handle: self._drive(handle, manifest, run_dir, job),
+                on_finish=finish,
+                meta={"run_id": rid, "task_id": run.task.id},
+            )
+        )
+        return TaskRunStarted(run_id=rid, job_id=job_id, status="queued")
+
+    def cancel(self, rid: str, *, expected_attempt: int | None = None) -> WorkspaceRun:
+        run = self.get(rid)
+        if expected_attempt is not None and run.attempts != expected_attempt:
+            raise JobConflict("Conversion run attempt changed; reload before controlling it")
+        if run.job_id and run.status in ("queued", "running", "waiting_for_resources"):
+            if run.task.id == "dicom.convert":
+                protocol.request_cancel(self._find(rid) / "attempts" / run.job_id)
+                run.status = "cancelling"
+                self._write(self._find(rid), run)
             self.jobs.cancel(run.job_id)
         return self.get(rid)
 

@@ -236,6 +236,8 @@ export interface NiftiOptions {
   mask_conventions?: string[]
   /** image → mask: the segmentation attached in Open mode (ADR-0027) */
   masks?: Record<string, string> | null
+  /** SRC-04: the mask path from the pattern's groups, `{stem}`, `{dir}`; a folder is a mask set */
+  mask_template?: string | null
 }
 /** API-19 */
 export type DetectResult = S['DetectResult']
@@ -412,6 +414,13 @@ export type PluginList = S['PluginList']
 /** API-62 workspace tasks (TSK-13) and API-59 layers (ADR-0020) */
 export type WorkspaceRun = S['WorkspaceRun']
 export type WorkspaceRunRequest = S['WorkspaceRunRequest']
+export type SourceOperation = S['SourceOperation']
+export type SourceOperationStart = S['SourceOperationStart']
+export type SourceOperationControl = S['SourceOperationControl']
+export type SourceOperationEstimate = S['SourceOperationEstimate']
+export type SourceOperationConvert = S['SourceOperationConvert']
+export type SourcePlanPage = S['SourcePlanPage']
+export type InventoryPage = S['InventoryPage']
 export type LayerInfo = S['LayerInfo']
 
 // ---- P7c: labeling tables (API-56..58, LBL-*) -------------------------------------------------

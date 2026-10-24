@@ -51,7 +51,7 @@ def evenly_spaced[T](seq: Sequence[T], n: int) -> list[T]:
 def check_ref(resolver: PathResolver, vol: VolumeRef) -> VerifyStatus:
     try:
         path = resolver.resolve(vol.ref)
-        if not path.is_file():
+        if not path.exists():  # a file, or a mask set folder
             return "missing"
         return "matched" if quick_fingerprint(path) == vol.fp else "mismatched"
     except (PathOutsideRoot, NotFound, ValidationProblem, OSError):

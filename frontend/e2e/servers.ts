@@ -60,7 +60,7 @@ export function serverCommands(d = e2eDirs()) {
       name: 'api',
       command:
         `cd ${q(backend)} && WORKSPACE_ROOT=${q(d.workspace)} ALLOWED_DATA_ROOTS=${q(`${fixtures}:${d.datasets}`)} ALLOWED_DERIVED_ROOTS=${q(d.derived)} PLUGINS_ROOT=${q(d.plugins)} ` +
-        `PUBLIC_BASE_URL=http://127.0.0.1:${WEB_PORT} ${q(process.env.E2E_PYTHON ?? '.venv/bin/python')} -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
+        `DICOM_MEMORY_MB=1024 HOST_ALLOCATION_ROOT=${q(join(d.workspace, 'host-allocation'))} PUBLIC_BASE_URL=http://127.0.0.1:${WEB_PORT} ${q(process.env.E2E_PYTHON ?? '.venv/bin/python')} -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/api/v1/health`,
     },
     {

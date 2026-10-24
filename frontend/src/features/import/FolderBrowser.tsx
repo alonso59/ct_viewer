@@ -21,6 +21,7 @@ export function FolderBrowser({
   selected,
   onSelectFile,
   role = 'source',
+  fileFilter = (name: string) => ACCEPTED.test(name),
 }: {
   path: string | null
   onPath: (p: string | null) => void
@@ -29,6 +30,7 @@ export function FolderBrowser({
   /** Makes accepted files clickable */
   onSelectFile?: (p: string) => void
   role?: RootRole
+  fileFilter?: (name: string) => boolean
 }) {
   const { t } = useTranslation()
   const { data, isLoading, isError, error } = useFsList(path, role)
@@ -77,7 +79,7 @@ export function FolderBrowser({
         {data && data.entries.length === 0 ? <div className="empty">{t(path === null ? 'import.noRoots' : 'import.emptyFolder')}</div> : null}
         {data && data.entries.length > 0 && entries.length === 0 ? <div className="empty">{t('import.noMatch', { text })}</div> : null}
         {entries.map((e) => {
-          const pickable = e.kind === 'file' && !!onSelectFile && ACCEPTED.test(e.name)
+          const pickable = e.kind === 'file' && !!onSelectFile && fileFilter(e.name)
           return (
             <button
               key={e.path}
