@@ -126,7 +126,7 @@ Closure requires every acceptance case in the companion test plan to have a real
 Artifacts below are ignored files under `build/verification/`.
 Synthetic tests use temporary workspace/derived roots and CPU workers; no GPU inference was launched.
 This implementation is a development checkpoint; production rollout remains pending.
-The independent context commit `5dfa69d` and unrelated launcher are preserved.
+Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asynchronous loading and later-series hydration remain open.
 
 | Area | Current evidence; limits |
 |---|---|
@@ -192,7 +192,7 @@ Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, includi
   independent GDCM encoding/multiframe oracle, shared-worker/multi-workspace CPU accounting
   and independent same-image cross-container ownership/cleanup evidence.
 - Independent phase run registration and metadata-only API/window retry preserving manual phase.
-- Recoverable general Open/import loading, later Open-series hydration and full-series cache identity;
+- Recoverable general Open/import loading and later Open-series hydration;
   complete progress crash-barrier recovery and full U/B acceptance.
 - Compatible historical ETA, calibrated hold-out coverage and controlled reference benchmarks.
 - Final full/shared-runtime/browser/CI/Docker/udocker gates, reader-version migration and deployment readiness.

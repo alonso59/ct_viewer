@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import resource
+from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,7 +51,7 @@ def read_image(series: Series) -> Any:
         return reader.Execute()
 
 
-def write_nifti(series: Series, out: Path) -> Converted:
+def write_nifti(series: Series, out: Path, *, before_publish: Callable[[], None] | None = None) -> Converted:
     """Publish a fully written file atomically without replacement (DCM-07/17)."""
     import SimpleITK as sitk
 
@@ -62,6 +63,8 @@ def write_nifti(series: Series, out: Path) -> Converted:
         sitk.WriteImage(image, str(tmp), True)
         with tmp.open("rb") as fh:
             os.fsync(fh.fileno())
+        if before_publish is not None:
+            before_publish()
         os.link(tmp, out)  # atomic no-clobber on the same filesystem; never check-then-replace
         directory = os.open(out.parent, os.O_RDONLY | os.O_DIRECTORY)
         try:

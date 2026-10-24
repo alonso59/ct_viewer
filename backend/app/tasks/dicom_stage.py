@@ -5,6 +5,8 @@ Worker units (BE-12). Builtin plugins are reached only through `app/tasks/` (BE 
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -29,6 +31,27 @@ def local_source_file(root: Path, path: Path) -> bool:
     from plugins.dicom.files import local_file
 
     return local_file(root, path)
+
+
+def series_fingerprint(root: str, rels: list[str]) -> str:
+    """SRC-13: cache identity covers every guarded member and the native reader."""
+    from plugins.dicom import commits, convert, pipeline, scan
+
+    if not rels:
+        raise ValueError("DICOM series has no members")
+    code = []
+    for module in (convert, scan):
+        assert module.__file__ is not None
+        code.append(commits.file_digest(Path(module.__file__)))
+    reader = {
+        "versions": commits.reader_versions(pipeline.VERSION),
+        "code": code,
+    }
+    digest = hashlib.sha256(json.dumps(reader, sort_keys=True).encode())
+    for rel in sorted(rels):
+        member = commits.file_digest(Path(root) / rel, Path(root))
+        digest.update(json.dumps([rel, member], sort_keys=True).encode())
+    return f"series-{digest.hexdigest()}"
 
 
 def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
@@ -102,7 +125,12 @@ def dicom_tags(root: str, rel: str) -> dict[str, Any]:
 
 
 def convert_series(
-    root: str, files: list[str], dst: str, memory_mb: int | None = None
+    root: str,
+    files: list[str],
+    dst: str,
+    memory_mb: int | None = None,
+    *,
+    expected_fingerprint: str | None = None,
 ) -> str | None:
     """Worker: one series (or one file) → NIfTI at `dst` (DCM-02/10). None, else the error."""
     from plugins.dicom import convert, resources, scan
@@ -111,6 +139,15 @@ def convert_series(
         paths = tuple(Path(root) / f for f in files)
         if Path(dst).exists():
             return None
+
+        def verify_inputs() -> None:
+            if (
+                expected_fingerprint is not None
+                and series_fingerprint(root, files) != expected_fingerprint
+            ):
+                raise ValueError("DICOM series changed during conversion; reopen the source")
+
+        verify_inputs()
         headers = [scan.image_info(path, Path(root)) for path in paths]
         if any(header is None for header in headers):
             return "The series contains an unreadable or non-image DICOM member"
@@ -122,9 +159,11 @@ def convert_series(
         resources.require_memory(
             {"dim_x": first.Columns, "dim_y": first.Rows, "num_slices": frames}, first, memory_mb
         )
-        convert.write_nifti(
-            scan.Series(paths[0].parent, "open", ordered, source_root=Path(root)), Path(dst)
-        )
+        series = scan.Series(paths[0].parent, "open", ordered, source_root=Path(root))
+        if expected_fingerprint is None:
+            convert.write_nifti(series, Path(dst))
+        else:
+            convert.write_nifti(series, Path(dst), before_publish=verify_inputs)
     except Exception as exc:
         if Path(dst).is_file():
             return None  # another writer finished the same volume first

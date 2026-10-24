@@ -43,7 +43,11 @@ def main(job_dir: Path) -> int:
         from app.tasks.dicom_stage import convert_series
 
         error = convert_series(
-            spec["source"], spec["files"], spec["destination"], limits["memory_mb"]
+            spec["source"],
+            spec["files"],
+            spec["destination"],
+            limits["memory_mb"],
+            expected_fingerprint=spec.get("expected_fingerprint"),
         )
         atomic_write_json(job_dir / protocol.RESULT, {"error": error})
         return 0

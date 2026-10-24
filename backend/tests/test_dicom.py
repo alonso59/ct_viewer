@@ -351,6 +351,54 @@ def test_open_dicom_folder_and_single_file(
     assert (np.asanyarray(single.dataobj) == MARKER).sum() == 1
 
 
+def test_open_cache_changes_when_a_nonfirst_dicom_slice_changes(
+    dc: TestClient, src: tuple[Path, dict[str, Any]]
+) -> None:
+    """SRC-13/DCM-17: cache identity includes every member, never just the first slice."""
+    import pydicom
+
+    root, _ = src
+    session = dc.post(f"{API}/open", json={"path": str(root / "P001" / "ct")}).json()
+    item = session["items"][0]
+    url = f"{API}/open/{session['sid']}/items/{item['n']}/image"
+    original = dc.get(url)
+    assert original.status_code == 200, original.text
+    first = Path(session["root"]) / item["files"][0]
+    first_bytes = first.read_bytes()
+    changed = Path(session["root"]) / item["files"][1]
+    ds = pydicom.dcmread(changed)
+    ds.PixelData = (ds.pixel_array + 37).astype(np.int16).tobytes()
+    ds.save_as(changed, enforce_file_format=True)
+    before = tree(root)
+    response = dc.get(url, headers={"If-None-Match": original.headers["etag"]})
+    assert response.status_code == 200, response.text
+    assert response.headers["etag"] != original.headers["etag"]
+    assert response.content != original.content
+    assert first.read_bytes() == first_bytes
+    assert tree(root) == before
+
+
+@pytest.mark.parametrize("change", ["missing", "symbolic-link"])
+def test_open_cache_never_hides_an_unavailable_nonfirst_dicom_member(
+    dc: TestClient, src: tuple[Path, dict[str, Any]], change: str
+) -> None:
+    """SRC-11/13: reusing a cached volume still validates complete series membership."""
+    root, _ = src
+    session = dc.post(f"{API}/open", json={"path": str(root / "P001" / "ct")}).json()
+    item = session["items"][0]
+    url = f"{API}/open/{session['sid']}/items/{item['n']}/image"
+    assert dc.get(url).status_code == 200
+    member = Path(session["root"]) / item["files"][1]
+    member.unlink()
+    if change == "symbolic-link":
+        external = root.parent / "private.dcm"
+        external.write_bytes(b"must not be read through the source alias")
+        member.symlink_to(external)
+    response = dc.get(url)
+    assert_problem(response, "unsupported-format")
+    assert response.json()["actions"] == ["choose_another_path", "home"]
+
+
 def test_save_as_nifti(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_path: Path) -> None:
     root, _ = src
     before = tree(root)

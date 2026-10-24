@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +16,40 @@ from app.config import Settings
 from app.main import create_app
 from tests.test_contract import assert_problem
 from tests.test_sources import ct, lab, nii
+
+
+def test_open_refuses_source_change_during_native_conversion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SRC-13/DCM-17: never publish a volume under a fingerprint of different inputs."""
+    import pydicom
+    from plugins.dicom import convert
+    from plugins.dicom.scan import Series
+
+    from app.tasks import dicom_stage
+    from tools.dicom_fixtures import write_series
+
+    root = tmp_path / "source"
+    write_series(root, shape=(3, 3, 3), marker=(1, 1, 1))
+    files = sorted(p.name for p in root.iterdir())
+    expected = dicom_stage.series_fingerprint(str(root), files)
+    read = convert.read_image
+
+    def change_after_read(series: Series) -> Any:
+        image = read(series)
+        member = root / files[1]
+        ds = pydicom.dcmread(member)
+        ds.PixelData = (ds.pixel_array + 1).tobytes()
+        ds.save_as(member, enforce_file_format=True)
+        return image
+
+    monkeypatch.setattr(convert, "read_image", change_after_read)
+    dst = tmp_path / "cache" / "volume.nii.gz"
+    error = dicom_stage.convert_series(str(root), files, str(dst), expected_fingerprint=expected)
+    assert error is not None and "changed" in error
+    assert not dst.exists()
+    assert not list(dst.parent.glob("*.tmp.nii.gz"))
+
 
 API = "/api/v1"
 
