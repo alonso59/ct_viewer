@@ -18,9 +18,9 @@ from typing import Any
 
 from app.core import reviewer as reviewer_stamp
 from app.core.errors import JobConflict, Problem, ValidationProblem
-from app.core.fsio import append_jsonl
+from app.core.fsio import append_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
-from app.jobs.types import TERMINAL
+from app.jobs.types import TERMINAL, JobHandle, JobSpec
 from app.projects.models import SEG_ID_RE
 from app.tasks import control, dry_run, protocol, registry
 from app.tasks.dicom_execution import attempt_cleaned
@@ -68,7 +68,9 @@ class TaskService(DriverBase):
                     "External recovery needs review", extra={"project_id": project.project_id}
                 )
 
-    async def _recover_dicom(self, pid: str, run_dir: Path) -> None:
+    async def _recover_dicom(
+        self, pid: str, run_dir: Path, *, retry_registration: bool = False
+    ) -> None:
         rec = self.runs.read(run_dir)
         if (rec.execution or {}).get("phase_step"):
             self.phase_runs.recover(pid, rec.run_id)
@@ -76,11 +78,35 @@ class TaskService(DriverBase):
         if rec.task.id != "dicom.convert" or not rec.job_id:
             return
         if rec.status == "completed":
+            key = f"dicom.registration:{rec.run_id}"
+            lock = self.locks(f"_dicom_registration:{pid}:{rec.run_id}")
+            if lock.locked() or self.jobs.active(pid, "task", key) is not None:
+                return
+            if (
+                rec.error
+                and rec.error.startswith("output registration:")
+                and not retry_registration
+                and (
+                    self.runs.job(rec.job_id) is not None
+                    or self.runs.job((rec.execution or {}).get("registration_job_id")) is not None
+                )
+            ):
+                return
             job = run_dir / "attempts" / rec.job_id
             result = protocol.read_result(job)
-            if result is not None and attempt_cleaned(job, rec.attempts):
-                manifest = rec.manifest_snapshot or self.registry.get(rec.task.id).manifest
-                live = Live(pid, rec.run_id, run_dir, job, manifest, rec.selection.seg_id)
+            if result is None or not attempt_cleaned(job, rec.attempts):
+                return
+            manifest = rec.manifest_snapshot or self.registry.get(rec.task.id).manifest
+            live = Live(pid, rec.run_id, run_dir, job, manifest, rec.selection.seg_id)
+            try:
+                checkpoint = read_json(run_dir / "registration.json")
+            except (OSError, ValueError):
+                checkpoint = None
+            if (
+                isinstance(checkpoint, dict)
+                and checkpoint.get("status") == "completed"
+                and checkpoint.get("index_verified") is True
+            ):
                 try:
                     await self._finalize_dicom(live, result)
                 except Exception as exc:
@@ -88,9 +114,48 @@ class TaskService(DriverBase):
                         current = self.runs.read(run_dir)
                         current.error = f"output registration: {type(exc).__name__}: {exc}"
                         self.runs.write(run_dir, current)
-                    log.exception(
-                        "DICOM registration recovery failed", extra={"run_id": rec.run_id}
+                return
+
+            async def recover_registration(_handle: JobHandle) -> None:
+                try:
+                    await self._finalize_dicom(live, result)
+                except Exception as exc:
+                    async with self.locks(pid):
+                        current = self.runs.read(run_dir)
+                        current.error = f"output registration: {type(exc).__name__}: {exc}"
+                        self.runs.write(run_dir, current)
+                    raise
+
+            async with lock:
+                if self.jobs.active(pid, "task", key) is not None:
+                    return
+                registration_job = new_ulid()
+                async with self.locks(pid):
+                    current = self.runs.read(run_dir)
+                    current.execution = {
+                        **(current.execution or {}),
+                        "registration_pending": True,
+                        "registration_job_id": registration_job,
+                    }
+                    if current.error and current.error.startswith("output registration:"):
+                        current.error = None
+                    self.runs.write(run_dir, current)
+                self.jobs.submit(
+                    JobSpec(
+                        project_id=pid,
+                        job_id=registration_job,
+                        kind="task",
+                        units=[],
+                        key=key,
+                        ref=rec.run_id,
+                        driver=recover_registration,
+                        meta={
+                            "run_id": rec.run_id,
+                            "task_id": "dicom.convert",
+                            "stage": "registering",
+                        },
                     )
+                )
             return
         if rec.status in TERMINAL_TASK_RUN or (
             self.runs.job(rec.job_id) is not None and rec.status != "cleanup_pending"
@@ -284,12 +349,14 @@ class TaskService(DriverBase):
             bind_inventory(run_dir, self.settings.workspace_root, source_inventory)
         return await self._submit(pid, run_dir, m, ready, seg_id, skip=[])
 
-    async def get_run(self, pid: str, rid: str) -> TaskRunDetail:
+    async def get_run(
+        self, pid: str, rid: str, *, retry_registration: bool = False
+    ) -> TaskRunDetail:
         rad = self._radiomics()
         if rad.has_run(pid, rid):
             return await rad.task_detail(pid, rid)
         run_dir = self.runs.run_dir(pid, rid)
-        await self._recover_dicom(pid, run_dir)
+        await self._recover_dicom(pid, run_dir, retry_registration=retry_registration)
         await self._recover_external(pid, run_dir)
         await control.settle(self, pid, run_dir)
         rec = self.runs.read(run_dir)

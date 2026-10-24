@@ -182,13 +182,18 @@ class SourceOperations:
         if (
             isinstance(native, TaskRunDetail)
             and native.status == "completed"
+            and (native.execution or {}).get("registration_pending")
+            and native.error is None
+        ):
+            record.stage, record.status = "registering", "reconciling"
+        if (
+            isinstance(native, TaskRunDetail)
+            and native.status == "completed"
             and native.error
             and native.error.startswith("output registration:")
         ):
             record.stage = "registering"
-            record.status = (
-                "reconciling" if "index job is already active" in native.error else "failed"
-            )
+            record.status = "failed"
         record.cleanup_verified = (
             native.cleanup_verified
             if isinstance(native, WorkspaceRun)
@@ -735,17 +740,22 @@ class SourceOperations:
             if native is not None:
                 if self._settle_native_control(record, native):
                     return await self.view(operation)
+                was_pending = record.pending_control is not None
                 pending = self._begin_native_control(record, native, request, action)
                 assert record.conversion_run_id is not None
                 registration_only = (
                     not failed_only
                     and native.status == "completed"
-                    and native.error
-                    and native.error.startswith("output registration:")
+                    and (
+                        (native.error and native.error.startswith("output registration:"))
+                        or was_pending
+                    )
                 )
                 try:
                     if registration_only and record.project_id:
-                        await self.tasks.get_run(record.project_id, record.conversion_run_id)
+                        await self.tasks.get_run(
+                            record.project_id, record.conversion_run_id, retry_registration=True
+                        )
                     elif record.project_id:
                         await self.tasks.resume(
                             record.project_id,
