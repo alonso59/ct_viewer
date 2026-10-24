@@ -53,7 +53,7 @@ class RegistrationBase(EstimateBase):
                     raise JobConflict(
                         "Conversion registration attempt/result changed; review before recovery"
                     )
-                if previous.get("status") == "completed":
+                if previous.get("status") == "completed" and previous.get("index_verified") is True:
                     await self._clear_registration_error(live)
                     return
             if record.status != "completed" or not attempt_cleaned(live.job_dir, record.attempts):
@@ -63,6 +63,10 @@ class RegistrationBase(EstimateBase):
             atomic_write_json(path, {**identity, "status": "pending"})
             try:
                 async with self.locks(live.pid):
+                    record.execution = {**(record.execution or {}), "registration_pending": True}
+                    if record.error and record.error.startswith("output registration:"):
+                        record.error = None
+                    self.runs.write(live.run_dir, record)
                     self.phase_runs.finish(live.pid, record, live.job_dir, result)
                 resolver = self.workspace.resolver(live.pid)
                 for output in record.outputs:
@@ -73,7 +77,16 @@ class RegistrationBase(EstimateBase):
                                 "A committed conversion artifact changed before registration"
                             )
                 await self._register_tabular(live, result)
-                atomic_write_json(path, {**identity, "status": "completed"})
+                imports = [o for o in self.runs.read(live.run_dir).outputs if o.kind == "import"]
+                if len(imports) != 1 or not imports[0].detail:
+                    raise JobConflict("Conversion registration has no unique index receipt")
+                index = self.jobs.get(imports[0].detail)
+                if index.kind != "index" or index.project_id != live.pid:
+                    raise JobConflict("Conversion index receipt belongs to another operation")
+                index = await self.jobs.wait(index.job_id)
+                if index.status != "succeeded":
+                    raise JobConflict("Conversion index did not finish; retry output registration")
+                atomic_write_json(path, {**identity, "status": "completed", "index_verified": True})
                 await self._clear_registration_error(live)
             except Exception as exc:
                 atomic_write_json(
@@ -88,8 +101,14 @@ class RegistrationBase(EstimateBase):
     async def _clear_registration_error(self, live: Live) -> None:
         async with self.locks(live.pid):
             current = self.runs.read(live.run_dir)
+            changed = False
+            if current.execution and "registration_pending" in current.execution:
+                del current.execution["registration_pending"]
+                changed = True
             if current.error and current.error.startswith("output registration:"):
                 current.error = None
+                changed = True
+            if changed:
                 self.runs.write(live.run_dir, current)
 
     def _record_gpu_ledger(self, live: Live) -> None:

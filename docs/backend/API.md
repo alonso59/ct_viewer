@@ -111,6 +111,13 @@ API-69 Estimate accepts an optional `name`: omitted/null preserves it; an empty 
 Settings-only Estimate retains the operation/inventory but replaces the plan attempt; previous conversion fences return 409.
 API-45 DICOM `progress` retains DCM-16 counters and separate `stage`, `stage_done`, `stage_total`; ETA stays null without compatible history.
 API-45/62 resource waits expose typed `resource_wait` (`reason`, optional `required_mb`/`budget_mb`, `remedy`); resume clears the prior wait.
+API-69 projects pending project registration as `status: reconciling`, `stage: registering`,
+even when native conversion is complete. API-45 `execution.registration_pending` and
+`registration_job_id` identify background metadata recovery; its native attempt stays unchanged.
+Polling does not wait for indexing. Registration-only Resume also replays a lost response without
+another pixel attempt; failed registration remains visible until that control or restart recovery.
+An occupied project index is also a registration failure with that remedy; it does not leave
+the operation indefinitely reporting active reconciliation after its job has stopped.
 
 Radiomics is the task `radiomics.pyradiomics` (RAD-13): validate, estimate, runs, control and errors are API-43..47, whose answers carry the radiomics record as `radiomics` (API-43 `ValidateResult`, API-44 `EstimateResult`, API-45 list `RunSummary` / detail and API-46 cancel `RunDetail`, API-47 `RunError` per row). Only the engine schema (API-30), profiles (API-32), feature exports (API-36) and dashboard views (API-38) are radiomics routes.
 

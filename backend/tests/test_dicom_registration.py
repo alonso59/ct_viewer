@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,18 @@ from tests.test_api_ingest import ctx_of, wait
 from tools.dicom_fixtures import write_series
 
 API = "/api/v1"
+
+
+def wait_registration(client: TestClient, pid: str, rid: str) -> dict[str, Any]:
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        response = client.get(API + f"/projects/{pid}/task-runs/{rid}")
+        assert response.status_code == 200, response.text
+        record = response.json()
+        if record.get("error") or not (record.get("execution") or {}).get("registration_pending"):
+            return dict(record)
+        time.sleep(0.02)
+    raise AssertionError("Metadata registration did not settle")
 
 
 @pytest.mark.parametrize(
@@ -94,7 +107,7 @@ def test_finalization_after_restart_is_idempotent_at_registration_barriers(
         changed.write_bytes(changed.read_bytes() + b" ")
         preserved = changed.read_bytes()
         with TestClient(create_app(settings, inline_jobs=True)) as client:
-            run = client.get(API + f"/projects/{pid}/task-runs/{rid}").json()
+            run = wait_registration(client, pid, rid)
             assert "changed" in run["error"] and not [
                 o for o in run["outputs"] if o["kind"] == "import"
             ]
@@ -106,7 +119,7 @@ def test_finalization_after_restart_is_idempotent_at_registration_barriers(
         return
     with TestClient(create_app(settings, inline_jobs=True)) as client:
         for _ in range(2):
-            run = client.get(API + f"/projects/{pid}/task-runs/{rid}").json()
+            run = wait_registration(client, pid, rid)
             assert run["status"] == "completed", run
             assert run["error"] is None, run
             imports = [o for o in run["outputs"] if o["kind"] == "import"]

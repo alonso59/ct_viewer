@@ -137,6 +137,7 @@ Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asyn
 | Native commits | Strong selected-input/settings/identity pins; prepared/committed artifact journals and no-clobber publication. ENOSPC/source/output conflicts and same-run project/workspace resume have focused tests. Full crash-barrier coverage remains open. |
 | Standalone CLI | `test_dicom_cli_resume.py` covers actual SIGKILL after a commit, unchanged images/world landmarks on resume, strong refusal of added/restored-mtime inputs or changed configuration, output-root serialization, failed-series exit/retry, dry-run immutability, incremental case IDs, unusable journals/pins and custom YAML output names. It uses the shared pipeline and commits; complete filesystem/crash/resource acceptance remains open. |
 | Generated import | `dicom-registration.xml`: five cases, including injected registration faults and changed image/metadata refusal. Metadata-only recovery preserves one import/run. Torn journals and actual SIGKILL at every registration/index barrier remain open. |
+| Abrupt publication/registration | `test_dicom_operation_recovery.py` kills a real subprocess at seven image/sidecar/commit/progress barriers and kills the API before/after import append, after index submission and after registration completion. It verifies identical voxels/world landmarks/sidecars, stable completed-image bytes/mtime and one indexed import. A legacy early-completion receipt is reconciled. Directory-sync ordering, live polling during indexing and failure/response-loss retries have focused regressions. Remaining metadata/index-file barriers, torn journals and full power-loss/migration/rollback acceptance stay open. |
 | Phase | `test_dicom_phase_step.py` covers disabled/core separation, batch cancellation, actual abrupt analyzer exit, corruption/rules conflicts and sealed-output preservation. `test_dicom_phase_runs.py` covers independent records, fenced/idempotent metadata-only API retry/cancel, restart cleanup admission and later dataset import. Window tests cover child controls, polling and minimizing. Initial execution shares the owned conversion carrier; retries have their own worker. Private, hash-pinned metadata seeds recover missing analyzer inputs, including basic anonymization. Recovery without either metadata copy, full crash-barrier and migration acceptance remain open; D29 is not closed. |
 | Operation facade | Durable discovery-to-plan intent and reserved run ID; conversion delegates existing project/workspace authority. Generation changes refuse launch. Duplicate handoff commands retain one run/allocation. |
 | Native controls | Handoff/run-control locking and native-attempt fences; durable pending controls and run-side resume receipts reconcile lost responses. Restart/replay preserves the destination. Native Tasks controls share the DICOM run lock. |
@@ -226,6 +227,24 @@ same-run selection, pending/nonzero status, empty/completed/legacy/missing/corru
 refusal, preserved torn fragments and outcome-journal ENOSPC before success acknowledgment.
 The affected CLI/metadata/layering gate passes 37 cases
 (`dicom-cli-failure-only-final-area.log`); lint/types and requirement checks pass.
+CI 40117547553 passed 994 backend cases and failed one obsolete exact-count assertion in
+`test_tasks.py` after the additive `pending` counter. The assertion now requires `pending: 0`
+for the ordinary segmentation run as well; the next publication must pass its own full CI.
+`dicom-completed-registration-index-red.log` reproduces an actual API crash leaving a completed
+registration with zero indexed items. Registration now waits for the index before recording
+verified completion; restart recovery runs through the job service without blocking polling.
+`dicom-publication-sync-red.log` and `dicom-adopted-link-sync-red.log` reproduce the missing
+directory-sync ordering; `dicom-index-polling-red.log` reproduces waiting on a paused index.
+An isolated publication-tree gate passes 112 affected backend cases
+(`dicom-crash-isolated-area.log`), with lint/types/API types, 426 requirements and dead-code checks
+passing (`dicom-crash-isolated-static.log`, `dicom-crash-isolated-deadcode.log`).
+The window gate passes 27 cases (`dicom-registration-window.log`).
+`dicom-index-conflict-status-red.log` reproduces an occupied index leaving a stopped registration
+reported as active reconciliation. It now stays failed and offers metadata-only retry.
+An additional disposable Cancel-during-registration probe fails: the control returns 200 while
+registration continues (`dicom-registration-cancel-probe.log`). Registration-stage cancellation
+and its durable replay/cleanup evidence remain release blockers; the native cleanup proof alone
+does not certify completion of metadata work.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 

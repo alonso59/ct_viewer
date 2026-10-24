@@ -238,7 +238,7 @@ def test_builtin_run_registers_segmentation_set(
     assert r.status_code == 202, r.text
     run = finish(env, proj, r.json())
     assert run["status"] == "completed", run
-    assert run["counts"] == {"items": 3, "ok": 3, "failed": 0, "skipped": 0}
+    assert run["counts"] == {"items": 3, "ok": 3, "failed": 0, "skipped": 0, "pending": 0}
     rid = run["run_id"]
     seg_id = f"threshold-{rid[:8].lower()}"
     # TSK-10 run record

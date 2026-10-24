@@ -120,7 +120,7 @@ def _publish(record: dict[str, Any], out: Path, side: Path, stage: Path) -> None
             _verify(candidate, expected)
             target.parent.mkdir(parents=True, exist_ok=True)
             os.link(candidate, target)
-            _sync(target.parent)
+        _sync(target.parent)
     _geometry(out, record["geometry"])
 
 
@@ -222,6 +222,7 @@ def _commit(
             "geometry": geometry,
             "artifacts": artifacts,
         }
+        _sync(stage)
         _write(path, record)  # recovery can finish a crash between the individual publications
         _publish(record, out, side, stage)
     if not reused:

@@ -169,4 +169,11 @@ CLI failure-only selection additionally survives actual SIGKILL after a recorded
 unattempted work and refuses unusable histories; a torn fragment is retained and outcome-sync
 failure cannot acknowledge completion. These checks do not certify every abrupt retry/registration
 barrier or B07.
+`test_dicom_operation_recovery.py` adds actual SIGKILL at native publication and API registration
+barriers, independent world-coordinate/voxel checks, legacy early-registration recovery,
+directory-sync ordering, responsive polling during indexing and registration-only response replay.
+The remaining index-file/metadata/torn-record/migration barriers still need their own evidence.
+Cancel during project registration currently has a failing disposable probe: HTTP 200 leaves
+the metadata job running. D16/U09/B06 remain open until cancellation, replay, dispatch fencing
+and metadata-worker completion have positive evidence; native pixel cleanup is insufficient.
 No closure checkbox is certified by these narrower checks.

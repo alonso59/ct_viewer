@@ -278,6 +278,21 @@ test('DCM-16 distinguishes committed volume progress from phase metadata progres
   expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
 })
 
+test('D24 waits for registration while native conversion is complete and can minimize', async () => {
+  const completed = await recordedOperation()
+  const registering: SourceOperation = { ...completed, status: 'reconciling', stage: 'registering', phase_run: null }
+  const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(registering)
+  useConverter.getState().attach(registering.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText('Registering results…')).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
+  expect(screen.getByTestId('conv-chip')).toHaveTextContent('Registering results…')
+  get.mockResolvedValue({ ...completed, phase_run: null })
+  await waitFor(() => expect(screen.getByTestId('conv-chip')).toHaveTextContent('Completed'), { timeout: 3000 })
+})
+
 test('converts a DICOM folder into a workspace dataset without a project', async () => {
   const completed = await recordedOperation()
   const ready: SourceOperation = { ...completed, stage: 'ready', work_kind: 'estimate', conversion_run_id: null, conversion_run: null }
