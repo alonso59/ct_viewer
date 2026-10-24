@@ -136,7 +136,7 @@ Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asyn
 | Owned execution | Parent-death/dispatch handshake, PID/start/boot/namespace proof, bounded native threads/memory and participating runner admission are tested. Unknown cleanup blocks replacement. Full shared-CPU and cross-container acceptance remains open. |
 | Native commits | Strong selected-input/settings/identity pins; prepared/committed artifact journals and no-clobber publication. ENOSPC/source/output conflicts and same-run project/workspace resume have focused tests. Full crash-barrier coverage remains open. |
 | Generated import | `dicom-registration.xml`: five cases, including injected registration faults and changed image/metadata refusal. Metadata-only recovery preserves one import/run. Torn journals and actual SIGKILL at every registration/index barrier remain open. |
-| Phase | Twelve checkpoint tests cover disabled/core separation, batch cancellation, actual abrupt analyzer exit, corruption/rules conflicts and sealed-output preservation. Independent analyzer run/API/window retry remains required; D29 is open. |
+| Phase | `test_dicom_phase_step.py` covers disabled/core separation, batch cancellation, actual abrupt analyzer exit, corruption/rules conflicts and sealed-output preservation. `test_dicom_phase_runs.py` covers independent records, fenced/idempotent metadata-only API retry/cancel, restart cleanup admission and later dataset import. Window tests cover child controls, polling and minimizing. Initial execution shares the owned conversion carrier; retries have their own worker. Missing-input recovery, full crash-barrier and migration acceptance remain open; D29 is not closed. |
 | Operation facade | Durable discovery-to-plan intent and reserved run ID; conversion delegates existing project/workspace authority. Generation changes refuse launch. Duplicate handoff commands retain one run/allocation. |
 | Native controls | Handoff/run-control locking and native-attempt fences; durable pending controls and run-side resume receipts reconcile lost responses. Restart/replay preserves the destination. Native Tasks controls share the DICOM run lock. |
 | Window/picker | Server operation restoration, recent-operation selection, explicit new draft, bounded plan pages/filters, provisional counts and resume/cancel. Browser storage holds only operation ID/minimized preference. Source pickers accept extensionless files. |
@@ -181,6 +181,12 @@ Runner regressions passed 107 cases (`dicom-resume-final-runner.log`); host effe
 The current checkpoint also passes 107 runner cases and 70 frontend/API/import cases (`dicom-adr36-final-runner.log`, `dicom-adr36-window-import.log`).
 `dicom-adr36-publication-targeted.xml`: 69 backend cases pass without skips, including missing-leader cleanup, cached re-estimates and mask-set regressions.
 Repeat affected gates for the final implementation tree; browser/CI/image closure remains separate.
+The phase checkpoint passes 10 API/restart cases (`dicom-phase-api-final.log`),
+14 analyzer checkpoint cases (`dicom-phase-committed-progress-green.log`),
+57 converter/layering regressions (`dicom-phase-converter-regressions.log`),
+58 frontend/API cases (`dicom-phase-frontend-area.log`) and both G2 browsers
+(`dicom-phase-g2-browser.log`). Lint/types/API types and 426 requirement IDs pass
+(`dicom-phase-final-static.log`). These focused checks do not close the release matrix.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 
@@ -191,7 +197,8 @@ Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, includi
 - Aggregate inventory retention/quota, duplicate SOP/UID/missing-identity diagnostics,
   independent GDCM encoding/multiframe oracle, shared-worker/multi-workspace CPU accounting
   and independent same-image cross-container ownership/cleanup evidence.
-- Independent phase run registration and metadata-only API/window retry preserving manual phase.
+- Phase recovery when pinned inputs were not durably written, full analyzer publication/index
+  crash barriers, and migration/rollback acceptance for independent phase runs.
 - Recoverable general Open/import loading and later Open-series hydration;
   complete progress crash-barrier recovery and full U/B acceptance.
 - Compatible historical ETA, calibrated hold-out coverage and controlled reference benchmarks.

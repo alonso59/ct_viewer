@@ -107,11 +107,21 @@ def run(
                 Path(spec.get("analysis_state", job.dir / "phase-analyzer")),
                 result.analyzer_rows,
                 {"phase_vocabulary": job.context.get("phase_vocabulary", [])},
-                cancelled=job.cancelled,
+                cancelled=lambda: (
+                    job.cancelled() or bool(spec.get("phase_cancel") and Path(spec["phase_cancel"]).exists())
+                ),
                 on_progress=lambda done, total: job.stage("analyzing", done, total),
             )
-        except checkpoint.AnalysisConflict as exc:
-            analysis = {"task": "analyzer.phase", "status": "failed", "error": str(exc)}
+        except Exception as exc:  # noqa: BLE001 -- optional analysis cannot fail committed conversion
+            analysis = {
+                "task": "analyzer.phase",
+                "status": "failed",
+                "total": len(result.analyzer_rows),
+                "error": str(exc)
+                if isinstance(exc, checkpoint.AnalysisConflict)
+                else f"{type(exc).__name__}: phase analyzer failed; retry analysis",
+            }
+        analysis["run_id"] = spec.get("phase_run_id")
         phase_annotations = analysis.pop("annotations", [])
         if analysis["status"] == "completed":
             annotations = [*annotations, *phase_annotations]
@@ -135,6 +145,7 @@ def run(
                 "name": out_dir.name,
                 "task": {"id": "dicom.convert", "version": pipeline.VERSION},
                 "run_id": spec.get("run_id"),
+                "phase_run_id": spec.get("phase_run_id"),
                 "source": str(source),
                 "settings": job.settings,
                 "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

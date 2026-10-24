@@ -14,6 +14,7 @@ from app.tasks.dry_run import EstimateProgress
 from app.tasks.models import (
     PreflightRequest,
     PreflightResult,
+    RunAttemptControl,
     TaskEstimate,
     TaskInfo,
     TaskItemError,
@@ -94,8 +95,10 @@ async def get_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
 
 
 @router.post("/projects/{pid}/task-runs/{rid}/cancel", response_model=TaskRunDetail)
-async def cancel_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
-    return await svc(ctx).cancel(pid, rid)
+async def cancel_run(
+    ctx: Ctx, pid: str, rid: str, body: RunAttemptControl | None = None
+) -> TaskRunDetail:
+    return await svc(ctx).cancel(pid, rid, expected_attempt=body.expected_attempt if body else None)
 
 
 @router.post("/projects/{pid}/task-runs/{rid}/pause", response_model=TaskRunDetail)
@@ -113,8 +116,10 @@ async def archive_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
 @router.post(
     "/projects/{pid}/task-runs/{rid}/resume", response_model=TaskRunStarted, status_code=202
 )
-async def resume_run(ctx: Ctx, pid: str, rid: str) -> TaskRunStarted:
-    return await svc(ctx).resume(pid, rid)
+async def resume_run(
+    ctx: Ctx, pid: str, rid: str, body: RunAttemptControl | None = None
+) -> TaskRunStarted:
+    return await svc(ctx).resume(pid, rid, expected_attempt=body.expected_attempt if body else None)
 
 
 @router.get("/projects/{pid}/task-runs/{rid}/errors", response_model=list[TaskItemError])
@@ -131,7 +136,7 @@ def run_outputs(ctx: Ctx, pid: str, rid: str) -> list[TaskRunOutput]:
 
 
 def wsvc(ctx: AppContext) -> WorkspaceTasks:
-    return WorkspaceTasks(ctx.settings, ctx.registry, ctx.guard, ctx.jobs, ctx.plugins.task_owner())
+    return ctx.source_operations.workspace_tasks
 
 
 @router.post("/tasks/{tid}/estimate", response_model=TaskEstimate)
@@ -159,20 +164,24 @@ async def start_workspace_run(ctx: Ctx, body: WorkspaceRunRequest) -> TaskRunSta
 
 
 @router.get("/task-runs", response_model=list[WorkspaceRun])
-def list_workspace_runs(ctx: Ctx) -> list[WorkspaceRun]:
+async def list_workspace_runs(ctx: Ctx) -> list[WorkspaceRun]:
     return wsvc(ctx).list()
 
 
 @router.get("/task-runs/{rid}", response_model=WorkspaceRun)
-def get_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
+async def get_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
     return wsvc(ctx).get(rid)
 
 
 @router.post("/task-runs/{rid}/cancel", response_model=WorkspaceRun)
-def cancel_workspace_run(ctx: Ctx, rid: str) -> WorkspaceRun:
-    return wsvc(ctx).cancel(rid)
+async def cancel_workspace_run(
+    ctx: Ctx, rid: str, body: RunAttemptControl | None = None
+) -> WorkspaceRun:
+    return await wsvc(ctx).cancel(rid, expected_attempt=body.expected_attempt if body else None)
 
 
 @router.post("/task-runs/{rid}/resume", response_model=TaskRunStarted, status_code=202)
-async def resume_workspace_run(ctx: Ctx, rid: str) -> TaskRunStarted:
-    return await wsvc(ctx).resume(rid)
+async def resume_workspace_run(
+    ctx: Ctx, rid: str, body: RunAttemptControl | None = None
+) -> TaskRunStarted:
+    return await wsvc(ctx).resume(rid, expected_attempt=body.expected_attempt if body else None)

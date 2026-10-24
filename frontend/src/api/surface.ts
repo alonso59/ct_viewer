@@ -49,6 +49,7 @@ import type {
   RunExportFormat,
   RunExportShape,
   RunSummary,
+  RunAttemptControl,
   Selection,
   AnnotationRow,
   AnnotationSources,
@@ -237,7 +238,8 @@ export interface Api {
   startWorkspaceRun(body: WorkspaceRunRequest): Promise<TaskRunStarted>
   listWorkspaceRuns(): Promise<WorkspaceRun[]>
   getWorkspaceRun(rid: string): Promise<WorkspaceRun>
-  cancelWorkspaceRun(rid: string): Promise<WorkspaceRun>
+  cancelWorkspaceRun(rid: string, body?: RunAttemptControl): Promise<WorkspaceRun>
+  resumeWorkspaceRun(rid: string, body?: RunAttemptControl): Promise<TaskRunStarted>
   startSourceOperation(body: SourceOperationStart): Promise<SourceOperation>
   listSourceOperations(): Promise<SourceOperation[]>
   getSourceOperation(id: string): Promise<SourceOperation>
@@ -273,12 +275,12 @@ export interface Api {
   /** `archived`: the archived supervised runs instead (J6) */
   listTaskRuns(pid: string, taskId?: string, archived?: boolean): Promise<TaskRunSummary[]>
   getTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
-  cancelTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
+  cancelTaskRun(pid: string, rid: string, body?: RunAttemptControl): Promise<TaskRunDetail>
   /** TSK-15 supervised runs: `pausing` until the supervisor confirms cleanup (J3) */
   pauseTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
   /** TSK-15: hide an inactive supervised run; its records and masks stay (J6) */
   archiveTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
-  resumeTaskRun(pid: string, rid: string): Promise<TaskRunStarted>
+  resumeTaskRun(pid: string, rid: string, body?: RunAttemptControl): Promise<TaskRunStarted>
   taskRunErrors(pid: string, rid: string): Promise<TaskItemError[]>
   taskRunOutputs(pid: string, rid: string): Promise<TaskRunOutput[]>
   /** API-48 (ANZ-01/04) */

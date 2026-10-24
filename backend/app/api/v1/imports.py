@@ -106,17 +106,28 @@ async def commit_import(pid: str, body: CommitRequest, ctx: Ctx) -> CommitResult
     annotations along as a completed run, active where no run is (ANZ-04)."""
     svc = ingest_service(ctx)
     pv = svc.preview_of(pid, body.preview_id)
-    found = workspace_runs.dataset_annotations(Path(pv.root)) if pv.root else None
+    found = (
+        workspace_runs.dataset_annotations(Path(pv.root), ctx.source_operations.tasks.phase_runs)
+        if pv.root
+        else None
+    )
     if found is not None and found[1]:
         meta, rows = found
-        rid = new_ulid()
-        async with ctx.locks(pid):
-            run_dir = ctx.workspace.project_dir(pid) / "tasks" / "runs" / rid
-            workspace_runs.write_imported_run(run_dir, meta, rows)
-        cfg = ctx.workspace.get(pid)
-        for f in sorted({str(r["field"]) for r in rows}):
-            if not cfg.annotation_sources.get(f):
-                await ctx.workspace.set_annotation_source(pid, f, rid)
+        layers = [(meta, rows)]
+        if meta.get("phase_task"):
+            layers = [
+                (meta, [r for r in rows if r["field"] != "phase"]),
+                ({**meta, "task": meta["phase_task"]}, [r for r in rows if r["field"] == "phase"]),
+            ]
+        for layer_meta, layer_rows in layers:
+            if not layer_rows:
+                continue
+            rid = new_ulid()
+            async with ctx.locks(pid):
+                run_dir = ctx.workspace.project_dir(pid) / "tasks" / "runs" / rid
+                workspace_runs.write_imported_run(run_dir, layer_meta, layer_rows)
+            for field in sorted({str(r["field"]) for r in layer_rows}):
+                await ctx.workspace.set_annotation_source(pid, field, rid, only_if_unset=True)
     return await svc.commit(pid, body.preview_id)
 
 

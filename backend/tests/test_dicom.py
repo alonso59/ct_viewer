@@ -132,7 +132,10 @@ def test_converter_task_end_to_end(
         == f"DERIVED:{pid}/dicom.convert/dataset/nifti/01_CT_case_00000_0000.nii.gz"
     )
     assert it["modality"] == "CT"
-    assert it["phase"]["canonical"] == "NP" and it["phase"]["source"] == f"analyzer:{run['run_id']}"
+    assert (
+        it["phase"]["canonical"] == "NP"
+        and it["phase"]["source"] == f"analyzer:{run['phase_run_id']}"
+    )
     assert it["extra"]["target_match"] == "strong"  # ANZ: target becomes a study variable
     assert it["extra"]["output_role"] == "PRIMARY" and it["extra"]["readiness"].startswith("ready")
     assert its["case_00001.01.complete.-"]["phase"]["canonical"] == "NC"
@@ -144,7 +147,7 @@ def test_converter_task_end_to_end(
     assert ident["cases"] == {"P001": 0, "P002": 1} and ident["strategy"] == "dicom_patient_id"
     # active annotations (ANZ-04) + DICOM tags on demand (DCM-04/05)
     proj = dc.get(f"{API}/projects/{pid}").json()
-    assert proj["annotation_sources"]["phase"] == run["run_id"]
+    assert proj["annotation_sources"]["phase"] == run["phase_run_id"]
     tags = dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-/dicom-tags").json()
     assert (
         tags["00100020"]["Value"] == ["P001"] and "7FE00010" not in tags and tags["_omitted"] == []
@@ -190,7 +193,10 @@ def test_incremental_run_keeps_files_and_identity(
     assert set(items(dc, pid)) == {f"case_0000{n}.01.complete.-" for n in range(3)}
     assert run1["run_id"] != run2["run_id"]
     # the second run's annotations are not active (a run is active only where none was)
-    assert dc.get(f"{API}/projects/{pid}").json()["annotation_sources"]["phase"] == run1["run_id"]
+    assert (
+        dc.get(f"{API}/projects/{pid}").json()["annotation_sources"]["phase"]
+        == run1["phase_run_id"]
+    )
 
 
 def test_anonymize_basic(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_path: Path) -> None:
@@ -256,7 +262,9 @@ def test_activation_reindex_and_standalone_analyzer(
     wait(dc, r.json()["job_id"])
     it = dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-").json()
     assert it["phase"]["canonical"] == "UNK" and it["phase"]["source"] == "none"
-    r = dc.put(f"{API}/projects/{pid}/annotation-sources/phase", json={"run_id": run["run_id"]})
+    r = dc.put(
+        f"{API}/projects/{pid}/annotation-sources/phase", json={"run_id": run["phase_run_id"]}
+    )
     wait(dc, r.json()["job_id"])
     assert (
         dc.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-").json()["phase"]["canonical"]

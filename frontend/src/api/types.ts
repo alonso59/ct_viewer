@@ -396,6 +396,7 @@ export type TaskEstimate = S['TaskEstimate']
 export type EstimateProgress = S['EstimateProgress']
 export type TaskRunRequest = S['TaskRunRequest']
 export type TaskRunStarted = S['TaskRunStarted']
+export type RunAttemptControl = S['RunAttemptControl']
 /** API-45 list row; a radiomics row carries its RAD-09 summary (`radiomics`) */
 export type TaskRunSummary = S['TaskRunListItem']
 export type TaskRunDetail = S['TaskRunDetail']

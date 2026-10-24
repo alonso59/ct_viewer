@@ -65,3 +65,10 @@ test('a running supervised run pauses; a paused one resumes or archives; view-on
   expect(await screen.findByText('Running')).toBeInTheDocument()
   expect(screen.queryByRole('button')).toBeNull()
 })
+
+test('D29 phase controls use the displayed attempt and preserve the ordinary task controls', async () => {
+  const resume = vi.spyOn(api, 'resumeTaskRun').mockResolvedValue({} as never)
+  show({ status: 'interrupted', supervised: false, task: { ...base.task, id: 'analyzer.phase' }, attempts: 3, execution: { phase_step: true, cleanup_verified: true } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Resume' }))
+  await waitFor(() => expect(resume).toHaveBeenCalledWith(DEMO_PID, base.run_id, { expected_attempt: 3 }))
+})

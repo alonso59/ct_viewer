@@ -39,6 +39,56 @@ def main(job_dir: Path) -> int:
 
     spec = read_json(job_dir / protocol.JOB)
     limits = read_json(job_dir / "resources.json") if (job_dir / "resources.json").exists() else {}
+    if spec.get("operation") == "phase":
+        import hashlib
+
+        from plugins.analyzers.checkpoint import AnalysisConflict, retry_phase
+
+        try:
+            analysis = retry_phase(
+                Path(spec["analysis_state"]),
+                cancelled=lambda: (job_dir / protocol.CANCEL).exists(),
+                on_progress=lambda done, total: append_jsonl(
+                    job_dir / protocol.PROGRESS,
+                    [
+                        {
+                            "t": "stage",
+                            "stage": "analyzing",
+                            "done": done,
+                            "total": total,
+                        }
+                    ],
+                ),
+            )
+        except (AnalysisConflict, OSError) as exc:
+            analysis = {
+                "status": "failed",
+                "total": int(spec.get("phase_total", 0)),
+                "error": str(exc)
+                if isinstance(exc, AnalysisConflict)
+                else f"{type(exc).__name__}: phase checkpoint unavailable; retry analysis",
+            }
+        annotations = analysis.pop("annotations", [])
+        from app.core.fsio import write_jsonl_atomic
+
+        output = job_dir / "annotations.jsonl"
+        write_jsonl_atomic(output, annotations)
+        analysis["run_id"] = spec["run_id"]
+        atomic_write_json(
+            job_dir / protocol.RESULT,
+            {
+                "status": analysis["status"],
+                "provenance": {"phase_analyzer": analysis},
+                "outputs_manifest": [
+                    {
+                        "kind": "annotations",
+                        "path": output.name,
+                        "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                    }
+                ],
+            },
+        )
+        return 0
     if spec.get("operation") == "open":
         from app.tasks.dicom_stage import convert_series
 

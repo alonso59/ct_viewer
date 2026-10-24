@@ -215,3 +215,5 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 
 DICOM acceptance evidence and remaining gates live in DICOM_JOB_PLAN.md §Implementation evidence.
 Resource waits, cancellation and unknown cleanup remain active until the server confirms completion.
+The converter shows phase analysis as a separate status/progress panel with its own retry/cancel controls.
+An active phase keeps polling and minimizing after conversion completes; converted dataset actions remain available.

@@ -817,6 +817,13 @@
     "partialHelp": "Images already converted are preserved. Resume to finish this dataset.",
     "projectPartial": "Conversion is unfinished or output registration needs attention.",
     "resumePending": "Resume pending work",
+    "phaseTitle": "Phase analysis",
+    "phaseStatus": "Phase analysis · {{status}}",
+    "phaseProgress": "{{done}} of {{total}} metadata rows analyzed",
+    "phaseHelp": "Phase analysis has its own run. Retrying it preserves the converted images and sealed dataset.",
+    "retryPhase": "Retry phase analysis",
+    "cancelPhase": "Cancel phase analysis",
+    "phaseCleanup": "Phase execution cleanup is unconfirmed. Retry remains blocked.",
     "newDryRun": "Start a new dry run",
     "counts": {
       "folders": "Folders visited",

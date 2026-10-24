@@ -38,13 +38,19 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const qc = useQueryClient()
   const jobs = useJobs(pid).data ?? []
   const job = jobs.find((j) => j.job_id === run.job_id)
-  const live = ACTIVE_RUN.includes(run.status) && job && job.status !== 'succeeded'
+  const sharedPhase = run.execution?.phase_step === true && run.execution.shared_conversion_job === true
+  const live = !sharedPhase && ACTIVE_RUN.includes(run.status) && job && job.status !== 'succeeded'
   const actions = runActions(run, registry.readOnly)
   const control = async (action: RunAction) => {
     try {
-      if (action === 'cancel') await api.cancelTaskRun(pid, run.run_id)
+      const phase = run.execution?.phase_step === true
+      if (action === 'cancel') {
+        if (phase) await api.cancelTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
+        else await api.cancelTaskRun(pid, run.run_id)
+      }
       else if (action === 'pause') await api.pauseTaskRun(pid, run.run_id)
       else if (action === 'archive') await api.archiveTaskRun(pid, run.run_id)
+      else if (phase) await api.resumeTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
       else await api.resumeTaskRun(pid, run.run_id)
     } catch (e) {
       toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
@@ -60,18 +66,18 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         <span className="muted ml-auto">{fmtAgo(run.created_at)}</span>
       </div>
       {live ? <Progress value={job.done} total={job.total || 1} /> : null}
-      {live && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
+      {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
       {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingHelp')}</p> : null}
       {STOPPING_RUN.includes(run.status) ? (
         <p className={run.status === 'cleanup_pending' ? 'field-error' : 'muted'} role="status">
-          {t(run.status === 'cleanup_pending' ? 'tasks.cleanupPendingHelp' : 'tasks.stoppingHelp')}
+          {t(run.execution?.phase_step && run.status === 'cleanup_pending' ? 'conv.phaseCleanup' : run.status === 'cleanup_pending' ? 'tasks.cleanupPendingHelp' : 'tasks.stoppingHelp')}
         </p>
       ) : null}
       <span className="muted num">{t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <span className="field-error">{run.error}</span> : null}
       <div className="task-run-actions">
         {actions.map((a) => (
-          <button key={a} type="button" className="btn btn-sm" onClick={() => void control(a)}>
+          <button key={a} type="button" className="btn btn-sm" disabled={a === 'resume' && run.execution?.phase_step === true && run.execution.cleanup_verified !== true} onClick={() => void control(a)}>
             {t(a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' ? 'tasks.retryFailed' : `tasks.${a}`)}
           </button>
         ))}

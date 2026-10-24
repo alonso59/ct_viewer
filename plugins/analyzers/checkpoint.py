@@ -41,11 +41,16 @@ def _read(path: Path) -> Any:
         raise AnalysisConflict("Analyzer checkpoint is unavailable or corrupt") from None
 
 
-def retry_phase(state: Path, *, cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
+def retry_phase(
+    state: Path,
+    *,
+    cancelled: Callable[[], bool] = lambda: False,
+    on_progress: Callable[[int, int], None] = lambda _done, _total: None,
+) -> dict[str, Any]:
     inputs = _read(state / "inputs.json")
     if not isinstance(inputs, dict) or set(inputs) != {"rows", "config"}:
         raise AnalysisConflict("Pinned analyzer metadata is corrupt")
-    return analyze_phase(state, inputs["rows"], inputs["config"], cancelled=cancelled)
+    return analyze_phase(state, inputs["rows"], inputs["config"], cancelled=cancelled, on_progress=on_progress)
 
 
 def analyze_phase(
@@ -155,6 +160,7 @@ def _result(record: dict[str, Any], annotations: list[dict[str, Any]], total: in
         "attempt": record["attempt"],
         "rules_version": phase.RULES_VERSION,
         "completed_batches": len(record["batches"]),
+        "done": sum(min(BATCH_SIZE, total - int(offset)) for offset in record["batches"]),
         "total": total,
         "error": record["error"],
         "annotations": annotations,

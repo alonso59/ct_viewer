@@ -115,6 +115,7 @@ class SourceOperation(BaseModel):
     conversion_run_id: str | None = None
     conversion_request: dict[str, Any] = Field(default_factory=dict)
     conversion_run: TaskRunDetail | WorkspaceRun | None = None
+    phase_run: TaskRunDetail | WorkspaceRun | None = None
     prepare_plan: bool = False
     dataset_name: str | None = None
 
@@ -154,7 +155,7 @@ class SourceOperations:
         record.updated_at = utc_now()
         atomic_write_json(
             self._dir(record.operation_id) / "operation.json",
-            record.model_dump(mode="json", exclude={"conversion_run"}),
+            record.model_dump(mode="json", exclude={"conversion_run", "phase_run"}),
         )
         return record
 
@@ -170,6 +171,12 @@ class SourceOperations:
         if native is None:
             return record
         record.conversion_run = native if include_run else None
+        if include_run and native.phase_run_id:
+            record.phase_run = (
+                await self.tasks.get_run(record.project_id, native.phase_run_id)
+                if record.project_id
+                else self.workspace_tasks.get(native.phase_run_id)
+            )
         record.status, record.error = native.status, native.error
         record.stage = "result" if record.status in TERMINAL_TASK_RUN else "converting"
         if (
@@ -698,7 +705,7 @@ class SourceOperations:
                         expected_attempt=native.attempts,
                     )
                 else:
-                    self.workspace_tasks.cancel(
+                    await self.workspace_tasks.cancel(
                         record.conversion_run_id, expected_attempt=native.attempts
                     )
                 self._ack_native_control(record)
