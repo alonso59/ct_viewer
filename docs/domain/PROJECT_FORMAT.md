@@ -128,7 +128,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 
 | File kind | Rule |
 |---|---|
-| `*.json` | Write to a temp file in the same dir, `fsync`, then atomic `rename`; keep `.bak` of previous version for `project.json` |
+| `*.json` | Write to a temp file in the same dir, `fsync`, then atomic `rename` and sync the containing directory; keep `.bak` of previous version for `project.json` |
 | `*.jsonl` (append-only) | Only the API process appends; one JSON object per line, `\n`-terminated, flushed per write |
 | Run outputs | Written by workers only inside their own `runs/{run_id}/`; committed by renaming `run.json.tmp` |
 | `source` roots | Never opened for writing (R1), except CUR-16 (ADR-0029) and PRJ-19 managed-folder writes (ADR-0030) |
@@ -137,6 +137,8 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 | `{derived root}/_datasets/{name}/` | Workspace task outputs only (TSK-13): a new folder per run (`-1`, `-2` … when taken), never modified afterwards except CUR-16. It is readable like a source root (the source guard includes every `{ALLOWED_DERIVED_ROOTS}/_datasets`), so it opens in Open mode and imports as a `source` alias; such an alias may sit under the project's `DERIVED` root because project tasks never write under `_datasets/` |
 
 Single-writer model and locking: BE-05.
+File/directory write or sync errors propagate to the caller. An error after rename can leave
+the new file installed without a durability acknowledgment; replay must reconcile that state.
 
 ## Bundles (PRJ-08/09)
 

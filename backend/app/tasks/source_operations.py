@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -153,15 +154,96 @@ class SourceOperations:
     def _write(self, record: SourceOperation) -> SourceOperation:
         record.revision += 1
         record.updated_at = utc_now()
+        self._persist(record)
+        return record
+
+    def _persist(self, record: SourceOperation) -> None:
         atomic_write_json(
             self._dir(record.operation_id) / "operation.json",
             record.model_dump(mode="json", exclude={"conversion_run", "phase_run"}),
         )
-        return record
+
+    def _confirm_replay(self, record: SourceOperation) -> None:
+        """Reconfirm an uncertain rename before acknowledgment; dispatch only unlaunched work."""
+        self._persist(record)
+        if record.status != "queued":
+            return
+        if record.job_id:
+            try:
+                self.jobs.get(record.job_id)
+                return
+            except NotFound:
+                pass
+        retained, cleaned = self._execution_state(record)
+        if retained or not cleaned:
+            record.status = "interrupted" if cleaned else "cleanup_pending"
+            record.cleanup_verified = cleaned
+            record.error = (
+                "Source work stopped; resume after verified cleanup"
+                if cleaned
+                else "Source execution evidence needs cleanup verification"
+            )
+            self._write(record)
+            raise JobConflict(record.error)
+        self._submit(record)
+
+    def _execution_state(self, record: SourceOperation) -> tuple[bool, bool]:
+        attempt = self._attempt_dir(record)
+        retained = any(
+            (attempt / name).exists() for name in ("launch.json", "process.json", "dispatch")
+        )
+        cleaned = attempt_cleaned(attempt, record.attempt) if record.job_id or retained else True
+        return retained, cleaned
+
+    async def _recover_source(self, record: SourceOperation) -> SourceOperation:
+        info = None
+        if record.job_id:
+            try:
+                info = self.jobs.get(record.job_id)
+                if info.status not in {"failed", "cancelled", "interrupted"}:
+                    return record
+                await self.jobs.wait(record.job_id, timeout=0.01)
+            except NotFound:
+                info = None
+            except TimeoutError:
+                return record
+        current = self.get(record.operation_id)
+        if (
+            current.attempt != record.attempt
+            or current.job_id != record.job_id
+            or current.status not in ACTIVE | {"cleanup_pending"}
+        ):
+            return current
+        _, cleaned = self._execution_state(current)
+        status: TaskRunStatus
+        if not cleaned:
+            status = "cleanup_pending"
+        elif info and info.status == "cancelled":
+            status = "cancelled"
+        elif info and info.status == "failed":
+            status = "failed"
+        else:
+            status = "interrupted"
+        error = None if status == "cancelled" else current.error
+        if status != "cancelled" and (not error or current.status == "cleanup_pending"):
+            error = (
+                "Source work stopped; verify its source/storage and resume"
+                if cleaned
+                else "Source cleanup is not yet verified"
+            )
+        if (current.status, current.cleanup_verified, current.error) != (status, cleaned, error):
+            current.status, current.cleanup_verified, current.error = status, cleaned, error
+            self._write(current)
+        return current
 
     async def view(self, operation: str, *, include_run: bool = True) -> SourceOperation:
         record = self.get(operation)
         native = await self._conversion_run(record)
+        if native is None and record.status in ACTIVE | {"cleanup_pending"}:
+            recovered = await self._recover_source(record)
+            if recovered is not record:
+                record = recovered
+                native = await self._conversion_run(record)
         if record.pending_control is not None and native is not None:
             async with self.locks(f"_source_operation:{operation}"):
                 record = self.get(operation)
@@ -242,6 +324,7 @@ class SourceOperations:
                 return True
             raise JobConflict("A durable control is pending; reload and retry that command")
         if rec.control == {"action": action, **req.model_dump()}:
+            self._confirm_replay(rec)
             return False
         if rec.revision != req.expected_revision or rec.attempt != req.expected_attempt:
             raise JobConflict(
@@ -323,15 +406,31 @@ class SourceOperations:
         key = hashlib.sha256(request.idempotency_key.encode()).hexdigest()
         receipt = self.root / "requests" / f"{key}.json"
         async with self.locks("_source_operations"):
+            reserved_id = new_ulid()
             if receipt.exists():
                 old = read_json(receipt)
                 if old["request_hash"] != digest:
                     raise JobConflict(
                         "Idempotency key already identifies a different source request"
                     )
-                return self.get(old["operation_id"])
+                if old.get("status") not in {None, "pending", "committed"}:
+                    raise JobConflict("Source creation checkpoint is corrupt")
+                reserved_id = old["operation_id"]
+                directory = self._dir(reserved_id)
+                if (directory / "operation.json").exists():
+                    atomic_write_json(receipt, {**old, "status": "pending"})
+                    record = self.get(reserved_id)
+                    self._confirm_replay(record)
+                    atomic_write_json(receipt, {**old, "status": "committed"})
+                    return record
+                if old.get("status") != "pending" or (
+                    directory.exists() and any(p.name != "validation" for p in directory.iterdir())
+                ):
+                    raise JobConflict(
+                        "Source operation record is missing; review retained evidence"
+                    )
             record = SourceOperation(
-                operation_id=new_ulid(),
+                operation_id=reserved_id,
                 source=str(source),
                 project_id=request.project_id,
                 purpose=request.purpose,
@@ -358,11 +457,11 @@ class SourceOperations:
                     )
                 )
                 record.settings = spec["settings"]
+            intent = {"operation_id": record.operation_id, "request_hash": digest}
+            atomic_write_json(receipt, {**intent, "status": "pending"})
             self._write(record)
-            atomic_write_json(
-                receipt, {"operation_id": record.operation_id, "request_hash": digest}
-            )
             self._submit(record)
+            atomic_write_json(receipt, {**intent, "status": "committed"})
             return record
 
     def _submit(self, record: SourceOperation) -> None:
@@ -733,9 +832,15 @@ class SourceOperations:
                 return record
             record.control = {"action": "cancel", **request.model_dump()}
             if record.status == "queued":
-                record.status = "cancelled"
+                _, cleaned = self._execution_state(record)
                 if record.job_id:
-                    self.jobs.cancel(record.job_id)
+                    with suppress(NotFound):
+                        self.jobs.cancel(record.job_id)
+                record.status = "cancelled" if cleaned else "cleanup_pending"
+                record.cleanup_verified = cleaned
+                record.error = (
+                    None if cleaned else "Source execution evidence needs cleanup verification"
+                )
                 return self._write(record)
             record.status = "cancelling"
             return self._write(record)

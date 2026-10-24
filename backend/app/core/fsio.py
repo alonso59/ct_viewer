@@ -49,14 +49,9 @@ def atomic_write_bytes(path: Path, data: bytes, *, backup: bool = False) -> None
 
 
 def _fsync_dir(d: Path) -> None:
-    try:
-        fd = os.open(d, os.O_RDONLY)
-    except OSError:
-        return
+    fd = os.open(d, os.O_RDONLY)
     try:
         os.fsync(fd)
-    except OSError:
-        pass
     finally:
         os.close(fd)
 
