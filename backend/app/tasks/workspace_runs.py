@@ -31,6 +31,7 @@ from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks import dry_run, protocol
 from app.tasks.builtin import run_entry
 from app.tasks.dicom_execution import attempt_cleaned, run_dicom_job
+from app.tasks.dicom_phase import PhaseRuns
 from app.tasks.dicom_resources import require_pixel_budget
 from app.tasks.jobspec import bind_inventory, inventory_spec
 from app.tasks.models import (
@@ -92,6 +93,7 @@ class WorkspaceRun(BaseModel):
     resume_request_id: str | None = None
     cleanup_verified: bool = True
     provenance: dict[str, Any] = Field(default_factory=dict)
+    phase_run_id: str | None = None
     resource_wait: TaskResourceWait | None = None
 
 
@@ -107,9 +109,10 @@ def dataset_name(raw: str) -> str:
 class WorkspaceTasks:
     def __init__(
         self, settings: Settings, registry: Registry, guard: PathGuard, jobs: JobManager,
-        owners: dict[str, str],
+        owners: dict[str, str], phase_runs: PhaseRuns,
     ) -> None:  # fmt: skip
         self.settings = settings
+        self.phase_runs = phase_runs
         self.registry = registry
         self.guard = guard
         self.jobs = jobs
@@ -171,7 +174,11 @@ class WorkspaceTasks:
         return self.owners.get(m.id, m.id.split(".")[0])
 
     def _read(self, run_dir: Path) -> WorkspaceRun:
-        return WorkspaceRun.model_validate(read_json(run_dir / "run.json"))
+        raw = read_json(run_dir / "run.json")
+        if (raw.get("execution") or {}).get("phase_step"):
+            recovered = self.phase_runs.recover(None, run_dir.name)
+            return self.phase_runs.workspace_view(recovered.model_dump(mode="json"))
+        return WorkspaceRun.model_validate(raw)
 
     def _write(self, run_dir: Path, run: WorkspaceRun) -> None:
         atomic_write_json(run_dir / "run.json", run.model_dump(mode="json"))
@@ -305,6 +312,9 @@ class WorkspaceTasks:
             settings=settings,
             settings_hash=shash,
             job_id=job_id,
+            phase_run_id=new_ulid()
+            if m.id == "dicom.convert" and settings.get("phase_analyzer", True)
+            else None,
         )
         job_dir = (
             run_dir / "attempts" / job_id
@@ -314,6 +324,7 @@ class WorkspaceTasks:
         if m.id == "dicom.convert":
             atomic_write_json(job_dir / "reserved.json", {"attempt": 1})
         self._write(run_dir, run)
+        self.phase_runs.prepare(None, run)
         bind_inventory(run_dir, self.settings.workspace_root, source_inventory)
         out.mkdir(parents=True)
         protocol.write_job(
@@ -327,6 +338,15 @@ class WorkspaceTasks:
                 "resume": {"skip": []},
                 "batch": {"size": 1},
                 "analysis_state": str(run_dir / "phase-analyzer"),
+                "phase_run_id": run.phase_run_id,
+                "phase_cancel": str(
+                    self.settings.workspace_root
+                    / "plugins/analyzers/runs"
+                    / run.phase_run_id
+                    / protocol.CANCEL
+                )
+                if run.phase_run_id
+                else None,
             },
         )
 
@@ -389,6 +409,7 @@ class WorkspaceTasks:
                             "stage_total": int(line.get("total") or 0),
                         }
                 run = self._read(run_dir)
+                self.phase_runs.stage(None, run, stage)
                 run.progress = {"done": done, "total": total, **stage}
                 if stage.get("stage") == "waiting_for_resources":
                     run.status = "waiting_for_resources"
@@ -436,6 +457,7 @@ class WorkspaceTasks:
             status = "completed"
         if run.task.id == "dicom.convert":
             run.cleanup_verified = attempt_cleaned(job_dir, run.attempts)
+            self.phase_runs.finish(None, run, job_dir, result)
             if not run.cleanup_verified:
                 status = "cleanup_pending"
         counts = result.get("estimate") if isinstance(result.get("estimate"), dict) else {}
@@ -472,6 +494,8 @@ class WorkspaceTasks:
         self, rid: str, *, expected_attempt: int | None = None, request_id: str | None = None
     ) -> TaskRunStarted:
         run = self.get(rid)
+        if run.task.id == "analyzer.phase" and run.provenance.get("source_conversion_run_id"):
+            return await self.phase_runs.resume(None, rid, expected_attempt)
         if expected_attempt is not None and run.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
         run_dir = self._find(rid)
@@ -498,6 +522,7 @@ class WorkspaceTasks:
         run.progress, run.resource_wait = {}, None
         run.job_id, run.status, run.error, run.finished_at = job_id, "queued", None, None
         self._write(run_dir, run)
+        self.phase_runs.prepare(None, run)
         protocol.write_job(
             job,
             {
@@ -508,6 +533,15 @@ class WorkspaceTasks:
                 "mode": "run",
                 "attempt": run.attempts,
                 "analysis_state": str(run_dir / "phase-analyzer"),
+                "phase_run_id": run.phase_run_id,
+                "phase_cancel": str(
+                    self.settings.workspace_root
+                    / "plugins/analyzers/runs"
+                    / run.phase_run_id
+                    / protocol.CANCEL
+                )
+                if run.phase_run_id
+                else None,
             },
         )
 
@@ -530,8 +564,11 @@ class WorkspaceTasks:
         )
         return TaskRunStarted(run_id=rid, job_id=job_id, status="queued")
 
-    def cancel(self, rid: str, *, expected_attempt: int | None = None) -> WorkspaceRun:
+    async def cancel(self, rid: str, *, expected_attempt: int | None = None) -> WorkspaceRun:
         run = self.get(rid)
+        if run.task.id == "analyzer.phase" and run.provenance.get("source_conversion_run_id"):
+            await self.phase_runs.cancel(None, rid, expected_attempt)
+            return self.get(rid)
         if expected_attempt is not None and run.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
         if run.job_id and run.status in ("queued", "running", "waiting_for_resources"):
@@ -543,7 +580,9 @@ class WorkspaceTasks:
         return self.get(rid)
 
 
-def dataset_annotations(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+def dataset_annotations(
+    root: Path, phase_runs: PhaseRuns | None = None
+) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
     """A workspace dataset's manifest and analyzer annotations, if `root` is one (SRC-16)."""
     if not (root / DATASET_JSON).is_file():
         return None
@@ -552,6 +591,11 @@ def dataset_annotations(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]
     except (OSError, ValueError):
         return None
     rows = [r for r in iter_jsonl(root / ANNOTATIONS) if r.get("item_id") and r.get("field")]
+    phase = phase_runs.dataset_phase(root, meta) if phase_runs else None
+    if phase is not None:
+        phase_task, phase_rows = phase
+        meta = {**meta, "phase_task": phase_task}
+        rows = [r for r in rows if r["field"] != "phase"] + phase_rows
     return meta, rows
 
 

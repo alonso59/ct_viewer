@@ -66,6 +66,9 @@ class DriverBase(RegistrationBase):
     ) -> TaskRunStarted:
         rid = run_dir.name
         rec = self.runs.read(run_dir)
+        phase_run_id = rec.phase_run_id
+        if m.id == "dicom.convert" and rec.settings.get("phase_analyzer", True):
+            phase_run_id = phase_run_id or new_ulid()
         prior_attempt = rec.attempts
         job_id = rec.job_id if recover else new_ulid()
         if job_id is None:
@@ -102,6 +105,12 @@ class DriverBase(RegistrationBase):
                             "attempt": rec.attempts + 1,
                             "dicom_process_protocol": 1,
                             "analysis_state": str(run_dir / "phase-analyzer"),
+                            "phase_run_id": phase_run_id,
+                            "phase_cancel": str(
+                                self._runs_dir(pid) / phase_run_id / protocol.CANCEL
+                            )
+                            if phase_run_id
+                            else None,
                         }
                         if m.id == "dicom.convert"
                         else {}
@@ -170,6 +179,7 @@ class DriverBase(RegistrationBase):
             rec.resume_request_id = resume_request_id
             rec.progress_cursor, rec.progress_done = 0, 0
             if m.id == "dicom.convert":
+                rec.phase_run_id = phase_run_id
                 rec.execution = {
                     "attempt": rec.attempts,
                     "cleanup_verified": False,
@@ -194,6 +204,9 @@ class DriverBase(RegistrationBase):
                 prepare=prepare,
                 on_error=lambda: shutil.rmtree(job_dir, ignore_errors=True),
             )
+        if m.id == "dicom.convert":
+            async with self.locks(pid):
+                self.phase_runs.prepare(pid, self.runs.read(run_dir))
         return TaskRunStarted(run_id=rid, job_id=job_id, status="queued")
 
     async def _recover_external(self, pid: str, run_dir: Path) -> None:
@@ -445,6 +458,8 @@ class DriverBase(RegistrationBase):
                 record_masks(self.workspace.project_dir(live.pid), live.rid, masks)
             if live.manifest.id == "dicom.convert":
                 previous = (rec.execution or {}).get("progress", {})
+                if stage_progress:
+                    self.phase_runs.stage(live.pid, rec, stage_progress)
                 rec.execution = {
                     **(rec.execution or {}),
                     "progress": TaskRunProgress.model_validate(
@@ -515,6 +530,7 @@ class DriverBase(RegistrationBase):
             rec.status = status
             if rec.task.id == "dicom.convert":
                 cleaned = attempt_cleaned(live.job_dir, rec.attempts)
+                self.phase_runs.finish(live.pid, rec, live.job_dir, result or {})
                 rec.execution = {
                     **(rec.execution or {}),
                     "attempt": rec.attempts,

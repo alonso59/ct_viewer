@@ -2,7 +2,7 @@
 // UI-25 on the recorded API (TST-04): source → settings → dry run → run → result with the three
 // next steps. The recording converted `dicom/P900` of the fixtures (one series, one scout).
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { vi } from 'vitest'
 
@@ -20,6 +20,60 @@ async function recordedOperation(): Promise<SourceOperation> {
 }
 
 afterEach(() => { useConverter.getState().close(); vi.restoreAllMocks() })
+
+test.each([false, true])('D29 retries and cancels only the separate phase run (project: %s)', async (inProject) => {
+  const recorded = await recordedOperation()
+  if (!recorded.conversion_run) throw new Error('Missing recorded conversion run')
+  const phaseId = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
+  const phase = { ...recorded.conversion_run, run_id: phaseId, task: { id: 'analyzer.phase', version: '1.0.0', manifest_hash: 'phase' }, status: 'failed' as const, attempts: 2, cleanup_verified: true, execution: { phase_step: true, cleanup_verified: true }, progress: { done: 0, total: 1, stage_done: 0, stage_total: 1 }, counts: { items: 1, ok: 0, failed: 1, skipped: 0 }, error: 'Phase batch failed' }
+  const operation: SourceOperation = { ...recorded, project_id: inProject ? 'project-phase' : null, phase_run: phase }
+  const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
+  const start = { run_id: phaseId, job_id: 'phase-attempt-3', status: 'queued' as const }
+  const resume = vi.spyOn(api, inProject ? 'resumeTaskRun' : 'resumeWorkspaceRun').mockImplementation(async () => {
+    get.mockResolvedValue({ ...operation, phase_run: { ...phase, status: 'running', attempts: 3, error: null } })
+    return start
+  })
+  const cancel = vi.spyOn(api, inProject ? 'cancelTaskRun' : 'cancelWorkspaceRun').mockResolvedValue(phase as never)
+  const conversion = vi.spyOn(api, 'resumeSourceOperation')
+  useConverter.getState().attach(operation.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry phase analysis' }))
+  await waitFor(() => expect(resume).toHaveBeenCalledWith(...(inProject ? ['project-phase', phaseId, { expected_attempt: 2 }] : [phaseId, { expected_attempt: 2 }])))
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel phase analysis' }))
+  await waitFor(() => expect(cancel).toHaveBeenCalledWith(...(inProject ? ['project-phase', phaseId, { expected_attempt: 3 }] : [phaseId, { expected_attempt: 3 }])))
+  expect(conversion).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: 'Show the result' })).toBeEnabled()
+})
+
+test('D29 keeps polling phase after conversion completes and minimizes while phase is active', async () => {
+  const recorded = await recordedOperation()
+  if (!recorded.phase_run) throw new Error('Missing recorded phase run')
+  const pending: SourceOperation = { ...recorded, phase_run: { ...recorded.phase_run, status: 'running', progress: { done: 1, total: 2, stage_done: 1, stage_total: 2 } } }
+  const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(pending)
+  useConverter.getState().attach(recorded.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText('1 of 2 metadata rows analyzed')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
+  expect(screen.getByTestId('conv-chip')).toHaveTextContent('Phase analysis')
+  get.mockResolvedValue({ ...recorded, phase_run: { ...recorded.phase_run, status: 'completed' } })
+  await waitFor(() => expect(screen.getByTestId('conv-chip')).toHaveTextContent('Completed'), { timeout: 3000 })
+  fireEvent.click(screen.getByRole('button', { name: 'Show' }))
+  const panel = screen.getByRole('region', { name: 'Phase analysis' })
+  expect(within(panel).getByText('Completed')).toBeInTheDocument()
+  expect(within(panel).queryByRole('button', { name: 'Cancel phase analysis' })).toBeNull()
+})
+
+test('D29 never enables phase retry with unverified cleanup', async () => {
+  const recorded = await recordedOperation()
+  if (!recorded.phase_run) throw new Error('Missing recorded phase run')
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue({ ...recorded, phase_run: { ...recorded.phase_run, status: 'interrupted', cleanup_verified: false, execution: { phase_step: true, cleanup_verified: false } } })
+  useConverter.getState().attach(recorded.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByRole('button', { name: 'Retry phase analysis' })).toBeDisabled()
+})
 
 test('UI-28 restores a conversion from the server using its stored opaque ID', async () => {
   const operation = await recordedOperation()

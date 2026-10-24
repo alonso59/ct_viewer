@@ -80,6 +80,47 @@ def test_disabled_phase_never_calls_rules(tmp_path: Path, monkeypatch: pytest.Mo
     assert not (job / "phase-analyzer").exists()
 
 
+def test_phase_checkpoint_io_failure_leaves_conversion_usable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D29: failure to persist analyzer state does not invalidate committed image outputs."""
+    from plugins.analyzers import checkpoint
+
+    job = make_job(tmp_path)
+
+    def unavailable(*_: Any, **__: Any) -> Any:
+        raise OSError("synthetic analyzer-state filesystem outage")
+
+    monkeypatch.setattr(checkpoint, "analyze_phase", unavailable)
+    assert task.run(str(job)) == 0
+    result = protocol.read_result(job)
+    assert result is not None and result["status"] == "completed"
+    assert result["provenance"]["phase_analyzer"]["status"] == "failed"
+    assert result["provenance"]["phase_analyzer"]["total"] == 1
+    assert (tmp_path / "derived/dataset.json").is_file()
+    assert len(list((tmp_path / "derived/nifti").glob("*.nii.gz"))) == 1
+
+
+def test_cancelling_only_phase_does_not_cancel_conversion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D29: the analyzer's cancellation flag is independent of the native conversion flag."""
+    job = make_job(tmp_path)
+    spec = json.loads((job / protocol.JOB).read_text())
+    phase_cancel = tmp_path / "workspace/phase-run"
+    phase_cancel.mkdir(parents=True)
+    protocol.request_cancel(phase_cancel)
+    spec["phase_cancel"] = str(phase_cancel / protocol.CANCEL)
+    protocol.write_job(job, spec)
+    monkeypatch.setattr(phase, "analyze", no_phase)
+    assert task.run(str(job)) == 0
+    result = protocol.read_result(job)
+    assert result is not None and result["status"] == "completed"
+    assert result["provenance"]["phase_analyzer"]["status"] == "cancelled"
+    assert (tmp_path / "derived/dataset.json").is_file()
+    assert not (job / protocol.CANCEL).exists()
+
+
 def test_phase_runs_only_after_commits_and_before_basic_facts_are_discarded(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -155,6 +196,7 @@ def test_analyzer_checkpoint_resumes_batches_and_refuses_incompatible_rules(
     monkeypatch.setattr(phase, "analyze", tracked)
     partial = analyze_phase(state, rows, {}, cancelled=lambda: len(calls) >= 64)
     assert partial["status"] == "cancelled"
+    assert partial["done"] == 64 and partial["total"] == 130
     assert retry_phase(state)["status"] == "completed"
     assert calls == [str(i) for i in range(130)]
     monkeypatch.setattr(phase, "RULES_VERSION", "new-rules")

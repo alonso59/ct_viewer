@@ -298,7 +298,7 @@ export const useWorkspaceRuns = () => useQuery({ queryKey: keys.workspaceRuns(),
 export const useSourceOperations = (on = true) => useQuery({ queryKey: keys.sourceOperations(), queryFn: () => api.listSourceOperations(), enabled: on, refetchInterval: 3000 })
 export const useSourceOperation = (id: string | null) => useQuery({
   queryKey: keys.sourceOperation(id ?? ''), queryFn: () => api.getSourceOperation(id ?? ''), enabled: !!id,
-  refetchInterval: (q) => isTaskRunPending(q.state.data?.status) ? 800 : false,
+  refetchInterval: (q) => isTaskRunPending(q.state.data?.status) || isTaskRunPending(q.state.data?.phase_run?.status) ? 800 : false,
 })
 export const useSourcePlan = (id: string | null, attempt: number | null, cursor?: string, action?: 'convert' | 'skip') => useQuery({
   queryKey: keys.sourcePlan(id ?? '', attempt, cursor, action),

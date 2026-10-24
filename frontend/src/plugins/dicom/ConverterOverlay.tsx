@@ -32,6 +32,7 @@ import { NewProjectDialog } from '../../features/import'
 import { Dialog, fmtBytes, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
+import { PhasePanel } from './PhasePanel'
 import './converter.css'
 
 /** The dry run's stages in order (`pipeline.Stage`); `check` = the source is searched for DICOM */
@@ -222,6 +223,8 @@ export default function ConverterOverlay() {
   const legacyWorkspace = useWorkspaceRun(!operationId && run?.kind === 'dataset' ? run.rid : null).data
   const legacyProject = useTaskRun(pid ?? '', !operationId && run?.kind === 'project' ? run.rid : null).data
   const linked = operation?.conversion_run
+  const phase = operation?.phase_run
+  const phasePending = !!phase && isTaskRunPending(phase.status)
   const ws = linked && 'dataset_dir' in linked ? linked : legacyWorkspace
   const prun = linked && 'runtime' in linked ? linked : legacyProject
   const resourceWait = ws?.resource_wait ?? prun?.resource_wait
@@ -295,7 +298,12 @@ export default function ConverterOverlay() {
   } else if (estimate && step === 'estimate') {
     activity = { label: t('conv.dryRunDone', { n: estimate.n_units }), done: 1, total: 1, finished: true, tone: 'ok' }
   }
-  const working = busy || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
+  const chipActivity: Activity | null = phase && runFinished ? {
+    label: t('conv.phaseStatus', { status: t(`conv.status.${phase.status}`, { defaultValue: phase.status }) }),
+    done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
+    finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
+  } : activity
+  const working = busy || phasePending || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
   useEffect(() => {
     useConverter.setState({ working })
   }, [working])
@@ -318,6 +326,18 @@ export default function ConverterOverlay() {
     qc.setQueryData(keys.sourceOperation(value.operation_id), value)
     void qc.invalidateQueries({ queryKey: keys.sourceOperations(), exact: true })
   }
+  const controlPhase = (action: 'resume' | 'cancel') => guard(async () => {
+    if (!phase || !operation) return
+    const body = { expected_attempt: phase.attempts }
+    if (operation.project_id) {
+      if (action === 'resume') await api.resumeTaskRun(operation.project_id, phase.run_id, body)
+      else await api.cancelTaskRun(operation.project_id, phase.run_id, body)
+    } else if (action === 'resume') await api.resumeWorkspaceRun(phase.run_id, body)
+    else await api.cancelWorkspaceRun(phase.run_id, body)
+    await qc.invalidateQueries({ queryKey: keys.sourceOperation(operation.operation_id), exact: true })
+    void qc.invalidateQueries({ queryKey: keys.workspaceRuns() })
+    if (operation.project_id) void qc.invalidateQueries({ queryKey: keys.taskRuns(operation.project_id) })
+  })
   const dryRun = () => guard(async () => {
     if (!source) return
     if (operation?.stage === 'ready' && !operation.conversion_run_id && operation.source === source && operation.project_id === (intoProject ? pid : null)) {
@@ -386,7 +406,7 @@ export default function ConverterOverlay() {
 
   return (
     <>
-      {minimized ? <ConverterChip activity={activity} onShow={c.restore} onClose={close} /> : null}
+      {minimized ? <ConverterChip activity={chipActivity} onShow={c.restore} onClose={close} /> : null}
       <Dialog
         open={!minimized}
         onOpenChange={onOpenChange}
@@ -525,6 +545,7 @@ export default function ConverterOverlay() {
               <div className="conv-row conv-actions"><button type="button" className="btn btn-primary" onClick={close}>{t('conv.close')}</button></div>
             </div>
           ) : null}
+          {phase ? <PhasePanel phase={phase} busy={busy} onControl={(action) => void controlPhase(action)} /> : null}
           {resumable ? <div className="conv-row conv-actions">
             <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified} onClick={() => void control('resume')}>{t('conv.resumePending')}</button>
             <button type="button" className="btn" disabled={busy} onClick={() => patch({ operationId: null, requestKey: null, step: 'settings', run: null })}>{t('conv.newDryRun')}</button>

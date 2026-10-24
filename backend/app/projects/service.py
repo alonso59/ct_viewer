@@ -628,11 +628,13 @@ class Workspace:
             return self._save(new)
 
     async def set_annotation_source(
-        self, project_id: str, field: str, run_id: str | None
+        self, project_id: str, field: str, run_id: str | None, *, only_if_unset: bool = False
     ) -> ProjectConfig:
         """ANZ-04: activate (or clear) the annotation run for one field."""
         async with self.locks(project_id):
             cur = self.get(project_id)
+            if only_if_unset and cur.annotation_sources.get(field) is not None:
+                return cur
             sources = {**cur.annotation_sources, field: run_id}
             new = cur.model_copy(update={"annotation_sources": sources, "updated_at": utc_now()})
             return self._save(new)

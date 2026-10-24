@@ -114,6 +114,9 @@ class TaskBase:
             resumable=RESUMABLE_TASK_RUN,
             noun="Task run",
         )
+        from app.tasks.dicom_phase import PhaseRuns
+
+        self.phase_runs = PhaseRuns(settings, registry, workspace, store, jobs, bus, locks)
 
     @property
     def queue_dir(self) -> Path:

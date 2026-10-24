@@ -69,6 +69,9 @@ class TaskService(DriverBase):
 
     async def _recover_dicom(self, pid: str, run_dir: Path) -> None:
         rec = self.runs.read(run_dir)
+        if (rec.execution or {}).get("phase_step"):
+            self.phase_runs.recover(pid, rec.run_id)
+            return
         if rec.task.id != "dicom.convert" or not rec.job_id:
             return
         if rec.status == "completed":
@@ -273,21 +276,29 @@ class TaskService(DriverBase):
         await self._recover_dicom(pid, run_dir)
         await self._recover_external(pid, run_dir)
         await control.settle(self, pid, run_dir)
-        rec = await self.runs.reconcile(pid, run_dir)
+        rec = self.runs.read(run_dir)
+        if not (rec.execution or {}).get("phase_step"):
+            rec = await self.runs.reconcile(pid, run_dir)
         job = self.runs.job(rec.job_id)
         progress = None
         execution = rec.execution or {}
         resource_wait = None
-        if rec.task.id == "dicom.convert" and execution.get("progress"):
+        phase_step = execution.get("phase_step") is True
+        if (rec.task.id == "dicom.convert" or phase_step) and execution.get("progress"):
             progress = TaskRunProgress.model_validate(execution["progress"])
         if rec.task.id == "dicom.convert" and execution.get("resource_wait"):
             resource_wait = TaskResourceWait.model_validate(execution["resource_wait"])
         if job is not None and job.status not in TERMINAL:
-            if rec.task.id != "dicom.convert" or progress is None:
+            if not (phase_step and execution.get("shared_conversion_job")) and (
+                rec.task.id != "dicom.convert" or progress is None
+            ):
                 progress = TaskRunProgress(
                     done=job.done,
                     total=job.total,
-                    eta_s=None if rec.task.id == "dicom.convert" else job.eta_s,
+                    eta_s=None if rec.task.id == "dicom.convert" or phase_step else job.eta_s,
+                    stage="analyzing" if phase_step else None,
+                    stage_done=job.done if phase_step else 0,
+                    stage_total=job.total if phase_step else 0,
                 )
             if job.status == "waiting_for_runner" and rec.status == "queued":
                 rec.status = "waiting_for_runner"
@@ -302,7 +313,9 @@ class TaskService(DriverBase):
             await self._recover_dicom(pid, run_dir)
             await self._recover_external(pid, run_dir)
             await control.settle(self, pid, run_dir)
-            rec = await self.runs.reconcile(pid, run_dir)
+            rec = self.runs.read(run_dir)
+            if not (rec.execution or {}).get("phase_step"):
+                rec = await self.runs.reconcile(pid, run_dir)
             if rec.archived == archived:
                 out.append(TaskRunListItem.model_validate(rec.model_dump()))
         if not archived:
@@ -316,6 +329,9 @@ class TaskService(DriverBase):
     ) -> TaskRunDetail:
         if not self._radiomics().has_run(pid, rid):
             rec = self.runs.read(self.runs.run_dir(pid, rid))
+            if (rec.execution or {}).get("phase_step"):
+                await self.phase_runs.cancel(pid, rid, expected_attempt)
+                return await self.get_run(pid, rid)
             if rec.task.id == "dicom.convert":
                 async with self.locks(f"_dicom_control:{pid}:{rid}"):
                     return await self._cancel(pid, rid, expected_attempt=expected_attempt)
@@ -377,6 +393,8 @@ class TaskService(DriverBase):
         """TSK-07: a new attempt that skips the items already `ok` (resume.skip)."""
         if not self._radiomics().has_run(pid, rid):
             rec = self.runs.read(self.runs.run_dir(pid, rid))
+            if (rec.execution or {}).get("phase_step"):
+                return await self.phase_runs.resume(pid, rid, expected_attempt)
             if rec.task.id == "dicom.convert":
                 async with self.locks(f"_dicom_control:{pid}:{rid}"):
                     return await self._resume(

@@ -95,7 +95,9 @@ After the first native attempt, missing or stale run fences return 409.
 `pending_control` retains a command interrupted before acknowledgment; retry its exact `request`.
 A native `resume_request_id` proves its attempt belongs to that command, including after restart.
 Duplicate acknowledged commands return current state without creating another attempt.
-Native API-46/47 DICOM controls and operation controls share the run lock; other task runtimes are unchanged.
+Native API-46/47 DICOM controls and operation controls share the run lock.
+API-45 list rows include `attempts`. API-46/62 cancel/resume accept an optional `{expected_attempt}` body; it is required for the linked phase run and stale attempts return 409. Other task runtimes retain their existing controls.
+Conversion details expose `phase_run_id`; API-69 `phase_run` projects the child's API-45/62 record. Phase retry uses the child's control endpoint and returns its new job; repeating the same retry fence returns that attempt without launching another worker. Phase and conversion outcomes remain independent (ANZ-02/04).
 `retry-failed` remains planned; the current implementation checkpoint is DICOM_JOB_PLAN.md.
 Failed background plans persist `problem` details/actions; non-DICOM refusals retain API-44/62 remedies.
 API-69 Estimate accepts an optional `name`: omitted/null preserves it; an empty string restores the neutral default.

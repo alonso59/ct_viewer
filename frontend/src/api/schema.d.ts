@@ -5559,6 +5559,11 @@ export interface components {
              */
             role: "source" | "derived";
         };
+        /** RunAttemptControl */
+        RunAttemptControl: {
+            /** Expected Attempt */
+            expected_attempt?: number | null;
+        };
         /** RunCounts */
         RunCounts: {
             /**
@@ -6117,6 +6122,8 @@ export interface components {
             };
             /** Conversion Run */
             conversion_run?: components["schemas"]["TaskRunDetail"] | components["schemas"]["WorkspaceRun"] | null;
+            /** Phase Run */
+            phase_run?: components["schemas"]["TaskRunDetail"] | components["schemas"]["WorkspaceRun"] | null;
             /**
              * Prepare Plan
              * @default false
@@ -6543,6 +6550,11 @@ export interface components {
             /** Job Id */
             job_id?: string | null;
             counts?: components["schemas"]["TaskRunCounts"];
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
             /** Error */
             error?: string | null;
             /**
@@ -6584,6 +6596,8 @@ export interface components {
             provenance?: {
                 [key: string]: unknown;
             };
+            /** Phase Run Id */
+            phase_run_id?: string | null;
             /** Identity */
             identity?: {
                 [key: string]: unknown;
@@ -6593,11 +6607,6 @@ export interface components {
             output_dir?: string | null;
             /** Outputs */
             outputs?: components["schemas"]["TaskRunOutput"][];
-            /**
-             * Attempts
-             * @default 0
-             */
-            attempts: number;
             /** Resume Request Id */
             resume_request_id?: string | null;
             /**
@@ -6651,6 +6660,11 @@ export interface components {
             /** Job Id */
             job_id?: string | null;
             counts?: components["schemas"]["TaskRunCounts"];
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
             /** Error */
             error?: string | null;
             /**
@@ -7149,6 +7163,8 @@ export interface components {
             provenance?: {
                 [key: string]: unknown;
             };
+            /** Phase Run Id */
+            phase_run_id?: string | null;
             resource_wait?: components["schemas"]["TaskResourceWait"] | null;
         };
         /** WorkspaceRunRequest */
@@ -10331,7 +10347,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunAttemptControl"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -10427,7 +10447,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunAttemptControl"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -10703,7 +10727,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunAttemptControl"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -10734,7 +10762,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunAttemptControl"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {

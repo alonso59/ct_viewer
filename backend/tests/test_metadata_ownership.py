@@ -46,7 +46,7 @@ def test_app_converter_rows_are_clean(
     # the analyzers' results are layers instead (ANZ-04)
     layers = {x["field"]: x for x in dc.get(f"{API}/projects/{pid}/layers").json()}
     assert {"phase", "target_match", "output_role", "readiness"} <= set(layers)
-    assert layers["phase"]["plugin"] == "dicom" and layers["phase"]["n_values"] >= 2
+    assert layers["phase"]["plugin"] == "analyzers" and layers["phase"]["n_values"] >= 2
 
 
 def test_cli_writes_the_same_clean_rows_and_no_curation_csv(
@@ -108,7 +108,7 @@ def test_dataset_table_joins_active_layers(
     assert "dataset_table.csv" in r.headers["content-disposition"]
     table = list(csv.DictReader(io.StringIO(r.text)))
     header = list(table[0])
-    phase_col = f"phase@dicom.convert:{run['run_id']}"
+    phase_col = f"phase@analyzer.phase:{run['phase_run_id']}"
     assert phase_col in header and "curation_status@curation" in header
     row = next(x for x in table if x["item_id"] == item)
     assert row[phase_col] == "NP" and row["curation_status@curation"] == "accepted"
@@ -152,7 +152,10 @@ def test_workspace_dataset_then_project(
     assert study_keys(read_jsonl(ds / "metadata.jsonl")) == set()
     assert (ctx_of(dc).settings.workspace_root / "plugins" / "dicom" / "runs" / run["run_id"]
             / "run.json").is_file()  # fmt: skip
-    assert [r["run_id"] for r in dc.get(f"{API}/task-runs").json()] == [run["run_id"]]
+    assert {(r["task"]["id"], r["run_id"]) for r in dc.get(f"{API}/task-runs").json()} == {
+        ("dicom.convert", run["run_id"]),
+        ("analyzer.phase", run["phase_run_id"]),
+    }
     # a second run with the same name gets a new folder (write-once)
     again = dc.post(
         f"{API}/task-runs", json={**body, "task_id": "dicom.convert", "name": "study A"}

@@ -65,6 +65,7 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
     registry = build_registry(
         settings.builtin_plugins_root, settings.plugins_root, plugins.task_owner()
     )
+    tasks = TaskService(settings, registry, workspace, index, jobs, bus, locks)
     return AppContext(
         settings=settings,
         guard=guard,
@@ -82,8 +83,8 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
             jobs,
             workspace,
             locks,
-            TaskService(settings, registry, workspace, index, jobs, bus, locks),
-            WorkspaceTasks(settings, registry, guard, jobs, plugins.task_owner()),
+            tasks,
+            WorkspaceTasks(settings, registry, guard, jobs, plugins.task_owner(), tasks.phase_runs),
         ),
         cache_budget=CacheBudget(
             lambda: [

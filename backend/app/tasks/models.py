@@ -305,6 +305,7 @@ class TaskRunSummary(BaseModel):
     reviewer: str | None = None
     job_id: str | None = None
     counts: TaskRunCounts = Field(default_factory=TaskRunCounts)
+    attempts: int = 0
     error: str | None = None
     supervised: bool = False
     archived: bool = False
@@ -329,11 +330,11 @@ class TaskRunRecord(TaskRunSummary):
     inputs: list[TaskRunInput] = Field(default_factory=list)
     versions: dict[str, str] = Field(default_factory=dict)
     provenance: dict[str, Any] = Field(default_factory=dict)
+    phase_run_id: str | None = None
     identity: dict[str, Any] = Field(default_factory=dict)
     manifest_snapshot: TaskManifest | None = None
     output_dir: str | None = None  # absolute, inside the project's derived root
     outputs: list[TaskRunOutput] = Field(default_factory=list)
-    attempts: int = 0
     resume_request_id: str | None = None
     progress_cursor: int = 0
     progress_done: int = 0
@@ -366,6 +367,11 @@ class TaskRunStarted(BaseModel):
     run_id: str
     job_id: str | None
     status: TaskRunStatus
+
+
+class RunAttemptControl(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_attempt: int | None = Field(default=None, ge=0)
 
 
 class TaskItemError(BaseModel):

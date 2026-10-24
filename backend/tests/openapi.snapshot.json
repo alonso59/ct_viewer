@@ -9036,6 +9036,25 @@
     "title": "RootInfo",
     "type": "object"
    },
+   "RunAttemptControl": {
+    "additionalProperties": false,
+    "properties": {
+     "expected_attempt": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Attempt"
+     }
+    },
+    "title": "RunAttemptControl",
+    "type": "object"
+   },
    "RunCounts": {
     "properties": {
      "failed": {
@@ -10331,6 +10350,20 @@
         "type": "null"
        }
       ]
+     },
+     "phase_run": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskRunDetail"
+       },
+       {
+        "$ref": "#/components/schemas/WorkspaceRun"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase Run"
      },
      "plan_attempt": {
       "anyOf": [
@@ -11668,6 +11701,17 @@
       "title": "Outputs",
       "type": "array"
      },
+     "phase_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase Run Id"
+     },
      "progress": {
       "anyOf": [
        {
@@ -11873,6 +11917,11 @@
       "default": false,
       "title": "Archived",
       "type": "boolean"
+     },
+     "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
      },
      "control": {
       "anyOf": [
@@ -13321,6 +13370,17 @@
      "name": {
       "title": "Name",
       "type": "string"
+     },
+     "phase_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase Run Id"
      },
      "plugin": {
       "title": "Plugin",
@@ -19836,6 +19896,23 @@
       }
      }
     ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RunAttemptControl"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "content": {
@@ -20049,6 +20126,23 @@
       }
      }
     ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RunAttemptControl"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "202": {
       "content": {
@@ -21526,6 +21620,23 @@
       }
      }
     ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RunAttemptControl"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "content": {
@@ -21568,6 +21679,23 @@
       }
      }
     ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RunAttemptControl"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "202": {
       "content": {

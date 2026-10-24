@@ -62,6 +62,8 @@ class RegistrationBase(EstimateBase):
                 )
             atomic_write_json(path, {**identity, "status": "pending"})
             try:
+                async with self.locks(live.pid):
+                    self.phase_runs.finish(live.pid, record, live.job_dir, result)
                 resolver = self.workspace.resolver(live.pid)
                 for output in record.outputs:
                     if output.kind in {"image", "sidecar"} and output.ref and output.sha256:
@@ -250,13 +252,24 @@ class RegistrationBase(EstimateBase):
                 ):
                     raise JobConflict("Committed converter annotations changed before registration")
                 rows = [r for r in iter_jsonl(src) if r.get("item_id") and r.get("field")]
+                conversion = self.runs.read(live.run_dir)
+                if m.id == "dicom.convert" and conversion.phase_run_id:
+                    phase_run = self.runs.read(self.runs.run_dir(pid, conversion.phase_run_id))
+                    if phase_run.status == "completed" and not self.workspace.get(
+                        pid
+                    ).annotation_sources.get("phase"):
+                        await self.workspace.set_annotation_source(
+                            pid, "phase", phase_run.run_id, only_if_unset=True
+                        )
+                        activated = True
+                    rows = [r for r in rows if r["field"] != "phase"]
                 async with self.locks(pid):
                     write_jsonl_atomic(live.run_dir / ANNOTATIONS, rows)
                 fields = sorted({str(r["field"]) for r in rows})
                 cfg = self.workspace.get(pid)
                 for f in fields:  # ANZ-04: a new run is active only where none is
                     if not cfg.annotation_sources.get(f):
-                        await self.workspace.set_annotation_source(pid, f, rid)
+                        await self.workspace.set_annotation_source(pid, f, rid, only_if_unset=True)
                         activated = True
                 new_outputs.append(
                     TaskRunOutput(
