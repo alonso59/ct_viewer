@@ -3,7 +3,8 @@
 import { expect, test } from 'vitest'
 
 import type { DetectCandidate, ImportPreview } from '../../api'
-import { aliasProblem, autoPattern, canNext, cleanAlias, firstAdapter, imageStems, initialState, jobFailed, nextAction, previewCounts, type NextInput } from './model'
+import { aliasProblem, autoOptions, canNext, cleanAlias, firstAdapter, imageStems, initialState, jobFailed, nextAction, previewCounts, type NextInput } from './model'
+import { FOLDER_PATTERN } from './patternSuggest'
 
 const cand = (adapter: string, available = true): DetectCandidate => ({ adapter, available, reason: '', counts: { nifti: 0, dicom: 0, npy: 0, ignored: 0 }, confidence: 'high', options: {}, unavailable_reason: null }) as DetectCandidate
 
@@ -33,13 +34,21 @@ test('the adapter after detection: the prefill, else the first importable, else 
 })
 
 test('image names: an include list without its masks, one file, or the folder; the converter naming prefills', () => {
-  expect(imageStems({ include: ['a/01_case_00001_0000.nii.gz', 'seg/m.nii.gz'], masks: { imported: 'seg/m.nii.gz' } }, null, ['x.nii.gz'])).toEqual(['01_case_00001_0000'])
+  expect(imageStems({ include: ['a/01_case_00001_0000.nii.gz', 'seg/m.nii.gz'], masks: { imported: 'seg/m.nii.gz' } }, null, ['x.nii.gz'])).toEqual(['a/01_case_00001_0000'])
   expect(imageStems({}, '/d/b_0000.nii.gz', ['x.nii.gz'])).toEqual(['b_0000'])
   const stems = imageStems({}, null, ['01_case_00001_0000.nii.gz', '02_case_00001_0000.nii.gz'])
-  expect(autoPattern('nifti-files', false, {}, stems)).not.toBeNull()
-  expect(autoPattern('nifti-files', true, {}, stems)).toBeNull() // the user edited the options
-  expect(autoPattern('metadata-v1', false, {}, stems)).toBeNull()
-  expect(autoPattern('nifti-files', false, { pattern: 'x' }, stems)).toBeNull()
+  expect(autoOptions('nifti-files', false, {}, stems, [])).not.toBeNull()
+  expect(autoOptions('nifti-files', true, {}, stems, [])).toBeNull() // the user edited the options
+  expect(autoOptions('metadata-v1', false, {}, stems, [])).toBeNull()
+  expect(autoOptions('nifti-files', false, { pattern: 'x' }, stems, [])).toBeNull()
+  // SRC-04: one case per folder when file names repeat across folders (`{case}/ct.nii.gz`)
+  const perCase = imageStems({}, null, ['P_1/ct.nii.gz', 'P_2/ct.nii.gz', 'P_2/seg/ct.nii.gz'])
+  expect(perCase).toEqual(['P_1/ct', 'P_2/ct'])
+  expect(autoOptions('nifti-files', false, {}, perCase, [])).toEqual({ pattern: FOLDER_PATTERN })
+  expect(autoOptions('nifti-files', false, {}, ['P_1/a', 'P_2/b'], [])).toBeNull()
+  // image and label folders side by side (PanTS): the pattern and the mask template
+  const pants = ['ImageTr/P_1/ct.nii.gz', 'ImageTr/P_2/ct.nii.gz', 'LabelTr/P_1/segmentations/liver.nii.gz']
+  expect(autoOptions('nifti-files', false, {}, imageStems({}, null, pants), pants)).toEqual({ pattern: '^ImageTr/(?P<case_id>[^/]+)/ct$', mask_template: 'LabelTr/{case_id}/segmentations' })
 })
 
 const base: NextInput = { step: 'root', path: '/data/ds', aliasOk: true, upload: false, hasUploadedMetadata: false, adapter: null, previewPending: false, preview: undefined, commitPending: false }

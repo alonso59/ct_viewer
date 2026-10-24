@@ -10,3 +10,5 @@ export { keys } from './keys'
 export { loadSlices } from './mock/slices'
 export { queryClient } from './queryClient'
 export { isViewPid, viewPath, viewPid } from './view'
+
+export { isTaskRunPending } from './taskStatus'

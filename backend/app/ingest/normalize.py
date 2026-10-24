@@ -63,8 +63,11 @@ ACCEPTED_EXT = re.compile(r"\.(nii|nii\.gz|npy)$", re.IGNORECASE)  # SRC-02 (DIC
 
 # Row fields consumed into Item fields (paths never go to `extra`: PRJ-04).
 META_CONSUMED = frozenset(
-    {"case_id", "scan_idx", "patient_id", "filename", "relative_path", "nifti_file", "seg_path"}
-)
+    {
+        "case_id", "scan_idx", "patient_id", "filename", "relative_path", "nifti_file",
+        "seg_path", "seg_labels",
+    }
+)  # fmt: skip
 CATALOG_CONSUMED = frozenset(
     {
         "case_id",
@@ -175,6 +178,7 @@ class FileDraft:
     path: str | None
     format: VolumeFormat
     explicit: bool = True  # False for the SEG naming convention (missing → missing_seg only)
+    labels: dict[str, int] | None = None  # a `nifti_dir` mask set's member → value
 
 
 @dataclass
@@ -210,10 +214,18 @@ def _extra(row: Row, consumed: frozenset[str]) -> dict[str, Any]:
 
 
 def _file(
-    d: Draft, resolver: PathResolver, alias: str, raw: str, role: str, *, explicit: bool = True
+    d: Draft,
+    resolver: PathResolver,
+    alias: str,
+    raw: str,
+    role: str,
+    *,
+    explicit: bool = True,
+    labels: dict[str, int] | None = None,
 ) -> FileDraft | None:
-    """Resolve one path; emits `outside_root` / `missing_path` (invalid) and returns None."""
-    if not ACCEPTED_EXT.search(raw.strip()):
+    """Resolve one path; emits `outside_root` / `missing_path` (invalid) and returns None.
+    With `labels` the path is a mask set folder (SRC-04 `mask_template`)."""
+    if labels is None and not ACCEPTED_EXT.search(raw.strip()):
         ext = posixpath.splitext(raw.strip())[1] or "(none)"
         d.warn(
             QcCode.UNSUPPORTED_FORMAT, role, f"{role} ignored: {ext} is not NIfTI or NumPy (SRC-02)"
@@ -235,7 +247,16 @@ def _file(
     except Problem:
         d.warn(QcCode.MISSING_PATH, role, f"{role} path cannot be resolved", ref)
         return None
+    if labels is not None:
+        return FileDraft(ref, str(path), "nifti_dir", explicit, labels)
     return FileDraft(ref, str(path), volume_format(raw), explicit)
+
+
+def _seg_labels(row: Row) -> dict[str, int] | None:
+    v = row.data.get("seg_labels")
+    if isinstance(v, dict) and v and all(isinstance(n, int) and n > 0 for n in v.values()):
+        return {str(k): int(n) for k, n in v.items()}
+    return None
 
 
 def _spacing(row: Row) -> tuple[float, ...] | None:
@@ -308,7 +329,7 @@ def _scan_draft(
         d.status = "missing"
     seg = row.text("seg_path")
     if seg:
-        d.mask = _file(d, resolver, alias, seg, "mask")
+        d.mask = _file(d, resolver, alias, seg, "mask", labels=_seg_labels(row))
     elif fname and not from_nifti:
         # the metadata-v1 `seg/` convention; `nifti-files` already applied its own (SRC-04)
         d.mask = _file(d, resolver, alias, seg_convention(fname), "mask", explicit=False)

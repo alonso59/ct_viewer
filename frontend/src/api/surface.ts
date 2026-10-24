@@ -77,6 +77,13 @@ import type {
   LayerInfo,
   WorkspaceRun,
   WorkspaceRunRequest,
+  SourceOperation,
+  SourceOperationStart,
+  SourceOperationControl,
+  SourceOperationEstimate,
+  SourceOperationConvert,
+  SourcePlanPage,
+  InventoryPage,
   EstimateProgress,
   TaskEstimate,
   TaskInfo,
@@ -231,6 +238,15 @@ export interface Api {
   listWorkspaceRuns(): Promise<WorkspaceRun[]>
   getWorkspaceRun(rid: string): Promise<WorkspaceRun>
   cancelWorkspaceRun(rid: string): Promise<WorkspaceRun>
+  startSourceOperation(body: SourceOperationStart): Promise<SourceOperation>
+  listSourceOperations(): Promise<SourceOperation[]>
+  getSourceOperation(id: string): Promise<SourceOperation>
+  estimateSourceOperation(id: string, body: SourceOperationEstimate): Promise<SourceOperation>
+  convertSourceOperation(id: string, body: SourceOperationConvert): Promise<SourceOperation>
+  cancelSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
+  resumeSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
+  sourceOperationSeries(id: string, cursor?: string, limit?: number): Promise<InventoryPage>
+  sourceOperationPlan(id: string, options?: { cursor?: string; limit?: number; action?: 'convert' | 'skip' }): Promise<SourcePlanPage>
   /** API-59 (ADR-0020): active layers and the dataset table download URL */
   listLayers(pid: string): Promise<LayerInfo[]>
   /** API-59: `dataset_table.csv|parquet` or `dataset.jsonl` (ADR-0025); sensitive fields only when asked (VAR-09) */

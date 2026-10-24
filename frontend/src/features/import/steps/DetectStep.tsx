@@ -6,17 +6,15 @@ import { useTranslation } from 'react-i18next'
 import type { DetectCandidate, NiftiOptions } from '../../../api'
 import { ProblemCard, type ActionHandlers } from '../../../lib'
 import { Icon, codicon } from '../../../theme'
-import { CONVERTER_PATTERN, sampleStems, segments, suggestPatterns } from '../patternSuggest'
+import { CONVERTER_PATTERN, FOLDER_PATTERN, segments, subjectOf, suggestPatterns } from '../patternSuggest'
+import { GROUP_COLOR, Highlight, PatternByExample } from './PatternByExample'
 
-// SRC-17 highlight colours: the categorical palette, fixed per group (--cat-1 is the accent blue)
-const GROUP_COLOR: Record<string, string> = { case_id: 'var(--cat-2)', scan_idx: 'var(--cat-4)', channel: 'var(--cat-6)', side: 'var(--cat-5)' }
 const EXAMPLES = 4
 
-/** SRC-17: candidates from the browsed folder's file names; picking one only fills the field */
-function PatternSuggester({ names, current, onPick }: { names: string[]; current: string | undefined; onPick: (pattern: string) => void }) {
+/** SRC-17: candidates from the sampled image paths; picking one only fills the field */
+function PatternSuggester({ stems, current, onPick }: { stems: string[]; current: string | undefined; onPick: (pattern: string) => void }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const stems = useMemo(() => sampleStems(names), [names])
   const cands = useMemo(() => suggestPatterns(stems), [stems])
   if (!open) {
     return (
@@ -41,15 +39,10 @@ function PatternSuggester({ names, current, onPick }: { names: string[]; current
             <span className="muted">{t('import.suggestMatches', { n: c.matched, total: stems.length })}</span>
           </span>
           {stems
-            .map((s) => segments(c.pattern, s))
-            .filter((x) => x !== null)
+            .filter((s) => segments(c.pattern, subjectOf(c.pattern, s)))
             .slice(0, EXAMPLES)
-            .map((parts) => (
-              <span key={parts.map((x) => x.text).join('')} className="mono pattern-ex">
-                {parts.map((x, k) =>
-                  x.group ? <span key={k} className="pattern-group" style={{ color: GROUP_COLOR[x.group] }} title={x.group}>{x.text}</span> : <span key={k} className="muted">{x.text}</span>,
-                )}
-              </span>
+            .map((s) => (
+              <Highlight key={s} pattern={c.pattern} path={s} />
             ))}
         </button>
       ))}
@@ -57,10 +50,14 @@ function PatternSuggester({ names, current, onPick }: { names: string[]; current
   )
 }
 
-/** SRC-04 options: pattern (one case per stem by default), case id source, modality */
-function NiftiOptionsForm({ value, onChange, names, prefilled }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; names: string[]; prefilled: boolean }) {
+const PREFILL_NOTE: Record<string, string> = { [CONVERTER_PATTERN]: 'import.nifti.patternPrefilled', [FOLDER_PATTERN]: 'import.nifti.patternPrefilledFolder' }
+
+/** SRC-04 options: the pattern and mask template by example (SRC-17), as raw fields under
+ *  "Advanced", case id source, modality */
+function NiftiOptionsForm({ value, onChange, stems, prefilled, dir }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; stems: string[]; prefilled: boolean; dir: string | null }) {
   const { t } = useTranslation()
   const masks = Object.values(value.masks ?? {})
+  const note = prefilled ? (value.mask_template ? 'import.nifti.patternPrefilledPaired' : PREFILL_NOTE[value.pattern ?? '']) : undefined
   return (
     <div className="wiz-nifti">
       {masks.length ? (
@@ -68,12 +65,22 @@ function NiftiOptionsForm({ value, onChange, names, prefilled }: { value: NiftiO
           <Icon spec={codicon('layers')} /> {t('import.nifti.withMask', { mask: masks.join(', ') })}
         </p>
       ) : null}
-      <label className="field">
-        <span className="field-label">{t('import.nifti.pattern')}</span>
-        <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
-        <span className="muted small">{t(prefilled && value.pattern === CONVERTER_PATTERN ? 'import.nifti.patternPrefilled' : 'import.nifti.patternHelp')}</span>
-      </label>
-      <PatternSuggester names={names} current={value.pattern} onPick={(pattern) => onChange({ ...value, pattern })} />
+      {dir ? <PatternByExample root={dir} stems={stems} value={value} onChange={onChange} /> : null}
+      {note ? <span className="muted small" role="note">{t(note)}</span> : null}
+      <details className="wiz-advanced" open={!dir}>
+        <summary className="small">{t('import.byExample.advanced')}</summary>
+        <label className="field">
+          <span className="field-label">{t('import.nifti.pattern')}</span>
+          <input className="input mono" value={value.pattern ?? ''} placeholder={t('import.nifti.patternDefault')} onChange={(e) => onChange({ ...value, pattern: e.target.value || undefined })} />
+          <span className="muted small">{t('import.nifti.patternHelp')}</span>
+        </label>
+        <PatternSuggester stems={stems} current={value.pattern} onPick={(pattern) => onChange({ ...value, pattern })} />
+        <label className="field">
+          <span className="field-label">{t('import.nifti.maskTemplate')}</span>
+          <input className="input mono" value={value.mask_template ?? ''} placeholder={t('import.nifti.maskTemplatePlaceholder')} onChange={(e) => onChange({ ...value, mask_template: e.target.value || undefined })} />
+          <span className="muted small">{t('import.nifti.maskTemplateHelp')}</span>
+        </label>
+      </details>
       <div className="wiz-nifti-grid">
         <label className="field">
           <span className="field-label">{t('import.nifti.caseIdFrom')}</span>
@@ -127,7 +134,10 @@ export function DetectStep(p: {
   onAdapter: (a: string) => void
   nifti: NiftiOptions
   onNifti: (o: NiftiOptions) => void
-  names: string[]
+  /** Sampled image paths without extension (SRC-17) */
+  stems: string[]
+  /** The chosen folder (null when one file was chosen): the root of the pattern by example */
+  dir: string | null
   prefilled: boolean
   anonymize: boolean
   onAnonymize: (on: boolean) => void
@@ -152,7 +162,7 @@ export function DetectStep(p: {
         <div className="wiz-grid mt-2">
           <Candidates cands={p.cands} value={p.adapter} onPick={p.onAdapter} />
           <div>
-            {p.adapter === 'nifti-files' ? <NiftiOptionsForm value={p.nifti} onChange={p.onNifti} names={p.names} prefilled={p.prefilled} /> : null}
+            {p.adapter === 'nifti-files' ? <NiftiOptionsForm value={p.nifti} onChange={p.onNifti} stems={p.stems} prefilled={p.prefilled} dir={p.dir} /> : null}
             {p.adapter === 'dicom.convert' ? (
               // AUD-A5-16: the same anonymize choice as the converter window (DCM-05, NFR-17)
               <label className="check mt-2">

@@ -78,6 +78,7 @@ Read only for the named work. At phase exit, move durable facts into the owning 
 | Work | Read |
 |---|---|
 | Supervised segmentation jobs (P7g): approved plan, GPU safety, acceptance matrix | `domain/SEGMENTATION_JOB_PLAN.md`; `ops/SEGMENTATION_JOB_TEST_PLAN.md`; `adr/0033-supervised-segmentation-jobs.md` |
+| DICOM discovery, background conversion, interruption/resume | `domain/DICOM_JOB_PLAN.md`; `ops/DICOM_JOB_TEST_PLAN.md`; `adr/0035-durable-dicom-source-operations.md` |
 
 ## Not for agents
 

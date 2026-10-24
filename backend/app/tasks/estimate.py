@@ -10,6 +10,7 @@ from typing import Final
 from app.core.ids import new_ulid
 from app.tasks import dry_run, protocol
 from app.tasks.builtin import run_entry
+from app.tasks.dicom_execution import run_dicom_job
 from app.tasks.jobspec import JobSpecBase
 from app.tasks.models import VOLUME_OUTPUTS, PreflightRequest, TaskEstimate, TaskManifest
 from app.tasks.registry import RADIOMICS_TASK
@@ -127,8 +128,17 @@ class EstimateBase(JobSpecBase):
                 job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
             )
             assert m.runtime.entry is not None
-            await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
+            if m.id == dry_run.DICOM_CONVERT:
+                await run_dicom_job(
+                    job_dir, workspace=self.settings.workspace_root, settings=self.settings
+                )
+            else:
+                await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
             result = protocol.read_result(job_dir) or {}
         finally:
-            shutil.rmtree(job_dir, ignore_errors=True)
+            if (
+                not (job_dir / "resources.json").exists()
+                or (job_dir / "allocation-exit.json").exists()
+            ):
+                shutil.rmtree(job_dir, ignore_errors=True)
         return dry_run.estimate_of(result, time.monotonic() - t0, Path(source))

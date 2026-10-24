@@ -38,7 +38,7 @@ from app.core.fsio import append_jsonl, atomic_write_json, read_json, read_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.events.bus import EventBus
-from app.imaging import npy_convert
+from app.imaging import maskset, npy_convert
 from app.imaging.fingerprint import quick_fingerprint
 from app.ingest.models import Item
 from app.ingest.store import IndexStore
@@ -508,6 +508,12 @@ class RadiomicsService:
         if vol is None:
             raise SourceMissingError("volume missing")
         path = self.workspace.resolver(pid).resolve(vol["ref"])
+        if vol.get("format") == "nifti_dir" and vol.get("labels") and path.is_dir():
+            set_fp = vol.get("fp") or await asyncio.to_thread(quick_fingerprint, path)
+            pdir = self.workspace.project_dir(pid)
+            return str(
+                await maskset.ensure_composed(self.jobs, pdir, path, str(set_fp), vol["labels"])
+            )
         if not path.is_file():
             raise SourceMissingError("source file missing")
         if vol.get("format") == "npy":
@@ -577,7 +583,7 @@ class RadiomicsService:
         for vol in (unit["image"], unit["mask"]):
             want = vol.get("fp")
             path = resolver.resolve(vol["ref"])
-            if want is None or not path.is_file():
+            if want is None or not path.exists():
                 continue  # missing files fail in `_path` as `input_missing`
             if await asyncio.to_thread(quick_fingerprint, path) != want:
                 return True

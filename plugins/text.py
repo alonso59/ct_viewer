@@ -89,6 +89,26 @@ def parse_time_of_day(value: Any) -> time | None:
         return None
 
 
+def contrast_delay(row: dict[str, Any]) -> tuple[int | None, str]:
+    start = parse_time_of_day(row.get("contrast_start_time", ""))
+    if start is None:
+        return None, ""
+    keys = ["acquisition_time", "series_time", "content_time"]
+    if row.get("scan_datetime_source") != "study":
+        keys.append("scan_time")
+    for key in keys:
+        t = parse_time_of_day(row.get(key, ""))
+        if t is None:
+            continue
+        delay = (t.hour * 3600 + t.minute * 60 + t.second) - (start.hour * 3600 + start.minute * 60 + start.second)
+        if delay < 0:
+            if delay + 24 * 3600 > 6 * 3600:
+                continue
+            delay += 24 * 3600
+        return delay, key
+    return None, ""
+
+
 def combine_date_time(date_value: Any, time_value: Any) -> str:
     date_text = format_dicom_date(date_value)
     time_text = format_dicom_time(time_value)

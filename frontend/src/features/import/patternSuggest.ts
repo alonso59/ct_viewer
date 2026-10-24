@@ -1,6 +1,7 @@
 // SRC-17 pattern suggester: candidate `nifti-files` patterns derived only from the sampled file
-// names (no per-dataset presets, ADR-0024). Patterns use Python syntax, as the backend fullmatches
-// them against each file stem (SRC-04); `toJsRegex` converts one for highlighting in the browser.
+// paths (no per-dataset presets, ADR-0024). Patterns use Python syntax, as the backend fullmatches
+// them against each file stem, or the relative path without extension when the pattern has a `/`
+// (SRC-04); `toJsRegex` converts one for highlighting in the browser.
 
 export interface PatternCandidate {
   /** Python regex for the `pattern` field */
@@ -14,13 +15,24 @@ export interface PatternCandidate {
 const EXT = /\.(nii\.gz|nii|npy)$/i
 // SRC-04 default mask conventions: `_seg` / `_mask` stems are masks, not items
 const MASK = /_(seg|mask)$/i
+const MASK_DIR = /(^|\/)(seg|masks)\//i
 const MAX = 3
 
-export const stemOf = (name: string) => name.replace(EXT, '')
+/** SRC-04: one case per image folder (its parent, at any depth); scans numbered within it */
+export const FOLDER_PATTERN = '^(?:.*/)?(?P<case_id>[^/]+)/[^/]+$'
 
-/** Image stems of a folder listing: accepted extensions only, masks left out */
+export const stemOf = (name: string) => name.replace(EXT, '')
+const baseOf = (path: string) => path.slice(path.lastIndexOf('/') + 1)
+
+/** What a pattern is matched against: the path without extension with a `/`, else the stem */
+export const subjectOf = (pattern: string, path: string) => (pattern.includes('/') ? path : baseOf(path))
+
+/** Image paths of a sample, without extension: accepted files only, masks left out */
 export const sampleStems = (names: string[]) =>
-  names.filter((n) => EXT.test(n)).map(stemOf).filter((s) => !MASK.test(s))
+  names.filter((n) => EXT.test(n)).map(stemOf).filter((s) => !MASK.test(s) && !MASK_DIR.test(s))
+
+/** File names repeat across folders (e.g. every case is `{case}/ct.nii.gz`): the folder is the case */
+const namesRepeat = (paths: string[]) => new Set(paths.map(baseOf)).size < paths.length && paths.every((p) => p.includes('/'))
 
 export const toJsRegex = (pattern: string) => new RegExp(pattern.replace(/\(\?P</g, '(?<'), 'd')
 
@@ -47,10 +59,13 @@ type Piece = keyof typeof PIECES
 /**
  * Up to 3 candidates, most matched names first (then more groups). A group is only proposed when
  * some sampled name has that piece, and a candidate must match at least half of the sample; the
- * default one-case-per-stem pattern is never proposed. No sample, no candidates.
+ * default one-case-per-stem pattern is never proposed. No sample, no candidates. When file names
+ * repeat across folders, the only candidate is the folder pattern.
  */
-export function suggestPatterns(stems: string[]): PatternCandidate[] {
-  if (!stems.length) return []
+export function suggestPatterns(paths: string[]): PatternCandidate[] {
+  if (!paths.length) return []
+  if (namesRepeat(paths)) return [{ pattern: FOLDER_PATTERN, groups: ['case_id'], matched: paths.length }]
+  const stems = paths.map(baseOf)
   const lit = caseLiteral(stems)
   const present = (Object.keys(PIECES) as Piece[]).filter((k) => stems.some((s) => PIECES[k].test.test(s)))
   const out = new Map<string, PatternCandidate>()
@@ -89,13 +104,19 @@ export function segments(pattern: string, stem: string): { text: string; group?:
 }
 
 /**
+ * The pattern the wizard pre-fills, visible and editable, until the user edits the options: the
+ * converter naming when every name follows it, the folder pattern when names repeat across folders.
+ */
+export const prefillPattern = (paths: string[]) => converterPattern(paths) ?? (paths.length && namesRepeat(paths) ? FOLDER_PATTERN : null)
+
+/**
  * The converter's own file naming `{scan_idx}_[{MOD}_]{case_id}_{channel}` (DICOM_CONVERTER,
  * kept by ADR-0024 §3). The wizard pre-fills it, visible and editable, only when every sampled
  * image stem follows it (ADR-0027, AUD-A2-12); otherwise the default (one case per stem) stays.
  */
 export const CONVERTER_PATTERN = '^(?P<scan_idx>\\d+)_(?:(?P<modality>[A-Z]{2,3})_)?(?P<case_id>.+)_(?P<channel>\\d{4})$'
 
-export function converterPattern(stems: string[]): string | null {
+export function converterPattern(paths: string[]): string | null {
   const rx = toJsRegex(CONVERTER_PATTERN)
-  return stems.length > 0 && stems.every((s) => rx.test(s)) ? CONVERTER_PATTERN : null
+  return paths.length > 0 && paths.every((p) => rx.test(baseOf(p))) ? CONVERTER_PATTERN : null
 }

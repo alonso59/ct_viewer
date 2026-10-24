@@ -7,7 +7,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from app.core.errors import Problem
+from app.core.errors import JobConflict, Problem
+from app.core.fsio import atomic_write_json, read_json
+from app.core.ids import is_ulid
 from app.ingest.models import Item
 from app.projects.presets import target_profile
 from app.sources import identity as identity_store
@@ -15,8 +17,64 @@ from app.tasks.models import VOLUME_OUTPUTS, TaskManifest
 from app.tasks.selection import SelectionBase
 
 
+def _inventory_binding(workspace: Path, binding: dict[str, Any]) -> dict[str, Any]:
+    operation = binding.get("operation_id")
+    generation = binding.get("generation")
+    if (
+        not isinstance(operation, str)
+        or not is_ulid(operation)
+        or not isinstance(generation, str)
+        or not is_ulid(generation)
+    ):
+        raise JobConflict("Source inventory binding is incompatible")
+    path = workspace / "plugins" / "dicom" / "operations" / operation / "inventory.sqlite"
+    if binding.get("path") != str(path):
+        raise JobConflict("Source inventory must remain in its managed operation directory")
+    return binding
+
+
+def bind_inventory(run: Path, workspace: Path, binding: dict[str, Any] | None) -> None:
+    if binding is None:
+        return
+    value = _inventory_binding(workspace, binding)
+    path = run / "source-inventory.json"
+    if path.exists() and read_json(path) != value:
+        raise JobConflict("Logical conversion is already pinned to a different source plan")
+    atomic_write_json(path, value)
+
+
+def inventory_spec(run: Path, workspace: Path) -> dict[str, Any]:
+    path = run / "source-inventory.json"
+    return (
+        {"source_inventory": _inventory_binding(workspace, read_json(path))}
+        if path.exists()
+        else {}
+    )
+
+
 class JobSpecBase(SelectionBase):
     """Builds the job spec a task reads (items or rows, `output_dir`, `dataset/`, identity)."""
+
+    def source_estimate_spec(
+        self,
+        pid: str,
+        task_id: str,
+        source: str,
+        settings: dict[str, Any],
+        scratch: Path,
+    ) -> dict[str, Any]:
+        manifest = self.registry.get(task_id).manifest
+        normalized, _ = self._settings(manifest, settings)
+        return self._job_spec(
+            pid,
+            manifest,
+            settings=normalized,
+            items=[],
+            seg_id=None,
+            source=source,
+            output_dir=str(scratch / "out"),
+            scratch=scratch,
+        )
 
     def _job_items(
         self, pid: str, items: Sequence[Item], seg_id: str | None
@@ -34,6 +92,8 @@ class JobSpecBase(SelectionBase):
                     continue
                 with contextlib.suppress(Problem):
                     masks[sid] = {"path": str(resolver.resolve(vol.ref)), "format": vol.format}
+                    if vol.labels:  # a mask set folder: member name → value (SRC-04)
+                        masks[sid]["labels"] = vol.labels
             out.append(
                 {
                     "item_id": it.item_id,

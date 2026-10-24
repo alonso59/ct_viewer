@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import ValidationInfo, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +32,45 @@ class Settings(BaseSettings):
     viewer_max_loaded: int = 3
     log_level: str = "info"
     static_root: Path = Path("/app/static")
+    host_allocation_root: Path | None = None
+    dicom_memory_mb: int | None = Field(default=None, ge=512, le=1048576)
+    dicom_cpu_threads: int = Field(default=4, ge=1, le=12)
+    dicom_header_mb: int = Field(default=8, ge=1, le=64)
+    dicom_inventory_mb: int = Field(default=512, ge=1, le=16384)
+    dicom_batch_size: int = Field(default=64, ge=1, le=512)
+    dicom_cleanup_seconds: float = Field(default=28.0, ge=0.1, le=28.0)
+    dicom_retention_days: int = Field(default=30, ge=1, le=3650)
+
+    @model_validator(mode="after")
+    def _dicom_limits(self) -> Settings:
+        if self.job_workers + self.dicom_cpu_threads > 12:
+            raise ValueError("JOB_WORKERS plus DICOM_CPU_THREADS must fit the 12 CPU budget")
+        pool = self.host_allocation_root
+        if pool is not None and (not pool.is_absolute() or pool.resolve() != pool):
+            raise ValueError("HOST_ALLOCATION_ROOT must be absolute and canonical")
+        if pool is not None and any(
+            pool == root or root in pool.parents or pool in root.parents
+            for root in self.allowed_roots
+        ):
+            raise ValueError("HOST_ALLOCATION_ROOT must not overlap a source root")
+        return self
+
+    @property
+    def allocation_root(self) -> Path:
+        return (
+            self.host_allocation_root or self.workspace_root.resolve() / "plugins/dicom/host-pool"
+        )
+
+    @property
+    def dicom_limits(self) -> dict[str, int | float | None]:
+        return {
+            "memory_mb": self.dicom_memory_mb,
+            "cpu_threads": self.dicom_cpu_threads,
+            "header_mb": self.dicom_header_mb,
+            "inventory_mb": self.dicom_inventory_mb,
+            "batch_size": self.dicom_batch_size,
+            "cleanup_seconds": self.dicom_cleanup_seconds,
+        }
 
     @field_validator("port")
     @classmethod

@@ -93,11 +93,15 @@ def tree(root: Path) -> dict[str, str]:
 
 
 def test_classify(tmp_path: Path) -> None:
+    from tools.dicom_fixtures import write_series
+
+    folder = tmp_path / "series"
+    write_series(folder, shape=(3, 3, 1), marker=(1, 1, 0))
     dcm = tmp_path / "IM0001"
-    dcm.write_bytes(b"\0" * 128 + b"DICM" + b"\0" * 10)
+    dcm.write_bytes(next(folder.iterdir()).read_bytes())
     assert formats.classify(dcm) == "dicom"
     (tmp_path / "x.dcm").write_bytes(b"")
-    assert formats.classify(tmp_path / "x.dcm") == "dicom"
+    assert formats.classify(tmp_path / "x.dcm") is None  # SRC-18: suffix alone is not an image
     assert formats.classify(tmp_path / "a.nii.gz") == "nifti"
     assert formats.classify(tmp_path / "a.NII") == "nifti"
     assert formats.classify(tmp_path / "a.npy") == "npy"
@@ -126,7 +130,7 @@ def test_detect_folder_file_and_refusal(sclient: TestClient, src: Path, fixtures
     assert_problem(sclient.post(f"{API}/sources/detect", json={"path": "/"}), "path-outside-root")
     dcm = src / "d" / "IM1"
     dcm.parent.mkdir()
-    dcm.write_bytes(b"\0" * 128 + b"DICM")
+    dcm.write_bytes(next((fixtures_src / "dicom").rglob("*.dcm")).read_bytes())
     cand = sclient.post(f"{API}/sources/detect", json={"path": str(dcm)}).json()["candidates"][0]
     assert cand["adapter"] == "dicom.convert"
 
@@ -500,3 +504,205 @@ def test_decide_axis_order() -> None:
     assert npy_convert.decide_axis_order((3, 3, 3), None, (3, 3, 3)) is None  # both
     assert npy_convert.decide_axis_order((2, 3, 4), None, (9, 9, 9)) is None  # neither
     assert npy_convert.decide_axis_order((2, 3, 4)) is None
+
+
+# -- folder per case, mask templates and mask sets (SRC-04) ----------------------------------
+
+
+def one_hot(shape: tuple[int, int, int], x: int) -> np.ndarray:
+    a = np.zeros(shape, np.uint8)
+    a[x, 2:5, 1:3] = 1
+    return a
+
+
+@pytest.fixture
+def per_case(src: Path) -> Path:
+    """A PanTS-like layout: `ImageTr/{case}/ct.nii.gz` + `LabelTr/{case}/segmentations/*`."""
+    root = src / "pants"
+    for case, organs in (("P_001", ("liver", "pancreas")), ("P_002", ("pancreas",))):
+        nii(root / "ImageTr" / case / "ct.nii.gz", ct())
+        for k, organ in enumerate(organs):
+            nii(
+                root / "LabelTr" / case / "segmentations" / f"{organ}.nii.gz", one_hot((8, 9, 5), k)
+            )
+    return root
+
+
+def test_plan_path_pattern_template_and_mask_set(per_case: Path) -> None:
+    from app.sources.nifti_files import FOLDER_PATTERN
+
+    p = plan(per_case, NiftiOptions(), IdentityRegistry())
+    assert [r["case_id"] for r in p.rows] == ["ct", "liver", "pancreas"]
+    assert len(p.collisions) == 2  # every ct.nii.gz is case `ct`: refused, never merged
+    opts = NiftiOptions(
+        pattern=r"^ImageTr/(?P<case_id>[^/]+)/ct$", mask_template="LabelTr/{case_id}/segmentations"
+    )
+    p = plan(per_case, opts, IdentityRegistry())
+    rows = {r["case_id"]: r for r in p.rows}
+    assert set(rows) == {"P_001", "P_002"} and p.collisions == [] and p.orphan_masks == []
+    assert rows["P_001"]["seg_path"] == "LabelTr/P_001/segmentations"
+    # one value per name across the import
+    assert rows["P_001"]["seg_labels"] == {"liver": 1, "pancreas": 2}
+    assert rows["P_002"]["seg_labels"] == {"pancreas": 2}
+    assert rows["P_001"]["source_name"] == "ImageTr/P_001/ct"
+    # the generic folder pattern: case = the image's parent folder, at any depth
+    p = plan(per_case / "ImageTr", NiftiOptions(pattern=FOLDER_PATTERN), IdentityRegistry())
+    assert [(r["case_id"], r["scan_idx"]) for r in p.rows] == [("P_001", "01"), ("P_002", "01")]
+
+
+def test_mask_template_is_validated() -> None:
+    with pytest.raises(ValueError, match="inside the root"):
+        NiftiOptions(mask_template="../labels/{case_id}.nii.gz")
+    with pytest.raises(ValueError, match="mask_template uses"):
+        NiftiOptions(mask_template="labels/{scan_idx}.nii.gz")  # not a group of the pattern
+    NiftiOptions(mask_template="labels/{case_id}_{stem}.nii.gz")
+
+
+def test_collisions_are_refused_with_the_folder_pattern(
+    sclient: TestClient, per_case: Path
+) -> None:
+    from app.sources.nifti_files import FOLDER_PATTERN
+
+    pid = project(sclient)
+    r = sclient.post(
+        f"{API}/projects/{pid}/imports/preview",
+        json={"root": str(per_case / "ImageTr"), "adapter": "nifti-files", "options": {}},
+    )
+    assert_problem(r, "validation")
+    assert r.json()["actions"] == [f"use_pattern:{FOLDER_PATTERN}"]
+    assert "collapse into one item" in r.json()["detail"]
+    body = sclient.post(f"{API}/sources/detect", json={"path": str(per_case)}).json()
+    assert body["candidates"][0]["sample"][0] == "ImageTr/P_001/ct.nii.gz"
+
+
+def test_mask_set_imports_and_reads_as_one_label_map(sclient: TestClient, per_case: Path) -> None:
+    before = tree(per_case)
+    pid = str(sclient.post(f"{API}/projects", json={"name": "p", "packs": []}).json()["project_id"])
+    opts = {
+        "pattern": r"^ImageTr/(?P<case_id>[^/]+)/ct$",
+        "mask_template": "LabelTr/{case_id}/segmentations",
+    }
+    import_nifti(sclient, pid, per_case, opts)
+    item = sclient.get(f"{API}/projects/{pid}/items/P_001.01.complete.-").json()
+    mask = item["masks"]["imported"]
+    assert mask["format"] == "nifti_dir" and mask["labels"] == {"liver": 1, "pancreas": 2}
+    assert item["labels_present"] == [1, 2]
+    labels = sclient.get(f"{API}/projects/{pid}").json()["label_map"]
+    assert [(lb["value"], lb["name"]) for lb in labels] == [(1, "liver"), (2, "pancreas")]
+    r = sclient.get(f"{API}/projects/{pid}/items/P_001.01.complete.-/mask")
+    assert r.status_code == 200, r.text
+    out = per_case.parent / "composed.nii.gz"
+    out.write_bytes(r.content)
+    arr = np.asanyarray(nib.load(out).dataobj)
+    assert arr[0, 3, 1] == 1 and arr[1, 3, 1] == 2 and arr.max() == 2
+    again = sclient.get(
+        f"{API}/projects/{pid}/items/P_001.01.complete.-/mask",
+        headers={"If-None-Match": r.headers["etag"]},
+    )
+    assert again.status_code == 304
+    out.unlink()
+    m = sclient.get(f"{API}/projects/{pid}/items/P_001.01.complete.-/mesh/2")
+    assert m.status_code in (200, 202), m.text  # built from the composed label map
+    assert tree(per_case) == before  # R1
+
+
+def test_mask_set_cache_tracks_member_changes(sclient: TestClient, per_case: Path) -> None:
+    """SRC-04/API-24: a source edit invalidates the composed mask and its mesh key."""
+    pid = project(sclient)
+    import_nifti(
+        sclient,
+        pid,
+        per_case,
+        {
+            "pattern": r"^ImageTr/(?P<case_id>[^/]+)/ct$",
+            "mask_template": "LabelTr/{case_id}/segmentations",
+        },
+    )
+    url = f"{API}/projects/{pid}/items/P_001.01.complete.-"
+    first = sclient.get(f"{url}/mask")
+    assert first.status_code == 200, first.text
+    mesh_before = sclient.get(f"{url}/mesh/1")
+    assert mesh_before.status_code in (200, 202), mesh_before.text
+    if mesh_before.status_code == 202:
+        wait(sclient, mesh_before.json()["job_id"])
+        mesh_before = sclient.get(f"{url}/mesh/1")
+    assert mesh_before.status_code == 200
+    # Simulate an external source edit; the app must not mutate or reuse old bytes.
+    nii(per_case / "LabelTr/P_001/segmentations/liver.nii.gz", one_hot((8, 9, 5), 3))
+    before = tree(per_case)
+    changed = sclient.get(f"{url}/mask", headers={"If-None-Match": first.headers["etag"]})
+    assert changed.status_code == 200, changed.text
+    assert changed.headers["etag"] != first.headers["etag"]
+    assert changed.content != first.content
+    mesh_after = sclient.get(f"{url}/mesh/1")
+    assert mesh_after.status_code in (200, 202), mesh_after.text
+    if mesh_after.status_code == 202:
+        wait(sclient, mesh_after.json()["job_id"])
+        mesh_after = sclient.get(f"{url}/mesh/1")
+    assert mesh_after.status_code == 200
+    assert mesh_after.headers["etag"] != mesh_before.headers["etag"]
+    assert tree(per_case) == before
+
+
+def test_mask_set_radiomics_uses_the_imported_structure_values(
+    sclient: TestClient, per_case: Path
+) -> None:
+    """SRC-04/RAD-05: extraction uses the composed set's globally assigned labels."""
+    pid = project(sclient)
+    import_nifti(
+        sclient,
+        pid,
+        per_case,
+        {
+            "pattern": r"^ImageTr/(?P<case_id>[^/]+)/ct$",
+            "mask_template": "LabelTr/{case_id}/segmentations",
+        },
+    )
+    before = tree(per_case)
+    started = sclient.post(
+        f"{API}/projects/{pid}/task-runs",
+        headers={"X-Reviewer": "mask-set regression"},
+        json={
+            "task_id": "radiomics.pyradiomics",
+            "settings": {"features": {"firstorder": ["Mean"]}},
+            "selection": {"labels": [1, 2]},
+        },
+    )
+    assert started.status_code == 202, started.text
+    run = started.json()
+    wait(sclient, run["job_id"])
+    detail = sclient.get(f"{API}/projects/{pid}/task-runs/{run['run_id']}").json()
+    assert detail["status"] == "completed", detail
+    features = sclient.get(f"{API}/projects/{pid}/radiomics/runs/{run['run_id']}/features").json()
+    rows = features["rows"]
+    assert len(rows) == 3, features
+    expected = {("P_001", 1): 0, ("P_001", 2): 1, ("P_002", 2): 0}
+    for row in rows:
+        assert row["feature"] == "Mean"
+        x = expected[(row["case_id"], row["label"])]
+        assert np.isclose(row["value"], ct()[one_hot((8, 9, 5), x) > 0].mean(), rtol=1e-6)
+    assert tree(per_case) == before
+
+
+def test_mask_set_refuses_a_member_replaced_with_a_symbolic_link(
+    sclient: TestClient, per_case: Path, tmp_path: Path
+) -> None:
+    """SRC-04/BE-02: a changed source cannot make a volume request escape its mask folder."""
+    pid = project(sclient)
+    import_nifti(
+        sclient,
+        pid,
+        per_case,
+        {
+            "pattern": r"^ImageTr/(?P<case_id>[^/]+)/ct$",
+            "mask_template": "LabelTr/{case_id}/segmentations",
+        },
+    )
+    member = per_case / "LabelTr/P_001/segmentations/liver.nii.gz"
+    external = tmp_path / "external.nii.gz"
+    external.write_bytes(member.read_bytes())
+    member.unlink()
+    member.symlink_to(external)
+    response = sclient.get(f"{API}/projects/{pid}/items/P_001.01.complete.-/mask")
+    assert_problem(response, "validation")
+    assert "symbolic link" in response.json()["detail"]

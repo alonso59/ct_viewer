@@ -17,6 +17,8 @@ from typing import Any
 
 from plugins.protocol import write_json_atomic
 
+RESOURCE_POLICY = "dicom-resources.json"
+
 
 def idle(row: dict[str, Any]) -> bool:
     return (
@@ -112,7 +114,7 @@ class Pool:
         self.root = root
 
     @contextmanager
-    def locked(self) -> Iterator[None]:
+    def locked(self, *, blocking: bool = True) -> Iterator[None]:
         if not self.root.is_absolute() or self.root.resolve() != self.root:
             raise ValueError("pool root must be canonical and private")
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -129,7 +131,7 @@ class Pool:
                 or details.st_nlink != 1
             ):
                 raise ValueError("pool lock must be a private regular file")
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            fcntl.flock(descriptor, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
             yield
         finally:
             os.close(descriptor)
@@ -153,6 +155,18 @@ class Pool:
         with self.locked():
             return self._read()
 
+    def identity(self) -> dict[str, int]:
+        with self.locked():
+            details = self.root.stat()
+            return {"device": details.st_dev, "inode": details.st_ino}
+
+    def _sync(self) -> None:
+        descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
     def reserve(self, record: dict[str, Any], *, claim: Callable[[], bool] | None = None) -> bool:
         with self.locked():
             if self._read() is not None:
@@ -160,6 +174,7 @@ class Pool:
             if claim is not None and not claim():
                 return False
             write_json_atomic(self.root / "lease.json", record)
+            self._sync()
             return True
 
     def update(self, record: dict[str, Any]) -> None:
@@ -168,6 +183,7 @@ class Pool:
             if previous is None or previous["attempt"] != record["attempt"]:
                 raise ValueError("stale allocation generation")
             write_json_atomic(self.root / "lease.json", record)
+            self._sync()
 
     def release(self, attempt: str) -> bool:
         with self.locked():
@@ -175,4 +191,5 @@ class Pool:
             if previous is None or previous["attempt"] != attempt:
                 return False
             (self.root / "lease.json").unlink()
+            self._sync()
             return True

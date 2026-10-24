@@ -16,6 +16,9 @@ from app.plugins.registry import PluginRegistry, build_plugins
 from app.projects.service import Workspace
 from app.sources.open import OpenSessions
 from app.tasks.registry import Registry, build_registry
+from app.tasks.service import TaskService
+from app.tasks.source_operations import SourceOperations
+from app.tasks.workspace_runs import WorkspaceTasks
 
 IndexHook = Callable[[str], Awaitable[None]]
 
@@ -32,6 +35,7 @@ class AppContext:
     server_lock: FileLock
     registry: Registry
     plugins: PluginRegistry
+    source_operations: SourceOperations
     # CACHE_MAX_GB: one LRU budget over Open scratch and every project `cache/` (AUD-A4-16)
     cache_budget: CacheBudget | None = None
     open_sessions: OpenSessions = field(default_factory=OpenSessions)
@@ -51,24 +55,36 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
     bus = EventBus()
     workspace = Workspace(settings, guard, locks, derived_guard)
     plugins = build_plugins(settings.builtin_plugins_root)
+    jobs = JobManager(bus, settings.job_workers, inline=inline_jobs)
+    index = IndexStore(
+        workspace.project_dir,
+        settings.project_cache_max,
+        default_seg=lambda pid: workspace.get(pid).default_seg,
+        phase_vocabulary=lambda pid: workspace.get(pid).phase_vocabulary,
+    )
+    registry = build_registry(
+        settings.builtin_plugins_root, settings.plugins_root, plugins.task_owner()
+    )
     return AppContext(
         settings=settings,
         guard=guard,
         locks=locks,
         bus=bus,
-        jobs=JobManager(bus, settings.job_workers, inline=inline_jobs),
+        jobs=jobs,
         workspace=workspace,
-        index=IndexStore(
-            workspace.project_dir,
-            settings.project_cache_max,
-            default_seg=lambda pid: workspace.get(pid).default_seg,
-            phase_vocabulary=lambda pid: workspace.get(pid).phase_vocabulary,
-        ),
+        index=index,
         server_lock=FileLock(settings.workspace_root / ".server.lock"),
-        registry=build_registry(
-            settings.builtin_plugins_root, settings.plugins_root, plugins.task_owner()
-        ),
+        registry=registry,
         plugins=plugins,
+        source_operations=SourceOperations(
+            settings,
+            guard,
+            jobs,
+            workspace,
+            locks,
+            TaskService(settings, registry, workspace, index, jobs, bus, locks),
+            WorkspaceTasks(settings, registry, guard, jobs, plugins.task_owner()),
+        ),
         cache_budget=CacheBudget(
             lambda: [
                 *workspace_pools(settings.workspace_root, workspace.projects_dir),

@@ -3,6 +3,7 @@
 // The window's work lives here, not in the component: minimizing it, or a route change that
 // remounts the shell overlays, keeps the dry run and the conversion (and their progress).
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 import type { TaskEstimate } from '../../api'
 
@@ -24,6 +25,9 @@ export interface Scan {
 }
 
 export interface Draft {
+  operationId: string | null
+  requestKey: string | null
+  pid: string | null
   step: Step
   browse: string | null
   source: string | null
@@ -43,7 +47,6 @@ interface ConverterState extends Draft {
   working: boolean
   /** Bumped per new window, so a fresh one starts on its first step */
   session: number
-  pid: string | null
   /** A source with NIfTI instead of DICOM: "Create project from this" (AUD-A2-07) */
   createFrom: string | null
   show: (p?: { source?: string | null; pid?: string | null }) => void
@@ -51,6 +54,8 @@ interface ConverterState extends Draft {
   minimize: () => void
   restore: () => void
   close: () => void
+  attach: (id: string, minimized?: boolean) => void
+  newOperation: () => void
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -63,6 +68,9 @@ export const datasetSlug = (raw: string) => raw.replace(/[^A-Za-z0-9_.-]+/g, '-'
 const parent = (p: string) => p.replace(/\/[^/]*$/, '') || '/'
 
 const draft = (source: string | null, pid: string | null): Draft => ({
+  operationId: null,
+  requestKey: null,
+  pid,
   step: source ? 'settings' : 'source',
   browse: source ? parent(source) : null,
   source,
@@ -74,7 +82,7 @@ const draft = (source: string | null, pid: string | null): Draft => ({
   run: null,
 })
 
-export const useConverter = create<ConverterState>()((set) => ({
+export const useConverter = create<ConverterState>()(persist((set) => ({
   ...draft(null, null),
   open: false,
   minimized: false,
@@ -92,5 +100,7 @@ export const useConverter = create<ConverterState>()((set) => ({
   patch: (p) => set(p),
   minimize: () => set({ minimized: true }),
   restore: () => set({ minimized: false }),
-  close: () => set({ open: false, minimized: false, working: false, createFrom: null }),
-}))
+  close: () => set({ ...draft(null, null), open: false, minimized: false, working: false, createFrom: null, pid: null }),
+  attach: (id, minimized = false) => set((s) => ({ ...draft(null, null), operationId: id, open: true, minimized, working: false, pid: null, session: s.session + 1 })),
+  newOperation: () => set((s) => ({ ...draft(null, s.pid), open: true, minimized: false, working: false, session: s.session + 1 })),
+}), { name: 'rw.converter', partialize: (s) => ({ operationId: s.operationId, minimized: s.minimized }) }))

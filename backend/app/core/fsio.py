@@ -8,10 +8,22 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sqlite3
 import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
+
+
+def workspace_database(path: Path) -> sqlite3.Connection:
+    """Embedded inventory file, not a database service; caller supplies a managed state path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(path)
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("PRAGMA synchronous=FULL")
+    db.execute("PRAGMA busy_timeout=5000")
+    return db
 
 
 def _dumps(obj: Any, *, indent: int | None) -> str:

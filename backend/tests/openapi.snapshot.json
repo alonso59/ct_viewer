@@ -974,6 +974,13 @@
       "title": "Reason",
       "type": "string"
      },
+     "sample": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sample",
+      "type": "array"
+     },
      "unavailable_reason": {
       "anyOf": [
        {
@@ -4795,6 +4802,87 @@
     "title": "InvalidPlugin",
     "type": "object"
    },
+   "InventoryPage": {
+    "properties": {
+     "generation": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Generation"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/InventorySeries"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "InventoryPage",
+    "type": "object"
+   },
+   "InventorySeries": {
+    "properties": {
+     "directory": {
+      "title": "Directory",
+      "type": "string"
+     },
+     "first_rel": {
+      "title": "First Rel",
+      "type": "string"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "n_files": {
+      "title": "N Files",
+      "type": "integer"
+     },
+     "source_bytes": {
+      "title": "Source Bytes",
+      "type": "integer"
+     },
+     "uid": {
+      "title": "Uid",
+      "type": "string"
+     }
+    },
+    "required": [
+     "key",
+     "directory",
+     "uid",
+     "n_files",
+     "source_bytes",
+     "first_rel"
+    ],
+    "title": "InventorySeries",
+    "type": "object"
+   },
    "Issue": {
     "properties": {
      "loc": {
@@ -6643,6 +6731,38 @@
     "title": "Page[Item]",
     "type": "object"
    },
+   "Page_OpenItem_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/OpenItem"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[OpenItem]",
+    "type": "object"
+   },
    "Page_PhaseEvent_": {
     "properties": {
      "items": {
@@ -6737,6 +6857,38 @@
      "total"
     ],
     "title": "Page[QcWarning]",
+    "type": "object"
+   },
+   "Page_SourceOperation_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/SourceOperation"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[SourceOperation]",
     "type": "object"
    },
    "PairPoint": {
@@ -6947,6 +7099,37 @@
      "path"
     ],
     "title": "PathRoot",
+    "type": "object"
+   },
+   "PendingSourceControl": {
+    "properties": {
+     "action": {
+      "enum": [
+       "cancel",
+       "resume"
+      ],
+      "title": "Action",
+      "type": "string"
+     },
+     "request": {
+      "$ref": "#/components/schemas/SourceOperationControl"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string"
+     },
+     "run_attempt": {
+      "title": "Run Attempt",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "action",
+     "request",
+     "request_id",
+     "run_attempt"
+    ],
+    "title": "PendingSourceControl",
     "type": "object"
    },
    "PhaseChange": {
@@ -10041,6 +10224,515 @@
     "title": "SourceBody",
     "type": "object"
    },
+   "SourceOperation": {
+    "properties": {
+     "attempt": {
+      "default": 1,
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "cleanup_verified": {
+      "default": true,
+      "title": "Cleanup Verified",
+      "type": "boolean"
+     },
+     "control": {
+      "additionalProperties": true,
+      "title": "Control",
+      "type": "object"
+     },
+     "conversion_request": {
+      "additionalProperties": true,
+      "title": "Conversion Request",
+      "type": "object"
+     },
+     "conversion_run": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskRunDetail"
+       },
+       {
+        "$ref": "#/components/schemas/WorkspaceRun"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conversion Run"
+     },
+     "conversion_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conversion Run Id"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "dataset_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset Name"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "estimate": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "operation_id": {
+      "title": "Operation Id",
+      "type": "string"
+     },
+     "pending_control": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PendingSourceControl"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "plan_attempt": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plan Attempt"
+     },
+     "plan_total": {
+      "default": 0,
+      "title": "Plan Total",
+      "type": "integer"
+     },
+     "prepare_plan": {
+      "default": false,
+      "title": "Prepare Plan",
+      "type": "boolean"
+     },
+     "problem": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Problem"
+     },
+     "progress": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Progress",
+      "type": "object"
+     },
+     "progress_stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Progress Stage"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "purpose": {
+      "enum": [
+       "discover",
+       "open",
+       "convert"
+      ],
+      "title": "Purpose",
+      "type": "string"
+     },
+     "request_hash": {
+      "title": "Request Hash",
+      "type": "string"
+     },
+     "revision": {
+      "default": 0,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "stage": {
+      "default": "discovering",
+      "title": "Stage",
+      "type": "string"
+     },
+     "status": {
+      "default": "queued",
+      "enum": [
+       "queued",
+       "waiting_for_runner",
+       "running",
+       "completed",
+       "completed_with_errors",
+       "failed",
+       "cancelled",
+       "interrupted",
+       "waiting_for_resources",
+       "pausing",
+       "paused",
+       "cancelling",
+       "reconciling",
+       "cleanup_pending"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "summary": {
+      "additionalProperties": true,
+      "title": "Summary",
+      "type": "object"
+     },
+     "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+     },
+     "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+     },
+     "work_kind": {
+      "default": "inventory",
+      "enum": [
+       "inventory",
+       "estimate",
+       "convert"
+      ],
+      "title": "Work Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "operation_id",
+     "source",
+     "project_id",
+     "purpose",
+     "created_at",
+     "updated_at",
+     "request_hash"
+    ],
+    "title": "SourceOperation",
+    "type": "object"
+   },
+   "SourceOperationControl": {
+    "additionalProperties": false,
+    "properties": {
+     "expected_attempt": {
+      "minimum": 1.0,
+      "title": "Expected Attempt",
+      "type": "integer"
+     },
+     "expected_revision": {
+      "minimum": 0.0,
+      "title": "Expected Revision",
+      "type": "integer"
+     },
+     "expected_run_attempt": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Run Attempt"
+     }
+    },
+    "required": [
+     "expected_revision",
+     "expected_attempt"
+    ],
+    "title": "SourceOperationControl",
+    "type": "object"
+   },
+   "SourceOperationConvert": {
+    "additionalProperties": false,
+    "properties": {
+     "expected_attempt": {
+      "minimum": 1.0,
+      "title": "Expected Attempt",
+      "type": "integer"
+     },
+     "expected_revision": {
+      "minimum": 0.0,
+      "title": "Expected Revision",
+      "type": "integer"
+     },
+     "expected_run_attempt": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Run Attempt"
+     },
+     "inventory_generation": {
+      "minLength": 1,
+      "title": "Inventory Generation",
+      "type": "string"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "plan_attempt": {
+      "minimum": 1.0,
+      "title": "Plan Attempt",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "expected_revision",
+     "expected_attempt",
+     "inventory_generation",
+     "plan_attempt"
+    ],
+    "title": "SourceOperationConvert",
+    "type": "object"
+   },
+   "SourceOperationEstimate": {
+    "additionalProperties": false,
+    "properties": {
+     "expected_attempt": {
+      "minimum": 1.0,
+      "title": "Expected Attempt",
+      "type": "integer"
+     },
+     "expected_revision": {
+      "minimum": 0.0,
+      "title": "Expected Revision",
+      "type": "integer"
+     },
+     "expected_run_attempt": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Run Attempt"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     }
+    },
+    "required": [
+     "expected_revision",
+     "expected_attempt"
+    ],
+    "title": "SourceOperationEstimate",
+    "type": "object"
+   },
+   "SourceOperationStart": {
+    "additionalProperties": false,
+    "properties": {
+     "idempotency_key": {
+      "maxLength": 128,
+      "minLength": 8,
+      "title": "Idempotency Key",
+      "type": "string"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "path": {
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+     },
+     "prepare_plan": {
+      "default": false,
+      "title": "Prepare Plan",
+      "type": "boolean"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "purpose": {
+      "default": "convert",
+      "enum": [
+       "discover",
+       "open",
+       "convert"
+      ],
+      "title": "Purpose",
+      "type": "string"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     }
+    },
+    "required": [
+     "path",
+     "idempotency_key"
+    ],
+    "title": "SourceOperationStart",
+    "type": "object"
+   },
+   "SourcePlanPage": {
+    "properties": {
+     "generation": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Generation"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/SeriesPlan"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "SourcePlanPage",
+    "type": "object"
+   },
    "Suggestion": {
     "properties": {
      "reason": {
@@ -10779,6 +11471,52 @@
     "title": "TaskRef",
     "type": "object"
    },
+   "TaskResourceWait": {
+    "properties": {
+     "budget_mb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Budget Mb"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string"
+     },
+     "remedy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remedy"
+     },
+     "required_mb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Required Mb"
+     }
+    },
+    "required": [
+     "reason"
+    ],
+    "title": "TaskResourceWait",
+    "type": "object"
+   },
    "TaskRunCounts": {
     "properties": {
      "failed": {
@@ -10964,6 +11702,27 @@
         "type": "null"
        }
       ]
+     },
+     "resource_wait": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskResourceWait"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "resume_request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resume Request Id"
      },
      "reviewer": {
       "anyOf": [
@@ -11341,6 +12100,27 @@
        }
       ],
       "title": "Eta S"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage"
+     },
+     "stage_done": {
+      "default": 0,
+      "title": "Stage Done",
+      "type": "integer"
+     },
+     "stage_total": {
+      "default": 0,
+      "title": "Stage Total",
+      "type": "integer"
      },
      "total": {
       "title": "Total",
@@ -12362,7 +13142,8 @@
       "default": "nifti",
       "enum": [
        "nifti",
-       "npy"
+       "npy",
+       "nifti_dir"
       ],
       "title": "Format",
       "type": "string"
@@ -12377,6 +13158,20 @@
        }
       ],
       "title": "Fp"
+     },
+     "labels": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "integer"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Labels"
      },
      "ref": {
       "title": "Ref",
@@ -12465,6 +13260,16 @@
    "WorkspaceRun": {
     "description": "`plugins/{plugin}/runs/{run_id}/run.json` and the API-62 payload.",
     "properties": {
+     "attempts": {
+      "default": 1,
+      "title": "Attempts",
+      "type": "integer"
+     },
+     "cleanup_verified": {
+      "default": true,
+      "title": "Cleanup Verified",
+      "type": "boolean"
+     },
      "counts": {
       "additionalProperties": {
        "type": "integer"
@@ -12534,6 +13339,32 @@
       },
       "title": "Progress",
       "type": "object"
+     },
+     "provenance": {
+      "additionalProperties": true,
+      "title": "Provenance",
+      "type": "object"
+     },
+     "resource_wait": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskResourceWait"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "resume_request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resume Request Id"
      },
      "run_id": {
       "title": "Run Id",
@@ -13211,6 +14042,79 @@
      }
     },
     "summary": "Get Open",
+    "tags": [
+     "sources"
+    ]
+   }
+  },
+  "/api/v1/open/{sid}/items": {
+   "get": {
+    "description": "API-07 / SRC-18: stable paging over complete series, never a prefix of slices.",
+    "operationId": "open_items_api_v1_open__sid__items_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_OpenItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Items",
     "tags": [
      "sources"
     ]
@@ -19870,6 +20774,518 @@
     ]
    }
   },
+  "/api/v1/source-operations": {
+   "get": {
+    "operationId": "list_operations_api_v1_source_operations_get",
+    "parameters": [
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_SourceOperation_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Operations",
+    "tags": [
+     "source-operations"
+    ]
+   },
+   "post": {
+    "operationId": "start_api_v1_source_operations_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationStart"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}": {
+   "get": {
+    "operationId": "get_api_v1_source_operations__oid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/cancel": {
+   "post": {
+    "operationId": "cancel_api_v1_source_operations__oid__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/convert": {
+   "post": {
+    "operationId": "convert_api_v1_source_operations__oid__convert_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationConvert"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Convert",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/estimate": {
+   "post": {
+    "operationId": "estimate_api_v1_source_operations__oid__estimate_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationEstimate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Estimate",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/plan": {
+   "get": {
+    "operationId": "plan_api_v1_source_operations__oid__plan_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 500,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "action",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "convert",
+          "skip"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Action"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourcePlanPage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Plan",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/resume": {
+   "post": {
+    "operationId": "resume_api_v1_source_operations__oid__resume_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Resume",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/series": {
+   "get": {
+    "operationId": "series_api_v1_source_operations__oid__series_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 500,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InventoryPage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Series",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
   "/api/v1/sources/detect": {
    "post": {
     "description": "API-19: candidate adapters with reasons, counts and confidence (SRC-01/02).",
@@ -20133,6 +21549,48 @@
      }
     },
     "summary": "Cancel Workspace Run",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/api/v1/task-runs/{rid}/resume": {
+   "post": {
+    "operationId": "resume_workspace_run_api_v1_task_runs__rid__resume_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Resume Workspace Run",
     "tags": [
      "tasks"
     ]

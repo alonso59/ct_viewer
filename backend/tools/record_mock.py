@@ -85,6 +85,16 @@ def wait_jobs(c: Any, pid: str | None = None, timeout: float = 240) -> None:
     raise SystemExit("record-mock: jobs did not finish in time")
 
 
+def wait_source_operation(c: Any, operation: str) -> None:
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        state = c.get(f"{API}/source-operations/{operation}").json()
+        if state["status"] not in ("queued", "running", "cancelling"):
+            return
+        time.sleep(0.05)
+    raise SystemExit("record-mock: source operation did not finish")
+
+
 def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     c = rec.c
     call, get = rec.call, rec.get
@@ -325,6 +335,42 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     get(f"{API}/task-runs")
     get(f"{API}/task-runs/{ws['run_id']}")
 
+    operation = call(
+        "POST",
+        f"{API}/source-operations",
+        {
+            "path": src["source"],
+            "idempotency_key": "mock-dicom-source-operation",
+            "prepare_plan": True,
+        },
+    )
+    wait_jobs(c)
+    oid = operation["operation_id"]
+    wait_source_operation(c, oid)
+    planned = get(f"{API}/source-operations/{oid}")
+    if planned["stage"] != "ready":
+        raise SystemExit(
+            f"record-mock: durable DICOM plan: {planned['status']} / {planned['stage']}"
+        )
+    get(f"{API}/source-operations/{oid}/series")
+    get(f"{API}/source-operations/{oid}/plan")
+    call(
+        "POST",
+        f"{API}/source-operations/{oid}/convert",
+        {
+            "expected_revision": planned["revision"],
+            "expected_attempt": planned["attempt"],
+            "plan_attempt": planned["plan_attempt"],
+            "inventory_generation": planned["summary"]["generation"],
+            "name": "background-dataset",
+        },
+    )
+    wait_jobs(c)
+    wait_source_operation(c, oid)
+    get(f"{API}/source-operations/{oid}")
+    get(f"{API}/source-operations")
+    get(f"{API}/task-runs")
+
     # Reads of the final state (what the workbench fetches)
     get(f"{API}/health")
     get(f"{API}/projects?archived=false")
@@ -415,6 +461,7 @@ def main() -> None:
         (plugins / "threshold").symlink_to(REPO / "plugins" / "threshold")
         (plugins / "nnunet").symlink_to(REPO / "plugins" / "nnunet")
         settings = Settings(
+            dicom_memory_mb=1024,
             workspace_root=workspace,
             allowed_data_roots=str(FIXTURES.resolve()),
             allowed_derived_roots=str(derived.resolve()),

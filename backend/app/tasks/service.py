@@ -18,17 +18,22 @@ from typing import Any
 from app.core import reviewer as reviewer_stamp
 from app.core.errors import JobConflict, Problem, ValidationProblem
 from app.core.fsio import append_jsonl
-from app.core.ids import new_ulid, utc_now
+from app.core.ids import is_ulid, new_ulid, utc_now
 from app.jobs.types import TERMINAL
 from app.projects.models import SEG_ID_RE
 from app.tasks import control, dry_run, protocol, registry
+from app.tasks.dicom_execution import attempt_cleaned
+from app.tasks.dicom_resources import require_pixel_budget
 from app.tasks.driver import DriverBase
 from app.tasks.identity import committed_outputs, create_identity, verify_resume
+from app.tasks.jobspec import bind_inventory
 from app.tasks.models import (
+    TERMINAL_TASK_RUN,
     TaskInfo,
     TaskItemError,
     TaskList,
     TaskRef,
+    TaskResourceWait,
     TaskRunCounts,
     TaskRunDetail,
     TaskRunInput,
@@ -40,7 +45,7 @@ from app.tasks.models import (
     TaskRunStarted,
     TaskValidateResult,
 )
-from app.tasks.records import CANCEL_GRACE_S, ITEMS, item_outcomes
+from app.tasks.records import CANCEL_GRACE_S, ITEMS, Live, item_outcomes
 from app.tasks.registry import RADIOMICS_TASK
 from app.tasks.schema import normalize, settings_hash
 
@@ -55,11 +60,51 @@ class TaskService(DriverBase):
         for project in self.workspace.list():
             try:
                 for run_dir in self.runs.run_dirs(project.project_id):
+                    await self._recover_dicom(project.project_id, run_dir)
                     await self._recover_external(project.project_id, run_dir)
             except (Problem, OSError, ValueError):
                 log.warning(
                     "External recovery needs review", extra={"project_id": project.project_id}
                 )
+
+    async def _recover_dicom(self, pid: str, run_dir: Path) -> None:
+        rec = self.runs.read(run_dir)
+        if rec.task.id != "dicom.convert" or not rec.job_id:
+            return
+        if rec.status == "completed":
+            job = run_dir / "attempts" / rec.job_id
+            result = protocol.read_result(job)
+            if result is not None and attempt_cleaned(job, rec.attempts):
+                manifest = rec.manifest_snapshot or self.registry.get(rec.task.id).manifest
+                live = Live(pid, rec.run_id, run_dir, job, manifest, rec.selection.seg_id)
+                try:
+                    await self._finalize_dicom(live, result)
+                except Exception as exc:
+                    async with self.locks(pid):
+                        current = self.runs.read(run_dir)
+                        current.error = f"output registration: {type(exc).__name__}: {exc}"
+                        self.runs.write(run_dir, current)
+                    log.exception(
+                        "DICOM registration recovery failed", extra={"run_id": rec.run_id}
+                    )
+            return
+        if rec.status in TERMINAL_TASK_RUN or (
+            self.runs.job(rec.job_id) is not None and rec.status != "cleanup_pending"
+        ):
+            return
+        job = run_dir / "attempts" / rec.job_id
+        cleaned = attempt_cleaned(job, rec.attempts)
+
+        def recover(current: TaskRunRecord) -> None:
+            current.execution = {
+                **(current.execution or {}),
+                "attempt": current.attempts,
+                "cleanup_verified": cleaned,
+            }
+            current.status = "interrupted" if cleaned else "cleanup_pending"
+            current.error = "Backend interrupted; resume after verified cleanup"
+
+        await self.runs.update(pid, run_dir, recover)
 
     def list_tasks(self) -> TaskList:
         return TaskList(
@@ -91,12 +136,47 @@ class TaskService(DriverBase):
             settings_hash=settings_hash(m.id, m.version, norm) if ok else None,
         )
 
-    async def start(self, pid: str, req: TaskRunRequest, reviewer: str | None) -> TaskRunStarted:
+    async def start(
+        self,
+        pid: str,
+        req: TaskRunRequest,
+        reviewer: str | None,
+        *,
+        run_id: str | None = None,
+        source_inventory: dict[str, Any] | None = None,
+    ) -> TaskRunStarted:
         if req.task_id == RADIOMICS_TASK:
             return await self._radiomics().start_task(pid, req, reviewer)
         info = self.get(req.task_id)
+        if run_id is not None:
+            if req.task_id != "dicom.convert" or not is_ulid(run_id):
+                raise JobConflict(
+                    "Reserved run identities are only supported for DICOM source operations"
+                )
+            reserved = self._runs_dir(pid) / run_id
+            if (reserved / "run.json").exists():
+                prior = self.runs.read(reserved)
+                _, requested_hash = self._settings(info.manifest, req.settings)
+                if (
+                    prior.task.id != req.task_id
+                    or prior.settings_hash != requested_hash
+                    or prior.selection.source != req.selection.source
+                ):
+                    raise JobConflict("Reserved conversion request changed")
+                bind_inventory(reserved, self.settings.workspace_root, source_inventory)
+                if prior.job_id:
+                    await self._recover_dicom(pid, reserved)
+                    prior = self.runs.read(reserved)
+                    assert prior.job_id is not None
+                    return TaskRunStarted(run_id=run_id, job_id=prior.job_id, status=prior.status)
+                return await self._submit(pid, reserved, info.manifest, [], None, skip=[])
+            if reserved.exists() and any(reserved.iterdir()):
+                raise JobConflict(
+                    "Reserved conversion record is missing; review retained attempt evidence"
+                )
         for previous in self.runs.run_dirs(pid):
             if self.runs.read(previous).task.id == req.task_id:
+                await self._recover_dicom(pid, previous)
                 await self._recover_external(pid, previous)
                 await control.settle(self, pid, previous)
                 if self.runs.read(previous).status in control.STOPPING:
@@ -110,7 +190,7 @@ class TaskService(DriverBase):
         settings, shash = self._settings(m, req.settings)
         cfg = self.workspace.get(pid)
         source = self._source(req.selection) if m.input == "source" else None
-        if source is not None:
+        if source is not None and source_inventory is None:
             await dry_run.require_dicom(m.id, Path(source))  # AUD-A2-07
         items = [] if source is not None else await self.select(pid, req.selection)
         seg_id = self._seg_id(cfg, m, req.selection)
@@ -135,8 +215,10 @@ class TaskService(DriverBase):
         identity = await asyncio.to_thread(
             create_identity, info, settings, self._job_items(pid, ready, seg_id)
         )
-        rid = new_ulid()
+        rid = run_id or new_ulid()
         out_dir = self._output_dir(pid, m, rid)
+        if m.id == "dicom.convert":
+            require_pixel_budget(self.settings)
         now = utc_now()
         rec = TaskRunRecord(
             run_id=rid,
@@ -180,6 +262,7 @@ class TaskService(DriverBase):
             if skipped:
                 append_jsonl(run_dir / ITEMS, skipped)
             self.runs.write(run_dir, rec)
+            bind_inventory(run_dir, self.settings.workspace_root, source_inventory)
         return await self._submit(pid, run_dir, m, ready, seg_id, skip=[])
 
     async def get_run(self, pid: str, rid: str) -> TaskRunDetail:
@@ -187,16 +270,28 @@ class TaskService(DriverBase):
         if rad.has_run(pid, rid):
             return await rad.task_detail(pid, rid)
         run_dir = self.runs.run_dir(pid, rid)
+        await self._recover_dicom(pid, run_dir)
         await self._recover_external(pid, run_dir)
         await control.settle(self, pid, run_dir)
         rec = await self.runs.reconcile(pid, run_dir)
         job = self.runs.job(rec.job_id)
         progress = None
+        execution = rec.execution or {}
+        resource_wait = None
+        if rec.task.id == "dicom.convert" and execution.get("progress"):
+            progress = TaskRunProgress.model_validate(execution["progress"])
+        if rec.task.id == "dicom.convert" and execution.get("resource_wait"):
+            resource_wait = TaskResourceWait.model_validate(execution["resource_wait"])
         if job is not None and job.status not in TERMINAL:
-            progress = TaskRunProgress(done=job.done, total=job.total, eta_s=job.eta_s)
+            if rec.task.id != "dicom.convert" or progress is None:
+                progress = TaskRunProgress(
+                    done=job.done,
+                    total=job.total,
+                    eta_s=None if rec.task.id == "dicom.convert" else job.eta_s,
+                )
             if job.status == "waiting_for_runner" and rec.status == "queued":
                 rec.status = "waiting_for_runner"
-        return TaskRunDetail(**rec.model_dump(), progress=progress)
+        return TaskRunDetail(**rec.model_dump(), progress=progress, resource_wait=resource_wait)
 
     async def list_runs(
         self, pid: str, task_id: str | None = None, *, archived: bool = False
@@ -204,6 +299,7 @@ class TaskService(DriverBase):
         """Archived runs are listed only on request (J6); their records stay on disk."""
         out: list[TaskRunListItem] = []
         for run_dir in self.runs.run_dirs(pid):
+            await self._recover_dicom(pid, run_dir)
             await self._recover_external(pid, run_dir)
             await control.settle(self, pid, run_dir)
             rec = await self.runs.reconcile(pid, run_dir)
@@ -215,13 +311,46 @@ class TaskService(DriverBase):
             out = [r for r in out if r.task.id == task_id]
         return sorted(out, key=lambda r: r.run_id, reverse=True)
 
-    async def cancel(self, pid: str, rid: str) -> TaskRunDetail:
+    async def cancel(
+        self, pid: str, rid: str, *, expected_attempt: int | None = None
+    ) -> TaskRunDetail:
+        if not self._radiomics().has_run(pid, rid):
+            rec = self.runs.read(self.runs.run_dir(pid, rid))
+            if rec.task.id == "dicom.convert":
+                async with self.locks(f"_dicom_control:{pid}:{rid}"):
+                    return await self._cancel(pid, rid, expected_attempt=expected_attempt)
+        return await self._cancel(pid, rid, expected_attempt=expected_attempt)
+
+    async def _cancel(
+        self, pid: str, rid: str, *, expected_attempt: int | None = None
+    ) -> TaskRunDetail:
         rad = self._radiomics()
         if rad.has_run(pid, rid):
             await rad.cancel(pid, rid)
             return await rad.task_detail(pid, rid)
         if self.runs.read(self.runs.run_dir(pid, rid)).supervised:
             return await control.request_control(self, pid, rid, "cancel")  # J5
+        run_dir = self.runs.run_dir(pid, rid)
+        rec = self.runs.read(run_dir)
+        if expected_attempt is not None and rec.attempts != expected_attempt:
+            raise JobConflict("Conversion run attempt changed; reload before controlling it")
+        if rec.task.id == "dicom.convert" and rec.status not in TERMINAL_TASK_RUN:
+            if rec.job_id and self.runs.job(rec.job_id) is not None:
+                protocol.request_cancel(run_dir / "attempts" / rec.job_id)
+
+                def cancelling(current: TaskRunRecord) -> bool:
+                    if current.attempts != rec.attempts:
+                        raise JobConflict(
+                            "Conversion run attempt changed; reload before cancelling"
+                        )
+                    if current.status in TERMINAL_TASK_RUN:
+                        return False
+                    current.status = "cancelling"
+                    return True
+
+                await self.runs.update(pid, run_dir, cancelling)
+                self.jobs.cancel(rec.job_id)
+            return await self.get_run(pid, rid)
         await self.runs.cancel(pid, self.runs.run_dir(pid, rid), CANCEL_GRACE_S + 5)
         return await self.get_run(pid, rid)
 
@@ -237,13 +366,40 @@ class TaskService(DriverBase):
             raise JobConflict("Only inactive supervised runs can be archived")
         return await control.archive(self, pid, rid)
 
-    async def resume(self, pid: str, rid: str) -> TaskRunStarted:
+    async def resume(
+        self,
+        pid: str,
+        rid: str,
+        *,
+        expected_attempt: int | None = None,
+        request_id: str | None = None,
+    ) -> TaskRunStarted:
         """TSK-07: a new attempt that skips the items already `ok` (resume.skip)."""
+        if not self._radiomics().has_run(pid, rid):
+            rec = self.runs.read(self.runs.run_dir(pid, rid))
+            if rec.task.id == "dicom.convert":
+                async with self.locks(f"_dicom_control:{pid}:{rid}"):
+                    return await self._resume(
+                        pid, rid, expected_attempt=expected_attempt, request_id=request_id
+                    )
+        return await self._resume(
+            pid, rid, expected_attempt=expected_attempt, request_id=request_id
+        )
+
+    async def _resume(
+        self,
+        pid: str,
+        rid: str,
+        *,
+        expected_attempt: int | None = None,
+        request_id: str | None = None,
+    ) -> TaskRunStarted:
         rad = self._radiomics()
         if rad.has_run(pid, rid):
             d = await rad.resume(pid, rid)
             return TaskRunStarted(run_id=rid, job_id=d.job_id, status="queued")
         run_dir = self.runs.run_dir(pid, rid)
+        await self._recover_dicom(pid, run_dir)
         await self._recover_external(pid, run_dir)
         await control.settle(self, pid, run_dir)
         previous = self.runs.read(run_dir)
@@ -254,6 +410,16 @@ class TaskService(DriverBase):
             if (job / "attempt.json").exists() and not protocol.external_finished(job):
                 raise JobConflict("Prior external attempt cleanup is pending; resume is blocked")
         rec = await self.runs.resumable(pid, run_dir)
+        if expected_attempt is not None and rec.attempts != expected_attempt:
+            raise JobConflict("Conversion run attempt changed; reload before controlling it")
+        if rec.task.id == "dicom.convert":
+            require_pixel_budget(self.settings)
+        if (
+            rec.task.id == "dicom.convert"
+            and rec.job_id
+            and not attempt_cleaned(run_dir / "attempts" / rec.job_id, rec.attempts)
+        ):
+            raise JobConflict("Prior DICOM execution cleanup is unconfirmed; resume is blocked")
         info = self.get(rec.task.id)
         m = info.manifest
         if m.version != rec.task.version:
@@ -280,7 +446,9 @@ class TaskService(DriverBase):
                     "unavailable. Start a new run."
                 ) from exc
         ok = [k for k, v in item_outcomes(run_dir).items() if v["status"] == "ok"]
-        return await self._submit(pid, run_dir, m, items, rec.selection.seg_id, skip=ok)
+        return await self._submit(
+            pid, run_dir, m, items, rec.selection.seg_id, skip=ok, resume_request_id=request_id
+        )
 
     def errors(self, pid: str, rid: str) -> list[TaskItemError]:
         rad = self._radiomics()

@@ -187,3 +187,69 @@
   gap: var(--sp-3);
   padding: var(--sp-5) 0;
 }
+
+/* SRC-17 pattern by example: the example path as chips, each with its role */
+.by-example {
+  display: grid;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.example-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 2px;
+}
+.example-token {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.example-chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px var(--sp-1);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.example-chip[data-role='case_id'],
+.example-chip[data-role='scan_idx'],
+.example-chip[data-role='side'],
+.example-chip[data-role='channel'] {
+  font-weight: var(--fw-semibold);
+}
+.example-role {
+  font: inherit;
+  font-size: var(--fs-badge);
+  font-weight: normal;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.example-check {
+  display: grid;
+  gap: 2px;
+  font-size: var(--fs-panel);
+  min-width: 0;
+}
+.example-mask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.example-browse {
+  display: grid;
+  gap: var(--sp-2);
+}
+.wiz-advanced {
+  display: grid;
+  gap: var(--sp-3);
+}
+.wiz-advanced[open] > summary {
+  margin-bottom: var(--sp-2);
+}

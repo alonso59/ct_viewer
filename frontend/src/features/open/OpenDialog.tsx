@@ -39,7 +39,7 @@ export default function OpenDialog() {
       }
     >
       <p className="muted">{t('open.dialogHelp')}</p>
-      <FolderBrowser path={dir} onPath={(d) => { setDir(d); setFile(null) }} selected={file} onSelectFile={(f) => setFile(file === f ? null : f)} />
+      <FolderBrowser path={dir} onPath={(d) => { setDir(d); setFile(null) }} selected={file} onSelectFile={(f) => setFile(file === f ? null : f)} fileFilter={() => true} />
     </Dialog>
   )
 }

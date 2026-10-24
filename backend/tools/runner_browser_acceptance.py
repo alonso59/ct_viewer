@@ -124,6 +124,8 @@ def main() -> int:
     env = {
         **os.environ,
         "WORKSPACE_ROOT": fixture["workspace"],
+        "HOST_ALLOCATION_ROOT": fixture["state"],
+        "DICOM_MEMORY_MB": "1024",
         "ALLOWED_DATA_ROOTS": fixture["source"],
         "ALLOWED_DERIVED_ROOTS": fixture["derived"],
         "PLUGINS_ROOT": str(root / "plugins"),

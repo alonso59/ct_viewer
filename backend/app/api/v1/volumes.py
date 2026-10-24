@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Request, Response
@@ -10,8 +11,8 @@ from fastapi import APIRouter, Request, Response
 from app.api.v1.deps import Ctx
 from app.context import AppContext
 from app.core.cache_budget import touch
-from app.core.errors import NotFound, SourceMissing
-from app.imaging import npy_convert, streaming, thumbnails
+from app.core.errors import NotFound, SourceMissing, ValidationProblem
+from app.imaging import maskset, npy_convert, streaming, thumbnails
 from app.imaging.fingerprint import quick_fingerprint
 
 router = APIRouter(tags=["volumes"])
@@ -25,6 +26,23 @@ _THUMB_RESPONSES: dict[int | str, dict[str, Any]] = {
     200: {"content": {streaming.WEBP_MEDIA_TYPE: {}}, "description": "WebP thumbnail"},
     304: {"description": "Not modified (If-None-Match)"},
 }
+
+
+async def composed_mask(
+    ctx: AppContext, pid: str, folder: Path, labels: dict[str, int]
+) -> tuple[Path, str]:
+    """A mask set's cached label map and its content key (the ETag)."""
+    project_dir = ctx.workspace.project_dir(pid)
+    try:
+        fp = await asyncio.to_thread(quick_fingerprint, folder)
+    except ValueError as exc:
+        raise ValidationProblem(f"Cannot read mask set: {exc}") from None
+    dst = maskset.cache_path(project_dir, fp, labels)
+    cached = dst.is_file()
+    path = await maskset.ensure_composed(ctx.jobs, project_dir, folder, fp, labels)
+    if not cached:
+        ctx.cache_written()
+    return path, dst.name.removesuffix(".nii.gz")
 
 
 async def _serve(
@@ -46,6 +64,12 @@ async def _serve(
         if vol is None:
             raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
+    if vol.format == "nifti_dir" and vol.labels and path.is_dir():  # a mask set (SRC-04)
+        name = f"{path.name}.nii.gz"
+        path, etag = await composed_mask(ctx, pid, path, vol.labels)
+        if streaming.is_not_modified(request, etag):
+            return streaming.not_modified(streaming.quote_etag(etag))
+        return streaming.volume_response(path, etag, name, request)
     if not path.is_file():
         raise SourceMissing(f"{kind} file is missing")
     fp = await asyncio.to_thread(quick_fingerprint, path)

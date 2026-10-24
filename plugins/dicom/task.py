@@ -7,13 +7,16 @@ result.json extras: `identity` (merged back by the backend), `estimate` (dry run
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from plugins.dicom import pipeline
+from plugins.analyzers import checkpoint
+from plugins.dicom import pipeline, scan
 from plugins.dicom.identity import Identity
 from plugins.protocol import Job
 
@@ -30,7 +33,12 @@ def _versions() -> dict[str, str]:
     return out
 
 
-def run(job_dir: str) -> int:
+def run(
+    job_dir: str,
+    *,
+    cached_discover: Callable[[Path], list[scan.Series]] | None = None,
+    cached_file_total: int = 0,
+) -> int:
     job = Job(job_dir)
     spec = job.spec
     source = Path(str((spec.get("source") or {}).get("path", "")))
@@ -49,6 +57,7 @@ def run(job_dir: str) -> int:
     identity = Identity.from_dict(spec.get("identity"))
     settings = pipeline.Settings.from_dict({**job.context, **job.settings})
     dry = job.mode == "estimate"
+    runtime = json.loads((job.dir / "resources.json").read_text()) if (job.dir / "resources.json").exists() else {}
 
     def progress(iid: str, status: str, outputs: list[dict[str, Any]], message: str) -> None:
         job.counts["items"] += 1
@@ -69,16 +78,44 @@ def run(job_dir: str) -> int:
         cancelled=job.cancelled,
         on_total=job.total,
         on_stage=job.stage,
+        checkpoint=out_dir / "conversion-pin.json" if not dry else None,
+        memory_mb=runtime.get("memory_mb"),
+        cached_discover=cached_discover,
+        cached_file_total=cached_file_total,
     )
     extra: dict[str, Any] = {
         "identity": identity.as_dict(),
         "estimate": {**result.counts, **result.storage},
     }
+    if result.resource_wait is not None:
+        extra["resource_wait"] = result.resource_wait
     if dry:  # DCM-06: which series converts, which is skipped and why, storage per series
         extra["estimate"]["series_plan"] = result.plan
     annotations = result.annotations
-    if not job.settings.get("phase_analyzer", True):  # DCM-14: the phase layer is optional
-        annotations = [a for a in annotations if a.get("field") != "phase"]
+    analysis = None
+    if (
+        not dry
+        and job.settings.get("phase_analyzer", True)
+        and not job.cancelled()
+        and not result.counts["failed"]
+        and result.resource_wait is None
+        and result.analyzer_rows
+    ):
+        job.stage("analyzing", 0, len(result.analyzer_rows))
+        try:
+            analysis = checkpoint.analyze_phase(
+                Path(spec.get("analysis_state", job.dir / "phase-analyzer")),
+                result.analyzer_rows,
+                {"phase_vocabulary": job.context.get("phase_vocabulary", [])},
+                cancelled=job.cancelled,
+                on_progress=lambda done, total: job.stage("analyzing", done, total),
+            )
+        except checkpoint.AnalysisConflict as exc:
+            analysis = {"task": "analyzer.phase", "status": "failed", "error": str(exc)}
+        phase_annotations = analysis.pop("annotations", [])
+        if analysis["status"] == "completed":
+            annotations = [*annotations, *phase_annotations]
+        extra["provenance"] = {"phase_analyzer": analysis}
     workspace = bool(spec.get("workspace"))
     if workspace:  # TSK-13: rows relative to the dataset root, which is imported as-is (SRC-16)
         for r in result.rows:
@@ -88,10 +125,10 @@ def run(job_dir: str) -> int:
     if not dry:
         pipeline.write_jsonl(out_dir / "metadata.jsonl", result.rows)
         pipeline.write_jsonl(out_dir / "diagnostics.jsonl", [d.as_dict() for d in result.diagnostics])
-        summary = {"counts": result.counts, "storage": result.storage, "versions": _versions()}
+        summary = {"counts": result.counts, "storage": result.storage, "versions": _versions(), "analysis": analysis}
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         pipeline.write_jsonl(job.rel("annotations.jsonl"), annotations)
-        if workspace:
+        if workspace and not job.cancelled() and not result.counts["failed"] and result.resource_wait is None:
             pipeline.write_jsonl(out_dir / "annotations.jsonl", annotations)
             manifest = {
                 "dataset": 1,
@@ -105,12 +142,25 @@ def run(job_dir: str) -> int:
             }
             (out_dir / "dataset.json").write_text(json.dumps(manifest, indent=2) + "\n")
         job.outputs_manifest += [
-            {"kind": "metadata", "path": str(out_dir / "metadata.jsonl")},
-            {"kind": "annotations", "path": "annotations.jsonl"},
+            {
+                "kind": "metadata",
+                "path": str(out_dir / "metadata.jsonl"),
+                "sha256": _digest(out_dir / "metadata.jsonl"),
+            },
+            {"kind": "annotations", "path": "annotations.jsonl", "sha256": _digest(job.rel("annotations.jsonl"))},
         ]
     failed_all = result.counts["failed"] and not (result.counts["converted"] + result.counts["already_converted"])
-    job.finish(versions=_versions(), status="failed" if failed_all else None, extra=extra)
+    job.finish(
+        versions=_versions(),
+        status="waiting_for_resources" if result.resource_wait is not None else "failed" if failed_all else None,
+        extra=extra,
+    )
     return 0
+
+
+def _digest(path: Path) -> str:
+    with path.open("rb") as fh:
+        return hashlib.file_digest(fh, "sha256").hexdigest()
 
 
 if __name__ == "__main__":

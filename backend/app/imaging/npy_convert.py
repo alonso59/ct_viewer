@@ -147,15 +147,9 @@ def convert(
 _inflight: dict[str, asyncio.Future[str | None]] = {}
 
 
-async def ensure_nifti(
-    jobs: WorkerRunner,
-    src: Path,
-    dst: Path,
-    spacing: Sequence[float],
-    axis_order: AxisOrder = "xyz",
-    affine: Sequence[Sequence[float]] | None = None,
-) -> Path:
-    """Return the cached NIfTI for `src`, converting once in a worker if needed (IMP-10)."""
+async def ensure_cached(jobs: WorkerRunner, dst: Path, what: str, fn: Any, *args: Any) -> Path:
+    """Return `dst`, built once in a worker by `fn(*args) -> error | None` if missing; concurrent
+    callers of the same `dst` share one build."""
     if dst.is_file():
         touch(dst)  # LRU use (CACHE_MAX_GB, AUD-A4-16)
         return dst
@@ -163,16 +157,7 @@ async def ensure_nifti(
     loop = asyncio.get_running_loop()
     fut = _inflight.get(key)
     if fut is None or fut.get_loop() is not loop:
-        fut = asyncio.ensure_future(
-            jobs.run_in_worker(
-                convert,
-                str(src),
-                str(dst),
-                [float(s) for s in spacing],
-                axis_order,
-                [list(map(float, r)) for r in affine] if affine is not None else None,
-            )
-        )
+        fut = asyncio.ensure_future(jobs.run_in_worker(fn, *args))
         _inflight[key] = fut
 
         def _done(_: object, k: str = key, f: asyncio.Future[str | None] = fut) -> None:
@@ -182,5 +167,27 @@ async def ensure_nifti(
         fut.add_done_callback(_done)
     error = await asyncio.shield(fut)
     if error is not None or not dst.is_file():
-        raise ValidationProblem(f"Cannot convert .npy volume: {error or 'no output'}")
+        raise ValidationProblem(f"Cannot {what}: {error or 'no output'}")
     return dst
+
+
+async def ensure_nifti(
+    jobs: WorkerRunner,
+    src: Path,
+    dst: Path,
+    spacing: Sequence[float],
+    axis_order: AxisOrder = "xyz",
+    affine: Sequence[Sequence[float]] | None = None,
+) -> Path:
+    """Return the cached NIfTI for `src`, converting once in a worker if needed (IMP-10)."""
+    return await ensure_cached(
+        jobs,
+        dst,
+        "convert .npy volume",
+        convert,
+        str(src),
+        str(dst),
+        [float(s) for s in spacing],
+        axis_order,
+        [list(map(float, r)) for r in affine] if affine is not None else None,
+    )

@@ -203,6 +203,7 @@ class Runner:
                 "execution": {
                     "backend": self.supervisor.config["backend"],
                     "limits": self.supervisor.config["limits"],
+                    "allocation": self.supervisor.pool.identity(),
                     "write_network_confinement": True,
                     "device_exclusivity": False,
                     "logout_persistence": False,

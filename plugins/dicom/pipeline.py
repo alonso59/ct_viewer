@@ -10,17 +10,18 @@ from __future__ import annotations
 import fnmatch
 import json
 import math
+import os
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from plugins.analyzers import phase as phase_rules
 from plugins.analyzers import readiness as readiness_rules
 from plugins.analyzers import target as target_rules
-from plugins.dicom import convert, rows, scan, sidecar
+from plugins.dicom import commits, resources, rows, scan, sidecar
 from plugins.dicom.identity import Identity
-from plugins.text import value_to_text
+from plugins.text import contrast_delay, value_to_text
 
 VERSION = "1.1.0"
 # DCM-13 / ADR-0020: `metadata.jsonl` holds contract-v1 fields and DICOM facts only. Guesses,
@@ -50,7 +51,6 @@ class Settings:
     include_modality_prefix: bool = True
     sidecars: bool = True
     anonymize: str = "none"  # none | basic (DCM-05)
-    phase_vocabulary: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Settings:
@@ -77,6 +77,8 @@ class Result:
     storage: dict[str, int]
     outputs: list[dict[str, Any]]
     plan: list[dict[str, Any]] = field(default_factory=list)  # one row per series (DCM-06)
+    resource_wait: dict[str, Any] | None = None
+    analyzer_rows: list[dict[str, Any]] = field(default_factory=list)
 
 
 Progress = Callable[[str, str, list[dict[str, Any]], str], None]
@@ -150,6 +152,10 @@ def run(
     cancelled: Callable[[], bool] = lambda: False,
     on_total: Callable[[int], None] | None = None,
     on_stage: Stage | None = None,
+    cached_discover: Callable[[Path], list[scan.Series]] | None = None,
+    cached_file_total: int = 0,
+    checkpoint: Path | None = None,
+    memory_mb: int | None = None,
 ) -> Result:
     diagnostics: list[scan.Diagnostic] = []
     profile = target_rules.profile(settings.target_profile)
@@ -159,9 +165,13 @@ def run(
     # one walk up front, so header reading has a file total to show
     walked: list[tuple[Path, list[tuple[Path, list[Path]]] | None]] = []
     for pdir in patient_dirs(source, settings.patient_pattern, settings.patient_limit):
-        walked.append((pdir, scan.candidate_files(pdir) if pdir.is_dir() else None))
+        walked.append((pdir, scan.candidate_files(pdir) if pdir.is_dir() and cached_discover is None else None))
         stage("listing", len(walked), 0)
-    n_files = sum(sum(len(f) for _, f in w) if w is not None else 1 for _, w in walked)
+    n_files = (
+        cached_file_total
+        if cached_discover is not None
+        else sum(sum(len(f) for _, f in w) if w is not None else 1 for _, w in walked)
+    )
     read = 0
 
     def tick(n: int) -> None:
@@ -175,8 +185,12 @@ def run(
             break
         folder = pdir.name if pdir.is_dir() else pdir.parent.name
         per_folder: list[Series] = []
-        discovered = scan.discover(pdir, diagnostics, files, tick)
-        if files is None:
+        discovered = (
+            cached_discover(pdir) if cached_discover is not None else scan.discover(pdir, diagnostics, files, tick)
+        )
+        if cached_discover is not None:
+            tick(sum(len(s.files) for s in discovered))
+        elif files is None:
             tick(1)
         for s in discovered:
             try:
@@ -222,8 +236,13 @@ def run(
             )
             continue
         found += per_folder
+    selected_total = 0
+    for candidate in found:
+        level, _ = target_rules.match(candidate.row, profile)
+        role, reason = readiness_rules.output_role(candidate.row, level)
+        selected_total += int(decide_conversion(candidate.row, role, reason, settings)[0])
     if on_total is not None:
-        on_total(len(found))
+        on_total(len(found) if dry_run else selected_total)
 
     by_case: dict[str, list[Series]] = {}
     for f in found:
@@ -232,7 +251,20 @@ def run(
         f.row["case_identity_key"] = key
         by_case.setdefault(key, []).append(f)
 
-    prev_by_key = {_key(r): r for r in previous}
+    if checkpoint is not None and not dry_run:
+        commits.restore_identity(checkpoint, identity)
+        manifests = []
+        for key, group in sorted(by_case.items()):
+            identity.case_id(key)
+            for g in sorted(group, key=lambda g: rows.series_sort_key(g.row)):
+                identity.scan_idx(key, g.row["series_uid"])
+                level, _ = target_rules.match(g.row, profile)
+                role, reason = readiness_rules.output_role(g.row, level)
+                if decide_conversion(g.row, role, reason, settings)[0]:
+                    manifests.append(commits.input_manifest(g.series))
+                    stage("verifying_inputs", len(manifests), selected_total)
+        commits.pin_run(checkpoint, {**asdict(settings), "salt": salt}, VERSION, identity, manifests)
+
     counts = {
         "series": len(found),
         "selected": 0,
@@ -245,8 +277,12 @@ def run(
     outputs: list[dict[str, Any]] = []
     annotations: list[dict[str, Any]] = []
     plan: list[dict[str, Any]] = []
-    stage("planning" if dry_run else "converting", 0, len(found))
+    resource_wait = None
+    analyzer_rows: list[dict[str, Any]] = []
+    stage("planning" if dry_run else "converting", 0, len(found) if dry_run else selected_total)
     for key, group in sorted(by_case.items()):
+        if resource_wait is not None:
+            break
         case_id = identity.case_id(key)
         rows.apply_scan_timing([g.row for g in group])
         for g in sorted(group, key=lambda g: rows.series_sort_key(g.row)):
@@ -255,8 +291,9 @@ def run(
             row["scan_idx"] = identity.scan_idx(key, row["series_uid"])
             level, level_ev = target_rules.match(row, profile)
             role, role_reason = readiness_rules.output_role(row, level)
-            value, conf, ev, extras = phase_rules.guess(row, settings.phase_vocabulary)
-            row.update({k: ("" if v is None else str(v)) for k, v in extras.items()})
+            delay, delay_source = contrast_delay(row)
+            row["contrast_delay_seconds"] = "" if delay is None else str(delay)
+            row["contrast_delay_source"] = delay_source
             row["target_match_level"] = level
             row["output_role"] = role
             row["include_guess"] = {"PRIMARY": "include", "SECONDARY": "secondary"}.get(role, "exclude")
@@ -267,14 +304,6 @@ def run(
             row["planned_conversion"] = planned
             iid = f"{case_id}.{row['scan_idx']}.complete.-"
             g.annotations = [
-                {
-                    "item_id": iid,
-                    "field": "phase",
-                    "value": value,
-                    "confidence": conf,
-                    "evidence": ev,
-                    "rules_version": phase_rules.RULES_VERSION,
-                },
                 {
                     "item_id": iid,
                     "field": "target_match",
@@ -327,54 +356,48 @@ def run(
                 status = row["status"] = "would_convert"
             elif planned:
                 out = nifti_dir / filename
-                prev = prev_by_key.get(_key(row))
-                if out.is_file():
-                    status = row["status"] = "already_converted"  # DCM-07: never rewritten
-                    if prev is not None:
-                        for k in (
-                            "dim_x",
-                            "dim_y",
-                            "dim_z",
-                            "spacing_x",
-                            "spacing_y",
-                            "spacing_z",
-                            "origin_x",
-                            "origin_y",
-                            "origin_z",
-                            "direction",
-                            "pixel_type",
-                            "num_slices",
-                            "dicom_sidecar",
-                        ):
-                            if prev.get(k):
-                                row[k] = prev[k]
-                else:
-                    try:
-                        c = convert.write_nifti(g.series, out)
-                    except Exception as exc:  # noqa: BLE001 - record a per-series conversion failure
-                        status = row["status"] = "failed"
-                        message = row["raw_metadata_error"] = f"{type(exc).__name__}: {exc}"
-                        diagnostics.append(
-                            scan.Diagnostic(
-                                "ERROR",
-                                "series_conversion",
-                                "SERIES_CONVERSION_FAILED",
-                                message,
-                                str(g.series.dicom_dir),
-                                g.series.series_id,
-                            )
+                side = sidecar_dir / f"{filename}.dicom.json"
+                try:
+                    header = sidecar.anonymize_dataset(g.header, case_id, salt) if anonymize else g.header
+                    converted, reused, item_outputs = commits.commit_series(
+                        g.series,
+                        header,
+                        out,
+                        side,
+                        settings={**asdict(settings), "salt": salt},
+                        version=VERSION,
+                        sidecars=settings.sidecars,
+                        before_pixels=partial(resources.require_memory, row, g.header, memory_mb),
+                    )
+                    rows.update_geometry(
+                        row,
+                        converted.size,
+                        converted.spacing,
+                        converted.origin,
+                        converted.direction,
+                        converted.pixel_type,
+                    )
+                    status = row["status"] = "already_converted" if reused else "converted"
+                    if settings.sidecars:
+                        row["dicom_sidecar"] = f"{ref_alias}:{ref_rel}/sidecars/{filename}.dicom.json"
+                except resources.MemoryBudgetExceeded as exc:
+                    row["status"] = "waiting_for_resources"
+                    resource_wait = exc.detail
+                    stage("memory_budget", 0, selected_total)
+                    break
+                except Exception as exc:  # noqa: BLE001 - retain safe committed output on conflict
+                    status = row["status"] = "failed"
+                    message = row["raw_metadata_error"] = f"{type(exc).__name__}: {exc}"
+                    diagnostics.append(
+                        scan.Diagnostic(
+                            "ERROR",
+                            "series_conversion",
+                            "SERIES_CONVERSION_FAILED",
+                            message,
+                            str(g.series.dicom_dir),
+                            g.series.series_id,
                         )
-                    else:
-                        rows.update_geometry(row, c.size, c.spacing, c.origin, c.direction, c.pixel_type)
-                        status = row["status"] = "converted"
-                        item_outputs.append({"kind": "image", "path": str(out)})
-                        if settings.sidecars:
-                            header = sidecar.anonymize_dataset(g.header, case_id, salt) if anonymize else g.header
-                            side = sidecar_dir / f"{filename}.dicom.json"
-                            if not side.exists():
-                                sha = sidecar.write_sidecar(header, side)
-                                item_outputs.append({"kind": "sidecar", "path": str(side), "sha256": sha})
-                            row["dicom_sidecar"] = f"{ref_alias}:{ref_rel}/sidecars/{filename}.dicom.json"
+                    )
             else:
                 row["status"] = "skipped"
             if status in counts:
@@ -391,11 +414,16 @@ def run(
                     "rules_version": readiness_rules.RULES_VERSION,
                 }
             )
+            if status in {"converted", "already_converted"}:
+                analyzer_rows.append({**clean_row(row), "item_id": iid})
             if anonymize:
                 sidecar.anonymize_row(row, case_id, salt)
             annotations += g.annotations
             outputs += item_outputs
-            stage("planning" if dry_run else "converting", len(plan), len(found))
+            if dry_run:
+                stage("planning", len(plan), len(found))
+            else:
+                stage("converting", counts["converted"] + counts["already_converted"], selected_total)
             if progress is not None:
                 progress(
                     iid,
@@ -407,7 +435,7 @@ def run(
     merged = {_key(r): r for r in previous}
     merged.update({_key(r): r for r in current})  # DCM-07: the full current row set
     rows_out = [clean_row(r) for r in merged.values()]
-    return Result(rows_out, annotations, diagnostics, counts, storage, outputs, plan)
+    return Result(rows_out, annotations, diagnostics, counts, storage, outputs, plan, resource_wait, analyzer_rows)
 
 
 def write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
@@ -416,4 +444,11 @@ def write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
     with tmp.open("w", encoding="utf-8") as fh:
         for r in items:
             fh.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
     tmp.replace(path)
+    fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)

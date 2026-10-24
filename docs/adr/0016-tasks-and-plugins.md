@@ -1,5 +1,5 @@
 # ADR-0016 Tasks and plugins: one contract, builtin and external runtimes
-Status: Accepted · Date: 2026-09-24
+Status: Accepted (§3 DICOM execution partially superseded by ADR-0035) · Date: 2026-09-24
 Amends: ADR-0006 (radiomics becomes a builtin task), ADR-0007 (heavy plugins run outside the image)
 
 **Context.** DICOM conversion, metadata analyzers, radiomics and nnU-Net segmentation all take items plus settings, run as a job, and produce derived data. nnU-Net needs torch and a GPU, which don't fit the 1.5 GB image (OPS-08). The API runs inside a container (Docker or udocker), so it cannot start containers or host conda envs.

@@ -6,8 +6,29 @@ Worker units (BE-12). Builtin plugins are reached only through `app/tasks/` (BE 
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+
+def is_dicom_image(path: Path, root: Path | None = None) -> bool:
+    """SRC-18: mixed-format services reach the shared plugin recognition at this boundary."""
+    from plugins.dicom.scan import is_dicom_image as recognize
+
+    return recognize(path, root)
+
+
+def source_folders(root: Path) -> Iterator[tuple[Path, list[Path]]]:
+    """Read-only streamed traversal; plugin primitives never depend on app services."""
+    from plugins.dicom.files import folders
+
+    return folders(root)
+
+
+def local_source_file(root: Path, path: Path) -> bool:
+    from plugins.dicom.files import local_file
+
+    return local_file(root, path)
 
 
 def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
@@ -19,7 +40,7 @@ def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
     errors: list[dict[str, Any]] = []
     for rel in rels:
         try:
-            ds = scan.read_header(Path(root) / rel)
+            ds = scan.read_header(Path(root) / rel, Path(root))
         except Exception as exc:
             errors.append({"rel": rel, "format": "dicom", "error": f"{type(exc).__name__}: {exc}"})
             continue
@@ -77,39 +98,38 @@ def dicom_tags(root: str, rel: str) -> dict[str, Any]:
     """Worker: the DICOM JSON model of one file's header (no PixelData, DCM-04) for header info."""
     from plugins.dicom import scan, sidecar
 
-    return sidecar.to_json_model(scan.read_header(Path(root) / rel))
+    return sidecar.to_json_model(scan.read_header(Path(root) / rel, Path(root)))
 
 
-def convert_series(root: str, files: list[str], dst: str) -> str | None:
+def convert_series(
+    root: str, files: list[str], dst: str, memory_mb: int | None = None
+) -> str | None:
     """Worker: one series (or one file) → NIfTI at `dst` (DCM-02/10). None, else the error."""
-    from plugins.dicom import convert, scan
+    from plugins.dicom import convert, resources, scan
 
     try:
         paths = tuple(Path(root) / f for f in files)
         if Path(dst).exists():
             return None
-        if len(paths) > 1:
-            import SimpleITK as sitk
-
-            names = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(
-                str(paths[0].parent), _uid(paths[0])
-            )
-            ordered = tuple(Path(n) for n in names if Path(n) in set(paths)) or paths
-        else:
-            ordered = paths
-        convert.write_nifti(scan.Series(paths[0].parent, "open", ordered), Path(dst))
+        headers = [scan.image_info(path, Path(root)) for path in paths]
+        if any(header is None for header in headers):
+            return "The series contains an unreadable or non-image DICOM member"
+        facts = [header[0] for header in headers if header is not None]
+        order = scan._ipp_order(list(paths), facts)
+        ordered = tuple(paths[index] for index in order)
+        first = facts[0]
+        frames = int(getattr(first, "NumberOfFrames", 1) or 1) if len(paths) == 1 else len(paths)
+        resources.require_memory(
+            {"dim_x": first.Columns, "dim_y": first.Rows, "num_slices": frames}, first, memory_mb
+        )
+        convert.write_nifti(
+            scan.Series(paths[0].parent, "open", ordered, source_root=Path(root)), Path(dst)
+        )
     except Exception as exc:
         if Path(dst).is_file():
             return None  # another writer finished the same volume first
         return f"{type(exc).__name__}: {exc}"
     return None
-
-
-def _uid(path: Path) -> str:
-    from plugins.dicom import scan
-    from plugins.text import value_to_text
-
-    return value_to_text(getattr(scan.read_header(path), "SeriesInstanceUID", ""))
 
 
 def write_sidecar(src: str, dst: str, anonymize: bool, case_id: str) -> str | None:

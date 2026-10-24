@@ -83,12 +83,15 @@ class OpenSession(BaseModel):
 # -- worker units ----------------------------------------------------------------------------
 
 
-def probe(root: str, rels: list[str]) -> list[dict[str, Any]]:
+def probe(
+    root: str, rels: list[str], kinds: dict[str, formats.Kind] | None = None
+) -> list[dict[str, Any]]:
     """Worker: header per accepted file (NIfTI, NumPy). Never raises."""
     out: list[dict[str, Any]] = []
+    dicom: list[str] = []
     for rel in rels:
         path = Path(root) / rel
-        fmt = formats.classify(path)
+        fmt = kinds.get(rel) if kinds is not None else formats.classify(path, Path(root))
         row: dict[str, Any] = {"rel": rel, "format": fmt}
         try:
             if fmt == "npy":
@@ -116,11 +119,12 @@ def probe(root: str, rels: list[str]) -> list[dict[str, Any]]:
                 h = read_header(path)
                 row["geometry"] = {**h.geometry(), "affine": h.affine}
             else:
+                if fmt == "dicom":
+                    dicom.append(rel)
                 continue  # DICOM files are grouped into series below
         except (HeaderError, OSError, ValueError) as exc:
             row["error"] = f"{type(exc).__name__}: {exc}"
         out.append(row)
-    dicom = [r for r in rels if formats.classify(Path(root) / r) == "dicom"]
     if dicom:
         from app.tasks.dicom_stage import probe_series
 
@@ -233,14 +237,24 @@ def build_session(
         kind="file" if path.is_file() else "folder",
         created_at=utc_now(),
         items=items,
-        truncated=scan.truncated or scan.n_accepted > MAX_ITEMS,
+        truncated=scan.truncated,
         ignored=dict(scan.ignored),
     )
 
 
 def accepted(scan: formats.Scan) -> list[str]:
     rels = sorted(scan.files["nifti"] + scan.files["npy"] + scan.files["dicom"])
-    return rels[:MAX_ITEMS]
+    return rels
+
+
+def preview(session: OpenSession) -> OpenSession:
+    """API-07 keeps its bounded initial list; subsequent API-07 pages contain whole items."""
+    return session.model_copy(
+        update={
+            "items": session.items[:MAX_ITEMS],
+            "truncated": session.truncated or len(session.items) > MAX_ITEMS,
+        }
+    )
 
 
 def refuse_empty(path: Path, scan: formats.Scan) -> UnsupportedFormat:
