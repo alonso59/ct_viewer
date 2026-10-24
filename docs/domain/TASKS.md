@@ -29,6 +29,9 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 
 Implementation (TSK-13): the manifest key `scope` (`project` default, `workspace` = may also run without a project; only builtin `input: source` tasks, today `dicom.convert`). API-62: `POST /tasks/{tid}/estimate` (dry run), `POST /task-runs` `{task_id, settings, selection: {source}, name?}` → `202`, `GET /task-runs[/{rid}]`, `POST /task-runs/{rid}/cancel`. The dataset folder name is a slug of `name` (default: the source folder), with `-1`, `-2` … when taken; the job runs under the JobManager key `_workspace`, one per task at a time. Importing a dataset into a project (API-12) first records its `annotations.jsonl` as a completed run of the project and activates each field that has no active run (ANZ-04), so the index is built with the phase layer.
 
+TSK-03 picker: selection controls wait for the current search/page results, including search debounce.
+Select-all shows the pending checkbox intent while resolving IDs; failure restores the committed selection.
+
 ## Manifest (`task.json`)
 
 ```jsonc

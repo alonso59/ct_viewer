@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // TSK-03: grouping is indexed case identity; filters never silently change selected IDs.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 
 import '../../i18n'
@@ -75,4 +75,37 @@ test('a failed select-all leaves the prior selection intact and unlocks the pick
   expect(await screen.findByText('selection lookup failed')).toBeInTheDocument()
   expect(screen.getByText('1 selected')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Clear selection' })).toBeEnabled()
+})
+
+test('select all shows the requested checkbox state while the matching IDs load', async () => {
+  vi.spyOn(api, 'listItems').mockResolvedValue({ items: rows, total: 3, next_cursor: null } as ItemPage)
+  let finish: (ids: string[]) => void = () => { throw new Error('No pending request') }
+  vi.spyOn(api, 'listItemIds').mockImplementation(() => new Promise<string[]>((resolve) => { finish = resolve }))
+  show()
+  const all = await screen.findByRole('checkbox', { name: 'Select all matching files' })
+  await waitFor(() => expect(all).toBeEnabled())
+  fireEvent.click(all)
+  expect(all).toBeChecked()
+  expect(all).toBeDisabled()
+  await act(async () => finish([...rows.map((r) => r.item_id), 'third.01.complete.-']))
+  expect(await screen.findByText('3 selected')).toBeInTheDocument()
+  expect(all).toBeChecked()
+  expect(all).toBeEnabled()
+})
+
+test('search disables selection of the previous page until the matching page arrives', async () => {
+  vi.spyOn(api, 'listItems').mockImplementation(async (_pid, filter?: ItemFilter) => ({
+    items: filter?.q ? [rows[1]] : rows, total: filter?.q ? 1 : 2, next_cursor: null,
+  }) as ItemPage)
+  show()
+  const header = await screen.findByRole('checkbox', { name: 'Select files on this page' })
+  await waitFor(() => expect(header).toBeEnabled())
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search files or cases' }), { target: { value: 'another-name' } })
+  expect(header).toBeDisabled()
+  await waitFor(() => expect(screen.queryByRole('checkbox', { name: 'Select file one.nii.gz' })).not.toBeInTheDocument())
+  await waitFor(() => expect(header).toBeEnabled())
+  fireEvent.click(header)
+  expect(screen.getByText('1 selected')).toBeInTheDocument()
+  fireEvent.click(screen.getByText('Paste or edit item IDs'))
+  expect(screen.getByRole('textbox', { name: 'Paste or edit item IDs' })).toHaveValue(rows[1]!.item_id)
 })
