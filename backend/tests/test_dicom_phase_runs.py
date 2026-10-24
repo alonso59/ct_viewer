@@ -64,8 +64,13 @@ def test_converted_phase_is_registered_as_its_own_analyzer_run(
 
 @pytest.mark.parametrize("in_project", [False, True])
 @pytest.mark.parametrize("cancel_retry", [False, True])
+@pytest.mark.parametrize("fail_inputs", [False, True])
 def test_failed_analyzer_retries_metadata_without_reconverting_or_rewriting_the_dataset(
-    tmp_path: Path, in_project: bool, cancel_retry: bool, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    in_project: bool,
+    cancel_retry: bool,
+    fail_inputs: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from plugins.runner.gpu import Pool
 
@@ -81,8 +86,25 @@ def test_failed_analyzer_retries_metadata_without_reconverting_or_rewriting_the_
     ):
         before_source = digests(source)
         oid = ready["operation_id"]
+        if fail_inputs:
+            refreshed = client.post(
+                f"{API}/{oid}/estimate",
+                json={
+                    "expected_revision": ready["revision"],
+                    "expected_attempt": ready["attempt"],
+                    "settings": {"anonymize": "basic"},
+                },
+            )
+            assert refreshed.status_code == 202, refreshed.text
+            ready = wait_operation(client, oid)
+            request.update(
+                expected_revision=ready["revision"],
+                expected_attempt=ready["attempt"],
+                plan_attempt=ready["plan_attempt"],
+            )
         original = PhaseRuns.prepare
         state: Path | None = None
+        fault_name = "inputs.json" if fail_inputs else "batch-0.json"
 
         def fail_first_batch(self, pid, parent):
             nonlocal state
@@ -96,7 +118,7 @@ def test_failed_analyzer_retries_metadata_without_reconverting_or_rewriting_the_
                 state = parent_dir / "phase-analyzer"
                 state.mkdir(mode=0o700, exist_ok=True)
                 # A real batch-publication failure, injected before the owned worker starts.
-                (state / "batch-0.json").mkdir()
+                (state / fault_name).mkdir()
 
         monkeypatch.setattr(PhaseRuns, "prepare", fail_first_batch)
         started = client.post(f"{API}/{oid}/convert", json=request)
@@ -120,8 +142,8 @@ def test_failed_analyzer_retries_metadata_without_reconverting_or_rewriting_the_
             )
             assert selected.status_code == 201, selected.text
         assert state is not None
-        assert (state / "inputs.json").is_file()
-        (state / "batch-0.json").rmdir()
+        assert (state / "inputs.json").is_file() is not fail_inputs
+        (state / fault_name).rmdir()
         before_outputs = digests(derived)
         phase_id = analyzer["run_id"]
         url = (
@@ -131,7 +153,7 @@ def test_failed_analyzer_retries_metadata_without_reconverting_or_rewriting_the_
         )
         assert client.post(f"{url}/resume", json={}).status_code == 409
         assert client.post(f"{url}/resume", json={"expected_attempt": 0}).status_code == 409
-        if not in_project and not cancel_retry:
+        if not in_project and not cancel_retry and not fail_inputs:
             inputs = state / "inputs.json"
             original_inputs = inputs.read_bytes()
             inputs.write_text("{}")

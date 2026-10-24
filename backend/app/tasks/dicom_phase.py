@@ -357,7 +357,13 @@ class PhaseRuns:
             if not run.job_id or not attempt_cleaned(prior / "attempts" / run.job_id, run.attempts):
                 raise JobConflict("Phase execution cleanup is unconfirmed; retry is blocked")
             state = parent_dir / "phase-analyzer"
-            if not (state / "inputs.json").is_file():
+            phase_provenance = parent.get("provenance", {}).get("phase_analyzer", {})
+            seed = phase_provenance.get("inputs_seed")
+            seed_path = (
+                parent_dir / "attempts" / str(parent.get("job_id")) / "phase-inputs/seed.json"
+            )
+            has_seed = isinstance(seed, dict) and bool(seed.get("sha256")) and seed_path.is_file()
+            if not (state / "inputs.json").is_file() and not has_seed:
                 raise JobConflict(
                     "Pinned phase metadata is unavailable; recover its inputs before retrying"
                 )
@@ -373,6 +379,9 @@ class PhaseRuns:
                     "run_id": rid,
                     "analysis_state": str(state),
                     "phase_total": run.counts.items,
+                    "analysis_seed": {"path": str(seed_path), "sha256": seed["sha256"]}
+                    if has_seed
+                    else None,
                 },
             )
             atomic_write_json(job / "reserved.json", {"attempt": run.attempts + 1})

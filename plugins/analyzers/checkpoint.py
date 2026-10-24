@@ -44,13 +44,77 @@ def _read(path: Path) -> Any:
 def retry_phase(
     state: Path,
     *,
+    seed: Path | None = None,
+    seed_sha256: str | None = None,
     cancelled: Callable[[], bool] = lambda: False,
     on_progress: Callable[[int, int], None] = lambda _done, _total: None,
 ) -> dict[str, Any]:
+    if not (state / "inputs.json").exists() and seed is not None:
+        try:
+            pinned = json.loads(seed.read_bytes())
+        except (OSError, ValueError):
+            raise AnalysisConflict("Analyzer recovery seed is unavailable or corrupt") from None
+        if _digest(pinned) != seed_sha256:
+            raise AnalysisConflict("Analyzer recovery seed changed")
+        if (
+            not isinstance(pinned, dict)
+            or set(pinned) != {"version", "inputs", "identity"}
+            or pinned["version"] != 1
+            or not isinstance(pinned["inputs"], dict)
+            or set(pinned["inputs"]) != {"rows", "config"}
+        ):
+            raise AnalysisConflict("Analyzer recovery seed is corrupt")
+        inputs = _inputs(pinned["inputs"]["rows"], pinned["inputs"]["config"])
+        if pinned["identity"] != _identity(inputs):
+            raise AnalysisConflict("Analyzer recovery metadata/settings/rules changed; start a new analysis")
+        return analyze_phase(
+            state,
+            inputs["rows"],
+            inputs["config"],
+            cancelled=cancelled,
+            on_progress=on_progress,
+            recover_inputs=True,
+        )
     inputs = _read(state / "inputs.json")
     if not isinstance(inputs, dict) or set(inputs) != {"rows", "config"}:
         raise AnalysisConflict("Pinned analyzer metadata is corrupt")
     return analyze_phase(state, inputs["rows"], inputs["config"], cancelled=cancelled, on_progress=on_progress)
+
+
+def _inputs(rows: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows) or not isinstance(config, dict):
+        raise AnalysisConflict("Pinned analyzer metadata is corrupt")
+    fields = {*phase.INPUT_FIELDS, "item_id", "case_identity_key", "series_uid"}
+    return {"rows": [{key: value for key, value in row.items() if key in fields} for row in rows], "config": config}
+
+
+def _identity(inputs: dict[str, Any]) -> dict[str, Any]:
+    assert phase.__file__ is not None and text.__file__ is not None
+    return {
+        "inputs": _digest(inputs),
+        "rules_version": phase.RULES_VERSION,
+        "code": [hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in (phase.__file__, text.__file__)],
+    }
+
+
+def write_seed(directory: Path, rows: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, str]:
+    inputs = _inputs(rows, config)
+    directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+    if directory.stat().st_mode & 0o077:
+        raise AnalysisConflict("Analyzer recovery seed requires a private directory")
+    path = directory / "seed.json"
+    payload = {"version": 1, "inputs": inputs, "identity": _identity(inputs)}
+    if path.exists():
+        if _read(path) != payload:
+            raise AnalysisConflict("Analyzer recovery seed changed")
+    else:
+        _write(path, payload)
+    fd = os.open(directory.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    return {"sha256": _digest(payload)}
 
 
 def analyze_phase(
@@ -60,11 +124,9 @@ def analyze_phase(
     *,
     cancelled: Callable[[], bool] = lambda: False,
     on_progress: Callable[[int, int], None] = lambda _done, _total: None,
+    recover_inputs: bool = False,
 ) -> dict[str, Any]:
-    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows) or not isinstance(config, dict):
-        raise AnalysisConflict("Pinned analyzer metadata is corrupt")
-    fields = {*phase.INPUT_FIELDS, "item_id", "case_identity_key", "series_uid"}
-    rows = [{key: value for key, value in row.items() if key in fields} for row in rows]
+    rows = _inputs(rows, config)["rows"]
     state.mkdir(parents=True, mode=0o700, exist_ok=True)
     if state.stat().st_mode & 0o077:
         raise AnalysisConflict("Analyzer input checkpoint requires a private directory")
@@ -73,7 +135,7 @@ def analyze_phase(
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise AnalysisConflict("Another attempt owns this analyzer checkpoint") from None
-        return _analyze(state, rows, config, cancelled, on_progress)
+        return _analyze(state, rows, config, cancelled, on_progress, recover_inputs)
 
 
 def _analyze(
@@ -82,17 +144,13 @@ def _analyze(
     config: dict[str, Any],
     cancelled: Callable[[], bool],
     on_progress: Callable[[int, int], None],
+    recover_inputs: bool,
 ) -> dict[str, Any]:
     inputs = {"rows": rows, "config": config}
     keys = [row_key(row) for row in rows]
     if len(set(keys)) != len(keys) or any(key in {"", "|"} for key in keys):
         raise AnalysisConflict("Analyzer metadata contains missing or duplicate item identities")
-    assert phase.__file__ is not None and text.__file__ is not None
-    identity = {
-        "inputs": _digest(inputs),
-        "rules_version": phase.RULES_VERSION,
-        "code": [hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in (phase.__file__, text.__file__)],
-    }
+    identity = _identity(inputs)
     path = state / "checkpoint.json"
     if path.exists():
         record = _read(path)
@@ -105,6 +163,8 @@ def _analyze(
             or record.get("status") not in {"running", "completed", "failed", "cancelled"}
         ):
             raise AnalysisConflict("Analyzer checkpoint is corrupt")
+        if recover_inputs and not (state / "inputs.json").exists():
+            _write(state / "inputs.json", inputs)
         if _digest(_read(state / "inputs.json")) != identity["inputs"]:
             raise AnalysisConflict("Pinned analyzer metadata changed")
     else:

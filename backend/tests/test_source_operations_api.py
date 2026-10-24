@@ -280,7 +280,11 @@ def test_operation_converts_through_existing_run_authority_and_repeated_command_
         runs = client.get(prefix + "/task-runs").json()
         if isinstance(runs, dict):
             runs = runs["items"]
-        assert len(runs) == 1 and runs[0]["run_id"] == native["run_id"]
+        conversion = final["conversion_run"]
+        assert {(r["task"]["id"], r["run_id"]) for r in runs} == {
+            ("dicom.convert", native["run_id"]),
+            ("analyzer.phase", conversion["phase_run_id"]),
+        }
         assert len([path for path in derived.rglob("*.nii.gz") if path.is_file()]) == 1
         if not in_project:
             assert not (derived / "_datasets" / "same-dataset-1").exists()

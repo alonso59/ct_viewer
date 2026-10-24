@@ -290,6 +290,42 @@ def test_export_leaves_out_variable_values_and_run_source_paths(tmp_path: Path) 
     assert run["task_id"] == "dicom.convert" and run["selection"]["source"] is None
 
 
+def test_bundle_preserves_phase_layers_but_excludes_private_dicom_recovery_state(
+    tmp_path: Path,
+) -> None:
+    """PRJ-08/NFR-17: private phase facts and owned execution proofs never travel in a bundle."""
+    from app.projects.bundle import write_bundle
+
+    folder, out = tmp_path / "project", tmp_path / "bundle.zip"
+    files = {
+        "project.json": json.dumps({"project_id": "project"}),
+        "tasks/runs/phase/run.json": json.dumps(
+            {
+                "source": "/patients/PRIVATE_DICOM_FACTS",
+                "selection": {"source": "/patients/PRIVATE_DICOM_FACTS"},
+            }
+        ),
+        "tasks/runs/phase/annotations.jsonl": '{"field":"phase","value":"NP"}\n',
+        "tasks/runs/conversion/phase-analyzer/inputs.json": "PRIVATE_DICOM_FACTS",
+        "tasks/runs/conversion/attempts/job/phase-inputs/seed.json": "PRIVATE_DICOM_FACTS",
+        "tasks/runs/conversion/attempts/job/job.json": "PRIVATE_DICOM_FACTS",
+        "tasks/runs/conversion/attempts/job/process.json": "PRIVATE_DICOM_FACTS",
+        "dropped-volume.dicom.json": "PRIVATE_DICOM_FACTS",
+    }
+    for rel, contents in files.items():
+        path = folder / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(contents)
+    write_bundle(folder, "project", out)
+    with zipfile.ZipFile(out) as bundle:
+        names = bundle.namelist()
+        assert "project/tasks/runs/phase/annotations.jsonl" in names
+        assert not any("/attempts/" in name or "/phase-analyzer/" in name for name in names)
+        assert not any(name.endswith(".dicom.json") for name in names)
+        assert b"PRIVATE_DICOM_FACTS" not in b"".join(bundle.read(name) for name in names)
+    assert all((folder / rel).read_text() == contents for rel, contents in files.items())
+
+
 def test_export_turns_import_roots_and_warning_paths_into_alias_refs(tmp_path: Path) -> None:
     """AUD-A5-02 residual (NFR-17, PRJ-08): `sources/imports.jsonl` roots and QC messages leave
     as alias refs; `project.json` keeps its absolute roots (PRJ-05); no view token in the `.bak`

@@ -102,7 +102,13 @@ def run(
         and result.analyzer_rows
     ):
         job.stage("analyzing", 0, len(result.analyzer_rows))
+        inputs_seed = None
         try:
+            inputs_seed = checkpoint.write_seed(
+                job.dir / "phase-inputs",
+                result.analyzer_rows,
+                {"phase_vocabulary": job.context.get("phase_vocabulary", [])},
+            )
             analysis = checkpoint.analyze_phase(
                 Path(spec.get("analysis_state", job.dir / "phase-analyzer")),
                 result.analyzer_rows,
@@ -121,6 +127,8 @@ def run(
                 if isinstance(exc, checkpoint.AnalysisConflict)
                 else f"{type(exc).__name__}: phase analyzer failed; retry analysis",
             }
+        if inputs_seed is not None:
+            analysis["inputs_seed"] = inputs_seed
         analysis["run_id"] = spec.get("phase_run_id")
         phase_annotations = analysis.pop("annotations", [])
         if analysis["status"] == "completed":
