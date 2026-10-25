@@ -40,3 +40,15 @@ test('paging parameters do not change the answer; the body picks among recorded 
   expect((await patch({ description: 'stale' })).status).toBe(412)
   expect((await patch({ description: 'anything' })).status).toBe(200)
 })
+
+test('explicitly recorded Open pages stay distinct and a missing page is refused (SRC-18)', async () => {
+  const first = exchanges.find((e) => e.method === 'GET' && e.path.endsWith('/items') && e.query === 'kind=image&limit=50')!
+  expect(first).toBeDefined()
+  const url = `http://mock.invalid${first.path}?kind=image&limit=50`
+  const initial = await replayFetch(url)
+  const later = await replayFetch(`${url}&cursor=500`)
+  expect(initial.status).toBe(200)
+  expect(later.status).toBe(200)
+  expect(await initial.json()).not.toEqual(await later.json())
+  expect((await replayFetch(`${url}&cursor=999999`)).status).toBe(501)
+})

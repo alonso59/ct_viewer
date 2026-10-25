@@ -6316,6 +6316,11 @@
       "title": "Created At",
       "type": "string"
      },
+     "has_dicom": {
+      "default": false,
+      "title": "Has Dicom",
+      "type": "boolean"
+     },
      "ignored": {
       "additionalProperties": {
        "type": "integer"
@@ -14189,6 +14194,23 @@
        "title": "Sid",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "item",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Item"
+      }
      }
     ],
     "responses": {
@@ -14231,6 +14253,26 @@
       "schema": {
        "title": "Sid",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "image",
+          "label"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
       }
      },
      {

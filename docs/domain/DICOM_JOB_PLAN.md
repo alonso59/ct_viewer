@@ -348,3 +348,28 @@ Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, includi
 - Final full/shared-runtime/browser/CI/Docker/udocker gates, reader-version migration and deployment readiness.
 
 No closure checkbox is certified by narrower synthetic checks or by the accepted ADR alone.
+
+### Open pagination checkpoint
+
+`test_open_paging.py` covers later NIfTI/mask selection, Save, 503 complete DICOM
+series and mixed folders whose DICOM item falls outside the initial preview.
+`OpenRoute.paging.test.tsx` uses real recorded pages and verifies selection/mask
+retention through paging and Save. The sidebar renders 50 image rows per page;
+API-07 owns the focused-item and kind-filter contracts. These checks cover part
+of D09/U08; general Open discovery is still ephemeral and its durable background,
+minimize, cancellation and restart/resume work remains open.
+
+CI run 40177352175 passed verification and image jobs for d5724fe. Artifact
+12593069849 was downloaded with verified archive and image-tar SHA-256 values.
+The same image passed isolated, non-root udocker import/conversion, queued API
+SIGKILL/restart, cancel/resume and completed restart checks with unchanged source
+and output hashes (`dicom-product-d5724fe/runtime-acceptance.json`). This does
+not certify active-pixel crash barriers, the cross-container matrix or subsequent
+Open changes, and production has not been updated.
+
+The Open checkpoint passes 40 affected backend cases (`dicom-open-backend-area.log`),
+35 frontend/API/boundary cases (`dicom-open-frontend-area.log`), five recorded
+transport cases and the corrected window test (`dicom-open-replay-green.log`,
+`dicom-open-window-final.log`). The real Open paging/attach/Save journey passes
+both Chromium and Firefox in 2.1 minutes with original source hashes unchanged
+(`dicom-open-paging-browser.log`). These results do not close durable Open loading.

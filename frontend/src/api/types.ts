@@ -245,6 +245,7 @@ export type DetectCandidate = S['Candidate']
 /** API-07/08 Open mode (SRC-09/10) */
 export type OpenSession = S['OpenSession']
 export type OpenItem = S['OpenItem']
+export type OpenItemPage = S['Page_OpenItem_']
 export type AxisOrder = 'xyz' | 'zyx'
 
 // ---- Study variables (VARIABLES.md, API-16..18) -----------------------------------------------

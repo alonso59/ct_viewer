@@ -5,9 +5,9 @@ Open-mode logic lives in `app.sources.open_service` (AUD-A6-05)."""
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from app.api.v1.deps import Ctx
@@ -60,14 +60,20 @@ async def open_path(ctx: Ctx, body: PathBody) -> open_mode.OpenSession:
 
 
 @router.get("/open/{sid}", response_model=open_mode.OpenSession)
-def get_open(ctx: Ctx, sid: str) -> open_mode.OpenSession:
-    return open_mode.preview(ctx.open_sessions.get(sid))
+def get_open(
+    ctx: Ctx, sid: str, item: Annotated[int | None, Query(ge=0)] = None
+) -> open_mode.OpenSession:
+    session = ctx.open_sessions.get(sid)
+    return open_mode.focused(session, item) if item is not None else open_mode.preview(session)
 
 
 @router.get("/open/{sid}/items", response_model=Page[open_mode.OpenItem])
-def open_items(ctx: Ctx, sid: str, pg: Paging) -> Page[open_mode.OpenItem]:
+def open_items(
+    ctx: Ctx, sid: str, pg: Paging, kind: open_mode.ItemKind | None = None
+) -> Page[open_mode.OpenItem]:
     """API-07 / SRC-18: stable paging over complete series, never a prefix of slices."""
-    return paginate(ctx.open_sessions.get(sid).items, pg)
+    items = ctx.open_sessions.get(sid).items
+    return paginate([item for item in items if item.kind == kind] if kind else items, pg)
 
 
 @router.delete("/open/{sid}", status_code=204)

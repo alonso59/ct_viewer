@@ -44,6 +44,8 @@ export const keys = {
   fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
   /** API-07 by session id: the route names the session, never the path (AUD-A1-19) */
   open: (sid: string) => ['open', sid] as const,
+  openItems: (sid: string, cursor: string | undefined, limit: number) => ['open', sid, 'items', cursor, limit] as const,
+  openSelection: (sid: string, n: number | null) => ['open', sid, 'selection', n] as const,
   tasks: () => ['tasks'] as const,
   plugins: (pid: string | null) => ['plugins', pid] as const,
   packs: () => ['packs'] as const,

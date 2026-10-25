@@ -58,6 +58,7 @@ import type {
   SavedOpen,
   DetectResult,
   OpenSession,
+  OpenItemPage,
   PreflightResult,
   RootRole,
   SegmentationInfo,
@@ -179,7 +180,8 @@ export interface Api {
   openPath(path: string): Promise<OpenSession>
   /** VW-22 header info of an Open-mode DICOM item */
   openDicomTags(sid: string, n: number): Promise<Record<string, unknown>>
-  getOpen(sid: string): Promise<OpenSession>
+  getOpen(sid: string, item?: number): Promise<OpenSession>
+  openItems(sid: string, options: { cursor?: string; limit: number }): Promise<OpenItemPage>
   closeOpen(sid: string): Promise<void>
   /** Volume URL; NumPy needs `axisOrder` unless the session decided it (SRC-12) */
   openImageUrl(sid: string, n: number, axisOrder?: AxisOrder | null): string | null

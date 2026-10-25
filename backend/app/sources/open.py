@@ -78,6 +78,7 @@ class OpenSession(BaseModel):
     items: list[OpenItem]
     truncated: bool = False
     ignored: dict[str, int] = Field(default_factory=dict)
+    has_dicom: bool = False
 
 
 # -- worker units ----------------------------------------------------------------------------
@@ -239,6 +240,7 @@ def build_session(
         items=items,
         truncated=scan.truncated,
         ignored=dict(scan.ignored),
+        has_dicom=any(it.format == "dicom" for it in items),
     )
 
 
@@ -253,6 +255,20 @@ def preview(session: OpenSession) -> OpenSession:
         update={
             "items": session.items[:MAX_ITEMS],
             "truncated": session.truncated or len(session.items) > MAX_ITEMS,
+        }
+    )
+
+
+def focused(session: OpenSession, n: int) -> OpenSession:
+    """SRC-18: one selected item and its current attached overlay, regardless of page."""
+    selected = [item(session, n)]
+    overlay = next((it for it in reversed(session.items) if it.attached_to == n), None)
+    if overlay is not None:
+        selected.append(overlay)
+    return session.model_copy(
+        update={
+            "items": selected,
+            "truncated": session.truncated or len(session.items) > len(selected),
         }
     )
 

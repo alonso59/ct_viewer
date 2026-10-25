@@ -129,11 +129,18 @@ export function useOpenPath() {
 /** API-07: a live Open-mode session by id; `not-found` once closed or after a server restart */
 export const useOpenSession = (sid: string | null) =>
   useQuery({ queryKey: keys.open(sid ?? ''), queryFn: () => api.getOpen(sid ?? ''), enabled: enabled(sid), staleTime: Infinity, retry: false })
+export const useOpenItems = (sid: string | null, cursor: string | undefined, limit: number) =>
+  useQuery({ queryKey: keys.openItems(sid ?? '', cursor, limit), queryFn: () => api.openItems(sid ?? '', { cursor, limit }), enabled: enabled(sid), staleTime: Infinity, retry: false, placeholderData: keepPreviousData })
+export const useOpenSelection = (sid: string | null, n: number | null) =>
+  useQuery({ queryKey: keys.openSelection(sid ?? '', n), queryFn: () => api.getOpen(sid ?? '', n ?? undefined), enabled: enabled(sid) && n != null, staleTime: Infinity, retry: false })
 export function useAttachOpen(sid: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ n, file }: { n: number; file: string }) => api.attachOpen(sid, n, file),
-    onSuccess: (s) => qc.setQueryData(keys.open(sid), s),
+    onSuccess: (s, { n }) => {
+      qc.setQueryData(keys.open(sid), s)
+      void qc.invalidateQueries({ queryKey: keys.openSelection(sid, n) })
+    },
   })
 }
 

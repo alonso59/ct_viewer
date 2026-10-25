@@ -4637,6 +4637,11 @@ export interface components {
             ignored?: {
                 [key: string]: number;
             };
+            /**
+             * Has Dicom
+             * @default false
+             */
+            has_dicom: boolean;
         };
         /** OptionSpec */
         OptionSpec: {
@@ -7970,7 +7975,9 @@ export interface operations {
     };
     get_open_api_v1_open__sid__get: {
         parameters: {
-            query?: never;
+            query?: {
+                item?: number | null;
+            };
             header?: never;
             path: {
                 sid: string;
@@ -8031,6 +8038,7 @@ export interface operations {
     open_items_api_v1_open__sid__items_get: {
         parameters: {
             query?: {
+                kind?: ("image" | "label") | null;
                 /** @description Opaque cursor from `next_cursor` */
                 cursor?: string | null;
                 limit?: number;
