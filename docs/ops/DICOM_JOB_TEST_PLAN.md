@@ -195,3 +195,7 @@ resume preserves images without training on reuse. Project/workspace owned API c
 history reaching later plans. A deterministic hold-out corpus checks coverage/error/range width;
 this is model regression evidence, not measured reference-host P06 calibration. Conversion-only
 estimates do not close discovery/registration/analyzer duration-history requirements.
+
+Open paging adds focused service/API and recorded-window coverage for D09/U08
+(see DICOM_JOB_PLAN.md §Open pagination checkpoint). General background Open
+loading and the remaining crash/performance matrix stay open.
