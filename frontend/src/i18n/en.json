@@ -264,6 +264,7 @@
     "serverDown": "Cannot reach the server",
     "noProjects": "No projects yet. Create one to start.",
     "openPath": "Open file or folder…",
+    "sourceOperations": "Show source operations…",
     "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project",
     "convertDicom": "Convert DICOM…",
     "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed",

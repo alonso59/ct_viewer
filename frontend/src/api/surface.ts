@@ -58,6 +58,7 @@ import type {
   SavedOpen,
   DetectResult,
   OpenSession,
+  OpenItemPage,
   PreflightResult,
   RootRole,
   SegmentationInfo,
@@ -173,9 +174,11 @@ export interface Api {
   /** Candidate adapters for a folder or one file; refusals carry `actions[]` */
   detectSource(path: string): Promise<DetectResult>
   openPath(path: string): Promise<OpenSession>
+  openSourceOperation(operation: string): Promise<OpenSession>
   /** Header info of an Open-mode DICOM item */
   openDicomTags(sid: string, n: number): Promise<Record<string, unknown>>
-  getOpen(sid: string): Promise<OpenSession>
+  getOpen(sid: string, item?: number): Promise<OpenSession>
+  openItems(sid: string, options: { cursor?: string; limit: number }): Promise<OpenItemPage>
   closeOpen(sid: string): Promise<void>
   /** Volume URL; NumPy needs `axisOrder` unless the session decided it */
   openImageUrl(sid: string, n: number, axisOrder?: AxisOrder | null): string | null
@@ -236,6 +239,7 @@ export interface Api {
   startSourceOperation(body: SourceOperationStart): Promise<SourceOperation>
   listSourceOperations(): Promise<SourceOperation[]>
   getSourceOperation(id: string): Promise<SourceOperation>
+  sourceOperationDetection(id: string): Promise<DetectResult>
   estimateSourceOperation(id: string, body: SourceOperationEstimate): Promise<SourceOperation>
   convertSourceOperation(id: string, body: SourceOperationConvert): Promise<SourceOperation>
   cancelSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>

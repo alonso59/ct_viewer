@@ -119,18 +119,25 @@ export const useFsList = (path: string | null, role: RootRole = 'source') =>
   useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
 /** Candidate adapters for a folder or file */
 export const useDetect = () => useMutation({ mutationFn: (path: string) => api.detectSource(path) })
-export function useOpenPath() {
-  const qc = useQueryClient()
-  return useMutation({ mutationFn: (path: string) => api.openPath(path), onSuccess: (s) => qc.setQueryData(keys.open(s.sid), s) })
-}
+/** Server-owned opening of a file or folder */
+export const useStartOpen = () => useMutation({
+  mutationFn: ({ path, key }: { path: string; key: string }) => api.startSourceOperation({ path, purpose: 'open', prepare_plan: false, idempotency_key: key }),
+})
 /** `not-found` once the session is closed or after a server restart */
 export const useOpenSession = (sid: string | null) =>
   useQuery({ queryKey: keys.open(sid ?? ''), queryFn: () => api.getOpen(sid ?? ''), enabled: enabled(sid), staleTime: Infinity, retry: false })
+export const useOpenItems = (sid: string | null, cursor: string | undefined, limit: number) =>
+  useQuery({ queryKey: keys.openItems(sid ?? '', cursor, limit), queryFn: () => api.openItems(sid ?? '', { cursor, limit }), enabled: enabled(sid), staleTime: Infinity, retry: false, placeholderData: keepPreviousData })
+export const useOpenSelection = (sid: string | null, n: number | null) =>
+  useQuery({ queryKey: keys.openSelection(sid ?? '', n), queryFn: () => api.getOpen(sid ?? '', n ?? undefined), enabled: enabled(sid) && n != null, staleTime: Infinity, retry: false })
 export function useAttachOpen(sid: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ n, file }: { n: number; file: string }) => api.attachOpen(sid, n, file),
-    onSuccess: (s) => qc.setQueryData(keys.open(sid), s),
+    onSuccess: (s, { n }) => {
+      qc.setQueryData(keys.open(sid), s)
+      void qc.invalidateQueries({ queryKey: keys.openSelection(sid, n) })
+    },
   })
 }
 

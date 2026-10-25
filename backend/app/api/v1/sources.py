@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from app.api.v1.deps import Ctx
@@ -46,6 +46,8 @@ def svc(ctx: Ctx) -> OpenService:
         workspace_root=ctx.settings.workspace_root,
         settings=ctx.settings,
         on_cache_write=ctx.cache_budget.request,
+        restore_session=ctx.source_operations.open_session,
+        persist_session=ctx.source_operations.save_open_session,
     )
 
 
@@ -56,18 +58,25 @@ async def open_path(ctx: Ctx, body: PathBody) -> open_mode.OpenSession:
 
 
 @router.get("/open/{sid}", response_model=open_mode.OpenSession)
-def get_open(ctx: Ctx, sid: str) -> open_mode.OpenSession:
-    return open_mode.preview(ctx.open_sessions.get(sid))
+def get_open(
+    ctx: Ctx, sid: str, item: Annotated[int | None, Query(ge=0)] = None
+) -> open_mode.OpenSession:
+    session = svc(ctx).session(sid)
+    return open_mode.focused(session, item) if item is not None else open_mode.preview(session)
 
 
 @router.get("/open/{sid}/items", response_model=Page[open_mode.OpenItem])
-def open_items(ctx: Ctx, sid: str, pg: Paging) -> Page[open_mode.OpenItem]:
+def open_items(
+    ctx: Ctx, sid: str, pg: Paging, kind: open_mode.ItemKind | None = None
+) -> Page[open_mode.OpenItem]:
     """Stable paging over complete series, never a prefix of slices."""
-    return paginate(ctx.open_sessions.get(sid).items, pg)
+    items = svc(ctx).session(sid).items
+    return paginate([item for item in items if item.kind == kind] if kind else items, pg)
 
 
 @router.delete("/open/{sid}", status_code=204)
 def close_open(ctx: Ctx, sid: str) -> Response:
+    ctx.source_operations.close_open_session(sid)
     ctx.open_sessions.drop(sid)
     return Response(status_code=204)
 

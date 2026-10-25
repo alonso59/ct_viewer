@@ -39,6 +39,7 @@ from app.tasks.jobspec import bind_inventory, inventory_spec
 from app.tasks.models import (
     RESUMABLE_TASK_RUN,
     TERMINAL_TASK_RUN,
+    ConversionTimeEstimate,
     TaskEstimate,
     TaskManifest,
     TaskRef,
@@ -98,6 +99,7 @@ class WorkspaceRun(BaseModel):
     provenance: dict[str, Any] = Field(default_factory=dict)
     phase_run_id: str | None = None
     resource_wait: TaskResourceWait | None = None
+    conversion_time: ConversionTimeEstimate | None = None
 
 
 def default_dataset_name() -> str:
@@ -209,6 +211,9 @@ class WorkspaceTasks:
             "workspace": True,  # rows relative to the dataset root
             "source": {"path": str(source)},
             "project_id": "",
+            "timing_destination": str(self.settings.derived_roots[0])
+            if self.settings.derived_roots
+            else None,
             **({"dicom_process_protocol": 1} if m.id == "dicom.convert" else {}),
         }
 
@@ -397,6 +402,12 @@ class WorkspaceTasks:
                         if m.id != "dicom.convert" or line.get("status") == "ok":
                             done += 1
                         h.set_done(done)
+                    elif line.get("t") == "conversion_time":
+                        run = self._read(run_dir)
+                        run.conversion_time = ConversionTimeEstimate.model_validate(
+                            line["estimate"]
+                        )
+                        self._write(run_dir, run)
                     elif line.get("t") == "stage":
                         if isinstance(line.get("resource_wait"), dict):
                             resource_wait = TaskResourceWait.model_validate(line["resource_wait"])
@@ -443,6 +454,8 @@ class WorkspaceTasks:
         if run.task.id == "dicom.convert" and run.job_id != job_dir.name:
             return
         result = protocol.read_result(job_dir) or {}
+        if result.get("conversion_time"):
+            run.conversion_time = ConversionTimeEstimate.model_validate(result["conversion_time"])
         status: TaskRunStatus
         if info.status == "cancelled":
             status = "cancelled"
@@ -566,6 +579,7 @@ class WorkspaceTasks:
         run.attempts += 1
         run.resume_request_id = request_id
         run.progress, run.resource_wait = {}, None
+        run.conversion_time = None
         run.job_id, run.status, run.error, run.finished_at = job_id, "queued", None, None
         self._write(run_dir, run)
         self.phase_runs.prepare(None, run)

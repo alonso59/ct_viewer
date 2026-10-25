@@ -2122,6 +2122,82 @@
     "title": "Contributes",
     "type": "object"
    },
+   "ConversionTimeEstimate": {
+    "description": "Conversion stage only; historical ranges are not calibrated confidence bounds.",
+    "properties": {
+     "basis": {
+      "enum": [
+       "unknown",
+       "history",
+       "complete"
+      ],
+      "title": "Basis",
+      "type": "string"
+     },
+     "confidence": {
+      "enum": [
+       "unknown",
+       "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+     },
+     "estimated_s": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated S"
+     },
+     "lower_s": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lower S"
+     },
+     "remaining_units": {
+      "minimum": 0.0,
+      "title": "Remaining Units",
+      "type": "integer"
+     },
+     "sample_count": {
+      "minimum": 0.0,
+      "title": "Sample Count",
+      "type": "integer"
+     },
+     "upper_s": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Upper S"
+     }
+    },
+    "required": [
+     "basis",
+     "confidence",
+     "sample_count",
+     "remaining_units"
+    ],
+    "title": "ConversionTimeEstimate",
+    "type": "object"
+   },
    "CorrelationRequest": {
     "properties": {
      "feature_class": {
@@ -6234,6 +6310,11 @@
      "created_at": {
       "title": "Created At",
       "type": "string"
+     },
+     "has_dicom": {
+      "default": false,
+      "title": "Has Dicom",
+      "type": "boolean"
      },
      "ignored": {
       "additionalProperties": {
@@ -11088,6 +11169,16 @@
       "title": "Basis",
       "type": "string"
      },
+     "conversion_time": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ConversionTimeEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "detail": {
       "additionalProperties": true,
       "title": "Detail",
@@ -11587,6 +11678,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/TaskControl"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "conversion_time": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ConversionTimeEstimate"
        },
        {
         "type": "null"
@@ -13312,6 +13413,16 @@
       "title": "Cleanup Verified",
       "type": "boolean"
      },
+     "conversion_time": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ConversionTimeEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "counts": {
       "additionalProperties": {
        "type": "integer"
@@ -14070,6 +14181,23 @@
        "title": "Sid",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "item",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Item"
+      }
      }
     ],
     "responses": {
@@ -14112,6 +14240,26 @@
       "schema": {
        "title": "Sid",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "image",
+          "label"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
       }
      },
      {
@@ -21169,6 +21317,48 @@
     ]
    }
   },
+  "/api/v1/source-operations/{oid}/detection": {
+   "get": {
+    "operationId": "detection_api_v1_source_operations__oid__detection_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DetectResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Detection",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
   "/api/v1/source-operations/{oid}/estimate": {
    "post": {
     "operationId": "estimate_api_v1_source_operations__oid__estimate_post",
@@ -21216,6 +21406,48 @@
      }
     },
     "summary": "Estimate",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/open": {
+   "post": {
+    "operationId": "open_result_api_v1_source_operations__oid__open_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OpenSession"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Result",
     "tags": [
      "source-operations"
     ]

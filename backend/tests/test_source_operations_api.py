@@ -21,6 +21,196 @@ from tools.dicom_fixtures import write_series
 API = "/api/v1/source-operations"
 
 
+def test_background_open_prepares_a_durable_complete_session_without_conversion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D08/D10, SRC-18: the Open purpose must do more than discover DICOM counts."""
+    import hashlib
+    import json
+
+    from tests.test_sources import ct, lab, nii
+
+    source = tmp_path / "source"
+    nii(source / "a.nii.gz", ct())
+    write_series(source / "nested" / "dicom", shape=(3, 3, 3), marker=(1, 1, 2))
+    before = {
+        p: hashlib.sha256(p.read_bytes()).hexdigest() for p in source.rglob("*") if p.is_file()
+    }
+    settings = Settings(
+        workspace_root=tmp_path / "workspace", allowed_data_roots=str(source), _env_file=None
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        response = client.post(
+            API,
+            json={"path": str(source), "purpose": "open", "idempotency_key": "durable-open-123"},
+        )
+        assert response.status_code == 202, response.text
+        oid = response.json()["operation_id"]
+        completed = wait_operation(client, oid)
+        assert completed["status"] == "completed" and completed["stage"] == "opened"
+        assert completed["cleanup_verified"] and completed["conversion_run_id"] is None
+        attempt = (
+            settings.workspace_root
+            / "plugins/dicom/operations"
+            / oid
+            / "attempts"
+            / str(completed["attempt"])
+        )
+        artifact = attempt / "open-session.json"
+        session = json.loads(artifact.read_text())
+        assert session["sid"] == oid
+        assert [item["format"] for item in session["items"]] == ["nifti", "dicom"]
+        assert len(session["items"][1]["files"]) == 3
+        artifact_bytes = artifact.read_bytes()
+        opened = client.post(f"{API}/{oid}/open")
+        assert opened.status_code == 201, opened.text
+        assert opened.json()["sid"] == oid
+        mask = nii(source / "masks" / "label.nii.gz", lab())
+        attached = client.post(f"/api/v1/open/{oid}/items/0/attach", json={"path": str(mask)})
+        assert attached.status_code == 200, attached.text
+        expected_items = client.get(f"/api/v1/open/{oid}").json()["items"]
+        before[mask] = hashlib.sha256(mask.read_bytes()).hexdigest()
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        restored = client.get(f"{API}/{oid}").json()
+        assert restored["stage"] == "opened" and restored["attempt"] == completed["attempt"]
+        assert artifact.read_bytes() == artifact_bytes
+        # Native/stat restoration must not run on the async API event loop.
+        import asyncio
+
+        ctx = client.app.state.ctx
+        original_restore = ctx.source_operations.open_session
+        restored_calls = []
+
+        def checked_restore(*args: Any, **kwargs: Any) -> Any:
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("Open hydration blocked the API event loop")
+            restored_calls.append(True)
+            return original_restore(*args, **kwargs)
+
+        monkeypatch.setattr(ctx.source_operations, "open_session", checked_restore)
+        # Opening by the opaque session URL restores after restart, including byte routes.
+        restored_open = client.get(f"/api/v1/open/{oid}")
+        assert restored_open.status_code == 200, restored_open.text
+        assert restored_open.json()["items"] == expected_items
+        ctx.open_sessions.drop(oid)
+        assert (
+            client.get(f"/api/v1/open/{oid}/items/0/image").content
+            == (source / "a.nii.gz").read_bytes()
+        )
+        assert len(restored_calls) == 2
+        assert client.delete(f"/api/v1/open/{oid}").status_code == 204
+        assert client.get(f"/api/v1/open/{oid}").status_code == 404
+        assert client.post(f"{API}/{oid}/open").status_code == 201
+        artifact.write_bytes(b"{}")
+        changed = client.post(f"{API}/{oid}/open")
+        assert changed.status_code == 409, changed.text
+        assert changed.json()["actions"] == ["choose_another_path", "home"]
+        artifact.write_bytes(artifact_bytes)
+    assert before == {
+        p: hashlib.sha256(p.read_bytes()).hexdigest() for p in source.rglob("*") if p.is_file()
+    }
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "nifti",
+        "dicom",
+        "npy_sidecar",
+        "npy_reference",
+        "missing",
+        "symlink",
+        "new_sidecar",
+        "missing_inventory",
+        "missing_header_pin",
+        "missing_file_pin",
+        "mask",
+    ],
+)
+def test_restored_open_refuses_changed_prepared_inputs(tmp_path: Path, change: str) -> None:
+    """D10/D12, SRC-19: persisted geometry cannot outlive its pinned inputs."""
+    import json
+
+    import numpy as np
+
+    from tests.test_sources import ct, nii
+
+    source = tmp_path / "source"
+    image = nii(source / "image.nii.gz", ct())
+    if change == "dicom":
+        write_series(source / "series", shape=(3, 3, 3), marker=(1, 1, 2))
+    if change.startswith("npy") or change == "new_sidecar":
+        np.save(source / "array.npy", np.zeros((3, 4, 5), dtype=np.int16))
+        if change != "new_sidecar":
+            (source / "array.npy.json").write_text(
+                json.dumps({"axis_order": "xyz", "reference_ref": "image.nii.gz"})
+            )
+    settings = Settings(
+        workspace_root=tmp_path / "workspace", allowed_data_roots=str(source), _env_file=None
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        created = client.post(
+            API,
+            json={
+                "path": str(source / "array.npy" if change == "npy_reference" else source),
+                "purpose": "open",
+                "idempotency_key": "source-pins-123",
+            },
+        )
+        assert created.status_code == 202, created.text
+        oid = created.json()["operation_id"]
+        assert wait_operation(client, oid)["stage"] == "opened"
+        assert client.post(f"{API}/{oid}/open").status_code == 201
+        if change == "mask":
+            from tests.test_sources import lab
+
+            mask = nii(source / "mask.nii.gz", lab())
+            attached = client.post(f"/api/v1/open/{oid}/items/0/attach", json={"path": str(mask)})
+            assert attached.status_code == 200, attached.text
+    if change == "dicom":
+        member = next((source / "series").iterdir())
+        member.write_bytes(member.read_bytes() + b"changed")
+    elif change == "mask":
+        nii(mask, ct()[:2, :3, :4])
+    elif change == "missing_inventory":
+        (settings.workspace_root / "plugins/dicom/operations" / oid / "inventory.sqlite").unlink()
+    elif change in {"missing_header_pin", "missing_file_pin"}:
+        import sqlite3
+
+        with sqlite3.connect(
+            settings.workspace_root / "plugins/dicom/operations" / oid / "inventory.sqlite"
+        ) as database:
+            database.execute(
+                "DELETE FROM open_headers"
+                if change == "missing_header_pin"
+                else "DELETE FROM files"
+            )
+    elif change == "new_sidecar":
+        (source / "array.npy.json").write_text(json.dumps({"axis_order": "xyz"}))
+    elif change == "npy_sidecar":
+        (source / "array.npy.json").write_text(json.dumps({"axis_order": "zyx"}))
+    elif change == "missing":
+        image.unlink()
+    elif change == "symlink":
+        copy = source / "replacement.nii.gz"
+        image.rename(copy)
+        image.symlink_to(copy)
+    else:
+        nii(image, ct()[:2, :3, :4])
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        for path in (f"/api/v1/open/{oid}", f"/api/v1/open/{oid}/items/0/image"):
+            refused = client.get(path)
+            assert refused.status_code == 409, refused.text
+            assert refused.json()["actions"] == ["choose_another_path", "home"]
+        refused = client.post(f"{API}/{oid}/open")
+        assert refused.status_code == 409, refused.text
+
+
 def test_background_plan_without_dicom_preserves_the_refusal_and_next_actions(
     tmp_path: Path,
 ) -> None:
@@ -90,7 +280,7 @@ def wait_operation(client: TestClient, operation: str) -> dict[str, Any]:
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         record = client.get(f"{API}/{operation}").json()
-        if record["status"] not in {"queued", "running", "cancelling"}:
+        if record["status"] not in {"queued", "running", "cancelling", "reconciling"}:
             return dict(record)
         time.sleep(0.02)
     raise AssertionError("Source operation did not finish")

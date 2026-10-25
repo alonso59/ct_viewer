@@ -150,18 +150,32 @@ export function EditorArea({ pid }: { pid: string }) {
     setTimeout(() => (flushed.current = null), 0)
   }
 
-  // Deep links and history navigation open the matching editor
-  useEffect(() => {
+  const reconcileLocation = useCallback((pathname: string, search: string) => {
     if (!ready.current) return
-    const path = location.pathname + location.search
+    const prefix = `/p/${pid}`
+    if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) return
+    const path = pathname + search
     if (path === lastPath.current) return
-    const m = matchLocation(pid, location.pathname, location.search)
+    const m = matchLocation(pid, pathname, search)
     if (m) {
       lastPath.current = path
       const { type, ...params } = m
       openEditor(type, params)
     }
-  }, [location.pathname, location.search, pid])
+  }, [pid])
+
+  // Deep links and router navigation open the matching editor.
+  useEffect(() => {
+    reconcileLocation(location.pathname, location.search)
+  }, [location.pathname, location.search, reconcileLocation])
+
+  // Back may arrive before a deferred router transition commits. Its pathname can then
+  // equal the previous render even though the dock already moved to another case.
+  useEffect(() => {
+    const onPop = () => reconcileLocation(window.location.pathname, window.location.search)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [reconcileLocation])
 
   // The active editor drives the URL: a new tab, case or item is a history entry, so browser
   // Back returns to it; a layout or other query tweak replaces the entry
@@ -174,7 +188,8 @@ export function EditorArea({ pid }: { pid: string }) {
     nav.current = navigate
   }, [navigate])
   useEffect(() => {
-    if (!ready.current) return
+    // History reconciliation may have activated another panel earlier in this effect flush.
+    if (!ready.current || active !== useWorkbench.getState().active) return
     const path = pathFor(pid, active)
     if (path !== lastPath.current) {
       const replace = !lastPath.current || !isNewEntry(lastPath.current, path)

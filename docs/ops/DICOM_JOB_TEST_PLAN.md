@@ -124,7 +124,7 @@ Wall-clock/throughput goals run in a dedicated controlled lane; avoid flaky subs
 | Shared lifecycle safety | `make test-runner FULL_TESTS=1 PYTEST_WORKERS=0`; if shared job/process/host code changes, `make test-host FULL_TESTS=1` and real supervisor browser gate. No GPU launch required for this DICOM plan. Existing runner/radiomics/index/thumbnail jobs must survive DICOM cancel/crash. |
 | Browser | Full `make fixtures e2e` in prepared browser container with real WebGL2 in Chromium/Firefox; include B01–B08. Focused browser passes do not replace full journeys. |
 | Real data | Read-only TCGA discovery/dry run; remeasure baseline counts at test time. Validate series count/membership against independent GDCM oracle; folder count is not series count. Real pixel conversion requires selected representative CT series into a fresh approved derived directory, full source before/after hash evidence and geometry check; not authorized merely by this planning task. |
-| Product image | Build one image after unit/browser gates; run Docker container-smoke plus DICOM lifecycle/restart smoke non-root, then load the same image under udocker and repeat with disposable roots. Hash synthetic sources and completed outputs. Report image size/runtime limits and platform gaps. |
+| Product image | Build one image after unit/browser gates; run Docker container-smoke plus packaged `python -m tools.dicom_image_smoke --evidence <empty-dir>` lifecycle/restart smoke non-root, then load the same image under udocker and repeat with disposable roots. Hash synthetic sources and completed outputs. Report image size/runtime limits and platform gaps. |
 | Publication/deploy | Review actual CI result for the published tree and same-image checks before rollout. Back up operation/run metadata; record migrations/compatible reader versions, image digest, rollout/rollback procedure. Never roll an old image back onto incompatible active records; drain jobs or restore a compatible metadata snapshot after cleanup. |
 
 Commands above refer to existing Make targets; new DICOM process/browser/benchmark targets are added in their implementation waves and documented in TESTING.md. Do not imply a nonexistent target already runs these cases. All writes during tests stay under temporary workspace/derived roots; source hashes must match (TST-07), including failure/cancel paths.
@@ -172,11 +172,52 @@ barrier or B07.
 `test_dicom_operation_recovery.py` adds actual SIGKILL at native publication and API registration
 barriers, independent world-coordinate/voxel checks, legacy early-registration recovery,
 directory-sync ordering, responsive polling during indexing and registration-only response replay.
-The remaining index-file/metadata/torn-record/migration barriers still need their own evidence.
+Additional SIGKILL cases cover identity/annotations and the index warnings/cases/items/ready
+publications. The remaining within-write/sync/rename, torn-record and migration barriers
+still need their own evidence.
 The failing disposable Cancel-during-registration probe led to
 `test_dicom_registration_cancel.py`: pre-import/dispatch/probe cancellation, lost replies,
 metadata-only resume and actual API SIGKILL after acknowledgment. Shared-job cases verify
 all stopped workers return before completion/exclusivity release, including worker failure;
 a timed-out shutdown leaves completion unconfirmed. Complete D16/U09/B06 barrier, browser,
 latency and shared-runtime acceptance remain open; native pixel cleanup is insufficient.
+`test_dicom_metadata_durability.py` injects directory-sync failures during creation, submission,
+Estimate, Convert and Cancel acknowledgment. Replays must reconfirm durability, admit unlaunched work
+once and refuse retained execution/lost committed state; legacy receipt compatibility is covered.
+Cases also cover a missing queued job, missing launch files with retained process/dispatch evidence,
+and read-time recovery after a failed state publication. Resume remains blocked without cleanup proof.
+`test_core.py` checks propagation of directory open/sync errors and descriptor cleanup.
 No closure checkbox is certified by these narrower checks.
+`test_dicom_eta.py` covers the minimum compatible sample count, context/storage/reader/concurrency
+separation, bounded private history, invalid durations, sample replay, history failures and
+remaining work. Real tiny synthetic commits train a subsequent pixel-free Estimate and verified
+resume preserves images without training on reuse. Project/workspace owned API cases cover
+history reaching later plans. A deterministic hold-out corpus checks coverage/error/range width;
+this is model regression evidence, not measured reference-host P06 calibration. Conversion-only
+estimates do not close discovery/registration/analyzer duration-history requirements.
+
+Open paging adds focused service/API and recorded-window coverage for D09/U08
+(see DICOM_JOB_PLAN.md §Open pagination checkpoint). General background Open
+loading and the remaining crash/performance matrix stay open.
+
+Durable Open now has header-unit SIGKILL/cancellation/cache invalidation and restored-session
+API evidence, plus both-browser minimize/reload/cancel/resume coverage in
+`open-background.spec.ts`. The recorded window verifies completed restoration and refuses
+cancellation across attempt changes. Counts and logs live in the plan checkpoint; the full
+B08, resource/quota/performance and general import-loading rows remain open.
+
+Restored Open input cases in `test_source_operations_api.py` cover NIfTI/DICOM
+changes, missing/symlinked inputs, NumPy sidecar creation/change and a reference
+outside the single-file inventory, lost inventory/header pins and changed attached
+masks. The unchanged-session case checks metadata/byte hydration off the API loop;
+`test_source_open.py` refuses header probing during validation. Attachment tests
+cover replacement/deletion during header reading. These are stat-based checks;
+same-stat content rewriting, broader active-session validation and real process
+interruption at these barriers remain separate acceptance work.
+
+`test_source_detection.py` compares durable adapter results with API-19 for mixed,
+metadata and single NIfTI/NumPy/DICOM sources, including a 121-image sample. It
+restarts the API and forbids rescanning/classification while retrieving results;
+queued/cancelled, missing-inventory and changed-reader cases must refuse. The client
+test consumes a real synthetic detection recording. Complete import-window/browser
+and durable preview/index recovery coverage is still required.

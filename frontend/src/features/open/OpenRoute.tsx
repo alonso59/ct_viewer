@@ -1,12 +1,14 @@
+// Open mode: one file or folder in the viewer without a project.
+// Nothing is written to a project; "Create project from this" hands the path to the import wizard.
 // The URL is `/open/{sid}`: a path arrives in the history state, is opened once and replaced by the
-// session id; reload and back re-read the session, and a session that has ended (Close, server
-// restart) shows the problem with its next actions.
+// session id; reload and back re-read the session, and a session that has ended shows its next
+// actions; durable results restore after server restart.
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
-import { api, keys, ProblemError, useAttachOpen, useFsList, useOpenPath, useOpenSession, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
+import { api, keys, ProblemError, useAttachOpen, useFsList, useStartOpen, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
 import { Dialog, pendingPath, ProblemCard } from '../../lib'
 import { FolderBrowser, NewProjectDialog } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
@@ -19,6 +21,8 @@ import { SaveDialog } from './SaveDialog'
 import { useOpenDialog } from './store'
 import '../import/import.css'
 import './open.css'
+
+const PAGE_ITEMS = 50
 
 /** The middle slice in both orders; the user picks */
 function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSession; item: OpenItem; onPick: (o: AxisOrder) => void; onClose: () => void }) {
@@ -78,13 +82,16 @@ export default function OpenRoute() {
   const { sid = null } = useParams()
   const location = useLocation()
   const pending = sid ? null : pendingPath(location.state)
-  const opening = useOpenPath()
+  const opening = useStartOpen()
   const { mutate: open } = opening
   const started = useRef<string | null>(null)
   useEffect(() => {
     if (!pending || started.current === location.key) return
     started.current = location.key // once per history entry (StrictMode runs effects twice)
-    open(pending, { onSuccess: (s) => navigate(`/open/${encodeURIComponent(s.sid)}`, { replace: true }) })
+    open({ path: pending, key: `open-route-${location.key}` }, { onSuccess: (operation) => {
+      runCommand('sources.openBackground', operation.operation_id)
+      navigate('/', { replace: true })
+    } })
   }, [pending, location.key, open, navigate])
   const live = useOpenSession(sid)
   const session = live.data
@@ -94,8 +101,9 @@ export default function OpenRoute() {
   const error = sid ? live.error : pending ? opening.error : none
   const isLoading = live.isLoading || opening.isPending
   const attach = useAttachOpen(sid ?? '')
-  const [picked, setPicked] = useState<number | null>(null)
-  const [orders, setOrders] = useState<Record<number, AxisOrder>>({})
+  const [picked, setPicked] = useState<{ sid: string; item: OpenItem } | null>(null)
+  const [orders, setOrders] = useState<Record<string, AxisOrder>>({})
+  const [paging, setPaging] = useState<{ sid: string; cursors: string[] }>({ sid: '', cursors: [] })
   const [askOrder, setAskOrder] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -115,10 +123,18 @@ export default function OpenRoute() {
   const active = useViewerSync((s) => s.activeModality)
   const modality = active?.assumed ? active.value : undefined
 
-  const items = session?.items ?? []
-  const viewable = items.filter((i) => i.attached_to == null)
-  const current = viewable.find((i) => i.n === picked) ?? viewable.find((i) => !i.error) ?? viewable[0]
-  const order = current ? (orders[current.n] ?? current.axis_order) : null
+  const initial = (session?.items ?? []).filter((i) => i.attached_to == null)
+  const paged = !!session && (session.truncated || initial.length > PAGE_ITEMS)
+  const cursors = paging.sid === sid ? paging.cursors : []
+  const page = useOpenItems(paged ? sid : null, cursors.at(-1), PAGE_ITEMS)
+  const seed = picked && picked.sid === sid ? picked.item : initial.find((i) => !i.error) ?? initial[0]
+  const selected = useOpenSelection(paged ? sid : null, seed?.n ?? null)
+  const items = paged ? selected.data?.items ?? [] : session?.items ?? []
+  const viewable = paged ? page.data?.items ?? (cursors.length ? [] : initial.slice(0, PAGE_ITEMS)) : initial
+  const current = paged ? items.find((i) => i.n === seed?.n) : seed
+  const selectionBusy = paged && selected.isFetching
+  const axisKey = current ? `${sid}:${current.n}` : ''
+  const order = current ? (orders[axisKey] ?? current.axis_order) : null
   const needsOrder = !!current && current.format === 'npy' && !order
   const mask = current ? attachedTo(items, current.n) : null
   const oneSlice = current?.n_slices === 1
@@ -144,11 +160,11 @@ export default function OpenRoute() {
           <span className="badge" data-tone="accent">{t('open.noProject')}</span>
         </header>
         <div className="open-actions" role="toolbar" aria-label={t('open.actions')}>
-          <button type="button" className="btn btn-primary" disabled={!path} onClick={() => setCreating(true)}>
+          <button type="button" className="btn btn-primary" disabled={!path || selectionBusy || (paged && !!selected.error)} onClick={() => setCreating(true)}>
             <Icon spec={codicon('new-folder')} />
             {t('open.createProject')}
           </button>
-          <button type="button" className="btn" disabled={!current || !!current.error || current.format === 'npy'} onClick={() => setAdding(true)}>
+          <button type="button" className="btn" disabled={!current || !!current.error || current.format === 'npy' || selectionBusy} onClick={() => setAdding(true)}>
             <Icon spec={codicon('add')} />
             {t('open.addAction')}
           </button>
@@ -156,14 +172,14 @@ export default function OpenRoute() {
             <Icon spec={codicon('save')} />
             {t('open.saveAction')}
           </button>
-          {items.some((i) => i.format === 'dicom') && path ? (
+          {(session?.has_dicom || items.some((i) => i.format === 'dicom') || viewable.some((i) => i.format === 'dicom')) && path ? (
             <button type="button" className="btn" onClick={() => runCommand('tasks.convertDicom', path)}>
               <Icon spec={codicon('file-binary')} />
               {t('open.convertAction')}
             </button>
           ) : null}
           <span className="toolbar-sep" />
-          <button type="button" className="btn" disabled={!current} onClick={() => setAttaching(true)}>
+          <button type="button" className="btn" disabled={!current || selectionBusy} onClick={() => setAttaching(true)}>
             <Icon spec={codicon('layers')} />
             {t('open.attachAction')}
           </button>
@@ -175,20 +191,29 @@ export default function OpenRoute() {
           </button>
         </div>
         <CtToolbar />
-        {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
+        {isLoading || selectionBusy ? <div className="empty">{t('common.loading')}</div> : null}
         {error ? <ProblemCard error={error} onAction={onAction} /> : null}
+        {page.error || selected.error ? <ProblemCard error={page.error ?? selected.error} onAction={onAction} /> : null}
         {session ? (
           <div className="open-body">
-            <div className="fs-list open-items" role="listbox" aria-label={t('open.items')}>
-              {viewable.map((i) => (
-                <button key={i.n} type="button" className="list-row" aria-selected={i.n === current?.n} onClick={() => setPicked(i.n)} title={i.rel}>
-                  <Icon spec={codicon(i.format === 'npy' ? 'symbol-array' : 'file-media')} />
-                  <span className="truncate" title={i.name}>{i.name}</span>
-                  {attachedTo(items, i.n) ? <Icon spec={codicon('layers')} className="ml-auto" /> : null}
-                  {i.error ? <Icon spec={codicon('warning')} className="ml-auto" /> : null}
-                </button>
-              ))}
-              {session.truncated ? <div className="muted pad-row">{t('open.truncated')}</div> : null}
+            <div className="open-items">
+              <div className="fs-list open-item-list" role="listbox" aria-label={t('open.items')} aria-busy={paged && page.isFetching}>
+                {viewable.map((i) => (
+                  <button key={i.n} type="button" className="list-row" aria-selected={i.n === seed?.n} onClick={() => setPicked({ sid: session.sid, item: i })} title={i.rel}>
+                    <Icon spec={codicon(i.format === 'npy' ? 'symbol-array' : 'file-media')} />
+                    <span className="truncate" title={i.name}>{i.name}</span>
+                    {attachedTo(items, i.n) ? <Icon spec={codicon('layers')} className="ml-auto" /> : null}
+                    {i.error ? <Icon spec={codicon('warning')} className="ml-auto" /> : null}
+                  </button>
+                ))}
+              </div>
+              {paged ? <div className="open-pages">
+                <span className="muted">{page.isFetching ? t('common.loading') : t('open.pageCount', { n: viewable.length, total: page.data?.total ?? session.items.length })}</span>
+                <div className="toolbar">
+                  <button type="button" className="btn btn-sm" disabled={!cursors.length || page.isFetching} onClick={() => setPaging({ sid: session.sid, cursors: cursors.slice(0, -1) })}>{t('open.previousPage')}</button>
+                  <button type="button" className="btn btn-sm" disabled={!page.data?.next_cursor || page.isFetching} onClick={() => page.data?.next_cursor && setPaging({ sid: session.sid, cursors: [...cursors, page.data.next_cursor] })}>{t('open.nextPage')}</button>
+                </div>
+              </div> : null}
             </div>
             <div className="open-view">
               {current?.error ? (
@@ -220,7 +245,7 @@ export default function OpenRoute() {
           item={current}
           onClose={() => setAskOrder(false)}
           onPick={(o) => {
-            setOrders((s) => ({ ...s, [current.n]: o }))
+            setOrders((s) => ({ ...s, [axisKey]: o }))
             setAskOrder(false)
           }}
         />

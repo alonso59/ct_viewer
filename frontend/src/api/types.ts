@@ -232,6 +232,7 @@ export type DetectResult = S['DetectResult']
 export type DetectCandidate = S['Candidate']
 export type OpenSession = S['OpenSession']
 export type OpenItem = S['OpenItem']
+export type OpenItemPage = S['Page_OpenItem_']
 export type AxisOrder = 'xyz' | 'zyx'
 
 // The UI works on `Variable`, adapted from the wire `Catalog` in http.ts (profile
@@ -376,6 +377,7 @@ export type TaskSelection = S['TaskSelection']
 export type TaskValidateResult = S['TaskValidateResult']
 export type PreflightResult = S['PreflightResult']
 export type TaskEstimate = S['TaskEstimate']
+export type ConversionTimeEstimate = S['ConversionTimeEstimate']
 export type EstimateProgress = S['EstimateProgress']
 export type TaskRunRequest = S['TaskRunRequest']
 export type TaskRunStarted = S['TaskRunStarted']

@@ -445,7 +445,9 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
     openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
     openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),
-    getOpen: (sid) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid } } })),
+    openSourceOperation: (oid) => unwrap(client.POST('/api/v1/source-operations/{oid}/open', { params: { path: { oid } } })),
+    getOpen: (sid, item) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid }, query: { item } } })),
+    openItems: (sid, options) => unwrap(client.GET('/api/v1/open/{sid}/items', { params: { path: { sid }, query: { ...options, kind: 'image' } } })),
     async closeOpen(sid) {
       await send('DELETE', `/open/${enc(sid)}`)
     },
@@ -693,6 +695,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     retryFailedWorkspaceRun: (rid, body) => unwrap(client.POST('/api/v1/task-runs/{rid}/retry-failed', { params: { path: { rid } }, body })),
     startSourceOperation: (body) => unwrap(client.POST('/api/v1/source-operations', { body })),
     listSourceOperations: () => allPages((cursor) => unwrap(client.GET('/api/v1/source-operations', { params: { query: { cursor, limit: 50 } } }))),
+    sourceOperationDetection: (oid) => unwrap(client.GET('/api/v1/source-operations/{oid}/detection', { params: { path: { oid } } })),
     getSourceOperation: (oid) => unwrap(client.GET('/api/v1/source-operations/{oid}', { params: { path: { oid } } })),
     estimateSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/estimate', { params: { path: { oid } }, body })),
     convertSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/convert', { params: { path: { oid } }, body })),

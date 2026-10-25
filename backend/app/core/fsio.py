@@ -18,6 +18,22 @@ from typing import Any
 def workspace_database(path: Path) -> sqlite3.Connection:
     """The caller supplies a managed state path."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    # SQLite inherits this file's mode for its WAL/SHM. Never expose cached source headers
+    # through the host user's potentially group/world-readable process umask.
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
+    for journal in (Path(str(path) + "-wal"), Path(str(path) + "-shm")):
+        try:
+            fd = os.open(journal, os.O_RDWR | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            continue
+        try:
+            os.fchmod(fd, 0o600)
+        finally:
+            os.close(fd)
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")
@@ -49,14 +65,9 @@ def atomic_write_bytes(path: Path, data: bytes, *, backup: bool = False) -> None
 
 
 def _fsync_dir(d: Path) -> None:
-    try:
-        fd = os.open(d, os.O_RDONLY)
-    except OSError:
-        return
+    fd = os.open(d, os.O_RDONLY)
     try:
         os.fsync(fd)
-    except OSError:
-        pass
     finally:
         os.close(fd)
 

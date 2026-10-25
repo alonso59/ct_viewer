@@ -391,7 +391,12 @@ class TaskService(DriverBase):
                 )
             if job.status == "waiting_for_runner" and rec.status == "queued":
                 rec.status = "waiting_for_runner"
-        return TaskRunDetail(**rec.model_dump(), progress=progress, resource_wait=resource_wait)
+        return TaskRunDetail(
+            **rec.model_dump(),
+            progress=progress,
+            resource_wait=resource_wait,
+            conversion_time=execution.get("conversion_time"),
+        )
 
     async def list_runs(
         self, pid: str, task_id: str | None = None, *, archived: bool = False

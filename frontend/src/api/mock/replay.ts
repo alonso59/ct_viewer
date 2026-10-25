@@ -1,9 +1,9 @@
 // Replay of API exchanges recorded from the real backend on the synthetic fixtures.
 // `recorded.json` is written by `make record-mock`; never edit it by hand. A request is answered by
-// the recording with the same method, path, query (paging parameters and the client-chosen
-// `progress_id` dropped) and JSON body; failing that, the same request with any body; failing that
-// (GET only), the same path without its query. Nothing else is computed here: an unrecorded
-// request is a `not-recorded` problem, and a write changes no later answer.
+// the recording with the same method, path, query (paging dropped unless explicitly recorded;
+// client-chosen `progress_id` dropped) and JSON body; failing that, the same request with any body;
+// failing that (GET only), the same path without its query. Nothing else is computed here: an
+// unrecorded request is a `not-recorded` problem, and a write changes no later answer.
 import recorded from './recorded.json'
 
 interface Exchange {
@@ -19,6 +19,10 @@ interface Recording {
   exchanges: Exchange[]
 }
 const rec = recorded as unknown as Recording
+const exactPaging = new Set(rec.exchanges.filter((e) => {
+  const query = new URLSearchParams(e.query)
+  return query.has('limit') || query.has('cursor')
+}).map((e) => `${e.method} ${e.path}`))
 
 /** The recorded demo project (the recorder's fixed id) */
 export const RECORDED_PID = rec.project_id
@@ -36,8 +40,8 @@ function canonical(v: unknown): string {
   return JSON.stringify(v ?? null)
 }
 
-function queryKey(q: URLSearchParams): string {
-  return JSON.stringify([...q.entries()].filter(([k]) => !PAGING.has(k)).sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y)))
+function queryKey(q: URLSearchParams, route: string): string {
+  return JSON.stringify([...q.entries()].filter(([k]) => exactPaging.has(route) || !PAGING.has(k)).sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y)))
 }
 
 const exact = new Map<string, Exchange>()
@@ -45,7 +49,7 @@ const anyBody = new Map<string, Exchange>()
 const anyQuery = new Map<string, Exchange>()
 for (const e of rec.exchanges) {
   const route = `${e.method} ${e.path}`
-  const q = `${route} ${queryKey(new URLSearchParams(e.query))}`
+  const q = `${route} ${queryKey(new URLSearchParams(e.query), route)}`
   exact.set(`${q} ${canonical(e.body)}`, e)
   anyBody.set(q, e)
   // the unfiltered recording is the fallback of its path
@@ -57,8 +61,8 @@ export const exchanges: readonly Exchange[] = rec.exchanges
 
 export function lookup(method: string, url: URL, body: unknown): Exchange | undefined {
   const route = `${method} ${url.pathname}`
-  const q = `${route} ${queryKey(url.searchParams)}`
-  return exact.get(`${q} ${canonical(body ?? null)}`) ?? anyBody.get(q) ?? (method === 'GET' ? anyQuery.get(route) : undefined)
+  const q = `${route} ${queryKey(url.searchParams, route)}`
+  return exact.get(`${q} ${canonical(body ?? null)}`) ?? anyBody.get(q) ?? (method === 'GET' && !exactPaging.has(route) ? anyQuery.get(route) : undefined)
 }
 
 /** Prototype latency so loading states show; none under Vitest */

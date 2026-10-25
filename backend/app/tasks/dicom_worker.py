@@ -8,6 +8,7 @@ import os
 import signal
 import sys
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 
@@ -109,6 +110,10 @@ def main(job_dir: Path) -> int:
     if spec.get("operation", "task") == "task":
         from plugins.dicom.task import run
 
+        from app.tasks.dicom_eta import for_job
+
+        timer = for_job(job_dir)
+
         binding = spec.get("source_inventory")
         if binding:
             with SourceInventory(Path(binding["path"]), Path(spec["source"]["path"])) as inventory:
@@ -132,17 +137,19 @@ def main(job_dir: Path) -> int:
                     str(job_dir),
                     cached_discover=inventory.discover,
                     cached_file_total=summary["dicom"],
+                    on_timing=timer,
                 )
-        return run(str(job_dir))
+        return run(str(job_dir), on_timing=timer)
     last_tick = float("-inf")
 
-    def progress(counters: dict[str, int]) -> None:
+    def progress(counters: Mapping[str, object]) -> None:
         nonlocal last_tick
         if time.monotonic() - last_tick >= 0.25:
             append_jsonl(job_dir / protocol.PROGRESS, [{"t": "inventory", **counters}])
             last_tick = time.monotonic()
 
     if spec["operation"] == "inventory":
+        open_ready = False
         inventory_path = Path(spec.get("inventory", job_dir.parent / "inventory.sqlite"))
         with SourceInventory(inventory_path, Path(spec["source"])) as inventory:
             summary = inventory.scan(
@@ -151,11 +158,33 @@ def main(job_dir: Path) -> int:
                 batch_size=int(limits.get("batch_size", 64)),
                 max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
             )
-        atomic_write_json(job_dir / protocol.RESULT, {"summary": summary})
+            if spec.get("purpose") == "open" and summary["complete"]:
+                import hashlib
+
+                from app.tasks.source_open import prepare_open, reader_identity
+
+                session = prepare_open(
+                    inventory,
+                    cancelled=lambda: (job_dir / protocol.CANCEL).exists(),
+                    on_progress=progress,
+                )
+                if session is not None:
+                    session.sid = spec["operation_id"]
+                    atomic_write_json(
+                        job_dir / "open-session.json", session.model_dump(mode="json")
+                    )
+                    summary["open_session_sha256"] = hashlib.sha256(
+                        (job_dir / "open-session.json").read_bytes()
+                    ).hexdigest()
+                    summary["open_reader"] = reader_identity()
+                    open_ready = True
+        atomic_write_json(job_dir / protocol.RESULT, {"summary": summary, "open_ready": open_ready})
         return 0
     if spec["operation"] == "estimate":
         from plugins.dicom import pipeline
         from plugins.dicom.identity import Identity
+
+        from app.tasks.dicom_eta import for_job
 
         started = time.monotonic()
         last_stage = ""
@@ -205,6 +234,7 @@ def main(job_dir: Path) -> int:
                 on_stage=stage,
                 cached_discover=inventory.discover,
                 cached_file_total=summary["dicom"],
+                on_timing=for_job(job_dir),
             )
         atomic_write_json(
             job_dir / protocol.RESULT,
@@ -214,6 +244,7 @@ def main(job_dir: Path) -> int:
                 "estimate": {**result.counts, **result.storage, "series_plan": result.plan},
                 "identity": identity.as_dict(),
                 "duration_s": time.monotonic() - started,
+                "conversion_time": result.conversion_time,
             },
         )
         return 0

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import errno
 import os
+import stat
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -115,6 +118,39 @@ def test_atomic_json_and_backup(tmp_path: Path) -> None:
     assert fsio.read_json(p) == {"v": 2}
     assert fsio.read_json(p.with_name("project.json.bak")) == {"v": 1}
     assert not [f for f in p.parent.iterdir() if f.name.endswith(".tmp")]
+
+
+@pytest.mark.parametrize("barrier", ["open", "sync"])
+def test_atomic_metadata_does_not_acknowledge_directory_sync_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, barrier: str
+) -> None:
+    """D35/BE-05: an installed file is not a successful durable-write acknowledgment."""
+    original_open, original_sync = os.open, os.fsync
+    descriptors: list[int] = []
+
+    def opening(path: Any, flags: int, *args: Any, **kwargs: Any) -> int:
+        if path == tmp_path and barrier == "open":
+            raise OSError(errno.EACCES, "Cannot open directory for durable publication")
+        fd = original_open(path, flags, *args, **kwargs)
+        if path == tmp_path:
+            descriptors.append(fd)
+        return fd
+
+    def syncing(fd: int) -> None:
+        if barrier == "sync" and stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise OSError(errno.ENOSPC, "Cannot sync directory for durable publication")
+        original_sync(fd)
+
+    monkeypatch.setattr(fsio.os, "open", opening)
+    monkeypatch.setattr(fsio.os, "fsync", syncing)
+    path = tmp_path / "operation.json"
+    with pytest.raises(OSError, match="directory for durable publication"):
+        fsio.atomic_write_json(path, {"version": 1})
+    assert fsio.read_json(path) == {"version": 1}  # rename may already have taken effect
+    for fd in descriptors:
+        with pytest.raises(OSError) as closed:
+            os.fstat(fd)
+        assert closed.value.errno == errno.EBADF
 
 
 def test_jsonl_append_and_iter(tmp_path: Path) -> None:

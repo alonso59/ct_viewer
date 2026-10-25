@@ -9,7 +9,7 @@ const DICOM = `${FIXTURES}/dicom`
 
 test('a single DICOM file opens without a project and saves as NIfTI', async ({ page }) => {
   await gotoOpen(page, `${DICOM}/P900/ct_np/IM0007.dcm`)
-  await expect(page.getByText('No project: nothing is saved')).toBeVisible()
+  await expect(page.getByText('Viewing without a project')).toBeVisible()
   await expect(page.getByRole('listbox', { name: 'Files' }).getByRole('button', { name: /IM0007/ })).toBeVisible()
   await page.getByRole('button', { name: 'Save as NIfTI…' }).click()
   const dialog = page.getByRole('dialog', { name: /Save IM0007/ })

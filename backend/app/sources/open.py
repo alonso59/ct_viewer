@@ -1,6 +1,7 @@
 """Open mode: view files without a project.
 
-Sessions live in memory only: nothing is written to a project or to the workspace registry.
+Compatibility sessions live in memory. Durable source operations restore their prepared
+results through OpenService; neither form creates a project or a workspace project entry.
 NumPy (and, with the converter, DICOM) volumes are converted into the disposable
 `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, inside the global `CACHE_MAX_GB` LRU budget.
 Headers run in job workers. An opened file is always an image; a segmentation comes only from
@@ -12,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import io
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -75,15 +77,22 @@ class OpenSession(BaseModel):
     items: list[OpenItem]
     truncated: bool = False
     ignored: dict[str, int] = Field(default_factory=dict)
+    has_dicom: bool = False
 
 
 def probe(
-    root: str, rels: list[str], kinds: dict[str, formats.Kind] | None = None
+    root: str,
+    rels: list[str],
+    kinds: dict[str, formats.Kind] | None = None,
+    *,
+    cancelled: Callable[[], bool] | None = None,
 ) -> list[dict[str, Any]]:
     """Worker: header per accepted file (NIfTI, NumPy). Never raises."""
     out: list[dict[str, Any]] = []
     dicom: list[str] = []
     for rel in rels:
+        if cancelled is not None and cancelled():
+            raise InterruptedError("Open header reading cancelled")
         path = Path(root) / rel
         fmt = kinds.get(rel) if kinds is not None else formats.classify(path, Path(root))
         row: dict[str, Any] = {"rel": rel, "format": fmt}
@@ -122,7 +131,7 @@ def probe(
     if dicom:
         from app.tasks.dicom_stage import probe_series
 
-        out += probe_series(root, dicom)
+        out += probe_series(root, dicom, cancelled=cancelled)
     return out
 
 
@@ -229,6 +238,7 @@ def build_session(
         items=items,
         truncated=scan.truncated,
         ignored=dict(scan.ignored),
+        has_dicom=any(it.format == "dicom" for it in items),
     )
 
 
@@ -242,6 +252,20 @@ def preview(session: OpenSession) -> OpenSession:
         update={
             "items": session.items[:MAX_ITEMS],
             "truncated": session.truncated or len(session.items) > MAX_ITEMS,
+        }
+    )
+
+
+def focused(session: OpenSession, n: int) -> OpenSession:
+    """One selected item and its current attached overlay, regardless of page."""
+    selected = [item(session, n)]
+    overlay = next((it for it in reversed(session.items) if it.attached_to == n), None)
+    if overlay is not None:
+        selected.append(overlay)
+    return session.model_copy(
+        update={
+            "items": selected,
+            "truncated": session.truncated or len(session.items) > len(selected),
         }
     )
 

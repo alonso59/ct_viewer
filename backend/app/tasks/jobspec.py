@@ -182,6 +182,9 @@ class JobSpecBase(SelectionBase):
                 spec["dataset_dir"], spec["dataset_ref"] = str(ds[0]), ds[1]
         if source is not None:
             spec["source"] = {"path": source}
+        if m.id == "dicom.convert":
+            timing_root = cfg.derived_root()
+            spec["timing_destination"] = timing_root.path if timing_root else None
         if "metadata" in m.outputs:
             reg = identity_store.load(self.workspace.project_dir(pid) / "sources")
             if not reg.cases:

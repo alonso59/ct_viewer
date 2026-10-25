@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import hashlib
 import json
+import sqlite3
+from collections import Counter
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -26,6 +30,11 @@ from app.core.paths import PathGuard
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
+from app.sources import detect as source_detect
+from app.sources import formats
+from app.sources import open as open_mode
+from app.sources.open_service import RETRY as OPEN_ACTIONS
+from app.sources.open_service import guarded_source
 from app.tasks import dry_run, protocol
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_execution import run_dicom_job as run_dicom_worker
@@ -152,15 +161,96 @@ class SourceOperations:
     def _write(self, record: SourceOperation) -> SourceOperation:
         record.revision += 1
         record.updated_at = utc_now()
+        self._persist(record)
+        return record
+
+    def _persist(self, record: SourceOperation) -> None:
         atomic_write_json(
             self._dir(record.operation_id) / "operation.json",
             record.model_dump(mode="json", exclude={"conversion_run", "phase_run"}),
         )
-        return record
+
+    def _confirm_replay(self, record: SourceOperation) -> None:
+        """Reconfirm an uncertain rename before acknowledgment; dispatch only unlaunched work."""
+        self._persist(record)
+        if record.status != "queued":
+            return
+        if record.job_id:
+            try:
+                self.jobs.get(record.job_id)
+                return
+            except NotFound:
+                pass
+        retained, cleaned = self._execution_state(record)
+        if retained or not cleaned:
+            record.status = "interrupted" if cleaned else "cleanup_pending"
+            record.cleanup_verified = cleaned
+            record.error = (
+                "Source work stopped; resume after verified cleanup"
+                if cleaned
+                else "Source execution evidence needs cleanup verification"
+            )
+            self._write(record)
+            raise JobConflict(record.error)
+        self._submit(record)
+
+    def _execution_state(self, record: SourceOperation) -> tuple[bool, bool]:
+        attempt = self._attempt_dir(record)
+        retained = any(
+            (attempt / name).exists() for name in ("launch.json", "process.json", "dispatch")
+        )
+        cleaned = attempt_cleaned(attempt, record.attempt) if record.job_id or retained else True
+        return retained, cleaned
+
+    async def _recover_source(self, record: SourceOperation) -> SourceOperation:
+        info = None
+        if record.job_id:
+            try:
+                info = self.jobs.get(record.job_id)
+                if info.status not in {"failed", "cancelled", "interrupted"}:
+                    return record
+                await self.jobs.wait(record.job_id, timeout=0.01)
+            except NotFound:
+                info = None
+            except TimeoutError:
+                return record
+        current = self.get(record.operation_id)
+        if (
+            current.attempt != record.attempt
+            or current.job_id != record.job_id
+            or current.status not in ACTIVE | {"cleanup_pending"}
+        ):
+            return current
+        _, cleaned = self._execution_state(current)
+        status: TaskRunStatus
+        if not cleaned:
+            status = "cleanup_pending"
+        elif info and info.status == "cancelled":
+            status = "cancelled"
+        elif info and info.status == "failed":
+            status = "failed"
+        else:
+            status = "interrupted"
+        error = None if status == "cancelled" else current.error
+        if status != "cancelled" and (not error or current.status == "cleanup_pending"):
+            error = (
+                "Source work stopped; verify its source/storage and resume"
+                if cleaned
+                else "Source cleanup is not yet verified"
+            )
+        if (current.status, current.cleanup_verified, current.error) != (status, cleaned, error):
+            current.status, current.cleanup_verified, current.error = status, cleaned, error
+            self._write(current)
+        return current
 
     async def view(self, operation: str, *, include_run: bool = True) -> SourceOperation:
         record = self.get(operation)
         native = await self._conversion_run(record)
+        if native is None and record.status in ACTIVE | {"cleanup_pending"}:
+            recovered = await self._recover_source(record)
+            if recovered is not record:
+                record = recovered
+                native = await self._conversion_run(record)
         if record.pending_control is not None and native is not None:
             async with self.locks(f"_source_operation:{operation}"):
                 record = self.get(operation)
@@ -240,6 +330,7 @@ class SourceOperations:
                 return True
             raise JobConflict("A durable control is pending; reload and retry that command")
         if rec.control == {"action": action, **req.model_dump()}:
+            self._confirm_replay(rec)
             return False
         if rec.revision != req.expected_revision or rec.attempt != req.expected_attempt:
             raise JobConflict(
@@ -307,9 +398,15 @@ class SourceOperations:
         return False
 
     async def start(self, request: SourceOperationStart) -> SourceOperation:
+        if request.purpose == "open" and request.prepare_plan:
+            raise ValidationProblem("Open a source first; start conversion as a separate operation")
         if not Path(request.path).is_absolute():
             raise ValidationProblem("Choose an absolute source path")
-        source = self.guard.check(Path(request.path))
+        source = (
+            guarded_source(self.guard, request.path)
+            if request.purpose == "open"
+            else self.guard.check(Path(request.path))
+        )
         if not source.exists():
             raise NotFound("Source is missing")
         if not source.is_dir() and not source.is_file():
@@ -321,15 +418,31 @@ class SourceOperations:
         key = hashlib.sha256(request.idempotency_key.encode()).hexdigest()
         receipt = self.root / "requests" / f"{key}.json"
         async with self.locks("_source_operations"):
+            reserved_id = new_ulid()
             if receipt.exists():
                 old = read_json(receipt)
                 if old["request_hash"] != digest:
                     raise JobConflict(
                         "Idempotency key already identifies a different source request"
                     )
-                return self.get(old["operation_id"])
+                if old.get("status") not in {None, "pending", "committed"}:
+                    raise JobConflict("Source creation checkpoint is corrupt")
+                reserved_id = old["operation_id"]
+                directory = self._dir(reserved_id)
+                if (directory / "operation.json").exists():
+                    atomic_write_json(receipt, {**old, "status": "pending"})
+                    record = self.get(reserved_id)
+                    self._confirm_replay(record)
+                    atomic_write_json(receipt, {**old, "status": "committed"})
+                    return record
+                if old.get("status") != "pending" or (
+                    directory.exists() and any(p.name != "validation" for p in directory.iterdir())
+                ):
+                    raise JobConflict(
+                        "Source operation record is missing; review retained evidence"
+                    )
             record = SourceOperation(
-                operation_id=new_ulid(),
+                operation_id=reserved_id,
                 source=str(source),
                 project_id=request.project_id,
                 purpose=request.purpose,
@@ -356,11 +469,11 @@ class SourceOperations:
                     )
                 )
                 record.settings = spec["settings"]
+            intent = {"operation_id": record.operation_id, "request_hash": digest}
+            atomic_write_json(receipt, {**intent, "status": "pending"})
             self._write(record)
-            atomic_write_json(
-                receipt, {"operation_id": record.operation_id, "request_hash": digest}
-            )
             self._submit(record)
+            atomic_write_json(receipt, {**intent, "status": "committed"})
             return record
 
     def _submit(self, record: SourceOperation) -> None:
@@ -389,6 +502,8 @@ class SourceOperations:
                 "attempt": record.attempt,
                 "dicom_process_protocol": 1,
                 "inventory": str(self._dir(record.operation_id) / "inventory.sqlite"),
+                "purpose": record.purpose,
+                "operation_id": record.operation_id,
             },
         )
         record.job_id = new_ulid()
@@ -513,7 +628,7 @@ class SourceOperations:
                     current.status = (
                         "completed" if current.summary.get("complete") else "completed_with_errors"
                     )
-                    current.stage = "discovered"
+                    current.stage = "opened" if output.get("open_ready") else "discovered"
                     if current.status == "completed" and current.prepare_plan:
                         current.status, current.stage = "queued", "planning"
                     if current.summary.get("limit_reason") == "inventory_bytes":
@@ -559,6 +674,187 @@ class SourceOperations:
                 )
             self._write(current)
             raise RuntimeError(current.error) from None
+
+    def detection(self, operation: str, *, dicom_available: bool) -> source_detect.DetectResult:
+        """Bounded adapter hints from the completed inventory, without a rescan."""
+        record = self.get(operation)
+        if (
+            record.purpose != "discover"
+            or record.status != "completed"
+            or record.stage != "discovered"
+            or not record.cleanup_verified
+        ):
+            raise JobConflict(
+                "Finish source discovery before choosing an import adapter", actions=OPEN_ACTIONS
+            )
+        source = guarded_source(self.guard, record.source)
+        database = self._dir(operation) / "inventory.sqlite"
+        try:
+            if not database.is_file():
+                raise JobConflict("Prepared source inventory is missing")
+            with SourceInventory(database, source) as inventory:
+                summary = inventory.summary()
+                if not summary["complete"] or summary["generation"] != record.summary.get(
+                    "generation"
+                ):
+                    raise JobConflict("Prepared source inventory changed")
+                inventory.check_reader()
+                ignored: Counter[str] = Counter()
+                for row in inventory.db.execute("SELECT rel FROM files WHERE kind='ignored'"):
+                    name = Path(row[0]).name
+                    if name not in formats.SKIP_NAMES:
+                        ignored[formats.extension(name)] += 1
+                counts = {key: int(summary[key]) for key in ("nifti", "dicom", "npy")}
+                counts["ignored"] = sum(ignored.values())
+                count = counts["nifti"]
+                positions = {
+                    index * count // min(count, source_detect.SAMPLE)
+                    for index in range(min(count, source_detect.SAMPLE))
+                }
+                sample = [
+                    row[0]
+                    for index, row in enumerate(
+                        inventory.db.execute(
+                            "SELECT rel FROM files WHERE kind='nifti' ORDER BY rel"
+                        )
+                    )
+                    if index in positions
+                ]
+                has_meta = (
+                    not inventory.single_file
+                    and inventory.db.execute(
+                        "SELECT 1 FROM files WHERE rel='metadata.jsonl' AND error=''"
+                    ).fetchone()
+                    is not None
+                )
+                return source_detect.from_facts(
+                    source,
+                    kind="file" if inventory.single_file else "folder",
+                    counts=counts,
+                    ignored=dict(ignored),
+                    nifti_sample=sample,
+                    has_meta=has_meta,
+                    truncated=False,
+                    dicom_available=dicom_available,
+                )
+        except (OSError, sqlite3.Error, JobConflict, ValueError) as exc:
+            raise JobConflict(
+                "Source inventory is unavailable or incompatible; discover it again",
+                actions=OPEN_ACTIONS,
+            ) from exc
+
+    def open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
+        """Restore an explicitly prepared Open result; conversion records stay separate."""
+        record = self.get(operation)
+        if record.purpose != "open":
+            raise NotFound("This operation has no Open session")
+        if record.stage != "opened" or record.status != "completed" or not record.cleanup_verified:
+            raise JobConflict(
+                "Finish or resume source opening before viewing its result", actions=OPEN_ACTIONS
+            )
+        self.guard.check(Path(record.source))
+        directory = self._dir(operation)
+        closed = directory / "open-closed.json"
+        if closed.exists() and not reopen:
+            raise NotFound("This Open session was closed", actions=["choose_another_path", "home"])
+        artifact = self._attempt_dir(record) / "open-session.json"
+        from app.tasks.source_open import reader_identity
+
+        try:
+            raw = artifact.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != record.summary.get(
+                "open_session_sha256"
+            ) or reader_identity() != record.summary.get("open_reader"):
+                raise JobConflict(
+                    "Open result changed or its reader is incompatible; open the source again",
+                    actions=OPEN_ACTIONS,
+                )
+            session = open_mode.OpenSession.model_validate_json(raw)
+            prepared = session
+            state = directory / "open-session-state.json"
+            if state.exists():
+                saved = read_json(state)
+                if (
+                    saved.get("version") != 2
+                    or saved.get("base_sha256") != record.summary["open_session_sha256"]
+                ):
+                    raise JobConflict(
+                        "Saved Open state is incompatible; open the source again",
+                        actions=OPEN_ACTIONS,
+                    )
+                session = open_mode.OpenSession.model_validate(saved["session"])
+                if saved.get("label_inputs") != self._open_label_inputs(session):
+                    raise JobConflict(
+                        "Attached Open mask changed; attach it again", actions=OPEN_ACTIONS
+                    )
+        except (OSError, ValueError, KeyError):
+            raise JobConflict(
+                "Open result is unreadable; open the source again", actions=OPEN_ACTIONS
+            ) from None
+        if session.sid != operation or session.path != record.source:
+            raise JobConflict("Open result belongs to a different source", actions=OPEN_ACTIONS)
+        from app.tasks.source_open import validate_prepared_open
+
+        database = directory / "inventory.sqlite"
+        try:
+            if not database.is_file():
+                raise JobConflict("Prepared Open inventory is missing")
+            with SourceInventory(database, Path(record.source)) as inventory:
+                validate_prepared_open(inventory, record.summary["generation"], prepared)
+        except (OSError, sqlite3.Error, JobConflict, KeyError, ValueError) as exc:
+            raise JobConflict(
+                "Prepared Open inputs changed or are unavailable; open the source again",
+                actions=OPEN_ACTIONS,
+            ) from exc
+        if reopen:
+            closed.unlink(missing_ok=True)
+        return session
+
+    def _open_label_inputs(self, session: open_mode.OpenSession) -> dict[str, builtins.list[int]]:
+        from app.tasks.source_open import dependency_stat
+
+        pins = {}
+        for item in session.items:
+            if item.kind != "label":
+                continue
+            path = open_mode.source_path(session, item)
+            self.guard.check(path)
+            try:
+                pin = dependency_stat(path.parent, path)
+            except (OSError, JobConflict):
+                raise JobConflict(
+                    "Attached Open mask is unavailable; attach it again", actions=OPEN_ACTIONS
+                ) from None
+            if pin is None:
+                raise JobConflict(
+                    "Attached Open mask is missing; attach it again", actions=OPEN_ACTIONS
+                )
+            pins[item.rel] = pin
+        return pins
+
+    def save_open_session(self, session: open_mode.OpenSession) -> None:
+        try:
+            record = self.get(session.sid)
+        except NotFound:
+            return  # compatibility Open sessions are intentionally ephemeral
+        if record.purpose == "open":
+            atomic_write_json(
+                self._dir(session.sid) / "open-session-state.json",
+                {
+                    "version": 2,
+                    "label_inputs": self._open_label_inputs(session),
+                    "base_sha256": record.summary.get("open_session_sha256"),
+                    "session": session.model_dump(mode="json"),
+                },
+            )
+
+    def close_open_session(self, operation: str) -> None:
+        try:
+            record = self.get(operation)
+        except NotFound:
+            return
+        if record.purpose == "open":
+            atomic_write_json(self._dir(operation) / "open-closed.json", {"closed_at": utc_now()})
 
     async def convert(self, operation: str, request: SourceOperationConvert) -> SourceOperation:
         async with self.locks(f"_source_operation:{operation}"):
@@ -658,9 +954,7 @@ class SourceOperations:
             result, float(result.get("duration_s", 0)), Path(record.source)
         )
         write_plan(self._dir(record.operation_id) / "plans" / str(record.attempt), plan)
-        record.estimate = estimate.model_copy(
-            update={"series": [], "series_truncated": False, "basis": "unknown"}
-        )
+        record.estimate = estimate.model_copy(update={"series": [], "series_truncated": False})
         record.plan_total, record.plan_attempt = len(plan), record.attempt
         record.summary = result["summary"]
         record.status, record.stage = "completed", "ready"
@@ -668,6 +962,8 @@ class SourceOperations:
     async def estimate(self, operation: str, request: SourceOperationEstimate) -> SourceOperation:
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
+            if record.purpose == "open":
+                raise JobConflict("Start a separate conversion operation for this Open source")
             if not self._check_control(record, request, "estimate"):
                 return record
             if (
@@ -731,9 +1027,15 @@ class SourceOperations:
                 return record
             record.control = {"action": "cancel", **request.model_dump()}
             if record.status == "queued":
-                record.status = "cancelled"
+                _, cleaned = self._execution_state(record)
                 if record.job_id:
-                    self.jobs.cancel(record.job_id)
+                    with suppress(NotFound):
+                        self.jobs.cancel(record.job_id)
+                record.status = "cancelled" if cleaned else "cleanup_pending"
+                record.cleanup_verified = cleaned
+                record.error = (
+                    None if cleaned else "Source execution evidence needs cleanup verification"
+                )
                 return self._write(record)
             record.status = "cancelling"
             return self._write(record)

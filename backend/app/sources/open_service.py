@@ -107,6 +107,24 @@ def gz_copy(src: Path, dst: Path) -> None:
                     shutil.copyfileobj(fh, gz)
 
 
+def guarded_source(guard: PathGuard, raw: str) -> Path:
+    """An absolute, readable path under ALLOWED_DATA_ROOTS, else a problem with actions."""
+    p = Path(raw)
+    if not p.is_absolute():
+        raise ValidationProblem(
+            "path must be absolute",
+            errors=[{"loc": ["body", "path"], "msg": "not absolute"}],
+            actions=RETRY,
+        )
+    try:
+        real = guard.check(p)
+    except PathOutsideRoot:
+        raise PathOutsideRoot(NOT_SHARED, actions=RETRY) from None
+    if not real.exists():
+        raise NotFound(f"{p.name or p} does not exist (moved, renamed or deleted?)", actions=RETRY)
+    return real
+
+
 class OpenService:
     def __init__(
         self,
@@ -119,6 +137,8 @@ class OpenService:
         workspace_root: Path,
         settings: Settings,
         on_cache_write: Callable[[], None],
+        restore_session: Callable[[str], om.OpenSession] | None = None,
+        persist_session: Callable[[om.OpenSession], None] = lambda _: None,
     ) -> None:
         self.guard = guard
         self.derived_guard = derived_guard
@@ -127,26 +147,25 @@ class OpenService:
         self.sessions = sessions
         self.workspace_root = workspace_root
         self.settings = settings
+        self.restore_session = restore_session
+        self.persist_session = persist_session
         self.on_cache_write = on_cache_write  # CACHE_MAX_GB sweep
 
-    def guarded(self, raw: str) -> Path:
-        """An absolute, readable path under ALLOWED_DATA_ROOTS, else a problem with actions."""
-        p = Path(raw)
-        if not p.is_absolute():
-            raise ValidationProblem(
-                "path must be absolute",
-                errors=[{"loc": ["body", "path"], "msg": "not absolute"}],
-                actions=RETRY,
-            )
+    def session(self, sid: str) -> om.OpenSession:
         try:
-            real = self.guard.check(p)
-        except PathOutsideRoot:
-            raise PathOutsideRoot(NOT_SHARED, actions=RETRY) from None
-        if not real.exists():
-            raise NotFound(
-                f"{p.name or p} does not exist (moved, renamed or deleted?)", actions=RETRY
-            )
-        return real
+            return self.sessions.get(sid)
+        except NotFound as ended:
+            if self.restore_session is None:
+                raise
+            try:
+                restored = self.restore_session(sid)
+            except NotFound:
+                raise ended from None
+            self.sessions.put(restored)
+            return restored
+
+    def guarded(self, raw: str) -> Path:
+        return guarded_source(self.guard, raw)
 
     async def open(self, raw: str) -> om.OpenSession:
         real = self.guarded(raw)
@@ -168,7 +187,7 @@ class OpenService:
 
     async def volume(self, sid: str, n: int, axis_order: str | None) -> tuple[Path, str]:
         """The item as NIfTI (NumPy/DICOM converted into `.scratch/`) and its ETag."""
-        s = self.sessions.get(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         src = om.source_path(s, it)
         if not src.is_file():
@@ -220,7 +239,7 @@ class OpenService:
         return out, f"{fp}.{order}"
 
     async def dicom_tags(self, sid: str, n: int) -> dict[str, Any]:
-        s = self.sessions.get(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         if it.format != "dicom":
             raise NotFound(f"{it.name} has no DICOM header")
@@ -229,7 +248,7 @@ class OpenService:
         return tags
 
     async def preview_png(self, sid: str, n: int, axis_order: AxisOrder) -> bytes:
-        s = self.sessions.get(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         if it.format != "npy":
             raise ValidationProblem("Axis-order previews exist for NumPy arrays only")
@@ -240,14 +259,30 @@ class OpenService:
     async def attach(self, sid: str, n: int, raw: str) -> om.OpenSession:
         """A NIfTI segmentation from anywhere under ALLOWED_DATA_ROOTS; the geometry check (same
         shape, affines within tolerance) is the guard, never resampled."""
-        s = self.sessions.get(sid)
+        s = await asyncio.to_thread(self.session, sid)
         image = om.item(s, n)
         real = self.guarded(raw)
         if not real.is_file() or formats.classify(real) != "nifti":
             raise UnsupportedFormat(
                 "Attach a NIfTI segmentation (.nii or .nii.gz)", actions=["choose_another_path"]
             )
-        rows = await self.jobs.run_in_worker(om.probe, str(real.parent), [real.name])
+        try:
+            before = real.stat()
+            rows = await self.jobs.run_in_worker(om.probe, str(real.parent), [real.name])
+            after = real.stat()
+        except OSError:
+            raise SourceMissing(
+                "Mask became unavailable while reading its geometry; attach it again", actions=RETRY
+            ) from None
+        if (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_dev,
+            after.st_ino,
+        ):
+            raise SourceMissing(
+                "Mask changed while reading its geometry; attach it again", actions=RETRY
+            )
         row = rows[0]
         if row.get("error") or not row.get("geometry"):
             raise UnsupportedFormat(
@@ -256,7 +291,9 @@ class OpenService:
             )
         geo = om.OpenGeometry.model_validate(row["geometry"])
         om.check_attach(image, geo)
-        return om.add_label(s, n, real, geo)
+        result = om.add_label(s, n, real, geo)
+        self.persist_session(result)
+        return result
 
     def _dest(self, raw: str | None) -> Path:
         guard = self.derived_guard
@@ -288,7 +325,7 @@ class OpenService:
     async def save(self, sid: str, n: int, body: SaveBody) -> Saved:
         """Write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
         dest = self._dest(body.dest_dir)
-        s = self.sessions.get(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         volume, fp = await self.volume(sid, n, body.axis_order)
         await asyncio.to_thread(dest.mkdir, parents=True, exist_ok=True)

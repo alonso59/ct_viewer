@@ -11,9 +11,9 @@ import fnmatch
 import json
 import math
 import os
+import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -79,12 +79,31 @@ class Result:
     plan: list[dict[str, Any]] = field(default_factory=list)  # one row per series
     resource_wait: dict[str, Any] | None = None
     analyzer_rows: list[dict[str, Any]] = field(default_factory=list)
+    conversion_time: dict[str, Any] | None = None
 
 
 Progress = Callable[[str, str, list[dict[str, Any]], str], None]
 # (stage, done, total): `listing` folders → `reading` headers (files) → `planning` series
 # → `converting` series (the item events); what the overlay shows while it waits
 Stage = Callable[[str, int, int], None]
+Timing = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+def timing_unit(g: Series, ordinal: int) -> dict[str, Any]:
+    """Header facts only; the observer hashes the class before persisting measurements."""
+    row, ds = g.row, g.header
+    x, y, z = (int(row.get(k) or 0) for k in ("dim_x", "dim_y", "num_slices"))
+    codec = value_to_text(getattr(getattr(ds, "file_meta", None), "TransferSyntaxUID", ""))
+    category = {
+        "codec": codec,
+        "shape_xy": [x, y],
+        "geometry": row.get("scan_type"),
+        "geometry_status": row.get("geometry_status"),
+        "depth_class": z.bit_length(),
+        "multiframe": int(getattr(ds, "NumberOfFrames", 1) or 1) > 1,
+        "pixels": [int(getattr(ds, k, 0) or 0) for k in ("BitsAllocated", "SamplesPerPixel", "PixelRepresentation")],
+    }
+    return {"id": str(ordinal), "class": category, "work": x * y * z if codec and min(x, y, z) > 0 else None}
 
 
 def patient_dirs(source: Path, pattern: str, limit: int | None) -> list[Path]:
@@ -155,6 +174,7 @@ def run(
     checkpoint: Path | None = None,
     memory_mb: int | None = None,
     retry_item_ids: list[str] | None = None,
+    on_timing: Timing | None = None,
 ) -> Result:
     retry_ids = set(retry_item_ids) if retry_item_ids is not None else None
     if retry_ids is not None and (not retry_ids or dry_run):
@@ -280,6 +300,23 @@ def run(
         if retry_ids - available:
             raise ValueError("Retry selection contains unavailable series; recover its original plan")
 
+    timing_ids = {id(g): str(i) for i, g in enumerate(found)}
+    conversion_time = None
+    if on_timing is not None:
+        units = []
+        for i, g in enumerate(found):
+            level, _ = target_rules.match(g.row, profile)
+            role, reason = readiness_rules.output_role(g.row, level)
+            if not decide_conversion(g.row, role, reason, settings)[0]:
+                continue
+            key = g.row["case_identity_key"]
+            if retry_ids is not None:
+                case, scan_idx = identity.case_id(key), identity.scan_idx(key, g.row["series_uid"])
+                if f"{case}.{scan_idx}.complete.-" not in retry_ids:
+                    continue
+            units.append(timing_unit(g, i))
+        conversion_time = on_timing({"t": "plan", "units": units})
+
     counts = {
         "series": len(found),
         "selected": 0,
@@ -372,6 +409,14 @@ def run(
             elif planned:
                 out = nifti_dir / filename
                 side = sidecar_dir / f"{filename}.dicom.json"
+                fresh_pixels = False
+                started = time.monotonic()
+
+                def before_pixels(row: dict[str, Any] = row, header: Any = g.header) -> None:
+                    nonlocal fresh_pixels
+                    resources.require_memory(row, header, memory_mb)
+                    fresh_pixels = True
+
                 try:
                     header = sidecar.anonymize_dataset(g.header, case_id, salt) if anonymize else g.header
                     publication = commits.commit_series(
@@ -382,7 +427,7 @@ def run(
                         settings={**asdict(settings), "salt": salt},
                         version=VERSION,
                         sidecars=settings.sidecars,
-                        before_pixels=partial(resources.require_memory, row, g.header, memory_mb),
+                        before_pixels=before_pixels,
                         verify_only=retry_ids is not None and iid not in retry_ids,
                     )
                     if publication is None:
@@ -417,6 +462,15 @@ def run(
                             str(g.series.dicom_dir),
                             g.series.series_id,
                         )
+                    )
+                if on_timing is not None and status != "pending":
+                    conversion_time = on_timing(
+                        {
+                            "t": "unit",
+                            "id": timing_ids[id(g)],
+                            "committed": status in {"converted", "already_converted"},
+                            "seconds": time.monotonic() - started if fresh_pixels and status == "converted" else None,
+                        }
                     )
             else:
                 row["status"] = "skipped"
@@ -459,7 +513,20 @@ def run(
     merged = {_key(r): r for r in previous}
     merged.update({_key(r): r for r in current})  # current rows replace their previous versions
     rows_out = [clean_row(r) for r in merged.values()]
-    return Result(rows_out, annotations, diagnostics, counts, storage, outputs, plan, resource_wait, analyzer_rows)
+    if on_timing is not None:
+        conversion_time = on_timing({"t": "finish"})
+    return Result(
+        rows_out,
+        annotations,
+        diagnostics,
+        counts,
+        storage,
+        outputs,
+        plan,
+        resource_wait,
+        analyzer_rows,
+        conversion_time,
+    )
 
 
 def write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:

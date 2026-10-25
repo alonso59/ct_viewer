@@ -32,7 +32,7 @@ test('the P7c journey', async ({ page, browserName }) => {
   await conv.getByRole('button', { name: 'Open', exact: true }).click()
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/) // the session id, never the path (AUD-A1-19)
   expect(page.url()).not.toContain('_datasets')
-  await expect(page.getByText('No project: nothing is saved')).toBeVisible()
+  await expect(page.getByText('Viewing without a project')).toBeVisible()
   const tools = page.getByRole('toolbar').filter({ has: page.getByRole('button', { name: 'Invert' }) })
   for (const b of ['Distance', 'Header info', 'Slab projection', 'Screenshot (PNG)']) await expect(tools.getByRole('button', { name: b })).toBeVisible()
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })

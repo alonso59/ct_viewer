@@ -143,7 +143,7 @@ Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asyn
 | Native controls | Handoff/run-control locking and native-attempt fences; durable pending controls and run-side resume receipts reconcile lost responses. Restart/replay preserves the destination. Native Tasks controls share the DICOM run lock. |
 | Retry failed | Native/project/workspace and source-operation controls select recorded failures, preserving strong plan pins and verified commits. Complete native progress lines survive missed API relay; attempt epochs order outcomes and ambiguous/corrupt history refuses retry. Unattempted series remain pending, without phase/sealing/registration. Focused tests cover selectors, task boundaries, native processes, duplicate/lost controls and window controls. CLI failure-only selection additionally survives SIGKILL after recorded failure and leaves unattempted work pending. Complete D23/B07 crash acceptance remains open. |
 | Window/picker | Server operation restoration, recent-operation selection, explicit new draft, bounded plan pages/filters, provisional counts and resume/cancel. Browser storage holds only operation ID/minimized preference. Source pickers accept extensionless files. |
-| Re-estimate/progress | Settings-only Estimate retains its inventory/name/context; a destination change creates another operation. Stale 409 refreshes without replay. Committed selected-series totals, separate stage units, typed memory remedies and late-callback fencing have backend/window regressions. Historical ETA calibration remains open. |
+| Re-estimate/progress | Settings-only Estimate retains its inventory/name/context; a destination change creates another operation. Stale 409 refreshes without replay. Committed selected-series totals, separate stage units, typed memory remedies and late-callback fencing have backend/window regressions. Conversion-stage compatible history and remaining-time ranges have focused tests; complete stage-duration history and reference ETA calibration remain open. |
 
 ### Reproduced failures and focused checks
 
@@ -263,6 +263,71 @@ preserves the page/trace. G2 now waits for the ready conversion action before as
 contents; both real Chromium/Firefox G2 journeys pass with unchanged sources
 (`dicom-g2-async-ready-browser.log`), as do frontend lint/types
 (`dicom-g2-async-ready-static.log`). Its next full CI and product image remain required.
+The API crash harness additionally kills after identity/annotation publication and after each
+index warnings/cases/items/ready-status write. All 27 recovery-file cases pass
+(`dicom-api-index-crash-final.log`), retaining one import and unchanged image bytes/source hashes.
+`dicom-dir-sync-ack-red.log` and `dicom-core-dir-sync-red.log` reproduce swallowed directory
+open/sync errors; `dicom-control-dir-sync-red.log` reproduces a repeated creation request
+acknowledging an unconfirmed receipt. The writer now propagates errors, and source-operation
+replay reconfirms intent/metadata and recovers only never-launched discovery/Estimate work
+or conversion handoffs in their original reserved attempt.
+Retained launch evidence and a lost committed operation are refused; legacy receipts with
+existing records remain supported. These cases do not certify all filesystem failure,
+parent-directory creation, torn-journal, power-loss or migration/rollback barriers.
+CI 40122160596 passed 1,030 backend, 394 frontend and 107 serial runner cases, then failed
+Chromium G3 (67 browser cases passed): after browser Back the URL named case 60 while the
+active editor still showed case 61. Diagnostics artifact 12571991961 preserves this release
+blocker. `EditorArea.navigation.test.tsx` reproduces extra navigation when history reconciliation
+and a layout refresh share an effect flush (`dicom-g3-history-layout-red.log`); the URL writer
+now ignores an earlier active-panel snapshot. Four shell cases pass
+(`dicom-g3-history-layout-green.log`). Four real Chromium/Firefox G2/G3 journeys pass with
+unchanged source hashes (`dicom-durability-navigation-browser.log`); full CI acceptance
+for the final publication tree remains required.
+The broader backend check exposed a native-completion/registration handoff race: a project
+could appear completed before its index started. `dicom-initial-registration-pending-red.log`
+reproduces it deterministically; the pending marker now accompanies native completion in one
+write. The targeted regression passes (`dicom-initial-registration-pending-green.log`).
+Twenty-six metadata durability cases pass (`dicom-source-durability-recovery-final.log`),
+covering project/workspace submission replay, queued cancellation with a missing job and
+read-time reconciliation after failed state publication. Retained process/dispatch evidence
+blocks replacement; a stopped source job can resume without restarting the API only when
+cleanup is proven. These counts are focused evidence, not completion of the full D35 matrix.
+The final isolated publication candidate passes 237 affected backend cases
+(`dicom-durability-dispatch-area.log`), nine shell/boundary cases across five frontend files
+(`dicom-durability-dispatch-frontend.log`, `dicom-durability-dispatch-editors.log`) and
+lint/types/contracts/426 requirements/dead-code checks (`dicom-durability-dispatch-static.log`).
+The runner gate passes 107 serial cases (`dicom-durability-final-runner.log`); no GPU was launched.
+CI 40144435677 passed 1,065 backend, 395 frontend and 107 serial runner cases, then failed
+Firefox G3 at browser Back (67 browser cases passed; image skipped). Diagnostics artifact
+12580820950 preserves the URL/editor mismatch. A second deterministic regression reproduces
+Back arriving before the preceding router transition commits (`dicom-g3-collapsed-history-red.log`).
+The editor now reconciles native history events even when pathname/search dependencies do not
+change; foreign-project events are ignored. Eleven shell/boundary cases pass
+(`dicom-g3-collapsed-shell-final.log`), as do six repeated Chromium/Firefox G3 journeys with
+unchanged sources (`dicom-g3-collapsed-history-browser.log`). Final published-tree CI remains
+required; the earlier layout-race regression alone did not certify this case.
+Conversion-stage history has focused project/workspace tests for compatible measured samples,
+pixel-free planning, verified reuse, prepared adoption, batching, failures and remaining work.
+The initial isolated ETA candidate passes 191 affected backend cases (`dicom-eta-area.log`),
+60 frontend/API cases (`dicom-eta-frontend.log`) and static/contracts/426 requirements/dead-code
+checks (`dicom-eta-batched-static.log`). Six Chromium/Firefox converter journeys pass with
+unchanged sources (`dicom-eta-browser.log`). The final history/failed-pending/compatibility
+candidate passes 92 affected backend cases, including 33 ETA cases
+(`dicom-eta-final-area.log`), and 71 frontend/API/shell cases across 17 files
+(`dicom-eta-final-frontend.log`). Its final static/contracts/426 requirements/dead-code gate
+passes (`dicom-eta-final-static.log`); published-tree CI/image acceptance remains required.
+`dicom-eta-write-amplification-red.log` reproduces one full-history rewrite per series; batching
+retains completed observations at pipeline exit. `dicom-eta-failed-pending-red.log` reproduces
+failed units reducing remaining work; only verified commits now reduce it. Existing parent
+estimate enums remain readable (`dicom-eta-legacy-basis-red.log`); the added typed field carries
+the precise historical basis. Conversion behavior/history ownership is DCM-19.
+The disposable in-process synthetic benchmark compares three warm baseline/ETA pairs on 12
+series (768 files), with a full 2,048-sample history and software-only CPU execution. Median
+overhead fell from 8.9% to 1.5% after batching (`dicom-eta-overhead.log`,
+`dicom-eta-batched-overhead.log`); sources, output voxels and affines match. A temporal hold-out
+after five measurements covers 31/31 later observations with 3.3% mean absolute relative error,
+but interval width is 99.1% of the point estimate. This single synthetic class supports low
+confidence only; it is not principal-converter P03 or representative reference P06 acceptance.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 
@@ -278,7 +343,130 @@ Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, includi
   publication/index crash barriers, and migration/rollback acceptance for independent phase runs.
 - Recoverable general Open/import loading and later Open-series hydration;
   complete progress crash-barrier recovery and full U/B acceptance.
-- Compatible historical ETA, calibrated hold-out coverage and controlled reference benchmarks.
+- Complete discovery/registration/analyzer duration history, calibrated reference hold-out coverage
+  and controlled reference benchmarks; focused conversion-stage history does not close these gates.
 - Final full/shared-runtime/browser/CI/Docker/udocker gates, reader-version migration and deployment readiness.
 
 No closure checkbox is certified by narrower synthetic checks or by the accepted ADR alone.
+
+### Open pagination checkpoint
+
+`test_open_paging.py` covers later NIfTI/mask selection, Save, 503 complete DICOM
+series and mixed folders whose DICOM item falls outside the initial preview.
+`OpenRoute.paging.test.tsx` uses real recorded pages and verifies selection/mask
+retention through paging and Save. The sidebar renders 50 image rows per page;
+API-07 owns the focused-item and kind-filter contracts. These checks cover part
+of D09/U08; general Open discovery is still ephemeral and its durable background,
+minimize, cancellation and restart/resume work remains open.
+
+CI run 40177352175 passed verification and image jobs for d5724fe. Artifact
+12593069849 was downloaded with verified archive and image-tar SHA-256 values.
+The same image passed isolated, non-root udocker import/conversion, queued API
+SIGKILL/restart, cancel/resume and completed restart checks with unchanged source
+and output hashes (`dicom-product-d5724fe/runtime-acceptance.json`). This does
+not certify active-pixel crash barriers, the cross-container matrix or subsequent
+Open changes, and production has not been updated.
+
+The Open checkpoint passes 40 affected backend cases (`dicom-open-backend-area.log`),
+35 frontend/API/boundary cases (`dicom-open-frontend-area.log`), five recorded
+transport cases and the corrected window test (`dicom-open-replay-green.log`,
+`dicom-open-window-final.log`). The real Open paging/attach/Save journey passes
+both Chromium and Firefox in 2.1 minutes with original source hashes unchanged
+(`dicom-open-paging-browser.log`). These results do not close durable Open loading.
+
+### Durable Open checkpoint
+
+The Open purpose now runs discovery and complete-unit header preparation in the owned
+worker. Committed header units survive actual SIGKILL; changed source signatures and reader
+identities invalidate reuse. Cancel within a DICOM series leaves no partial cached unit.
+`test_source_open.py` covers these boundaries; the source-operation API case restores the
+session and attached mask after application restart and checks Close/explicit reopen.
+The shared window now handles Open progress and its result. These focused cases do not yet
+certify the entire both-browser, quota, abrupt API-death or performance matrix.
+
+The affected backend/API area passes 47 cases before the final privacy/integrity additions
+(`dicom-source-open-backend-area.log`); 24 inventory/header/layering cases cover the private
+SQLite update (`dicom-source-open-private-area.log`). Six header/recovery cases include real
+SIGKILL after a SQLite commit. The restored-session case verifies persistent attachments,
+Close/reopen and refusal of altered result bytes (`dicom-source-open-integrity-green.log`).
+Window/API/boundary tests pass 70 cases before the cancellation refinement; all 33 window
+cases then pass with refresh-before-cancel and refusal to act on a newer attempt
+(`dicom-source-open-frontend-area.log`, `dicom-source-cancel-window-green.log`).
+Eight real Open/large-page cases pass in Chromium/Firefox; the two initially failing queued
+cancel/resume cases then pass with the corrected client in 49.1 seconds, preserving fixture
+hashes (`dicom-source-open-browser-final.log`, `dicom-source-open-background-browser-green.log`).
+The browser harness bounds its own affinity and native compiler threads; no server-wide
+settings or production processes changed. Test history entries use unique opaque keys, as
+real router navigation does. Full CI for the preceding pagination publication 08b7739 passed
+both verify and image jobs (run 40182498395); it does not cover this later checkpoint.
+
+Remaining release work still includes durable general import/detection, complete crash and
+cross-container resource matrices, inventory retention/aggregate quotas, reference performance
+and ETA calibration, final CI/product-image acceptance, migration/rollback readiness and rollout.
+No closure checkbox is certified by these partial gates; GPU launches remain blocked.
+
+Final affected gates pass 48 backend cases without skips (`dicom-source-open-final.xml`),
+35 conversion/control regressions (`dicom-source-open-conversion-regression.log`) and 72
+frontend/API/boundary cases across 15 files (`dicom-source-open-final-frontend.log`).
+Final real-viewer opening/reload/Close passes in both browsers in 52.1 seconds
+(`dicom-source-open-final-viewer-browser.log`), with fixture hashes unchanged. The current
+No-project label describes viewing mode without promising that recoverable headers disappear.
+Static lint/types/API/requirements/dead-code checks pass; final CI and image/release gates remain.
+
+### Reproducible product-image lifecycle checkpoint
+
+`tools.dicom_image_smoke` now packages the disposable queued-crash/conversion/Open
+acceptance flow for the product image. CI runs it after generic container smoke and
+before exporting the image, with synthetic failure diagnostics retained separately.
+It verifies two converted volumes against an independent physical-coordinate oracle,
+source/output hashes, queued cancel/resume, cleanup and Open restoration after restart.
+The same command is available for udocker without host code binds. Local subprocess
+tests and workflow wiring tests are separate from actual image acceptance; a new
+Docker/udocker run is required for this tree. Active-pixel crashes, cross-container
+ownership and the remaining plan matrix are still open. No production rollout is
+certified by adding this gate.
+
+### Restored Open input validation checkpoint
+
+Hydration now checks the prepared inventory generation and image stat pins before
+returning saved geometry. NumPy pins include optional sidecar/reference dependencies
+and their absence. Managed attachment state uses version 2 with mask stat pins;
+changed masks and lost inventory/header pins refuse restoration with next actions.
+Async byte/preview/attach/save requests restore outside the API event loop. Mask
+attachment also refuses an input changed or removed during header probing.
+These checks cover stat-visible changes, not content rewritten while preserving the
+same stat tuple. The strict code/reader identity refuses older prepared artifacts;
+reader migration/rollback acceptance and the rest of the plan remain open.
+
+Evidence for this checkpoint: 48 affected backend cases with zero skips/failures
+(`dicom-open-pins-final.xml`), both Chromium/Firefox background-Open journeys
+(48.6 s, synthetic source hashes unchanged), and lint/types/426 requirement IDs/
+dead-code checks pass. This is local evidence, not final CI/image acceptance.
+
+### Durable detection result checkpoint
+
+`GET /source-operations/{id}/detection` exposes completed, cleanup-verified discovery
+as API-19-compatible adapter hints from its retained inventory. Legacy and durable
+paths share the same adapter policy; NIfTI sampling stays bounded at 50 and spread
+across the entire ordered inventory. There is no directory walk, header re-probe,
+project creation or conversion when retrieving results after restart. Missing,
+cancelled/incomplete and scanner-incompatible inventories refuse with next actions.
+The typed client and synthetic recording cover the new result; wiring the import
+wizard into the shared floating window and persisting its later preview/index stages
+remain unfinished. This backend checkpoint does not close SRC-19 or the full plan.
+
+The preceding publication's full CI passed 1,111 backend, 404 frontend and 108 serial
+runner cases, then failed four Chromium/Firefox journeys: a completed chip reappeared
+after Open entered the viewer, made Close ambiguous and covered the paging control.
+Two host unit cases reproduce the stale-query reattachment. Reconnect now requires
+the retained selected ID; it never auto-selects an arbitrary pending server entry.
+Explicit restoration remains supported. Open/paging browser assertions require no
+orphaned chip after automatic viewer entry. Full CI must rerun for this correction.
+
+Evidence for durable detection and the stale-chip correction: 55 affected backend
+cases (`dicom-source-detection-backend.xml`), three OpenAPI contract cases, 71
+frontend cases across 15 files, and ten real Chromium/Firefox background/Open/paging
+journeys (3.1 min; source hashes unchanged). Lint, types, generated API types, 426
+requirement IDs and dead-code checks pass. The 28 recorded exchanges came from
+actual disposable synthetic API runs. Final CI/image and import-window integration
+remain open; no production rollout is certified by this checkpoint.

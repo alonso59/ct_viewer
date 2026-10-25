@@ -476,6 +476,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-operations/{oid}/detection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detection */
+        get: operations["detection_api_v1_source_operations__oid__detection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Result */
+        post: operations["open_result_api_v1_source_operations__oid__open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-operations/{oid}/series": {
         parameters: {
             query?: never;
@@ -3057,6 +3091,32 @@ export interface components {
             /** Packs */
             packs?: string[];
         };
+        /**
+         * ConversionTimeEstimate
+         * @description Conversion stage only; historical ranges are not calibrated confidence bounds.
+         */
+        ConversionTimeEstimate: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "unknown" | "history" | "complete";
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "unknown" | "low";
+            /** Sample Count */
+            sample_count: number;
+            /** Remaining Units */
+            remaining_units: number;
+            /** Estimated S */
+            estimated_s?: number | null;
+            /** Lower S */
+            lower_s?: number | null;
+            /** Upper S */
+            upper_s?: number | null;
+        };
         /** CorrelationRequest */
         CorrelationRequest: {
             filters?: components["schemas"]["GlobalFilters"];
@@ -4593,6 +4653,11 @@ export interface components {
             ignored?: {
                 [key: string]: number;
             };
+            /**
+             * Has Dicom
+             * @default false
+             */
+            has_dicom: boolean;
         };
         /** OptionSpec */
         OptionSpec: {
@@ -6364,6 +6429,7 @@ export interface components {
              * @enum {string}
              */
             basis: "sample" | "manifest" | "unknown";
+            conversion_time?: components["schemas"]["ConversionTimeEstimate"] | null;
             /** Sample Item Ids */
             sample_item_ids?: string[];
             /** Sample Errors */
@@ -6640,6 +6706,7 @@ export interface components {
              */
             progress_done: number;
             progress?: components["schemas"]["TaskRunProgress"] | null;
+            conversion_time?: components["schemas"]["ConversionTimeEstimate"] | null;
             resource_wait?: components["schemas"]["TaskResourceWait"] | null;
             radiomics?: components["schemas"]["RunDetail"] | null;
         };
@@ -7180,6 +7247,7 @@ export interface components {
             /** Phase Run Id */
             phase_run_id?: string | null;
             resource_wait?: components["schemas"]["TaskResourceWait"] | null;
+            conversion_time?: components["schemas"]["ConversionTimeEstimate"] | null;
         };
         /** WorkspaceRunRequest */
         WorkspaceRunRequest: {
@@ -7899,7 +7967,9 @@ export interface operations {
     };
     get_open_api_v1_open__sid__get: {
         parameters: {
-            query?: never;
+            query?: {
+                item?: number | null;
+            };
             header?: never;
             path: {
                 sid: string;
@@ -7960,6 +8030,7 @@ export interface operations {
     open_items_api_v1_open__sid__items_get: {
         parameters: {
             query?: {
+                kind?: ("image" | "label") | null;
                 /** @description Opaque cursor from `next_cursor` */
                 cursor?: string | null;
                 limit?: number;
@@ -8257,6 +8328,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detection_api_v1_source_operations__oid__detection_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_result_api_v1_source_operations__oid__open_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenSession"];
                 };
             };
             /** @description Validation Error */

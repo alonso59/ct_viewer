@@ -1,6 +1,6 @@
 import { createElement, lazy, Suspense, useEffect } from 'react'
 
-import { isTaskRunPending, isViewPid, useSourceOperations } from '../../api'
+import { isViewPid, useSourceOperations } from '../../api'
 import { useWorkbench } from '../../shell'
 import type { FrontendPlugin } from '../host'
 import { useConverter } from './store'
@@ -15,10 +15,9 @@ function ConverterHost() {
   const minimized = useConverter((s) => s.minimized)
   const operations = useSourceOperations(!viewOnly).data
   useEffect(() => {
-    if (viewOnly || open || !operations) return
+    if (viewOnly || open || !selected || !operations) return
     const restored = operations.find((operation) => operation.operation_id === selected)
-      ?? operations.find((operation) => isTaskRunPending(operation.status))
-    if (restored) useConverter.getState().attach(restored.operation_id, selected ? minimized : true)
+    if (restored) useConverter.getState().attach(restored.operation_id, minimized)
   }, [viewOnly, open, operations, selected, minimized])
   return open && !viewOnly ? createElement(Suspense, { fallback: null }, createElement(Overlay, { key: session })) : null
 }
@@ -30,6 +29,7 @@ export const plugin: FrontendPlugin = {
   id: 'dicom',
   activate: ({ registry }) => {
     registry.overlay({ id: 'dicom.converter', component: ConverterHost })
+    registry.command({ id: 'sources.openBackground', writes: true, title: 'home.sourceOperations', scope: ['home', 'open', 'project'], menu: false, run: (id) => { const state = useConverter.getState(); if (id) state.attach(id, false, true); else if (state.operationId) state.attach(state.operationId); else openConverter() } })
     registry.command({ id: 'tasks.convertDicom', writes: true, title: 'cmd.convertDicom', category: 'cat.tasks', scope: ['home', 'open', 'project'], menuGroup: 1, run: (source) => openConverter(source) })
   },
   open: () => openConverter(),

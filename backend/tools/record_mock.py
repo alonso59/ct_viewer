@@ -35,9 +35,10 @@ AP, MK = {"X-Reviewer": "Dr. AP"}, {"X-Reviewer": "Dr. MK"}
 
 
 class Recorder:
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Any, *, preserve_paging: bool = False) -> None:
         self.c = client
         self.log: dict[str, dict[str, Any]] = {}
+        self.preserve_paging = preserve_paging
 
     def call(
         self,
@@ -53,7 +54,11 @@ class Recorder:
             raise SystemExit(f"record-mock: {method} {url} → {r.status_code} {r.text[:400]}")
         data = r.json() if r.content and "json" in r.headers.get("content-type", "") else None
         parts = urlsplit(url)
-        query = urlencode(sorted((k, v) for k, v in parse_qsl(parts.query) if k not in PAGING))
+        query = urlencode(
+            sorted(
+                (k, v) for k, v in parse_qsl(parts.query) if self.preserve_paging or k not in PAGING
+            )
+        )
         key_body = body if method != "GET" else None
         key = f"{method} {parts.path}?{query}#{json.dumps(key_body, sort_keys=True)}"
         # a later call of the same request wins: GETs keep the final state of the scenario
@@ -421,14 +426,23 @@ def dump(v: Any) -> str:
     return json.dumps(v, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
 
 
-def redact(text: str, pid: str, data: Path, workspace: Path, derived: Path, plugins: Path) -> str:
+def redact(
+    text: str,
+    pid: str,
+    data: Path,
+    workspace: Path,
+    derived: Path,
+    plugins: Path,
+    *,
+    data_alias: str = "/data",
+) -> str:
     builtin = REPO / "plugins"
     pairs = (
         (derived, "/derived"),
         (workspace, "/workspace"),
         (plugins, "/plugins"),
         (builtin, "/app/plugins"),
-        (data, "/data"),
+        (data, data_alias),
     )
     for real, alias in pairs:
         for form in sorted({str(real), str(real.resolve())}, key=len, reverse=True):
@@ -498,6 +512,9 @@ def main() -> None:
         from tools.record_dataset_projects import main as record_dataset_projects
 
         record_dataset_projects()
+        from tools.record_open_paging import main as record_open_paging
+
+        record_open_paging()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -9,8 +9,8 @@ function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]))
 }
 
-export function fixtureHashes(): Record<string, string> {
-  return Object.fromEntries(walk(FIXTURES).sort().map((f) => [relative(FIXTURES, f), createHash('sha256').update(readFileSync(f)).digest('hex')]))
+export function fixtureHashes(root = FIXTURES): Record<string, string> {
+  return Object.fromEntries(walk(root).sort().map((f) => [relative(root, f), createHash('sha256').update(readFileSync(f)).digest('hex')]))
 }
 
 export const snapshotPath = () => join(process.env.E2E_WORKSPACE ?? '.', 'tst07-before.json')

@@ -24,6 +24,7 @@ export interface Scan {
 }
 
 export interface Draft {
+  autoOpen: boolean
   operationId: string | null
   requestKey: string | null
   pid: string | null
@@ -53,7 +54,7 @@ interface ConverterState extends Draft {
   minimize: () => void
   restore: () => void
   close: () => void
-  attach: (id: string, minimized?: boolean) => void
+  attach: (id: string, minimized?: boolean, autoOpen?: boolean) => void
   newOperation: () => void
 }
 
@@ -67,6 +68,7 @@ export const datasetSlug = (raw: string) => raw.replace(/[^A-Za-z0-9_.-]+/g, '-'
 const parent = (p: string) => p.replace(/\/[^/]*$/, '') || '/'
 
 const draft = (source: string | null, pid: string | null): Draft => ({
+  autoOpen: false,
   operationId: null,
   requestKey: null,
   pid,
@@ -98,7 +100,7 @@ export const useConverter = create<ConverterState>()(persist((set) => ({
   patch: (p) => set(p),
   minimize: () => set({ minimized: true }),
   restore: () => set({ minimized: false }),
-  close: () => set({ ...draft(null, null), open: false, minimized: false, working: false, createFrom: null }),
-  attach: (id, minimized = false) => set((s) => ({ ...draft(null, null), operationId: id, open: true, minimized, working: false, session: s.session + 1 })),
+  close: () => set({ ...draft(null, null), open: false, minimized: false, working: false, createFrom: null, pid: null }),
+  attach: (id, minimized = false, autoOpen = false) => set((s) => ({ ...draft(null, null), operationId: id, autoOpen, open: true, minimized, working: false, pid: null, session: s.session + 1 })),
   newOperation: () => set((s) => ({ ...draft(null, s.pid), open: true, minimized: false, working: false, session: s.session + 1 })),
 }), { name: 'rw.converter', partialize: (s) => ({ operationId: s.operationId, minimized: s.minimized }) }))

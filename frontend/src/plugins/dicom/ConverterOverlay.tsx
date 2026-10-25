@@ -1,8 +1,8 @@
 // Without a project the output is a write-once workspace dataset (`{derived}/_datasets/{name}/`);
 // inside a project it can convert into it instead. While it works, × and Escape minimize it to a
-// chip and the work goes on server-side.
-import { useEffect, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+// chip that shows the progress and the work goes on server-side.
+import { useCallback, useEffect, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -23,10 +23,11 @@ import {
   type SourceOperation,
   type EstimateProgress,
   type TaskEstimate,
+  type ConversionTimeEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, openPath, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, fmtDuration, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { PhasePanel } from './PhasePanel'
@@ -60,6 +61,18 @@ function StepBar({ step }: { step: Step }) {
   )
 }
 
+function ConversionTime({ value }: { value: ConversionTimeEstimate | null | undefined }) {
+  const { t } = useTranslation()
+  if (value?.basis === 'history' && value.lower_s != null && value.upper_s != null) {
+    return <>
+      <p className="muted conv-help">{t('conv.etaHistory', { lower: fmtDuration(value.lower_s), upper: fmtDuration(value.upper_s), n: value.sample_count })}</p>
+      <p className="muted conv-help">{t('conv.etaStages')}</p>
+    </>
+  }
+  return <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
+}
+
+/** Every series of the dry run, what happens to it and why, with its size */
 function SeriesPlanTable({ estimate, operation }: { estimate: TaskEstimate; operation?: SourceOperation }) {
   const { t } = useTranslation()
   const [cursors, setCursors] = useState<string[]>([])
@@ -124,15 +137,16 @@ function useElapsed(since: number | null) {
 }
 
 /** The dry run's stages and progress, so a long scan is visibly alive */
-function ScanPanel({ progress, elapsed, onCancel, onMinimize }: { progress: EstimateProgress | undefined; elapsed: number; onCancel: () => void; onMinimize: () => void }) {
+function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false }: { progress: EstimateProgress | undefined; elapsed: number; onCancel: () => void; onMinimize: () => void; opening?: boolean }) {
   const { t } = useTranslation()
   const current = progress?.stage ?? 'check'
-  const at = SCAN_STAGES.indexOf(current as (typeof SCAN_STAGES)[number])
-  const determinate = (current === 'reading' || current === 'planning') && !!progress?.total
+  const stages: readonly string[] = opening ? ['listing', 'opening'] : SCAN_STAGES
+  const at = stages.indexOf(current)
+  const determinate = (current === 'reading' || current === 'planning' || current === 'opening') && !!progress?.total
   return (
     <div className="conv-scan" data-testid="conv-scan" role="status" aria-live="polite">
       <ol className="conv-stages">
-        {SCAN_STAGES.map((s, i) => (
+        {stages.map((s, i) => (
           <li key={s} data-state={i < at ? 'done' : i === at ? 'current' : 'pending'}>
             <Icon spec={codicon(i < at ? 'pass' : i === at ? 'loading' : 'circle-large')} className={i === at ? 'codicon-modifier-spin' : undefined} />
             <span>{t(`conv.stage.${s}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 })}</span>
@@ -142,7 +156,7 @@ function ScanPanel({ progress, elapsed, onCancel, onMinimize }: { progress: Esti
       {at < 0 ? <p>{t(`conv.status.${current}`, { defaultValue: t(`conv.stage.${current}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) })}</p> : null}
       {determinate && progress ? <Progress value={progress.done} total={progress.total} /> : <div className="progress conv-indeterminate"><span /></div>}
       <div className="conv-row">
-        <span className="muted conv-help">{t('conv.elapsed', { s: elapsed })}</span>
+        <span className="muted conv-help">{t(opening ? 'open.elapsed' : 'conv.elapsed', { s: elapsed })}</span>
         <span style={{ flex: 1 }} />
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
         <button type="button" className="btn btn-sm" onClick={onCancel}>{t('conv.cancelScan')}</button>
@@ -169,7 +183,7 @@ function RunPanel({ activity, onResult, onCancel }: { activity: Activity; onResu
 }
 
 /** The minimized window: a notification-like chip with the progress and Show */
-function ConverterChip({ activity, onShow, onClose }: { activity: Activity | null; onShow: () => void; onClose: () => void }) {
+function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activity: Activity | null; onShow: () => void; onClose: () => void; onCancel?: () => void; title: string }) {
   const { t } = useTranslation()
   const running = !!activity && !activity.finished
   const icon = running ? 'sync' : activity?.tone === 'error' ? 'error' : activity?.tone === 'warn' ? 'warning' : activity ? 'pass' : 'file-binary'
@@ -179,11 +193,12 @@ function ConverterChip({ activity, onShow, onClose }: { activity: Activity | nul
         <Icon spec={codicon(icon)} className={running ? 'codicon-modifier-spin' : undefined} />
       </span>
       <div className="conv-chip-text">
-        <strong>{t('conv.title')}</strong>
+        <strong>{title}</strong>
         <span className="muted">{activity?.label ?? t('conv.idle')}</span>
         {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <div className="progress conv-indeterminate"><span /></div> : null}
       </div>
       <button type="button" className="btn btn-sm" onClick={onShow}>{t('conv.show')}</button>
+      {running && onCancel ? <button type="button" className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button> : null}
       {running ? null : (
         <button type="button" className="icon-btn" aria-label={t('conv.close')} onClick={onClose}>
           <Icon spec={codicon('close')} />
@@ -201,6 +216,8 @@ export default function ConverterOverlay() {
   const qc = useQueryClient()
   const operationQuery = useSourceOperation(operationId)
   const operation = operationQuery.data
+  const isOpening = operation?.purpose === 'open'
+  const title = t(isOpening ? 'open.backgroundTitle' : 'conv.title')
   const operations = useSourceOperations().data ?? []
   const project = useProject(pid ?? '').data
   const manifest = useTasks().data?.tasks.find((x) => x.manifest.id === 'dicom.convert')?.manifest
@@ -224,6 +241,7 @@ export default function ConverterOverlay() {
   const ws = linked && 'dataset_dir' in linked ? linked : legacyWorkspace
   const prun = linked && 'runtime' in linked ? linked : legacyProject
   const resourceWait = ws?.resource_wait ?? prun?.resource_wait
+  const conversionTime = run || linked ? ws?.conversion_time ?? prun?.conversion_time : step === 'estimate' ? estimate?.conversion_time : null
   const intoProject = target === 'project' && !!pid
   const needsDerived = intoProject && !!project && !project.path_roots.some((r) => r.role === 'derived')
   const taskSettings = { target_profile: settings.target_profile, phase_analyzer: settings.phase_analyzer, anonymize: settings.anonymize }
@@ -253,6 +271,25 @@ export default function ConverterOverlay() {
     })
   }, [operation, patch])
 
+  const prepared = useMutation({
+    mutationFn: (id: string) => api.openSourceOperation(id),
+    onSuccess: (session) => {
+      qc.setQueryData(keys.open(session.sid), session)
+      close()
+      navigate(`/open/${encodeURIComponent(session.sid)}`, { replace: true })
+    },
+    onError: (error) => patch({ error }),
+  })
+  const { mutate: openPrepared } = prepared
+  const showOpen = useCallback(() => {
+    if (!operationId) return
+    patch({ autoOpen: false, error: null })
+    openPrepared(operationId)
+  }, [operationId, patch, openPrepared])
+  useEffect(() => {
+    if (c.autoOpen && !minimized && operation?.stage === 'opened' && operation.status === 'completed') void showOpen()
+  }, [c.autoOpen, minimized, operation, showOpen])
+
   const runStatus = operation?.status ?? (run?.kind === 'dataset' ? ws?.status : prun?.status)
   const memoryMessage = runStatus !== 'waiting_for_resources' ? null
     : resourceWait?.reason === 'unknown_geometry' ? t('conv.memoryUnknown')
@@ -264,7 +301,7 @@ export default function ConverterOverlay() {
     activity = { label: t('conv.connecting'), done: 0, total: 0, finished: false }
   } else if (operation && !linked && operation.stage !== 'ready') {
     const progress = operation.progress ?? {}
-    const stage = operation.progress_stage ?? (operation.stage === 'discovering' ? 'listing' : 'planning')
+    const stage = isOpening && operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? (operation.stage === 'discovering' ? 'listing' : 'planning')
     const finished = !isTaskRunPending(operation.status)
     activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : t(`conv.stage.${stage}`, { done: progress.done ?? progress.files ?? 0, total: progress.total ?? 0 }), done: progress.done ?? 0, total: progress.total ?? 0, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
   } else if (scan) {
@@ -298,7 +335,7 @@ export default function ConverterOverlay() {
     done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
     finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
   } : activity
-  const working = busy || phasePending || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
+  const working = busy || prepared.isPending || phasePending || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
   useEffect(() => {
     useConverter.setState({ working })
   }, [working])
@@ -349,7 +386,22 @@ export default function ConverterOverlay() {
   const control = (action: 'cancel' | 'resume' | 'retry_failed') => guard(async () => {
     if (!operation) return
     const body = operation.pending_control?.action === action ? operation.pending_control.request : { expected_revision: operation.revision, expected_attempt: operation.attempt, ...(operation.conversion_run ? { expected_run_attempt: operation.conversion_run.attempts } : {}) }
-    const value = await (action === 'cancel' ? api.cancelSourceOperation(operation.operation_id, body) : action === 'retry_failed' ? api.retryFailedSourceOperation(operation.operation_id, body) : api.resumeSourceOperation(operation.operation_id, body))
+    const cancelCurrent = async () => {
+      const current = operation.pending_control ? operation : await api.getSourceOperation(operation.operation_id)
+      saveOperation(current)
+      if (current.attempt !== operation.attempt || current.conversion_run?.run_id !== operation.conversion_run?.run_id || current.conversion_run?.attempts !== operation.conversion_run?.attempts) throw new Error(t('conv.attemptChanged'))
+      const fence = current.pending_control?.action === 'cancel' ? current.pending_control.request : { expected_revision: current.revision, expected_attempt: current.attempt, ...(current.conversion_run ? { expected_run_attempt: current.conversion_run.attempts } : {}) }
+      return api.cancelSourceOperation(current.operation_id, fence)
+    }
+    let value: SourceOperation
+    if (action === 'cancel') {
+      try {
+        value = await cancelCurrent()
+      } catch (error) {
+        if (!(error instanceof ProblemError) || error.status !== 409 || operation.pending_control) throw error
+        value = await cancelCurrent()
+      }
+    } else value = await (action === 'retry_failed' ? api.retryFailedSourceOperation(operation.operation_id, body) : api.resumeSourceOperation(operation.operation_id, body))
     saveOperation(value)
     if (action !== 'cancel') patch({ step: value.work_kind === 'convert' ? 'run' : 'settings' })
   })
@@ -403,11 +455,11 @@ export default function ConverterOverlay() {
 
   return (
     <>
-      {minimized ? <ConverterChip activity={chipActivity} onShow={c.restore} onClose={close} /> : null}
+      {minimized ? <ConverterChip title={title} activity={chipActivity} onShow={c.restore} onClose={close} onCancel={working && operation && ['queued', 'running', 'waiting_for_resources'].includes(operation.status) ? () => void cancelScan() : undefined} /> : null}
       <Dialog
         open={!minimized}
         onOpenChange={onOpenChange}
-        title={t('conv.title')}
+        title={title}
         icon={codicon('file-binary')}
         size="lg"
         dismissible={false}
@@ -428,13 +480,20 @@ export default function ConverterOverlay() {
             </label>
             <button type="button" className="btn btn-sm" disabled={busy} onClick={c.newOperation}>{t('conv.newOperation')}</button>
           </div>
-          <StepBar step={step} />
+          {!isOpening ? <StepBar step={step} /> : null}
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
             <dl>{(['folders', 'files', 'dicom', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
-            <p className="muted conv-help">{t('conv.etaUnknown')}</p>
+            <ConversionTime value={conversionTime} />
             {!operation.summary?.complete && !operation.conversion_run ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
           </div> : null}
-          {step === 'source' ? (
+          {isOpening ? <div className="conv-body">
+            <code className="conv-path">{source}</code>
+            {working ? <ScanPanel opening progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? 'listing', done: operation.progress_stage === 'opening' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
+              <p>{t('open.prepared')}</p>
+              <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>
+            </> : null}
+          </div> : null}
+          {!isOpening && step === 'source' ? (
             <div className="conv-body">
               <p className="muted">{t('conv.sourceHelp')}</p>
               <details open><summary>{t('conv.browseFolders')}</summary><FolderBrowser path={browse} onPath={(p) => patch({ browse: p, source: p, requestKey: null })} selected={source} onSelectFile={(p) => patch({ source: p, requestKey: null })} fileFilter={() => true} /></details>
@@ -444,7 +503,7 @@ export default function ConverterOverlay() {
               </div>
             </div>
           ) : null}
-          {step === 'settings' ? (
+          {!isOpening && step === 'settings' ? (
             <div className="conv-body">
               <div className="conv-row"><span className="muted">{t('conv.source')}</span><span className="mono conv-path">{source}</span><button type="button" className="btn btn-sm" disabled={working} onClick={() => patch({ step: 'source', operationId: null, requestKey: null })}>{t('conv.change')}</button></div>
               <fieldset className="conv-fields" disabled={working}>
@@ -548,7 +607,7 @@ export default function ConverterOverlay() {
             <div className="conv-row conv-actions">
             <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</button>
             {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <button type="button" className="btn" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</button> : null}
-            <button type="button" className="btn" disabled={busy} onClick={() => patch({ operationId: null, requestKey: null, step: 'settings', run: null })}>{t('conv.newDryRun')}</button>
+            {!isOpening ? <button type="button" className="btn" disabled={busy} onClick={() => patch({ operationId: null, requestKey: null, step: 'settings', run: null })}>{t('conv.newDryRun')}</button> : null}
             </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}

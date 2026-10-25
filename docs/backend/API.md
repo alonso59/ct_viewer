@@ -23,7 +23,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-04 | `POST /projects/{pid}/archive` · `POST /projects/{pid}/unarchive` | Archive / restore (no DELETE endpoint); archive → `409 job-conflict` while any job of the project is live | PRJ-06 |
 | API-05 | `GET /projects/{pid}/roots` · `PUT /projects/{pid}/roots/{alias}` | Aliases / relink (+ verify report); body `{path, role?}`, `role: derived` registers the derived root (PRJ-13; default = the alias's current role, else `source`) | PRJ-05/13 |
 | API-06 | `POST /projects/{pid}/bundle` · `POST /projects/import-bundle` | Export (`200 application/zip`, attachment) / import (multipart field `bundle` → `201` report, §Bundles) | PRJ-08/09 |
-| API-07 | `POST /open` · `GET /open/{sid}` · `DELETE /open/{sid}` | Open mode: `{path}` → `201 {sid, path, root, kind, items[], truncated, ignored}` (headers only; DICOM/NumPy converted into `.scratch/`); DELETE → `204`; an ended session (closed, server restarted) → `not-found` with `actions: ["choose_another_path", "home"]` | SRC-09 |
+| API-07 | `POST /open` · `GET /open/{sid}?item=` · `GET /open/{sid}/items?cursor=&limit=&kind=` · `DELETE /open/{sid}` | Open mode: `{path}` → `201 {sid, path, root, kind, items[], truncated, ignored, has_dicom}` (initial preview capped at 500 complete items; optional `item` returns that stable index and its latest attached label; the item page optionally filters `kind=image\|label` before pagination; `has_dicom` describes the full session, including omitted items; headers only, DICOM/NumPy converted into `.scratch/`); DELETE → `204`; an ended session (closed, server restarted) → `not-found` with `actions: ["choose_another_path", "home"]` | SRC-09 |
 | API-08 | `GET /open/{sid}/items/{n}/image?axis_order=` · `GET …/items/{n}/preview?axis_order=` · `POST /open/{sid}/items/{n}/attach` | Open-mode bytes (Range; NumPy needs a decided or given `axis_order`, else `ambiguous-axis-order`) / NumPy middle slice PNG / attach a segmentation `{path}` from anywhere under `ALLOWED_DATA_ROOTS` (ADR-0027) → the session with the new label item (`rel` absolute when outside the session root), or `geometry-mismatch`; every Open refusal carries `actions` (`choose_another_path`, `home`); also `GET …/items/{n}/dicom-tags` (DICOM JSON of the item's first header, VW-22) | SRC-10/12 |
 | API-09 | `POST /open/{sid}/items/{n}/save` | `{dest_dir?, sidecar, anonymize}` → `201 {path, sidecar_path}`; `dest_dir` inside `ALLOWED_DERIVED_ROOTS` (default `{first}/_open/{YYYY-MM-DD}/`), never overwrites; `derived-root-required` when `ALLOWED_DERIVED_ROOTS` is empty | SRC-14 |
 | API-10 | `POST /fs/list` | `{path?, role}` → server folder browser (a POST, so browsed folders stay out of URLs and access logs, NFR-17), limited to `ALLOWED_DATA_ROOTS` (`role=derived`: `ALLOWED_DERIVED_ROOTS`, `derived-root-required` when empty) | IMP-01, PRJ-13 |
@@ -85,7 +85,22 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-67 | `POST /projects/open` | `{dataset_root}` → saved ProjectDetail list; registers PRJ-19 projects from a folder. API-02 accepts optional `dataset_root`; omitting it preserves global-project behavior for existing clients. | PRJ-19 |
 | API-66 | `GET·POST /projects/{pid}/items/{iid}/recycle` | Preview → RecyclePlan (counts, destination, affected projects, token); POST `{confirmed: true, token}` with `X-Reviewer` → RecycleResult. `412` if preview changed, `409` for active jobs. | CUR-16 |
 | API-68 | `GET /projects/{pid}/items` | Active indexed items, sorted by case/scan/item, filtered before cursor paging. `q` searches case/patient/item IDs and image reference (case-insensitive); `scope`, `phase`, `modality`, `has_mask` filter metadata. Returns `{items, next_cursor, total}` without source/header reads. Also available through API-60 redaction. | TSK-03 |
-| API-69 | `POST·GET /source-operations` · `GET /source-operations/{id}` · `GET …/series` · `GET …/plan` · `POST …/estimate` · `POST …/convert` · `POST …/cancel` · `POST …/resume` · `POST …/retry-failed` | Durable source operation start (202 after write), list/detail, generation-paged reads and revision/attempt-fenced controls; path/context in body, opaque public IDs. Legacy API-07/19/44/62 response contracts retained. | TSK-16, DCM-15..19 |
+| API-69 | `POST·GET /source-operations` · `GET /source-operations/{id}` · `GET …/series` · `GET …/detection` · `GET …/plan` · `POST …/estimate` · `POST …/convert` · `POST …/cancel` · `POST …/resume` · `POST …/retry-failed` · `POST …/open` | Durable source operation start (202 after write), list/detail, generation-paged reads and revision/attempt-fenced controls; path/context in body, opaque public IDs. Legacy API-07/19/44/62 response contracts retained. | TSK-16, DCM-15..19 |
+
+API-69 `purpose=discover` uses the same recoverable inventory lifecycle. Once discovery
+is complete and cleanup verified, `GET …/detection` returns the API-19 `DetectResult`
+from the retained inventory without walking source directories or probing image headers.
+It uses the same adapter policy, ignored-name rules and up-to-50 evenly spread NIfTI
+samples as API-19. Active, cancelled, partial, missing or incompatible inventories return
+409 with next actions. These are hints from the prepared generation; import Preview still
+validates the selected source/options. Results create no import, project or conversion run.
+
+API-69 `purpose=open` prepares whole image/series header units under the existing owned-worker
+lifecycle. `POST …/open` returns 201 with the API-07 preview after verified completion and
+cleanup; the session URL and byte routes restore that durable result after API restart.
+Attached masks persist as managed session state. Close ends that preview; another explicit
+`POST …/open` reopens the retained result. Incompatible reader/code or altered result bytes
+return 409. Open rejects `prepare_plan=true` and Estimate: conversion starts a separate operation.
 
 API-69 implementation: `prepare_plan` persists discovery → Estimate intent before returning 202.
 `ready` means a complete plan is available; conversion requires the separate generation-fenced command.
@@ -110,6 +125,14 @@ Failed background plans persist `problem` details/actions; non-DICOM refusals re
 API-69 Estimate accepts an optional `name`: omitted/null preserves it; an empty string restores the neutral default.
 Settings-only Estimate retains the operation/inventory but replaces the plan attempt; previous conversion fences return 409.
 API-45 DICOM `progress` retains DCM-16 counters and separate `stage`, `stage_done`, `stage_total`; ETA stays null without compatible history.
+API-44/62 estimates and API-45/62 DICOM run details expose additive `conversion_time`:
+`basis: unknown|history|complete`, `confidence: unknown|low`, `sample_count`,
+`remaining_units`, and nullable finite nonnegative `estimated_s`/`lower_s`/`upper_s`.
+Unknown has no time values; history requires at least five compatible observations and an
+ordered range; complete has zero remaining work/time. This covers conversion only (DCM-19),
+not discovery, registration or phase analysis. Generic job `eta_s` is not substituted.
+The enclosing estimate retains its existing `basis: sample|manifest|unknown` enum:
+compatible historical measurements use `sample`, with their precise basis in `conversion_time`.
 API-45/62 resource waits expose typed `resource_wait` (`reason`, optional `required_mb`/`budget_mb`, `remedy`); resume clears the prior wait.
 API-69 projects pending project registration as `status: reconciling`, `stage: registering`,
 even when native conversion is complete. API-45 `execution.registration_pending` and
@@ -124,6 +147,15 @@ API-45 run, reports `cancelling` while metadata workers drain, then `cancelled` 
 point returns 409; afterward it retries registration in the same native attempt. Controls share
 the generated-import dispatch gate and replay lost acknowledgments. Committed artifacts and
 already registered rows are retained; cancellation does not roll them back.
+API-69 reconfirms metadata durability before acknowledging repeated controls. Creation reserves
+its request receipt before installing the operation; a pending creation can be reconstructed
+before dispatch, while a committed receipt with a missing operation is refused. Replaying a
+queued discovery/Estimate or conversion handoff whose submission never occurred reuses its operation
+and attempt; retained execution evidence blocks redispatch until cleanup is reconciled. Legacy creation receipts
+without a completion field remain readable when their operation exists.
+When a source job stops before publishing its final state, subsequent reads reconcile the operation
+against finished-job and native cleanup evidence. Verified failure/interruption is resumable;
+unconfirmed cleanup remains `cleanup_pending`, and a still-finalizing job is not treated as stopped.
 
 Radiomics is the task `radiomics.pyradiomics` (RAD-13): validate, estimate, runs, control and errors are API-43..47, whose answers carry the radiomics record as `radiomics` (API-43 `ValidateResult`, API-44 `EstimateResult`, API-45 list `RunSummary` / detail and API-46 cancel `RunDetail`, API-47 `RunError` per row). Only the engine schema (API-30), profiles (API-32), feature exports (API-36) and dashboard views (API-38) are radiomics routes.
 
