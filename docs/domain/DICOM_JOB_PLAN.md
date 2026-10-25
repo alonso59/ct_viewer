@@ -412,3 +412,16 @@ Final real-viewer opening/reload/Close passes in both browsers in 52.1 seconds
 (`dicom-source-open-final-viewer-browser.log`), with fixture hashes unchanged. The current
 No-project label describes viewing mode without promising that recoverable headers disappear.
 Static lint/types/API/requirements/dead-code checks pass; final CI and image/release gates remain.
+
+### Reproducible product-image lifecycle checkpoint
+
+`tools.dicom_image_smoke` now packages the disposable queued-crash/conversion/Open
+acceptance flow for the product image. CI runs it after generic container smoke and
+before exporting the image, with synthetic failure diagnostics retained separately.
+It verifies two converted volumes against an independent physical-coordinate oracle,
+source/output hashes, queued cancel/resume, cleanup and Open restoration after restart.
+The same command is available for udocker without host code binds. Local subprocess
+tests and workflow wiring tests are separate from actual image acceptance; a new
+Docker/udocker run is required for this tree. Active-pixel crashes, cross-container
+ownership and the remaining plan matrix are still open. No production rollout is
+certified by adding this gate.
