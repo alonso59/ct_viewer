@@ -1,4 +1,4 @@
-"""Relink verification on a sample of items via quick fingerprint (PRJ-05, API-05)."""
+"""Relink verification on a sample of items via quick fingerprint."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def _alias_of(ref: str) -> str | None:
 
 def _candidate(item: Item, alias: str) -> VolumeRef | None:
     for vol in item.volumes():
-        if vol is not None and vol.fp and _alias_of(vol.ref) == alias:
+        if vol.fp and _alias_of(vol.ref) == alias:
             return vol
     return None
 
@@ -58,13 +58,11 @@ def check_ref(resolver: PathResolver, vol: VolumeRef) -> VerifyStatus:
         return "missing"
 
 
-def verify_root(
-    resolver: PathResolver, items: Sequence[Item], alias: str, sample: int = SAMPLE_MAX
-) -> VerifyReport:
-    """Resolve up to `sample` fingerprinted refs under `alias` and compare fingerprints."""
+def verify_root(resolver: PathResolver, items: Sequence[Item], alias: str) -> VerifyReport:
+    """Resolve up to SAMPLE_MAX fingerprinted refs under `alias` and compare fingerprints."""
     pairs = [(it.item_id, vol) for it in items if (vol := _candidate(it, alias)) is not None]
     report = VerifyReport()
-    for item_id, vol in evenly_spaced(pairs, sample):
+    for item_id, vol in evenly_spaced(pairs, SAMPLE_MAX):
         status = check_ref(resolver, vol)
         report.samples.append(VerifySample(item_id=item_id, ref=vol.ref, status=status))
         setattr(report, status, getattr(report, status) + 1)

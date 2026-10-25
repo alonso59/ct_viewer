@@ -1,7 +1,7 @@
-"""DCM-15/16: bounded durable header inventory; complete folders become browsable series.
+"""Bounded durable header inventory; complete folders become browsable series.
 
 SQLite is a managed workspace artifact. It is never created in the input root. Header facts
-are committed in batches and reused after interruption; pixel conversion has separate commits.
+are committed in batches and reused after interruption.
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ class SourceInventory:
             if previous is not None and previous[0] == signature and not previous[1]:
                 return str(previous[2])
             ext = path.suffix.lower()
-            if ext in (".nii", ".gz") and (ext == ".nii" or path.name.lower().endswith(".nii.gz")):
+            if ext == ".nii" or path.name.lower().endswith(".nii.gz"):
                 kind = "nifti"
             elif ext == ".npy":
                 kind = "npy"
@@ -380,7 +380,7 @@ class SourceInventory:
         return {"items": items, "next_cursor": nxt, "total": total, "generation": self.generation}
 
     def series(self, key: str) -> dicom_scan.Series:
-        """Materialize one complete series, not every file/header in the inventory."""
+        """Materialize one series whose folder discovery completed."""
         from plugins.dicom import scan as dicom_scan
 
         members = self.db.execute(
@@ -404,7 +404,7 @@ class SourceInventory:
         )
 
     def discover(self, subtree: Path) -> list[dicom_scan.Series]:
-        """Task-side cache adapter: query one patient subtree without rescanning its files."""
+        """Cached stand-in for a patient-subtree scan."""
         if self._get("complete") != "1":
             raise JobConflict("Finish source discovery before planning its series")
         rel = subtree.relative_to(self.root).as_posix()

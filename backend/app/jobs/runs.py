@@ -1,10 +1,8 @@
-"""Shared run lifecycle (AUD-A6-06): `run.json` I/O, status transitions, reconcile, cancel,
-resume guard and job submission for task runs (`tasks/runs/`, TSK-06..10) and radiomics runs
-(`radiomics/runs/`, RAD-06..09, RAD-13).
+"""Shared run lifecycle: `run.json` I/O, status transitions, reconcile, cancel, resume guard and
+job submission for task runs (`tasks/runs/`) and radiomics runs (`radiomics/runs/`).
 
-Only the API process writes `run.json`, atomically through `core.fsio` and under the project lock
-(BE-05). A non-terminal run whose job the manager no longer knows (server restart) is reported
-`interrupted` (BE-06). What a run *does* (its job, its outputs) stays with its service.
+Only the API process writes `run.json`, atomically and under the project lock. What a run *does*
+(its job, its outputs) stays with its service.
 """
 
 from __future__ import annotations
@@ -21,7 +19,7 @@ from app.core.fsio import atomic_write_json, read_json
 from app.core.ids import is_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.jobs.manager import JobManager
-from app.jobs.types import TERMINAL, JobInfo, JobSpec
+from app.jobs.types import JobInfo, JobSpec
 
 RUN_JSON: Final = "run.json"
 
@@ -54,15 +52,12 @@ class RunStore[R: BaseModel]:
         self.locks = locks
         self.terminal = terminal
         self.resumable_states = resumable
-        self.noun = noun  # "Run" / "Task run" in the 404 title
-
-    # -- records ----------------------------------------------------------------------------
+        self.noun = noun
 
     def read(self, run_dir: Path) -> R:
         return self.model.model_validate(read_json(run_dir / RUN_JSON))
 
     def write(self, run_dir: Path, rec: R) -> None:
-        """Temp file + fsync + rename (RAD-09, NFR-15)."""
         atomic_write_json(run_dir / RUN_JSON, rec.model_dump(mode="json"))
 
     def has(self, pid: str, rid: str) -> bool:
@@ -90,8 +85,6 @@ class RunStore[R: BaseModel]:
                 self.write(run_dir, rec)
             return rec
 
-    # -- status ------------------------------------------------------------------------------
-
     def job(self, job_id: str | None) -> JobInfo | None:
         if job_id is None:
             return None
@@ -115,7 +108,7 @@ class RunStore[R: BaseModel]:
         await self.update(pid, run_dir, edit)
 
     async def reconcile(self, pid: str, run_dir: Path) -> R:
-        """A non-terminal run whose job is unknown (server restart) → `interrupted` (BE-06)."""
+        """A non-terminal run whose job is unknown (server restart) → `interrupted`."""
         rec = self.read(run_dir)
         run: _Run = rec  # type: ignore[assignment]
         if run.status in self.terminal or self.job(run.job_id) is not None:
@@ -130,17 +123,14 @@ class RunStore[R: BaseModel]:
 
         return await self.update(pid, run_dir, edit)
 
-    # -- control -----------------------------------------------------------------------------
-
     async def cancel(self, pid: str, run_dir: Path, grace_s: float) -> None:
         """Cancel the run's live job and wait up to `grace_s`; idempotent for finished runs."""
         rec: _Run = await self.reconcile(pid, run_dir)  # type: ignore[assignment]
-        job = self.job(rec.job_id)
-        if rec.status not in self.terminal and job is not None and rec.job_id is not None:
-            if job.status not in TERMINAL:
-                self.jobs.cancel(rec.job_id)
-            with contextlib.suppress(TimeoutError):
-                await self.jobs.wait(rec.job_id, grace_s)
+        if rec.status in self.terminal or self.job(rec.job_id) is None:
+            return
+        self.jobs.cancel(rec.job_id)
+        with contextlib.suppress(TimeoutError):
+            await self.jobs.wait(rec.job_id, grace_s)
 
     async def resumable(self, pid: str, run_dir: Path) -> R:
         """The reconciled record, or 409 unless it is interrupted, cancelled or failed."""

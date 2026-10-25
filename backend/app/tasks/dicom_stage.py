@@ -1,6 +1,6 @@
-"""The converter's scan/convert stages for Open mode and Save as NIfTI (SRC-13/14, DCM-10).
+"""The converter's scan/convert stages for Open mode and Save as NIfTI.
 
-Worker units (BE-12). Builtin plugins are reached only through `app/tasks/` (BE ARCHITECTURE).
+Worker units. Builtin plugins are reached only through `app/tasks/`.
 """
 
 from __future__ import annotations
@@ -14,14 +14,13 @@ from typing import Any
 
 
 def is_dicom_image(path: Path, root: Path | None = None) -> bool:
-    """SRC-18: mixed-format services reach the shared plugin recognition at this boundary."""
     from plugins.dicom.scan import is_dicom_image as recognize
 
     return recognize(path, root)
 
 
 def source_folders(root: Path) -> Iterator[tuple[Path, list[Path]]]:
-    """Read-only streamed traversal; plugin primitives never depend on app services."""
+    """Read-only streamed traversal."""
     from plugins.dicom.files import folders
 
     return folders(root)
@@ -34,7 +33,7 @@ def local_source_file(root: Path, path: Path) -> bool:
 
 
 def series_fingerprint(root: str, rels: list[str]) -> str:
-    """SRC-13: cache identity covers every guarded member and the native reader."""
+    """Cache identity covers every guarded member and the native reader."""
     from plugins.dicom import commits, convert, pipeline, scan
 
     if not rels:
@@ -55,7 +54,7 @@ def series_fingerprint(root: str, rels: list[str]) -> str:
 
 
 def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
-    """DICOM files → one record per series (headers only, R1): files, modality, geometry."""
+    """DICOM files → one record per series (headers only): files, modality, geometry."""
     from plugins.dicom import scan
     from plugins.text import split_multi_value, value_to_text
 
@@ -84,7 +83,7 @@ def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
             "window": _window(ds),
         }
         if sop == scan.DICOM_SEG_SOP_CLASS_UID:
-            rec["error"] = "DICOM SEG is not supported yet (DCM-11)"
+            rec["error"] = "DICOM SEG is not supported yet"
         frames = int(value_to_text(getattr(ds, "NumberOfFrames", "")) or 0)
         n = frames if len(members) == 1 and frames > 1 else len(members)
         sp = split_multi_value(getattr(ds, "PixelSpacing", ""))
@@ -105,7 +104,7 @@ def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
 
 
 def _window(ds: Any) -> list[float] | None:
-    """VW-22: `[width, center]` from the header (first value of each), or None."""
+    """`[width, center]` from the header (first value of each), or None."""
     from plugins.text import split_multi_value
 
     try:
@@ -118,7 +117,7 @@ def _window(ds: Any) -> list[float] | None:
 
 
 def dicom_tags(root: str, rel: str) -> dict[str, Any]:
-    """Worker: the DICOM JSON model of one file's header (no PixelData, DCM-04) for header info."""
+    """Worker: the DICOM JSON model of one file's header (no PixelData)."""
     from plugins.dicom import scan, sidecar
 
     return sidecar.to_json_model(scan.read_header(Path(root) / rel, Path(root)))
@@ -132,7 +131,7 @@ def convert_series(
     *,
     expected_fingerprint: str | None = None,
 ) -> str | None:
-    """Worker: one series (or one file) → NIfTI at `dst` (DCM-02/10). None, else the error."""
+    """Worker: one series (or one file) → NIfTI at `dst`. None, else the error."""
     from plugins.dicom import convert, resources, scan
 
     try:
@@ -160,10 +159,7 @@ def convert_series(
             {"dim_x": first.Columns, "dim_y": first.Rows, "num_slices": frames}, first, memory_mb
         )
         series = scan.Series(paths[0].parent, "open", ordered, source_root=Path(root))
-        if expected_fingerprint is None:
-            convert.write_nifti(series, Path(dst))
-        else:
-            convert.write_nifti(series, Path(dst), before_publish=verify_inputs)
+        convert.write_nifti(series, Path(dst), before_publish=verify_inputs)
     except Exception as exc:
         if Path(dst).is_file():
             return None  # another writer finished the same volume first
@@ -172,7 +168,7 @@ def convert_series(
 
 
 def write_sidecar(src: str, dst: str, anonymize: bool, case_id: str) -> str | None:
-    """Worker: the DICOM JSON sidecar of one file (DCM-04), optionally anonymized (DCM-05)."""
+    """Worker: the DICOM JSON sidecar of one file, optionally anonymized."""
     from plugins.dicom import scan, sidecar
 
     try:
@@ -186,13 +182,13 @@ def write_sidecar(src: str, dst: str, anonymize: bool, case_id: str) -> str | No
 
 
 def link_new(tmp: Path, dest_dir: Path, stem: str, suffix: str) -> Path:
-    """Publish `tmp` under a new name (`-1`, `-2` … appended; SRC-14): never overwrites."""
+    """Publish `tmp` under a new name (`-1`, `-2` … appended)."""
     n = 0
     while True:
         name = f"{stem}{suffix}" if n == 0 else f"{stem}-{n}{suffix}"
         target = dest_dir / name
         try:
-            os.link(tmp, target)  # atomic, fails if the name exists
+            os.link(tmp, target)  # atomic no-clobber
         except FileExistsError:
             n += 1
             continue

@@ -1,6 +1,6 @@
-"""File I/O for project state (PROJECT_FORMAT.md §Write rules).
+"""File I/O for project state.
 
-Only project/workspace files are written here; source data is never passed in (R1).
+Only project/workspace files are written here; source data is never passed in.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 
 
 def workspace_database(path: Path) -> sqlite3.Connection:
-    """Embedded inventory file, not a database service; caller supplies a managed state path."""
+    """The caller supplies a managed state path."""
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
@@ -27,7 +27,7 @@ def workspace_database(path: Path) -> sqlite3.Connection:
 
 
 def _dumps(obj: Any, *, indent: int | None) -> str:
-    return json.dumps(obj, indent=indent, ensure_ascii=False, sort_keys=False)
+    return json.dumps(obj, indent=indent, ensure_ascii=False)
 
 
 def atomic_write_bytes(path: Path, data: bytes, *, backup: bool = False) -> None:
@@ -81,7 +81,6 @@ def append_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
 
 
 def write_jsonl_atomic(path: Path, rows: Iterable[dict[str, Any]]) -> None:
-    """Rewrite a derived jsonl file (index/*) atomically."""
     data = "".join(_dumps(r, indent=None) + "\n" for r in rows)
     atomic_write_bytes(path, data.encode("utf-8"))
 

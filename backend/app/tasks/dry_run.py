@@ -1,8 +1,7 @@
-"""Source-task dry runs (DCM-06, TSK-05) shared by project and workspace estimates (TSK-13).
+"""Source-task dry runs shared by project and workspace estimates.
 
 A converter source with no DICOM, or a dry run that finds no series, is refused with the cause
-and next steps instead of "completing" an empty dataset (SRC-11, UI-18, AUD-A2-07).
-A client may name its dry run (`progress_id`) to poll where it is and to cancel it (DCM-06).
+and next steps. A client may name its dry run (`progress_id`) to poll where it is and to cancel it.
 """
 
 from __future__ import annotations
@@ -56,7 +55,7 @@ def no_dicom_problem(path: Path, n_nifti: int) -> UnsupportedFormat:
 
 
 async def require_dicom(task_id: str, source: Path) -> None:
-    """The converter needs DICOM files under its source (DCM-01); other tasks pass."""
+    """The converter needs DICOM files under its source; other tasks pass."""
     if task_id != DICOM_CONVERT:
         return
     problem = await asyncio.to_thread(_no_dicom, source)
@@ -65,7 +64,7 @@ async def require_dicom(task_id: str, source: Path) -> None:
 
 
 def estimate_of(result: dict[str, Any], scan_s: float, source: Path) -> TaskEstimate:
-    """The task's `result.json` of a dry run → TSK-05 estimate with one row per series."""
+    """The task's `result.json` of a dry run → estimate with one row per series."""
     raw = result.get("estimate")
     est: dict[str, Any] = raw if isinstance(raw, dict) else {}
     plan = est.pop("series_plan", None)
@@ -74,7 +73,7 @@ def estimate_of(result: dict[str, Any], scan_s: float, source: Path) -> TaskEsti
     if n_series == 0 and not result.get("error"):
         raise UnsupportedFormat(
             f"No convertible DICOM series in {source.name or source}: the headers could not "
-            "be read, or it holds only DICOM SEG (DCM-11)",
+            "be read, or it holds only DICOM SEG",
             actions=["choose_another_path"],
         )
     selected = int(est.get("selected", 0))
@@ -91,8 +90,6 @@ def estimate_of(result: dict[str, Any], scan_s: float, source: Path) -> TaskEsti
         series_truncated=len(rows) > MAX_PLAN_ROWS,
     )
 
-
-# -- named dry runs: progress and cancel (DCM-06) --------------------------------------------
 
 PROGRESS_ID = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 TAIL_BYTES: Final = 16_384

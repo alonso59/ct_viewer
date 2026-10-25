@@ -1,13 +1,9 @@
-"""Adapter `nifti-files` (SRC-04/05, SOURCES.md §NIfTI files): a folder or one file of NIfTI
-volumes → contract v1 rows. File names only (headers are read later by the index job).
+"""Adapter `nifti-files`: a folder or one file of NIfTI volumes → contract v1 rows. File names
+only (headers are read later by the index job).
 
 A pattern with `/` matches the relative path without extension (one folder per case); otherwise
 the file stem. A `mask_template` names each image's mask from its groups; a template that names a
-folder of NIfTI files is a mask set (one binary file per structure, composed on read).
-
-nnU-Net dataset naming (`{case}_{channel:04d}` stems, `imagesTr/`/`labelsTr/`) is not a core
-convention: it belongs to the pending nnU-Net plugin (TSK-08). The default is one case per stem;
-a user pattern may still name a `channel` group."""
+folder of NIfTI files is a mask set (one binary file per structure, composed on read)."""
 
 from __future__ import annotations
 
@@ -22,8 +18,7 @@ from app.ingest.schemas import ParsedFile
 from app.sources import formats
 from app.sources.identity import IdentityRegistry, slug
 
-ADAPTER = "nifti-files"
-VERSION = "2"  # 2: path patterns, mask templates and sets, collisions refused
+VERSION = "2"
 DEFAULT_PATTERN = r"^(?P<case_id>.+)$"  # one case per file stem
 # one case per image folder (its parent, at any depth); scans numbered within it
 FOLDER_PATTERN = r"^(?:.*/)?(?P<case_id>[^/]+)/[^/]+$"
@@ -33,9 +28,9 @@ GROUPS = ("case_id", "scan_idx", "channel", "modality", "phase", "side")
 SAMPLE = 50
 PLACEHOLDERS = {"stem", "dir"}  # besides the pattern's groups
 _FIELD = re.compile(r"{(\w*)}")
-# `seg/{name minus _0000}`: the metadata-v1 / converter layout (INPUT_METADATA `seg_path`)
+# `seg/{name minus _0000}`: the metadata-v1 / converter layout
 _SEG_SUFFIX = re.compile(r"_0000$")
-MODALITY_CODES = {"MRI": "MR"}  # DICOM codes (DCM-12)
+MODALITY_CODES = {"MRI": "MR"}  # DICOM codes
 
 
 class NiftiOptions(BaseModel):
@@ -43,9 +38,9 @@ class NiftiOptions(BaseModel):
     case_id_from: Literal["pattern", "stem", "sequential"] = "pattern"
     mask_conventions: list[str] = Field(default_factory=lambda: list(CONVENTIONS))
     modality: str = Field("CT", min_length=1, max_length=16)
-    include: list[str] | None = None  # explicit relative file list (SRC-05)
+    include: list[str] | None = None  # explicit relative file list
     # image rel → mask rel: the segmentation attached in Open mode, carried into the import
-    # ("Create project from this" / "Add to project…", ADR-0027); these files are not items
+    # ("Create project from this" / "Add to project…"); these files are not items
     masks: dict[str, str] | None = None
     # relative to the root, e.g. `LabelTr/{case_id}/segmentations`: a file, or a folder = a mask set
     mask_template: str | None = Field(None, min_length=1, max_length=512)
@@ -106,7 +101,7 @@ def _is_mask(rel: str, conventions: list[str]) -> bool:
 
 
 def _mask_for(rel: str, masks: dict[str, str], conventions: list[str]) -> str | None:
-    """First convention that names an existing mask file (SRC-04); `masks`: lower rel → rel."""
+    """First convention that names an existing mask file; `masks`: lower rel → rel."""
     d, name = posixpath.split(rel)
     st = formats.stem(name)
     base = _SEG_SUFFIX.sub("", st)
@@ -153,7 +148,7 @@ def _template_target(template: str, rel: str, groups: dict[str, str]) -> str | N
 
 
 def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPlan:
-    """Rows for every image file; masks found by template or convention are not items (SRC-04)."""
+    """Rows for every image file; masks found by template or convention are not items."""
     reg = registry.model_copy(deep=True)
     reg.strategy = "filename_pattern"
     s = formats.scan(root, opts.include)
@@ -218,8 +213,7 @@ def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPla
             case_id = slug(g["case_id"])
         else:
             case_id = slug(subject)
-        scan_idx = g.get("scan_idx") or reg.scan_idx(key, subject)
-        scan_idx = slug(scan_idx)
+        scan_idx = slug(g.get("scan_idx") or reg.scan_idx(key, subject))
         first = by_first.get((case_id, scan_idx))
         if first is not None:
             if channel in (None, "0000"):

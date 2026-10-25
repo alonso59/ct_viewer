@@ -1,8 +1,7 @@
-"""Open-mode service (SRC-09/10/13/14, API-07..09): open, volume bytes, attach, Save as NIfTI.
+"""Open-mode service: open, volume bytes, attach, Save as NIfTI.
 
-The router (`api/v1/sources.py`) only validates, calls and maps (BE-02, AUD-A6-05). Every
-refusal carries its cause and next actions (SRC-11, UI-18). Nothing here writes to a source
-root (R1): DICOM/NumPy go to the disposable `.scratch/open/`, saves to ALLOWED_DERIVED_ROOTS.
+Every refusal carries its cause and next actions. Nothing here writes to a source root:
+DICOM/NumPy go to the disposable `.scratch/open/`, saves to ALLOWED_DERIVED_ROOTS.
 """
 
 from __future__ import annotations
@@ -30,13 +29,13 @@ from app.core.errors import (
 )
 from app.core.paths import PathGuard, is_within
 from app.imaging import npy_convert
+from app.imaging.fingerprint import quick_fingerprint
 from app.jobs.manager import JobManager
 from app.sources import formats
 from app.sources import open as om
 from app.tasks import dicom_stage
 
 AxisOrder = Literal["xyz", "zyx"]
-# What a refused path offers (UI-18): pick another one, or go home
 RETRY = ["choose_another_path", "home"]
 NOT_SHARED = (
     "The server does not share this folder with the app. Choose a file or folder inside one "
@@ -45,11 +44,9 @@ NOT_SHARED = (
 
 
 class SaveBody(BaseModel):
-    """API-09 (SRC-14)."""
-
     dest_dir: str | None = None  # default: {first ALLOWED_DERIVED_ROOTS}/_open/{YYYY-MM-DD}/
-    sidecar: bool = True  # DICOM only (DCM-04)
-    anonymize: Literal["none", "basic"] = "none"  # sidecar (DCM-05, NFR-17)
+    sidecar: bool = True  # DICOM only
+    anonymize: Literal["none", "basic"] = "none"
     axis_order: AxisOrder | None = None  # NumPy without a decided order
 
 
@@ -98,7 +95,7 @@ async def convert_once(
 
 
 def gz_copy(src: Path, dst: Path) -> None:
-    """`.nii.gz` bytes as-is; a plain `.nii` is gzipped (never modifies the source, R1)."""
+    """`.nii.gz` bytes as-is; a plain `.nii` is gzipped (never modifies the source)."""
     with src.open("rb") as fh:
         head = fh.read(2)
         fh.seek(0)
@@ -121,7 +118,7 @@ class OpenService:
         sessions: om.OpenSessions,
         workspace_root: Path,
         settings: Settings,
-        on_cache_write: Callable[[], None] = lambda: None,
+        on_cache_write: Callable[[], None],
     ) -> None:
         self.guard = guard
         self.derived_guard = derived_guard
@@ -130,9 +127,7 @@ class OpenService:
         self.sessions = sessions
         self.workspace_root = workspace_root
         self.settings = settings
-        self.on_cache_write = on_cache_write  # CACHE_MAX_GB sweep (AUD-A4-16)
-
-    # -- paths --------------------------------------------------------------------------------
+        self.on_cache_write = on_cache_write  # CACHE_MAX_GB sweep
 
     def guarded(self, raw: str) -> Path:
         """An absolute, readable path under ALLOWED_DATA_ROOTS, else a problem with actions."""
@@ -153,8 +148,6 @@ class OpenService:
             )
         return real
 
-    # -- API-07 -------------------------------------------------------------------------------
-
     async def open(self, raw: str) -> om.OpenSession:
         real = self.guarded(raw)
         if real.is_file():
@@ -173,8 +166,6 @@ class OpenService:
         self.sessions.put(session)
         return om.preview(session)
 
-    # -- API-08 -------------------------------------------------------------------------------
-
     async def volume(self, sid: str, n: int, axis_order: str | None) -> tuple[Path, str]:
         """The item as NIfTI (NumPy/DICOM converted into `.scratch/`) and its ETag."""
         s = self.sessions.get(sid)
@@ -186,9 +177,9 @@ class OpenService:
         if it.error:
             raise UnsupportedFormat(it.error, actions=RETRY)
         if it.format == "nifti":
-            fp = await asyncio.to_thread(om.fingerprint, src)
+            fp = await asyncio.to_thread(quick_fingerprint, src)
             return src, fp
-        if it.format == "dicom":  # SRC-13: the convert stage into `.scratch/` only
+        if it.format == "dicom":
             try:
                 fp = await self.jobs.run_in_worker(
                     dicom_stage.series_fingerprint, s.root, it.files or [it.rel]
@@ -215,7 +206,7 @@ class OpenService:
             else:
                 touch(dst)
             return dst, f"{fp}.dicom"
-        fp = await asyncio.to_thread(om.fingerprint, src)
+        fp = await asyncio.to_thread(quick_fingerprint, src)
         order = om.need_axis_order(it, axis_order)
         geo = it.geometry
         spacing = geo.spacing if geo else [1.0, 1.0, 1.0]
@@ -247,8 +238,8 @@ class OpenService:
         return png
 
     async def attach(self, sid: str, n: int, raw: str) -> om.OpenSession:
-        """SRC-10 (ADR-0027): a NIfTI segmentation from anywhere under ALLOWED_DATA_ROOTS; the
-        geometry check (same shape, affines within IMP-08) is the guard, never resampled."""
+        """A NIfTI segmentation from anywhere under ALLOWED_DATA_ROOTS; the geometry check (same
+        shape, affines within tolerance) is the guard, never resampled."""
         s = self.sessions.get(sid)
         image = om.item(s, n)
         real = self.guarded(raw)
@@ -267,13 +258,11 @@ class OpenService:
         om.check_attach(image, geo)
         return om.add_label(s, n, real, geo)
 
-    # -- API-09 -------------------------------------------------------------------------------
-
     def _dest(self, raw: str | None) -> Path:
         guard = self.derived_guard
         if not guard.allowed_roots:
             raise DerivedRootRequired(
-                "ALLOWED_DERIVED_ROOTS is empty: there is no folder to save into (OPS-11)",
+                "ALLOWED_DERIVED_ROOTS is empty: there is no folder to save into",
                 actions=["configure:ALLOWED_DERIVED_ROOTS"],
             )
         if raw:
@@ -283,21 +272,21 @@ class OpenService:
         else:
             dest = guard.allowed_roots[0] / "_open" / date.today().isoformat()
         try:
-            real = guard.check(dest)  # inside ALLOWED_DERIVED_ROOTS, never next to a source (R1)
+            real = guard.check(dest)  # inside ALLOWED_DERIVED_ROOTS, never next to a source
         except PathOutsideRoot:
             raise PathOutsideRoot(
                 "Save into a folder under the derived folders (ALLOWED_DERIVED_ROOTS)",
                 actions=["choose_another_path"],
             ) from None
         if any(is_within(real, r) for r in self.reserved_derived()):
-            raise PathOutsideRoot(  # NFR-11: datasets and project task folders have one writer
+            raise PathOutsideRoot(  # datasets and project task folders have one writer
                 "Choose a folder outside workspace datasets (_datasets/) and project task folders",
                 actions=["choose_another_path"],
             )
         return real
 
     async def save(self, sid: str, n: int, body: SaveBody) -> Saved:
-        """SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
+        """Write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
         dest = self._dest(body.dest_dir)
         s = self.sessions.get(sid)
         it = om.item(s, n)

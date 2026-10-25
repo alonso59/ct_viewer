@@ -1,1 +1,1 @@
-"""Tasks & plugins: manifests, selection, preflight, run protocol, runtimes (TASKS.md)."""
+"""Tasks and plugins: manifests, selection, preflight, run protocol, runtimes."""

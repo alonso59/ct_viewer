@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,32 +17,8 @@ from app.imaging import npy_convert, thumbnails
 from app.imaging.fingerprint import quick_fingerprint
 from app.imaging.header import VolumeFormat
 from app.ingest.models import Geometry, Item, PhaseInfo, VolumeRef
-from app.jobs.manager import JobManager
 from app.projects.models import PathRoot
-from app.projects.service import Workspace
 from tests.test_imaging import CT, NPY_IMG, NPY_MSK, SEG, forbid_source_writes
-
-
-def _skeleton() -> bool:
-    fns: list[Any] = [
-        Workspace.open,
-        Workspace.get,
-        Workspace.create,
-        Workspace.set_root,
-        Workspace.resolver,
-        Workspace.project_dir,
-        JobManager.start,
-        JobManager.submit,
-        JobManager.wait,
-        JobManager.active,
-        JobManager.run_in_worker,
-    ]
-    return any("raise NotImplementedError" in inspect.getsource(f) for f in fns)
-
-
-pytestmark = pytest.mark.skipif(
-    _skeleton(), reason="Workspace (sub-agent A) / JobManager (sub-agent D) not implemented yet"
-)
 
 BASE = "/api/v1/projects/{pid}/items/{iid}"
 CT_ITEM = "case_00001.01.complete.-"

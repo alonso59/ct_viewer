@@ -1,5 +1,5 @@
-"""API-42..47 tasks and task runs (TSK-*). `radiomics.pyradiomics` is served by the radiomics
-service behind the same endpoints, its RAD-* records attached as `radiomics` (RAD-13)."""
+"""Tasks and task runs. `radiomics.pyradiomics` is served by the radiomics service behind the
+same endpoints, its radiomics records attached as `radiomics`."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from app.tasks.workspace_runs import (
 
 router = APIRouter(tags=["tasks"])
 Reviewer = Annotated[str | None, Header(alias="X-Reviewer")]
-# names a dry run so `GET /task-estimates/{id}` can report its progress while it runs (DCM-06)
+# names a dry run so `GET /task-estimates/{id}` can report its progress while it runs
 ProgressId = Annotated[str | None, Query(max_length=64)]
 
 
@@ -85,7 +85,7 @@ async def start_run(
 async def list_runs(
     ctx: Ctx, pid: str, task: str | None = None, archived: bool = False
 ) -> list[TaskRunListItem]:
-    """API-45; `archived=true` lists the archived runs instead (J6)."""
+    """`archived=true` lists the archived runs instead."""
     return await svc(ctx).list_runs(pid, task, archived=archived)
 
 
@@ -103,13 +103,13 @@ async def cancel_run(
 
 @router.post("/projects/{pid}/task-runs/{rid}/pause", response_model=TaskRunDetail)
 async def pause_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
-    """API-46 supervised runs (TSK-15): idempotent; `pausing` until cleanup is verified."""
+    """Supervised runs: idempotent; `pausing` until cleanup is verified."""
     return await svc(ctx).pause(pid, rid)
 
 
 @router.post("/projects/{pid}/task-runs/{rid}/archive", response_model=TaskRunDetail)
 async def archive_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
-    """API-46 supervised runs (TSK-15): 409 while active or cleanup is pending."""
+    """Supervised runs: 409 while active or cleanup is pending."""
     return await svc(ctx).archive(pid, rid)
 
 
@@ -139,9 +139,6 @@ def run_outputs(ctx: Ctx, pid: str, rid: str) -> list[TaskRunOutput]:
     return svc(ctx).outputs(pid, rid)
 
 
-# -- API-62 workspace tasks (TSK-13): `scope: workspace` tasks without a project ------------------
-
-
 def wsvc(ctx: AppContext) -> WorkspaceTasks:
     return ctx.source_operations.workspace_tasks
 
@@ -150,13 +147,13 @@ def wsvc(ctx: AppContext) -> WorkspaceTasks:
 async def workspace_estimate(
     ctx: Ctx, tid: str, body: WorkspaceEstimateRequest, progress_id: ProgressId = None
 ) -> TaskEstimate:
-    """The converter's dry run without a project (DCM-06, UI-25 step 3)."""
+    """The converter's dry run without a project."""
     return await wsvc(ctx).estimate(tid, body, progress_id)
 
 
 @router.get("/task-estimates/{eid}", response_model=EstimateProgress)
 def estimate_progress(ctx: Ctx, eid: str) -> EstimateProgress:
-    """Where a dry run started with `progress_id=eid` is (DCM-06); 404 once it has returned."""
+    """Where a dry run started with `progress_id=eid` is; 404 once it has returned."""
     return dry_run.progress(ctx.settings.workspace_root, eid)
 
 

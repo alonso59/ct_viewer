@@ -1,7 +1,7 @@
-"""Volume/thumbnail byte responses: original bytes, HTTP Range, ETag = quick fingerprint (BE-04).
+"""Volume/thumbnail byte responses: original bytes, HTTP Range, ETag = quick fingerprint.
 
-The API process never decodes volumes here; Starlette's `FileResponse` streams the file
-(opened `rb`) and handles `Range` / `If-Range` / `HEAD`.
+Starlette's `FileResponse` streams the file (opened `rb`) and handles `Range` / `If-Range` /
+`HEAD`.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""TSK-16 / API-69: durable source discovery; conversion runs keep their own authority."""
+"""Durable source discovery; conversion runs keep their own authority."""
 
 from __future__ import annotations
 
@@ -46,7 +46,6 @@ if TYPE_CHECKING:
     from app.tasks.workspace_runs import WorkspaceTasks
 
 ACTIVE = {"queued", "running", "cancelling"}
-OperationStatus = TaskRunStatus
 
 
 class SourceOperationStart(BaseModel):
@@ -91,7 +90,7 @@ class SourceOperation(BaseModel):
     source: str
     project_id: str | None
     purpose: Literal["discover", "open", "convert"]
-    status: OperationStatus = "queued"
+    status: TaskRunStatus = "queued"
     stage: str = "discovering"
     revision: int = 0
     attempt: int = 1
@@ -214,14 +213,13 @@ class SourceOperations:
         if not record.conversion_run_id:
             return None
         try:
-            native = (
+            return (
                 await self.tasks.get_run(record.project_id, record.conversion_run_id)
                 if record.project_id
                 else self.workspace_tasks.get(record.conversion_run_id)
             )
         except NotFound:
             return None
-        return native
 
     def list(self) -> list[SourceOperation]:
         if not self.root.exists():

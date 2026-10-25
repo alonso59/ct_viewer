@@ -1,8 +1,8 @@
-"""Mask sets (SRC-04 `mask_template`): a folder of binary NIfTI masks, one file per structure,
-read as one label map whose values the import assigned (`VolumeRef.labels`, name → value).
+"""Mask sets (`mask_template`): a folder of binary NIfTI masks, one file per structure, read as
+one label map whose values the import assigned (`VolumeRef.labels`, name → value).
 
-`compose` runs in a job worker: it reads the members `rb` (R1) and writes only the disposable
-`cache/maskset/` (PRJ-10), atomically. Where structures overlap, the higher value wins.
+`compose` runs in a job worker: it reads the members `rb` and writes only the disposable
+`cache/maskset/`, atomically. Where structures overlap, the higher value wins.
 """
 
 from __future__ import annotations

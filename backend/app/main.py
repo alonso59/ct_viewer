@@ -1,8 +1,6 @@
-"""App factory (BE-*). Routers are mounted under /api/v1 (docs/backend/API.md).
-
-When `STATIC_ROOT/index.html` exists (the image, OPS-01), the SPA is served on the same port:
+"""When `STATIC_ROOT/index.html` exists (the image), the SPA is served on the same port:
 `/assets` as static files, other files under the root as-is, and `index.html` for any other
-path (client-side routes). Paths under `/api` never fall back to the SPA (404 problem).
+path (client-side routes). Paths under `/api` never fall back to the SPA (404/405 problem).
 """
 
 from __future__ import annotations
@@ -21,11 +19,12 @@ from starlette.routing import Match
 from app import __version__
 from app.api.v1 import router as v1_router
 from app.config import Settings, get_settings
-from app.context import AppContext, build_context
+from app.context import build_context
 from app.core.errors import install_handlers
 from app.core.logs import configure
 from app.imaging import thumbnails
 from app.ingest.recycle import RecycleService
+from app.tasks.dicom_resources import initialize as initialize_dicom_resources
 from app.tasks.service import TaskService
 
 log = logging.getLogger("app.main")
@@ -41,17 +40,17 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
         configure(s.log_level)
         ctx = build_context(s, inline_jobs=inline_jobs)
         s.workspace_root.mkdir(parents=True, exist_ok=True)
-        ctx.server_lock.acquire()  # BE-05: refuse to start if another server holds it
+        ctx.server_lock.acquire()  # refuses to start if another server holds it
         try:
             ctx.workspace.open()
-            from app.tasks.dicom_resources import initialize as initialize_dicom_resources
-
             initialize_dicom_resources(s)
             RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).recover()
-            wire(ctx)
+            ctx.after_index.append(thumbnails.after_index_hook(ctx.workspace, ctx.index, ctx.jobs))
+            ctx.jobs.on_finished.append(
+                lambda info: ctx.cache_budget.request() if info.kind in CACHE_WRITERS else None
+            )
             await ctx.jobs.start()
-            if ctx.cache_budget is not None:
-                ctx.cache_budget.start()
+            ctx.cache_budget.start()
             app.state.ctx = ctx
             await TaskService(
                 s, ctx.registry, ctx.workspace, ctx.index, ctx.jobs, ctx.bus, ctx.locks
@@ -61,9 +60,8 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
                 log.warning("ALLOWED_DATA_ROOTS is empty: path access is unrestricted (dev only)")
             yield
         finally:
-            if ctx.cache_budget is not None:
-                await ctx.cache_budget.stop()
-            await ctx.jobs.shutdown()  # BE-13
+            await ctx.cache_budget.stop()
+            await ctx.jobs.shutdown()
             ctx.bus.close()
             ctx.workspace.close()
             ctx.server_lock.release()
@@ -75,12 +73,11 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
     return app
 
 
-def mount_spa(app: FastAPI, static_root: Path) -> bool:
-    """Serve the SPA build from `static_root` if it has an `index.html`; returns whether it did."""
+def mount_spa(app: FastAPI, static_root: Path) -> None:
     root = static_root.resolve()
     index = root / "index.html"
     if not index.is_file():
-        return False
+        return
     if (root / "assets").is_dir():
         # Vite content-hashes asset names, so they are safe to cache.
         app.mount("/assets", StaticFiles(directory=root / "assets"), name="assets")
@@ -102,17 +99,6 @@ def mount_spa(app: FastAPI, static_root: Path) -> bool:
         if path and f.is_file() and f.is_relative_to(root):
             return FileResponse(f)
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
-
-    return True
-
-
-def wire(ctx: AppContext) -> None:
-    """Cross-service hooks (integration point)."""
-    ctx.after_index.append(thumbnails.after_index_hook(ctx.workspace, ctx.index, ctx.jobs))
-    # AUD-A4-16: jobs that write disposable caches trigger a CACHE_MAX_GB sweep
-    ctx.jobs.on_finished.append(
-        lambda info: ctx.cache_written() if info.kind in CACHE_WRITERS else None
-    )
 
 
 app = create_app()

@@ -1,14 +1,11 @@
-"""Labeling table service (LBL-01..08, ADR-0022 §3).
-
-Tables and column schemas live in `plugins/labeling/tables.json`; every cell change is an event
-in the core event store namespace `labeling` (LBL-04). Rows are the project's cases, scans or
-items (active ones, IMP-07). Columns become metadata layers and `lbl.{table}.{column}`
-variables (LBL-06); the variable catalog is rebuilt shortly after writes.
+"""Tables and column schemas live in `plugins/labeling/tables.json`; every cell change is an event
+in the core event store namespace `labeling`. Rows are the project's active cases, scans or
+items. Columns become metadata layers and `lbl.{table}.{column}` variables; the variable catalog
+is rebuilt shortly after writes.
 """
 
 from __future__ import annotations
 
-import builtins
 import csv
 import io
 import re
@@ -68,7 +65,7 @@ def slugify(name: str, taken: set[str]) -> str:
 
 
 def coerce(col: LabelColumn, raw: Any) -> Any:
-    """A typed cell value (LBL-02), or ValueError with a reason. None / "" clear the cell."""
+    """A typed cell value, or ValueError with a reason. None / "" clear the cell."""
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return None
     if col.type == "bool":
@@ -112,7 +109,7 @@ def coerce(col: LabelColumn, raw: Any) -> Any:
 
 
 def targets(table: LabelTable, items: Sequence[Item]) -> list[tuple[str, str, str | None]]:
-    """(target, case_id, item to open) for the table's level (LBL-01), in index order."""
+    """(target, case_id, item to open) for the table's level, in index order."""
     live = [i for i in items if i.status != "excluded_upstream"]
     out: dict[str, tuple[str, str, str | None]] = {}
     for i in live:
@@ -147,16 +144,14 @@ class LabelingService:
         atomic_write_json(self._pdir(pid) / state.TABLES, doc.model_dump(mode="json"))
 
     def table(self, pid: str, tid: str) -> LabelTable:
-        """A table that is not deleted; a deleted one is 404 until restored (LBL-10)."""
+        """A table that is not deleted; a deleted one is 404 until restored."""
         t = next((x for x in state.active_tables(self._pdir(pid)) if x.table_id == tid), None)
         if t is None:
             raise NotFound(f"Label table {tid!r} not found")
         return t
 
-    # -- schemas (API-56, LBL-01/02) ------------------------------------------------------------
-
     def _column(
-        self, t: LabelTable, c: ColumnIn, taken: set[str], catalog: Catalog | None = None
+        self, t: LabelTable, c: ColumnIn, taken: set[str], catalog: Catalog | None
     ) -> LabelColumn:
         if c.ref is not None:
             return self._ref_column(t, c, taken, catalog)
@@ -181,12 +176,12 @@ class LabelingService:
     def _ref_column(
         self, t: LabelTable, c: ColumnIn, taken: set[str], catalog: Catalog | None
     ) -> LabelColumn:
-        """LBL-09: the variable must be `comparable` (VAR-13) and at a level the table can show:
-        a patient table mirrors case-level variables only."""
+        """The variable must be `comparable` and at a level the table can show: a patient table
+        mirrors case-level variables only."""
         var = next((v for v in (catalog.variables if catalog else []) if v.name == c.ref), None)
         why = (
             "unknown variable" if var is None
-            else "not comparable (VAR-13)" if not var.comparable
+            else "not comparable" if not var.comparable
             else "a scan-level variable cannot be shown per patient"
             if t.level == "case" and var.level != "case" else None
         )  # fmt: skip
@@ -209,8 +204,8 @@ class LabelingService:
         return await VariableService(self.workspace, self.store, self.locks, self.bus).catalog(pid)
 
     async def ref_values(self, pid: str, tid: str) -> dict[str, dict[str, Any]]:
-        """LBL-09: current values of the table's reference columns, `column_id → target → value`,
-        read from the variables table (VAR-12), so they follow their source live."""
+        """Current values of the table's reference columns, `column_id → target → value`, read
+        from the variables table so they follow their source live."""
         t = self.table(pid, tid)
         refs = [c for c in t.columns if c.ref and not c.hidden]
         if not refs:
@@ -238,9 +233,9 @@ class LabelingService:
         except ValueError as exc:
             raise ValidationProblem(f"Default of {col.name!r}: {exc}") from None
 
-    def tables(self, pid: str, deleted: bool = False) -> builtins.list[TableInfo]:
-        """LBL-08: progress = filled cells per column over the table's rows. `deleted` lists
-        only the deleted tables instead (LBL-10)."""
+    def tables(self, pid: str, deleted: bool) -> list[TableInfo]:
+        """Progress = filled cells per column over the table's rows. `deleted` lists only the
+        deleted tables instead."""
         pdir = self._pdir(pid)
         items = self.store.load(pid).items
         cells = state.cell_state(pdir)
@@ -281,8 +276,8 @@ class LabelingService:
         return t
 
     async def patch(self, pid: str, tid: str, body: TablePatch) -> LabelTable:
-        """A rename keeps ids and slugs; `hidden: true` hides a column, or the table (LBL-10), and
-        keeps its events; `hidden: false` restores it."""
+        """A rename keeps ids and slugs; `hidden: true` hides a column, or the table, and keeps
+        its events; `hidden: false` restores it."""
         catalog = await self._catalog(pid, body.columns)
         async with self.locks(pid):
             doc = state.load_tables(self._pdir(pid))
@@ -325,13 +320,11 @@ class LabelingService:
         self.bus.publish(pid, "project.updated", {"fields": ["labeling"]})
         return t
 
-    # -- cells (API-57, LBL-03..05) -------------------------------------------------------------
-
     def cells(
         self, pid: str, tid: str, cursor: int, limit: int, q: str | None,
-        refs: dict[str, dict[str, Any]] | None = None,
+        refs: dict[str, dict[str, Any]],
     ) -> CellsPage:  # fmt: skip
-        """`refs`: reference-column values from `ref_values` (LBL-09)."""
+        """`refs`: reference-column values from `ref_values`."""
         t = self.table(pid, tid)
         rows = targets(t, self.store.load(pid).items)
         if q:
@@ -344,7 +337,7 @@ class LabelingService:
             row = CellRow(target=target, case_id=case_id, item_id=item_id)
             for c in cols:
                 if c.ref:
-                    v = (refs or {}).get(c.column_id, {}).get(target)
+                    v = refs.get(c.column_id, {}).get(target)
                     if v is not None:
                         row.values[c.column_id] = v
                     continue
@@ -363,7 +356,7 @@ class LabelingService:
         self, pid: str, tid: str, cells: Sequence[CellIn], reviewer: str | None,
         session_id: str | None,
     ) -> CellsWritten:  # fmt: skip
-        """LBL-04: validate every cell first (all or nothing), then append one event each."""
+        """Validate every cell first (all or nothing), then append one event each."""
         who = require_reviewer(reviewer)
         t = self.table(pid, tid)
         by_id = {c.column_id: c for c in t.columns}
@@ -408,8 +401,6 @@ class LabelingService:
         ]
         return out[::-1][:500]
 
-    # -- import / export (API-58, LBL-07) -------------------------------------------------------
-
     async def import_csv(
         self, pid: str, tid: str, raw: bytes, reviewer: str | None, session_id: str | None
     ) -> ImportReport:
@@ -428,20 +419,19 @@ class LabelingService:
         items = self.store.load(pid).items
         rows = targets(t, items)
         index: dict[str, list[str]] = {}
-        for target, _case, _ in rows:
-            if key in ("case_id", "target", "scan", "item_id"):
-                index.setdefault(target, []).append(target)
         if key == "patient_id":
             by_case = {i.case_id: i.patient_id for i in items if i.patient_id}
             for target, case_id, _ in rows:
                 pat = by_case.get(case_id)
                 if pat:
                     index.setdefault(pat, []).append(target)
-        if key == "case_id" and t.level != "case":
-            index = {}
+        elif key == "case_id" and t.level != "case":
             for target, case_id, _ in rows:
                 index.setdefault(case_id, []).append(target)
-        own = [c for c in t.columns if not c.hidden and not c.ref]  # LBL-09 refs are read-only
+        else:
+            for target, _, _ in rows:
+                index[target] = [target]
+        own = [c for c in t.columns if not c.hidden and not c.ref]  # references are read-only
         cols = {c.name.lower(): c for c in own}
         cols.update({c.slug: c for c in own})
         matched_cols = [h for h in header if h != key and (h.lower() in cols or h in cols)]
@@ -477,9 +467,7 @@ class LabelingService:
         report.n_events = len(records)
         return report
 
-    def export(
-        self, pid: str, tid: str, fmt: str, refs: dict[str, dict[str, Any]] | None = None
-    ) -> bytes:
+    def export(self, pid: str, tid: str, fmt: str, refs: dict[str, dict[str, Any]]) -> bytes:
         t = self.table(pid, tid)
         cols = [c for c in t.columns if not c.hidden]
         header = ["target", "case_id", *(c.name for c in cols)]

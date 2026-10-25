@@ -1,7 +1,6 @@
-"""Dashboard view computations (DASHBOARD.md §Views; API-38, DB-02/03/05/07).
+"""Dashboard view computations: pure functions over a filtered `Frame`.
 
-Pure functions over a filtered `Frame`: server-side aggregates only; point lists are capped
-at `MAX_POINTS` (DB-05) and carry `item_id`/`case_id`/status (DB-03).
+Point lists are capped at `MAX_POINTS`.
 """
 
 from __future__ import annotations
@@ -71,7 +70,7 @@ from app.analytics.models import (
 )
 from app.analytics.stats import F64, num
 
-MAX_POINTS = 50_000  # DB-05
+MAX_POINTS = 50_000
 TOP_LOADINGS = 10
 SIZE_RHO = 0.8
 
@@ -145,9 +144,6 @@ def _unit_points(
     return out
 
 
-# -- Run overview ---------------------------------------------------------------------------
-
-
 def _ts(s: Any) -> datetime | None:
     if not isinstance(s, str) or not s:
         return None
@@ -193,7 +189,7 @@ def run_overview(
     phases = Counter(str(rd.phase[i]) for i in first.values())
     curation = Counter(str(frame.status[i]) for i in first.values())
     start, end = _ts(run.get("started_at")), _ts(run.get("finished_at"))
-    # failures first, then skips (AUD-A2-05)
+    # failures first, then skips
     listed = sorted(rows, key=lambda e: e.get("kind") == "skipped")
     run_errors = [
         RunError(
@@ -235,9 +231,6 @@ def run_overview(
         errors=run_errors,
         phase_changed=changed,
     )
-
-
-# -- Feature distribution -------------------------------------------------------------------
 
 
 def feature_distribution(
@@ -294,9 +287,6 @@ def feature_distribution(
     )
 
 
-# -- Missing / invalid matrix ---------------------------------------------------------------
-
-
 def missing_matrix(frame: Frame, req: MissingMatrixRequest) -> MissingMatrixResponse:
     """Feature x item NaN/inf/absent cells (sparse), worst items first."""
     rd = select_features(frame.rd, None, req.feature_class)
@@ -343,15 +333,12 @@ def missing_matrix(frame: Frame, req: MissingMatrixRequest) -> MissingMatrixResp
     )
 
 
-# -- Correlation ----------------------------------------------------------------------------
-
-
-def _usable(x: F64, min_n: int = 3) -> list[int]:
+def _usable(x: F64) -> list[int]:
     fin = np.isfinite(x)
     out = []
     for j in range(x.shape[1]):
         v = x[fin[:, j], j]
-        if v.size >= min_n and np.ptp(v) > 0:
+        if v.size >= 3 and np.ptp(v) > 0:
             out.append(j)
     return out
 
@@ -387,9 +374,6 @@ def correlation(frame: Frame, req: CorrelationRequest) -> CorrelationResponse:
     )
 
 
-# -- Embedding ------------------------------------------------------------------------------
-
-
 def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
     """PCA (default) or UMAP (optional extra) on z-scored features."""
     rd = select_features(frame.rd, req.features, req.feature_class)
@@ -402,7 +386,7 @@ def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
     levels = frame.levels(req.color_by, ("body", "color_by"))
     if req.method == "umap":
         try:
-            import umap  # type: ignore[import-not-found]  # optional extra (DASHBOARD.md)
+            import umap  # type: ignore[import-not-found]  # optional extra
         except ImportError:
             raise bad(("body", "method"), "UMAP is not installed (optional extra `umap`)") from None
         coords = np.asarray(umap.UMAP(n_components=k, random_state=0).fit_transform(z))
@@ -433,16 +417,13 @@ def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
     )
 
 
-# -- Outliers -------------------------------------------------------------------------------
-
-
 def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
-    """Robust z = (x - median) / (1.4826 · MAD) per feature; flagged items and top features.
+    """Robust-z outliers per feature: flagged items and top features.
 
     An item is flagged when at least `min_feature_pct` % of its features (and at least one) have
-    |z| over the threshold (owner decision 2026-09-27, DB-10). Flagged items rank by the number of
-    features over the threshold, then by max |z| (owner decision 2026-09-25, AUD-A2-06): one wild
-    feature does not outrank a broadly abnormal item. Per-feature counts cover every item."""
+    |z| over the threshold. Flagged items rank by the number of features over the threshold, then
+    by max |z|: one wild feature does not outrank a broadly abnormal item. Per-feature counts
+    cover every item."""
     rd = select_features(frame.rd, None, req.feature_class)
     z = st.robust_z(rd.x)
     az = np.abs(np.nan_to_num(z, nan=0.0))
@@ -485,9 +466,6 @@ def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
     )
 
 
-# -- Feature vs volume ----------------------------------------------------------------------
-
-
 def feature_vs_volume(frame: Frame, req: FeatureVsVolumeRequest) -> FeatureVsVolumeResponse:
     """Scatter of a feature against shape MeshVolume, rho, and all features ranked by |rho|."""
     rd = frame.rd
@@ -526,14 +504,12 @@ def feature_vs_volume(frame: Frame, req: FeatureVsVolumeRequest) -> FeatureVsVol
     )
 
 
-# -- Group comparison / association / balance -----------------------------------------------
-
-
-def _unit(frame: Frame, req: GroupComparisonRequest | AssociationRequest | BalanceRequest) -> Unit:
-    feats = getattr(req, "features", None)
-    fclass = getattr(req, "feature_class", None)
+def _unit(frame: Frame, req: GroupComparisonRequest | AssociationRequest) -> Unit:
     frame = Frame(
-        select_features(frame.rd, feats, fclass), frame.status, frame.vars, frame.priority
+        select_features(frame.rd, req.features, req.feature_class),
+        frame.status,
+        frame.vars,
+        frame.priority,
     )
     return build_unit(frame, req.unit)
 
@@ -612,9 +588,6 @@ def balance(frame: Frame, req: BalanceRequest) -> BalanceResponse:
     return BalanceResponse(
         unit=unit_summary(unit, c.n_variable_missing), choice=c.choice, table=c.balance
     )
-
-
-# -- Phase / side consistency ---------------------------------------------------------------
 
 
 def _pair_key(frame: Frame, i: int, kind: str) -> tuple[Any, ...]:

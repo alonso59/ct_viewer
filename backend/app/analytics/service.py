@@ -1,10 +1,7 @@
-"""Analytics services: dashboard views (API-38) and saved analyses (API-39).
+"""Analytics services: dashboard views and saved analyses.
 
-Stateless like the other services (routers build one per request). Inputs are read before
-any lock is taken (the variable service may rebuild its catalog under the same lock); CPU
-work runs in a thread. Analyses are written under the project lock with atomic writes
-(BE-05): `analyses/{analysis_id}/spec.json, results.parquet, descriptives.parquet,
-recommendations.json, exports/{tidy.csv, results.csv, descriptives.csv, spec.json}`.
+Stateless: routers build one per request. Inputs are read before the project lock is taken
+because the variable service may rebuild its catalog under that same lock.
 """
 
 from __future__ import annotations
@@ -47,6 +44,7 @@ from app.core.errors import NotFound
 from app.core.fsio import atomic_write_bytes, atomic_write_json, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
+from app.curation import state as curation_state
 from app.events.bus import EventBus
 from app.ingest.store import IndexStore
 from app.projects.service import Workspace
@@ -70,7 +68,6 @@ SAFE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 @dataclass
 class Inputs:
-    project_dir: Path
     run_dir: Path
     frame: dt.Frame
     selected: set[str] | None  # item ids passing the item-level filters (None = all)
@@ -87,7 +84,7 @@ class AnalyticsBase:
         self.variables = VariableService(workspace, store, locks, bus)
 
     async def inputs(self, pid: str, run_id: str, filters: GlobalFilters) -> Inputs:
-        """Load the run, apply DB-02 filters, join statuses and variables."""
+        """Load the run, apply the filters, join statuses and variables."""
         pdir = self.workspace.project_dir(pid)
         rdir = dt.run_dir(pdir, run_id)
         priority = list(self.workspace.get(pid).phase_priority)
@@ -100,12 +97,12 @@ class AnalyticsBase:
 
         def work() -> Inputs:
             rd = dt.join_phase(dt.load_run(rdir, run_id), phases)
-            statuses = dt.item_statuses(pdir)
+            statuses = curation_state.item_statuses(pdir)
             n_total = rd.n
             rd, status = dt.apply_filters(rd, filters, statuses, var_items)
             frame = dt.Frame(rd, status, dt.VarTable.build(catalog, table), priority, n_total)
             selected = _selected_items(self.store, pid, filters, statuses, var_items)
-            return Inputs(pdir, rdir, frame, selected)
+            return Inputs(rdir, frame, selected)
 
         return await asyncio.to_thread(work)
 
@@ -139,8 +136,6 @@ def _selected_items(
 
 
 class DashboardService(AnalyticsBase):
-    """API-38 view computations (DB-*)."""
-
     async def run_overview(
         self, pid: str, run_id: str, req: RunOverviewRequest
     ) -> RunOverviewResponse:
@@ -160,9 +155,6 @@ class DashboardService(AnalyticsBase):
         return await asyncio.to_thread(fn, inp.frame, req)
 
 
-# -- analyses (API-39) ------------------------------------------------------------------------
-
-
 @dataclass
 class Outcome:
     analysis: Analysis
@@ -172,11 +164,11 @@ class Outcome:
 def compute_analysis(
     frame: dt.Frame, spec: AnalysisSpec, aid: str, at: str, by: str | None
 ) -> Outcome:
-    """ANA-01..09 for one spec over a filtered frame (pure; no I/O)."""
+    """Run one spec over a filtered frame (pure; no I/O)."""
     if spec.question == "paired":
         raise dt.bad(
             ("body", "question"),
-            "Paired comparison (ANA-10) is planned for v3.1; use the phase-side-consistency view",
+            "Paired comparison is planned for v3.1; use the phase-side-consistency view",
         )
     loc_v = ("body", "variable")
     if spec.question == "explore":
@@ -227,9 +219,9 @@ def compute_analysis(
 
 
 def tidy_csv(unit: dt.Unit, spec: AnalysisSpec) -> bytes:
-    """ANA-09 tidy table: one row per unit row x (ids, variables, features).
+    """Tidy table: one row per unit row x (ids, variables, features).
 
-    Variables tagged `sensitive` are left out (VAR-09)."""
+    Variables tagged `sensitive` are left out unless the spec names them."""
     cat = unit.frame.vars.catalog
     names = [
         v.name
@@ -316,8 +308,6 @@ def _read_parquet_rows[M: BaseModel](path: Path, model: type[M]) -> list[M]:
 
 
 class AnalysisService(AnalyticsBase):
-    """API-39: create + run synchronously, list, read, export (ANA-01..09)."""
-
     def _dir(self, pid: str) -> Path:
         return self.workspace.project_dir(pid) / ANALYSES
 
@@ -421,7 +411,7 @@ class AnalysisService(AnalyticsBase):
         return AnalysisList(items=items, next_cursor=None, total=len(items))
 
     def export_path(self, pid: str, aid: str, file: ExportFile) -> tuple[Path, str, str]:
-        """ANA-09 file → (path, media type, download name)."""
+        """Export file → (path, media type, download name)."""
         d = self._adir(pid, aid)
         name, media = EXPORT_NAMES[file]
         p = d / EXPORTS / name

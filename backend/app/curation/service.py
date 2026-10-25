@@ -1,9 +1,8 @@
-"""Curation service: append, history, derived state, queue, exports, v2 import (CUR-*).
+"""Stateless: routers build one per request.
 
-Stateless like the other services: routers build one per request. `events.jsonl` is the
-source of truth (CUR-02); `state.json` is a derived snapshot rewritten after each append.
-Only this (API) process writes, under the project lock (BE-05). Source data is never
-written (R1): paths are only resolved to report them (CUR-09).
+`events.jsonl` is the source of truth; `state.json` is a derived snapshot rewritten after each
+append. Only the API process writes, under the project lock. Source data is never written:
+paths are only resolved to report them.
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ from app.curation.models import (
     V2ImportReport,
 )
 from app.events.bus import EventBus
-from app.eventstore.store import namespace_path
+from app.eventstore.store import EventStore, namespace_path
 from app.ingest.models import Item, VolumeRef
 from app.ingest.store import IndexStore
 from app.phase import state as phase_state
@@ -63,7 +62,6 @@ STATE_COLUMNS: Final = (
     "event_id",
     "source",
 )
-SSE_EVENT_MAX: Final = 500  # larger v2 imports publish one `project.updated` instead
 
 
 def _invalid(field: str, msg: str) -> ValidationProblem:
@@ -77,19 +75,14 @@ class CurationService:
         self.workspace = workspace
         self.store = store
         self.locks = locks
-        self.bus = bus
-        self.phase = PhaseService(workspace, store, locks, bus)  # PHS-08 import compat
-
-    def _pdir(self, project_id: str) -> Path:
-        return self.workspace.project_dir(project_id)
-
-    # -- API-50 -----------------------------------------------------------------------------
+        self.events = EventStore(workspace, locks, bus)
+        self.phase = PhaseService(workspace, store, locks, bus)
 
     def history(
         self, project_id: str, *, item_id: str | None = None, case_id: str | None = None
     ) -> list[CurationEvent]:
-        """CUR-14: every event (CUR-12), newest first; filter by item and/or case."""
-        events = st.load_events(self._pdir(project_id))
+        """Every event, newest first; filter by item and/or case."""
+        events = st.load_events(self.workspace.project_dir(project_id))
         return [
             e
             for e in reversed(events)
@@ -98,7 +91,6 @@ class CurationService:
         ]
 
     def _validate(self, project_id: str, body: EventIn) -> tuple[str, Item | None]:
-        """CUR-03/07: target grammar, label map, item/case existence."""
         cfg = self.workspace.get(project_id)
         idx = self.store.load(project_id)
         item: Item | None = None
@@ -136,9 +128,8 @@ class CurationService:
         reviewer: str | None,
         session_id: str | None = None,
     ) -> CurationEvent:
-        """CUR-02/03/05/07/11: validate, append under the lock, publish `curation.appended`."""
         name = require_reviewer(reviewer)
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         case_id, item = self._validate(project_id, body)
         context = dict(body.context)
         if item is not None:
@@ -172,20 +163,15 @@ class CurationService:
         self._publish(project_id, events)
 
     def _append_locked(self, pdir: Path, events: Sequence[CurationEvent]) -> None:
-        """Caller holds the project lock (BE-05)."""
-        # The core event store namespace `curation` keeps `curation/events.jsonl` (ADR-0022)
+        """Caller holds the project lock."""
         append_jsonl(namespace_path(pdir, "curation"), (e.model_dump(mode="json") for e in events))
         self._write_snapshot(pdir)
 
     def _publish(self, project_id: str, events: Sequence[CurationEvent]) -> None:
-        """CUR-11: one `curation.appended` per event (API-40)."""
-        if len(events) <= SSE_EVENT_MAX:
-            for e in events:
-                self.bus.publish(project_id, "curation.appended", e.model_dump(mode="json"))
-        else:
-            self.bus.publish(project_id, "project.updated", {"fields": ["curation"]})
+        records = [e.model_dump(mode="json") for e in events]
+        self.events.publish(project_id, "curation", records, {"fields": ["curation"]})
 
-    def _write_snapshot(self, pdir: Path) -> CurationState:
+    def _write_snapshot(self, pdir: Path) -> None:
         snap = CurationState(
             updated_at=utc_now(),
             n_events=st.reduced(pdir).n_events,
@@ -193,15 +179,11 @@ class CurationService:
             cases=list(st.case_states(pdir).values()),
         )
         atomic_write_json(pdir / st.STATE, snap.model_dump(mode="json"))
-        return snap
-
-    # -- API-51 -----------------------------------------------------------------------------
 
     def state(
         self, project_id: str, *, case_id: str | None = None, item_id: str | None = None
     ) -> CurationState:
-        """CUR-08: latest per `(item_id, target)`, item = worst target, case = worst item."""
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         red = st.reduced(pdir)
         items = st.item_states(pdir).values()
         cases = st.case_states(pdir).values()
@@ -222,14 +204,12 @@ class CurationService:
             ],
         )
 
-    # -- API-52 -----------------------------------------------------------------------------
-
     def queue(self, project_id: str) -> list[QueueRow]:
-        """CUR-09: item keys whose latest status is in the queue set or `add_to_queue=true`.
+        """Item keys whose latest status is in the queue set or `add_to_queue=true`.
 
         Absolute paths are resolved now (never stored); null when unresolvable.
         """
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         idx = self.store.load(project_id)
         resolver = self.workspace.resolver(project_id)
 
@@ -271,11 +251,8 @@ class CurationService:
     def queue_csv(self, project_id: str) -> str:
         return _csv(QUEUE_COLUMNS, (r.model_dump() for r in self.queue(project_id)))
 
-    # -- API-53 -----------------------------------------------------------------------------
-
     async def export(self, project_id: str) -> ExportResult:
-        """CUR-10: `curation_state.csv` and an `events.jsonl` copy (phase: PHS-06)."""
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         idx = self.store.load(project_id)
         async with self.locks(project_id):
             red = st.reduced(pdir)
@@ -303,17 +280,11 @@ class CurationService:
             atomic_write_bytes(out / EVENTS_COPY, raw)
         return ExportResult(files=[STATE_CSV, EVENTS_COPY], at=utc_now())
 
-    # -- API-54 -----------------------------------------------------------------------------
-
     async def import_v2(
         self, project_id: str, data: bytes, *, reviewer: str | None
     ) -> V2ImportReport:
-        """CUR-13: v2 rows → `source: "v2_import"` events; skipped rows carry a reason.
-
-        `phase_issue` rows become native phase events (PHS-08).
-        """
         name = require_reviewer(reviewer)
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         rows = v2.parse_rows(data)
         cfg = self.workspace.get(project_id)
         idx = self.store.load(project_id)
@@ -341,10 +312,8 @@ class CurationService:
     async def import_converter(
         self, project_id: str, data: bytes, *, reviewer: str | None
     ) -> V2ImportReport:
-        """CUR-15: the converter CLI's `curation.csv` → `source: "converter_import"` events;
-        `curated_phase` → native phase events (PHS-08)."""
         name = require_reviewer(reviewer)
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         rows = converter_csv.parse(data)
         cfg = self.workspace.get(project_id)
         idx = self.store.load(project_id)
@@ -380,7 +349,7 @@ class CurationService:
 
 
 def _mask_of(item: Item | None, ev: CurationEvent) -> VolumeRef | None:
-    """The decision's segmentation set (ADR-0015); other targets show the default mask."""
+    """The decision's segmentation set; other targets show the default mask."""
     if item is None:
         return None
     seg = ev.seg_key

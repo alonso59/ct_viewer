@@ -1,4 +1,4 @@
-"""External case-keyed tables, CSV or TSV (VAR-07)."""
+"""External case-keyed tables, CSV or TSV."""
 
 from __future__ import annotations
 

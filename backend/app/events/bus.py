@@ -1,4 +1,4 @@
-"""In-process pub/sub with per-project replay buffers (API-40).
+"""In-process pub/sub with per-project replay buffers.
 
 Single-threaded: every method runs on the event-loop thread. Event ids are process-wide,
 monotonic, and seeded from the wall clock so they keep increasing across restarts.
@@ -29,8 +29,8 @@ class Subscription(AsyncIterator[Event]):
     ) -> None:
         self._bus = bus
         self.project_id = project_id
-        # AUD-A5-11: `Last-Event-ID` fell outside what the buffer can replay; the stream starts
-        # with a `reset` so the client refetches instead of trusting a partial replay
+        # `Last-Event-ID` fell outside what the buffer can replay; the stream starts with a
+        # `reset` so the client refetches instead of trusting a partial replay
         self.gap = gap
         self._replay = deque(replay)
         self._queue: asyncio.Queue[Event | None] = asyncio.Queue(maxsize=QUEUE_MAX)
@@ -83,10 +83,6 @@ class EventBus:
         self._subs: dict[str, set[Subscription]] = {}
         self._closed = False
 
-    @property
-    def closed(self) -> bool:
-        return self._closed
-
     def publish(self, project_id: str, event: EventType, data: dict[str, Any]) -> Event:
         """Record + fan out. Must be called on the event-loop thread; never blocks."""
         ev = Event(id=self._next_id, project_id=project_id, event=event, data=data, at=utc_now())
@@ -121,7 +117,7 @@ class EventBus:
 
         `last_event_id=None` replays nothing. An id the buffer cannot resume from (from an
         earlier process, e.g. before a restart; older than an event already evicted; or never
-        handed out) replays nothing and marks the subscription `gap` (AUD-A5-11).
+        handed out) replays nothing and marks the subscription `gap`.
         """
         replay: list[Event] = []
         gap = False

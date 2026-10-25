@@ -1,5 +1,3 @@
-"""Cursor paging for list endpoints (API.md §Conventions): `{items, next_cursor, total}`."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence

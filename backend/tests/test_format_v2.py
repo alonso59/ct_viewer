@@ -54,9 +54,6 @@ def new_project(c: TestClient, name: str = "p") -> str:
     return str(r.json()["project_id"])
 
 
-# -- config (OPS-11/12, BE-15) ------------------------------------------------------------
-
-
 def test_derived_roots_must_be_absolute_and_not_overlap(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="absolute"):
         Settings(_env_file=None, allowed_derived_roots="rel")  # type: ignore[call-arg]
@@ -74,9 +71,6 @@ def test_derived_roots_must_be_absolute_and_not_overlap(tmp_path: Path) -> None:
         allowed_derived_roots=str(tmp_path / "out"),
     )
     assert ok.derived_roots == [(tmp_path / "out").resolve()]
-
-
-# -- migration 1 → 2 (PRJ-11) -------------------------------------------------------------
 
 
 def test_v1_project_and_index_migrate(dclient: TestClient, data_root: Path) -> None:
@@ -109,10 +103,7 @@ def test_v1_project_and_index_migrate(dclient: TestClient, data_root: Path) -> N
     assert (folder / "project.json.v1.bak").is_file()
     item = dclient.get(f"{API}/projects/{pid}/items/{ITEM}").json()
     assert item["masks"]["imported"]["ref"] == "DATA:seg/01_case_00001.nii.gz"
-    assert item["mask"] == item["masks"]["imported"]  # deprecated alias (ADR-0015 §6)
-
-
-# -- derived root (PRJ-13) ----------------------------------------------------------------
+    assert item["mask"] == item["masks"]["imported"]  # deprecated alias (ADR-0015)
 
 
 def test_derived_root_registration(dclient: TestClient, derived_dir: Path, data_root: Path) -> None:
@@ -171,9 +162,6 @@ def test_project_roots_must_not_overlap(tmp_path: Path) -> None:
         assert_problem(r, "roots-overlap")
 
 
-# -- segmentation sets (API-24/27) --------------------------------------------------------
-
-
 def test_segmentations_endpoints_and_default(dclient: TestClient, data_root: Path) -> None:
     pid = new_project(dclient)
     do_import(dclient, pid, data_root)
@@ -214,7 +202,7 @@ def test_problem_actions_in_body(client: TestClient) -> None:
 
 
 def test_bundle_excludes_derived_ledger_volumes(tmp_path: Path) -> None:
-    """Bundles never carry derived volumes (ADR-0014 §7): the ledger holds refs only."""
+    """Bundles never carry derived volumes (ADR-0014): the ledger holds refs only."""
     from app.projects.bundle import write_bundle
 
     folder = tmp_path / "01JAAAAAAAAAAAAAAAAAAAAAAA"

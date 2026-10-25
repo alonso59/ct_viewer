@@ -1,6 +1,6 @@
-"""Index job worker units (IMP-05, BE-06/12). Module-level, picklable, read-only (BE-03).
+"""Index job worker units: module-level, picklable, read-only.
 
-Units get plain absolute paths that were already guarded by the API process (BE-02).
+Units get plain absolute paths that were already guarded by the API process.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class FileProbe:
     path: str
     spacing: tuple[float, ...] | None = None
     labels: bool = False  # decode voxels for `labels_present` (masks)
-    axis_order: str = "xyz"  # `.npy` only (SRC-12, IMP-10)
+    axis_order: str = "xyz"  # `.npy` only
 
 
 @dataclass(frozen=True)
@@ -98,5 +98,5 @@ def probe_batch(probes: Sequence[ItemProbe]) -> list[ItemProbeResult]:
     ]
 
 
-def batches(probes: Sequence[ItemProbe], size: int = BATCH_SIZE) -> list[list[ItemProbe]]:
-    return [list(probes[i : i + size]) for i in range(0, len(probes), size)]
+def batches(probes: Sequence[ItemProbe]) -> list[list[ItemProbe]]:
+    return [list(probes[i : i + BATCH_SIZE]) for i in range(0, len(probes), BATCH_SIZE)]

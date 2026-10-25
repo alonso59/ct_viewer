@@ -1,4 +1,4 @@
-"""Generation-fenced cursors for durable source inventories and plans (DCM-15/16)."""
+"""Generation-fenced cursors for durable source inventories and plans."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""API-69: source operations are controlled by durable IDs, never paths in URLs."""
+"""Source operations are controlled by durable IDs, never paths in URLs."""
 
 from __future__ import annotations
 

@@ -1,8 +1,8 @@
-"""Plain causes for radiomics skips and failures (RAD-07, TSK-04, UI-18; AUD-A2-05).
+"""Plain causes for radiomics skips and failures.
 
 A row of `errors.jsonl` carries a stable `code`, a short sentence in plain words (`error`) and,
 for engine failures, the engine's own text (`detail`). Items the index already knows are not
-ready (no image, no mask, a blocking IMP-08 code) are skipped at planning time, never failed.
+ready (no image, no mask, a blocking QC code) are skipped at planning time, never failed.
 A geometry defect is never answered with "raise `geometryTolerance`": a shifted mask would give
 features of the wrong voxels.
 """
@@ -11,10 +11,6 @@ from __future__ import annotations
 
 import re
 from typing import Final
-
-from app.selection.readiness import BLOCKING, blocking
-
-__all__ = ["BLOCKING", "blocking", "explain", "text"]
 
 TEXT: Final[dict[str, str]] = {
     "no_image": "The item has no image.",

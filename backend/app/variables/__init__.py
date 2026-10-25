@@ -1,1 +1,1 @@
-"""Study variable catalog: profiling, overrides, derived + external variables. VAR-*."""
+"""Study variable catalog: profiling, overrides, derived + external variables."""

@@ -1,4 +1,4 @@
-"""Validator: drafts + worker probe results → items and QC warnings (IMP-08, IMP-06)."""
+"""Validator: drafts + worker probe results → items and QC warnings."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from app.ingest.indexer import FileProbe, FileResult, ItemProbe, ItemProbeResult
 from app.ingest.models import Geometry, Item, QcWarning, VolumeRef
 from app.ingest.normalize import Draft, FileDraft
 
-IMPORTED = "imported"  # the segmentation set of masks found at import (ADR-0015 §3)
+IMPORTED = "imported"  # the segmentation set of masks found at import
 
 
 def probes_for(drafts: Sequence[Draft]) -> list[ItemProbe]:

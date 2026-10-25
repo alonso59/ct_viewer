@@ -1,4 +1,4 @@
-"""BE-16: serialize owned DICOM attempts and retain admission until cleanup is proved."""
+"""Serialize owned DICOM attempts and retain admission until cleanup is proved."""
 
 from __future__ import annotations
 

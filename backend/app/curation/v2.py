@@ -1,13 +1,11 @@
-"""CUR-13: v2 `curation_review.csv` rows → v3 curation events (`source: "v2_import"`).
+"""v2 `curation_review.csv` rows → v3 curation events (`source: "v2_import"`).
 
-v2 columns used: review_id, case_id, scan_idx, scope, side, target, status, priority,
-comment, reviewer, reviewed_at, proposed_phase. v2 statuses map one to one to the v3 set
-(ROADMAP P0 decision), except `wrong_phase_suspected`, which v3 no longer has (ADR-0026).
-v2 targets map to v3 targets: `SEG → seg`, `VOI_mask → voi_mask`, `side_laterality_issue →
-side`, and `{name}_mask → label:{value}` through the project label map (PRJ-07; no hard-coded
-names). A row without `scan_idx` was a case-level decision and becomes `target = case`.
-`phase_issue` rows with a `proposed_phase` become native phase events instead (PHS-08): the
-latest per scan, skipped when the scan already has a phase selection.
+v2 statuses map one to one to the v3 set, except `wrong_phase_suspected`, which v3 no longer
+has. v2 targets map to v3 targets: `SEG → seg`, `VOI_mask → voi_mask`, `side_laterality_issue →
+side`, and `{name}_mask → label:{value}` through the project label map. A row without
+`scan_idx` was a case-level decision and becomes `target = case`. `phase_issue` rows with a
+`proposed_phase` become native phase events instead: the latest per scan, skipped when the
+scan already has a phase selection.
 """
 
 from __future__ import annotations
@@ -48,8 +46,6 @@ class V2Context:
 
 @dataclass
 class Converted:
-    """Curation events, PHS-08 phase event records, and the skipped rows with a reason."""
-
     events: list[CurationEvent] = field(default_factory=list)
     phases: list[dict[str, Any]] = field(default_factory=list)
     skipped: list[V2Skipped] = field(default_factory=list)
@@ -120,7 +116,7 @@ def _find_item(ctx: V2Context, case_id: str, scan_idx: str, scope: str, side: st
         return None
     if scope == "voi" and side_v == "-":
         return None
-    exact = f"{case_id}.{scan_idx}.{scope}.{side_v}"  # DATA_MODEL §item_id
+    exact = f"{case_id}.{scan_idx}.{scope}.{side_v}"
     if exact in ctx.items:
         return exact
     for it in ctx.items.values():  # tolerate `1` vs `01` scan indexes
@@ -135,7 +131,7 @@ def _find_item(ctx: V2Context, case_id: str, scan_idx: str, scope: str, side: st
 
 
 def convert(rows: Sequence[tuple[int, dict[str, str]]], ctx: V2Context) -> Converted:
-    """Map rows to events sorted by v2 `reviewed_at` (append order drives LWW, CUR-12)."""
+    """Map rows to events sorted by v2 `reviewed_at` (append order drives LWW)."""
     events: list[tuple[str, int, CurationEvent]] = []
     phases: dict[tuple[str, str], tuple[str, int, str | None, dict[str, Any]]] = {}
     skipped: list[V2Skipped] = []
@@ -179,7 +175,7 @@ def convert(rows: Sequence[tuple[int, dict[str, str]]], ctx: V2Context) -> Conve
         else:
             target = "case"
         proposed = (row.get("proposed_phase") or "").upper() or None
-        if is_phase:  # PHS-08: a native phase event, not a curation decision
+        if is_phase:
             if item is None:
                 skip("phase_issue without scan_idx")
             elif proposed is None or (ctx.vocabulary and proposed not in ctx.vocabulary):
@@ -208,7 +204,7 @@ def convert(rows: Sequence[tuple[int, dict[str, str]]], ctx: V2Context) -> Conve
         if rid is not None:
             context["v2_review_id"] = rid
         if proposed is not None:
-            context["v2_proposed_phase"] = proposed  # audit only: phase is native (ADR-0026)
+            context["v2_proposed_phase"] = proposed  # audit only
         if item is not None:
             context |= item_context(ctx.items[item])
         priority = row.get("priority", "medium")

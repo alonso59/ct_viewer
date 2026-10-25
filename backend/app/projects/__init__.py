@@ -1,1 +1,1 @@
-"""workspace.json + project.json service and format migrations. PRJ-*."""
+"""workspace.json + project.json service and format migrations."""

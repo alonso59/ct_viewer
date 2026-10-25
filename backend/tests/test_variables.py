@@ -22,8 +22,6 @@ from app.variables.models import (
 from app.variables.profile import as_date, as_text, infer_type, parse_age_years
 from app.variables.table import matching_ids, parse_var_params, to_arrow
 
-# -- type inference (VARIABLES.md §Type inference rules) ---------------------------------------
-
 
 def test_continuous_needs_numbers_and_ten_distinct() -> None:
     inf = infer_type([f"{v * 3.7:.1f}" for v in range(12)] + [None, None])
@@ -95,9 +93,6 @@ def test_dicom_age_strings() -> None:
     assert parse_age_years("045Y") == 45 and parse_age_years("006M") == 0.5
     assert parse_age_years("052W") == pytest.approx(0.9966, abs=1e-3)
     assert parse_age_years("40") == 40 and parse_age_years("old") is None
-
-
-# -- catalog building --------------------------------------------------------------------------
 
 
 def item(case: str, scan: str = "01", scope: str = "complete", **extra: Any) -> Item:
@@ -214,9 +209,6 @@ def test_table_joins_case_level_values_onto_every_item() -> None:
     assert "series_uid" not in t and "raw_metadata" not in t
 
 
-# -- derived (VAR-06) --------------------------------------------------------------------------
-
-
 def test_bin_by_thresholds_with_labels() -> None:
     d = BinDef(name="alpha_bin", source="alpha", thresholds=[50], labels=["low", "high"])
     built, _ = build(cohort(), derived=[d])
@@ -282,9 +274,6 @@ def test_invalid_derived_definitions(bad: Any) -> None:
     assert [b.name for b in built.catalog.broken] == [bad.name]  # AUD-A5-08: listed, deletable
 
 
-# -- external tables (VAR-07) ------------------------------------------------------------------
-
-
 def test_external_table_by_case_id() -> None:
     data = b"case_id,biopsy,volume_ml\ncase_00000,pos,12.5\ncase_00001,neg,3\ncase_77777,pos,1\n"
     key, cols, rows, dups, n = parse_table(data, "extra.csv")
@@ -316,9 +305,6 @@ def test_external_table_errors(data: bytes) -> None:
         parse_table(data, "x.csv")
 
 
-# -- filters (VAR-10) --------------------------------------------------------------------------
-
-
 def test_parse_and_match_var_filters() -> None:
     built, _ = build(cohort(10))
     table = to_arrow(built)
@@ -334,9 +320,6 @@ def test_parse_and_match_var_filters() -> None:
         matching_ids(built.catalog, table, {"missing_var": ["1"]})
     with pytest.raises(ValidationProblem):
         matching_ids(built.catalog, table, {"alpha": ["x..y"]})
-
-
-# -- presets (PRJ-16) --------------------------------------------------------------------------
 
 
 def test_preset_phase_normalization() -> None:

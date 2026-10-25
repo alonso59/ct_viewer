@@ -1,4 +1,4 @@
-"""`job.json` of a task attempt (TASKS.md §Run protocol): items, rows, context, output dirs."""
+"""`job.json` of a task attempt: items, rows, context, output dirs."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ class JobSpecBase(SelectionBase):
                     continue
                 with contextlib.suppress(Problem):
                     masks[sid] = {"path": str(resolver.resolve(vol.ref)), "format": vol.format}
-                    if vol.labels:  # a mask set folder: member name → value (SRC-04)
+                    if vol.labels:  # a mask set folder: member name → value
                         masks[sid]["labels"] = vol.labels
             out.append(
                 {
@@ -119,18 +119,18 @@ class JobSpecBase(SelectionBase):
     def _output_dir(self, pid: str, m: TaskManifest, rid: str) -> Path | None:
         if not VOLUME_OUTPUTS & set(m.outputs):
             return None
-        root = self.workspace.derived_root(pid)  # derived-root-required (PRJ-13)
+        root = self.workspace.derived_root(pid)  # task outputs go only into a derived root
         return Path(root.path) / pid / m.id / "runs" / rid
 
     def _dataset(self, pid: str, m: TaskManifest) -> tuple[Path, str] | None:
-        """The task's append-only `dataset/` and its `ALIAS:rel` (ADR-0014 §4)."""
+        """The task's append-only `dataset/` and its `ALIAS:rel`."""
         if not VOLUME_OUTPUTS & set(m.outputs):
             return None
         root = self.workspace.derived_root(pid)
         return Path(root.path) / pid / m.id / "dataset", f"{root.alias}:{pid}/{m.id}/dataset"
 
     def _rows(self, items: Sequence[Item]) -> list[dict[str, Any]]:
-        """`input: rows` (analyzers, ANZ-02): metadata only, never files."""
+        """`input: rows` (analyzers): item metadata only."""
         return [
             {
                 **it.extra,
@@ -154,12 +154,12 @@ class JobSpecBase(SelectionBase):
         source: str | None,
         scratch: Path | None = None,
     ) -> dict[str, Any]:
-        """`scratch`: an estimate's disposable dir (no derived root needed, TSK-05)."""
+        """`scratch`: an estimate's disposable dir (no derived root needed)."""
         cfg = self.workspace.get(pid)
         spec: dict[str, Any] = {
             "task": {"id": m.id, "version": m.version},
             "settings": settings,
-            # ANZ-05: the project's study packs configure the analyzers
+            # the project's study packs configure the analyzers
             "context": {
                 "phase_vocabulary": list(cfg.phase_vocabulary),
                 "packs": list(cfg.packs),
@@ -182,7 +182,7 @@ class JobSpecBase(SelectionBase):
                 spec["dataset_dir"], spec["dataset_ref"] = str(ds[0]), ds[1]
         if source is not None:
             spec["source"] = {"path": source}
-        if "metadata" in m.outputs:  # SRC-07 registry + DCM-07 previous rows
+        if "metadata" in m.outputs:
             reg = identity_store.load(self.workspace.project_dir(pid) / "sources")
             if not reg.cases:
                 reg.strategy = "dicom_patient_id"
@@ -191,7 +191,7 @@ class JobSpecBase(SelectionBase):
         return spec
 
     def _previous_metadata(self, pid: str, task_id: str) -> str | None:
-        """The last completed run's `metadata.jsonl` of this task (DCM-07)."""
+        """The last completed run's `metadata.jsonl` of this task."""
         for run_dir in self.runs.run_dirs(pid):
             rec = self.runs.read(run_dir)
             if rec.task.id != task_id or rec.status not in ("completed", "completed_with_errors"):

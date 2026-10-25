@@ -1,11 +1,11 @@
-"""Project bundles (PRJ-08/09, API-06): `.zip` of the project folder without `cache/`.
+"""Project bundles: `.zip` of the project folder without `cache/`.
 
 Layout: every entry sits under one top-level folder named after the `project_id`
 (`{project_id}/project.json`, `{project_id}/curation/events.jsonl`, …). Left out: `cache/`
-(disposable, PRJ-10), `index/variables.parquet` (rebuilt on open), the `.lock` file,
-atomic-write temp files, symlinks and anything that looks like image data. Bundles hold alias
-refs only (PRJ-04), so image paths are resolved against the importing server's roots; the
-relink dialog (PRJ-05) fixes any that do not resolve.
+(disposable), `index/variables.parquet` (rebuilt on open), the `.lock` file, atomic-write temp
+files, symlinks and anything that looks like image data. Bundles hold alias refs only, so image
+paths are resolved against the importing server's roots; the relink dialog fixes any that do not
+resolve.
 """
 
 from __future__ import annotations
@@ -30,10 +30,10 @@ from app.projects.models import ProjectConfig
 
 EXCLUDED_DIRS: Final = frozenset({"cache"})
 EXCLUDED_FILES: Final = frozenset({".lock"})
-# Rebuilt on open (PRJ-10, VAR-01) and full of case-level values such as `patient_id` (NFR-17).
+# Rebuilt on open and full of case-level values such as `patient_id`.
 EXCLUDED_REL: Final = frozenset({"index/variables.parquet"})
 CATALOG_FILE: Final = "variables/catalog.json"
-# Image data never goes into a bundle (PRJ-08), even if someone dropped a volume in the folder.
+# Image data never goes into a bundle, even if someone dropped a volume in the folder.
 IMAGE_SUFFIXES: Final = (".nii", ".nii.gz", ".npy", ".npz", ".nrrd", ".mha", ".mhd", ".dcm")
 MAX_ENTRIES: Final = 1_000_000
 MAX_UNCOMPRESSED: Final = 50 * 1024**3  # zip-bomb guard (50 GiB)
@@ -65,7 +65,7 @@ def _walk(folder: Path) -> Iterator[tuple[Path, str]]:
         yield p, rel
 
 
-# Files that can carry DICOM-derived PHI in un-anonymized converter rows (DCM-05, NFR-17).
+# Files that can carry DICOM-derived PHI in un-anonymized converter rows.
 ROW_FILES: Final = ("index/items.jsonl",)
 CASE_FILES: Final = ("index/cases.jsonl",)
 IDENTITY_FILE: Final = "sources/identity.json"
@@ -85,7 +85,7 @@ def _dump_jsonl(rows: list[Any]) -> bytes:
 
 
 class _Scrubber:
-    """Applies the converter's `basic` profile to what a bundle carries (PROJECT_FORMAT)."""
+    """Applies the converter's `basic` profile to what a bundle carries."""
 
     def __init__(self, salt: str) -> None:
         from plugins.dicom.sidecar import anon_uid, hash_identity_key, scrub_for_sharing
@@ -135,7 +135,7 @@ def _is_task_run(rel: str) -> bool:
 
 
 def _without_source_path(data: bytes) -> bytes | None:
-    """NFR-17: the absolute input path of a task run (a DICOM folder is often a patient name)."""
+    """Drop the absolute input path of a task run (a DICOM folder is often a patient name)."""
     raw = json.loads(data)
     if not isinstance(raw, dict):
         return None
@@ -151,8 +151,8 @@ def _without_source_path(data: bytes) -> bytes | None:
 
 
 def _without_profile_values(data: bytes) -> bytes | None:
-    """NFR-17: profile top values and examples (e.g. patient ids) leave; the importing server
-    re-profiles on first access because `index/variables.parquet` is not bundled (VAR-01)."""
+    """Profile top values and examples (e.g. patient ids) leave; the importing server
+    re-profiles on first access because `index/variables.parquet` is not bundled."""
     raw = json.loads(data)
     changed = False
     for v in raw.get("variables", []) if isinstance(raw, dict) else []:
@@ -182,8 +182,8 @@ def _roots_of(folder: Path) -> list[tuple[str, str]]:
 
 
 def _import_roots_as_aliases(data: bytes) -> bytes | None:
-    """NFR-17: an import record's absolute `root` (often a patient-named folder) becomes its
-    alias ref `{alias}:`; `project.json` keeps the absolute roots by design (PRJ-05)."""
+    """An import record's absolute `root` (often a patient-named folder) becomes its alias ref
+    `{alias}:`; `project.json` keeps the absolute roots by design."""
     rows = _jsonl(data)
     changed = False
     for r in rows:
@@ -194,13 +194,13 @@ def _import_roots_as_aliases(data: bytes) -> bytes | None:
 
 
 def _redacted_rows(data: bytes, red: Redactor) -> bytes | None:
-    """NFR-17: QC warning messages quote absolute paths (e.g. a reader error)."""
+    """QC warning messages quote absolute paths (e.g. a reader error)."""
     new = red.jsonl_bytes(data)
     return new if new != data else None
 
 
 def _without_view_token(data: bytes) -> bytes | None:
-    """PRJ-17: a bundle never carries the view-only token (reset to null)."""
+    """A bundle never carries the view-only token or the dataset root (reset to null)."""
     raw = json.loads(data)
     if not isinstance(raw, dict) or not (raw.get("view_token") or raw.get("dataset_root")):
         return None
@@ -209,12 +209,12 @@ def _without_view_token(data: bytes) -> bytes | None:
     return json.dumps(raw, indent=2).encode("utf-8")
 
 
-def write_bundle(folder: Path, project_id: str, out: Path, folders: Iterable[str] = ()) -> int:
-    """Zip the project folder into `out` (outside `folder`'s bundled part); returns entries.
+def write_bundle(folder: Path, project_id: str, out: Path, folders: Iterable[str] = ()) -> None:
+    """Zip the project folder into `out` (outside `folder`'s bundled part).
 
     DICOM-derived rows that were not anonymized at conversion leave with the `basic` profile
-    applied (DCM-05, NFR-17); absolute paths in import records and QC messages become alias
-    refs (other server `folders` are elided); the project folder itself is not changed.
+    applied; absolute paths in import records and QC messages become alias refs (other server
+    `folders` are elided); the project folder itself is not changed.
     """
     entries = list(_walk(folder))
     scrub = _Scrubber(salt=project_id)
@@ -245,15 +245,12 @@ def write_bundle(folder: Path, project_id: str, out: Path, folders: Iterable[str
             continue
         if new is not None:
             replaced[rel] = new
-    n = 0
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         for path, rel in entries:
             if rel in replaced:
                 zf.writestr(f"{project_id}/{rel}", replaced[rel])
             else:
                 zf.write(path, f"{project_id}/{rel}")
-            n += 1
-    return n
 
 
 def _safe_rel(name: str) -> str | None:
@@ -283,10 +280,10 @@ def _members(zf: zipfile.ZipFile) -> tuple[str, list[tuple[zipfile.ZipInfo, str]
             raise ValidationProblem(f"Symlink in bundle: {info.filename!r}")
         top, _, inner = rel.partition("/")
         tops.add(top)
-        if info.is_dir() or not inner:
-            if not info.is_dir():
-                raise ValidationProblem("Bundle entries must sit inside one project folder")
+        if info.is_dir():
             continue
+        if not inner:
+            raise ValidationProblem("Bundle entries must sit inside one project folder")
         files.append((info, inner))
     if len(tops) != 1:
         raise ValidationProblem("A bundle holds exactly one top-level project folder")
@@ -294,14 +291,14 @@ def _members(zf: zipfile.ZipFile) -> tuple[str, list[tuple[zipfile.ZipInfo, str]
 
 
 def read_config(zf: zipfile.ZipFile, top: str) -> ProjectConfig:
-    """`project.json` of the bundle; format checked like PRJ-11 (newer → 409)."""
+    """The bundle's migrated `project.json`; a foreign or newer format raises 409."""
     try:
         raw: Any = json.loads(zf.read(f"{top}/project.json").decode("utf-8"))
     except KeyError:
         raise ValidationProblem("Bundle has no project.json") from None
-    except (UnicodeDecodeError, ValueError):
+    except ValueError:
         raise ValidationProblem("Bundle project.json is not valid JSON") from None
-    version = check_version(raw)  # format-version-unsupported for foreign or newer documents
+    version = check_version(raw)
     try:
         return ProjectConfig.model_validate(migrate(raw, version))
     except ValidationError as exc:
@@ -311,10 +308,8 @@ def read_config(zf: zipfile.ZipFile, top: str) -> ProjectConfig:
         ) from None
 
 
-def extract_bundle(
-    fileobj: IO[bytes], staging: Path, taken: set[str]
-) -> tuple[ProjectConfig, str, int]:
-    """Validate and extract into `staging` (created). Returns (config, original id, n files).
+def extract_bundle(fileobj: IO[bytes], staging: Path, taken: set[str]) -> tuple[ProjectConfig, str]:
+    """Validate and extract into `staging` (created). Returns (config, original id).
 
     Keeps the bundle's `project_id` unless it is not a ULID or already used in this workspace
     (`taken`); then a new id is assigned and written to the staged `project.json`.
@@ -329,7 +324,6 @@ def extract_bundle(
         cfg = read_config(zf, top)
         original = cfg.project_id
         staging.mkdir(parents=True)
-        n = 0
         for info, inner in files:
             if _excluded(inner):
                 continue
@@ -337,8 +331,7 @@ def extract_bundle(
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(info) as src, dest.open("wb") as dst:
                 shutil.copyfileobj(src, dst, 1 << 20)
-            n += 1
     if not is_ulid(cfg.project_id) or cfg.project_id in taken:
         cfg = cfg.model_copy(update={"project_id": new_ulid(), "updated_at": utc_now()})
         atomic_write_json(staging / "project.json", cfg.model_dump(mode="json"))
-    return cfg, original, n
+    return cfg, original

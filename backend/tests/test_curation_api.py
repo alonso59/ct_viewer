@@ -107,7 +107,7 @@ def test_errors(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> N
         base | {"item_id": None},
         base | {"case_id": "case_09999"},
         base | {"priority": "urgent"},
-        base | {"proposed_phase": "NP"},  # phase is native now (ADR-0026)
+        base | {"proposed_phase": "NP"},  # phase is native (ADR-0026)
         base | {"target": "phase"},
         base | {"status": "wrong_phase_suspected"},
         base | {"proposed_side": "X"},

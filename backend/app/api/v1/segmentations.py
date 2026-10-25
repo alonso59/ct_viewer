@@ -1,4 +1,4 @@
-"""API-27 segmentation sets (ADR-0015); `default_seg` is set through API-03."""
+"""Segmentation sets; `default_seg` is set through `PATCH /projects/{pid}`."""
 
 from __future__ import annotations
 

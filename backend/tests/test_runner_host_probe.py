@@ -70,10 +70,6 @@ def test_failed_unit_cleanup_prevents_readiness(monkeypatch: pytest.MonkeyPatch)
     def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         if argv[0] == "systemctl":
             return subprocess.CompletedProcess(argv, 1, "", "stop failed")
-        if argv[0] == "systemctl":
-            return subprocess.CompletedProcess(
-                argv, 0, "LoadState=loaded\nActiveState=inactive\n", ""
-            )
         return subprocess.CompletedProcess(argv, 0, json.dumps({"checks": CHECKS}), "")
 
     monkeypatch.setattr(probe.subprocess, "run", run)

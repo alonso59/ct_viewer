@@ -1,4 +1,4 @@
-"""IMP-15 / ADR-0025 §2: opt-in reconstructed DICOM sidecars for `metadata-v1` imports, written
+"""IMP-15 / ADR-0025: opt-in reconstructed DICOM sidecars for `metadata-v1` imports, written
 to the derived root only, marked partial, never over a real one."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Import preview: detect inputs, parse, count, map fields (IMP-02/03). No header reads."""
+"""Import preview: detect inputs, parse, count, map fields. No header reads."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class InputBlob:
 
 
 def detect_inputs(root: Path) -> dict[FileKind, InputBlob]:
-    """IMP-02: known input files under the (already guarded) data root, read-only."""
+    """Known input files under the (already guarded) data root, read-only."""
     out: dict[FileKind, InputBlob] = {}
     for kind, rel in DETECT_PATHS.items():
         p = root / rel
@@ -57,7 +57,7 @@ def input_files(blobs: dict[FileKind, InputBlob], parsed: ParsedInputs) -> list[
 
 
 def counts(parsed: ParsedInputs) -> ImportCounts:
-    """IMP-03 preview counts; an all-excluded case is not a case (`counting`, AUD-A2-08)."""
+    """An all-excluded case is not a case."""
     meta = {r.case_id for r in parsed.metadata}
     rows = [(r.case_id, is_excluded(r)) for r in parsed.metadata]
     rows += [(r.case_id, False) for r in parsed.catalog if r.case_id not in meta]

@@ -1,5 +1,3 @@
-"""API-59 dataset table (ADR-0020 §4): rows + active layers, and the list of active layers."""
-
 from __future__ import annotations
 
 from typing import Annotated, Final, Literal
@@ -46,12 +44,12 @@ def list_layers(ctx: Ctx, pid: str) -> list[LayerInfo]:
     ]
 
 
-NEVER_EXPORTED: Final = frozenset({"raw_metadata"})  # the DICOM tag blob (NFR-17)
+NEVER_EXPORTED: Final = frozenset({"raw_metadata"})  # the DICOM tag blob
 
 
 async def dropped_fields(ctx: AppContext, pid: str, include_sensitive: bool) -> frozenset[str]:
-    """VAR-09 / NFR-17 in every format: absolute paths and the raw tag blob never leave; UIDs,
-    accession numbers, `patient_id`, dates and catalog-`sensitive` fields only on request."""
+    """In every format: absolute paths and the raw tag blob never leave; UIDs, accession
+    numbers, `patient_id`, dates and catalog-`sensitive` fields only on request."""
     cat = await VariableService(ctx.workspace, ctx.index, ctx.locks, ctx.bus).catalog(pid)
     never = NEVER_EXPORTED | {e.name for e in cat.excluded if e.reason == "path"}
     if include_sensitive:
@@ -67,7 +65,7 @@ async def dropped_fields(ctx: AppContext, pid: str, include_sensitive: bool) -> 
 
 
 def annotation_refs(ctx: AppContext, pid: str) -> dict[str, str]:
-    """ADR-0025: where each active annotation run keeps its full records (ANZ-04)."""
+    """Where each active annotation run keeps its full records."""
     pdir = ctx.workspace.project_dir(pid)
     out: dict[str, str] = {}
     for fld, run_id in ctx.workspace.get(pid).annotation_sources.items():
@@ -97,11 +95,11 @@ async def dataset_table(
         bool,
         Query(
             description="Also export `sensitive` fields: patient_id, dates, UIDs, accession "
-            "numbers (VAR-09). Absolute paths and `raw_metadata` never leave."
+            "numbers. Absolute paths and `raw_metadata` never leave."
         ),
     ] = False,
 ) -> Response:
-    """API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand."""
+    """`dataset_table.csv|parquet`, or `dataset.jsonl`, built on demand."""
     layers = project_layers(ctx, pid)
     items = ctx.index.load(pid).items
     drop = await dropped_fields(ctx, pid, include_sensitive)

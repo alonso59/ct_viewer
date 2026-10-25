@@ -1,7 +1,7 @@
 """Catalog builder: index items (+ derived defs, external tables, overrides) → catalog + table.
 
 Pure and deterministic (no I/O). One unit per case for case-level variables and one per scan
-for scan-level ones (VAR-02); `Column.get` joins either level onto any item of the scan.
+for scan-level ones; `Column.get` joins either level onto any item of the scan.
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ class ExternalData:
 
 @dataclass
 class LayerData:
-    """A plugin layer as a typed variable (ADR-0020, VAR-12), e.g. `lbl.{table}.{column}`."""
+    """A plugin layer as a typed variable, e.g. `lbl.{table}.{column}`."""
 
     name: str
     level: Level
@@ -105,9 +105,6 @@ class Built:
     columns: list[Column]
     # Items in index order with their (case_id, scan_idx) join key.
     items: list[Item]
-
-
-# -- raw metadata columns ----------------------------------------------------------------------
 
 
 def _scan_fields(items: Sequence[Item]) -> tuple[dict[ScanKey, dict[str, Any]], list[str]]:
@@ -190,7 +187,7 @@ def _make_variable(
 
 
 def apply_override(var: Variable, ov: VariableOverride | None) -> Variable:
-    """VAR-03/05: a confirmed type clears the Review badge; tags/visibility replace defaults."""
+    """A confirmed type clears the Review badge; tags/visibility replace defaults."""
     if ov is None:
         return var
     upd: dict[str, Any] = {}
@@ -219,7 +216,7 @@ def _metadata_columns(
         if name in schema.CORE_FIELDS:
             reason = "core"
         elif not is_raw:
-            reason = schema.name_exclusion(name) or _value_exclusion(texts, blobs)  # type: ignore[assignment]
+            reason = schema.name_exclusion(name) or _value_exclusion(texts, blobs)
         if reason is not None:
             excluded.append(Excluded(name=name, reason=reason))
             continue
@@ -246,9 +243,6 @@ def _metadata_columns(
         var = _make_variable(name, source, group, level, units, inference, overrides.get(name))
         columns.append(Column(var, by_case, by_scan))
     return columns, excluded
-
-
-# -- derived (VAR-06) --------------------------------------------------------------------------
 
 
 def _need(columns: Mapping[str, Column], name: str, what: str) -> Column:
@@ -409,9 +403,6 @@ def _scan_keys(cols: Sequence[Column]) -> list[ScanKey]:
     return list(keys)
 
 
-# -- external (VAR-07) -------------------------------------------------------------------------
-
-
 def _external_columns(
     ext: ExternalData,
     items: Sequence[Item],
@@ -458,9 +449,6 @@ def match_report(ext: ExternalData, items: Sequence[Item]) -> tuple[int, list[st
     return len(matched), [k for k in ext.rows if k not in keys]
 
 
-# -- entry point -------------------------------------------------------------------------------
-
-
 def build(
     items: Sequence[Item],
     *,
@@ -475,7 +463,7 @@ def build(
 
     A derived definition named in `strict` (the one an API write adds) raises ValidationProblem
     when invalid; any other invalid one is skipped and listed in `Catalog.broken` (a re-import
-    or a deleted label table may drop its source, AUD-A5-08).
+    or a deleted label table may drop its source).
     """
     ov = dict(overrides or {})
     cols, excluded = _metadata_columns(items, ov)
@@ -487,7 +475,7 @@ def build(
         for c in new:
             by_name[c.var.name] = c
             cols.append(c)
-    for ld in layers:  # VAR-12: the layer's own type, no inference
+    for ld in layers:  # the layer's own type, no inference
         units = list(ld.by_case.values() if ld.level == "case" else ld.by_scan.values())
         var = _make_variable(ld.name, "layer", "study", ld.level, units,
                              Inference(ld.type, 1.0, False), ov.get(ld.name))  # fmt: skip
@@ -508,7 +496,7 @@ def build(
         c.var = apply_override(c.var, ov.get(d.name))
         by_name[c.var.name] = c
         cols.append(c)
-    for c in cols:  # VAR-13: categorical layers and active analyzer fields
+    for c in cols:
         c.var.comparable = c.var.type == "categorical" and (
             c.var.source == "layer" or c.var.name in annotation_fields
         )

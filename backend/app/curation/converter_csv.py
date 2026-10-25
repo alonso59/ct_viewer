@@ -1,13 +1,9 @@
-"""CUR-15 / PHS-08: the standalone converter's `curation.csv` (DCM-08/09) → events, once.
+"""The standalone converter's `curation.csv` → events, once.
 
-Columns used: case_id, scan_idx, curated_keep, curated_role, curated_phase, curated_quality,
-notes. Per row with a manual value (`source: "converter_import"`):
-- a curation event on target `seg`: `curated_keep` false → `rejected`; quality poor/bad →
-  needs major, fair → needs minor correction; `curated_keep` true or quality good → `accepted`;
-  `notes` (and quality/role) become the comment;
-- `curated_phase` → a native phase event (PHS-08), not a curation decision; skipped when the
-  scan already has a phase selection (a later import must not override a reviewer's click).
-Rows already imported are skipped.
+Per row with a manual value (`source: "converter_import"`): a curation event on target `seg`,
+and a native phase event for `curated_phase`, skipped when the scan already has a phase
+selection (a later import must not override a reviewer's click). Rows already imported are
+skipped.
 """
 
 from __future__ import annotations
@@ -45,7 +41,7 @@ class ConverterContext:
     mapping: Mapping[str, str]
     imported: frozenset[str]  # `case_id|scan_idx` keys already imported
     reviewer: str
-    phase_selected: frozenset[tuple[str, str]] = frozenset()  # scans with a phase event
+    phase_selected: frozenset[tuple[str, str]]  # scans with a phase event
 
 
 def parse(data: bytes) -> list[tuple[int, dict[str, str]]]:
@@ -74,7 +70,7 @@ def convert(rows: Sequence[tuple[int, dict[str, str]]], ctx: ConverterContext) -
         quality = row.get("curated_quality", "").lower()
         notes = row.get("notes", "")
         if not (keep or phase or quality or notes or row.get("curated_role")):
-            continue  # nothing curated on this row
+            continue
         if key in seen:
             skipped.append(V2Skipped(line=line, review_id=key, reason="already imported"))
             continue

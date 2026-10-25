@@ -87,9 +87,6 @@ def test_write_guard_trips(guarded: list[str], data_root: Path) -> None:
         os.open(data_root / "y.txt", os.O_WRONLY | os.O_CREAT)
 
 
-# --- streaming (BE-04) ---------------------------------------------------------------
-
-
 def _stream_app(path: Path, name: str) -> Starlette:
     fp = quick_fingerprint(path)
 
@@ -134,9 +131,6 @@ def test_volume_response_full_range_304(guarded: list[str], data_root: Path) -> 
         assert r.status_code == 200
         assert int(r.headers["content-length"]) == len(raw)
     assert guarded  # the source was actually read through the guard
-
-
-# --- npy → NIfTI (IMP-10) -------------------------------------------------------------
 
 
 def test_convert_npy(guarded: list[str], data_root: Path, tmp_path: Path) -> None:
@@ -204,9 +198,6 @@ def test_ensure_nifti_error(tmp_path: Path) -> None:
     dst = tmp_path / "cache" / "npy" / "x.nii.gz"
     with pytest.raises(ValidationProblem):
         asyncio.run(npy_convert.ensure_nifti(_Runner(), bad, dst, [1, 1, 1]))
-
-
-# --- thumbnails (IMP-12) --------------------------------------------------------------
 
 
 def _thumb(tmp_path: Path, name: str = "t.webp") -> Path:

@@ -1,1 +1,1 @@
-"""DuckDB queries backing dashboard views. DB-*, API-38."""
+"""Dashboard views, guided analyses and recommendations over radiomics runs."""

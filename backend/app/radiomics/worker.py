@@ -1,9 +1,9 @@
-"""Radiomics work units (RAD-06/07, BE-06/12). Runs in job worker processes.
+"""Radiomics work units. Runs in job worker processes.
 
-Workers receive absolute paths resolved in the API process (BE-02); the engine opens them
-read-only (BE-03, R1). The only files a worker writes are its own part under
-`radiomics/runs/{run_id}/parts/` (temp file + rename). Diagnostics travel in the part's
-parquet schema metadata, so one atomic file marks the unit done (RAD-08).
+Workers receive absolute paths resolved in the API process; the engine opens them read-only.
+The only files a worker writes are its own part under `radiomics/runs/{run_id}/parts/`
+(temp file + rename). Diagnostics travel in the part's parquet schema metadata, so one atomic
+file marks the unit done.
 """
 
 from __future__ import annotations
@@ -69,8 +69,8 @@ def _write_part(run_dir: Path, key: str, table: pa.Table) -> None:
 
 def _extract(task: dict[str, Any]) -> tuple[pa.Table, dict[str, Any]]:
     engine = get_engine(task["engine"])
-    # `label` is the project label; `mask_label` the value in this set's mask (ADR-0015 mapping)
-    value = int(task.get("mask_label", task["label"]))
+    # `label` is the project label; `mask_label` the value in this set's mask
+    value = int(task["mask_label"])
     res = engine.extract(task["image_path"], task["mask_path"], value, task["settings"])
     item = task["item"]
     rows: dict[str, list[Any]] = {n: [] for n in FEATURE_SCHEMA.names}
@@ -92,7 +92,7 @@ def _extract(task: dict[str, Any]) -> tuple[pa.Table, dict[str, Any]]:
 
 
 def extract_unit(task: dict[str, Any]) -> dict[str, Any]:
-    """Work unit: one (item, label). Never raises for per-item failures (RAD-07)."""
+    """Work unit: one (item, label). Never raises for per-item failures."""
     t0 = time.perf_counter()
     base = {"key": task["key"], "item_id": task["item"]["item_id"], "label": task["label"]}
     try:
@@ -101,14 +101,17 @@ def extract_unit(task: dict[str, Any]) -> dict[str, Any]:
         table = table.replace_schema_metadata(meta)
         _write_part(Path(task["run_dir"]), task["key"], table)
     except Exception as exc:
-        return {**base, "ok": False, "error": f"{type(exc).__name__}: {exc}",
-                "elapsed_s": time.perf_counter() - t0}  # fmt: skip
-    return {**base, "ok": True, "n_features": table.num_rows,
-            "elapsed_s": time.perf_counter() - t0}  # fmt: skip
+        return {
+            **base,
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "elapsed_s": time.perf_counter() - t0,
+        }
+    return {**base, "ok": True, "n_features": table.num_rows, "elapsed_s": time.perf_counter() - t0}
 
 
 def estimate_sample(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """RAD-11: time extractions of a small sample; writes nothing."""
+    """Time extractions of a small sample; writes nothing."""
     out = []
     for task in tasks:
         t0 = time.perf_counter()

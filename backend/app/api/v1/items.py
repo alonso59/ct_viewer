@@ -1,5 +1,3 @@
-"""API-22 item record."""
-
 from __future__ import annotations
 
 import asyncio
@@ -33,7 +31,7 @@ def list_items(
     modality: Annotated[str | None, Query(max_length=128)] = None,
     has_mask: Annotated[bool | None, Query()] = None,
 ) -> Page[Item]:
-    """API-68: active indexed items, filtered before paging; no source reads or ID inference."""
+    """Active indexed items, filtered before paging."""
     ctx.workspace.get(pid)
     needle = (q or "").strip().casefold()
     rows = [
@@ -64,7 +62,7 @@ def get_item(pid: str, iid: str, ctx: Ctx) -> ItemDetail:
 
 @router.get("/projects/{pid}/items/{iid}/dicom-tags", response_model=dict[str, Any])
 async def get_dicom_tags(pid: str, iid: str, ctx: Ctx) -> dict[str, Any]:
-    """The item's DICOM JSON sidecar (DCM-04), read on demand only (DCM-05: PHI stays here)."""
+    """The item's DICOM JSON sidecar, read on demand only (PHI stays here)."""
     item = ctx.index.get_item(pid, iid)
     ref = item.extra.get("dicom_sidecar")
     if not isinstance(ref, str) or not ref:
@@ -72,7 +70,7 @@ async def get_dicom_tags(pid: str, iid: str, ctx: Ctx) -> dict[str, Any]:
     path = ctx.workspace.resolver(pid).resolve(ref)
     if not path.is_file():
         raise SourceMissing("DICOM sidecar is missing")
-    raw: Any = await asyncio.to_thread(read_json, path)
+    raw = await asyncio.to_thread(read_json, path)
     if not isinstance(raw, dict):
         raise NotFound("DICOM sidecar is not a JSON object")
     return raw
@@ -80,7 +78,7 @@ async def get_dicom_tags(pid: str, iid: str, ctx: Ctx) -> dict[str, Any]:
 
 @router.get("/projects/{pid}/items/{iid}/recycle", response_model=RecyclePlan)
 def preview_recycle(pid: str, iid: str, ctx: Ctx) -> RecyclePlan:
-    """API-66 / CUR-16: preview the whole scan, related outputs and default recycle bin."""
+    """Preview the whole scan, related outputs and default recycle bin."""
     return RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).preview(pid, iid)
 
 
@@ -92,7 +90,7 @@ async def recycle_scan(
     ctx: Ctx,
     x_reviewer: Annotated[str | None, Header(alias="X-Reviewer")] = None,
 ) -> RecycleResult:
-    """API-66: confirmed, audited removal; never a permanent delete."""
+    """Confirmed, audited removal; never a permanent delete."""
     service = RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus)
     result = await service.recycle(pid, iid, body, x_reviewer)
     for project_id in result.project_ids:

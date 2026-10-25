@@ -1,4 +1,4 @@
-"""BE-ARCH §Layering (AUD-A6-10): `api/v1` → services → `core`. No service package imports the API
+"""BE-ARCH layering (AUD-A6-10): `api/v1` → services → `core`. No service package imports the API
 layer, and no new mutual dependency between packages appears (runtime imports, function-local
 ones included; `if TYPE_CHECKING:` blocks are left out: they are erased at run time)."""
 

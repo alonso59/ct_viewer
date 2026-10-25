@@ -1,4 +1,4 @@
-"""TST-22: fail required test lanes before collection when their environment is incomplete."""
+"""Fail required test lanes before collection when their environment is incomplete."""
 
 from __future__ import annotations
 

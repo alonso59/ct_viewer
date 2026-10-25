@@ -1,4 +1,4 @@
-"""ANZ-02/04: phase layers have their own task records and keep conversion outputs sealed."""
+"""Phase layers have their own task records and keep conversion outputs sealed."""
 
 from __future__ import annotations
 
@@ -485,7 +485,6 @@ class PhaseRuns:
                     key=f"analyzer.phase:{rid}",
                     driver=driver,
                     on_finish=finish,
-                    meta={"run_id": rid, "task_id": "analyzer.phase"},
                 ),
                 prepare=prepare,
             )

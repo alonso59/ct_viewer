@@ -1,11 +1,11 @@
-"""`.npy` → NIfTI (IMP-10, SRC-12, BE-04, BE-12).
+"""`.npy` → NIfTI.
 
-`convert` runs in a job worker: it reads the source `rb` (R1) and writes only under a
-disposable `cache/` (project cache or `.scratch/open`, PRJ-10), atomically. `ensure_nifti`
-(API process) dedupes concurrent conversions of the same source fingerprint.
+`convert` runs in a job worker: it reads the source `rb` and writes only under a disposable
+`cache/` (project cache or `.scratch/open`), atomically. `ensure_nifti` (API process) dedupes
+concurrent conversions of the same source fingerprint.
 
-Axis order (SOURCES.md §NumPy): `xyz` = `arr[i,j,k]` with i → x (nibabel); `zyx` = SimpleITK's
-`GetArrayFromImage` order, transposed `(2,1,0)` before writing. Spacing is always x, y, z.
+Axis order: `xyz` = `arr[i,j,k]` with i → x (nibabel); `zyx` = SimpleITK's `GetArrayFromImage`
+order, transposed `(2,1,0)` before writing. Spacing is always x, y, z.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ def axis_order_of(value: object) -> AxisOrder | None:
 def decide_axis_order(
     shape: Sequence[int], declared: object = None, reference_shape: Sequence[int] | None = None
 ) -> AxisOrder | None:
-    """SRC-12: an explicit order wins; else a reference image's shape decides; else None."""
+    """An explicit order wins; else a reference image's shape decides; else None."""
     order = axis_order_of(declared)
     if order is not None:
         return order
@@ -61,7 +61,7 @@ def decide_axis_order(
 
 
 def read_sidecar(npy_path: Path) -> dict[str, Any]:
-    """`{name}.npy.json`: axis_order, spacing (x, y, z), affine, reference_ref (SRC-12)."""
+    """`{name}.npy.json`: axis_order, spacing (x, y, z), affine, reference_ref."""
     p = npy_path.with_name(npy_path.name + ".json")
     if not p.is_file():
         return {}
@@ -79,15 +79,10 @@ def nifti_name(npy_name: str) -> str:
     return f"{stem}.nii.gz"
 
 
-def _check_cache_target(dst: Path) -> None:
+def atomic_write_cache(dst: Path, data: bytes) -> None:
     parts = dst.parent.parts
     if CACHE_DIR not in parts and ".scratch" not in parts:
         raise ValueError("conversion output must live under cache/ or .scratch/")
-
-
-def atomic_write_cache(dst: Path, data: bytes) -> None:
-    """Temp file in the same dir + `os.replace`; refuses targets outside `cache/`."""
-    _check_cache_target(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{dst.name}.", suffix=".tmp", dir=dst.parent)
     try:
@@ -105,7 +100,7 @@ def to_nifti(
     axis_order: AxisOrder = "xyz",
     affine: Sequence[Sequence[float]] | None = None,
 ) -> Any:
-    """SRC-12 conversion: `zyx` is transposed (2,1,0); spacing is never permuted."""
+    """`zyx` is transposed (2,1,0); spacing is never permuted."""
     if arr.ndim != 3:
         raise ValueError(f"expected a 3D array, got shape {tuple(arr.shape)}")
     if arr.dtype == np.bool_:
@@ -151,7 +146,7 @@ async def ensure_cached(jobs: WorkerRunner, dst: Path, what: str, fn: Any, *args
     """Return `dst`, built once in a worker by `fn(*args) -> error | None` if missing; concurrent
     callers of the same `dst` share one build."""
     if dst.is_file():
-        touch(dst)  # LRU use (CACHE_MAX_GB, AUD-A4-16)
+        touch(dst)  # LRU use (CACHE_MAX_GB)
         return dst
     key = str(dst)
     loop = asyncio.get_running_loop()
@@ -179,7 +174,7 @@ async def ensure_nifti(
     axis_order: AxisOrder = "xyz",
     affine: Sequence[Sequence[float]] | None = None,
 ) -> Path:
-    """Return the cached NIfTI for `src`, converting once in a worker if needed (IMP-10)."""
+    """Return the cached NIfTI for `src`, converting once in a worker if needed."""
     return await ensure_cached(
         jobs,
         dst,

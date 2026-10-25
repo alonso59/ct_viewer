@@ -1,7 +1,7 @@
-"""Segmentation sets produced by task runs, joined into the derived index (ADR-0015, TSK-09).
+"""Segmentation sets produced by task runs, joined into the derived index.
 
 A task run that outputs masks records them in `tasks/runs/{run_id}/masks.jsonl`, one line per
-item `{item_id, ref, format, fp, labels}`. The index is derived (PRJ-10), so every rebuild and
+item `{item_id, ref, format, fp, labels}`. The index is derived, so every rebuild and
 every registration re-applies the masks of each `task` set in `project.json.segmentations`.
 """
 
@@ -23,7 +23,7 @@ def masks_path(project_dir: Path, run_id: str) -> Path:
 
 
 def record_masks(project_dir: Path, run_id: str, rows: Sequence[dict[str, Any]]) -> None:
-    """API process only, under the project lock (BE-05)."""
+    """API process only, under the project lock."""
     path = masks_path(project_dir, run_id)
     seen = {(row["item_id"], row["ref"]) for row in iter_jsonl(path)}
     fresh: list[dict[str, Any]] = []

@@ -1,1 +1,1 @@
-"""Core event store (ADR-0022): namespaced append-only JSONL with reviewer stamps and SSE."""
+"""Core event store: namespaced append-only JSONL with reviewer stamps and SSE."""

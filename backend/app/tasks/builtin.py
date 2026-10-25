@@ -1,6 +1,6 @@
-"""Builtin runtime (ADR-0016 §3): the task entry runs in a job worker process (BE-06).
+"""Builtin runtime: the task entry runs in a job worker process.
 
-The entry is `run(job_dir) -> int` and follows the same protocol as an external task (TSK-07).
+The entry is `run(job_dir) -> int` and follows the same protocol as an external task.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from app.tasks.protocol import LOG
 
 
 def run_entry(entry: str, job_dir: str) -> dict[str, Any]:
-    """Worker unit. Never raises: a crash is an exit code plus `task.log` (§Protocol)."""
+    """Worker unit. Never raises: a crash is an exit code plus `task.log`."""
     module, _, name = entry.partition(":")
     try:
         fn = getattr(importlib.import_module(module), name)

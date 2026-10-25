@@ -1,4 +1,4 @@
-"""DCM-16: complete dry-run plans in bounded workspace chunks, manifest published last."""
+"""Complete dry-run plans in bounded workspace chunks, manifest published last."""
 
 from __future__ import annotations
 

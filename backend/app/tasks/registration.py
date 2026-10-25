@@ -1,4 +1,4 @@
-"""Task outputs and their registration (TSK-09): masks → a segmentation set, volumes → the
+"""Task outputs and their registration: masks → a segmentation set, volumes → the
 derived ledger, identity / annotations / metadata → an import.
 """
 
@@ -31,7 +31,7 @@ class _RegistrationCancelled(Exception):
 
 
 class RegistrationBase(EstimateBase):
-    """Validates and registers what a run wrote (TSK-09, ADR-0014/0015)."""
+    """Validates and registers what a run wrote."""
 
     async def _finalize_dicom(self, live: Live, result: dict[str, Any]) -> None:
         """Replay metadata finalization only after proof that the native writer stopped."""
@@ -202,7 +202,7 @@ class RegistrationBase(EstimateBase):
     async def _item_outputs(
         self, live: Live, item_id: str, outputs: Sequence[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """Validate volume outputs (inside `output_dir`, ADR-0014) → `masks.jsonl` rows."""
+        """Validate volume outputs (inside `output_dir`) → `masks.jsonl` rows."""
         rows: list[dict[str, Any]] = []
         for o in outputs:
             kind = o.get("kind")
@@ -269,15 +269,14 @@ class RegistrationBase(EstimateBase):
         live.outputs.append(TaskRunOutput(kind=kind, item_id=item_id, ref=ref, sha256=str(sha)))
 
     def _target_seg(self, live: Live) -> str:
-        rec_settings = self.runs.read(live.run_dir).settings
-        s = rec_settings.get("seg_id")
+        s = self.runs.read(live.run_dir).settings.get("seg_id")
         return s if isinstance(s, str) and s else default_seg_id(live.manifest.id, live.rid)
 
     async def _register_set(self, live: Live, masks: Sequence[dict[str, Any]]) -> None:
-        """TSK-09: the segmentation set is created at the first `ok` item (ADR-0015).
+        """The segmentation set is created at the first `ok` item.
 
         Label values come from what the run wrote (`progress.jsonl` output `labels`), else
-        from the manifest's names (AUD-A5-12); new labels are appended to the label map
+        from the manifest's names; new labels are appended to the label map
         under the project lock, so a concurrent Labels edit is not lost.
         """
         m = live.manifest
@@ -310,7 +309,7 @@ class RegistrationBase(EstimateBase):
         self.bus.publish(live.pid, "project.updated", {"fields": ["segmentations"]})
 
     async def _register_tabular(self, live: Live, result: dict[str, Any]) -> None:
-        """TSK-09: identity (SRC-07), annotations (ANZ-04), images + metadata → an import."""
+        """Identity, annotations, images + metadata → an import."""
         from app.ingest.service import IngestService
 
         pid, rid, m = live.pid, live.rid, live.manifest
@@ -349,7 +348,7 @@ class RegistrationBase(EstimateBase):
                     write_jsonl_atomic(live.run_dir / ANNOTATIONS, rows)
                 fields = sorted({str(r["field"]) for r in rows})
                 cfg = self.workspace.get(pid)
-                for f in fields:  # ANZ-04: a new run is active only where none is
+                for f in fields:  # a new run is active only where none is
                     if not cfg.annotation_sources.get(f):
                         await self.workspace.set_annotation_source(pid, f, rid, only_if_unset=True)
                         activated = True
@@ -429,11 +428,11 @@ def _written_labels(masks: Sequence[dict[str, Any]]) -> dict[str, str]:
 def _match_labels(
     names: dict[str, str], label_map: Sequence[LabelEntry]
 ) -> tuple[dict[str, int], list[int], list[LabelEntry]]:
-    """ADR-0015 §4: match set labels by name; unmatched → new `label_{value}` entries."""
+    """Match set labels by name; unmatched → new `label_{value}` entries."""
     by_name = {e.name.lower(): e.value for e in label_map}
     used = {e.value for e in label_map}
     free = [c for c in AUTO_LABEL_COLORS if c.upper() not in {e.color.upper() for e in label_map}]
-    colors = free or list(AUTO_LABEL_COLORS)  # skip palette colours already in use
+    colors = free or list(AUTO_LABEL_COLORS)
     mapping: dict[str, int] = {}
     unmatched: list[int] = []
     new: list[LabelEntry] = []

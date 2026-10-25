@@ -1,4 +1,4 @@
-"""CUR-16: explicit scan recycling, with a recoverable file manifest (ADR-0029)."""
+"""Explicit scan recycling, with a recoverable file manifest."""
 
 from __future__ import annotations
 
@@ -158,9 +158,7 @@ class RecycleService:
                 {r["alias"]: r["path"] for r in cfg["path_roots"]},
                 self.workspace.guard,
                 roles={r["alias"]: r.get("role", "source") for r in cfg["path_roots"]},
-                derived_guard=self.workspace.project_derived_guard(project.project_id)
-                if not project.archived
-                else self.workspace.derived_guard,
+                derived_guard=self.workspace.derived_guard,
             )
             if any(
                 row.get("image") and archived_resolver.resolve(row["image"]["ref"]) in images
@@ -269,7 +267,6 @@ class RecycleService:
                     if not is_within(realpath(cache), realpath(pdir / "cache")):
                         raise ValidationProblem("Cached scan file escapes its cache directory")
                     plan.moves[cache] = f"project_cache/{other}/{cache.relative_to(pdir / 'cache')}"
-            # Parquet feature tables and parts: retain other scans, archive removed rows.
             for folder in ("radiomics/runs", "tasks/runs"):
                 for path in (pdir / folder).glob("**/*.parquet"):
                     self._prune_parquet(plan, path, ids)
@@ -491,10 +488,9 @@ class RecycleService:
                     [w.model_dump(mode="json") for w in warnings]
                 )
                 status = self.index.status(other).model_dump(mode="json")
+                n_items, n_excluded = split_items(i.status for i in remaining)
                 status.update(
-                    n_items=split_items(i.status for i in remaining)[0],
-                    n_excluded_upstream=split_items(i.status for i in remaining)[1],
-                    n_warnings=len(warnings),
+                    n_items=n_items, n_excluded_upstream=n_excluded, n_warnings=len(warnings)
                 )
                 plan.writes[pdir / "index/status.json"] = json.dumps(status).encode()
                 journal = pdir / JOURNAL

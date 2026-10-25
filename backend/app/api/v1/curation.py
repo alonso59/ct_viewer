@@ -1,5 +1,3 @@
-"""API-50..54 curation: events, derived state, correction queue, exports, v2 import (CUR-*)."""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -23,7 +21,7 @@ from app.variables.service import VariableService
 router = APIRouter(tags=["curation"])
 
 Reviewer = Annotated[
-    str | None, Header(description="Reviewer name or initials (CUR-01); required for writes")
+    str | None, Header(description="Reviewer name or initials; required for writes")
 ]
 
 
@@ -32,7 +30,7 @@ def curation_service(ctx: Ctx) -> CurationService:
 
 
 def _after_import(ctx: Ctx, pid: str, report: V2ImportReport) -> V2ImportReport:
-    """Phase events from an import change the `phase` variable (PHS-08, VAR-12)."""
+    """Phase events from an import change the `phase` variable."""
     if report.phase_events:
         svc = VariableService(ctx.workspace, ctx.index, ctx.locks, ctx.bus)
         schedule_variables_rebuild(pid, svc.rebuild)
@@ -47,7 +45,7 @@ def list_events(
     item_id: Annotated[str | None, Query()] = None,
     case_id: Annotated[str | None, Query()] = None,
 ) -> Page[CurationEvent]:
-    """API-50 history, newest first (CUR-14); every event is kept (CUR-02/12)."""
+    """History, newest first; every event is kept."""
     return paginate(curation_service(ctx).history(pid, item_id=item_id, case_id=case_id), paging)
 
 
@@ -59,9 +57,9 @@ async def append_event(
     x_reviewer: Reviewer = None,
     x_session_id: Annotated[str | None, Header(description="Per-tab id for audit")] = None,
 ) -> CurationEvent:
-    """API-50 append one decision (CUR-02/03/05/07); pushes `curation.appended` (CUR-11).
+    """Append one decision; pushes `curation.appended`.
 
-    428 `reviewer-required` without `X-Reviewer` (CUR-01).
+    428 `reviewer-required` without `X-Reviewer`.
     """
     return await curation_service(ctx).append(
         pid, body, reviewer=x_reviewer, session_id=x_session_id
@@ -75,7 +73,7 @@ def get_state(
     case_id: Annotated[str | None, Query()] = None,
     item_id: Annotated[str | None, Query()] = None,
 ) -> CurationState:
-    """API-51 derived latest state per item and per case (CUR-08, last-writer-wins CUR-12)."""
+    """Derived latest state per item and per case (last writer wins)."""
     return curation_service(ctx).state(pid, case_id=case_id, item_id=item_id)
 
 
@@ -87,7 +85,7 @@ def get_state(
 def get_queue(
     pid: str, ctx: Ctx, format: Annotated[Literal["json", "csv"], Query()] = "json"
 ) -> list[QueueRow] | Response:
-    """API-52 correction queue (CUR-09); CSV for 3D Slicer with absolute paths."""
+    """Correction queue; CSV for 3D Slicer with absolute paths."""
     svc = curation_service(ctx)
     if format == "csv":
         return Response(
@@ -100,7 +98,7 @@ def get_queue(
 
 @router.post("/projects/{pid}/curation/exports", response_model=ExportResult, status_code=201)
 async def export_curation(pid: str, ctx: Ctx) -> ExportResult:
-    """API-53 write the CUR-10 files into the project's `exports/`."""
+    """Write `curation_state.csv` and an `events.jsonl` copy into the project's `exports/`."""
     return await curation_service(ctx).export(pid)
 
 
@@ -111,9 +109,9 @@ async def import_v2(
     file: Annotated[UploadFile, File(description="v2 `curation_review.csv`")],
     x_reviewer: Reviewer = None,
 ) -> V2ImportReport:
-    """API-54 import v2 decisions as `source: "v2_import"` events (CUR-13).
+    """Import v2 decisions as `source: "v2_import"` events.
 
-    `X-Reviewer` is required (CUR-01) and used for rows without a reviewer.
+    `X-Reviewer` is required and used for rows without a reviewer.
     """
     data = await file.read()
     return _after_import(
@@ -130,7 +128,7 @@ async def import_converter(
     file: Annotated[UploadFile, File(description="The converter CLI's `curation.csv`")],
     x_reviewer: Reviewer = None,
 ) -> V2ImportReport:
-    """API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08)."""
+    """Import the standalone converter's manual decisions once."""
     data = await file.read()
     report = await curation_service(ctx).import_converter(pid, data, reviewer=x_reviewer)
     return _after_import(ctx, pid, report)

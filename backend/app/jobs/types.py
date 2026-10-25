@@ -1,14 +1,11 @@
-"""Job contracts (BE-06). Implementation: `app.jobs.manager.JobManager`.
-
-A job is a list of `WorkUnit`s executed in the process pool. Results come back to the API
-process through `on_result` (the only place that may write project files), then
-`on_finish` runs once and may return the job `ref` (e.g. an import_id).
+"""A job is a list of `WorkUnit`s executed in the process pool. Results come back to the API
+process through `on_result`, the only place that may write project files.
 """
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
@@ -29,8 +26,6 @@ class WorkUnit:
 
 
 class JobInfo(BaseModel):
-    """API-41 payload."""
-
     job_id: str
     kind: JobKind
     project_id: str
@@ -43,11 +38,11 @@ class JobInfo(BaseModel):
     finished_at: str | None = None
     ref: str | None = None
     error: str | None = None
-    key: str | None = None  # e.g. the task id of a `task` job (TSK-12)
+    key: str | None = None  # e.g. the task id of a `task` job
 
 
 class JobHandle(Protocol):
-    """What a driver coroutine sees of its job (task runs, TSK-06/07)."""
+    """What a driver coroutine sees of its job."""
 
     @property
     def stopped(self) -> bool: ...  # cancelled, or the server is shutting down
@@ -65,17 +60,16 @@ class JobSpec:
     units: Sequence[WorkUnit]
     # API process, once per unit result (completion order). Exceptions fail the job.
     on_result: Callable[[Any], Awaitable[None]] | None = None
-    # API process, once, with the final status (succeeded | failed | cancelled). Returns `ref`.
+    # API process, once, with the final status. Returns `ref`.
     on_finish: Callable[[JobInfo], Awaitable[str | None]] | None = None
     # One queued/running job per (project_id, kind); a second submit raises JobConflict.
     exclusive: bool = True
     ref: str | None = None
-    job_id: str | None = None  # pre-allocated id (optional)
-    meta: dict[str, Any] = field(default_factory=dict)
+    job_id: str | None = None  # pre-allocated id
     # Instead of `units`: a coroutine that drives the job itself (progress, status, workers).
     # Its exception fails the job; it must return soon after `handle.stopped` turns true.
     driver: Callable[[JobHandle], Awaitable[None]] | None = None
-    # (kind, key) exclusivity instead of (kind): one task run per (project, task_id) (TSK-12).
+    # (kind, key) exclusivity instead of (kind): one task run per (project, task_id).
     key: str | None = None
     detach_on_shutdown: bool = False  # supervised external work is owned outside the API
     drain_workers: bool = False  # completion waits for stopped worker calls, retaining exclusivity

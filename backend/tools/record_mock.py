@@ -1,9 +1,9 @@
-"""Record the mock API from the real backend on the synthetic fixtures (TST-04, AUD-A6-03).
+"""Record the mock API from the real backend on the synthetic fixtures.
 
 cd backend && .venv/bin/python -m tools.record_mock      # or `make record-mock`
 
 Runs the app in-process (inline jobs) on a temporary workspace with ALLOWED_DATA_ROOTS = the
-fixtures (read only, R1), plays one demo scenario through the HTTP API (project, import,
+fixtures (read only), plays one demo scenario through the HTTP API (project, import,
 curation decisions, a phase selection, label tables, a radiomics run, a DICOM conversion) and
 writes every exchange to `frontend/src/api/mock/recorded.json`. The frontend's mock mode
 (`VITE_API_MODE=mock`, unit tests) replays these responses and computes nothing itself.
@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -119,17 +118,17 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     call("POST", f"{P}/imports", {"preview_id": pv["preview_id"]})
     wait_jobs(c, pid)
 
-    # PRJ-15/17: a stale settings write (412), a fresh one, a view link created and revoked
+    # A stale settings write (412), a fresh one, a view link created and revoked
     etag = get(P)["etag"]
     call("PATCH", P, {"description": "stale"}, {"If-Match": '"stale"'}, ok=(412,))
-    call("PATCH", P, {"description": "Synthetic demo dataset (TST-11)"}, {"If-Match": etag})
+    call("PATCH", P, {"description": "Synthetic demo dataset"}, {"If-Match": etag})
     call("POST", f"{P}/view-token")
     call("DELETE", f"{P}/view-token")
     etag = get(P)["etag"]
     labels = get(P)["label_map"]
     call("PATCH", P, {"label_map": labels}, {"If-Match": etag})
 
-    # CUR-*: the demo review story (two reviewers, one case in the queue, one rejected)
+    # The demo review story (two reviewers, one case in the queue, one rejected)
     def decide(who: dict[str, str], item: str, target: str, status: str, **extra: Any) -> None:
         ev = {
             "item_id": item,
@@ -173,7 +172,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
         priority="high",
         comment="Mask shifted ~10 mm against the image",
     )
-    # PHS-01/03: one native phase selection (case_00002 scan 02, CMP at import → NP)
+    # One native phase selection (case_00002 scan 02, CMP at import → NP)
     call(
         "POST",
         f"{P}/phase/events",
@@ -188,7 +187,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     )
     get(f"{P}/phase/events?case_id=case_00002&scan_idx=02&limit=500")
 
-    # LBL-*: a case table with values, a scan table with a reference column, a deleted table
+    # A case table with values, a scan table with a reference column, a deleted table
     T = f"{API}/plugins/labeling/projects/{pid}/tables"
     review = call(
         "POST",
@@ -217,7 +216,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
         },
         AP,
     )
-    # LBL-02: a column patch (no change), the answer the table's edits replay
+    # A column patch (no change), the answer the table's edits replay
     call(
         "PATCH",
         f"{T}/{review['table_id']}",
@@ -235,7 +234,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
             ],
         },
     )
-    # LBL-09: a reference column is read-only (the refusal is recorded)
+    # A reference column is read-only (the refusal is recorded)
     ref = phase_tab["columns"][0]["column_id"]
     call(
         "POST",
@@ -261,7 +260,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
         get(f"{T}/{t['table_id']}/cells", paged=True)
     get(f"{T}/{review['table_id']}/history?target=case_00001&column_id={size}")
 
-    # VAR-06: one derived grouping variable
+    # One derived grouping variable
     call(
         "POST",
         f"{P}/variables/derived",
@@ -274,10 +273,10 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
         },
     )
 
-    # RAD-*: the engine defaults as a profile, one run (first-order + shape, NP, tumor)
-    # validate, estimate and runs are the task routes of `radiomics.pyradiomics` (RAD-13)
+    # The engine defaults as a profile, one run (first-order + shape, NP, tumor)
+    # validate, estimate and runs are the task routes of `radiomics.pyradiomics`
     rad = "radiomics.pyradiomics"
-    schema = get(f"{API}/radiomics/schema")
+    get(f"{API}/radiomics/schema")
     check = {"settings": {}, "labels": [2], "n_items": 10}
     call("POST", f"{API}/tasks/{rad}/validate", check)
     call("POST", f"{P}/radiomics/profiles", {"name": "Engine defaults", "settings": {}})
@@ -312,9 +311,8 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     ):
         call("POST", f"{R}/views/{view}", body, ok=(200, 422))
     get(f"{P}/analyses")
-    del schema
 
-    # TSK-*: the catalogue, the threshold task's validate / preflight / estimate
+    # The catalogue, the threshold task's validate / preflight / estimate
     tasks = get(f"{API}/tasks")
     for t in tasks["tasks"]:
         get(f"{API}/tasks/{t['manifest']['id']}")
@@ -323,7 +321,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     call("POST", f"{P}/tasks/segment.threshold/estimate", {"selection": {}, "settings": {}})
     get(f"{P}/task-runs")
 
-    # DCM-* / UI-25: dry run and conversion of one DICOM patient folder into the workspace
+    # Dry run and conversion of one DICOM patient folder into the workspace
     src = {"source": str(data / "dicom" / "P900")}
     call("POST", f"{API}/tasks/dicom.convert/estimate", {"selection": src, "settings": {}})
     ws = call(
@@ -391,7 +389,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     get(f"{P}/curation/events", paged=True)
     get(f"{P}/phase/events?limit=500")
     get(f"{P}/radiomics/profiles", paged=True)
-    get(f"{T}", paged=False)
+    get(T)
     get(f"{T}?deleted=true")
     get(f"{API}/jobs?project={pid}")
     cases = get(f"{P}/cases", paged=True)
@@ -408,7 +406,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
         for scan in d["scans"]:
             for it in scan["items"]:
                 get(f"{P}/items/{it['item_id']}")
-    # FolderBrowser (API-10) and source detection (SRC-*) over the fixtures
+    # Folder browser and source detection over the fixtures
     call("POST", f"{API}/fs/list", {"path": None, "role": "source"})
     for sub in ("", "Dataset900", "Dataset900/nifti", "dicom"):
         call(
@@ -493,7 +491,7 @@ def main() -> None:
         )
         kib = OUT.stat().st_size // 1024
         print(f"record-mock: {len(rec.log)} exchanges → {OUT.relative_to(REPO)} ({kib} KiB)")
-        # CUR-16 needs its own disposable source dataset; the demo fixtures stay immutable.
+        # Recycling needs its own disposable source dataset; the demo fixtures stay immutable.
         from tools.record_recycle import main as record_recycle
 
         record_recycle()
@@ -506,4 +504,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    sys.exit(0)

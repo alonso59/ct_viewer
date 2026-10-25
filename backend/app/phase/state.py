@@ -1,8 +1,8 @@
-"""Phase selections and the read-time join (PHS-02/03), readable without the service.
+"""Phase selections and the read-time join, readable without the service.
 
-Pure functions over a project folder, so the index store (BE-07) can join them on load. The
-join never writes: `metadata.jsonl`, `phase.json` and `index/` stay as indexed (R1, ADR-0020 §3).
-An overridden item keeps the index-time value in `phase.resolved`.
+Pure functions over a project folder, so the index store can join them on load. The join never
+writes: `metadata.jsonl`, `phase.json` and `index/` stay as indexed. An overridden item keeps the
+index-time value in `phase.resolved`.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from app.eventstore.store import latest, namespace_path
 from app.ingest.models import CaseSummary, Item, PhaseInfo
 
 NAMESPACE: Final = "phase"
-MANUAL: Final = "manual"  # `phase.source` of a natively selected phase (PHASE.md)
+MANUAL: Final = "manual"  # `phase.source` of a natively selected phase
 
 ScanKey = tuple[str, str]  # (case_id, scan_idx)
 
@@ -45,7 +45,7 @@ def events(project_dir: Path) -> list[dict[str, Any]]:
 
 
 def selections(project_dir: Path) -> dict[ScanKey, dict[str, Any]]:
-    """PHS-02: latest event per `(case_id, scan_idx)`, in append order."""
+    """Latest event per `(case_id, scan_idx)`, in append order."""
     out = latest(events(project_dir), lambda e: (e["case_id"], e["scan_idx"]))
     return {(str(k[0]), str(k[1])): v for k, v in out.items() if isinstance(k, tuple)}
 
@@ -61,7 +61,7 @@ def apply(
     selected: dict[ScanKey, dict[str, Any]],
     vocabulary: Sequence[str],
 ) -> tuple[list[Item], list[CaseSummary]]:
-    """PHS-03: the selected value wins over `Item.phase.canonical`; case `phases` follow.
+    """The selected value wins over `Item.phase.canonical`; case `phases` follow.
 
     Items and cases are copied, never mutated (they are shared with the index cache).
     """

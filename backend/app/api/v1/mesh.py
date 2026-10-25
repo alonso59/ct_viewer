@@ -1,9 +1,3 @@
-"""API-25 surface mesh per mask label (VW-09, BE-04/06/12).
-
-A router, so it lives with the routers (was `imaging/mesh_api.py`: a service package importing
-the API layer, AUD-A6-10).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +17,6 @@ from app.jobs.types import JobInfo
 router = APIRouter(tags=["volumes"])
 
 MESH_MEDIA_TYPE = "application/octet-stream"
-JOBS_PATH = "/api/v1/jobs/{job_id}"
 
 _MESH_RESPONSES: dict[int | str, dict[str, Any]] = {
     200: {"content": {MESH_MEDIA_TYPE: {}}, "description": "gzip MZ3 mesh (world mm)"},
@@ -47,7 +40,7 @@ async def get_mesh(
     smooth: int = 1,
     seg: str | None = None,
 ) -> Response:
-    """`seg` = segmentation set (ADR-0015); default `default_seg`."""
+    """`seg` = segmentation set; default `default_seg`."""
     mesh.check_params(label, smooth)
     item = ctx.index.get_item(pid, iid)
     seg_id = seg or ctx.workspace.get(pid).default_seg
@@ -85,9 +78,9 @@ async def get_mesh(
         return JSONResponse(
             result.model_dump(mode="json"),
             status_code=202,
-            headers={"Location": JOBS_PATH.format(job_id=result.job_id)},
+            headers={"Location": f"/api/v1/jobs/{result.job_id}"},
         )
-    touch(result)  # LRU use (CACHE_MAX_GB, AUD-A4-16)
+    touch(result)  # LRU use (CACHE_MAX_GB)
     return FileResponse(
         result,
         media_type=MESH_MEDIA_TYPE,

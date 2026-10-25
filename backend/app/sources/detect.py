@@ -1,4 +1,4 @@
-"""`detect(path)` (SRC-01/02, API-19): candidate adapters for a folder or one file."""
+"""`detect(path)`: candidate adapters for a folder or one file."""
 
 from __future__ import annotations
 
@@ -23,17 +23,17 @@ class Candidate(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
     available: bool = True
     unavailable_reason: str | None = None
-    # `nifti-files`: relative NIfTI paths spread over the folder (SRC-17 pattern suggester)
+    # `nifti-files`: relative NIfTI paths spread over the folder, for the pattern suggester
     sample: list[str] = Field(default_factory=list)
 
 
 class DetectResult(BaseModel):
     path: str
     kind: Literal["file", "folder"]
-    root: str  # the import root: the folder, or a single file's parent (SRC-05)
+    root: str  # the import root: the folder, or a single file's parent
     candidates: list[Candidate]
     counts: dict[str, int]
-    ignored: dict[str, int]  # extension → count (SRC-02)
+    ignored: dict[str, int]  # extension → count
     truncated: bool = False
 
 
@@ -68,7 +68,7 @@ def detect(path: Path, *, dicom_available: bool) -> DetectResult:
             cands.append(
                 Candidate(
                     adapter="nifti-files",
-                    reason="One NIfTI file → a one-item project (SRC-05)",
+                    reason="One NIfTI file → a one-item project",
                     counts=counts,
                     confidence="high",
                     options={"include": [path.name]},
@@ -131,9 +131,9 @@ def _dicom(counts: dict[str, int], available: bool, *, single: bool) -> Candidat
     return Candidate(
         adapter="dicom.convert",
         reason=(
-            "One DICOM file → converted to NIfTI (DCM-10)"
+            "One DICOM file → converted to NIfTI"
             if single
-            else f"{counts['dicom']} DICOM files → converted to NIfTI with sidecars (DCM-*)"
+            else f"{counts['dicom']} DICOM files → converted to NIfTI with sidecars"
         ),
         counts=counts,
         confidence="high",
@@ -143,7 +143,7 @@ def _dicom(counts: dict[str, int], available: bool, *, single: bool) -> Candidat
 
 
 def suggest_for(root: Path) -> tuple[str, list[str]]:
-    """Cause + next actions when metadata.jsonl is missing (SRC-11)."""
+    """Cause + next actions when metadata.jsonl is missing."""
     s = formats.scan(root)
     c = _counts(s)
     parts, actions = [], []

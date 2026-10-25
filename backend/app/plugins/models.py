@@ -1,5 +1,3 @@
-"""`plugin.json` manifest and Library payloads (PLUGINS.md, PLG-02/05/06; API-49)."""
-
 from __future__ import annotations
 
 from typing import Literal
@@ -14,7 +12,7 @@ PluginStatus = Literal[
 
 
 class Contributes(BaseModel):
-    """Contribution points (PLUGINS.md §Contribution points). Values are ids."""
+    """Contribution points. Values are ids."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -37,7 +35,7 @@ class PluginRequires(BaseModel):
 
 
 class PluginManifest(BaseModel):
-    """`plugins/<id>/plugin.json` (PLG-02). Unknown keys are refused like task manifests."""
+    """`plugins/<id>/plugin.json`. Unknown keys are refused."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -50,18 +48,18 @@ class PluginManifest(BaseModel):
     scope: Literal["workspace", "project"] = "project"
     contributes: Contributes = Field(default_factory=lambda: Contributes())
     requires: PluginRequires = Field(default_factory=lambda: PluginRequires())
-    # Listed with its requirements but cannot be opened (PLG-09).
+    # Listed with its requirements but cannot be opened.
     pending: bool = False
     # CI plugins (segment.threshold): loaded for their tasks, never shown in the Library.
     hidden: bool = False
 
 
 class PluginInfo(BaseModel):
-    """API-49 row: the manifest plus the computed status (PLG-05/06)."""
+    """The manifest plus the computed status."""
 
     manifest: PluginManifest
     status: PluginStatus
-    # Why the plugin is not ready and how to satisfy it (UI-18); null when ready.
+    # Why the plugin is not ready and how to satisfy it; null when ready.
     reason: str | None = None
     actions: list[str] = Field(default_factory=list)
 

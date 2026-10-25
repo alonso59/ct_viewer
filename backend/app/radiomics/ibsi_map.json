@@ -4,8 +4,8 @@
   "engine": "pyradiomics",
   "engine_version": "3.1.1.dev111+g8ed579383",
   "status_semantics": {
-    "compliant": "matches the IBSI digital-phantom reference value within tolerance (verified by TST-06)",
-    "deviates": "known definitional deviation with a documented conversion (verified by TST-06)",
+    "compliant": "matches the IBSI digital-phantom reference value within tolerance",
+    "deviates": "known definitional deviation with a documented conversion",
     "not_defined": "no IBSI equivalent, or compliance not established in this map version (a code, when present, is the nearest IBSI concept)"
   },
   "aggregation": {

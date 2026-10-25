@@ -1,4 +1,4 @@
-"""Label table files and the derived cell state (LBL-04), readable without the service (layers)."""
+"""Label table files and the derived cell state, readable without the service (layers)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def load_tables(project_dir: Path) -> TablesFile:
 
 
 def active_tables(project_dir: Path) -> list[LabelTable]:
-    """Tables that are not deleted (LBL-10): the only ones that are layers and variables."""
+    """Tables that are not deleted: the only ones that are layers and variables."""
     return [t for t in load_tables(project_dir).tables if not t.hidden]
 
 
@@ -30,8 +30,8 @@ def events(project_dir: Path) -> list[dict[str, Any]]:
 
 
 def cell_state(project_dir: Path) -> dict[CellKey, dict[str, Any]]:
-    """Latest event per `(table, column, target)` in append order (LBL-04/05); a null value
-    clears the cell, so it is left out."""
+    """Latest event per `(table, column, target)` in append order; a null value clears the
+    cell, so it is left out."""
     out: dict[CellKey, dict[str, Any]] = {}
     for e in events(project_dir):
         k = (str(e.get("table_id")), str(e.get("column_id")), str(e.get("target")))

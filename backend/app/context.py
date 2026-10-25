@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from app.config import Settings
@@ -10,6 +9,7 @@ from app.core.cache_budget import PROJECT_POOLS, CacheBudget, Pool, workspace_po
 from app.core.locks import FileLock, ProjectLocks
 from app.core.paths import PathGuard
 from app.events.bus import EventBus
+from app.ingest.service import IndexHook
 from app.ingest.store import IndexStore
 from app.jobs.manager import JobManager
 from app.plugins.registry import PluginRegistry, build_plugins
@@ -19,8 +19,6 @@ from app.tasks.registry import Registry, build_registry
 from app.tasks.service import TaskService
 from app.tasks.source_operations import SourceOperations
 from app.tasks.workspace_runs import WorkspaceTasks
-
-IndexHook = Callable[[str], Awaitable[None]]
 
 
 @dataclass
@@ -36,16 +34,11 @@ class AppContext:
     registry: Registry
     plugins: PluginRegistry
     source_operations: SourceOperations
-    # CACHE_MAX_GB: one LRU budget over Open scratch and every project `cache/` (AUD-A4-16)
-    cache_budget: CacheBudget | None = None
+    # CACHE_MAX_GB: one LRU budget over Open scratch and every project `cache/`
+    cache_budget: CacheBudget
     open_sessions: OpenSessions = field(default_factory=OpenSessions)
-    # Called with project_id after a successful index rebuild (e.g. thumbnails, IMP-12).
+    # Called with project_id after a successful index rebuild (e.g. thumbnails).
     after_index: list[IndexHook] = field(default_factory=list)
-
-    def cache_written(self) -> None:
-        """A disposable cache file was written: let the budget sweep soon."""
-        if self.cache_budget is not None:
-            self.cache_budget.request()
 
 
 def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContext:

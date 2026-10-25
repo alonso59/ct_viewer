@@ -1,9 +1,9 @@
-"""Study packs (PRJ-16, ADR-0019) and the phase helpers they configure.
+"""Study packs and the phase helpers they configure.
 
-A pack is a first-party plugin contribution (`plugins/<id>/pack.json`, PLG-02 `packs`): label
-map, phase vocabulary + aliases + priority, organ profile for `analyzer.target` (ANZ-05) and an
-optional radiomics profile. Applying one to a project never deletes data (PRJ-16). With no pack,
-phases stay raw (open vocabulary) and labels are auto-named `label_{value}` (PRJ-07).
+A pack is a first-party plugin contribution (`plugins/<id>/pack.json`, listed in the plugin's
+`contributes.packs`): label map, phase vocabulary + aliases + priority and an organ profile for
+`analyzer.target`. Applying one to a project never deletes data. With no pack, phases stay raw
+(open vocabulary) and labels are auto-named `label_{value}`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 UNKNOWN_PHASE = "UNK"
-# Raw values that always mean "no phase" (INPUT_METADATA.md §Phase resolution, last row).
+# Raw values that always mean "no phase".
 MISSING_PHASE_VALUES = frozenset({"", "UNDEFINED", "UNKNOWN", "N/A", "NONE"})
 # Shipped plugins (`plugins/` next to `backend/`, `/app/plugins` in the image), as config.py.
 BUILTIN_PLUGINS = Path(__file__).resolve().parents[3] / "plugins"
@@ -41,8 +41,7 @@ class Pack:
     phase_priority: tuple[str, ...] = ()
     description: str = ""
     plugin: str = ""
-    target_profile: str = "generic"  # ANZ-05
-    radiomics_profile: dict[str, Any] | None = None
+    target_profile: str = "generic"
 
 
 def parse_pack(raw: dict[str, Any], plugin: str) -> Pack:
@@ -59,17 +58,16 @@ def parse_pack(raw: dict[str, Any], plugin: str) -> Pack:
             phase_priority=tuple(raw.get("phase_priority") or (UNKNOWN_PHASE,)),
             plugin=plugin,
             target_profile=str(raw.get("target_profile") or "generic"),
-            radiomics_profile=raw.get("radiomics_profile"),
         )
     except (KeyError, TypeError) as exc:
         raise ValueError(f"invalid pack: {exc}") from None
 
 
-@lru_cache(maxsize=8)
-def load_packs(root: Path = BUILTIN_PLUGINS) -> dict[str, Pack]:
-    """Every pack contributed by a `plugin.json` under `root` (file `pack.json` next to it)."""
+@lru_cache(maxsize=1)
+def load_packs() -> dict[str, Pack]:
+    """Every pack contributed by a shipped `plugin.json` (file `pack.json` next to it)."""
     out: dict[str, Pack] = {}
-    for manifest in sorted(root.glob("*/plugin.json")) if root.is_dir() else []:
+    for manifest in sorted(BUILTIN_PLUGINS.glob("*/plugin.json")):
         try:
             m = json.loads(manifest.read_text(encoding="utf-8"))
             ids = (m.get("contributes") or {}).get("packs") or []
@@ -77,7 +75,7 @@ def load_packs(root: Path = BUILTIN_PLUGINS) -> dict[str, Pack]:
                 continue
             pack = parse_pack(json.loads((manifest.parent / "pack.json").read_text()), m["id"])
         except (OSError, ValueError, KeyError, TypeError):
-            continue  # the plugin registry reports invalid manifests (API-49)
+            continue  # the plugin registry reports invalid manifests
         if pack.id in ids:
             out[pack.id] = pack
     return out
@@ -88,7 +86,7 @@ def get_pack(pack_id: str) -> Pack | None:
 
 
 def pack_fields(pack: Pack) -> dict[str, Any]:
-    """`project.json` fields a pack sets (PRJ-16); the caller merges the label map."""
+    """`project.json` fields a pack sets; the caller merges the label map."""
     return {
         "label_map": [
             {"value": s.value, "name": s.name, "color": s.color, "opacity": s.opacity,
@@ -102,7 +100,7 @@ def pack_fields(pack: Pack) -> dict[str, Any]:
 
 
 def target_profile(packs: list[str]) -> str:
-    """ANZ-05: the first applied pack with an organ profile, else `generic`."""
+    """The first applied pack with an organ profile, else `generic`."""
     for pid in packs:
         p = get_pack(pid)
         if p is not None and p.target_profile != "generic":
@@ -132,7 +130,7 @@ def auto_label_name(value: int) -> str:
     return f"label_{value}"
 
 
-# Categorical palette for auto-named labels (PRJ-07); cycles past its length.
+# Categorical palette for auto-named labels; cycles past its length.
 AUTO_LABEL_COLORS = (
     "#00FFFF", "#FFFF00", "#FF00FF", "#00FF00", "#FF8000", "#0080FF", "#FF0000", "#8000FF",
 )  # fmt: skip

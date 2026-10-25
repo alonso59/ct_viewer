@@ -1,4 +1,4 @@
-"""Synthetic DICOM series for TST-13 (orientation), the converter tests (DCM-*) and the fixtures.
+"""Synthetic DICOM series for the orientation and converter tests and the fixtures.
 
 `write_series` writes an axial CT series (LPS patient coordinates, as in DICOM) with one bright
 marker voxel at a known (column, row, slice), so a converted NIfTI can be checked in RAS mm.
@@ -17,7 +17,7 @@ MARKER = 2000
 
 
 def _uid(seed: str | None, *parts: str) -> UID:
-    """Random UIDs, or deterministic ones for a seed (TST-11 fixtures are reproducible)."""
+    """Random UIDs, or deterministic ones for a seed (reproducible fixtures)."""
     return generate_uid() if seed is None else generate_uid(entropy_srcs=[seed, *parts])
 
 

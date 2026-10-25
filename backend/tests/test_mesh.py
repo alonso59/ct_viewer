@@ -1,7 +1,4 @@
-"""API-25 mesh job: MZ3 encoding, world coordinates, winding, cache, HTTP (VW-09, BE-03/06).
-
-Run explicitly: `cd backend && .venv/bin/python -m pytest app/imaging/mesh_test.py`.
-"""
+"""API-25 mesh job: MZ3 encoding, world coordinates, winding, cache, HTTP (VW-09, BE-03/06)."""
 
 from __future__ import annotations
 
@@ -69,9 +66,6 @@ def _world_bbox(mask: NDArray[Any], affine: NDArray[Any], tol: float) -> tuple[A
     )
     w = corners @ affine[:3, :3].T + affine[:3, 3]
     return w.min(0), w.max(0)
-
-
-# --- worker ------------------------------------------------------------------------------
 
 
 def test_mz3_roundtrip_world_coords(tmp_path: Path) -> None:
@@ -194,9 +188,6 @@ def test_build_time_large_mask(tmp_path: Path) -> None:
         assert dt < 5.0
 
 
-# --- API process: ensure_mesh ------------------------------------------------------------
-
-
 def test_ensure_mesh_dedupe_and_cache(tmp_path: Path) -> None:
     arr = _sphere((16, 16, 16), (8, 8, 8), 4).astype(np.uint8)
     src = _write_nii(tmp_path / "m.nii.gz", arr, POS_AFFINE)
@@ -235,8 +226,6 @@ def test_ensure_mesh_dedupe_and_cache(tmp_path: Path) -> None:
 
     asyncio.run(run())
 
-
-# --- HTTP (router mounted on a test app, as the integrator will) -------------------------
 
 BASE = "/api/v1/projects/{pid}/items/{iid}/mesh/{label}"
 SEG_ITEM = "case_00001.01.complete.-"

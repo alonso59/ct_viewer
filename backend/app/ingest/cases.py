@@ -1,5 +1,3 @@
-"""Case summaries derived from items + warnings (DATA_MODEL.md §Case summary)."""
-
 from __future__ import annotations
 
 from collections import Counter

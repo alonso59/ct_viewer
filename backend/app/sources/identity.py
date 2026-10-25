@@ -1,4 +1,4 @@
-"""Case identity registry `sources/identity.json` (SRC-07, SOURCES.md §Identity).
+"""Case identity registry `sources/identity.json`.
 
 Assignments are append-only: an identity key keeps its case index forever, so incremental
 imports never renumber. The API process is the only writer (under the project lock).
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -20,9 +20,9 @@ DEFAULT_TEMPLATE = "case_{n:05d}"
 _SLUG_BAD = re.compile(r"[^A-Za-z0-9_-]+")
 
 
-def slug(value: str, max_len: int = 64) -> str:
-    """SRC-08: `[A-Za-z0-9_-]{1,64}`; other characters become `_` (never empty)."""
-    s = _SLUG_BAD.sub("_", value.strip()).strip("_")[:max_len]
+def slug(value: str) -> str:
+    """`[A-Za-z0-9_-]{1,64}`; other characters become `_` (never empty)."""
+    s = _SLUG_BAD.sub("_", value.strip()).strip("_")[:64]
     return s or "x"
 
 
@@ -77,8 +77,7 @@ def load(sources_dir: Path) -> IdentityRegistry:
     p = sources_dir / IDENTITY
     if not p.is_file():
         return IdentityRegistry()
-    raw: Any = read_json(p)
-    return IdentityRegistry.model_validate(raw)
+    return IdentityRegistry.model_validate(read_json(p))
 
 
 def save(sources_dir: Path, reg: IdentityRegistry) -> None:

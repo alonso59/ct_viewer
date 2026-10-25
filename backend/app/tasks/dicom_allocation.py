@@ -1,4 +1,4 @@
-"""BE-16: a DICOM worker participates in the runner's conservative host allocation."""
+"""A DICOM worker participates in the runner's conservative host allocation."""
 
 from __future__ import annotations
 
@@ -19,12 +19,9 @@ class HostAllocation:
         self.settings, self.job, self.attempt = settings, job, attempt
         self.pool = Pool(settings.allocation_root)
         self.generation = "dicom-" + hashlib.sha256(f"{job}:{attempt}".encode()).hexdigest()[:32]
-        self.workspace_identity = self._workspace_identity()
+        details = settings.workspace_root.stat()
+        self.workspace_identity = {"device": details.st_dev, "inode": details.st_ino}
         self.blocked_reason = "host_allocation"
-
-    def _workspace_identity(self) -> dict[str, int]:
-        details = self.settings.workspace_root.stat()
-        return {"device": details.st_dev, "inode": details.st_ino}
 
     def _record(self) -> dict[str, Any]:
         return {

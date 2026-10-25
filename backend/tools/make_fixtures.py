@@ -1,6 +1,6 @@
-"""Generate the deterministic synthetic fixture dataset (TST-11, docs/ops/TESTING.md).
+"""Generate the deterministic synthetic fixture dataset.
 
-Layout mirrors a converter/preprocessor dataset (docs/domain/INPUT_METADATA.md):
+Layout mirrors a converter/preprocessor dataset:
 
     <out>/
       Dataset900/                  data root (register-in-place target)
@@ -10,7 +10,7 @@ Layout mirrors a converter/preprocessor dataset (docs/domain/INPUT_METADATA.md):
       dicom/                       small DICOM source (2 patients, 3 series): converter, Open mode
       expected.json                every deliberate defect -> expected QC code
 
-Study variables (TESTING.md §Variables; VARIABLES.md): there is no `group` field. A healthy
+Study variables: a healthy
 cohort (`COHORT` cases, two scans each) carries invented case-level study variables — a
 compositional pair `marker_a + marker_b = 100` present for about half the cases, a
 numeric-discrete `grade`, a continuous `score` — plus scan-level acquisition fields with
@@ -44,11 +44,11 @@ SEED = 20260923
 SHAPE = (64, 64, 48)
 SPACING = (0.8, 0.8, 1.5)
 DATASET = "Dataset900"
-VOI_SUBDIR = "A"  # an upstream folder level; never read as a variable (INPUT_METADATA.md)
-COHORT = range(30, 62)  # healthy cohort case numbers (32 cases, TESTING.md: >= 30)
+VOI_SUBDIR = "A"  # an upstream folder level; never read as a variable
+COHORT = range(30, 62)  # healthy cohort case numbers (32 cases; the tests need >= 30)
 OUTLIER_CASE = "case_00062"  # radiomics outlier: oversized, very bright tumor mask
 MRI_SCAN = ("case_00061", "02")
-VENDORS = (  # raw strings that need a recode into 3 vendors (VAR-06)
+VENDORS = (  # raw strings that need a recode into 3 vendors
     ("SIEMENS", "SOMATOM Force"),
     ("Siemens Healthineers", "SOMATOM go.Top"),
     ("Philips Medical Systems", "IQon"),
@@ -116,7 +116,7 @@ def _write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
 
 
 def _acquisition(case: str, idx: str) -> dict[str, Any]:
-    """Scan-level converter fields (VAR-04 Acquisition group), deterministic per scan."""
+    """Scan-level converter acquisition fields, deterministic per scan."""
     n, i = int(case[-5:]), int(idx)
     vendor, model = VENDORS[n % len(VENDORS)]
     day = 1 + (n * 7 + i) % 28
@@ -162,7 +162,7 @@ def _scan_row(case: str, idx: str, phase: str, **extra: Any) -> dict[str, Any]:
 def study_variables(n: int, rng: np.random.Generator) -> dict[str, str]:
     """Invented case-level study variables (strings, like converter output; '' = missing)."""
     a = round(float(rng.uniform(5, 95)), 1)
-    present = n % 2 == 0  # about half of the cohort (VAR-01 missing %, REC-MISSING)
+    present = n % 2 == 0  # about half of the cohort
     return {
         "marker_a": f"{a:g}" if present else "",
         "marker_b": f"{100 - a:g}" if present else "",
@@ -211,7 +211,7 @@ def build(out: Path) -> Plan:
             }
         )
 
-    # --- Healthy cases: raw phases exercise normalization (ART->CMP, VEN->NP, DELAY->EP).
+    # Healthy cases: raw phases exercise normalization (ART->CMP, VEN->NP, DELAY->EP).
     healthy = [["NC", "ART", "VEN"], ["NC", "CMP", "NP", "EP"], ["VEN", "DELAY"]]
     for n, phases in enumerate(healthy, 1):
         case = f"case_{n:05d}"
@@ -222,7 +222,7 @@ def build(out: Path) -> Plan:
         voi(case, f"{len(phases):02d}", norm, "R")
     plan.phase_overrides.append({"case_id": "case_00003", "scan_idx": "02", "phase": "EP"})
 
-    # --- Deliberate defects, one per QC code.
+    # Deliberate defects, one per QC code.
     c = "case_00010"
     plan.metadata.append(_scan_row(c, "01", "NP"))
     plan.expect(QcCode.MISSING_PATH, c, "image file never written", scan_idx="01")
@@ -240,7 +240,7 @@ def build(out: Path) -> Plan:
 
     c = "case_00013"
     scan(c, "01", "NP", seg=False)
-    plan.metadata[-1]["seg_path"] = f"seg/01_{c}.mha"  # not an accepted format (SRC-02)
+    plan.metadata[-1]["seg_path"] = f"seg/01_{c}.mha"  # not an accepted format
     (root / f"seg/01_{c}.mha").write_bytes(b"ObjectType = Image\n")
     plan.expect(QcCode.MISSING_SEG, c, "no seg file", scan_idx="01")
     plan.expect(QcCode.UNSUPPORTED_FORMAT, c, "seg_path is a .mha file", scan_idx="01")
@@ -291,7 +291,7 @@ def build(out: Path) -> Plan:
         mutate_after_index=f"nifti/01_{c}_0000.nii.gz",
     )
 
-    # --- Upstream exclusion (IMP-07) and legacy .npy VOI (IMP-10): not warnings.
+    # Upstream exclusion and legacy .npy VOI: not warnings.
     plan.metadata.append(
         {
             "dataset_id": DATASET,
@@ -320,7 +320,7 @@ def build(out: Path) -> Plan:
             "spacing": list(SPACING),
         }
     )
-    # The R crop declares an axis order that is neither xyz nor zyx (SRC-12).
+    # The R crop declares an axis order that is neither xyz nor zyx.
     npy_img_r, npy_msk_r = npy_img.replace("_L.npy", "_R.npy"), npy_msk.replace("_L.npy", "_R.npy")
     for rel, arr in ((npy_img_r, ct[crop]), (npy_msk_r, lab[crop])):
         np.save(root / rel, arr)
@@ -338,7 +338,7 @@ def build(out: Path) -> Plan:
     )
     plan.expect(QcCode.AMBIGUOUS_AXIS_ORDER, c, "catalog axis_order 'yxz'", scan_idx="01", side="R")
 
-    # --- Healthy cohort with study variables (VAR/ANA fixtures), then the radiomics outlier.
+    # Healthy cohort with study variables, then the radiomics outlier.
     for n in COHORT:
         case = f"case_{n:05d}"
         study = study_variables(n, rng)
@@ -417,7 +417,7 @@ def generate(out: Path) -> Plan:
 
 
 def _dicom(root: Path) -> None:
-    """A small DICOM source for `dicom.convert` and Open mode (SRC-13): 2 patients, 3 series."""
+    """A small DICOM source for `dicom.convert` and Open mode: 2 patients, 3 series."""
     from tools.dicom_fixtures import write_series
 
     info = write_series(root / "P900" / "ct_np", patient_id="P900", seed="fx")

@@ -26,7 +26,7 @@ def arm_parent_death(expected_parent: int) -> None:
 def main(job_dir: Path) -> int:
     launch = json.loads((job_dir / "launch.json").read_text())
     arm_parent_death(int(launch["parent"]["pid"]))
-    from app.core.fsio import append_jsonl, atomic_write_json, read_json
+    from app.core.fsio import append_jsonl, atomic_write_json, read_json, write_jsonl_atomic
     from app.tasks import protocol
 
     atomic_write_json(job_dir / "worker-ready.json", {"pid": os.getpid()})
@@ -39,6 +39,10 @@ def main(job_dir: Path) -> int:
 
     spec = read_json(job_dir / protocol.JOB)
     limits = read_json(job_dir / "resources.json") if (job_dir / "resources.json").exists() else {}
+
+    def stop() -> bool:
+        return (job_dir / protocol.CANCEL).exists()
+
     if spec.get("operation") == "phase":
         import hashlib
 
@@ -50,7 +54,7 @@ def main(job_dir: Path) -> int:
                 Path(spec["analysis_state"]),
                 seed=Path(seed["path"]) if seed else None,
                 seed_sha256=seed["sha256"] if seed else None,
-                cancelled=lambda: (job_dir / protocol.CANCEL).exists(),
+                cancelled=stop,
                 on_progress=lambda done, total: append_jsonl(
                     job_dir / protocol.PROGRESS,
                     [
@@ -72,8 +76,6 @@ def main(job_dir: Path) -> int:
                 else f"{type(exc).__name__}: phase checkpoint unavailable; retry analysis",
             }
         annotations = analysis.pop("annotations", [])
-        from app.core.fsio import write_jsonl_atomic
-
         output = job_dir / "annotations.jsonl"
         write_jsonl_atomic(output, annotations)
         analysis["run_id"] = spec["run_id"]
@@ -111,7 +113,7 @@ def main(job_dir: Path) -> int:
         if binding:
             with SourceInventory(Path(binding["path"]), Path(spec["source"]["path"])) as inventory:
                 summary = inventory.scan(
-                    cancelled=lambda: (job_dir / protocol.CANCEL).exists(),
+                    cancelled=stop,
                     batch_size=int(limits.get("batch_size", 64)),
                     max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
                 )
@@ -144,7 +146,7 @@ def main(job_dir: Path) -> int:
         inventory_path = Path(spec.get("inventory", job_dir.parent / "inventory.sqlite"))
         with SourceInventory(inventory_path, Path(spec["source"])) as inventory:
             summary = inventory.scan(
-                cancelled=lambda: (job_dir / protocol.CANCEL).exists(),
+                cancelled=stop,
                 on_progress=progress,
                 batch_size=int(limits.get("batch_size", 64)),
                 max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
@@ -175,10 +177,6 @@ def main(job_dir: Path) -> int:
                 last_stage, last_tick = name, time.monotonic()
 
         source = Path(spec["source"]["path"])
-
-        def stop() -> bool:
-            return (job_dir / protocol.CANCEL).exists()
-
         identity = Identity.from_dict(spec.get("identity"))
         with SourceInventory(Path(spec["inventory"]), source) as inventory:
             summary = inventory.scan(

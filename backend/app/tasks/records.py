@@ -1,4 +1,4 @@
-"""Task run records, constants and the service base (TSK-06..10, AUD-A6-06).
+"""Task run records, constants and the service base.
 
 Run records live in `tasks/runs/{run_id}/` (`run.json` through the shared `jobs.runs.RunStore`,
 `items.jsonl`, `log.jsonl`); the service is split along its sections, each a base class of the
@@ -118,7 +118,7 @@ def dicom_history(run_dir: Path, attempt: int) -> tuple[dict[str, dict[str, Any]
 
 
 def default_seg_id(task_id: str, run_id: str) -> str:
-    """`{task-short}-{run_id[:8]}` (TASKS.md §Outputs), lower-cased to the seg_id slug."""
+    """`{task-short}-{run_id[:8]}`, lower-cased to the seg_id slug."""
     short = task_id.rsplit(".", 1)[-1].lower()
     return f"{short}-{run_id[:8].lower()}"
 
@@ -195,7 +195,7 @@ class TaskBase:
         return root / ".scratch" / "jobs" / job_id
 
     def _settings(self, m: TaskManifest, raw: dict[str, Any]) -> tuple[dict[str, Any], str]:
-        """Authoritative validation (TSK-02): 422 with field issues, else normalized settings."""
+        """Authoritative validation: 422 with field issues, else normalized settings."""
         norm, issues = normalize(m.settings_schema, m.defaults, raw)
         errors = issue_errors(issues, ["body", "settings"])
         if errors:

@@ -1,8 +1,8 @@
-"""Radiomics payloads and records (RADIOMICS.md, DATA_MODEL.md; API-30/32/36, API-43..47).
+"""Radiomics payloads and records.
 
 Settings are engine-agnostic in shape: `image_types` (filter → params), `features`
 (class → feature names) and `settings` (engine option → value). Option names inside are the
-engine's own (PyRadiomics names for the default engine, RAD-12).
+engine's own (PyRadiomics names for the default engine).
 """
 
 from __future__ import annotations
@@ -24,8 +24,6 @@ TERMINAL_RUN: frozenset[str] = frozenset(
 )
 RESUMABLE_RUN: frozenset[str] = frozenset({"interrupted", "cancelled", "failed"})
 Cell = str | int | float | None
-
-# -- schema (API-30, RAD-01/02) -------------------------------------------------------------
 
 
 class Constraints(BaseModel):
@@ -51,8 +49,6 @@ class OptionSpec(BaseModel):
 
 
 class IbsiInfo(BaseModel):
-    """Metadata only: never shown in the GUI (RADIOMICS.md §Principles)."""
-
     code: str | None = None
     status: IbsiStatus = "not_defined"
 
@@ -108,9 +104,6 @@ class SettingsSchema(BaseModel):
     defaults: RadiomicsSettings
 
 
-# -- validation (API-43, RAD-04) ------------------------------------------------------------
-
-
 class Issue(BaseModel):
     loc: list[str | int]
     msg: str
@@ -129,9 +122,6 @@ class ValidateResult(BaseModel):
     issues: list[Issue]
     settings: RadiomicsSettings | None = None  # normalized, when coercion succeeded
     profile_hash: str | None = None  # when `ok`
-
-
-# -- profiles (API-32, RAD-03) --------------------------------------------------------------
 
 
 class ProfileEngine(BaseModel):
@@ -158,11 +148,8 @@ class ProfilePatch(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
-# -- selection / estimate / runs (API-44..47, RAD-05..11) -----------------------------------
-
-
 class SelectionFilter(BaseModel):
-    """RAD-05 filter: values OR within a field, AND across fields; `var` as VAR-10."""
+    """Values OR within a field, AND across fields; `var` maps a study variable to its values."""
 
     phase: list[str] | None = None
     side: list[Side] | None = None
@@ -176,7 +163,7 @@ class Selection(BaseModel):
     filter: SelectionFilter | None = None
     scope: Scope | None = None
     labels: list[int] = Field(default_factory=list)
-    # RAD-05 / ADR-0015: the segmentation set whose masks are read (default `default_seg`)
+    # the segmentation set whose masks are read (default `default_seg`)
     seg_id: str | None = None
 
 
@@ -191,7 +178,7 @@ class EstimateResult(BaseModel):
     n_labels: int
     n_units: int  # (item, label) extractions after skipping absent labels
     n_skipped: int
-    # skipped (item, label) units per cause code (TSK-04, AUD-A2-05), e.g. {"missing_seg": 3}
+    # skipped (item, label) units per cause code, e.g. {"missing_seg": 3}
     skipped_by: dict[str, int] = Field(default_factory=dict)
     sample_item_ids: list[str]
     time_per_item_s: float | None
@@ -219,7 +206,7 @@ class RunSelection(BaseModel):
     labels: list[int]
     filter: str | None = None
     item_ids: list[str]
-    seg_id: str = "imported"  # recorded in run.json (RAD-05, NFR-15); older runs: imported
+    seg_id: str = "imported"  # older run.json files have none: imported
 
 
 class RunInput(BaseModel):
@@ -234,11 +221,11 @@ class RunCounts(BaseModel):
     ok: int = 0
     failed: int = 0
     features: int = 0
-    skipped: int = 0  # (item, label) pairs not ready (TSK-04): no mask, blocking code, label
+    skipped: int = 0  # (item, label) pairs not ready: no mask, blocking code, label
 
 
 class RunRecord(BaseModel):
-    """`radiomics/runs/{run_id}/run.json` (RAD-09)."""
+    """`radiomics/runs/{run_id}/run.json`."""
 
     run_id: str
     name: str
@@ -283,10 +270,10 @@ class RunSummary(BaseModel):
 
 
 class RunError(BaseModel):
-    """One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.
+    """One `errors.jsonl` row. `skipped` rows do not make a run fail.
 
-    `code` names the cause (`radiomics/causes.py`, AUD-A2-05), `error` says it in plain words,
-    `detail` keeps the engine's own text for failures. Rows written before FB5 have no code.
+    `code` names the cause, `error` says it in plain words, `detail` keeps the engine's own text
+    for failures. Older rows have no code.
     """
 
     item_id: str
@@ -299,7 +286,7 @@ class RunError(BaseModel):
 
 
 class FeaturesTable(BaseModel):
-    """API-36 JSON: long rows follow the features.parquet schema; wide rows one per item+label."""
+    """Long rows follow the features.parquet schema; wide rows are one per item+label."""
 
     run_id: str
     shape: Literal["long", "wide"]

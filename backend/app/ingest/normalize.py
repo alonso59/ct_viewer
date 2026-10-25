@@ -1,7 +1,7 @@
-"""Normalizer: parsed rows → item drafts (phase, side, paths, identity). IMP-05/06/07/10/11.
+"""Normalizer: parsed rows → item drafts (phase, side, paths, identity).
 
 Runs in the API process: every path is turned into an alias ref (`PathResolver.to_ref`) and
-resolved (`resolve`, BE-02) here, so worker units only receive guarded absolute paths.
+resolved (`resolve`) here, so worker units only receive guarded absolute paths.
 """
 
 from __future__ import annotations
@@ -26,12 +26,10 @@ from app.projects.presets import (
     normalize_phase_value,
 )
 
-__all__ = ["is_excluded"]
-
 
 @dataclass(frozen=True)
 class PhaseRules:
-    """The project's phase vocabulary + mapping (PRJ-16); `vocabulary=()` is open (no pack)."""
+    """The project's phase vocabulary + mapping; `vocabulary=()` is open (no pack)."""
 
     vocabulary: tuple[str, ...]
     mapping: dict[str, str]
@@ -47,7 +45,7 @@ class PhaseRules:
 
 _CCRCC = load_packs()[CCRCC]
 CCRCC_RULES = PhaseRules(_CCRCC.phase_vocabulary, _CCRCC.phase_mapping)
-# ccRCC pack table (INPUT_METADATA.md §Phase resolution), incl. the "no phase" row.
+# ccRCC pack table, incl. the "no phase" row.
 PHASE_TABLE: dict[str, str] = {
     **_CCRCC.phase_mapping,
     **dict.fromkeys(MISSING_PHASE_VALUES, UNKNOWN_PHASE),
@@ -59,9 +57,9 @@ SIDES: dict[str, Literal["L", "R"]] = {
     **dict.fromkeys(("r", "right", "sider", "_r"), "R"),
 }
 _SEG_SUFFIX = re.compile(r"_0000(\.nii(?:\.gz)?)$", re.IGNORECASE)
-ACCEPTED_EXT = re.compile(r"\.(nii|nii\.gz|npy)$", re.IGNORECASE)  # SRC-02 (DICOM: converter)
+ACCEPTED_EXT = re.compile(r"\.(nii|nii\.gz|npy)$", re.IGNORECASE)  # DICOM goes via the converter
 
-# Row fields consumed into Item fields (paths never go to `extra`: PRJ-04).
+# Row fields consumed into Item fields (paths never go to `extra`).
 META_CONSUMED = frozenset(
     {
         "case_id", "scan_idx", "patient_id", "filename", "relative_path", "nifti_file",
@@ -80,11 +78,6 @@ CATALOG_CONSUMED = frozenset(
         "voi_mask_path",
     }
 )
-
-
-def normalize_phase(raw: str | None, rules: PhaseRules = CCRCC_RULES) -> str:
-    """INPUT_METADATA.md §Phase resolution with the project's rules; unknown strings → UNK."""
-    return rules.normalize(raw)
 
 
 def parse_side(value: str | None) -> Literal["L", "R"] | None:
@@ -125,8 +118,8 @@ def resolve_phase(
 ) -> tuple[PhaseInfo, bool]:
     """Returns the phase and whether it is ambiguous (UNK, or conflicting sources).
 
-    INPUT_METADATA §Phase resolution: phase.json → curated_phase → canonical_phase → phase →
-    active analyzer.phase run (ANZ-04) → phase_guess → UNK.
+    Precedence: phase.json → curated_phase → canonical_phase → phase → active analyzer.phase
+    run → phase_guess → UNK.
     """
     raw: str | None = None
     source: PhaseSource = "none"
@@ -151,7 +144,7 @@ def resolve_phase(
 
 @dataclass(frozen=True)
 class Annotation:
-    """An active analyzer annotation for one item and field (ANZ-04)."""
+    """An active analyzer annotation for one item and field."""
 
     value: str
     run_id: str
@@ -193,11 +186,11 @@ class Draft:
     status: ItemStatus
     extra: dict[str, Any]
     modality: str | None = None
-    import_id: str | None = None  # the snapshot this draft comes from (several sources, IMP-06)
+    import_id: str | None = None  # the snapshot this draft comes from (several sources)
     image: FileDraft | None = None
     mask: FileDraft | None = None
     spacing: tuple[float, ...] | None = None
-    axis_order: str = "xyz"  # catalog `axis_order` for `.npy` VOIs (IMP-10, SRC-12)
+    axis_order: str = "xyz"  # catalog `axis_order` for `.npy` VOIs
     line: int = 0
     warnings: list[PendingWarning] = field(default_factory=list)
 
@@ -224,12 +217,10 @@ def _file(
     labels: dict[str, int] | None = None,
 ) -> FileDraft | None:
     """Resolve one path; emits `outside_root` / `missing_path` (invalid) and returns None.
-    With `labels` the path is a mask set folder (SRC-04 `mask_template`)."""
+    With `labels` the path is a mask set folder."""
     if labels is None and not ACCEPTED_EXT.search(raw.strip()):
         ext = posixpath.splitext(raw.strip())[1] or "(none)"
-        d.warn(
-            QcCode.UNSUPPORTED_FORMAT, role, f"{role} ignored: {ext} is not NIfTI or NumPy (SRC-02)"
-        )
+        d.warn(QcCode.UNSUPPORTED_FORMAT, role, f"{role} ignored: {ext} is not NIfTI or NumPy")
         return None
     try:
         ref = resolver.to_ref(alias, raw)
@@ -277,7 +268,7 @@ def _axis_order(row: Row) -> str:
 
 
 def _check_axis_order(d: Draft, row: Row) -> None:
-    """SRC-12: a declared order must be xyz or zyx; legacy VOIs without one read as xyz."""
+    """A declared order must be xyz or zyx; legacy VOIs without one read as xyz."""
     v = row.extra.get("axis_order", row.data.get("axis_order"))
     if v is not None and v not in ("xyz", "zyx"):
         d.warn(QcCode.AMBIGUOUS_AXIS_ORDER, "axis_order", f"axis_order {v!r} is not xyz or zyx")
@@ -310,14 +301,14 @@ def _scan_draft(
         modality=row.text("modality"),
         line=row.line,
     )
-    for field_name, by_item in anns.items():  # other fields become study variables (ANALYZERS.md)
+    for field_name, by_item in anns.items():  # other fields become study variables
         a = by_item.get(iid)
         if field_name != "phase" and a is not None:
             d.extra[field_name] = a.value
     _sidecar_ref(d, resolver, alias)
     if excluded:
-        return d  # IMP-07: no file checks, no warnings
-    # `nifti-files` rows have phase UNK by design (SRC-04): no warning unless a phase was given
+        return d  # no file checks, no warnings
+    # `nifti-files` rows have phase UNK by design: no warning unless a phase was given
     from_nifti = (row.text("source_kind") or row.extra.get("source_kind")) == "nifti"
     by_design = from_nifti and phase.raw is None
     if ambiguous and not by_design:
@@ -331,7 +322,7 @@ def _scan_draft(
     if seg:
         d.mask = _file(d, resolver, alias, seg, "mask", labels=_seg_labels(row))
     elif fname and not from_nifti:
-        # the metadata-v1 `seg/` convention; `nifti-files` already applied its own (SRC-04)
+        # the metadata-v1 `seg/` convention; `nifti-files` already applied its own
         d.mask = _file(d, resolver, alias, seg_convention(fname), "mask", explicit=False)
     if d.mask is None:
         d.warn(QcCode.MISSING_SEG, "mask", "scan has no SEG")
@@ -339,8 +330,8 @@ def _scan_draft(
 
 
 def _sidecar_ref(d: Draft, resolver: PathResolver, alias: str) -> None:
-    """A `dicom_sidecar` relative to the import root (a workspace dataset's `sidecars/…`,
-    TSK-13) becomes an alias ref like `relative_path` (DCM-04, AUD-A2-04); refs stay as they are."""
+    """A `dicom_sidecar` relative to the import root (a workspace dataset's `sidecars/…`)
+    becomes an alias ref like `relative_path`; refs stay as they are."""
     raw = d.extra.get("dicom_sidecar")
     if not isinstance(raw, str) or not raw.strip():
         return
@@ -350,7 +341,7 @@ def _sidecar_ref(d: Draft, resolver: PathResolver, alias: str) -> None:
     try:
         d.extra["dicom_sidecar"] = resolver.to_ref(alias, raw)
     except Problem:
-        return  # left as is: the tags endpoint reports it (API-22)
+        return  # left as is: the tags endpoint reports it
 
 
 def _voi_draft(
@@ -443,7 +434,7 @@ def build_drafts(
 
 
 def merge_sources(sources: list[list[Draft]]) -> list[Draft]:
-    """Several snapshots (oldest first): a later source wins an `item_id` (SOURCES §Imports)."""
+    """Several snapshots (oldest first): a later source wins an `item_id`."""
     out: dict[str, Draft] = {}
     for drafts in sources:
         for d in drafts:

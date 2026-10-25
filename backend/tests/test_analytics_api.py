@@ -87,9 +87,6 @@ def derived(mod_client: TestClient, syn: Synthetic) -> None:
         ok(mod_client.post(url, json=d), 201)
 
 
-# -- test choice paths vs SciPy -------------------------------------------------------------
-
-
 def test_two_groups_welch_and_mann_whitney(mod_client: TestClient, syn: Synthetic) -> None:
     a = ok(analyze(mod_client, syn, question="compare", variable="arm", name="arm"), 201)
     assert a["unit"]["n_rows"] == 33 and a["unit"]["n_variable_missing"] == 1
@@ -246,9 +243,6 @@ def test_balance_chi2_and_fisher(mod_client: TestClient, syn: Synthetic) -> None
     assert "REC-CONFOUNDER" in codes(b)
 
 
-# -- unit, min n, derived variables ---------------------------------------------------------
-
-
 def test_unit_first_by_priority_vs_mean(mod_client: TestClient, syn: Synthetic) -> None:
     first = ok(analyze(mod_client, syn, question="explore"), 201)
     rows = {r["case_id"]: r for r in tidy(mod_client, syn, first["analysis_id"])}
@@ -319,9 +313,6 @@ def test_derived_three_group_comparison(
     check_bh(a)
 
 
-# -- remaining REC rules --------------------------------------------------------------------
-
-
 def test_rec_confounder_on_grouping(mod_client: TestClient, syn: Synthetic) -> None:
     a = ok(analyze(mod_client, syn, question="compare", variable="site"), 201)
     rec = next(x for x in a["recommendations"] if x["code"] == "REC-CONFOUNDER")
@@ -342,9 +333,6 @@ def test_rec_modality_in_cmp_unit(mod_client: TestClient, syn: Synthetic) -> Non
     assert a["unit"]["phase"] == "CMP" and a["unit"]["n_rows"] == 32
     rec = next(x for x in a["recommendations"] if x["code"] == "REC-MODALITY")
     assert "MR" in rec["message"] and rec["params"]["split"] == "modality"
-
-
-# -- storage, list, export, problems --------------------------------------------------------
 
 
 def test_storage_list_get_and_exports(mod_client: TestClient, syn: Synthetic) -> None:

@@ -1,4 +1,4 @@
-"""TST-21 GPU-host acceptance through the API, external runner and real nnU-Net CLI.
+"""GPU-host acceptance through the API, external runner and real nnU-Net CLI.
 
 The command generates a disposable synthetic source dataset unless `--root` is given. It keeps
 the workspace for review, hashes every source file before and after, and exits nonzero unless a
@@ -125,9 +125,9 @@ def live_attempt_units() -> list[str]:
 def lifecycle(
     client: TestClient, project_id: str, item_ids: list[str], args: argparse.Namespace
 ) -> dict[str, Any]:
-    """TSK-15 on the GPU host: pause after one committed case, resume, then cancel and archive."""
+    """On the GPU host: pause after one committed case, resume, then cancel and archive."""
     base = f"{API}/projects/{project_id}/task-runs"
-    headers = {"X-Reviewer": "TST-21 lifecycle"}
+    headers = {"X-Reviewer": "lifecycle"}
     resolver = context(client).workspace.resolver(project_id)
 
     def start(seg_id: str) -> tuple[str, str]:
@@ -135,7 +135,7 @@ def lifecycle(
             base,
             json={
                 "task_id": "segment.nnunet",
-                "name": f"TST-21 lifecycle {seg_id}",
+                "name": f"lifecycle {seg_id}",
                 "settings": {"profile": "kits2023-dataset220", "gpu_cap": 1, "seg_id": seg_id},
                 "selection": {"item_ids": item_ids},
             },
@@ -280,9 +280,7 @@ def run(args: argparse.Namespace) -> int:
     summary: dict[str, Any] = {"workspace": str(workspace), "root": str(root)}
     try:
         with TestClient(create_app(settings, inline_jobs=True)) as client:
-            created = client.post(
-                f"{API}/projects", json={"name": "TST-21 nnU-Net", "packs": ["ccrcc"]}
-            )
+            created = client.post(f"{API}/projects", json={"name": "nnU-Net", "packs": ["ccrcc"]})
             created.raise_for_status()
             project_id = str(created.json()["project_id"])
             import_root(client, project_id, root, args.timeout)
@@ -341,7 +339,7 @@ def run(args: argparse.Namespace) -> int:
                     f"{API}/projects/{project_id}/task-runs",
                     json={
                         "task_id": "segment.nnunet",
-                        "name": f"TST-21 real Dataset220 ({args.items} items)",
+                        "name": f"real Dataset220 ({args.items} items)",
                         "settings": {
                             "profile": "kits2023-dataset220",
                             "gpu_cap": min(args.gpu_cap, len(gpu_ids)),
@@ -452,7 +450,7 @@ def main() -> None:
     parser.add_argument(
         "--lifecycle",
         action="store_true",
-        help="TSK-15: pause after one committed case, resume, then cancel and archive",
+        help="Pause after one committed case, resume, then cancel and archive",
     )
     parser.add_argument("--backend", choices=("local", "server"), default="server")
     parser.add_argument(

@@ -1,1 +1,1 @@
-"""Engine protocol, PyRadiomics adapter, settings schema, IBSI map, runner. RAD-*."""
+"""Engine protocol, PyRadiomics adapter, settings schema, IBSI map, runner."""

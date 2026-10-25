@@ -1,4 +1,4 @@
-"""Field knowledge that is *not* study-specific (VARIABLES.md §Principle, VAR-04/05/08/09).
+"""Field knowledge that is *not* study-specific.
 
 `CONVERTER_FIELDS` is the known v2 converter/preprocessor output schema (DICOM-derived and
 technical columns). Any metadata field outside it and outside the core is a **Study**
@@ -10,8 +10,10 @@ from __future__ import annotations
 import re
 from typing import Final
 
-# Identity, paths and phase-resolution inputs: fixed meaning, never variables
-# (INPUT_METADATA.md §Core). The resolved phase is an item attribute with its own filter.
+from app.variables.models import ExcludeReason
+
+# Identity, paths and phase-resolution inputs: fixed meaning, never variables.
+# The resolved phase is an item attribute with its own filter.
 CORE_FIELDS: Final = frozenset(
     {
         "case_id", "scan_idx", "filename", "relative_path", "nifti_file", "seg_path",
@@ -59,19 +61,19 @@ CONVERTER_FIELDS: Final = frozenset(
         "voi_id", "window_center", "window_width", "xray_tube_current",
     }
 )  # fmt: skip
-# v2 web UI bookkeeping columns written back into metadata.jsonl (legacy metadata_sync).
+# v2 web UI bookkeeping columns written back into metadata.jsonl.
 CONVERTER_PREFIXES: Final = ("webui_",)
 
-# VAR-05 default `confounder` tag.
+# Default `confounder` tag.
 DEFAULT_CONFOUNDERS: Final = frozenset(
     {
         "manufacturer", "manufacturer_model", "convolution_kernel", "kvp", "slice_thickness",
         "spacing_z", "contrast_agent", "modality",
     }
 )  # fmt: skip
-SENSITIVE_FIELDS: Final = frozenset({"patient_id"})  # VAR-09 (+ every `date` variable)
+SENSITIVE_FIELDS: Final = frozenset({"patient_id"})  # plus every `date` variable
 
-# VAR-08: raw_metadata tags flattened into variables; everything else in the blob is ignored.
+# raw_metadata tags flattened into variables; everything else in the blob is ignored.
 RAW_ALLOWLIST: Final = {"PatientSex": "patient_sex", "PatientAge": "patient_age"}
 
 UID_VALUE = re.compile(r"^\d+(\.\d+){3,}$")
@@ -82,8 +84,8 @@ def is_converter_field(name: str) -> bool:
     return name in CONVERTER_FIELDS or name.startswith(CONVERTER_PREFIXES)
 
 
-def name_exclusion(name: str) -> str | None:
-    """VAR-09 by field name: UIDs and accession numbers."""
+def name_exclusion(name: str) -> ExcludeReason | None:
+    """Exclusion by field name: UIDs and accession numbers."""
     low = name.lower()
     if low == "uid" or low.endswith("_uid"):
         return "uid"
