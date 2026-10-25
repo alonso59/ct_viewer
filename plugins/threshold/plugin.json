@@ -5,7 +5,7 @@
   "title": "Threshold segmentation (test)",
   "icon": "beaker",
   "hidden": true,
-  "description": "CI plugin for the task protocol (TST-14).",
+  "description": "CI plugin for the task protocol.",
   "contributes": {
     "tasks": [
       "segment.threshold"

@@ -1,4 +1,4 @@
-"""OPS-18/20: operator configuration and backend command contracts (ADR-0034)."""
+"""Operator deployment configuration validation."""
 
 from __future__ import annotations
 

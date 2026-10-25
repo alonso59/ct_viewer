@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# REL-07 local simulation: run the built image under udocker as a non-root user without sudo,
-# inside a throwaway Linux container, and pass TST-10 there (docs/ops/DEPLOYMENT.md §udocker).
+# Local simulation: run the built image under udocker as a non-root user without sudo,
+# inside a throwaway Linux container, and pass the container smoke there.
 #
 #   make image && make fixtures && scripts/udocker-selftest.sh      # = make udocker-selftest
 #
@@ -40,7 +40,7 @@ if [[ "${1:-}" == --inner ]]; then
   ok "./rw up healthy after $(( $(date +%s) - t0 )) s"
   t0=$(date +%s)
   ./rw smoke || { tail -n 60 .rw/rw.log >&2; ./rw stop; exit 1; }
-  ok "TST-10 smoke in $(( $(date +%s) - t0 )) s"
+  ok "smoke in $(( $(date +%s) - t0 )) s"
   ./rw status >/dev/null
   after="$(cd "$data" && find . -type f -print0 | sort -z | xargs -0 sha256sum)"
   ./rw stop

@@ -1,4 +1,4 @@
-"""Private metadata-only phase checkpoints. Image conversion is never called here."""
+"""Private metadata-only phase checkpoints."""
 
 from __future__ import annotations
 

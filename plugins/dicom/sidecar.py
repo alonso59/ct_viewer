@@ -1,4 +1,4 @@
-"""DICOM JSON Model sidecars (DCM-04, PS3.18 §F.2) and `anonymize: basic` (DCM-05, NFR-17).
+"""DICOM JSON Model sidecars (PS3.18 F.2) and `anonymize: basic`.
 
 A sidecar holds every header attribute except PixelData; bulk values over 64 KiB are omitted
 and listed in `_omitted`. `basic` applies a subset of the PS3.15 Basic Application Level
@@ -122,7 +122,7 @@ UID_KEYWORDS = (
     "IrradiationEventUID",
     "StorageMediaFileSetUID",
 )
-# Row fields (DICOM_CONVERTER.md §Row fields) derived from Basic Profile attributes.
+# Row fields derived from Basic Profile attributes.
 ROW_PHI = (
     "patient_folder",
     "institution",
@@ -211,7 +211,7 @@ def hash_identity_key(raw: str, salt: str) -> str:
 
 
 def scrub_for_sharing(record: dict[str, Any], salt: str) -> bool:
-    """Bundle export (DCM-05, NFR-17): apply `basic` to one converter row or index record.
+    """Bundle export: apply `basic` to one converter row or index record.
 
     Works on a metadata row or an index record (fields at the top or under `extra`). Records
     that are not DICOM-derived or were anonymized at conversion are left as they are.

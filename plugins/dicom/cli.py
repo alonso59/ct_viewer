@@ -1,8 +1,6 @@
-"""Standalone converter CLI (DCM-09): the legacy YAML config and its own resume registry. It
-writes the same clean `metadata.jsonl` as the app (DCM-13: no phase guesses, curation or
-selection fields, no `curation.csv`); its output folder is imported into the app as a `source`
-root (metadata-v1). An existing `curation.csv` from an older run is left untouched and can be
-imported once as curation events (CUR-15).
+"""Standalone converter CLI: the legacy YAML config and its own resume registry. It writes the
+same clean `metadata.jsonl` as the app (no phase guesses, curation or selection fields, no
+`curation.csv`); its output folder is imported into the app as a `source` root (metadata-v1).
 
     python -m plugins.dicom.cli config/converter.yaml
 """
@@ -25,7 +23,7 @@ from plugins.protocol import utc_now, write_json_atomic
 
 
 def load(path: Path) -> dict[str, Any]:
-    import yaml  # the CLI keeps the legacy YAML format (PyYAML is a CLI-only dependency)
+    import yaml  # CLI-only dependency
 
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -211,16 +209,12 @@ def _run(cfg: dict[str, Any]) -> int:
                     _write(checkpoint.parent / f"torn-{uuid.uuid4().hex}.json", {"fragment": fh.read().hex()})
                 os.ftruncate(ledger_fd, valid_end)
             os.fsync(ledger_fd)
-            directory_fd = os.open(checkpoint.parent, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-            fd = os.open(checkpoint.parent.parent, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            for directory in (checkpoint.parent, run_dirs):
+                fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
             record.update(
                 status="running",
                 attempts=int(record["attempts"]) + 1,

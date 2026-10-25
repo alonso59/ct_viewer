@@ -1,4 +1,4 @@
-"""OPS-19: process-local restrictions without namespaces, services or privileges."""
+"""Process-local restrictions without namespaces, services or privileges."""
 
 from __future__ import annotations
 

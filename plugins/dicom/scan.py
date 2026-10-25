@@ -1,5 +1,5 @@
 """Scan stage (headers only): series discovery, header rows, geometry / advanced-DICOM / MRI
-component inspection (DCM-03). Ported from `legacy/convert/{dicom_io,series_inspection}.py`."""
+component inspection."""
 
 from __future__ import annotations
 
@@ -243,8 +243,8 @@ def discover(
     tick: Callable[[int], None] | None = None,
 ) -> list[Series]:
     """Series per folder by SeriesInstanceUID (as GDCM groups them), sorted; one file → its own
-    one-file series (DCM-10). One header read per file; `tick(1)` after each.
-    The pixel stage asks GDCM for its own file order again (DCM-02, `convert.read_image`)."""
+    one-file series. One header read per file; `tick(1)` after each.
+    The pixel stage asks GDCM for its own file order again."""
     if root.is_file():
         return [Series(root.parent, _single_series_id(root), (root,), source_root=root.parent)]
     found: list[Series] = []
@@ -284,7 +284,7 @@ def _single_series_id(path: Path) -> str:
 
 
 def read_header(path: Path, root: Path | None = None) -> Any:
-    """Headers only (`stop_before_pixels`); sources are opened read-only (R1)."""
+    """Headers only (`stop_before_pixels`); sources are opened read-only."""
     head = _head(path, root=root)
     assert head is not None
     return _parse(path, head, root=root)
@@ -339,7 +339,7 @@ def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspec
 
 
 def _geometry(datasets: list[Any], out: Inspection) -> None:
-    """DCM-06 geometry checks over the slice headers of one series; each check adds its code."""
+    """Geometry checks over the slice headers of one series; each check adds its code."""
     g = _Headers(
         orientations=[_floats(ds, "ImageOrientationPatient", 6) for ds in datasets],
         positions=[_floats(ds, "ImagePositionPatient", 3) for ds in datasets],

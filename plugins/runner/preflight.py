@@ -1,4 +1,4 @@
-"""OPS-16/17: observed host prerequisites are not proof of effective containment."""
+"""Observed host prerequisites are not proof of effective containment."""
 
 from __future__ import annotations
 

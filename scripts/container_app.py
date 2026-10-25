@@ -1,10 +1,9 @@
-"""Container entry point (OPS-01): validate the config, then run `app.main:app` with uvicorn.
+"""Container entry point: validate the config, then run `app.main:app` with uvicorn.
 
-The SPA is mounted by `app.main.create_app` (STATIC_ROOT). This wrapper exists so that invalid
-config (e.g. an empty ALLOWED_DATA_ROOTS in container mode, OPS-04) exits with one clean line
+Invalid config (e.g. an empty ALLOWED_DATA_ROOTS in container mode) exits with one clean line
 instead of an import-time traceback.
 
-    python scripts/container_app.py      # HOST, PORT, LOG_LEVEL from env (OPS-03)
+    python scripts/container_app.py      # HOST, PORT, LOG_LEVEL from env
 """
 
 from __future__ import annotations

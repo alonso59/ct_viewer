@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "title": "Metadata analyzers",
   "icon": "symbol-property",
-  "description": "Phase, organ target and readiness from DICOM metadata, as annotation layers (ANALYZERS.md).",
+  "description": "Phase, organ target and readiness from DICOM metadata, as annotation layers.",
   "contributes": {
     "tasks": [
       "analyzer.phase",

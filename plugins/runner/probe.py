@@ -1,4 +1,4 @@
-"""OPS-16/17, TST-22: opt-in, GPU-free effective user-service containment probe."""
+"""Opt-in, GPU-free effective user-service containment probe."""
 
 from __future__ import annotations
 
@@ -159,7 +159,6 @@ def run_probe(*, unprivileged: bool = False) -> dict[str, Any]:
                 if not report["source_unchanged"]:
                     report["blockers"].append("source_unchanged")
             finally:
-                # Only this invocation's random, disposable unit; never a caller-supplied PID/unit.
                 stopped = subprocess.run(
                     [systemctl, "--user", "stop", unit], capture_output=True, timeout=5, check=False
                 )

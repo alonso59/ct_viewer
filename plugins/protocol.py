@@ -1,4 +1,4 @@
-"""Task side of the run protocol (TASKS.md §Protocol, TSK-07). Standard library only.
+"""Task side of the run protocol. Standard library only.
 
     job = Job(job_dir)
     job.run_items(fn)          # fn(job, item) -> outputs; per-item failures don't stop the run
@@ -55,7 +55,7 @@ def write_json_atomic(path: Path, obj: Any) -> None:
 
 
 class SkipItem(Exception):
-    """Raised by an item function: the item is `skipped` (not ready), never `failed` (TSK-04)."""
+    """Raised by an item function: the item is `skipped` (not ready), not `failed`."""
 
 
 class Job:
@@ -65,14 +65,14 @@ class Job:
         if self.spec.get("protocol") != PROTOCOL:
             raise ValueError(f"unsupported protocol {self.spec.get('protocol')!r}")
         self.settings: dict[str, Any] = self.spec.get("settings") or {}
-        # Project context the backend adds (phase vocabulary, packs, target profile, ANZ-05)
+        # Project context the backend adds (phase vocabulary, packs, target profile)
         self.context: dict[str, Any] = self.spec.get("context") or {}
         self.items: list[dict[str, Any]] = self.spec.get("items") or []
         self.rows: list[dict[str, Any]] = self.spec.get("rows") or []
         out = self.spec.get("output_dir")
         self.output_dir: Path | None = Path(out) if out else None
         ds = self.spec.get("dataset_dir")
-        self.dataset_dir: Path | None = Path(ds) if ds else None  # append-only (ADR-0014)
+        self.dataset_dir: Path | None = Path(ds) if ds else None  # append-only
         self.skip: set[str] = set((self.spec.get("resume") or {}).get("skip") or [])
         self.mode: str = self.spec.get("mode", "run")  # run | estimate
         self.counts = {"items": 0, "ok": 0, "failed": 0, "skipped": 0}
@@ -80,8 +80,6 @@ class Job:
         self.started_at = utc_now()
         self._fh = (self.dir / PROGRESS).open("a", encoding="utf-8")
         self._stage: tuple[str, float] = ("", 0.0)
-
-    # -- progress --------------------------------------------------------------------------
 
     def _line(self, obj: dict[str, Any]) -> None:
         self._fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
@@ -123,8 +121,6 @@ class Job:
     def rel(self, name: str) -> Path:
         """A workspace file of this job (tabular outputs), referenced relative to the job dir."""
         return self.dir / name
-
-    # -- driving ---------------------------------------------------------------------------
 
     def run_items(self, fn: Callable[[Job, dict[str, Any]], Outputs]) -> None:
         """Call `fn` per item (resume skips `ok` items); stops between items on cancel."""
@@ -177,11 +173,3 @@ class Job:
         self._fh.close()
         write_json_atomic(self.dir / RESULT, result)
         return result
-
-
-def main(run: Callable[[str], int], argv: list[str]) -> int:
-    """`python -m plugin <job_dir>` entry for external runtimes."""
-    if len(argv) != 2:
-        print("usage: <module> <job_dir>")
-        return 2
-    return run(argv[1])

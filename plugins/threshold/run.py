@@ -1,4 +1,4 @@
-"""`segment.threshold`: one mask per item, `image > threshold` → `label` (TST-14).
+"""`segment.threshold`: one mask per item, `image > threshold` → `label`.
 
 Runs under both runtimes: builtin (`plugins.threshold.run:run`) and external
 (`python run.py <job_dir>` in the runner's env). Needs numpy + nibabel only.
@@ -39,7 +39,7 @@ def _segment(job: Job, item: dict[str, Any]) -> Outputs:
     job.output_dir.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + ".tmp.nii.gz")
     nib.save(nib.Nifti1Image(mask, img.affine), tmp)
-    tmp.replace(out)  # finished files are never rewritten (ADR-0014): a new path per run
+    tmp.replace(out)  # finished files are never rewritten: a new path per run
     return [{"kind": "mask", "path": str(out), "labels": {str(label): "foreground"}}]
 
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Run the image under udocker from the same .env as docker-compose.yml (OPS-09, ADR-0007).
+# Run the image under udocker from the same .env as docker-compose.yml.
 # This script is the single source of the udocker run command; keep it equivalent to compose.
 #
 #   scripts/udocker-run.sh [--env-file FILE] [--dry-run]
 #
-# Once per server (udocker cannot build; see docs/ops/DEPLOYMENT.md):
+# Once per server (udocker cannot build):
 #   udocker load -i rw-<version>.tar         # the container `rw` is created on first run
 #
 # Env overrides (not from .env): UDOCKER (command, default `udocker` or ./udocker.py),
@@ -51,7 +51,7 @@ data_host="$(get DATA_HOST)"
 [[ "$data_host" == /* ]] || { echo "DATA_HOST must be an absolute path in $env_file" >&2; exit 2; }
 workspace_host="$(get WORKSPACE_HOST ./workspace)"
 [[ "$workspace_host" == /* ]] || workspace_host="$env_dir/${workspace_host#./}"  # compose: relative to .env dir
-# Derived roots (OPS-11): writable mirror mount; compose falls back to ./derived → /derived.
+# Derived roots: writable mirror mount; compose falls back to ./derived → /derived.
 derived_host="$(get DERIVED_HOST)"
 if [[ -n "$derived_host" ]]; then
   [[ "$derived_host" == /* ]] || { echo "DERIVED_HOST must be an absolute path in $env_file" >&2; exit 2; }
@@ -59,7 +59,7 @@ if [[ -n "$derived_host" ]]; then
 else
   derived_host="$env_dir/derived"; derived_mount=/derived
 fi
-# External task manifests (TSK-01): mounted at /plugins, like compose (read-only there).
+# External task manifests: mounted at /plugins, like compose (read-only there).
 plugins_host="$(get PLUGINS_HOST ./plugins)"
 [[ "$plugins_host" == /* ]] || plugins_host="$env_dir/${plugins_host#./}"
 port="$(get PORT 8000)"
@@ -108,8 +108,8 @@ if [[ $dry_run -eq 1 ]]; then
 fi
 
 mkdir -p "$workspace_host" "$derived_host" "$plugins_host"  # compose creates missing mounts too
-[[ -w "$workspace_host" ]] || { echo "workspace not writable: $workspace_host (OPS-06)" >&2; exit 2; }
-[[ -w "$derived_host" ]] || { echo "derived root not writable: $derived_host (OPS-11)" >&2; exit 2; }
+[[ -w "$workspace_host" ]] || { echo "workspace not writable: $workspace_host" >&2; exit 2; }
+[[ -w "$derived_host" ]] || { echo "derived root not writable: $derived_host" >&2; exit 2; }
 if ! "${ud[@]}" inspect "$name" >/dev/null 2>&1; then
   "${ud[@]}" create --name="$name" "$image"
 fi

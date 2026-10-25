@@ -27,7 +27,7 @@ def stopping(job: Path) -> bool:
 
 
 def acknowledge_control(job: Path, attempt: str) -> None:
-    """TSK-15: answer the API's latest pause/cancel request after verified cleanup of `attempt`."""
+    """Answer the API's latest pause/cancel request after verified cleanup of `attempt`."""
     try:
         request = json.loads((job / "control.json").read_text())
     except (OSError, ValueError):

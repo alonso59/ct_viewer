@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""TST-10 container smoke, runtime-agnostic: health OK, SPA served, one item viewable.
+"""Container smoke, runtime-agnostic: health OK, SPA served, one item viewable.
 
 Talks HTTP only (stdlib, runs with any host python3), so the same check covers Docker and udocker:
 it creates a project, imports DATA_ROOT, waits for the index job and reads the first bytes of one
-item's image. `scripts/container-smoke.sh` starts the Docker container and calls this.
+item's image.
 
     python3 scripts/container_smoke.py --url http://127.0.0.1:8000 --root /abs/data/root
 """
@@ -51,7 +51,7 @@ def check(ok: bool, what: str) -> None:
 
 def run(base: str, root: str, timeout: float) -> None:
     health = wait_health(base, timeout)
-    check(health.get("status") == "ok", f"health {health.get('version')} (OPS-07)")
+    check(health.get("status") == "ok", f"health {health.get('version')}")
 
     status, html = call(base, "/")
     check(status == 200 and b'<div id="root"' in html, "SPA index at /")
@@ -93,7 +93,7 @@ def main() -> None:
     ap.add_argument("--timeout", type=float, default=120)
     args = ap.parse_args()
     run(args.url.rstrip("/"), args.root, args.timeout)
-    print("TST-10 pass")
+    print("container smoke pass")
 
 
 if __name__ == "__main__":

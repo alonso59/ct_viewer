@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "title": "Dashboard & analysis",
   "icon": "graph",
-  "description": "Feature QC views, click-through to the viewer and guided statistics on any features run (DASHBOARD.md, ANALYSIS.md).",
+  "description": "Feature QC views, click-through to the viewer and guided statistics on any features run.",
   "contributes": {
     "views": [
       "dashboards"

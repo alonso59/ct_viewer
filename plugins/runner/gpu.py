@@ -1,4 +1,4 @@
-"""Cooperative single-host GPU inventory and durable reservations (SEG-07, OPS-16)."""
+"""Cooperative single-host GPU inventory and durable reservations."""
 
 from __future__ import annotations
 

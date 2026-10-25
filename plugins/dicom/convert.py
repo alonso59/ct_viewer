@@ -1,4 +1,4 @@
-"""Convert stage (DCM-02, DCM-10): the only stage that reads pixels.
+"""Convert stage: the only stage that reads pixels.
 
 Volumes are written by the ITK image writer from the ITK image the series reader returned, so
 direction, origin and spacing are preserved (ITK writes the LPS → RAS affine). A NIfTI is never
@@ -52,7 +52,7 @@ def read_image(series: Series) -> Any:
 
 
 def write_nifti(series: Series, out: Path, *, before_publish: Callable[[], None] | None = None) -> Converted:
-    """Publish a fully written file atomically without replacement (DCM-07/17)."""
+    """Publish a fully written file atomically without replacement."""
     import SimpleITK as sitk
 
     image = sitk.DICOMOrient(read_image(series), "RAS")

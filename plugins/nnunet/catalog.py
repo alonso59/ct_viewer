@@ -1,4 +1,4 @@
-"""SEG-02: operator profiles are validated independently before advertising inference."""
+"""Operator profiles are validated independently before advertising inference."""
 
 from __future__ import annotations
 

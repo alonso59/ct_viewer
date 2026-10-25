@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "title": "Curation & QC",
   "icon": "checklist",
-  "description": "QC status per item and mask, correction queue, exports, v2 and converter imports, live multi-user sync (CURATION.md).",
+  "description": "QC status per item and mask, correction queue, exports, v2 and converter imports, live multi-user sync.",
   "contributes": {
     "views": [
       "curation",

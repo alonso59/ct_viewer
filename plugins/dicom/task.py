@@ -1,8 +1,8 @@
-"""`dicom.convert` task entry (builtin runtime, TSK-07): `run(job_dir) -> int`.
+"""`dicom.convert` task entry: `run(job_dir) -> int`.
 
 job.json extras: `source {path}`, `dataset_dir`, `dataset_ref` (`ALIAS:rel` of `dataset_dir`),
 `identity` (the project registry), `previous_metadata` (the last run's rows), `project_id`.
-result.json extras: `identity` (merged back by the backend), `estimate` (dry run, DCM-06).
+result.json extras: `identity` (merged back by the backend), `estimate` (dry run).
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ def run(
     }
     if result.resource_wait is not None:
         extra["resource_wait"] = result.resource_wait
-    if dry:  # DCM-06: which series converts, which is skipped and why, storage per series
+    if dry:  # which series converts, which is skipped and why, storage per series
         extra["estimate"]["series_plan"] = result.plan
     annotations = result.annotations
     analysis = None
@@ -137,7 +137,7 @@ def run(
             annotations = [*annotations, *phase_annotations]
         extra["provenance"] = {"phase_analyzer": analysis}
     workspace = bool(spec.get("workspace"))
-    if workspace:  # TSK-13: rows relative to the dataset root, which is imported as-is (SRC-16)
+    if workspace:  # rows relative to the dataset root, which is imported as-is
         for r in result.rows:
             r["relative_path"] = f"nifti/{r.get('filename', '')}"
             if r.get("dicom_sidecar"):

@@ -1,8 +1,8 @@
-"""The converter pipeline: scan → select (analyzers) → identity → convert → emit (DCM-01..10).
+"""The converter pipeline: scan → select (analyzers) → identity → convert → emit.
 
-Used by the task entry (`task.py`, in the app) and by the standalone CLI (`cli.py`, DCM-09).
-Sources are opened read-only (R1); volumes and sidecars go only into the append-only
-`dataset/` (ADR-0014); rows, diagnostics and the summary go into the run's own folder.
+Used by the task entry (`task.py`) and by the standalone CLI (`cli.py`).
+Sources are opened read-only; volumes and sidecars go only into the append-only
+`dataset/`; rows, diagnostics and the summary go into the run's own folder.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from plugins.dicom.identity import Identity
 from plugins.text import contrast_delay, value_to_text
 
 VERSION = "1.1.0"
-# DCM-13 / ADR-0020: `metadata.jsonl` holds contract-v1 fields and DICOM facts only. Guesses,
+# `metadata.jsonl` holds contract-v1 fields and DICOM facts only. Guesses,
 # selection results and human decisions are analyzer or curation layers, never row fields.
 STUDY_FIELDS = frozenset(
     {"target_match_level", "output_role", "include_guess", "exclude_reason",
@@ -34,7 +34,7 @@ STUDY_PREFIXES = ("phase_guess", "curated_", "target_match")
 
 
 def clean_row(row: dict[str, Any]) -> dict[str, Any]:
-    """A converter row without study logic (also strips legacy rows carried over by DCM-07)."""
+    """A converter row without study logic (also strips older rows carried over from `previous`)."""
     return {k: v for k, v in row.items() if k not in STUDY_FIELDS and not k.startswith(STUDY_PREFIXES)}
 
 
@@ -50,7 +50,7 @@ class Settings:
     patient_limit: int | None = None
     include_modality_prefix: bool = True
     sidecars: bool = True
-    anonymize: str = "none"  # none | basic (DCM-05)
+    anonymize: str = "none"  # none | basic
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Settings:
@@ -76,22 +76,20 @@ class Result:
     counts: dict[str, int]
     storage: dict[str, int]
     outputs: list[dict[str, Any]]
-    plan: list[dict[str, Any]] = field(default_factory=list)  # one row per series (DCM-06)
+    plan: list[dict[str, Any]] = field(default_factory=list)  # one row per series
     resource_wait: dict[str, Any] | None = None
     analyzer_rows: list[dict[str, Any]] = field(default_factory=list)
 
 
 Progress = Callable[[str, str, list[dict[str, Any]], str], None]
 # (stage, done, total): `listing` folders → `reading` headers (files) → `planning` series
-# → `converting` series (the item events); what the overlay shows while it waits (DCM-06)
+# → `converting` series (the item events); what the overlay shows while it waits
 Stage = Callable[[str, int, int], None]
 
 
 def patient_dirs(source: Path, pattern: str, limit: int | None) -> list[Path]:
     """The source itself when it holds DICOM directly (or is one file), else its subfolders."""
-    if source.is_file():
-        return [source]
-    if scan.has_dicom_files(source):
+    if source.is_file() or scan.has_dicom_files(source):
         return [source]
     dirs = sorted(
         (p for p in source.iterdir() if p.is_dir() and fnmatch.fnmatch(p.name, pattern)),
@@ -107,7 +105,7 @@ def _key(row: dict[str, Any]) -> str:
 
 
 def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
-    """(source bytes, estimated .nii.gz bytes) as the legacy dry run did (DCM-06)."""
+    """(source bytes, estimated .nii.gz bytes)."""
     src = s.source_bytes
     for p in s.files if not src else ():
         try:
@@ -124,7 +122,7 @@ def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
 
 
 def decide_conversion(row: dict[str, Any], role: str, role_reason: str, settings: Settings) -> tuple[bool, str]:
-    """DCM-06 convert / skip decision for one series: (planned, skip reason or "")."""
+    """Convert / skip decision for one series: (planned, skip reason or "")."""
     planned = {
         "PRIMARY": settings.convert_primary,
         "SECONDARY": settings.convert_secondary,
@@ -218,7 +216,7 @@ def run(
                         "INFO",
                         "series_header",
                         "DICOM_SEG_NOT_SUPPORTED",
-                        "DICOM SEG is not supported yet (DCM-11)",
+                        "DICOM SEG is not supported yet",
                         str(s.dicom_dir),
                         s.series_id,
                     )
@@ -459,7 +457,7 @@ def run(
     )
     current = [g.row for g in found]
     merged = {_key(r): r for r in previous}
-    merged.update({_key(r): r for r in current})  # DCM-07: the full current row set
+    merged.update({_key(r): r for r in current})  # current rows replace their previous versions
     rows_out = [clean_row(r) for r in merged.values()]
     return Result(rows_out, annotations, diagnostics, counts, storage, outputs, plan, resource_wait, analyzer_rows)
 

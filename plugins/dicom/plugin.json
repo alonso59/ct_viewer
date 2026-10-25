@@ -5,7 +5,7 @@
   "title": "DICOM converter",
   "icon": "file-binary",
   "scope": "workspace",
-  "description": "Converts a DICOM folder or file to NIfTI with JSON sidecars and a metadata.jsonl artifact (DICOM_CONVERTER.md).",
+  "description": "Converts a DICOM folder or file to NIfTI with JSON sidecars and a metadata.jsonl artifact.",
   "contributes": {
     "tasks": [
       "dicom.convert"

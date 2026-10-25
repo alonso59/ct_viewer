@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host runner for external tasks (TSK-11, BE-14, OPS-13). Standard library only.
+"""Host runner for external tasks. Standard library only.
 
 Runs on the host, inside the plugin's own environment (e.g. an activated conda env; R4), and
 talks to the app only through files under `WORKSPACE_ROOT/queue/`:
@@ -51,7 +51,7 @@ def write_json(path: Path, obj: Any) -> None:
 
 
 def stopped(job_dir: Path) -> bool:
-    """A `cancel` or supervised `pause` request (TSK-15): nothing new may start for this job."""
+    """A `cancel` or supervised `pause` request: nothing new may start for this job."""
     return (job_dir / "cancel").exists() or (job_dir / "pause").exists()
 
 
@@ -174,8 +174,6 @@ class Runner:
         self.reports: dict[str, Any] = {}
         self.manifests = checked_manifests(load_manifests(plugins, tasks), self.supervisor, self.reports)
 
-    # -- heartbeat ----------------------------------------------------------------------------
-
     def heartbeat(self, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self.last_beat < HEARTBEAT_S:
@@ -217,8 +215,6 @@ class Runner:
 
     def stop_heartbeat(self) -> None:
         (self.queue / "runners" / f"{self.runner_id}.json").unlink(missing_ok=True)
-
-    # -- jobs ---------------------------------------------------------------------------------
 
     def claim(self, job_dir: Path) -> bool:
         if job_dir.is_symlink() or job_dir.resolve().parent != self.queue.resolve() or stopped(job_dir):
@@ -369,7 +365,7 @@ def _stop(_signum: int, _frame: Any) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Radiology Workbench host runner (TSK-11)")
+    ap = argparse.ArgumentParser(description="Radiology Workbench host runner")
     ap.add_argument("--workspace", type=Path, help="WORKSPACE_ROOT as seen on the host")
     ap.add_argument("--plugins", type=Path, help="PLUGINS_ROOT (external manifests)")
     ap.add_argument("--deployment", type=Path, help="Private operator-owned deployment JSON")

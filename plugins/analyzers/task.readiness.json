@@ -3,7 +3,7 @@
   "id": "analyzer.readiness",
   "version": "1.0.0",
   "title": "Series role and analysis readiness",
-  "description": "PRIMARY / SECONDARY / EXCLUDED and readiness from geometry codes, localizers and interventions (ANALYZERS.md).",
+  "description": "PRIMARY / SECONDARY / EXCLUDED and readiness from geometry codes, localizers and interventions.",
   "kind": "analyzer",
   "input": "rows",
   "outputs": ["annotations"],
