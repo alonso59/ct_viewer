@@ -499,7 +499,7 @@ class IngestService:
                 else:
                     state: IndexState = "failed"
                     if info.status in ("cancelled", "interrupted"):
-                        state = "cancelled" if info.status == "cancelled" else "interrupted"
+                        state = info.status
                     st = st.model_copy(
                         update={"state": state, "finished_at": utc_now(), "error": info.error}
                     )
@@ -694,13 +694,9 @@ class IngestService:
         ]
         if curation_status is not None:
             out = [c for c in out if c.curation_status == curation_status]
+        out.sort(key=lambda c: c.case_id, reverse=sort == "-case_id")
         if sort in ("n_warnings", "-n_warnings"):
-            out.sort(key=lambda c: c.case_id)
             out.sort(key=lambda c: c.n_warnings, reverse=sort.startswith("-"))
-        elif sort == "-case_id":
-            out.sort(key=lambda c: c.case_id, reverse=True)
-        else:
-            out.sort(key=lambda c: c.case_id)
         return out
 
     def case_detail(self, project_id: str, case_id: str) -> CaseDetail:
