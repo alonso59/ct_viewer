@@ -5,6 +5,9 @@ import type { NiftiOptions } from '../../api'
 
 export interface WizardPrefill {
   path: string
+  discoveryId?: string
+  kind?: 'file' | 'folder'
+  alias?: string
   adapter?: string
   /** SRC-15 "Add to project…": keep the project's other sources */
   add?: boolean

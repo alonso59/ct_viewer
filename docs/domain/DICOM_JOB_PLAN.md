@@ -470,3 +470,25 @@ journeys (3.1 min; source hashes unchanged). Lint, types, generated API types, 4
 requirement IDs and dead-code checks pass. The 28 recorded exchanges came from
 actual disposable synthetic API runs. Final CI/image and import-window integration
 remain open; no production rollout is certified by this checkpoint.
+
+### Import discovery window integration checkpoint
+
+Import source inspection now starts `purpose=discover` with typed server-retained
+initial import context, then uses the shared window for background progress and
+reconnect/cancel/resume. Continue import returns the retained detection to the
+adapter wizard without a synchronous rescan. Detection kind replaces extension
+heuristics for retained single files. DICOM selection starts a durable header-only
+dry run in that same window, preserving project and anonymization choices, before
+explicit conversion. Workspace discovery requires explicit project creation before
+import. Legacy requests retain their receipt hashes when context is absent.
+This persists initial discovery choices; later edits/preview/index draft recovery,
+full browser/project/workspace interruption acceptance and the full matrix remain
+open. Production rollout still needs CI and same-image runtime acceptance.
+
+Focused integration evidence: five backend import-context cases, 49 frontend cases,
+and four real-browser cases pass. Chromium and Firefox both reload a minimized
+project inspection, cancel it behind an owned queue lock, resume the same operation
+and return to Preview with the original alias. Both also complete a separately
+confirmed DICOM conversion with basic anonymization. The synthetic sources remain
+unchanged. Broader import/Open journey regressions and publication CI are separate
+gates; these focused results do not close the acceptance matrix.

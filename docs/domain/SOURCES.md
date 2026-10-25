@@ -72,6 +72,8 @@ Implementation notes: the adapter reads file names only (headers are read by the
 
 Each import has a `source_key`: `{adapter}:{alias}` by default (a re-import of the same root replaces its previous snapshot, IMP-06), `dicom.convert` for converter runs, `add:{alias}:{file}` for SRC-15. The index is the union of the latest snapshot of every source key; when two sources produce the same `item_id`, the later import wins and the item gets `duplicate_row_identity`.
 
+Import data sends folder/file inspection to the shared recoverable source window. The initial project, alias, preferred adapter, add mode and options persist on the discovery operation; browser storage keeps only its operation ID and window preference. Continue import returns the retained inspection to the adapter wizard without rescanning. DICOM selection hands off to a recoverable header-only dry run before explicit conversion; other adapters retain Preview/Commit. Later preview/index draft recovery is still tracked in DICOM_JOB_PLAN.md.
+
 Durable discovery (`purpose=discover`, API-69) retains the complete inventory for adapter
 selection after restart. Its detection result shares API-19's adapter policy and bounded,
 evenly spread sample; it does not rescan or decode pixels. Incomplete or incompatible

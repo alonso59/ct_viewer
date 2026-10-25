@@ -1144,6 +1144,9 @@
     "type": "Typography"
   },
   "import": {
+    "backgroundTitle": "Inspect import source",
+    "discovered": "Source inspection is complete. Continue to choose how to import it.",
+    "continueImport": "Continue import",
     "alias": "Alias",
     "aliasHelp": "Items store paths as {{alias}}:relative/path, so the project survives a move.",
     "aliasInvalid": "Use 1–16 characters: a letter first, then letters, digits or _.",

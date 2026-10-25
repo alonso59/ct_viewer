@@ -10325,6 +10325,42 @@
     "title": "SourceBody",
     "type": "object"
    },
+   "SourceImportContext": {
+    "additionalProperties": false,
+    "description": "Import draft choices; Preview remains responsible for validating adapter options.",
+    "properties": {
+     "adapter": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Adapter"
+     },
+     "add": {
+      "default": false,
+      "title": "Add",
+      "type": "boolean"
+     },
+     "alias": {
+      "default": "DATA",
+      "pattern": "^[A-Z][A-Z0-9_]{0,15}$",
+      "title": "Alias",
+      "type": "string"
+     },
+     "options": {
+      "additionalProperties": true,
+      "title": "Options",
+      "type": "object"
+     }
+    },
+    "title": "SourceImportContext",
+    "type": "object"
+   },
    "SourceOperation": {
     "properties": {
      "attempt": {
@@ -10402,6 +10438,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/TaskEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "import_context": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SourceImportContext"
        },
        {
         "type": "null"
@@ -10748,6 +10794,16 @@
       "minLength": 8,
       "title": "Idempotency Key",
       "type": "string"
+     },
+     "import_context": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SourceImportContext"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "name": {
       "anyOf": [

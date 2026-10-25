@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -21,13 +22,22 @@ from tools.record_mock import API, OUT, Recorder, dump, redact
 SID = "01JSYNTHOPENPAGING00000000"
 
 
-def prepare_operation(client: TestClient, path: Path, purpose: str) -> str:
+def prepare_operation(
+    client: TestClient,
+    path: Path,
+    purpose: str,
+    *,
+    project_id: str | None = None,
+    import_context: dict[str, Any] | None = None,
+) -> str:
     response = client.post(
         f"{API}/source-operations",
         json={
             "path": str(path),
             "purpose": purpose,
             "idempotency_key": f"record-background-{purpose}",
+            "project_id": project_id,
+            "import_context": import_context,
         },
     )
     if response.status_code != 202:
@@ -106,7 +116,22 @@ def main() -> None:
             rec.get(f"{API}/source-operations/{operation}")
             rec.call("POST", f"{API}/source-operations/{operation}/open")
             rec.get(f"{API}/open/{operation}")
-            discovery = prepare_operation(client, first.parent, "discover")
+            project = client.post(f"{API}/projects", json={"name": "Synthetic discovery"})
+            if project.status_code != 201:
+                raise SystemExit("record-open: synthetic project creation failed")
+            project_id = str(project.json()["project_id"])
+            discovery = prepare_operation(
+                client,
+                first.parent,
+                "discover",
+                project_id=project_id,
+                import_context={
+                    "alias": "IMAGES",
+                    "adapter": "nifti-files",
+                    "add": True,
+                    "options": {},
+                },
+            )
             rec.get(f"{API}/source-operations/{discovery}")
             rec.get(f"{API}/source-operations/{discovery}/detection")
         after = {
@@ -117,7 +142,7 @@ def main() -> None:
         text = (
             redact(
                 dump(list(rec.log.values())),
-                "__no_project__",
+                project_id,
                 data,
                 workspace,
                 derived,

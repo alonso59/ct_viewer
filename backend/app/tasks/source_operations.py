@@ -58,6 +58,16 @@ ACTIVE = {"queued", "running", "cancelling"}
 OperationStatus = TaskRunStatus
 
 
+class SourceImportContext(BaseModel):
+    """Import draft choices; Preview remains responsible for validating adapter options."""
+
+    model_config = ConfigDict(extra="forbid")
+    alias: str = Field(default="DATA", pattern=r"^[A-Z][A-Z0-9_]{0,15}$")
+    adapter: str | None = Field(default=None, max_length=64)
+    add: bool = False
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
 class SourceOperationStart(BaseModel):
     model_config = ConfigDict(extra="forbid")
     path: str = Field(min_length=1)
@@ -65,6 +75,7 @@ class SourceOperationStart(BaseModel):
     project_id: str | None = None
     purpose: Literal["discover", "open", "convert"] = "convert"
     prepare_plan: bool = False
+    import_context: SourceImportContext | None = None
     settings: dict[str, Any] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=200)
 
@@ -95,6 +106,7 @@ class PendingSourceControl(BaseModel):
 
 
 class SourceOperation(BaseModel):
+    import_context: SourceImportContext | None = None
     version: Literal[1] = 1
     operation_id: str
     source: str
@@ -400,6 +412,10 @@ class SourceOperations:
         return False
 
     async def start(self, request: SourceOperationStart) -> SourceOperation:
+        if request.import_context is not None and (
+            request.purpose != "discover" or request.prepare_plan
+        ):
+            raise ValidationProblem("Import choices belong to discovery-only operations")
         if request.purpose == "open" and request.prepare_plan:
             raise ValidationProblem("Open a source first; start conversion as a separate operation")
         if not Path(request.path).is_absolute():
@@ -416,6 +432,8 @@ class SourceOperations:
         if request.project_id is not None:
             self.workspace.get(request.project_id)  # rejects unknown/archived projects
         payload = request.model_dump(mode="json")
+        if request.import_context is None:
+            payload.pop("import_context")  # preserve receipts created before import drafts existed
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         key = hashlib.sha256(request.idempotency_key.encode()).hexdigest()
         receipt = self.root / "requests" / f"{key}.json"
@@ -448,6 +466,7 @@ class SourceOperations:
                 source=str(source),
                 project_id=request.project_id,
                 purpose=request.purpose,
+                import_context=request.import_context,
                 created_at=utc_now(),
                 updated_at=utc_now(),
                 request_hash=digest,
@@ -964,8 +983,8 @@ class SourceOperations:
     async def estimate(self, operation: str, request: SourceOperationEstimate) -> SourceOperation:
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
-            if record.purpose == "open":
-                raise JobConflict("Start a separate conversion operation for this Open source")
+            if record.purpose == "open" or record.import_context is not None:
+                raise JobConflict("Start a separate conversion operation for this source")
             if not self._check_control(record, request, "estimate"):
                 return record
             if (

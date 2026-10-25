@@ -20,7 +20,7 @@ export const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 /** Where the wizard starts: a prefill (Open mode's "Create project from this") skips the root step */
 export function initialState(prefill: WizardPrefill | null): { step: Step; dir: string | null; file: string | null } {
   if (!prefill) return { step: 'root', dir: null, file: null }
-  const isFile = ACCEPTED.test(prefill.path)
+  const isFile = prefill.kind ? prefill.kind === 'file' : ACCEPTED.test(prefill.path)
   return { step: 'detect', dir: isFile ? parentOf(prefill.path) : prefill.path, file: isFile ? prefill.path : null }
 }
 
