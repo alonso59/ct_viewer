@@ -260,55 +260,7 @@ class PhaseRuns:
         if not isinstance(analysis, dict):
             run.status, run.error = "cancelled", "Conversion ended before phase analysis"
         else:
-            if analysis.get("run_id") != run.run_id:
-                raise JobConflict("Phase result belongs to another run")
-            status = analysis.get("status")
-            if status not in {"completed", "failed", "cancelled"}:
-                raise JobConflict("Phase result status is invalid")
-            run.status, run.error = status, analysis.get("error")
-            total = int(analysis.get("total") or 0)
-            run.progress_done = min(total, max(0, int(analysis.get("done", run.progress_done))))
-            if status == "completed":
-                outputs = result.get("outputs_manifest") or []
-                manifest: dict[str, Any] = next(
-                    (o for o in outputs if o.get("kind") == "annotations"), {}
-                )
-                path = (job / str(manifest.get("path", ""))).resolve()
-                if not path.is_relative_to(job.resolve()) or not path.is_file():
-                    raise JobConflict("Phase annotation output is unavailable")
-                if not manifest.get("sha256") or full_sha256(path) != manifest["sha256"]:
-                    raise JobConflict("Phase annotation output changed")
-                annotations = [a for a in iter_jsonl(path) if a.get("field") == "phase"]
-                target = directory / "annotations.jsonl"
-                if target.exists():
-                    if list(iter_jsonl(target)) != annotations:
-                        raise JobConflict("Published phase annotations changed")
-                else:
-                    write_jsonl_atomic(target, annotations)
-                run.item_ids = sorted({str(a["item_id"]) for a in annotations})
-                run.outputs = [
-                    TaskRunOutput(
-                        kind="annotations",
-                        ref=f"tasks/runs/{run.run_id}/annotations.jsonl"
-                        if pid
-                        else "annotations.jsonl",
-                        sha256=full_sha256(target),
-                        detail="phase",
-                    )
-                ]
-                run.progress_done = total
-            run.counts = TaskRunCounts(
-                items=total,
-                ok=run.progress_done,
-                failed=max(0, total - run.progress_done) if status == "failed" else 0,
-            )
-            run.versions = {"rules": str(analysis.get("rules_version") or "")}
-            if (
-                status == "completed"
-                and pid
-                and not (run.execution or {}).get("shared_conversion_job")
-            ):
-                run.status = "reconciling"
+            self._apply_analysis(pid, directory, run, job, result, analysis)
         run.finished_at = run.finished_at or utc_now()
         run.execution = {
             **(run.execution or {}),
@@ -322,6 +274,66 @@ class PhaseRuns:
             ).model_dump(),
         }
         self.runs.write(directory, run)
+
+    def _apply_analysis(
+        self,
+        pid: str | None,
+        directory: Path,
+        run: _PhaseRunRecord,
+        job: Path,
+        result: dict[str, Any],
+        analysis: dict[str, Any],
+    ) -> None:
+        if analysis.get("run_id") != run.run_id:
+            raise JobConflict("Phase result belongs to another run")
+        status = analysis.get("status")
+        if status not in {"completed", "failed", "cancelled"}:
+            raise JobConflict("Phase result status is invalid")
+        run.status, run.error = status, analysis.get("error")
+        total = int(analysis.get("total") or 0)
+        run.progress_done = min(total, max(0, int(analysis.get("done", run.progress_done))))
+        if status == "completed":
+            self._publish_annotations(pid, directory, run, job, result)
+            run.progress_done = total
+        run.counts = TaskRunCounts(
+            items=total,
+            ok=run.progress_done,
+            failed=max(0, total - run.progress_done) if status == "failed" else 0,
+        )
+        run.versions = {"rules": str(analysis.get("rules_version") or "")}
+        if status == "completed" and pid and not (run.execution or {}).get("shared_conversion_job"):
+            run.status = "reconciling"
+
+    def _publish_annotations(
+        self,
+        pid: str | None,
+        directory: Path,
+        run: _PhaseRunRecord,
+        job: Path,
+        result: dict[str, Any],
+    ) -> None:
+        outputs = result.get("outputs_manifest") or []
+        manifest: dict[str, Any] = next((o for o in outputs if o.get("kind") == "annotations"), {})
+        path = (job / str(manifest.get("path", ""))).resolve()
+        if not path.is_relative_to(job.resolve()) or not path.is_file():
+            raise JobConflict("Phase annotation output is unavailable")
+        if not manifest.get("sha256") or full_sha256(path) != manifest["sha256"]:
+            raise JobConflict("Phase annotation output changed")
+        annotations = [a for a in iter_jsonl(path) if a.get("field") == "phase"]
+        target = directory / "annotations.jsonl"
+        if not target.exists():
+            write_jsonl_atomic(target, annotations)
+        elif list(iter_jsonl(target)) != annotations:
+            raise JobConflict("Published phase annotations changed")
+        run.item_ids = sorted({str(a["item_id"]) for a in annotations})
+        run.outputs = [
+            TaskRunOutput(
+                kind="annotations",
+                ref=f"tasks/runs/{run.run_id}/annotations.jsonl" if pid else "annotations.jsonl",
+                sha256=full_sha256(target),
+                detail="phase",
+            )
+        ]
 
     async def resume(
         self,
