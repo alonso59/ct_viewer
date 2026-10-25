@@ -149,6 +149,77 @@ def test_cancelling_inside_a_series_never_caches_a_partial_series(tmp_path: Path
         assert len(session.items[0].files) == 6
 
 
+@pytest.mark.parametrize("header_number", [1, 3, 6])
+def test_sigkill_during_series_headers_preserves_only_whole_committed_units(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, header_number: int
+) -> None:
+    """D13/D18, SRC-18: actual process death must not persist partial series geometry."""
+    source = tmp_path / "source"
+    nii(source / "a.nii.gz", ct())
+    write_series(source / "series", shape=(3, 3, 6), marker=(1, 1, 5))
+    before = {
+        p: hashlib.sha256(p.read_bytes()).hexdigest() for p in source.rglob("*") if p.is_file()
+    }
+    database = tmp_path / "state" / "inventory.sqlite"
+    backend = Path(__file__).resolve().parents[1]
+    code = """
+import os, signal, sys
+from pathlib import Path
+from app.tasks.source_inventory import SourceInventory
+from app.tasks.source_open import prepare_open
+from plugins.dicom import scan
+with SourceInventory(Path(sys.argv[1]), Path(sys.argv[2])) as inventory:
+    inventory.scan()
+    original = scan.read_header
+    calls = 0
+    def read(*args, **kwargs):
+        global calls
+        result = original(*args, **kwargs)
+        calls += 1
+        if calls == int(sys.argv[3]):
+            print(f"stopping after DICOM header {calls}", flush=True)
+            os.kill(os.getpid(), signal.SIGKILL)
+        return result
+    scan.read_header = read
+    prepare_open(inventory)
+"""
+    process = subprocess.run(
+        [sys.executable, "-c", code, str(database), str(source), str(header_number)],
+        cwd=backend,
+        env={**os.environ, "PYTHONPATH": f"{backend}:{backend.parent}"},
+        capture_output=True,
+        timeout=30,
+    )
+    assert process.returncode == -signal.SIGKILL, process.stderr.decode()
+    assert f"stopping after DICOM header {header_number}" in process.stdout.decode()
+    probe = open_mode.probe
+    probed: list[list[str]] = []
+
+    def tracked(root: str, rels: list[str], *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        probed.append(rels)
+        assert "a.nii.gz" not in rels, "the committed NIfTI header was unnecessarily re-read"
+        return probe(root, rels, *args, **kwargs)
+
+    monkeypatch.setattr(open_mode, "probe", tracked)
+    with SourceInventory(database, source) as inventory:
+        assert (
+            inventory.db.execute("SELECT unit FROM open_headers").fetchall()[0][0]
+            == "file:a.nii.gz"
+        )
+        assert inventory.db.execute("SELECT COUNT(*) FROM open_headers").fetchone()[0] == 1
+        inventory.scan()
+        session = prepare_open(inventory)
+        assert session is not None and len(session.items) == 2
+        series = session.items[1]
+        assert len(probed) == 1 and len(probed[0]) == 6
+        assert series.format == "dicom" and len(series.files) == series.n_slices == 6
+        assert series.geometry is not None and series.geometry.shape == [3, 3, 6]
+        assert inventory.db.execute("SELECT COUNT(*) FROM open_headers").fetchone()[0] == 2
+    assert before == {
+        p: hashlib.sha256(p.read_bytes()).hexdigest() for p in source.rglob("*") if p.is_file()
+    }
+
+
 def test_changed_reader_invalidates_cached_open_geometry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -2,6 +2,8 @@
 // second browser. Real backend on the synthetic fixtures (TST-11).
 import { expect, test, type Page } from '@playwright/test'
 
+import { continueImportInspection } from './importMode'
+
 import { managedDataset } from './helpers'
 
 const collectErrors = (page: Page) => {
@@ -23,14 +25,14 @@ test('new project → import → browse → share link', async ({ page, browser,
   await dialog.getByLabel('Project name').fill(name)
   await dialog.getByLabel('Dataset folder').fill(dataset)
   await expect(dialog.getByRole('button', { name: 'CT', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  const detection = page.waitForResponse((r) => r.url().endsWith('/sources/detect') && r.request().method() === 'POST', { timeout: 30_000 })
+  const detection = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
   await dialog.getByRole('button', { name: 'Create and import' }).click()
   expect((await detection).ok()).toBe(true)
 
   // Import wizard on /p/{pid}
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
-  const wizard = page.getByRole('dialog', { name: 'Import data' })
+  const wizard = await continueImportInspection(page)
   await expect(wizard).toBeVisible()
 
   // Detect (API-19): contract v1 is the best match, NIfTI files also possible (SRC-01)

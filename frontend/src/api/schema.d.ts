@@ -6108,8 +6108,31 @@ export interface components {
             /** Run Id */
             run_id?: string | null;
         };
+        /**
+         * SourceImportContext
+         * @description Import draft choices; Preview remains responsible for validating adapter options.
+         */
+        SourceImportContext: {
+            /**
+             * Alias
+             * @default DATA
+             */
+            alias: string;
+            /** Adapter */
+            adapter?: string | null;
+            /**
+             * Add
+             * @default false
+             */
+            add: boolean;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
+        };
         /** SourceOperation */
         SourceOperation: {
+            import_context?: components["schemas"]["SourceImportContext"] | null;
             /**
              * Version
              * @default 1
@@ -6276,6 +6299,7 @@ export interface components {
              * @default false
              */
             prepare_plan: boolean;
+            import_context?: components["schemas"]["SourceImportContext"] | null;
             /** Settings */
             settings?: {
                 [key: string]: unknown;

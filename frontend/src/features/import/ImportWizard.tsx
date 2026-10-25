@@ -1,15 +1,14 @@
 // Import wizard: a folder or one file → detected source adapters → preview (`nifti-files` options
 // with a live parse) → commit + indexing job. The rules are in `model.ts` and each step renders
 // itself; this component holds the state and the footer.
-import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { api, keys, useCommitImport, useDetect, useFsList, useImportPreview, useJobs, useRoots, type DetectCandidate, type ImportAdapter, type NiftiOptions, type PreviewRequest } from '../../api'
+import { api, keys, useCommitImport, useSourceDetection, useFsList, useImportPreview, useJobs, useRoots, type SourceOperationStart, type ImportAdapter, type NiftiOptions, type PreviewRequest } from '../../api'
 import { Dialog, openPath } from '../../lib'
-import { toast } from '../../shell'
-import { useReviewer } from '../../state'
+import { runCommand, toast } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog } from './DerivedRootDialog'
 import { aliasProblem, autoOptions, canNext, firstAdapter, imageStems, IMPORTABLE, initialState, jobFailed, nextAction, STEPS, type Step } from './model'
@@ -28,7 +27,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [step, setStep] = useState<Step>(start.step)
   const [dir, setDir] = useState<string | null>(start.dir)
   const [file, setFile] = useState<string | null>(start.file)
-  const [alias, setAlias] = useState('DATA')
+  const [alias, setAlias] = useState(prefill?.alias ?? 'DATA')
   const [upload, setUpload] = useState(false)
   const [files, setFiles] = useState<Partial<Uploads>>({})
   const [adapter, setAdapter] = useState<string | null>(prefill?.adapter ?? null)
@@ -37,20 +36,28 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [reconstruct, setReconstruct] = useState(false)
   const [anonymize, setAnonymize] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
-  const [convertError, setConvertError] = useState<unknown>(null)
   const [askDerived, setAskDerived] = useState(false)
-  const reviewer = useReviewer((s) => s.name)
-  const detect = useDetect()
+  const detect = useSourceDetection(prefill?.discoveryId ?? null)
   const preview = useImportPreview(pid)
   const commit = useCommitImport(pid)
   const job = (useJobs(pid).data ?? []).find((j) => j.job_id === jobId)
   const qc = useQueryClient()
+  const requests = useRef(new Map<string, string>())
+  const initialized = useRef(false)
+  const handoff = useMutation({
+    mutationFn: (body: SourceOperationStart) => api.startSourceOperation(body),
+    onSuccess: (operation) => {
+      runCommand('sources.openBackground', operation.operation_id)
+      close()
+    },
+  })
   const p = preview.data
   const path = file ?? dir
+  const detection = detect.data?.path === path ? detect.data : undefined
   // Pattern sample: relative paths spread over the folder by detection, else the browsed folder's
   // listing, the same query as the Data root step's browser
   const listing = useFsList(dir, 'source').data
-  const detected = detect.data?.candidates.find((c) => c.adapter === 'nifti-files')?.sample
+  const detected = detection?.candidates.find((c) => c.adapter === 'nifti-files')?.sample
   const fileNames = useMemo(() => (detected?.length ? detected : (listing?.entries ?? []).filter((e) => e.kind === 'file').map((e) => e.name)), [detected, listing])
   const stems = useMemo(() => imageStems(options, file, fileNames), [options, file, fileNames])
   const auto = autoOptions(adapter, touched, options, stems, file || options.include ? [] : fileNames)
@@ -70,18 +77,36 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     }
   }, [job?.status, qc, close, t, p?.counts.cases, pid])
 
-  const pickAdapter = (d: { candidates: DetectCandidate[] }) => setAdapter(firstAdapter(d.candidates, prefill?.adapter))
+  const startOperation = (body: Omit<SourceOperationStart, 'idempotency_key'>) => {
+    const signature = JSON.stringify(body)
+    let key = requests.current.get(signature)
+    if (!key) {
+      key = `import-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+      requests.current.set(signature, key)
+    }
+    handoff.mutate({ ...body, idempotency_key: key })
+  }
+  const discoverSource = (target: string) => startOperation({
+    path: target, project_id: pid, purpose: 'discover', prepare_plan: false,
+    import_context: { alias, adapter, add: prefill?.add ?? false, options: { ...niftiOptions } },
+  })
   const runDetect = (target: string) => {
     setStep('detect')
     preview.reset()
-    detect.mutate(target, { onSuccess: pickAdapter })
+    discoverSource(target)
   }
-  // "Create project from this" (Open mode) arrives with the path: detect at once
   useEffect(() => {
-    if (prefill) detect.mutate(prefill.path, { onSuccess: pickAdapter })
-    // once per mount
+    if (prefill && !prefill.discoveryId) discoverSource(prefill.path)
+    // once per mount; retries retain the same request key
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  useEffect(() => {
+    if (!detection || initialized.current) return
+    initialized.current = true
+    setAdapter(firstAdapter(detection.candidates, prefill?.adapter))
+    setDir(detection.root)
+    setFile(detection.kind === 'file' ? detection.path : null)
+  }, [detection, prefill?.adapter])
 
   const runPreview = (a: ImportAdapter, nifti: NiftiOptions = niftiOptions) => {
     if (!path) return
@@ -91,16 +116,12 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
   // DICOM sources go through the converter task; its rows are imported on success
-  const runConvert = async () => {
-    setConvertError(null)
-    try {
-      const settings = anonymize ? { anonymize: 'basic' } : {}
-      const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings, selection: { source: path } }, reviewer || undefined)
-      setJobId(r.job_id)
-      setStep('index')
-    } catch (e) {
-      setConvertError(e)
-    }
+  const runConvert = () => {
+    if (!path) return
+    startOperation({
+      path, project_id: pid, purpose: 'convert', prepare_plan: true,
+      settings: { anonymize: anonymize ? 'basic' : 'none', target_profile: 'generic', phase_analyzer: true },
+    })
   }
   const openInstead = () => {
     close()
@@ -108,7 +129,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   }
 
   const i = STEPS.indexOf(step)
-  const enabled = canNext({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending, preview: p, commitPending: commit.isPending })
+  const enabled = canNext({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending || handoff.isPending || (!upload && step === 'detect' && !detection), preview: p, commitPending: commit.isPending })
   const next = async () => {
     const action = nextAction(step, adapter, upload)
     if (action === 'upload-preview' && path && files.metadata) {
@@ -185,8 +206,8 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       {step === 'detect' ? (
         <DetectStep
           path={path}
-          pending={detect.isPending || preview.isPending}
-          errors={[detect.isError ? detect.error : null, preview.isError ? preview.error : null, convertError]}
+          pending={handoff.isPending || detect.isFetching || preview.isPending}
+          errors={[detect.error, preview.error, handoff.error]}
           onAction={onAction}
           derived={
             askDerived ? (
@@ -200,7 +221,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
               />
             ) : null
           }
-          cands={detect.data?.candidates ?? []}
+          cands={detection?.candidates ?? []}
           adapter={adapter}
           onAdapter={setAdapter}
           nifti={niftiOptions}
@@ -215,7 +236,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
           onAnonymize={setAnonymize}
           reconstruct={reconstruct}
           onReconstruct={setReconstruct}
-          ignored={detect.data?.ignored}
+          ignored={detection?.ignored}
         />
       ) : null}
       {step === 'preview' && p ? <PreviewStep p={p} /> : null}

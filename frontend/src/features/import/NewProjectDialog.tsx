@@ -20,7 +20,7 @@ export function NewProjectDialog(props: Props) {
 function ProjectDialog({ open, onOpenChange, prefill }: Props) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
-  const [dataset, setDataset] = useState((prefill?.path ?? '').replace(/\/[^/]+\.(nii(?:\.gz)?|npy|dcm)$/i, ''))
+  const [dataset, setDataset] = useState(prefill?.kind === 'folder' ? prefill.path : prefill?.kind === 'file' ? prefill.path.slice(0, prefill.path.lastIndexOf('/')) || '/' : (prefill?.path ?? '').replace(/\/[^/]+\.(nii(?:\.gz)?|npy|dcm)$/i, ''))
   const [browse, setBrowse] = useState(false)
   const [modality, setModality] = useState<ProjectModality>('CT')
   const create = useCreateProject()

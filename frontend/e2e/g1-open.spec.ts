@@ -3,6 +3,8 @@
 // `seg/` folder → Save as NIfTI → Create project from this (the mask travels) → Close.
 // SRC-09/10/14/05, VW-05/08/22/26, UI-17/24; AUD-A2-03, A2-11, A2-12, A3-05, A1-16 (FB4).
 import { expect, test, type Page } from '@playwright/test'
+
+import { continueImportInspection } from './importMode'
 import { basename } from 'node:path'
 
 import { API, managedDataset } from './helpers'
@@ -81,13 +83,13 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await actions.getByRole('button', { name: 'Create project from this' }).click()
   const create = page.getByRole('dialog', { name: 'New project' })
   await create.getByLabel('Project name').fill(`G1 ${browserName} ${Date.now()}`)
-  const detection = page.waitForResponse((r) => r.url().endsWith('/sources/detect') && r.request().method() === 'POST', { timeout: 30_000 })
+  const detection = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
   await create.getByRole('button', { name: 'Create and import' }).click()
   expect((await detection).ok()).toBe(true)
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
-  const wizard = page.getByRole('dialog', { name: 'Import data' })
-  // The prefilled wizard performs its own detection after project creation.
+  const wizard = await continueImportInspection(page)
+  // The returned wizard reuses the retained inspection after project creation.
   await expect(wizard.getByText('Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…')).toBeHidden({ timeout: 30_000 })
   await expect(wizard.getByRole('radio', { name: /NIfTI files/ })).toBeChecked()
   await expect(wizard.getByRole('note').filter({ hasText: `seg/${MASK}` })).toBeVisible()

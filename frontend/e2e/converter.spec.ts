@@ -2,6 +2,8 @@
 // then create a neutral project from the dataset; the phase arrives as a layer. Real backend.
 import { expect, test } from '@playwright/test'
 
+import { continueImportInspection } from './importMode'
+
 import { API } from './helpers'
 
 test('convert without a project, then create a project from the dataset', async ({ page, browserName }) => {
@@ -29,12 +31,12 @@ test('convert without a project, then create a project from the dataset', async 
   await dialog.getByRole('button', { name: 'Create project from this' }).click()
   const create = page.getByRole('dialog', { name: 'New project' })
   await create.getByLabel('Project name').fill(`From ${name}`)
-  const detection = page.waitForResponse((r) => r.url().endsWith('/sources/detect') && r.request().method() === 'POST', { timeout: 30_000 })
+  const detection = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
   await create.getByRole('button', { name: 'Create and import' }).click()
   expect((await detection).ok()).toBe(true)
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   const pid = /\/p\/([0-9A-Z]{26})/.exec(page.url())?.[1] ?? ''
-  const wizard = page.getByRole('dialog', { name: 'Import data' })
+  const wizard = await continueImportInspection(page)
   await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await wizard.getByRole('button', { name: 'Next' }).click()
   await wizard.getByRole('button', { name: 'Import and index' }).click()

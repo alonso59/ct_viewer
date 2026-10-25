@@ -2,7 +2,7 @@ import { registry, useWorkbench } from '../../shell'
 
 export { FolderBrowser } from './FolderBrowser'
 export { ImportWizard } from './LazyImportWizard'
-export { useImportWizard } from './store'
+export { useImportWizard, type WizardPrefill } from './store'
 export { NewProjectDialog } from './NewProjectDialog'
 export { DerivedRootDialog } from './DerivedRootDialog'
 import { useImportWizard } from './store'
