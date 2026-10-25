@@ -503,3 +503,41 @@ test.each([
     vi.restoreAllMocks()
   }
 })
+
+
+test('U08 restores import discovery and returns its context to the adapter wizard', async () => {
+  const { DEMO_PID } = await import('../../api/mock/server')
+  const { useImportWizard } = await import('../../features/import')
+  const id = '01JSYNTHDISCOVERY000000000'
+  const record = await api.getSourceOperation(id)
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue({ ...record, project_id: DEMO_PID })
+  useConverter.getState().attach(id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  await screen.findByRole('dialog', { name: 'Inspect import source' })
+  expect(screen.queryByRole('button', { name: 'Dry run' })).not.toBeInTheDocument()
+  fireEvent.click(await screen.findByRole('button', { name: 'Continue import' }))
+  await waitFor(() => expect(useImportWizard.getState().prefill?.discoveryId).toBe(id))
+  expect(useImportWizard.getState().pid).toBe(DEMO_PID)
+  expect(useImportWizard.getState().prefill?.alias).toBe('IMAGES')
+  useImportWizard.getState().close()
+})
+
+test('U02 workspace discovery asks for project creation without allocating one implicitly', async () => {
+  const id = '01JSYNTHDISCOVERY000000000'
+  const record = await api.getSourceOperation(id)
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue({ ...record, project_id: null })
+  const create = vi.spyOn(api, 'createProject')
+  const convert = vi.spyOn(api, 'convertSourceOperation')
+  useConverter.getState().attach(id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Continue import' }))
+  const dialog = await screen.findByRole('dialog', { name: 'New project' })
+  expect(within(dialog).getByLabelText('Dataset folder')).toHaveValue(record.source)
+  expect(create).not.toHaveBeenCalled()
+  expect(convert).not.toHaveBeenCalled()
+  fireEvent.click(within(dialog).getByRole('button', { name: /^Cancel$/ }))
+  await waitFor(() => expect(useConverter.getState().open).toBe(false))
+  expect(create).not.toHaveBeenCalled()
+})

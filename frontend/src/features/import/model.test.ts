@@ -85,3 +85,9 @@ test('the preview counts and a failed job', () => {
   expect(jobFailed('succeeded')).toBe(false)
   expect(jobFailed(undefined)).toBe(false)
 })
+
+
+test('retained detection kind identifies extensionless files and folders with file-like names', () => {
+  expect(initialState({ path: '/data/series/slice', kind: 'file', discoveryId: 'operation' })).toEqual({ step: 'detect', dir: '/data/series', file: '/data/series/slice' })
+  expect(initialState({ path: '/data/study.dcm', kind: 'folder', discoveryId: 'operation' })).toEqual({ step: 'detect', dir: '/data/study.dcm', file: null })
+})

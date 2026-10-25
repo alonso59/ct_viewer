@@ -119,8 +119,6 @@ export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labe
 }
 export const useFsList = (path: string | null, role: RootRole = 'source') =>
   useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
-/** API-19 (SRC-01): candidate adapters for a folder or file */
-export const useDetect = () => useMutation({ mutationFn: (path: string) => api.detectSource(path) })
 /** API-69 / SRC-18: server-owned opening; the compatibility API-07 remains available. */
 export const useStartOpen = () => useMutation({
   mutationFn: ({ path, key }: { path: string; key: string }) => api.startSourceOperation({ path, purpose: 'open', prepare_plan: false, idempotency_key: key }),
@@ -305,6 +303,9 @@ export const useSourceOperations = (on = true) => useQuery({ queryKey: keys.sour
 export const useSourceOperation = (id: string | null) => useQuery({
   queryKey: keys.sourceOperation(id ?? ''), queryFn: () => api.getSourceOperation(id ?? ''), enabled: !!id,
   refetchInterval: (q) => isTaskRunPending(q.state.data?.status) || isTaskRunPending(q.state.data?.phase_run?.status) ? 800 : false,
+})
+export const useSourceDetection = (id: string | null) => useQuery({
+  queryKey: keys.sourceDetection(id ?? ''), queryFn: () => api.sourceOperationDetection(id ?? ''), enabled: !!id,
 })
 export const useSourcePlan = (id: string | null, attempt: number | null, cursor?: string, action?: 'convert' | 'skip') => useQuery({
   queryKey: keys.sourcePlan(id ?? '', attempt, cursor, action),

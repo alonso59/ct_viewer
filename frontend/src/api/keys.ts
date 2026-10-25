@@ -55,6 +55,7 @@ export const keys = {
   labelHistory: (pid: string, tid: string, target: string, col: string) => ['project', pid, 'labeling', 'history', tid, target, col] as const,
   workspaceRuns: () => ['workspace-runs'] as const,
   sourceOperations: () => ['source-operations'] as const,
+  sourceDetection: (id: string) => ['source-operations', id, 'detection'] as const,
   sourceOperation: (id: string) => ['source-operations', id] as const,
   sourcePlan: (id: string, attempt: number | null, cursor: string | undefined, action?: 'convert' | 'skip') => ['source-operations', id, 'plan', attempt, cursor, action] as const,
   workspaceRun: (rid: string) => ['workspace-runs', rid] as const,

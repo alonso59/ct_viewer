@@ -42,3 +42,13 @@ test('opens with the latest source after a mask was attached while the dialog wa
   view.rerender(dialog(true, '/data/Dataset900'))
   expect(screen.getByLabelText('Dataset folder')).toHaveValue('/data/Dataset900')
 })
+
+
+test.each([
+  { path: '/data/series/slice', kind: 'file' as const, root: '/data/series' },
+  { path: '/data/study.dcm', kind: 'folder' as const, root: '/data/study.dcm' },
+])('uses detected kind when choosing a project root for $path', ({ path, kind, root }) => {
+  const qc = new QueryClient()
+  render(<MemoryRouter><QueryClientProvider client={qc}><NewProjectDialog open onOpenChange={vi.fn()} prefill={{ path, kind }} /></QueryClientProvider></MemoryRouter>)
+  expect(screen.getByLabelText('Dataset folder')).toHaveValue(root)
+})

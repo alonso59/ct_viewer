@@ -2,6 +2,8 @@
 // NIfTI (SRC-13/14); a DICOM folder converts into a project from the Tasks tab (DCM-*, UI-20).
 import { expect, test } from '@playwright/test'
 
+import { continueImportInspection } from './importMode'
+
 import { gotoOpen } from './openMode'
 import { api, FIXTURES } from './helpers'
 
@@ -51,9 +53,12 @@ test('the import wizard converts a DICOM folder with the anonymize choice', asyn
   await folders.getByRole('button', { name: /synthetic/ }).click()
   await folders.getByRole('button', { name: /^dicom$/ }).click()
   await wizard.getByRole('button', { name: 'Next' }).click()
+  await continueImportInspection(page)
   await wizard.getByRole('radio', { name: /DICOM → NIfTI conversion/ }).check()
   await wizard.getByRole('checkbox', { name: /Anonymize/ }).check()
   await wizard.getByRole('button', { name: 'Next' }).click()
+  const conversion = page.getByRole('dialog', { name: 'Convert DICOM' })
+  await conversion.getByRole('button', { name: /^Convert \d+ series$/ }).click({ timeout: 30_000 })
   await expect
     .poll(async () => (await api<{ items: { case_id: string }[] }>('GET', `/projects/${p.project_id}/cases`)).items.map((c) => c.case_id), { timeout: 60_000 })
     .toEqual(['case_00000', 'case_00001'])
