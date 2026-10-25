@@ -2123,6 +2123,82 @@
     "title": "Contributes",
     "type": "object"
    },
+   "ConversionTimeEstimate": {
+    "description": "DCM-06: conversion stage only; historical ranges are not calibrated confidence bounds.",
+    "properties": {
+     "basis": {
+      "enum": [
+       "unknown",
+       "history",
+       "complete"
+      ],
+      "title": "Basis",
+      "type": "string"
+     },
+     "confidence": {
+      "enum": [
+       "unknown",
+       "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+     },
+     "estimated_s": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated S"
+     },
+     "lower_s": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lower S"
+     },
+     "remaining_units": {
+      "minimum": 0.0,
+      "title": "Remaining Units",
+      "type": "integer"
+     },
+     "sample_count": {
+      "minimum": 0.0,
+      "title": "Sample Count",
+      "type": "integer"
+     },
+     "upper_s": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Upper S"
+     }
+    },
+    "required": [
+     "basis",
+     "confidence",
+     "sample_count",
+     "remaining_units"
+    ],
+    "title": "ConversionTimeEstimate",
+    "type": "object"
+   },
    "CorrelationRequest": {
     "properties": {
      "feature_class": {
@@ -11099,6 +11175,16 @@
       "title": "Basis",
       "type": "string"
      },
+     "conversion_time": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ConversionTimeEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "detail": {
       "additionalProperties": true,
       "title": "Detail",
@@ -11598,6 +11684,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/TaskControl"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "conversion_time": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ConversionTimeEstimate"
        },
        {
         "type": "null"
@@ -13324,6 +13420,16 @@
       "default": true,
       "title": "Cleanup Verified",
       "type": "boolean"
+     },
+     "conversion_time": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ConversionTimeEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "counts": {
       "additionalProperties": {

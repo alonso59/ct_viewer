@@ -38,6 +38,7 @@ def run(
     *,
     cached_discover: Callable[[Path], list[scan.Series]] | None = None,
     cached_file_total: int = 0,
+    on_timing: pipeline.Timing | None = None,
 ) -> int:
     job = Job(job_dir)
     spec = job.spec
@@ -83,11 +84,14 @@ def run(
         cached_discover=cached_discover,
         cached_file_total=cached_file_total,
         retry_item_ids=spec.get("retry_item_ids"),
+        on_timing=on_timing,
     )
     extra: dict[str, Any] = {
         "identity": identity.as_dict(),
         "estimate": {**result.counts, **result.storage},
     }
+    if result.conversion_time is not None:
+        extra["conversion_time"] = result.conversion_time
     if result.resource_wait is not None:
         extra["resource_wait"] = result.resource_wait
     if dry:  # DCM-06: which series converts, which is skipped and why, storage per series

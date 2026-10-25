@@ -20,7 +20,7 @@ from app.core.errors import JobConflict, NotFound, UnsupportedFormat, Validation
 from app.core.ids import new_ulid
 from app.sources import formats
 from app.tasks import protocol
-from app.tasks.models import SeriesPlan, TaskEstimate
+from app.tasks.models import ConversionTimeEstimate, SeriesPlan, TaskEstimate
 
 DICOM_CONVERT: Final = "dicom.convert"
 MAX_PLAN_ROWS: Final = 1000
@@ -78,13 +78,20 @@ def estimate_of(result: dict[str, Any], scan_s: float, source: Path) -> TaskEsti
             actions=["choose_another_path"],
         )
     selected = int(est.get("selected", 0))
+    timing = (
+        ConversionTimeEstimate.model_validate(result["conversion_time"])
+        if result.get("conversion_time")
+        else None
+    )
+    seconds = timing.estimated_s if timing else None
     return TaskEstimate(
         n_units=selected,
         n_skipped=n_series - selected,
-        seconds_per_item=None,
-        estimated_total_s=None,
+        seconds_per_item=seconds / selected if seconds is not None and selected else None,
+        estimated_total_s=seconds,
         output_bytes=int(est.get("nifti_gz_estimated_bytes", 0)) or None,
-        basis="sample",
+        basis="sample" if timing and timing.basis == "history" else "unknown",
+        conversion_time=timing,
         sample_errors=[str(result["error"])] if result.get("error") else [],
         detail={**est, "scan_s": round(scan_s, 3)},
         series=rows[:MAX_PLAN_ROWS],

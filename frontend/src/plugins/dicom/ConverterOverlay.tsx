@@ -25,11 +25,12 @@ import {
   type SourceOperation,
   type EstimateProgress,
   type TaskEstimate,
+  type ConversionTimeEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, useImportWizard } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
 import { NewProjectDialog } from '../../features/import'
-import { Dialog, fmtBytes, openPath, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, fmtDuration, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { PhasePanel } from './PhasePanel'
@@ -61,6 +62,17 @@ function StepBar({ step }: { step: Step }) {
       ))}
     </ol>
   )
+}
+
+function ConversionTime({ value }: { value: ConversionTimeEstimate | null | undefined }) {
+  const { t } = useTranslation()
+  if (value?.basis === 'history' && value.lower_s != null && value.upper_s != null) {
+    return <>
+      <p className="muted conv-help">{t('conv.etaHistory', { lower: fmtDuration(value.lower_s), upper: fmtDuration(value.upper_s), n: value.sample_count })}</p>
+      <p className="muted conv-help">{t('conv.etaStages')}</p>
+    </>
+  }
+  return <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
 }
 
 /** DCM-06 (AUD-A2-13): every series of the dry run, what happens to it and why, with its size */
@@ -228,6 +240,7 @@ export default function ConverterOverlay() {
   const ws = linked && 'dataset_dir' in linked ? linked : legacyWorkspace
   const prun = linked && 'runtime' in linked ? linked : legacyProject
   const resourceWait = ws?.resource_wait ?? prun?.resource_wait
+  const conversionTime = run || linked ? ws?.conversion_time ?? prun?.conversion_time : step === 'estimate' ? estimate?.conversion_time : null
   const intoProject = target === 'project' && !!pid
   const needsDerived = intoProject && !!project && !project.path_roots.some((r) => r.role === 'derived')
   const taskSettings = { target_profile: settings.target_profile, phase_analyzer: settings.phase_analyzer, anonymize: settings.anonymize }
@@ -437,7 +450,7 @@ export default function ConverterOverlay() {
           <StepBar step={step} />
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
             <dl>{(['folders', 'files', 'dicom', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
-            <p className="muted conv-help">{t('conv.etaUnknown')}</p>
+            <ConversionTime value={conversionTime} />
             {!operation.summary?.complete && !operation.conversion_run ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
           </div> : null}
           {step === 'source' ? (

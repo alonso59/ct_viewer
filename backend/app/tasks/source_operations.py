@@ -759,9 +759,7 @@ class SourceOperations:
             result, float(result.get("duration_s", 0)), Path(record.source)
         )
         write_plan(self._dir(record.operation_id) / "plans" / str(record.attempt), plan)
-        record.estimate = estimate.model_copy(
-            update={"series": [], "series_truncated": False, "basis": "unknown"}
-        )
+        record.estimate = estimate.model_copy(update={"series": [], "series_truncated": False})
         record.plan_total, record.plan_attempt = len(plan), record.attempt
         record.summary = result["summary"]
         record.status, record.stage = "completed", "ready"

@@ -188,3 +188,10 @@ Cases also cover a missing queued job, missing launch files with retained proces
 and read-time recovery after a failed state publication. Resume remains blocked without cleanup proof.
 `test_core.py` checks propagation of directory open/sync errors and descriptor cleanup.
 No closure checkbox is certified by these narrower checks.
+`test_dicom_eta.py` covers the minimum compatible sample count, context/storage/reader/concurrency
+separation, bounded private history, invalid durations, sample replay, history failures and
+remaining work. Real tiny synthetic commits train a subsequent pixel-free Estimate and verified
+resume preserves images without training on reuse. Project/workspace owned API cases cover
+history reaching later plans. A deterministic hold-out corpus checks coverage/error/range width;
+this is model regression evidence, not measured reference-host P06 calibration. Conversion-only
+estimates do not close discovery/registration/analyzer duration-history requirements.
