@@ -1,4 +1,4 @@
-// Shared UI primitives on Radix, styled by tokens (ADR-0008). No domain logic.
+// Shared UI primitives on Radix, styled by tokens. No domain logic.
 import * as RDialog from '@radix-ui/react-dialog'
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
@@ -111,7 +111,7 @@ type NumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'o
   step?: number
 }
 
-/** A number field that shows a point and accepts `,` or `.` on every machine (AUD-A3-04): a text
+/** A number field that shows a point and accepts `,` or `.` on every machine: a text
  *  input with `inputmode="decimal"` and spin-button semantics; ↑/↓ step by `step` within min/max. */
 export function NumberInput({ value, onChange, min, max, step = 1, onKeyDown, ...rest }: NumberInputProps) {
   const shown = value == null ? '' : String(value)

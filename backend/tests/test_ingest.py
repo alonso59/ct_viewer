@@ -99,7 +99,7 @@ def test_healthy_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None
 
 
 def test_modality_is_a_typed_field(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None:
-    """DATA_MODEL §Item `modality` from the input field; VOIs inherit their scan's value."""
+    """`modality` comes from the input field; VOIs inherit their scan's value."""
     items, _ = indexed
     ct = items["case_00001.01.complete.-"]
     assert ct.modality == "CT" and ct.extra["modality"] == "CT"  # extra kept for variables

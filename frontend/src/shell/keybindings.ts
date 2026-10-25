@@ -1,10 +1,10 @@
-// Keybinding dispatch (UI_SHELL §Default keybindings, UI-12). `mod` = Cmd on macOS, Ctrl elsewhere.
+// Keybinding dispatch. `mod` = Cmd on macOS, Ctrl elsewhere.
 import { useEffect } from 'react'
 
 import { useSettings } from '../state'
 import { registry, routeScope, type Command } from './registry'
 
-export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 const CODE_KEYS: Record<string, string> = {
   ArrowDown: 'down',
@@ -57,18 +57,18 @@ function inTextField(target: EventTarget | null): boolean {
 }
 
 /** A modal (dialog, palette, wizard) is open: global keys stay off, its own keys and Escape
- *  (topmost layer first, Radix) apply (AUD-A2-09, AUD-A1-17) */
-export function modalOpen(): boolean {
+ *  (topmost layer first, Radix) apply */
+function modalOpen(): boolean {
   return typeof document !== 'undefined' && document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]') !== null
 }
 
 const inMenu = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.('[role="menu"], [role="listbox"]')
 
-/** One keydown through the registry (UI-12). Returns whether a command ran.
- *  - only commands offered on the current route (AUD-A1-01) and allowed (UI-26)
+/** One keydown through the registry. Returns whether a command ran.
+ *  - only commands offered on the current route and allowed
  *  - nothing while a modal is open or a menu has focus
  *  - `when: 'viewer'`: a viewer is shown and focus is not in a text field; DOM focus inside the
- *    viewer is not needed, so the keys work right after Alt+↓ or a click in the Explorer (AUD-A2-02)
+ *    viewer is not needed, so the keys work right after Alt+↓ or a click in the Explorer
  *  - plain keys never fire while typing; chords with a modifier or F-keys do */
 export function dispatchKey(e: KeyboardEvent): boolean {
   if (e.repeat && !e.altKey) return false
@@ -99,7 +99,7 @@ export function useGlobalKeybindings() {
   }, [])
 }
 
-/** Run a command by id; features reach plugins this way, never through their modules (FE-ARCH §Boundaries) */
+/** Run a command by id; features reach plugins this way, never through their modules */
 export function runCommand(id: string, arg?: string) {
   const c = registry.commands.get(id)
   if (c && registry.available(c) && (!c.enabled || c.enabled())) c.run(arg)

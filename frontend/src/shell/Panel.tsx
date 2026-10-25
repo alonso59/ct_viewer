@@ -18,7 +18,7 @@ function Tab({ p, selected, onSelect }: { p: PanelTabContribution; selected: boo
   )
 }
 
-/** AUD-A3-01: every panel tab with a `useHasContent` hook reports to the layout whether it has
+/** Every panel tab with a `useHasContent` hook reports to the layout whether it has
  *  content for the active item; a content-first editor (a case tab) opens the panel only then */
 export function PanelContentWatch() {
   return (

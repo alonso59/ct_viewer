@@ -1,4 +1,4 @@
-"""Task manifest and task-run payloads (TASKS.md §Manifest, TSK-01..10; API-42..47)."""
+"""Task manifest and task-run payloads."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# RAD-13: `radiomics.pyradiomics` answers the task endpoints with its own records attached
+# `radiomics.pyradiomics` answers the task endpoints with its own records attached
 from app.radiomics.models import EstimateResult, RunDetail, RunError, RunSummary, ValidateResult
 
 TASK_ID_RE = r"^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$"
@@ -67,11 +67,11 @@ class SegRequirement(BaseModel):
 class Requires(BaseModel):
     modality: list[str] | None = None
     channels: int | None = Field(default=None, ge=1)
-    seg: SegRequirement | None = None  # the task reads masks (TSK-03: seg_id + labels)
+    seg: SegRequirement | None = None  # the task reads masks (seg_id + labels)
 
 
 class TaskManifest(BaseModel):
-    """`task.json` (TSK-01). Unknown keys are refused so typos surface as invalid manifests."""
+    """`task.json`. Unknown keys are refused so typos surface as invalid manifests."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -90,9 +90,9 @@ class TaskManifest(BaseModel):
     resources: Resources = Field(default_factory=lambda: Resources())
     # Segmentation tasks: `{"names": {"1": "kidney"}}` or `{"from": "dataset.json"}`.
     labels: dict[str, Any] | None = None
-    # Hidden from the Tasks view (CI plugins such as segment.threshold, TST-14).
+    # Hidden from the Tasks view (CI plugins such as segment.threshold).
     test_only: bool = False
-    # TSK-13: `workspace` tasks can also run without a project (API-62); `project` ones cannot.
+    # `workspace` tasks can also run without a project; `project` ones cannot.
     scope: Literal["project", "workspace"] = "project"
 
 
@@ -114,18 +114,18 @@ class ModelCatalog(BaseModel):
 
 
 class TaskInfo(BaseModel):
-    """API-42 row: a loaded manifest plus where it came from and whether it can run now."""
+    """A loaded manifest plus where it came from and whether it can run now."""
 
     manifest: TaskManifest
     source: Literal["builtin", "plugins_root"]
     manifest_hash: str
-    # The first-party plugin that contributes this task (TSK-01, PLG-01).
+    # The first-party plugin that contributes this task.
     plugin: str | None = None
     available: bool = True
     unavailable_reason: str | None = None
-    # External tasks: a fresh runner heartbeat lists this task (TSK-11).
+    # External tasks: a fresh runner heartbeat lists this task.
     runner_online: bool | None = None
-    # Radiomics keeps its richer schema behind API-30 (TSK-02, RAD-01).
+    # Radiomics serves its richer settings schema at this URL.
     settings_schema_url: str | None = None
     model_catalog: ModelCatalog | None = None
     execution: dict[str, Any] | None = None
@@ -162,7 +162,7 @@ class SettingsIssue(BaseModel):
 
 class TaskValidateRequest(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
-    # radiomics.pyradiomics: selection counts, checked when given (RAD-04 "Nothing to extract")
+    # radiomics.pyradiomics: selection counts, checked when given ("Nothing to extract")
     labels: list[int] | None = None
     n_items: int | None = Field(default=None, ge=0)
 
@@ -172,17 +172,17 @@ class TaskValidateResult(BaseModel):
     issues: list[SettingsIssue]
     settings: dict[str, Any] | None = None  # normalized (defaults applied)
     settings_hash: str | None = None
-    radiomics: ValidateResult | None = None  # radiomics.pyradiomics: the RAD-04 result
+    radiomics: ValidateResult | None = None  # radiomics.pyradiomics: its own validate result
 
 
 class TaskSelectionFilter(BaseModel):
     phase: list[str] | None = None
     side: list[Literal["L", "R", "-"]] | None = None
-    var: dict[str, list[str]] | None = None  # categorical study variables (VAR-10)
+    var: dict[str, list[str]] | None = None  # categorical study variables
 
 
 class TaskSelection(BaseModel):
-    """TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels."""
+    """All active items / an Explorer filter / an explicit list; scope; seg + labels."""
 
     item_ids: list[str] | None = None
     filter: TaskSelectionFilter | None = None
@@ -204,7 +204,7 @@ class PreflightRequest(BaseModel):
 
 
 class PreflightResult(BaseModel):
-    """TSK-04: items that aren't ready are skipped, never failed."""
+    """Items that aren't ready are skipped, never failed."""
 
     n_selected: int
     n_ready: int
@@ -215,11 +215,11 @@ class PreflightResult(BaseModel):
 
 
 class SeriesPlan(BaseModel):
-    """One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why."""
+    """One series of a converter dry run: what happens to it and why."""
 
     case_id: str
     scan_idx: str
-    patient: str = ""  # empty with `anonymize: basic` (DCM-05)
+    patient: str = ""  # empty with `anonymize: basic`
     description: str = ""
     modality: str = ""
     n_files: int = 0
@@ -229,7 +229,7 @@ class SeriesPlan(BaseModel):
 
 
 class ConversionTimeEstimate(BaseModel):
-    """DCM-06: conversion stage only; historical ranges are not calibrated confidence bounds."""
+    """Conversion stage only; historical ranges are not calibrated confidence bounds."""
 
     basis: Literal["unknown", "history", "complete"]
     confidence: Literal["unknown", "low"]
@@ -263,8 +263,6 @@ class ConversionTimeEstimate(BaseModel):
 
 
 class TaskEstimate(BaseModel):
-    """TSK-05."""
-
     n_units: int
     n_skipped: int
     seconds_per_item: float | None
@@ -274,10 +272,10 @@ class TaskEstimate(BaseModel):
     conversion_time: ConversionTimeEstimate | None = None
     sample_item_ids: list[str] = Field(default_factory=list)
     sample_errors: list[str] = Field(default_factory=list)
-    detail: dict[str, Any] = Field(default_factory=dict)  # e.g. the converter's dry run (DCM-06)
+    detail: dict[str, Any] = Field(default_factory=dict)  # e.g. the converter's dry run
     series: list[SeriesPlan] = Field(default_factory=list)  # source tasks: one row per series
     series_truncated: bool = False  # more than MAX_PLAN_ROWS series
-    radiomics: EstimateResult | None = None  # radiomics.pyradiomics: the RAD-11 estimate
+    radiomics: EstimateResult | None = None  # radiomics.pyradiomics: its own estimate
 
 
 class TaskRunRequest(BaseModel):
@@ -303,8 +301,6 @@ class TaskRunInput(BaseModel):
 
 
 class TaskRunOutput(BaseModel):
-    """A registered output (TSK-09)."""
-
     kind: str  # mask | image | annotations | features | metadata | segmentation_set | import
     item_id: str | None = None
     ref: str | None = None  # DERIVED:… for volumes; project-relative path for tabular outputs
@@ -350,13 +346,13 @@ class TaskRunSummary(BaseModel):
 
 
 class TaskRunListItem(TaskRunSummary):
-    """API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13)."""
+    """A run list row; a radiomics.pyradiomics row carries its radiomics run summary."""
 
     radiomics: RunSummary | None = None
 
 
 class TaskRunRecord(TaskRunSummary):
-    """`tasks/runs/{run_id}/run.json` (TSK-10, NFR-15)."""
+    """`tasks/runs/{run_id}/run.json`."""
 
     runtime: Literal["builtin", "external"]
     settings: dict[str, Any]
@@ -396,7 +392,7 @@ class TaskRunDetail(TaskRunRecord):
     progress: TaskRunProgress | None = None
     conversion_time: ConversionTimeEstimate | None = None
     resource_wait: TaskResourceWait | None = None
-    # radiomics.pyradiomics runs live in `radiomics/runs/` (RAD-13): their RAD-09 record
+    # radiomics.pyradiomics runs live in `radiomics/runs/`: their own run record
     radiomics: RunDetail | None = None
 
 
@@ -415,4 +411,4 @@ class TaskItemError(BaseModel):
     item_id: str
     status: ItemState
     message: str = ""
-    radiomics: RunError | None = None  # radiomics.pyradiomics: the RAD-07 row (label, cause)
+    radiomics: RunError | None = None  # radiomics.pyradiomics: its error row (label, cause)

@@ -1,8 +1,8 @@
-"""Derived index store: `index/{items,cases,qc_warnings}.jsonl` + `status.json` (PRJ-10, BE-07).
+"""Derived index store: `index/{items,cases,qc_warnings}.jsonl` + `status.json`.
 
 Reads are cached per project (LRU of `PROJECT_CACHE_MAX`); `replace` rewrites the index
 atomically and invalidates the cache. Callers must hold the project write lock for `replace`.
-`load` joins native phase selections on top at read time (PHS-03, re-joined whenever
+`load` joins native phase selections on top at read time (re-joined whenever
 `events/phase.jsonl` changes); writers start from `load_resolved`, and `replace` never stores
 the join.
 """
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -36,22 +36,22 @@ class ProjectIndex:
 @dataclass
 class _Entry:
     resolved: ProjectIndex  # as indexed
-    joined: ProjectIndex | None = None  # with the phase selections (PHS-03)
-    phase_sig: tuple[int, int, int] | None = field(default=None)
+    joined: ProjectIndex | None = None  # with the phase selections
+    phase_sig: tuple[int, int, int] | None = None
 
 
 class IndexStore:
     def __init__(
         self,
         project_dir: Callable[[str], Path],
-        cache_max: int = 4,
-        default_seg: Callable[[str], str] | None = None,
-        phase_vocabulary: Callable[[str], Sequence[str]] | None = None,
+        cache_max: int,
+        default_seg: Callable[[str], str],
+        phase_vocabulary: Callable[[str], Sequence[str]],
     ) -> None:
         self._project_dir = project_dir
         self._cache_max = cache_max
-        self._default_seg = default_seg or (lambda _pid: "imported")
-        self._phase_vocabulary = phase_vocabulary or (lambda _pid: ())
+        self._default_seg = default_seg
+        self._phase_vocabulary = phase_vocabulary
         self._cache: OrderedDict[str, _Entry] = OrderedDict()
 
     def index_dir(self, project_id: str) -> Path:
@@ -67,8 +67,7 @@ class IndexStore:
         return entry.joined
 
     def effective_phases(self, project_id: str) -> dict[str, str]:
-        """PHS-03: item id → effective phase; joined at read time by every consumer of run
-        outputs (dashboards, analyses, feature exports; AUD-A5-04)."""
+        """Item id → effective phase, for consumers of run outputs."""
         return {it.item_id: it.phase.canonical for it in self.load(project_id).items}
 
     def load_resolved(self, project_id: str) -> ProjectIndex:
@@ -96,7 +95,7 @@ class IndexStore:
         items = [Item.model_validate(r) for r in iter_jsonl(d / ITEMS)]
         default = self._default_seg(project_id)
         for it in items:
-            it.mask = it.masks.get(default)  # deprecated alias (ADR-0015 §6)
+            it.mask = it.masks.get(default)  # deprecated alias
         hashes = load_hashes(d).files
         if hashes:
             for vol in (v for it in items for v in it.volumes()):
@@ -145,8 +144,6 @@ class IndexStore:
         d = self.index_dir(project_id)
         write_jsonl_atomic(d / WARNINGS, (w.model_dump(mode="json") for w in warnings))
         write_jsonl_atomic(d / CASES, (c.model_dump(mode="json") for c in cases))
-        # `sha256` lives in hashes.json only (one fact, one place); `mask` is never stored, nor
-        # is a phase selection joined on read (PHS-03): the index keeps the resolved value.
         write_jsonl_atomic(d / ITEMS, item_rows(items))
         self.invalidate(project_id)
 

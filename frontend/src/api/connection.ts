@@ -1,5 +1,5 @@
-// Client-side API state that is not server data: live/offline state of the API-40 stream (UI-07)
-// and a thumbnail epoch bumped when a thumbnail job finishes, so images that 404'd retry (IMP-12).
+// Live/offline state of the event stream, and a thumbnail epoch bumped when a thumbnail job
+// finishes so images that 404'd retry.
 import { create } from 'zustand'
 
 import type { ConnectionState } from './surface'

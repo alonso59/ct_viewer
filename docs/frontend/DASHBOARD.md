@@ -32,7 +32,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 | Missing / invalid matrix | Feature × item NaN/inf heat map | feature class |
 | Correlation heat map | Spearman correlation between features, clustered order | class filter, threshold |
 | Embedding scatter | PCA (default) or UMAP (optional dependency) on z-scored features | features, n_components |
-| Outlier table | Robust z-score (median/MAD) per feature; flagged items (DB-10: ≥ `min_feature_pct` % of the features, and ≥ 1, over the threshold; owner 2026-09-27), sorted by the number of features over the threshold, then by max \|z\| (owner 2026-09-25); top 10, "Show all"; the per-feature counts cover every item | threshold (default 3.5), `min_feature_pct` (default 5) |
+| Outlier table | Robust z-score (median/MAD) per feature; flagged items (DB-10), sorted by the number of features over the threshold, then by max \|z\| (owner 2026-09-25); top 10, "Show all"; the per-feature counts cover every item | threshold (default 3.5), `min_feature_pct` (default 5) |
 | Feature vs volume | Scatter of a feature against `shape_MeshVolume` (flags size-driven features) | feature |
 | Group comparison | Box/violin per group for the selected feature + test result; results table for all features | variable, test override |
 | Association | Scatter feature × continuous variable with ρ; ranked table | variable |

@@ -1,9 +1,9 @@
-"""Full SHA-256 job (IMP-09, API-15): hash every referenced source file in job workers.
+"""Full SHA-256 job: hash every referenced source file in job workers.
 
-Sources are only read (`open_source`, BE-03, R1). Results go to `index/hashes.json` in the
-project folder (derived and rebuildable, PRJ-10), keyed by alias ref and tagged with the quick
-fingerprint seen when hashing; `IndexStore.load` attaches a hash to an item's `image`/`mask`
-only while that fingerprint still matches. Never blocks import (PROJECT_FORMAT §Path aliases).
+Sources are only read (`open_source`). Results go to `index/hashes.json` in the project folder
+(derived and rebuildable), keyed by alias ref and tagged with the quick fingerprint seen when
+hashing; `IndexStore.load` attaches a hash to an item's `image`/`mask` only while that
+fingerprint still matches. Never blocks import.
 """
 
 from __future__ import annotations
@@ -51,19 +51,15 @@ class HashJobRequest(BaseModel):
 
 
 class HashJobStarted(BaseModel):
-    """API-15 `202`: progress and completion arrive as `job.*` SSE events (API-40)."""
+    """Progress and completion arrive as `job.*` SSE events."""
 
     job_id: str
     n_files: int  # files queued (one job unit each)
     n_skipped: int  # already hashed with a matching quick fingerprint (unless `force`)
 
 
-def hashes_path(index_dir: Path) -> Path:
-    return index_dir / HASHES
-
-
 def load_hashes(index_dir: Path) -> HashIndex:
-    p = hashes_path(index_dir)
+    p = index_dir / HASHES
     if not p.exists():
         return HashIndex()
     try:
@@ -78,7 +74,7 @@ def hash_file(ref: str, path: str) -> HashResult:
     try:
         p = Path(path)
         return ref, quick_fingerprint(p), full_sha256(p), None
-    except OSError as exc:  # logged: the ref, never the absolute path (NFR-17)
+    except OSError as exc:  # logged: the ref, never the absolute path
         return ref, None, None, f"{type(exc).__name__}: {exc}".replace(path, ref)
 
 
@@ -93,9 +89,9 @@ async def start_hash_job(
     on_written: Callable[[], None],
     force: bool = False,
 ) -> HashJobStarted:
-    """Submit a `hash` job (BE-06; one per project) over the items' image and mask files.
+    """Submit a `hash` job (one per project) over the items' image and mask files.
 
-    `resolve(ref) -> Path` is the project's guarded resolver (BE-02); `on_written()` runs after
+    `resolve(ref) -> Path` is the project's guarded resolver; `on_written()` runs after
     `hashes.json` changes (index cache invalidation).
     """
     current = load_hashes(index_dir).files
@@ -103,7 +99,7 @@ async def start_hash_job(
     skipped = 0
     for item in items:
         for vol in item.volumes():
-            if vol is None or vol.fp is None or vol.ref in tasks or vol.format == "nifti_dir":
+            if vol.fp is None or vol.ref in tasks or vol.format == "nifti_dir":
                 continue  # a mask set folder has no single file to hash
             known = current.get(vol.ref)
             if not force and known is not None and known.fp == vol.fp:
@@ -131,7 +127,7 @@ async def start_hash_job(
                 for ref, fp, sha, _ in ok:
                     assert fp is not None and sha is not None
                     idx.files[ref] = FileHash(fp=fp, sha256=sha, hashed_at=now)
-                atomic_write_json(hashes_path(index_dir), idx.model_dump(mode="json"))
+                atomic_write_json(index_dir / HASHES, idx.model_dump(mode="json"))
             on_written()
         return None
 

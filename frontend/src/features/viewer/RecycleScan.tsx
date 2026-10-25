@@ -1,4 +1,4 @@
-// CUR-16: preview and explicitly confirm recycling an entire scan and its related outputs.
+// Preview and explicitly confirm recycling an entire scan and its related outputs.
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'

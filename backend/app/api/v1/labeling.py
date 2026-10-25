@@ -1,5 +1,3 @@
-"""API-56..58 Labeling table plugin (LBL-*), mounted under `/api/v1/plugins/labeling/` (PLG-08)."""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -42,7 +40,7 @@ def _rebuild_variables(ctx: AppContext, pid: str) -> None:
 
 @router.get("/tables", response_model=list[TableInfo])
 def list_tables(ctx: Ctx, pid: str, deleted: bool = False) -> list[TableInfo]:
-    """`?deleted=true` lists only the deleted tables (LBL-10)."""
+    """`?deleted=true` lists only the deleted tables."""
     return svc(ctx).tables(pid, deleted)
 
 
@@ -65,7 +63,7 @@ async def get_cells(
     ctx: Ctx, pid: str, tid: str, paging: Paging, q: str | None = None
 ) -> CellsPage:
     s = svc(ctx)
-    refs = await s.ref_values(pid, tid)  # LBL-09
+    refs = await s.ref_values(pid, tid)
     return s.cells(pid, tid, offset_of(paging.cursor), paging.limit, q, refs)
 
 

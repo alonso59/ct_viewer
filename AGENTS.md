@@ -43,7 +43,7 @@ codicons) with a 3D Slicer-style 2×2 CT viewer.
 | R5 | No telemetry, no CDN, no external network calls at runtime. |
 | R6 | Web app first. Electron starts only after roadmap phase P7 is done. See ADR-0001. |
 | R7 | Do not suggest SSH tunnel commands; VS Code Remote handles port forwarding. |
-| R8 | One fact, one place. Reference requirement IDs (e.g. `CUR-04`) instead of restating them. |
+| R8 | One fact, one place. Reference requirement IDs (e.g. `CUR-04`) instead of restating them, in docs and tests; application code (comments, docstrings, messages) cites no IDs, ADRs or doc paths. |
 | R9 | `legacy/**` is read-only reference (git-ignored, `chmod a-w`; tag `legacy-reference`). Never import, build, lint, test or edit it; no code or doc may depend on it, so it can be deleted at any time. Read it only when a task says to port from it (e.g. `legacy/convert/` in P7b Wave 3). |
 
 ## Workflow

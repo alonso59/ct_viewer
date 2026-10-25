@@ -1,4 +1,4 @@
-"""Record CUR-16 / API-66 against a disposable dataset; leave the existing demo intact.
+"""Record the item recycle exchanges against a disposable dataset; leave the existing demo intact.
 
 cd backend && .venv/bin/python -m tools.record_recycle
 """

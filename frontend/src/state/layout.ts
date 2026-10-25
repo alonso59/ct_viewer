@@ -1,4 +1,4 @@
-// Shell layout state, persisted per project (UI-13).
+// Shell layout state, persisted per project.
 import { create } from 'zustand'
 
 export interface LayoutState {
@@ -12,20 +12,20 @@ export interface LayoutState {
   inspectorWidth: number
   activeView: string
   activePanelTab: string
-  /** UI-13 (AUD-A1-18): bottom panel visibility per editor type; unknown types use `panelDefault` */
+  /** Bottom panel visibility per editor type; unknown types use `panelDefault` */
   panelByEditor: Record<string, boolean>
 }
 
 /** Editors that fill the height with a form or charts (radiomics settings, a dashboard, a task, project
  *  settings): the panel starts closed there; elsewhere (welcome, queue, tables) it starts open */
 const FULL_HEIGHT = new Set(['radiomics', 'run', 'task', 'settings'])
-/** Editors whose panel stays closed until a panel tab has content for them (AUD-A3-01): a case tab
+/** Editors whose panel stays closed until a panel tab has content for them: a case tab
  *  opens it for a feature row or a problem of its item, so the viewer keeps the height otherwise */
 const CONTENT_FIRST = new Set(['case'])
-export const panelDefault = (editorType: string | null) => !FULL_HEIGHT.has(editorType ?? '') && !CONTENT_FIRST.has(editorType ?? '')
-/** Default panel height: at most 220 px and about 20 % of the window (AUD-A3-01) */
+const panelDefault = (editorType: string | null) => !FULL_HEIGHT.has(editorType ?? '') && !CONTENT_FIRST.has(editorType ?? '')
+/** Default panel height: at most 220 px and about 20 % of the window */
 export const panelAutoHeight = (viewport = window.innerHeight) => Math.min(220, Math.round(viewport * 0.2))
-/** The height of the pre-FB6 default, stored by every save: read as "automatic" */
+/** The former fixed default, which every save stored: read as "automatic" */
 const OLD_DEFAULT_HEIGHT = 220
 
 const DEFAULTS: LayoutState = {
@@ -48,7 +48,7 @@ interface Store extends LayoutState {
   /** Type of the active editor tab (not persisted) */
   editorType: string | null
   setEditorType: (type: string | null) => void
-  /** AUD-A3-01: which panel tabs have content for the active item (not persisted) */
+  /** Which panel tabs have content for the active item (not persisted) */
   panelContent: Record<string, boolean>
   /** A panel tab reports whether it has content; a content-first editor (a case tab) opens its
    *  panel on the first tab with content and closes it when none has, unless the user chose */
@@ -70,7 +70,7 @@ function save(s: Store) {
   }
 }
 
-/** AUD-A3-01: the panel of a content-first editor follows its content (never remembered) */
+/** The panel of a content-first editor follows its content (never remembered) */
 function followContent() {
   const s = useLayout.getState()
   const type = s.editorType ?? ''

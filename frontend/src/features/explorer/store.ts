@@ -9,10 +9,10 @@ interface ExplorerState {
   /** Case ids in the current filtered order, for Alt+↓ / Alt+↑ */
   order: string[]
   setFilter: (patch: Partial<CaseFilter>) => void
-  /** Set one `var.{name}` filter; empty removes it (VAR-10) */
+  /** Set one `var.{name}` filter; empty removes it */
   setVarFilter: (name: string, value: string) => void
   clearFilter: () => void
-  /** DB-04: only these items (and their cases); null clears */
+  /** Only these items (and their cases); null clears */
   setItemIds: (ids: string[] | null) => void
   toggle: (cid: string, open?: boolean) => void
   setOrder: (ids: string[]) => void
@@ -45,7 +45,6 @@ export const activeFilterCount = (f: CaseFilter) =>
   [f.phase, f.status, f.warning, f.voi, f.showExcluded, f.itemIds].filter(Boolean).length +
   Object.values(f.vars ?? {}).filter(Boolean).length
 
-/** Variable-driven columns and colour of the case list, per project (VAR-10, UI-13) */
 interface ViewPrefs {
   columns: string[]
   colorBy: string | null

@@ -1,4 +1,4 @@
-// API-25 client: `202` + job while the mesh builds, then the cached gzip MZ3 (VW-09).
+// Mesh endpoint client: `202` + job while the mesh builds, then the cached gzip MZ3.
 export class MeshUnavailable extends Error {}
 
 /** Resolves with the mesh bytes, polling while the backend job runs (≤ `timeoutMs`). */

@@ -14,8 +14,8 @@ export default tseslint.config(
     settings: { react: { version: 'detect' } },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      '@typescript-eslint/no-explicit-any': 'error', // FE-01
-      // FE-11: all UI text goes through t(); no literal JSX strings.
+      '@typescript-eslint/no-explicit-any': 'error',
+      // All UI text goes through t().
       'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
     },
   },

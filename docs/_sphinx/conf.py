@@ -1,4 +1,4 @@
-"""Sphinx config for the docs site (dev-only; never in the image, R5). Build: `make docs`.
+"""Sphinx config for the docs site (dev-only; never in the image). Build: `make docs`.
 
 Source dir is `docs/`, this folder is only the config dir (`sphinx-build -c docs/_sphinx`), so
 `docs/INDEX.md` (the agents' router) and the site root `docs/SITE.md` never clash.
@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 project = "Radiology Workbench"
 author = "Radiology Workbench contributors"
 extensions = ["myst_parser", "reqs"]
-myst_enable_extensions = ["colon_fence", "deflist"]  # no `linkify`: `.md` is a TLD (AUD-A7-05)
+myst_enable_extensions = ["colon_fence", "deflist"]  # no `linkify`: `.md` is a TLD
 myst_heading_anchors = 3
 root_doc = "SITE"
 source_suffix = {".md": "markdown"}

@@ -1,4 +1,4 @@
-// VW-27: modeless settings stay above the viewer and can be moved away from the anatomy.
+// Modeless settings stay above the viewer and can be moved away from the anatomy.
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'

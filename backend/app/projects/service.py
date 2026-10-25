@@ -1,4 +1,4 @@
-"""Workspace + project service (PRJ-01..06, 10, 11; BE-05, BE-07).
+"""Workspace + project service.
 
 `workspace.json` is the registry; `project.json` is each project's config. Writes run under
 the project lock (outer) and the `__workspace__` lock (inner) when the registry changes.
@@ -87,7 +87,7 @@ class Workspace:
     ) -> None:
         self.settings = settings
         self.guard = guard
-        # ALLOWED_DERIVED_ROOTS (OPS-11); empty allows no derived root at all.
+        # ALLOWED_DERIVED_ROOTS; empty allows no derived root at all.
         self.derived_guard = derived_guard or PathGuard(
             settings.derived_roots, name="ALLOWED_DERIVED_ROOTS", strict=True
         )
@@ -102,8 +102,6 @@ class Workspace:
         self._registry: dict[str, WorkspaceEntry] | None = None
         self._cache: OrderedDict[str, ProjectConfig] = OrderedDict()
 
-    # -- registry ---------------------------------------------------------------------------
-
     def open(self) -> None:
         """Create `projects/`, `projects/.archive/`, `workspace.json` if missing."""
         self.archive_dir.mkdir(parents=True, exist_ok=True)
@@ -114,17 +112,18 @@ class Workspace:
         self._entries()
 
     def _entries(self) -> dict[str, WorkspaceEntry]:
-        if self._registry is None:
-            if not self.registry_path.exists():
-                self._registry = {}
-                return self._registry
-            raw = read_json(self.registry_path)
-            if not isinstance(raw, dict) or raw.get("format") != WORKSPACE_FORMAT:
-                raise FormatVersionUnsupported(f"Not a {WORKSPACE_FORMAT} document")
-            if raw.get("format_version") != WORKSPACE_FORMAT_VERSION:
-                raise FormatVersionUnsupported("Unsupported workspace.json format_version")
-            entries = [WorkspaceEntry.model_validate(e) for e in raw.get("projects", [])]
-            self._registry = {e.project_id: e for e in entries}
+        if self._registry is not None:
+            return self._registry
+        if not self.registry_path.exists():
+            self._registry = {}
+            return self._registry
+        raw = read_json(self.registry_path)
+        if not isinstance(raw, dict) or raw.get("format") != WORKSPACE_FORMAT:
+            raise FormatVersionUnsupported(f"Not a {WORKSPACE_FORMAT} document")
+        if raw.get("format_version") != WORKSPACE_FORMAT_VERSION:
+            raise FormatVersionUnsupported("Unsupported workspace.json format_version")
+        entries = [WorkspaceEntry.model_validate(e) for e in raw.get("projects", [])]
+        self._registry = {e.project_id: e for e in entries}
         return self._registry
 
     def _write_registry(self) -> None:
@@ -151,8 +150,6 @@ class Workspace:
             raise NotFound(f"Project {project_id!r} not found")
         return entry
 
-    # -- reads ------------------------------------------------------------------------------
-
     def share_url(self, project_id: str) -> str:
         return f"{self.settings.base_url}/p/{project_id}"
 
@@ -167,7 +164,7 @@ class Workspace:
         return (self.archive_dir if entry.archived else self.projects_dir) / entry.project_id
 
     def folder(self, project_id: str) -> Path:
-        """PRJ-19: the registered project folder, including archived projects."""
+        """The registered project folder, including archived projects."""
         return self._folder(self.entry(project_id))
 
     def project_derived_guard(self, project_id: str) -> PathGuard:
@@ -186,15 +183,14 @@ class Workspace:
         )
 
     def _lock_local(self, pid: str, folder: Path) -> None:
-        if pid not in self._local_locks:
-            lock = FileLock(folder / ".lock")
-            try:
-                lock.acquire()
-            except LockHeldError:
-                raise JobConflict(
-                    "This dataset project is open in another running workspace"
-                ) from None
-            self._local_locks[pid] = lock
+        if pid in self._local_locks:
+            return
+        lock = FileLock(folder / ".lock")
+        try:
+            lock.acquire()
+        except LockHeldError:
+            raise JobConflict("This dataset project is open in another running workspace") from None
+        self._local_locks[pid] = lock
 
     def close(self) -> None:
         for lock in self._local_locks.values():
@@ -215,7 +211,7 @@ class Workspace:
         entry = self.entry(project_id)
         folder = self._folder(entry)
         case_ids, excluded = _case_ids(folder / "index" / "cases.jsonl")
-        # CUR-08: a case counts once every active item has a decision (partial cases don't)
+        # a case counts once every active item has a decision (partial cases don't)
         reviewed = sum(
             1
             for cid, r in case_reviews(
@@ -238,9 +234,8 @@ class Workspace:
         return rows
 
     def reserved_derived(self) -> tuple[Path, ...]:
-        """Derived subtrees only their owner writes (NFR-11): the write-once `_datasets/`
-        (TSK-13) and every project's task tree `{derived root}/{project_id}/` (PROJECT_FORMAT
-        §Write rules), archived projects included."""
+        """Derived subtrees only their owner writes: the write-once `_datasets/` and every
+        project's task tree `{derived root}/{project_id}/`, archived projects included."""
         roots = [realpath(d) for d in self.settings.dataset_roots]
         for pid, entry in tuple(self._entries().items()):
             # an archived project is not `get`-able, but its task tree stays reserved
@@ -251,7 +246,7 @@ class Workspace:
         return tuple(roots)
 
     def get(self, project_id: str) -> ProjectConfig:
-        """Cached (LRU, BE-07); runs PRJ-11 migrations on first open."""
+        """LRU-cached; migrates an older `project.json` on first open."""
         hit = self._cache.get(project_id)
         if hit is not None:
             self._cache.move_to_end(project_id)
@@ -275,10 +270,10 @@ class Workspace:
         )
 
     def check_etag(self, project_id: str, if_match: str | None) -> None:
-        """PRJ-15: settings writes need `If-Match` with the current ETag."""
+        """Settings writes need `If-Match` with the current ETag."""
         if not if_match:
             raise PreconditionRequired(
-                "Settings writes need If-Match with the project ETag (PRJ-15)",
+                "Settings writes need If-Match with the project ETag",
                 actions=["reload"],
             )
         current = etag_of(self.get(project_id))
@@ -289,7 +284,7 @@ class Workspace:
             )
 
     def by_view_token(self, token: str) -> str:
-        """PRJ-17: the active project whose `view_token` is `token`; NotFound otherwise."""
+        """The active project whose `view_token` is `token`; NotFound otherwise."""
         if token and VIEW_TOKEN_RE.fullmatch(token):
             for e in tuple(self._entries().values()):
                 if e.archived:
@@ -300,7 +295,10 @@ class Workspace:
         raise NotFound("Unknown or revoked view-only link")
 
     def roots(self, project_id: str) -> builtins.list[RootInfo]:
-        return [_root_info(r) for r in self.get(project_id).path_roots]
+        return [
+            RootInfo(alias=r.alias, path=r.path, exists=Path(r.path).is_dir(), role=r.role)
+            for r in self.get(project_id).path_roots
+        ]
 
     def resolver(self, project_id: str) -> PathResolver:
         cfg = self.get(project_id)
@@ -319,7 +317,7 @@ class Workspace:
         )
 
     def derived_root(self, project_id: str) -> PathRoot:
-        """PRJ-13: the registered derived root, or `derived-root-required` with the next step."""
+        """The registered derived root, or `derived-root-required` with the next step."""
         root = self.get(project_id).derived_root()
         if root is None:
             raise DerivedRootRequired(
@@ -355,8 +353,6 @@ class Workspace:
             self._write_config(folder, cfg)
         return cfg
 
-    # -- writes -----------------------------------------------------------------------------
-
     def _write_config(self, folder: Path, cfg: ProjectConfig) -> None:
         atomic_write_json(folder / PROJECT_FILE, cfg.model_dump(mode="json"), backup=True)
 
@@ -374,7 +370,7 @@ class Workspace:
         packs: builtins.list[str] | None = None,
         dataset_root: str | None = None,
     ) -> ProjectConfig:
-        """PRJ-14: neutral; `packs` (scripts, tests) are applied as by API-28."""
+        """Neutral unless `packs` (scripts, tests) are given; they apply as `apply_pack` does."""
         now = utc_now()
         try:
             cfg = ProjectConfig(
@@ -455,7 +451,7 @@ class Workspace:
         return root
 
     async def open_dataset(self, raw: str) -> builtins.list[ProjectDetail]:
-        """PRJ-19: register existing local projects; opening a moved folder rebases its roots."""
+        """Register existing local projects; opening a moved folder rebases its roots."""
         root = self._dataset_root(raw)
         found = []
         for folder in sorted((root / ".workbench/projects").glob("*")):
@@ -524,24 +520,25 @@ class Workspace:
             return new
 
     async def apply_pack(self, project_id: str, pack_id: str) -> ProjectConfig:
-        """PRJ-16: merge a pack's labels and phase rules; records it in `packs[]`."""
+        """Merge a pack's labels and phase rules; records it in `packs[]`."""
         async with self.locks(project_id):
             cur = self.get(project_id)
             new = with_pack(cur, pack_id).model_copy(update={"updated_at": utc_now()})
             return self._save(new)
 
     async def set_view_token(self, project_id: str, create: bool) -> ProjectConfig:
-        """PRJ-17: create/rotate (a new random token revokes the old one) or revoke."""
+        """Create/rotate (a new random token revokes the old one) or revoke."""
         async with self.locks(project_id):
             cur = self.get(project_id)
             token = secrets.token_urlsafe(24) if create else None
             return self._save(cur.model_copy(update={"view_token": token, "updated_at": utc_now()}))
 
     async def set_root(self, project_id: str, root: PathRoot) -> ProjectConfig:
-        """Add or relink an alias (PRJ-05, PRJ-13).
+        """Add or relink an alias.
 
-        `source` roots must pass ALLOWED_DATA_ROOTS (OPS-04); the single `derived` root must be
-        inside ALLOWED_DERIVED_ROOTS (OPS-11) and must not overlap any source root (ADR-0014).
+        `source` roots must pass ALLOWED_DATA_ROOTS; the single `derived` root must be inside
+        ALLOWED_DERIVED_ROOTS (or the dataset's managed `derived/`) and must not overlap any
+        source root.
         """
         path = Path(root.path)
         if not path.is_absolute():
@@ -552,8 +549,7 @@ class Workspace:
             derived_guard = self.project_derived_guard(project_id)
             if not derived_guard.allowed_roots:
                 raise DerivedRootRequired(
-                    "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder "
-                    "(OPS-11)",
+                    "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder",
                     actions=["configure:ALLOWED_DERIVED_ROOTS"],
                 )
             derived_guard.check(path)
@@ -575,7 +571,7 @@ class Workspace:
             others = [r for r in cur.path_roots if r.alias != root.alias]
             if root.role == "derived" and any(r.role == "derived" for r in others):
                 raise ValidationProblem(
-                    "The project already has a derived root (PRJ-13); relink that alias instead",
+                    "The project already has a derived root; relink that alias instead",
                     errors=[{"loc": ["alias"], "msg": "one derived root per project"}],
                 )
             real = realpath(path)
@@ -595,7 +591,7 @@ class Workspace:
                 if is_within(real, o) or is_within(o, real):
                     raise RootsOverlap(
                         f"{root.alias} ({root.role}) overlaps {r.alias} ({r.role}): source and "
-                        "derived folders must be separate (ADR-0014)"
+                        "derived folders must be separate"
                     )
             roots = sorted([*others, root], key=lambda r: r.alias)
             new = cur.model_copy(update={"path_roots": roots, "updated_at": utc_now()})
@@ -606,7 +602,7 @@ class Workspace:
         project_id: str,
         edit: Callable[[builtins.list[LabelEntry]], builtins.list[LabelEntry]],
     ) -> ProjectConfig:
-        """Read-modify-write of the label map under the project lock (AUD-A5-12)."""
+        """Read-modify-write of the label map under the project lock."""
         async with self.locks(project_id):
             cur = self.get(project_id)
             label_map = edit(list(cur.label_map))
@@ -616,7 +612,7 @@ class Workspace:
             return self._save(new)
 
     async def put_segmentation(self, project_id: str, seg: SegmentationSet) -> ProjectConfig:
-        """Add or replace one segmentation set (ADR-0015; task outputs, API-27 PATCH)."""
+        """Add or replace one segmentation set; a replaced set keeps its position."""
         async with self.locks(project_id):
             cur = self.get(project_id)
             sets = [s for s in cur.segmentations if s.seg_id != seg.seg_id]
@@ -630,7 +626,7 @@ class Workspace:
     async def set_annotation_source(
         self, project_id: str, field: str, run_id: str | None, *, only_if_unset: bool = False
     ) -> ProjectConfig:
-        """ANZ-04: activate (or clear) the annotation run for one field."""
+        """Activate (or clear) the annotation run for one field."""
         async with self.locks(project_id):
             cur = self.get(project_id)
             if only_if_unset and cur.annotation_sources.get(field) is not None:
@@ -640,7 +636,7 @@ class Workspace:
             return self._save(new)
 
     async def archive(self, project_id: str) -> None:
-        """PRJ-06: purge `cache/`, move to `projects/.archive/`. Never deletes project data."""
+        """Purge `cache/`, move to `projects/.archive/`. Never deletes project data."""
         async with self.locks(project_id):
             folder = self.project_dir(project_id)
             entry = self.entry(project_id)
@@ -664,8 +660,6 @@ class Workspace:
             shutil.move(self._folder(entry), dest)
             await self._set_entry(entry.model_copy(update={"archived": False}))
             return self.get(project_id)
-
-    # -- bundles (PRJ-08/09) ------------------------------------------------------------------
 
     async def export_bundle(self, project_id: str) -> tuple[Path, str]:
         """Write the bundle zip to a staging file; returns (path, download filename).
@@ -701,7 +695,7 @@ class Workspace:
         self.staging_dir.mkdir(parents=True, exist_ok=True)
         staging = self.staging_dir / new_ulid()
         try:
-            cfg, original, _ = await asyncio.to_thread(extract_bundle, fileobj, staging, taken)
+            cfg, original = await asyncio.to_thread(extract_bundle, fileobj, staging, taken)
             if cfg.dataset_root is not None:
                 cfg = cfg.model_copy(update={"dataset_root": None})
                 self._write_config(staging, cfg)
@@ -717,7 +711,7 @@ class Workspace:
                 )
                 await self._set_entry(entry)
             self.invalidate(cfg.project_id)
-            return self.get(cfg.project_id), original  # PRJ-11 migration runs here
+            return self.get(cfg.project_id), original  # migrates an older staged project.json
         finally:
             if staging.exists():
                 shutil.rmtree(staging, ignore_errors=True)
@@ -748,7 +742,7 @@ _active_cache: OrderedDict[Path, tuple[tuple[int, int], dict[str, list[str]]]] =
 
 
 def _active_items(path: Path) -> dict[str, list[str]]:
-    """Active item ids per case from `index/items.jsonl` (CUR-08 progress), cached by stat."""
+    """Active item ids per case from `index/items.jsonl`, cached by stat."""
     try:
         st = path.stat()
     except FileNotFoundError:
@@ -769,13 +763,13 @@ def _active_items(path: Path) -> dict[str, list[str]]:
 
 
 def _case_ids(path: Path) -> tuple[set[str], set[str]]:
-    """Counted case ids in `index/cases.jsonl` (PRJ-02 count and curation-progress
-    denominator) and the all-excluded ones (`n_items` 0, AUD-A2-08)."""
+    """Counted case ids in `index/cases.jsonl` (case count and curation-progress denominator)
+    and the all-excluded ones (`n_items` 0)."""
     return split_cases((str(r.get("case_id")), r.get("n_items") == 0) for r in iter_jsonl(path))
 
 
 def _purge(cache: Path) -> None:
-    """Delete `cache/` contents (PRJ-10: always safe); keep the directory."""
+    """Delete `cache/` contents (always safe); keep the directory."""
     if not cache.is_dir():
         return
     for child in cache.iterdir():
@@ -783,12 +777,6 @@ def _purge(cache: Path) -> None:
             shutil.rmtree(child)
         else:
             child.unlink()
-
-
-def _root_info(root: PathRoot) -> RootInfo:
-    return RootInfo(
-        alias=root.alias, path=root.path, exists=Path(root.path).is_dir(), role=root.role
-    )
 
 
 def _errors(exc: ValidationError) -> list[dict[str, Any]]:
@@ -799,14 +787,14 @@ VIEW_TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{16,64}")
 
 
 def etag_of(cfg: ProjectConfig) -> str:
-    """PRJ-15: a strong ETag over the whole `project.json` content."""
+    """A strong ETag over the whole `project.json` content."""
     raw = json.dumps(cfg.model_dump(mode="json"), sort_keys=True).encode()
     return '"' + hashlib.sha256(raw).hexdigest()[:20] + '"'
 
 
 def with_pack(cfg: ProjectConfig, pack_id: str) -> ProjectConfig:
-    """PRJ-16: pack labels replace entries with the same value, others are kept; the phase
-    vocabulary, priority and mapping become the pack's (mapping merged); nothing is deleted."""
+    """Pack labels replace entries with the same value, others are kept; the phase vocabulary,
+    priority and mapping become the pack's (mapping merged); nothing is deleted."""
     pack = get_pack(pack_id)
     if pack is None:
         raise NotFound(f"Study pack {pack_id!r} not found")

@@ -1,5 +1,3 @@
-"""API v1 router aggregation. One module per resource group (API.md)."""
-
 from fastapi import APIRouter
 
 from app.api.v1 import (
@@ -33,7 +31,6 @@ router = APIRouter()
 for _module in (
     health, projects, fs, sources, source_operations, imports, variables, cases, items, volumes,
     segmentations, curation, phase, annotations, exports, radiomics, tasks, plugins, labeling,
-    dashboard, jobs, events, view,
+    dashboard, jobs, events, view, mesh,
 ):  # fmt: skip
     router.include_router(_module.router)
-router.include_router(mesh.router)  # API-25

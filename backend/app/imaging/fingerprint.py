@@ -1,7 +1,4 @@
-"""Quick and full fingerprints (PROJECT_FORMAT.md §Path aliases, IMP-09).
-
-Quick fingerprint = `{size}-{sha256(first 64 KiB + last 64 KiB)[:32]}`; it is also the ETag (BE-04).
-"""
+"""Quick fingerprint = `{size}-{sha256(first 64 KiB + last 64 KiB)[:32]}`; it is also the ETag."""
 
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 
 The compose side is read from `docker-compose.yml` itself (its `environment:` and `volumes:`
 lines, with compose's `${VAR}`, `${VAR:-default}`, `${VAR:?error}` interpolation) and compared
-with the udocker arguments for the same `.env`. Differences by design (DEPLOYMENT.md): `HOST`
+with the udocker arguments for the same `.env`. Differences by design: `HOST`
 and `PORT` (udocker shares the host network), `:ro` flags (udocker has none; the app enforces
 R1), `user`, `ports`, `restart`. No Docker or udocker is needed."""
 

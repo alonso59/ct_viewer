@@ -1,5 +1,4 @@
-// Analysis panel (DB-08/09, ANALYSIS.md): question → variable → (confounder), unit, test; runs API-39
-// with the dashboard's global filters and shows test choice, results, descriptives, recommendations.
+// Analysis panel: runs an analysis with the dashboard's global filters.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -13,7 +12,6 @@ import { needsVariable, suggestedConfounder } from './analysis/model'
 import { useRunDashboard } from './store'
 import './analysis/analysis.css'
 
-/** Number of active global filters (DB-02) */
 function countFilters(f: GlobalFilters): number {
   const lists = [f.phase, f.scope, f.side, f.label, f.status, f.item_ids].filter((x) => x && x.length).length
   return lists + Object.values(f.var ?? {}).filter((v) => v.length).length
@@ -46,13 +44,13 @@ export function AnalysisPanel({ runId }: { runId: string }) {
   const runLabels = run.data?.selection.labels ?? []
   const labelMap = project.data?.label_map ?? []
   const labels = labelMap.filter((l) => runLabels.includes(l.value))
-  // Default unit label: the first run label (ANA-03: one label per unit)
+  // Default unit label: the first run label (one label per unit)
   const unit = { ...form.unit, label: form.unit.label ?? runLabels[0] ?? null }
 
   const onChange = (p: Partial<FormState>) =>
     setForm((f) => {
       const next = { ...f, ...p }
-      // Balance check needs a second variable: pre-select a tagged confounder (VAR-05)
+      // Balance check needs a second variable: pre-select a tagged confounder
       if (next.question === 'balance' && !next.confounder) next.confounder = suggestedConfounder(vars, next.variable)
       if (next.confounder === next.variable) next.confounder = null
       return next

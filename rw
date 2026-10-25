@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rw: launch the Radiology Workbench image with Docker (compose v2) or udocker (docs/ops/DEPLOYMENT.md).
+# rw: launch the Radiology Workbench image with Docker (compose v2) or udocker.
 # No sudo, POSIX tools only. The runtime is Docker when `docker compose` reaches a daemon, else
 # udocker (`udocker` on PATH or the bundled ./udocker.py); RW_RUNTIME=docker|udocker forces one.
 #
@@ -10,7 +10,7 @@
 #   ./rw status            runtime, config, image, health
 #   ./rw update [TAR|REF]  load an image tar (docker save) or pull REF; no argument: rebuild
 #                          (Docker, repo checkout) or load the newest rw-*.tar here or in build/ (udocker)
-#   ./rw smoke             TST-10 smoke against the running app (creates one smoke project)
+#   ./rw smoke             smoke test against the running app (creates one smoke project)
 #
 # Env: RW_RUNTIME, RW_ENV (default ./.env), UDOCKER (udocker command), RW_CONTAINER (default rw),
 # RW_WAIT (health wait in seconds, default 120).
@@ -121,8 +121,8 @@ cmd_init() {
   [[ "$data" == /* && -d "$data" ]] || die "DATA_HOST must be an existing absolute folder: '$data'" "" 2
   if [[ -n "$derived" ]]; then
     [[ "$derived" == /* ]] || die "DERIVED_HOST must be an absolute path: '$derived'" "" 2
-    case "$derived/" in "$data"/*) die "DERIVED_HOST must be outside DATA_HOST (OPS-12)" "" 2 ;; esac
-    case "$data/" in "$derived"/*) die "DATA_HOST must be outside DERIVED_HOST (OPS-12)" "" 2 ;; esac
+    case "$derived/" in "$data"/*) die "DERIVED_HOST must be outside DATA_HOST" "" 2 ;; esac
+    case "$data/" in "$derived"/*) die "DATA_HOST must be outside DERIVED_HOST" "" 2 ;; esac
   fi
   port_="${port_:-8000}"
   [[ "$port_" =~ ^[0-9]+$ && "$port_" -ge 1024 && "$port_" -le 65535 ]] || die "PORT must be 1024-65535" "" 2

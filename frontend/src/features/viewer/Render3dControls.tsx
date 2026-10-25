@@ -1,4 +1,3 @@
-// VW-09/27: direct mask-only toggle plus a pinned, Slicer-style view controller.
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

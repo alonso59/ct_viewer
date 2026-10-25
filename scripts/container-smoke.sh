@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# TST-10 container smoke under Docker, plus the image gates of lane P7-prep:
-#   image size <= 1.5 GB (OPS-08, NFR-10) · IBSI phantom smoke in the image (ADR-0006)
-#   empty ALLOWED_DATA_ROOTS refuses to start (OPS-04) · runs as an arbitrary UID (OPS-02)
-#   health, SPA, import + one item viewable (TST-10) · source files unchanged (R1)
+# Container smoke under Docker, plus the image gates:
+#   image size <= 1.5 GB · IBSI phantom smoke in the image
+#   empty ALLOWED_DATA_ROOTS refuses to start · runs as an arbitrary UID
+#   health, SPA, import + one item viewable · source files unchanged (R1)
 #
 #   make fixtures && make image && scripts/container-smoke.sh
 #
@@ -37,12 +37,12 @@ fail() { echo "FAIL $*" >&2; exit 1; }
 # Uncompressed root filesystem (`docker image inspect .Size` is the compressed content size
 # under the containerd image store).
 size="$(docker run --rm "$image" du -sxb / | cut -f1)"
-[[ "$size" -le "$max_bytes" ]] || fail "image size $size > $max_bytes (OPS-08)"
-pass "image size $((size / 1000000)) MB uncompressed <= 1500 MB (OPS-08)"
+[[ "$size" -le "$max_bytes" ]] || fail "image size $size > $max_bytes"
+pass "image size $((size / 1000000)) MB uncompressed <= 1500 MB"
 
 docker run --rm "$image" python -m tools.spikes.ibsi_phantom_smoke >/dev/null \
-  || fail "IBSI phantom smoke in the image (ADR-0006)"
-pass "IBSI phantom smoke in the image (ADR-0006)"
+  || fail "IBSI phantom smoke in the image"
+pass "IBSI phantom smoke in the image"
 
 docker run -d --name "$name-empty" -e ALLOWED_DATA_ROOTS= "$image" >/dev/null
 for _ in $(seq 60); do
@@ -52,8 +52,8 @@ done
 code="$(docker inspect -f '{{.State.Running}} {{.State.ExitCode}}' "$name-empty")"
 [[ "$code" == "false "* && "$code" != "false 0" ]] || fail "empty ALLOWED_DATA_ROOTS still running/ok: $code"
 logs="$(docker logs "$name-empty" 2>&1)"
-[[ "$logs" == *OPS-04* ]] || fail "refusal does not name OPS-04: $logs"
-pass "empty ALLOWED_DATA_ROOTS refuses to start (OPS-04, exit ${code#false })"
+[[ "$logs" == *ALLOWED_DATA_ROOTS* ]] || fail "refusal does not name ALLOWED_DATA_ROOTS: $logs"
+pass "empty ALLOWED_DATA_ROOTS refuses to start (exit ${code#false })"
 
 docker create --name "$name-seed" -v "$name-data:/data" "$image" >/dev/null
 docker cp -q "$root" "$name-seed:$croot"
@@ -66,17 +66,17 @@ before="$(hashes)"
 docker run -d --name "$name" --user "$uid:$uid" -p "127.0.0.1:$port:8000" \
   -v "$name-ws:/workspace" -v "$name-data:/data:ro" -e ALLOWED_DATA_ROOTS="$croot" \
   "$image" >/dev/null
-pass "started as arbitrary uid $uid (OPS-02)"
+pass "started as arbitrary uid $uid"
 python3 "$repo/scripts/container_smoke.py" --url "http://127.0.0.1:$port" --root "$croot" \
-  || { docker logs --tail 40 "$name" >&2; fail "TST-10"; }
+  || { docker logs --tail 40 "$name" >&2; fail "container_smoke.py"; }
 
 for _ in $(seq 90); do
   health="$(docker inspect -f '{{.State.Health.Status}}' "$name")"
   [[ "$health" == starting ]] || break
   sleep 1
 done
-[[ "$health" == healthy ]] || fail "Docker HEALTHCHECK: $health (OPS-07)"
-pass "Docker HEALTHCHECK healthy (OPS-07)"
+[[ "$health" == healthy ]] || fail "Docker HEALTHCHECK: $health"
+pass "Docker HEALTHCHECK healthy"
 
 after="$(hashes)"
 [[ "$before" == "$after" ]] || fail "source files changed (R1)"

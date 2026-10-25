@@ -1,5 +1,5 @@
-// Project settings tab (UI-23, PRJ-18): General · Display · Labels · Data · Plugins. Every save
-// sends `If-Match` with the ETag of the version the form was loaded from (PRJ-15); a 412 offers
+// Project settings tab: General · Display · Labels · Data · Plugins. Every save sends `If-Match`
+// with the ETag of the version the form was loaded from; a 412 offers
 // "Reload and reapply" (the same changes on the fresh version) or discarding them.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'

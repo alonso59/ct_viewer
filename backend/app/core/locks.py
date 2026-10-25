@@ -1,6 +1,6 @@
-"""Single-writer locking (BE-05).
+"""Single-writer locking.
 
-- `FileLock`: exclusive, non-blocking `fcntl` lock (workspace `.server.lock`, project `.lock`).
+- `FileLock`: exclusive, non-blocking `fcntl` lock.
 - `ProjectLocks`: one `asyncio.Lock` per project serializing appends and atomic writes.
 """
 
@@ -20,10 +20,6 @@ class FileLock:
     def __init__(self, path: Path) -> None:
         self.path = path
         self._fd: int | None = None
-
-    @property
-    def held(self) -> bool:
-        return self._fd is not None
 
     def acquire(self) -> None:
         if self._fd is not None:
@@ -50,8 +46,6 @@ class FileLock:
 
 
 class ProjectLocks:
-    """Per-project asyncio write locks; created lazily."""
-
     def __init__(self) -> None:
         self._locks: dict[str, asyncio.Lock] = {}
 

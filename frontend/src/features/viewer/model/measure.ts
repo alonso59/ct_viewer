@@ -1,4 +1,4 @@
-// VW-17 measurement math on RAS mm points (pure; the engine gives points and ROI statistics).
+// Measurement math on RAS mm points (pure; the engine gives points and ROI statistics).
 import type { Plane, RoiStats, Vec3 } from './types'
 
 export type MeasureKind = 'distance' | 'angle' | 'roi'

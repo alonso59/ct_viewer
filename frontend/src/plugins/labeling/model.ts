@@ -1,4 +1,3 @@
-// Spreadsheet helpers for the label table editor (LBL-03): pure, unit-tested.
 import type { LabelCellIn, LabelCellRow, LabelColumn } from '../../api'
 
 export interface Pos {
@@ -50,7 +49,7 @@ export function move(p: Pos, key: string, nRows: number, nCols: number): Pos {
   return { r: Math.max(0, Math.min(nRows - 1, p.r + dr)), c: Math.max(0, Math.min(nCols - 1, p.c + dc)) }
 }
 
-/** Display text of a value (LBL-02 types). */
+/** Display text of a value. */
 export function display(col: LabelColumn, v: unknown): string {
   if (v == null) return ''
   if (col.type === 'bool') return v ? '✓' : '✗'

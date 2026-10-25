@@ -1,4 +1,4 @@
-"""Guided statistics (ANALYSIS.md §Tests; ANA-04..07) on plain NumPy arrays. SciPy only.
+"""Guided statistics on plain NumPy arrays.
 
 Every function is pure and deterministic (the RxC Fisher permutation test uses a fixed seed).
 """
@@ -24,8 +24,8 @@ from app.analytics.models import EffectName, TestName, TestOverride
 
 F64 = NDArray[np.float64]
 
-MIN_N = 5  # ANA-06
-ALT_N = 15  # ANA-04: alternative test when any group n < 15
+MIN_N = 5
+ALT_N = 15  # alternative test when any group n < 15
 ALPHA = 0.05
 FISHER_RESAMPLES = 9999
 FISHER_SEED = 0
@@ -65,9 +65,6 @@ class Outcome:
     alternative: bool = False
 
 
-# -- ANA-04 choice ----------------------------------------------------------------------------
-
-
 def shapiro_p(x: F64) -> float:
     if x.size < 3 or np.ptp(x) == 0:
         return math.nan
@@ -78,7 +75,7 @@ def shapiro_p(x: F64) -> float:
 def use_alternative(
     levels: Sequence[str], groups: Sequence[F64], override: TestOverride
 ) -> tuple[bool, str]:
-    """ANA-04 rule: alternative when any group n < 15 or Shapiro-Wilk p < 0.05."""
+    """Alternative when any group n < 15 or Shapiro-Wilk p < 0.05."""
     if override == "default":
         return False, "default test forced by the user"
     if override == "alternative":
@@ -91,9 +88,6 @@ def use_alternative(
         if p < ALPHA:
             return True, f"Shapiro-Wilk p = {p:.3g} < {ALPHA} in group {level!r}"
     return False, f"all groups n ≥ {ALT_N} and Shapiro-Wilk p ≥ {ALPHA}"
-
-
-# -- effect sizes -----------------------------------------------------------------------------
 
 
 def cohens_d(a: F64, b: F64) -> float:
@@ -132,13 +126,10 @@ def cramers_v(table: NDArray[np.int64]) -> float:
     return math.sqrt(chi2 / (n * k))
 
 
-# -- tests ------------------------------------------------------------------------------------
-
-
 def compare(levels: Sequence[str], groups: Sequence[F64], override: TestOverride) -> Outcome:
     """Compare groups (2 → Welch t / Mann-Whitney; ≥ 3 → Welch ANOVA / Kruskal-Wallis).
 
-    `groups` hold finite values only. Groups with n < 5 are dropped here (ANA-06).
+    `groups` hold finite values only. Groups with n < 5 are dropped here.
     """
     kept = [(lv, g) for lv, g in zip(levels, groups, strict=True) if g.size >= MIN_N]
     names = [lv for lv, _ in kept]
@@ -258,16 +249,13 @@ def fisher(table: NDArray[np.int64]) -> Any:
 
 
 def bh(p: Sequence[float]) -> list[float]:
-    """ANA-05 Benjamini-Hochberg q over the finite p-values; NaN stays NaN."""
+    """Benjamini-Hochberg q over the finite p-values; NaN stays NaN."""
     arr = np.asarray(p, dtype=np.float64)
     q = np.full(arr.shape, np.nan)
     m = np.isfinite(arr)
     if m.any():
         q[m] = stats.false_discovery_control(arr[m], method="bh")
     return [float(x) for x in q]
-
-
-# -- descriptives -----------------------------------------------------------------------------
 
 
 @dataclass
@@ -284,7 +272,7 @@ class Desc:
 
 
 def describe(values: F64) -> Desc:
-    """ANA-07: n, missing, median, IQR (linear quantiles), mean, SD (ddof = 1)."""
+    """n, missing, median, IQR (linear quantiles), mean, SD (ddof = 1)."""
     v = finite(values)
     d = Desc(n=int(v.size), missing=int(values.size - v.size))
     if v.size:
@@ -306,9 +294,6 @@ def whiskers(values: F64, d: Desc) -> tuple[float, float]:
     return float(lo.min() if lo.size else d.min), float(hi.max() if hi.size else d.max)
 
 
-# -- matrices ---------------------------------------------------------------------------------
-
-
 def spearman_matrix(x: F64) -> F64:
     """Spearman rho between columns: ranks per column (NaN ignored), then pairwise-complete
     Pearson on the ranks. Exact when there are no missing values."""
@@ -327,8 +312,7 @@ def spearman_matrix(x: F64) -> F64:
         vx = sxx - sx**2 / n
         rho = cov / np.sqrt(vx * vx.T)
     rho[n < 3] = np.nan
-    out: F64 = np.clip(rho, -1.0, 1.0)
-    return out
+    return np.clip(rho, -1.0, 1.0)
 
 
 def threshold_clusters(rho: F64, threshold: float) -> list[list[int]]:
@@ -358,9 +342,8 @@ def robust_z(x: F64) -> F64:
     with quiet():
         med = np.nanmedian(xf, axis=0)
         mad = np.nanmedian(np.abs(xf - med), axis=0) * MAD_SCALE
-        z = (xf - med) / np.where(mad > 0, mad, np.nan)
-    out: F64 = z
-    return out
+        z: F64 = (xf - med) / np.where(mad > 0, mad, np.nan)
+    return z
 
 
 def zscore_impute(x: F64) -> F64:
@@ -370,5 +353,4 @@ def zscore_impute(x: F64) -> F64:
         mu = np.nanmean(xf, axis=0)
         sd = np.nanstd(xf, axis=0)
         z = (xf - mu) / sd
-    out: F64 = np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0)
-    return out
+    return np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0)

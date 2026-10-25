@@ -1,7 +1,7 @@
-"""Pinned IBSI feature map (`ibsi_map.json`, RADIOMICS.md §IBSI alignment).
+"""Pinned IBSI feature map (`ibsi_map.json`).
 
-Metadata only (never shown in the GUI). Filtered image types are outside IBSI 1, so their
-features export with status `not_defined` (keeping the concept code).
+Filtered image types are outside IBSI 1, so their features export with status `not_defined`
+(keeping the concept code).
 """
 
 from __future__ import annotations
@@ -31,11 +31,11 @@ def lookup(feature_class: str, feature: str) -> IbsiInfo:
     entry = ibsi_map()["features"].get(feature_class, {}).get(feature)
     if entry is None:
         return IbsiInfo()
-    return IbsiInfo(code=entry.get("code"), status=entry.get("status", "not_defined"))
+    return IbsiInfo(code=entry["code"], status=entry["status"])
 
 
 def export_info(image_type: str, feature_class: str, feature: str) -> tuple[str | None, IbsiStatus]:
     """(`ibsi_code`, `ibsi_status`) for an output row of `image_type` (e.g. `original`)."""
     info = lookup(feature_class, feature)
-    in_scope = image_type in ibsi_map().get("image_types_in_scope", ["original"])
+    in_scope = image_type in ibsi_map()["image_types_in_scope"]
     return info.code, info.status if in_scope else "not_defined"

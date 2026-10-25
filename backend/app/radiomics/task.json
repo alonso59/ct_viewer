@@ -3,7 +3,7 @@
   "id": "radiomics.pyradiomics",
   "version": "1.0.0",
   "title": "Radiomics features (PyRadiomics)",
-  "description": "IBSI-mapped PyRadiomics features per item and label (RADIOMICS.md). Settings: API-30.",
+  "description": "IBSI-mapped PyRadiomics features per item and label.",
   "kind": "features",
   "input": "items",
   "outputs": ["features"],

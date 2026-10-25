@@ -1,4 +1,4 @@
-"""SEG-14: pin full content, rather than trusting quick file metadata or mutable settings."""
+"""SEG-14: pin full content of inputs, profile and outputs."""
 
 from __future__ import annotations
 

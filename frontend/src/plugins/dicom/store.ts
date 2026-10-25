@@ -1,7 +1,6 @@
-// Converter overlay state (UI-25): opened from Welcome, Open mode on DICOM, the Library and a
-// project's Data tab. `pid` set = the window may convert into that project (DCM-14).
-// The window's work lives here, not in the component: minimizing it, or a route change that
-// remounts the shell overlays, keeps the dry run and the conversion (and their progress).
+// The window's work lives in this store so that minimizing it, or a route change that remounts
+// the shell overlays, keeps the dry run and the conversion with their progress.
+// `pid` set = the window may convert into that project.
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -18,7 +17,7 @@ export interface ConvSettings {
   name: string
 }
 
-/** A dry run in flight: `id` names it for `api.estimateProgress` (DCM-06) */
+/** A dry run in flight: `id` names it for `api.estimateProgress` */
 export interface Scan {
   id: string
   started: number
@@ -42,25 +41,26 @@ export interface Draft {
 
 interface ConverterState extends Draft {
   open: boolean
-  /** Hidden behind the running-process chip; the window keeps its state and work (UI-25) */
+  /** Hidden behind the running-process chip; the window keeps its state and work */
   minimized: boolean
   /** A dry run or conversion is in progress: opening again shows it instead of starting over */
   working: boolean
   /** Bumped per new window, so a fresh one starts on its first step */
   session: number
-  /** A source with NIfTI instead of DICOM: "Create project from this" (AUD-A2-07) */
+  /** A source with NIfTI instead of DICOM: "Create project from this" */
   createFrom: string | null
   show: (p?: { source?: string | null; pid?: string | null }) => void
   patch: (p: Partial<Draft>) => void
   minimize: () => void
   restore: () => void
   close: () => void
+  hideForImport: (id: string) => void
   attach: (id: string, minimized?: boolean, autoOpen?: boolean) => void
   newOperation: () => void
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
-/** AUD-A5-16 (NFR-17): the suggested dataset name; never the source folder's (often a patient) name */
+/** The suggested dataset name; never the source folder's, which is often a patient's name */
 export const defaultDatasetName = (d = new Date()) => `dataset-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
 /** The folder name the server derives from a dataset name (`workspace_runs.dataset_name`) */
@@ -90,19 +90,19 @@ export const useConverter = create<ConverterState>()(persist((set) => ({
   minimized: false,
   working: false,
   session: 0,
-  pid: null,
   createFrom: null,
   show: (p) =>
     set((s) => {
       if (s.open && s.working) return { minimized: false }
       const source = p?.source ?? null
       const pid = p?.pid ?? null
-      return { ...draft(source, pid), open: true, minimized: false, session: s.session + 1, pid, createFrom: null }
+      return { ...draft(source, pid), open: true, minimized: false, session: s.session + 1, createFrom: null }
     }),
   patch: (p) => set(p),
   minimize: () => set({ minimized: true }),
   restore: () => set({ minimized: false }),
   close: () => set({ ...draft(null, null), open: false, minimized: false, working: false, createFrom: null, pid: null }),
+  hideForImport: (id) => set({ ...draft(null, null), operationId: id, open: false, minimized: true, working: false, createFrom: null }),
   attach: (id, minimized = false, autoOpen = false) => set((s) => ({ ...draft(null, null), operationId: id, autoOpen, open: true, minimized, working: false, pid: null, session: s.session + 1 })),
   newOperation: () => set((s) => ({ ...draft(null, s.pid), open: true, minimized: false, working: false, session: s.session + 1 })),
 }), { name: 'rw.converter', partialize: (s) => ({ operationId: s.operationId, minimized: s.minimized }) }))

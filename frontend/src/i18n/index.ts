@@ -1,4 +1,4 @@
-// FE-11: all UI strings live in locale files; English only in v3.
+// All UI strings live in locale files; English only in v3.
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 

@@ -54,7 +54,7 @@ def test_cli_writes_the_same_clean_rows_and_no_curation_csv(
     tmp_path: Path,
 ) -> None:
     out = tmp_path / "cli-out"
-    (out).mkdir()
+    out.mkdir()
     (out / "curation.csv").write_text("case_id,curated_phase\ncase_00000,NP\n")  # an old run
     cfg = tmp_path / "converter.yaml"
     cfg.write_text(f"dataset_root: {src[0]}\noutput_root: {out}\n")
@@ -117,7 +117,7 @@ def test_dataset_table_joins_active_layers(
     t = pq.read_table(io.BytesIO(pq_r.content))
     layers = json.loads(t.schema.metadata[b"layers"])
     assert {x["column"] for x in layers} >= {phase_col, "curation_status@curation"}
-    # the converter artifact is never rewritten with plugin columns (ADR-0020 §4)
+    # the converter artifact is never rewritten with plugin columns (ADR-0020)
     rows = read_jsonl(tmp_path / "derived" / pid / "dicom.convert" / "runs" / run["run_id"]
                       / "metadata.jsonl")  # fmt: skip
     assert study_keys(rows) == set() and all("curation_status" not in x for x in rows)

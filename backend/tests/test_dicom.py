@@ -1,7 +1,7 @@
 """P7b Wave 3: `dicom.convert` through the task API (DCM-01..10, TSK-09), TST-13 DICOM half,
 sidecars + anonymize (DCM-04/05), incremental dataset (DCM-07), annotations + activation
 (ANZ-04, API-48), CUR-15 (API-55), Open mode DICOM (SRC-13), Save as NIfTI (SRC-14, API-09),
-Add to project (SRC-15), several sources per project (SOURCES §Imports)."""
+Add to project (SRC-15), several sources per project."""
 
 from __future__ import annotations
 
@@ -330,9 +330,6 @@ def test_curation_import_converter(
     assert again["imported"] == 0 and again["phase_events"] == 0  # once (CUR-15, PHS-08)
 
 
-# -- Open mode DICOM (SRC-13, DCM-10) + Save as NIfTI (SRC-14) + Add to project (SRC-15) -----
-
-
 def test_open_dicom_folder_and_single_file(
     dc: TestClient, src: tuple[Path, dict[str, Any]]
 ) -> None:
@@ -442,7 +439,7 @@ def test_save_as_nifti(dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_pat
         assert not reserved.exists()
     mine = dc.post(f"{API}/open/{s['sid']}/items/0/save", json={"dest_dir": str(derived / "mine")})
     assert mine.status_code == 201, mine.text  # any other folder the user picks (SRC-14)
-    # an archived project's task tree stays reserved, and saving still works (FB4 E2E finding)
+    # an archived project's task tree stays reserved, and saving still works
     assert dc.post(f"{API}/projects/{pid}/archive").status_code == 200
     ctx_of(dc).workspace.invalidate(pid)
     assert dc.post(f"{API}/open/{s['sid']}/items/0/save", json={}).status_code == 201
@@ -466,7 +463,7 @@ def test_save_needs_derived_roots(tmp_path: Path, src: tuple[Path, dict[str, Any
 def test_add_to_project_keeps_other_sources(
     dc: TestClient, src: tuple[Path, dict[str, Any]], tmp_path: Path
 ) -> None:
-    """SRC-15 + SOURCES §Imports: a converter import and an added NIfTI file coexist."""
+    """SRC-15: a converter import and an added NIfTI file coexist."""
     root, _ = src
     pid = project(dc, tmp_path)
     convert(dc, pid, root / "P002")

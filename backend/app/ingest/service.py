@@ -1,7 +1,7 @@
-"""Ingest service: preview, commit, index job, queries (IMP-01..08/11, API-11..14, 20..22).
+"""Ingest service: preview, commit, index job, queries.
 
 Stateless: routers build one per request from the app context. Only this (API) process
-writes project files, always under the project lock (BE-05); workers only read (BE-03).
+writes project files, always under the project lock; workers only read.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ SOURCES = "sources"
 IMPORTS = "imports.jsonl"
 ANNOTATIONS = "annotations.jsonl"
 SAMPLE_NAMES = 200
-SIDECAR_BATCH = 200  # IMP-15 files per worker unit
+SIDECAR_BATCH = 200  # files per worker unit
 
 
 class IngestService:
@@ -96,8 +96,6 @@ class IngestService:
         self.locks = locks
         self.after_index = after_index
 
-    # -- import (API-11/12/13) ------------------------------------------------------------
-
     async def preview(
         self,
         project_id: str,
@@ -110,10 +108,10 @@ class IngestService:
         add: bool = False,
         source_key: str | None = None,
     ) -> ImportPreview:
-        """IMP-02/03, SRC-03..06. `uploads=None` auto-detects the input files under `root`.
+        """`uploads=None` auto-detects the input files under `root`.
 
         `root` may be a single NIfTI file: the parent folder becomes the root and the import
-        keeps an include list (SRC-05).
+        keeps an include list.
         """
         pdir = self.workspace.project_dir(project_id)
         validate_alias(alias)
@@ -135,7 +133,7 @@ class IngestService:
             kind = formats.classify(real)
             if kind != "nifti" or adapter == "metadata-v1":
                 raise UnsupportedFormat(
-                    f"{real.name} is not a NIfTI file; single files import only as NIfTI (SRC-05)",
+                    f"{real.name} is not a NIfTI file; single files import only as NIfTI",
                     actions=["open"] if kind else ["choose_another_path"],
                 )
             adapter = "nifti-files"
@@ -148,12 +146,12 @@ class IngestService:
             )
         adapter = adapter or "metadata-v1"
         if adapter == "metadata-v1":
-            # IMP-15: the only metadata-v1 option; reconstructed sidecars go to the derived root
+            # the only metadata-v1 option; reconstructed sidecars go to the derived root
             options = {sidecars.OPTION: True} if options.get(sidecars.OPTION) else {}
             if options:
-                self.workspace.derived_root(project_id)  # derived-root-required (DCM-05)
+                self.workspace.derived_root(project_id)  # raises derived-root-required
         extra: dict[str, Any] = {}
-        if add:  # SRC-15: next to the other sources, under its own alias when the root differs
+        if add:  # next to the other sources, under its own alias when the root differs
             alias = self._free_alias(project_id, alias, os.path.normpath(root))
             include = ",".join(options.get("include") or [])
             source_key = f"add:{alias}:{include}"
@@ -178,7 +176,7 @@ class IngestService:
                     "No NIfTI image under the root (masks found by convention are not items)",
                     actions=["choose_another_path"],
                 )
-            if plan.collisions:  # SRC-04: never collapse files into one item silently
+            if plan.collisions:
                 folder = any("/" in r["relative_path"] for r in plan.rows)
                 use = folder and opts.pattern != nifti_files.FOLDER_PATTERN
                 raise ValidationProblem(
@@ -266,10 +264,9 @@ class IngestService:
     async def commit(
         self, project_id: str, preview_id: str, *, import_id: str | None = None
     ) -> CommitResult:
-        """IMP-04/05/06: snapshot inputs, record the import, set the root, start indexing."""
+        """Snapshot inputs, record the import, set the root, start indexing."""
         pdir = self.workspace.project_dir(project_id)
         pv, data = self._load_preview(pdir, preview_id)
-        self._check_no_index_job(project_id)
         import_id = import_id or new_ulid()
         if not is_ulid(import_id):
             raise JobConflict("Invalid import identity")
@@ -283,6 +280,31 @@ class IngestService:
             adapter=pv.adapter,
             source_key=pv.source_key,
         )
+        existing = next((r for r in self.imports(project_id) if r.import_id == import_id), None)
+        if existing is not None and existing.model_dump(exclude={"at"}) != record.model_dump(
+            exclude={"at"}
+        ):
+            raise JobConflict("Import identity belongs to different preview contents")
+        if existing is not None:
+            for kind, blob in data.items():
+                snapshot = pdir / SOURCES / import_id / FILE_NAMES[kind]
+                if not snapshot.is_file() or snapshot.read_bytes() != blob:
+                    raise JobConflict(
+                        "The committed import snapshot changed; restore it before resuming"
+                    )
+        active = self.jobs.active(project_id, "index")
+        if active is not None:
+            if existing is not None and active.ref == import_id:
+                return CommitResult(job_id=active.job_id, import_id=import_id)
+            self._check_no_index_job(project_id)
+        status = self.store.status(project_id)
+        if (
+            existing is not None
+            and status.state == "ready"
+            and status.import_id == import_id
+            and status.job_id
+        ):
+            return CommitResult(job_id=status.job_id, import_id=import_id)
         source = SourceInfo(
             adapter=pv.adapter,
             adapter_version=nifti_files.VERSION if pv.adapter == "nifti-files" else "1",
@@ -291,15 +313,16 @@ class IngestService:
         )
         draft = pdir / PREVIEWS / preview_id / identity.IDENTITY
         async with self.locks(project_id):
-            for kind, blob in data.items():
-                atomic_write_bytes(pdir / SOURCES / import_id / FILE_NAMES[kind], blob)
-            atomic_write_json(
-                pdir / SOURCES / import_id / "source.json", source.model_dump(mode="json")
-            )
-            if draft.is_file():  # SRC-07: append-only merge, keys never renumbered
-                merged = identity.load(pdir / SOURCES).merge(identity.load(draft.parent))
-                identity.save(pdir / SOURCES, merged)
-            append_jsonl(pdir / SOURCES / IMPORTS, [record.model_dump(mode="json")])
+            if existing is None:
+                for kind, blob in data.items():
+                    atomic_write_bytes(pdir / SOURCES / import_id / FILE_NAMES[kind], blob)
+                atomic_write_json(
+                    pdir / SOURCES / import_id / "source.json", source.model_dump(mode="json")
+                )
+                if draft.is_file():  # append-only merge, keys never renumbered
+                    merged = identity.load(pdir / SOURCES).merge(identity.load(draft.parent))
+                    identity.save(pdir / SOURCES, merged)
+                append_jsonl(pdir / SOURCES / IMPORTS, [record.model_dump(mode="json")])
         current = next(
             (r for r in self.workspace.get(project_id).path_roots if r.alias == pv.alias), None
         )
@@ -312,7 +335,7 @@ class IngestService:
         return CommitResult(job_id=job_id, import_id=import_id)
 
     def _free_alias(self, project_id: str, alias: str, root: str) -> str:
-        """The alias if it is free or already points at `root`; else DATA2, DATA3 … (SRC-15)."""
+        """The alias if it is free or already points at `root`; else DATA2, DATA3 …"""
         roots = {
             r.alias: os.path.normpath(r.path) for r in self.workspace.get(project_id).path_roots
         }
@@ -327,10 +350,9 @@ class IngestService:
         return f"{alias}{n}"[:16]
 
     def latest_sources(self, project_id: str) -> list[ImportRecord]:
-        """The latest import of every source key, oldest first (SOURCES §Imports, IMP-06)."""
-        records = list(reversed(self.imports(project_id)))
+        """The latest import of every source key, oldest first."""
         latest: dict[str, ImportRecord] = {}
-        for rec in records:
+        for rec in reversed(self.imports(project_id)):
             latest.pop(rec.key, None)
             latest[rec.key] = rec
         return list(latest.values())
@@ -342,7 +364,7 @@ class IngestService:
         return parse_inputs(data, resolver=resolver, alias=rec.alias)
 
     def annotations(self, project_id: str) -> Annotations:
-        """Active annotation runs per field (ANZ-04) → field → item_id → annotation."""
+        """Active annotation runs per field: field → item_id → annotation."""
         pdir = self.workspace.project_dir(project_id)
         out: Annotations = {}
         for field_name, run_id in self.workspace.get(project_id).annotation_sources.items():
@@ -358,7 +380,7 @@ class IngestService:
         return out
 
     async def reindex(self, project_id: str) -> str | None:
-        """Rebuild the index from the current snapshots (annotation activation, ANZ-04)."""
+        """Rebuild the index from the current snapshots."""
         latest = self.latest_sources(project_id)
         if not latest:
             return None
@@ -376,7 +398,7 @@ class IngestService:
         run_id: str | None = None,
         check_active: Callable[[], None] | None = None,
     ) -> CommitResult:
-        """A task's `metadata.jsonl` as a new snapshot of its own source (DCM-07, TSK-09)."""
+        """A task's `metadata.jsonl` as a new snapshot of its own source."""
         if run_id is not None:
             from app.ingest.generated import import_once
 
@@ -404,8 +426,8 @@ class IngestService:
     def _plan_sidecars(
         self, project_id: str, rec: ImportRecord, drafts: list[Draft]
     ) -> list[sidecars.Spec]:
-        """IMP-15: reconstructed sidecars of an opted-in `metadata-v1` import (the option is
-        kept in the snapshot's `source.json`); none without a derived root."""
+        """Reconstructed sidecars of an opted-in `metadata-v1` import (the option is kept in
+        the snapshot's `source.json`); none without a derived root."""
         if rec.adapter != "metadata-v1":
             return []
         src = self.workspace.project_dir(project_id) / SOURCES / rec.import_id / "source.json"
@@ -421,7 +443,7 @@ class IngestService:
         return sidecars.plan(drafts, resolver, root, project_id, rec.import_id, rec.at)
 
     async def _start_index(self, project_id: str, import_id: str) -> str:
-        """Index the latest snapshot of every source (IMP-05/06) with active annotations."""
+        """Index the latest snapshot of every source with active annotations."""
         rules = self.phase_rules(project_id)
         pdir = self.workspace.project_dir(project_id)
         resolver = self.workspace.resolver(project_id)
@@ -440,7 +462,7 @@ class IngestService:
             per_source.append(ds)
         drafts = merge_sources(per_source)
         units = [WorkUnit(indexer.probe_batch, (b,)) for b in indexer.batches(probes_for(drafts))]
-        units += [  # IMP-15: written by the workers, like the probes (BE-12)
+        units += [  # written by the workers, like the probes
             WorkUnit(sidecars.write_batch, (specs[i : i + SIDECAR_BATCH],))
             for i in range(0, len(specs), SIDECAR_BATCH)
         ]
@@ -460,8 +482,7 @@ class IngestService:
                     items, warnings = finalize(drafts, results, previous, import_id)
                     cfg = self.workspace.get(project_id)
                     apply_task_masks(items, task_masks(self.workspace.project_dir(project_id), cfg))
-                    priority = self.workspace.get(project_id).phase_priority
-                    cases = build_cases(items, warnings, rules, priority)
+                    cases = build_cases(items, warnings, rules, cfg.phase_priority)
                     self.store.replace(project_id, items, cases, warnings)
                     n_items, n_excluded = split_items(i.status for i in items)
                     n_warnings = len(warnings)
@@ -487,7 +508,7 @@ class IngestService:
                 return import_id
             await self._seed_label_map(project_id)
             try:
-                await self.variables.rebuild(project_id)  # VAR-01: profile every import
+                await self.variables.rebuild(project_id)  # profile every import
             except Exception:
                 log.exception("variable profiling failed", extra={"project_id": project_id})
             self.bus.publish(
@@ -519,7 +540,6 @@ class IngestService:
             on_finish=on_finish,
             ref=import_id,
             job_id=job_id,
-            meta={"import_id": import_id},
             drain_workers=True,
         )
         try:
@@ -531,9 +551,9 @@ class IngestService:
         return job_id
 
     async def reapply_segmentations(self, project_id: str) -> None:
-        """Re-join task segmentation sets into the derived index (ADR-0015, TSK-09)."""
+        """Re-join task segmentation sets into the derived index."""
         async with self.locks(project_id):
-            idx = self.store.load_resolved(project_id)  # never the phase join (PHS-03)
+            idx = self.store.load_resolved(project_id)  # never the phase join
             if not idx.items:
                 return
             cfg = self.workspace.get(project_id)
@@ -555,13 +575,12 @@ class IngestService:
         return VariableService(self.workspace, self.store, self.locks, self.bus)
 
     def phase_rules(self, project_id: str) -> PhaseRules:
-        """The project's phase vocabulary + mapping (PRJ-16)."""
         cfg = self.workspace.get(project_id)
         return PhaseRules(tuple(cfg.phase_vocabulary), dict(cfg.phase_mapping))
 
     async def _seed_label_map(self, project_id: str) -> None:
-        """PRJ-07: with no preset labels, name the mask values found as `label_{value}`, or by
-        their mask set member name (SRC-04)."""
+        """With no preset labels, name the mask values found as `label_{value}`, or by their
+        mask set member name."""
         if self.workspace.get(project_id).label_map:
             return
         items = self.store.load(project_id).items
@@ -583,12 +602,12 @@ class IngestService:
         self.bus.publish(project_id, "project.updated", {"fields": ["label_map"]})
 
     def imports(self, project_id: str) -> list[ImportRecord]:
-        """API-13: import history, newest first."""
+        """Import history, newest first."""
         path = self.workspace.project_dir(project_id) / SOURCES / IMPORTS
         return [ImportRecord.model_validate(r) for r in reversed(read_jsonl(path))]
 
     async def index_status(self, project_id: str) -> IndexStatus:
-        """Persisted index state; a stale `running` becomes `interrupted` (BE-06)."""
+        """Persisted index state; a stale `running` becomes `interrupted`."""
         st = self.store.status(project_id)
         if st.state == "running" and self.jobs.active(project_id, "index") is None:
             async with self.locks(project_id):
@@ -597,8 +616,6 @@ class IngestService:
                     st = st.model_copy(update={"state": "interrupted", "finished_at": utc_now()})
                     self.store.write_status(project_id, st)
         return st
-
-    # -- queries (API-14, 20..22) ---------------------------------------------------------
 
     def warnings(
         self,
@@ -631,10 +648,10 @@ class IngestService:
         var_cases: set[str] | None = None,
         curation_status: str | None = None,
     ) -> list[CaseSummary]:
-        """API-20. Cases whose items are all `excluded_upstream` show only for that status.
+        """Cases whose items are all `excluded_upstream` show only for that status.
 
-        `var_cases`: case ids passing the `var.{name}` filters (VAR-10), or None for no filter.
-        `curation_status`: the CUR-08 case rollup (`partially_reviewed` included).
+        `var_cases`: case ids passing the `var.{name}` filters, or None for no filter.
+        `curation_status`: the case review rollup (`partially_reviewed` included).
         """
         vocab = self.workspace.get(project_id).phase_vocabulary
         if phase is not None and vocab and phase not in vocab:
@@ -687,7 +704,6 @@ class IngestService:
         return out
 
     def case_detail(self, project_id: str, case_id: str) -> CaseDetail:
-        """API-21: case + scans → items tree + warnings."""
         idx = self.store.load(project_id)
         active = _active_by_case(idx.items)
         case = _with_values(
@@ -710,7 +726,6 @@ class IngestService:
         return CaseDetail(case=case, scans=groups, warnings=warnings)
 
     def item_detail(self, project_id: str, item_id: str) -> ItemDetail:
-        """API-22: item + absolute paths under `advanced` + its warnings."""
         item = self.store.get_item(project_id, item_id)
         resolver = self.workspace.resolver(project_id)
 
@@ -736,7 +751,7 @@ class IngestService:
 def _with_values(
     case: CaseSummary, values: dict[str, dict[str, float | str | None]]
 ) -> CaseSummary:
-    """VAR-10 case-level visible variables onto a (cached, so copied) case summary."""
+    """Case-level visible variables onto a (cached, so copied) case summary."""
     hit = values.get(case.case_id)
     return case.model_copy(update={"variables": hit}) if hit else case
 
@@ -753,7 +768,7 @@ def _active_by_case(items: Sequence[Item]) -> dict[str, list[str]]:
 def _with_curation(
     case: CaseSummary, rollup: dict[str, CaseReview], active: dict[str, list[str]]
 ) -> CaseSummary:
-    """CUR-08 rollup onto a (cached, so copied) case summary."""
+    """Review rollup onto a (cached, so copied) case summary."""
     hit = rollup.get(case.case_id)
     if hit is None:
         return case.model_copy(update={"n_items_active": len(active.get(case.case_id, ()))})

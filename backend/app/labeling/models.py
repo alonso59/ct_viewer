@@ -1,5 +1,3 @@
-"""Label tables and cell events (LBL-01..08; API-56..58)."""
-
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -12,7 +10,7 @@ SLUG_RE = r"^[a-z][a-z0-9_]{0,39}$"
 
 
 class LabelColumn(BaseModel):
-    """LBL-02: a rename keeps `column_id` and `slug` (the variable name); delete = hidden."""
+    """A rename keeps `column_id` and `slug` (the variable name); delete = hidden."""
 
     column_id: str
     slug: str = Field(pattern=SLUG_RE)
@@ -25,7 +23,7 @@ class LabelColumn(BaseModel):
     description: str = ""
     default: Any = None
     hidden: bool = False
-    # LBL-09: a read-only mirror of a `comparable` variable (VAR-13); no cell events of its own
+    # a read-only mirror of a `comparable` variable; no cell events of its own
     ref: str | None = None
 
 
@@ -35,7 +33,7 @@ class LabelTable(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     level: TableLevel
     columns: list[LabelColumn] = Field(default_factory=list)
-    hidden: bool = False  # LBL-10: deleted; events and slug kept, restorable
+    hidden: bool = False  # deleted; events and slug kept, restorable
     created_at: str
     updated_at: str
 
@@ -60,7 +58,7 @@ class ColumnIn(BaseModel):
     default: Any = None
     hidden: bool | None = None
     ref: str | None = Field(
-        default=None, description="LBL-09: mirror this comparable variable (new columns only)"
+        default=None, description="Mirror this comparable variable (new columns only)"
     )
 
 
@@ -72,7 +70,7 @@ class TableCreate(BaseModel):
 
 class TablePatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
-    hidden: bool | None = None  # LBL-10: delete (true) or restore (false)
+    hidden: bool | None = None  # delete (true) or restore (false)
     columns: list[ColumnIn] | None = None  # upsert by column_id; others unchanged
 
 
@@ -82,8 +80,6 @@ class ColumnProgress(BaseModel):
 
 
 class TableInfo(LabelTable):
-    """API-56 row with LBL-08 progress."""
-
     n_rows: int
     progress: list[ColumnProgress] = Field(default_factory=list)
 
@@ -99,7 +95,7 @@ class CellsWrite(BaseModel):
 
 
 class CellEvent(BaseModel):
-    """LBL-04: one line of `events/labeling.jsonl`."""
+    """One line of `events/labeling.jsonl`."""
 
     event_id: str
     at: str
@@ -112,7 +108,7 @@ class CellEvent(BaseModel):
 
 
 class CellRow(BaseModel):
-    """API-57 row: a target of the table's level with its current values."""
+    """A target of the table's level with its current values."""
 
     target: str
     case_id: str
@@ -133,8 +129,6 @@ class CellsWritten(BaseModel):
 
 
 class ImportReport(BaseModel):
-    """LBL-07 match report (as VAR-07)."""
-
     key: str
     n_rows: int
     matched: int

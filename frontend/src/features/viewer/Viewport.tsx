@@ -1,5 +1,5 @@
-// Viewport frame over the engine canvas: header, slice slider, crosshair lines, corner text
-// (VW-02, 03, 04, 09, 12). The pixels underneath come from the engine; the body is transparent.
+// Viewport frame over the engine canvas: header, slice slider, crosshair lines, corner text.
+// The pixels underneath come from the engine; the body is transparent.
 import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -29,12 +29,11 @@ interface Props {
   canSurface?: boolean
   maximized: boolean
   onMaximize: () => void
-  /** VW-26 fit this view to its tile */
   onFit: () => void
   onGoto: (index: number) => void
   meshState: MeshState
   bodyProps: HTMLAttributes<HTMLDivElement>
-  /** VW-22 probe of this view (only the hovered one), drawn at its bottom-left above the slider */
+  /** Probe of this view (only the hovered one), drawn at its bottom-left above the slider */
   probe?: ReactNode
 }
 
@@ -106,8 +105,6 @@ function PlaneOverlay({ plane, view }: { plane: Plane; view: PlaneView | null })
       <span className="vp-orient vp-orient-r">{right}</span>
       <span className="vp-orient vp-orient-t">{top}</span>
       <span className="vp-orient vp-orient-b">{bottom}</span>
-      </> : null}
-      {annotations !== 'none' ? <>
       <span className="vp-corner vp-corner-tl num">{t('viewer.wlShort', { ww, wl })}</span>
       </> : null}
       {annotations !== 'none' && view && Math.abs(view.zoom - 1) > 0.01 ? <span className="vp-corner vp-corner-tr num">{t('viewer.zoom', { zoom: Math.round(view.zoom * 100) })}</span> : null}

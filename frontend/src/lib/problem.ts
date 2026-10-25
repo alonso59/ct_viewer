@@ -1,4 +1,4 @@
-// UI-18 / FE-09 (AUD-A6-12): the one problem → text helper. A problem reads as its cause
+// The one problem → text helper. A problem reads as its cause
 // (`detail`), else its title in plain words (`problemTitle.*`); its next steps (`actions[]`) are
 // named with `problemAction.*`. Inline cards use ProblemCard; toasts and notes use these.
 import i18n from '../i18n'

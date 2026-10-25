@@ -1,5 +1,3 @@
-"""API-48 analyzer annotations and their activation (ANZ-01/04)."""
-
 from __future__ import annotations
 
 from fastapi import APIRouter
@@ -32,7 +30,7 @@ class SourceBody(BaseModel):
 
 class AnnotationSources(BaseModel):
     annotation_sources: dict[str, str | None]
-    job_id: str | None = None  # the reindex job (PRJ-10)
+    job_id: str | None = None  # the reindex job
 
 
 def _runs(ctx: Ctx, pid: str) -> list[str]:
@@ -88,7 +86,7 @@ def get_sources(ctx: Ctx, pid: str) -> AnnotationSources:
 
 @router.put("/projects/{pid}/annotation-sources/{field}", response_model=AnnotationSources)
 async def put_source(ctx: Ctx, pid: str, field: str, body: SourceBody) -> AnnotationSources:
-    """ANZ-04: activate a run for one field (or `null`), then rebuild the index."""
+    """Activate a run for one field (or `null`), then rebuild the index."""
     if body.run_id is not None:
         path = ctx.workspace.project_dir(pid) / "tasks" / "runs" / body.run_id / ANNOTATIONS
         if not is_ulid(body.run_id) or not path.is_file():

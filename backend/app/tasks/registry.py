@@ -1,4 +1,4 @@
-"""Task manifest registry (TSK-01): every task belongs to a first-party plugin (PLG-01).
+"""Task manifest registry: every task belongs to a first-party plugin.
 
 Builtin: `app/radiomics/task.json` and every `{builtin_plugins_root}/*/task*.json` whose runtime
 is `builtin` (external manifests shipped next to them, e.g. the CI `segment.threshold`, are for
@@ -27,7 +27,7 @@ from app.tasks.schema import check_schema
 
 RADIOMICS_MANIFEST = Path(__file__).resolve().parents[1] / "radiomics" / "task.json"
 RADIOMICS_TASK = "radiomics.pyradiomics"
-RUNNER_FRESH_S = 30.0  # 3 missed 10 s heartbeats (TASKS.md §External runtime)
+RUNNER_FRESH_S = 30.0  # 3 missed 10 s heartbeats
 
 
 def ensure_importable(builtin_root: Path) -> None:
@@ -113,9 +113,7 @@ class Registry:
                 if source == "plugins_root" and m.runtime.type != "external":
                     continue  # mounting the complete shipped plugins tree is supported
                 if source == "plugins_root" and self.owners is not None and m.id not in self.owners:
-                    raise ValueError(
-                        f"task {m.id!r} is not contributed by a first-party plugin (PLG-01)"
-                    )
+                    raise ValueError(f"task {m.id!r} is not contributed by a first-party plugin")
             except (OSError, ValueError) as exc:
                 self.invalid.append(InvalidManifest(path=str(p), error=str(exc)))
                 continue
@@ -148,7 +146,7 @@ def build_registry(
 
 
 def runners(queue_dir: Path, now: datetime | None = None) -> list[RunnerInfo]:
-    """Runner heartbeats `queue/runners/{runner_id}.json` (TSK-11)."""
+    """Runner heartbeats `queue/runners/{runner_id}.json`."""
     now = now or datetime.now(UTC)
     out: list[RunnerInfo] = []
     for p in sorted((queue_dir / "runners").glob("*.json")):

@@ -1,4 +1,4 @@
-// Mid-slices of the fixture volumes for the mock mode's viewer placeholder (TST-04, TST-11).
+// Mid-slices of the fixture volumes for the mock mode's viewer placeholder.
 // Usage: npm run mock:slices [-- <fixtures dir>]   (default: ../.fixtures/synthetic)
 // Writes src/api/mock/slices.json (image + mask slice sets of the first 20 scans, lazy-loaded; the
 // others show the empty placeholder, which keeps the committed file below 1 MB).
@@ -61,7 +61,7 @@ const slices = {}
 for (const row of rows) {
   if (Object.keys(slices).length >= MAX_SETS) break
   const item_id = `${row.case_id}.${row.scan_idx}.complete.-`
-  if (slices[item_id]) continue // duplicate identity: the first row wins (IMP-08)
+  if (slices[item_id]) continue // duplicate identity: the first row wins
   const rel = row.relative_path ?? row.filename ?? ''
   const segRel = row.seg_path ?? (row.filename ? `seg/${row.filename.replace(/_0000(\.nii(\.gz)?)$/, '$1')}` : '')
   const img = rel ? readNifti(join(dataDir, rel)) : null

@@ -1,4 +1,4 @@
-"""TST-04/SRC-18: record actual later Open pages without changing the shared fixtures."""
+"""Record actual later Open pages without changing the shared fixtures."""
 
 from __future__ import annotations
 
@@ -29,13 +29,14 @@ def prepare_operation(
     *,
     project_id: str | None = None,
     import_context: dict[str, Any] | None = None,
+    key: str | None = None,
 ) -> str:
     response = client.post(
         f"{API}/source-operations",
         json={
             "path": str(path),
             "purpose": purpose,
-            "idempotency_key": f"record-background-{purpose}",
+            "idempotency_key": key or f"record-background-{purpose}",
             "project_id": project_id,
             "import_context": import_context,
         },
@@ -55,6 +56,20 @@ def prepare_operation(
     if state["status"] != "completed" or state["stage"] != expected:
         raise SystemExit(f"record-open: background {purpose} did not finish")
     return oid
+
+
+def wait_import(client: TestClient, oid: str) -> dict[str, Any]:
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        response = client.get(f"{API}/source-operations/{oid}")
+        response.raise_for_status()
+        record = response.json()
+        if record["status"] not in {"queued", "running", "cancelling"}:
+            if record["status"] != "completed":
+                raise RuntimeError(f"record-open: import failed: {record.get('error')}")
+            return dict(record)
+        time.sleep(0.02)
+    raise TimeoutError("record-open: import did not finish")
 
 
 def main() -> None:
@@ -134,6 +149,59 @@ def main() -> None:
             )
             rec.get(f"{API}/source-operations/{discovery}")
             rec.get(f"{API}/source-operations/{discovery}/detection")
+            choices = {
+                "alias": "RECOVERY",
+                "adapter": "nifti-files",
+                "add": False,
+                "options": {"include": [first.name], "case_id_from": "stem"},
+                "reconstruct": False,
+                "anonymize": False,
+            }
+            imports = []
+            for mode in ("preview", "index"):
+                iid = prepare_operation(
+                    client,
+                    first.parent,
+                    "discover",
+                    project_id=project_id,
+                    import_context=choices,
+                    key=f"record-import-{mode}",
+                )
+                imports.append(iid)
+                current = client.get(f"{API}/source-operations/{iid}").json()
+                rec.call(
+                    "POST",
+                    f"{API}/source-operations/{iid}/import-preview",
+                    {
+                        "expected_revision": current["revision"],
+                        "expected_attempt": current["attempt"],
+                    },
+                )
+                current = wait_import(client, iid)
+                if mode == "index":
+                    rec.call(
+                        "POST",
+                        f"{API}/source-operations/{iid}/import-commit",
+                        {
+                            "expected_revision": current["revision"],
+                            "expected_attempt": current["attempt"],
+                        },
+                    )
+                    current = wait_import(client, iid)
+                rec.get(f"{API}/source-operations/{iid}")
+                rec.get(f"{API}/source-operations/{iid}/detection")
+                if mode == "preview":
+                    for _ in range(2):
+                        current = rec.call(
+                            "POST",
+                            f"{API}/source-operations/{iid}/import-draft",
+                            {
+                                **choices,
+                                "project_id": project_id,
+                                "expected_revision": current["revision"],
+                                "expected_attempt": current["attempt"],
+                            },
+                        )
         after = {
             p: hashlib.sha256(p.read_bytes()).hexdigest() for p in data.rglob("*") if p.is_file()
         }
@@ -152,6 +220,8 @@ def main() -> None:
             .replace(sid, SID)
             .replace(operation, "01JSYNTHOPENBACKGROUND00000")
             .replace(discovery, "01JSYNTHDISCOVERY000000000")
+            .replace(imports[0], "01JSYNTHIMPORTPREVIEW00000")
+            .replace(imports[1], "01JSYNTHIMPORTINDEX0000000")
         )
         additions = json.loads(text)
         recording = json.loads(OUT.read_text())

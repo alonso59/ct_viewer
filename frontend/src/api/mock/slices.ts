@@ -1,11 +1,11 @@
 // Mid-slices per complete item (from `npm run mock:slices`). Loaded lazily: ~0.6 MB of JSON.
-export type Plane = 'axial' | 'coronal' | 'sagittal'
-export interface Slice<T extends Int16Array | Uint8Array> {
+type Plane = 'axial' | 'coronal' | 'sagittal'
+interface Slice<T extends Int16Array | Uint8Array> {
   w: number
   h: number
   data: T
 }
-export interface SliceSet {
+interface SliceSet {
   image: Record<Plane, Slice<Int16Array>>
   mask: Record<Plane, Slice<Uint8Array>> | null
 }

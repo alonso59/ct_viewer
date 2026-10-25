@@ -1,4 +1,3 @@
-// The settings form is its own chunk (FE-05, NFR-07)
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 

@@ -1,10 +1,9 @@
-"""Server-path and project-id redaction (NFR-17, PRJ-17, PRJ-08).
+"""Server-path and project-id redaction.
 
 `Redactor` rewrites strings so that no absolute server path and no real `project_id` leaves:
 a path under a project root becomes its alias ref (`/data/ds/nifti/a.nii.gz` →
 `DATA:nifti/a.nii.gz`), a path under any other known server folder (workspace, allowed roots)
-loses that prefix (`…/rest`), and the project id is replaced by a stand-in. Used by the
-view-only mirror (API-60) and by bundle export (PROJECT_FORMAT §Bundles).
+loses that prefix (`…/rest`), and the project id is replaced by a stand-in.
 """
 
 from __future__ import annotations

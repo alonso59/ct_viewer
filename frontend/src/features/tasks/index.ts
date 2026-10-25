@@ -1,5 +1,3 @@
-// Tasks (UI-17..20, TSK-*): one generic view and one tab per task. Both load lazily with their
-// strings (NFR-07).
 import { createElement, lazy, Suspense, useEffect } from 'react'
 
 import { useTasks } from '../../api'

@@ -1,10 +1,9 @@
-// VW-25 / PRJ-14: project display settings → the viewer store; Open mode uses the defaults.
 import type { Project } from '../../api'
 import { useViewerSync, type ViewerDisplay } from '../../state'
 
 const DEFAULT: ViewerDisplay = { invert: false, slab: { mode: 'none', mm: 10 }, interpolation: 'linear', convention: 'radiological' }
 
-/** `withLayout`: also apply the initial layout (not when the URL names one, FE-04) */
+/** `withLayout`: also apply the initial layout (not when the URL names one) */
 export function applyProjectDisplay(p: Project, withLayout: boolean) {
   const d = p.display
   const ct = d.wl?.CT

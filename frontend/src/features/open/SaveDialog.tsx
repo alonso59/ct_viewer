@@ -1,4 +1,3 @@
-// SRC-14 "Save as NIfTI…": a new .nii.gz (+ DICOM sidecar) under ALLOWED_DERIVED_ROOTS, written once.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

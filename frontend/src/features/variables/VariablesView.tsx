@@ -1,6 +1,4 @@
-// Variables view (UI_SHELL §Left pane, VAR-*): the study-agnostic variable catalog. Each field is
-// profiled on import (type, level, missing %, levels); the user confirms "Review" inferences,
-// overrides type/visibility/tags, and adds derived or external variables. Nothing here names a field.
+// The study-agnostic variable catalog: nothing here names a field.
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -11,15 +9,12 @@ import { Icon, codicon } from '../../theme'
 import { useVariablesUi } from './store'
 import './variables.css'
 
-// Derived/external dialogs load on first open, outside the initial bundle (NFR-07)
 const VariablesDialogs = lazy(() => import('./Dialogs').then((m) => ({ default: m.VariablesDialogs })))
 
 type Section = 'study' | 'acquisition' | 'derived' | 'external'
 const SECTIONS: Section[] = ['study', 'derived', 'external', 'acquisition']
 const isOverrideType = (ty: string): ty is OverrideType => (OVERRIDE_TYPES as readonly string[]).includes(ty)
 const sectionOf = (v: Variable): Section => (v.source === 'derived' ? 'derived' : v.source === 'external' ? 'external' : v.group)
-
-/** Problem detail when the server gives one (e.g. 422 "used by …" on deleting a derived variable) */
 
 /** Short summary of a derived definition, e.g. "bin(score) at 50" */
 function definitionText(v: Variable, t: (k: string, o?: Record<string, unknown>) => string): string {
@@ -155,8 +150,8 @@ function Row({ pid, v, open, onToggle }: { pid: string; v: Variable; open: boole
   )
 }
 
-/** VAR-06: a derived variable whose source is gone (e.g. its label table was deleted): shown with
- *  the reason so it can be deleted (AUD-A5-08) */
+/** A derived variable whose source is gone (e.g. its label table was deleted): shown with the
+ *  reason so it can be deleted */
 function BrokenRow({ pid, b }: { pid: string; b: BrokenDerived }) {
   const { t } = useTranslation()
   const del = useDeleteDerived(pid)

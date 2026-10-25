@@ -1,4 +1,3 @@
-// Cross-feature stores: reviewer, settings, layout, viewer sync (ARCHITECTURE §Folder layout)
 export { useReviewer, requireReviewer, changeReviewer, resolveReviewerPrompt } from './reviewer'
 export { useSettings } from './settings'
 export { panelAutoHeight, useLayout } from './layout'

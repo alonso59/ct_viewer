@@ -1,6 +1,6 @@
-"""`analyzer.readiness` (ANZ-*): output role (PRIMARY/SECONDARY/EXCLUDED) and analysis readiness.
+"""`analyzer.readiness`: output role (PRIMARY/SECONDARY/EXCLUDED) and analysis readiness.
 
-Localizer/scout and intervention → EXCLUDED; unsafe geometry (DCM-03) → `unsuitable` or
+Localizer/scout and intervention → EXCLUDED; unsafe geometry → `unsuitable` or
 `review_required` with the codes as evidence.
 """
 
@@ -51,7 +51,7 @@ def is_intervention(row: dict[str, Any]) -> bool:
 
 
 def output_role(row: dict[str, Any], target_level: str) -> tuple[str, str]:
-    """(PRIMARY | SECONDARY | EXCLUDED, reason). `num_slices` < 10 is excluded (legacy rule)."""
+    """(PRIMARY | SECONDARY | EXCLUDED, reason). `num_slices` < 10 is excluded."""
     modality = value_to_text(row.get("modality", "")).upper()
     if modality not in {"CT", "MR", "MRI"}:
         return "EXCLUDED", "wrong_modality"
@@ -67,7 +67,7 @@ def output_role(row: dict[str, Any], target_level: str) -> tuple[str, str]:
     category = value_to_text(row.get("dicom_category", ""))
     scan_type = value_to_text(row.get("scan_type", ""))
     if scan_type in {"CORONAL", "SAGITTAL", "OBLIQUE"} or category in {"DERIVED", "RECONSTRUCTION"}:
-        return "SECONDARY", f"{scan_type or category}".lower()
+        return "SECONDARY", (scan_type or category).lower()
     if category == "ORIGINAL" and scan_type == "AXIAL":
         if target_level in {"none", "weak"}:
             return "SECONDARY", f"target {target_level}"

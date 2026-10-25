@@ -1,5 +1,3 @@
-"""API-49 Plugin Library (PLG-05/06): installed first-party plugins with their status."""
-
 from __future__ import annotations
 
 from fastapi import APIRouter

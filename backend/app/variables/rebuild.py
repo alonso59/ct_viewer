@@ -1,4 +1,4 @@
-"""Coalesced variable-catalog rebuilds after layer writes (LBL-06, PHS-03 → VAR-12)."""
+"""Coalesced variable-catalog rebuilds after layer writes."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ _rebuilds: dict[str, asyncio.Task[None]] = {}
 
 
 def rebuild_pending(pid: str) -> bool:
-    """A scheduled rebuild has not finished yet (tests wait on this, not on a sleep)."""
+    """A scheduled rebuild has not finished yet (tests poll this)."""
     t = _rebuilds.get(pid)
     return t is not None and not t.done()
 

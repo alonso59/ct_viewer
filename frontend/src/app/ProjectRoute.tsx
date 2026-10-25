@@ -1,5 +1,5 @@
 // /p/:pid/* — the workbench for one project, with runtime hooks (cache sync, live state, output log).
-// Share links land here (PRJ-03), so an unknown project gets its own page.
+// Share links land here, so an unknown project gets its own page.
 import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
@@ -32,7 +32,7 @@ function ProjectNotFound({ pid, detail }: { pid: string; detail?: string }) {
   )
 }
 
-/** UI-26: the title-bar identity of a view-only workbench */
+/** The title-bar identity of a view-only workbench */
 function ViewOnlyBrand({ name }: { name: string }) {
   const { t } = useTranslation()
   return (
@@ -47,12 +47,12 @@ function ViewOnlyBrand({ name }: { name: string }) {
 export function ProjectRoute() {
   const { pid = '' } = useParams()
   const readOnly = isViewPid(pid)
-  registry.setReadOnly(readOnly) // before the workbench renders its contributions (UI-26)
+  registry.setReadOnly(readOnly) // before the workbench renders its contributions
   const project = useProject(pid)
   const relink = useRootsCheck(readOnly ? '' : pid)
   const relinkAsked = useProjectDialogs((s) => s.relink === pid)
   useProjectSync(pid)
-  // VW-25: the project's display settings; the initial layout once per project unless the URL has one
+  // The project's display settings; the initial layout once per project unless the URL has one
   const displayed = useRef<string | null>(null)
   useEffect(() => {
     if (!project.data) return

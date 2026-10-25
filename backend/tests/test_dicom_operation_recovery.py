@@ -347,7 +347,7 @@ def test_recovery_syncs_adopted_publications_before_committing(
 
 
 def registration_child(root: Path, barrier: str) -> None:
-    """A disposable API process; faults kill the API itself, not a future or test double."""
+    """A disposable API process; faults kill the API itself."""
     import asyncio
 
     from fastapi.testclient import TestClient

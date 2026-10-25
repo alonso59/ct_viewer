@@ -1,11 +1,11 @@
-"""Workspace tasks (TSK-13, ADR-0021 §2; API-62): `scope: workspace` tasks run without a project.
+"""`scope: workspace` tasks run without a project.
 
 Inputs come from a source path inside ALLOWED_DATA_ROOTS; outputs go to a new, write-once folder
 `{first ALLOWED_DERIVED_ROOTS}/_datasets/{name}/` (a `-1`, `-2` … suffix when the name is taken);
 run records live in `WORKSPACE_ROOT/plugins/{plugin}/runs/{run_id}/run.json`. The dataset holds
-`metadata.jsonl` (the converter artifact, DCM-13), `nifti/`, `sidecars/`, `annotations.jsonl`
-(analyzer layers, ANZ-04) and `dataset.json`; it opens in Open mode and imports like any root
-(SRC-16), and an import registers its annotations as an analyzer run of the project.
+`metadata.jsonl` (the converter artifact), `nifti/`, `sidecars/`, `annotations.jsonl`
+(analyzer layers) and `dataset.json`; it opens in Open mode and imports like any root,
+and an import registers its annotations as an analyzer run of the project.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ class WorkspaceEstimateRequest(BaseModel):
 
 
 class WorkspaceRun(BaseModel):
-    """`plugins/{plugin}/runs/{run_id}/run.json` and the API-62 payload."""
+    """`plugins/{plugin}/runs/{run_id}/run.json` and its API payload."""
 
     run_id: str
     task: TaskRef
@@ -89,7 +89,7 @@ class WorkspaceRun(BaseModel):
     settings: dict[str, Any]
     settings_hash: str
     counts: dict[str, int] = Field(default_factory=dict)
-    # {done, total} series, and while it scans {stage, stage_done, stage_total} (DCM-06)
+    # {done, total} series, and while it scans {stage, stage_done, stage_total}
     progress: dict[str, int | str] = Field(default_factory=dict)
     error: str | None = None
     job_id: str | None = None
@@ -102,9 +102,8 @@ class WorkspaceRun(BaseModel):
     conversion_time: ConversionTimeEstimate | None = None
 
 
-def default_dataset_name(today: date | None = None) -> str:
-    """`dataset-{YYYY-MM-DD}`: the name when the user gives none (AUD-A5-16)."""
-    return f"dataset-{(today or date.today()).isoformat()}"
+def default_dataset_name() -> str:
+    return f"dataset-{date.today().isoformat()}"
 
 
 def dataset_name(raw: str) -> str:
@@ -123,8 +122,6 @@ class WorkspaceTasks:
         self.jobs = jobs
         self.owners = owners
         self.locks = locks
-
-    # -- helpers ------------------------------------------------------------------------------
 
     def _manifest(self, task_id: str) -> TaskManifest:
         info = self.registry.get(task_id)
@@ -167,8 +164,7 @@ class WorkspaceTasks:
         roots = self.settings.derived_roots
         if not roots:
             raise DerivedRootRequired(
-                "ALLOWED_DERIVED_ROOTS is empty: the server has no writable folder for datasets "
-                "(OPS-11)",
+                "ALLOWED_DERIVED_ROOTS is empty: the server has no writable folder for datasets",
                 actions=["configure:ALLOWED_DERIVED_ROOTS"],
             )
         return roots[0]
@@ -196,12 +192,14 @@ class WorkspaceTasks:
                     return d
         raise NotFound(f"Workspace task run {rid!r} not found")
 
-    def _spec(self, m: TaskManifest, settings: dict[str, Any], source: Path, out: Path) -> Any:
+    def _spec(
+        self, m: TaskManifest, settings: dict[str, Any], source: Path, out: Path
+    ) -> dict[str, Any]:
         return {
             "task": {"id": m.id, "version": m.version},
             "settings": settings,
             "context": {
-                "phase_vocabulary": [],  # no project: open vocabulary (ANZ-05)
+                "phase_vocabulary": [],  # no project: open vocabulary
                 "packs": [],
                 "target_profile": settings.get("target_profile") or "generic",
             },
@@ -210,7 +208,7 @@ class WorkspaceTasks:
             "output_dir": str(out),
             "dataset_dir": str(out),
             "dataset_ref": "DATA:",
-            "workspace": True,  # rows relative to the dataset root (SRC-16)
+            "workspace": True,  # rows relative to the dataset root
             "source": {"path": str(source)},
             "project_id": "",
             "timing_destination": str(self.settings.derived_roots[0])
@@ -218,8 +216,6 @@ class WorkspaceTasks:
             else None,
             **({"dicom_process_protocol": 1} if m.id == "dicom.convert" else {}),
         }
-
-    # -- API-62 -------------------------------------------------------------------------------
 
     def source_estimate_spec(
         self,
@@ -230,12 +226,12 @@ class WorkspaceTasks:
     ) -> dict[str, Any]:
         manifest = self._manifest(task_id)
         normalized, _ = self._settings(manifest, settings)
-        return dict(self._spec(manifest, normalized, Path(source), scratch / "out"))
+        return self._spec(manifest, normalized, Path(source), scratch / "out")
 
     async def estimate(
         self, task_id: str, req: WorkspaceEstimateRequest, progress_id: str | None = None
     ) -> TaskEstimate:
-        """The dry run (DCM-06) without a project: counts and storage, nothing written."""
+        """The dry run without a project: counts and storage, nothing written."""
         m = self._manifest(task_id)
         settings, _ = self._settings(m, req.settings)
         source = self._source(req.selection)
@@ -292,13 +288,13 @@ class WorkspaceTasks:
                 )
         source = self._source(req.selection)
         if source_inventory is None:
-            await dry_run.require_dicom(m.id, source)  # AUD-A2-07
+            await dry_run.require_dicom(m.id, source)
         if self.jobs.active(WORKSPACE_JOBS, "task", m.id) is not None:
             raise JobConflict(f"A {m.id} workspace run is already active")
         base = self._derived() / DATASETS
         if m.id == "dicom.convert":
             require_pixel_budget(self.settings)
-        # never the source folder's name: DICOM folders are often patient names (NFR-17)
+        # never the source folder's name: DICOM folders are often patient names
         stem = dataset_name(req.name or default_dataset_name())
         out, n = base / stem, 0
         while out.exists():  # write-once: never reuse a dataset folder
@@ -370,7 +366,6 @@ class WorkspaceTasks:
             JobSpec(
                 project_id=WORKSPACE_JOBS, kind="task", units=[], driver=driver,
                 on_finish=on_finish, ref=rid, job_id=job_id, key=m.id,
-                meta={"run_id": rid, "task_id": m.id},
             )
         )  # fmt: skip
         return TaskRunStarted(run_id=rid, job_id=job_id, status="queued")
@@ -484,7 +479,7 @@ class WorkspaceTasks:
             run.counts = {k: int(v) for k, v in (counts or {}).items() if isinstance(v, int)}
         run.error = info.error or (str(result["error"]) if result.get("error") else None)
         run.provenance = result.get("provenance") or {}
-        if status == "completed" and not run.counts.get("series"):  # AUD-A2-07
+        if status == "completed" and not run.counts.get("series"):
             status, run.error = "failed", run.error or "No DICOM series found in the source"
         run.status, run.finished_at = status, utc_now()
         self._write(run_dir, run)
@@ -625,7 +620,6 @@ class WorkspaceTasks:
                 key=run.task.id,
                 driver=lambda handle: self._drive(handle, manifest, run_dir, job),
                 on_finish=finish,
-                meta={"run_id": rid, "task_id": run.task.id},
             )
         )
         return TaskRunStarted(run_id=rid, job_id=job_id, status="queued")
@@ -652,9 +646,9 @@ class WorkspaceTasks:
 
 
 def dataset_annotations(
-    root: Path, phase_runs: PhaseRuns | None = None
+    root: Path, phase_runs: PhaseRuns
 ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
-    """A workspace dataset's manifest and analyzer annotations, if `root` is one (SRC-16)."""
+    """A workspace dataset's manifest and analyzer annotations, if `root` is one."""
     if not (root / DATASET_JSON).is_file():
         return None
     try:
@@ -662,7 +656,7 @@ def dataset_annotations(
     except (OSError, ValueError):
         return None
     rows = [r for r in iter_jsonl(root / ANNOTATIONS) if r.get("item_id") and r.get("field")]
-    phase = phase_runs.dataset_phase(root, meta) if phase_runs else None
+    phase = phase_runs.dataset_phase(root, meta)
     if phase is not None:
         phase_task, phase_rows = phase
         meta = {**meta, "phase_task": phase_task}
@@ -671,7 +665,7 @@ def dataset_annotations(
 
 
 def write_imported_run(run_dir: Path, meta: dict[str, Any], rows: list[dict[str, Any]]) -> None:
-    """The dataset's annotations as a completed task run of the project (ANZ-04 layers)."""
+    """The dataset's annotations as a completed task run of the project."""
     task = meta.get("task") or {}
     now = utc_now()
     rec = TaskRunRecord(

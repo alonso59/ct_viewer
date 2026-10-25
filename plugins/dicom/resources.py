@@ -1,4 +1,4 @@
-"""DCM/BE-16: conservative per-series native working-set admission; no pixel calibration."""
+"""Conservative per-series native working-set admission; no pixel calibration."""
 
 from __future__ import annotations
 

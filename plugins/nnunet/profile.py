@@ -1,4 +1,4 @@
-"""Strict, path-safe nnU-Net model profiles (SEG-02/03/06)."""
+"""Strict, path-safe nnU-Net model profiles."""
 
 from __future__ import annotations
 

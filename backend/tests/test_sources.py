@@ -89,9 +89,6 @@ def tree(root: Path) -> dict[str, str]:
     }
 
 
-# -- formats + detect (SRC-01/02, API-19) ---------------------------------------------------
-
-
 def test_classify(tmp_path: Path) -> None:
     from tools.dicom_fixtures import write_series
 
@@ -141,9 +138,6 @@ def test_detect_prefers_metadata_v1(client: TestClient, data_root: Path) -> None
     assert body["candidates"][1]["confidence"] == "low"
 
 
-# -- nifti-files adapter (SRC-04) -----------------------------------------------------------
-
-
 def test_plan_conventions(src: Path) -> None:
     p = plan(src, NiftiOptions(), IdentityRegistry())
     rows = {r["case_id"]: r for r in p.rows}
@@ -175,7 +169,7 @@ def test_plan_nnunet_names_are_not_special(tmp_path: Path) -> None:
 
 def test_plan_user_pattern_channels_and_converter_layout(tmp_path: Path) -> None:
     root = tmp_path / "r"
-    # metadata-v1 / converter layout: seg/{name minus _0000} (INPUT_METADATA `seg_path`)
+    # metadata-v1 / converter layout: seg/{name minus _0000}
     nii(root / "nifti" / "01_case_00001_0000.nii.gz", ct())
     nii(root / "nifti" / "01_case_00001_0001.nii.gz", ct())
     nii(root / "seg" / "01_case_00001.nii.gz", lab())
@@ -270,9 +264,6 @@ def test_slug_and_registry_merge() -> None:
     assert m.case_id("k3") == "case_00008"
     t = IdentityRegistry(table={"k": "P 1"})
     assert t.case_id("k") == "P_1"
-
-
-# -- import through the API (SRC-03..08, IMP-06) ---------------------------------------------
 
 
 def import_nifti(
@@ -382,9 +373,6 @@ def test_metadata_refusal_suggests_nifti_files(sclient: TestClient, src: Path) -
     assert_problem(bad, "validation")
 
 
-# -- Open mode (SRC-09/10, API-07/08) -------------------------------------------------------
-
-
 def open_(c: TestClient, path: Path) -> dict[str, Any]:
     r = c.post(f"{API}/open", json={"path": str(path)})
     assert r.status_code == 201, r.text
@@ -477,9 +465,6 @@ def test_open_numpy_axis_order(sclient: TestClient, src: Path) -> None:
     assert it["geometry"]["shape"] == [8, 9, 5] and it["geometry"]["spacing"] == [0.5, 1.0, 2.0]
 
 
-# -- TST-13 NumPy half (NFR-18) -------------------------------------------------------------
-
-
 @pytest.mark.parametrize("order", ["xyz", "zyx"])
 def test_numpy_marker_lands_at_expected_ras_mm(tmp_path: Path, order: str) -> None:
     xyz = np.zeros((6, 7, 8), np.int16)
@@ -504,9 +489,6 @@ def test_decide_axis_order() -> None:
     assert npy_convert.decide_axis_order((3, 3, 3), None, (3, 3, 3)) is None  # both
     assert npy_convert.decide_axis_order((2, 3, 4), None, (9, 9, 9)) is None  # neither
     assert npy_convert.decide_axis_order((2, 3, 4)) is None
-
-
-# -- folder per case, mask templates and mask sets (SRC-04) ----------------------------------
 
 
 def one_hot(shape: tuple[int, int, int], x: int) -> np.ndarray:

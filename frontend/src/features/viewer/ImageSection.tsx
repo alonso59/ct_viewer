@@ -1,4 +1,4 @@
-// QuPath "Image" section under the left pane: properties of the active item (UI_SHELL §Left pane views)
+// QuPath "Image" section under the left pane: properties of the active item
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -20,14 +20,14 @@ const tagText = (v: unknown): string => {
     .slice(0, 120)
 }
 
-/** DCM-05: DICOM tags only on demand (they can hold PHI) */
+/** DICOM tags only on demand (they can hold PHI) */
 function DicomTags({ pid, iid }: { pid: string; iid: string }) {
   const { t } = useTranslation()
   const q = useQuery({ queryKey: keys.dicomTags(pid, iid), queryFn: () => api.dicomTags(pid, iid), retry: false })
   if (q.error) return <ProblemCard error={q.error} />
   if (!q.data) return <span className="muted">{t('common.loading')}</span>
   const rows = Object.entries(q.data).filter(([k]) => /^[0-9A-F]{8}$/.test(k))
-  // IMP-15 / ADR-0025: a reconstructed sidecar is never shown as a real DICOM header
+  // A reconstructed sidecar must not pass as a real DICOM header
   const partial = (q.data._provenance as { fidelity?: string } | undefined)?.fidelity === 'partial'
   return (
     <>
@@ -60,8 +60,7 @@ export function ImageSection() {
   const [tags, setTags] = useState(false)
   if (!iid || !it) return <div className="muted" style={{ padding: '4px 16px 8px', fontSize: 'var(--fs-panel)' }}>{t('image.none')}</div>
   const g = it.geometry
-  // API names (API-22 ItemAdvanced); the P0.5 mock called them image_abs/mask_abs
-  const adv = it.advanced as { image_path?: string | null; mask_path?: string | null }
+  const adv = it.advanced
   return (
     <dl className="props">
       <dt>{t('image.item')}</dt>

@@ -1,5 +1,3 @@
-// Open mode (SRC-09..12, UI-17): view a file or folder without a project. The route and the dialog
-// load lazily with their strings (NFR-07).
 import { createElement, lazy, Suspense } from 'react'
 
 import { registry } from '../../shell'

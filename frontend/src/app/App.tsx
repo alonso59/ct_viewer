@@ -28,7 +28,7 @@ function Theme() {
 }
 
 
-/** VW-14: loaded-tab budget from the server's UI runtime config (API-01). */
+/** Loaded-tab budget from the server's UI runtime config. */
 function ViewerConfig() {
   const maxLoaded = useHealth().data?.ui_config.viewer_max_loaded
   useEffect(() => {
@@ -42,8 +42,8 @@ function Keys() {
   return null
 }
 
-/** PRJ-17: `/v/{token}` is the view-only workbench of pseudo project `view-{token}`; a deep link
- *  (`/v/{token}/case/…`, AUD-A1-11) keeps its tab */
+/** `/v/{token}` is the view-only workbench of pseudo project `view-{token}`; a deep link
+ *  (`/v/{token}/case/…`) keeps its tab */
 function ViewLink() {
   const { token = '', '*': rest = '' } = useParams()
   return <Navigate to={`/p/${viewPid(token)}${rest ? `/${rest}` : ''}${location.search}`} replace />

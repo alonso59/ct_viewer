@@ -1,9 +1,9 @@
-"""Radiomics service: validate, profiles, selection, estimate, runs, exports (RAD-01..11).
+"""Radiomics service: validate, profiles, selection, estimate, runs, exports.
 
 Stateless: routers build one per request. Only this (API) process writes `run.json`,
-`units.jsonl`, `errors.jsonl`, profiles and the compacted outputs, under the project lock
-(BE-05); workers write only their part files (`worker.py`). Paths are resolved here (BE-02)
-and workers get absolute paths. Study variables are never copied into features (ANA-03).
+`units.jsonl`, `errors.jsonl`, profiles and the compacted outputs, under the project lock;
+workers write only their part files (`worker.py`). Paths are resolved here and workers get
+absolute paths. Study variables are never copied into features.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -93,8 +93,16 @@ CANCEL_WAIT_S: Final = 30.0
 MSG_NOTHING: Final = "Nothing to extract"
 HASH_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
 ID_COLS: Final = (
-    "run_id", "item_id", "case_id", "scan_idx", "scope", "side", "phase", "phase_at_run", "label"
-)  # fmt: skip
+    "run_id",
+    "item_id",
+    "case_id",
+    "scan_idx",
+    "scope",
+    "side",
+    "phase",
+    "phase_at_run",
+    "label",
+)
 
 
 def _nothing(loc: list[str | int]) -> Issue:
@@ -112,12 +120,18 @@ def _parse_key(key: str) -> tuple[str, int]:
     return item_id, int(label)
 
 
-def _row(item_id: str, label: int, kind: str, code: str, detail: str | None = None) -> RunError:
-    """An `errors.jsonl` row with a cause code and its plain text (AUD-A2-05)."""
+def _row(
+    item_id: str,
+    label: int,
+    kind: Literal["failed", "skipped"],
+    code: str,
+    detail: str | None = None,
+) -> RunError:
+    """An `errors.jsonl` row with a cause code and its plain text."""
     return RunError(
         item_id=item_id,
         label=label,
-        kind=kind,  # type: ignore[arg-type]
+        kind=kind,
         error=causes.text(code),
         code=code,
         detail=detail,
@@ -126,17 +140,13 @@ def _row(item_id: str, label: int, kind: str, code: str, detail: str | None = No
 
 
 def _not_ready(it: Item, seg_id: str) -> str | None:
-    """TSK-04 preflight of one item for one set (`readiness.not_ready`): the skip code or None."""
+    """Preflight of one item for one set (`readiness.not_ready`): the skip code or None."""
     r = readiness.not_ready(it, seg_id=seg_id)
     if r is None:
         return None
     if r.code == "no_mask":
         return "missing_seg" if seg_id == "imported" else "no_mask"
     return r.params["qc"] if r.code == "blocked" else r.code
-
-
-def _empty_features() -> pa.Table:
-    return worker.FEATURE_SCHEMA.empty_table()
 
 
 def _load_features(run_dir: Path) -> pa.Table:
@@ -146,7 +156,7 @@ def _load_features(run_dir: Path) -> pa.Table:
         return pq.read_table(f)
     parts = sorted((run_dir / worker.PARTS).glob("*.parquet"))
     if not parts:
-        return _empty_features()
+        return worker.FEATURE_SCHEMA.empty_table()
     tables = [pq.read_table(p).replace_schema_metadata(None) for p in parts]
     return pa.concat_tables(tables)
 
@@ -162,7 +172,7 @@ def _compact(run_dir: Path) -> int:
     run_id = run_dir.name
     parts = sorted((run_dir / worker.PARTS).glob("*.parquet"))
     tables = [pq.read_table(p).replace_schema_metadata(None) for p in parts]
-    features = pa.concat_tables(tables) if tables else _empty_features()
+    features = pa.concat_tables(tables) if tables else worker.FEATURE_SCHEMA.empty_table()
     _write_parquet_atomic(run_dir / FEATURES, features)
     rows: list[dict[str, Any]] = []
     for p in parts:
@@ -182,8 +192,16 @@ def _compact(run_dir: Path) -> int:
         for k, v in d.items():
             row[k] = _diag_str(v)
         rows.append(row)
-    fixed = ["run_id", "item_id", "label", "voxel_count", "bbox", "spacing", "image_hash"]
-    fixed.append("mask_hash")
+    fixed = (
+        "run_id",
+        "item_id",
+        "label",
+        "voxel_count",
+        "bbox",
+        "spacing",
+        "image_hash",
+        "mask_hash",
+    )
     extra = sorted({k for r in rows for k in r} - set(fixed))
     cols: dict[str, pa.Array] = {}
     for name in [*fixed, *extra]:
@@ -219,7 +237,7 @@ def wide(table: pa.Table) -> pa.Table:
 
 
 def join_phase(table: pa.Table, effective: dict[str, str]) -> pa.Table:
-    """PHS-03 at read time (AUD-A5-04): `phase` = effective phase, `phase_at_run` = the run's."""
+    """At read time: `phase` = effective phase, `phase_at_run` = the run's."""
     run_phase = table["phase"]
     items = table["item_id"].to_pylist()
     phase = [effective.get(i, p) for i, p in zip(items, run_phase.to_pylist(), strict=True)]
@@ -272,19 +290,17 @@ class RadiomicsService:
             noun="Run",
         )
 
-    # -- engine / settings (API-30/31, RAD-01/04) -----------------------------------------
-
     @staticmethod
     def engine() -> RadiomicsEngine:
         return get_engine()
 
     def validate(self, req: ValidateRequest) -> ValidateResult:
-        """API-43: schema checks + rules; selection counts are checked when given."""
+        """Schema checks + rules; selection counts are checked when given."""
         eng = self.engine()
         issues = eng.validate(req.settings.model_dump())
         if req.labels is not None and not req.labels:
             issues.append(_nothing(["labels"]))
-        if req.n_items is not None and req.n_items == 0:
+        if req.n_items == 0:
             issues.append(_nothing(["n_items"]))
         norm, _ = st.normalize(eng.schema(), req.settings)
         ok = not any(i.severity == "error" for i in issues)
@@ -299,13 +315,11 @@ class RadiomicsService:
     def hash_of(eng: RadiomicsEngine, norm: RadiomicsSettings) -> str:
         return st.profile_hash(norm, eng.name, st.engine_major(eng.version))
 
-    def normalized(
-        self, eng: RadiomicsEngine, raw: RadiomicsSettings | None, loc: str = "settings"
-    ) -> RadiomicsSettings:
-        """Authoritative validation (RAD-04): 422 with field issues, else normalized settings."""
+    def normalized(self, eng: RadiomicsEngine, raw: RadiomicsSettings | None) -> RadiomicsSettings:
+        """Authoritative validation: 422 with field issues, else normalized settings."""
         raw = raw or RadiomicsSettings()
         issues = eng.validate(raw.model_dump())
-        errors = issue_errors(issues, ["body", loc])
+        errors = issue_errors(issues, ["body", "settings"])
         if errors:
             raise ValidationProblem("Invalid radiomics settings", errors=errors)
         norm, _ = st.normalize(eng.schema(), raw)
@@ -332,8 +346,6 @@ class RadiomicsService:
             return norm, h, prof
         norm = self.normalized(eng, raw)
         return norm, self.hash_of(eng, norm), None
-
-    # -- profiles (API-32, RAD-03) --------------------------------------------------------
 
     def _profiles_dir(self, pid: str) -> Path:
         return self.workspace.project_dir(pid) / RADIOMICS / PROFILES
@@ -392,10 +404,8 @@ class RadiomicsService:
                 raise NotFound(f"Profile {phash!r} not found")
             path.unlink()
 
-    # -- selection (RAD-05) ---------------------------------------------------------------
-
     def seg_of(self, pid: str, sel: Selection) -> SegmentationSet:
-        """RAD-05: the selection's segmentation set (default `default_seg`)."""
+        """The selection's segmentation set (default `default_seg`)."""
         cfg = self.workspace.get(pid)
         seg = cfg.segmentation(sel.seg_id or cfg.default_seg)
         if seg is None:
@@ -449,19 +459,19 @@ class RadiomicsService:
 
     @staticmethod
     def plan(
-        items: Sequence[Item], labels: Sequence[int], seg: SegmentationSet | None = None
+        items: Sequence[Item], labels: Sequence[int], seg: SegmentationSet
     ) -> tuple[list[dict[str, Any]], list[RunError]]:
-        """(item, label) units; items and labels that are not ready are skipped (TSK-04).
+        """(item, label) units; items and labels that are not ready are skipped.
 
-        `seg` (RAD-05): masks come from that set; project labels map to its values through the
-        set's `label_mapping` (ADR-0015). `labels_present` and the IMP-08 codes describe the
-        `imported` set only. An item without image or mask, or with a blocking code
-        (`readiness.BLOCKING`), is skipped with that code, never failed (AUD-A2-05).
+        Masks come from `seg`; project labels map to its values through the set's
+        `label_mapping`. `labels_present` and the import QC codes describe the `imported` set
+        only. An item without image or mask, or with a blocking code (`readiness.BLOCKING`), is
+        skipped with that code.
         """
         units: list[dict[str, Any]] = []
         skips: list[RunError] = []
-        seg_id = seg.seg_id if seg is not None else "imported"
-        inverse = {v: int(k) for k, v in (seg.label_mapping if seg else {}).items() if k.isdigit()}
+        seg_id = seg.seg_id
+        inverse = {v: int(k) for k, v in seg.label_mapping.items() if k.isdigit()}
         for it in items:
             not_ready = _not_ready(it, seg_id)
             for lab in sorted(set(labels)):
@@ -469,7 +479,7 @@ class RadiomicsService:
                     skips.append(_row(it.item_id, lab, "skipped", not_ready))
                     continue
                 mask_label = inverse.get(lab, lab)
-                if seg_id != "imported" and seg is not None and inverse and lab not in inverse:
+                if seg_id != "imported" and inverse and lab not in inverse:
                     skips.append(_row(it.item_id, lab, "skipped", "label_not_in_set"))
                     continue
                 present = it.labels_present if seg_id == "imported" else []
@@ -501,12 +511,8 @@ class RadiomicsService:
                 )
         return units, skips
 
-    async def _path(
-        self, pid: str, vol: dict[str, Any] | None, spacing: list[float], order: str = "xyz"
-    ) -> str:
-        """Absolute read path for a volume ref (BE-02); legacy `.npy` → cached NIfTI (IMP-10)."""
-        if vol is None:
-            raise SourceMissingError("volume missing")
+    async def _path(self, pid: str, vol: dict[str, Any], spacing: list[float], order: str) -> str:
+        """Absolute read path for a volume ref; legacy `.npy` → cached NIfTI."""
         path = self.workspace.resolver(pid).resolve(vol["ref"])
         if vol.get("format") == "nifti_dir" and vol.get("labels") and path.is_dir():
             set_fp = vol.get("fp") or await asyncio.to_thread(quick_fingerprint, path)
@@ -535,9 +541,9 @@ class RadiomicsService:
     ) -> tuple[list[dict[str, Any]], list[RunError]]:
         """Resolve units into worker tasks; unresolvable inputs become per-item errors.
 
-        `check_fp` (resume, RAD-08 / NFR-15; AUD-A5-14): a unit whose image or mask quick
-        fingerprint differs from the one recorded at run creation fails with `input_changed`,
-        so a resumed run never mixes features of changed inputs with the original parts.
+        `check_fp` (resume): a unit whose image or mask quick fingerprint differs from the one
+        recorded at run creation fails with `input_changed`, so a resumed run never mixes
+        features of changed inputs with the original parts.
         """
         out: list[dict[str, Any]] = []
         errors: list[RunError] = []
@@ -589,8 +595,6 @@ class RadiomicsService:
                 return True
         return False
 
-    # -- estimate (API-44, RAD-11) --------------------------------------------------------
-
     async def estimate(self, pid: str, req: EstimateRequest) -> EstimateResult:
         eng = self.engine()
         norm, _, _ = self._settings_for(pid, eng, req.settings, req.profile_hash)
@@ -635,13 +639,11 @@ class RadiomicsService:
             sample_errors=errors,
         )
 
-    # -- runs (API-45/46, RAD-06..09) -----------------------------------------------------
-
     def _runs_dir(self, pid: str) -> Path:
         return self.workspace.project_dir(pid) / RADIOMICS / RUNS
 
     async def start(self, pid: str, req: RunRequest, reviewer: str | None) -> RunDetail:
-        """API-45: validate, select, snapshot, then one `radiomics` job (RAD-06)."""
+        """Validate, select, snapshot, then one `radiomics` job."""
         who = reviewer_stamp.require(reviewer)
         eng = self.engine()
         norm, phash, prof = self._settings_for(pid, eng, req.settings, req.profile_hash)
@@ -720,7 +722,6 @@ class RadiomicsService:
                 self.runs.write(run_dir, rec)
             return run_id
 
-        job_id = new_ulid()
         spec = JobSpec(
             project_id=pid,
             kind="radiomics",
@@ -728,8 +729,7 @@ class RadiomicsService:
             on_result=on_result,
             on_finish=on_finish,
             ref=run_id,
-            job_id=job_id,
-            meta={"run_id": run_id},
+            job_id=new_ulid(),
         )
         await self.runs.submit(pid, run_dir, spec)
         await self.runs.set_status(pid, run_dir, "running")
@@ -779,12 +779,12 @@ class RadiomicsService:
         return out
 
     async def cancel(self, pid: str, rid: str) -> RunDetail:
-        """API-46 (RAD-06): cancel the run's job; idempotent for finished runs."""
+        """Cancel the run's job; idempotent for finished runs."""
         await self.runs.cancel(pid, self.runs.run_dir(pid, rid), CANCEL_WAIT_S)
         return await self.get(pid, rid)
 
     async def resume(self, pid: str, rid: str) -> RunDetail:
-        """API-46 / RAD-08: re-run units without a part file; failures are retried."""
+        """Re-run units without a part file; failures are retried."""
         run_dir = self.runs.run_dir(pid, rid)
         rec = await self.runs.resumable(pid, run_dir)
         eng = self.engine()
@@ -812,8 +812,6 @@ class RadiomicsService:
         await self._submit(pid, run_dir, tasks)
         return await self.get(pid, rid)
 
-    # -- outputs (API-36, API-47, RAD-07/10) ---------------------------------------------------
-
     def features(self, pid: str, rid: str, item_id: str | None, shape: str) -> pa.Table:
         run_dir = self.runs.run_dir(pid, rid)
         t = _load_features(run_dir)
@@ -839,4 +837,4 @@ class RadiomicsService:
 
 
 class SourceMissingError(Exception):
-    """An input volume cannot be read; recorded as a per-item error (RAD-07)."""
+    """An input volume cannot be read; recorded as a per-item error."""

@@ -1,4 +1,4 @@
-"""BE-16: operator budgets are explicit; read-only planning remains usable without pixels."""
+"""Operator budgets are explicit; read-only planning remains usable without pixels."""
 
 from __future__ import annotations
 

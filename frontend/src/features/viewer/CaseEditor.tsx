@@ -1,4 +1,4 @@
-// Case editor tab: header (case, scan drop-down, scope, phase, review status) + the NiiVue viewer (VIEWER.md; VW-11, 12, 14).
+// Case editor tab: header (case, scan drop-down, scope, phase, review status) + the NiiVue viewer.
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -20,13 +20,13 @@ export interface CaseParams {
   preview?: boolean
 }
 
-/** API-23/24/25 (volumes are streamed as the original bytes, BE-04) */
+/** Volumes are streamed as the original file bytes */
 const API = '/api/v1'
 export const itemUrl = (pid: string, iid: string, what: 'image' | 'mask') => viewPath(`${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/${what}`)
 export const meshUrlOf = (pid: string, iid: string, seg?: string) => (label: number) =>
   viewPath(`${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/mesh/${label}?smooth=1${seg ? `&seg=${encodeURIComponent(seg)}` : ''}`)
 
-/** VW-19: overlay labels for a set: its values coloured by the project labels they map to */
+/** Overlay labels for a set: its values coloured by the project labels they map to */
 export function setLabels(labels: LabelDef[], mapping: Record<string, number> | undefined): LabelDef[] {
   const entries = Object.entries(mapping ?? {})
   if (!entries.length || entries.every(([k, v]) => Number(k) === v)) return labels
@@ -36,7 +36,7 @@ export function setLabels(labels: LabelDef[], mapping: Record<string, number> | 
   })
 }
 
-/** Warning codes that mean the image cannot be opened at all (IMP-08) */
+/** Warning codes that mean the image cannot be opened at all */
 export const FATAL_CODES = ['missing_path', 'unreadable_file', 'outside_root']
 
 export function defaultItem(items: ItemRecord[]): ItemRecord | undefined {
@@ -44,7 +44,7 @@ export function defaultItem(items: ItemRecord[]): ItemRecord | undefined {
   return complete.find((i) => i.phase.canonical === 'NP' && i.status === 'active') ?? complete.find((i) => i.status === 'active') ?? items[0]
 }
 
-/** AUD-A1-04: "Outliers 3/22 ›" while the case came from a list; × falls back to Explorer order */
+/** "Outliers 3/22 ›" while the case came from a list; × falls back to Explorer order */
 function NavContextChip({ caseId, itemId }: { caseId: string; itemId: string | null }) {
   const { t } = useTranslation()
   const nav = useNavContext()
@@ -75,8 +75,8 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const items = useMemo(() => data?.items ?? [], [data])
   const current = items.find((i) => i.item_id === params.itemId) ?? defaultItem(items)
   const iid = current?.item_id ?? ''
-  // VW-19: the set chosen for this project (Layers section), else its default; an item without
-  // a mask in that set shows the default set's mask with a notice (AUD-A5-05)
+  // The set chosen for this project (Layers section), else its default; an item without
+  // a mask in that set shows the default set's mask with a notice
   const chosen = useViewerSync((s) => s.segChoice[pid])
   const defaultSeg = project.data?.default_seg ?? 'imported'
   const masks = current?.masks
@@ -90,12 +90,11 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
 
   useEffect(() => {
     if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id, shownSeg })
-    // While the new case loads, no item is active: a curation key then does nothing instead of
-    // landing on the previous case (AUD-A2-02); the Explorer already reveals the case (AUD-A1-03)
+    // While the new case loads, no item is active, so a curation key cannot land on the previous case
     else if (active && useViewerSync.getState().activeCaseId !== params.caseId) set({ activeCaseId: params.caseId, activeItemId: null, shownSeg: null })
   }, [active, current, params.caseId, set, shownSeg])
 
-  // AUD-A2-02: after Alt+↓ the focus may be left on nothing (the old tab's viewer is gone); keep
+  // After Alt+↓ the focus may be left on nothing (the old tab's viewer is gone); keep
   // it in the case editor so Tab / screen readers continue here. A focused Explorer tree keeps it.
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -110,7 +109,6 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
 
   if (isLoading) return <div className="empty">{t('common.loading')}</div>
   if (isError || !data || !current) {
-    // UI-18 (AUD-A3-03): the cause and how to go on, not a bare "Not found"
     const p = error instanceof ProblemError ? error : null
     const notFound = !p || p.status === 404
     const title = notFound ? t('viewer.caseNotFound') : t(`problemTitle.${p.type}`, { defaultValue: p.title })
@@ -136,7 +134,6 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <span className="mono case-id">{params.caseId}</span>
         <NavContextChip caseId={params.caseId} itemId={current.item_id} />
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
-        {/* PHS-01: set this scan's phase (the switcher's chips only move between scans) */}
         <span className="switcher">
           <span className="switcher-sep" />
           <span className="switcher-label">{t('viewer.phase')}</span>
@@ -163,7 +160,6 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <CaseRollupBadge summary={data.summary} />
       </div>
       {fatal || current.status === 'missing' ? (
-        // UI-18 (AUD-A2-07): what failed, where, and the next steps (relink the root, Problems)
         <div className="case-editor-error">
           <ProblemCard
             error={new ProblemError(409, fatal ?? 'missing_path', t(`warning.${fatal ?? 'missing_path'}`), t('viewer.fileError', { ref: current.image?.ref ?? '—' }), ['relink_root', 'show_problems'])}

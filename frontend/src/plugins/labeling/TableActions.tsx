@@ -1,4 +1,4 @@
-// Table and column actions (LBL-02, LBL-10): edit / delete menus and their dialogs. Delete hides:
+// Table and column actions: edit / delete menus and their dialogs. Delete hides:
 // the events and the slug are kept, so a table or a column can be restored unchanged.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useQueryClient } from '@tanstack/react-query'
@@ -30,8 +30,8 @@ function usePatch(pid: string, tid: string) {
   return { run, error }
 }
 
-/** VAR-06 derived variables built on these label variables (directly or through another derived
- *  one): deleting the table or column breaks them (AUD-A5-08), so the dialog names them */
+/** Derived variables built on these label variables (directly or through another derived one):
+ *  deleting the table or column breaks them, so the dialog names them */
 function useDerivedUsers(pid: string, uses: (source: string) => boolean): string[] {
   const vars = useVariables(pid).data ?? []
   const defs = vars.flatMap((v) => (v.definition ? [{ name: v.name, sources: v.definition.op === 'dominant' ? v.definition.sources : [v.definition.source] }] : []))
@@ -69,7 +69,7 @@ function Footer({ onCancel, onOk, ok, disabled, danger }: { onCancel: () => void
   )
 }
 
-/** Rename the table; restore its deleted columns (LBL-02/10) */
+/** Rename the table; restore its deleted columns */
 function EditTableDialog({ pid, table, onClose }: { pid: string; table: Table; onClose: () => void }) {
   const { t } = useTranslation()
   const [name, setName] = useState(table.name)
@@ -127,7 +127,7 @@ function DeleteTableDialog({ pid, table, onClose }: { pid: string; table: Table;
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
 
-/** Edit a column's name, description and type settings; the type itself is fixed (LBL-02) */
+/** Edit a column's name, description and type settings; the type itself is fixed */
 function EditColumnDialog({ pid, tid, col, onClose }: { pid: string; tid: string; col: LabelColumn; onClose: () => void }) {
   const { t } = useTranslation()
   const [name, setName] = useState(col.name)
@@ -211,7 +211,6 @@ function Trigger({ label }: { label: string }) {
   )
 }
 
-/** "…" menu of a table: Edit table…, Delete table… */
 export function TableMenu({ pid, table }: { pid: string; table: Table }) {
   const { t } = useTranslation()
   const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null)
@@ -233,7 +232,6 @@ export function TableMenu({ pid, table }: { pid: string; table: Table }) {
   )
 }
 
-/** "…" menu of a column header: Edit column…, Delete column… */
 export function ColumnMenu({ pid, tid, col }: { pid: string; tid: string; col: LabelColumn }) {
   const { t } = useTranslation()
   const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null)
@@ -255,7 +253,6 @@ export function ColumnMenu({ pid, tid, col }: { pid: string; tid: string; col: L
   )
 }
 
-/** LBL-10: deleted tables with Restore */
 export function DeletedTables({ pid, tables }: { pid: string; tables: Table[] }) {
   const { t } = useTranslation()
   const qc = useQueryClient()

@@ -1,5 +1,4 @@
-// Run dashboard tab (DASHBOARD.md): views as dockview sub-panels whose arrangement persists per run
-// (DB-01), global filters and colour (DB-02/07), linked selection (DB-04), focus requests (DB-09).
+// Run dashboard tab: views as dockview sub-panels whose arrangement persists per run.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type IDockviewPanelProps } from 'dockview-react'
 import { useEffect, useRef, useState } from 'react'
@@ -109,7 +108,6 @@ function SelectionChip({ runId }: { runId: string }) {
   const selection = useRunDashboard(runId).selection
   const select = useDashboardStore((s) => s.select)
   if (!selection.length) return null
-  // DB-04: the selection becomes the Explorer's item-id filter
   const send = () => {
     showItemsInExplorer(selection)
     toast({ message: t('dashboard.selection.sent', { count: selection.length }), tone: 'ok' })
@@ -159,7 +157,7 @@ export function DashboardEditor({ params }: EditorProps<RunParams>) {
     })
   }
 
-  // DB-09: show the requested view (the view component applies the params)
+  // Show the requested view; the view component applies the params
   useEffect(() => {
     if (!api || !focus || focus.nonce === seen.current) return
     seen.current = focus.nonce

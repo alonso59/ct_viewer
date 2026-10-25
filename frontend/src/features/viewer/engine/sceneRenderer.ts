@@ -1,4 +1,4 @@
-// VW-27: scene decorations use the same world-to-camera matrix as the volume, including screenshots.
+// Scene decorations use the same world-to-camera matrix as the volume, including screenshots.
 import { hexToRgb } from '../model/labels'
 import { PLANE_AXIS, PLANES } from '../model/layouts'
 import { planeCorners } from '../model/scene3d'

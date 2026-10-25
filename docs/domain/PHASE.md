@@ -30,7 +30,3 @@ Phase selection is a native app capability (ADR-0026) — always available, not 
 
 - Backend `app/phase/` (API-63..65): events via the core event store; the effective phase is joined where the index is loaded (`phase.source = "manual"`, the replaced value in `phase.resolved`), never written to `index/`.
 - Frontend `features/phase/` (core, not a plugin): `PhaseButtons` in the case header ("Set phase", next to the scan switcher, whose drop-down only moves between scans); "Accept guess" when the effective value comes from the active `analyzer.phase` run (`analyzer:{run_id}`); "was …" shows the replaced value; a history dialog per scan (PHS-07); "updated by" toasts for other browsers (PHS-05); the command "Export phase selections" (Project menu, PHS-06). Explorer rows use static `PhaseChip` badges (PHS-01); view-only links show the chip only.
-
-## Relation to Curation & QC / Analyzers
-
-Curation records QC decisions about images and masks; it no longer has a phase target or status. Analyzers only guess; accepting a guess is a phase event, not a curation event. Both still use the same shared event store (ADR-0022), under a different, native namespace.

@@ -7,7 +7,7 @@ Depends: SEGMENTATION.md, TASKS.md, SEGMENTATION_RUNTIMES.md, ../adr/0034-capabi
 ## Status and boundaries
 
 P7f accepted and P7g authorized by the owner on 2026-10-22; ADR-0034 supersedes ADR-0033 following the owner's no-administrator deployment decision.
-The user requested an audited, tests-first implementation. P7g follows the ordered gates below.
+P7g is audited and tests-first, following the ordered gates below.
 The keys below identify acceptance criteria, not SRS requirement IDs. Assign IDs in their existing owner docs before each wave's tests.
 Keep R1..R9, TSK-09/11 and SEG-06. Prioritize Linux local/server production readiness; SLURM execution/acceptance is deferred until cluster access exists. No accounts, database server, privileged daemon, automatic model download or GPU code in the app image.
 Support compatible nnU-Net v2 **single-channel NIfTI** models first. Multi-channel MRI, cascade/multi-configuration pipelines and training require a later phase; incompatible models must be explained and refused.

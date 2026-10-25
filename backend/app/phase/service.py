@@ -1,8 +1,5 @@
-"""Native phase selection service (PHASE.md PHS-01..08, ADR-0026).
-
-Not a plugin and not gated by one. Selections are events in the core event store namespace
-`phase` (PHS-02); the effective phase is joined at read time by the index store (PHS-03).
-Stateless like the other services: routers build one per request.
+"""Selections are events in the core event store namespace `phase`; the effective phase is
+joined at read time by the index store. Stateless: routers build one per request.
 """
 
 from __future__ import annotations
@@ -49,10 +46,8 @@ class PhaseService:
     def _pdir(self, project_id: str) -> Path:
         return self.workspace.project_dir(project_id)
 
-    # -- write (PHS-01/02/04) -------------------------------------------------------------------
-
     def check_value(self, project_id: str, value: str) -> str:
-        """A `phase_vocabulary` value; an empty vocabulary is open (PRJ-16)."""
+        """A `phase_vocabulary` value; an empty vocabulary is open."""
         vocab = self.workspace.get(project_id).phase_vocabulary
         v = value.strip()
         if not v or (vocab and v not in vocab):
@@ -80,11 +75,11 @@ class PhaseService:
             {"case_id": body.case_id, "scan_idx": body.scan_idx, "value": value,
              "source": body.source, "accepted_run_id": body.accepted_run_id},
         )  # fmt: skip
-        await self.events.append(project_id, state.NAMESPACE, [record])  # PHS-05
+        await self.events.append(project_id, state.NAMESPACE, [record])
         return PhaseEvent(**record)
 
     def append_locked(self, project_id: str, records: Sequence[dict[str, Any]]) -> None:
-        """Import compat (PHS-08): the caller holds the project lock and publishes."""
+        """For imports: the caller holds the project lock and publishes."""
         if records:
             self.events.append_locked(project_id, state.NAMESPACE, records)
 
@@ -92,12 +87,10 @@ class PhaseService:
         if records:
             self.events.publish(project_id, state.NAMESPACE, records, {"fields": ["phase"]})
 
-    # -- read (PHS-02/07) -----------------------------------------------------------------------
-
     def history(
         self, project_id: str, *, case_id: str | None = None, scan_idx: str | None = None
     ) -> list[PhaseEvent]:
-        """PHS-07: every event, newest first."""
+        """Every event, newest first."""
         return [
             PhaseEvent.model_validate(e)
             for e in reversed(state.events(self._pdir(project_id)))
@@ -126,10 +119,8 @@ class PhaseService:
             )
         return PhaseState(n_events=len(state.events(pdir)), selections=rows)
 
-    # -- export (PHS-06) ------------------------------------------------------------------------
-
     async def export(self, project_id: str) -> PhaseExportResult:
-        """`exports/phase_selections.json`, shaped like `phase.json` (INPUT_METADATA)."""
+        """`exports/phase_selections.json`, shaped like `phase.json`."""
         pdir = self._pdir(project_id)
         async with self.events.locks(project_id):
             selected = state.selections(pdir)
@@ -148,7 +139,7 @@ class PhaseService:
 def import_record(
     reviewer: str, case_id: str, scan_idx: str, value: str, source: str, at: str | None = None
 ) -> dict[str, Any]:
-    """A PHS-08 import event (`v2_import` / `converter_import`); `at` keeps the v2 time."""
+    """An import event (`v2_import` / `converter_import`); `at` keeps the v2 time."""
     rec = stamp(reviewer, None, {"case_id": case_id, "scan_idx": scan_idx, "value": value,
                                  "source": source, "accepted_run_id": None})  # fmt: skip
     if at:

@@ -1,9 +1,8 @@
-"""One definition per count (AUD-A1-08 / A2-08; IMP-03, CUR-08, RAD-05).
+"""One definition per count, shared by the import preview, the project summary and the index
+status so that every place showing counts agrees.
 
-A case counts when it has at least one row or item that is not excluded upstream (IMP-07);
-excluded rows are counted only under "excluded upstream". Used by the import preview, the
-project summary (PRJ-02) and the index status, so the preview, the import toast, the Recent
-card, the Welcome page and the Explorer agree.
+A case counts when it has at least one row or item that is not excluded upstream; excluded rows
+are counted only under "excluded upstream".
 """
 
 from __future__ import annotations

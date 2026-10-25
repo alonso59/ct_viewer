@@ -1,4 +1,4 @@
-"""TSK-15: API-owned requests and acknowledgements of verified external cleanup."""
+"""API-owned requests and acknowledgements of verified external cleanup."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from app.tasks.models import TERMINAL_TASK_RUN, TaskControl, TaskRunDetail, Task
 if TYPE_CHECKING:
     from app.tasks.service import TaskService
 
-PAUSE_GRACE_S: Final = 10.0  # in-flight batch deadline before the worker interrupts it (J3)
+PAUSE_GRACE_S: Final = 10.0  # in-flight batch deadline before the worker interrupts it
 STOPPING: Final = frozenset({"pausing", "cancelling", "cleanup_pending"})
 
 
@@ -49,7 +49,7 @@ def acknowledge(rec: TaskRunRecord, job: Path) -> bool:
 
 
 async def settle(svc: TaskService, pid: str, run_dir: Path) -> None:
-    """`cleanup_pending` → paused/cancelled once the supervisor confirms it (S4)."""
+    """`cleanup_pending` → paused/cancelled once the supervisor confirms it."""
     rec = svc.runs.read(run_dir)
     if rec.status != "cleanup_pending" or not pending(rec) or rec.job_id is None:
         return
@@ -75,7 +75,7 @@ async def request_control(
         if rec.archived:
             raise JobConflict("Archived runs are read-only")
         if rec.status in TERMINAL_TASK_RUN:
-            if action == "cancel" or (action == "pause" and rec.status == "paused"):
+            if action == "cancel" or rec.status == "paused":
                 return TaskRunDetail(**rec.model_dump())
             raise JobConflict(f"Cannot {action} a {rec.status} run")
         if pending(rec):

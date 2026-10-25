@@ -1,1 +1,1 @@
-"""Event store, reducer, correction queue, exports. CUR-*."""
+"""Event store, reducer, correction queue, exports."""

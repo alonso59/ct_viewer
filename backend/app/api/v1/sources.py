@@ -1,7 +1,3 @@
-"""API-19 source detection and API-07/08/09 Open mode (SRC-01..14): validate → call → map.
-
-Open-mode logic lives in `app.sources.open_service` (AUD-A6-05)."""
-
 from __future__ import annotations
 
 import asyncio
@@ -34,7 +30,7 @@ class PathBody(BaseModel):
 
 @router.post("/sources/detect", response_model=DetectResult)
 async def detect_source(ctx: Ctx, body: PathBody) -> DetectResult:
-    """API-19: candidate adapters with reasons, counts and confidence (SRC-01/02)."""
+    """Candidate adapters with reasons, counts and confidence."""
     real = svc(ctx).guarded(body.path)
     available = "dicom.convert" in ctx.registry.tasks
     return await asyncio.to_thread(detect, real, dicom_available=available)
@@ -49,7 +45,7 @@ def svc(ctx: Ctx) -> OpenService:
         sessions=ctx.open_sessions,
         workspace_root=ctx.settings.workspace_root,
         settings=ctx.settings,
-        on_cache_write=ctx.cache_written,
+        on_cache_write=ctx.cache_budget.request,
         restore_session=ctx.source_operations.open_session,
         persist_session=ctx.source_operations.save_open_session,
     )
@@ -57,7 +53,7 @@ def svc(ctx: Ctx) -> OpenService:
 
 @router.post("/open", response_model=open_mode.OpenSession, status_code=201)
 async def open_path(ctx: Ctx, body: PathBody) -> open_mode.OpenSession:
-    """API-07: a file or folder → an ephemeral session, headers only (SRC-09)."""
+    """A file or folder → an ephemeral session, headers only."""
     return await svc(ctx).open(body.path)
 
 
@@ -73,7 +69,7 @@ def get_open(
 def open_items(
     ctx: Ctx, sid: str, pg: Paging, kind: open_mode.ItemKind | None = None
 ) -> Page[open_mode.OpenItem]:
-    """API-07 / SRC-18: stable paging over complete series, never a prefix of slices."""
+    """Stable paging over complete series, never a prefix of slices."""
     items = svc(ctx).session(sid).items
     return paginate([item for item in items if item.kind == kind] if kind else items, pg)
 
@@ -98,7 +94,7 @@ async def open_image(
     request: Request,
     axis_order: Literal["xyz", "zyx"] | None = None,
 ) -> Response:
-    """API-08. NumPy without a decisive order → `ambiguous-axis-order` (SRC-12)."""
+    """NumPy without a decisive order → `ambiguous-axis-order`."""
     path, etag = await svc(ctx).volume(sid, n, axis_order)
     name = path.name if path.name != "volume.nii.gz" else f"open-{n}.nii.gz"
     return streaming.volume_response(path, etag, name, request)
@@ -106,7 +102,7 @@ async def open_image(
 
 @router.get("/open/{sid}/items/{n}/dicom-tags", response_model=dict[str, Any])
 async def open_dicom_tags(ctx: Ctx, sid: str, n: int) -> dict[str, Any]:
-    """Header info for a DICOM item (VW-22): its first file's DICOM JSON, never PixelData."""
+    """Header info for a DICOM item: its first file's DICOM JSON, never PixelData."""
     return await svc(ctx).dicom_tags(sid, n)
 
 
@@ -114,7 +110,7 @@ async def open_dicom_tags(ctx: Ctx, sid: str, n: int) -> dict[str, Any]:
     "/open/{sid}/items/{n}/preview",
     response_class=Response,
     responses=_PNG,
-    summary="NumPy middle slice in one axis order (the Open dialog, SRC-12)",
+    summary="NumPy middle slice in one axis order (the Open dialog)",
 )
 async def open_preview(
     ctx: Ctx, sid: str, n: int, axis_order: Literal["xyz", "zyx"] = "xyz"
@@ -125,12 +121,12 @@ async def open_preview(
 
 @router.post("/open/{sid}/items/{n}/attach", response_model=open_mode.OpenSession)
 async def open_attach(ctx: Ctx, sid: str, n: int, body: PathBody) -> open_mode.OpenSession:
-    """API-08 attach (SRC-10, ADR-0027): a segmentation for item n from anywhere under
-    ALLOWED_DATA_ROOTS, only if the geometry matches."""
+    """Attach a segmentation for item n from anywhere under ALLOWED_DATA_ROOTS, only if the
+    geometry matches."""
     return await svc(ctx).attach(sid, n, body.path)
 
 
 @router.post("/open/{sid}/items/{n}/save", response_model=Saved, status_code=201)
 async def open_save(ctx: Ctx, sid: str, n: int, body: SaveBody) -> Saved:
-    """SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
+    """Write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
     return await svc(ctx).save(sid, n, body)

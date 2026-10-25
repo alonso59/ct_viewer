@@ -1,5 +1,5 @@
-"""Guided analyses on a unit of analysis (ANA-02..07). Shared by API-39 and the
-group-comparison / association / balance views (API-38)."""
+"""Guided analyses on a unit of analysis, shared by saved analyses and the
+group-comparison / association / balance views."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ from app.variables.models import Variable
 ALL = "all"
 MAX_CELL_IDS = 200
 
-# Question → (default test, alternative) per variable shape (ANALYSIS.md §Tests).
+# Question → (default test, alternative).
 TESTS: dict[str, tuple[TestName, TestName]] = {
     "compare2": ("welch_t", "mann_whitney"),
     "compare3": ("welch_anova", "kruskal_wallis"),
@@ -43,8 +43,6 @@ TESTS: dict[str, tuple[TestName, TestName]] = {
 
 
 def check_type(v: Variable, allowed: frozenset[str], loc: Sequence[str], what: str) -> None:
-    """ANA-02: only question types valid for the variable type. Unconfirmed
-    numeric-discrete variables must be confirmed first (VAR-03)."""
     if v.type in allowed:
         return
     if v.type == "numeric-discrete":
@@ -83,7 +81,7 @@ def result_row(feature: str | None, o: Outcome, q: float = math.nan) -> ResultRo
 
 
 def sort_rows(rows: list[ResultRow]) -> list[ResultRow]:
-    """ANA-05: by q, then |effect| (descending); untested rows last."""
+    """By q, then |effect| (descending); untested rows last."""
     return sorted(
         rows,
         key=lambda r: (
@@ -161,7 +159,7 @@ def _finalize(features: Sequence[str], outcomes: list[Outcome]) -> list[ResultRo
 
 
 def compare(unit: Unit, v: Variable, override: TestOverride) -> Computed:
-    """Compare groups (ANA-04..07). Groups with n < 5 stay in descriptives only (ANA-06)."""
+    """Groups with n < 5 stay in descriptives only."""
     check_type(v, GROUP_TYPES, ("body", "variable"), "Compare groups")
     levels = unit.levels(v.name)
     valid = np.asarray([lv is not None for lv in levels], dtype=bool)
@@ -221,7 +219,6 @@ def associate(unit: Unit, v: Variable, override: TestOverride) -> Computed:
 
 
 def explore(unit: Unit) -> Computed:
-    """Explore: no test (ANALYSIS.md §Tests); descriptives per feature."""
     return Computed(
         choice=TestChoice(
             default_test=None,
@@ -239,7 +236,7 @@ def explore(unit: Unit) -> Computed:
 def contingency(
     unit: Unit, row_levels: Obj, col_levels: Obj, override: TestOverride
 ) -> tuple[list[str], list[str], list[str], list[str], np.ndarray, Outcome]:
-    """Rows/cols with n ≥ 5 (ANA-06) → table + test; excluded levels listed separately."""
+    """Rows/cols with n ≥ 5 → table + test; excluded levels listed separately."""
     ok = np.asarray(
         [a is not None and b is not None for a, b in zip(row_levels, col_levels, strict=True)]
     )
@@ -271,10 +268,8 @@ def balance(unit: Unit, v: Variable, other: Variable, override: TestOverride) ->
             f"Balance check needs ≥ 2 levels with n ≥ {st.MIN_N} on each side "
             f"({v.name}: {len(rows)}, {other.name}: {len(cols)})",
         )
-    expected = None
-    if table.size:
-        with st.quiet():
-            expected = np.outer(table.sum(1), table.sum(0)) / table.sum()
+    with st.quiet():
+        expected = np.outer(table.sum(1), table.sum(0)) / table.sum()
     rep = unit.rep_item_ids()
     cells: list[ContingencyCell] = []
     for i, r in enumerate(rows):
@@ -285,7 +280,7 @@ def balance(unit: Unit, v: Variable, other: Variable, override: TestOverride) ->
                     row=r,
                     col=c,
                     n=int(table[i, j]),
-                    expected=num(expected[i, j]) if expected is not None else None,
+                    expected=num(expected[i, j]),
                     item_ids=[str(x) for x in rep[m][:MAX_CELL_IDS]],
                     case_ids=[str(x) for x in unit.case_id[m][:MAX_CELL_IDS]],
                 )
@@ -295,7 +290,7 @@ def balance(unit: Unit, v: Variable, other: Variable, override: TestOverride) ->
         GroupInfo(level=str(lv), n=int((a == lv).sum()), excluded=str(lv) in ex_r)
         for lv in level_order([str(x) for x in a if x is not None])
     ]
-    missing = int(sum(1 for x, y in zip(a, b, strict=True) if x is None or y is None))
+    missing = sum(1 for x, y in zip(a, b, strict=True) if x is None or y is None)
     table_model = Contingency(
         variable=v.name,
         other=other.name,

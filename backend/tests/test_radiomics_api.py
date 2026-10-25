@@ -109,9 +109,6 @@ def sel(items: list[str] = ITEMS, labels: list[int] | None = None) -> dict[str, 
     return {"item_ids": items, "labels": labels or [2]}
 
 
-# -- API-30 / API-43 ----------------------------------------------------------------------
-
-
 def test_schema_and_validate_endpoints(client: TestClient) -> None:
     r = client.get(f"{API}/radiomics/schema")
     assert r.status_code == 200, r.text
@@ -185,9 +182,6 @@ def test_app_imports_without_engine() -> None:
     subprocess.run([sys.executable, "-c", code], cwd=BACKEND, check=True)
 
 
-# -- API-32 profiles ----------------------------------------------------------------------
-
-
 def test_profiles_crud(client: TestClient, proj: str) -> None:
     url = f"{API}/projects/{proj}/radiomics/profiles"
     body = {"name": "Tumor bw10", "settings": {"settings": {"binWidth": 10}}}
@@ -221,9 +215,6 @@ def test_profiles_crud(client: TestClient, proj: str) -> None:
     assert r.json()["errors"][0]["loc"] == ["body", "settings", "settings", "binWidth"]
 
 
-# -- API-44 estimate ----------------------------------------------------------------------
-
-
 def test_estimate(client: TestClient, proj: str) -> None:
     body = {"selection": {"filter": {"phase": ["NP"]}, "scope": "complete", "labels": [2, 3]}}
     r = post_estimate(client, proj, body)
@@ -247,9 +238,6 @@ def test_estimate(client: TestClient, proj: str) -> None:
     )
     assert_problem(r, "validation")
     assert r.json()["errors"][0]["loc"] == ["body", "selection", "item_ids", 0]
-
-
-# -- API-45..47 runs, API-36 exports ------------------------------------------------------
 
 
 def _write_guard(root: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:

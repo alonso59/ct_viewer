@@ -8,23 +8,17 @@ Depends: product/ROADMAP.md.
 
 - **Integration branch:** `v3`. Each lane works on its own branch in its own **git worktree**, so parallel sessions never share a working copy.
 - **Integrator:** the VS Code session. At the end of every step it merges the lane branches into `v3`, runs all checks, and stops for your approval (AGENTS.md workflow rule).
-- **Gates you cannot skip:** the P0.5 prototype approval, the P1 check on the real Dataset820 data, and the P7 udocker test on the remote server.
+- **Gate you cannot skip:** the P7 udocker test on the remote server.
 - For long shell runs, switch the permission mode with `Shift+Tab` so the agent is not blocked on every edit.
 
 ## Schedule
 
 | Step | VS Code extension (integrator) | Shell A | Shell B | Gate |
 |---|---|---|---|---|
-| 0 | Bootstrap (sequential) | — | — | Checks green |
-| 1 | P0.5 design + prototype | P1 backend core | — | You approve the prototype; P1 exit |
-| 2 | P2 shell + explorer (+ Variables view) | P1b variables, P4-BE curation, P5-BE radiomics, P6-BE analytics + stats | P3 viewer | Merge + checks |
-| 3 | P4-FE curation, P6-FE dashboard | P5-FE radiomics form | P7-prep image + scripts | Merge + checks |
-| 3b | Orchestrator + sub-agents (one terminal) | — | — | Checks green |
-| P7b | — | One sequential session (all waves) | — | Your check after Wave 1; P7b exit |
 | 4 | Review | P7 on remote server (udocker, Dataset820, perf), after P7b | — | NFRs met |
 | 5 | P8 Electron | — | — | Release |
 
-## Lanes (parallel work; moved from ROADMAP 2026-09-27)
+## Lanes
 
 A lane edits **only** the paths it owns. Anything it needs elsewhere goes into its commit message as a note for the integrator.
 Every lane may also tick its own lines in `product/ROADMAP.md`.
@@ -49,13 +43,13 @@ Shared files that only the integrator edits: `Makefile`, `backend/pyproject.toml
 ## Worktree setup (run once per step, from the repo root)
 
 ```bash
-cd "/Volumes/Mac/Mac external/Documents/ct_viewer"
-git worktree add "../ct_viewer-wt/A" -b lane/<step>-A v3    # Shell A
-git worktree add "../ct_viewer-wt/B" -b lane/<step>-B v3    # Shell B
-cd "../ct_viewer-wt/A" && claude                           # then paste the lane prompt
+cd <repo root>
+git worktree add "../wt/A" -b lane/<step>-A v3    # Shell A
+git worktree add "../wt/B" -b lane/<step>-B v3    # Shell B
+cd "../wt/A" && claude                           # then paste the lane prompt
 ```
 
-After merging, clean up with `git worktree remove "../ct_viewer-wt/A"`.
+After merging, clean up with `git worktree remove "../wt/A"`.
 
 ## LANE RULES (paste this at the top of every lane prompt)
 

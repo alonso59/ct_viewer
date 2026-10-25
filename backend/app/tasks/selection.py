@@ -1,4 +1,4 @@
-"""Task selection and preflight (TSK-03/04, API-44): which active items run, which are ready."""
+"""Task selection and preflight: which active items run, which are ready."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from app.tasks.models import (
 )
 from app.tasks.records import TaskBase
 
-# TSK-04 reason codes → the `missing` keys of API-44 preflight
+# readiness reason codes → the `missing` keys of preflight
 _TEXT: Final[dict[str, str]] = {
     "no_image": "no image",
     "modality": "modality {modality}",
@@ -34,7 +34,7 @@ class SelectionBase(TaskBase):
     """Selection, readiness, suggestions and the `input: source` path."""
 
     async def select(self, pid: str, sel: TaskSelection) -> list[Item]:
-        """Active items matching an explicit list, or an Explorer filter, or all (TSK-03)."""
+        """Active items matching an explicit list, or an Explorer filter, or all."""
         idx = self.store.load(pid)
         ids = readiness.var_ids(self.workspace, self.store, self.locks, self.bus, pid)
         items, problems = await readiness.resolve(idx.items, idx.by_id, sel, ids)
@@ -57,7 +57,7 @@ class SelectionBase(TaskBase):
     def _not_ready(
         self, cfg: ProjectConfig, m: TaskManifest, it: Item, seg_id: str | None
     ) -> str | None:
-        """Why an item can't run (TSK-04, `readiness.not_ready`) as text, or None when ready."""
+        """Why an item can't run (`readiness.not_ready`) as text, or None when ready."""
         r = readiness.not_ready(
             it,
             need_image=m.input == "items",
@@ -84,7 +84,7 @@ class SelectionBase(TaskBase):
         return out
 
     def _source(self, sel: TaskSelection) -> str:
-        """`input: source`: a folder or file inside ALLOWED_DATA_ROOTS (DCM-01, SRC-13)."""
+        """`input: source`: a folder or file inside ALLOWED_DATA_ROOTS."""
         if not sel.source:
             raise ValidationProblem(
                 "Choose the DICOM folder or file to convert",

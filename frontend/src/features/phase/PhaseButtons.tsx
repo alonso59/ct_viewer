@@ -1,6 +1,3 @@
-// Native phase selection (PHASE.md PHS-01/04/07, ADR-0026): one button per vocabulary value; a
-// click sets the scan's phase at once. The active analyzer run's guess can be accepted as is.
-// Always available (not a plugin); hidden on view-only links (read-only chips instead).
 import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -16,8 +13,7 @@ type Scan = Pick<ItemRecord, 'case_id' | 'scan_idx' | 'phase'>
 // Keep phase controls from triggering surrounding viewer navigation or shortcuts.
 const stop = (e: SyntheticEvent) => e.stopPropagation()
 
-/** `variant="seg"` (case header, AUD-A1-12): a segmented control with the effective phase pressed,
- *  so it reads as the scan's current value and not as a second row of scan chips */
+/** `variant="seg"` (case header): a segmented control with the effective phase pressed */
 export function PhaseButtons({ pid, scan, className, variant = 'chips' }: { pid: string; scan: Scan; className?: string; variant?: 'chips' | 'seg' }) {
   const { t } = useTranslation()
   const project = useProject(pid).data
@@ -61,7 +57,7 @@ export function PhaseButtons({ pid, scan, className, variant = 'chips' }: { pid:
   )
 }
 
-/** PHS-07: the scan's selections, newest first */
+/** The scan's selections, newest first */
 export function PhaseHistoryButton({ pid, caseId, scanIdx }: { pid: string; caseId: string; scanIdx: string }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)

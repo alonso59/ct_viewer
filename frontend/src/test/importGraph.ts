@@ -1,9 +1,9 @@
-// The static import graph of `src/` (non-test modules), for the boundary and cycle checks
-// (FE-ARCH §Boundaries, AUD-A6-10/11). Relative imports only; `import type` is left out (erased).
+// The static import graph of `src/` (non-test modules), for the boundary and cycle checks.
+// Relative imports only; `import type` is left out (erased).
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 
-export const SRC = resolve(__dirname, '..')
+const SRC = resolve(__dirname, '..')
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

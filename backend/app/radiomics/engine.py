@@ -1,4 +1,4 @@
-"""Radiomics engine adapter (RAD-12, ADR-0006).
+"""Radiomics engine adapter.
 
 The protocol is the only thing services and the UI depend on; the default engine is
 PyRadiomics (`pyradiomics_engine`), an optional extra (`[radiomics]`). It is imported lazily,
@@ -35,19 +35,15 @@ class RadiomicsEngine(Protocol):
     name: str
     version: str
 
-    def schema(self) -> SettingsSchema:
-        """Options, defaults, constraints, filters, feature classes, IBSI metadata (RAD-01)."""
-        ...
+    def schema(self) -> SettingsSchema: ...
 
     def validate(self, settings: dict[str, Any]) -> list[Issue]:
-        """All issues for a `RadiomicsSettings`-shaped dict: schema checks + rules (RAD-04)."""
-        ...
+        """All issues for a `RadiomicsSettings`-shaped dict: schema checks + rules."""
 
     def extract(
         self, image_path: str, mask_path: str, label: int, settings: dict[str, Any]
     ) -> ExtractionResult:
         """One (image, mask, label) extraction with *normalized* settings. Opens files `rb`."""
-        ...
 
     def dependency_versions(self) -> dict[str, str]: ...
 

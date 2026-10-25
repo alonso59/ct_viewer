@@ -1,4 +1,3 @@
-// Server state through TanStack Query only (FE-02). Writes stamp the reviewer (FE-10).
 import { isCancelledError, keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
@@ -37,7 +36,6 @@ const enabled = (...v: (string | null | undefined)[]) => v.every(Boolean)
 export const useHealth = () => useQuery({ queryKey: keys.health(), queryFn: () => api.health(), staleTime: Infinity })
 export const useProjects = (archived = false) => useQuery({ queryKey: keys.projects(archived), queryFn: () => api.listProjects({ archived }) })
 
-/** API-04 (PRJ-06): archive / restore; the lists refresh */
 export function useArchiveProject() {
   const qc = useQueryClient()
   const done = () => qc.invalidateQueries({ queryKey: keys.projects() })
@@ -66,7 +64,7 @@ export const useBrokenDerived = (pid: string) =>
   useQuery({ queryKey: keys.brokenDerived(pid), queryFn: () => api.brokenDerived(pid), enabled: enabled(pid) })
 export const useEvents = (pid: string, f: { item_id?: string; case_id?: string }) =>
   useQuery({ queryKey: keys.events(pid, f), queryFn: () => api.listEvents(pid, f), enabled: enabled(pid) })
-/** PHS-07: phase selections of one scan, newest first */
+/** Phase selections of one scan, newest first */
 export const usePhaseEvents = (pid: string, cid: string | null, scan: string | null) =>
   useQuery({ queryKey: keys.phaseEvents(pid, cid ?? '', scan ?? ''), queryFn: () => api.phaseEvents(pid, { case_id: cid ?? '', scan_idx: scan ?? '' }), enabled: enabled(pid, cid, scan) })
 export const useCurationState = (pid: string) =>
@@ -86,7 +84,7 @@ export const useFeatures = (pid: string, rid: string | null | undefined, iid?: s
   })
 export const useRunErrors = (pid: string, rid: string | null) =>
   useQuery({ queryKey: keys.runErrors(pid, rid ?? ''), queryFn: () => api.runErrors(pid, rid ?? ''), enabled: enabled(pid, rid) })
-/** API-38 view; the previous result stays visible while new params load. `body = null` disables it. */
+/** The previous result stays visible while new params load. `body = null` disables it. */
 export const useDashboardView = <V extends DashboardView>(pid: string, rid: string, view: V, body: ViewRequest<V> | null) =>
   useQuery({
     queryKey: keys.view(pid, rid, view, body),
@@ -101,12 +99,12 @@ export const useAnalysis = (pid: string, aid: string | null) =>
   useQuery({ queryKey: keys.analysis(pid, aid ?? ''), queryFn: () => api.getAnalysis(pid, aid ?? ''), enabled: enabled(pid, aid), staleTime: Infinity })
 export const useProfiles = (pid: string) =>
   useQuery({ queryKey: keys.profiles(pid), queryFn: () => api.listProfiles(pid), enabled: enabled(pid) })
-/** API-41; without a project, all jobs */
+/** Without a project, all jobs */
 export const useJobs = (pid?: string | null) =>
   useQuery({ queryKey: keys.jobs(pid ?? undefined), queryFn: () => api.listJobs(pid ?? undefined) })
-/** API-30; the engine schema does not change while the server runs */
+/** The engine schema does not change while the server runs */
 export const useRadiomicsSchema = () => useQuery({ queryKey: keys.schema(), queryFn: () => api.radiomicsSchema(), staleTime: Infinity, retry: 1 })
-/** API-43 for one request; `body = null` disables it. The previous answer stays while a new one loads. */
+/** `body = null` disables it. The previous answer stays while a new one loads. */
 export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labels: number[] | null; nItems: number | null } | null) {
   const key = body ? JSON.stringify(body) : ''
   return useQuery({
@@ -119,11 +117,11 @@ export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labe
 }
 export const useFsList = (path: string | null, role: RootRole = 'source') =>
   useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
-/** API-69 / SRC-18: server-owned opening; the compatibility API-07 remains available. */
+/** Server-owned opening of a file or folder */
 export const useStartOpen = () => useMutation({
   mutationFn: ({ path, key }: { path: string; key: string }) => api.startSourceOperation({ path, purpose: 'open', prepare_plan: false, idempotency_key: key }),
 })
-/** API-07: a live Open-mode session by id; `not-found` once closed or after a server restart */
+/** `not-found` once the session is closed or after a server restart */
 export const useOpenSession = (sid: string | null) =>
   useQuery({ queryKey: keys.open(sid ?? ''), queryFn: () => api.getOpen(sid ?? ''), enabled: enabled(sid), staleTime: Infinity, retry: false })
 export const useOpenItems = (sid: string | null, cursor: string | undefined, limit: number) =>
@@ -170,7 +168,6 @@ export function useAppendEvent(pid: string) {
   })
 }
 
-/** PHS-01/04: one click sets the scan's phase at once (reviewer asked on first use) */
 export function useAppendPhase(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -184,7 +181,7 @@ export function useAppendPhase(pid: string) {
 }
 
 /** `fetchQuery` for commands: a live-sync refresh can cancel the fetch it joined (`refreshQueries`),
- *  so a cancelled fetch is retried instead of silently dropping the command (AUD-A1-04) */
+ *  so a cancelled fetch is retried instead of silently dropping the command */
 export async function fetchSettled<T>(qc: QueryClient, queryKey: QueryKey, queryFn: () => Promise<T>): Promise<T> {
   for (let i = 0; ; i++) {
     try {
@@ -195,7 +192,7 @@ export async function fetchSettled<T>(qc: QueryClient, queryKey: QueryKey, query
   }
 }
 
-/** PHS-01 outside a component (a palette command, AUD-A1-06): same as `useAppendPhase` */
+/** `useAppendPhase` outside a component (a palette command) */
 export async function appendPhaseNow(qc: QueryClient, pid: string, ev: NewPhaseEvent) {
   const reviewer = await requireReviewer()
   if (!reviewer) throw new ReviewerCancelled()
@@ -204,7 +201,7 @@ export async function appendPhaseNow(qc: QueryClient, pid: string, ev: NewPhaseE
   return r
 }
 
-/** API-39: create + run an analysis (ANA-01), stamped with the reviewer */
+/** Creates and runs an analysis */
 export function useCreateAnalysis(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -220,12 +217,10 @@ export function useCreateAnalysis(pid: string) {
   })
 }
 
-/** API-53 (CUR-10) */
 export function useCurationExports(pid: string) {
   return useMutation({ mutationFn: () => api.curationExports(pid) })
 }
 
-/** API-54 (CUR-13) */
 export function useImportV2(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -257,7 +252,6 @@ export function useRelink(pid: string) {
   })
 }
 
-/** API-06 import (PRJ-09) */
 export function useImportBundle() {
   const qc = useQueryClient()
   return useMutation({
@@ -281,11 +275,11 @@ export function useCommitImport(pid: string) {
   })
 }
 
-/** The ETag of the project version on screen (PRJ-15): a write based on it fails with 412 if
+/** The ETag of the project version on screen: a write based on it fails with 412 if
  *  someone else changed the settings since. */
 const shownEtag = (qc: QueryClient, pid: string) => qc.getQueryData<Project>(keys.project(pid))?.etag ?? ''
 
-/** API-03 settings write (UI-23): `etag` = the version the form was loaded from */
+/** `etag` = the version the form was loaded from */
 export function useUpdateProject(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -297,7 +291,7 @@ export function useUpdateProject(pid: string) {
   })
 }
 
-/** API-62: workspace task runs, newest first (the converted datasets on the home, AUD-A2-14) */
+/** Workspace task runs, newest first (the converted datasets on the home) */
 export const useWorkspaceRuns = () => useQuery({ queryKey: keys.workspaceRuns(), queryFn: () => api.listWorkspaceRuns() })
 export const useSourceOperations = (on = true) => useQuery({ queryKey: keys.sourceOperations(), queryFn: () => api.listSourceOperations(), enabled: on, refetchInterval: 3000 })
 export const useSourceOperation = (id: string | null) => useQuery({
@@ -318,13 +312,13 @@ export const useWorkspaceRun = (rid: string | null) =>
     enabled: !!rid,
     refetchInterval: (q) => (isTaskRunPending(q.state.data?.status) ? 800 : false),
   })
-/** DCM-06: a named dry run's stage while it runs; `not-found` before it starts and after it returned */
+/** A named dry run's stage while it runs; `not-found` before it starts and after it returned */
 export const useEstimateProgress = (eid: string | null) =>
   useQuery({ queryKey: keys.estimateProgress(eid ?? ''), queryFn: () => api.estimateProgress(eid ?? ''), enabled: !!eid, retry: false, refetchInterval: 500 })
 export const useLayers = (pid: string) => useQuery({ queryKey: keys.layers(pid), queryFn: () => api.listLayers(pid), enabled: enabled(pid) })
 export const useLabelTables = (pid: string) =>
   useQuery({ queryKey: keys.labelTables(pid), queryFn: () => api.listLabelTables(pid), enabled: enabled(pid) })
-/** LBL-10: deleted tables, for Restore */
+/** Deleted tables, for Restore */
 export const useDeletedLabelTables = (pid: string) =>
   useQuery({ queryKey: keys.deletedLabelTables(pid), queryFn: () => api.listLabelTables(pid, true), enabled: enabled(pid) })
 export const useLabelCells = (pid: string, tid: string) =>
@@ -386,8 +380,7 @@ export function useImportExternal(pid: string) {
   })
 }
 
-// ---- radiomics writes (API-32, API-44..46) ---------------------------------------------------------------
-/** API-32; saving settings that match a profile returns that profile */
+/** Saving settings that match a profile returns that profile */
 export function useSaveProfile(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -412,7 +405,6 @@ export function useDeleteProfile(pid: string) {
   })
 }
 
-/** API-44 (RAD-11) */
 export function useEstimate(pid: string) {
   return useMutation({ mutationFn: (p: { settings: RadiomicsSettings; selection: Selection }) => api.estimate(pid, p.settings, p.selection) })
 }
@@ -423,7 +415,6 @@ function invalidateRuns(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ queryKey: keys.allJobs() })
 }
 
-/** API-45 (RAD-06), stamped with the reviewer; the Run button is the only trigger (RADIOMICS §Principles) */
 export function useStartRun(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -436,7 +427,6 @@ export function useStartRun(pid: string) {
   })
 }
 
-/** API-46 cancel / resume (RAD-06/08) */
 export function useRunControl(pid: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -460,7 +450,7 @@ function invalidateViews(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ predicate: (q) => isViewKey(q.queryKey) && q.queryKey[1] === pid })
 }
 
-/** PHS-03: the effective phase shows in cases, items, filters, variables and dashboard views */
+/** The effective phase shows in cases, items, filters, variables and dashboard views */
 function invalidatePhase(qc: QueryClient, pid: string) {
   invalidateViews(qc, pid)
   for (const k of ['cases', 'case', 'item', 'phase', 'variables'] as const) void refreshQueries(qc, ['project', pid, k])
@@ -468,7 +458,7 @@ function invalidatePhase(qc: QueryClient, pid: string) {
 
 /** Invalidate like `invalidateQueries`, but also restart a *first* fetch that is still running:
  *  TanStack joins an in-flight fetch of a query without data instead of starting a new one, so
- *  an event that arrives during the first load would be lost (AUD-A0-02). */
+ *  an event that arrives during the first load would be lost. */
 export function refreshQueries(qc: QueryClient, queryKey: readonly unknown[]) {
   for (const q of qc.getQueryCache().findAll({ queryKey }))
     // silent = "a new fetch follows" (as TanStack's own cancelRefetch); only active queries refetch
@@ -482,11 +472,11 @@ function invalidateCuration(qc: QueryClient, pid: string) {
   void refreshQueries(qc, keys.projects())
 }
 
-/** Mask targets carry a segmentation set; an event without one means `imported` (CURATION §Targets) */
+/** Mask targets carry a segmentation set; an event without one means `imported` */
 const segKey = (target: string, seg: string | null | undefined) =>
   target === 'seg' || target === 'voi_mask' || target.startsWith('label:') ? (seg ?? 'imported') : null
 
-/** The derived CUR-08 row of one event, replacing the row of the same (item, target, seg_id) */
+/** The derived curation-state row of one event, replacing the row of the same (item, target, seg_id) */
 export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): CurationStateRow[] {
   const row: CurationStateRow = {
     item_id: ev.item_id ?? null,
@@ -507,15 +497,14 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
   return rows.some((r) => r.event_id === row.event_id) ? rows : [...rows.filter((r) => !same(r)), row]
 }
 
-/** Apply one API-40 event to the query cache */
 export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
-  // LBL-05: other reviewers' cell edits (or a large batch announced as project.updated)
+  // Other reviewers' cell edits (or a large batch announced as project.updated)
   if (e.event === 'labeling.appended' || (e.event === 'project.updated' && e.data.fields.includes('labeling')))
     void refreshQueries(qc, ['project', pid, 'labeling'])
-  // PHS-05: a selection here or in another browser (imports announce `project.updated` with `phase`)
+  // A selection here or in another browser (imports announce `project.updated` with `phase`)
   if (e.event === 'phase.appended' || (e.event === 'project.updated' && e.data.fields.includes('phase'))) invalidatePhase(qc, pid)
   if (e.event === 'curation.appended') {
-    // CUR-11: show the decision at once from the event (server order = last-writer-wins, CUR-12);
+    // Show the decision at once from the event (server order = last-writer-wins);
     // the refetch below confirms it, but can queue behind other requests on a busy server
     qc.setQueryData<CurationStateRow[]>(keys.curationState(pid), (old) => (old ? upsertStateRow(old, e.data) : old))
     invalidateCuration(qc, pid)
@@ -538,7 +527,7 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'run') })
       }
       if (e.data.kind === 'thumbnail') useConnection.getState().bumpThumbs()
-      // TSK-09: a finished task run may have registered a segmentation set, annotations or an import
+      // A finished task run may have registered a segmentation set, annotations or an import
       if (e.data.kind === 'task') {
         void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
         void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
@@ -546,7 +535,7 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'item') })
       }
       if (e.data.kind === 'index') void qc.invalidateQueries({ queryKey: keys.imports(pid) })
-      // API-15 results are `image.sha256` / `mask.sha256` on item records
+      // Hash results are `image.sha256` / `mask.sha256` on item records
       if (e.data.kind === 'hash') {
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'item') })
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'case') })
@@ -554,11 +543,11 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
     }
   }
   if (e.event === 'job.status') {
-    // TSK-06: `waiting_for_runner` ↔ `running`
+    // `waiting_for_runner` ↔ `running`
     qc.setQueryData(keys.jobs(pid), (old: Job[] | undefined) => old?.map((j) => (j.job_id === e.data.job_id ? { ...j, status: e.data.status } : j)))
     void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
   }
-  // AUD-A5-11: events were missed (server replay gap, or the stream reopened after an error)
+  // Events were missed (server replay gap, or the stream reopened after an error)
   if (e.event === 'reset') {
     void refreshQueries(qc, ['project', pid])
     void refreshQueries(qc, keys.projects())
@@ -580,7 +569,7 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   }
 }
 
-/** API-40 listener for side effects (toasts, output log). Cache sync is `useProjectSync`. */
+/** Event-stream listener for side effects (toasts, output log). Cache sync is `useProjectSync`. */
 export function useProjectEvents(pid: string | null, onEvent?: (e: ServerEvent) => void) {
   useEffect(() => {
     if (!pid || !onEvent) return
@@ -598,13 +587,12 @@ export function useProjectSync(pid: string | null) {
   }, [pid, qc])
 }
 
-// ---- P7b: tasks (API-42..47) and segmentation sets (API-27) --------------------------------------
 export const usePlugins = (pid: string | null) =>
   useQuery({ queryKey: keys.plugins(pid), queryFn: () => api.listPlugins(pid ?? undefined), staleTime: 15_000 })
 export const useTasks = () => useQuery({ queryKey: keys.tasks(), queryFn: () => api.listTasks(), staleTime: 30_000 })
 export const useSegmentations = (pid: string) =>
   useQuery({ queryKey: keys.segmentations(pid), queryFn: () => api.listSegmentations(pid), enabled: enabled(pid) })
-/** Polls while a supervised run waits for its verified cleanup (TSK-15): no job event announces it */
+/** Polls while a supervised run waits for its verified cleanup: no job event announces it */
 const STOPPING_RUN: readonly string[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
 export const useTaskRuns = (pid: string) =>
   useQuery({
@@ -613,13 +601,13 @@ export const useTaskRuns = (pid: string) =>
     enabled: enabled(pid),
     refetchInterval: (q) => (q.state.data?.some((r) => STOPPING_RUN.includes(r.status)) ? 2000 : false),
   })
-/** J6: archived supervised runs, fetched only when asked */
+/** Archived supervised runs, fetched only when asked */
 export const useArchivedTaskRuns = (pid: string, on: boolean) =>
   useQuery({ queryKey: keys.archivedTaskRuns(pid), queryFn: () => api.listTaskRuns(pid, undefined, true), enabled: on && enabled(pid) })
 export const useTaskRun = (pid: string, rid: string | null) =>
   useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid), refetchInterval: (q) => q.state.data?.task.id === 'dicom.convert' && isTaskRunPending(q.state.data.status) ? 800 : false })
 
-/** CUR-16: recycle the whole scan only after a preview and explicit confirmation. */
+/** Recycle the whole scan only after a preview and explicit confirmation. */
 export function useRecycleScan(pid: string, iid: string) {
   const qc = useQueryClient()
   return useMutation({

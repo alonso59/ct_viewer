@@ -1,6 +1,6 @@
-// Import a project bundle (PRJ-09, API-06) and show its report: new project, id change, and a
-// per-alias resolve check. When an alias does not resolve, Relink (PRJ-05) opens from here.
-// Lazy chunk: loaded once a file is picked on the workspace home (NFR-07).
+// Import a project bundle and show its report: new project, id change, and a per-alias resolve
+// check. When an alias does not resolve, Relink opens from here.
+// Lazy chunk: loaded once a file is picked on the workspace home.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'

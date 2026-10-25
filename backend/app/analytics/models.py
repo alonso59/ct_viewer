@@ -1,7 +1,7 @@
-"""Request/response models for dashboard views (API-38, DB-*) and analyses (API-39, ANA-*).
+"""Request/response models for dashboard views and analyses.
 
-Every item-bearing point, bar or cell carries `item_id` + `case_id` (DB-03) and the curation
-status badge; colors are returned as category levels, the palette lives in the client (DB-07).
+Every item-bearing point, bar or cell carries `item_id` + `case_id` and the curation
+status badge; colors are returned as category levels, the palette lives in the client.
 Floats that cannot be computed are `null`, never NaN.
 """
 
@@ -47,7 +47,7 @@ EffectName = Literal[
     "pearson_r",
     "cramers_v",
 ]
-# ANA-04: `default` / `alternative` force the Tests-table column; `auto` applies the rule.
+# `default` / `alternative` force that test for every feature; `auto` applies the rule.
 TestOverride = Literal["auto", "default", "alternative"]
 Question = Literal["explore", "compare", "association", "balance", "paired"]
 RecCode = Literal[
@@ -64,15 +64,12 @@ RecCode = Literal[
 ]
 
 
-# -- shared inputs --------------------------------------------------------------------------
-
-
 class GlobalFilters(BaseModel):
-    """DB-02 global filters, applied to every view and analysis (AND across fields).
+    """Global filters, applied to every view and analysis (AND across fields).
 
-    `var` uses the VAR-10 syntax: `{name: [values]}`, categorical values OR'ed, numeric
-    `min..max` ranges. `status` is the curation status (CUR-08; unreviewed = `not_reviewed`).
-    `item_ids` carries a DB-04 selection.
+    `var` maps a variable name to values: categorical values OR'ed, numeric `min..max`
+    ranges. `status` is the curation status (unreviewed = `not_reviewed`).
+    `item_ids` carries a selection of items.
     """
 
     var: dict[str, list[str]] = Field(default_factory=dict)
@@ -85,7 +82,7 @@ class GlobalFilters(BaseModel):
 
 
 class ColorBy(BaseModel):
-    """DB-07 color/split: a categorical variable, an item attribute, or curation status."""
+    """Color/split: a categorical variable, an item attribute, or curation status."""
 
     kind: Literal["variable", "phase", "scope", "side", "label", "curation_status"]
     name: str | None = None  # the variable name when kind = variable
@@ -98,7 +95,7 @@ class ColorBy(BaseModel):
 
 
 class UnitSpec(BaseModel):
-    """ANA-03 unit of analysis: one label, one scope, one phase per case.
+    """Unit of analysis: one label, one scope, one phase per case.
 
     `phase = null` picks, per case, the item whose phase ranks first in the project phase
     priority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then
@@ -113,13 +110,13 @@ class UnitSpec(BaseModel):
 
 
 class ItemRef(BaseModel):
-    """DB-03 hover/click target."""
+    """Hover/click target."""
 
     item_id: str
     case_id: str
     label: int
-    status: str  # curation status badge (CUR-08)
-    color: str | None = None  # DB-07 level of the color variable
+    status: str  # curation status badge
+    color: str | None = None  # level of the color variable
 
 
 class BoxStats(BaseModel):
@@ -133,9 +130,6 @@ class BoxStats(BaseModel):
     whisker_high: Num = None
     mean: Num = None
     sd: Num = None
-
-
-# -- view requests (API-38) -----------------------------------------------------------------
 
 
 class ViewRequest(BaseModel):
@@ -174,7 +168,7 @@ class EmbeddingRequest(ViewRequest):
 
 class OutliersRequest(ViewRequest):
     threshold: float = Field(default=3.5, gt=0)
-    # an item is flagged when at least this share of its features is over the threshold (DB-10)
+    # an item is flagged when at least this share of its features is over the threshold
     min_feature_pct: float = Field(default=5.0, ge=0, le=100)
     top_n: int = Field(default=10, ge=1, le=5000)  # the UI shows 10, "Show all" = n_flagged
     top_features: int = Field(default=5, ge=1, le=50)
@@ -226,9 +220,6 @@ class ConsistencyRequest(ViewRequest):
     pair: PairSpec = Field(default_factory=PairSpec)
 
 
-# -- view responses -------------------------------------------------------------------------
-
-
 class LabelCount(BaseModel):
     label: int
     n_items: int
@@ -245,13 +236,13 @@ class RunError(BaseModel):
     case_id: str | None = None
     label: int | None = None
     message: str
-    kind: Literal["failed", "skipped"] = "failed"  # skipped = not ready (TSK-04, AUD-A2-05)
-    code: str | None = None  # cause code (RADIOMICS §Implementation notes)
+    kind: Literal["failed", "skipped"] = "failed"  # skipped = not ready
+    code: str | None = None  # cause code
     detail: str | None = None  # the engine's own text
 
 
 class PhaseChange(BaseModel):
-    """PHS-03 / AUD-A5-04: an item whose effective phase differs from the run's value."""
+    """An item whose effective phase differs from the run's value."""
 
     item_id: str
     case_id: str
@@ -260,8 +251,6 @@ class PhaseChange(BaseModel):
 
 
 class RunOverviewResponse(BaseModel):
-    """Run overview: items ok/failed, per-label counts, runtime, error list → item."""
-
     run_id: str
     name: str
     status: str
@@ -270,19 +259,19 @@ class RunOverviewResponse(BaseModel):
     n_items_selected: int
     n_items_ok: int
     n_items_failed: int
-    n_items_skipped: int = 0  # not ready, never failed (TSK-04)
+    n_items_skipped: int = 0  # not ready, never failed
     n_features: int
     per_label: list[LabelCount]
-    per_phase: list[LevelCount]  # effective phase (PHS-03)
+    per_phase: list[LevelCount]  # effective phase
     curation: list[LevelCount]
     n_errors: int
     errors: list[RunError]
-    phase_changed: list[PhaseChange] = Field(default_factory=list)  # "phase at run time"
+    phase_changed: list[PhaseChange] = Field(default_factory=list)
 
 
 class DistPoint(ItemRef):
     value: float
-    bin: int | None = None  # histogram bin of this item (bar → items, DB-03)
+    bin: int | None = None  # histogram bin of this item (bar → items)
 
 
 class DistGroup(BaseModel):
@@ -408,14 +397,14 @@ class FeatureVsVolumeResponse(BaseModel):
     rho: Num
     p: Num
     n: int
-    size_driven: bool  # |rho| > 0.8 (REC-VOLUME)
+    size_driven: bool  # |rho| > 0.8
     color_levels: list[str]
     points: list[ScatterPoint]
     ranked: list[RankedFeature]  # features by |rho| with volume
 
 
 class UnitPoint(BaseModel):
-    """One unit row (ANA-03): representative item + the items it aggregates."""
+    """One unit row: representative item + the items it aggregates."""
 
     item_id: str
     case_id: str
@@ -429,11 +418,11 @@ class UnitPoint(BaseModel):
 class GroupInfo(BaseModel):
     level: str
     n: int
-    excluded: bool  # ANA-06: n < 5 → descriptive only
+    excluded: bool  # n < 5 → descriptive only
 
 
 class TestChoice(BaseModel):
-    """ANA-04: the rule outcome with a one-line reason."""
+    """The test rule outcome with a one-line reason."""
 
     default_test: TestName | None
     alternative_test: TestName | None
@@ -444,7 +433,7 @@ class TestChoice(BaseModel):
 
 
 class ResultRow(BaseModel):
-    """ANA-05: one tested feature (or the single balance-check row)."""
+    """One tested feature (or the single balance-check row)."""
 
     feature: str | None
     test: TestName | None
@@ -459,7 +448,7 @@ class ResultRow(BaseModel):
 
 
 class DescriptiveRow(BaseModel):
-    """ANA-07 per feature x group."""
+    """One feature x group."""
 
     feature: str
     group: str
@@ -562,14 +551,11 @@ class ConsistencyResponse(BaseModel):
     points: list[PairPoint]
 
 
-# -- analyses (API-39) ----------------------------------------------------------------------
-
-
 class AnalysisSpec(BaseModel):
-    """ANA-01: run + filter + unit + question type + variable (+ optional confounder).
+    """Run + filter + unit + question type + variable (+ optional confounder).
 
-    `balance` compares `variable` x `confounder` (both categorical). `paired` (ANA-10) is
-    planned for v3.1 and rejected with `validation`.
+    `balance` compares `variable` x `confounder` (both categorical). `paired` is rejected
+    with `validation`.
     """
 
     run_id: str
@@ -585,7 +571,7 @@ class AnalysisSpec(BaseModel):
 
 
 class Recommendation(BaseModel):
-    """ANA-08: a triggered rule; `view` + `params` open the view that shows the problem."""
+    """A triggered rule; `view` + `params` open the view that shows the problem."""
 
     code: RecCode
     message: str
@@ -609,8 +595,6 @@ class AnalysisSummary(BaseModel):
 
 
 class Analysis(BaseModel):
-    """GET …/analyses/{aid}: results + descriptives + recommendations (DB-08)."""
-
     analysis_id: str
     created_at: str
     created_by: str | None = None

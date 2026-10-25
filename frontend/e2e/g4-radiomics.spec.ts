@@ -1,4 +1,4 @@
-// Journey G4 (VISION, REL-02; AUD-A6-01) on the real backend: radiomics settings → selection by a
+// Journey G4 (REL-02; AUD-A6-01) on the real backend: radiomics settings → selection by a
 // variable + segmentation set → estimate → run → failures and skips in plain words (items without a
 // mask are skipped, not failed) → dashboard → outliers top 10, the injected defect `case_00062` first
 // → one click opens it in the viewer → group comparison on a derived variable (p-values) → export.

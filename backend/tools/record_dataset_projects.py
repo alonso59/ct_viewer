@@ -1,4 +1,4 @@
-"""Record PRJ-19 create/open exchanges against a disposable dataset, preserving the demo."""
+"""Record dataset project create/open against a disposable dataset, preserving the demo."""
 
 from __future__ import annotations
 

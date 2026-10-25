@@ -1,10 +1,12 @@
 # DICOM source operations: tests and acceptance
 
-Scope: tests-first verification, regression protection and release gates for DICOM_JOB_PLAN.md.
+Scope: verification, regression protection and release gates for DICOM_JOB_PLAN.md.
 Read when: writing tests, measuring performance or deciding whether DICOM background/resume work is complete.
 Depends: ../domain/DICOM_JOB_PLAN.md, TESTING.md, ADR-0035; requirement ownership remains in INDEX.md.
 
 ## Status and method
+
+The owner updated the workflow on 2026-10-25: implementation first, focused local tests afterward, and full regression in GitHub CI. The acceptance matrix remains unchanged; new red-first evidence is not required by this revised order.
 
 Cases below define the required acceptance; passing evidence is recorded in DICOM_JOB_PLAN.md. ADR-0035 was accepted with implementation authorization on 2026-10-23; it does not certify these cases. Case labels D/U/B/P are acceptance-case labels, not new SRS requirement IDs. At Wave 0 add new requirements only in their owning docs; each test cites applicable existing/new accepted requirement IDs and its case label. Record red output before its fix, green output afterward, revision, environment, command and evidence location. Test public behavior and filesystem/process effects, not private implementation structure.
 
@@ -241,3 +243,9 @@ the entire DICOM series is rebuilt and source hashes remain unchanged. All ten
 file cases pass. Native pixel and supervised ownership/cleanup barriers remain
 separate acceptance evidence. The import integration also passes 20 existing real
 Chromium/Firefox journeys; CI for published `e84bd0d` is still pending.
+
+
+The 2026-10-25 import/policy/identity checkpoint is tracked in
+DICOM_JOB_PLAN.md. D07/D32 and U06/U08 now have focused implementation coverage;
+this does not mark their complete acceptance matrix or migration cases as passed.
+Full local regression is intentionally deferred to GitHub under the owner workflow.

@@ -1,4 +1,3 @@
-// Viewer tool bar items (UI-06, VW-10): tools, layout, overlay, W/L presets, reset, screenshot.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 
@@ -9,12 +8,12 @@ import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../..
 import { useViewerLocal } from './local'
 import { ModalityChip } from './ModalityChip'
 
-// Enabled while a viewer is visible: a case tab or Open mode (VW-22: one tool set)
-const useEnabled = () => useViewerLocal((s) => s.active !== null)
-/** UI-06 (AUD-A3-20): the viewer group is shown only while the active editor is a viewer (a case
+// Enabled while a viewer is visible: a case tab or Open mode
+export const useEnabled = () => useViewerLocal((s) => s.active !== null)
+/** The viewer group is shown only while the active editor is a viewer (a case
  *  tab, also while it loads, or Open mode); other editors leave the tool bar empty */
 export const useShown = () => {
-  const viewer = useViewerLocal((s) => s.active !== null)
+  const viewer = useEnabled()
   const caseTab = useWorkbench((s) => s.active?.type === 'case')
   return viewer || caseTab
 }
@@ -125,7 +124,6 @@ export function WindowPresets() {
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Content className="overlay menu" sideOffset={4} align="start">
-            {/* VW-25: the project's own presets replace the built-in list when it has some */}
             {customPresets.length
               ? customPresets.map((p) => (
                   <Menu.Item key={p.name} className="menu-item" onSelect={() => setWindow(p.ww, p.wl)}>
@@ -161,7 +159,7 @@ export function ResetAndSnapshot() {
   )
 }
 
-/** VW-10: PNG of the visible viewports as rendered by the engine (download, no network) */
+/** PNG of the visible viewports as rendered by the engine (download, no network) */
 export async function screenshot() {
   const blob = await useViewerLocal.getState().active?.screenshot()
   if (!blob) return

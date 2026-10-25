@@ -1,9 +1,9 @@
-/* Radiomics settings editor (RAD-01/02/04) */
+/* Radiomics settings editor */
 .rad {
   display: flex;
   flex-direction: column;
   height: 100%;
-  container-type: inline-size; /* AUD-A3-06: the layout follows the editor width, not the window */
+  container-type: inline-size; /* layout follows the editor width (see @container rules) */
 }
 .rad-top {
   flex: none;
@@ -15,7 +15,7 @@
   align-items: center;
   gap: var(--sp-2);
 }
-/* One content width for form editors (UI-20, AUD-A3-06): at most --form-max-width, centred */
+/* One content width for form editors: at most --form-max-width, centred */
 .rad-top-row,
 .rad-body {
   width: 100%;
@@ -237,7 +237,7 @@ button.rad-issue {
   gap: 2px;
 }
 
-/* Segmented controls and long labels wrap instead of clipping (AUD-A3-06) */
+/* Segmented controls and long labels wrap instead of clipping */
 .rad .seg {
   flex-wrap: wrap;
 }

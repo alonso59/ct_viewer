@@ -1,5 +1,3 @@
-// Workspace home (`/`, UI-04): New Project (name + optional default modality, PRJ-14), Open Recent with
-// thumbnail + progress (PRJ-02), share-link copy (PRJ-03), relink (PRJ-05), bundles (PRJ-08/09).
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -13,10 +11,11 @@ import { openPath, useOpenDialog } from '../open'
 import { exportBundle } from './actions'
 import { RelinkDialog } from './RelinkDialog'
 import { OpenDatasetDialog } from './OpenDatasetDialog'
+import { copyAndTell } from './share'
 import { useProjectDialogs } from './store'
 import './projects.css'
 
-// The import report dialog and its strings load once a bundle is picked (NFR-07)
+// The import report dialog and its strings load once a bundle is picked
 const BundleImport = lazy(() => import('./BundleImport'))
 
 function ProjectThumb({ p }: { p: ProjectSummary }) {
@@ -40,7 +39,7 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
             {p.name}
             {empty ? <span className="badge">{t('projects.empty')}</span> : null}
           </span>
-          {/* AUD-A1-08 / A2-08: one definition of a case; excluded cases are not counted */}
+          {/* excluded cases are not counted in n_cases */}
           <span className="muted" title={p.n_cases_excluded ? t('projects.casesHelp', { excluded: p.n_cases_excluded }) : undefined}>
             {p.last_opened_at
               ? t('projects.meta', { cases: p.n_cases, ago: fmtAgo(p.last_opened_at) })
@@ -54,18 +53,11 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
       </button>
       <IconButton icon={codicon('plug')} label={t('projects.relink')} onClick={onRelink} />
       <IconButton icon={codicon('package')} label={t('projects.bundle.export')} onClick={() => void exportBundle(p.project_id)} />
-      {/* AUD-A4-03 (PRJ-06): archive, with a confirmation */}
       <IconButton icon={codicon('archive')} label={t('projects.archiveMenu')} onClick={() => useProjectDialogs.getState().set({ archive: { pid: p.project_id, name: p.name, home: true } })} />
       <IconButton
         icon={codicon('link')}
         label={t('shell.copyShareLink')}
-        onClick={() => {
-          const url = p.share_url
-          const done = () => toast({ message: t('shell.shareLinkCopied', { url }), tone: 'ok' })
-          const manual = () => toast({ message: t('shell.shareLinkManual', { url }), tone: 'info' })
-          if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, manual)
-          else manual()
-        }}
+        onClick={() => copyAndTell(p.share_url, 'shell.shareLinkCopied')}
       />
     </div>
   )
@@ -73,7 +65,7 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
 
 const MAX_DATASETS = 5
 
-/** UI-04 / DCM-14 (AUD-A2-14): converted workspace datasets, found again from the home */
+/** Converted workspace datasets, found again from the home */
 function RecentDatasets({ onCreate }: { onCreate: (path: string) => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -103,7 +95,6 @@ function RecentDatasets({ onCreate }: { onCreate: (path: string) => void }) {
   )
 }
 
-/** PRJ-06: archived projects, each with Restore (AUD-A4-03) */
 function ArchivedList() {
   const { t } = useTranslation()
   const archived = useProjects(true)
@@ -152,7 +143,7 @@ export function WorkspaceHome() {
   const [fromDataset, setFromDataset] = useState<string | null>(null)
   const [bundle, setBundle] = useState<File | null>(null)
   const picker = useRef<HTMLInputElement>(null)
-  // "Import project bundle…" from the palette (AUD-A1-01)
+  // "Import project bundle…" from the palette
   const picked = useRef(bundlePick)
   useEffect(() => {
     if (picked.current === bundlePick) return
@@ -257,7 +248,6 @@ export function WorkspaceHome() {
         </div>
         <footer className="home-footer muted">
           {t('app.tagline')}
-          {/* AUD-A4-05 (NFR-16) */}
           <button type="button" className="link" onClick={() => runCommand('help.about')}>{t('cmd.about')}</button>
         </footer>
       </div>

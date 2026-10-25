@@ -1,4 +1,4 @@
-// The wizard's code loads on first open (NFR-07); the store stays eager for commands and buttons
+// The wizard's code loads on first open; the store stays eager for commands and buttons
 import { Suspense, lazy } from 'react'
 
 import { useImportWizard } from './store'
@@ -10,7 +10,7 @@ export function ImportWizard() {
   const prefill = useImportWizard((s) => s.prefill)
   return pid ? (
     <Suspense fallback={null}>
-      <Wizard key={pid} pid={pid} prefill={prefill} />
+      <Wizard key={`${pid}:${prefill?.discoveryId ?? ''}`} pid={pid} prefill={prefill} />
     </Suspense>
   ) : null
 }

@@ -1,4 +1,4 @@
-// Shell regions and registry (UI-01/02). No domain logic here.
+// Shell regions and registry. No domain logic here.
 import './shell.css'
 
 export { registry } from './registry'

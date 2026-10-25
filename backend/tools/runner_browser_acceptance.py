@@ -1,4 +1,4 @@
-"""U1/J2: opt-in real API/supervisor browser acceptance with a CPU fixture and fake GPU telemetry.
+"""Opt-in real API/supervisor browser acceptance with a CPU fixture and fake GPU telemetry.
 
 Run after building frontend/dist and passing test-host. No CUDA, production workspace or model
 is used. Node and browsers run only in the existing rw-browser-verification udocker container.

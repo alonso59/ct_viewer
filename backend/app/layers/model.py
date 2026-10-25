@@ -1,12 +1,7 @@
-"""Layer providers (ADR-0020 §3): each returns the active layers of one plugin for a project.
-
-A layer is one column keyed by item (or case) with provenance. Providers register in
-`PROVIDERS`; the labeling plugin adds its columns the same way (LBL-06).
-"""
+"""Layer providers: each returns the active layers of one plugin for a project."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from pathlib import Path
@@ -21,7 +16,7 @@ Level = Literal["item", "case", "scan"]
 
 @dataclass
 class Layer:
-    id: str  # `{plugin or task}:{field}`, e.g. `analyzer.phase:phase`, `curation:status`
+    id: str
     plugin: str
     field: str
     level: Level
@@ -30,7 +25,7 @@ class Layer:
 
     @property
     def column(self) -> str:
-        """Dataset-table header: the field and the layer that produced it (ADR-0020 §4)."""
+        """Dataset-table header: the field and the layer that produced it."""
         return f"{self.field}@{self.id}"
 
     def describe(self) -> dict[str, Any]:
@@ -45,11 +40,8 @@ class LayerContext:
     task_owner: dict[str, str]  # task id → plugin id
 
 
-Provider = Callable[[LayerContext], list[Layer]]
-
-
 def annotation_layers(ctx: LayerContext) -> list[Layer]:
-    """Active analyzer runs per field (ANZ-04): phase, target_match, output_role, readiness…"""
+    """Active analyzer runs per field: phase, target_match, output_role, readiness…"""
     out: list[Layer] = []
     for fld, run_id in sorted(ctx.annotation_sources.items()):
         if not run_id:
@@ -79,25 +71,25 @@ def annotation_layers(ctx: LayerContext) -> list[Layer]:
 
 
 def curation_layers(ctx: LayerContext) -> list[Layer]:
-    """Curation & QC state (ADR-0022): the latest item status and its reviewer."""
+    """Curation & QC state: the latest item status and its reviewer."""
     items = curation_state.item_states(ctx.project_dir)
     if not items:
         return []
     return [
-        Layer("curation", "curation", "curation_status", "item", "curation events (CUR-08)",
+        Layer("curation", "curation", "curation_status", "item", "curation events",
               {i: s.status for i, s in items.items()}),
-        Layer("curation", "curation", "curation_reviewer", "item", "curation events (CUR-08)",
+        Layer("curation", "curation", "curation_reviewer", "item", "curation events",
               {i: s.reviewer for i, s in items.items()}),
     ]  # fmt: skip
 
 
 def labeling_layers(ctx: LayerContext) -> list[Layer]:
-    """LBL-06: every visible label column, keyed by case, `case.scan` or item."""
+    """Every visible label column, keyed by case, `case.scan` or item."""
     cells = labeling_state.cell_state(ctx.project_dir)
     out: list[Layer] = []
     for t in labeling_state.active_tables(ctx.project_dir):
         for c in t.columns:
-            if c.hidden or c.ref:  # a reference column mirrors another variable (LBL-09)
+            if c.hidden or c.ref:  # a reference column mirrors another variable
                 continue
             values = {tg: e.get("value") for (tid, cid, tg), e in cells.items()
                       if tid == t.table_id and cid == c.column_id}  # fmt: skip
@@ -106,8 +98,5 @@ def labeling_layers(ctx: LayerContext) -> list[Layer]:
     return out
 
 
-PROVIDERS: list[Provider] = [annotation_layers, curation_layers, labeling_layers]
-
-
 def active_layers(ctx: LayerContext) -> list[Layer]:
-    return [layer for provider in PROVIDERS for layer in provider(ctx)]
+    return [*annotation_layers(ctx), *curation_layers(ctx), *labeling_layers(ctx)]

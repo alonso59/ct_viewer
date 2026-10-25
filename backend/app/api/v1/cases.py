@@ -1,5 +1,3 @@
-"""API-20/21 case summaries and detail."""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -32,13 +30,13 @@ async def list_cases(
         ItemStatus | None, Query(description="Default hides all-excluded_upstream cases")
     ] = None,
     curation_status: Annotated[
-        RollupStatus | None, Query(description="CUR-08 case rollup (the Search view's Status)")
+        RollupStatus | None, Query(description="Case curation rollup (the Search view's Status)")
     ] = None,
     warning: Annotated[QcCode | None, Query()] = None,
     has_voi: Annotated[bool | None, Query()] = None,
     sort: Annotated[CaseSort, Query()] = "case_id",
 ) -> Page[CaseSummary]:
-    """Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max` (VAR-10);
+    """Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max`;
     a case matches when any of its items matches every variable filter."""
     svc = ingest_service(ctx)
     filters = parse_var_params(list(request.query_params.multi_items()))

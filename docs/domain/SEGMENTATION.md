@@ -49,7 +49,7 @@ This phase generates masks and registers them as task-produced segmentation sets
 }
 ```
 
-`configure.py` will inspect `nnUNet_results`, `dataset.json` and, when present, `inference_instructions.txt` / `inference_information.json`; it writes structured fields, never a shell command. The checked-in example profile uses fake paths and model metadata only.
+`configure.py` inspects `nnUNet_results`, `dataset.json` and, when present, `inference_instructions.txt` / `inference_information.json`; it writes structured fields, never a shell command. The checked-in example profile uses fake paths and model metadata only.
 
 ## Run sequence
 

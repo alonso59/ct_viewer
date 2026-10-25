@@ -1,9 +1,3 @@
-"""Header reader for NIfTI and legacy `.npy` volumes (no voxel decode; BE-04/BE-12).
-
-Used by indexing workers (IMP-05) and validation (IMP-08: unreadable_file, missing_affine,
-shape_mismatch, affine_mismatch).
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,7 +10,7 @@ import numpy as np
 from app.core.paths import open_source
 from app.imaging import maskset
 
-VolumeFormat = Literal["nifti", "npy", "nifti_dir"]  # nifti_dir: a mask set (maskset.py)
+VolumeFormat = Literal["nifti", "npy", "nifti_dir"]  # nifti_dir: a mask set folder
 AFFINE_ATOL_MM = 1e-3
 
 
@@ -34,7 +28,6 @@ class HeaderInfo:
     affine: list[list[float]] | None  # 4x4; None without a usable affine (`missing_affine`)
 
     def geometry(self) -> dict[str, Any]:
-        """DATA_MODEL.md §Item `geometry`."""
         return {
             "shape": list(self.shape),
             "spacing": [round(s, 6) for s in self.spacing],
@@ -50,9 +43,9 @@ def volume_format(path: Path | str) -> VolumeFormat:
 def read_header(
     path: Path, *, spacing: tuple[float, ...] | None = None, axis_order: str = "xyz"
 ) -> HeaderInfo:
-    """Read geometry without decoding voxels. `spacing` / `axis_order` apply to `.npy` (SRC-12):
-    a `zyx` array reports the NIfTI (x, y, z) shape it converts to. A folder is a mask set: its
-    members must share one geometry."""
+    """Read geometry without decoding voxels. `spacing` / `axis_order` apply to `.npy`: a `zyx`
+    array reports the NIfTI (x, y, z) shape it converts to. A folder is a mask set: its members
+    must share one geometry."""
     if path.is_dir():
         return _read_set(path)
     if volume_format(path) == "npy":
@@ -114,7 +107,7 @@ def _read_set(folder: Path) -> HeaderInfo:
 
 
 def compare_geometry(image: HeaderInfo, mask: HeaderInfo) -> list[Literal["shape", "affine"]]:
-    """Mismatches between an image and its mask (IMP-08 shape_mismatch / affine_mismatch)."""
+    """Mismatches between an image and its mask (`shape_mismatch` / `affine_mismatch`)."""
     issues: list[Literal["shape", "affine"]] = []
     if image.shape != mask.shape:
         issues.append("shape")

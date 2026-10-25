@@ -1,4 +1,4 @@
-"""Native phase selection (PHASE.md PHS-01..08, ADR-0026): events, read-time join, exports."""
+"""Native phase selection (PHS-01..08, ADR-0026): events, read-time join, exports."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def test_select_replaces_the_effective_phase_everywhere(client: TestClient, proj
     assert (pdir / "index" / "items.jsonl").read_bytes() == index_bytes
     assert (pdir / "events" / "phase.jsonl").is_file()
 
-    # dataset table: effective phase + `phase_source` = manual (PHASE §Where it surfaces)
+    # dataset table: effective phase + `phase_source` = manual
     table = client.get(f"{API}/projects/{pid}/exports/dataset-table").text
     rows = [x for x in csv.DictReader(io.StringIO(table)) if x["case_id"] == case_id]
     row = next(x for x in rows if x["scan_idx"] == scan_idx)

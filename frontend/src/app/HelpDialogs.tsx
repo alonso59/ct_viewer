@@ -1,4 +1,4 @@
-// Help › Keyboard shortcuts and Help › About (AUD-A1-09, AUD-A4-05; NFR-16), on every route
+// Help › Keyboard shortcuts and Help › About, on every route
 import { useTranslation } from 'react-i18next'
 
 import { useHealth } from '../api'
@@ -29,7 +29,7 @@ function About({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('about.title')} icon={codicon('info')}>
       <div className="about">
-        {/* UI-21: no logo in dialogs */}
+        {/* no logo in dialogs */}
         <div>
           <strong>{t('app.title')}</strong>
           <div className="muted">{t('about.version', { version: version ?? '—' })}</div>

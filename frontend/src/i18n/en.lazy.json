@@ -845,6 +845,7 @@
       "folders": "Folders visited",
       "files": "Files examined",
       "dicom": "DICOM confirmed",
+      "rejected": "Rejected candidates",
       "series": "Complete series",
       "errors": "Read errors"
     },
@@ -856,6 +857,12 @@
       "estimate": "Dry run",
       "run": "Run",
       "result": "Result"
+    },
+    "rejectedReason": "{{reason}} · {{count}}",
+    "rejectedCandidates": "Rejected DICOM candidates",
+    "rejection": {
+      "MISSING_SERIES_INSTANCE_UID": "Image header has no Series Instance UID",
+      "AMBIGUOUS_SERIES_MEMBERSHIP": "Directory excluded because complete series membership cannot be established"
     },
     "sourceHelp": "Choose a DICOM folder (patients or series below it) or one DICOM file. It is only read; nothing is written next to it.",
     "noSource": "No source chosen",
@@ -887,6 +894,8 @@
     "dryRunning": "Dry run",
     "dryRunDone": "Dry run ready: {{n}} series to convert",
     "stage": {
+      "import_preview": "Preparing import preview…",
+      "import_index": "Indexing imported items · {{done}} / {{total}}",
       "opening": "Reading image headers · {{done}} / {{total}}",
       "check": "Looking for DICOM files in the source",
       "listing": "Listing folders ({{done}} so far)",
@@ -1147,6 +1156,10 @@
     "backgroundTitle": "Inspect import source",
     "discovered": "Source inspection is complete. Continue to choose how to import it.",
     "continueImport": "Continue import",
+    "preparingPreview": "Preparing import preview",
+    "indexReady": "Import completed and indexed.",
+    "previewReady": "The import preview is ready.",
+    "editOptions": "Edit import options",
     "alias": "Alias",
     "aliasHelp": "Items store paths as {{alias}}:relative/path, so the project survives a move.",
     "aliasInvalid": "Use 1–16 characters: a letter first, then letters, digits or _.",

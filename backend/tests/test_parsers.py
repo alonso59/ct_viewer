@@ -1,4 +1,4 @@
-"""TST-02: input parsers, phase normalization table, side parser (IMP-02/03, INPUT_METADATA.md)."""
+"""TST-02: input parsers, phase normalization table, side parser (IMP-02/03)."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from hypothesis import strategies as st
 
 from app.core.ids import CASE_ID_RE
 from app.ingest.normalize import (
+    CCRCC_RULES,
     PHASE_TABLE,
-    normalize_phase,
     parse_side,
     resolve_phase,
     seg_convention,
@@ -139,8 +139,6 @@ def test_parse_inputs_metadata_only() -> None:
     assert len(parsed.metadata) == 1 and parsed.catalog == [] and len(parsed.overrides) == 0
 
 
-# --- phase resolution --------------------------------------------------------------------
-
 TABLE = {
     "NC": ["NC", "NONCONTRAST", "NON-CONTRAST"],
     "CMP": ["ART", "ARTERIAL", "CMP", "CORTICOMEDULLARY"],
@@ -164,12 +162,12 @@ def test_phase_normalization_case_insensitive(
 ) -> None:
     raw, code = pair
     mixed = "".join(c.lower() if i < len(flips) and flips[i] else c for i, c in enumerate(raw))
-    assert normalize_phase(pad + mixed + pad) == code
+    assert CCRCC_RULES.normalize(pad + mixed + pad) == code
 
 
 @given(st.text(max_size=20))
 def test_phase_unknown_strings_are_unk(text: str) -> None:
-    code = normalize_phase(text)
+    code = CCRCC_RULES.normalize(text)
     assert code in ("NC", "CMP", "NP", "EP", "UNK")
     if text.strip().upper() not in PHASE_TABLE:
         assert code == "UNK"
@@ -192,8 +190,6 @@ def test_resolve_phase_order_and_ambiguity() -> None:
     info, amb = resolve_phase(Row(1, {}), None)
     assert (info.canonical, info.source, amb) == ("UNK", "none", True)
 
-
-# --- side / seg convention ---------------------------------------------------------------
 
 SIDES = {"L": ["L", "left", "sideL", "_L"], "R": ["R", "right", "sideR", "_R"]}
 
@@ -226,8 +222,6 @@ def test_parse_side_rejects_others(text: str) -> None:
 def test_seg_convention(name: str, seg: str) -> None:
     assert seg_convention(name) == seg
 
-
-# --- robustness --------------------------------------------------------------------------
 
 junk_line = st.one_of(
     st.binary(max_size=60),

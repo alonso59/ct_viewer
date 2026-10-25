@@ -1,15 +1,12 @@
-"""`CACHE_MAX_GB` (OPS-03, AUD-A4-16): one LRU budget over every disposable cache.
+"""`CACHE_MAX_GB`: one LRU budget over every disposable cache.
 
 The budget covers Open-mode scratch (`.scratch/open/{fingerprint}.{order}/`, evicted a folder at
 a time) and every active project's `cache/meshes`, `cache/thumbs` and `cache/npy` (evicted a file
 at a time). "Last used" is the newest mtime/atime of the unit; readers call `touch()` on a cache
 hit, because many filesystems do not update atime. Nothing outside those pools is ever looked at
-or deleted (R1, PRJ-10): pool roots that are symlinks, symlinked entries and entries that resolve
+or deleted: pool roots that are symlinks, symlinked entries and entries that resolve
 outside their pool are skipped; temp files of an atomic write (`.name.*.tmp`) are left alone, and
 units used in the last `min_age_s` seconds are kept (in-flight writes, files being served).
-
-`enforce()` is the pure sweep (a thread); `CacheBudget` runs it after cache writes (debounced,
-`request()`) and periodically from the lifespan.
 """
 
 from __future__ import annotations
@@ -28,7 +25,7 @@ from typing import Literal
 log = logging.getLogger("app.cache")
 
 GB = 1024**3
-PROJECT_POOLS = ("meshes", "thumbs", "npy")  # under a project's `cache/` (PRJ-10)
+PROJECT_POOLS = ("meshes", "thumbs", "npy")
 SWEEP_INTERVAL_S = 600.0
 MIN_AGE_S = 60.0
 
@@ -104,7 +101,6 @@ def units(pool: Pool) -> list[Unit]:
             elif entry.is_dir():
                 files = list(_files(entry))
                 size = sum(st.st_size for _, st in files)
-                # its files' use (a folder's own mtime only when it is empty)
                 last = max((_stamp(st) for _, st in files), default=_stamp(entry.stat()))
                 out.append(Unit(entry, size, last))
         except OSError:
@@ -114,7 +110,6 @@ def units(pool: Pool) -> list[Unit]:
 
 def enforce(pools: Iterable[Pool], max_bytes: int, *, min_age_s: float = MIN_AGE_S) -> int:
     """Delete least-recently-used units until the pools fit `max_bytes`; returns bytes freed."""
-    pools = list(pools)
     roots = [(p.root.resolve(), p) for p in pools if p.root.is_dir() and not p.root.is_symlink()]
     all_units = [u for _, p in roots for u in units(p)]
     total = sum(u.size for u in all_units)
@@ -129,7 +124,7 @@ def enforce(pools: Iterable[Pool], max_bytes: int, *, min_age_s: float = MIN_AGE
             continue
         real = u.path.resolve()
         if u.path.is_symlink() or not any(real.is_relative_to(r) for r, _ in roots):
-            continue  # never outside a pool (R1)
+            continue  # never outside a pool
         try:
             if u.path.is_dir():
                 shutil.rmtree(u.path)
@@ -163,11 +158,6 @@ class CacheBudget:
         self._again = False
         self._loop_task: asyncio.Task[None] | None = None
 
-    async def sweep(self) -> int:
-        return await asyncio.to_thread(
-            lambda: enforce(self.pools(), self.max_bytes, min_age_s=self.min_age_s)
-        )
-
     def request(self) -> None:
         """A cache write happened: sweep soon (one sweep at a time, one more if asked meanwhile)."""
         try:
@@ -183,7 +173,9 @@ class CacheBudget:
         while True:
             self._again = False
             try:
-                await self.sweep()
+                await asyncio.to_thread(
+                    lambda: enforce(self.pools(), self.max_bytes, min_age_s=self.min_age_s)
+                )
             except Exception:
                 log.exception("cache budget sweep failed")
             if not self._again:

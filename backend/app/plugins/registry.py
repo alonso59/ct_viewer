@@ -1,8 +1,7 @@
-"""Plugin registry (PLG-01..06): every `{builtin_plugins_root}/*/plugin.json`.
+"""Plugin registry: every `{builtin_plugins_root}/*/plugin.json`.
 
-All shipped plugins are first-party, installed per workspace and enabled by default (PLG-04).
-Status is computed on request from `requires` (PLG-06); an invalid manifest is listed with its
-error and not loaded, like task manifests (TSK-01).
+All shipped plugins are first-party, installed per workspace and enabled by default. Status is
+computed on request from `requires`; an invalid manifest is listed with its error and not loaded.
 """
 
 from __future__ import annotations
@@ -66,7 +65,7 @@ class PluginRegistry:
         return m
 
     def task_owner(self) -> dict[str, str]:
-        """Task id → owning plugin id (TSK-01: every task belongs to a first-party plugin)."""
+        """Task id → owning plugin id."""
         return {t: m.id for m in self.plugins.values() for t in m.contributes.tasks}
 
     def listed(self) -> list[PluginManifest]:
@@ -75,8 +74,6 @@ class PluginRegistry:
 
 @dataclass(frozen=True)
 class StatusInputs:
-    """What status depends on (PLG-06), gathered by the caller."""
-
     derived_roots: bool
     # task id -> True when it runs externally and no fresh runner lists it
     runner_missing: Callable[[str], bool]
@@ -85,7 +82,7 @@ class StatusInputs:
 
 
 def status_of(m: PluginManifest, inputs: StatusInputs) -> PluginInfo:
-    """First unmet requirement wins; each reason says how to satisfy it (UI-18)."""
+    """First unmet requirement wins; each reason says how to satisfy it."""
     caps = set(m.requires.capabilities)
     status: PluginStatus = "ready"
     reason: str | None = None
@@ -94,7 +91,7 @@ def status_of(m: PluginManifest, inputs: StatusInputs) -> PluginInfo:
         status, reason = "pending", "Not available yet: planned for a later release."
     elif "derived_root" in caps and not inputs.derived_roots:
         status = "needs_derived_root"
-        reason = "Writes volumes: set ALLOWED_DERIVED_ROOTS on the server (OPS-11)."
+        reason = "Writes volumes: set ALLOWED_DERIVED_ROOTS on the server."
         actions = ["configure:ALLOWED_DERIVED_ROOTS"]
     elif "runner" in caps and any(inputs.runner_missing(t) for t in m.contributes.tasks):
         status = "needs_runner"

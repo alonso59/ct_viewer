@@ -3,7 +3,7 @@
   "id": "dicom.convert",
   "version": "1.1.0",
   "title": "DICOM → NIfTI",
-  "description": "Scans a DICOM folder or file, selects series with the analyzers, converts them to NIfTI with DICOM JSON sidecars, and writes a clean metadata.jsonl (DICOM_CONVERTER.md). Runs in a project or, without one, into a workspace dataset (TSK-13).",
+  "description": "Scans a DICOM folder or file, selects series with the analyzers, converts them to NIfTI with DICOM JSON sidecars, and writes a clean metadata.jsonl. Runs in a project or, without one, into a workspace dataset.",
   "kind": "conversion",
   "input": "source",
   "outputs": [
@@ -29,7 +29,7 @@
       "phase_analyzer": {
         "type": "boolean",
         "default": true,
-        "x-help": "Chain the phase analyzer after conversion; its result is the phase layer (DCM-14)"
+        "x-help": "Chain the phase analyzer after conversion; its result is the phase layer"
       },
       "convert_primary": {
         "type": "boolean",
@@ -47,7 +47,7 @@
       "skip_unsafe_geometry": {
         "type": "boolean",
         "default": false,
-        "x-help": "Skip series with irregular spacing, gaps or several stacks (DCM-03)"
+        "x-help": "Skip series with irregular spacing, gaps or several stacks"
       },
       "mixed_folder_policy": {
         "type": "string",
@@ -76,7 +76,7 @@
       "sidecars": {
         "type": "boolean",
         "default": true,
-        "x-help": "One DICOM JSON sidecar per converted series (DCM-04)"
+        "x-help": "One DICOM JSON sidecar per converted series"
       },
       "anonymize": {
         "type": "string",
@@ -85,7 +85,7 @@
           "basic"
         ],
         "default": "none",
-        "x-help": "basic: PS3.15 Basic Profile subset on sidecars and rows; patient_id becomes the case id (DCM-05)"
+        "x-help": "basic: PS3.15 Basic Profile subset on sidecars and rows; patient_id becomes the case id"
       }
     }
   },

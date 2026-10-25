@@ -1,4 +1,4 @@
-// One case tab's viewer: a single engine canvas under the viewport frames (VW-01..09, 12..15).
+// One case tab's viewer: a single engine canvas under the viewport frames.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type HTMLAttributes, type PointerEvent as RPointerEvent, type WheelEvent as RWheelEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -22,13 +22,12 @@ export interface SurfaceProps {
   imageUrl: string
   maskUrl?: string
   labels: LabelDef[]
-  /** API-25 URL for a label's surface mesh */
   meshUrl?: (label: number) => string
-  /** Visible tab (keyboard, store sync, VW-16 context) */
+  /** Visible tab (keyboard, store sync) */
   active: boolean
-  /** VW-14: false = volumes released */
+  /** false = volumes released */
   loaded: boolean
-  /** VW-22 header info: the item's DICOM tags, when it has them (API-22 or the Open-mode tags) */
+  /** The item's DICOM tags for the header info, when it has them */
   tags?: () => Promise<Record<string, unknown>>
 }
 
@@ -44,7 +43,7 @@ export const viewerFocusProps: HTMLAttributes<HTMLDivElement> = {
   },
 }
 
-/** VW-25: the initial CT window of the store (a preset name when it matches one) */
+/** The initial CT window of the store (a preset name when it matches one) */
 function applyCtWindow() {
   const s = useViewerSync.getState()
   const [ww, wl] = s.ctWindow
@@ -93,7 +92,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const loadKey = `${handleId}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
   const load = loadState.error?.code === 'viewer-init' || loadState.key === loadKey ? loadState : LOADING(loadKey)
 
-  // Engine lifecycle: one per tab while it holds volumes (VW-14)
+  // Engine lifecycle: one per tab while it holds volumes
   useEffect(() => {
     const c = canvasHost.current
     if (!loaded || !c || !webgl) return
@@ -131,10 +130,10 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         signal: ac.signal,
         onProgress: (progress) => update({ progress }),
         onImage: () => {
-          // VW-15: same geometry → keep crosshair and W/L; otherwise start centred
+          // Same geometry → keep crosshair and W/L; otherwise start centred
           if (keep) handle.setCrosshair(keep)
           else {
-            // VW-22/25: the DICOM header window first (when enabled), else the modality default
+            // The DICOM header window first (when enabled), else the modality default
             const s = useViewerSync.getState()
             const header = s.useDicomWindow ? dicomWindowOf(item) : null
             if (header) s.setWindow(header[0], header[1])
@@ -160,7 +159,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadKey])
 
-  // VW-05: publish the visible item's modality (the selector shows only when it is assumed), and
+  // Publish the visible item's modality (the selector shows only when it is assumed), and
   // re-window when the user changes an assumed modality: CT → soft tissue, other → percentiles
   const mKey = modalityKey(item)
   const override = useViewerSync((s) => s.modalityOverride[mKey])
@@ -178,7 +177,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     if (!handle || load.phase !== 'ready') return
     const w = windowedFor.current
     windowedFor.current = { key: mKey, value: modality.value }
-    // A new item keeps the window onImage chose (VW-15); only a changed choice re-windows
+    // A new item keeps the window onImage chose; only a changed choice re-windows
     if (!w || w.key !== mKey || w.value === modality.value) return
     if (isCt({ modality: modality.value })) applyCtWindow()
     else {
@@ -187,7 +186,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     }
   }, [handle, load.phase, mKey, modality.value])
 
-  // Remember geometry + crosshair for VW-15 on the next item
+  // Remember geometry + crosshair for the next item
   useEffect(() => {
     if (view) prev.current = { geometry: item.geometry, ras: view.ras }
   }, [view, item.geometry])
@@ -195,7 +194,6 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => {
     if (!handle) return
     const offView = handle.onView(setView)
-    // VW-08: the readout names the label (the shown labels' names, AUD-A2-11)
     const offCursor = handle.onCursor((c) => useViewerSync.setState({ cursor: c && c.label ? { ...c, labelName: labelsRef.current.find((l) => l.value === c.label)?.name } : c }))
     return () => {
       offView()
@@ -229,7 +227,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     }
   }, [active, handle, item, tags])
 
-  // VW-17 measurements: in memory for the visible item; cleared on a new item or on request
+  // Measurements: in memory for the visible item; cleared on a new item or on request
   const measureSeq = useRef(0)
   const [measures, setMeasures] = useState<{ key: string; items: Measurement[]; draft: Measurement | null }>({ key: '', items: [], draft: null })
   const mine = measures.key === `${loadKey}|${v.measureClear}` ? measures : { key: `${loadKey}|${v.measureClear}`, items: [], draft: null }
@@ -248,7 +246,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     setMeasures({ ...mine, items: [...mine.items, draft], draft: null })
   }
 
-  // VW-09 surfaces: fetch meshes (API-25) once requested
+  // Surface meshes are fetched only once requested
   const wantMeshes = !!handle && local.surfaces && !!meshUrl && hasMask && load.phase === 'ready'
   const [meshDone, setMeshDone] = useState<{ key: string; ok: boolean } | null>(null)
   const meshState: MeshState = !wantMeshes || meshDone?.key === loadKey ? (meshDone?.ok === false ? 'error' : 'idle') : 'building'
@@ -289,7 +287,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   }, [measure, v.layout, v.maximized])
   useEffect(() => handle?.setLayout(v.layout), [handle, v.layout])
 
-  // Space+drag pans (VW-06)
+  // Space+drag pans
   useEffect(() => {
     if (!active) return
     const down = (e: KeyboardEvent) => {
@@ -305,8 +303,6 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
       window.removeEventListener('keyup', up)
     }
   }, [active])
-
-  // ---- pointer interactions ----------------------------------------------------------------
 
   const local2canvas = (e: { clientX: number; clientY: number }): [number, number] => {
     const r = canvasHost.current?.getBoundingClientRect()
@@ -456,7 +452,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   )
 }
 
-/** VW-22 probe: the readout under the pointer, inside the hovered view above its slider (AUD-A3-05) */
+/** The readout under the pointer, inside the hovered view above its slider */
 function ProbeReadout() {
   const { t } = useTranslation()
   const text = useCursorText()

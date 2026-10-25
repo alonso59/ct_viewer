@@ -1,8 +1,8 @@
-"""Job manager over a ProcessPoolExecutor (BE-06, BE-13).
+"""Job manager over a ProcessPoolExecutor.
 
 Each job is an asyncio task on the API loop that keeps at most `workers` units in flight on
 the shared pool, relays results to `on_result`, then runs `on_finish` once. Progress and
-completion are published on the event bus (API-40).
+completion are published on the event bus.
 """
 
 from __future__ import annotations
@@ -59,11 +59,10 @@ class JobManager:
         self._shut_down = False
         self._jobs: dict[str, _Job] = {}
         self._terminal: deque[str] = deque()
-        # Called with the final JobInfo after `job.finished` (e.g. the cache budget, AUD-A4-16)
+        # Called with the final JobInfo after `job.finished`
         self.on_finished: list[Callable[[JobInfo], None]] = []
 
     async def start(self) -> None:
-        asyncio.get_running_loop()  # must run inside the loop
         if self._executor is not None:
             return
         if self.inline:
@@ -74,7 +73,7 @@ class JobManager:
             )
 
     async def shutdown(self) -> None:
-        """Stop accepting jobs; running/queued jobs become `interrupted` (BE-13)."""
+        """Stop accepting jobs; running/queued jobs become `interrupted`."""
         if self._shut_down:
             return
         self._shut_down = True
@@ -157,7 +156,7 @@ class JobManager:
         return None
 
     def busy(self, project_id: str) -> JobInfo | None:
-        """Any live job of the project, whatever its kind (PRJ-06: no archive while one runs)."""
+        """Any live job of the project, whatever its kind."""
         for j in self._jobs.values():
             if j.info.project_id == project_id and (
                 j.info.status not in TERMINAL or (j.drain_on_stop and not j.done_evt.is_set())
@@ -186,12 +185,10 @@ class JobManager:
         return job.info
 
     async def run_in_worker(self, fn: Callable[..., Any], *args: Any) -> Any:
-        """One-off worker call outside job tracking (e.g. npy→NIfTI conversion, IMP-10)."""
+        """One-off worker call outside job tracking."""
         if self._closing or self._executor is None:
             raise ServerBusy("Job manager is not accepting work")
         return await asyncio.get_running_loop().run_in_executor(self._executor, fn, *args)
-
-    # -- internals -------------------------------------------------------------------------
 
     async def _run(self, job: _Job) -> None:
         spec, info = job.spec, job.info
@@ -350,7 +347,7 @@ class JobManager:
 
 
 class _Handle:
-    """`JobHandle` for driver jobs (see `JobSpec.driver`)."""
+    """`JobHandle` for driver jobs."""
 
     def __init__(self, manager: JobManager, job: _Job) -> None:
         self._m = manager

@@ -1,6 +1,6 @@
-"""Backend side of the run protocol (TASKS.md §Protocol): write `job.json`, tail `progress.jsonl`,
-read `result.json`. The backend writes only `job.json` and `cancel` (TSK-11), plus `pause` and
-`control.json` for supervised runs (TSK-15); the supervisor answers with `control-ack.json`."""
+"""Backend side of the run protocol: write `job.json`, tail `progress.jsonl`, read `result.json`.
+The backend writes only `job.json` and `cancel`, plus `pause` and `control.json` for supervised
+runs; the supervisor answers with `control-ack.json`."""
 
 from __future__ import annotations
 
@@ -71,14 +71,7 @@ class Tail:
 
 
 def read_result(job_dir: Path) -> dict[str, Any] | None:
-    p = job_dir / RESULT
-    if not p.is_file():
-        return None
-    try:
-        raw = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return raw if isinstance(raw, dict) else None
+    return _json(job_dir / RESULT)
 
 
 def external_finished(job_dir: Path) -> bool:

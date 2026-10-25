@@ -1,4 +1,4 @@
-// Design reference tab (P0.5): tokens, type, badges, buttons and the CT icon set, for review.
+// Design reference tab: tokens, type, badges, buttons and the CT icon set, for review.
 import { useTranslation } from 'react-i18next'
 
 import { CURATION_STATUSES, PHASES } from '../api'

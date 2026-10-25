@@ -1,10 +1,9 @@
-"""PyRadiomics adapter (RAD-12, ADR-0006). Import this module only through `engine.get_engine`.
+"""PyRadiomics adapter. Import this module only through `engine.get_engine`.
 
 The schema is introspected from the installed engine: option names, types and constraints
 from its parameter schema (`paramSchema.yaml` + `schemaFuncs.py` enums), defaults from
-`RadiomicsFeatureExtractor._getDefaultSettings()` over `CODE_DEFAULTS` (defaults PyRadiomics
-only declares inline via `kwargs.get(name, default)`; a test checks them against the engine
-source), filters from `getImageTypes()` and features from each class's `getFeatureNames()`.
+`RadiomicsFeatureExtractor._getDefaultSettings()` over `CODE_DEFAULTS`, filters from
+`getImageTypes()` and features from each class's `getFeatureNames()`.
 """
 
 from __future__ import annotations
@@ -43,8 +42,6 @@ from app.radiomics.models import (
 # Worker processes run one unit at a time; inline (threaded) jobs, as in the tests, share one
 # process, so extraction is serialized here.
 _EXTRACT_LOCK = threading.Lock()
-
-log = logging.getLogger("app.radiomics")
 
 GROUPS: list[tuple[str, str]] = [
     ("filters", "Filters"),
@@ -93,7 +90,7 @@ FILTER_PARAMS: dict[str, list[str]] = {
     "LBP2D": ["lbp2DRadius", "lbp2DSamples", "lbp2DMethod"],
     "LBP3D": ["lbp3DLevels", "lbp3DIcosphereRadius", "lbp3DIcosphereSubdivision"],
 }
-# Chosen per extraction from the selection (RAD-05), not a form option.
+# Chosen per extraction from the selection.
 EXCLUDED_OPTIONS: frozenset[str] = frozenset({"label"})
 # Defaults PyRadiomics declares only inline (`kwargs.get(name, default)`); verified by a test.
 CODE_DEFAULTS: dict[str, Any] = {
@@ -177,7 +174,6 @@ DESCRIPTIONS: dict[str, str] = {
     "lbp3DIcosphereRadius": "Icosphere radius (mm)",
     "lbp3DIcosphereSubdivision": "Icosphere subdivisions",
 }
-# Validation messages (RADIOMICS.md §Validation rules)
 MSG_BINS = "Choose bin width or bin count"
 MSG_SIGMA = "LoG needs at least one sigma"
 MSG_2D = "Enable 2D mode for this option"
@@ -319,9 +315,7 @@ class PyRadiomicsEngine:
         self.version = str(radiomics.__version__)
         self._local = threading.local()
         for lg in ("radiomics", "pykwalify"):
-            logging.getLogger(lg).setLevel(logging.ERROR)  # BE-09: no paths at info
-
-    # -- schema (API-30) --------------------------------------------------------------------
+            logging.getLogger(lg).setLevel(logging.ERROR)  # keep patient paths out of info logs
 
     def defaults(self) -> dict[str, Any]:
         engine_defaults: dict[str, Any] = featureextractor.RadiomicsFeatureExtractor.__dict__[
@@ -384,15 +378,13 @@ class PyRadiomicsEngine:
             defaults=RadiomicsSettings(),
         )
         norm, issues = st.normalize(schema, RadiomicsSettings(), MESSAGES)
-        if norm is None:  # engine defaults must always be valid
+        if norm is None:
             raise RuntimeError(f"engine defaults do not validate: {issues}")
         schema.defaults = norm
         return schema
 
     def schema(self) -> SettingsSchema:
         return self._schema.model_copy(deep=True)
-
-    # -- validation (API-43, RAD-04) --------------------------------------------------------
 
     def validate(self, settings: dict[str, Any]) -> list[Issue]:
         raw = RadiomicsSettings.model_validate(settings)
@@ -401,25 +393,22 @@ class PyRadiomicsEngine:
             issues += rules(norm)
         return issues
 
-    # -- extraction (worker process) --------------------------------------------------------
-
     def _extractor(self, settings: dict[str, Any]) -> Any:
         key = st.canonical_json(settings)
-        cache: dict[str, Any] = getattr(self._local, "cache", None) or {}
-        ext = cache.get(key)
-        if ext is None:
-            norm = RadiomicsSettings.model_validate(settings)
-            params = {
-                "setting": {k: v for k, v in (norm.settings or {}).items() if v is not None},
-                "imageType": {
-                    n: {k: v for k, v in p.items() if v is not None}
-                    for n, p in (norm.image_types or {}).items()
-                },
-                "featureClass": {c: list(f) for c, f in (norm.features or {}).items() if f},
-            }
-            ext = featureextractor.RadiomicsFeatureExtractor(params)
-            cache = {key: ext}  # keep one: a run uses one settings snapshot
-            self._local.cache = cache
+        ext = getattr(self._local, "cache", {}).get(key)
+        if ext is not None:
+            return ext
+        norm = RadiomicsSettings.model_validate(settings)
+        params = {
+            "setting": {k: v for k, v in (norm.settings or {}).items() if v is not None},
+            "imageType": {
+                n: {k: v for k, v in p.items() if v is not None}
+                for n, p in (norm.image_types or {}).items()
+            },
+            "featureClass": {c: list(f) for c, f in (norm.features or {}).items() if f},
+        }
+        ext = featureextractor.RadiomicsFeatureExtractor(params)
+        self._local.cache = {key: ext}  # keep one: a run uses one settings snapshot
         return ext
 
     def extract(
@@ -450,7 +439,7 @@ class PyRadiomicsEngine:
 
 
 def rules(norm: RadiomicsSettings) -> list[Issue]:
-    """RADIOMICS.md §Validation rules over normalized settings (selection rules: service)."""
+    """Validation rules over normalized settings; selection rules live in the service."""
     s = norm.settings or {}
     types = norm.image_types or {}
     feats = norm.features or {}

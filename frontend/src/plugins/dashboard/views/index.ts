@@ -1,4 +1,3 @@
-// Dashboard sub-panels (DB-01): one per DASHBOARD §Views entry, plus the Analysis panel (DB-08)
 import type { ComponentType } from 'react'
 
 import type { DashboardView } from '../../../api'

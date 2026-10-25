@@ -50,7 +50,7 @@ export interface paths {
         put?: never;
         /**
          * Open Dataset
-         * @description API-67 / PRJ-19: open saved dataset-local projects from their folder.
+         * @description Open saved dataset-local projects from their folder.
          */
         post: operations["open_dataset_api_v1_projects_open_post"];
         delete?: never;
@@ -105,7 +105,7 @@ export interface paths {
         put?: never;
         /**
          * Apply Pack
-         * @description PRJ-16: never deletes data; the index is rebuilt with the new phase rules.
+         * @description Never deletes data; the index is rebuilt with the new phase rules.
          */
         post: operations["apply_pack_api_v1_projects__pid__packs_post"];
         delete?: never;
@@ -125,7 +125,7 @@ export interface paths {
         put?: never;
         /**
          * Create View Token
-         * @description PRJ-17 / API-61: create or rotate; the previous link stops working at once.
+         * @description Create or rotate; the previous link stops working at once.
          */
         post: operations["create_view_token_api_v1_projects__pid__view_token_post"];
         /** Revoke View Token */
@@ -214,7 +214,7 @@ export interface paths {
         put?: never;
         /**
          * Export Bundle
-         * @description API-06 export: `.zip` of the project folder without `cache/` and never image data.
+         * @description `.zip` of the project folder without `cache/` and never image data.
          */
         post: operations["export_bundle_api_v1_projects__pid__bundle_post"];
         delete?: never;
@@ -234,7 +234,7 @@ export interface paths {
         put?: never;
         /**
          * Import Bundle
-         * @description API-06 import (PRJ-09): new project from a bundle, plus a per-alias resolve report.
+         * @description New project from a bundle, plus a per-alias resolve report.
          */
         post: operations["import_bundle_api_v1_projects_import_bundle_post"];
         delete?: never;
@@ -254,9 +254,9 @@ export interface paths {
         put?: never;
         /**
          * Fs List
-         * @description `role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.
+         * @description `role=derived` browses ALLOWED_DERIVED_ROOTS instead of ALLOWED_DATA_ROOTS.
          *
-         *     A POST so browsed folders (often patient names) stay out of URLs and access logs (NFR-17).
+         *     A POST so browsed folders (often patient names) stay out of URLs and access logs.
          */
         post: operations["fs_list_api_v1_fs_list_post"];
         delete?: never;
@@ -276,7 +276,7 @@ export interface paths {
         put?: never;
         /**
          * Detect Source
-         * @description API-19: candidate adapters with reasons, counts and confidence (SRC-01/02).
+         * @description Candidate adapters with reasons, counts and confidence.
          */
         post: operations["detect_source_api_v1_sources_detect_post"];
         delete?: never;
@@ -296,7 +296,7 @@ export interface paths {
         put?: never;
         /**
          * Open Path
-         * @description API-07: a file or folder → an ephemeral session, headers only (SRC-09).
+         * @description A file or folder → an ephemeral session, headers only.
          */
         post: operations["open_path_api_v1_open_post"];
         delete?: never;
@@ -332,7 +332,7 @@ export interface paths {
         };
         /**
          * Open Items
-         * @description API-07 / SRC-18: stable paging over complete series, never a prefix of slices.
+         * @description Stable paging over complete series, never a prefix of slices.
          */
         get: operations["open_items_api_v1_open__sid__items_get"];
         put?: never;
@@ -352,7 +352,7 @@ export interface paths {
         };
         /**
          * Open-mode volume bytes (NIfTI; NumPy converted into .scratch/)
-         * @description API-08. NumPy without a decisive order → `ambiguous-axis-order` (SRC-12).
+         * @description NumPy without a decisive order → `ambiguous-axis-order`.
          */
         get: operations["open_image_api_v1_open__sid__items__n__image_get"];
         put?: never;
@@ -372,7 +372,7 @@ export interface paths {
         };
         /**
          * Open Dicom Tags
-         * @description Header info for a DICOM item (VW-22): its first file's DICOM JSON, never PixelData.
+         * @description Header info for a DICOM item: its first file's DICOM JSON, never PixelData.
          */
         get: operations["open_dicom_tags_api_v1_open__sid__items__n__dicom_tags_get"];
         put?: never;
@@ -390,7 +390,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** NumPy middle slice in one axis order (the Open dialog, SRC-12) */
+        /** NumPy middle slice in one axis order (the Open dialog) */
         get: operations["open_preview_api_v1_open__sid__items__n__preview_get"];
         put?: never;
         post?: never;
@@ -411,8 +411,8 @@ export interface paths {
         put?: never;
         /**
          * Open Attach
-         * @description API-08 attach (SRC-10, ADR-0027): a segmentation for item n from anywhere under
-         *     ALLOWED_DATA_ROOTS, only if the geometry matches.
+         * @description Attach a segmentation for item n from anywhere under ALLOWED_DATA_ROOTS, only if the
+         *     geometry matches.
          */
         post: operations["open_attach_api_v1_open__sid__items__n__attach_post"];
         delete?: never;
@@ -432,9 +432,60 @@ export interface paths {
         put?: never;
         /**
          * Open Save
-         * @description SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once.
+         * @description Write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once.
          */
         post: operations["open_save_api_v1_open__sid__items__n__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/import-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Draft */
+        post: operations["import_draft_api_v1_source_operations__oid__import_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/import-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Preview */
+        post: operations["import_preview_api_v1_source_operations__oid__import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/import-commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Commit */
+        post: operations["import_commit_api_v1_source_operations__oid__import_commit_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -640,7 +691,7 @@ export interface paths {
         put?: never;
         /**
          * Preview Import
-         * @description IMP-02/03: JSON `{root, detect: true, alias?}` or multipart uploads of the inputs.
+         * @description JSON `{root, detect: true, alias?}` or multipart uploads of the inputs.
          */
         post: operations["preview_import_api_v1_projects__pid__imports_preview_post"];
         delete?: never;
@@ -658,14 +709,14 @@ export interface paths {
         };
         /**
          * List Imports
-         * @description API-13: import history (newest first) plus the current index status.
+         * @description Import history (newest first) plus the current index status.
          */
         get: operations["list_imports_api_v1_projects__pid__imports_get"];
         put?: never;
         /**
          * Commit Import
-         * @description IMP-04/05: snapshot + start the index job. A workspace dataset (SRC-16) brings its analyzer
-         *     annotations along as a completed run, active where no run is (ANZ-04).
+         * @description Snapshot + start the index job. A workspace dataset brings its analyzer annotations along
+         *     as a completed run, active where no run is.
          */
         post: operations["commit_import_api_v1_projects__pid__imports_post"];
         delete?: never;
@@ -681,10 +732,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Warnings
-         * @description API-14 (IMP-08).
-         */
+        /** List Warnings */
         get: operations["list_warnings_api_v1_projects__pid__warnings_get"];
         put?: never;
         post?: never;
@@ -705,10 +753,10 @@ export interface paths {
         put?: never;
         /**
          * Start Hash
-         * @description API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.
+         * @description Full SHA-256 of every indexed image/mask file, in job workers.
          *
          *     Results land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item
-         *     records (API-21/22). One `hash` job per project (`job-conflict`).
+         *     records. One `hash` job per project (`job-conflict`).
          */
         post: operations["start_hash_api_v1_projects__pid__hash_jobs_post"];
         delete?: never;
@@ -726,7 +774,7 @@ export interface paths {
         };
         /**
          * Get Variables
-         * @description Catalog with profiles (VAR-01..05, 08, 09); profiles lazily after the first index.
+         * @description Catalog with profiles; profiles lazily after the first index.
          */
         get: operations["get_variables_api_v1_projects__pid__variables_get"];
         put?: never;
@@ -752,7 +800,7 @@ export interface paths {
         head?: never;
         /**
          * Patch Variable
-         * @description Confirm or override the type; set visibility and tags (VAR-03/05).
+         * @description Confirm or override the type; set visibility and tags.
          */
         patch: operations["patch_variable_api_v1_projects__pid__variables__name__patch"];
         trace?: never;
@@ -768,7 +816,7 @@ export interface paths {
         put?: never;
         /**
          * Add Derived
-         * @description Bin / recode / dominant (VAR-06).
+         * @description Bin / recode / dominant.
          */
         post: operations["add_derived_api_v1_projects__pid__variables_derived_post"];
         delete?: never;
@@ -805,7 +853,7 @@ export interface paths {
         put?: never;
         /**
          * Import External
-         * @description External case-keyed table → match report (VAR-07).
+         * @description External case-keyed table → match report.
          */
         post: operations["import_external_api_v1_projects__pid__variables_external_post"];
         delete?: never;
@@ -823,7 +871,7 @@ export interface paths {
         };
         /**
          * List Cases
-         * @description Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max` (VAR-10);
+         * @description Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max`;
          *     a case matches when any of its items matches every variable filter.
          */
         get: operations["list_cases_api_v1_projects__pid__cases_get"];
@@ -861,7 +909,7 @@ export interface paths {
         };
         /**
          * List Items
-         * @description API-68: active indexed items, filtered before paging; no source reads or ID inference.
+         * @description Active indexed items, filtered before paging.
          */
         get: operations["list_items_api_v1_projects__pid__items_get"];
         put?: never;
@@ -901,7 +949,7 @@ export interface paths {
         };
         /**
          * Get Dicom Tags
-         * @description The item's DICOM JSON sidecar (DCM-04), read on demand only (DCM-05: PHI stays here).
+         * @description The item's DICOM JSON sidecar, read on demand only (PHI stays here).
          */
         get: operations["get_dicom_tags_api_v1_projects__pid__items__iid__dicom_tags_get"];
         put?: never;
@@ -921,13 +969,13 @@ export interface paths {
         };
         /**
          * Preview Recycle
-         * @description API-66 / CUR-16: preview the whole scan, related outputs and default recycle bin.
+         * @description Preview the whole scan, related outputs and default recycle bin.
          */
         get: operations["preview_recycle_api_v1_projects__pid__items__iid__recycle_get"];
         put?: never;
         /**
          * Recycle Scan
-         * @description API-66: confirmed, audited removal; never a permanent delete.
+         * @description Confirmed, audited removal; never a permanent delete.
          */
         post: operations["recycle_scan_api_v1_projects__pid__items__iid__recycle_post"];
         delete?: never;
@@ -1030,15 +1078,15 @@ export interface paths {
         };
         /**
          * List Events
-         * @description API-50 history, newest first (CUR-14); every event is kept (CUR-02/12).
+         * @description History, newest first; every event is kept.
          */
         get: operations["list_events_api_v1_projects__pid__curation_events_get"];
         put?: never;
         /**
          * Append Event
-         * @description API-50 append one decision (CUR-02/03/05/07); pushes `curation.appended` (CUR-11).
+         * @description Append one decision; pushes `curation.appended`.
          *
-         *     428 `reviewer-required` without `X-Reviewer` (CUR-01).
+         *     428 `reviewer-required` without `X-Reviewer`.
          */
         post: operations["append_event_api_v1_projects__pid__curation_events_post"];
         delete?: never;
@@ -1056,7 +1104,7 @@ export interface paths {
         };
         /**
          * Get State
-         * @description API-51 derived latest state per item and per case (CUR-08, last-writer-wins CUR-12).
+         * @description Derived latest state per item and per case (last writer wins).
          */
         get: operations["get_state_api_v1_projects__pid__curation_state_get"];
         put?: never;
@@ -1076,7 +1124,7 @@ export interface paths {
         };
         /**
          * Get Queue
-         * @description API-52 correction queue (CUR-09); CSV for 3D Slicer with absolute paths.
+         * @description Correction queue; CSV for 3D Slicer with absolute paths.
          */
         get: operations["get_queue_api_v1_projects__pid__curation_queue_get"];
         put?: never;
@@ -1098,7 +1146,7 @@ export interface paths {
         put?: never;
         /**
          * Export Curation
-         * @description API-53 write the CUR-10 files into the project's `exports/`.
+         * @description Write `curation_state.csv` and an `events.jsonl` copy into the project's `exports/`.
          */
         post: operations["export_curation_api_v1_projects__pid__curation_exports_post"];
         delete?: never;
@@ -1118,9 +1166,9 @@ export interface paths {
         put?: never;
         /**
          * Import V2
-         * @description API-54 import v2 decisions as `source: "v2_import"` events (CUR-13).
+         * @description Import v2 decisions as `source: "v2_import"` events.
          *
-         *     `X-Reviewer` is required (CUR-01) and used for rows without a reviewer.
+         *     `X-Reviewer` is required and used for rows without a reviewer.
          */
         post: operations["import_v2_api_v1_projects__pid__curation_import_v2_post"];
         delete?: never;
@@ -1140,7 +1188,7 @@ export interface paths {
         put?: never;
         /**
          * Import Converter
-         * @description API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08).
+         * @description Import the standalone converter's manual decisions once.
          */
         post: operations["import_converter_api_v1_projects__pid__curation_import_converter_post"];
         delete?: never;
@@ -1158,14 +1206,14 @@ export interface paths {
         };
         /**
          * List Events
-         * @description API-63 history, newest first (PHS-07).
+         * @description History, newest first.
          */
         get: operations["list_events_api_v1_projects__pid__phase_events_get"];
         put?: never;
         /**
          * Append Event
-         * @description API-63 one-click selection (PHS-01) or accepting the analyzer guess (PHS-04); replaces
-         *     the effective phase at once and pushes `phase.appended` (PHS-05). 428 without `X-Reviewer`.
+         * @description One-click selection or accepting the analyzer guess; replaces the effective phase at once
+         *     and pushes `phase.appended`. 428 without `X-Reviewer`.
          */
         post: operations["append_event_api_v1_projects__pid__phase_events_post"];
         delete?: never;
@@ -1183,7 +1231,7 @@ export interface paths {
         };
         /**
          * Get State
-         * @description API-64 latest selection per scan (PHS-02) next to the value it overrides (PHS-03).
+         * @description Latest selection per scan next to the value it overrides.
          */
         get: operations["get_state_api_v1_projects__pid__phase_state_get"];
         put?: never;
@@ -1205,7 +1253,7 @@ export interface paths {
         put?: never;
         /**
          * Export Phase
-         * @description API-65 write `exports/phase_selections.json` (PHS-06).
+         * @description Write `exports/phase_selections.json`.
          */
         post: operations["export_phase_api_v1_projects__pid__phase_exports_post"];
         delete?: never;
@@ -1261,7 +1309,7 @@ export interface paths {
         get?: never;
         /**
          * Put Source
-         * @description ANZ-04: activate a run for one field (or `null`), then rebuild the index.
+         * @description Activate a run for one field (or `null`), then rebuild the index.
          */
         put: operations["put_source_api_v1_projects__pid__annotation_sources__field__put"];
         post?: never;
@@ -1297,7 +1345,7 @@ export interface paths {
         };
         /**
          * Dataset Table
-         * @description API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand.
+         * @description `dataset_table.csv|parquet`, or `dataset.jsonl`, built on demand.
          */
         get: operations["dataset_table_api_v1_projects__pid__exports_dataset_table_get"];
         put?: never;
@@ -1317,7 +1365,7 @@ export interface paths {
         };
         /**
          * Get Schema
-         * @description API-30 (RAD-01/02): every engine option with type, default, constraints and group.
+         * @description Every engine option with type, default, constraints and group.
          */
         get: operations["get_schema_api_v1_radiomics_schema_get"];
         put?: never;
@@ -1337,13 +1385,13 @@ export interface paths {
         };
         /**
          * List Profiles
-         * @description API-32 (RAD-03): saved profiles, by name.
+         * @description Saved profiles, by name.
          */
         get: operations["list_profiles_api_v1_projects__pid__radiomics_profiles_get"];
         put?: never;
         /**
          * Create Profile
-         * @description API-32 (RAD-03): save settings; content-addressed by `profile_hash` (200 if it exists).
+         * @description Save settings; content-addressed by `profile_hash` (200 if it exists).
          */
         post: operations["create_profile_api_v1_projects__pid__radiomics_profiles_post"];
         delete?: never;
@@ -1364,14 +1412,14 @@ export interface paths {
         post?: never;
         /**
          * Delete Profile
-         * @description API-32 (RAD-03): delete a profile → remaining profiles (runs keep their snapshot).
+         * @description Delete a profile → remaining profiles (runs keep their snapshot).
          */
         delete: operations["delete_profile_api_v1_projects__pid__radiomics_profiles__phash__delete"];
         options?: never;
         head?: never;
         /**
          * Rename Profile
-         * @description API-32 (RAD-03): rename. `phash` is `sha256:<hex>` or `<hex>`.
+         * @description Rename. `phash` is `sha256:<hex>` or `<hex>`.
          */
         patch: operations["rename_profile_api_v1_projects__pid__radiomics_profiles__phash__patch"];
         trace?: never;
@@ -1385,7 +1433,7 @@ export interface paths {
         };
         /**
          * Get Features
-         * @description API-36 (RAD-10, UI-14): long or wide features as JSON, CSV or Parquet.
+         * @description Long or wide features as JSON, CSV or Parquet.
          */
         get: operations["get_features_api_v1_projects__pid__radiomics_runs__rid__features_get"];
         put?: never;
@@ -1490,7 +1538,7 @@ export interface paths {
         };
         /**
          * List Runs
-         * @description API-45; `archived=true` lists the archived runs instead (J6).
+         * @description `archived=true` lists the archived runs instead.
          */
         get: operations["list_runs_api_v1_projects__pid__task_runs_get"];
         put?: never;
@@ -1547,7 +1595,7 @@ export interface paths {
         put?: never;
         /**
          * Pause Run
-         * @description API-46 supervised runs (TSK-15): idempotent; `pausing` until cleanup is verified.
+         * @description Supervised runs: idempotent; `pausing` until cleanup is verified.
          */
         post: operations["pause_run_api_v1_projects__pid__task_runs__rid__pause_post"];
         delete?: never;
@@ -1567,7 +1615,7 @@ export interface paths {
         put?: never;
         /**
          * Archive Run
-         * @description API-46 supervised runs (TSK-15): 409 while active or cleanup is pending.
+         * @description Supervised runs: 409 while active or cleanup is pending.
          */
         post: operations["archive_run_api_v1_projects__pid__task_runs__rid__archive_post"];
         delete?: never;
@@ -1655,7 +1703,7 @@ export interface paths {
         put?: never;
         /**
          * Workspace Estimate
-         * @description The converter's dry run without a project (DCM-06, UI-25 step 3).
+         * @description The converter's dry run without a project.
          */
         post: operations["workspace_estimate_api_v1_tasks__tid__estimate_post"];
         delete?: never;
@@ -1673,7 +1721,7 @@ export interface paths {
         };
         /**
          * Estimate Progress
-         * @description Where a dry run started with `progress_id=eid` is (DCM-06); 404 once it has returned.
+         * @description Where a dry run started with `progress_id=eid` is; 404 once it has returned.
          */
         get: operations["estimate_progress_api_v1_task_estimates__eid__get"];
         put?: never;
@@ -1830,7 +1878,7 @@ export interface paths {
         };
         /**
          * List Tables
-         * @description `?deleted=true` lists only the deleted tables (LBL-10).
+         * @description `?deleted=true` lists only the deleted tables.
          */
         get: operations["list_tables_api_v1_plugins_labeling_projects__pid__tables_get"];
         put?: never;
@@ -1939,7 +1987,7 @@ export interface paths {
         put?: never;
         /**
          * Run Overview
-         * @description Run overview: items ok/failed, per-label counts, runtime, errors -> item (API-38).
+         * @description Run overview: items ok/failed, per-label counts, runtime, errors -> item.
          */
         post: operations["run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post"];
         delete?: never;
@@ -1959,7 +2007,7 @@ export interface paths {
         put?: never;
         /**
          * Feature Distribution
-         * @description Histogram / box of one feature split by a color variable (DB-03/07).
+         * @description Histogram / box of one feature split by a color variable.
          */
         post: operations["feature_distribution_api_v1_projects__pid__radiomics_runs__rid__views_feature_distribution_post"];
         delete?: never;
@@ -1979,7 +2027,7 @@ export interface paths {
         put?: never;
         /**
          * Missing Matrix
-         * @description Feature x item NaN/inf/absent cells, sparse (DB-05).
+         * @description Feature x item NaN/inf/absent cells, sparse.
          */
         post: operations["missing_matrix_api_v1_projects__pid__radiomics_runs__rid__views_missing_matrix_post"];
         delete?: never;
@@ -2019,7 +2067,7 @@ export interface paths {
         put?: never;
         /**
          * Embedding
-         * @description PCA (default) or UMAP (optional extra) on z-scored features (DB-03/07).
+         * @description PCA (default) or UMAP (optional extra) on z-scored features.
          */
         post: operations["embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post"];
         delete?: never;
@@ -2079,7 +2127,7 @@ export interface paths {
         put?: never;
         /**
          * Group Comparison
-         * @description Box per group + test for one feature, results for all features (ANA-03..07).
+         * @description Box per group + test for one feature, results for all features.
          */
         post: operations["group_comparison_api_v1_projects__pid__radiomics_runs__rid__views_group_comparison_post"];
         delete?: never;
@@ -2099,7 +2147,7 @@ export interface paths {
         put?: never;
         /**
          * Association
-         * @description Scatter feature x continuous variable with rho; ranked table (ANA-04/05).
+         * @description Scatter feature x continuous variable with rho; ranked table.
          */
         post: operations["association_api_v1_projects__pid__radiomics_runs__rid__views_association_post"];
         delete?: never;
@@ -2163,7 +2211,7 @@ export interface paths {
         put?: never;
         /**
          * Create Analysis
-         * @description Create and run an analysis synchronously (ANA-01..08); saved under `analyses/`.
+         * @description Create and run an analysis synchronously; saved under `analyses/`.
          */
         post: operations["create_analysis_api_v1_projects__pid__analyses_post"];
         delete?: never;
@@ -2181,7 +2229,7 @@ export interface paths {
         };
         /**
          * Get Analysis
-         * @description Results + descriptives + recommendations (DB-08).
+         * @description Results + descriptives + recommendations.
          */
         get: operations["get_analysis_api_v1_projects__pid__analyses__aid__get"];
         put?: never;
@@ -2201,8 +2249,8 @@ export interface paths {
         };
         /**
          * Export Analysis
-         * @description ANA-09: `tidy` (unit rows x ids + variables + features), `results`, `descriptives`
-         *     CSV, or `spec` JSON.
+         * @description `tidy` (unit rows x ids + variables + features), `results`, `descriptives` CSV,
+         *     or `spec` JSON.
          */
         get: operations["export_analysis_api_v1_projects__pid__analyses__aid__export_get"];
         put?: never;
@@ -2316,7 +2364,7 @@ export interface paths {
         };
         /**
          * View Jobs
-         * @description The project's jobs (API-41) as the view-only link sees them: no `project_id`, no paths.
+         * @description The project's jobs as the view-only link sees them: no `project_id`, no paths.
          */
         get: operations["view_jobs_api_v1_view__token__jobs_get"];
         put?: never;
@@ -2353,7 +2401,7 @@ export interface paths {
         };
         /**
          * Surface mesh of one mask label (202 + job if not cached)
-         * @description `seg` = segmentation set (ADR-0015); default `default_seg`.
+         * @description `seg` = segmentation set; default `default_seg`.
          */
         get: operations["get_mesh_api_v1_projects__pid__items__iid__mesh__label__get"];
         put?: never;
@@ -2368,10 +2416,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * Analysis
-         * @description GET …/analyses/{aid}: results + descriptives + recommendations (DB-08).
-         */
+        /** Analysis */
         Analysis: {
             /** Analysis Id */
             analysis_id: string;
@@ -2403,10 +2448,10 @@ export interface components {
         };
         /**
          * AnalysisSpec
-         * @description ANA-01: run + filter + unit + question type + variable (+ optional confounder).
+         * @description Run + filter + unit + question type + variable (+ optional confounder).
          *
-         *     `balance` compares `variable` x `confounder` (both categorical). `paired` (ANA-10) is
-         *     planned for v3.1 and rejected with `validation`.
+         *     `balance` compares `variable` x `confounder` (both categorical). `paired` is rejected
+         *     with `validation`.
          */
         AnalysisSpec: {
             /** Run Id */
@@ -2555,7 +2600,7 @@ export interface components {
         };
         /**
          * BinDef
-         * @description VAR-06 bin: continuous → categorical by thresholds or quantiles (`v < t` → lower bin).
+         * @description Bin: continuous → categorical by thresholds or quantiles (`v < t` → lower bin).
          */
         BinDef: {
             /**
@@ -2578,7 +2623,7 @@ export interface components {
         Body_import_bundle_api_v1_projects_import_bundle_post: {
             /**
              * Bundle
-             * @description A PRJ-08 bundle .zip
+             * @description A project bundle .zip
              */
             bundle: string;
         };
@@ -2638,8 +2683,8 @@ export interface components {
         };
         /**
          * BrokenDerived
-         * @description VAR-06: a stored derived definition that no longer builds (e.g. its source column's
-         *     label table was deleted, LBL-10); listed so it can be deleted (AUD-A5-08).
+         * @description A stored derived definition that no longer builds (e.g. its source column's label
+         *     table was deleted); listed so it can be deleted.
          */
         BrokenDerived: {
             /** Name */
@@ -2661,7 +2706,7 @@ export interface components {
         };
         /**
          * BundleRoot
-         * @description One alias of the imported project, checked on this server (PRJ-09).
+         * @description One alias of the imported project, checked on this server.
          */
         BundleRoot: {
             root: components["schemas"]["RootInfo"];
@@ -2706,7 +2751,7 @@ export interface components {
         };
         /**
          * CaseState
-         * @description Case rollup = worst over its items and case-target events (CUR-08).
+         * @description Case rollup = worst over its items and case-target events.
          */
         CaseState: {
             /** Case Id */
@@ -2803,7 +2848,7 @@ export interface components {
         };
         /**
          * Catalog
-         * @description `variables/catalog.json` (VAR-11) and the API-16 response.
+         * @description `variables/catalog.json` and the catalog API response.
          */
         Catalog: {
             /**
@@ -2843,7 +2888,7 @@ export interface components {
         };
         /**
          * CellEvent
-         * @description LBL-04: one line of `events/labeling.jsonl`.
+         * @description One line of `events/labeling.jsonl`.
          */
         CellEvent: {
             /** Event Id */
@@ -2874,7 +2919,7 @@ export interface components {
         };
         /**
          * CellRow
-         * @description API-57 row: a target of the table's level with its current values.
+         * @description A target of the table's level with its current values.
          */
         CellRow: {
             /** Target */
@@ -2920,7 +2965,7 @@ export interface components {
         };
         /**
          * ColorBy
-         * @description DB-07 color/split: a categorical variable, an item attribute, or curation status.
+         * @description Color/split: a categorical variable, an item attribute, or curation status.
          */
         ColorBy: {
             /**
@@ -2958,7 +3003,7 @@ export interface components {
             hidden?: boolean | null;
             /**
              * Ref
-             * @description LBL-09: mirror this comparable variable (new columns only)
+             * @description Mirror this comparable variable (new columns only)
              */
             ref?: string | null;
         };
@@ -3077,7 +3122,7 @@ export interface components {
         };
         /**
          * Contributes
-         * @description Contribution points (PLUGINS.md §Contribution points). Values are ids.
+         * @description Contribution points. Values are ids.
          */
         Contributes: {
             /** Tasks */
@@ -3099,7 +3144,7 @@ export interface components {
         };
         /**
          * ConversionTimeEstimate
-         * @description DCM-06: conversion stage only; historical ranges are not calibrated confidence bounds.
+         * @description Conversion stage only; historical ranges are not calibrated confidence bounds.
          */
         ConversionTimeEstimate: {
             /**
@@ -3165,7 +3210,7 @@ export interface components {
         };
         /**
          * CurationEvent
-         * @description One append-only decision in `curation/events.jsonl` (CUR-02, schema v1).
+         * @description One append-only decision in `curation/events.jsonl`.
          */
         CurationEvent: {
             /** Event Id */
@@ -3226,7 +3271,7 @@ export interface components {
         };
         /**
          * CurationState
-         * @description API-51 response and the `curation/state.json` snapshot (derived, PRJ-10).
+         * @description Derived state; also the `curation/state.json` snapshot.
          */
         CurationState: {
             /**
@@ -3251,7 +3296,7 @@ export interface components {
         };
         /**
          * DescriptiveRow
-         * @description ANA-07 per feature x group.
+         * @description One feature x group.
          */
         DescriptiveRow: {
             /** Feature */
@@ -3307,10 +3352,7 @@ export interface components {
              */
             truncated: boolean;
         };
-        /**
-         * Display
-         * @description `project.json.display` (PRJ-18, VW-25); was `viewer_defaults` before format 3.
-         */
+        /** Display */
         Display: {
             /**
              * Layout
@@ -3373,7 +3415,7 @@ export interface components {
         };
         /**
          * DominantDef
-         * @description VAR-06 dominant: name of the largest of N numeric variables (missing if any is missing;
+         * @description Dominant: name of the largest of N numeric variables (missing if any is missing;
          *     `tie` when several share the maximum).
          */
         DominantDef: {
@@ -3496,7 +3538,7 @@ export interface components {
         };
         /**
          * EventIn
-         * @description API-50 POST body. The server sets `event_id`, `at`, `reviewer`, `schema_version`.
+         * @description The server sets `event_id`, `at`, `reviewer`, `schema_version`.
          */
         EventIn: {
             /** Item Id */
@@ -3556,7 +3598,7 @@ export interface components {
         };
         /**
          * Excluded
-         * @description VAR-08/09: fields that are never variables, with the reason.
+         * @description Fields that are never variables, with the reason.
          */
         Excluded: {
             /** Name */
@@ -3569,7 +3611,7 @@ export interface components {
         };
         /**
          * ExportResult
-         * @description API-53: files written under the project folder's `dir` (CUR-10).
+         * @description Files written under the project folder's `dir`.
          */
         ExportResult: {
             /**
@@ -3600,7 +3642,7 @@ export interface components {
         };
         /**
          * ExternalTable
-         * @description VAR-07 external case-keyed table, snapshotted under `variables/external/`.
+         * @description External case-keyed table, snapshotted under `variables/external/`.
          */
         ExternalTable: {
             /** Table Id */
@@ -3717,7 +3759,7 @@ export interface components {
         };
         /**
          * FeaturesTable
-         * @description API-36 JSON: long rows follow the features.parquet schema; wide rows one per item+label.
+         * @description Long rows follow the features.parquet schema; wide rows are one per item+label.
          */
         FeaturesTable: {
             /** Run Id */
@@ -3825,11 +3867,11 @@ export interface components {
         };
         /**
          * GlobalFilters
-         * @description DB-02 global filters, applied to every view and analysis (AND across fields).
+         * @description Global filters, applied to every view and analysis (AND across fields).
          *
-         *     `var` uses the VAR-10 syntax: `{name: [values]}`, categorical values OR'ed, numeric
-         *     `min..max` ranges. `status` is the curation status (CUR-08; unreviewed = `not_reviewed`).
-         *     `item_ids` carries a DB-04 selection.
+         *     `var` maps a variable name to values: categorical values OR'ed, numeric `min..max`
+         *     ranges. `status` is the curation status (unreviewed = `not_reviewed`).
+         *     `item_ids` carries a selection of items.
          */
         GlobalFilters: {
             /** Var */
@@ -3920,7 +3962,7 @@ export interface components {
         };
         /**
          * HashJobStarted
-         * @description API-15 `202`: progress and completion arrive as `job.*` SSE events (API-40).
+         * @description Progress and completion arrive as `job.*` SSE events.
          */
         HashJobStarted: {
             /** Job Id */
@@ -3938,10 +3980,7 @@ export interface components {
             version: string;
             ui_config: components["schemas"]["UiConfig"];
         };
-        /**
-         * IbsiInfo
-         * @description Metadata only: never shown in the GUI (RADIOMICS.md §Principles).
-         */
+        /** IbsiInfo */
         IbsiInfo: {
             /** Code */
             code?: string | null;
@@ -4031,7 +4070,7 @@ export interface components {
         };
         /**
          * ImportRecord
-         * @description One line of `sources/imports.jsonl` (IMP-04).
+         * @description One line of `sources/imports.jsonl`.
          */
         ImportRecord: {
             /** Import Id */
@@ -4054,10 +4093,7 @@ export interface components {
             /** Source Key */
             source_key?: string | null;
         };
-        /**
-         * ImportReport
-         * @description LBL-07 match report (as VAR-07).
-         */
+        /** ImportReport */
         ImportReport: {
             /** Key */
             key: string;
@@ -4081,7 +4117,7 @@ export interface components {
         };
         /**
          * IndexStatus
-         * @description `index/status.json`: persisted index job state (BE-06).
+         * @description `index/status.json`: persisted index job state.
          */
         IndexStatus: {
             /**
@@ -4317,10 +4353,7 @@ export interface components {
             /** Targets */
             targets: components["schemas"]["TargetState"][];
         };
-        /**
-         * JobInfo
-         * @description API-41 payload.
-         */
+        /** JobInfo */
         JobInfo: {
             /** Job Id */
             job_id: string;
@@ -4363,7 +4396,7 @@ export interface components {
         };
         /**
          * LabelColumn
-         * @description LBL-02: a rename keeps `column_id` and `slug` (the variable name); delete = hidden.
+         * @description A rename keeps `column_id` and `slug` (the variable name); delete = hidden.
          */
         LabelColumn: {
             /** Column Id */
@@ -4795,7 +4828,7 @@ export interface components {
         };
         /**
          * PackInfo
-         * @description API-28 row: a study pack contributed by a plugin (PRJ-16).
+         * @description A study pack contributed by a plugin.
          */
         PackInfo: {
             /** Pack Id */
@@ -4927,7 +4960,7 @@ export interface components {
         };
         /**
          * ParsedFile
-         * @description `nifti-files` preview row (SRC-04).
+         * @description `nifti-files` preview row.
          */
         ParsedFile: {
             /** File */
@@ -4980,7 +5013,7 @@ export interface components {
         };
         /**
          * PhaseChange
-         * @description PHS-03 / AUD-A5-04: an item whose effective phase differs from the run's value.
+         * @description An item whose effective phase differs from the run's value.
          */
         PhaseChange: {
             /** Item Id */
@@ -4994,7 +5027,7 @@ export interface components {
         };
         /**
          * PhaseEvent
-         * @description One append-only selection in `events/phase.jsonl` (PHS-02).
+         * @description One append-only selection in `events/phase.jsonl`.
          */
         PhaseEvent: {
             /** Event Id */
@@ -5022,7 +5055,7 @@ export interface components {
         };
         /**
          * PhaseExportResult
-         * @description PHS-06: files written under the project folder's `dir`.
+         * @description Files written under the project folder's `dir`.
          */
         PhaseExportResult: {
             /**
@@ -5037,7 +5070,7 @@ export interface components {
         };
         /**
          * PhaseIn
-         * @description POST body. The server sets `event_id`, `at`, `reviewer`; imports use their own routes.
+         * @description The server sets `event_id`, `at`, `reviewer`; imports use their own routes.
          */
         PhaseIn: {
             /** Case Id */
@@ -5057,7 +5090,7 @@ export interface components {
             source: "manual" | "analyzer_accept";
             /**
              * Accepted Run Id
-             * @description Required with `analyzer_accept`: the active phase run (PHS-04)
+             * @description Required with `analyzer_accept`: the active phase run
              */
             accepted_run_id?: string | null;
             /** Session Id */
@@ -5078,7 +5111,7 @@ export interface components {
         };
         /**
          * PhaseSelection
-         * @description Latest event for one scan (PHS-02), with the index-time value it overrides (PHS-03).
+         * @description Latest event for one scan, with the index-time value it overrides.
          */
         PhaseSelection: {
             /** Case Id */
@@ -5100,10 +5133,7 @@ export interface components {
             at: string;
             /** Event Id */
             event_id: string;
-            /**
-             * Resolved
-             * @description INPUT_METADATA §Phase resolution
-             */
+            /** Resolved */
             resolved?: string | null;
             /** Resolved Source */
             resolved_source?: string | null;
@@ -5117,7 +5147,7 @@ export interface components {
         };
         /**
          * PluginInfo
-         * @description API-49 row: the manifest plus the computed status (PLG-05/06).
+         * @description The manifest plus the computed status.
          */
         PluginInfo: {
             manifest: components["schemas"]["PluginManifest"];
@@ -5140,7 +5170,7 @@ export interface components {
         };
         /**
          * PluginManifest
-         * @description `plugins/<id>/plugin.json` (PLG-02). Unknown keys are refused like task manifests.
+         * @description `plugins/<id>/plugin.json`. Unknown keys are refused.
          */
         PluginManifest: {
             /**
@@ -5206,7 +5236,7 @@ export interface components {
         };
         /**
          * PreflightResult
-         * @description TSK-04: items that aren't ready are skipped, never failed.
+         * @description Items that aren't ready are skipped, never failed.
          */
         PreflightResult: {
             /** N Selected */
@@ -5260,7 +5290,7 @@ export interface components {
         };
         /**
          * ProjectCreate
-         * @description PRJ-14: a name and an optional default modality; `packs` is for scripts (PRJ-16).
+         * @description A name and an optional default modality; `packs` is for scripts.
          */
         ProjectCreate: {
             /** Name */
@@ -5280,13 +5310,13 @@ export interface components {
             dataset_root?: string | null;
             /**
              * Packs
-             * @description Study packs to apply (API-28)
+             * @description Study packs to apply
              */
             packs?: string[];
         };
         /**
          * ProjectDetail
-         * @description API-03 response: project.json + share link (PRJ-03) + the `ETag` value (PRJ-15).
+         * @description `project.json` plus the share link and the `ETag` value.
          */
         ProjectDetail: {
             /**
@@ -5363,7 +5393,7 @@ export interface components {
         };
         /**
          * ProjectPatch
-         * @description API-03 PATCH body: only provided fields change.
+         * @description PATCH body: only provided fields change.
          */
         ProjectPatch: {
             /** Name */
@@ -5388,7 +5418,7 @@ export interface components {
         };
         /**
          * ProjectSummary
-         * @description PRJ-02 workspace home row.
+         * @description Workspace home row.
          */
         ProjectSummary: {
             /** Project Id */
@@ -5450,7 +5480,7 @@ export interface components {
         };
         /**
          * QueueRow
-         * @description Correction queue row (CUR-09); fields = CURATION.md §Correction queue CSV columns.
+         * @description Correction queue row; fields = the queue CSV columns.
          */
         QueueRow: {
             /** Case Id */
@@ -5519,7 +5549,7 @@ export interface components {
         };
         /**
          * RecodeDef
-         * @description VAR-06 recode: merge/rename categories; unmapped values are kept as they are.
+         * @description Recode: merge/rename categories; unmapped values are kept as they are.
          */
         RecodeDef: {
             /**
@@ -5538,7 +5568,7 @@ export interface components {
         };
         /**
          * Recommendation
-         * @description ANA-08: a triggered rule; `view` + `params` open the view that shows the problem.
+         * @description A triggered rule; `view` + `params` open the view that shows the problem.
          */
         Recommendation: {
             /**
@@ -5623,7 +5653,7 @@ export interface components {
         };
         /**
          * ResultRow
-         * @description ANA-05: one tested feature (or the single balance-check row).
+         * @description One tested feature (or the single balance-check row).
          */
         ResultRow: {
             /** Feature */
@@ -5657,10 +5687,7 @@ export interface components {
              */
             role?: ("source" | "derived") | null;
         };
-        /**
-         * RootInfo
-         * @description API-05 alias row.
-         */
+        /** RootInfo */
         RootInfo: {
             /** Alias */
             alias: string;
@@ -5777,10 +5804,7 @@ export interface components {
              */
             errors_limit: number;
         };
-        /**
-         * RunOverviewResponse
-         * @description Run overview: items ok/failed, per-label counts, runtime, error list → item.
-         */
+        /** RunOverviewResponse */
         RunOverviewResponse: {
             /** Run Id */
             run_id: string;
@@ -5903,10 +5927,7 @@ export interface components {
             /** Env Hint */
             env_hint?: string | null;
         };
-        /**
-         * SaveBody
-         * @description API-09 (SRC-14).
-         */
+        /** SaveBody */
         SaveBody: {
             /** Dest Dir */
             dest_dir?: string | null;
@@ -5958,7 +5979,7 @@ export interface components {
         };
         /**
          * SegProducer
-         * @description The task run that produced a segmentation set (ADR-0015).
+         * @description The task run that produced a segmentation set.
          */
         SegProducer: {
             /** Task Id */
@@ -6024,7 +6045,7 @@ export interface components {
         };
         /**
          * SegmentationSet
-         * @description `project.json.segmentations[]` (ADR-0015): one mask per item, per set.
+         * @description `project.json.segmentations[]`: one mask per item, per set.
          */
         SegmentationSet: {
             /** Seg Id */
@@ -6055,7 +6076,7 @@ export interface components {
         };
         /**
          * SeriesPlan
-         * @description One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why.
+         * @description One series of a converter dry run: what happens to it and why.
          */
         SeriesPlan: {
             /** Case Id */
@@ -6159,10 +6180,71 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             };
+            /**
+             * Reconstruct
+             * @default false
+             */
+            reconstruct: boolean;
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
+            /**
+             * Step
+             * @default detect
+             * @enum {string}
+             */
+            step: "detect" | "previewing" | "preview" | "index";
+            /** Preview Id */
+            preview_id?: string | null;
+            /** Import Id */
+            import_id?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+        };
+        /** SourceImportUpdate */
+        SourceImportUpdate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Expected Attempt */
+            expected_attempt: number;
+            /** Expected Run Attempt */
+            expected_run_attempt?: number | null;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Alias
+             * @default DATA
+             */
+            alias: string;
+            /** Adapter */
+            adapter?: string | null;
+            /**
+             * Add
+             * @default false
+             */
+            add: boolean;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Reconstruct
+             * @default false
+             */
+            reconstruct: boolean;
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
         };
         /** SourceOperation */
         SourceOperation: {
             import_context?: components["schemas"]["SourceImportContext"] | null;
+            import_preview?: components["schemas"]["ImportPreview"] | null;
+            import_job?: components["schemas"]["JobInfo"] | null;
             /**
              * Version
              * @default 1
@@ -6367,10 +6449,7 @@ export interface components {
             /** Columns */
             columns?: components["schemas"]["ColumnIn"][];
         };
-        /**
-         * TableInfo
-         * @description API-56 row with LBL-08 progress.
-         */
+        /** TableInfo */
         TableInfo: {
             /** Table Id */
             table_id: string;
@@ -6410,7 +6489,7 @@ export interface components {
         };
         /**
          * TargetState
-         * @description Latest event for one `(item_id, target)` (or case-target) key (CUR-08).
+         * @description Latest event for one `(item_id, target)` (or case-target) key.
          */
         TargetState: {
             /** Target */
@@ -6469,10 +6548,7 @@ export interface components {
             /** Acknowledged At */
             acknowledged_at?: string | null;
         };
-        /**
-         * TaskEstimate
-         * @description TSK-05.
-         */
+        /** TaskEstimate */
         TaskEstimate: {
             /** N Units */
             n_units: number;
@@ -6509,7 +6585,7 @@ export interface components {
         };
         /**
          * TaskInfo
-         * @description API-42 row: a loaded manifest plus where it came from and whether it can run now.
+         * @description A loaded manifest plus where it came from and whether it can run now.
          */
         TaskInfo: {
             manifest: components["schemas"]["TaskManifest"];
@@ -6566,7 +6642,7 @@ export interface components {
         };
         /**
          * TaskManifest
-         * @description `task.json` (TSK-01). Unknown keys are refused so typos surface as invalid manifests.
+         * @description `task.json`. Unknown keys are refused so typos surface as invalid manifests.
          */
         TaskManifest: {
             /**
@@ -6783,7 +6859,7 @@ export interface components {
         };
         /**
          * TaskRunListItem
-         * @description API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13).
+         * @description A run list row; a radiomics.pyradiomics row carries its radiomics run summary.
          */
         TaskRunListItem: {
             /** Run Id */
@@ -6831,10 +6907,7 @@ export interface components {
             control?: components["schemas"]["TaskControl"] | null;
             radiomics?: components["schemas"]["RunSummary"] | null;
         };
-        /**
-         * TaskRunOutput
-         * @description A registered output (TSK-09).
-         */
+        /** TaskRunOutput */
         TaskRunOutput: {
             /** Kind */
             kind: string;
@@ -6896,7 +6969,7 @@ export interface components {
         };
         /**
          * TaskSelection
-         * @description TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels.
+         * @description All active items / an Explorer filter / an explicit list; scope; seg + labels.
          */
         TaskSelection: {
             /** Item Ids */
@@ -6949,7 +7022,7 @@ export interface components {
         };
         /**
          * TestChoice
-         * @description ANA-04: the rule outcome with a one-line reason.
+         * @description The test rule outcome with a one-line reason.
          */
         TestChoice: {
             /** Default Test */
@@ -6977,7 +7050,7 @@ export interface components {
         };
         /**
          * UnitPoint
-         * @description One unit row (ANA-03): representative item + the items it aggregates.
+         * @description One unit row: representative item + the items it aggregates.
          */
         UnitPoint: {
             /** Item Id */
@@ -6997,7 +7070,7 @@ export interface components {
         };
         /**
          * UnitSpec
-         * @description ANA-03 unit of analysis: one label, one scope, one phase per case.
+         * @description Unit of analysis: one label, one scope, one phase per case.
          *
          *     `phase = null` picks, per case, the item whose phase ranks first in the project phase
          *     priority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then
@@ -7045,10 +7118,7 @@ export interface components {
              */
             n_variable_missing: number;
         };
-        /**
-         * V2ImportReport
-         * @description API-54 result (CUR-13).
-         */
+        /** V2ImportReport */
         V2ImportReport: {
             /** N Rows */
             n_rows: number;
@@ -7152,7 +7222,7 @@ export interface components {
         };
         /**
          * VariableOverride
-         * @description API-16 PATCH body; only provided fields change (VAR-03/05).
+         * @description PATCH body; only provided fields change.
          */
         VariableOverride: {
             /** Type */
@@ -7251,7 +7321,7 @@ export interface components {
         };
         /**
          * WorkspaceRun
-         * @description `plugins/{plugin}/runs/{run_id}/run.json` and the API-62 payload.
+         * @description `plugins/{plugin}/runs/{run_id}/run.json` and its API payload.
          */
         WorkspaceRun: {
             /** Run Id */
@@ -7363,10 +7433,10 @@ export interface components {
         };
         /**
          * RunError
-         * @description One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.
+         * @description One `errors.jsonl` row. `skipped` rows do not make a run fail.
          *
-         *     `code` names the cause (`radiomics/causes.py`, AUD-A2-05), `error` says it in plain words,
-         *     `detail` keeps the engine's own text for failures. Rows written before FB5 have no code.
+         *     `code` names the cause, `error` says it in plain words, `detail` keeps the engine's own text
+         *     for failures. Older rows have no code.
          */
         app__radiomics__models__RunError: {
             /** Item Id */
@@ -7389,7 +7459,7 @@ export interface components {
         };
         /**
          * Profile
-         * @description VAR-01: computed over units of the variable's level (cases or scans).
+         * @description Computed over units of the variable's level (cases or scans).
          */
         app__variables__models__Profile: {
             /** N Units */
@@ -7599,7 +7669,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProjectDetail"];
                 };
             };
-            /** @description Stale If-Match (PRJ-15) */
+            /** @description Stale If-Match */
             412: {
                 headers: {
                     [name: string]: unknown;
@@ -7879,7 +7949,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Project bundle (PRJ-08) */
+            /** @description Project bundle */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8297,6 +8367,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Saved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_draft_api_v1_source_operations__oid__import_draft_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceImportUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_preview_api_v1_source_operations__oid__import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_commit_api_v1_source_operations__oid__import_commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
                 };
             };
             /** @description Validation Error */
@@ -9104,7 +9279,7 @@ export interface operations {
                 phase?: string | null;
                 /** @description Default hides all-excluded_upstream cases */
                 status?: ("active" | "excluded_upstream" | "missing") | null;
-                /** @description CUR-08 case rollup (the Search view's Status) */
+                /** @description Case curation rollup (the Search view's Status) */
                 curation_status?: ("rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "partially_reviewed" | "not_reviewed") | null;
                 warning?: components["schemas"]["QcCode"] | null;
                 has_voi?: boolean | null;
@@ -9590,7 +9765,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Reviewer name or initials (CUR-01); required for writes */
+                /** @description Reviewer name or initials; required for writes */
                 "x-reviewer"?: string | null;
                 /** @description Per-tab id for audit */
                 "x-session-id"?: string | null;
@@ -9729,7 +9904,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Reviewer name or initials (CUR-01); required for writes */
+                /** @description Reviewer name or initials; required for writes */
                 "x-reviewer"?: string | null;
             };
             path: {
@@ -9767,7 +9942,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Reviewer name or initials (CUR-01); required for writes */
+                /** @description Reviewer name or initials; required for writes */
                 "x-reviewer"?: string | null;
             };
             path: {
@@ -9842,7 +10017,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Reviewer name or initials (ADR-0004) */
+                /** @description Reviewer name or initials */
                 "X-Reviewer"?: string | null;
                 /** @description Per-tab id for audit */
                 "X-Session-Id"?: string | null;
@@ -10079,7 +10254,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "csv" | "parquet" | "jsonl";
-                /** @description Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers (VAR-09). Absolute paths and `raw_metadata` never leave. */
+                /** @description Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers. Absolute paths and `raw_metadata` never leave. */
                 include_sensitive?: boolean;
             };
             header?: never;
@@ -11972,7 +12147,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description tidy/results/descriptives CSV, or the spec JSON (ANA-09) */
+            /** @description tidy/results/descriptives CSV, or the spec JSON */
             200: {
                 headers: {
                     [name: string]: unknown;

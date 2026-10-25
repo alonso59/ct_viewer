@@ -208,8 +208,6 @@ def test_packs_on_create_seed_phases_and_labels(
 
 def test_phase_config_patch_is_validated(client: TestClient) -> None:
     p = client.post(f"{API}/projects", json={"name": "x", "packs": ["ccrcc"]}).json()["project_id"]
-    url = f"{API}/projects/{p}"
-    del url
     body: dict[str, Any] = {"phase_vocabulary": ["NC", "CMP", "UNK"], "phase_priority": ["UNK"]}
     body["phase_mapping"] = {"ART": "ZZZ"}
     assert_problem(patch_project(client, p, body), "validation")

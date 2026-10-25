@@ -1,5 +1,5 @@
 // Draft run shared by the Radiomics view (profiles) and the settings tab. In memory only: the
-// form reopens on the engine defaults (RADIOMICS §Principles) unless a profile is loaded.
+// form reopens on the engine defaults unless a profile is loaded.
 import { create } from 'zustand'
 
 import { emptySelection, type SelectionForm } from './model/selection'

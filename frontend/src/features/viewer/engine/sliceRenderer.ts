@@ -1,4 +1,4 @@
-// 2D slice renderer for NiiVue's custom-slice-shader hook (VW-03/05/07, NFR-02).
+// 2D slice renderer for NiiVue's custom-slice-shader hook.
 //
 // NiiVue windows a volume by re-uploading and re-compositing the whole 3D texture (≈ 0.5 s for a
 // 512×512×600 CT). Here the full-resolution image and label volumes are uploaded ONCE; window,
@@ -46,7 +46,7 @@ float imageAt(vec3 p) {
 
 void main(void) {
   float v = imageAt(texPos);
-  // VW-23 slab: max / min / mean along the plane normal over ± half the thickness
+  // Slab: max / min / mean along the plane normal over ± half the thickness
   if (rwSlabMode > 0) {
     vec3 dir = axCorSag == 0 ? vec3(0.0, 0.0, 1.0) : (axCorSag == 1 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0));
     float st = max(dot(dir, rwStep), 1e-6);
@@ -117,7 +117,6 @@ export class SliceRenderer {
   private invert = false
   private slab: { mode: number; half: [number, number, number] } = { mode: 0, half: [0, 0, 0] }
   private linear = true
-  hasLabel = false
   private planeProgram: WebGLProgram | null = null
   private planeVao: WebGLVertexArrayObject | null = null
 
@@ -169,7 +168,6 @@ export class SliceRenderer {
   setLabel(data: Uint8Array | Uint16Array | null, dims: [number, number, number]) {
     const gl = this.gl
     this.drop('label')
-    this.hasLabel = !!data
     if (!data) return
     const tex = gl.createTexture()
     gl.activeTexture(gl.TEXTURE0 + UNIT.label)
@@ -205,7 +203,7 @@ export class SliceRenderer {
 
   private filterable = true
 
-  /** VW-25: linear or nearest-neighbour sampling of the image (labels are always exact) */
+  /** Linear or nearest-neighbour sampling of the image (labels are always exact) */
   setInterpolation(linear: boolean) {
     this.linear = linear
     if (!this.image) return
@@ -222,7 +220,7 @@ export class SliceRenderer {
     this.invert = on
   }
 
-  /** VW-23: `mode` 0 none, 1 MIP, 2 MinIP, 3 mean; `half` = half thickness in texPos fraction */
+  /** `mode` 0 none, 1 MIP, 2 MinIP, 3 mean; `half` = half thickness in texPos fraction */
   setSlab(mode: number, half: [number, number, number]) {
     this.slab = { mode, half }
   }
@@ -256,7 +254,7 @@ export class SliceRenderer {
     gl.uniform2f(u('rwScale'), this.scale[0], this.scale[1])
     gl.uniform2f(u('rwRange'), this.range[0], this.range[1])
     gl.uniform1f(u('rwOverlay'), this.overlay)
-    gl.uniform1i(u('rwHasLabel'), this.hasLabel && this.label && this.lut ? 1 : 0)
+    gl.uniform1i(u('rwHasLabel'), this.label && this.lut ? 1 : 0)
     gl.uniform3f(u('rwStep'), ...this.step)
     gl.uniform1i(u('rwInvert'), this.invert ? 1 : 0)
     gl.uniform1i(u('rwSlabMode'), this.slab.mode)
@@ -264,7 +262,7 @@ export class SliceRenderer {
     gl.useProgram(prev)
   }
 
-  /** VW-27: the same full-resolution slice in the 3D scene, at the current slider position. */
+  /** The same full-resolution slice in the 3D scene, at the current slider position. */
   drawPlane(mvp: Float32Array, fracToMM: Float32Array, axis: number, position: number) {
     if (!this.image) return
     const gl = this.gl

@@ -1,5 +1,3 @@
-// Run selection (RAD-05): items (all active / filter on any variable (VAR-10) / explicit list,
-// or the current Explorer filter), scope and labels (one extraction per label).
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -13,13 +11,12 @@ import type { Issue } from './model/types'
 import { IssueText } from './IssueText'
 
 /** Variables a level filter can use: those with a finite set of levels */
-export const filterable = (v: Variable) => (v.type === 'categorical' || v.type === 'numeric-discrete' || v.type === 'constant') && (v.profile.levels?.length ?? 0) > 0
+const filterable = (v: Variable) => (v.type === 'categorical' || v.type === 'numeric-discrete' || v.type === 'constant') && (v.profile.levels?.length ?? 0) > 0
 
 function toggle<T>(list: T[], v: T, on: boolean): T[] {
   return on ? (list.includes(v) ? list : [...list, v]) : list.filter((x) => x !== v)
 }
 
-/** "Use the current Explorer filter": what was applied, and what could not be sent */
 function ExplorerNote({ applied }: { applied: ExplorerSelection }) {
   const { t } = useTranslation()
   const notes = [
@@ -185,7 +182,7 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
         </div>
       </div>
 
-      {/* RAD-05: the set is always visible (default `default_seg`), so the run names its masks */}
+      {/* The set is always shown (default `default_seg`), so the run names its masks */}
       {sets.length ? (
         <div className="rad-field">
           <label className="rad-label" htmlFor="rad-seg">{t('rad.segSet')}</label>

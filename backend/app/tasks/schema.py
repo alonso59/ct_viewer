@@ -1,4 +1,4 @@
-"""Settings validation for the manifest's JSON Schema subset (TSK-02; TASKS.md §Manifest).
+"""Settings validation for the manifest's JSON Schema subset.
 
 Supported: `object` with `properties` / `required` / `additionalProperties` (default false),
 `boolean`, `integer`, `number` (`minimum`, `maximum`), `string` (`enum`, `minLength`,
@@ -142,7 +142,7 @@ def normalize(
 
 
 def settings_hash(task_id: str, version: str, settings: Mapping[str, Any]) -> str:
-    """Content hash of normalized settings for one task version (TSK-10)."""
+    """Content hash of normalized settings for one task version."""
     blob = json.dumps(
         {"task": task_id, "version": version, "settings": settings},
         sort_keys=True,

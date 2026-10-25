@@ -1,11 +1,10 @@
-// Per-run dashboard state shared by the views, the filter bar and the Analysis panel (DB-02/04/07/09).
-// UI state only (Zustand); server data stays in TanStack Query.
+// Per-run dashboard UI state shared by the views, the filter bar and the Analysis panel; server data stays in TanStack Query.
 import { create } from 'zustand'
 
 import type { ColorBy, DashboardView, GlobalFilters } from '../../api'
 
-/** A request to show one view with params (DB-09: result rows and recommendations open views) */
-export interface FocusRequest {
+/** A request to show one view with params */
+interface FocusRequest {
   view: DashboardView
   params: Record<string, unknown>
   /** Increments on every request so the same view can be focused twice */
@@ -13,11 +12,11 @@ export interface FocusRequest {
 }
 
 export interface RunDashboard {
-  /** DB-02 global filters, sent as `filters` in every API-38/39 body */
+  /** Global filters, sent as `filters` in every view and analysis request body */
   filters: GlobalFilters
-  /** DB-07 colour/split for the views that take one */
+  /** Colour/split for the views that take one */
   colorBy: ColorBy | null
-  /** DB-04 linked selection: item ids highlighted in every view */
+  /** Linked selection: item ids highlighted in every view */
   selection: string[]
   focus: FocusRequest | null
   /** Variables shown in the filter bar; only those with values are in `filters.var` */

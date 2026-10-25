@@ -3,7 +3,7 @@
   "id": "segment.threshold",
   "version": "0.1.0",
   "title": "Threshold segmentation (test)",
-  "description": "Fake segmentation for CI: voxels above a threshold become one label (TST-14).",
+  "description": "Fake segmentation for CI: voxels above a threshold become one label.",
   "kind": "segmentation",
   "input": "items",
   "outputs": ["masks"],

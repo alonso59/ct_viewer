@@ -8,8 +8,7 @@ import { defineConfig } from 'vitest/config'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-// Vitest empties every CSS import (also `?raw`); `?cssraw` gives a test the stylesheet text instead,
-// for the token and colour checks of theme/tokens.test.ts (UI-11)
+// Vitest empties every CSS import (also `?raw`); `?cssraw` gives a test the stylesheet text instead.
 const cssRaw = (): Plugin => ({
   name: 'css-raw',
   enforce: 'pre',
@@ -35,7 +34,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     env: { VITE_API_MODE: 'mock' },
-    // `make coverage` (a report, not a gate; TESTING §Coverage)
+    // `make coverage` (a report, not a gate)
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

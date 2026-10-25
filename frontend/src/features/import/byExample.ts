@@ -1,8 +1,8 @@
-// SRC-17 pattern by example: the user marks the pieces of one real image path (folders, and the
+// Pattern by example: the user marks the pieces of one real image path (folders, and the
 // file name's `_`/`-`/`.` tokens) as case, scan, side, channel, fixed text or "any", and points
 // at that image's mask; the `pattern` regex and the `mask_template` are generated from that, so
-// nobody has to write either by hand. Both stay ordinary `nifti-files` options (SRC-04).
-import { stemOf, toJsRegex } from './patternSuggest'
+// nobody has to write either by hand. Both stay ordinary `nifti-files` options.
+import { escape, stemOf, toJsRegex } from './patternSuggest'
 
 export const ROLES = ['case_id', 'scan_idx', 'side', 'channel', 'fixed', 'any'] as const
 export type Role = (typeof ROLES)[number]
@@ -33,7 +33,6 @@ export function tokenize(path: string): Token[] {
   return out
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const shape = (t: string) => (/^\d+$/.test(t) ? '\\d+' : /^[A-Za-z]+$/.test(t) ? '[A-Za-z]+' : '[A-Za-z0-9]+')
 
 function piece(t: Token, role: Role): string {
@@ -50,7 +49,7 @@ export const defaultRole = (t: Token): Role => (t.folder ? 'any' : 'fixed')
  * The Python pattern for these roles, or null without a case. Neighbouring name tokens with the
  * same group form one group (`case` + `00012` → `case_00012`); a group used again further on is
  * "any", as a name can only be used once. With every folder "any" the folders are left out, so
- * the pattern matches the file name wherever it is (SRC-04: no `/`, the stem).
+ * the pattern matches the file name wherever it is (no `/`: the stem).
  */
 export function buildPattern(tokens: Token[], roles: Role[]): string | null {
   const keepFolders = tokens.some((t, i) => t.folder && roles[i] !== 'any')
@@ -134,7 +133,7 @@ const IMAGES = /^images?/i
 const LABELS = /^(labels?|masks?|segmentations?)/i
 
 /**
- * SRC-17 paired folders (`ImageTr` + `LabelTr`, `imagesTr` + `labelsTr`): when the sample is
+ * Paired folders (`ImageTr` + `LabelTr`, `imagesTr` + `labelsTr`): when the sample is
  * exactly an image folder and its label folder side by side, the pattern and the mask template
  * that pair them. One case folder per image (`ImageTr/{case}/ct`) with a mask file or a mask set
  * folder at the same place under the label folder, or flat files (`imagesTr/{case}[_0000]`) with

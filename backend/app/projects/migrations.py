@@ -1,7 +1,4 @@
-"""`project.json` forward migrations (PRJ-11).
-
-`MIGRATIONS[v]` turns a raw v`v` document into v`v+1` (PROJECT_FORMAT.md §Migration).
-"""
+"""`project.json` forward migrations: `MIGRATIONS[v]` turns a raw v`v` document into v`v+1`."""
 
 from __future__ import annotations
 
@@ -46,7 +43,7 @@ def _layout(v2: object) -> str:
 
 
 def _v2_to_v3(raw: dict[str, Any]) -> dict[str, Any]:
-    """ADR-0019: `preset` → `packs`, `viewer_defaults` → `display`, default modality CT.
+    """`preset` → `packs`, `viewer_defaults` → `display`, default modality CT.
 
     Files without `preset` predate presets and meant ccRCC; fields a v2 file left to the old
     (ccRCC) model defaults are filled from that pack so nothing changes meaning.

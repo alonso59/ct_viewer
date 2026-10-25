@@ -2,7 +2,7 @@
 // then create a neutral project from the dataset; the phase arrives as a layer. Real backend.
 import { expect, test } from '@playwright/test'
 
-import { continueImportInspection } from './importMode'
+import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
 import { API } from './helpers'
 
@@ -39,7 +39,9 @@ test('convert without a project, then create a project from the dataset', async 
   const wizard = await continueImportInspection(page)
   await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await wizard.getByRole('button', { name: 'Next' }).click()
+  await continueImportPreview(page)
   await wizard.getByRole('button', { name: 'Import and index' }).click()
+  await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00000/ })).toBeVisible()
   const project = (await (await fetch(`${API}/projects/${pid}`)).json()) as { packs: string[]; annotation_sources: Record<string, string | null> }

@@ -1,4 +1,4 @@
-// Unit-test helpers over the recorded API (TST-04, AUD-A6-03): the problem a recorded request got.
+// Unit-test helpers over the recorded API: the problem a recorded request got.
 import { toProblemError, type ProblemError } from '../api/problem'
 import { lookup } from '../api/mock/replay'
 

@@ -1,4 +1,4 @@
-"""Task estimates (TSK-05, API-44): a sample run on up to 3 ready items, or a source dry run."""
+"""Task estimates: a sample run on up to 3 ready items, or a source dry run."""
 
 from __future__ import annotations
 
@@ -19,13 +19,12 @@ SAMPLE_ITEMS: Final = 3
 
 
 class EstimateBase(JobSpecBase):
-    """Estimates: builtin sample, external manifest figures, source-task dry run (DCM-06)."""
+    """Estimates: builtin sample, external manifest figures, source-task dry run."""
 
     async def estimate(
         self, pid: str, task_id: str, req: PreflightRequest, progress_id: str | None = None
     ) -> TaskEstimate:
-        info = self.registry.get(task_id)
-        m = info.manifest
+        m = self.registry.get(task_id).manifest
         if task_id == RADIOMICS_TASK:
             return await self._radiomics().estimate_task(pid, req)
         pre = await self.preflight(pid, task_id, req)
@@ -80,7 +79,6 @@ class EstimateBase(JobSpecBase):
         )
         t0 = time.monotonic()
         try:
-            assert m.runtime.entry is not None
             await self.jobs.run_in_worker(run_entry, m.runtime.entry, str(job_dir))
             elapsed = time.monotonic() - t0
             result = protocol.read_result(job_dir) or {}
@@ -113,7 +111,7 @@ class EstimateBase(JobSpecBase):
     async def _dry_run(
         self, pid: str, m: TaskManifest, req: PreflightRequest, progress_id: str | None
     ) -> TaskEstimate:
-        """A source task's estimate = its dry run (DCM-06): counts and storage, nothing written."""
+        """A source task's estimate = its dry run: counts and storage, nothing written."""
         settings, _ = self._settings(m, req.settings)
         source = self._source(req.selection)
         job_dir = dry_run.job_dir(self.settings.workspace_root, progress_id)
@@ -127,7 +125,6 @@ class EstimateBase(JobSpecBase):
             protocol.write_job(
                 job_dir, {**spec, "job_id": job_dir.name, "run_id": "estimate", "mode": "estimate"}
             )
-            assert m.runtime.entry is not None
             if m.id == dry_run.DICOM_CONVERT:
                 await run_dicom_job(
                     job_dir, workspace=self.settings.workspace_root, settings=self.settings

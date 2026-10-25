@@ -1,4 +1,4 @@
-// Import wizard, step 2 (IMP-03, SRC-01..06, SRC-17): the detected source adapters with their
+// Import wizard, step 2: the detected source adapters with their
 // reasons, `nifti-files` options with pattern suggestions, the DICOM and sidecar choices.
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -11,7 +11,7 @@ import { GROUP_COLOR, Highlight, PatternByExample } from './PatternByExample'
 
 const EXAMPLES = 4
 
-/** SRC-17: candidates from the sampled image paths; picking one only fills the field */
+/** Candidates from the sampled image paths; picking one only fills the field */
 function PatternSuggester({ stems, current, onPick }: { stems: string[]; current: string | undefined; onPick: (pattern: string) => void }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -52,7 +52,7 @@ function PatternSuggester({ stems, current, onPick }: { stems: string[]; current
 
 const PREFILL_NOTE: Record<string, string> = { [CONVERTER_PATTERN]: 'import.nifti.patternPrefilled', [FOLDER_PATTERN]: 'import.nifti.patternPrefilledFolder' }
 
-/** SRC-04 options: the pattern and mask template by example (SRC-17), as raw fields under
+/** `nifti-files` options: the pattern and mask template by example, as raw fields under
  *  "Advanced", case id source, modality */
 function NiftiOptionsForm({ value, onChange, stems, prefilled, dir }: { value: NiftiOptions; onChange: (v: NiftiOptions) => void; stems: string[]; prefilled: boolean; dir: string | null }) {
   const { t } = useTranslation()
@@ -99,7 +99,7 @@ function NiftiOptionsForm({ value, onChange, stems, prefilled, dir }: { value: N
   )
 }
 
-/** IMP-03 (AUD-A1-15): the adapter in plain words, its reason on its own line; internal names in the tooltip */
+/** The adapter in plain words, its reason on its own line; internal names in the tooltip */
 function Candidates({ cands, value, onPick }: { cands: DetectCandidate[]; value: string | null; onPick: (a: string) => void }) {
   const { t } = useTranslation()
   return (
@@ -134,7 +134,7 @@ export function DetectStep(p: {
   onAdapter: (a: string) => void
   nifti: NiftiOptions
   onNifti: (o: NiftiOptions) => void
-  /** Sampled image paths without extension (SRC-17) */
+  /** Sampled image paths without extension */
   stems: string[]
   /** The chosen folder (null when one file was chosen): the root of the pattern by example */
   dir: string | null
@@ -164,7 +164,7 @@ export function DetectStep(p: {
           <div>
             {p.adapter === 'nifti-files' ? <NiftiOptionsForm value={p.nifti} onChange={p.onNifti} stems={p.stems} prefilled={p.prefilled} dir={p.dir} /> : null}
             {p.adapter === 'dicom.convert' ? (
-              // AUD-A5-16: the same anonymize choice as the converter window (DCM-05, NFR-17)
+              // the same anonymize choice as the converter window
               <label className="check mt-2">
                 <input type="checkbox" checked={p.anonymize} onChange={(e) => p.onAnonymize(e.target.checked)} />
                 <span>

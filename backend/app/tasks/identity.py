@@ -1,4 +1,4 @@
-"""SEG-14: create and check the API-owned identity of supervised nnU-Net runs."""
+"""Create and check the API-owned identity of supervised nnU-Net runs."""
 
 from __future__ import annotations
 

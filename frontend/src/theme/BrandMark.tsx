@@ -1,5 +1,4 @@
-// App logo (UI-21): static PNGs in public/brand/, outside the JS bundle (NFR-07).
-// Master artwork: docs/brand/logo-master.png. Never recolour, crop or stretch it.
+// App logo: static PNGs in public/brand/, outside the JS bundle. Never recolour, crop or stretch it.
 const BASE = `${import.meta.env.BASE_URL}brand/`
 
 export function BrandMark({ size = 20, alt = '' }: { size?: number; alt?: string }) {

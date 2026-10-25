@@ -1,11 +1,7 @@
-"""Dataset table (ADR-0020 §4, API-59): the indexed rows joined with the active layers.
+"""Dataset table: the indexed rows joined with the active layers.
 
 `metadata.jsonl` is never regenerated with plugin columns; this table is the merged view, built
-on demand. Layer columns are named `{field}@{layer id}`; Parquet also carries the provenance of
-every layer column in the schema metadata (`layers`). `dataset.jsonl` (ADR-0025) is the same
-merge as one JSON object per item: values keep their JSON shape, and per-file records (a DICOM
-sidecar, an analyzer run's annotations) are references under `refs`, never inlined. Sensitive
-fields (VAR-09) are left out of every format unless asked for.
+on demand.
 """
 
 from __future__ import annotations
@@ -33,9 +29,9 @@ def _cell(v: Any) -> Any:
 
 
 def rows(
-    items: Sequence[Item], layers: Sequence[Layer], drop: frozenset[str] = frozenset()
+    items: Sequence[Item], layers: Sequence[Layer], drop: frozenset[str]
 ) -> tuple[list[str], list[dict[str, Any]]]:
-    """`drop`: field names left out (the sensitive ones, VAR-09), base, extra or layer."""
+    """`drop`: field names left out (the sensitive ones), base, extra or layer."""
     layers = [layer for layer in layers if layer.field not in drop]
     layer_fields = {layer.field for layer in layers}
     # an input field named like a base column (e.g. the raw `phase`) must not overwrite it
@@ -61,16 +57,18 @@ def rows(
     return header, out
 
 
-REF_FIELDS: Final = ("dicom_sidecar",)  # per-file records, kept as references (ADR-0025)
+REF_FIELDS: Final = ("dicom_sidecar",)  # per-file records, kept as references
 
 
 def to_jsonl(
     items: Sequence[Item],
     layers: Sequence[Layer],
     annotation_refs: dict[str, str],
-    drop: frozenset[str] = frozenset(),
+    drop: frozenset[str],
 ) -> bytes:
-    """ADR-0025 `dataset.jsonl`: one line per item, flat like the table, JSON values kept.
+    """`dataset.jsonl`: one line per item, flat like the table, JSON values kept. Per-file
+    records (a DICOM sidecar, an analyzer run's annotations) are references under `refs`, never
+    inlined.
 
     `annotation_refs`: active annotation field → `tasks/runs/{run_id}/annotations.jsonl`.
     """
@@ -86,7 +84,7 @@ def to_jsonl(
         }  # fmt: skip
         for k in drop:
             rec.pop(k, None)
-        if i.phase.resolved is not None:  # PHS-03: a selection keeps the value it replaced
+        if i.phase.resolved is not None:  # a selection keeps the value it replaced
             rec["phase_resolved"] = i.phase.resolved.canonical
         rec["masks"] = {seg: v.ref for seg, v in i.masks.items()}
         rec["labels_present"] = i.labels_present

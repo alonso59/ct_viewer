@@ -1,4 +1,4 @@
-"""Standalone analyzer tasks (`input: rows`, ANZ-02): the same `analyze` as inside the converter."""
+"""Standalone analyzer tasks (`input: rows`): the same `analyze` as inside the converter."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-// Core status bar items: project, live/offline SSE state, reviewer (UI-07)
+// Core status bar items: project, live/offline SSE state, reviewer
 import { useTranslation } from 'react-i18next'
 
 import { useConnection, useHealth, useProject } from '../api'
@@ -10,7 +10,7 @@ export function ProjectStatus() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const p = useProject(pid).data
-  // AUD-A4-05 (NFR-16): the version and "Research use only" in the tooltip too
+  // The version and "Research use only" in the tooltip too
   const about = t('about.statusTip', { version: useHealth().data?.version ?? '—' })
   return (
     <span className="statusbar-item" title={[about, ...(p?.path_roots.map((r) => `${r.alias} → ${r.path}`) ?? [])].join('\n')}>

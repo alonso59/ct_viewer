@@ -1,7 +1,6 @@
-"""CUR-08 reducer: events (append order) → derived latest state.
+"""Events (append order) → derived latest state.
 
-- Key: `(case_id, item_id, target)`; case-target events have `item_id = None`.
-- Last-writer-wins by append order (CUR-12), never by the `at` timestamp.
+- Last-writer-wins by append order, never by the `at` timestamp.
 - Item status = worst over its targets; case rollup = worst over the case's item keys and
   case-target keys. Ties go to the later event, which is the "deciding" one.
 """
@@ -11,14 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from app.curation.models import (
-    SEVERITY,
-    CaseState,
-    CurationEvent,
-    CurationState,
-    ItemState,
-    TargetState,
-)
+from app.curation.models import SEVERITY, CaseState, CurationEvent, ItemState, TargetState
 
 Key = tuple[str, str | None, str, str | None]  # case, item, target, seg (mask targets)
 
@@ -77,18 +69,10 @@ class Reduced:
             )
         return out
 
-    def state(self, updated_at: str) -> CurationState:
-        return CurationState(
-            updated_at=updated_at,
-            n_events=self.n_events,
-            items=list(self.items().values()),
-            cases=list(self.cases().values()),
-        )
 
-
-def reduce_events(events: Iterable[CurationEvent], start: int = 0) -> Reduced:
+def reduce_events(events: Iterable[CurationEvent]) -> Reduced:
     red = Reduced()
-    for pos, ev in enumerate(events, start):
+    for pos, ev in enumerate(events):
         red.add(pos, ev)
     return red
 

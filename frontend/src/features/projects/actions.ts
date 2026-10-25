@@ -1,13 +1,12 @@
-// Project actions shared by buttons and commands: bundle export (PRJ-08, API-06) and the
-// full-hash job (IMP-09, API-15; progress in the Jobs panel via `job.*` events).
+// Project actions shared by buttons and commands: bundle export and the full-hash job
+// (progress in the Jobs panel via `job.*` events).
 import i18n from '../../i18n'
 import { ProblemError, api, keys, queryClient } from '../../api'
 import { toast } from '../../shell'
 import { useLayout } from '../../state'
 import { problemMessage } from '../../lib'
 
-
-export function saveBlob(name: string, blob: Blob) {
+function saveBlob(name: string, blob: Blob) {
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = name
@@ -27,7 +26,7 @@ export async function exportBundle(pid: string): Promise<void> {
   }
 }
 
-/** Start API-15; `force` re-hashes files that already have a current hash */
+/** `force` re-hashes files that already have a current hash */
 export async function computeHashes(pid: string, force = false): Promise<void> {
   const showJobs = () => useLayout.getState().showPanelTab('jobs')
   try {

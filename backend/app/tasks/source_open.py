@@ -1,4 +1,4 @@
-"""SRC-18 / ADR-0035: recoverable whole-unit Open headers in the managed inventory."""
+"""Recoverable whole-unit Open headers in the managed inventory."""
 
 from __future__ import annotations
 

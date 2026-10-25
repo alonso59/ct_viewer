@@ -1,4 +1,4 @@
-"""SPA static serving from STATIC_ROOT (BE ARCHITECTURE `main.py`, OPS-01)."""
+"""SPA static serving from STATIC_ROOT (OPS-01)."""
 
 from __future__ import annotations
 

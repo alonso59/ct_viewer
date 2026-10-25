@@ -1,5 +1,4 @@
-"""Header rows (contract v1 + converter extras, DICOM_CONVERTER.md §Row fields).
-Ported from `legacy/convert/metadata.py` (row building, scan timing, geometry updates)."""
+"""Header rows: contract v1 fields plus converter extras."""
 
 from __future__ import annotations
 
@@ -15,7 +14,7 @@ from plugins.text import (
     value_to_text,
 )
 
-MODALITY_CODES = {"MRI": "MR"}  # DCM-12: DICOM codes
+MODALITY_CODES = {"MRI": "MR"}
 
 
 def first_value(text: str) -> str:
@@ -93,7 +92,6 @@ def header_row(ds: Any, series: Series, patient_folder: str, insp: Inspection) -
         "rescale_intercept": _t(ds, "RescaleIntercept"),
         "rescale_slope": _t(ds, "RescaleSlope"),
         "rescale_type": _t(ds, "RescaleType"),
-        # VW-22: the header's display window (first value when multi-valued)
         "window_center": first_value(_t(ds, "WindowCenter")),
         "window_width": first_value(_t(ds, "WindowWidth")),
         "repetition_time": _t(ds, "RepetitionTime"),
@@ -123,6 +121,7 @@ def header_row(ds: Any, series: Series, patient_folder: str, insp: Inspection) -
         "image_orientation": orientation,
         "number_of_frames": _t(ds, "NumberOfFrames"),
         "geometry_status": insp.geometry_status,
+        "dicom_identity_codes": ";".join(insp.identity_codes),
         "geometry_warning_codes": ";".join(insp.geometry_codes),
         "nominal_slice_spacing": "" if insp.nominal_slice_spacing is None else str(insp.nominal_slice_spacing),
         "advanced_dicom_status": insp.advanced_status,
@@ -145,7 +144,7 @@ SCAN_TIME_SOURCES = (
 
 
 def apply_scan_timing(rows: Sequence[dict[str, Any]]) -> None:
-    """Best scan date/time per series, days from the first scan, study order (legacy rules)."""
+    """Best scan date/time per series, days from the first scan, study order."""
     for row in rows:
         row.update({"scan_date": "", "scan_time": "", "scan_datetime": "", "scan_datetime_source": ""})
         for source, dk, tk in SCAN_TIME_SOURCES:

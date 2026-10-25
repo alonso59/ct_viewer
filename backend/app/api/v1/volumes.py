@@ -1,5 +1,3 @@
-"""API-23/24/26 image/mask bytes, thumbnails (BE-04, IMP-10, IMP-12)."""
-
 from __future__ import annotations
 
 import asyncio
@@ -41,7 +39,7 @@ async def composed_mask(
     cached = dst.is_file()
     path = await maskset.ensure_composed(ctx.jobs, project_dir, folder, fp, labels)
     if not cached:
-        ctx.cache_written()
+        ctx.cache_budget.request()
     return path, dst.name.removesuffix(".nii.gz")
 
 
@@ -59,12 +57,12 @@ async def _serve(
         if vol is None:
             raise NotFound("item has no image")
     else:
-        seg_id = seg or ctx.workspace.get(pid).default_seg  # ADR-0015
+        seg_id = seg or ctx.workspace.get(pid).default_seg
         vol = item.masks.get(seg_id)
         if vol is None:
             raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
-    if vol.format == "nifti_dir" and vol.labels and path.is_dir():  # a mask set (SRC-04)
+    if vol.format == "nifti_dir" and vol.labels and path.is_dir():  # a mask set
         name = f"{path.name}.nii.gz"
         path, etag = await composed_mask(ctx, pid, path, vol.labels)
         if streaming.is_not_modified(request, etag):
@@ -79,12 +77,12 @@ async def _serve(
         if streaming.is_not_modified(request, fp):
             return streaming.not_modified(streaming.quote_etag(fp))
         spacing = item.geometry.spacing if item.geometry is not None else [1.0, 1.0, 1.0]
-        order = npy_convert.axis_order_of(item.extra.get("axis_order")) or "xyz"  # IMP-10
+        order = npy_convert.axis_order_of(item.extra.get("axis_order")) or "xyz"
         dst = npy_convert.cache_path(ctx.workspace.project_dir(pid), fp, order)
         cached = dst.is_file()
         path = await npy_convert.ensure_nifti(ctx.jobs, path, dst, spacing, order)
         if not cached:
-            ctx.cache_written()
+            ctx.cache_budget.request()
     return streaming.volume_response(path, fp, name, request)
 
 
@@ -138,5 +136,5 @@ async def get_thumbnail(pid: str, iid: str, request: Request, ctx: Ctx) -> Respo
         # evicted by CACHE_MAX_GB (or never made): the next thumbnail pass renders it again
         await thumbnails.regenerate_soon(ctx.workspace, ctx.index, ctx.jobs, pid)
         raise NotFound("thumbnail not generated")
-    touch(path)  # LRU use (AUD-A4-16)
+    touch(path)  # LRU use
     return streaming.webp_response(path, fp, request)

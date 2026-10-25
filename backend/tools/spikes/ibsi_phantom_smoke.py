@@ -1,7 +1,7 @@
-"""ADR-0006 spike: PyRadiomics on Python 3.12 vs the IBSI 1 digital phantom (smoke test).
+"""PyRadiomics on Python 3.12 vs the IBSI 1 digital phantom (smoke test).
 
 Needs the `[radiomics]` extra. Phantom voxels are embedded (4x4x5, 2 mm, 74 ROI voxels) so the
-script runs offline. Full TST-06 compliance (all families, CT phantom) is lane P5.
+script runs offline.
 
     backend/.venv/bin/python -m tools.spikes.ibsi_phantom_smoke
 """

@@ -1,4 +1,3 @@
-// Central query keys (FE-02)
 import type { CaseFilter } from './surface'
 import type { DashboardView, ItemFilter } from './types'
 
@@ -6,7 +5,7 @@ import type { DashboardView, ItemFilter } from './types'
 export type ProjectScope = 'cases' | 'case' | 'item' | 'curation' | 'events' | 'labeling' | 'run' | 'analyses'
 
 export const keys = {
-  /** Prefix of every key of one part of a project, for invalidation (AUD-A6-13) */
+  /** Prefix of every key of one part of a project, for invalidation */
   scope: (pid: string, part: ProjectScope) => ['project', pid, part] as const,
   /** Prefix of every jobs key */
   allJobs: () => ['jobs'] as const,
@@ -32,17 +31,17 @@ export const keys = {
   run: (pid: string, rid: string) => ['project', pid, 'run', rid] as const,
   features: (pid: string, rid: string, iid?: string) => ['project', pid, 'run', rid, 'features', iid ?? '*'] as const,
   runErrors: (pid: string, rid: string) => ['project', pid, 'run', rid, 'errors'] as const,
-  /** API-38; the body is part of the key. `['project', pid, 'run', rid, 'view']` prefixes all views of a run */
+  /** The body is part of the key. `['project', pid, 'run', rid, 'view']` prefixes all views of a run */
   view: (pid: string, rid: string, view: DashboardView, body: unknown) => ['project', pid, 'run', rid, 'view', view, body] as const,
   analyses: (pid: string, rid?: string) => ['project', pid, 'analyses', rid ?? '*'] as const,
   analysis: (pid: string, aid: string) => ['project', pid, 'analysis', aid] as const,
   profiles: (pid: string) => ['project', pid, 'profiles'] as const,
   jobs: (pid?: string) => ['jobs', pid ?? '*'] as const,
   schema: () => ['radiomics', 'schema'] as const,
-  /** API-43; `body` is the serialized request, so equal settings share one answer */
+  /** `body` is the serialized request, so equal settings share one answer */
   validation: (body: string) => ['radiomics', 'schema', 'validate', body] as const,
   fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
-  /** API-07 by session id: the route names the session, never the path (AUD-A1-19) */
+  /** The route names the session, never the path */
   open: (sid: string) => ['open', sid] as const,
   openItems: (sid: string, cursor: string | undefined, limit: number) => ['open', sid, 'items', cursor, limit] as const,
   openSelection: (sid: string, n: number | null) => ['open', sid, 'selection', n] as const,

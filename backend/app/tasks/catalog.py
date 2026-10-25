@@ -1,4 +1,4 @@
-"""SEG-02: the API consumes trusted runner snapshots without importing its GPU environment."""
+"""The API consumes trusted runner snapshots without importing its GPU environment."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def _gpu_label(device: dict[str, Any]) -> str:
 
 
 def _gpu_fields(info: TaskInfo) -> None:
-    """G1: offer and accept only the runner's approved devices; the cap fits limit and pool."""
+    """Offer and accept only the runner's approved devices; the cap fits limit and pool."""
     execution = info.execution or {}
     inventory = execution.get("inventory") or {}
     devices = [

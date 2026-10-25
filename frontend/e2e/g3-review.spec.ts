@@ -1,4 +1,4 @@
-// G3 review journey (VISION §Journeys, REL-02; started in FB3): open a project → first case →
+// G3 review journey (REL-02): open a project → first case →
 // A → Alt+↓ → A (both recorded, AUD-A2-02, CUR-04) → next unreviewed case (AUD-A1-04, CUR-08) →
 // open from the correction queue and follow its navigation context (AUD-A1-04, CUR-09) → browser
 // Back returns to the previous case (AUD-A1-02, FE-04) → the Explorer shows the active case

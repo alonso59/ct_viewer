@@ -1,4 +1,4 @@
-"""DCM-18/TSK-09: replay a logical conversion's import without appending it twice."""
+"""Replay a logical conversion's import without appending it twice."""
 
 from __future__ import annotations
 

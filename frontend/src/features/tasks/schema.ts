@@ -1,5 +1,5 @@
-// TSK-02: the manifest's JSON Schema subset (TASKS.md §Manifest) as form fields. Validation runs
-// live here and authoritatively on the server (API-43).
+// The manifest's JSON Schema subset as form fields. Validation runs live here and authoritatively
+// on the server.
 
 export interface FieldSchema {
   type?: 'object' | 'boolean' | 'integer' | 'number' | 'string' | 'array'
@@ -21,7 +21,7 @@ export interface FieldSchema {
   'x-group'?: string
 }
 
-export interface FormField {
+interface FormField {
   name: string
   schema: FieldSchema
 }

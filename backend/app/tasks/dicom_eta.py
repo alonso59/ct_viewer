@@ -1,4 +1,4 @@
-"""DCM-06/D25-D26: bounded local conversion history, used inside the owned worker."""
+"""Bounded local conversion history, used inside the owned worker."""
 
 from __future__ import annotations
 

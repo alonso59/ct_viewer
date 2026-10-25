@@ -1,5 +1,3 @@
-"""QC warning codes (contract: docs/domain/INPUT_METADATA.md §QC warning codes, IMP-08)."""
-
 from __future__ import annotations
 
 from enum import StrEnum

@@ -1,8 +1,7 @@
-"""Which items run (TSK-03, RAD-05) and which are ready (TSK-04): shared by tasks and radiomics.
+"""Which items run and which are ready, shared by tasks and radiomics.
 
-`resolve` turns a selection into active items plus selection problems; `not_ready` answers one
-item with a stable reason code and its params. Callers only map codes to their own shapes
-(tasks: short text in `missing`; radiomics: `errors.jsonl` codes, `causes.TEXT`).
+`not_ready` returns a stable reason code; callers map it to their own shapes (tasks: short text
+in `missing`; radiomics: `errors.jsonl` codes, `causes.TEXT`).
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ from app.ingest.codes import QcCode
 from app.ingest.models import Item
 from app.variables.service import VariableService
 
-# IMP-08 codes that make an item's imported mask unusable (radiomics `causes`, tasks preflight)
+# QC codes that make an item's imported mask unusable
 BLOCKING: Final[tuple[QcCode, ...]] = (
     QcCode.MISSING_PATH,
     QcCode.UNREADABLE_FILE,
@@ -27,7 +26,7 @@ BLOCKING: Final[tuple[QcCode, ...]] = (
 
 
 def blocking(codes: Iterable[str]) -> str | None:
-    """The first IMP-08 code that blocks reading the imported mask, in `BLOCKING` order."""
+    """The first code that blocks reading the imported mask, in `BLOCKING` order."""
     have = set(codes)
     return next((c.value for c in BLOCKING if c.value in have), None)
 
@@ -37,7 +36,7 @@ Code = Literal["no_image", "modality", "no_mask", "label_missing", "blocked"]
 
 @dataclass(frozen=True)
 class NotReady:
-    """TSK-04 reason: `code` + params (`modality`, `seg_id`, `label`, `qc`)."""
+    """`code` + params (`modality`, `seg_id`, `label`, `qc`)."""
 
     code: Code
     params: dict[str, str] = field(default_factory=dict)
@@ -45,7 +44,7 @@ class NotReady:
 
 @dataclass(frozen=True)
 class Problem:
-    """A selection problem at `loc` (relative to `selection`); `rule` as RAD-04 issues."""
+    """A selection problem at `loc` (relative to `selection`)."""
 
     loc: list[str | int]
     msg: str
@@ -64,9 +63,9 @@ async def resolve(
     sel: _Selection,
     var_ids: Callable[[dict[str, list[str]]], Awaitable[Iterable[str]]] | None = None,
 ) -> tuple[list[Item], list[Problem]]:
-    """TSK-03 / RAD-05: active items of an explicit list, an Explorer filter, or all.
+    """Active items of an explicit list, an Explorer filter, or all.
 
-    `var_ids(var)` is awaited for a `filter.var` and returns the matching item ids (VAR-10).
+    `var_ids(var)` is awaited for a `filter.var` and returns the matching item ids.
     """
     problems: list[Problem] = []
     if sel.item_ids is not None and sel.filter is not None:
@@ -98,7 +97,7 @@ async def resolve(
 def var_ids(
     workspace: Any, store: Any, locks: Any, bus: Any, pid: str
 ) -> Callable[[dict[str, list[str]]], Awaitable[list[str]]]:
-    """`resolve`'s VAR-10 lookup for project `pid`."""
+    """`resolve`'s variable-filter lookup for project `pid`."""
 
     async def ids(var: dict[str, list[str]]) -> list[str]:
         vs = VariableService(workspace, store, locks, bus)
@@ -116,12 +115,8 @@ def not_ready(
     labels: Iterable[str] = (),
     label_map: Mapping[str, int] | None = None,
 ) -> NotReady | None:
-    """TSK-04: why `it` can't run, or None. Rules in order:
-
-    no image; modality not required; no mask in `seg_id`; a required label name missing from
-    `labels_present`; a blocking IMP-08 code (`BLOCKING`). Label and QC checks describe
-    the `imported` set only (ADR-0015).
-    """
+    """Why `it` can't run, or None. `labels_present` and the QC codes describe the `imported`
+    set only, so other sets skip the label and QC checks."""
     if need_image and it.image is None:
         return NotReady("no_image")
     mods = list(modalities or [])

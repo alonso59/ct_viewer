@@ -1,4 +1,4 @@
-// Navigation context (AUD-A1-04, UI_SHELL §Navigation context): a case opened from a list
+// Navigation context: a case opened from a list
 // (Outliers, correction queue, Problems, a label table) remembers that list, so Alt+↓ / Alt+↑
 // follow it; the case header shows "Outliers 3/22" with × to fall back to Explorer order.
 import { create } from 'zustand'

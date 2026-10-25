@@ -1,7 +1,6 @@
 // Outlier table: robust z (median/MAD) per item. An item is flagged when at least `min %` of its
-// features are over the threshold (DB-10, owner 2026-09-27); flagged items are ranked by the number of
-// features over the threshold, then by max |z| (AUD-A2-06); top 10 + "Show all"; one click opens the
-// item (DB-03)
+// features are over the threshold; flagged items are ranked by the number of features over the
+// threshold, then by max |z|; top 10 + "Show all"; one click opens the item
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -12,7 +11,7 @@ import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, use
 
 export const OUTLIERS_TOP = 10
 export const OUTLIERS_THRESHOLD = 3.5
-/** DB-10: share of an item's features that must be over the threshold, in % */
+/** Share of an item's features that must be over the threshold, in % */
 export const OUTLIERS_MIN_PCT = 5
 
 export function OutliersView({ runId }: ViewProps) {
@@ -37,7 +36,7 @@ export function OutliersView({ runId }: ViewProps) {
   const labelName = useLabelName()
   const { selected } = useSelection(runId)
   const d = q.data
-  // the server lists flagged items only (DB-10), ranked
+  // the server lists flagged items only, ranked
   const rows = d?.items ?? []
   const zFmt = fmtColumn(rows.map((o) => o.max_abs_z))
   const vFmt = fmtColumn(rows.map((o) => o.top_features[0]?.value))

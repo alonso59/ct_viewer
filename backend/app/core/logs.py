@@ -1,4 +1,4 @@
-"""Structured JSON logs to stdout (BE-09). Never log absolute source paths at `info`."""
+"""Structured JSON logs to stdout. Never log absolute source paths at `info`."""
 
 from __future__ import annotations
 

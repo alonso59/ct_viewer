@@ -1,5 +1,5 @@
-// Schema-driven form model (RAD-01/02): nothing about the engine's options is hard-coded here.
-// The form opens on `schema.defaults` (engine defaults) and round-trips to `RadiomicsSettings`.
+// Schema-driven form model: no engine option is hard-coded here. The form opens on
+// `schema.defaults` (engine defaults) and round-trips to `RadiomicsSettings`.
 import type { FeatureClassSpec, FilterSpec, FormState, OptionSpec, SettingsSchema, Value, WireSettings } from './types'
 
 function asValue(v: unknown): Value {
@@ -38,7 +38,7 @@ export function fromWire(schema: SettingsSchema, wire: WireSettings = schema.def
 
 export const defaultForm = (schema: SettingsSchema): FormState => fromWire(schema, schema.defaults)
 
-/** Full normalized snapshot sent to API-43/44/45 and stored in profiles */
+/** Full normalized snapshot sent to the server and stored in profiles */
 export function toWire(schema: SettingsSchema, form: FormState): WireSettings {
   const image_types: Record<string, Record<string, unknown>> = {}
   for (const f of schema.filters) {
@@ -48,7 +48,7 @@ export function toWire(schema: SettingsSchema, form: FormState): WireSettings {
   const features: Record<string, string[]> = {}
   for (const c of schema.feature_classes) {
     const picked = form.features[c.name] ?? []
-    // Keep the engine's feature order so equal selections hash equally (RAD-03)
+    // Keep the engine's feature order so equal selections hash equally
     if (picked.length) features[c.name] = c.features.map((x) => x.name).filter((n) => picked.includes(n))
   }
   const settings: Record<string, unknown> = {}

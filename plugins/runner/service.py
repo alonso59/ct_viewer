@@ -1,4 +1,4 @@
-"""Per-attempt unprivileged systemd ownership and resource controls (OPS-16)."""
+"""Per-attempt unprivileged systemd ownership and resource controls."""
 
 from __future__ import annotations
 
@@ -71,10 +71,7 @@ def empty(state: dict[str, str]) -> bool:
         return False
     group = state.get("ControlGroup", "")
     if not group:
-        return state.get("LoadState") == "not-found" or state.get("ActiveState") in {
-            "inactive",
-            "failed",
-        }
+        return True
     path = Path(group)
     if not group.startswith(f"/user.slice/user-{os.getuid()}.slice/") or ".." in path.parts:
         return False

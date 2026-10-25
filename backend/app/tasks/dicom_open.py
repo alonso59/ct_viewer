@@ -1,4 +1,4 @@
-"""SRC-13 / BE-16: lazy Open-mode pixel reads use the same owned, budgeted executor."""
+"""Lazy Open-mode pixel reads use the same owned, budgeted executor."""
 
 from __future__ import annotations
 

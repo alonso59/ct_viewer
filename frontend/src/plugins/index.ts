@@ -1,5 +1,5 @@
-// First-party plugins shipped with the app (PLG-01). The pending VOI extractor has no UI yet:
-// the Library lists it from API-49 without an Open action (PLG-09).
+// First-party plugins shipped with the app. The pending VOI extractor has no UI yet: the Library
+// lists it without an Open action.
 import { plugin as analyzers } from './analyzers'
 import { plugin as curation } from './curation'
 import { plugin as dashboard } from './dashboard'

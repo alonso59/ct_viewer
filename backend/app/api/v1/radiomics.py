@@ -1,10 +1,10 @@
-"""API-30/32/36 radiomics: engine schema, profiles, feature exports (RAD-01/03/10).
+"""Radiomics engine schema, profiles and feature exports.
 
-Validate, estimate and runs are the generic task endpoints API-43..47 for the builtin task
-`radiomics.pyradiomics` (RAD-13); API-31/33/34/35/37 were their aliases and are retired (AUD-A4-09).
+Validate, estimate and runs are the generic task endpoints for the builtin task
+`radiomics.pyradiomics`.
 
 Engine-dependent endpoints answer 503 `server-busy` when the optional `[radiomics]` extra
-is not installed (ADR-0006).
+is not installed.
 """
 
 from __future__ import annotations
@@ -40,13 +40,13 @@ def radiomics_service(ctx: Ctx) -> RadiomicsService:
 
 @router.get("/radiomics/schema", response_model=SettingsSchema)
 def get_schema(ctx: Ctx) -> SettingsSchema:
-    """API-30 (RAD-01/02): every engine option with type, default, constraints and group."""
+    """Every engine option with type, default, constraints and group."""
     return radiomics_service(ctx).engine().schema()
 
 
 @router.get("/projects/{pid}/radiomics/profiles", response_model=Page[Profile])
 def list_profiles(pid: str, ctx: Ctx, paging: Paging) -> Page[Profile]:
-    """API-32 (RAD-03): saved profiles, by name."""
+    """Saved profiles, by name."""
     return paginate(radiomics_service(ctx).list_profiles(pid), paging)
 
 
@@ -57,7 +57,7 @@ def list_profiles(pid: str, ctx: Ctx, paging: Paging) -> Page[Profile]:
     responses={200: {"model": Profile, "description": "Identical settings already saved"}},
 )
 async def create_profile(pid: str, body: ProfileCreate, ctx: Ctx, response: Response) -> Profile:
-    """API-32 (RAD-03): save settings; content-addressed by `profile_hash` (200 if it exists)."""
+    """Save settings; content-addressed by `profile_hash` (200 if it exists)."""
     prof, created = await radiomics_service(ctx).create_profile(pid, body)
     if not created:
         response.status_code = 200
@@ -66,13 +66,13 @@ async def create_profile(pid: str, body: ProfileCreate, ctx: Ctx, response: Resp
 
 @router.patch("/projects/{pid}/radiomics/profiles/{phash}", response_model=Profile)
 async def rename_profile(pid: str, phash: str, body: ProfilePatch, ctx: Ctx) -> Profile:
-    """API-32 (RAD-03): rename. `phash` is `sha256:<hex>` or `<hex>`."""
+    """Rename. `phash` is `sha256:<hex>` or `<hex>`."""
     return await radiomics_service(ctx).rename_profile(pid, phash, body.name)
 
 
 @router.delete("/projects/{pid}/radiomics/profiles/{phash}", response_model=Page[Profile])
 async def delete_profile(pid: str, phash: str, ctx: Ctx, paging: Paging) -> Page[Profile]:
-    """API-32 (RAD-03): delete a profile → remaining profiles (runs keep their snapshot)."""
+    """Delete a profile → remaining profiles (runs keep their snapshot)."""
     svc = radiomics_service(ctx)
     await svc.delete_profile(pid, phash)
     return paginate(svc.list_profiles(pid), paging)
@@ -91,7 +91,7 @@ def get_features(
     shape: Annotated[Literal["long", "wide"], Query()] = "long",
     item_id: Annotated[str | None, Query(description="Only this item (Measurements)")] = None,
 ) -> Any:
-    """API-36 (RAD-10, UI-14): long or wide features as JSON, CSV or Parquet."""
+    """Long or wide features as JSON, CSV or Parquet."""
     svc = radiomics_service(ctx)
     table = svc.features(pid, rid, item_id, shape)
     if format == "json":

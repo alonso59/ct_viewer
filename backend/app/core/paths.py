@@ -1,9 +1,9 @@
-"""Path aliases and guards (BE-02, PRJ-04, PROJECT_FORMAT.md §Path aliases).
+"""Path aliases and guards.
 
 Every access to referenced data goes through `PathResolver.resolve(ref)`: the real path
 (symlinks followed) must stay inside the alias root **and** inside `ALLOWED_DATA_ROOTS`
-(`source` roots) or `ALLOWED_DERIVED_ROOTS` (`derived` roots, ADR-0014, OPS-12).
-Source files are opened read-only through `open_source` (BE-03, R1).
+(`source` roots) or `ALLOWED_DERIVED_ROOTS` (`derived` roots).
+Source files are opened read-only through `open_source`.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def validate_alias(alias: str) -> str:
 
 
 def validate_rel(rel: str) -> str:
-    """A ref's relative part: POSIX, relative, normalized, no `..` (PROJECT_FORMAT.md)."""
+    """A ref's relative part: POSIX, relative, normalized, no `..`."""
     if not rel or "\\" in rel or "\x00" in rel or rel.startswith("/"):
         raise ValidationProblem(f"Invalid relative path {rel!r}")
     parts = rel.split("/")
@@ -70,9 +70,9 @@ def realpath(path: Path | str) -> Path:
 
 
 class PathGuard:
-    """`ALLOWED_DATA_ROOTS` containment (OPS-04). An empty list is unrestricted (dev only).
+    """`ALLOWED_DATA_ROOTS` containment. An empty list is unrestricted (dev only).
 
-    `strict=True` (the derived guard, OPS-11): an empty list allows nothing.
+    `strict=True` (the derived guard): an empty list allows nothing.
     """
 
     def __init__(
@@ -106,7 +106,7 @@ RootRole = Literal["source", "derived"]
 
 
 class PathResolver:
-    """Resolve `ALIAS:rel` refs for one project (BE-02); `derived` aliases use `derived_guard`."""
+    """Resolve `ALIAS:rel` refs for one project; `derived` aliases use `derived_guard`."""
 
     def __init__(
         self,
@@ -167,11 +167,11 @@ class PathResolver:
             rel = posixpath.relpath(norm, root_norm)
         else:
             rel = posixpath.normpath(raw)
-        if rel in (".", "") or rel == ".." or rel.startswith("../"):
+        if rel in (".", "..") or rel.startswith("../"):
             raise PathOutsideRoot("Relative path escapes its alias root")
         return make_ref(alias, rel)
 
 
 def open_source(path: Path) -> BinaryIO:
-    """The only way services open referenced source files: read-only binary (BE-03, R1)."""
+    """The only way services open referenced source files: read-only binary."""
     return path.open("rb")

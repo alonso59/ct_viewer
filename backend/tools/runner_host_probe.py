@@ -1,4 +1,4 @@
-"""CLI compatibility entry point for the host containment probe (OPS-17)."""
+"""CLI entry point for the host containment probe."""
 
 import shutil
 import subprocess

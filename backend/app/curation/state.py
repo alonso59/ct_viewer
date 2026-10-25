@@ -1,7 +1,7 @@
-"""Derived curation state readers shared with other services (analytics DB-02/07, ingest).
+"""Derived curation state readers shared with other services.
 
-Contract (lane 2): pure functions over a project folder; no API-process state needed.
-`events.jsonl` is append-only (CUR-02), so the per-process cache (BE-07) reads only the
+Pure functions over a project folder; no API-process state needed.
+`events.jsonl` is append-only, so the per-process cache reads only the
 new tail on each call and re-reads fully if the file shrank or was replaced.
 Returned containers are shared with the cache: callers must not mutate them.
 """
@@ -87,11 +87,11 @@ def _read_tail(path: Path, entry: _Entry) -> None:
         try:
             ev = CurationEvent.model_validate_json(line)
         except ValidationError:
-            if b'"wrong_phase_suspected"' not in line:  # a pre-ADR-0026 status, not malformed
+            if b'"wrong_phase_suspected"' not in line:  # a retired status, not malformed
                 log.warning("skipping malformed curation event", extra={"path": str(path)})
             continue
         if ev.target == LEGACY_PHASE_TARGET:
-            continue  # phase is a native selection now (ADR-0026, PHASE.md)
+            continue
         entry.reduced.add(len(entry.events), ev)
         entry.events.append(ev)
     entry.offset += end + 1
@@ -122,13 +122,13 @@ def case_states(project_dir: Path) -> dict[str, CaseState]:
 
 
 def item_statuses(project_dir: Path) -> dict[str, str]:
-    """Latest QC status per item_id (worst over the item's targets, CUR-08)."""
+    """Latest QC status per item_id (worst over the item's targets)."""
     return {k: v.status for k, v in item_states(project_dir).items()}
 
 
 @dataclass(frozen=True)
 class CaseReview:
-    """CUR-08 case rollup: `status` is shown on badges, `state` drives progress."""
+    """Case rollup: `status` is shown on badges, `state` drives progress."""
 
     status: RollupStatus
     state: ReviewState
@@ -138,7 +138,7 @@ class CaseReview:
 
 
 def case_reviews(project_dir: Path, active: Mapping[str, Collection[str]]) -> dict[str, CaseReview]:
-    """CUR-08 per case_id, given its active item ids (`active`, from the index).
+    """Case rollup per case_id, given its active item ids (`active`, from the index).
 
     A case is reviewed when every active item has a decision (a latest status other than
     `not_reviewed`); with decisions but an undecided active item it is partial. The status is

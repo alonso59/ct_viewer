@@ -1,4 +1,4 @@
-// PRJ-13 / UI-19: a task that writes volumes asks for the project's derived folder on first use.
+// A task that writes volumes asks for the project's derived folder on first use.
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'

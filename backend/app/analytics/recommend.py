@@ -1,8 +1,5 @@
-"""ANA-08 recommendation rules (ANALYSIS.md §Recommendation rules).
-
-Each rule returns at most one `Recommendation` whose `view` + `params` open the dashboard
-view that shows the problem (DB-09).
-"""
+"""Recommendation rules: each returns at most one `Recommendation` whose `view` + `params`
+open the dashboard view that shows the problem."""
 
 from __future__ import annotations
 
@@ -78,9 +75,6 @@ def rec(code: str, message: str, view: ViewSlug, **params: object) -> Recommenda
     )
 
 
-# -- rules --------------------------------------------------------------------------------------
-
-
 def small_n(c: Ctx) -> Recommendation | None:
     """REC-SMALL-N: any group n < 10 (the whole unit for Association/Explore)."""
     if c.computed.groups:
@@ -144,8 +138,8 @@ def confounder(c: Ctx) -> Recommendation | None:
     with > 20 % of the significant features."""
     q = c.spec.question
     if q == "balance":
-        row = c.computed.results[0] if c.computed.results else None
-        if row is None or row.q is None or row.q >= Q_SIG:
+        row = c.computed.results[0]
+        if row.q is None or row.q >= Q_SIG:
             return None
         return rec(
             "REC-CONFOUNDER",
@@ -298,7 +292,7 @@ def modality(c: Ctx) -> Recommendation | None:
 
 
 def _sources(catalog: Catalog, name: str) -> set[str]:
-    """The variable plus everything it is derived from (VAR-06)."""
+    """The variable plus everything it is derived from."""
     out = {name}
     todo = [name]
     while todo:

@@ -1,4 +1,4 @@
-// Study pack plugins (PRJ-16): a pack has no surface of its own; the Library's Open goes to
+// Study pack plugins: a pack has no surface of its own; the Library's Open goes to
 // Project settings › Plugins, where packs are applied.
 import { openEditor } from '../../shell'
 import type { FrontendPlugin } from '../host'

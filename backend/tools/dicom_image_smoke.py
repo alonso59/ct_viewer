@@ -1,4 +1,4 @@
-"""TST-10/22: run inside the product image, on Docker or udocker, without host code binds.
+"""Run inside the product image, on Docker or udocker, without host code binds.
 
 Creates only synthetic data and an isolated API. The SIGKILL targets that API while its
 worker is still queued. Active-pixel and cross-container crash matrices remain separate.

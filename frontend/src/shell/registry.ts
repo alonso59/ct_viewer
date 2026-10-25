@@ -1,7 +1,6 @@
-// Contribution registry (UI-02). Features register what they add; the shell renders it.
-// Titles are i18n keys. Registration happens at bootstrap, before the first render. Every list is
-// keyed by `id` (AUD-A8-01): registering an id again replaces the entry, so a re-executed module
-// (Vite HMR, a re-activated plugin) swaps its component instead of adding a second copy.
+// Features register what they add; the shell renders it. Titles are i18n keys. Registration happens
+// at bootstrap, before the first render. Every list is keyed by `id`: registering an id again replaces
+// the entry, so a re-executed module (Vite HMR, a re-activated plugin) swaps its component.
 import type { ComponentType } from 'react'
 
 import type { IconSpec } from '../theme'
@@ -25,7 +24,7 @@ export interface ViewContribution {
   /** Hide the QuPath-style Image section under this view */
   hideImageSection?: boolean
   useBadge?: () => number | null
-  /** Needs write routes: hidden on a view-only link (UI-26) */
+  /** Needs write routes: hidden on a view-only link */
   writes?: boolean
 }
 
@@ -42,11 +41,11 @@ export interface EditorContribution<P extends object = object> {
   id: (params: P) => string
   title: (params: P) => string
   icon: (params: P) => IconSpec
-  /** URL for the active tab (FE-04); omitted = project root */
+  /** URL for the active tab; omitted = project root */
   path?: (pid: string, params: P) => string
   /** Parse a URL into params, for deep links */
   match?: (pathname: string, search: URLSearchParams) => P | null
-  /** Needs write routes: not opened on a view-only link (UI-26) */
+  /** Needs write routes: not opened on a view-only link */
   writes?: boolean
 }
 
@@ -56,14 +55,14 @@ export interface PanelTabContribution {
   order: number
   component: ComponentType
   useBadge?: () => number | null
-  /** AUD-A3-01: true when the tab has something for the active item (a case tab opens the panel then) */
+  /** True when the tab has something for the active item (a case tab opens the panel then) */
   useHasContent?: () => boolean
 }
 
-/** Title-bar menus (AUD-A1-09): derived from command categories (`shell/menus.ts`), never named after a plugin */
+/** Title-bar menus, derived from command categories */
 export type MenuId = 'file' | 'edit' | 'view' | 'go' | 'tasks' | 'help'
 
-/** Where a command is offered (AUD-A1-01): the workspace home, Open mode, or inside a project */
+/** Where a command is offered: the workspace home, Open mode, or inside a project */
 export type RouteScope = 'home' | 'open' | 'project'
 
 export interface Command {
@@ -71,14 +70,14 @@ export interface Command {
   /** i18n key; `titleArgs` fill its placeholders (e.g. a task's own title) */
   title: string
   titleArgs?: Record<string, string>
-  /** i18n key; it decides the menu (`shell/menus.ts`) and the palette prefix */
+  /** i18n key; it decides the menu and the palette prefix */
   category?: string
-  /** Extra palette search words, e.g. `reject`, `fail` for Rejected (AUD-A1-07) */
+  /** Extra palette search words, e.g. `reject`, `fail` for Rejected */
   keywords?: string[]
-  /** Default chord, e.g. `mod+shift+p`, `alt+down`, `shift+1` (UI-12) */
+  /** Default chord, e.g. `mod+shift+p`, `alt+down`, `shift+1` */
   keybinding?: string
   /** `viewer`: only while a viewer is shown (a case tab or Open mode) and focus is not in a
-   *  text field, menu or dialog (UI_SHELL §Default keybindings, AUD-A2-02) */
+   *  text field, menu or dialog */
   when?: 'viewer'
   /** Routes that offer it (palette, menus, keys); default `['project']` */
   scope?: RouteScope[]
@@ -89,7 +88,7 @@ export interface Command {
   enabled?: () => boolean
   /** `arg`: from a caller that names what to act on (e.g. the converter's source folder) */
   run: (arg?: string) => void
-  /** Changes data: hidden and disabled on a view-only link (UI-26) */
+  /** Changes data: hidden and disabled on a view-only link */
   writes?: boolean
 }
 
@@ -108,7 +107,7 @@ export interface InspectorSectionContribution extends ItemContribution {
   writes?: boolean
 }
 
-/** Modal work windows launched by a button (PLG `overlays`, e.g. the converter, UI-25); rendered
+/** Modal work windows launched by a button (a plugin's `overlays`, e.g. the converter); rendered
  *  on every route, so the component must render nothing until it is opened. */
 export interface OverlayContribution {
   id: string
@@ -144,7 +143,7 @@ class Registry {
   readonly quickOpen: QuickOpenProvider[] = []
   readonly imageSection: ItemContribution[] = []
   readonly overlays: OverlayContribution[] = []
-  /** UI-26: set by the workbench of a view-only link; contributions with `writes` are hidden */
+  /** Set by the workbench of a view-only link; contributions with `writes` are hidden */
   readOnly = false
 
   setReadOnly(on: boolean) {
@@ -155,12 +154,12 @@ class Registry {
     return !(this.readOnly && c.writes)
   }
 
-  /** Allowed and offered on the current route (AUD-A1-01) */
+  /** Allowed and offered on the current route */
   available(c: { writes?: boolean; scope?: RouteScope[] }, scope: RouteScope = routeScope()): boolean {
     return this.allowed(c) && (c.scope ?? ['project']).includes(scope)
   }
 
-  /** Named key contexts (`Command.when`); features register the predicate (UI-02) */
+  /** Named key contexts (`Command.when`); features register the predicate */
   readonly contexts = new Map<string, () => boolean>()
   context(name: string, test: () => boolean) {
     this.contexts.set(name, test)

@@ -1,4 +1,3 @@
-// Run selection (RAD-05): items (all active / filter on any variable / explicit list), scope, labels.
 import type { Selection, SelectionFilter } from './types'
 
 export type ItemsMode = 'all' | 'filter' | 'list'
@@ -15,7 +14,7 @@ export interface SelectionForm {
   vars: Record<string, string[]>
   /** List mode: item ids separated by newlines, commas or spaces */
   list: string
-  /** RAD-05: segmentation set whose masks are read; null = the project's default_seg */
+  /** Segmentation set whose masks are read; null = the project's default_seg */
   seg?: string | null
 }
 
@@ -42,7 +41,6 @@ export function toFilter(s: SelectionForm): SelectionFilter | null {
   return Object.keys(f).length ? f : null
 }
 
-/** API-44/45 `selection` body */
 export function toSelection(s: SelectionForm): Selection {
   const out: Selection = { scope: s.scope, labels: [...s.labels].sort((a, b) => a - b) }
   if (s.mode === 'filter') {
@@ -57,7 +55,6 @@ export function toSelection(s: SelectionForm): Selection {
 /** Items known to be empty before asking the server (explicit list with no ids) */
 export const knownEmpty = (s: SelectionForm) => s.mode === 'list' && parseItemIds(s.list).length === 0
 
-/** Number of active filter criteria (for the summary) */
 export function criteriaCount(s: SelectionForm): number {
   const f = toFilter(s)
   if (!f) return 0

@@ -1,7 +1,7 @@
-"""Input parsers: `metadata.jsonl`, `phase.json` (both forms), `voi_catalog.jsonl` (IMP-02/03).
+"""Input parsers: `metadata.jsonl`, `phase.json` (both forms), `voi_catalog.jsonl`.
 
 Parsers never raise on bad input: every problem becomes a line-numbered `ParseError` and the
-offending row is dropped. Unknown fields are kept in `Row.extra` (INPUT_METADATA.md).
+offending row is dropped. Unknown fields are kept in `Row.extra`.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ FALSY = frozenset({"false", "0", "no", "n", "f"})
 
 
 def is_excluded(row: Row) -> bool:
-    """Skipped or excluded upstream (IMP-07)."""
+    """Skipped or excluded upstream."""
     if (row.text("status") or "").lower() == "skipped":
         return True
     return any((row.text(f) or "").lower() in FALSY for f in ("planned_conversion", "curated_keep"))
@@ -153,9 +153,7 @@ def _check_ids(row: Row, file: str, errors: list[ParseError]) -> bool:
         errors.append(ParseError(file, row.line, "case_id", "required field missing"))
         ok = False
     elif not CASE_ID_RE.match(case_id):
-        errors.append(
-            ParseError(file, row.line, "case_id", r"must be a slug [A-Za-z0-9_-]{1,64} (SRC-08)")
-        )
+        errors.append(ParseError(file, row.line, "case_id", r"must be a slug [A-Za-z0-9_-]{1,64}"))
         ok = False
     if scan_idx is None:
         errors.append(ParseError(file, row.line, "scan_idx", "required field missing"))

@@ -31,6 +31,9 @@ def slices(n: int = 5, spacing: float = 2.5, **over: Any) -> list[Dataset]:
     out = []
     for i in range(n):
         ds = Dataset()
+        ds.SeriesInstanceUID = "1.2.826.0.1.3680043.10.200.1"
+        ds.SOPClassUID = "1.2.840.10008.5.1.4.1.1.2"
+        ds.SOPInstanceUID = f"1.2.826.0.1.3680043.10.200.2.{i}"
         ds.Modality = "CT"
         ds.ImageOrientationPatient = list(AXIAL)
         ds.ImagePositionPatient = [0.0, 0.0, i * spacing]
@@ -250,8 +253,8 @@ def test_discovery_reads_each_file_once_and_groups_like_gdcm(
         (folder / sub).rmdir()
     (folder / "notes").write_bytes(b"not a dicom file at all")
     reads: list[Path] = []
-    real = scan._scan_header
-    monkeypatch.setattr(scan, "_scan_header", lambda p, root=None: reads.append(p) or real(p, root))
+    real = scan.image_info
+    monkeypatch.setattr(scan, "image_info", lambda p, root=None: reads.append(p) or real(p, root))
     ticks: list[int] = []
     found = scan.discover(folder, [], tick=ticks.append)
     assert sorted(reads) == sorted(folder.iterdir()) and sum(ticks) == 9

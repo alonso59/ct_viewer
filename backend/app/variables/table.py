@@ -1,4 +1,4 @@
-"""`index/variables.parquet` (derived, rebuildable) and `var.{name}` filters (VAR-10, API.md).
+"""`index/variables.parquet` (derived, rebuildable) and `var.{name}` filters.
 
 One row per item: the base columns (`schema.BASE_COLUMNS`) plus every catalog variable,
 case-level values joined onto all items of the case. Numeric types are float64, all
@@ -55,8 +55,6 @@ def read_table(path: Path, columns: Sequence[str] | None = None) -> pa.Table | N
         return None
     return pq.read_table(path, columns=list(columns) if columns is not None else None)
 
-
-# -- filters -----------------------------------------------------------------------------------
 
 Filters = dict[str, list[str]]
 

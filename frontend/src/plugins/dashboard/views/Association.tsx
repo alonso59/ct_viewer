@@ -1,4 +1,4 @@
-// Association: feature × continuous variable scatter with ρ, and the ranked table (ANA §Tests)
+// Association: feature × continuous variable scatter with ρ, and the ranked table
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

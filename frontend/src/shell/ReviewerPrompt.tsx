@@ -5,7 +5,7 @@ import { Dialog } from '../lib'
 import { resolveReviewerPrompt, useReviewer } from '../state'
 import { codicon } from '../theme'
 
-/** Asks for a reviewer name or initials on the first write (CUR-01). No accounts (ADR-0004). */
+/** Asks for a reviewer name or initials on the first write. */
 export function ReviewerPrompt() {
   const prompting = useReviewer((s) => s.prompting)
   return prompting ? <PromptDialog /> : null

@@ -1,4 +1,3 @@
-// Theme resolution (UI-11): Dark by default; Light or follow-the-OS on request. Interface size (UI-27).
 export type ThemeChoice = 'dark' | 'light' | 'system'
 export type InterfaceSize = 'compact' | 'default' | 'large'
 export const INTERFACE_SIZES: readonly InterfaceSize[] = ['compact', 'default', 'large']
@@ -12,7 +11,7 @@ export function applyTheme(choice: ThemeChoice) {
   document.documentElement.dataset.theme = resolveTheme(choice)
 }
 
-/** UI-27: `<html data-size>` selects the size set in tokens.css; Default has no attribute */
+/** `<html data-size>` selects the size set in tokens.css; Default has no attribute */
 export function applySize(size: InterfaceSize) {
   const root = document.documentElement
   if (size === 'default') delete root.dataset.size

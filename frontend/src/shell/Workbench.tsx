@@ -16,20 +16,20 @@ import { ToolBar } from './ToolBar'
 import { useWorkbench } from './workbenchStore'
 import './shell.css'
 
-// dockview (the editor area) loads with the first project workbench, not with the home (NFR-07)
+// dockview (the editor area) loads with the first project workbench, not with the home
 const EditorArea = lazy(() => import('./EditorArea').then((m) => ({ default: m.EditorArea })))
 
-/** The workbench shell for one project (UI-01). Domain content comes only from the registry. */
+/** The workbench shell for one project. Domain content comes only from the registry. */
 export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode; share?: ReactNode }) {
   const load = useLayout((s) => s.load)
   const loadedPid = useLayout((s) => s.pid)
   useEffect(() => {
     load(pid)
     useWorkbench.setState({ pid })
-    // Leaving the project (e.g. browser Back to the home, AUD-A1-02) leaves no stale project behind
+    // Leaving the project (e.g. browser Back to the home) leaves no stale project behind
     return () => useWorkbench.setState({ pid: null, active: null })
   }, [pid, load])
-  // UI-13 (AUD-A1-18): the bottom panel follows the active editor type
+  // The bottom panel follows the active editor type
   const editorType = useWorkbench((s) => s.active?.type ?? null)
   useEffect(() => {
     if (loadedPid === pid) useLayout.getState().setEditorType(editorType)
@@ -58,7 +58,7 @@ export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode
 }
 
 /** Overlays shared by every page (also the workspace home and Open mode): the palette and its
- *  keys work on every route (AUD-A1-01) */
+ *  keys work on every route */
 export function ShellOverlays() {
   return (
     <>

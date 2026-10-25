@@ -1,4 +1,4 @@
-"""Run official nnU-Net v2 inference in GPU-partitioned external task jobs (SEG-*)."""
+"""Run official nnU-Net v2 inference in GPU-partitioned external task jobs."""
 
 from __future__ import annotations
 
@@ -222,7 +222,6 @@ def _link_outputs(source: Path, merged: Path) -> None:
 def _postprocess(job: Job, profile: Profile, source: Path, target: Path) -> int:
     pp = profile.postprocessing
     if pp is None:
-        target.mkdir(parents=True, exist_ok=True)
         _link_outputs(source, target)
         return 0
     command = [
@@ -297,10 +296,10 @@ def _versions() -> dict[str, str]:
 
 
 def _command_templates(profile: Profile, predictor: Predictor, parts: int) -> list[list[str]]:
-    commands: list[list[str]] = []
-    for part_id in range(parts):
-        command = _predict_command(profile, predictor, Path("<staged-input>"), Path("<part-output>"), parts, part_id)
-        commands.append(command)
+    commands = [
+        _predict_command(profile, predictor, Path("<staged-input>"), Path("<part-output>"), parts, part_id)
+        for part_id in range(parts)
+    ]
     if profile.postprocessing is not None:
         commands.append(
             [

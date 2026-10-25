@@ -1,4 +1,3 @@
-// Opening cases from the Explorer and from lists (UI-08, AUD-A1-04 navigation context)
 import { openEditor } from '../../shell'
 import { uniqueEntries, useNavContext, type NavEntry } from '../../state'
 
@@ -6,8 +5,10 @@ export function openItem(caseId: string, itemId: string | null, preview = true) 
   openEditor('case', { caseId, itemId }, { preview })
 }
 
-/** AUD-A1-04: open an entry of a list (Outliers, queue, Problems, a label table) and remember the
- *  list, so Alt+↓ / Alt+↑ follow it and the case header shows the position */
+/**
+ * Open an entry of a list (Outliers, queue, Problems, a label table) and remember the list,
+ * so Alt+↓ / Alt+↑ follow it and the case header shows the position
+ */
 export function openInContext(label: string, entries: NavEntry[], index: number, preview = true) {
   const list = uniqueEntries(entries)
   const at = entries[index]

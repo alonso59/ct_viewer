@@ -1,5 +1,3 @@
-// The generic settings form (TSK-02, UI-20): boolean, number, integer, string (enum → select),
-// array of enum (→ toggle chips). `title` labels a field, `x-enumNames` names enum values.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

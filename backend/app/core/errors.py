@@ -1,8 +1,4 @@
-"""RFC 9457 problem+json errors with stable slugs (BE-08, API.md §Errors).
-
-Services raise `Problem` subclasses; `install_handlers` maps them (and FastAPI's own
-validation/HTTP errors) to `application/problem+json` responses.
-"""
+"""RFC 9457 problem+json errors with stable slugs."""
 
 from __future__ import annotations
 
@@ -16,7 +12,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 
-# slug -> (status, title); the single source for API.md §Errors.
 SLUGS: dict[str, tuple[int, str]] = {
     "not-found": (404, "Not found"),
     "validation": (422, "Validation failed"),
@@ -37,7 +32,7 @@ SLUGS: dict[str, tuple[int, str]] = {
 
 
 class Problem(Exception):
-    """`actions`: next steps the UI offers, e.g. `import_as:nifti-files` (SRC-11)."""
+    """`actions`: next steps the UI offers, e.g. `import_as:nifti-files`."""
 
     slug = "server-busy"
 
@@ -84,7 +79,7 @@ class _Issue(Protocol):
 def issue_errors(
     issues: Iterable[_Issue], prefix: Sequence[str | int] = ()
 ) -> list[dict[str, Any]]:
-    """Settings issues of severity `error` → `ValidationProblem.errors` rows (TSK-02, RAD-04)."""
+    """Settings issues of severity `error` → `ValidationProblem.errors` rows."""
     return [
         {"loc": [*prefix, *i.loc], "msg": i.msg, "type": i.rule}
         for i in issues

@@ -1,8 +1,8 @@
-"""Schema-driven settings normalization, canonical JSON and `profile_hash` (RAD-01/03/04).
+"""Schema-driven settings normalization, canonical JSON and `profile_hash`.
 
 Engine-agnostic: every check here is derived from the engine's `SettingsSchema` (types,
-constraints, defaults, known filters/classes/features). Engine-specific rules (RADIOMICS.md
-§Validation rules) live with the adapter and run on the normalized result.
+constraints, defaults, known filters/classes/features). Engine-specific rules live with the
+adapter and run on the normalized result.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def coerce(
         return None
     if spec.type in ("float_list", "int_list"):
         if isinstance(value, int | float) and not isinstance(value, bool):
-            value = [value]  # a single number is accepted as a one-element list
+            value = [value]
         if not isinstance(value, list):
             issues.append(Issue(loc=loc, msg="Must be a list of numbers", rule="type"))
             return None
@@ -206,13 +206,8 @@ def normalize(
     return (None if blocking else norm), issues
 
 
-# -- canonical JSON + hash (RAD-03) -------------------------------------------------------
-
-
 def _canon(v: Any) -> Any:
-    if v is None or isinstance(v, bool | str):
-        return v
-    if isinstance(v, int):
+    if v is None or isinstance(v, int | str):
         return v
     if isinstance(v, float):
         if not math.isfinite(v):
@@ -235,7 +230,7 @@ def canonical_json(obj: Any) -> str:
 
 
 def profile_hash(settings: RadiomicsSettings, engine_name: str, engine_major: str) -> str:
-    """`sha256:` of canonical JSON of normalized settings + engine name + major (RAD-03)."""
+    """`sha256:` of canonical JSON of normalized settings + engine name + major."""
     payload = {
         "engine": {"name": engine_name, "major": engine_major},
         "settings": settings.model_dump(mode="json"),

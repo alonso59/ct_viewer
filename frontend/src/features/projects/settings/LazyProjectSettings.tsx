@@ -1,4 +1,4 @@
-// The settings tab and its strings load on first open (NFR-07).
+// The settings tab and its strings load on first open.
 import { lazy } from 'react'
 
 import type { EditorProps } from '../../../shell'

@@ -1,14 +1,18 @@
-"""TSK-16 / API-69: durable source discovery; conversion runs keep their own authority."""
+"""Durable source discovery; conversion runs keep their own authority."""
 
 from __future__ import annotations
 
 import asyncio
 import builtins
+import fcntl
 import hashlib
 import json
+import logging
+import os
 import sqlite3
 from collections import Counter
 from contextlib import suppress
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -25,8 +29,10 @@ from app.core.errors import (
 )
 from app.core.fsio import atomic_write_json, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
-from app.core.locks import ProjectLocks
+from app.core.locks import FileLock, LockHeldError, ProjectLocks
 from app.core.paths import PathGuard
+from app.ingest.schemas import ImportPreview
+from app.ingest.service import IngestService
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
@@ -46,6 +52,7 @@ from app.tasks.models import (
     TaskRunStatus,
     TaskSelection,
 )
+from app.tasks.source_import import commit_with_annotations
 from app.tasks.source_inventory import SourceInventory
 from app.tasks.source_plans import SourcePlanPage, read_plan_page, write_plan
 from app.tasks.workspace_runs import WorkspaceRun, WorkspaceRunRequest, default_dataset_name
@@ -55,7 +62,7 @@ if TYPE_CHECKING:
     from app.tasks.workspace_runs import WorkspaceTasks
 
 ACTIVE = {"queued", "running", "cancelling"}
-OperationStatus = TaskRunStatus
+log = logging.getLogger("app.source_operations")
 
 
 class SourceImportContext(BaseModel):
@@ -66,6 +73,12 @@ class SourceImportContext(BaseModel):
     adapter: str | None = Field(default=None, max_length=64)
     add: bool = False
     options: dict[str, Any] = Field(default_factory=dict)
+    reconstruct: bool = False
+    anonymize: bool = False
+    step: Literal["detect", "previewing", "preview", "index"] = "detect"
+    preview_id: str | None = None
+    import_id: str | None = None
+    job_id: str | None = None
 
 
 class SourceOperationStart(BaseModel):
@@ -98,6 +111,16 @@ class SourceOperationConvert(SourceOperationControl):
     name: str | None = Field(default=None, max_length=200)
 
 
+class SourceImportUpdate(SourceOperationControl):
+    project_id: str
+    alias: str = Field(default="DATA", pattern=r"^[A-Z][A-Z0-9_]{0,15}$")
+    adapter: str | None = Field(default=None, max_length=64)
+    add: bool = False
+    options: dict[str, Any] = Field(default_factory=dict)
+    reconstruct: bool = False
+    anonymize: bool = False
+
+
 class PendingSourceControl(BaseModel):
     action: Literal["cancel", "resume", "retry_failed"]
     request: SourceOperationControl
@@ -107,12 +130,14 @@ class PendingSourceControl(BaseModel):
 
 class SourceOperation(BaseModel):
     import_context: SourceImportContext | None = None
+    import_preview: ImportPreview | None = None
+    import_job: JobInfo | None = None
     version: Literal[1] = 1
     operation_id: str
     source: str
     project_id: str | None
     purpose: Literal["discover", "open", "convert"]
-    status: OperationStatus = "queued"
+    status: TaskRunStatus = "queued"
     stage: str = "discovering"
     revision: int = 0
     attempt: int = 1
@@ -155,21 +180,38 @@ class SourceOperations:
         self.settings, self.guard, self.jobs = settings, guard, jobs
         self.workspace, self.locks = workspace, locks
         self.tasks, self.workspace_tasks = tasks, workspace_tasks
+        self.ingest = IngestService(workspace, tasks.store, jobs, tasks.bus, locks)
         self.root = settings.workspace_root / "plugins" / "dicom" / "operations"
         self._slots = asyncio.Semaphore(min(settings.job_workers, 12))
+        self._invalid_records: set[str] = set()
 
     def _dir(self, operation: str) -> Path:
-        if not is_ulid(operation):
+        if not is_ulid(operation) or (self.root / operation).is_symlink():
             raise NotFound("Source operation not found")
         return self.root / operation
 
     def get(self, operation: str) -> SourceOperation:
         try:
-            return SourceOperation.model_validate(
+            record = SourceOperation.model_validate(
                 read_json(self._dir(operation) / "operation.json")
             )
+            if (self._dir(operation) / "inventory-expired.json").is_file():
+                record.summary["inventory_expired"] = True
+            return record
         except FileNotFoundError:
             raise NotFound("Source operation not found") from None
+        except OSError:
+            raise JobConflict(
+                "The source operation record cannot be read; "
+                "restore its permissions or start a new operation",
+                actions=["choose_another_path", "home"],
+            ) from None
+        except ValueError:
+            raise JobConflict(
+                "The source operation record is damaged or incompatible; "
+                "preserve it and start a new operation",
+                actions=["choose_another_path", "home"],
+            ) from None
 
     def _write(self, record: SourceOperation) -> SourceOperation:
         record.revision += 1
@@ -258,6 +300,8 @@ class SourceOperations:
 
     async def view(self, operation: str, *, include_run: bool = True) -> SourceOperation:
         record = self.get(operation)
+        if record.import_context is not None and record.import_context.step != "detect":
+            return await self._import_view(record)
         native = await self._conversion_run(record)
         if native is None and record.status in ACTIVE | {"cleanup_pending"}:
             recovered = await self._recover_source(record)
@@ -316,24 +360,334 @@ class SourceOperations:
         if not record.conversion_run_id:
             return None
         try:
-            native = (
+            return (
                 await self.tasks.get_run(record.project_id, record.conversion_run_id)
                 if record.project_id
                 else self.workspace_tasks.get(record.conversion_run_id)
             )
         except NotFound:
             return None
-        return native
 
     def list(self) -> list[SourceOperation]:
         if not self.root.exists():
             return []
-        return [
-            self.get(p.name) for p in sorted(self.root.iterdir(), reverse=True) if is_ulid(p.name)
-        ]
+        records = []
+        for path in sorted(self.root.iterdir(), reverse=True):
+            if not is_ulid(path.name) or path.is_symlink():
+                continue
+            try:
+                records.append(self.get(path.name))
+                self._invalid_records.discard(path.name)
+            except Problem:
+                if path.name not in self._invalid_records:
+                    log.warning(
+                        "Source operation record unavailable; retained for recovery",
+                        extra={"operation_id": path.name},
+                    )
+                    self._invalid_records.add(path.name)
+        return records
 
     def _attempt_dir(self, record: SourceOperation) -> Path:
         return self._dir(record.operation_id) / "attempts" / str(record.attempt)
+
+    def _require_inventory(self, record: SourceOperation) -> None:
+        if record.summary.get("inventory_expired"):
+            raise JobConflict(
+                "The completed operation's inventory expired; start a new source operation",
+                actions=["choose_another_path", "home"],
+            )
+
+    async def prune_inventories(self) -> int:
+        """Expire completed history only; never reclaim unfinished work to make space."""
+        if not self.root.exists():
+            return 0
+        execution = FileLock(self.root.parent / "execution.lock")
+        try:
+            execution.acquire()
+        except LockHeldError:
+            return 0
+        removed = 0
+        cutoff = datetime.now(UTC) - timedelta(days=self.settings.dicom_retention_days)
+        try:
+            for directory in self.root.iterdir():
+                if not is_ulid(directory.name) or directory.is_symlink():
+                    continue
+                try:
+                    record = self.get(directory.name)
+                except (OSError, Problem):
+                    continue
+                expired = directory / "inventory-expired.json"
+                if (
+                    expired.exists()
+                    and not any(directory.glob("inventory.sqlite*"))
+                    and not any((directory / "plans").glob("*/*.json"))
+                ):
+                    continue
+                try:
+                    age = datetime.fromisoformat(record.updated_at.replace("Z", "+00:00"))
+                    if not expired.exists() and age >= cutoff:
+                        continue
+                except (TypeError, ValueError):
+                    continue
+                lock = self.locks(f"_source_operation:{record.operation_id}")
+                if lock.locked():
+                    continue
+                async with lock:
+                    current = await self.view(record.operation_id)
+                    if (
+                        current.status != "completed"
+                        or not current.cleanup_verified
+                        or current.error
+                    ):
+                        continue
+                    if current.purpose == "open" and not (directory / "open-closed.json").is_file():
+                        continue
+                    if (
+                        current.import_context is not None
+                        and current.import_context.step != "index"
+                    ):
+                        continue
+                    if current.phase_run is not None and current.phase_run.status != "completed":
+                        continue
+                    lease = FileLock(directory / "inventory-use.lock")
+                    try:
+                        lease.acquire()
+                    except LockHeldError:
+                        continue
+                    try:
+                        if (
+                            current.purpose == "open"
+                            and not (directory / "open-closed.json").is_file()
+                        ):
+                            continue
+                        database = directory / "inventory.sqlite"
+                        if database.is_file() and not expired.exists():
+                            try:
+                                with SourceInventory(database, Path(record.source)) as inventory:
+                                    inventory.db.execute("PRAGMA busy_timeout=0")
+                                    busy = inventory.db.execute(
+                                        "PRAGMA wal_checkpoint(TRUNCATE)"
+                                    ).fetchone()[0]
+                                    if busy:
+                                        continue
+                            except (OSError, sqlite3.Error, Problem):
+                                continue
+                        atomic_write_json(
+                            expired,
+                            {
+                                "expired_at": utc_now(),
+                                "generation": current.summary.get("generation"),
+                            },
+                        )
+                        for name in (
+                            "inventory.sqlite-wal",
+                            "inventory.sqlite-shm",
+                            "inventory.sqlite",
+                        ):
+                            path = directory / name
+                            if path.is_file() and not path.is_symlink():
+                                path.unlink()
+                        for path in (directory / "plans").glob("*/*.json"):
+                            if (
+                                not path.is_symlink()
+                                and path.is_file()
+                                and path.resolve().is_relative_to(directory.resolve())
+                            ):
+                                path.unlink()
+                        removed += 1
+                    finally:
+                        lease.release()
+        finally:
+            execution.release()
+        return removed
+
+    async def _import_view(self, record: SourceOperation) -> SourceOperation:
+        context = record.import_context
+        assert context is not None and record.project_id is not None
+        if context.preview_id:
+            try:
+                record.import_preview = await asyncio.to_thread(
+                    self.ingest.preview_of, record.project_id, context.preview_id
+                )
+            except NotFound:
+                if context.import_id is None:
+                    context.step = "detect"
+                    record.error = (
+                        "The import preview expired; prepare it again with the saved options"
+                    )
+                    return record
+        if context.step == "preview":
+            return record
+        record.stage = "import_preview" if context.step == "previewing" else "import_index"
+        record.progress_stage = record.stage
+        job = None
+        if context.job_id:
+            with suppress(NotFound):
+                job = self.jobs.get(context.job_id)
+        record.import_job = job
+        if job is not None:
+            record.progress = {"done": job.done, "total": job.total}
+            record.error = job.error
+            record.status = {"succeeded": "completed", "waiting_for_runner": "queued"}.get(
+                job.status, job.status
+            )  # type: ignore[assignment]
+            record.cleanup_verified = False
+            if job.status in {"succeeded", "failed", "cancelled", "interrupted"}:
+                try:
+                    await self.jobs.wait(job.job_id, timeout=0.001)
+                    record.cleanup_verified = True
+                except TimeoutError:
+                    record.status = "cancelling"
+            return record
+        status = await self.ingest.index_status(record.project_id)
+        if context.step == "index" and context.import_id and status.import_id == context.import_id:
+            record.status = {
+                "ready": "completed",
+                "failed": "failed",
+                "cancelled": "cancelled",
+            }.get(status.state, "interrupted")  # type: ignore[assignment]
+            record.error = status.error
+            record.progress = {"done": status.n_items, "total": status.n_items}
+        else:
+            record.status = (
+                "cancelled" if record.control.get("action") == "cancel" else "interrupted"
+            )
+            record.error = "Import work stopped; resume with the saved options and destination"
+        record.cleanup_verified = True
+        return record
+
+    async def save_import(self, operation: str, request: SourceImportUpdate) -> SourceOperation:
+        async with self.locks(f"_source_operation:{operation}"):
+            record = self.get(operation)
+            if not self._check_control(record, request, "import_draft"):
+                return await self.view(operation)
+            context = record.import_context
+            if record.purpose != "discover" or context is None or record.stage != "discovered":
+                raise JobConflict("Finish import source discovery before editing its draft")
+            if record.project_id not in (None, request.project_id):
+                raise JobConflict("Import belongs to a different project")
+            self.workspace.get(request.project_id)
+            if context.step in {"previewing", "index"}:
+                current = await self._import_view(record.model_copy(deep=True))
+                if current.status in ACTIVE or not current.cleanup_verified:
+                    raise JobConflict("Wait for import work to stop before editing its options")
+            choices = request.model_dump(
+                exclude={
+                    "expected_revision",
+                    "expected_attempt",
+                    "expected_run_attempt",
+                    "project_id",
+                }
+            )
+            before = context.model_dump(include=set(choices))
+            if choices != before:
+                if context.import_id is not None:
+                    raise JobConflict(
+                        "Start a separate import to change an already committed import"
+                    )
+                record.import_context = SourceImportContext(**choices)
+            record.project_id = request.project_id
+            record.control = {"action": "import_draft", **request.model_dump()}
+            self._write(record)
+            return await self.view(operation)
+
+    def _submit_import(self, record: SourceOperation, *, commit: bool) -> SourceOperation:
+        context = record.import_context
+        assert context is not None and record.project_id is not None
+        if context.adapter not in {"metadata-v1", "nifti-files"}:
+            raise ValidationProblem("Choose an import adapter before preparing a preview")
+        if commit and context.preview_id is None:
+            raise JobConflict("Prepare an import preview before committing")
+        context.step = "index" if commit else "previewing"
+        if commit:
+            context.import_id = context.import_id or new_ulid()
+        context.job_id = new_ulid()
+        record.attempt += 1
+        record.error = None
+        self._write(record)  # intent and identities survive a crash before dispatch
+        attempt, jid, pid = record.attempt, context.job_id, record.project_id
+        prepared: ImportPreview | None = None
+        index_job: str | None = None
+
+        async def drive(handle: JobHandle) -> None:
+            nonlocal prepared, index_job
+            if handle.stopped:
+                return
+            handle.set_total(1)
+            if commit:
+                assert context.preview_id is not None and context.import_id is not None
+                result = await commit_with_annotations(
+                    self.ingest,
+                    pid,
+                    context.preview_id,
+                    self.tasks.phase_runs,
+                    import_id=context.import_id,
+                )
+                index_job = result.job_id
+                if handle.stopped:
+                    self.jobs.cancel(index_job, drain=True)
+                    await self.jobs.wait(index_job)
+            else:
+                prepared = await self.ingest.preview(
+                    pid,
+                    record.source,
+                    alias=context.alias,
+                    adapter=context.adapter,  # type: ignore[arg-type]
+                    options=context.options,
+                    add=context.add,
+                )
+            handle.set_done(1)
+
+        async def finish(info: JobInfo) -> str | None:
+            async with self.locks(f"_source_operation:{record.operation_id}"):
+                current = self.get(record.operation_id)
+                draft = current.import_context
+                if current.attempt != attempt or draft is None or draft.job_id != jid:
+                    return None
+                if index_job is not None:
+                    draft.job_id = index_job
+                elif info.status == "succeeded" and prepared is not None:
+                    draft.preview_id, draft.step = prepared.preview_id, "preview"
+                current.error = info.error
+                self._write(current)
+            return context.import_id if commit else (prepared.preview_id if prepared else None)
+
+        self.jobs.submit(
+            JobSpec(
+                project_id=pid,
+                kind="task",
+                key=f"source-import:{record.operation_id}",
+                units=[],
+                job_id=jid,
+                driver=drive,
+                on_finish=finish,
+                drain_workers=True,
+            )
+        )
+        return record
+
+    async def start_import(
+        self, operation: str, request: SourceOperationControl, *, commit: bool = False
+    ) -> SourceOperation:
+        async with self.locks(f"_source_operation:{operation}"):
+            record = self.get(operation)
+            action = "import_commit" if commit else "import_preview"
+            if not self._check_control(record, request, action):
+                return await self.view(operation)
+            context = record.import_context
+            if context is None or record.purpose != "discover" or record.project_id is None:
+                raise JobConflict("Save the import draft in an explicit project first")
+            if record.status != "completed" or record.stage != "discovered":
+                raise JobConflict("Finish source discovery before preparing an import")
+            if context.step in {"previewing", "index"}:
+                current = await self._import_view(record.model_copy(deep=True))
+                if current.status in ACTIVE or not current.cleanup_verified:
+                    raise JobConflict("Import work is already active")
+                if current.status == "completed" and context.step == "index":
+                    return current
+            record.control = {"action": action, **request.model_dump()}
+            self._submit_import(record, commit=commit)
+            return await self.view(operation)
 
     def _check_control(
         self, rec: SourceOperation, req: SourceOperationControl, action: str
@@ -413,6 +767,13 @@ class SourceOperations:
 
     async def start(self, request: SourceOperationStart) -> SourceOperation:
         if request.import_context is not None and (
+            request.import_context.step != "detect"
+            or request.import_context.preview_id is not None
+            or request.import_context.import_id is not None
+            or request.import_context.job_id is not None
+        ):
+            raise ValidationProblem("Start import discovery without preview or job identities")
+        if request.import_context is not None and (
             request.purpose != "discover" or request.prepare_plan
         ):
             raise ValidationProblem("Import choices belong to discovery-only operations")
@@ -420,6 +781,7 @@ class SourceOperations:
             raise ValidationProblem("Open a source first; start conversion as a separate operation")
         if not Path(request.path).is_absolute():
             raise ValidationProblem("Choose an absolute source path")
+        await self.prune_inventories()
         source = (
             guarded_source(self.guard, request.path)
             if request.purpose == "open"
@@ -434,6 +796,11 @@ class SourceOperations:
         payload = request.model_dump(mode="json")
         if request.import_context is None:
             payload.pop("import_context")  # preserve receipts created before import drafts existed
+        else:
+            defaults = SourceImportContext().model_dump()
+            for key in ("reconstruct", "anonymize", "step", "preview_id", "import_id", "job_id"):
+                if payload["import_context"][key] == defaults[key]:
+                    payload["import_context"].pop(key)
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         key = hashlib.sha256(request.idempotency_key.encode()).hexdigest()
         receipt = self.root / "requests" / f"{key}.json"
@@ -498,6 +865,7 @@ class SourceOperations:
             return record
 
     def _submit(self, record: SourceOperation) -> None:
+        self._require_inventory(record)
         job_dir = self._attempt_dir(record)
         base: dict[str, Any] = {}
         if record.work_kind == "estimate":
@@ -675,6 +1043,8 @@ class SourceOperations:
         except Exception as exc:
             current = self.get(operation)
             if not current.cleanup_verified:
+                current.cleanup_verified = attempt_cleaned(self._attempt_dir(record), attempt)
+            if not current.cleanup_verified:
                 current.status, current.error = (
                     "cleanup_pending",
                     "Source operation failed; verify worker cleanup",
@@ -697,8 +1067,9 @@ class SourceOperations:
             raise RuntimeError(current.error) from None
 
     def detection(self, operation: str, *, dicom_available: bool) -> source_detect.DetectResult:
-        """API-69: bounded adapter hints from the completed inventory, without a rescan."""
+        """Bounded adapter hints from the completed inventory, without a rescan."""
         record = self.get(operation)
+        self._require_inventory(record)
         if (
             record.purpose != "discover"
             or record.status != "completed"
@@ -765,8 +1136,25 @@ class SourceOperations:
             ) from exc
 
     def open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
+        self.get(operation)
+        descriptor = os.open(
+            self._dir(operation) / "inventory-use.lock",
+            os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW,
+            0o600,
+        )
+        try:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise JobConflict("Open state is being updated; retry opening the source") from None
+            return self._load_open_session(operation, reopen=reopen)
+        finally:
+            os.close(descriptor)
+
+    def _load_open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
         """Restore an explicitly prepared Open result; conversion records stay separate."""
         record = self.get(operation)
+        self._require_inventory(record)
         if record.purpose != "open":
             raise NotFound("This operation has no Open session")
         if record.stage != "opened" or record.status != "completed" or not record.cleanup_verified:
@@ -1010,6 +1398,7 @@ class SourceOperations:
         action: Literal["convert", "skip"] | None = None,
     ) -> SourcePlanPage:
         record = self.get(operation)
+        self._require_inventory(record)
         if record.plan_attempt is None:
             if cursor:
                 raise JobConflict("No plan is ready for this generation")
@@ -1025,6 +1414,19 @@ class SourceOperations:
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
             if not self._check_control(record, request, "cancel"):
+                return await self.view(operation)
+            if record.import_context is not None and record.import_context.step in {
+                "previewing",
+                "index",
+            }:
+                current = await self._import_view(record.model_copy(deep=True))
+                if current.status == "completed":
+                    return current
+                record.control = {"action": "cancel", **request.model_dump()}
+                self._write(record)
+                if record.import_context.job_id:
+                    with suppress(NotFound):
+                        self.jobs.cancel(record.import_context.job_id, drain=True)
                 return await self.view(operation)
             native = await self._conversion_run(record)
             if native is not None:
@@ -1068,6 +1470,22 @@ class SourceOperations:
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
             if not self._check_control(record, request, action):
+                return await self.view(operation)
+            if record.import_context is not None and record.import_context.step in {
+                "previewing",
+                "index",
+            }:
+                if failed_only:
+                    raise JobConflict(
+                        "Import work resumes its pending stage; it is not a failed-series retry"
+                    )
+                current = await self._import_view(record.model_copy(deep=True))
+                if current.status == "completed" and record.import_context.step == "index":
+                    return current
+                if current.status in ACTIVE or not current.cleanup_verified:
+                    raise JobConflict("Wait for import work to stop before resuming")
+                record.control = {"action": action, **request.model_dump()}
+                self._submit_import(record, commit=record.import_context.step == "index")
                 return await self.view(operation)
             if failed_only and request.expected_run_attempt is None:
                 raise JobConflict("Retry failed requires the conversion's current attempt")
@@ -1136,6 +1554,7 @@ class SourceOperations:
 
     def series_page(self, operation: str, limit: int, cursor: str | None) -> dict[str, Any]:
         record = self.get(operation)
+        self._require_inventory(record)
         database = self._dir(operation) / "inventory.sqlite"
         if not database.exists():
             return {"items": [], "total": 0, "next_cursor": None, "generation": None}

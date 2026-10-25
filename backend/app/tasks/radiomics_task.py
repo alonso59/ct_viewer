@@ -1,8 +1,8 @@
-"""`radiomics.pyradiomics` behind the generic task endpoints (RAD-13, ADR-0016 §3).
+"""`radiomics.pyradiomics` behind the generic task endpoints.
 
-The radiomics service stays the implementation (RAD-*); run records stay in `radiomics/runs/`.
+The radiomics service stays the implementation; run records stay in `radiomics/runs/`.
 This adapter maps task payloads to radiomics ones and back, and attaches the radiomics record
-itself (`radiomics` field) so the UI reads the RAD-* shapes through API-43..47 (AUD-A4-09).
+itself (`radiomics` field) so the UI reads the radiomics shapes through the task endpoints.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ VERSION = "1.0.0"  # app/radiomics/task.json
 
 
 def _settings(raw: dict[str, Any]) -> tuple[RadiomicsSettings | None, str | None]:
-    """Task settings = RadiomicsSettings, or `{profile_hash}` (RAD-03)."""
+    """Task settings = RadiomicsSettings, or `{profile_hash}`."""
     phash = raw.get("profile_hash")
     body = {k: v for k, v in raw.items() if k != "profile_hash"}
     try:

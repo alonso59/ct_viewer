@@ -1,4 +1,4 @@
-// Command palette ranking (UI-05, AUD-A1-07): title prefix > word prefix > contiguous match >
+// Command palette ranking: title prefix > word prefix > contiguous match >
 // keyword / category match > scattered letters. Every search word has to match somewhere.
 
 const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)

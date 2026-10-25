@@ -1,7 +1,8 @@
-"""`analyzer.target` (organ focus, ANZ-*): profile term lists → `target_match`."""
+"""`analyzer.target` (organ focus): profile term lists → `target_match`."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -97,8 +98,6 @@ def profile(name: str | None) -> Profile:
 
 
 def _first(text: str, terms: tuple[str, ...]) -> str:
-    import re
-
     for term in terms:
         t = re.sub(r"[^A-Z0-9]+", " ", term.upper()).strip()
         if t and ((" " in t and t in text) or (" " not in t and re.search(rf"\b{re.escape(t)}\b", text))):

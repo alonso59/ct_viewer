@@ -1,9 +1,9 @@
-"""Surface meshes for mask labels (API-25, VW-09, BE-06, BE-12).
+"""Surface meshes for mask labels.
 
-`build` runs in a job worker: it reads the mask `rb` (R1, BE-03), runs marching cubes on one
-label (cropped to its bounding box), maps vertices to world mm with the NIfTI affine and writes
-a gzip MZ3 under the project `cache/` only (PRJ-10), atomically. `ensure_mesh` (API process)
-returns the cached file or the (deduped) `mesh` job that builds it.
+`build` runs in a job worker: it reads the mask `rb`, runs marching cubes on one label (cropped
+to its bounding box), maps vertices to world mm with the NIfTI affine and writes a gzip MZ3
+under the project `cache/` only, atomically. `ensure_mesh` (API process) returns the cached
+file or the (deduped) `mesh` job that builds it.
 
 MZ3 (NiiVue native): little-endian header `<HHIII` = magic 23117, attr 3 (faces + verts),
 nface, nvert, nskip 0; then int32 faces, then float32 vertices; the whole file gzipped.
@@ -59,9 +59,6 @@ def check_params(label: int, smooth: int) -> None:
             "label must be a positive integer",
             errors=[{"loc": ["path", "label"], "msg": "must be >= 1", "type": "greater_than"}],
         )
-
-
-# --- worker side -------------------------------------------------------------------------
 
 
 def encode_mz3(faces: NDArray[Any], verts: NDArray[Any]) -> bytes:
@@ -156,9 +153,9 @@ def build(
     """Worker: mask label → gzip MZ3 at `dst` (under `cache/`). None on success, else error."""
     try:
         arr, affine = _read_mask(Path(src), spacing)
-        binary = _label_mask(arr, int(label))
+        binary = _label_mask(arr, label)
         del arr
-        mesh = surface(binary, affine, 1 if smooth else 0)
+        mesh = surface(binary, affine, smooth)
         if mesh is None:
             return f"{LABEL_ABSENT}: label {label} is not present in the mask"
         faces, verts = mesh
@@ -167,8 +164,6 @@ def build(
         return f"{type(exc).__name__}: {exc}"
     return None
 
-
-# --- API process -------------------------------------------------------------------------
 
 _inflight: dict[str, str] = {}  # cache path → mesh job_id
 
@@ -221,11 +216,10 @@ def ensure_mesh(
         JobSpec(
             project_id=project_id,
             kind="mesh",
-            units=[WorkUnit(build, (str(src), str(dst), int(label), int(smooth), sp))],
+            units=[WorkUnit(build, (str(src), str(dst), label, smooth, sp))],
             on_result=_on_result,
             exclusive=False,
             ref=cache_key(mask_fp, label, smooth),
-            meta={"label": label, "smooth": smooth},
         )
     )
     _inflight[key] = info.job_id

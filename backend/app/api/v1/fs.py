@@ -1,5 +1,3 @@
-"""API-10 server folder browser (IMP-01), limited to `ALLOWED_DATA_ROOTS` (OPS-04)."""
-
 from __future__ import annotations
 
 import os
@@ -100,15 +98,15 @@ class FsListRequest(BaseModel):
 
 @router.post("/fs/list", response_model=FsListing)
 def fs_list(ctx: Ctx, body: FsListRequest) -> FsListing:
-    """`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.
+    """`role=derived` browses ALLOWED_DERIVED_ROOTS instead of ALLOWED_DATA_ROOTS.
 
-    A POST so browsed folders (often patient names) stay out of URLs and access logs (NFR-17).
+    A POST so browsed folders (often patient names) stay out of URLs and access logs.
     """
     path, role = body.path, body.role
     guard = ctx.workspace.derived_guard if role == "derived" else ctx.guard
     if role == "derived" and not guard.allowed_roots:
         raise DerivedRootRequired(
-            "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder (OPS-11)",
+            "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder",
             actions=["configure:ALLOWED_DERIVED_ROOTS"],
         )
     if not path:

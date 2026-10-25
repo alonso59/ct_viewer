@@ -1,4 +1,3 @@
-// DB-08 form: question type → variable → (confounder), unit of analysis (ANA-03), test override (ANA-04)
 import { useTranslation } from 'react-i18next'
 
 import { PHASES, type AnalysisSpec, type LabelDef, type UnitSpec, type Variable } from '../../../api'
@@ -16,8 +15,7 @@ export interface FormState {
 
 export const INITIAL_FORM: FormState = { question: 'compare', variable: null, confounder: null, unit: { aggregate: 'first' }, test: 'auto', name: '' }
 
-/** Can the form be submitted as is? */
-export function formReady(f: FormState, vars: Variable[]): boolean {
+function formReady(f: FormState, vars: Variable[]): boolean {
   if (!needsVariable(f.question)) return true
   const v = vars.find((x) => x.name === f.variable)
   if (!v || !questionsFor(v).includes(f.question)) return false

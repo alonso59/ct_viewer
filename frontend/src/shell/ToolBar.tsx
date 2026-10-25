@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { registry } from './registry'
 
-/** QuPath-style tool bar (UI-06). Items are contributed by features, e.g. the viewer. */
+/** QuPath-style tool bar. Items are contributed by features, e.g. the viewer. */
 export function ToolBar() {
   const { t } = useTranslation()
   const bar = useRef<HTMLDivElement>(null)

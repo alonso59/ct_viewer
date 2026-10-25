@@ -1,5 +1,3 @@
-"""Curation records (CURATION.md §Status, §Targets, §Event schema v1, §Correction queue CSV)."""
-
 from __future__ import annotations
 
 from typing import Annotated, Any, Final, Literal
@@ -16,7 +14,7 @@ Status = Literal[
     "accepted",
     "not_reviewed",
 ]
-# CUR-08 case rollup: a status, or `partially_reviewed` while an active item has no decision
+# Case rollup: a status, or `partially_reviewed` while an active item has no decision
 RollupStatus = Literal[
     "rejected",
     "needs_major_correction",
@@ -33,7 +31,7 @@ Priority = Literal["low", "medium", "high"]
 Source = Literal["ui", "v2_import", "converter_import", "api"]
 ProposedSide = Literal["L", "R"]
 
-# CURATION.md §Status: rollup severity (high → low) and the correction-queue set (CUR-08/09).
+# Rollup severity: the highest status wins.
 SEVERITY: Final[dict[str, int]] = {
     "rejected": 8,
     "needs_major_correction": 7,
@@ -56,8 +54,8 @@ QUEUE_STATUSES: Final = frozenset(
 NOT_REVIEWED: Final = "not_reviewed"
 PARTIALLY_REVIEWED: Final = "partially_reviewed"
 CASE_TARGET: Final = "case"
-TARGET_PATTERN: Final = r"^(seg|voi_mask|side|case|label:[0-9]+)$"  # §Targets (no phase, ADR-0026)
-LEGACY_PHASE_TARGET: Final = "phase"  # pre-ADR-0026 events: kept on disk, ignored on read
+TARGET_PATTERN: Final = r"^(seg|voi_mask|side|case|label:[0-9]+)$"
+LEGACY_PHASE_TARGET: Final = "phase"  # older events: kept on disk, ignored on read
 Target = Annotated[str, Field(pattern=TARGET_PATTERN, examples=["seg", "label:2", "case"])]
 
 QUEUE_COLUMNS: Final = (
@@ -79,36 +77,36 @@ QUEUE_COLUMNS: Final = (
 
 
 class CurationEvent(BaseModel):
-    """One append-only decision in `curation/events.jsonl` (CUR-02, schema v1)."""
+    """One append-only decision in `curation/events.jsonl`."""
 
     event_id: str
     schema_version: Literal[1] = 1
     at: str
     reviewer: str
     session_id: str | None = None
-    item_id: str | None = None  # null when target = case (CUR-03)
+    item_id: str | None = None  # null when target = case
     case_id: str
     target: str
-    # Mask targets (seg, label:*, voi_mask): the segmentation set (ADR-0015); null = imported
+    # Mask targets (seg, label:*, voi_mask): the segmentation set; null = imported
     seg_id: str | None = None
     status: Status
     priority: Priority = "medium"
     comment: str = ""
     proposed_side: ProposedSide | None = None
     add_to_queue: bool = False
-    context: dict[str, Any] = Field(default_factory=dict)  # audit snapshot; not used for logic
+    context: dict[str, Any] = Field(default_factory=dict)  # audit snapshot and import keys
     source: Source = "ui"
 
     @property
     def seg_key(self) -> str | None:
-        """State key part: mask targets without `seg_id` mean `imported` (PRJ-11)."""
+        """State key part: mask targets without `seg_id` mean `imported`."""
         if self.target in ("seg", "voi_mask") or self.target.startswith("label:"):
             return self.seg_id or "imported"
         return None
 
 
 class EventIn(BaseModel):
-    """API-50 POST body. The server sets `event_id`, `at`, `reviewer`, `schema_version`."""
+    """The server sets `event_id`, `at`, `reviewer`, `schema_version`."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -121,18 +119,18 @@ class EventIn(BaseModel):
     status: Status
     priority: Priority = "medium"
     comment: str = Field(default="", max_length=10_000)
-    proposed_side: ProposedSide | None = None  # CUR-07
-    add_to_queue: bool = False  # CUR-09
+    proposed_side: ProposedSide | None = None
+    add_to_queue: bool = False
     context: dict[str, Any] = Field(default_factory=dict)
     session_id: str | None = Field(default=None, max_length=200)
-    source: Literal["ui", "api"] = "ui"  # `v2_import` only via API-54
+    source: Literal["ui", "api"] = "ui"  # import sources are set only by the CSV imports
 
 
 class TargetState(BaseModel):
-    """Latest event for one `(item_id, target)` (or case-target) key (CUR-08)."""
+    """Latest event for one `(item_id, target)` (or case-target) key."""
 
     target: str
-    seg_id: str | None = None  # mask targets (ADR-0015)
+    seg_id: str | None = None  # mask targets
     status: Status
     priority: Priority
     comment: str
@@ -156,7 +154,7 @@ class ItemState(BaseModel):
 
 
 class CaseState(BaseModel):
-    """Case rollup = worst over its items and case-target events (CUR-08)."""
+    """Case rollup = worst over its items and case-target events."""
 
     case_id: str
     status: Status
@@ -169,7 +167,7 @@ class CaseState(BaseModel):
 
 
 class CurationState(BaseModel):
-    """API-51 response and the `curation/state.json` snapshot (derived, PRJ-10)."""
+    """Derived state; also the `curation/state.json` snapshot."""
 
     schema_version: Literal[1] = 1
     updated_at: str
@@ -179,7 +177,7 @@ class CurationState(BaseModel):
 
 
 class QueueRow(BaseModel):
-    """Correction queue row (CUR-09); fields = CURATION.md §Correction queue CSV columns."""
+    """Correction queue row; fields = the queue CSV columns."""
 
     case_id: str
     item_id: str
@@ -187,7 +185,7 @@ class QueueRow(BaseModel):
     side: str | None = None
     phase: str | None = None
     target: str
-    seg_id: str | None = None  # mask targets: the set whose mask `mask_path_abs` is (ADR-0015)
+    seg_id: str | None = None  # mask targets: the set whose mask `mask_path_abs` is
     status: Status
     priority: Priority
     comment: str
@@ -198,7 +196,7 @@ class QueueRow(BaseModel):
 
 
 class ExportResult(BaseModel):
-    """API-53: files written under the project folder's `dir` (CUR-10)."""
+    """Files written under the project folder's `dir`."""
 
     dir: str = "exports"
     files: list[str]
@@ -212,9 +210,7 @@ class V2Skipped(BaseModel):
 
 
 class V2ImportReport(BaseModel):
-    """API-54 result (CUR-13)."""
-
     n_rows: int
     imported: int  # curation events
-    phase_events: int = 0  # native phase events (PHS-08)
+    phase_events: int = 0  # native phase events
     skipped: list[V2Skipped]

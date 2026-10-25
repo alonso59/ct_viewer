@@ -1,5 +1,3 @@
-"""Variable catalog records (VARIABLES.md §Storage; API-16..18)."""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -9,7 +7,7 @@ from pydantic import BaseModel, Field
 VarType = Literal[
     "continuous", "categorical", "numeric-discrete", "date", "identifier", "text", "constant"
 ]
-# Types a user may pick when confirming or overriding an inference (VAR-03).
+# Types a user may pick when confirming or overriding an inference.
 SettableType = Literal["continuous", "categorical", "date", "identifier", "text"]
 Level = Literal["case", "scan"]
 VarGroup = Literal["study", "acquisition"]
@@ -25,7 +23,7 @@ class ValueCount(BaseModel):
 
 
 class Profile(BaseModel):
-    """VAR-01: computed over units of the variable's level (cases or scans)."""
+    """Computed over units of the variable's level (cases or scans)."""
 
     n_units: int
     n_missing: int
@@ -49,22 +47,22 @@ class Variable(BaseModel):
     tags: list[Tag] = Field(default_factory=list)
     visible: bool
     confidence: float  # 0..1
-    review: bool  # VAR-03 "Review" badge: low confidence or numeric-discrete, until confirmed
+    review: bool  # "Review" badge: low confidence or numeric-discrete, until confirmed
     overridden: bool = False
-    # VAR-13 (ADR-0026): offered for side-by-side comparison (Labeling reference columns, LBL-09)
+    # offered for side-by-side comparison (Labeling reference columns)
     comparable: bool = False
     profile: Profile
 
 
 class Excluded(BaseModel):
-    """VAR-08/09: fields that are never variables, with the reason."""
+    """Fields that are never variables, with the reason."""
 
     name: str
     reason: ExcludeReason
 
 
 class BinDef(BaseModel):
-    """VAR-06 bin: continuous → categorical by thresholds or quantiles (`v < t` → lower bin)."""
+    """Bin: continuous → categorical by thresholds or quantiles (`v < t` → lower bin)."""
 
     op: Literal["bin"] = "bin"
     name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -75,7 +73,7 @@ class BinDef(BaseModel):
 
 
 class RecodeDef(BaseModel):
-    """VAR-06 recode: merge/rename categories; unmapped values are kept as they are."""
+    """Recode: merge/rename categories; unmapped values are kept as they are."""
 
     op: Literal["recode"] = "recode"
     name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -84,7 +82,7 @@ class RecodeDef(BaseModel):
 
 
 class DominantDef(BaseModel):
-    """VAR-06 dominant: name of the largest of N numeric variables (missing if any is missing;
+    """Dominant: name of the largest of N numeric variables (missing if any is missing;
     `tie` when several share the maximum)."""
 
     op: Literal["dominant"] = "dominant"
@@ -96,7 +94,7 @@ DerivedDef = Annotated[BinDef | RecodeDef | DominantDef, Field(discriminator="op
 
 
 class ExternalTable(BaseModel):
-    """VAR-07 external case-keyed table, snapshotted under `variables/external/`."""
+    """External case-keyed table, snapshotted under `variables/external/`."""
 
     table_id: str
     filename: str
@@ -117,7 +115,7 @@ class ExternalReport(BaseModel):
 
 
 class VariableOverride(BaseModel):
-    """API-16 PATCH body; only provided fields change (VAR-03/05)."""
+    """PATCH body; only provided fields change."""
 
     type: SettableType | None = None
     visible: bool | None = None
@@ -125,15 +123,15 @@ class VariableOverride(BaseModel):
 
 
 class BrokenDerived(BaseModel):
-    """VAR-06: a stored derived definition that no longer builds (e.g. its source column's
-    label table was deleted, LBL-10); listed so it can be deleted (AUD-A5-08)."""
+    """A stored derived definition that no longer builds (e.g. its source column's label
+    table was deleted); listed so it can be deleted."""
 
     name: str
     reason: str
 
 
 class Catalog(BaseModel):
-    """`variables/catalog.json` (VAR-11) and the API-16 response."""
+    """`variables/catalog.json` and the catalog API response."""
 
     schema_version: Literal[1] = 1
     profiled_at: str | None = None

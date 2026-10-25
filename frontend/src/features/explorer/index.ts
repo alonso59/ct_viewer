@@ -1,4 +1,3 @@
-// Explorer: case tree, filters, quick open, problems (UI-05, UI-08, UI-09)
 import { api, fetchSettled, keys, queryClient, useItem, type CaseFilter, type CaseSummary, type QCWarning } from '../../api'
 import i18n from '../../i18n'
 import { registry, toast, useWorkbench } from '../../shell'
@@ -14,16 +13,14 @@ import { activeFilterCount, useExplorer } from './store'
 export { openItem, openInContext, openFromExplorer } from './navigate'
 export { explorerSelection, type ExplorerSelection } from './selection'
 
-/** Read-only view of the current Explorer filter (RAD-05 "Use the current Explorer filter") */
 export const useExplorerFilter = (): Readonly<CaseFilter> => useExplorer((s) => s.filter)
 
-/** DB-04: filter the Explorer to these items (and their cases) and show the Project view */
+/** Filter the Explorer to these items (and their cases) and show the Project view */
 export function showItemsInExplorer(itemIds: string[]) {
   useExplorer.getState().setItemIds(itemIds.length ? itemIds : null)
   useLayout.getState().showView('project')
 }
 
-/** AUD-A3-01: the active item has QC warnings (the Problems panel then has something for it) */
 function useProblemsContent() {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const iid = useViewerSync((s) => s.activeItemId)
@@ -51,8 +48,7 @@ function stepCase(delta: 1 | -1) {
   if (next && next !== cur) openItem(next, null, true)
 }
 
-/** Go: Next unreviewed case (AUD-A1-04): the next case in Explorer order that is not fully
- *  reviewed (CUR-08 `review_state`), after the active one, wrapping around */
+/** The next case in Explorer order that is not fully reviewed, after the active one, wrapping around */
 async function nextUnreviewed() {
   const pid = useWorkbench.getState().pid
   if (!pid) return
@@ -68,7 +64,6 @@ async function nextUnreviewed() {
   openItem(next.case_id, null, true)
 }
 
-/** Pure part of `nextUnreviewed` (unit-tested) */
 export function pickNextUnreviewed(cases: CaseSummary[], current: string | null): CaseSummary | undefined {
   const i = current ? cases.findIndex((c) => c.case_id === current) : -1
   const rest = [...cases.slice(i + 1), ...cases.slice(0, i + 1)]
@@ -123,5 +118,3 @@ export function registerExplorer() {
     run: () => useExplorer.getState().clearFilter(),
   })
 }
-
-export type { CaseSummary }

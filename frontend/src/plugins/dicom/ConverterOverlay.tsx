@@ -1,8 +1,6 @@
-// Converter overlay window (UI-25, DCM-14, TSK-13): source → settings → dry run → run → result.
-// Without a project the output is a write-once workspace dataset (`{derived}/_datasets/{name}/`)
-// with Open / Create project / Add to project; inside a project it can convert into it instead.
-// A click outside never closes it; while it works, × and Escape minimize it to a chip that
-// shows the progress, and the work goes on (the dry run and the run are server-side).
+// Without a project the output is a write-once workspace dataset (`{derived}/_datasets/{name}/`);
+// inside a project it can convert into it instead. While it works, × and Escape minimize it to a
+// chip that shows the progress and the work goes on server-side.
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -27,9 +25,8 @@ import {
   type TaskEstimate,
   type ConversionTimeEstimate,
 } from '../../api'
-import { DerivedRootDialog, FolderBrowser, useImportWizard, type WizardPrefill } from '../../features/import'
+import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { NewProjectDialog } from '../../features/import'
 import { Dialog, fmtBytes, fmtDuration, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
@@ -75,7 +72,7 @@ function ConversionTime({ value }: { value: ConversionTimeEstimate | null | unde
   return <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
 }
 
-/** DCM-06 (AUD-A2-13): every series of the dry run, what happens to it and why, with its size */
+/** Every series of the dry run, what happens to it and why, with its size */
 function SeriesPlanTable({ estimate, operation }: { estimate: TaskEstimate; operation?: SourceOperation }) {
   const { t } = useTranslation()
   const [cursors, setCursors] = useState<string[]>([])
@@ -139,13 +136,13 @@ function useElapsed(since: number | null) {
   return since == null ? 0 : Math.max(0, Math.round((now - since) / 1000))
 }
 
-/** DCM-06: the dry run's stages, where it is and how far, so a long scan is visibly alive */
+/** The dry run's stages and progress, so a long scan is visibly alive */
 function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, discovering = false }: { progress: EstimateProgress | undefined; elapsed: number; onCancel: () => void; onMinimize: () => void; opening?: boolean; discovering?: boolean }) {
   const { t } = useTranslation()
   const current = progress?.stage ?? 'check'
   const stages: readonly string[] = opening ? ['listing', 'opening'] : discovering ? ['listing'] : SCAN_STAGES
   const at = stages.indexOf(current)
-  const determinate = (current === 'reading' || current === 'planning' || current === 'opening') && !!progress?.total
+  const determinate = (current === 'reading' || current === 'planning' || current === 'opening' || current === 'import_index') && !!progress?.total
   return (
     <div className="conv-scan" data-testid="conv-scan" role="status" aria-live="polite">
       <ol className="conv-stages">
@@ -185,7 +182,7 @@ function RunPanel({ activity, onResult, onCancel }: { activity: Activity; onResu
   )
 }
 
-/** The minimized window: a notification-like chip with the progress and Show (UI-25) */
+/** The minimized window: a notification-like chip with the progress and Show */
 function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activity: Activity | null; onShow: () => void; onClose: () => void; onCancel?: () => void; title: string }) {
   const { t } = useTranslation()
   const running = !!activity && !activity.finished
@@ -221,12 +218,13 @@ export default function ConverterOverlay() {
   const operation = operationQuery.data
   const isOpening = operation?.purpose === 'open'
   const isDiscovering = operation?.purpose === 'discover'
+  const importStage = operation?.import_context?.step
   const isSourceOnly = isOpening || isDiscovering
-  const title = t(isOpening ? 'open.backgroundTitle' : isDiscovering ? 'import.backgroundTitle' : 'conv.title')
+  const title = t(isOpening ? 'open.backgroundTitle' : isDiscovering ? importStage === 'index' ? 'import.indexing' : importStage === 'previewing' ? 'import.preparingPreview' : 'import.backgroundTitle' : 'conv.title')
   const operations = useSourceOperations().data ?? []
   const project = useProject(pid ?? '').data
   const manifest = useTasks().data?.tasks.find((x) => x.manifest.id === 'dicom.convert')?.manifest
-  const profiles = ((manifest?.settings_schema?.properties as Record<string, { enum?: string[] }> | undefined)?.target_profile?.enum ?? ['generic']) as string[]
+  const profiles = (manifest?.settings_schema?.properties as Record<string, { enum?: string[] }> | undefined)?.target_profile?.enum ?? ['generic']
   const [creating, setCreating] = useState(false)
   const [importDraft, setImportDraft] = useState<WizardPrefill | null>(null)
   const [derivedPrompt, setDerivedPrompt] = useState(false)
@@ -295,10 +293,13 @@ export default function ConverterOverlay() {
         path: result.path, kind: result.kind, discoveryId: record.operation_id,
         alias: context?.alias ?? 'DATA', adapter: context?.adapter ?? undefined,
         add: context?.add ?? false, options: context?.options ?? {},
+        step: context?.step === 'index' ? 'index' : context?.step === 'preview' ? 'preview' : 'detect',
+        reconstruct: context?.reconstruct ?? false, anonymize: context?.anonymize ?? false,
+        revision: record.revision, attempt: record.attempt,
       }
       qc.setQueryData(keys.sourceDetection(record.operation_id), result)
       if (record.project_id) {
-        close()
+        c.hideForImport(record.operation_id)
         navigate(`/p/${record.project_id}`)
         useImportWizard.getState().open(record.project_id, draft)
       } else {
@@ -318,7 +319,6 @@ export default function ConverterOverlay() {
     if (c.autoOpen && !minimized && operation?.stage === 'opened' && operation.status === 'completed') void showOpen()
   }, [c.autoOpen, minimized, operation, showOpen])
 
-  // What is going on, for the run panel and the chip
   const runStatus = operation?.status ?? (run?.kind === 'dataset' ? ws?.status : prun?.status)
   const memoryMessage = runStatus !== 'waiting_for_resources' ? null
     : resourceWait?.reason === 'unknown_geometry' ? t('conv.memoryUnknown')
@@ -461,7 +461,6 @@ export default function ConverterOverlay() {
       if (run.kind === 'project' && pid) await api.cancelTaskRun(pid, run.rid)
       else await api.cancelWorkspaceRun(run.rid)
     })
-  // × and Escape: minimize while working (nothing is lost), close otherwise
   const onOpenChange = (o: boolean) => {
     if (o) return
     if (working) c.minimize()
@@ -512,19 +511,22 @@ export default function ConverterOverlay() {
           </div>
           {!isSourceOnly ? <StepBar step={step} /> : null}
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
-            <dl>{(['folders', 'files', 'dicom', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
+            <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
+            {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
             <ConversionTime value={conversionTime} />
             {!operation.summary?.complete && !operation.conversion_run ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
             <code className="conv-path">{source}</code>
-            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? 'listing', done: operation.progress_stage === 'opening' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
+            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? 'listing', done: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
               <p>{t('open.prepared')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>
-            </> : isDiscovering && operation.stage === 'discovered' && operation.status === 'completed' ? <>
-              <p>{t('import.discovered')}</p>
+            </> : isDiscovering && operation.status === 'completed' ? <>
+              <p>{t(importStage === 'index' ? 'import.indexReady' : importStage === 'preview' ? 'import.previewReady' : 'import.discovered')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || discovery.isPending} onClick={() => discovery.mutate(operation)}>{t('import.continueImport')}</button>
             </> : null}
+            {isDiscovering && operation.error ? <p className="error-card" role="alert">{operation.error}</p> : null}
+            {isDiscovering && importStage === 'previewing' && operation.cleanup_verified && !working ? <button type="button" className="btn" disabled={discovery.isPending} onClick={() => discovery.mutate(operation)}>{t('import.editOptions')}</button> : null}
           </div> : null}
           {!isSourceOnly && step === 'source' ? (
             <div className="conv-body">
@@ -553,7 +555,6 @@ export default function ConverterOverlay() {
                   <label className="field">
                     <span className="field-label">{t('conv.name')}</span>
                     <input className="input" aria-label={t('conv.name')} value={settings.name} onChange={(e) => setSettings({ name: e.target.value })} />
-                    {/* DCM-14 (AUD-A2-14): a taken name is said here, not silently suffixed later */}
                     {clash ? <span className="conv-help" role="note" style={{ color: 'var(--warn)' }}>{t('conv.nameTaken', { name: clash.name, next: nextFree })}</span> : null}
                     <span className="muted conv-help">{t('conv.nameHelp')}</span>
                   </label>
@@ -650,7 +651,7 @@ export default function ConverterOverlay() {
               error={shownError}
               labels={{ import_as: t('conv.createProject') }}
               onAction={{
-                // AUD-A2-07: no DICOM here → view it, or make a project from its NIfTI files
+                // no DICOM here: view it, or make a project from its NIfTI files
                 open: () => {
                   close()
                   if (source) openPath(navigate, source)

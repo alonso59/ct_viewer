@@ -1,8 +1,8 @@
-// ROADMAP P2 exit: create a project, import data, browse cases, share a link that opens in a
-// second browser. Real backend on the synthetic fixtures (TST-11); see playwright.config.ts.
+// P2 exit: create a project, import data, browse cases, share a link that opens in a
+// second browser. Real backend on the synthetic fixtures (TST-11).
 import { expect, test, type Page } from '@playwright/test'
 
-import { continueImportInspection } from './importMode'
+import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
 import { managedDataset } from './helpers'
 
@@ -39,6 +39,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await expect(wizard.getByRole('radio', { name: /NIfTI files/ })).toBeVisible()
   await wizard.getByRole('button', { name: 'Next' }).click()
+  await continueImportPreview(page)
 
   // Preview: the three input files and the counts from the fixtures
   for (const f of ['metadata.jsonl', 'phase.json', 'voi_catalog.jsonl']) await expect(wizard.getByRole('cell', { name: f, exact: true })).toBeVisible()
@@ -48,6 +49,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await expect(wizard.locator('.card', { hasText: 'cases' }).first()).toHaveAttribute('title', /1 case\(s\) whose every row is excluded/)
   await expect(kpi('scan rows')).toHaveText('89')
   await wizard.getByRole('button', { name: 'Import and index' }).click()
+  await finishImportIndex(page)
 
   // Indexing job → wizard closes with a toast that counts the same cases
   await expect(page.getByRole('status').filter({ hasText: 'Import finished: 49 cases indexed' })).toBeVisible({ timeout: 30_000 })

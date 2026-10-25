@@ -1,13 +1,11 @@
-"""Open mode (SRC-09/10, API-07/08): view files without a project.
+"""Open mode: view files without a project.
 
 Compatibility sessions live in memory. Durable source operations restore their prepared
 results through OpenService; neither form creates a project or a workspace project entry.
 NumPy (and, with the converter, DICOM) volumes are converted into the disposable
-`WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, inside the global `CACHE_MAX_GB` LRU budget
-(`core/cache_budget.py`).
-Headers run in job workers (BE-12). An opened file is always an image; a segmentation
-comes only from attach (SRC-10: NIfTI, same geometry, from anywhere under ALLOWED_DATA_ROOTS,
-ADR-0027). The actions (open, attach, save) live in `open_service.py`.
+`WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, inside the global `CACHE_MAX_GB` LRU budget.
+Headers run in job workers. An opened file is always an image; a segmentation comes only from
+attach (NIfTI, same geometry, from anywhere under ALLOWED_DATA_ROOTS).
 """
 
 from __future__ import annotations
@@ -26,7 +24,6 @@ from app.core.errors import AmbiguousAxisOrder, GeometryMismatch, NotFound, Unsu
 from app.core.fsio import iter_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.imaging import npy_convert
-from app.imaging.fingerprint import quick_fingerprint
 from app.imaging.header import AFFINE_ATOL_MM, HeaderError, read_header
 from app.sources import formats
 
@@ -34,7 +31,7 @@ MAX_ITEMS = 500
 MAX_SESSIONS = 32
 OPEN_DIR = Path(".scratch") / "open"
 
-# "label" only for a segmentation attached to an image (SRC-10)
+# "label" only for a segmentation attached to an image
 ItemKind = Literal["image", "label"]
 
 
@@ -52,22 +49,22 @@ class OpenItem(BaseModel):
     n: int
     item_id: str
     name: str
-    rel: str  # relative to the session root; absolute for an attachment outside it (ADR-0027)
+    rel: str  # relative to the session root; absolute for an attachment outside it
     format: Literal["nifti", "npy", "dicom"]
     kind: ItemKind = "image"
     geometry: OpenGeometry | None = None
-    # DICOM, or the `metadata.jsonl` row of a dataset folder (SRC-16); else unknown (VW-05)
+    # DICOM, or the `metadata.jsonl` row of a dataset folder; else unknown
     modality: str | None = None
     n_slices: int | None = None
     attached_to: int | None = None
-    axis_order: Literal["xyz", "zyx"] | None = None  # NumPy (SRC-12)
+    axis_order: Literal["xyz", "zyx"] | None = None  # NumPy
     needs_axis_order: bool = False
     error: str | None = None
-    # DICOM: one item per series (SRC-13); files relative to the session root
+    # DICOM: one item per series; files relative to the session root
     files: list[str] = Field(default_factory=list)
     series_uid: str | None = None
     description: str | None = None
-    # VW-22: the DICOM header window `[width, center]` (first values), when present
+    # the DICOM header window `[width, center]` (first values), when present
     window: list[float] | None = None
 
 
@@ -81,9 +78,6 @@ class OpenSession(BaseModel):
     truncated: bool = False
     ignored: dict[str, int] = Field(default_factory=dict)
     has_dicom: bool = False
-
-
-# -- worker units ----------------------------------------------------------------------------
 
 
 def probe(
@@ -155,25 +149,21 @@ def middle_slice_png(src: str, axis_order: str) -> bytes:
     return buf.getvalue()
 
 
-# -- sessions --------------------------------------------------------------------------------
-
-
 class OpenSessions:
     """In-memory LRU of Open-mode sessions (API process)."""
 
-    def __init__(self, max_sessions: int = MAX_SESSIONS) -> None:
+    def __init__(self) -> None:
         self._s: OrderedDict[str, OpenSession] = OrderedDict()
-        self.max = max_sessions
 
     def put(self, s: OpenSession) -> None:
         self._s[s.sid] = s
-        while len(self._s) > self.max:
+        while len(self._s) > MAX_SESSIONS:
             self._s.popitem(last=False)
 
     def get(self, sid: str) -> OpenSession:
         s = self._s.get(sid)
         if s is None:
-            raise NotFound(  # UI-18: the route shows how to go on (AUD-A1-19)
+            raise NotFound(
                 "This Open session has ended: it was closed, or the server restarted "
                 "(sessions live in server memory only). Open the file or folder again.",
                 actions=["choose_another_path", "home"],
@@ -187,7 +177,8 @@ class OpenSessions:
 
 def row_modalities(root: Path) -> dict[str, str]:
     """File name → `modality` from the `metadata.jsonl` of an opened dataset folder, or of the
-    folder above an opened `nifti/` (SRC-16, AUD-A2-10). Unreadable rows are skipped."""
+    folder above an opened `nifti/`. Rows without a modality are skipped; an unreadable file gives
+    none."""
     for d in (root, root.parent):
         meta = d / "metadata.jsonl"
         if not meta.is_file():
@@ -209,16 +200,15 @@ def build_session(
     path: Path,
     rows: list[dict[str, Any]],
     scan: formats.Scan,
-    modalities: dict[str, str] | None = None,
+    modalities: dict[str, str],
 ) -> OpenSession:
-    known = modalities or {}
     items: list[OpenItem] = []
     for n, r in enumerate(rows):
         geo = OpenGeometry.model_validate(r["geometry"]) if r.get("geometry") else None
         rel = Path(r["rel"])
         name = rel.name
         if r["format"] == "dicom" and len(r.get("files") or []) > 1:
-            # A series is named by its description or folder, not by its first file
+            # a series is named by its description or folder
             name = r.get("description") or rel.parent.name or rel.name
         items.append(
             OpenItem(
@@ -235,7 +225,7 @@ def build_session(
                 files=list(r.get("files") or []),
                 series_uid=r.get("series_uid"),
                 description=r.get("description"),
-                modality=r.get("modality") or known.get(rel.name),
+                modality=r.get("modality") or modalities.get(rel.name),
                 window=r.get("window"),
             )
         )
@@ -253,12 +243,11 @@ def build_session(
 
 
 def accepted(scan: formats.Scan) -> list[str]:
-    rels = sorted(scan.files["nifti"] + scan.files["npy"] + scan.files["dicom"])
-    return rels
+    return sorted(scan.files["nifti"] + scan.files["npy"] + scan.files["dicom"])
 
 
 def preview(session: OpenSession) -> OpenSession:
-    """API-07 keeps its bounded initial list; subsequent API-07 pages contain whole items."""
+    """The session with at most `MAX_ITEMS` items; the items endpoint pages the full list."""
     return session.model_copy(
         update={
             "items": session.items[:MAX_ITEMS],
@@ -268,7 +257,7 @@ def preview(session: OpenSession) -> OpenSession:
 
 
 def focused(session: OpenSession, n: int) -> OpenSession:
-    """SRC-18: one selected item and its current attached overlay, regardless of page."""
+    """One selected item and its current attached overlay, regardless of page."""
     selected = [item(session, n)]
     overlay = next((it for it in reversed(session.items) if it.attached_to == n), None)
     if overlay is not None:
@@ -300,8 +289,8 @@ def source_path(session: OpenSession, it: OpenItem) -> Path:
 
 
 def add_label(session: OpenSession, n: int, path: Path, geo: OpenGeometry) -> OpenSession:
-    """Append an attached segmentation for item n (SRC-10). A file outside the session root keeps
-    its absolute path (ADR-0027); reads are guarded again on every request."""
+    """Append an attached segmentation for item n. A file outside the session root keeps its
+    absolute path; reads are guarded again on every request."""
     root = Path(session.root)
     rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
     k = len(session.items)
@@ -330,14 +319,14 @@ def need_axis_order(it: OpenItem, chosen: str | None) -> Literal["xyz", "zyx"]:
     if order is None:
         raise AmbiguousAxisOrder(
             f"{it.name}: axis order unknown (no sidecar axis_order, no decisive reference_ref); "
-            "pick xyz (nibabel) or zyx (SimpleITK) (SRC-12)",
+            "pick xyz (nibabel) or zyx (SimpleITK)",
             actions=["axis_order:xyz", "axis_order:zyx"],
         )
     return order
 
 
 def check_attach(image: OpenItem, label: OpenGeometry) -> None:
-    """SRC-10: same shape and affines within the IMP-08 tolerance; never resampled."""
+    """Same shape and affines within `AFFINE_ATOL_MM`; never resampled."""
     g = image.geometry
     if g is None:
         raise GeometryMismatch("The open image has no geometry")
@@ -351,17 +340,13 @@ def check_attach(image: OpenItem, label: OpenGeometry) -> None:
         raise GeometryMismatch(
             f"Segmentation does not match the image: image shape {g.shape}, affine {g.affine}; "
             f"segmentation shape {label.shape}, affine {label.affine}. "
-            "It is never resampled (SRC-10)",
+            "It is never resampled",
             actions=["choose_another_path"],
         )
 
 
-def fingerprint(path: Path) -> str:
-    return quick_fingerprint(path)
-
-
 def pseudonym(fp: str) -> str:
-    """SRC-14 with `anonymize: basic`: the saved file's stem and the sidecar's PatientName /
-    PatientID. Derived from the volume's content fingerprint, never from a folder or file name
-    (DICOM folders are often patient names; NFR-17, AUD-A2-15)."""
+    """With `anonymize: basic`: the saved file's stem and the sidecar's PatientName / PatientID.
+    Derived from the volume's content fingerprint, never from a folder or file name (DICOM folders
+    are often patient names)."""
     return "open-" + hashlib.sha256(fp.encode()).hexdigest()[:12]

@@ -1,4 +1,4 @@
-// On opening a project, offer Relink when a path alias does not resolve (PRJ-05)
+// On opening a project, offer Relink when a path alias does not resolve
 import { useState } from 'react'
 
 import { useRoots } from '../../api'

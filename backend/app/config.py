@@ -1,5 +1,3 @@
-"""Runtime configuration from environment variables (OPS-03, docs/ops/DEPLOYMENT.md)."""
-
 from __future__ import annotations
 
 from functools import lru_cache
@@ -12,14 +10,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Set by the image (`ENV CONTAINER_MODE=1` in the Dockerfile); unset in local dev (OPS-04).
+    # Set by the image (`ENV CONTAINER_MODE=1` in the Dockerfile); unset in local dev.
     container_mode: bool = False
     workspace_root: Path = Path("/workspace")
     allowed_data_roots: str = ""
-    # Writable roots for `derived` path roots (OPS-11, ADR-0014); empty = no derived root.
     allowed_derived_roots: str = ""
-    managed_derived_root: Path | None = None  # OPS-15: explicit sibling of global workspace
-    # Read-only dir of external task manifests `*/task.json` (TSK-01); empty = none.
+    managed_derived_root: Path | None = None
+    # Read-only dir of external task manifests `*/task.json`.
     plugins_root: Path | None = None
     # Builtin plugins (`plugins/` next to `backend/`, `/app/plugins` in the image).
     builtin_plugins_root: Path = Path(__file__).resolve().parents[2] / "plugins"
@@ -37,6 +34,7 @@ class Settings(BaseSettings):
     dicom_cpu_threads: int = Field(default=4, ge=1, le=12)
     dicom_header_mb: int = Field(default=8, ge=1, le=64)
     dicom_inventory_mb: int = Field(default=512, ge=1, le=16384)
+    dicom_inventory_total_mb: int = Field(default=2048, ge=1, le=1048576)
     dicom_batch_size: int = Field(default=64, ge=1, le=512)
     dicom_cleanup_seconds: float = Field(default=28.0, ge=0.1, le=28.0)
     dicom_retention_days: int = Field(default=30, ge=1, le=3650)
@@ -97,12 +95,11 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _roots_required_in_container(self) -> Settings:
         if self.container_mode and not self.allowed_roots:
-            raise ValueError("ALLOWED_DATA_ROOTS must not be empty in container mode (OPS-04)")
+            raise ValueError("ALLOWED_DATA_ROOTS must not be empty in container mode")
         return self
 
     @model_validator(mode="after")
     def _roots_must_not_overlap(self) -> Settings:
-        """OPS-12 / BE-15: a derived root inside a data root (or vice versa) is refused."""
         if self.managed_derived_root is not None:
             expected = self.workspace_root.resolve().parent / "derived"
             if self.managed_derived_root.resolve() != expected:
@@ -116,30 +113,30 @@ class Settings(BaseSettings):
                 if d == s or s in d.parents or d in s.parents:
                     raise ValueError(
                         f"roots-overlap: ALLOWED_DERIVED_ROOTS entry {str(d)!r} overlaps "
-                        f"ALLOWED_DATA_ROOTS entry {str(s)!r} (OPS-12)"
+                        f"ALLOWED_DATA_ROOTS entry {str(s)!r}"
                     )
         return self
 
     @property
     def allowed_roots(self) -> list[Path]:
-        """Resolved allowed roots (OPS-04). Empty means unrestricted (local dev only)."""
+        """Resolved allowed roots. Empty means unrestricted (local dev only)."""
         return [Path(p).resolve() for p in self.allowed_data_roots.split(":") if p]
 
     @property
     def dataset_roots(self) -> list[Path]:
-        """Write-once workspace datasets `{derived}/_datasets/` (TSK-13), readable as sources."""
+        """Write-once workspace datasets, readable as sources."""
         return [d / "_datasets" for d in self.derived_roots]
 
     @property
     def readable_roots(self) -> list[Path]:
-        """Source guard roots: ALLOWED_DATA_ROOTS plus the workspace datasets (SRC-16); empty =
-        unrestricted (dev), so datasets are only added to a restricted list."""
+        """Source guard roots; empty = unrestricted (dev), so datasets are only added to a
+        restricted list."""
         roots = self.allowed_roots
         return [*roots, *self.dataset_roots] if roots else []
 
     @property
     def derived_roots(self) -> list[Path]:
-        """Resolved writable derived roots (OPS-11). Empty means no derived root is allowed."""
+        """Resolved writable derived roots. Empty means no derived root is allowed."""
         return [Path(p).resolve() for p in self.allowed_derived_roots.split(":") if p]
 
     @property

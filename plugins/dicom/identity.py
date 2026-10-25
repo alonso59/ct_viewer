@@ -1,4 +1,4 @@
-"""Case identity on the task side (SRC-07): the backend's `sources/identity.json` registry comes in
+"""Case identity on the task side: the backend's `sources/identity.json` registry comes in
 `job.json` and goes back in `result.json`; existing keys never change."""
 
 from __future__ import annotations

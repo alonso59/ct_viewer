@@ -1,5 +1,5 @@
 // Curation decisions without UI: the shared draft and `submitDecision`, used by the (lazy) form and
-// by the eager keyboard shortcuts (CUR-04, UI-12).
+// by the eager keyboard shortcuts.
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
@@ -8,6 +8,7 @@ import { problemToastText } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
 import { getViewerContext } from '../../features/viewer'
+import { isMask } from './model'
 
 // Draft shared by the left view, the inspector and the keyboard shortcuts
 interface Draft {
@@ -19,8 +20,6 @@ interface Draft {
   set: (p: Partial<Omit<Draft, 'set' | 'reset'>>) => void
   reset: () => void
 }
-/** Mask targets carry `seg_id` (CURATION §Targets) */
-export const isMaskTarget = (t: string) => t === 'seg' || t === 'voi_mask' || t.startsWith('label:')
 
 export const useDraft = create<Draft>()((set) => ({
   target: 'seg',
@@ -32,12 +31,12 @@ export const useDraft = create<Draft>()((set) => ({
   reset: () => set({ comment: '', addToQueue: false, proposedSide: '' }),
 }))
 
-/** VW-19: the set mask decisions are about: the one on screen, else the project's `default_seg` */
+/** The set mask decisions are about: the one on screen, else the project's `default_seg` */
 export function activeSegOf(pid: string): string {
   return useViewerSync.getState().shownSeg ?? queryClient.getQueryData<Project>(keys.project(pid))?.default_seg ?? 'imported'
 }
 
-/** VW-16 viewer snapshot for the audit context; the server adds fingerprints, phase and import id */
+/** Viewer snapshot for the audit context; the server adds fingerprints, phase and import id */
 function viewerContext(): CurationContext {
   const v = getViewerContext()
   return v ? { viewer: { axis: v.axis, slice: v.slice, ww: v.ww, wl: v.wl } } : {}
@@ -51,7 +50,6 @@ function refreshCuration(pid: string) {
   void queryClient.invalidateQueries({ queryKey: keys.projects() })
 }
 
-/** Append a decision for the active item using the current draft. Used by buttons and shortcuts. */
 export async function submitDecision(status: CurationStatus, over: { addToQueue?: boolean } = {}) {
   const t = i18n.t.bind(i18n)
   const pid = useWorkbench.getState().pid
@@ -74,9 +72,9 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
         comment: d.comment,
         add_to_queue: over.addToQueue ?? d.addToQueue,
         proposed_side: target === 'side' && d.proposedSide ? d.proposedSide : null,
-        // ADR-0015: mask decisions name the set whose mask is on screen (VW-19); none shown → the
-        // server's default_seg (AUD-A5-05: never a set the item has no mask in)
-        ...(isMaskTarget(target) && shownSeg ? { seg_id: shownSeg } : {}),
+        // Mask decisions name the set whose mask is on screen; none shown → the server's
+        // default_seg, never a set the item has no mask in
+        ...(isMask(target) && shownSeg ? { seg_id: shownSeg } : {}),
         context: viewerContext(),
       },
       reviewer,

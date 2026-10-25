@@ -1,10 +1,8 @@
-# Docker run (docs/ops/DEPLOYMENT.md). udocker equivalent: scripts/udocker-run.sh (OPS-09).
+# Docker run. udocker equivalent: scripts/udocker-run.sh.
 #   ./rw init && ./rw up     # or: cp .env.example .env (set DATA_HOST); docker compose up -d --build
-# Plain compose v2 file: nothing here is needed by the image itself (R3); tests/test_udocker_run.py
-# checks that udocker-run.sh resolves the same environment and volumes.
 services:
   app:
-    image: radiology-workbench:${RW_VERSION:-3.0.0.dev0} # = backend/pyproject.toml version
+    image: radiology-workbench:${RW_VERSION:-3.0.0.dev0}
     build: .
     env_file: ${RW_ENV:-.env} # ./rw sets RW_ENV when started with another env file
     # These win over .env: container-side paths and bind address are fixed by the image contract.
@@ -13,16 +11,16 @@ services:
       PORT: "8000"
       WORKSPACE_ROOT: /workspace
       ALLOWED_DATA_ROOTS: ${ALLOWED_DATA_ROOTS:-${DATA_HOST:?set DATA_HOST in .env}}
-      # Task outputs (OPS-11): writable, mirror-mounted below; must not overlap the data (OPS-12)
+      # Task outputs: writable, mirror-mounted below; must not overlap the data
       ALLOWED_DERIVED_ROOTS: ${ALLOWED_DERIVED_ROOTS:-${DERIVED_HOST:-/derived}}
-      # External task manifests (TSK-01), read-only; the host runner reads the same folder
+      # External task manifests, read-only; the host runner reads the same folder
       PLUGINS_ROOT: /plugins
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${PORT:-8000}}
     user: ${RUN_AS:-0:0}
     ports: ["127.0.0.1:${PORT:-8000}:8000"]
     volumes:
       - ${WORKSPACE_HOST:-./workspace}:/workspace
-      - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:${DATA_MOUNT_MODE:-ro} # mirror mount (OPS-05); opt in to rw for CUR-16
-      - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived} # writable mirror mount (OPS-11)
+      - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:${DATA_MOUNT_MODE:-ro} # mirror mount; opt in to rw for confirmed scan recycling
+      - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived} # writable mirror mount
       - ${PLUGINS_HOST:-./plugins}:/plugins:ro
     restart: unless-stopped

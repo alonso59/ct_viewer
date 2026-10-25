@@ -1,5 +1,4 @@
-// Project view (QuPath Project tab): case list with axial thumbnails, badges, expand to items (UI-08).
-// Study variables drive the row columns and colour (VAR-10); nothing here knows a field name.
+// Study variables drive the row columns and colour; nothing here knows a field name.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
@@ -90,7 +89,7 @@ export function ProjectView() {
   const { itemIds, phase } = filter
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
-    // DB-04 item filter: an expanded case lists only the chosen items
+    // Item filter: an expanded case lists only the chosen items
     const only = itemIds ? new Set(itemIds) : null
     for (const c of cases.data ?? []) {
       out.push({ kind: 'case', c })
@@ -105,9 +104,9 @@ export function ProjectView() {
     return out
   }, [cases.data, expanded, itemsByCase, itemIds, phase])
 
-  // UI-08 / UI-27: row heights come from the tokens of the current interface size
+  // Row heights come from the interface-size tokens, read on every render; the fallback, for a
+  // document without the tokens, follows the size too
   const uiSize = useSettings((s) => s.uiSize)
-  // (read on every render; the fallback, for a document without the tokens, follows the size too)
   const rowH = tokenPx('--h-row-compact', uiSize === 'compact' ? 22 : 24)
   const thumbH = tokenPx('--h-row-thumb', uiSize === 'compact' ? 56 : 60)
   const caseH = density === 'thumbnails' ? thumbH : rowH
@@ -121,7 +120,7 @@ export function ProjectView() {
   })
   useEffect(() => virt.measure(), [caseH, rowH, virt])
 
-  // AUD-A1-03: follow the active case (and item, when its case is expanded), like VS Code's
+  // Follow the active case (and item, when its case is expanded), like VS Code's
   // "reveal active file": the keyboard cursor moves there and the row scrolls into view
   const revealed = useRef('')
   useEffect(() => {
@@ -232,7 +231,7 @@ export function ProjectView() {
             if (r.kind === 'item') {
               const it = r.item
               const excluded = it.status === 'excluded_upstream'
-              // The tree handles navigation keys; phase badges are read-only (PHS-01).
+              // The tree handles navigation keys; phase badges are read-only.
               return (
                 <div
                   key={it.item_id}
@@ -332,7 +331,7 @@ export function ProjectView() {
   )
 }
 
-/** DB-04: the Explorer shows only the items sent from a dashboard selection; clearable */
+/** The Explorer shows only the items sent from a dashboard selection; clearable */
 export function ItemFilterChip({ ids }: { ids: string[] }) {
   const { t } = useTranslation()
   return (

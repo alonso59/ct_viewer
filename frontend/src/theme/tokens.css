@@ -1,10 +1,8 @@
 /*
- * Design tokens (UI-11). Dark (Primer's GitHub Dark Default values) is the default theme; Light
- * (GitHub Light Default values) is the alternative. Every color in the app comes from these tokens.
- * Theme selection: <html data-theme="dark|light">, set at bootstrap from the
- * Settings choice (dark | light | system); dark applies when unset.
- * Interface size (UI-27): <html data-size="compact|large">; Default when unset. Every font size and
- * control / row height below scales with it; Compact is the P7 scale (13 px UI).
+ * Every color in the app comes from these tokens.
+ * Theme: <html data-theme="dark|light">, set at bootstrap from Settings; dark applies when unset.
+ * Interface size: <html data-size="compact|large">; Default when unset. Every font size and
+ * control / row height below scales with it.
  */
 
 :root {
@@ -14,21 +12,19 @@
   --recycle-button-fg: #fff;
   --viewer-light-foreground: #111;
   --viewer-light-halo: #fff;
-  /* Typography (Default interface size: 14 px UI, UI-27) */
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --fs-ui: 14px;
   --fs-panel: 13px;
   --fs-badge: 12px;
-  --fs-chip: 13px; /* phase / status chips (AUD-A3-16: chips at the panel size) */
+  --fs-chip: 13px; /* phase / status chips */
   --fs-heading: 17px;
   --fs-title: 22px;
   --fs-hero: 30px; /* workspace home title */
   --lh-ui: 1.4;
   --fw-normal: 400;
   --fw-semibold: 600;
-  /* Layout */
-  --form-max-width: 1200px; /* form editors: radiomics, task, settings (AUD-A3-06) */
+  --form-max-width: 1200px; /* form editors: radiomics, task, settings */
 
   /* Spacing: 4 px grid */
   --sp-1: 4px;
@@ -38,19 +34,16 @@
   --sp-5: 24px;
   --sp-6: 32px;
 
-  /* Shape */
   --radius: 6px;
   --radius-pill: 999px;
   --border-width: 1px;
 
-  /* Control heights */
   --h-control: 30px;
   --h-control-sm: 24px;
   --h-icon-btn: 28px;
   --h-badge: 20px;
   --icon-activity: 24px;
 
-  /* Shell metrics */
   --h-titlebar: 38px;
   --h-toolbar: 36px;
   --w-activitybar: 48px;
@@ -60,12 +53,11 @@
   --h-row-thumb: 60px;
   --thumb-row: 46px; /* Explorer thumbnail in a --h-row-thumb row */
 
-  /* Motion (UI-16) */
   --dur-fast: 100ms;
   --dur-base: 150ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
-  /* Viewport accents (VW-04): fixed in both themes, viewports stay black */
+  /* Viewport accents: fixed in both themes, viewports stay black */
   --plane-axial: #CF6679;
   --plane-sagittal: #C9A23C;
   --plane-coronal: #4F9D7C;
@@ -73,13 +65,13 @@
   --bg-viewport: #000000;
   --fg-viewport: #E6EDF3;
   --fg-viewport-muted: #7D8590;
-  /* Text boxes and lines drawn over the black viewport (AUD-A3-17/22), both themes */
+  /* Text boxes and lines drawn over the black viewport, both themes */
   --bg-viewport-overlay: #000000A6;
   --viewport-halo: #000000B3;
   --plane-track: #484F58;
 }
 
-/* Interface size (UI-27): Compact = the P7 scale, Large for big screens at DPR 1 */
+/* Large is for big screens at DPR 1 */
 :root[data-size="compact"] {
   --fs-ui: 13px;
   --fs-panel: 12px;
@@ -139,7 +131,7 @@
   --bg-selected: #1F6FEB26;
   --bg-input: #0D1117;
   --bg-inset: #010409;
-  --bg-pressed: #5F6874; /* active toggle (AUD-A3-02): 3.35:1 vs --bg-editor, 3.64:1 vs --bg-sidebar; --fg on it 4.78:1 */
+  --bg-pressed: #5F6874; /* active toggle: 3.35:1 vs --bg-editor, 3.64:1 vs --bg-sidebar; --fg on it 4.78:1 */
   --fg: #E6EDF3;
   --fg-muted: #7D8590;
   --fg-on-emphasis: #FFFFFF;
@@ -147,7 +139,7 @@
   --border-muted: #21262D;
   --focus: #1F6FEB;
   --accent: #2F81F7;
-  --tab-active-indicator: var(--fg); /* ADR-0028: neutral, not GitHub's orange */
+  --tab-active-indicator: var(--fg); /* neutral, not GitHub's orange */
   --btn-primary: #238636;
   --btn-primary-hover: #2EA043;
   --btn-secondary: #21262D;
@@ -156,12 +148,11 @@
   --warn: #D29922;
   --error: #F85149;
   --done: #A371F7;
-  --attention-bg: #BB800926;
   --danger-bg: #F851491A;
   --scrim: #01040999;
   --shadow-overlay: 0 8px 24px #010409CC;
 
-  /* Categorical palette (DB-07) */
+  /* Categorical palette */
   --cat-1: #2F81F7;
   --cat-2: #F78166;
   --cat-3: #3FB950;
@@ -204,7 +195,6 @@
   --warn: #9A6700;
   --error: #D1242F;
   --done: #8250DF;
-  --attention-bg: #FFF8C5;
   --danger-bg: #FFEBE9;
   --scrim: #1F232866;
   --shadow-overlay: 0 8px 24px #8C959F33;
@@ -219,24 +209,12 @@
   --cat-8: #6E7781;
 }
 
-/* Curation status → color (CUR §Status). Used by badges and chart color-by. */
-:root {
-  --status-rejected: var(--error);
-  --status-needs_major_correction: var(--error);
-  --status-wrong_side_suspected: var(--warn);
-  --status-needs_minor_correction: var(--warn);
-  --status-missing: var(--error);
-  --status-cannot_assess: var(--fg-muted);
-  --status-accepted: var(--ok);
-  --status-not_reviewed: var(--fg-muted);
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-fast: 0ms;
     --dur-base: 0ms;
   }
-  /* UI-16 (AUD-A3-18): no endless spinner rotation; the progress text carries the state */
+  /* No endless spinner rotation; the progress text carries the state */
   .codicon-modifier-spin,
   .codicon-sync.codicon-modifier-spin,
   .codicon-loading.codicon-modifier-spin,

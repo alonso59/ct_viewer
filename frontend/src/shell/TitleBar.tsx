@@ -19,7 +19,7 @@ function Item({ c }: { c: Command }) {
   )
 }
 
-/** One menu: a section per category (AUD-A1-09); views and panels open as submenus */
+/** One menu: a section per category; views and panels open as submenus */
 function MenuItems({ menu }: { menu: MenuId }) {
   const { t } = useTranslation()
   return (
@@ -59,8 +59,7 @@ const LAYOUT_ITEMS = [
   { key: 'inspectorVisible', label: 'shell.layout.inspector', cmd: 'workbench.toggleInspector' },
 ] as const
 
-/** ADR-0028: one "Layout" menu with the side bar, panel and inspector as check items, instead of
- *  VS Code's three title-bar toggles; the keys (UI_SHELL §Default keybindings) are unchanged */
+/** One "Layout" menu with the side bar, panel and inspector as check items */
 function LayoutMenu() {
   const { t } = useTranslation()
   const layout = useLayout()
@@ -89,7 +88,7 @@ function LayoutMenu() {
   )
 }
 
-/** `share`: the project's share control (AUD-A1-11, from `features/projects`) */
+/** `share`: the project's share control (from `features/projects`) */
 export function TitleBar({ brand, share }: { brand: ReactNode; share?: ReactNode }) {
   const { t } = useTranslation()
   const openPalette = useWorkbench((s) => s.openPalette)

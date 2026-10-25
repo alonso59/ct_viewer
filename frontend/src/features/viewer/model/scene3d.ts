@@ -1,4 +1,4 @@
-// VW-09/27: display-only 3D settings; no image or segmentation data changes.
+// Display-only 3D settings; no image or segmentation data changes.
 import type { Scene3DOptions, Vec3 } from './types'
 
 export const DEFAULT_SCENE_3D: Scene3DOptions = {

@@ -1,4 +1,4 @@
-"""DCM-17: verified, no-clobber publication and recovery of one series artifact set."""
+"""Verified, no-clobber publication and recovery of one series artifact set."""
 
 from __future__ import annotations
 

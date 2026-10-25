@@ -31,7 +31,7 @@ Owner docs as listed in INDEX §Ownership; decisions in `adr/README.md`; hard ru
 | Pri | `M` must · `S` should · `C` could · `—` retired or out of scope (the text says which). Every `M` is in v3.0 unless MVP.md defers it |
 | Cells | A literal `\|` is written `\|`, also inside code spans; a table has no blank lines |
 | Checks | `make check` runs `docs/_sphinx/reqs.py check` (stdlib, < 1 s). Errors: duplicate ID, unknown prefix, ID defined outside its owner doc, cell count ≠ header, ID rows without a header, Pri outside the set, a prefix missing from (or repeated in) the tables of §3. Warning: an ID cited but never defined |
-| Build | `make docs` builds the site (Sphinx + MyST, `-W`, config `docs/_sphinx/`, root `SITE.md`) into `build/docs/`; IDs, `ADR-nnnn` and `path.md` mentions become links there. `make docs-srs` writes the review table to `build/docs-srs/`; `make trace` writes code/test citations to `build/trace/`. Nothing generated is committed |
+| Build | `make docs` builds the site (Sphinx + MyST, `-W`, config `docs/_sphinx/`, root `SITE.md`) into `build/docs/`; IDs, `ADR-nnnn` and `path.md` mentions become links there. `make docs-srs` writes the review table to `build/docs-srs/`; `make trace` writes test citations to `build/trace/`. Nothing generated is committed |
 
 ## 2 Overall description
 

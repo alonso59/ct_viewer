@@ -32,7 +32,7 @@ def put(path: Path, size: int, age_s: float) -> Path:
 def layout(ws: Path) -> dict[str, Path]:
     """Two projects with cache files, Open scratch, and files that must never be evicted."""
     p1, p2 = ws / "projects" / "P1", ws / "projects" / "P2"
-    f = {
+    return {
         "open_old": put(ws / ".scratch" / "open" / "fp1.xyz" / "volume.nii.gz", 10 * KB, 5000),
         "mesh_old": put(p1 / "cache" / "meshes" / "a_1_1.mz3", 10 * KB, 4000),
         "thumb_mid": put(p2 / "cache" / "thumbs" / "b.webp", 10 * KB, 3000),
@@ -47,7 +47,6 @@ def layout(ws: Path) -> dict[str, Path]:
         "jobs": put(ws / ".scratch" / "jobs" / "j1" / "out.json", 50 * KB, 9000),
         "fresh": put(p2 / "cache" / "meshes" / "fresh.mz3", 10 * KB, 1),
     }
-    return f
 
 
 def test_lru_across_pools_keeps_everything_else(tmp_path: Path) -> None:
@@ -128,7 +127,7 @@ def test_a_cache_writing_job_triggers_the_sweep(tmp_path: Path) -> None:
         assert not mesh.exists() and config.exists()
 
 
-def test_request_is_debounced(tmp_path: Path) -> None:
+def test_request_is_debounced() -> None:
     calls: list[int] = []
 
     def pools() -> list[Pool]:

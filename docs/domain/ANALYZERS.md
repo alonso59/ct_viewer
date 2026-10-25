@@ -30,7 +30,7 @@ Code and term lists: `plugins/analyzers/` (ported from `legacy/convert/policy.py
 
 ## Where annotations enter
 
-- Phase resolution (INPUT_METADATA): `phase.json` → `curated_phase` → `canonical_phase` → `phase` → **active `analyzer.phase` run** → `phase_guess` → `UNK`. `phase_source` names the winner (`analyzer:{run_id}`). This is the index-time resolution only; a native phase selection (PHASE.md, PHS-03) joins on top at read time and wins over all of it when present.
+- Phase resolution order is owned by INPUT_METADATA §Phase resolution; the active `analyzer.phase` run is one step in it, and `phase_source` names the winner (`analyzer:{run_id}`). A native phase selection (PHASE.md, PHS-03) joins on top at read time and wins over all of it.
 - `target_match` and `readiness` become study variables (VAR-*), usable in filters and task selection (TSK-03).
 - The Image view shows each annotation with confidence and evidence; Search can filter "low-confidence phase".
 

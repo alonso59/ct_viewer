@@ -1,8 +1,5 @@
-"""API-11..15 import preview/commit/history, warnings, full-hash job (IMP-*)."""
-
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
@@ -12,7 +9,6 @@ from starlette.datastructures import UploadFile
 from app.api.v1.deps import Ctx
 from app.api.v1.paging import Page, Paging, paginate
 from app.core.errors import ValidationProblem
-from app.core.ids import new_ulid
 from app.ingest.codes import QcCode, Severity
 from app.ingest.hashing import HashJobRequest, HashJobStarted, start_hash_job
 from app.ingest.models import QcWarning
@@ -26,7 +22,7 @@ from app.ingest.schemas import (
     PreviewRequest,
 )
 from app.ingest.service import IngestService
-from app.tasks import workspace_runs
+from app.tasks.source_import import commit_with_annotations
 
 router = APIRouter(tags=["imports"])
 
@@ -65,7 +61,7 @@ def _errors(exc: ValidationError) -> list[dict[str, Any]]:
     "/projects/{pid}/imports/preview", response_model=ImportPreview, openapi_extra=PREVIEW_BODY
 )
 async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
-    """IMP-02/03: JSON `{root, detect: true, alias?}` or multipart uploads of the inputs."""
+    """JSON `{root, detect: true, alias?}` or multipart uploads of the inputs."""
     svc = ingest_service(ctx)
     ctype = request.headers.get("content-type", "")
     if ctype.startswith("multipart/form-data"):
@@ -102,38 +98,16 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
 
 @router.post("/projects/{pid}/imports", response_model=CommitResult, status_code=202)
 async def commit_import(pid: str, body: CommitRequest, ctx: Ctx) -> CommitResult:
-    """IMP-04/05: snapshot + start the index job. A workspace dataset (SRC-16) brings its analyzer
-    annotations along as a completed run, active where no run is (ANZ-04)."""
-    svc = ingest_service(ctx)
-    pv = svc.preview_of(pid, body.preview_id)
-    found = (
-        workspace_runs.dataset_annotations(Path(pv.root), ctx.source_operations.tasks.phase_runs)
-        if pv.root
-        else None
+    """Snapshot + start the index job. A workspace dataset brings its analyzer annotations along
+    as a completed run, active where no run is."""
+    return await commit_with_annotations(
+        ingest_service(ctx), pid, body.preview_id, ctx.source_operations.tasks.phase_runs
     )
-    if found is not None and found[1]:
-        meta, rows = found
-        layers = [(meta, rows)]
-        if meta.get("phase_task"):
-            layers = [
-                (meta, [r for r in rows if r["field"] != "phase"]),
-                ({**meta, "task": meta["phase_task"]}, [r for r in rows if r["field"] == "phase"]),
-            ]
-        for layer_meta, layer_rows in layers:
-            if not layer_rows:
-                continue
-            rid = new_ulid()
-            async with ctx.locks(pid):
-                run_dir = ctx.workspace.project_dir(pid) / "tasks" / "runs" / rid
-                workspace_runs.write_imported_run(run_dir, layer_meta, layer_rows)
-            for field in sorted({str(r["field"]) for r in layer_rows}):
-                await ctx.workspace.set_annotation_source(pid, field, rid, only_if_unset=True)
-    return await svc.commit(pid, body.preview_id)
 
 
 @router.get("/projects/{pid}/imports", response_model=ImportHistory)
 async def list_imports(pid: str, ctx: Ctx, paging: Paging) -> ImportHistory:
-    """API-13: import history (newest first) plus the current index status."""
+    """Import history (newest first) plus the current index status."""
     svc = ingest_service(ctx)
     page = paginate(svc.imports(pid), paging)
     return ImportHistory(
@@ -154,7 +128,6 @@ def list_warnings(
     case_id: Annotated[str | None, Query()] = None,
     item_id: Annotated[str | None, Query()] = None,
 ) -> Page[QcWarning]:
-    """API-14 (IMP-08)."""
     rows = ingest_service(ctx).warnings(
         pid, code=code, severity=severity, case_id=case_id, item_id=item_id
     )
@@ -163,10 +136,10 @@ def list_warnings(
 
 @router.post("/projects/{pid}/hash-jobs", response_model=HashJobStarted, status_code=202)
 async def start_hash(pid: str, ctx: Ctx, body: HashJobRequest | None = None) -> HashJobStarted:
-    """API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.
+    """Full SHA-256 of every indexed image/mask file, in job workers.
 
     Results land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item
-    records (API-21/22). One `hash` job per project (`job-conflict`).
+    records. One `hash` job per project (`job-conflict`).
     """
     ctx.workspace.project_dir(pid)  # 404 for unknown or archived projects
     return await start_hash_job(

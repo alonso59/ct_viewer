@@ -105,10 +105,10 @@ offer Open in viewer. The source-operations command opens retained operations.
 
 Import source inspection uses that shared work window with the title Inspect import
 source. It supports minimize/reload/cancel/resume; Continue import restores the
-initial project/alias/options and completed detection to the existing adapter wizard.
+saved project/alias/options, Preview or Index stage and completed detection to the existing adapter wizard.
 Single-file/folder identity comes from detection, including extensionless DICOM.
 DICOM selection enters the shared dry-run/conversion flow; other adapters keep their
-Preview/Commit controls. Without a project, continuing discovery asks the user to
+Preview/Commit controls. Preview and Index reuse managed jobs in the background window; minimizing or reloading retains the operation ID. Form edits persist on the server. Without a project, continuing discovery asks the user to
 create one explicitly.
 
 Dry run creates a server source operation whose persisted intent chains discovery to header-only planning.
@@ -205,17 +205,13 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 - The Design reference tab (Help → Open design reference) shows all tokens, type, badges and icons.
 - **Identity signals decoupled from literal VS Code/GitHub chrome (ADR-0023), structure and density unchanged:** section/sidebar/panel-tab labels are sentence case, no `letter-spacing`, no `text-transform: uppercase` (was tracked uppercase, identical to VS Code's "EXPLORER"/"OUTLINE"); a pressed `.icon-btn[aria-pressed='true']` uses the flat `--bg-pressed` fill (AUD-A3-02), not `--bg-selected` + a `--focus` inset outline (was identical to the search bar's "Match Case" toggle); `--focus`/`--accent` blue stays reserved for live interaction, never a resting toggle state. Viewport panel borders and plane colors follow VW-04.
 
-## Prototype defaults (P0.5 → P2)
-
-- The mock API (`frontend/src/api/mock/`) replays responses recorded from the backend on the fixtures (`make record-mock`, TESTING §Mock API); the recording is committed so the prototype runs standalone. It shows one demo project and changes nothing on writes; there are no server events (the simulated second reviewer is gone, FB8).
-
 ## Implementation notes
 
 - Project view has a "Columns and colour" menu: extra columns and a colour stripe + legend from any visible case-level variable (VAR-10). The share link is the current deep link.
 - Project view (UI-08) has a quick phase selector and a collapsible Filters panel beside the text search. It shares Search’s case-level review status, warnings, VOI and variable controls (VAR-10); conditions combine with text and item-id filters. Active conditions appear as individually removable chips, with Clear filters to reset all. A phase filter uses PHS-03 and also hides nonmatching scan/item rows in expanded cases; the dashboard item-id filter still intersects those rows. Filtering changes only the view.
 - Project and Search views show a clearable "N items" chip while an item-id filter is active (set by the dashboard's "Send to Explorer", DB-04).
 - Bundles (PRJ-08/09): "Export bundle" on each home project card, on Welcome and in the palette (`project.exportBundle`); "Import project bundle…" on the home opens a report dialog (id change, per-alias resolve) with Relink when needed. "Compute full hashes" / "Recompute all" (IMP-09) on Welcome and in the palette; progress in the Jobs panel.
-- Mock-only settings (Settings › Prototype: reset the prototype's tabs and layout) exist only with `VITE_API_MODE=mock`; Settings hides them otherwise.
+- Mock mode (TESTING §Mock API) shows one demo project, changes nothing on writes and has no server events. Its Settings › Prototype section (reset tabs and layout) exists only with `VITE_API_MODE=mock`.
 - Radiomics settings tab: left nav (Selection + schema groups with error badges), the form, and a side panel (validation list, summary, estimate, Run). The Radiomics view lists runs (progress, cancel, resume, failures, exports) and profiles.
 - **Numbers (AUD-A3-04, owner 2026-09-25):** English format everywhere (`lib/format.ts`): a point as the decimal separator; counts keep the English thousands separator, measured values never get one. Number fields are `NumberInput` (`lib/ui.tsx`): a text field with `inputmode="decimal"` and spin-button semantics that accepts `,` or `.`; ↑/↓ step. Feature values (`fmtValue` / `fmtColumn`): 3 significant digits (whole numbers keep their integer digits), scientific above 1e5 or below 1e-3, for a whole column once one cell needs it; tabular figures; the unit from the feature class (`featureUnit`: shape → mm/mm²/mm³, original first-order intensities → HU on CT) (AUD-A3-15).
 - **Run and job states (UI-15, TSK-06; AUD-A3-10):** one sentence-case vocabulary (`runStatus.*`, `RunStatusBadge` in `lib/badges.tsx`) in the Tasks, Radiomics, Dashboard and Jobs views; a job's `succeeded` reads "Completed".

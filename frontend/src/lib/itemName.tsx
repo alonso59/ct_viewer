@@ -1,18 +1,18 @@
-// Item display names (UI-08, AUD-A1-13): people read "case_00055 · NP · Full", not the internal
+// Item display names: people read "case_00055 · NP · Full", not the internal
 // `item_id` "case_00055.01.complete.-". The raw id stays in the tooltip and in every copy action.
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import { keys, queryClient, type CaseDetail, type ItemRecord } from '../api'
 
-export interface ItemParts {
+interface ItemParts {
   case_id: string
   scan_idx: string
   scope: string
   side: string
 }
 
-/** DATA_MODEL §item_id: `{case_id}.{scan_idx}.{scope}.{side}`; a case id may itself hold dots */
+/** `{case_id}.{scan_idx}.{scope}.{side}`; a case id may itself hold dots */
 export function parseItemId(id: string): ItemParts | null {
   const parts = id.split('.')
   if (parts.length < 4) return null

@@ -1,4 +1,3 @@
-// Curation decision form (CUR-03..07): target, one-click statuses, priority, comment, queue, proposals.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -12,7 +11,7 @@ import { submitDecision, useDraft } from './decision'
 import { decisionsFor, targetsFor } from './model'
 import '../../i18n/lazy'
 
-export const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
+const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
   { status: 'accepted', cmd: 'curation.accept', tone: 'ok' },
   { status: 'needs_minor_correction', cmd: 'curation.minor', tone: 'warn' },
   { status: 'needs_major_correction', cmd: 'curation.major', tone: 'error' },
@@ -25,7 +24,7 @@ const chord = (id: string) => {
   return c ? formatChord(bindingOf(c)) : ''
 }
 
-export function CurationForm({ compact }: { compact?: boolean }) {
+export function CurationForm() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const iid = useViewerSync((s) => s.activeItemId)
@@ -40,7 +39,6 @@ export function CurationForm({ compact }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false)
   if (!cid) return <div className="muted panel-size">{t('curation.noActive')}</div>
 
-  // VW-19: mask decisions of the set on screen (AUD-A5-06)
   const seg = shownSeg ?? project?.default_seg ?? 'imported'
   const segName = (id: string) => sets?.find((x) => x.seg_id === id)?.name || id
   const mine = decisionsFor(stateQ.data ?? [], iid, cid, seg)
@@ -49,7 +47,6 @@ export function CurationForm({ compact }: { compact?: boolean }) {
     await submitDecision(s)
     setBusy(false)
   }
-  const showSide = d.target === 'side'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--fs-panel)' }}>
       <div className="muted small">{iid ? <ItemName id={iid} phase={item?.phase.canonical} /> : cid}</div>
@@ -63,7 +60,7 @@ export function CurationForm({ compact }: { compact?: boolean }) {
           ))}
         </select>
       </label>
-      <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr 1fr' : '1fr 1fr', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {QUICK.map((q) => (
           <button key={q.status} type="button" className="btn btn-sm" disabled={busy} onClick={() => void go(q.status)} style={{ justifyContent: 'flex-start' }}>
             <StatusIcon status={q.status} />
@@ -88,7 +85,7 @@ export function CurationForm({ compact }: { compact?: boolean }) {
           </Menu.Content>
         </Menu.Portal>
       </Menu.Root>
-      {showSide ? (
+      {d.target === 'side' ? (
         <label className="field">
           <span className="field-label">{t('curation.proposedSide')}</span>
           <select className="select input-sm" value={d.proposedSide} onChange={(e) => d.set({ proposedSide: e.target.value as 'L' | 'R' | '' })}>
@@ -137,8 +134,4 @@ export function CurationForm({ compact }: { compact?: boolean }) {
       ) : null}
     </div>
   )
-}
-
-export function InspectorCuration() {
-  return <CurationForm compact />
 }

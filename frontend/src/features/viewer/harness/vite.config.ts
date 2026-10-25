@@ -1,5 +1,5 @@
 /// <reference types="node" />
-// Standalone viewer harness (P3 manual testing + TST-09 bench). Does not touch the app router.
+// Standalone viewer harness (manual testing + bench).
 //   npx vite --config src/features/viewer/harness/vite.config.ts
 //   → http://127.0.0.1:5175/  (redirects to the harness page)
 // `/files/*` serves the repo's `.fixtures/` (synthetic fixtures + the reference volume) with

@@ -1,4 +1,4 @@
-"""SEG-14: immutable model/input identity shared by API, admission and native wrapper."""
+"""Immutable model/input identity shared by API, admission and native wrapper."""
 
 from __future__ import annotations
 

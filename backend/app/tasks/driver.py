@@ -1,5 +1,5 @@
-"""Driving a task attempt (TSK-06/07/11, BE-14): submit the job, tail `progress.jsonl`, record
-item outcomes and logs, finish the run record.
+"""Driving a task attempt: submit the job, tail `progress.jsonl`, record item outcomes and logs,
+finish the run record.
 """
 
 from __future__ import annotations
@@ -177,7 +177,6 @@ class DriverBase(RegistrationBase):
             ref=rid,
             job_id=job_id,
             key=m.id,
-            meta={"run_id": rid, "task_id": m.id},
             detach_on_shutdown=m.runtime.type == "external"
             and m.resources.gpu in {"required", "optional"},
         )
@@ -264,12 +263,10 @@ class DriverBase(RegistrationBase):
         await self.runs.update(live.pid, live.run_dir, edit)
 
     async def _drive(self, h: JobHandle, live: Live, total: int) -> None:
-        """Builtin: run the entry in a worker and tail its progress (TSK-07)."""
+        """Builtin: run the entry in a worker and tail its progress."""
         h.set_total(total)
         live.set_total = h.set_total
         tail = protocol.Tail(live.job_dir / protocol.PROGRESS)
-        entry = live.manifest.runtime.entry
-        assert entry is not None
         await self._set_status(live, "running")
         dicom = live.manifest.id == "dicom.convert"
         fut = asyncio.ensure_future(
@@ -280,7 +277,7 @@ class DriverBase(RegistrationBase):
                 cancelled=lambda: h.stopped,
             )
             if dicom
-            else h.run_in_worker(run_entry, entry, str(live.job_dir))
+            else h.run_in_worker(run_entry, live.manifest.runtime.entry, str(live.job_dir))
         )
         stop_at: float | None = None
         try:
@@ -317,7 +314,7 @@ class DriverBase(RegistrationBase):
         h.set_done(live.done)
 
     async def _drive_external(self, h: JobHandle, live: Live, total: int) -> None:
-        """External: the host runner claims `queue/{job_id}` (TSK-11, BE-14); we only tail it."""
+        """External: the host runner claims `queue/{job_id}`; we only tail it."""
         h.set_total(total)
         live.set_total = h.set_total
         rec = self.runs.read(live.run_dir)
@@ -335,7 +332,7 @@ class DriverBase(RegistrationBase):
                 break
             claim = protocol.read_claim(live.job_dir)
             if claim is None and (live.job_dir / "pause").exists():
-                break  # never claimed: the runner skips paused jobs (J3)
+                break  # never claimed: the runner skips paused jobs
             if claim is None:
                 waiting = not registry.runner_online(self.queue_dir, task_id)
                 status: TaskRunStatus = "waiting_for_runner" if waiting else "queued"
@@ -573,7 +570,7 @@ class DriverBase(RegistrationBase):
                 if control.acknowledge(rec, live.job_dir):
                     status = rec.status
                     rec.error = rec.error if result is not None else None
-                else:  # stopped without verified cleanup: allocation stays blocked (S4)
+                else:  # stopped without verified cleanup: allocation stays blocked
                     status = rec.status = "cleanup_pending"
             rec.started_at = rec.started_at or info.started_at
             rec.finished_at = utc_now()
@@ -622,4 +619,4 @@ class DriverBase(RegistrationBase):
                     rec.error = f"output registration: {type(exc).__name__}: {exc}"
                     self.runs.write(live.run_dir, rec)
         if live.manifest.runtime.type == "builtin" and live.manifest.id != "dicom.convert":
-            shutil.rmtree(live.job_dir, ignore_errors=True)  # disposable scratch (PRJ layout)
+            shutil.rmtree(live.job_dir, ignore_errors=True)  # disposable scratch

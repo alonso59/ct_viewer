@@ -1,5 +1,3 @@
-"""Event contracts (API-40). Implementation: `app.events.bus.EventBus`."""
-
 from __future__ import annotations
 
 from typing import Any, Literal

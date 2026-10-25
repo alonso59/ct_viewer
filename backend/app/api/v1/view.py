@@ -1,11 +1,11 @@
-"""API-60 view-only links (PRJ-17, ADR-0019 §5): `/view/{token}` mirrors a read-only subset of
-the project GET endpoints and never exposes `project_id` or an absolute server path.
+"""View-only links: `/view/{token}` mirrors a read-only subset of the project GET endpoints and
+never exposes `project_id` or an absolute server path.
 
 The token is resolved to the project and the request is forwarded, unchanged except for its path,
 to the matching `/projects/{pid}/…` route. Only paths in `READ_ONLY` are served; there is no
 write route on this prefix, so any other method is 405 and any other path 404. Text responses
 (JSON, JSON lines, CSV, SSE) come back through a `Redactor`: the project id becomes
-`view-{token}`, root paths become alias refs and other server folders are elided (AUD-A5-03).
+`view-{token}`, root paths become alias refs and other server folders are elided.
 Binary responses (volumes, thumbnails, meshes, Parquet) pass through unchanged.
 """
 
@@ -42,7 +42,7 @@ READ_ONLY = re.compile(
     r"|exports/dataset-table|layers"
     r")$"
 )
-# Labeling (LBL-05) lives under the plugin prefix: `/plugins/labeling/projects/{pid}/…`.
+# Labeling lives under the plugin prefix: `/plugins/labeling/projects/{pid}/…`.
 PLUGIN_READ_ONLY = re.compile(
     r"^/plugins/labeling/(?:tables(?:/[^/]+(?:/cells|/export|/history)?)?)$"
 )
@@ -54,10 +54,8 @@ def view_pid(token: str) -> str:
 
 
 def view_redactor(ctx: AppContext, pid: str, token: str) -> Redactor:
-    """Root paths → alias refs, other server folders elided, `pid` → `view-{token}`."""
     cfg = ctx.workspace.get(pid)
-    s = ctx.settings
-    folders = [str(s.workspace_root), *map(str, ctx.guard.allowed_roots)]
+    folders = [str(ctx.settings.workspace_root), *map(str, ctx.guard.allowed_roots)]
     folders += map(str, ctx.workspace.derived_guard.allowed_roots)
     return Redactor(
         aliases=[(r.alias, r.path) for r in cfg.path_roots],
@@ -155,7 +153,7 @@ def view_project(ctx: Ctx, token: str) -> ProjectDetail:
 
 @router.get("/view/{token}/jobs", response_model=list[JobInfo])
 def view_jobs(ctx: Ctx, token: str) -> list[JobInfo]:
-    """The project's jobs (API-41) as the view-only link sees them: no `project_id`, no paths."""
+    """The project's jobs as the view-only link sees them: no `project_id`, no paths."""
     pid = ctx.workspace.by_view_token(token)
     red = view_redactor(ctx, pid, token)
     return [
@@ -169,9 +167,8 @@ def view_read(ctx: Ctx, token: str, rest: str, request: Request) -> Response:
     suffix = "/" + rest
     if READ_ONLY.match(suffix):
         path = f"/api/v1/projects/{pid}{suffix}"
-    elif (m := PLUGIN_READ_ONLY.match(suffix)) is not None:
+    elif PLUGIN_READ_ONLY.match(suffix):
         path = f"/api/v1/plugins/labeling/projects/{pid}" + suffix.removeprefix("/plugins/labeling")
-        del m
     else:
         raise NotFound(f"{suffix!r} is not available on a view-only link")
     scope: dict[str, Any] = dict(request.scope)

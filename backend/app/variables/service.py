@@ -1,9 +1,9 @@
-"""Variable catalog service (VAR-01..11, API-16..18).
+"""Variable catalog service.
 
 Stateless like the other services: routers build one per request. `rebuild` re-profiles
-the index and rewrites `variables/catalog.json` (overrides + derived + external definitions,
-VAR-11) and `index/variables.parquet` (PRJ-10: derived, rebuildable). Only this (API) process
-writes, under the project lock (BE-05).
+the index and rewrites `variables/catalog.json` (overrides + derived + external definitions)
+and `index/variables.parquet` (derived, rebuildable). Only this (API) process writes, under
+the project lock.
 """
 
 from __future__ import annotations
@@ -42,11 +42,9 @@ CATALOG = Path("variables") / "catalog.json"
 EXTERNAL_DIR = Path("variables") / "external"
 TABLE = Path("index") / "variables.parquet"
 LIST_CAP = 50
-
-
-# LBL-02 column types → variable types (VAR-02)
 PHASE_EFFECTIVE: Final = "phase.effective"
 PHASE_ANALYZER: Final = "phase.analyzer"
+# label column types → variable types
 LAYER_TYPES: dict[str, VarType] = {
     "bool": "categorical", "category": "categorical", "number": "continuous", "text": "text",
     "date": "date",
@@ -69,8 +67,6 @@ class VariableService:
         self.store = store
         self.locks = locks
         self.bus = bus
-
-    # -- paths / persistence ----------------------------------------------------------------
 
     def _pdir(self, project_id: str) -> Path:
         return self.workspace.project_dir(project_id)
@@ -114,7 +110,7 @@ class VariableService:
         )
 
     def _phase_layers(self, project_id: str, items: Sequence[Item]) -> list[builder.LayerData]:
-        """VAR-12 (ADR-0026): the effective phase (native selection, else the resolved value) and
+        """The effective phase (native selection, else the resolved value) and
         the active `analyzer.phase` run's guess, per scan. `phase` itself is a core column."""
         live = [i for i in items if i.status != "excluded_upstream"]
         eff = builder.LayerData(PHASE_EFFECTIVE, "scan", "categorical")
@@ -134,14 +130,14 @@ class VariableService:
         return out
 
     def _layer_data(self, project_id: str, items: Sequence[Item]) -> list[builder.LayerData]:
-        """LBL-06 / VAR-12: label columns as `lbl.{table}.{column}` at their table's level
+        """Label columns as `lbl.{table}.{column}` at their table's level
         (scan and item tables share the scan unit; an item value lands on its scan)."""
         pdir = self._pdir(project_id)
         cells = labeling_state.cell_state(pdir)
         out: list[builder.LayerData] = self._phase_layers(project_id, items)
         for t in labeling_state.active_tables(pdir):
             for c in t.columns:
-                if c.hidden or c.ref:  # a reference column mirrors another variable (LBL-09)
+                if c.hidden or c.ref:  # a reference column mirrors another variable
                     continue
                 ld = builder.LayerData(
                     f"lbl.{t.slug}.{c.slug}", "case" if t.level == "case" else "scan",
@@ -175,8 +171,6 @@ class VariableService:
     def _publish(self, project_id: str) -> None:
         self.bus.publish(project_id, "project.updated", {"fields": ["variables"]})
 
-    # -- reads (API-16) ---------------------------------------------------------------------
-
     async def catalog(self, project_id: str) -> Catalog:
         """The stored catalog; profiles on first access when an index exists but no catalog."""
         cat = self._stored(project_id)
@@ -187,12 +181,12 @@ class VariableService:
         return await self.rebuild(project_id)
 
     async def table(self, project_id: str, columns: Sequence[str] | None = None) -> pa.Table | None:
-        """`index/variables.parquet` for analytics/radiomics joins (ANA-03, RAD-05)."""
+        """`index/variables.parquet` for analytics/radiomics joins."""
         await self.catalog(project_id)
         return tbl.read_table(self.table_path(project_id), columns)
 
     def case_values(self, project_id: str) -> dict[str, dict[str, float | str | None]]:
-        """Case-level visible variables per case (explorer columns/colour, VAR-10).
+        """Case-level visible variables per case (explorer columns/colour).
 
         Reads the stored catalog + table only (no profiling); empty before the first index.
         """
@@ -213,7 +207,7 @@ class VariableService:
     async def filter_ids(
         self, project_id: str, filters: Mapping[str, Sequence[str]]
     ) -> dict[str, set[str]]:
-        """VAR-10 `var.{name}` filters → matching `items` and `cases`."""
+        """`var.{name}` filters → matching `items` and `cases`."""
         cat = await self.catalog(project_id)
         names = list(filters)
         for n in names:
@@ -229,10 +223,8 @@ class VariableService:
                 errors=[{"loc": ["query", f"var.{name}"], "msg": "unknown variable"}],
             )
 
-    # -- writes -----------------------------------------------------------------------------
-
     async def rebuild(self, project_id: str) -> Catalog:
-        """Re-profile after an index rebuild or a catalog change (VAR-01)."""
+        """Re-profile after an index rebuild or a catalog change."""
         async with self.locks(project_id):
             base = self._stored(project_id) or Catalog()
             built, _ = await asyncio.to_thread(self._build, project_id, base)
@@ -241,7 +233,7 @@ class VariableService:
         return cat
 
     async def patch(self, project_id: str, name: str, patch: VariableOverride) -> Catalog:
-        """API-16 PATCH: confirm/override type, visibility, tags (VAR-03/05)."""
+        """Confirm/override type, visibility, tags."""
         async with self.locks(project_id):
             base = self._stored(project_id) or Catalog()
             if base.get(name) is None:
@@ -255,7 +247,7 @@ class VariableService:
         return cat
 
     async def add_derived(self, project_id: str, d: DerivedDef) -> Catalog:
-        """API-17 POST (VAR-06); the definition is validated against the current catalog."""
+        """The definition is validated against the current catalog."""
         async with self.locks(project_id):
             base = self._stored(project_id) or Catalog()
             if any(x.name == d.name for x in base.derived):
@@ -265,7 +257,7 @@ class VariableService:
                 )
             derived = [*base.derived, d]
             built, _ = await asyncio.to_thread(
-                # only the new definition must build; existing broken ones stay listed (A5-08)
+                # only the new definition must build; existing broken ones stay listed
                 self._build,
                 project_id,
                 base,
@@ -307,7 +299,7 @@ class VariableService:
         filename: str,
         key: ext_mod.KeyName | None = None,
     ) -> ExternalReport:
-        """API-18 (VAR-07): snapshot the table, add its columns as case-level variables."""
+        """Snapshot the table, add its columns as case-level variables."""
         key_name, columns, rows, dups, n_rows = ext_mod.parse_table(data, filename, key)
         if not columns:
             raise ValidationProblem(

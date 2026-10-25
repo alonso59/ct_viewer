@@ -1,4 +1,4 @@
-"""TST-22: required full compatibility fails on missing dependencies or skipped coverage."""
+"""Required full compatibility fails on missing dependencies or skipped coverage."""
 
 from __future__ import annotations
 
@@ -32,5 +32,5 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is not None and reporter.stats.get("skipped"):
-        reporter.write_line("TST-22: required full coverage contains skipped tests", red=True)
+        reporter.write_line("required full coverage contains skipped tests", red=True)
         session.exitstatus = pytest.ExitCode.TESTS_FAILED

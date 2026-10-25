@@ -1,5 +1,3 @@
-// One tab per task (UI-20): Selection · Settings (schema form) · Preflight/Estimate · Run, then its
-// runs with their outputs (a segmentation set, an import, annotations or a features run).
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +9,7 @@ import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
 import { useExplorerFilter } from '../explorer'
+import { RADIOMICS_TASK } from './commands'
 import { ACTIVE_RUN, STOPPING_RUN, runActions, selectionFor, type RunAction, type SelectionMode } from './model'
 import { check, toSettings } from './schema'
 import { SchemaForm } from './SchemaForm'
@@ -41,9 +40,9 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const sharedPhase = run.execution?.phase_step === true && run.execution.shared_conversion_job === true
   const live = !sharedPhase && ACTIVE_RUN.includes(run.status) && job && job.status !== 'succeeded'
   const actions = runActions(run, registry.readOnly)
+  const fenced = run.execution?.phase_step === true || run.task.id === 'dicom.convert'
   const control = async (action: RunAction) => {
     try {
-      const fenced = run.execution?.phase_step === true || run.task.id === 'dicom.convert'
       if (action === 'cancel') {
         if (fenced) await api.cancelTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
         else await api.cancelTaskRun(pid, run.run_id)
@@ -78,7 +77,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       {run.error ? <span className="field-error">{run.error}</span> : null}
       <div className="task-run-actions">
         {actions.map((a) => (
-          <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && (run.execution?.phase_step === true || run.task.id === 'dicom.convert') && run.execution?.cleanup_verified !== true} onClick={() => void control(a)}>
+          <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} onClick={() => void control(a)}>
             {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
           </button>
         ))}
@@ -88,7 +87,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   )
 }
 
-/** J6: archived supervised runs stay listed on request, read-only, outputs reachable */
+/** Archived supervised runs stay listed on request, read-only, outputs reachable */
 function ArchivedRuns({ pid, taskId }: { pid: string; taskId: string }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -105,7 +104,6 @@ function ArchivedRuns({ pid, taskId }: { pid: string; taskId: string }) {
   )
 }
 
-/** TSK-09 outputs; annotation runs can be activated per field (ANZ-04) */
 function Outputs({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -142,8 +140,7 @@ function Outputs({ pid, run }: { pid: string; run: TaskRunSummary }) {
   )
 }
 
-/** TSK-09 (AUD-A3-09): an output by its name, as a link that opens it; the API path or id stays in
- *  the tooltip (never on screen) */
+/** An output by its name, as a link that opens it; the API path or id stays in the tooltip */
 function OutputLink({ pid, run, o }: { pid: string; run: TaskRunSummary; o: TaskRunOutput }) {
   const { t } = useTranslation()
   const sets = useSegmentations(pid).data ?? []
@@ -224,14 +221,12 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
     setError(null)
     setBusy(true)
     try {
-      const r = await api.startTaskRun(pid, { task_id: m.id, settings, selection }, reviewer || undefined)
+      await api.startTaskRun(pid, { task_id: m.id, settings, selection }, reviewer || undefined)
       toast({ message: t('tasks.started', { title: m.title }), tone: 'ok' })
       void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
       void qc.invalidateQueries({ queryKey: keys.jobs(pid) })
-      return r
     } catch (e) {
       setError(e)
-      return null
     } finally {
       setBusy(false)
     }
@@ -245,7 +240,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
     }
   }
 
-  if (m.id === 'radiomics.pyradiomics')
+  if (m.id === RADIOMICS_TASK)
     return (
       <div className="task-tab">
         <h1>{m.title}</h1>

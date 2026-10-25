@@ -1,5 +1,5 @@
-// Live validation (RAD-04, RADIOMICS.md §Validation rules). The server (API-43) is authoritative;
-// this mirrors its rules and `loc` paths so the form can flag fields before the round trip.
+// The server is authoritative; this mirrors its validation rules and `loc` paths so the form can
+// flag fields before the round trip.
 import { featureCount } from './settings'
 import type { FormState, Issue, OptionSpec, ServerIssue, SettingsSchema, Value } from './types'
 
@@ -27,8 +27,8 @@ function checkNumber(o: OptionSpec, v: number, loc: Issue['loc']): Issue | null 
   return err(loc, 'constraint', c.exclusive_max ? 'lt' : 'le', { max: max ?? 0 })
 }
 
-/** Type and constraint checks for one option value (API-30 `type`, `nullable`, `constraints`) */
-export function checkOption(o: OptionSpec, v: Value, loc: Issue['loc']): Issue[] {
+/** Type and constraint checks for one option value */
+function checkOption(o: OptionSpec, v: Value, loc: Issue['loc']): Issue[] {
   if (v === null) return o.nullable ? [] : [err(loc, 'type', 'required')]
   switch (o.type) {
     case 'bool':
@@ -69,7 +69,6 @@ export function validateForm(schema: SettingsSchema, form: FormState, ctx: Valid
   const issues: Issue[] = []
   const opt = (n: string): Value => form.options[n] ?? null
 
-  // Per-option types and constraints
   for (const o of schema.options) issues.push(...checkOption(o, opt(o.name), ['settings', o.name]))
   for (const f of schema.filters) {
     const s = form.filters[f.name]
@@ -100,7 +99,6 @@ export function validateForm(schema: SettingsSchema, form: FormState, ctx: Valid
       if (f.requires_2d && form.filters[f.name]?.enabled) issues.push(err(['image_types', f.name], 'force_2d', 'force2d'))
   }
 
-  // Re-segmentation range
   const range = opt('resegmentRange')
   const mode = opt('resegmentMode')
   if (Array.isArray(range)) {
@@ -111,7 +109,6 @@ export function validateForm(schema: SettingsSchema, form: FormState, ctx: Valid
     }
   }
 
-  // Nothing to extract
   if (featureCount(form) === 0) issues.push(err(['features'], 'nothing', 'nothing'))
   if (!Object.values(form.filters).some((f) => f.enabled)) issues.push(err(['image_types'], 'nothing', 'nothing'))
   if (ctx.labels.length === 0) issues.push(err(['labels'], 'nothing', 'nothing'))

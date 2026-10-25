@@ -1,8 +1,8 @@
-"""P1 exit check: import a dataset root through the real API and report QC warnings.
+"""Import a dataset root through the real API and report QC warnings.
 
 Uses worker processes (not inline), a throwaway workspace unless `--workspace` is given, and
 `ALLOWED_DATA_ROOTS` = the dataset root. With `--sha256` it hashes every file under the root
-before and after (TST-07, R1). With `--expected` (a fixture `expected.json`) it asserts that
+before and after. With `--expected` (a fixture `expected.json`) it asserts that
 every listed defect is reported. Exit code 0 = pass.
 
     cd backend && .venv/bin/python -m tools.import_check --root /data/Dataset820 --sha256
@@ -11,7 +11,6 @@ every listed defect is reported. Exit code 0 = pass.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import tempfile
@@ -24,20 +23,9 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from tools.nnunet_acceptance import sha_tree
 
 API = "/api/v1"
-
-
-def sha_tree(root: Path) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for p in sorted(root.rglob("*")):
-        if p.is_file():
-            h = hashlib.sha256()
-            with p.open("rb") as fh:
-                for block in iter(lambda: fh.read(1 << 20), b""):
-                    h.update(block)
-            out[p.relative_to(root).as_posix()] = h.hexdigest()
-    return out
 
 
 def wait_job(c: TestClient, job_id: str, timeout: float) -> dict[str, Any]:
@@ -113,10 +101,11 @@ def run(args: argparse.Namespace) -> int:
             summary["expected_missing"] = missing
             ok &= not missing
     if before is not None:
-        changed = sorted(k for k, v in sha_tree(root).items() if before.get(k) != v)
+        after = sha_tree(root)
+        changed = sorted(k for k, v in after.items() if before.get(k) != v)
         summary["sources_hashed"] = len(before)
         summary["sources_changed"] = changed
-        ok &= not changed and len(before) == len(sha_tree(root))
+        ok &= not changed and len(before) == len(after)
     summary["pass"] = ok
     print(json.dumps(summary, indent=2))
     return 0 if ok else 1

@@ -1,8 +1,7 @@
-// Replay of API exchanges recorded from the real backend on the synthetic fixtures (TST-04,
-// AUD-A6-03). `recorded.json` is written by `make record-mock` (backend/tools/record_mock.py);
-// never edit it by hand. A request is answered by the recording with the same method, path,
-// query (paging dropped unless explicitly recorded; client-chosen `progress_id` dropped)
-// and JSON body; failing that, the same request with any body;
+// Replay of API exchanges recorded from the real backend on the synthetic fixtures.
+// `recorded.json` is written by `make record-mock`; never edit it by hand. A request is answered by
+// the recording with the same method, path, query (paging dropped unless explicitly recorded;
+// client-chosen `progress_id` dropped) and JSON body; failing that, the same request with any body;
 // failing that (GET only), the same path without its query. Nothing else is computed here: an
 // unrecorded request is a `not-recorded` problem, and a write changes no later answer.
 import recorded from './recorded.json'
@@ -66,7 +65,7 @@ export function lookup(method: string, url: URL, body: unknown): Exchange | unde
   return exact.get(`${q} ${canonical(body ?? null)}`) ?? anyBody.get(q) ?? (method === 'GET' && !exactPaging.has(route) ? anyQuery.get(route) : undefined)
 }
 
-/** Prototype latency so loading states show; none under Vitest (AUD-A6-15) */
+/** Prototype latency so loading states show; none under Vitest */
 const LATENCY_MS = import.meta.env.MODE === 'test' ? 0 : 60
 
 async function bodyOf(input: RequestInfo | URL, init?: RequestInit): Promise<unknown> {
@@ -82,7 +81,7 @@ async function bodyOf(input: RequestInfo | URL, init?: RequestInit): Promise<unk
 const json = (status: number, v: unknown) =>
   new Response(status === 204 || v == null ? null : JSON.stringify(v), { status, headers: { 'content-type': 'application/json' } })
 
-/** A `fetch` that answers from the recording (no network, R5) */
+/** A `fetch` that answers from the recording, without network */
 export async function replayFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const req = input instanceof Request ? input : null
   const method = (init?.method ?? req?.method ?? 'GET').toUpperCase()

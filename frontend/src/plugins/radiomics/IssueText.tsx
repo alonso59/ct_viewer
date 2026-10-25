@@ -1,4 +1,3 @@
-// Message for a validation issue: client issues are translated by key, server issues carry `msg`.
 import { useTranslation } from 'react-i18next'
 
 import type { Issue } from './model/types'

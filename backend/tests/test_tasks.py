@@ -108,9 +108,6 @@ def tree_hashes(root: Path) -> dict[str, str]:
     }
 
 
-# -- manifests (TSK-01/02, API-42/43) -----------------------------------------------------
-
-
 def test_list_tasks_with_invalid_manifests(env: TestClient) -> None:
     body = env.get(f"{API}/tasks").json()
     ids = {t["manifest"]["id"]: t for t in body["tasks"]}
@@ -169,9 +166,6 @@ def test_validate_endpoint(env: TestClient) -> None:
     assert not bad["ok"] and bad["settings_hash"] is None and bad["issues"][0]["loc"] == ["label"]
 
 
-# -- preflight + estimate (TSK-04/05, API-44) -----------------------------------------------
-
-
 def test_preflight_and_suggestions(env: TestClient, proj: str) -> None:
     reg = ctx_of(env).registry
     reads = TaskManifest.model_validate(
@@ -218,9 +212,6 @@ def test_estimate_builtin_sample(env: TestClient, proj: str) -> None:
     assert est["output_bytes"] and est["output_bytes"] > 0
     scratch = ctx_of(env).settings.workspace_root / ".scratch" / "estimates"
     assert not any(scratch.iterdir())  # sample outputs are disposable
-
-
-# -- builtin runs (TSK-06..10, TST-14 builtin half) -----------------------------------------
 
 
 def test_run_requires_derived_root(env: TestClient, proj: str) -> None:
@@ -421,7 +412,7 @@ def test_radiomics_on_a_task_segmentation_set(env: TestClient, proj: str, tmp_pa
 
 
 def test_task_set_maps_the_labels_the_run_wrote(env: TestClient, proj: str, tmp_path: Path) -> None:
-    """TSK-09 / ADR-0015 §4 (AUD-A5-12): the set's `label_mapping` follows the values the run
+    """TSK-09 / ADR-0015 (AUD-A5-12): the set's `label_mapping` follows the values the run
     wrote (`progress.jsonl` output `labels`), not the manifest's static names; the new label
     gets a palette colour not already in use, and radiomics on the set extracts that label."""
     pytest.importorskip("radiomics")
@@ -454,7 +445,7 @@ def test_task_set_maps_the_labels_the_run_wrote(env: TestClient, proj: str, tmp_
 def test_curation_decisions_per_segmentation_set(
     env: TestClient, proj: str, tmp_path: Path
 ) -> None:
-    """CURATION §Targets: mask targets carry `seg_id`; the state key is (item, target, seg_id)."""
+    """CUR-08: mask targets carry `seg_id`; the state key is (item, target, seg_id)."""
     with_derived(env, proj, tmp_path)
     finish(
         env, proj, env.post(f"{API}/projects/{proj}/task-runs", json=run_body(seg_id="thr")).json()

@@ -1,5 +1,3 @@
-"""API-01: liveness, versions and UI runtime config."""
-
 from __future__ import annotations
 
 from fastapi import APIRouter

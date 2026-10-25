@@ -1,5 +1,3 @@
-"""IDs and timestamps (DATA_MODEL.md §item_id, §Conventions)."""
-
 from __future__ import annotations
 
 import re
@@ -11,7 +9,7 @@ from ulid import ULID
 Scope = Literal["complete", "voi"]
 Side = Literal["L", "R", "-"]
 
-# SRC-08: a URL-safe slug without `.` (the item_id separator); `case_\d{5}` is only a template.
+# A URL-safe slug without `.` (the item_id separator); `case_\d{5}` is only a template.
 CASE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
 ITEM_ID_RE = re.compile(r"^([A-Za-z0-9_-]{1,64})\.([A-Za-z0-9_-]+)\.(complete|voi)\.(L|R|-)$")
@@ -26,7 +24,6 @@ def is_ulid(value: str) -> bool:
 
 
 def item_id(case_id: str, scan_idx: str, scope: Scope, side: Side) -> str:
-    """`{case_id}.{scan_idx}.{scope}.{side}`: deterministic and URL-safe (IMP-06)."""
     return f"{case_id}.{scan_idx}.{scope}.{side}"
 
 

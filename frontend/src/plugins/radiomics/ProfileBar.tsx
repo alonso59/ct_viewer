@@ -1,5 +1,4 @@
-// Profiles (RAD-03): save, load, rename, duplicate, delete. A profile is identified by the hash of
-// its settings, so saving settings that already have a profile returns that profile.
+// A profile is identified by the hash of its settings, so saving settings that already have a profile returns that profile.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

@@ -1,4 +1,4 @@
-"""Write the reviewed OpenAPI contract snapshot (BE-10, TST-03) and the frontend's copy (FE-03).
+"""Write the reviewed OpenAPI contract snapshot and the frontend's copy.
 
 cd backend && .venv/bin/python -m tools.openapi_snapshot            # snapshot + frontend copy
 cd backend && .venv/bin/python -m tools.openapi_snapshot --frontend PATH   # the copy only

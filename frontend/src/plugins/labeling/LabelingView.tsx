@@ -1,4 +1,4 @@
-// Labeling view (LBL-01/08/10): the project's label tables with fill progress; New table; each
+// Labeling view: the project's label tables with fill progress; New table; each
 // card's menu edits or deletes the table; deleted tables can be restored.
 import { useTranslation } from 'react-i18next'
 
@@ -13,7 +13,7 @@ import './labeling.css'
 
 function TableCard({ pid, t }: { pid: string; t: LabelTableInfo }) {
   const { t: tr } = useTranslation()
-  // LBL-08: progress over the table's own columns; reference columns (LBL-09) fill themselves
+  // progress over the table's own columns; reference columns fill themselves
   const cols = (t.columns ?? []).filter((c) => !c.hidden && !c.ref)
   const filled = (t.progress ?? []).reduce((n, p) => n + p.filled, 0)
   const total = t.n_rows * cols.length

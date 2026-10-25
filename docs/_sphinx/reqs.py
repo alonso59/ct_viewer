@@ -1,6 +1,6 @@
 """Requirement tables: one parser for the docs site, `make docs-srs`, `make check` and `make trace`.
 
-Stdlib only (Sphinx is imported lazily by `setup`). Grammar and rules: product/SRS.md §1.5.
+Stdlib only (Sphinx is imported lazily by `setup`).
 
 CLI (from the repo root):
     python3 docs/_sphinx/reqs.py check        # validate; exit 1 on errors (`make check`)
@@ -129,8 +129,7 @@ def parse() -> Model:
         rel = p.relative_to(DOCS).as_posix()
         for start, block in tables(p.read_text(encoding="utf-8")):
             header = tuple(split_cells(block[0]))
-            first = split_cells(block[0])[0] if block else ""
-            if ID_RE.match(first):
+            if ID_RE.match(header[0]):
                 model.errors.append(f"{rel}:{start}: ID rows without a header (blank line in a table?)")
                 continue
             if header[:1] != ("ID",):
@@ -200,9 +199,6 @@ def check_srs_directives(model: Model) -> None:
             model.errors.append(f"product/SRS.md: {pre}- in {placed[pre]} srs-table directives, need 1")
 
 
-# -- journeys (VISION §Journeys) -------------------------------------------------------------------
-
-
 def journeys(model: Model) -> dict[str, list[str]]:
     """Map requirement ID -> journeys (G1..G4) from the Refs column of VISION §Journeys."""
     text = (DOCS / "product" / "VISION.md").read_text(encoding="utf-8")
@@ -236,8 +232,6 @@ def expand_refs(text: str, ids: list[str]) -> list[str]:
     return refs
 
 
-# -- trace (code / test citations, AUD-A4-01) ------------------------------------------------------
-
 CODE_EXT = {".py", ".ts", ".tsx", ".sh", ".js", ".css", ".yml", ".yaml", ".toml"}
 PRUNE = {
     "node_modules",
@@ -258,9 +252,8 @@ def is_test(rel: str) -> bool:
     )
 
 
-def citations() -> tuple[Counter[str], Counter[str]]:
-    """Count files citing each ID in code and in tests."""
-    code: Counter[str] = Counter()
+def citations() -> Counter[str]:
+    """Count test files citing each ID."""
     test: Counter[str] = Counter()
     for base in ("backend", "frontend/src", "frontend/e2e", "plugins", "scripts"):
         for dp, dn, fn in os.walk(ROOT / base):
@@ -269,13 +262,10 @@ def citations() -> tuple[Counter[str], Counter[str]]:
                 fp = Path(dp) / f
                 if fp.suffix not in CODE_EXT or "openapi" in f:
                     continue
-                rel = fp.relative_to(ROOT).as_posix()
-                found = {m.group(0) for m in CITE_RE.finditer(fp.read_text(errors="ignore"))}
-                (test if is_test(rel) else code).update(found)
-    return code, test
+                if is_test(fp.relative_to(ROOT).as_posix()):
+                    test.update({m.group(0) for m in CITE_RE.finditer(fp.read_text(errors="ignore"))})
+    return test
 
-
-# -- open audit findings (MVP REL-03; the v3 audit is closed and archived) -------------------------
 
 FINDINGS = DOCS / "archive" / "v3" / "audit" / "findings"
 
@@ -290,9 +280,6 @@ def open_findings() -> Counter[str]:
                 if not re.match(r"(fixed|defer|reject)\b", dec):
                     out[c[1]] += 1
     return out
-
-
-# -- CLI -------------------------------------------------------------------------------------------
 
 
 def report(model: Model) -> int:
@@ -310,7 +297,7 @@ def report(model: Model) -> int:
 def write_srs(model: Model, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     jr = journeys(model)
-    _, test = citations()
+    test = citations()
     with open(out / "srs.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["id", "kind", "pri", "owner", "line", "journeys", "tests", "text"])
@@ -344,17 +331,16 @@ def write_srs(model: Model, out: Path) -> None:
 
 def write_trace(model: Model, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    code, test = citations()
+    test = citations()
     with open(out / "trace.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow(["id", "owner", "line", "pri", "code_files", "test_files"])
+        w.writerow(["id", "owner", "line", "pri", "test_files"])
         for r in model.rows:
-            w.writerow([r.id, r.owner, r.line, r.pri, code[r.id], test[r.id]])
+            w.writerow([r.id, r.owner, r.line, r.pri, test[r.id]])
     m = [r for r in model.rows if r.pri == "M"]
-    no_code = [r.id for r in m if not code[r.id]]
     no_test = [r.id for r in m if not test[r.id]]
-    print(f"trace: M {len(m)} · no code citation {len(no_code)} · no test citation {len(no_test)}")
-    print("trace: M without code or test:", " ".join(i for i in no_code if i in no_test) or "none")
+    print(f"trace: M {len(m)} · no test citation {len(no_test)}")
+    print("trace: M without test:", " ".join(no_test) or "none")
     print(f"trace: wrote {out / 'trace.csv'} (a report, not a gate)")
 
 
@@ -376,8 +362,6 @@ def main(argv: list[str]) -> int:
     return status
 
 
-# -- Sphinx extension ------------------------------------------------------------------------------
-
 PATH_RE = re.compile(r"^(?:[\w.-]+/)*[\w.-]+\.md$")
 TEXT_RE = re.compile(r"\b([A-Z]{2,4}-\d{2}|ADR-\d{4})\b|\b([A-Z][A-Z_]{2,})(?:\.md\b| (?=§))")
 
@@ -393,7 +377,7 @@ def setup(app):  # type: ignore[no-untyped-def]
         logging.getLogger(__name__).warning("reqs: %s", e)
     rows = model.by_id()
     jr = journeys(model)
-    _, test = citations()
+    test = citations()
 
     class SrsTable(SphinxDirective):
         """```{srs-table} PRJ IMP ...``` renders those prefixes' rows, grouped by owner doc."""
@@ -473,7 +457,6 @@ def setup(app):  # type: ignore[no-untyped-def]
                 target, anchor = None, ""
                 if m.group(1) and m.group(1).startswith("ADR-"):
                     target = adr_doc(env, m.group(1)[4:])
-                    anchor = ""
                 elif m.group(1) and m.group(1) in rows and rows[m.group(1)].kind in SRS_KINDS:
                     target, anchor = "product/SRS", "req-" + m.group(1).lower()
                 elif m.group(2):

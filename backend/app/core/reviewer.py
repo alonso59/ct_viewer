@@ -1,8 +1,4 @@
-"""The reviewer stamp (ADR-0004, CUR-01): free text from `X-Reviewer`, at most 100 characters.
-
-One rule for every writer (AUD-A6-06): curation, phase and labeling events, radiomics runs
-(RAD-09, required) and task runs (TSK-10, optional).
-"""
+"""The reviewer stamp: free text from `X-Reviewer`, one rule for every writer."""
 
 from __future__ import annotations
 

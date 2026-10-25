@@ -1,8 +1,8 @@
-// Open mode (SRC-09/10/12, VW-21, UI-17): one file or folder in the viewer without a project.
+// Open mode: one file or folder in the viewer without a project.
 // Nothing is written to a project; "Create project from this" hands the path to the import wizard.
-// The URL is `/open/{sid}` (AUD-A1-19): a path arrives in the history state (`navigate.ts`), is
-// opened once and replaced by the session id; reload and back re-read the session, and a session
-// that has ended shows its next actions (UI-18); durable results restore after server restart.
+// The URL is `/open/{sid}`: a path arrives in the history state, is opened once and replaced by the
+// session id; reload and back re-read the session, and a session that has ended shows its next
+// actions; durable results restore after server restart.
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,7 +24,7 @@ import './open.css'
 
 const PAGE_ITEMS = 50
 
-/** SRC-12: the middle slice in both orders; the user picks */
+/** The middle slice in both orders; the user picks */
 function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSession; item: OpenItem; onPick: (o: AxisOrder) => void; onClose: () => void }) {
   const { t } = useTranslation()
   return (
@@ -43,8 +43,8 @@ function AxisOrderDialog({ session, item, onPick, onClose }: { session: OpenSess
   )
 }
 
-/** SRC-10 (ADR-0027): a segmentation from anywhere under the shared folders; the browser starts in
- * a `seg/` / `labels*` / `masks/` folder inside or next to the opened one (AUD-A2-03) */
+/** A segmentation from anywhere under the shared folders; the browser starts in a `seg/` /
+ * `labels*` / `masks/` folder inside or next to the opened one */
 function AttachDialog({ root, onPick, onClose, error }: { root: string; onPick: (p: string) => void; onClose: () => void; error: unknown }) {
   const { t } = useTranslation()
   const inRoot = useFsList(root).data
@@ -119,7 +119,7 @@ export default function OpenRoute() {
     }
     navigate('/')
   }
-  // VW-05: an assumed modality the user changed travels into the import (SRC-14/15)
+  // an assumed modality the user changed travels into the import
   const active = useViewerSync((s) => s.activeModality)
   const modality = active?.assumed ? active.value : undefined
 
@@ -137,7 +137,6 @@ export default function OpenRoute() {
   const order = current ? (orders[axisKey] ?? current.axis_order) : null
   const needsOrder = !!current && current.format === 'npy' && !order
   const mask = current ? attachedTo(items, current.n) : null
-  // VW-21: a 1-slice volume shows 2D tiles only
   const oneSlice = current?.n_slices === 1
   useEffect(() => {
     if (oneSlice) useViewerSync.setState({ layout: 'one-up-axial', maximized: null })
@@ -147,7 +146,6 @@ export default function OpenRoute() {
     choose_another_path: () => openDialog(),
     home: () => navigate('/'),
   }
-  // SRC-05/15: an attached segmentation travels into the import (ADR-0027, AUD-A2-12)
   const source = session && current && path ? importSource(session, current, mask, path) : path ? { path } : null
 
   return (
@@ -161,7 +159,6 @@ export default function OpenRoute() {
           <span className="mono muted open-path" title={path ?? ''}>{path}</span>
           <span className="badge" data-tone="accent">{t('open.noProject')}</span>
         </header>
-        {/* UI-17: one left-aligned action row, in workflow order, right above the viewer */}
         <div className="open-actions" role="toolbar" aria-label={t('open.actions')}>
           <button type="button" className="btn btn-primary" disabled={!path || selectionBusy || (paged && !!selected.error)} onClick={() => setCreating(true)}>
             <Icon spec={codicon('new-folder')} />
@@ -188,7 +185,6 @@ export default function OpenRoute() {
           </button>
           <ModalityChip />
           <span className="toolbar-sep" />
-          {/* UI-24: Close drops the session and releases the volumes; nothing is deleted */}
           <button type="button" className="btn open-close-btn" onClick={() => void close()}>
             <Icon spec={codicon('close')} />
             {t('open.close')}
@@ -221,7 +217,6 @@ export default function OpenRoute() {
             </div>
             <div className="open-view">
               {current?.error ? (
-                // UI-18 (AUD-A2-07): a plain title, the reader's message as the detail, a next step
                 <ProblemCard error={new ProblemError(415, 'unreadable', t('open.unreadable', { name: current.name }), current.error, ['choose_another_path'])} onAction={onAction} />
               ) : current && needsOrder ? (
                 <div className="error-card" role="alert">

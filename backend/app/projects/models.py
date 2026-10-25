@@ -1,4 +1,4 @@
-"""`workspace.json` and `project.json` schemas (PROJECT_FORMAT.md, format_version 3)."""
+"""`workspace.json` and `project.json` schemas."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ FORMAT: Final = "radiology-workbench-project"
 FORMAT_VERSION = 3
 SEG_ID_RE = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 IMPORTED_SEG: Final = "imported"
-DERIVED_ALIAS: Final = "DERIVED"
 
 RootRole = Literal["source", "derived"]
 
@@ -21,7 +20,7 @@ RootRole = Literal["source", "derived"]
 class PathRoot(BaseModel):
     alias: str
     path: str  # absolute server path
-    role: RootRole = "source"  # ADR-0014; `derived` roots are written only by task runs
+    role: RootRole = "source"  # `derived` roots are written only by task runs
 
     @field_validator("alias")
     @classmethod
@@ -65,13 +64,11 @@ def _default_wl() -> dict[str, WindowLevel | Literal["percentile"]]:
 
 
 class Display(BaseModel):
-    """`project.json.display` (PRJ-18, VW-25); was `viewer_defaults` before format 3."""
-
     layout: Layout = "four-up"
-    # Initial window per modality: HU numbers, or `percentile` (1st-99th, VW-05).
+    # Initial window per modality: HU numbers, or `percentile` (1st-99th).
     wl: dict[str, WindowLevel | Literal["percentile"]] = Field(default_factory=_default_wl)
-    use_dicom_window: bool = True  # the DICOM `WindowCenter/Width` first when present (VW-22)
-    wl_presets: list[WlPreset] | None = None  # null = the built-in presets (VW-05)
+    use_dicom_window: bool = True  # the DICOM `WindowCenter/Width` first when present
+    wl_presets: list[WlPreset] | None = None  # null = the built-in presets
     interpolation: Literal["linear", "nearest"] = "linear"
     convention: Literal["radiological", "neurological"] = "radiological"
 
@@ -81,7 +78,7 @@ class Display(BaseModel):
 
 
 class SegProducer(BaseModel):
-    """The task run that produced a segmentation set (ADR-0015)."""
+    """The task run that produced a segmentation set."""
 
     task_id: str
     version: str
@@ -90,21 +87,21 @@ class SegProducer(BaseModel):
 
 
 class SegmentationSet(BaseModel):
-    """`project.json.segmentations[]` (ADR-0015): one mask per item, per set."""
+    """`project.json.segmentations[]`: one mask per item, per set."""
 
     seg_id: str = Field(pattern=SEG_ID_RE)
-    name: str = ""  # display name; empty = seg_id (API-27 rename)
+    name: str = ""  # display name; empty = seg_id
     kind: Literal["imported", "task", "manual"] = "imported"
     producer: SegProducer | None = None
-    # Set value (as a string key) → project label value (PRJ-07).
+    # Set value (as a string key) → project label value.
     label_mapping: dict[str, int] = Field(default_factory=dict)
-    # Set values auto-named `label_{value}` at registration, flagged for review (ADR-0015 §4).
+    # Set values auto-named `label_{value}` at registration, flagged for review.
     unmatched: list[int] = Field(default_factory=list)
     created_at: str = ""
 
 
 def imported_set(label_map: list[LabelEntry], created_at: str) -> SegmentationSet:
-    """The `imported` set with the identity mapping over the label map (PRJ-11 migration)."""
+    """The `imported` set with the identity mapping over the label map."""
     return SegmentationSet(
         seg_id=IMPORTED_SEG,
         kind="imported",
@@ -120,24 +117,24 @@ class ProjectConfig(BaseModel):
     format_version: int = FORMAT_VERSION
     project_id: str
     name: str = Field(min_length=1, max_length=200)
-    dataset_root: str | None = None  # PRJ-19: dataset-local project, legacy projects stay global
+    dataset_root: str | None = None  # dataset-local project; legacy projects stay global
     description: str = ""
     created_at: str
     updated_at: str
     path_roots: list[PathRoot] = Field(default_factory=list)
-    # Neutral by default (PRJ-14): no labels (auto-named from masks, PRJ-07), raw phases.
+    # Neutral by default: no labels (auto-named from masks), raw phases.
     label_map: list[LabelEntry] = Field(default_factory=list)
-    default_modality: Modality = "CT"  # PRJ-14: viewer default for items without one (VW-05)
-    packs: list[str] = Field(default_factory=list)  # applied study packs (PRJ-16)
-    view_token: str | None = None  # PRJ-17
+    default_modality: Modality = "CT"  # viewer default for items without one
+    packs: list[str] = Field(default_factory=list)  # applied study packs
+    view_token: str | None = None
     phase_vocabulary: list[str] = Field(default_factory=list)
-    # RAW (upper-case) -> canonical; see INPUT_METADATA.md §Phase resolution.
+    # RAW (upper-case) -> canonical.
     phase_mapping: dict[str, str] = Field(default_factory=dict)
     phase_priority: list[str] = Field(default_factory=lambda: [UNKNOWN_PHASE])
     display: Display = Field(default_factory=Display)
-    segmentations: list[SegmentationSet] = Field(default_factory=list)  # ADR-0015
+    segmentations: list[SegmentationSet] = Field(default_factory=list)
     default_seg: str = IMPORTED_SEG
-    # Active analyzer run per field (ANZ-04); null = none active.
+    # Active analyzer run per field; null = none active.
     annotation_sources: dict[str, str | None] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -150,11 +147,11 @@ class ProjectConfig(BaseModel):
         if self.default_seg not in ids:
             raise ValueError(f"default_seg {self.default_seg!r} is not a segmentation set")
         if sum(1 for r in self.path_roots if r.role == "derived") > 1:
-            raise ValueError("path_roots: at most one derived root (PRJ-13)")
+            raise ValueError("path_roots: at most one derived root")
         return self
 
     def derived_root(self) -> PathRoot | None:
-        """PRJ-13: the project's single `derived` root, if registered."""
+        """The project's single `derived` root, if registered."""
         return next((r for r in self.path_roots if r.role == "derived"), None)
 
     def segmentation(self, seg_id: str) -> SegmentationSet | None:
@@ -162,7 +159,7 @@ class ProjectConfig(BaseModel):
 
 
 class ProjectPatch(BaseModel):
-    """API-03 PATCH body: only provided fields change."""
+    """PATCH body: only provided fields change."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
@@ -170,9 +167,9 @@ class ProjectPatch(BaseModel):
     phase_vocabulary: list[str] | None = None  # applies at the next import (re-index)
     phase_mapping: dict[str, str] | None = None
     phase_priority: list[str] | None = None
-    default_modality: Modality | None = None  # PRJ-14
-    display: Display | None = None  # PRJ-18
-    default_seg: str | None = None  # must name an existing segmentation set (ADR-0015)
+    default_modality: Modality | None = None
+    display: Display | None = None
+    default_seg: str | None = None  # must name an existing segmentation set
 
 
 class WorkspaceEntry(BaseModel):
@@ -185,7 +182,7 @@ class WorkspaceEntry(BaseModel):
 
 
 class ProjectSummary(BaseModel):
-    """PRJ-02 workspace home row."""
+    """Workspace home row."""
 
     project_id: str
     name: str
@@ -193,25 +190,23 @@ class ProjectSummary(BaseModel):
     last_opened_at: str | None = None
     archived: bool = False
     dataset_root: str | None = None
-    n_cases: int = 0  # cases with an item not excluded upstream (AUD-A2-08)
+    n_cases: int = 0  # cases with an item not excluded upstream
     n_cases_excluded: int = 0  # cases whose every item is excluded upstream
-    curation_progress: float = 0.0  # 0..1; filled by curation (lane P4)
-    share_url: str  # PRJ-03
+    curation_progress: float = 0.0  # 0..1
+    share_url: str
 
 
 class ProjectDetail(ProjectConfig):
-    """API-03 response: project.json + share link (PRJ-03) + the `ETag` value (PRJ-15)."""
+    """`project.json` plus the share link and the `ETag` value."""
 
     share_url: str
     etag: str
-    # PRJ-17: the view-only link when a token exists; true on the read-only mirror (API-60).
+    # The view-only link when a token exists; `read_only` is true on the read-only mirror.
     view_url: str | None = None
     read_only: bool = False
 
 
 class RootInfo(BaseModel):
-    """API-05 alias row."""
-
     alias: str
     path: str
     exists: bool

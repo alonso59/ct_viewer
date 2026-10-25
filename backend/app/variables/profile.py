@@ -1,4 +1,4 @@
-"""Value parsing and type inference (VAR-01..03, VARIABLES.md §Type inference rules).
+"""Value parsing and type inference.
 
 Pure functions over one variable's values at its level (one value per case or per scan).
 `None` is missing; the empty string is missing too (callers normalize with `as_text`).
@@ -76,7 +76,7 @@ def as_date(text: str | None) -> str | None:
 
 
 def parse_age_years(text: str | None) -> float | None:
-    """DICOM AS (`045Y`, `006M`, `012W`, `030D`) or a bare number → years (VAR-08)."""
+    """DICOM AS (`045Y`, `006M`, `012W`, `030D`) or a bare number → years."""
     if text is None:
         return None
     m = _AGE.match(text.strip())
@@ -100,7 +100,7 @@ def _sequential_ints(nums: Sequence[float]) -> bool:
 
 
 def infer_type(values: Sequence[str | None]) -> Inference:
-    """VARIABLES.md §Type inference rules, applied to non-missing values in this order:
+    """Type inference rules, applied to non-missing values in this order:
     constant → date → numeric (continuous / numeric-discrete / sequential-integer identifier)
     → categorical → identifier → text."""
     present = [v for v in values if v is not None]
@@ -114,7 +114,7 @@ def infer_type(values: Sequence[str | None]) -> Inference:
     nums = [x for x in (as_number(v) for v in present) if x is not None]
     num_share = len(nums) / n
     if num_share >= NUMERIC_SHARE:
-        n_distinct = len({x for x in nums})
+        n_distinct = len(set(nums))
         if n_distinct < CONTINUOUS_MIN_DISTINCT:
             return Inference("numeric-discrete", 0.5, True)
         if n_distinct == n and n >= CONTINUOUS_MIN_DISTINCT and _sequential_ints(nums):

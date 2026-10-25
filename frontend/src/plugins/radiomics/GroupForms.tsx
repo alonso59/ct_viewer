@@ -1,5 +1,4 @@
-// Filters and feature classes (RAD-02): checkboxes; each class expands to per-feature checkboxes.
-// IBSI names and codes are never shown (RADIOMICS §Principles).
+// IBSI names and codes are deliberately not shown.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

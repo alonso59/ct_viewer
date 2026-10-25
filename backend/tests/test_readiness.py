@@ -1,4 +1,4 @@
-"""Shared selection + preflight (TSK-03/04, RAD-05): `app.tasks.readiness`."""
+"""Shared selection + preflight (TSK-03/04, RAD-05)."""
 
 from __future__ import annotations
 

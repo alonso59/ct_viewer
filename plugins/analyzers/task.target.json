@@ -3,7 +3,7 @@
   "id": "analyzer.target",
   "version": "1.0.0",
   "title": "Organ focus (target match)",
-  "description": "Matches descriptions and body part against a target profile (ANALYZERS.md).",
+  "description": "Matches descriptions and body part against a target profile.",
   "kind": "analyzer",
   "input": "rows",
   "outputs": ["annotations"],

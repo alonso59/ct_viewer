@@ -1,5 +1,3 @@
-// DB-08 result: chosen test + reason (ANA-04), groups (ANA-06), recommendations (ANA-08),
-// results sorted by q (ANA-05), descriptives (ANA-07), contingency (balance), exports (ANA-09).
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'

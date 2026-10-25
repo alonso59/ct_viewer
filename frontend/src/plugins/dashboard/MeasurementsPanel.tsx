@@ -1,5 +1,4 @@
-// Measurements panel (UI-14): features of the active item from the selected run (API-36 `item_id`),
-// with a robust z against the run's items of the same label; |z| ≥ 3.5 is marked as an outlier.
+// Features of the active item from the selected run, with a robust z against the run's items of the same label.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -88,7 +87,6 @@ export function MeasurementsPanel() {
                     <td className="mono truncate" title={r.feature}>{r.feature.replace(/^original_/, '')}</td>
                     <td className="muted">{r.feature_class}</td>
                     <td className="num">{r.value === null ? t('measurements.invalid') : fmtValue(r.value)}
-                      {/* AUD-A3-15: the unit of the feature class */}
                       {unit && r.value !== null ? <span className="muted"> {unit}</span> : null}
                     </td>
                     <td className="num" style={{ color: out ? 'var(--warn)' : undefined }}>{r.z === null ? '—' : fmt1(r.z)}</td>

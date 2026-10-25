@@ -1,11 +1,11 @@
-"""Reconstructed DICOM sidecars for `metadata-v1` imports (IMP-15, ADR-0025 §2).
+"""Reconstructed DICOM sidecars for `metadata-v1` imports.
 
 Opt-in per import (`options.reconstruct_sidecars`). For each scan whose row has no resolvable
 `dicom_sidecar`, the DICOM-shaped fields the row already carries are mapped to a DICOM JSON
-Model (PS3.18 §F.2), the shape of a real DCM-04 sidecar, marked `_provenance: {fidelity:
-"partial"}`. A real sidecar always wins. Files go to the project's derived root only (DCM-05, R1):
+Model, the shape of a real converter sidecar, marked `_provenance: {fidelity: "partial"}`.
+A real sidecar always wins. Files go to the project's derived root only:
 `{DERIVED}/{project}/imports/{import_id}/sidecars/{name}.dicom.json`; the planning runs where the
-index is prepared, the writing in job workers (BE-12). Patient-identifying fields are not mapped.
+index is prepared, the writing in job workers. Patient-identifying fields are not mapped.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from app.projects.models import PathRoot
 OPTION: Final = "reconstruct_sidecars"
 SOURCE: Final = "metadata-v1-import"
 
-# flat row field → (DICOM tag, VR): DICOM_CONVERTER §Row fields extras that have a header home
+# flat row field → (DICOM tag, VR): the converter's row extras that have a header home
 TAGS: Final[dict[str, tuple[str, str]]] = {
     "image_type": ("00080008", "CS"),
     "sop_class_uid": ("00080016", "UI"),
@@ -136,7 +136,7 @@ def plan(
         if key not in by_scan:
             by_scan[key] = None
             if _resolves(resolver, d.extra.get("dicom_sidecar")):
-                continue  # a real sidecar always wins (IMP-15)
+                continue
             model = json_model({"modality": d.modality, **d.extra}, generated_at)
             if model is None:
                 continue

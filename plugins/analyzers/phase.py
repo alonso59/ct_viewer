@@ -1,4 +1,4 @@
-"""`analyzer.phase` (ANZ-*): text terms first, contrast timing second; conflicts → UNK."""
+"""`analyzer.phase`: text terms first, contrast timing second; conflicts → UNK."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ INPUT_FIELDS = (
     "scan_time",
     "scan_datetime_source",
 )
-# Canonical guesses → vocabulary candidates, first one in the project vocabulary wins (ANZ-05/06)
+# Canonical guesses → vocabulary candidates, first one in the project vocabulary wins
 VOCAB = {"NC": ("NC",), "CMP": ("CMP", "ART"), "NP": ("NP", "PV"), "EX": ("EP", "DELAYED")}
 UNKNOWN = "UNK"
 
@@ -115,7 +115,7 @@ def _has_contrast(row: dict[str, Any]) -> bool:
 
 
 def to_vocabulary(canonical: str, vocabulary: Sequence[str]) -> str:
-    """ANZ-06: a vocabulary value or UNK; an empty (open) vocabulary keeps the canonical code."""
+    """A vocabulary value or UNK; an empty (open) vocabulary keeps the canonical code."""
     if not canonical:
         return UNKNOWN
     if not vocabulary:
@@ -132,7 +132,7 @@ def guess(row: dict[str, Any], vocabulary: Sequence[str]) -> tuple[str, str, str
     if t_phase:
         if g_phase and g_phase != t_phase:
             return UNKNOWN, "low", f"text/timing conflict: {t_ev} vs {g_ev}", extras
-        if t_weak:  # compound guess ("CMP; unknown") → UNK, low (ANZ-06)
+        if t_weak:  # compound guess ("CMP; unknown") → UNK, low
             return UNKNOWN, "low", f"{t_ev} (possible {to_vocabulary(t_phase, vocabulary)})", extras
         value = to_vocabulary(t_phase, vocabulary)
         return value, t_conf if value != UNKNOWN else "low", t_ev, extras

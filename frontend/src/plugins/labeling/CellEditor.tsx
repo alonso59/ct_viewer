@@ -1,4 +1,4 @@
-// Type-aware cell editor (LBL-02/03), shared by the table tab and the Inspector section (AUD-A1-05).
+// Type-aware cell editor, shared by the table tab and the Inspector section.
 // Enter / Tab / blur commit, Escape cancels; keys never reach the viewer or grid shortcuts.
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -42,7 +42,7 @@ export function CellEditor({ col, value, onCommit, onCancel }: { col: LabelColum
       className="lbl-input"
       autoFocus
       aria-label={col.name}
-      // numbers: a text field that accepts `,` or `.` as the decimal point (AUD-A3-04)
+      // numbers: a text field that accepts `,` or `.` as the decimal point
       type={col.type === 'date' ? 'date' : 'text'}
       {...(col.type === 'number' ? { inputMode: 'decimal' as const, role: 'spinbutton' } : {})}
       value={draft}

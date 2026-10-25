@@ -2,7 +2,7 @@ import type { HTMLAttributes } from 'react'
 
 import { CtIcon, type CtIconName } from './icons/CtIcon'
 
-// One icon API for both sets: codicons (`name`) and the custom CT set (`ct`). UI-15.
+// One icon API for both sets: codicons (`name`) and the custom CT set (`ct`).
 export type IconSpec = { codicon: string } | { ct: CtIconName }
 
 export function Icon({

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate or refresh a structured nnU-Net profile without copying command text."""
+"""Validate or refresh a structured nnU-Net profile."""
 
 from __future__ import annotations
 
@@ -13,15 +13,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from plugins.nnunet.profile import PROFILES_DIR, load_profile
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from plugins.nnunet.profile import PROFILES_DIR, _sha256, load_profile
 
 
 def refresh(profile_path: Path, results_root: Path) -> None:

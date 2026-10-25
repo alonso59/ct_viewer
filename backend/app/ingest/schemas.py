@@ -1,4 +1,4 @@
-"""Import / case / item payloads (API-11..14, API-20..22). Index records live in `models`."""
+"""Import / case / item payloads. Index records live in `models`."""
 
 from __future__ import annotations
 
@@ -16,19 +16,19 @@ Adapter = Literal["metadata-v1", "nifti-files"]
 
 
 class PreviewRequest(BaseModel):
-    """API-11 JSON body (IMP-01/02; SRC-01..06). `root` may be one file (SRC-05)."""
+    """`root` may be one file."""
 
     root: str
     detect: bool = True
     alias: str = DEFAULT_ALIAS
     adapter: Adapter | None = None  # None: metadata-v1, or nifti-files for one NIfTI file
     options: dict[str, Any] = Field(default_factory=dict)
-    # SRC-15 "Add to project…": kept next to the project's other sources (SOURCES §Imports)
+    # "Add to project…": kept next to the project's other sources
     add: bool = False
 
 
 class SourceInfo(BaseModel):
-    """`sources/{import_id}/source.json` (SRC-06)."""
+    """`sources/{import_id}/source.json`."""
 
     adapter: Adapter
     adapter_version: str
@@ -47,8 +47,8 @@ class InputFile(BaseModel):
 class ImportCounts(BaseModel):
     scan_rows: int = 0
     voi_rows: int = 0
-    cases: int = 0  # cases with a row that is not excluded upstream (AUD-A2-08)
-    excluded_upstream: int = 0  # scan rows excluded upstream (IMP-07)
+    cases: int = 0  # cases with a row that is not excluded upstream
+    excluded_upstream: int = 0  # scan rows excluded upstream
     excluded_cases: int = 0  # cases whose every row is excluded upstream (not in `cases`)
 
 
@@ -67,7 +67,7 @@ class FieldMapping(BaseModel):
 
 
 class ParsedFile(BaseModel):
-    """`nifti-files` preview row (SRC-04)."""
+    """`nifti-files` preview row."""
 
     file: str
     case_id: str
@@ -91,12 +91,12 @@ class ImportPreview(BaseModel):
     adapter: Adapter = "metadata-v1"
     options: dict[str, Any] = Field(default_factory=dict)
     # nifti-files: parsed columns of the first 50 files, names the pattern missed, masks
-    # without an image, ignored extensions (SRC-02/04)
+    # without an image, ignored extensions
     sample: list[ParsedFile] = Field(default_factory=list)
     unmatched: list[str] = Field(default_factory=list)
     orphan_masks: list[str] = Field(default_factory=list)
     ignored: dict[str, int] = Field(default_factory=dict)
-    source_key: str | None = None  # None: `{adapter}:{alias}` (SOURCES §Imports)
+    source_key: str | None = None  # None: `{adapter}:{alias}`
 
 
 class CommitRequest(BaseModel):
@@ -109,7 +109,7 @@ class CommitResult(BaseModel):
 
 
 class ImportRecord(BaseModel):
-    """One line of `sources/imports.jsonl` (IMP-04)."""
+    """One line of `sources/imports.jsonl`."""
 
     import_id: str
     at: str
@@ -122,7 +122,7 @@ class ImportRecord(BaseModel):
 
     @property
     def key(self) -> str:
-        """The index keeps the latest snapshot per key (SOURCES §Imports)."""
+        """The index keeps the latest snapshot per key."""
         return self.source_key or f"{self.adapter}:{self.alias}"
 
 
@@ -146,7 +146,7 @@ class CaseDetail(BaseModel):
 
 
 class ItemAdvanced(BaseModel):
-    image_path: str | None = None  # absolute (DATA_MODEL §Conventions); null if unresolvable
+    image_path: str | None = None  # absolute; null if unresolvable
     mask_path: str | None = None
 
 

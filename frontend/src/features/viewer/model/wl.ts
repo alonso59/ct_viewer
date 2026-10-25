@@ -1,4 +1,4 @@
-// Window/level math (VW-05). Presets live in state/viewerSync (WL_PRESETS).
+// Window/level math. Presets live in state/viewerSync (WL_PRESETS).
 import type { ItemRecord } from '../../../api'
 
 /** HU presets apply only to CT (`item.modality`). A missing modality counts as CT (this is a CT workbench). */
@@ -7,15 +7,15 @@ export function isCt(item: Pick<ItemRecord, 'modality'>): boolean {
   return typeof m !== 'string' || m.trim() === '' || m.trim().toUpperCase() === 'CT'
 }
 
-/** Modalities the user can pick when the item has none (VW-05); `OT` = other (percentile window) */
+/** Modalities the user can pick when the item has none; `OT` = other (percentile window) */
 export const MODALITY_CHOICES = ['CT', 'MR', 'OT'] as const
 
 /** Identity of an item for the display-only modality choice (Open-mode ids repeat across sessions) */
 export const modalityKey = (item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image'>): string =>
   `${item.case_id}|${item.item_id}|${item.image?.ref ?? ''}`
 
-/** VW-05: a known modality wins; an unknown one is the user's choice, else the project default
- *  (PRJ-14; `mixed` assumes CT), else assumed CT */
+/** A known modality wins; an unknown one is the user's choice, else the project default
+ *  (`mixed` assumes CT), else assumed CT */
 export function effectiveModality(
   item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image' | 'modality'>,
   overrides: Record<string, string>,
@@ -26,7 +26,7 @@ export function effectiveModality(
   return { value: overrides[modalityKey(item)] ?? (fallback === 'MR' ? 'MR' : 'CT'), assumed: true }
 }
 
-/** VW-22: the DICOM header window `[ww, wl]` of an item (converter row facts or Open-mode probe) */
+/** The DICOM header window `[ww, wl]` of an item (converter row facts or Open-mode probe) */
 export function dicomWindowOf(item: Pick<ItemRecord, 'extra'>): [number, number] | null {
   const ww = Number(item.extra?.window_width)
   const wl = Number(item.extra?.window_center)

@@ -56,8 +56,7 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 
 ### P7b — Sources, derived data, tasks & plugins (ADR-0013..0017)
 Done 2026-09-24 (exit met; archive).
-- nnU-Net work moved to P7d/P7e after the P7b amendments became stable.
-- [ ] **Pending (user decision 2026-09-24):** a VOI extractor plugin that crops VOIs from a segmentation (reference code to be provided); it also settles the legacy `.npy` VOI axis order (IMP-10, SRC-12; default `xyz` until then). Keep `legacy/` until the owner decides to delete it (fully ported otherwise)
+- [ ] **Pending (user decision 2026-09-24):** the VOI extractor plugin (§Pending plugin after P7g); keep `legacy/` until the owner decides to delete it (fully ported otherwise)
 - [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 
 ### P7d — nnU-Net segmentation planning
@@ -87,7 +86,7 @@ Done 2026-09-24 (exit met; archive).
 **Exit:** accepted criteria have requirement IDs, passing regression tests and real isolation/cleanup evidence; no unrelated process affected, no source/model mutation and no duplicate attempts/output registration.
 
 ### Pending plugin after P7g
-- [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` axis order (SRC-12, IMP-10)
+- [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10; default `xyz` until then)
 
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
 - [x] Audits A0..A8 and fix batches FB1..FB12, 2026-09-25..27; **closed 2026-09-27**: 129 findings, all fixed. Frozen record: `docs/archive/v3/audit/` (PLAN §Status, REMEDIATION §Owner review). Its only deferred item, the udocker check on the remote server, is P7 above (Step 4).

@@ -1,4 +1,3 @@
-// Dashboard: run views, measurements panel (DB-*, UI-14)
 import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../../i18n'
@@ -10,9 +9,9 @@ import { revealView, type FrontendPlugin } from '../host'
 import type { RunParams } from './DashboardEditor'
 import { DashboardsView } from './DashboardsView'
 
-// ECharts stays out of the initial bundle (FE-05)
+// ECharts stays out of the initial bundle
 const DashboardEditor = lazy(() => import('./DashboardEditor').then((m) => ({ default: m.DashboardEditor })))
-// Kept out of the initial chunk too (NFR-07); the panel has no Suspense boundary of its own
+// Kept out of the initial chunk too; the panel has no Suspense boundary of its own
 const MeasurementsLazy = lazy(() => import('./MeasurementsPanel').then((m) => ({ default: m.MeasurementsPanel })))
 const MeasurementsPanel = () => createElement(Suspense, { fallback: null }, createElement(MeasurementsLazy))
 
@@ -24,7 +23,7 @@ export const plugin: FrontendPlugin = {
 
 const DONE: RunStatus[] = ['completed', 'completed_with_errors']
 
-/** AUD-A1-06: open the dashboard of the newest completed run */
+/** Open the dashboard of the newest completed run */
 async function openLatest() {
   const pid = useWorkbench.getState().pid
   if (!pid) return
@@ -34,7 +33,7 @@ async function openLatest() {
   else toast({ message: i18n.t('dashboard.noRuns') })
 }
 
-/** AUD-A3-01: the active item has feature rows in the run the Measurements panel shows first */
+/** The active item has feature rows in the run the Measurements panel shows first */
 function useMeasurementsContent() {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const iid = useViewerSync((s) => s.activeItemId)

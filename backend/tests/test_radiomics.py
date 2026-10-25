@@ -32,9 +32,6 @@ def eng() -> PyRadiomicsEngine:
     return e
 
 
-# -- schema (RAD-01/02) -------------------------------------------------------------------
-
-
 def test_schema_options_groups_defaults(eng: PyRadiomicsEngine) -> None:
     s = eng.schema()
     opts = {o.name: o for o in s.options}
@@ -141,9 +138,6 @@ def test_code_defaults_match_engine_source() -> None:
             else default
         )
         assert want in norm or default in values, (name, default, found[name])
-
-
-# -- validation rules (RAD-04, RADIOMICS.md §Validation rules) -----------------------------
 
 
 def rules_of(eng: PyRadiomicsEngine, settings: dict[str, Any]) -> list[tuple[str, str, str]]:
@@ -260,9 +254,6 @@ def test_validation_valid_and_warning(eng: PyRadiomicsEngine) -> None:
     assert eng.validate({"settings": {"resegmentRange": [2], "resegmentMode": "sigma"}}) == []
 
 
-# -- canonical JSON / profile hash (RAD-03) -----------------------------------------------
-
-
 def test_profile_hash_canonicalization(eng: PyRadiomicsEngine) -> None:
     schema = eng.schema()
 
@@ -298,9 +289,6 @@ def test_profile_hash_canonicalization(eng: PyRadiomicsEngine) -> None:
     assert st.profile_hash(norm, "pyradiomics", "4") != base  # engine major is part of it
     assert st.canonical_json({"b": 1.0, "a": [0.5, -0.0]}) == '{"a":[0.5,0],"b":1}'
     assert st.engine_major("3.1.1.dev111+g8ed579383") == "3"
-
-
-# -- IBSI map + digital phantom (TST-06) --------------------------------------------------
 
 
 def test_ibsi_map_covers_engine(eng: PyRadiomicsEngine) -> None:

@@ -1,9 +1,9 @@
-"""Task service: list, validate, preflight, estimate, runs, outputs (TSK-01..12, API-42..47).
+"""Task service: list, validate, preflight, estimate, runs, outputs.
 
 Stateless: routers build one per request from the app context. The API process writes the run
 record (`tasks/runs/{run_id}/`), the segmentation-set registration and the derived ledger under
-the project lock (BE-05); the task writes only its job dir and its `output_dir` (ADR-0014).
-`radiomics.pyradiomics` is served by the radiomics service behind the same endpoints (RAD-13).
+the project lock; the task writes only its job dir and its `output_dir`.
+`radiomics.pyradiomics` is served by the radiomics service behind the same endpoints.
 Modules: `records` → `selection` → `jobspec` → `estimate` → `registration` → `driver` → here.
 """
 
@@ -55,8 +55,6 @@ log = logging.getLogger("app.tasks")
 
 
 class TaskService(DriverBase):
-    """Stateless facade of API-42..47: routers build one per request from the app context."""
-
     async def recover_all(self) -> None:
         for project in self.workspace.list():
             try:
@@ -162,11 +160,6 @@ class TaskService(DriverBase):
                         key=key,
                         ref=rec.run_id,
                         driver=recover_registration,
-                        meta={
-                            "run_id": rec.run_id,
-                            "task_id": "dicom.convert",
-                            "stage": "registering",
-                        },
                     )
                 )
             return
@@ -288,7 +281,7 @@ class TaskService(DriverBase):
         cfg = self.workspace.get(pid)
         source = self._source(req.selection) if m.input == "source" else None
         if source is not None and source_inventory is None:
-            await dry_run.require_dicom(m.id, Path(source))  # AUD-A2-07
+            await dry_run.require_dicom(m.id, Path(source))
         items = [] if source is not None else await self.select(pid, req.selection)
         seg_id = self._seg_id(cfg, m, req.selection)
         ready = [i for i in items if self._not_ready(cfg, m, i, seg_id) is None]
@@ -408,7 +401,7 @@ class TaskService(DriverBase):
     async def list_runs(
         self, pid: str, task_id: str | None = None, *, archived: bool = False
     ) -> list[TaskRunListItem]:
-        """Archived runs are listed only on request (J6); their records stay on disk."""
+        """Archived runs are listed only on request; their records stay on disk."""
         out: list[TaskRunListItem] = []
         for run_dir in self.runs.run_dirs(pid):
             await self._recover_dicom(pid, run_dir)
@@ -445,10 +438,10 @@ class TaskService(DriverBase):
         if rad.has_run(pid, rid):
             await rad.cancel(pid, rid)
             return await rad.task_detail(pid, rid)
-        if self.runs.read(self.runs.run_dir(pid, rid)).supervised:
-            return await control.request_control(self, pid, rid, "cancel")  # J5
         run_dir = self.runs.run_dir(pid, rid)
         rec = self.runs.read(run_dir)
+        if rec.supervised:
+            return await control.request_control(self, pid, rid, "cancel")
         if expected_attempt is not None and rec.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
         if rec.task.id == "dicom.convert" and rec.status == "completed":
@@ -471,17 +464,17 @@ class TaskService(DriverBase):
                 await self.runs.update(pid, run_dir, cancelling)
                 self.jobs.cancel(rec.job_id)
             return await self.get_run(pid, rid)
-        await self.runs.cancel(pid, self.runs.run_dir(pid, rid), CANCEL_GRACE_S + 5)
+        await self.runs.cancel(pid, run_dir, CANCEL_GRACE_S + 5)
         return await self.get_run(pid, rid)
 
     async def pause(self, pid: str, rid: str) -> TaskRunDetail:
-        """J3: stop dispatch, keep committed cases; `paused` once cleanup is verified."""
+        """Stop dispatch, keep committed cases; `paused` once cleanup is verified."""
         if self._radiomics().has_run(pid, rid):
             raise JobConflict("This run does not support supervised controls")
         return await control.request_control(self, pid, rid, "pause")
 
     async def archive(self, pid: str, rid: str) -> TaskRunDetail:
-        """J6: hide an inactive supervised run; records, masks and sources are kept."""
+        """Hide an inactive supervised run; records, masks and sources are kept."""
         if self._radiomics().has_run(pid, rid):
             raise JobConflict("Only inactive supervised runs can be archived")
         return await control.archive(self, pid, rid)
@@ -495,7 +488,7 @@ class TaskService(DriverBase):
         request_id: str | None = None,
         failed_only: bool = False,
     ) -> TaskRunStarted:
-        """TSK-07: a new attempt that skips the items already `ok` (resume.skip)."""
+        """A new attempt that skips the items already `ok`."""
         if not self._radiomics().has_run(pid, rid):
             rec = self.runs.read(self.runs.run_dir(pid, rid))
             if failed_only and (rec.task.id != "dicom.convert" or expected_attempt is None):

@@ -1,4 +1,4 @@
-"""BE-16: one owned in-image process group per DICOM attempt; never kills a shared pool."""
+"""One owned in-image process group per DICOM attempt; never kills a shared pool."""
 
 from __future__ import annotations
 
@@ -145,7 +145,7 @@ async def run_dicom_worker(
                 try:
                     await asyncio.wait_for(asyncio.shield(waiter), timeout=1)
                 except TimeoutError:
-                    break  # uninterruptible I/O: return cleanup_pending evidence, not success
+                    break  # uninterruptible I/O: return cleanup_pending evidence
             if on_progress is not None:
                 for row in tail.read():
                     on_progress(row)

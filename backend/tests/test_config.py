@@ -18,7 +18,7 @@ def test_dev_mode_allows_empty_roots() -> None:
 
 @pytest.mark.parametrize("roots", ["", ":", "::"])
 def test_container_mode_refuses_empty_roots(roots: str) -> None:
-    with pytest.raises(ValidationError, match="OPS-04"):
+    with pytest.raises(ValidationError, match="ALLOWED_DATA_ROOTS must not be empty"):
         Settings(_env_file=None, container_mode=True, allowed_data_roots=roots)
 
 

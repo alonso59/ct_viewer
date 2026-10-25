@@ -1,5 +1,3 @@
-"""API-40 SSE stream."""
-
 from __future__ import annotations
 
 import json
@@ -32,14 +30,12 @@ async def sse_messages(
     try:
         if opening:
             yield OPEN_MESSAGE
-        if sub.gap:  # AUD-A5-11: missed events cannot be replayed; the client refetches
+        if sub.gap:  # missed events cannot be replayed; the client refetches
             yield {"id": str(bus.last_id), "event": "reset", "data": json.dumps({})}
         async for ev in sub:
             yield {"id": str(ev.id), "event": ev.event, "data": json.dumps(ev.data)}
     finally:
-        aclose = getattr(sub, "aclose", None)
-        if aclose is not None:
-            await aclose()
+        await sub.aclose()
 
 
 def _parse_id(value: str | None) -> int | None:

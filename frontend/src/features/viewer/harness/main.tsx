@@ -1,4 +1,4 @@
-// Viewer harness entry (manual P3 testing, TST-09 bench). Not part of the app bundle.
+// Viewer harness entry (manual testing, bench). Not part of the app bundle.
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

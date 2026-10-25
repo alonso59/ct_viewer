@@ -1,8 +1,8 @@
-"""Thumbnail job (IMP-12, UI-08): 128 px mid-axial WebP at the default W/L with mask outlines.
+"""Thumbnail job: 128 px mid-axial WebP at the default W/L with mask outlines.
 
-`render` / `render_batch` run in job workers (BE-12): sources are read-only (R1) and output
-goes to `cache/thumbs/{image_fp}.webp` (PRJ-10). `schedule_thumbnails` runs in the API process
-after an index rebuild.
+`render` / `render_batch` run in job workers: sources are read-only and output goes to
+`cache/thumbs/{image_fp}.webp`. `schedule_thumbnails` runs in the API process after an index
+rebuild.
 """
 
 from __future__ import annotations
@@ -106,14 +106,13 @@ def render(
     ww: float,
     wl: float,
     colors: dict[int, tuple[int, int, int]],
-    size: int = THUMB_SIZE,
 ) -> str | None:
     """Worker: write the WebP thumbnail. Returns None on success or an error string."""
     try:
         img_xy, (sx, sy) = _axial_slice(image_path)
         gray = _display(_window(img_xy, ww, wl))
         h0, w0 = gray.shape
-        scale = size / max(w0 * sx, h0 * sy)
+        scale = THUMB_SIZE / max(w0 * sx, h0 * sy)
         w = max(1, round(w0 * sx * scale))
         h = max(1, round(h0 * sy * scale))
         rgb = Image.fromarray(gray).resize((w, h), Image.Resampling.BILINEAR)
@@ -141,7 +140,7 @@ def render_batch(tasks: Sequence[RenderTask]) -> list[str | None]:
 
 
 def _result_logger(red: Redactor) -> Callable[[Any], Awaitable[None]]:
-    """Failures are logged with alias refs, never absolute paths (NFR-17, AUD-A5-16)."""
+    """Failures are logged with alias refs, never absolute paths."""
 
     async def log_result(result: Any) -> None:
         failed = [r for r in result if r is not None] if isinstance(result, list) else []
@@ -155,7 +154,7 @@ def _result_logger(red: Redactor) -> Callable[[Any], Awaitable[None]]:
 async def schedule_thumbnails(
     workspace: Workspace, store: IndexStore, jobs: JobManager, project_id: str
 ) -> JobInfo | None:
-    """Submit a `thumbnail` job for complete, active items without a thumbnail (IMP-12)."""
+    """Submit a `thumbnail` job for complete, active items without a thumbnail."""
     if jobs.active(project_id, "thumbnail") is not None:
         return None
     cfg = workspace.get(project_id)
@@ -208,8 +207,8 @@ REGEN_THROTTLE_S = 30.0
 async def regenerate_soon(
     workspace: Workspace, store: IndexStore, jobs: JobManager, project_id: str
 ) -> None:
-    """A thumbnail was asked for but is missing (evicted by CACHE_MAX_GB, AUD-A4-16): schedule
-    the idempotent pass again, at most once per `REGEN_THROTTLE_S` per project."""
+    """A thumbnail was asked for but is missing (evicted by CACHE_MAX_GB): schedule the
+    idempotent pass again, at most once per `REGEN_THROTTLE_S` per project."""
     now = time.monotonic()
     if now - _last_regen.get(project_id, float("-inf")) < REGEN_THROTTLE_S:
         return
