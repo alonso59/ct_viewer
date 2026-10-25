@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import hashlib
 import json
+import sqlite3
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -699,11 +701,12 @@ class SourceOperations:
                     actions=OPEN_ACTIONS,
                 )
             session = open_mode.OpenSession.model_validate_json(raw)
+            prepared = session
             state = directory / "open-session-state.json"
             if state.exists():
                 saved = read_json(state)
                 if (
-                    saved.get("version") != 1
+                    saved.get("version") != 2
                     or saved.get("base_sha256") != record.summary["open_session_sha256"]
                 ):
                     raise JobConflict(
@@ -711,15 +714,54 @@ class SourceOperations:
                         actions=OPEN_ACTIONS,
                     )
                 session = open_mode.OpenSession.model_validate(saved["session"])
+                if saved.get("label_inputs") != self._open_label_inputs(session):
+                    raise JobConflict(
+                        "Attached Open mask changed; attach it again", actions=OPEN_ACTIONS
+                    )
         except (OSError, ValueError, KeyError):
             raise JobConflict(
                 "Open result is unreadable; open the source again", actions=OPEN_ACTIONS
             ) from None
         if session.sid != operation or session.path != record.source:
             raise JobConflict("Open result belongs to a different source", actions=OPEN_ACTIONS)
+        from app.tasks.source_open import validate_prepared_open
+
+        database = directory / "inventory.sqlite"
+        try:
+            if not database.is_file():
+                raise JobConflict("Prepared Open inventory is missing")
+            with SourceInventory(database, Path(record.source)) as inventory:
+                validate_prepared_open(inventory, record.summary["generation"], prepared)
+        except (OSError, sqlite3.Error, JobConflict, KeyError, ValueError) as exc:
+            raise JobConflict(
+                "Prepared Open inputs changed or are unavailable; open the source again",
+                actions=OPEN_ACTIONS,
+            ) from exc
         if reopen:
             closed.unlink(missing_ok=True)
         return session
+
+    def _open_label_inputs(self, session: open_mode.OpenSession) -> dict[str, builtins.list[int]]:
+        from app.tasks.source_open import dependency_stat
+
+        pins = {}
+        for item in session.items:
+            if item.kind != "label":
+                continue
+            path = open_mode.source_path(session, item)
+            self.guard.check(path)
+            try:
+                pin = dependency_stat(path.parent, path)
+            except (OSError, JobConflict):
+                raise JobConflict(
+                    "Attached Open mask is unavailable; attach it again", actions=OPEN_ACTIONS
+                ) from None
+            if pin is None:
+                raise JobConflict(
+                    "Attached Open mask is missing; attach it again", actions=OPEN_ACTIONS
+                )
+            pins[item.rel] = pin
+        return pins
 
     def save_open_session(self, session: open_mode.OpenSession) -> None:
         try:
@@ -730,7 +772,8 @@ class SourceOperations:
             atomic_write_json(
                 self._dir(session.sid) / "open-session-state.json",
                 {
-                    "version": 1,
+                    "version": 2,
+                    "label_inputs": self._open_label_inputs(session),
                     "base_sha256": record.summary.get("open_session_sha256"),
                     "session": session.model_dump(mode="json"),
                 },

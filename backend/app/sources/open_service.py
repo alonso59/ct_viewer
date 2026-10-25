@@ -196,7 +196,7 @@ class OpenService:
 
     async def volume(self, sid: str, n: int, axis_order: str | None) -> tuple[Path, str]:
         """The item as NIfTI (NumPy/DICOM converted into `.scratch/`) and its ETag."""
-        s = self.session(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         src = om.source_path(s, it)
         if not src.is_file():
@@ -248,7 +248,7 @@ class OpenService:
         return out, f"{fp}.{order}"
 
     async def dicom_tags(self, sid: str, n: int) -> dict[str, Any]:
-        s = self.session(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         if it.format != "dicom":
             raise NotFound(f"{it.name} has no DICOM header")
@@ -257,7 +257,7 @@ class OpenService:
         return tags
 
     async def preview_png(self, sid: str, n: int, axis_order: AxisOrder) -> bytes:
-        s = self.session(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         if it.format != "npy":
             raise ValidationProblem("Axis-order previews exist for NumPy arrays only")
@@ -268,14 +268,30 @@ class OpenService:
     async def attach(self, sid: str, n: int, raw: str) -> om.OpenSession:
         """SRC-10 (ADR-0027): a NIfTI segmentation from anywhere under ALLOWED_DATA_ROOTS; the
         geometry check (same shape, affines within IMP-08) is the guard, never resampled."""
-        s = self.session(sid)
+        s = await asyncio.to_thread(self.session, sid)
         image = om.item(s, n)
         real = self.guarded(raw)
         if not real.is_file() or formats.classify(real) != "nifti":
             raise UnsupportedFormat(
                 "Attach a NIfTI segmentation (.nii or .nii.gz)", actions=["choose_another_path"]
             )
-        rows = await self.jobs.run_in_worker(om.probe, str(real.parent), [real.name])
+        try:
+            before = real.stat()
+            rows = await self.jobs.run_in_worker(om.probe, str(real.parent), [real.name])
+            after = real.stat()
+        except OSError:
+            raise SourceMissing(
+                "Mask became unavailable while reading its geometry; attach it again", actions=RETRY
+            ) from None
+        if (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_dev,
+            after.st_ino,
+        ):
+            raise SourceMissing(
+                "Mask changed while reading its geometry; attach it again", actions=RETRY
+            )
         row = rows[0]
         if row.get("error") or not row.get("geometry"):
             raise UnsupportedFormat(
@@ -320,7 +336,7 @@ class OpenService:
     async def save(self, sid: str, n: int, body: SaveBody) -> Saved:
         """SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once."""
         dest = self._dest(body.dest_dir)
-        s = self.session(sid)
+        s = await asyncio.to_thread(self.session, sid)
         it = om.item(s, n)
         volume, fp = await self.volume(sid, n, body.axis_order)
         await asyncio.to_thread(dest.mkdir, parents=True, exist_ok=True)
