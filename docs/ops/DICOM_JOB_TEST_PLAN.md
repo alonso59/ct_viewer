@@ -234,3 +234,10 @@ cancel/resume with original alias/project, and anonymized conversion after an
 explicit dry-run confirmation). The browser harness verifies unchanged synthetic
 sources and launches no GPU compute. This covers initial draft restoration, not
 later option edits, Preview or Index recovery, nor the remaining D01–D35 matrix.
+
+D13/D18 header-processing evidence: `test_source_open.py` includes actual SIGKILL
+after DICOM headers 1/3/6. Only the earlier whole NIfTI unit survives in the cache;
+the entire DICOM series is rebuilt and source hashes remain unchanged. All ten
+file cases pass. Native pixel and supervised ownership/cleanup barriers remain
+separate acceptance evidence. The import integration also passes 20 existing real
+Chromium/Firefox journeys; CI for published `e84bd0d` is still pending.

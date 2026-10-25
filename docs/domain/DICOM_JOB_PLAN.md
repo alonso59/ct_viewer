@@ -492,3 +492,17 @@ and return to Preview with the original alias. Both also complete a separately
 confirmed DICOM conversion with basic anonymization. The synthetic sources remain
 unchanged. Broader import/Open journey regressions and publication CI are separate
 gates; these focused results do not close the acceptance matrix.
+
+### Open header interruption checkpoint
+
+`test_source_open.py` now kills an actual subprocess after DICOM header 1, 3
+or 6 of a six-member series. The prior NIfTI unit remains committed and is never
+re-probed; no partial DICOM geometry is cached. Reopening the inventory rebuilds
+all six members with the expected shape and preserves every synthetic source hash.
+All ten cases in that file pass. These barriers cover header processing, not native
+pixel decoding/writing or supervised API/worker cleanup.
+
+The import-window checkpoint passed 20 additional Chromium/Firefox regressions
+(converter, G1/G2, project/import/share, P7c and task entry points) with unchanged
+sources. Its published commit is `e84bd0d`; CI run `40229246585` is pending.
+Production remains unchanged until the remaining release gates are satisfied.
