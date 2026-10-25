@@ -214,3 +214,10 @@ masks. The unchanged-session case checks metadata/byte hydration off the API loo
 cover replacement/deletion during header reading. These are stat-based checks;
 same-stat content rewriting, broader active-session validation and real process
 interruption at these barriers remain separate acceptance work.
+
+`test_source_detection.py` compares durable adapter results with API-19 for mixed,
+metadata and single NIfTI/NumPy/DICOM sources, including a 121-image sample. It
+restarts the API and forbids rescanning/classification while retrieving results;
+queued/cancelled, missing-inventory and changed-reader cases must refuse. The client
+test consumes a real synthetic detection recording. Complete import-window/browser
+and durable preview/index recovery coverage is still required.

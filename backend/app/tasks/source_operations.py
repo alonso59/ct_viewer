@@ -7,6 +7,7 @@ import builtins
 import hashlib
 import json
 import sqlite3
+from collections import Counter
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -29,6 +30,8 @@ from app.core.paths import PathGuard
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
+from app.sources import detect as source_detect
+from app.sources import formats
 from app.sources import open as open_mode
 from app.sources.open_service import RETRY as OPEN_ACTIONS
 from app.sources.open_service import guarded_source
@@ -673,6 +676,74 @@ class SourceOperations:
                 )
             self._write(current)
             raise RuntimeError(current.error) from None
+
+    def detection(self, operation: str, *, dicom_available: bool) -> source_detect.DetectResult:
+        """API-69: bounded adapter hints from the completed inventory, without a rescan."""
+        record = self.get(operation)
+        if (
+            record.purpose != "discover"
+            or record.status != "completed"
+            or record.stage != "discovered"
+            or not record.cleanup_verified
+        ):
+            raise JobConflict(
+                "Finish source discovery before choosing an import adapter", actions=OPEN_ACTIONS
+            )
+        source = guarded_source(self.guard, record.source)
+        database = self._dir(operation) / "inventory.sqlite"
+        try:
+            if not database.is_file():
+                raise JobConflict("Prepared source inventory is missing")
+            with SourceInventory(database, source) as inventory:
+                summary = inventory.summary()
+                if not summary["complete"] or summary["generation"] != record.summary.get(
+                    "generation"
+                ):
+                    raise JobConflict("Prepared source inventory changed")
+                inventory.check_reader()
+                ignored: Counter[str] = Counter()
+                for row in inventory.db.execute("SELECT rel FROM files WHERE kind='ignored'"):
+                    name = Path(row[0]).name
+                    if name not in formats.SKIP_NAMES:
+                        ignored[formats.extension(name)] += 1
+                counts = {key: int(summary[key]) for key in ("nifti", "dicom", "npy")}
+                counts["ignored"] = sum(ignored.values())
+                count = counts["nifti"]
+                positions = {
+                    index * count // min(count, source_detect.SAMPLE)
+                    for index in range(min(count, source_detect.SAMPLE))
+                }
+                sample = [
+                    row[0]
+                    for index, row in enumerate(
+                        inventory.db.execute(
+                            "SELECT rel FROM files WHERE kind='nifti' ORDER BY rel"
+                        )
+                    )
+                    if index in positions
+                ]
+                has_meta = (
+                    not inventory.single_file
+                    and inventory.db.execute(
+                        "SELECT 1 FROM files WHERE rel='metadata.jsonl' AND error=''"
+                    ).fetchone()
+                    is not None
+                )
+                return source_detect.from_facts(
+                    source,
+                    kind="file" if inventory.single_file else "folder",
+                    counts=counts,
+                    ignored=dict(ignored),
+                    nifti_sample=sample,
+                    has_meta=has_meta,
+                    truncated=False,
+                    dicom_available=dicom_available,
+                )
+        except (OSError, sqlite3.Error, JobConflict, ValueError) as exc:
+            raise JobConflict(
+                "Source inventory is unavailable or incompatible; discover it again",
+                actions=OPEN_ACTIONS,
+            ) from exc
 
     def open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
         """Restore an explicitly prepared Open result; conversion records stay separate."""

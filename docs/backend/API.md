@@ -85,7 +85,15 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-67 | `POST /projects/open` | `{dataset_root}` → saved ProjectDetail list; registers PRJ-19 projects from a folder. API-02 accepts optional `dataset_root`; omitting it preserves global-project behavior for existing clients. | PRJ-19 |
 | API-66 | `GET·POST /projects/{pid}/items/{iid}/recycle` | Preview → RecyclePlan (counts, destination, affected projects, token); POST `{confirmed: true, token}` with `X-Reviewer` → RecycleResult. `412` if preview changed, `409` for active jobs. | CUR-16 |
 | API-68 | `GET /projects/{pid}/items` | Active indexed items, sorted by case/scan/item, filtered before cursor paging. `q` searches case/patient/item IDs and image reference (case-insensitive); `scope`, `phase`, `modality`, `has_mask` filter metadata. Returns `{items, next_cursor, total}` without source/header reads. Also available through API-60 redaction. | TSK-03 |
-| API-69 | `POST·GET /source-operations` · `GET /source-operations/{id}` · `GET …/series` · `GET …/plan` · `POST …/estimate` · `POST …/convert` · `POST …/cancel` · `POST …/resume` · `POST …/retry-failed` · `POST …/open` | Durable source operation start (202 after write), list/detail, generation-paged reads and revision/attempt-fenced controls; path/context in body, opaque public IDs. Legacy API-07/19/44/62 response contracts retained. | TSK-16, DCM-15..19 |
+| API-69 | `POST·GET /source-operations` · `GET /source-operations/{id}` · `GET …/series` · `GET …/detection` · `GET …/plan` · `POST …/estimate` · `POST …/convert` · `POST …/cancel` · `POST …/resume` · `POST …/retry-failed` · `POST …/open` | Durable source operation start (202 after write), list/detail, generation-paged reads and revision/attempt-fenced controls; path/context in body, opaque public IDs. Legacy API-07/19/44/62 response contracts retained. | TSK-16, DCM-15..19 |
+
+API-69 `purpose=discover` uses the same recoverable inventory lifecycle. Once discovery
+is complete and cleanup verified, `GET …/detection` returns the API-19 `DetectResult`
+from the retained inventory without walking source directories or probing image headers.
+It uses the same adapter policy, ignored-name rules and up-to-50 evenly spread NIfTI
+samples as API-19. Active, cancelled, partial, missing or incompatible inventories return
+409 with next actions. These are hints from the prepared generation; import Preview still
+validates the selected source/options. Results create no import, project or conversion run.
 
 API-69 `purpose=open` prepares whole image/series header units under the existing owned-worker
 lifecycle. `POST …/open` returns 201 with the API-07 preview after verified completion and

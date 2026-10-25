@@ -724,6 +724,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     retryFailedWorkspaceRun: (rid, body) => unwrap(client.POST('/api/v1/task-runs/{rid}/retry-failed', { params: { path: { rid } }, body })),
     startSourceOperation: (body) => unwrap(client.POST('/api/v1/source-operations', { body })),
     listSourceOperations: () => allPages((cursor) => unwrap(client.GET('/api/v1/source-operations', { params: { query: { cursor, limit: 50 } } }))),
+    sourceOperationDetection: (oid) => unwrap(client.GET('/api/v1/source-operations/{oid}/detection', { params: { path: { oid } } })),
     getSourceOperation: (oid) => unwrap(client.GET('/api/v1/source-operations/{oid}', { params: { path: { oid } } })),
     estimateSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/estimate', { params: { path: { oid } }, body })),
     convertSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/convert', { params: { path: { oid } }, body })),

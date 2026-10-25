@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query
 from app.api.v1.deps import Ctx
 from app.api.v1.paging import Page, Paging, paginate
 from app.sources import open as open_mode
+from app.sources.detect import DetectResult
 from app.tasks.source_inventory import InventoryPage
 from app.tasks.source_operations import (
     SourceOperation,
@@ -44,6 +45,13 @@ async def list_operations(ctx: Ctx, pg: Paging) -> Page[SourceOperation]:
 @router.get("/source-operations/{oid}", response_model=SourceOperation)
 async def get(ctx: Ctx, oid: str) -> SourceOperation:
     return await ctx.source_operations.view(oid)
+
+
+@router.get("/source-operations/{oid}/detection", response_model=DetectResult)
+def detection(ctx: Ctx, oid: str) -> DetectResult:
+    return ctx.source_operations.detection(
+        oid, dicom_available="dicom.convert" in ctx.registry.tasks
+    )
 
 
 @router.post("/source-operations/{oid}/open", response_model=open_mode.OpenSession, status_code=201)

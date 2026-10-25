@@ -2,7 +2,7 @@
 // converter overlay window (UI-25), which loads with its strings on first open (NFR-07).
 import { createElement, lazy, Suspense, useEffect } from 'react'
 
-import { isTaskRunPending, isViewPid, useSourceOperations } from '../../api'
+import { isViewPid, useSourceOperations } from '../../api'
 import { useWorkbench } from '../../shell'
 import type { FrontendPlugin } from '../host'
 import { useConverter } from './store'
@@ -17,10 +17,9 @@ function ConverterHost() {
   const minimized = useConverter((s) => s.minimized)
   const operations = useSourceOperations(!viewOnly).data
   useEffect(() => {
-    if (viewOnly || open || !operations) return
+    if (viewOnly || open || !selected || !operations) return
     const restored = operations.find((operation) => operation.operation_id === selected)
-      ?? operations.find((operation) => isTaskRunPending(operation.status))
-    if (restored) useConverter.getState().attach(restored.operation_id, selected ? minimized : true)
+    if (restored) useConverter.getState().attach(restored.operation_id, minimized)
   }, [viewOnly, open, operations, selected, minimized])
   return open && !viewOnly ? createElement(Suspense, { fallback: null }, createElement(Overlay, { key: session })) : null
 }

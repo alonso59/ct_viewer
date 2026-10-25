@@ -247,6 +247,7 @@ export interface Api {
   startSourceOperation(body: SourceOperationStart): Promise<SourceOperation>
   listSourceOperations(): Promise<SourceOperation[]>
   getSourceOperation(id: string): Promise<SourceOperation>
+  sourceOperationDetection(id: string): Promise<DetectResult>
   estimateSourceOperation(id: string, body: SourceOperationEstimate): Promise<SourceOperation>
   convertSourceOperation(id: string, body: SourceOperationConvert): Promise<SourceOperation>
   cancelSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>

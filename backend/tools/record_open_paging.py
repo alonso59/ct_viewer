@@ -21,6 +21,32 @@ from tools.record_mock import API, OUT, Recorder, dump, redact
 SID = "01JSYNTHOPENPAGING00000000"
 
 
+def prepare_operation(client: TestClient, path: Path, purpose: str) -> str:
+    response = client.post(
+        f"{API}/source-operations",
+        json={
+            "path": str(path),
+            "purpose": purpose,
+            "idempotency_key": f"record-background-{purpose}",
+        },
+    )
+    if response.status_code != 202:
+        raise SystemExit(f"record-open: background {purpose} failed ({response.status_code})")
+    oid = str(response.json()["operation_id"])
+    deadline = time.monotonic() + 30
+    while True:
+        state = client.get(f"{API}/source-operations/{oid}").json()
+        if state["status"] not in {"queued", "running"}:
+            break
+        if time.monotonic() > deadline:
+            raise SystemExit(f"record-open: background {purpose} timed out")
+        time.sleep(0.05)
+    expected = "opened" if purpose == "open" else "discovered"
+    if state["status"] != "completed" or state["stage"] != expected:
+        raise SystemExit(f"record-open: background {purpose} did not finish")
+    return oid
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="rw-open-record-") as folder:
         root = Path(folder)
@@ -76,30 +102,13 @@ def main() -> None:
             rec.call("POST", f"{API}/fs/list", {"path": None, "role": "derived"})
             for path in (data, first.parent, masks[0].parent):
                 rec.call("POST", f"{API}/fs/list", {"path": str(path), "role": "source"})
-            response = client.post(
-                f"{API}/source-operations",
-                json={
-                    "path": str(first.parent),
-                    "purpose": "open",
-                    "idempotency_key": "record-background-open",
-                },
-            )
-            if response.status_code != 202:
-                raise SystemExit(f"record-open: background start failed ({response.status_code})")
-            operation = response.json()["operation_id"]
-            deadline = time.monotonic() + 30
-            while True:
-                state = client.get(f"{API}/source-operations/{operation}").json()
-                if state["status"] not in {"queued", "running"}:
-                    break
-                if time.monotonic() > deadline:
-                    raise SystemExit("record-open: background preparation timed out")
-                time.sleep(0.05)
-            if state["status"] != "completed" or state["stage"] != "opened":
-                raise SystemExit("record-open: background preparation did not finish")
+            operation = prepare_operation(client, first.parent, "open")
             rec.get(f"{API}/source-operations/{operation}")
             rec.call("POST", f"{API}/source-operations/{operation}/open")
             rec.get(f"{API}/open/{operation}")
+            discovery = prepare_operation(client, first.parent, "discover")
+            rec.get(f"{API}/source-operations/{discovery}")
+            rec.get(f"{API}/source-operations/{discovery}/detection")
         after = {
             p: hashlib.sha256(p.read_bytes()).hexdigest() for p in data.rglob("*") if p.is_file()
         }
@@ -117,6 +126,7 @@ def main() -> None:
             )
             .replace(sid, SID)
             .replace(operation, "01JSYNTHOPENBACKGROUND00000")
+            .replace(discovery, "01JSYNTHDISCOVERY000000000")
         )
         additions = json.loads(text)
         recording = json.loads(OUT.read_text())
