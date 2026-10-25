@@ -121,11 +121,10 @@ export const useFsList = (path: string | null, role: RootRole = 'source') =>
   useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
 /** API-19 (SRC-01): candidate adapters for a folder or file */
 export const useDetect = () => useMutation({ mutationFn: (path: string) => api.detectSource(path) })
-/** API-07: opens a path (SRC-09) and caches the new session under its id */
-export function useOpenPath() {
-  const qc = useQueryClient()
-  return useMutation({ mutationFn: (path: string) => api.openPath(path), onSuccess: (s) => qc.setQueryData(keys.open(s.sid), s) })
-}
+/** API-69 / SRC-18: server-owned opening; the compatibility API-07 remains available. */
+export const useStartOpen = () => useMutation({
+  mutationFn: ({ path, key }: { path: string; key: string }) => api.startSourceOperation({ path, purpose: 'open', prepare_plan: false, idempotency_key: key }),
+})
 /** API-07: a live Open-mode session by id; `not-found` once closed or after a server restart */
 export const useOpenSession = (sid: string | null) =>
   useQuery({ queryKey: keys.open(sid ?? ''), queryFn: () => api.getOpen(sid ?? ''), enabled: enabled(sid), staleTime: Infinity, retry: false })

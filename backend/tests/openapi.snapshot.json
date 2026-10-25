@@ -21383,6 +21383,48 @@
     ]
    }
   },
+  "/api/v1/source-operations/{oid}/open": {
+   "post": {
+    "operationId": "open_result_api_v1_source_operations__oid__open_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OpenSession"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Result",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
   "/api/v1/source-operations/{oid}/plan": {
    "get": {
     "operationId": "plan_api_v1_source_operations__oid__plan_get",

@@ -2,13 +2,13 @@
 // Nothing is written to a project; "Create project from this" hands the path to the import wizard.
 // The URL is `/open/{sid}` (AUD-A1-19): a path arrives in the history state (`navigate.ts`), is
 // opened once and replaced by the session id; reload and back re-read the session, and a session
-// that has ended (Close, server restart) shows the problem with its next actions (UI-18).
+// that has ended shows its next actions (UI-18); durable results restore after server restart.
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
-import { api, keys, ProblemError, useAttachOpen, useFsList, useOpenPath, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
+import { api, keys, ProblemError, useAttachOpen, useFsList, useStartOpen, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
 import { Dialog, pendingPath, ProblemCard } from '../../lib'
 import { FolderBrowser, NewProjectDialog } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
@@ -82,13 +82,16 @@ export default function OpenRoute() {
   const { sid = null } = useParams()
   const location = useLocation()
   const pending = sid ? null : pendingPath(location.state)
-  const opening = useOpenPath()
+  const opening = useStartOpen()
   const { mutate: open } = opening
   const started = useRef<string | null>(null)
   useEffect(() => {
     if (!pending || started.current === location.key) return
     started.current = location.key // once per history entry (StrictMode runs effects twice)
-    open(pending, { onSuccess: (s) => navigate(`/open/${encodeURIComponent(s.sid)}`, { replace: true }) })
+    open({ path: pending, key: `open-route-${location.key}` }, { onSuccess: (operation) => {
+      runCommand('sources.openBackground', operation.operation_id)
+      navigate('/', { replace: true })
+    } })
   }, [pending, location.key, open, navigate])
   const live = useOpenSession(sid)
   const session = live.data

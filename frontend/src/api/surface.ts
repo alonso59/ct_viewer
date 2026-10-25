@@ -178,6 +178,7 @@ export interface Api {
   /** API-19: candidate adapters for a folder or one file; refusals carry `actions[]` */
   detectSource(path: string): Promise<DetectResult>
   openPath(path: string): Promise<OpenSession>
+  openSourceOperation(operation: string): Promise<OpenSession>
   /** VW-22 header info of an Open-mode DICOM item */
   openDicomTags(sid: string, n: number): Promise<Record<string, unknown>>
   getOpen(sid: string, item?: number): Promise<OpenSession>

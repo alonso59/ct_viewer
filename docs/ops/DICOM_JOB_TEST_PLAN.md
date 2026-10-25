@@ -199,3 +199,9 @@ estimates do not close discovery/registration/analyzer duration-history requirem
 Open paging adds focused service/API and recorded-window coverage for D09/U08
 (see DICOM_JOB_PLAN.md §Open pagination checkpoint). General background Open
 loading and the remaining crash/performance matrix stay open.
+
+Durable Open now has header-unit SIGKILL/cancellation/cache invalidation and restored-session
+API evidence, plus both-browser minimize/reload/cancel/resume coverage in
+`open-background.spec.ts`. The recorded window verifies completed restoration and refuses
+cancellation across attempt changes. Counts and logs live in the plan checkpoint; the full
+B08, resource/quota/performance and general import-loading rows remain open.

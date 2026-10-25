@@ -27,6 +27,9 @@ from app.core.paths import PathGuard
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
+from app.sources import open as open_mode
+from app.sources.open_service import RETRY as OPEN_ACTIONS
+from app.sources.open_service import guarded_source
 from app.tasks import dry_run, protocol
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_execution import run_dicom_job as run_dicom_worker
@@ -392,9 +395,15 @@ class SourceOperations:
         return False
 
     async def start(self, request: SourceOperationStart) -> SourceOperation:
+        if request.purpose == "open" and request.prepare_plan:
+            raise ValidationProblem("Open a source first; start conversion as a separate operation")
         if not Path(request.path).is_absolute():
             raise ValidationProblem("Choose an absolute source path")
-        source = self.guard.check(Path(request.path))
+        source = (
+            guarded_source(self.guard, request.path)
+            if request.purpose == "open"
+            else self.guard.check(Path(request.path))
+        )
         if not source.exists():
             raise NotFound("Source is missing")
         if not source.is_dir() and not source.is_file():
@@ -490,6 +499,8 @@ class SourceOperations:
                 "attempt": record.attempt,
                 "dicom_process_protocol": 1,
                 "inventory": str(self._dir(record.operation_id) / "inventory.sqlite"),
+                "purpose": record.purpose,
+                "operation_id": record.operation_id,
             },
         )
         record.job_id = new_ulid()
@@ -614,7 +625,7 @@ class SourceOperations:
                     current.status = (
                         "completed" if current.summary.get("complete") else "completed_with_errors"
                     )
-                    current.stage = "discovered"
+                    current.stage = "opened" if output.get("open_ready") else "discovered"
                     if current.status == "completed" and current.prepare_plan:
                         current.status, current.stage = "queued", "planning"
                     if current.summary.get("limit_reason") == "inventory_bytes":
@@ -660,6 +671,78 @@ class SourceOperations:
                 )
             self._write(current)
             raise RuntimeError(current.error) from None
+
+    def open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
+        """Restore an explicitly prepared Open result; conversion records stay separate."""
+        record = self.get(operation)
+        if record.purpose != "open":
+            raise NotFound("This operation has no Open session")
+        if record.stage != "opened" or record.status != "completed" or not record.cleanup_verified:
+            raise JobConflict(
+                "Finish or resume source opening before viewing its result", actions=OPEN_ACTIONS
+            )
+        self.guard.check(Path(record.source))
+        directory = self._dir(operation)
+        closed = directory / "open-closed.json"
+        if closed.exists() and not reopen:
+            raise NotFound("This Open session was closed", actions=["choose_another_path", "home"])
+        artifact = self._attempt_dir(record) / "open-session.json"
+        from app.tasks.source_open import reader_identity
+
+        try:
+            raw = artifact.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != record.summary.get(
+                "open_session_sha256"
+            ) or reader_identity() != record.summary.get("open_reader"):
+                raise JobConflict(
+                    "Open result changed or its reader is incompatible; open the source again",
+                    actions=OPEN_ACTIONS,
+                )
+            session = open_mode.OpenSession.model_validate_json(raw)
+            state = directory / "open-session-state.json"
+            if state.exists():
+                saved = read_json(state)
+                if (
+                    saved.get("version") != 1
+                    or saved.get("base_sha256") != record.summary["open_session_sha256"]
+                ):
+                    raise JobConflict(
+                        "Saved Open state is incompatible; open the source again",
+                        actions=OPEN_ACTIONS,
+                    )
+                session = open_mode.OpenSession.model_validate(saved["session"])
+        except (OSError, ValueError, KeyError):
+            raise JobConflict(
+                "Open result is unreadable; open the source again", actions=OPEN_ACTIONS
+            ) from None
+        if session.sid != operation or session.path != record.source:
+            raise JobConflict("Open result belongs to a different source", actions=OPEN_ACTIONS)
+        if reopen:
+            closed.unlink(missing_ok=True)
+        return session
+
+    def save_open_session(self, session: open_mode.OpenSession) -> None:
+        try:
+            record = self.get(session.sid)
+        except NotFound:
+            return  # compatibility Open sessions are intentionally ephemeral
+        if record.purpose == "open":
+            atomic_write_json(
+                self._dir(session.sid) / "open-session-state.json",
+                {
+                    "version": 1,
+                    "base_sha256": record.summary.get("open_session_sha256"),
+                    "session": session.model_dump(mode="json"),
+                },
+            )
+
+    def close_open_session(self, operation: str) -> None:
+        try:
+            record = self.get(operation)
+        except NotFound:
+            return
+        if record.purpose == "open":
+            atomic_write_json(self._dir(operation) / "open-closed.json", {"closed_at": utc_now()})
 
     async def convert(self, operation: str, request: SourceOperationConvert) -> SourceOperation:
         async with self.locks(f"_source_operation:{operation}"):
@@ -767,6 +850,8 @@ class SourceOperations:
     async def estimate(self, operation: str, request: SourceOperationEstimate) -> SourceOperation:
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
+            if record.purpose == "open":
+                raise JobConflict("Start a separate conversion operation for this Open source")
             if not self._check_control(record, request, "estimate"):
                 return record
             if (

@@ -21,7 +21,7 @@ test('open a NIfTI file from the workspace home without a project', async ({ pag
 
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
   expect(page.url()).not.toMatch(/nii|Dataset900|path=/)
-  await expect(page.getByText('No project: nothing is saved')).toBeVisible()
+  await expect(page.getByText('Viewing without a project')).toBeVisible()
   const files = page.getByRole('listbox', { name: 'Files' })
   await expect(files.getByRole('button', { name: /01_case_00001_0000/ })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('button', { name: 'Create project from this' })).toBeEnabled()

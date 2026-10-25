@@ -373,3 +373,42 @@ transport cases and the corrected window test (`dicom-open-replay-green.log`,
 `dicom-open-window-final.log`). The real Open paging/attach/Save journey passes
 both Chromium and Firefox in 2.1 minutes with original source hashes unchanged
 (`dicom-open-paging-browser.log`). These results do not close durable Open loading.
+
+### Durable Open checkpoint
+
+The Open purpose now runs discovery and complete-unit header preparation in the owned
+worker. Committed header units survive actual SIGKILL; changed source signatures and reader
+identities invalidate reuse. Cancel within a DICOM series leaves no partial cached unit.
+`test_source_open.py` covers these boundaries; the source-operation API case restores the
+session and attached mask after application restart and checks Close/explicit reopen.
+The shared window now handles Open progress and its result. These focused cases do not yet
+certify the entire both-browser, quota, abrupt API-death or performance matrix.
+
+The affected backend/API area passes 47 cases before the final privacy/integrity additions
+(`dicom-source-open-backend-area.log`); 24 inventory/header/layering cases cover the private
+SQLite update (`dicom-source-open-private-area.log`). Six header/recovery cases include real
+SIGKILL after a SQLite commit. The restored-session case verifies persistent attachments,
+Close/reopen and refusal of altered result bytes (`dicom-source-open-integrity-green.log`).
+Window/API/boundary tests pass 70 cases before the cancellation refinement; all 33 window
+cases then pass with refresh-before-cancel and refusal to act on a newer attempt
+(`dicom-source-open-frontend-area.log`, `dicom-source-cancel-window-green.log`).
+Eight real Open/large-page cases pass in Chromium/Firefox; the two initially failing queued
+cancel/resume cases then pass with the corrected client in 49.1 seconds, preserving fixture
+hashes (`dicom-source-open-browser-final.log`, `dicom-source-open-background-browser-green.log`).
+The browser harness bounds its own affinity and native compiler threads; no server-wide
+settings or production processes changed. Test history entries use unique opaque keys, as
+real router navigation does. Full CI for the preceding pagination publication 08b7739 passed
+both verify and image jobs (run 40182498395); it does not cover this later checkpoint.
+
+Remaining release work still includes durable general import/detection, complete crash and
+cross-container resource matrices, inventory retention/aggregate quotas, reference performance
+and ETA calibration, final CI/product-image acceptance, migration/rollback readiness and rollout.
+No closure checkbox is certified by these partial gates; GPU launches remain blocked.
+
+Final affected gates pass 48 backend cases without skips (`dicom-source-open-final.xml`),
+35 conversion/control regressions (`dicom-source-open-conversion-regression.log`) and 72
+frontend/API/boundary cases across 15 files (`dicom-source-open-final-frontend.log`).
+Final real-viewer opening/reload/Close passes in both browsers in 52.1 seconds
+(`dicom-source-open-final-viewer-browser.log`), with fixture hashes unchanged. The current
+No-project label describes viewing mode without promising that recoverable headers disappear.
+Static lint/types/API/requirements/dead-code checks pass; final CI and image/release gates remain.
