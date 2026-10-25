@@ -44,6 +44,7 @@ from app.sources.open_service import guarded_source
 from app.tasks import dry_run, protocol
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_execution import run_dicom_job as run_dicom_worker
+from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
     TaskEstimate,
@@ -406,100 +407,90 @@ class SourceOperations:
             execution.acquire()
         except LockHeldError:
             return 0
-        removed = 0
         cutoff = datetime.now(UTC) - timedelta(days=self.settings.dicom_retention_days)
         try:
+            removed = 0
             for directory in self.root.iterdir():
-                if not is_ulid(directory.name) or directory.is_symlink():
-                    continue
-                try:
-                    record = self.get(directory.name)
-                except (OSError, Problem):
-                    continue
-                expired = directory / "inventory-expired.json"
-                if (
-                    expired.exists()
-                    and not any(directory.glob("inventory.sqlite*"))
-                    and not any((directory / "plans").glob("*/*.json"))
-                ):
-                    continue
-                try:
-                    age = datetime.fromisoformat(record.updated_at.replace("Z", "+00:00"))
-                    if not expired.exists() and age >= cutoff:
-                        continue
-                except (TypeError, ValueError):
-                    continue
-                lock = self.locks(f"_source_operation:{record.operation_id}")
-                if lock.locked():
-                    continue
-                async with lock:
-                    current = await self.view(record.operation_id)
-                    if (
-                        current.status != "completed"
-                        or not current.cleanup_verified
-                        or current.error
-                    ):
-                        continue
-                    if current.purpose == "open" and not (directory / "open-closed.json").is_file():
-                        continue
-                    if (
-                        current.import_context is not None
-                        and current.import_context.step != "index"
-                    ):
-                        continue
-                    if current.phase_run is not None and current.phase_run.status != "completed":
-                        continue
-                    lease = FileLock(directory / "inventory-use.lock")
-                    try:
-                        lease.acquire()
-                    except LockHeldError:
-                        continue
-                    try:
-                        if (
-                            current.purpose == "open"
-                            and not (directory / "open-closed.json").is_file()
-                        ):
-                            continue
-                        database = directory / "inventory.sqlite"
-                        if database.is_file() and not expired.exists():
-                            try:
-                                with SourceInventory(database, Path(record.source)) as inventory:
-                                    inventory.db.execute("PRAGMA busy_timeout=0")
-                                    busy = inventory.db.execute(
-                                        "PRAGMA wal_checkpoint(TRUNCATE)"
-                                    ).fetchone()[0]
-                                    if busy:
-                                        continue
-                            except (OSError, sqlite3.Error, Problem):
-                                continue
-                        atomic_write_json(
-                            expired,
-                            {
-                                "expired_at": utc_now(),
-                                "generation": current.summary.get("generation"),
-                            },
-                        )
-                        for name in (
-                            "inventory.sqlite-wal",
-                            "inventory.sqlite-shm",
-                            "inventory.sqlite",
-                        ):
-                            path = directory / name
-                            if path.is_file() and not path.is_symlink():
-                                path.unlink()
-                        for path in (directory / "plans").glob("*/*.json"):
-                            if (
-                                not path.is_symlink()
-                                and path.is_file()
-                                and path.resolve().is_relative_to(directory.resolve())
-                            ):
-                                path.unlink()
-                        removed += 1
-                    finally:
-                        lease.release()
+                removed += await self._expire_inventory(directory, cutoff)
+            return removed
         finally:
             execution.release()
-        return removed
+
+    async def _expire_inventory(self, directory: Path, cutoff: datetime) -> bool:
+        if not is_ulid(directory.name) or directory.is_symlink():
+            return False
+        try:
+            record = self.get(directory.name)
+        except (OSError, Problem):
+            return False
+        expired = directory / "inventory-expired.json"
+        if (
+            expired.exists()
+            and not any(directory.glob("inventory.sqlite*"))
+            and not any((directory / "plans").glob("*/*.json"))
+        ):
+            return False
+        try:
+            age = datetime.fromisoformat(record.updated_at.replace("Z", "+00:00"))
+            if not expired.exists() and age >= cutoff:
+                return False
+        except (TypeError, ValueError):
+            return False
+        lock = self.locks(f"_source_operation:{record.operation_id}")
+        if lock.locked():
+            return False
+        async with lock:
+            current = await self.view(record.operation_id)
+            if current.status != "completed" or not current.cleanup_verified or current.error:
+                return False
+            if current.purpose == "open" and not (directory / "open-closed.json").is_file():
+                return False
+            if current.import_context is not None and current.import_context.step != "index":
+                return False
+            if current.phase_run is not None and current.phase_run.status != "completed":
+                return False
+            lease = FileLock(directory / "inventory-use.lock")
+            try:
+                lease.acquire()
+            except LockHeldError:
+                return False
+            try:
+                if current.purpose == "open" and not (directory / "open-closed.json").is_file():
+                    return False
+                database = directory / "inventory.sqlite"
+                if (
+                    database.is_file()
+                    and not expired.exists()
+                    and not self._checkpointed(database, record.source)
+                ):
+                    return False
+                atomic_write_json(
+                    expired,
+                    {"expired_at": utc_now(), "generation": current.summary.get("generation")},
+                )
+                for name in ("inventory.sqlite-wal", "inventory.sqlite-shm", "inventory.sqlite"):
+                    path = directory / name
+                    if path.is_file() and not path.is_symlink():
+                        path.unlink()
+                for path in (directory / "plans").glob("*/*.json"):
+                    if (
+                        not path.is_symlink()
+                        and path.is_file()
+                        and path.resolve().is_relative_to(directory.resolve())
+                    ):
+                        path.unlink()
+                return True
+            finally:
+                lease.release()
+
+    @staticmethod
+    def _checkpointed(database: Path, source: str) -> bool:
+        try:
+            with SourceInventory(database, Path(source)) as inventory:
+                inventory.db.execute("PRAGMA busy_timeout=0")
+                return not inventory.db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0]
+        except (OSError, sqlite3.Error, Problem):
+            return False
 
     async def _import_view(self, record: SourceOperation) -> SourceOperation:
         context = record.import_context
@@ -846,14 +837,14 @@ class SourceOperations:
                 spec = (
                     self.tasks.source_estimate_spec(
                         request.project_id,
-                        "dicom.convert",
+                        DICOM_CONVERT,
                         str(source),
                         request.settings,
                         validation_dir,
                     )
                     if request.project_id
                     else self.workspace_tasks.source_estimate_spec(
-                        "dicom.convert", str(source), request.settings, validation_dir
+                        DICOM_CONVERT, str(source), request.settings, validation_dir
                     )
                 )
                 record.settings = spec["settings"]
@@ -871,11 +862,11 @@ class SourceOperations:
         if record.work_kind == "estimate":
             base = (
                 self.tasks.source_estimate_spec(
-                    record.project_id, "dicom.convert", record.source, record.settings, job_dir
+                    record.project_id, DICOM_CONVERT, record.source, record.settings, job_dir
                 )
                 if record.project_id
                 else self.workspace_tasks.source_estimate_spec(
-                    "dicom.convert",
+                    DICOM_CONVERT,
                     record.source,
                     record.settings,
                     job_dir,
@@ -1010,21 +1001,10 @@ class SourceOperations:
                 if current.work_kind == "convert":
                     await self._finish_conversion(current, output)
                     return
-                elif current.work_kind == "estimate":
+                if current.work_kind == "estimate":
                     self._finish_estimate(current, output)
                 else:
-                    current.summary = output.get("summary", {})
-                    current.status = (
-                        "completed" if current.summary.get("complete") else "completed_with_errors"
-                    )
-                    current.stage = "opened" if output.get("open_ready") else "discovered"
-                    if current.status == "completed" and current.prepare_plan:
-                        current.status, current.stage = "queued", "planning"
-                    if current.summary.get("limit_reason") == "inventory_bytes":
-                        current.error = (
-                            "Inventory storage limit reached; increase DICOM_INVENTORY_MB "
-                            "or release old inventory readers, then resume"
-                        )
+                    self._finish_discovery(current, output)
             self._write(current)
             if current.status == "cancelled" and current.job_id:
                 self.jobs.cancel(current.job_id)
@@ -1327,7 +1307,7 @@ class SourceOperations:
             await self.tasks.start(
                 record.project_id,
                 TaskRunRequest(
-                    task_id="dicom.convert",
+                    task_id=DICOM_CONVERT,
                     settings=record.settings,
                     selection=TaskSelection(source=record.source),
                 ),
@@ -1338,7 +1318,7 @@ class SourceOperations:
         else:
             await self.workspace_tasks.start(
                 WorkspaceRunRequest(
-                    task_id="dicom.convert",
+                    task_id=DICOM_CONVERT,
                     name=record.conversion_request["name"],
                     settings=record.settings,
                     selection=TaskSelection(source=record.source),
@@ -1347,6 +1327,19 @@ class SourceOperations:
                 source_inventory=binding,
             )
         record.status, record.stage = "completed", "converting"
+
+    @staticmethod
+    def _finish_discovery(record: SourceOperation, result: dict[str, Any]) -> None:
+        record.summary = result.get("summary", {})
+        record.status = "completed" if record.summary.get("complete") else "completed_with_errors"
+        record.stage = "opened" if result.get("open_ready") else "discovered"
+        if record.status == "completed" and record.prepare_plan:
+            record.status, record.stage = "queued", "planning"
+        if record.summary.get("limit_reason") == "inventory_bytes":
+            record.error = (
+                "Inventory storage limit reached; increase DICOM_INVENTORY_MB "
+                "or release old inventory readers, then resume"
+            )
 
     def _finish_estimate(self, record: SourceOperation, result: dict[str, Any]) -> None:
         record.summary = result.get("summary", {})

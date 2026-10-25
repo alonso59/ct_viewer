@@ -21,6 +21,7 @@ from app.projects.models import LabelEntry, SegmentationSet, SegProducer
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.sources import identity as identity_store
 from app.tasks.dicom_execution import attempt_cleaned
+from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.estimate import EstimateBase
 from app.tasks.models import TaskRunOutput
 from app.tasks.records import ANNOTATIONS, LEDGER, Live, default_seg_id, sha256_file
@@ -328,13 +329,13 @@ class RegistrationBase(EstimateBase):
                 src = (live.job_dir / str(o.get("path", ""))).resolve()
                 if not src.is_file() or not src.is_relative_to(live.job_dir.resolve()):
                     continue
-                if m.id == "dicom.convert" and (
+                if m.id == DICOM_CONVERT and (
                     not o.get("sha256") or await asyncio.to_thread(sha256_file, src) != o["sha256"]
                 ):
                     raise JobConflict("Committed converter annotations changed before registration")
                 rows = [r for r in iter_jsonl(src) if r.get("item_id") and r.get("field")]
                 conversion = self.runs.read(live.run_dir)
-                if m.id == "dicom.convert" and conversion.phase_run_id:
+                if m.id == DICOM_CONVERT and conversion.phase_run_id:
                     phase_run = self.runs.read(self.runs.run_dir(pid, conversion.phase_run_id))
                     if phase_run.status == "completed" and not self.workspace.get(
                         pid
@@ -370,7 +371,7 @@ class RegistrationBase(EstimateBase):
                     raise ValueError("metadata.jsonl must be inside the run's output_dir")
                 root = self.workspace.derived_root(pid)
                 data = await asyncio.to_thread(path.read_bytes)
-                if m.id == "dicom.convert" and (
+                if m.id == DICOM_CONVERT and (
                     not o.get("sha256") or hashlib.sha256(data).hexdigest() != o["sha256"]
                 ):
                     raise JobConflict("Committed converter metadata changed before registration")
@@ -380,10 +381,10 @@ class RegistrationBase(EstimateBase):
                     root=root.path,
                     alias=root.alias,
                     source_key=f"task:{m.id}",
-                    run_id=rid if m.id == "dicom.convert" else None,
+                    run_id=rid if m.id == DICOM_CONVERT else None,
                     check_active=(
                         (lambda: self._check_registration_active(live))
-                        if m.id == "dicom.convert"
+                        if m.id == DICOM_CONVERT
                         else None
                     ),
                 )

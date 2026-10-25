@@ -26,6 +26,7 @@ from app.tasks import control, dry_run, protocol, registry
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_resources import require_pixel_budget
 from app.tasks.driver import DriverBase
+from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.identity import committed_outputs, create_identity, verify_resume
 from app.tasks.jobspec import bind_inventory
 from app.tasks.models import (
@@ -74,7 +75,7 @@ class TaskService(DriverBase):
             self.phase_runs.recover(pid, rec.run_id)
             return
         native_job_id = rec.job_id
-        if rec.task.id != "dicom.convert" or not native_job_id:
+        if rec.task.id != DICOM_CONVERT or not native_job_id:
             return
         if rec.status == "completed":
             key = f"dicom.registration:{rec.run_id}"
@@ -239,7 +240,7 @@ class TaskService(DriverBase):
             return await self._radiomics().start_task(pid, req, reviewer)
         info = self.get(req.task_id)
         if run_id is not None:
-            if req.task_id != "dicom.convert" or not is_ulid(run_id):
+            if req.task_id != DICOM_CONVERT or not is_ulid(run_id):
                 raise JobConflict(
                     "Reserved run identities are only supported for DICOM source operations"
                 )
@@ -307,7 +308,7 @@ class TaskService(DriverBase):
         )
         rid = run_id or new_ulid()
         out_dir = self._output_dir(pid, m, rid)
-        if m.id == "dicom.convert":
+        if m.id == DICOM_CONVERT:
             require_pixel_budget(self.settings)
         now = utc_now()
         rec = TaskRunRecord(
@@ -373,18 +374,18 @@ class TaskService(DriverBase):
         execution = rec.execution or {}
         resource_wait = None
         phase_step = execution.get("phase_step") is True
-        if (rec.task.id == "dicom.convert" or phase_step) and execution.get("progress"):
+        if (rec.task.id == DICOM_CONVERT or phase_step) and execution.get("progress"):
             progress = TaskRunProgress.model_validate(execution["progress"])
-        if rec.task.id == "dicom.convert" and execution.get("resource_wait"):
+        if rec.task.id == DICOM_CONVERT and execution.get("resource_wait"):
             resource_wait = TaskResourceWait.model_validate(execution["resource_wait"])
         if job is not None and job.status not in TERMINAL:
             if not (phase_step and execution.get("shared_conversion_job")) and (
-                rec.task.id != "dicom.convert" or progress is None
+                rec.task.id != DICOM_CONVERT or progress is None
             ):
                 progress = TaskRunProgress(
                     done=job.done,
                     total=job.total,
-                    eta_s=None if rec.task.id == "dicom.convert" or phase_step else job.eta_s,
+                    eta_s=None if rec.task.id == DICOM_CONVERT or phase_step else job.eta_s,
                     stage="analyzing" if phase_step else None,
                     stage_done=job.done if phase_step else 0,
                     stage_total=job.total if phase_step else 0,
@@ -426,7 +427,7 @@ class TaskService(DriverBase):
             if (rec.execution or {}).get("phase_step"):
                 await self.phase_runs.cancel(pid, rid, expected_attempt)
                 return await self.get_run(pid, rid)
-            if rec.task.id == "dicom.convert":
+            if rec.task.id == DICOM_CONVERT:
                 async with self.locks(f"_dicom_control:{pid}:{rid}"):
                     return await self._cancel(pid, rid, expected_attempt=expected_attempt)
         return await self._cancel(pid, rid, expected_attempt=expected_attempt)
@@ -444,10 +445,10 @@ class TaskService(DriverBase):
             return await control.request_control(self, pid, rid, "cancel")
         if expected_attempt is not None and rec.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
-        if rec.task.id == "dicom.convert" and rec.status == "completed":
+        if rec.task.id == DICOM_CONVERT and rec.status == "completed":
             await self._cancel_registration(pid, rid, run_dir)
             return await self.get_run(pid, rid)
-        if rec.task.id == "dicom.convert" and rec.status not in TERMINAL_TASK_RUN:
+        if rec.task.id == DICOM_CONVERT and rec.status not in TERMINAL_TASK_RUN:
             if rec.job_id and self.runs.job(rec.job_id) is not None:
                 protocol.request_cancel(run_dir / "attempts" / rec.job_id)
 
@@ -491,11 +492,11 @@ class TaskService(DriverBase):
         """A new attempt that skips the items already `ok`."""
         if not self._radiomics().has_run(pid, rid):
             rec = self.runs.read(self.runs.run_dir(pid, rid))
-            if failed_only and (rec.task.id != "dicom.convert" or expected_attempt is None):
+            if failed_only and (rec.task.id != DICOM_CONVERT or expected_attempt is None):
                 raise JobConflict("Retry failed requires a conversion run and its current attempt")
             if (rec.execution or {}).get("phase_step"):
                 return await self.phase_runs.resume(pid, rid, expected_attempt)
-            if rec.task.id == "dicom.convert":
+            if rec.task.id == DICOM_CONVERT:
                 async with self.locks(f"_dicom_control:{pid}:{rid}"):
                     return await self._resume(
                         pid,
@@ -548,10 +549,10 @@ class TaskService(DriverBase):
         rec = await self.runs.resumable(pid, run_dir)
         if expected_attempt is not None and rec.attempts != expected_attempt:
             raise JobConflict("Conversion run attempt changed; reload before controlling it")
-        if rec.task.id == "dicom.convert":
+        if rec.task.id == DICOM_CONVERT:
             require_pixel_budget(self.settings)
         if (
-            rec.task.id == "dicom.convert"
+            rec.task.id == DICOM_CONVERT
             and rec.job_id
             and not attempt_cleaned(run_dir / "attempts" / rec.job_id, rec.attempts)
         ):
