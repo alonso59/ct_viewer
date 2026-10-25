@@ -442,3 +442,31 @@ Evidence for this checkpoint: 48 affected backend cases with zero skips/failures
 (`dicom-open-pins-final.xml`), both Chromium/Firefox background-Open journeys
 (48.6 s, synthetic source hashes unchanged), and lint/types/426 requirement IDs/
 dead-code checks pass. This is local evidence, not final CI/image acceptance.
+
+### Durable detection result checkpoint
+
+`GET /source-operations/{id}/detection` exposes completed, cleanup-verified discovery
+as API-19-compatible adapter hints from its retained inventory. Legacy and durable
+paths share the same adapter policy; NIfTI sampling stays bounded at 50 and spread
+across the entire ordered inventory. There is no directory walk, header re-probe,
+project creation or conversion when retrieving results after restart. Missing,
+cancelled/incomplete and scanner-incompatible inventories refuse with next actions.
+The typed client and synthetic recording cover the new result; wiring the import
+wizard into the shared floating window and persisting its later preview/index stages
+remain unfinished. This backend checkpoint does not close SRC-19 or the full plan.
+
+The preceding publication's full CI passed 1,111 backend, 404 frontend and 108 serial
+runner cases, then failed four Chromium/Firefox journeys: a completed chip reappeared
+after Open entered the viewer, made Close ambiguous and covered the paging control.
+Two host unit cases reproduce the stale-query reattachment. Reconnect now requires
+the retained selected ID; it never auto-selects an arbitrary pending server entry.
+Explicit restoration remains supported. Open/paging browser assertions require no
+orphaned chip after automatic viewer entry. Full CI must rerun for this correction.
+
+Evidence for durable detection and the stale-chip correction: 55 affected backend
+cases (`dicom-source-detection-backend.xml`), three OpenAPI contract cases, 71
+frontend cases across 15 files, and ten real Chromium/Firefox background/Open/paging
+journeys (3.1 min; source hashes unchanged). Lint, types, generated API types, 426
+requirement IDs and dead-code checks pass. The 28 recorded exchanges came from
+actual disposable synthetic API runs. Final CI/image and import-window integration
+remain open; no production rollout is certified by this checkpoint.

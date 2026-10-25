@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
 
@@ -56,15 +57,47 @@ def _refuse(path: Path, s: formats.Scan) -> UnsupportedFormat:
 
 
 def detect(path: Path, *, dicom_available: bool) -> DetectResult:
-    """`path` is already guarded (ALLOWED_DATA_ROOTS)."""
-    if path.is_file():
-        s = formats.scan(path.parent, [path.name])
-        kind = formats.classify(path)
-        counts = _counts(s)
-        if kind is None:
-            raise _refuse(path, s)
-        cands: list[Candidate] = []
-        if kind == "nifti":
+    """Compatibility API-19: `path` is already guarded (ALLOWED_DATA_ROOTS)."""
+    single = path.is_file()
+    scan = formats.scan(path.parent, [path.name]) if single else formats.scan(path)
+    if single and formats.classify(path) is None:
+        raise _refuse(path, scan)
+    return from_facts(
+        path,
+        kind="file" if single else "folder",
+        counts=_counts(scan),
+        ignored=dict(scan.ignored),
+        nifti_sample=evenly_spaced(scan.files["nifti"], SAMPLE),
+        has_meta=not single and (path / "metadata.jsonl").is_file(),
+        truncated=scan.truncated,
+        dicom_available=dicom_available,
+    )
+
+
+def from_facts(
+    path: Path,
+    *,
+    kind: Literal["file", "folder"],
+    counts: dict[str, int],
+    ignored: dict[str, int],
+    nifti_sample: list[str],
+    has_meta: bool,
+    truncated: bool,
+    dicom_available: bool,
+) -> DetectResult:
+    """Same adapter policy for legacy scans and completed durable inventories."""
+    if not has_meta and not sum(counts.get(key, 0) for key in ("nifti", "dicom", "npy")):
+        raise _refuse(
+            path,
+            formats.Scan(
+                path,
+                ignored=Counter(ignored),
+                refused={ext: formats.REFUSED[ext] for ext in ignored if ext in formats.REFUSED},
+            ),
+        )
+    cands: list[Candidate] = []
+    if kind == "file":
+        if counts["nifti"]:
             cands.append(
                 Candidate(
                     adapter="nifti-files",
@@ -74,57 +107,56 @@ def detect(path: Path, *, dicom_available: bool) -> DetectResult:
                     options={"include": [path.name]},
                 )
             )
-        elif kind == "dicom":
+        elif counts["dicom"]:
             cands.append(_dicom(counts, dicom_available, single=True))
         cands.append(
             Candidate(
-                adapter="open", reason="View it without a project", counts=counts, confidence="high"
-            )
-        )
-        return DetectResult(
-            path=str(path), kind="file", root=str(path.parent), candidates=cands, counts=counts,
-            ignored=dict(s.ignored),
-        )  # fmt: skip
-    s = formats.scan(path)
-    counts = _counts(s)
-    has_meta = (path / "metadata.jsonl").is_file()
-    if not has_meta and s.n_accepted == 0:
-        raise _refuse(path, s)
-    cands = []
-    if has_meta:
-        cands.append(
-            Candidate(
-                adapter="metadata-v1",
-                reason="metadata.jsonl found",
+                adapter="open",
+                reason="View it without a project",
                 counts=counts,
                 confidence="high",
             )
         )
-    if counts["nifti"]:
-        cands.append(
-            Candidate(
-                adapter="nifti-files",
-                reason=f"{counts['nifti']} NIfTI files",
-                counts=counts,
-                confidence="low" if has_meta else "high",
-                sample=evenly_spaced(s.files["nifti"], SAMPLE),
+    else:
+        if has_meta:
+            cands.append(
+                Candidate(
+                    adapter="metadata-v1",
+                    reason="metadata.jsonl found",
+                    counts=counts,
+                    confidence="high",
+                )
             )
-        )
-    if counts["dicom"]:
-        cands.append(_dicom(counts, dicom_available, single=False))
-    if s.n_accepted:
-        cands.append(
-            Candidate(
-                adapter="open",
-                reason="View the files without a project",
-                counts=counts,
-                confidence="low",
+        if counts["nifti"]:
+            cands.append(
+                Candidate(
+                    adapter="nifti-files",
+                    reason=f"{counts['nifti']} NIfTI files",
+                    counts=counts,
+                    confidence="low" if has_meta else "high",
+                    sample=nifti_sample,
+                )
             )
-        )
+        if counts["dicom"]:
+            cands.append(_dicom(counts, dicom_available, single=False))
+        if any(counts.get(key, 0) for key in ("nifti", "dicom", "npy")):
+            cands.append(
+                Candidate(
+                    adapter="open",
+                    reason="View the files without a project",
+                    counts=counts,
+                    confidence="low",
+                )
+            )
     return DetectResult(
-        path=str(path), kind="folder", root=str(path), candidates=cands, counts=counts,
-        ignored=dict(s.ignored), truncated=s.truncated,
-    )  # fmt: skip
+        path=str(path),
+        kind=kind,
+        root=str(path.parent if kind == "file" else path),
+        candidates=cands,
+        counts=counts,
+        ignored=ignored,
+        truncated=truncated,
+    )
 
 
 def _dicom(counts: dict[str, int], available: bool, *, single: bool) -> Candidate:

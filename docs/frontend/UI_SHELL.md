@@ -106,7 +106,7 @@ offer Open in viewer. The source-operations command opens retained operations.
 Dry run creates a server source operation whose persisted intent chains discovery to header-only planning.
 The window retrieves the linked run and pages the complete plan; API-69 owns commands and recovery.
 Back edits/re-estimates the existing operation; a changed destination starts a new context. A stale fence refetches state without replaying the command.
-Only the operation ID and minimized preference persist in `rw.converter`; server state uses TanStack Query.
+Only the operation ID and minimized preference persist in `rw.converter`; server state uses TanStack Query. Reconnect restores only that selected ID. It does not automatically choose other server operations; a stale cached pending entry cannot reopen the window after Close or automatic viewer entry.
 The host restores active/recent operations and provides explicit selection/new conversion without replacing running work.
 Source pickers use server file/directory kinds and permit extensionless files for content validation.
 The source folder tree is collapsible; a directory named `.dcm` is still navigated as a directory.

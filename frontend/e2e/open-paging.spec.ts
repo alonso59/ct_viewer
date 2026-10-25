@@ -39,6 +39,7 @@ test('open later files, attach and save while keeping pages bounded and sources 
     await expect(page.getByRole('button', { name: 'Convert DICOM…' })).toBeVisible()
     await expect(page.locator('.vp').first()).toBeVisible({ timeout: 30_000 })
     await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+    await expect(page.getByTestId('conv-chip')).toHaveCount(0)
     for (let n = 1; n <= 10; n++) {
       await page.getByRole('button', { name: 'Next page', exact: true }).click()
       await expect(files.getByRole('button').first()).toContainText(`${String(n * 50).padStart(4, '0')}.nii.gz`)

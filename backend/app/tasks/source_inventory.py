@@ -325,6 +325,12 @@ class SourceInventory:
         self.db.execute("PRAGMA wal_checkpoint(PASSIVE)")
         return self.summary()
 
+    def check_reader(self) -> None:
+        """Read cached facts only when every batch used the current scanner."""
+        for row in self.db.execute("SELECT signature FROM files"):
+            if not row[0] or json.loads(row[0])[0] != self._scanner:
+                raise JobConflict("Inventory scanner changed; discover this source again")
+
     def summary(self) -> dict[str, Any]:
         counts = dict(self.db.execute("SELECT kind, COUNT(*) FROM files GROUP BY kind").fetchall())
         errors = self.db.execute("SELECT COUNT(*) FROM files WHERE error != ''").fetchone()[0]
