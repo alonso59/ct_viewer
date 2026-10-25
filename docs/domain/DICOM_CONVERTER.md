@@ -87,6 +87,27 @@ Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as va
 
 ## Implementation notes
 
+DCM-19 conversion history lives privately at
+`{WORKSPACE_ROOT}/plugins/dicom/timing-history.json` (format 1, at most 2,048 samples and
+1 MiB read budget), under the existing owned-execution lock. It stores hashes and positive
+seconds-per-voxel measurements, without patient/source identifiers. Compatibility covers the
+host, Python/libc/tracing/preload runtime, source/output roots, reader versions/code,
+effective pixel settings, CPU/native concurrency and memory configuration; series classes
+distinguish codec, pixel type, in-plane dimensions,
+orientation, depth bucket and multi-frame encoding. Unknown destination storage has no estimate.
+At least five completed, freshly decoded commits per required class supply an empirical range:
+median rate for the point, 0.8 × minimum and 1.25 × maximum rates for bounds, scaled to remaining
+voxels. Confidence remains low pending reference calibration. Verified reuse/prepared-commit
+adoption, failures and unfinished units do not train history; verified completions leave remaining
+work without adding samples. Failed units stay pending until a verified commit. Pauses/restart
+downtime, discovery, registration and optional phase analysis are excluded.
+Corrupt/incompatible/oversized or unwritable history withdraws the estimate
+without changing image commits; unrecognized records are preserved. This conversion-stage
+history does not certify the complete stage-duration or P06 acceptance matrix.
+Advisory observations flush on the first/fifth new sample, each batch of 16 and pipeline exit,
+including ordinary cancellation. Abrupt process death may discard at most 15 unflushed timing
+observations; committed images and the operational journal have their independent durability rules.
+
 - Rows are cleaned at the end of `pipeline.run` (`clean_row`: `STUDY_FIELDS` = `target_match_level`, `output_role`, `include_guess`, `exclude_reason`, `analysis_readiness`, `group`, `notes`, plus every `phase_guess*`, `curated_*`, `target_match*` key), also for legacy rows carried over from a previous run (DCM-07). The analyzers still run in-process for selection; their results leave only as annotations. Converter version 1.1.0. Rows also carry `window_center` / `window_width` (first values of the header's multi-values, VW-22).
 - Setting `phase_analyzer` (default on): phase rules execute only after successful native commits; off invokes no phase rules (DCM-14). Checkpoint ownership and layer activation live in ANALYZERS.md (ANZ-02/04). Contrast delay is a metadata fact shared with the analyzer; phase vocabulary no longer pins native conversion settings. The CLI writes the same clean `metadata.jsonl` and `.rw_identity.json`; it no longer writes `curation.csv` (an old one is left untouched for CUR-15).
 - Workspace runs (`scope: workspace`, TSK-13): output `{first ALLOWED_DERIVED_ROOTS}/_datasets/{name}/` = `metadata.jsonl` (paths relative to the dataset: `nifti/…`, `sidecars/…`; an import turns a relative `dicom_sidecar` into a ref under its alias like `relative_path`, INPUT_METADATA, AUD-A2-04), `nifti/`, `sidecars/`, `diagnostics.jsonl`, `summary.json`, `annotations.jsonl` (the analyzer layers) and `dataset.json` (`{dataset: 1, name, task, run_id, source, settings, created_at, counts}`). Identity starts empty (`case_00000`, …); `anonymize` salts with an empty project id. Without a `name` the dataset is `dataset-{YYYY-MM-DD}` (the overlay suggests the same), never the source folder's name, which is often a patient name (NFR-17, AUD-A5-16). A taken name gets `-1`, `-2` …; the overlay says so in its settings step, and the workspace home lists the completed datasets (UI-04, AUD-A2-14).

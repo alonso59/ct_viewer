@@ -107,6 +107,10 @@ def main(job_dir: Path) -> int:
     if spec.get("operation", "task") == "task":
         from plugins.dicom.task import run
 
+        from app.tasks.dicom_eta import for_job
+
+        timer = for_job(job_dir)
+
         binding = spec.get("source_inventory")
         if binding:
             with SourceInventory(Path(binding["path"]), Path(spec["source"]["path"])) as inventory:
@@ -130,8 +134,9 @@ def main(job_dir: Path) -> int:
                     str(job_dir),
                     cached_discover=inventory.discover,
                     cached_file_total=summary["dicom"],
+                    on_timing=timer,
                 )
-        return run(str(job_dir))
+        return run(str(job_dir), on_timing=timer)
     last_tick = float("-inf")
 
     def progress(counters: dict[str, int]) -> None:
@@ -154,6 +159,8 @@ def main(job_dir: Path) -> int:
     if spec["operation"] == "estimate":
         from plugins.dicom import pipeline
         from plugins.dicom.identity import Identity
+
+        from app.tasks.dicom_eta import for_job
 
         started = time.monotonic()
         last_stage = ""
@@ -207,6 +214,7 @@ def main(job_dir: Path) -> int:
                 on_stage=stage,
                 cached_discover=inventory.discover,
                 cached_file_total=summary["dicom"],
+                on_timing=for_job(job_dir),
             )
         atomic_write_json(
             job_dir / protocol.RESULT,
@@ -216,6 +224,7 @@ def main(job_dir: Path) -> int:
                 "estimate": {**result.counts, **result.storage, "series_plan": result.plan},
                 "identity": identity.as_dict(),
                 "duration_s": time.monotonic() - started,
+                "conversion_time": result.conversion_time,
             },
         )
         return 0

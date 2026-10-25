@@ -3063,6 +3063,32 @@ export interface components {
             /** Packs */
             packs?: string[];
         };
+        /**
+         * ConversionTimeEstimate
+         * @description DCM-06: conversion stage only; historical ranges are not calibrated confidence bounds.
+         */
+        ConversionTimeEstimate: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "unknown" | "history" | "complete";
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "unknown" | "low";
+            /** Sample Count */
+            sample_count: number;
+            /** Remaining Units */
+            remaining_units: number;
+            /** Estimated S */
+            estimated_s?: number | null;
+            /** Lower S */
+            lower_s?: number | null;
+            /** Upper S */
+            upper_s?: number | null;
+        };
         /** CorrelationRequest */
         CorrelationRequest: {
             filters?: components["schemas"]["GlobalFilters"];
@@ -6400,6 +6426,7 @@ export interface components {
              * @enum {string}
              */
             basis: "sample" | "manifest" | "unknown";
+            conversion_time?: components["schemas"]["ConversionTimeEstimate"] | null;
             /** Sample Item Ids */
             sample_item_ids?: string[];
             /** Sample Errors */
@@ -6676,6 +6703,7 @@ export interface components {
              */
             progress_done: number;
             progress?: components["schemas"]["TaskRunProgress"] | null;
+            conversion_time?: components["schemas"]["ConversionTimeEstimate"] | null;
             resource_wait?: components["schemas"]["TaskResourceWait"] | null;
             radiomics?: components["schemas"]["RunDetail"] | null;
         };
@@ -7222,6 +7250,7 @@ export interface components {
             /** Phase Run Id */
             phase_run_id?: string | null;
             resource_wait?: components["schemas"]["TaskResourceWait"] | null;
+            conversion_time?: components["schemas"]["ConversionTimeEstimate"] | null;
         };
         /** WorkspaceRunRequest */
         WorkspaceRunRequest: {

@@ -21,6 +21,25 @@ async function recordedOperation(): Promise<SourceOperation> {
 
 afterEach(() => { useConverter.getState().close(); vi.restoreAllMocks() })
 
+test.each([false, true])('U10 displays a measured conversion range and prefers live remaining work (running: %s)', async (running) => {
+  const recorded = await recordedOperation()
+  if (!recorded.estimate || !recorded.conversion_run) throw new Error('Missing recorded conversion')
+  const historical = { basis: 'history' as const, confidence: 'low' as const, sample_count: 6, remaining_units: 1, estimated_s: 20, lower_s: 10, upper_s: 30 }
+  const operation: SourceOperation = {
+    ...recorded, status: running ? 'running' : 'completed', stage: running ? 'converting' : 'ready',
+    work_kind: running ? 'convert' : 'estimate', phase_run: null,
+    estimate: { ...recorded.estimate, conversion_time: { ...historical, lower_s: running ? 900 : 10, estimated_s: running ? 1000 : 20, upper_s: running ? 1100 : 30 } },
+    conversion_run: running ? { ...recorded.conversion_run, status: 'running', conversion_time: historical } : null,
+  }
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
+  useConverter.getState().attach(operation.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText('Conversion: 10 s–30 s remaining (6 measured series, low confidence).')).toBeVisible()
+  expect(screen.getByText('Discovery, registration and phase analysis are excluded.')).toBeVisible()
+  expect(screen.queryByText(/unknown until compatible/)).not.toBeInTheDocument()
+})
+
 test.each([false, true])('D29 retries and cancels only the separate phase run (project: %s)', async (inProject) => {
   const recorded = await recordedOperation()
   if (!recorded.conversion_run) throw new Error('Missing recorded conversion run')

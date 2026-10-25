@@ -28,6 +28,7 @@ from app.tasks.identity import committed_outputs
 from app.tasks.jobspec import inventory_spec
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
+    ConversionTimeEstimate,
     TaskManifest,
     TaskRunCounts,
     TaskRunOutput,
@@ -385,6 +386,7 @@ class DriverBase(RegistrationBase):
         logs: list[dict[str, Any]] = []
         masks: list[dict[str, Any]] = []
         stage_progress: dict[str, int | str] = {}
+        conversion_time = None
         for line in lines:
             event = f"{live.job_dir.name}:{line['_offset']}" if "_offset" in line else None
             if event and event in live.seen_events:
@@ -425,6 +427,8 @@ class DriverBase(RegistrationBase):
                         live.done += 1
                     live.seen_items.add(iid)
                 item_rows.append(row)
+            elif t == "conversion_time" and live.manifest.id == "dicom.convert":
+                conversion_time = ConversionTimeEstimate.model_validate(line["estimate"])
             elif (
                 t == "stage"
                 and live.manifest.id == "dicom.convert"
@@ -476,6 +480,8 @@ class DriverBase(RegistrationBase):
                         {"total": 0, **previous, **stage_progress, "done": live.done}
                     ).model_dump(),
                 }
+                if conversion_time is not None:
+                    rec.execution["conversion_time"] = conversion_time.model_dump()
                 if stage_progress.get("stage") == "admitted":
                     rec.execution["resource_wait"] = None
             rec.outputs += [output for output in live.outputs if output not in rec.outputs]
@@ -548,6 +554,13 @@ class DriverBase(RegistrationBase):
             rec.status = status
             if rec.task.id == "dicom.convert":
                 cleaned = attempt_cleaned(live.job_dir, rec.attempts)
+                if result and result.get("conversion_time"):
+                    rec.execution = {
+                        **(rec.execution or {}),
+                        "conversion_time": ConversionTimeEstimate.model_validate(
+                            result["conversion_time"]
+                        ).model_dump(),
+                    }
                 self.phase_runs.finish(live.pid, rec, live.job_dir, result or {})
                 rec.execution = {
                     **(rec.execution or {}),

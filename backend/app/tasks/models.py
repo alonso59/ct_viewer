@@ -228,6 +228,40 @@ class SeriesPlan(BaseModel):
     bytes: int = 0  # estimated `.nii.gz` bytes; 0 when skipped
 
 
+class ConversionTimeEstimate(BaseModel):
+    """DCM-06: conversion stage only; historical ranges are not calibrated confidence bounds."""
+
+    basis: Literal["unknown", "history", "complete"]
+    confidence: Literal["unknown", "low"]
+    sample_count: int = Field(ge=0)
+    remaining_units: int = Field(ge=0)
+    estimated_s: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    lower_s: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    upper_s: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def valid_range(self) -> ConversionTimeEstimate:
+        values = (self.lower_s, self.estimated_s, self.upper_s)
+        if self.basis == "unknown":
+            if any(v is not None for v in values):
+                raise ValueError("Unknown conversion time has no range")
+        elif self.basis == "complete":
+            if self.remaining_units or values != (0, 0, 0):
+                raise ValueError("Complete conversion time requires no remaining work")
+        else:
+            lower, point, upper = values
+            if (
+                self.sample_count < 5
+                or self.remaining_units < 1
+                or lower is None
+                or point is None
+                or upper is None
+                or not lower <= point <= upper
+            ):
+                raise ValueError("Historical conversion time requires samples and an ordered range")
+        return self
+
+
 class TaskEstimate(BaseModel):
     """TSK-05."""
 
@@ -237,6 +271,7 @@ class TaskEstimate(BaseModel):
     estimated_total_s: float | None
     output_bytes: int | None = None
     basis: Literal["sample", "manifest", "unknown"]
+    conversion_time: ConversionTimeEstimate | None = None
     sample_item_ids: list[str] = Field(default_factory=list)
     sample_errors: list[str] = Field(default_factory=list)
     detail: dict[str, Any] = Field(default_factory=dict)  # e.g. the converter's dry run (DCM-06)
@@ -359,6 +394,7 @@ class TaskResourceWait(BaseModel):
 
 class TaskRunDetail(TaskRunRecord):
     progress: TaskRunProgress | None = None
+    conversion_time: ConversionTimeEstimate | None = None
     resource_wait: TaskResourceWait | None = None
     # radiomics.pyradiomics runs live in `radiomics/runs/` (RAD-13): their RAD-09 record
     radiomics: RunDetail | None = None

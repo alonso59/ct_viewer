@@ -143,7 +143,7 @@ Open cache guards are tested in `test_dicom.py` and `test_open_service.py`; asyn
 | Native controls | Handoff/run-control locking and native-attempt fences; durable pending controls and run-side resume receipts reconcile lost responses. Restart/replay preserves the destination. Native Tasks controls share the DICOM run lock. |
 | Retry failed | Native/project/workspace and source-operation controls select recorded failures, preserving strong plan pins and verified commits. Complete native progress lines survive missed API relay; attempt epochs order outcomes and ambiguous/corrupt history refuses retry. Unattempted series remain pending, without phase/sealing/registration. Focused tests cover selectors, task boundaries, native processes, duplicate/lost controls and window controls. CLI failure-only selection additionally survives SIGKILL after recorded failure and leaves unattempted work pending. Complete D23/B07 crash acceptance remains open. |
 | Window/picker | Server operation restoration, recent-operation selection, explicit new draft, bounded plan pages/filters, provisional counts and resume/cancel. Browser storage holds only operation ID/minimized preference. Source pickers accept extensionless files. |
-| Re-estimate/progress | Settings-only Estimate retains its inventory/name/context; a destination change creates another operation. Stale 409 refreshes without replay. Committed selected-series totals, separate stage units, typed memory remedies and late-callback fencing have backend/window regressions. Historical ETA calibration remains open. |
+| Re-estimate/progress | Settings-only Estimate retains its inventory/name/context; a destination change creates another operation. Stale 409 refreshes without replay. Committed selected-series totals, separate stage units, typed memory remedies and late-callback fencing have backend/window regressions. Conversion-stage compatible history and remaining-time ranges have focused tests; complete stage-duration history and reference ETA calibration remain open. |
 
 ### Reproduced failures and focused checks
 
@@ -297,6 +297,37 @@ The final isolated publication candidate passes 237 affected backend cases
 (`dicom-durability-dispatch-frontend.log`, `dicom-durability-dispatch-editors.log`) and
 lint/types/contracts/426 requirements/dead-code checks (`dicom-durability-dispatch-static.log`).
 The runner gate passes 107 serial cases (`dicom-durability-final-runner.log`); no GPU was launched.
+CI 40144435677 passed 1,065 backend, 395 frontend and 107 serial runner cases, then failed
+Firefox G3 at browser Back (67 browser cases passed; image skipped). Diagnostics artifact
+12580820950 preserves the URL/editor mismatch. A second deterministic regression reproduces
+Back arriving before the preceding router transition commits (`dicom-g3-collapsed-history-red.log`).
+The editor now reconciles native history events even when pathname/search dependencies do not
+change; foreign-project events are ignored. Eleven shell/boundary cases pass
+(`dicom-g3-collapsed-shell-final.log`), as do six repeated Chromium/Firefox G3 journeys with
+unchanged sources (`dicom-g3-collapsed-history-browser.log`). Final published-tree CI remains
+required; the earlier layout-race regression alone did not certify this case.
+Conversion-stage history has focused project/workspace tests for compatible measured samples,
+pixel-free planning, verified reuse, prepared adoption, batching, failures and remaining work.
+The initial isolated ETA candidate passes 191 affected backend cases (`dicom-eta-area.log`),
+60 frontend/API cases (`dicom-eta-frontend.log`) and static/contracts/426 requirements/dead-code
+checks (`dicom-eta-batched-static.log`). Six Chromium/Firefox converter journeys pass with
+unchanged sources (`dicom-eta-browser.log`). The final history/failed-pending/compatibility
+candidate passes 92 affected backend cases, including 33 ETA cases
+(`dicom-eta-final-area.log`), and 71 frontend/API/shell cases across 17 files
+(`dicom-eta-final-frontend.log`). Its final static/contracts/426 requirements/dead-code gate
+passes (`dicom-eta-final-static.log`); published-tree CI/image acceptance remains required.
+`dicom-eta-write-amplification-red.log` reproduces one full-history rewrite per series; batching
+retains completed observations at pipeline exit. `dicom-eta-failed-pending-red.log` reproduces
+failed units reducing remaining work; only verified commits now reduce it. Existing parent
+estimate enums remain readable (`dicom-eta-legacy-basis-red.log`); the added typed field carries
+the precise historical basis. Conversion behavior/history ownership is DCM-19.
+The disposable in-process synthetic benchmark compares three warm baseline/ETA pairs on 12
+series (768 files), with a full 2,048-sample history and software-only CPU execution. Median
+overhead fell from 8.9% to 1.5% after batching (`dicom-eta-overhead.log`,
+`dicom-eta-batched-overhead.log`); sources, output voxels and affines match. A temporal hold-out
+after five measurements covers 31/31 later observations with 3.3% mean absolute relative error,
+but interval width is 99.1% of the point estimate. This single synthetic class supports low
+confidence only; it is not principal-converter P03 or representative reference P06 acceptance.
 Use absolute `VENV`, `RUNTIME=udocker`, `FULL_TESTS=1`, `PYTEST_WORKERS=2`, `VITEST_WORKERS=1`.
 Dependencies come only from the locked project venv; Node runs only in the existing container.
 
@@ -312,7 +343,8 @@ Remaining acceptance is the complete matrix in `DICOM_JOB_TEST_PLAN.md`, includi
   publication/index crash barriers, and migration/rollback acceptance for independent phase runs.
 - Recoverable general Open/import loading and later Open-series hydration;
   complete progress crash-barrier recovery and full U/B acceptance.
-- Compatible historical ETA, calibrated hold-out coverage and controlled reference benchmarks.
+- Complete discovery/registration/analyzer duration history, calibrated reference hold-out coverage
+  and controlled reference benchmarks; focused conversion-stage history does not close these gates.
 - Final full/shared-runtime/browser/CI/Docker/udocker gates, reader-version migration and deployment readiness.
 
 No closure checkbox is certified by narrower synthetic checks or by the accepted ADR alone.

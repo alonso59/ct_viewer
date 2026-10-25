@@ -110,6 +110,14 @@ Failed background plans persist `problem` details/actions; non-DICOM refusals re
 API-69 Estimate accepts an optional `name`: omitted/null preserves it; an empty string restores the neutral default.
 Settings-only Estimate retains the operation/inventory but replaces the plan attempt; previous conversion fences return 409.
 API-45 DICOM `progress` retains DCM-16 counters and separate `stage`, `stage_done`, `stage_total`; ETA stays null without compatible history.
+API-44/62 estimates and API-45/62 DICOM run details expose additive `conversion_time`:
+`basis: unknown|history|complete`, `confidence: unknown|low`, `sample_count`,
+`remaining_units`, and nullable finite nonnegative `estimated_s`/`lower_s`/`upper_s`.
+Unknown has no time values; history requires at least five compatible observations and an
+ordered range; complete has zero remaining work/time. This covers conversion only (DCM-19),
+not discovery, registration or phase analysis. Generic job `eta_s` is not substituted.
+The enclosing estimate retains its existing `basis: sample|manifest|unknown` enum:
+compatible historical measurements use `sample`, with their precise basis in `conversion_time`.
 API-45/62 resource waits expose typed `resource_wait` (`reason`, optional `required_mb`/`budget_mb`, `remedy`); resume clears the prior wait.
 API-69 projects pending project registration as `status: reconciling`, `stage: registering`,
 even when native conversion is complete. API-45 `execution.registration_pending` and
