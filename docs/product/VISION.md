@@ -56,9 +56,9 @@ There are no roles. All users can reach every surface (ADR-0004).
 
 ## Journeys
 
-The golden paths. Each is the user's goal, not the UI's; the MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, closed) were built on them.
+The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, closed) were built on them.
 
-| Path | Steps (the user's goal, not the UI's) | Refs |
+| Path | Steps | Refs |
 |---|---|---|
 | **G1 · Open & inspect** | Home → open a single NIfTI → 2×2 with the right W/L → scroll, zoom one view, fit (F) → HU probe, distance, header → attach a label map → Save as NIfTI… / Create project from this → Close | UI-17, UI-24, SRC-09/14/15, VW-* |
 | **G2 · DICOM → project** | Home → Convert DICOM… (overlay) → dry run → run → Create project → import wizard → explorer with thumbnails, phase and warnings → open a case | UI-25, DCM-*, IMP-*, UI-08/09 |
@@ -90,7 +90,7 @@ The golden paths. Each is the user's goal, not the UI's; the MVP (MVP.md) and th
 | Writing to source data or input metadata | `source` roots are read-only; task outputs go to a user-chosen `derived` root (R1, ADR-0014) |
 | User accounts, roles, passwords | ADR-0004 |
 | PACS / DICOM networking (C-STORE, DICOMweb), DICOM SEG writing | Files only; DICOM SEG reading is a later item (DCM-11) |
-| Cloud upload, remote storage, PACS | Local filesystem only |
+| Cloud upload, remote storage | Local filesystem only |
 | Advanced statistics (multivariable models, ML, survival, mixed models, harmonization) | Export to Python/R; in-app stats stay simple (ADR-0012) |
 | Registration / fusion, volume editing | Future |
 | Electron desktop build | Phase P8, after the web app is stable (ADR-0001) |
@@ -112,7 +112,6 @@ The golden paths. Each is the user's goal, not the UI's; the MVP (MVP.md) and th
 - Data sits on a local or mounted filesystem the server can read; the design envelope and reference volume are in NFR.md.
 - Users have a WebGL2 browser (NFR-13) on a machine with an integrated or better GPU.
 - Development and audits use synthetic fixtures only (`.fixtures/synthetic`, TST-11); no real data or PHI in the repo.
-- One OCI image; Docker locally, udocker remotely (ADR-0007).
 
 ## Risks
 
@@ -123,10 +122,6 @@ The golden paths. Each is the user's goal, not the UI's; the MVP (MVP.md) and th
 | PHI leaking through exports, bundles or logs | NFR-17, DCM-05, audit A5 |
 | Radiomics engine drift | pinned upstream commit, IBSI checks (ADR-0006, TST-06) |
 | Docs and code drift apart | ownership table (INDEX), `make check` requirement check (SRS §1.5), `make trace` |
-
-## Releases
-
-v3.0 is the release cut in MVP.md; later work is ordered in ROADMAP.
 
 ## Decisions
 

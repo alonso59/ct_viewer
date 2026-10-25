@@ -182,7 +182,7 @@ Single-writer model and locking: BE-05.
 | `annotation_sources` | `{}` |
 | Curation events | Unchanged; mask targets without `seg_id` mean `imported` |
 
-## Phase configuration (P1b)
+## Phase configuration
 
-- `phase_mapping` keys are RAW values upper-cased → canonical phase. An empty `phase_vocabulary` (preset `none`) keeps raw values.
+- `phase_mapping` keys are RAW values upper-cased → canonical phase. An empty `phase_vocabulary` (no pack) keeps raw values.
 - Phases are strings from `phase_vocabulary` (no fixed enum). A PATCHed phase configuration applies at the next import.

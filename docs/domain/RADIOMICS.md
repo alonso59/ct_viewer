@@ -105,10 +105,6 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
 Study variables are **not** copied into features; they are joined at analysis time from `index/variables.parquet` (ANA-03).
 `diagnostics.parquet`: `run_id, item_id, label, voxel_count, bbox, spacing, image_hash, mask_hash, …` (engine diagnostics, flattened).
 
-## Spike result
-
-- PyRadiomics installed from pinned upstream commit `8ed57938` (no Python 3.12 wheels on PyPI); 20/20 IBSI phantom checks pass. See ADR-0006.
-
 ## Decisions
 
 - No built-in presets beyond engine defaults; users save their own profiles.

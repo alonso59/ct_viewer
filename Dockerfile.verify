@@ -1,4 +1,4 @@
-# Disposable CI-only image; the product Dockerfile/image remains unchanged (R3, OPS-14).
+# Disposable CI-only image; the product Dockerfile/image remains unchanged.
 FROM node:22-bookworm AS node
 FROM python:3.12-bookworm
 COPY --from=node /usr/local/bin/node /usr/local/bin/node

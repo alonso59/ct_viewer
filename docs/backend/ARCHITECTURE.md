@@ -50,7 +50,6 @@ backend/app/
 Outside `backend/`: first-party plugins and the host runner, mapped in `plugins/AGENTS.md`.
 
 **Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|selection|tasks|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
-Services never import `api`. All filesystem I/O goes through `core.fsio` or `core.paths`.
 
 ## Requirements
 

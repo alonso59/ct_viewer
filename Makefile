@@ -1,4 +1,4 @@
-# Radiology Workbench v3: dev, check, image and deploy targets (docs/ops/DEV_ENV.md; `make help`)
+# Radiology Workbench v3: dev, check, image and deploy targets (`make help`)
 # The repo path may contain spaces: recipes use relative paths and quote $(CURDIR).
 
 SHELL := /bin/bash
@@ -17,10 +17,10 @@ TEST_ENV := OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 RW_TEST_R
 VENV ?= backend/.venv
 BPY := $(if $(filter /%,$(VENV)),$(VENV),../$(VENV))/bin/python
 
-# Docs site tools (dev-only, pinned; never in pyproject.toml, package.json or the image; R5).
+# Docs site tools (dev-only, pinned; never in pyproject.toml, package.json or the image).
 DOCS_TOOLS ?= uvx --from sphinx==9.1.0 --with myst-parser==5.1.0 --with furo==2025.12.19
 
-# Node runtime: native | docker | udocker (native if `node` exists, else udocker; AGENTS R4).
+# Node runtime: native | docker | udocker (native if `node` exists, else udocker).
 RUNTIME ?= $(if $(shell command -v node 2>/dev/null),native,udocker)
 NODE_IMAGE ?= node:22-slim
 UDOCKER_NODE ?= rw-node
@@ -58,7 +58,7 @@ setup-node: ## One-time: create the udocker Node container (remote servers)
 	python3 udocker.py pull $(NODE_IMAGE)
 	python3 udocker.py create --name=$(UDOCKER_NODE) $(NODE_IMAGE)
 
-fixtures: ## Generate the synthetic dataset into FIXTURES (TST-11)
+fixtures: ## Generate the synthetic dataset into FIXTURES
 	cd backend && $(BPY) -m tools.make_fixtures --out "../$(FIXTURES)"
 
 ##@ Dev
@@ -69,11 +69,11 @@ dev-backend: ## API with reload on HOST (default 127.0.0.1):8000
 dev-frontend: ## Vite dev server on 5173 (proxies /api -> 8000)
 	$(NODE) npm run dev
 
-gen-api: ## Write the OpenAPI snapshot and regenerate the frontend API types (FE-03, BE-10)
+gen-api: ## Write the OpenAPI snapshot and regenerate the frontend API types
 	cd backend && $(BPY) -m tools.openapi_snapshot
 	$(NODE) npm run gen:api
 
-record-mock: ## TST-04: re-record the mock API (frontend/src/api/mock/recorded.json) from the backend on the fixtures
+record-mock: ## Re-record the mock API (frontend/src/api/mock/recorded.json) from the backend on the fixtures
 	cd backend && $(BPY) -m tools.record_mock
 
 ##@ Check
@@ -111,19 +111,19 @@ deadcode: ## Dead-code gate: knip (frontend: files, exports, deps) + vulture (ba
 	$(NODE) npx knip
 	cd backend && $(BPY) -m vulture app tools tests ../scripts ../plugins vulture_allowlist.py --min-confidence 80
 
-api-types: ## FE-03 gate: schema.d.ts equals the types generated from the current OpenAPI
+api-types: ## API types gate: schema.d.ts equals the types generated from the current OpenAPI
 	mkdir -p frontend/.vite/api-types
 	cd backend && $(BPY) -m tools.openapi_snapshot --frontend ../frontend/.vite/api-types/openapi.json
 	$(NODE) npx openapi-typescript .vite/api-types/openapi.json -o .vite/api-types/schema.d.ts
 	@diff -q frontend/src/api/schema.d.ts frontend/.vite/api-types/schema.d.ts >/dev/null \
-	  || { echo "api-types: frontend/src/api/schema.d.ts is stale; run make gen-api (FE-03)"; exit 1; }
+	  || { echo "api-types: frontend/src/api/schema.d.ts is stale; run make gen-api"; exit 1; }
 	@echo "api-types: schema.d.ts up to date"
 
-bundle-size: ## NFR-07 gate: production build, initial JS (entry + modulepreload, gzip -9) <= 400 KiB; warns > 25 KiB over the baseline (REL-04)
+bundle-size: ## Bundle gate: production build, initial JS (entry + modulepreload, gzip -9) <= 400 KiB; warns > 25 KiB over the baseline
 	$(NODE) npx vite build --outDir .vite/bundle --emptyOutDir --logLevel error
 	$(NODE) node scripts/bundle-size.mjs .vite/bundle --budget-kib 400 --baseline bundle-baseline.json --warn-kib 25
 
-reqs: ## Requirement tables check (SRS §1.5; stdlib, < 1 s)
+reqs: ## Requirement tables check (stdlib, < 1 s)
 	python3 docs/_sphinx/reqs.py check
 
 fix: ## Autofix: ruff check --fix, ruff format, eslint --fix
@@ -132,7 +132,7 @@ fix: ## Autofix: ruff check --fix, ruff format, eslint --fix
 	$(BPY) -m ruff format --config ruff.toml scripts plugins docs/_sphinx
 	$(NODE) npx eslint --fix .
 
-bundle-baseline: ## NFR-07: record the current initial JS size in frontend/bundle-baseline.json (commit it)
+bundle-baseline: ## Record the current initial JS size in frontend/bundle-baseline.json (commit it)
 	$(NODE) npx vite build --outDir .vite/bundle --emptyOutDir --logLevel error
 	$(NODE) node scripts/bundle-size.mjs .vite/bundle --budget-kib 400 --baseline bundle-baseline.json --write-baseline
 
@@ -160,7 +160,7 @@ docs: ## Docs site (Sphinx + MyST, warnings are errors) into build/docs/
 docs-srs: ## SRS review table + counts into build/docs-srs/ (git-ignored)
 	python3 docs/_sphinx/reqs.py srs build/docs-srs
 
-trace: ## Requirement -> code/test citations into build/trace/ (a report, not a gate; AUD-A4-01)
+trace: ## Requirement -> code/test citations into build/trace/ (a report, not a gate)
 	python3 docs/_sphinx/reqs.py trace build/trace
 
 ##@ Image
@@ -172,10 +172,10 @@ image-tar: ## docker save the image to build/rw-VERSION.tar, for `./rw update` o
 	mkdir -p build && docker save radiology-workbench:$(VERSION) -o build/rw-$(VERSION).tar
 	@echo "image-tar: build/rw-$(VERSION).tar"
 
-container-smoke: ## TST-10 against the built image (Docker)
+container-smoke: ## Smoke-test the built image (Docker)
 	scripts/container-smoke.sh
 
-udocker-selftest: ## REL-07 local simulation: the image under udocker (P1, F3) as a non-root user, no sudo, in Docker
+udocker-selftest: ## Local simulation: the image under udocker (P1, F3) as a non-root user, no sudo, in Docker
 	scripts/udocker-selftest.sh
 
 ##@ Deploy (./rw wraps Docker compose or udocker)
@@ -192,5 +192,5 @@ down: ## Stop the app (./rw stop)
 logs: ## Last 200 app log lines (./rw logs)
 	./rw logs
 
-udocker-run: ## Run the image under udocker from .env in the foreground (OPS-09)
+udocker-run: ## Run the image under udocker from .env in the foreground
 	scripts/udocker-run.sh

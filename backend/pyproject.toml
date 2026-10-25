@@ -21,18 +21,17 @@ dependencies = [
   "pyarrow>=17",
   "duckdb>=1.1",
   "scikit-learn>=1.5",
-  "pillow>=10.4",  # WebP thumbnails (IMP-12)
-  "scipy>=1.15",  # guided statistics (ANA-*): Welch ANOVA needs f_oneway(equal_var=False)
-  "pydicom>=3.0",  # DICOM headers + sidecars (DCM-*)
-  "SimpleITK>=2.3",  # DICOM series → NIfTI with geometry (DCM-02); also used by [radiomics]
+  "pillow>=10.4",  # WebP thumbnails
+  "scipy>=1.15",  # Welch ANOVA needs f_oneway(equal_var=False)
+  "pydicom>=3.0",
+  "SimpleITK>=2.3",  # DICOM series → NIfTI with geometry
 ]
 
 [project.optional-dependencies]
-# PyPI has no cp312 wheels and its 3.1.0 sdist is broken; the P1 spike (ADR-0006)
-# verified this upstream commit on Python 3.12 against the IBSI digital phantom.
+# PyPI has no cp312 wheels and its 3.1.0 sdist is broken; this upstream commit is verified on
+# Python 3.12 against the IBSI digital phantom.
 radiomics = [
   "pyradiomics @ git+https://github.com/AIM-Harvard/pyradiomics@8ed579383b44806651c463d5e691f3b2b57522ab",
-  "SimpleITK>=2.3",
   "PyWavelets>=1.6",
 ]
 umap = ["umap-learn>=0.5"]
@@ -42,8 +41,8 @@ dev = [
   "hypothesis>=6.100",
   "ruff>=0.6",
   "mypy>=1.11",
-  "pytest-xdist>=3.6",  # parallel `make check` (TST-01)
-  "vulture>=2.11",  # dead-code gate (`make deadcode`, AUD-A6-18)
+  "pytest-xdist>=3.6",
+  "vulture>=2.11",
 ]
 
 [tool.hatch.metadata]

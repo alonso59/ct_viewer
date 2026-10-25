@@ -4,11 +4,9 @@ Scope: reviewer identity, curation events, statuses, rollups, correction queue, 
 Read when: building curation UI/API, audit, or multi-user sync.
 Depends: DATA_MODEL.md, PROJECT_FORMAT.md, ADR-0004, ADR-0022, ADR-0026 (phase moved to PHASE.md, not a curation target).
 
-Event store: curation appends through the core event store's namespace `curation` (`app/eventstore/`, file unchanged: `curation/events.jsonl`); its reviewer rule is the shared `require_reviewer`.
+Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md). It appends through the core event store's namespace `curation` (`app/eventstore/`, file `curation/events.jsonl`); its reviewer rule is the shared `require_reviewer`. View-only links (PRJ-17) see it read-only.
 
 Live sync: a `curation.appended` event updates the cached state row of its `(item, target, seg_id)` at once, then the state is refetched; a first load still in flight is restarted so the event is not lost (AUD-A0-02). A reconnect after an error, or a server `reset` (API-40), refetches the project (AUD-A5-11) (CUR-11/12).
-
-Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event store, namespace `curation`; view-only links (PRJ-17) see it read-only.
 
 ## Requirements
 
@@ -23,7 +21,7 @@ Curation & QC is a first-party plugin (ADR-0022, PLUGINS.md) on the core event s
 | CUR-07 | Side/laterality flag: `wrong_side_suspected` with optional `proposed_side`. | M |
 | CUR-08 | Derived state = latest event per `(item_id, target, seg_id)`. Case rollup = worst status by the severity order below; a case is **reviewed** only when every active item has a decision (a latest status other than `not_reviewed`). With decisions but an undecided active item it is **partial**: its rollup shows `partially_reviewed` unless the worst status is in the queue set. Badges, progress (API-02 `curation_progress`, overview %, Recent card) and "next unreviewed" count reviewed cases only. | M |
 | CUR-09 | Correction queue = items whose latest status is in the queue set, or with `add_to_queue=true`; exportable as CSV for 3D Slicer work. | M |
-| CUR-10 | Exports: `curation_state.csv` and `events.jsonl` copy into `exports/`. (Phase export moved to `exports/phase_selections.json`, PHS-06.) | M |
+| CUR-10 | Exports: `curation_state.csv` and `events.jsonl` copy into `exports/`. | M |
 | CUR-11 | Live sync: new events are pushed to other open browsers via SSE (API-40). The UI shows "Updated by {reviewer}". | M |
 | CUR-12 | Conflict policy: last-writer-wins on derived state; history shows every event. | M |
 | CUR-13 | Import v2 `curation_review.csv` as events (`source: "v2_import"`). | S |
