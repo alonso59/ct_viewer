@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// DB-10 (owner 2026-09-27): the Outliers view asks for flagged items with the threshold and the
+// DB-10: the Outliers view asks for flagged items with the threshold and the
 // minimum share of features (default 3.5 and 5 %), both adjustable; it lists what the server
 // flagged, in the server's order (AUD-A2-06), and "Show all" asks for every flagged item.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

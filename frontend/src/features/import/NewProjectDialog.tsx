@@ -1,5 +1,5 @@
-// New project (PRJ-14): name + default modality, then the import wizard (IMP-*). In the import
-// feature so the workspace home and Open mode both reach it without importing each other (AUD-A6-10).
+// New project: name + default modality, then the import wizard. In the import feature so the
+// workspace home and Open mode both reach it without importing each other.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'

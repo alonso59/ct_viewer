@@ -1,4 +1,4 @@
-// Contract adapter for API-16..18: backend Catalog → UI Variable[] (integration of lane/2-shell and lane/2-backend).
+// Contract adapter for API-16..18: backend Catalog → UI Variable[].
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { httpApi } from './http'

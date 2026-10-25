@@ -1,4 +1,3 @@
-// Search and Project share their filter controls and Explorer state (VAR-10).
 import { useTranslation } from 'react-i18next'
 
 import { useCases } from '../../api'

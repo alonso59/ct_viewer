@@ -1,7 +1,6 @@
-// Left pane Tasks view (UI-17/20): every available task, grouped by kind, and the latest runs.
 import { useTranslation } from 'react-i18next'
 
-import { useTaskRuns, useTasks, type TaskInfo } from '../../api'
+import { useTaskRuns, useTasks } from '../../api'
 import { ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
@@ -18,7 +17,7 @@ export default function TasksView() {
   const { data, error } = useTasks()
   const runs = useTaskRuns(pid).data ?? []
   const visible = (data?.tasks ?? []).filter((x) => !x.manifest.test_only || x.runner_online)
-  const byKind = (k: string) => visible.filter((x: TaskInfo) => x.manifest.kind === k)
+  const byKind = (k: string) => visible.filter((x) => x.manifest.kind === k)
   return (
     <div className="tasks-view">
       {error ? <ProblemCard error={error} /> : null}
@@ -29,7 +28,6 @@ export default function TasksView() {
             <ul className="tasks-list">
               {byKind(k).map((x) => (
                 <li key={x.manifest.id}>
-                  {/* AUD-A1-10: radiomics has one canonical tab, the Radiomics settings tab */}
                   <button type="button" className="list-row" onClick={() => openTask(x.manifest.id)} title={x.manifest.id === RADIOMICS_TASK ? t('tasks.radiomicsHere') : (x.manifest.description ?? '')}>
                     <Icon spec={codicon(ICON[k])} />
                     <span>{x.manifest.title}</span>

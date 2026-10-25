@@ -1,4 +1,4 @@
-// VW-14 memory budget: at most `maxLoaded` case tabs keep their volumes. The active tab is always
+// Memory budget: at most `maxLoaded` case tabs keep their volumes. The active tab is always
 // loaded; hidden tabs beyond the budget are unloaded (least recently shown first) and reload on focus.
 import { useEffect } from 'react'
 import { create } from 'zustand'
@@ -11,7 +11,7 @@ interface BudgetState {
 
 export const useBudget = create<BudgetState>()(() => ({ maxLoaded: 3, order: [] }))
 
-/** UI runtime config (API-01 `ui_config.viewer_max_loaded`) */
+/** Set from `ui_config.viewer_max_loaded` */
 export function configureViewer(cfg: { maxLoaded?: number }) {
   if (cfg.maxLoaded && cfg.maxLoaded > 0) useBudget.setState({ maxLoaded: Math.floor(cfg.maxLoaded) })
 }

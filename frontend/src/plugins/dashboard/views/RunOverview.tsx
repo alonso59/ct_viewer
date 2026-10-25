@@ -27,8 +27,7 @@ export function RunOverviewView({ runId }: ViewProps) {
             <div><span className="kpi num">{fmtInt(d.n_items_selected)}</span><span className="muted">{t('dashboard.kpi.items')}</span></div>
             <div><span className="kpi num" style={{ color: 'var(--ok)' }}>{fmtInt(d.n_items_ok)}</span><span className="muted">{t('dashboard.kpi.ok')}</span></div>
             <div><span className="kpi num" style={{ color: d.n_items_failed ? 'var(--error)' : undefined }}>{fmtInt(d.n_items_failed)}</span><span className="muted">{t('dashboard.kpi.failed')}</span></div>
-            {/* TSK-04 (AUD-A2-05): items known not ready are skipped, never failed */}
-            <div title={t('dashboard.kpi.skippedHelp')}><span className="kpi num" style={{ color: d.n_items_skipped ? 'var(--warn)' : undefined }}>{fmtInt(d.n_items_skipped ?? 0)}</span><span className="muted">{t('dashboard.kpi.skipped')}</span></div>
+            <div title={t('dashboard.kpi.skippedHelp')}><span className="kpi num" style={{ color: d.n_items_skipped ? 'var(--warn)' : undefined }}>{fmtInt(d.n_items_skipped)}</span><span className="muted">{t('dashboard.kpi.skipped')}</span></div>
             <div><span className="kpi num">{fmtInt(d.n_features)}</span><span className="muted">{t('dashboard.kpi.features')}</span></div>
             <div><span className="kpi num">{d.runtime_s != null ? fmtDuration(d.runtime_s) : '—'}</span><span className="muted">{t('dashboard.kpi.runtime')}</span></div>
           </div>
@@ -59,7 +58,7 @@ export function RunOverviewView({ runId }: ViewProps) {
             </table>
           </div>
           {d.phase_changed?.length ? (
-            // PHS-03 (AUD-A5-04): views use the effective phase; the run's value is kept as "phase at run time"
+            // views use the effective phase; the run's value is kept as "phase at run time"
             <details className="db-phase-changed">
               <summary className="muted">{t('dashboard.phaseChanged', { count: d.phase_changed.length })}</summary>
               <ul>

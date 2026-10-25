@@ -1,5 +1,4 @@
-// AUD-A1-06: one palette command per task (`Task: Run …`, TSK-01), kept in step with the task
-// list (API-42). Radiomics opens its own settings tab, the canonical entry point (AUD-A1-10).
+// Radiomics opens its own settings tab, its canonical entry point.
 import { openEditor, registry } from '../../shell'
 import type { TaskInfo } from '../../api'
 

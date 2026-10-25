@@ -1,4 +1,3 @@
-// Jobs panel (API-41, BE-06) and Output log (server events, newest last)
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
@@ -14,7 +13,7 @@ interface LogState {
   lines: { at: string; text: string; tone?: 'ok' | 'warn' | 'error' }[]
   push: (text: string, tone?: 'ok' | 'warn' | 'error') => void
 }
-export const useOutput = create<LogState>()((set) => ({
+const useOutput = create<LogState>()((set) => ({
   lines: [],
   push: (text, tone) => set((s) => ({ lines: [...s.lines.slice(-499), { at: new Date().toISOString().slice(11, 19), text, tone }] })),
 }))
@@ -96,7 +95,6 @@ export function JobStatus() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid)
   const running = (useJobs(pid).data ?? []).filter((j) => j.status === 'running')
-  if (!running.length) return null
   const j = running[0]
   if (!j) return null
   const title = t(`jobs.kind.${j.kind}`)

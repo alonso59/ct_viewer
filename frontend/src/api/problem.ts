@@ -1,9 +1,9 @@
-// RFC 9457 problem details as a typed error (API.md §Errors). `type` is the slug under /problems/;
-// `actions` are the next steps the UI offers as buttons (SRC-11, UI-18).
+// RFC 9457 problem details as a typed error. `type` is the slug under /problems/;
+// `actions` are the next steps the UI offers as buttons.
 import type { Problem } from './types'
 
 export class ProblemError extends Error {
-  /** From the API: `title` is the slug's generic title, so the UI may word it plainly (UI-18) */
+  /** From the API: `title` is the slug's generic title, so the UI may word it plainly */
   generic = false
   constructor(
     public status: number,

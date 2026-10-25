@@ -1,4 +1,4 @@
-// TST-09 viewer bench (NFR-01/02) against the reference volume in the harness.
+// Viewer bench against the reference volume in the harness.
 // Prereqs: node src/features/viewer/harness/make-reference.mjs  (once)
 //          npx vite --config src/features/viewer/harness/vite.config.ts  (harness on :5175)
 // Run:     node src/features/viewer/harness/bench.mjs [--url http://127.0.0.1:5175] [--headed]

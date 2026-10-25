@@ -1,4 +1,4 @@
-// The wizard's code loads on first open (NFR-07); the store stays eager for commands and buttons
+// The wizard's code loads on first open; the store stays eager for commands and buttons
 import { Suspense, lazy } from 'react'
 
 import { useImportWizard } from './store'

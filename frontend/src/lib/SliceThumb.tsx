@@ -1,4 +1,4 @@
-// Axial thumbnail (IMP-12): the API-26 WebP when the API serves one; the mock renders a mid-slice
+// Axial thumbnail: the served WebP when the API serves one; the mock renders a mid-slice
 // with the mask outline at the default W/L instead.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -8,7 +8,7 @@ import { CtIcon } from '../theme'
 import { hexToRgb, renderSlice } from './slice'
 
 /** A missing thumbnail (not built yet, no image or not decodable): a muted CT-set placeholder on
- *  the inset colour with a tooltip; real slices stay on the black viewport colour (AUD-A3-11/12) */
+ *  the inset colour with a tooltip; real slices stay on the black viewport colour */
 function Placeholder() {
   const { t } = useTranslation()
   return (

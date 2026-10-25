@@ -1,4 +1,4 @@
-// TST-14 in CI (ADR-0016 §8): the fake `segment.threshold` plugin runs through the file queue and
+// TST-14 in CI (ADR-0016): the fake `segment.threshold` plugin runs through the file queue and
 // the real host runner (scripts/rw-runner.py), and adds a segmentation set; curation decisions then
 // name the set on screen (VW-19, AUD-A5-05/06). Real backend.
 import { spawn, type ChildProcess } from 'node:child_process'

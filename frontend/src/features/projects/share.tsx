@@ -1,5 +1,5 @@
-// Sharing (PRJ-03, PRJ-17, AUD-A1-11): the title-bar share menu (edit link · view-only link) and
-// the same actions as commands. Archive (PRJ-06, AUD-A4-03) and quick open of projects (AUD-A1-01).
+// Sharing: the title-bar share menu (edit link · view-only link) and the same actions as commands.
+// Archive and quick open of projects.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { Command } from 'cmdk'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +18,7 @@ export function deepLink(base: string, loc: Pick<Location, 'pathname' | 'search'
 }
 
 /** Clipboard API needs a secure context; plain-http remote hosts fall back to the toast text */
-function copyAndTell(url: string, done: string) {
+export function copyAndTell(url: string, done: string) {
   const ok = () => toast({ message: i18n.t(done, { url }), tone: 'ok' })
   const manual = () => toast({ message: i18n.t('shell.shareLinkManual', { url }), tone: 'info' })
   if (navigator.clipboard) navigator.clipboard.writeText(url).then(ok, manual)
@@ -27,13 +27,13 @@ function copyAndTell(url: string, done: string) {
 
 const cached = (pid: string) => queryClient.getQueryData<Project>(keys.project(pid))
 
-/** PRJ-03: the full (edit) link of the project, at the current tab */
+/** The full (edit) link of the project, at the current tab */
 export function copyEditLink(pid = useWorkbench.getState().pid) {
   const p = pid ? cached(pid) : undefined
   if (p) copyAndTell(deepLink(p.share_url), 'shell.shareLinkCopied')
 }
 
-/** PRJ-17: the view-only link at the current tab; created on first use (API-61) */
+/** The view-only link at the current tab; created on first use */
 export async function copyViewLink(pid = useWorkbench.getState().pid) {
   if (!pid) return
   const p = cached(pid)
@@ -82,7 +82,7 @@ export function ShareMenu({ pid }: { pid: string }) {
   )
 }
 
-/** PRJ-06: confirm, then archive (never deletes; restore from the home's Archived list) */
+/** Confirm, then archive (restore from the home's Archived list) */
 export function ArchiveDialog() {
   const { t } = useTranslation()
   const target = useProjectDialogs((s) => s.archive)
@@ -94,7 +94,7 @@ export function ArchiveDialog() {
       onSuccess: () => {
         close()
         toast({ message: t('projects.archived', { name: target.name }), tone: 'ok' })
-        // Leaving the project releases its volumes (UI-24)
+        // Leaving the project releases its volumes
         if (!target.home) location.assign('/')
       },
     })
@@ -117,7 +117,7 @@ export function ArchiveDialog() {
   )
 }
 
-/** Quick open on the home and in Open mode: the projects, most recent first (AUD-A1-01) */
+/** Quick open on the home and in Open mode: the projects, most recent first */
 export function QuickOpenProjects({ query, close }: { query: string; close: () => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()

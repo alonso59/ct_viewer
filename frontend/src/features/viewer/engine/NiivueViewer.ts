@@ -1,16 +1,16 @@
-// NiiVue implementation of ViewerHandle (ADR-0003). The only module that imports NiiVue.
+// NiiVue implementation of ViewerHandle. The only module that imports NiiVue.
 //
-// P3 spike 1 (one instance vs four): ONE Niivue instance per case tab draws every viewport into a
+// ONE Niivue instance per case tab draws every viewport into a
 // single canvas through `setCustomLayout`; the DOM frames (headers, sliders, crosshair lines) sit
 // on top and their body rects become the tiles. Four instances would hold four copies of the volume.
 // NiiVue's own mouse/keyboard handling is off (`interactive: false`); the case editor drives it.
 //
-// Rendering split (TST-09 on the reference volume): NiiVue re-uploads and re-composites the whole
+// Rendering split: NiiVue re-uploads and re-composites the whole
 // volume for every contrast change (≈ 0.5 s at 512×512×600), so
 //   · 2D tiles: the engine's slice shader (sliceRenderer.ts) reads full-resolution textures that are
 //     uploaded once; W/L and label styling are uniforms.
 //   · 3D tile: NiiVue volume-renders a proxy (≤ PROXY_VOXELS, same physical extent) that is
-//     refreshed after a W/L drag settles, plus the API-25 meshes.
+//     refreshed after a W/L drag settles, plus the label meshes.
 import { NVImage, NVMesh, Niivue, SLICE_TYPE } from '@niivue/niivue'
 
 import type { ItemRecord } from '../../../api'
@@ -32,7 +32,7 @@ type Typed = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Ui
 const PROXY_VOXELS = 24_000_000
 /** Wait this long after the last W/L or label change before refreshing the 3D proxy */
 const REFRESH_3D_MS = 200
-/** Default 3D camera (VW-26 fit, VW-10 reset) */
+/** Default 3D camera (fit and reset) */
 const AZIMUTH = 110
 const ELEVATION = 15
 
@@ -43,7 +43,7 @@ const SLICE: Record<Plane, SLICE_TYPE> = {
 }
 const PLANE_OF: Record<number, Plane> = { [SLICE_TYPE.AXIAL]: 'axial', [SLICE_TYPE.CORONAL]: 'coronal', [SLICE_TYPE.SAGITTAL]: 'sagittal' }
 
-/** Niivue with per-plane 2D pan/zoom (unlinked zoom, VW-06), a 2D slice hook and a post-draw hook */
+/** Niivue with per-plane 2D pan/zoom (unlinked zoom), a 2D slice hook and a post-draw hook */
 class TiledNiivue extends Niivue {
   planePan: Partial<Record<Plane, Fov>> = {}
   pan3d: [number, number] = [0, 0]
@@ -144,7 +144,7 @@ export class NiivueViewer implements ViewerHandle {
   private tiles: TileRect[] = []
   private linked = false
   private lastPlane: Plane = 'axial'
-  /** Last 2D view zoomed or panned: its field of view is copied when zoom gets linked (VW-06) */
+  /** Last 2D view zoomed or panned: its field of view is copied when zoom gets linked */
   private lastFov: Plane = 'axial'
   private ww = 400
   private wl = 50
@@ -161,7 +161,7 @@ export class NiivueViewer implements ViewerHandle {
   readonly stats = { frames: 0, lastFrameMs: 0, sync: false }
   maskError: string | null = null
 
-  /** Each instance owns its canvas: a context lost on dispose can never be reused (VW-14) */
+  /** Each instance owns its canvas: a context lost on dispose can never be reused */
   constructor(host: HTMLElement) {
     const canvas = document.createElement('canvas')
     canvas.className = 'vp-engine'
@@ -199,10 +199,7 @@ export class NiivueViewer implements ViewerHandle {
     })
   }
 
-  // ---- loading ------------------------------------------------------------------------------
-
   async load(item: ItemRecord, opts: LoadOptions): Promise<void> {
-    // AUD-A5-13: after every await, stop unless this is still the newest load (VW-14/15)
     const ticket = this.gate.begin(opts.signal)
     performance.mark('rw:load-start')
     await this.ready
@@ -307,8 +304,6 @@ export class NiivueViewer implements ViewerHandle {
     this.proxyMask = null
   }
 
-  // ---- scheduling ---------------------------------------------------------------------------
-
   private schedule(kind: 'volume' | 'draw') {
     this.dirty[kind] = true
     if (this.raf) return
@@ -319,7 +314,7 @@ export class NiivueViewer implements ViewerHandle {
       if (this.dirty.volume) this.nv.updateGLVolume()
       else if (this.dirty.draw) this.nv.drawScene()
       this.dirty = { volume: false, draw: false }
-      // Bench only: wait for the GPU so lastFrameMs is the real frame cost (TST-09)
+      // Bench only: wait for the GPU so lastFrameMs is the real frame cost
       if (this.stats.sync) this.nv.gl.readPixels(0, 0, 1, 1, this.nv.gl.RGBA, this.nv.gl.UNSIGNED_BYTE, new Uint8Array(4))
       this.stats.frames++
       this.stats.lastFrameMs = performance.now() - t0
@@ -332,8 +327,6 @@ export class NiivueViewer implements ViewerHandle {
     if (!this.tiles.some((t) => t.id === '3d')) return
     this.timer3d = window.setTimeout(() => this.schedule('volume'), REFRESH_3D_MS)
   }
-
-  // ---- layout / tiles -----------------------------------------------------------------------
 
   /** Tiles come from the DOM frames (setTiles); the layout id only matters to the caller */
   setLayout(): void {}
@@ -353,8 +346,6 @@ export class NiivueViewer implements ViewerHandle {
     // A 3D tile that just appeared may show a stale proxy
     this.schedule(this.proxy && !had3d && tiles.some((t) => t.id === '3d') ? 'volume' : 'draw')
   }
-
-  // ---- window / labels / overlay ------------------------------------------------------------
 
   setWindow(ww: number, wl: number): void {
     this.ww = ww
@@ -409,7 +400,7 @@ export class NiivueViewer implements ViewerHandle {
   }
 
   setCrosshairVisible(): void {
-    // Crosshair lines are drawn by the DOM overlay (VW-04 per-plane colours); nothing to do here
+    // Crosshair lines are drawn by the DOM overlay
   }
 
   setRender(p: Render3DOptions): void {
@@ -486,7 +477,7 @@ export class NiivueViewer implements ViewerHandle {
   }
 
   async setMeshes(specs: MeshSpec[]): Promise<void> {
-    // AUD-A5-13: a newer call, or a newer image, drops the meshes this call is still reading
+    // A newer call, or a newer image, drops the meshes this call is still reading
     const ticket = this.meshGate.begin()
     const image = this.gate.current
     const live = () => ticket.live() && this.gate.current === image
@@ -510,8 +501,6 @@ export class NiivueViewer implements ViewerHandle {
     this.schedule('draw')
   }
 
-  // ---- display options (VW-22/23/25) -----------------------------------------------------------
-
   setDisplay(p: Partial<DisplayOptions>): void {
     this.display = { ...this.display, ...p, slab: { ...this.display.slab, ...p.slab } }
     this.applyDisplay()
@@ -530,8 +519,6 @@ export class NiivueViewer implements ViewerHandle {
     if (this.nv.opts.isRadiologicalConvention !== radiological) this.nv.opts.isRadiologicalConvention = radiological
     this.schedule('draw')
   }
-
-  // ---- measurements (VW-17) -----------------------------------------------------------------
 
   worldAt(x: number, y: number): { tile: Plane; ras: Vec3 } | null {
     const t = this.tileAt(x, y)
@@ -586,8 +573,6 @@ export class NiivueViewer implements ViewerHandle {
     const mean = sum / n
     return { n, mean, sd: Math.sqrt(Math.max(0, sq / n - mean * mean)), min, max, areaMm2: Math.PI * r * r }
   }
-
-  // ---- navigation (full-resolution voxel centres) -------------------------------------------
 
   private get crosshair(): Vec3 {
     return [...this.nv.scene.crosshairPos] as Vec3
@@ -698,7 +683,7 @@ export class NiivueViewer implements ViewerHandle {
     const p = this.panOf(tile)
     // The image follows the pointer: NiiVue's pan offset grows to the right on screen along the
     // horizontal world axis (R for axial/coronal, A for sagittal) and upwards along the vertical one
-    // (A for axial, S otherwise). NiiVue applies the radiological/neurological flip itself (VW-25).
+    // (A for axial, S otherwise). NiiVue applies the radiological/neurological flip itself.
     const h = tile === 'sagittal' ? 1 : 0
     const v = tile === 'axial' ? 1 : 2
     p[h] += dx * mmPerPx
@@ -739,7 +724,7 @@ export class NiivueViewer implements ViewerHandle {
     this.nv.setRenderAzimuthElevation(s.renderAzimuth + dAz, Math.max(-90, Math.min(90, s.renderElevation + dEl)))
   }
 
-  /** VW-26: fit one view to its tile; the slice, crosshair and W/L stay as they are */
+  /** Fit one view to its tile; the slice, crosshair and W/L stay as they are */
   fitView(tile: ViewportId): void {
     if (tile === '3d') {
       this.nv.pan3d = [0, 0]
@@ -749,14 +734,12 @@ export class NiivueViewer implements ViewerHandle {
     this.schedule('draw')
   }
 
-  /** VW-10: fit every view and centre the crosshair */
+  /** Fit every view and centre the crosshair */
   resetView(): void {
     for (const pl of PLANES) this.fitView(pl)
     this.fitView('3d')
     if (this.image) this.setFrac([0.5, 0.5, 0.5])
   }
-
-  // ---- reporting ----------------------------------------------------------------------------
 
   private emitView() {
     if (!this.viewCbs.size || !this.image) return
@@ -815,7 +798,7 @@ export class NiivueViewer implements ViewerHandle {
     } catch {
       // context may already be gone
     }
-    // Release the GPU memory now rather than at garbage collection (VW-14)
+    // Release the GPU memory now rather than at garbage collection
     this.nv.gl?.getExtension('WEBGL_lose_context')?.loseContext()
     this.canvas.remove()
   }

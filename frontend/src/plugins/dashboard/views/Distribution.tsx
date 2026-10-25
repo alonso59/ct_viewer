@@ -1,4 +1,4 @@
-// Feature distribution: histogram split by the colour variable (DB-07); a bar selects its items (DB-04)
+// Feature distribution: histogram split by the colour variable; a bar selects its items
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -43,7 +43,7 @@ export function DistributionView({ runId }: ViewProps) {
     return {
       legend: levels.length > 1 ? { data: levels.map(levelName) } : { show: false },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      // AUD-A3-14: bins on a hidden category axis (the bin range is the tooltip title); the visible
+      // Bins on a hidden category axis (the bin range is the tooltip title); the visible
       // value axis spans the same range with round ticks
       xAxis: [
         { type: 'category', data: d.edges.slice(0, -1).map((e, i) => `${fmtValue(e)} – ${fmtValue(d.edges[i + 1])}`), axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false } },

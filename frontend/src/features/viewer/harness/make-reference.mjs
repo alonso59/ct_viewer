@@ -1,4 +1,4 @@
-// TST-09 reference volume (NFR.md): abdominal-CT-like phantom, 512×512×600 int16 .nii.gz plus a
+// Reference volume: abdominal-CT-like phantom, 512×512×600 int16 .nii.gz plus a
 // uint8 label mask (1 kidney, 2 tumor, 3 cyst). Deterministic; written under .fixtures/reference/.
 // Usage (from frontend/): node src/features/viewer/harness/make-reference.mjs [--nz 600]
 import { mkdirSync, writeFileSync } from 'node:fs'

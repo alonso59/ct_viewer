@@ -1,5 +1,3 @@
-// Left pane Radiomics view: New run, runs with live progress, cancel/resume, errors and exports
-// (RAD-06..10), and profiles (RAD-03).
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -14,7 +12,7 @@ import type { RunSummary } from './model/types'
 import { useDraft } from './store'
 import './radiomics-view.css'
 
-/** Failures first, then skips (items known not ready, TSK-04); a row opens the item (DB-03, AUD-A2-05) */
+/** Failures first, then skips; a row opens the item */
 function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onClose: () => void }) {
   const { t } = useTranslation()
   const errors = useRunErrors(pid, run.run_id)
@@ -76,7 +74,6 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
         )}
         <RunStatusBadge status={run.status} />
       </div>
-      {/* AUD-A1-08: what the counts mean */}
       <div className="list-row-meta" title={t('rad.runCountsHelp', { items: c.items, ok: c.ok, failed: c.failed, skipped: c.skipped })}>
         <span>{t('rad.runCounts', { ok: c.ok, items: c.items, features: c.features })}</span>
         {c.failed ? <span className="field-error">{t('rad.runFailed', { count: c.failed })}</span> : null}
@@ -95,7 +92,6 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
         {ACTIVE.includes(run.status) ? <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={() => void act('cancel')} /> : null}
         {RESUMABLE.includes(run.status) ? <IconButton label={t('rad.resume')} icon={codicon('debug-continue')} disabled={control.isPending} onClick={() => void act('resume')} /> : null}
         {done ? (
-          // AUD-A1-10 / A3-21: labelled actions next to the exports
           <button type="button" className="btn btn-sm" onClick={() => openEditor('run', { runId: run.run_id })}>
             <Icon spec={codicon('graph')} />
             {t('rad.openDashboard')}

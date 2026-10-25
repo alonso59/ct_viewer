@@ -1,4 +1,3 @@
-// Radiomics wire types (API-30/32/36; runs: API-43..47) from the shared API layer, under the names this feature uses.
 export type {
   EstimateResult,
   FeatureClassSpec,
@@ -21,13 +20,13 @@ export type Value = boolean | number | string | number[] | null
 export interface FormState {
   /** Image types (filters): on/off plus that filter's parameters */
   filters: Record<string, { enabled: boolean; params: Record<string, Value> }>
-  /** Selected features per class; a class is on when it has at least one feature (RAD-02) */
+  /** Selected features per class; a class is on when it has at least one feature */
   features: Record<string, string[]>
   /** Top-level engine settings by name */
   options: Record<string, Value>
 }
 
-/** One validation finding. `loc` uses the server's paths (API-43) so both sources merge per field. */
+/** One validation finding. `loc` uses the server's paths so both sources merge per field. */
 export interface Issue {
   loc: (string | number)[]
   rule: string

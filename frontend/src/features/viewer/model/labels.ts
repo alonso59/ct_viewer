@@ -1,6 +1,4 @@
-// Label rendering (VW-07, P3 spike 2).
-//
-// Decision: NiiVue's own label colormap cannot do this in 2D (its label shader makes every visible
+// Label rendering. NiiVue's own label colormap cannot do this in 2D (its label shader makes every visible
 // label fully opaque with one layer-wide opacity, and its outline is 3D). The 2D slices therefore
 // use a custom LUT texture read by the engine's slice shader: row 0 = colour + per-label opacity
 // (0 = hidden), row 1 = outline flag; the outline is the in-plane boundary, as in 3D Slicer.

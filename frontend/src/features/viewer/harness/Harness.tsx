@@ -1,7 +1,7 @@
 // Harness page: the real viewer surface, tool bar, inspector sections and status items on the mock
 // project, loading volumes straight from `.fixtures/` (served at /files by harness/vite.config.ts).
 //   ?case=case_00001&item=<item_id>   a synthetic fixture item (default)
-//   ?src=reference                    the TST-09 reference volume (make-reference.mjs)
+//   ?src=reference                    the reference volume (make-reference.mjs)
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -31,7 +31,7 @@ if (isLayoutId(layoutParam)) useViewerSync.setState({ layout: layoutParam })
 const FILES = '/files'
 const toUrl = (ref: string) => `${FILES}/synthetic/Dataset900/${ref.replace(/^[A-Z_]+:/, '')}`
 
-/** TST-09 reference volume (NFR.md) as an item record */
+/** The reference volume as an item record */
 const REFERENCE: ItemRecord = {
   item_id: 'reference',
   case_id: 'reference',

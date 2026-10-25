@@ -1,5 +1,5 @@
-// Download a volume once with byte progress (VW-13). gzip bodies are inflated while they stream
-// (native DecompressionStream), so decoding overlaps the download instead of following it.
+// Download a volume once with byte progress. gzip bodies are inflated while they stream
+// (native DecompressionStream), so decoding overlaps the download.
 import type { LoadProgress } from '../model/types'
 
 export class VolumeFetchError extends Error {

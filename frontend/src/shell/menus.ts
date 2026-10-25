@@ -1,5 +1,5 @@
-// Title-bar menus derived from command categories (UI-02, AUD-A1-09): File · Edit · View · Go ·
-// Tasks · Help. A command lands in the menu of its category unless it sets `menu: false`.
+// Title-bar menus derived from command categories: File · Edit · View · Go · Tasks · Help.
+// A command lands in the menu of its category unless it sets `menu: false`.
 import { registry, type Command, type MenuId, type RouteScope } from './registry'
 
 /** Menu → the categories it shows, in this order (one section each) */
@@ -19,7 +19,7 @@ export function menuOf(category: string | undefined): MenuId | null {
   return MENUS.find((m) => category !== undefined && m.categories.includes(category))?.id ?? null
 }
 
-export interface MenuSection {
+interface MenuSection {
   category: string
   submenu: boolean
   commands: Command[]

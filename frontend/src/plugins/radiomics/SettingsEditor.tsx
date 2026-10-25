@@ -1,6 +1,3 @@
-// Radiomics settings tab: generated from the engine schema (RAD-01/02) and opened on the engine
-// defaults, live + server validation (RAD-04), profiles (RAD-03), selection (RAD-05), estimate
-// (RAD-11) and the Run button. Nothing runs automatically.
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -17,12 +14,11 @@ import { SelectionForm } from './SelectionForm'
 import { criteriaCount, knownEmpty, toSelection } from './model/selection'
 import { defaultForm, featureCount, optionsByGroup, setOption, toWire } from './model/settings'
 import { SELECTION, fieldOf, fromServer, groupOf, hasErrors, validateForm } from './model/validate'
-import type { EstimateResult, FormState, Issue } from './model/types'
+import type { EstimateResult, Issue } from './model/types'
 import { useDraft } from './store'
 import '../../i18n/lazy'
 import './radiomics.css'
 
-/** One glyph per settings group (AUD-A3-11); an unknown engine group falls back to `settings` */
 const GROUP_ICON: Record<string, string> = {
   [SELECTION]: 'list-selection',
   resampling: 'symbol-ruler',
@@ -51,7 +47,7 @@ export function SettingsEditor() {
   const [group, setGroup] = useState<string>(SELECTION)
   const [est, setEst] = useState<{ key: string; result: EstimateResult } | null>(null)
 
-  // Open on the engine defaults (RADIOMICS §Principles), once per project
+  // Open on the engine defaults, once per project
   const s = schema.data
   const labelMap = project.data?.label_map
   useEffect(() => {
@@ -86,7 +82,6 @@ export function SettingsEditor() {
       </div>
     )
 
-  const setForm = (f: FormState) => draft.setForm(f)
   const byField = new Map<string, Issue[]>()
   for (const i of issues) {
     const k = fieldOf(i.loc)
@@ -98,7 +93,7 @@ export function SettingsEditor() {
   const navGroups = s.groups.filter((g) => g.id === 'filters' || g.id === 'feature_classes' || (groups.get(g.id)?.length ?? 0) > 0)
   const errors = issues.filter((i) => i.severity === 'error')
   const runName = draft.runName.trim() || t('rad.defaultRunName', { profile: draft.loadedFrom ?? t('rad.engineDefaults') })
-  // RADIOMICS §Decisions: defaults assume CT; warn when the selection may contain another modality
+  // Defaults assume CT: warn when the selection may contain another modality
   const modalityLevels = variables.data?.find((v) => v.name === 'modality')?.profile.levels?.map((l) => l.value) ?? []
   const nonCt = modalityLevels.filter((m) => m !== 'CT')
   const pickedModality = draft.selection.mode === 'filter' ? (draft.selection.vars.modality ?? []) : []
@@ -157,10 +152,10 @@ export function SettingsEditor() {
           ) : (
             <section>
               <h2>{s.groups.find((g) => g.id === group)?.label}</h2>
-              {group === 'filters' ? <FiltersForm schema={s} form={form} onChange={setForm} issuesAt={issuesAt} /> : null}
-              {group === 'feature_classes' ? <FeatureClassesForm schema={s} form={form} onChange={setForm} issuesAt={issuesAt} /> : null}
+              {group === 'filters' ? <FiltersForm schema={s} form={form} onChange={draft.setForm} issuesAt={issuesAt} /> : null}
+              {group === 'feature_classes' ? <FeatureClassesForm schema={s} form={form} onChange={draft.setForm} issuesAt={issuesAt} /> : null}
               {(groups.get(group) ?? []).map((o) => (
-                <OptionField key={o.name} o={o} value={form.options[o.name] ?? null} issues={issuesAt(`settings.${o.name}`)} onChange={(v) => setForm(setOption(form, o.name, v))} />
+                <OptionField key={o.name} o={o} value={form.options[o.name] ?? null} issues={issuesAt(`settings.${o.name}`)} onChange={(v) => draft.setForm(setOption(form, o.name, v))} />
               ))}
             </section>
           )}
@@ -212,7 +207,6 @@ export function SettingsEditor() {
               <span>{t('rad.estimateUnits', { items: currentEst.n_items, labels: currentEst.n_labels, units: currentEst.n_units })}</span>
               {currentEst.estimated_total_s !== null ? <span>{t('rad.estimateTime', { time: fmtDuration(currentEst.estimated_total_s), workers: currentEst.workers })}</span> : null}
               {currentEst.n_skipped ? (
-                // TSK-04 (AUD-A2-05): skipped per reason, in plain words
                 <span className="field-warning">
                   {t('rad.estimateSkipped', {
                     count: currentEst.n_skipped,

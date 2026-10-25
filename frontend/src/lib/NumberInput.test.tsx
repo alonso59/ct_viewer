@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// AUD-A3-04 (owner 2026-09-25): number fields show a point and accept `,` or `.` on every machine
+// AUD-A3-04: number fields show a point and accept `,` or `.` on every machine
 import { fireEvent, render, screen } from '@testing-library/react'
 
 import { NumberInput } from './ui'

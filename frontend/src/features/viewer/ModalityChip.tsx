@@ -1,4 +1,4 @@
-// VW-05: "CT (assumed) ▾" next to W/L, only when the visible item has no modality of its own.
+// "CT (assumed) ▾" next to W/L, only when the visible item has no modality of its own.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 

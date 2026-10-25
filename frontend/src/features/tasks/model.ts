@@ -1,17 +1,15 @@
-// Task selection (TSK-03) from the tab's choice and the Explorer filter.
 import type { CaseFilter, TaskRunStatus, TaskRunSummary, TaskSelection } from '../../api'
 
 export type SelectionMode = 'all' | 'explorer' | 'list'
 
 export const ACTIVE_RUN: TaskRunStatus[] = ['queued', 'waiting_for_runner', 'waiting_for_resources', 'running']
-/** TSK-15: a pause/cancel was requested; the supervisor has not confirmed cleanup yet */
+/** A pause/cancel was requested; the supervisor has not confirmed cleanup yet */
 export const STOPPING_RUN: TaskRunStatus[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
-export const RESUMABLE_RUN: TaskRunStatus[] = ['failed', 'cancelled', 'interrupted', 'paused', 'completed_with_errors']
+const RESUMABLE_RUN: TaskRunStatus[] = ['failed', 'cancelled', 'interrupted', 'paused', 'completed_with_errors']
 
 type Run = Pick<TaskRunSummary, 'status' | 'supervised' | 'archived' | 'control' | 'task'> & Partial<Pick<TaskRunSummary, 'counts'>>
 export type RunAction = 'pause' | 'cancel' | 'resume' | 'archive' | 'retry_failed'
 
-/** The lifecycle actions a run offers (J3..J6); none on view-only links (U1) */
 export function runActions(run: Run, readOnly: boolean): RunAction[] {
   if (readOnly || run.archived) return []
   const out: RunAction[] = []
@@ -25,7 +23,6 @@ export function runActions(run: Run, readOnly: boolean): RunAction[] {
   if (supervised && !ACTIVE_RUN.includes(run.status) && !STOPPING_RUN.includes(run.status)) out.push('archive')
   return out
 }
-
 
 /** Explorer filter → selection: item list wins; phase and categorical variables map; ranges don't */
 export function fromExplorer(f: Readonly<CaseFilter>): TaskSelection {

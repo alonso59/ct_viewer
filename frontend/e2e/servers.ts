@@ -40,7 +40,7 @@ export function e2eDirs(): { workspace: string; derived: string; datasets: strin
   }
   process.env.E2E_CREATED = JSON.stringify(created)
   const plugins = process.env.E2E_PLUGINS!
-  // External manifests (TSK-01): the CI plugin only, never `plugins/` itself (TESTING.md)
+  // External manifests (TSK-01): the CI plugin only, never `plugins/` itself
   if (!existsSync(join(plugins, 'threshold'))) symlinkSync(resolve(here, '../../plugins/threshold'), join(plugins, 'threshold'))
   return { workspace: process.env.E2E_WORKSPACE!, derived: process.env.E2E_DERIVED!, datasets: process.env.E2E_DATASETS!, plugins }
 }

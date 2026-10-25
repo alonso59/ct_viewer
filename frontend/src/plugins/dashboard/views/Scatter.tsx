@@ -1,5 +1,4 @@
 // Scatter of items with colour levels, hover, click-through, context menu and brush selection
-// (DB-03/04/07). Used by the embedding, feature-vs-volume, association and consistency views.
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 

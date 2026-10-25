@@ -1,5 +1,3 @@
-// DICOM converter plugin (plugins/dicom, DCM-*): the `dicom.convert` task, its command and the
-// converter overlay window (UI-25), which loads with its strings on first open (NFR-07).
 import { createElement, lazy, Suspense, useEffect } from 'react'
 
 import { isTaskRunPending, isViewPid, useSourceOperations } from '../../api'
@@ -25,7 +23,7 @@ function ConverterHost() {
   return open && !viewOnly ? createElement(Suspense, { fallback: null }, createElement(Overlay, { key: session })) : null
 }
 
-/** Opens the converter; inside a project it can convert into that project (DCM-14). */
+/** Opens the converter; inside a project it can convert into that project. */
 export const openConverter = (source?: string | null) => useConverter.getState().show({ source, pid: useWorkbench.getState().pid })
 
 export const plugin: FrontendPlugin = {

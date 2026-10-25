@@ -1,4 +1,3 @@
-// Problems panel (UI-09): QC warnings (IMP-08) grouped by case; click opens the item.
 import { useTranslation } from 'react-i18next'
 
 import { useWarnings, type QCWarning } from '../../api'
@@ -8,7 +7,7 @@ import { Icon, codicon } from '../../theme'
 import i18n from '../../i18n'
 import { openInContext } from './navigate'
 
-export function groupWarnings(ws: QCWarning[]): [string, QCWarning[]][] {
+function groupWarnings(ws: QCWarning[]): [string, QCWarning[]][] {
   const m = new Map<string, QCWarning[]>()
   // Warnings without a case (e.g. a file-level parse error) group under ''
   for (const w of ws) m.set(w.case_id ?? '', [...(m.get(w.case_id ?? '') ?? []), w])
@@ -24,7 +23,7 @@ export function nextProblem(ws: QCWarning[]) {
   if (flat[cursor]?.case_id) openProblem(flat, cursor)
 }
 
-/** Opens a warning's item with the Problems list as navigation context (AUD-A1-04) */
+/** Opens a warning's item with the Problems list as navigation context */
 function openProblem(flat: QCWarning[], i: number) {
   const withCase = flat.filter((w) => w.case_id)
   const at = withCase.indexOf(flat[i] as QCWarning)

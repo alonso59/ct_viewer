@@ -1,14 +1,12 @@
-// Run status helpers (RAD-06, RADIOMICS §Run lifecycle)
 import type { Job } from '../../api'
 import type { RunStatus, RunSummary } from './model/types'
 
-
 export const ACTIVE: RunStatus[] = ['queued', 'running']
-/** RAD-08: interrupted (server restart) and cancelled runs resume, skipping finished part files */
+/** Interrupted (server restart) and cancelled runs resume, skipping finished part files */
 export const RESUMABLE: RunStatus[] = ['interrupted', 'cancelled']
 export const DONE: RunStatus[] = ['completed', 'completed_with_errors']
 
-/** Live progress of an active run from its job (patched by SSE `job.progress`, API-40) */
+/** Live progress of an active run from its job (patched by SSE `job.progress`) */
 export function runProgress(r: RunSummary, jobs: Job[]): { done: number; total: number; eta: number | null } | null {
   if (!ACTIVE.includes(r.status)) return null
   const job = jobs.find((j) => j.job_id === r.job_id) ?? jobs.find((j) => j.kind === 'radiomics' && j.ref === r.run_id)

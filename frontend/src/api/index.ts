@@ -1,4 +1,3 @@
-// API layer: client, query keys, hooks, domain types (FE-02/03)
 export * from './hooks'
 export * from './types'
 export { api, API_MODE } from './client'

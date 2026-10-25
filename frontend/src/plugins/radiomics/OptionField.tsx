@@ -1,5 +1,3 @@
-// One schema option (API-30 OptionSpec) as an input (RAD-02): checkbox, number, select, text or list.
-// Label and help text come from the engine schema; the engine default is shown next to the field.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -11,7 +9,7 @@ import { IssueText } from './IssueText'
 
 const isList = (o: OptionSpec) => o.type === 'float_list' || o.type === 'int_list'
 
-export function fmtValue(v: Value): string {
+function fmtValue(v: Value): string {
   if (v === null) return ''
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
@@ -50,7 +48,7 @@ function ListInput({ o, value, onChange, id, invalid, disabled }: { o: OptionSpe
   )
 }
 
-/** Accepts `,` or `.` as the decimal point (AUD-A3-04); typed text that is not a number → NaN (validation) */
+/** Accepts `,` or `.` as the decimal point; typed text that is not a number → NaN (validation) */
 function NumberField({ o, value, onChange, id, invalid, disabled }: { o: OptionSpec; value: Value; onChange: (v: Value) => void; id: string; invalid: boolean; disabled?: boolean }) {
   const { t } = useTranslation()
   const c = o.constraints

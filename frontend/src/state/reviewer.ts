@@ -1,4 +1,4 @@
-// Reviewer identity (CUR-01, FE-10): a free-text stamp kept in localStorage. No accounts (ADR-0004).
+// Reviewer identity: a free-text stamp kept in localStorage. No accounts.
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -24,7 +24,7 @@ export const useReviewer = create<ReviewerState>()(
 
 let pending: ((name: string | null) => void) | null = null
 
-/** Resolve the reviewer name, prompting once if it is not set yet (CUR-01). */
+/** Resolve the reviewer name, prompting once if it is not set yet. */
 export function requireReviewer(): Promise<string | null> {
   const { name, setPrompting } = useReviewer.getState()
   if (name) return Promise.resolve(name)

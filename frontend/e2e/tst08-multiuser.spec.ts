@@ -1,4 +1,4 @@
-// TST-08 (ops/TESTING.md): two reviewers in two browser contexts on the same case.
+// TST-08: two reviewers in two browser contexts on the same case.
 // CUR-11: a decision by A reaches B over SSE ("updated by" toast + new state).
 // CUR-12: concurrent writes to the same (item, target) → last writer wins everywhere; history keeps both.
 // CUR-08 (AUD-A5-15, A5-09, A2-16): a case with one decided item of several is "Partially reviewed",

@@ -1,4 +1,3 @@
-// "Open file or folder…" (UI-17, SRC-09): pick any accepted file or a folder, then the Open route.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'

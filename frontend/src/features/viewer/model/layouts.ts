@@ -1,4 +1,4 @@
-// Layouts (VW-01) and plane conventions (VW-04). The CSS grid in viewer.css draws the frames;
+// Layouts and plane conventions. The CSS grid in viewer.css draws the frames;
 // the engine reads each viewport body's rect, so the DOM is the single source of tile geometry.
 import type { LayoutId, Plane, ViewportId } from './types'
 
@@ -35,7 +35,7 @@ export const ORIENTATION: Record<Plane, [string, string, string, string]> = {
   sagittal: ['A', 'P', 'S', 'I'],
 }
 
-/** Viewports shown for a layout, honouring a maximized viewport (VW-02) */
+/** Viewports shown for a layout, honouring a maximized viewport */
 export function visibleViewports(layout: LayoutId, maximized: ViewportId | null, has3d = true): ViewportId[] {
   if (maximized) return [maximized]
   const vps = LAYOUT_VIEWPORTS[layout]

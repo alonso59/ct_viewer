@@ -1,4 +1,3 @@
-// Quick open (Ctrl/Cmd+P): jump to a case or an item (UI-05)
 import { Command } from 'cmdk'
 import { useTranslation } from 'react-i18next'
 

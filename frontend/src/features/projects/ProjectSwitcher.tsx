@@ -1,4 +1,3 @@
-// Title-bar brand: project switcher ▾ (UI_SHELL §Layout)
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'

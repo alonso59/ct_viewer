@@ -1,5 +1,4 @@
-// HTTP binding of the API surface (backend/API.md). Most endpoints go through the typed
-// openapi-fetch client (FE-03); a few use `send` on the documented paths (multipart, the
+// Most endpoints go through the typed openapi-fetch client; a few use `send` (multipart, the
 // variables catalog).
 import createClient from 'openapi-fetch'
 
@@ -29,19 +28,18 @@ import type {
   Variable,
 } from './types'
 
-/** API base URL; empty = same origin (FE-07: configurable for Electron) */
+/** API base URL; empty = same origin (configurable for Electron) */
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 const V1 = `${BASE}/api/v1`
 const PAGE = 2000
-/** RAD-13: radiomics runs through the task routes API-43..47 */
+/** Radiomics runs through the generic task routes */
 const RADIOMICS_TASK = 'radiomics.pyradiomics'
 
-/** The RAD-* record a task response carries for `radiomics.pyradiomics` */
+/** The radiomics record a task response carries for `radiomics.pyradiomics` */
 function rad<T>(r: { radiomics?: T | null }): T {
   if (r.radiomics == null) throw new ProblemError(404, '/problems/not-found', 'Not a radiomics run')
   return r.radiomics
 }
-
 
 type Res<T> = { data?: T; error?: unknown; response: Response }
 
@@ -51,7 +49,7 @@ async function unwrap<T>(p: Promise<Res<T>>): Promise<T> {
   return data as T
 }
 
-/** Every page of a cursor-paged list (API §Pagination) */
+/** Every page of a cursor-paged list */
 async function allPages<T>(get: (cursor: string | undefined) => Promise<{ items: T[]; next_cursor?: string | null }>): Promise<T[]> {
   const out: T[] = []
   let cursor: string | undefined
@@ -137,7 +135,7 @@ const normalizeProject = (p: Schemas['ProjectDetail']): Project => ({
   label_map: p.label_map ?? [],
 })
 
-// API-16..18 return the whole Catalog; the UI works on Variable[] (profile names differ too).
+// The variables routes return the whole Catalog; the UI works on Variable[] (profile names differ too).
 type Catalog = Schemas['Catalog']
 type ExternalReport = Schemas['ExternalReport']
 
@@ -220,15 +218,14 @@ function caseQuery(f: CaseFilter): Record<string, string> {
   const q: Record<string, string> = {}
   if (f.q?.trim()) q.q = f.q.trim()
   if (f.phase) q.phase = f.phase
-  // AUD-A5-09: the Search view's Status is the CUR-08 case rollup, not the item status
+  // The Search view's Status is the case curation rollup, not the item status
   if (f.status) q.curation_status = f.status
   if (f.voi) q.has_voi = String(f.voi === 'any')
   for (const [name, v] of Object.entries(f.vars ?? {})) if (v) q[`var.${name}`] = v
   return q
 }
 
-// ---- curation (API-50..54) -------------------------------------------------------------------
-/** API-51 → one row per (item_id, target, seg_id); case targets have `item_id = null` */
+/** One row per (item_id, target, seg_id); case targets have `item_id = null` */
 function stateRows(st: Schemas['CurationState']): CurationStateRow[] {
   const row = (item_id: string | null, case_id: string, x: Schemas['TargetState']): CurationStateRow => ({
     item_id,
@@ -264,12 +261,11 @@ const normalizeEvent = (e: Schemas['CurationEvent']): CurationEvent => ({
   context: (e.context ?? {}) as CurationEvent['context'],
 })
 
-// ---- radiomics features (API-36) --------------------------------------------------------------
 type Cell = string | number | null | undefined
 const str = (v: Cell) => (v == null ? '' : String(v))
 const num = (v: Cell) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
-/** Long `FeaturesTable` rows → FeatureRow; `feature` becomes the full column name API-38 uses */
+/** Long `FeaturesTable` rows → FeatureRow; `feature` becomes the full column name the dashboard views use */
 function featureRows(t: Schemas['FeaturesTable']): FeatureRow[] {
   return t.rows.map((r) => {
     const imageType = str(r.image_type) || 'original'
@@ -294,7 +290,7 @@ function featureRows(t: Schemas['FeaturesTable']): FeatureRow[] {
   })
 }
 
-// ---- API-40: one EventSource per project, shared by all subscribers ---------------------------
+// One EventSource per project, shared by all subscribers
 const EVENT_TYPES: ServerEvent['event'][] = ['curation.appended', 'phase.appended', 'labeling.appended', 'job.progress', 'job.finished', 'job.status', 'index.rebuilt', 'project.updated', 'reset']
 interface Stream {
   es: EventSource
@@ -318,7 +314,7 @@ function openStream(pid: string): Stream {
   let dropped = false
   es.onopen = () => {
     setState('live')
-    // AUD-A5-11: events published while we were away may be beyond the server's replay buffer
+    // Events published while we were away may be beyond the server's replay buffer
     // (or lost with a restart), so a reopen after an error refetches the project
     if (dropped) emit({ event: 'reset', data: {} })
     dropped = false
@@ -340,16 +336,15 @@ function openStream(pid: string): Stream {
   return s
 }
 
-// ---- surface -------------------------------------------------------------------------------------
 const SESSION_ID = Math.random().toString(36).slice(2, 10)
 
-/** A fetch as the binding uses it (the mock passes a replay of recorded exchanges, TST-04) */
+/** A fetch as the binding uses it (the mock passes a replay of recorded exchanges) */
 export type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
-/** The HTTP binding over `doFetch`; `base` is the API origin (empty = same origin, FE-07) */
+/** The HTTP binding over `doFetch`; `base` is the API origin (empty = same origin) */
 export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
   const V1 = `${base}/api/v1`
-  // FE-03: the typed client; its `fetch` is this binding's (tests stub `globalThis.fetch`)
+  // The typed client's `fetch` is this binding's (tests stub `globalThis.fetch`)
   const client = createClient<paths>({
     baseUrl: base,
     fetch: (req) => {
@@ -404,7 +399,6 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
 
     health: () => unwrap(client.GET('/api/v1/health')),
 
-    // API-02..05
     async listProjects(opts = {}) {
       const rows = await unwrap(client.GET('/api/v1/projects', { params: { query: { archived: opts.archived ?? false } } }))
       return rows as ProjectSummary[]
@@ -445,9 +439,8 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send<BundleImportResult>('POST', '/projects/import-bundle', fd)
     },
 
-    // API-10..14
     fsList: (path, role = 'source') =>
-      // a POST: browsed folders (often patient names) stay out of URLs and access logs (NFR-17)
+      // a POST: browsed folders (often patient names) stay out of URLs and access logs
       unwrap(client.POST('/api/v1/fs/list', { body: { path: path || null, role } })).then(normalizeFs),
     detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
     openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
@@ -476,20 +469,9 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     importHistory: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/imports', { params: { path: { pid } } })),
     startHashJob: (pid, force = false) =>
       unwrap(client.POST('/api/v1/projects/{pid}/hash-jobs', { params: { path: { pid } }, body: { force } })),
-    async listWarnings(pid) {
-      const out: QCWarning[] = []
-      let cursor: string | undefined
-      do {
-        const page = await unwrap(
-          client.GET('/api/v1/projects/{pid}/warnings', { params: { path: { pid }, query: { limit: PAGE, cursor } } }),
-        )
-        out.push(...page.items.map(normalizeWarning))
-        cursor = page.next_cursor ?? undefined
-      } while (cursor)
-      return out
-    },
+    listWarnings: async (pid) =>
+      (await allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/warnings', { params: { path: { pid }, query: { limit: PAGE, cursor } } })))).map(normalizeWarning),
 
-    // API-16..18 (lane/2-backend)
     async listVariables(pid) {
       try {
         return catalogToVariables(await send<Catalog>('GET', `/projects/${enc(pid)}/variables`))
@@ -516,7 +498,6 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then(externalResult)
     },
 
-    // API-20..26
     async listItemIds(pid, f = {}) {
       const ids = await allPages(async (cursor) => {
         const page = await unwrap(client.GET('/api/v1/projects/{pid}/items', { params: { path: { pid }, query: { ...f, limit: 500, cursor } } }))
@@ -554,24 +535,17 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       const d = await unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}', { params: { path: { pid, iid } } }))
       const image_path = d.advanced.image_path ?? null
       const mask_path = d.advanced.mask_path ?? null
-      return { ...normalizeItem(d), advanced: { image_path, mask_path, image_abs: image_path, mask_abs: mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
+      return { ...normalizeItem(d), advanced: { image_path, mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
     },
     previewRecycle: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } } })),
     recycleScan: (pid, iid, token, reviewer) => unwrap(client.POST('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),
     thumbnailUrl: (pid, iid) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`),
 
-    // API-50..54
     async listEvents(pid, f = {}) {
-      const out: CurationEvent[] = []
-      let cursor: string | undefined
-      do {
-        const page = await unwrap(
-          client.GET('/api/v1/projects/{pid}/curation/events', { params: { path: { pid }, query: { ...f, limit: PAGE, cursor } } }),
-        )
-        out.push(...page.items.map(normalizeEvent))
-        cursor = page.next_cursor ?? undefined
-      } while (cursor)
-      // The server pages in append order; CUR-14 shows newest first
+      const out = (
+        await allPages((cursor) => unwrap(client.GET('/api/v1/projects/{pid}/curation/events', { params: { path: { pid }, query: { ...f, limit: PAGE, cursor } } })))
+      ).map(normalizeEvent)
+      // The server pages in append order; the history shows newest first
       return out.sort((a, b) => b.at.localeCompare(a.at) || b.event_id.localeCompare(a.event_id))
     },
     phaseEvents: async (pid, f = {}) =>
@@ -612,8 +586,8 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send('POST', `/projects/${enc(pid)}/curation/import-v2`, fd, reviewerHeader(reviewer))
     },
 
-    // API-30/32/36 radiomics routes; validate, estimate and runs are the task routes API-43..47 of
-    // `radiomics.pyradiomics`, which attach the RAD-* record as `radiomics` (RAD-13, AUD-A4-09)
+    // Validate, estimate and runs are the task routes of `radiomics.pyradiomics`, which attach the
+    // radiomics record as `radiomics`
     radiomicsSchema: () => unwrap(client.GET('/api/v1/radiomics/schema')),
     validateRadiomics: async (settings, labels, nItems) =>
       rad(await unwrap(client.POST('/api/v1/tasks/{tid}/validate', { params: { path: { tid: RADIOMICS_TASK } }, body: { settings, labels, n_items: nItems } }))),
@@ -664,7 +638,6 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
         .map((e) => e.radiomics)
         .filter((e): e is RunError => e != null),
 
-    // API-38/39
     dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),
     async listAnalyses(pid, rid) {
       const r = await unwrap(client.GET('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, query: rid ? { run_id: rid } : {} } }))
@@ -675,13 +648,11 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       unwrap(client.POST('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body: spec })),
     exportAnalysis: (pid, aid, file) => blob(`/projects/${enc(pid)}/analyses/${enc(aid)}/export?file=${file}`),
 
-    // API-24/27
     listSegmentations: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid } } })),
     patchSegmentation: (pid, seg, body) =>
       unwrap(client.PATCH('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } }, body })),
     maskUrl: (pid, iid, seg) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`),
 
-    // API-42..47
     listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),
     listTasks: () => unwrap(client.GET('/api/v1/tasks')),
     listLabelTables: (pid, deleted = false) => unwrap(client.GET('/api/v1/plugins/labeling/projects/{pid}/tables', { params: { path: { pid }, query: deleted ? { deleted } : {} } })),
@@ -771,12 +742,10 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send<V2ImportReport>('POST', `/projects/${enc(pid)}/curation/import-converter`, fd, reviewerHeader(reviewer))
     },
 
-    // API-41
     listJobs: async (pid) => (await unwrap(client.GET('/api/v1/jobs', { params: { query: pid ? { project: pid } : {} } }))).map(normalizeJob),
     async cancelJob(_pid, jobId) {
       await unwrap(client.POST('/api/v1/jobs/{job_id}/cancel', { params: { path: { job_id: jobId } } }))
     },
-
   }
 }
 

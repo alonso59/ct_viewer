@@ -1,4 +1,4 @@
-// Primer "Label" pills for curation status, phase and QC severity (UI_SHELL §Theme tokens).
+// Primer "Label" pills for curation status, phase and QC severity.
 import { useTranslation } from 'react-i18next'
 
 import type { CaseRollup, CaseSummary, Phase } from '../api'
@@ -50,13 +50,12 @@ export function StatusBadge({ status, compact, title }: { status: CaseRollup; co
 
 type Rollup = Pick<CaseSummary, 'curation_status' | 'review_state' | 'n_items_reviewed' | 'n_items_active'>
 
-/** CUR-08 tooltip of a case rollup: "n of m items reviewed" while partial (AUD-A5-15) */
+/** Tooltip of a case rollup: "n of m items reviewed" while partial */
 export function rollupTitle(t: (k: string, o?: Record<string, unknown>) => string, c: Rollup): string {
   const status = t(`status.${c.curation_status}`)
   return c.review_state === 'partial' ? t('status.partialOf', { status, done: c.n_items_reviewed, total: c.n_items_active }) : status
 }
 
-/** CUR-08 case badge */
 export function CaseRollupBadge({ summary, compact }: { summary: Rollup; compact?: boolean }) {
   const { t } = useTranslation()
   return <StatusBadge status={summary.curation_status} compact={compact} title={rollupTitle(t, summary)} />
@@ -96,7 +95,7 @@ export function SeverityIcon({ severity }: { severity: 'error' | 'warning' | 'in
   )
 }
 
-// ---- run and job states: one vocabulary, sentence case (UI-15, TSK-06; AUD-A3-10) ------------------
+// Run and job states: one vocabulary, sentence case
 export const RUN_STATES = [
   'queued',
   'waiting_for_runner',
@@ -132,7 +131,7 @@ export const RUN_TONE: Record<RunState, Tone> = {
   interrupted: 'warn',
 }
 
-/** Job (BE-06) or run status → the shared state; a job's `succeeded` reads as Completed */
+/** Job or run status → the shared state; a job's `succeeded` reads as Completed */
 export function runState(status: string): RunState {
   if (status === 'succeeded') return 'completed'
   return (RUN_STATES as readonly string[]).includes(status) ? (status as RunState) : 'failed'

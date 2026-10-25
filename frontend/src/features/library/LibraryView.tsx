@@ -1,5 +1,3 @@
-// Plugin Library (UI-22, PLG-05/06/09): one card per installed first-party plugin with what it
-// adds, its status and reason, and Open. Pending plugins are listed but cannot be opened.
 import { useTranslation } from 'react-i18next'
 
 import { usePlugins, type PluginInfo } from '../../api'

@@ -1,4 +1,4 @@
-// SRC-17 pattern by example: one real image path split into chips; the user says which piece is
+// Pattern by example: one real image path split into chips; the user says which piece is
 // the case (scan, side, channel), then picks that image's mask in the browser. The `pattern` and
 // `mask_template` options are generated from that; the raw fields stay under "Advanced".
 import { useState } from 'react'
@@ -10,7 +10,7 @@ import { buildPattern, maskFor, matches, rolesFrom, ROLES, templatedMasks, templ
 import { FolderBrowser } from '../FolderBrowser'
 import { segments, stemOf, subjectOf } from '../patternSuggest'
 
-// SRC-17 highlight colours: the categorical palette, fixed per group (--cat-1 is the accent blue)
+// Highlight colours: the categorical palette, fixed per group (--cat-1 is the accent blue)
 export const GROUP_COLOR: Record<string, string> = { case_id: 'var(--cat-2)', scan_idx: 'var(--cat-4)', channel: 'var(--cat-6)', side: 'var(--cat-5)' }
 const EXAMPLES = 3
 

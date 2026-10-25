@@ -1,4 +1,4 @@
-// ECharts wrapper (canvas). Colors are read from tokens at render time (UI-11, DB-07).
+// ECharts wrapper (canvas). Colors are read from tokens at render time.
 import { BarChart, BoxplotChart, HeatmapChart, ScatterChart } from 'echarts/charts'
 import {
   BrushComponent,
@@ -25,7 +25,7 @@ echarts.use([
 export type ChartOption = echarts.EChartsCoreOption
 export type ChartInstance = echarts.ECharts
 
-export interface ChartEvent {
+interface ChartEvent {
   data?: unknown
   dataIndex: number
   seriesIndex?: number
@@ -33,7 +33,7 @@ export interface ChartEvent {
 }
 
 /** A brush area in data coordinates: rect `[[x0, x1], [y0, y1]]` or polygon `[[x, y], …]` */
-export interface BrushArea {
+interface BrushArea {
   brushType: string
   coordRange: number[][]
 }
@@ -42,7 +42,7 @@ export function palette(): string[] {
   return Array.from({ length: 8 }, (_, i) => token(`--cat-${i + 1}`))
 }
 
-/** A font-size token in px (UI_SHELL §Theme tokens; AUD-A3-14): charts follow the interface size */
+/** A font-size token in px, so charts follow the interface size */
 export function fontSize(name: '--fs-badge' | '--fs-panel' | '--fs-ui'): number {
   const px = Number.parseFloat(token(name))
   return Number.isFinite(px) && px > 0 ? px : name === '--fs-badge' ? 11 : 12
@@ -52,12 +52,12 @@ export function fontSize(name: '--fs-badge' | '--fs-panel' | '--fs-ui'): number 
 export function axisStyle() {
   const muted = token('--fg-muted')
   const border = token('--border-muted')
-  // value ticks in the English format without thousands separators (AUD-A3-04)
+  // value ticks in the English format without thousands separators
   const formatter = (v: number | string) => (typeof v === 'number' ? fmtValue(v) : v)
   return { axisLine: { lineStyle: { color: border } }, axisLabel: { color: muted, fontSize: fontSize('--fs-badge'), formatter }, splitLine: { lineStyle: { color: border } }, nameTextStyle: { color: muted, fontSize: fontSize('--fs-badge') } }
 }
 
-export function baseOption(): ChartOption {
+function baseOption(): ChartOption {
   const fg = token('--fg')
   const muted = token('--fg-muted')
   const axis = axisStyle()
@@ -74,7 +74,7 @@ export function baseOption(): ChartOption {
 }
 
 /** Merge a view option over the tokenized base, one level deep for the shared components */
-export function withBase(option: ChartOption): ChartOption {
+function withBase(option: ChartOption): ChartOption {
   const base = baseOption() as Record<string, unknown>
   const o = option as Record<string, unknown>
   const out: Record<string, unknown> = { ...base, ...o }
@@ -84,8 +84,8 @@ export function withBase(option: ChartOption): ChartOption {
   return out
 }
 
-/** Brush toolbox (DB-04): rectangle and lasso, top right, above the plot — never over the x-axis
- *  labels (AUD-A3-14). A legend next to it starts at `BRUSH_LEGEND_RIGHT`. */
+/** Brush toolbox: rectangle and lasso, top right above the plot so it never covers the x-axis
+ *  labels. A legend next to it starts at `BRUSH_LEGEND_RIGHT`. */
 export const BRUSH_LEGEND_RIGHT = 80
 export function brushOption(): ChartOption {
   const muted = token('--fg-muted')
@@ -126,7 +126,7 @@ export function Chart({ option, onClick, onContextMenu, onBrush, onReady, height
   onClick?: (p: ChartEvent) => void
   /** Right click on a data point; client (viewport) pixels */
   onContextMenu?: (p: ChartEvent, x: number, y: number) => void
-  /** User brush finished (DB-04); empty areas = cleared */
+  /** User brush finished; empty areas = cleared */
   onBrush?: (areas: BrushArea[]) => void
   onReady?: (c: ChartInstance) => void
   height?: number | string

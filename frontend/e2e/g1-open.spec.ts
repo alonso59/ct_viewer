@@ -1,4 +1,4 @@
-// Journey G1 (VISION, REL-02) on the real backend: Home → open one NIfTI without a project → W/L,
+// Journey G1 (REL-02) on the real backend: Home → open one NIfTI without a project → W/L,
 // HU probe with its unit inside the hovered view, fit → attach its label map from the sibling
 // `seg/` folder → Save as NIfTI → Create project from this (the mask travels) → Close.
 // SRC-09/10/14/05, VW-05/08/22/26, UI-17/24; AUD-A2-03, A2-11, A2-12, A3-05, A1-16 (FB4).

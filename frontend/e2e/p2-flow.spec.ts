@@ -1,5 +1,5 @@
-// ROADMAP P2 exit: create a project, import data, browse cases, share a link that opens in a
-// second browser. Real backend on the synthetic fixtures (TST-11); see playwright.config.ts.
+// P2 exit: create a project, import data, browse cases, share a link that opens in a
+// second browser. Real backend on the synthetic fixtures (TST-11).
 import { expect, test, type Page } from '@playwright/test'
 
 import { managedDataset } from './helpers'

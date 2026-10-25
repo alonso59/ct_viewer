@@ -2,7 +2,7 @@
 .lbl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .lbl-card { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--fg); cursor: pointer; }
 .lbl-card:hover { background: var(--bg-hover); }
-/* LBL-10: the card's "…" menu sits over its top-right corner, outside the card button */
+/* the card's "…" menu sits over its top-right corner, outside the card button */
 .lbl-card-wrap { position: relative; }
 .lbl-card-wrap .lbl-card-head { padding-right: 28px; }
 .lbl-card-wrap > .lbl-menu-btn { position: absolute; top: 6px; right: 6px; }
@@ -33,14 +33,12 @@
 .lbl-target { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 8px; overflow: hidden; white-space: nowrap; }
 .lbl-td { padding: 0 8px; display: flex; align-items: center; border-right: 1px solid var(--border-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: cell; user-select: none; }
 .lbl-td[aria-selected='true'] { background: var(--bg-selected); }
-/* LBL-09: a mirrored value, read-only */
 .lbl-td-ref { color: var(--fg-muted); cursor: default; }
 .lbl-td[data-active='true'] { box-shadow: inset 0 0 0 2px var(--accent); }
 .lbl-input { width: 100%; height: 22px; border: 0; background: var(--bg-input); color: var(--fg); font: inherit; }
 .lbl-history { width: 240px; border-left: 1px solid var(--border); padding: 8px; overflow: auto; }
 .lbl-history ol { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .lbl-history li { display: flex; flex-direction: column; }
-/* AUD-A1-05: Inspector section "Labels · this case / scan" */
 .lbl-inspector { display: flex; flex-direction: column; gap: 10px; font-size: var(--fs-panel); }
 .lbl-isection { display: flex; flex-direction: column; gap: 4px; }
 .lbl-isection .lbl-card-head .badge { margin-left: auto; }

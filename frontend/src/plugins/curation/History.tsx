@@ -1,4 +1,3 @@
-// History (CUR-14): curation events for the active item or case, newest first
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

@@ -1,6 +1,6 @@
-// Labels view (QuPath Classes list): project label map, editable (PRJ-07); hotkeys 1–9 toggle visibility.
+// Labels view (QuPath Classes list): project label map, editable; hotkeys 1–9 toggle visibility.
 // Edits are a local draft per row, saved on blur / Enter (a colour when the picker closes), one PATCH at
-// a time with the ETag of the version on screen; a 412 offers reload + reapply (PRJ-15, AUD-A5-07).
+// a time with the ETag of the version on screen; a 412 offers reload + reapply.
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -12,8 +12,7 @@ import { useViewerSync } from '../../state'
 
 type Patch = Partial<Pick<LabelDef, 'name' | 'color'>>
 
-/** The project's labels with the pending row changes applied */
-export function applyLabelDrafts(labels: LabelDef[], drafts: Record<number, Patch>): LabelDef[] {
+function applyLabelDrafts(labels: LabelDef[], drafts: Record<number, Patch>): LabelDef[] {
   return labels.map((l) => (drafts[l.value] ? { ...l, ...drafts[l.value] } : l))
 }
 

@@ -1,8 +1,8 @@
-// Analysis panel logic (ANALYSIS.md, DB-08/09): question validity, result ordering, number format.
-// Pure functions; the backend (API-39) makes the final checks and choices.
+// Analysis panel logic: question validity, result ordering, number format.
+// The backend makes the final checks and choices.
 import type { AnalysisQuestion, DashboardView, ResultRow, Variable } from '../../../api'
 
-/** Variable types a question accepts (ANA-02, ANALYSIS §Tests) */
+/** Variable types a question accepts */
 const ALLOWED: Record<Exclude<AnalysisQuestion, 'paired'>, readonly string[]> = {
   explore: [],
   compare: ['categorical'],
@@ -10,7 +10,7 @@ const ALLOWED: Record<Exclude<AnalysisQuestion, 'paired'>, readonly string[]> = 
   balance: ['categorical'],
 }
 
-/** Question types in panel order (`paired` is v3.1, ANA-10) */
+/** Question types in panel order (`paired` is not offered) */
 export const QUESTIONS = ['explore', 'compare', 'association', 'balance'] as const
 export type PanelQuestion = (typeof QUESTIONS)[number]
 
@@ -19,10 +19,10 @@ const ANALYSABLE = new Set(['categorical', 'continuous', 'numeric-discrete'])
 
 export const needsVariable = (q: PanelQuestion) => q !== 'explore'
 
-/** A numeric-discrete type is still the inference: the user must confirm it first (VAR-03) */
+/** A numeric-discrete type is still the inference: the user must confirm it first */
 export const needsConfirmation = (v: Pick<Variable, 'type'>) => v.type === 'numeric-discrete'
 
-/** ANA-02: the questions valid for a variable (explore needs none) */
+/** The questions valid for a variable (explore needs none) */
 export function questionsFor(v: Pick<Variable, 'type'> | null | undefined): PanelQuestion[] {
   if (!v) return ['explore']
   return QUESTIONS.filter((q) => q !== 'explore' && ALLOWED[q].includes(v.type))
@@ -36,7 +36,7 @@ export function analysisVariables(vars: Variable[]): Variable[] {
 }
 
 /** Confounder candidates: categorical, visible or tagged `confounder` (acquisition fields are hidden
- *  by default, VAR-04/05); tagged ones first. */
+ *  by default); tagged ones first. */
 export function confounderVariables(vars: Variable[], exclude: string | null): Variable[] {
   return vars
     .filter((v) => v.type === 'categorical' && v.name !== exclude && (v.visible || v.tags.includes('confounder')))
@@ -49,7 +49,7 @@ export const suggestedConfounder = (vars: Variable[], exclude: string | null): s
 
 const nanLast = (v: number | null | undefined) => (v == null || Number.isNaN(v) ? Infinity : v)
 
-/** ANA-05: by q, then |effect| descending; untested rows (no q) last */
+/** By q, then |effect| descending; untested rows (no q) last */
 export function sortResults(rows: ResultRow[]): ResultRow[] {
   return [...rows].sort((a, b) => nanLast(a.q) - nanLast(b.q) || Math.abs(b.effect ?? 0) - Math.abs(a.effect ?? 0))
 }
@@ -71,7 +71,7 @@ export function fmtStat(v: number | null | undefined): string {
   return Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3) ? sci.format(v) : stat.format(v)
 }
 
-/** DB-09: the view that shows one result row */
+/** The view that shows one result row */
 export function viewForResult(question: AnalysisQuestion): DashboardView | null {
   if (question === 'compare') return 'group-comparison'
   if (question === 'association') return 'association'

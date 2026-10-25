@@ -1,4 +1,4 @@
-// Import wizard open/close state (eager; the wizard itself is a lazy chunk, NFR-07)
+// Eager on purpose: the wizard itself is a lazy chunk
 import { create } from 'zustand'
 
 import type { NiftiOptions } from '../../api'
@@ -6,11 +6,11 @@ import type { NiftiOptions } from '../../api'
 export interface WizardPrefill {
   path: string
   adapter?: string
-  /** SRC-15 "Add to project…": keep the project's other sources */
+  /** "Add to project…": keep the project's other sources */
   add?: boolean
-  /** VW-05: the modality chosen in Open mode for a file without one → `nifti-files` option */
+  /** The modality chosen in Open mode for a file without one → `nifti-files` option */
   modality?: string
-  /** `nifti-files` options from Open mode: an include list with the attached mask (ADR-0027) */
+  /** `nifti-files` options from Open mode: an include list with the attached mask */
   options?: NiftiOptions
 }
 
@@ -27,5 +27,4 @@ export const useImportWizard = create<WizardState>()((set) => ({
   close: () => set({ pid: null, prefill: null }),
 }))
 
-/** Files the browser lets the user pick (SRC-01): NIfTI, NumPy, DICOM */
 export const ACCEPTED = /\.(nii|nii\.gz|npy|dcm)$/i

@@ -24,7 +24,7 @@ test('the scan drop-down lists the scans and picks one; previous / next step thr
   const current = items.find((i) => i.scan_idx === scans[0]!.idx && i.scope === 'complete')!
   const onPick = vi.fn()
   render(<ItemSwitcher items={items} current={current} onPick={onPick} />)
-  // no chip per scan any more: one trigger names the current scan
+  // one trigger names the current scan
   expect(screen.queryAllByRole('button', { name: /^Scan \d+$/ })).toHaveLength(1)
   const trigger = screen.getByRole('button', { name: `Scan ${current.scan_idx}` })
   expect(trigger).toHaveTextContent(`1 of ${scans.length}`)

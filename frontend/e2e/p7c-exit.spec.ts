@@ -1,4 +1,4 @@
-// P7c exit criterion (ROADMAP §P7c), one user journey on the real backend: convert a DICOM folder
+// P7c exit criterion, one user journey on the real backend: convert a DICOM folder
 // without a project (overlay) → open the dataset with the CT tools → create a neutral project from
 // it → apply the ccRCC pack → label in a patient-level and a CT-level table → curate an item →
 // share a view-only link that cannot write; every plugin opens from the Library.

@@ -6,10 +6,10 @@ import { applySize, type InterfaceSize, type ThemeChoice } from '../theme'
 
 interface SettingsState {
   theme: ThemeChoice
-  /** UI-27 (AUD-A3-16): scale of every font and control size; Default = 14 px UI */
+  /** Scale of every font and control size; Default = 14 px UI */
   uiSize: InterfaceSize
   rowDensity: 'thumbnails' | 'compact'
-  /** UI-12: command id → key chord overrides */
+  /** Command id → key chord overrides */
   keybindings: Record<string, string>
   set: (patch: Partial<Omit<SettingsState, 'set' | 'setKeybinding'>>) => void
   setKeybinding: (command: string, chord: string | null) => void
@@ -35,7 +35,7 @@ export const useSettings = create<SettingsState>()(
   ),
 )
 
-// UI-27: the size set applies synchronously (before React re-renders), so views that measure rows
+// The size set applies synchronously (before React re-renders), so views that measure rows
 // (the Explorer's virtual list) read the new tokens
 applySize(useSettings.getState().uiSize)
 useSettings.subscribe((s, prev) => {

@@ -1,5 +1,5 @@
 /*
- * Custom CT icon set (UI-15), drawn to codicon rules:
+ * Custom CT icon set, drawn to codicon rules:
  * 16×16 grid, currentColor only, 1 px stroke on half-pixel coordinates,
  * square caps, mitered joins; planes use a 40 % currentColor fill.
  */

@@ -9,7 +9,7 @@ test('bytes use the unit that fits', () => {
   expect(fmtBytes(null)).toBe('—')
 })
 
-// AUD-A3-04 (owner 2026-09-25): English format everywhere; inputs accept `,` and `.`
+// AUD-A3-04: English format everywhere; inputs accept `,` and `.`
 test('numbers use a point and no thousands separator in measured values', () => {
   expect(fmtNum(117583)).toBe('117583')
   expect(fmtNum(0.9312)).toBe('0.93')

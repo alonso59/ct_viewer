@@ -1,4 +1,4 @@
-// VW-14/15 load ordering (AUD-A5-13): each load or mesh update takes a ticket; after every await
+// Load ordering: each load or mesh update takes a ticket; after every await
 // it checks that it is still the latest and that its signal is not aborted, so an older load that
 // finishes last never replaces the newer image and a repeated `setMeshes` never adds a mesh twice.
 

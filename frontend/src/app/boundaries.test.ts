@@ -1,4 +1,4 @@
-// FE-ARCH §Boundaries (AUD-A6-10, AUD-A6-11): the import graph of src/ has no cycles, the feature /
+// AUD-A6-10, AUD-A6-11: the import graph of src/ has no cycles, the feature /
 // plugin slices depend on each other one way only, and a slice reaches another only through its
 // index.ts (plugins/host.ts and plugins/index.ts are the plugin host, open to all). This test is the
 // check `npm run lint` would otherwise need madge / an import plugin for (no new dependency).

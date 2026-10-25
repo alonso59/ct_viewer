@@ -1,5 +1,4 @@
-// Import wizard model (IMP-01..05, SRC-01..06; AUD-A6-07): the pure rules of the four steps, so
-// the wizard component only wires state to them and each step renders its own part.
+// The import wizard's pure rules: the component only wires state to them.
 import type { DetectCandidate, ImportPreview, JobStatus, NiftiOptions } from '../../api'
 import { pairedFolders } from './byExample'
 import { prefillPattern, sampleStems } from './patternSuggest'
@@ -11,7 +10,6 @@ export type Step = (typeof STEPS)[number]
 export const MAX_ERRORS = 50
 /** Adapters the wizard previews and commits itself; `open` and `dicom.convert` hand off */
 export const IMPORTABLE = new Set<string>(['metadata-v1', 'nifti-files'])
-// PROJECT_FORMAT §Path aliases
 const ALIAS_RE = /^[A-Z][A-Z0-9_]{0,15}$/
 
 export const normPath = (p: string) => p.replace(/\/+$/, '') || '/'
@@ -27,8 +25,8 @@ export function initialState(prefill: WizardPrefill | null): { step: Step; dir: 
 /** The alias as typed: upper case letters, digits and `_` only */
 export const cleanAlias = (raw: string) => raw.toUpperCase().replace(/[^A-Z0-9_]/g, '')
 
-/** IMP-14: an invalid alias, or one of this project that points elsewhere (commit would repoint
- *  it); SRC-15 "add" picks a free alias on the server, so it never collides */
+/** An invalid alias, or one of this project that points elsewhere (commit would repoint
+ *  it); "add" picks a free alias on the server, so it never collides */
 export function aliasProblem(alias: string, taken: { path: string } | undefined, add: boolean, dir: string | null): 'invalid' | 'taken' | null {
   if (!ALIAS_RE.test(alias)) return 'invalid'
   if (taken && !add && dir !== null && normPath(taken.path) !== normPath(dir)) return 'taken'
@@ -41,15 +39,14 @@ export function firstAdapter(cands: DetectCandidate[], want?: string | null): st
   return pick?.adapter ?? null
 }
 
-/** The image paths being imported, relative to the root and without extension (AUD-A2-12,
- *  ADR-0027): an Open-mode include list without its masks, one file, or the folder's sample */
+/** The image paths being imported, relative to the root and without extension: an Open-mode include list without its masks, one file, or the folder's sample */
 export function imageStems(options: NiftiOptions, file: string | null, sample: string[]): string[] {
   const masks = new Set(Object.values(options.masks ?? {}))
   const names = options.include ? options.include.filter((f) => !masks.has(f)) : file ? [file.slice(file.lastIndexOf('/') + 1)] : sample
   return sampleStems(names)
 }
 
-/** SRC-17: until the user edits the options, a pattern the sample clearly follows fills the field;
+/** Until the user edits the options, a pattern the sample clearly follows fills the field;
  *  paired image and label folders in the folder's sample (`names`) also fill the mask template */
 export function autoOptions(adapter: string | null, touched: boolean, options: NiftiOptions, stems: string[], names: string[]): { pattern: string; mask_template?: string } | null {
   if (adapter !== 'nifti-files' || touched || options.pattern !== undefined || options.mask_template !== undefined) return null
@@ -90,7 +87,7 @@ export function nextAction(step: Step, adapter: string | null, upload: boolean):
 /** A job that ended without importing */
 export const jobFailed = (status: JobStatus | undefined) => status === 'failed' || status === 'cancelled' || status === 'interrupted'
 
-/** The four KPI cards of the preview; the case count leaves out cases excluded upstream (AUD-A1-08) */
+/** The four KPI cards of the preview; the case count leaves out cases excluded upstream */
 export function previewCounts(p: ImportPreview): { key: string; n: number }[] {
   return [
     { key: 'import.kpiRows', n: p.counts.scan_rows },

@@ -36,7 +36,6 @@ test('every interface size sets the same font and height tokens', () => {
   const large = names(block(':root[data-size="large"]'))
   expect(compact.length).toBeGreaterThan(10)
   expect(large).toEqual(expect.arrayContaining(compact))
-  // Compact is the P7 scale (13 px UI); Default raises the base to 14 px
   expect(block(':root[data-size="compact"]')).toContain('--fs-ui: 13px')
   expect(block(':root {')).toContain('--fs-ui: 14px')
 })

@@ -1,5 +1,3 @@
-// Shared view plumbing: frame with loading/error states and exports (FE-09, DB-06), item context
-// menu (DASHBOARD §Interaction with curation), colours (DB-07), pickers and focus requests (DB-09).
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
@@ -38,15 +36,14 @@ export function asStatus(s: string | null | undefined): CurationStatus {
   return (CURATION_STATUSES as readonly string[]).includes(s ?? '') ? (s as CurationStatus) : 'not_reviewed'
 }
 
-// ---- exports (DB-06) ---------------------------------------------------------------------------
 function download(name: string, href: string) {
   const a = document.createElement('a')
   a.href = href
   a.download = name
   a.click()
 }
-export type CsvRows = (string | number | null | undefined)[][]
-export function downloadCsv(name: string, rows: CsvRows) {
+type CsvRows = (string | number | null | undefined)[][]
+function downloadCsv(name: string, rows: CsvRows) {
   const esc = (v: string | number | null | undefined) => {
     const s = v == null ? '' : String(v)
     return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s
@@ -55,7 +52,7 @@ export function downloadCsv(name: string, rows: CsvRows) {
   download(`${name}.csv`, url)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
-export function downloadPng(name: string, chart: ChartInstance) {
+function downloadPng(name: string, chart: ChartInstance) {
   download(`${name}.png`, chart.getDataURL({ pixelRatio: 2, backgroundColor: token('--bg-editor') }))
 }
 
@@ -106,7 +103,6 @@ export function ViewFrame({ name, controls, chart, csv, query, empty, children }
   )
 }
 
-// ---- focus requests (DB-09) ----------------------------------------------------------------------
 /** Apply params from `focusView(runId, view, params)` once per request */
 export function useFocusParams(runId: string, view: DashboardView, apply: (params: Record<string, unknown>) => void) {
   const focus = useRunDashboard(runId).focus
@@ -125,17 +121,16 @@ export function useFocusParams(runId: string, view: DashboardView, apply: (param
 export const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
 export const numParam = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
-// ---- features and variables ---------------------------------------------------------------------
 const FEATURE_LIST_BODY = { max_cells: 1 }
 
-/** Feature names of the run (full names as API-38 uses them), grouped by class */
+/** Full feature names of the run with their class */
 export function useFeatureNames(runId: string): { name: string; cls: string }[] {
   const pid = usePid()
   const q = useDashboardView(pid, runId, 'missing-matrix', FEATURE_LIST_BODY)
   return useMemo(() => (q.data?.features ?? []).map((f) => ({ name: f.feature, cls: f.feature_class })), [q.data])
 }
 
-export const DEFAULT_FEATURE = 'original_firstorder_Mean'
+const DEFAULT_FEATURE = 'original_firstorder_Mean'
 
 export function pickFeature(names: { name: string }[], wanted: string | null): string | null {
   if (wanted && names.some((n) => n.name === wanted)) return wanted
@@ -185,7 +180,6 @@ export function VariableSelect({ kind, value, onChange, label, exclude }: {
   )
 }
 
-// ---- colours and level names (DB-07) ------------------------------------------------------------
 /** Level → colour from the categorical palette; missing levels use the muted token */
 export function useLevelColors(levels: (string | null)[]): (level: string | null | undefined) => string {
   return useMemo(() => {
@@ -199,7 +193,6 @@ export function useLevelColors(levels: (string | null)[]): (level: string | null
   }, [levels])
 }
 
-/** Display name of a colour/split level */
 export function useLevelName(colorBy: ColorBy | null | undefined): (level: string | null | undefined) => string {
   const { t } = useTranslation()
   const labels = useProject(usePid()).data?.label_map
@@ -220,7 +213,7 @@ export function useLabelName(): (label: number) => string {
   return useCallback((label) => labels?.find((l) => l.value === label)?.name ?? String(label), [labels])
 }
 
-/** Point style for the linked selection (DB-04): selected points stand out, others dim */
+/** Point style for the linked selection: selected points stand out, others dim */
 export function useSelection(runId: string) {
   const selection = useRunDashboard(runId).selection
   const select = useDashboardStore((s) => s.select)
@@ -237,7 +230,6 @@ export function useSelection(runId: string) {
   }, [selection, select, runId])
 }
 
-// ---- item context menu -------------------------------------------------------------------------
 export interface ItemRef {
   item_id: string
   case_id: string
@@ -253,7 +245,7 @@ export const useItemMenu = create<ItemMenuState>()((set) => ({
   close: () => set({ target: null }),
 }))
 
-/** DB-03 click: open the item in a case tab */
+/** Open the item in a case tab */
 export const openRef = (r: ItemRef | undefined) => r && openItem(r.case_id, r.item_id, true)
 
 /** Mounted once per dashboard: Open in viewer · Add to correction queue · Copy item_id */
@@ -267,8 +259,8 @@ export function ItemMenu() {
   const append = useAppendEvent(pid)
   if (!target) return null
   const addToQueue = () => {
-    // Q semantics (CUR-09): keep the item's current `seg` status, flag it for the queue; the event
-    // carries no seg_id, so it is about `default_seg` (ADR-0015, AUD-A5-06)
+    // Keep the item's current `seg` status and flag it for the queue; the event carries no seg_id,
+    // so it is about `default_seg`
     const current = state?.find((r) => r.item_id === target.item_id && r.target === 'seg' && (r.seg_id ?? 'imported') === defaultSeg)?.status ?? 'not_reviewed'
     append.mutate(
       { item_id: target.item_id, case_id: target.case_id, target: 'seg', status: current, priority: 'medium', comment: '', add_to_queue: true },
@@ -312,7 +304,7 @@ export function ItemMenu() {
 }
 
 /** Row props for tables of items: click opens, right click shows the item menu, selection highlight.
- *  `list` (label + all rows): the case tab follows that list on Alt+↓ (AUD-A1-04). */
+ *  `list` (label + all rows): the case tab follows that list on Alt+↓. */
 export function rowProps(r: ItemRef, selected: Set<string>, list?: { label: string; rows: ItemRef[] }) {
   return {
     'data-clickable': 'true',
@@ -328,7 +320,7 @@ export function rowProps(r: ItemRef, selected: Set<string>, list?: { label: stri
   }
 }
 
-/** Unit of analysis (ANA-03) follows a single-label filter; otherwise the server default */
+/** Unit of analysis follows a single-label filter; otherwise the server default */
 export function unitFor(labels: number[] | null | undefined): UnitSpec {
   return { aggregate: 'first', ...(labels?.length === 1 ? { label: labels[0] } : {}) }
 }

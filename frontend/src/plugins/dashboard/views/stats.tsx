@@ -1,4 +1,4 @@
-// Test result line, test override and results table shared by the statistics views (ANA-04/05)
+// Test result line, test override and results table shared by the statistics views
 import { useTranslation } from 'react-i18next'
 
 import type { ResultRow, TestChoice } from '../../../api'
@@ -19,7 +19,7 @@ export function TestSwitch({ value, onChange }: { value: TestMode; onChange: (m:
   )
 }
 
-/** Chosen test + reason (ANA-04) and the selected feature's statistics */
+/** Chosen test + reason and the selected feature's statistics */
 export function TestResult({ choice, row }: { choice: TestChoice; row: ResultRow | null }) {
   const { t } = useTranslation()
   const test = row?.test ?? choice.default_test
@@ -42,7 +42,7 @@ export function TestResult({ choice, row }: { choice: TestChoice; row: ResultRow
   )
 }
 
-/** Results for every feature, sorted by q then |effect| (ANA-05); a row picks the feature */
+/** Results for every feature, sorted by q then |effect|; a row picks the feature */
 export function ResultsTable({ rows, selected, onPick }: { rows: ResultRow[]; selected: string | null; onPick: (r: ResultRow) => void }) {
   const { t } = useTranslation()
   const sorted = [...rows].sort((a, b) => (a.q ?? 2) - (b.q ?? 2) || Math.abs(b.effect ?? 0) - Math.abs(a.effect ?? 0))

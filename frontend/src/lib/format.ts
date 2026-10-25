@@ -1,6 +1,6 @@
-// Intl-based formatting (FE-11). English format everywhere (owner 2026-09-25, AUD-A3-04): a point
-// as the decimal separator on every machine; counts keep the English thousands separator, measured
-// values never get one ("117583", not "117,583", which reads as 117.6 on a comma-decimal machine).
+// English format everywhere: a point as the decimal separator on every machine; counts keep the
+// English thousands separator, measured values never get one ("117583", not "117,583", which reads
+// as 117.6 on a comma-decimal machine).
 const nf = new Intl.NumberFormat('en', { maximumFractionDigits: 2, useGrouping: false })
 const nf1 = new Intl.NumberFormat('en', { maximumFractionDigits: 1, useGrouping: false })
 const nf0 = new Intl.NumberFormat('en', { maximumFractionDigits: 0 })
@@ -14,7 +14,6 @@ export const fmt1 = (v: number) => nf1.format(v)
 /** A count ("1,234 items") */
 export const fmtInt = (v: number) => nf0.format(v)
 
-// ---- feature values (DB-03, AUD-A3-15) -----------------------------------------------------------
 const SCI_ABOVE = 1e5
 const SCI_BELOW = 1e-3
 const sci = (v: number) => v.toExponential(2).replace('e+', 'e')
@@ -51,7 +50,7 @@ export function featureUnit(feature: string, modality: string | null | undefined
   return ''
 }
 
-/** Parse a typed number; `,` and `.` are both a decimal point (AUD-A3-04). null when not a number */
+/** Parse a typed number; `,` and `.` are both a decimal point. null when not a number */
 export function parseNum(text: string): number | null {
   const s = text.trim().replace(/\s/g, '').replace(',', '.')
   if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s)) return null
@@ -75,7 +74,7 @@ export function fmtDuration(sec: number): string {
   return `${m} min ${Math.round(sec % 60)} s`
 }
 
-/** Bytes with the unit that fits (decimal units, as file managers show them; AUD-A2-13) */
+/** Bytes with the unit that fits (decimal units, as file managers show them) */
 export function fmtBytes(n: number | null | undefined): string {
   if (n == null) return '—'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -88,7 +87,7 @@ export function fmtBytes(n: number | null | undefined): string {
   return `${u === 0 ? Math.round(v) : nf1.format(v)} ${units[u]}`
 }
 
-/** Robust z-score (median / MAD), as used by the outlier views (DASHBOARD §Views) */
+/** Robust z-score (median / MAD) */
 export function robustZ(values: number[]): (v: number) => number {
   const sorted = [...values].sort((a, b) => a - b)
   const med = sorted[Math.floor(sorted.length / 2)] ?? 0
@@ -100,7 +99,7 @@ export function robustZ(values: number[]): (v: number) => number {
   return (v) => (scale > 0 ? (v - med) / scale : 0)
 }
 
-/** Middle ellipsis for paths (AUD-A3-13): "/data/…/nifti/01_case_00001_0000.nii.gz"; keeps the file name */
+/** Middle ellipsis for paths: "/data/…/nifti/01_case_00001_0000.nii.gz"; keeps the file name */
 export function midEllipsis(text: string, max = 48): string {
   if (text.length <= max) return text
   const keepEnd = Math.min(text.length - 1, Math.max(Math.ceil(max * 0.6), text.length - text.lastIndexOf('/')))

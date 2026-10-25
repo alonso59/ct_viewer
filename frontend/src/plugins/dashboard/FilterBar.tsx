@@ -1,4 +1,4 @@
-// DB-02 global filters (visible variables, phase, scope, side, label, curation status) and DB-07 colour
+// Global filters (visible variables, phase, scope, side, label, curation status) and colour
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -52,14 +52,14 @@ function MultiMenu({ label, options, value, onChange }: {
   )
 }
 
-/** `var.{name}`: categorical levels (OR) or one `min..max` range (VAR-10 syntax) */
+/** `var.{name}`: categorical levels (OR) or one `min..max` range */
 function VarFilter({ v, value, onChange }: { v: Variable; value: string[]; onChange: (v: string[] | null) => void }) {
   const { t } = useTranslation()
   if (v.type !== 'continuous') {
     const levels = (v.profile.levels ?? []).map((l) => ({ value: l.value, label: t('search.levelOption', { value: l.value, count: l.count }) }))
     return (
       <span className="db-chip">
-        <MultiMenu label={v.name} options={levels} value={value} onChange={(x) => onChange(x)} />
+        <MultiMenu label={v.name} options={levels} value={value} onChange={onChange} />
         <button type="button" className="icon-btn" aria-label={t('dashboard.filter.remove', { name: v.name })} onClick={() => onChange(null)}>
           <Icon spec={codicon('close')} />
         </button>

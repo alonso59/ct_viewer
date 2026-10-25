@@ -1,4 +1,4 @@
-// Editor area on dockview (UI-03): tabs, preview mode, drag, split; tabs persist per project (FE-04).
+// Editor area on dockview: tabs, preview mode, drag, split; tabs persist per project.
 import {
   DockviewReact,
   type DockviewReadyEvent,
@@ -16,7 +16,7 @@ import { flushPendingOpen, openEditor, pinEditor, requeueOpen, useWorkbench, typ
 const THEME = { name: 'rw', className: 'dockview-theme-dark dv-rw', gap: 0 }
 const tabsKey = (pid: string) => `rw.tabs.${pid}`
 
-/** FE-04: the saved dockview layout of one project's editor tabs, or null (none, unreadable) */
+/** The saved dockview layout of one project's editor tabs, or null (none, unreadable) */
 export function loadTabs(pid: string): unknown {
   try {
     const saved = localStorage.getItem(tabsKey(pid))
@@ -99,7 +99,7 @@ function pathFor(pid: string, p: EditorParams | null): string {
   return contrib?.path?.(pid, p) ?? `/p/${pid}`
 }
 
-/** FE-04: a different path or item is a new history entry; other query changes (layout) are not */
+/** A different path or item is a new history entry; other query changes (layout) are not */
 export function isNewEntry(from: string, to: string): boolean {
   const a = new URL(from, 'http://x')
   const b = new URL(to, 'http://x')
@@ -163,8 +163,8 @@ export function EditorArea({ pid }: { pid: string }) {
     }
   }, [location.pathname, location.search, pid])
 
-  // The active editor drives the URL (FE-04): a new tab, case or item is a history entry, so
-  // browser Back returns to it (AUD-A1-02); a layout or other query tweak replaces the entry
+  // The active editor drives the URL: a new tab, case or item is a history entry, so browser
+  // Back returns to it; a layout or other query tweak replaces the entry
   const active = useWorkbench((s) => s.active)
   const urlToken = useWorkbench((s) => s.urlToken)
   // `navigate` changes with every location; as a dependency it would re-run this effect on

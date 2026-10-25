@@ -1,4 +1,4 @@
-// Server folder browser (IMP-01, API-10), shared by the import wizard, Open mode and tasks
+// Server folder browser, shared by the import wizard, Open mode and tasks
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -8,13 +8,9 @@ import { Icon, codicon } from '../../theme'
 import { ACCEPTED } from './store'
 import './import.css'
 
-/** SRC-02: files the browser lets you pick (folders are always navigable) */
-export { ACCEPTED }
-
-/** The filter box shows for folders longer than this (AUD-A1-16) */
 const FILTER_FROM = 12
 
-/** IMP-01: browse folders under ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
+/** Browse folders under ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
 export function FolderBrowser({
   path,
   onPath,
@@ -25,7 +21,7 @@ export function FolderBrowser({
 }: {
   path: string | null
   onPath: (p: string | null) => void
-  /** Highlighted file (single-file selection, SRC-05) */
+  /** Highlighted file (single-file selection) */
   selected?: string | null
   /** Makes accepted files clickable */
   onSelectFile?: (p: string) => void
@@ -35,7 +31,7 @@ export function FolderBrowser({
   const { t } = useTranslation()
   const { data, isLoading, isError, error } = useFsList(path, role)
   const roots = useFsList(null, role).data
-  // AUD-A1-16: a filter for long folders (resets per folder) and type-to-select in the list
+  // the filter resets per folder
   const [filter, setFilter] = useState({ path, text: '' })
   const text = filter.path === path ? filter.text : ''
   const list = useRef<HTMLDivElement>(null)

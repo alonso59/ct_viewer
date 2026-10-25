@@ -1,4 +1,3 @@
-// Status bar items: the cursor readout (value, label, ijk, RAS; `readout.ts`) and W/L (UI-07, VW-08)
 import { useTranslation } from 'react-i18next'
 
 import { useWorkbench } from '../../shell'

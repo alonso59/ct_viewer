@@ -1,6 +1,5 @@
-// Inspector section "Labels · this case / scan" (AUD-A1-05, LBL-03/04): for every label table, the
-// cells of the row the viewer shows (case, its scan or the item, by the table's level), with the
-// table's own cell editors; each change is a cell event (LBL-04), others' edits arrive live (LBL-05).
+// Inspector section "Labels · this case / scan": for every label table, the cells of the row the
+// viewer shows (case, its scan or the item, by the table's level), with the table's own cell editors.
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +12,7 @@ import { CellEditor } from './CellEditor'
 import { display } from './model'
 import './labeling.css'
 
-/** The row a table has for the case on screen (LBL-01 levels); null without an item for scan/item tables */
+/** The row a table has for the case on screen; null without an item for scan/item tables */
 export function targetOf(level: LabelTableInfo['level'], caseId: string, item: Pick<ItemRecord, 'item_id' | 'scan_idx'> | undefined): string | null {
   if (level === 'case') return caseId
   if (!item) return null

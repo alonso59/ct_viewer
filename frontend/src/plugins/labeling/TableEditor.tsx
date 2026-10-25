@@ -1,7 +1,6 @@
-// Label table tab (LBL-03..05, 07): a spreadsheet over the table's rows. Arrow keys / Tab move,
-// Enter or typing edits, Space toggles yes/no, Delete clears, Shift extends the selection, paste
-// takes a TSV block from a spreadsheet, "Fill" writes one value into the selection. Every change
-// is a cell event (LBL-04); other reviewers' edits arrive live (SSE, LBL-05).
+// Label table tab: a spreadsheet over the table's rows. Arrow keys / Tab move, Enter or typing
+// edits, Space toggles yes/no, Delete clears, Shift extends the selection, paste takes a TSV block
+// from a spreadsheet, "Fill" writes one value into the selection.
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
@@ -15,11 +14,9 @@ import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { display, fillCells, filterRows, move, parseTsv, pasteCells, rect, sortRows, type Pos } from './model'
 import { CellEditor } from './CellEditor'
-import { ColumnsForm, toColumns, useRefOptions, type Draft } from './NewTableDialog'
+import { ColumnsForm, empty, toColumns, useRefOptions, type Draft } from './NewTableDialog'
 import { ColumnMenu, TableMenu } from './TableActions'
 import './labeling.css'
-
-type LabelTableLevel = LabelTable['level']
 
 export interface TableParams {
   tableId: string
@@ -80,13 +77,13 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const scroller = useRef<HTMLDivElement>(null)
   const grid = useRef<HTMLDivElement>(null)
   const picker = useRef<HTMLInputElement>(null)
-  // TanStack Virtual is not React-compiler compatible yet (as in the Project view)
+  // TanStack Virtual is not React-compiler compatible yet
   // eslint-disable-next-line react-hooks/incompatible-library
   const virt = useVirtualizer({ count: rows.length, getScrollElement: () => scroller.current, estimateSize: () => ROW_H, overscan: 12, initialRect: { width: 800, height: 600 } })
   const sel = rect(active, anchor ?? active)
 
   const write = async (all: LabelCellIn[]) => {
-    // LBL-09: reference columns are read-only (paste, fill and Delete skip them)
+    // reference columns are read-only: paste, fill and Delete skip them
     const refCols = new Set(cols.filter((c) => c.ref).map((c) => c.column_id))
     const list = all.filter((c) => !refCols.has(c.column_id))
     if (readOnly || !list.length) return
@@ -158,7 +155,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     }
   }
 
-  // LBL-10: deleted (here or by another reviewer) while the tab was open
+  // deleted (here or by another reviewer) while the tab was open
   if (!table) return <div className="page"><p className="muted">{t(tables.data ? 'lbl.tableGone' : 'common.loading')}</p></div>
   const selectedCol = cols[active.c] ?? null
   const selectedRow = rows[active.r] ?? null
@@ -296,10 +293,10 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   )
 }
 
-function AddColumns({ pid, tid, level, labels, onClose }: { pid: string; tid: string; level: LabelTableLevel; labels: string[]; onClose: () => void }) {
+function AddColumns({ pid, tid, level, labels, onClose }: { pid: string; tid: string; level: LabelTable['level']; labels: string[]; onClose: () => void }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [drafts, setDrafts] = useState<Draft[]>([{ name: '', type: 'bool', levels: '', unit: '', ref: '' }])
+  const [drafts, setDrafts] = useState<Draft[]>([empty()])
   const refs = useRefOptions(pid, level)
   const save = async () => {
     try {

@@ -1,4 +1,4 @@
-// VW-09: real right-button drag pans only the 3D camera; wheel/orbit/fit stay independent.
+// Real right-button drag pans only the 3D camera; wheel/orbit/fit stay independent.
 // Run with the fixture harness running; HARNESS_URL, CHROME or CDP_URL select server/browser.
 import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'

@@ -1,6 +1,5 @@
-// VW-08 / VW-22 cursor readout, one format for the status bar and the in-view probe (AUD-A2-11,
-// AUD-A3-05): value with its unit (HU for CT, "value" otherwise, VW-05) · label name (value) ·
-// ijk · RAS mm.
+// Cursor readout, one format for the status bar and the in-view probe: value with its unit
+// (HU for CT, "value" otherwise) · label name (value) · ijk · RAS mm.
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
@@ -8,7 +7,7 @@ import { useViewerSync, type CursorReadout } from '../../state'
 import { isCt } from './model/wl'
 
 export interface ReadoutOptions {
-  /** The visible item's effective modality (VW-05); unknown reads as CT */
+  /** The visible item's effective modality; unknown reads as CT */
   modality: string | null | undefined
   /** Show "label —" when the voxel has no label (the status bar keeps a stable width) */
   emptyLabel?: boolean

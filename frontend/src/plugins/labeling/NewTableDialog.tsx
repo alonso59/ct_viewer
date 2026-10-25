@@ -1,4 +1,4 @@
-// New label table / add columns (LBL-01/02/09): a level and typed columns, named freely or after the
+// New label table / add columns: a level and typed columns, named freely or after the
 // project labels, or reference columns that mirror a comparable variable (read-only).
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,17 +14,16 @@ const LEVELS = ['case', 'scan', 'item'] as const
 
 export interface Draft {
   name: string
-  /** `ref`: a reference column (LBL-09) */
+  /** `ref`: a reference column */
   type: (typeof TYPES)[number] | 'ref'
   levels: string
   unit: string
   ref: string
 }
 
-const empty = (): Draft => ({ name: '', type: 'bool', levels: '', unit: '', ref: '' })
+export const empty = (): Draft => ({ name: '', type: 'bool', levels: '', unit: '', ref: '' })
 
-/** LBL-09: comparable variables (VAR-13) a table of this level can show; a patient table only
- *  case-level ones */
+/** Comparable variables a table of this level can show; a patient table only case-level ones */
 export function useRefOptions(pid: string, level: LabelTable['level']): Variable[] {
   return (useVariables(pid).data ?? []).filter((v) => v.comparable && (level !== 'case' || v.level === 'case'))
 }

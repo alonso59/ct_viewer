@@ -1,5 +1,3 @@
-// Correction queue editor tab (CUR-09): items in the queue set or flagged; server CSV with absolute
-// paths for 3D Slicer (API-52), project exports (CUR-10, API-53) and v2 import (CUR-13, API-54).
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,7 +7,6 @@ import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
 import '../../i18n/lazy'
-
 
 function download(name: string, blob: Blob) {
   const a = document.createElement('a')
@@ -34,7 +31,7 @@ function PathCell({ path }: { path: string | null }) {
   if (!path) return <span className="muted">{t('queue.noPath')}</span>
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: 320 }}>
-      {/* AUD-A3-13: middle ellipsis, so the root and the file name stay readable */}
+      {/* middle ellipsis, so the root and the file name stay readable */}
       <span className="mono muted truncate" title={path}>
         {midEllipsis(path, 44)}
       </span>
@@ -188,13 +185,12 @@ export function QueueEditor() {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              // AUD-A1-04: Alt+↓ then follows the queue
+              // Alt+↓ then follows the queue
               <tr key={`${r.item_id}|${r.target}|${r.seg_id ?? ''}`} data-clickable="true" onClick={() => openInContext(t('queue.title'), rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id })), i, false)}>
                 <td className="mono">{r.case_id}</td>
                 <td className="muted"><ItemName id={r.item_id} phase={r.phase} /></td>
                 <td>{r.phase ? <PhaseChip phase={r.phase} /> : null}</td>
                 <td className="mono">{r.target}</td>
-                {/* AUD-A2-16: which segmentation set to fix (ADR-0015) */}
                 <td className="mono muted">{r.seg_id ?? ''}</td>
                 <td><StatusBadge status={r.status} /></td>
                 <td>

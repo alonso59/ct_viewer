@@ -1,5 +1,4 @@
-// Item switcher of the case header (VW-11, AUD-A1-12): a Scan drop-down with previous / next, then
-// Full / VOI and the VOI side. The scan's phase is set by the Phase control next to it.
+// The scan's phase is set by the Phase control next to the switcher.
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 

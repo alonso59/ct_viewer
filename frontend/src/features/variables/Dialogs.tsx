@@ -1,4 +1,3 @@
-// New derived variable (VAR-06: bin / recode / dominant) and external table import (VAR-07)
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

@@ -1,5 +1,3 @@
-// Labeling table plugin (LABELING.md, LBL-*): the Labeling view and one tab per table, both lazy
-// with their strings (NFR-07). View-only links see the tables read-only (LBL-05).
 import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../../i18n'
@@ -28,7 +26,7 @@ export const plugin: FrontendPlugin = {
   id: 'labeling',
   activate: ({ registry }) => {
     registry.view({ id: 'labeling', title: 'view.labeling', icon: codicon('table'), order: 35, component: LazyView, hideImageSection: true })
-    // AUD-A1-05: fill the case's / scan's cells next to the images (read-only on view-only links)
+    // fill the case's / scan's cells next to the images
     registry.inspector({ id: 'labeling.cells', title: 'inspector.labels', order: 15, component: LazySection })
     registry.editor<TableParams>({
       type: 'labeling',
@@ -42,7 +40,6 @@ export const plugin: FrontendPlugin = {
         return m?.[1] ? { tableId: m[1] } : null
       },
     })
-    // AUD-A1-06: "New label table…" from the palette opens the view with its dialog
     registry.command({
       id: 'labeling.newTable',
       writes: true,

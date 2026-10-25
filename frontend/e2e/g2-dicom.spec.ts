@@ -1,4 +1,4 @@
-// Journey G2 (VISION, REL-02) on the real backend: Convert DICOM overlay → dry run lists the
+// Journey G2 (REL-02) on the real backend: Convert DICOM overlay → dry run lists the
 // skipped series with its reason → run → Create project → wizard → Explorer with phases and
 // warnings → Problems opens the item → its DICOM tags are readable; the dataset is on the home.
 // UI-25, DCM-04/06/14, TSK-13, SRC-16, UI-09, VW-22; AUD-A2-04, A2-10, A2-13, A2-14, A1-15 (FB4).

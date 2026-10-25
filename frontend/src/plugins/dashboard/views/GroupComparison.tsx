@@ -1,5 +1,5 @@
-// Group comparison: box + points per group for one feature, the chosen test (ANA-04) and the results
-// table for all features (ANA-05); a result row switches the feature (DB-09).
+// Group comparison: box + points per group for one feature, the chosen test and the results table
+// for all features; a result row switches the feature.
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -71,7 +71,7 @@ export function GroupComparisonView({ runId }: ViewProps) {
           p.seriesType === 'scatter' ? `${itemName((p.data as Pt).ref.item_id, t)}<br/>${fmtValue((p.data as Pt).value[1])}` : p.name,
       },
       xAxis: [
-        { type: 'category', data: levels.map((l) => (l !== null && excluded.has(l) ? t('dashboard.excludedLevel', { level: l ?? '' }) : (l ?? t('dashboard.missingLevel')))) },
+        { type: 'category', data: levels.map((l) => (l !== null && excluded.has(l) ? t('dashboard.excludedLevel', { level: l }) : (l ?? t('dashboard.missingLevel')))) },
         { type: 'value', min: -0.5, max: Math.max(levels.length - 0.5, 0.5), show: false },
       ],
       yAxis: { type: 'value', name: d.feature ?? '', scale: true },

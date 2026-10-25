@@ -1,4 +1,3 @@
-/* Explorer: variable columns, colour legend, search sections (VAR-10) */
 .var-chip {
   display: inline-flex;
   gap: 3px;
@@ -37,7 +36,6 @@
   gap: 4px;
 }
 
-/* Project view rows (UI-08): heights follow --h-row-* (UI-27); no inline layout (AUD-A3-17) */
 .pv-filter-toolbar {
   display: flex;
   align-items: flex-start;
@@ -150,6 +148,7 @@
   padding: 0 var(--sp-2) var(--sp-2);
 }
 .pv-chip-close {
+  flex: none;
   width: 14px;
   height: 14px;
 }
@@ -158,7 +157,7 @@
   margin-left: auto;
   white-space: nowrap;
 }
-/* AUD-A3-19: the warning count on the selected row (Light: --warn is 3.96:1 on --bg-selected) */
+/* Light theme: --warn is only 3.96:1 on --bg-selected */
 .list-row[aria-selected='true'] .pv-warn {
   color: color-mix(in srgb, var(--warn) 80%, var(--fg));
 }
@@ -201,7 +200,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.pv-chip-close {
-  flex: none;
 }

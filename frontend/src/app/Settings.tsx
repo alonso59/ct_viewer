@@ -1,5 +1,4 @@
 // Settings view (activity bar, bottom): theme, interface size, reviewer, list density, keybindings
-// (UI-11, UI-12, UI-27)
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

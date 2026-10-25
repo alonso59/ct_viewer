@@ -1,4 +1,4 @@
-// Shared Explorer filters: Search and the Project panel use the same state (UI-08, VAR-10).
+// Shared Explorer filters: Search and the Project panel use the same state.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

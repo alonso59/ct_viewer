@@ -1,8 +1,6 @@
-// Import wizard (IMP-01..05, SRC-01..06): a folder or one file (server browser, API-10) → detected
-// source adapters (API-19) → preview (API-11; `nifti-files` options with a live parse) → commit
-// (API-12) + indexing job (SSE progress, API-40). Refusals show their cause and next actions (UI-18).
-// The rules are in `model.ts`, each step renders itself (`steps/`); this component holds the state
-// and the footer (AUD-A6-07).
+// Import wizard: a folder or one file → detected source adapters → preview (`nifti-files` options
+// with a live parse) → commit + indexing job. The rules are in `model.ts` and each step renders
+// itself; this component holds the state and the footer.
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,7 +35,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const [options, setOptions] = useState<NiftiOptions>({ ...prefill?.options, ...(prefill?.modality ? { modality: prefill.modality } : {}) })
   const [touched, setTouched] = useState(false)
   const [reconstruct, setReconstruct] = useState(false)
-  const [anonymize, setAnonymize] = useState(false) // DCM-05 for the in-project conversion
+  const [anonymize, setAnonymize] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [convertError, setConvertError] = useState<unknown>(null)
   const [askDerived, setAskDerived] = useState(false)
@@ -49,7 +47,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const qc = useQueryClient()
   const p = preview.data
   const path = file ?? dir
-  // SRC-17 sample: relative paths spread over the folder (API-19), else the browsed folder's
+  // Pattern sample: relative paths spread over the folder by detection, else the browsed folder's
   // listing, the same query as the Data root step's browser
   const listing = useFsList(dir, 'source').data
   const detected = detect.data?.candidates.find((c) => c.adapter === 'nifti-files')?.sample
@@ -89,10 +87,10 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
     if (!path) return
     const req: PreviewRequest = { root: path, alias, adapter: a, add: prefill?.add ?? false }
     if (a === 'nifti-files') req.options = nifti
-    if (a === 'metadata-v1' && reconstruct) req.options = { reconstruct_sidecars: true } // IMP-15
+    if (a === 'metadata-v1' && reconstruct) req.options = { reconstruct_sidecars: true }
     preview.mutate(req, { onSuccess: () => setStep('preview') })
   }
-  // DICOM sources go through the converter task (SRC-13, DCM-*); its rows are imported on success
+  // DICOM sources go through the converter task; its rows are imported on success
   const runConvert = async () => {
     setConvertError(null)
     try {
@@ -133,7 +131,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       setAdapter(a)
       if (IMPORTABLE.has(a)) runPreview(a as ImportAdapter)
     },
-    // SRC-04: files that would collapse into one item; the refusal offers the folder pattern
+    // files that would collapse into one item; the refusal offers the folder pattern
     use_pattern: (pattern: string | null) => {
       if (!pattern) return
       const o = { ...niftiOptions, pattern }
@@ -196,7 +194,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
                 pid={pid}
                 onClose={(ok) => {
                   setAskDerived(false)
-                  // a DICOM conversion or a sidecar reconstruction (IMP-15) waited for the folder
+                  // a DICOM conversion or a sidecar reconstruction waited for the folder
                   if (ok) void (adapter === 'dicom.convert' ? runConvert() : adapter && IMPORTABLE.has(adapter) && runPreview(adapter as ImportAdapter))
                 }}
               />

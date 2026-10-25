@@ -1,5 +1,5 @@
-// VW-17 measurement layer: distance, angle and circular ROI mean/SD in HU, drawn in canvas space
-// over the tiles and kept in memory for the visible item only (never persisted, ADR-0021).
+// Distance, angle and circular ROI mean/SD in HU, drawn in canvas space over the tiles and kept
+// in memory for the visible item only (never persisted).
 import { useTranslation } from 'react-i18next'
 
 import { angleDeg, distanceMm, type Measurement } from './model/measure'

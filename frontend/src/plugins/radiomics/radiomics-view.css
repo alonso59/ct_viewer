@@ -1,5 +1,5 @@
-/* Radiomics view (left pane) and its failures dialog; loaded with the view, not with the lazy
-   settings tab (AUD-A3-21). Rows use the shared two-line list row (shell.css `.list-row-2`). */
+/* Radiomics view (left pane) and its failures dialog; kept apart from radiomics.css, which loads
+   only with the lazy settings tab. Rows use the shared two-line list row (shell.css `.list-row-2`). */
 .rad-view {
   display: flex;
   flex-direction: column;

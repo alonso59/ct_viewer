@@ -1,5 +1,3 @@
-// Native phase selection (PHASE.md, ADR-0026): buttons, history, live toasts and the export.
-// Core, not a plugin: available whatever plugins are enabled.
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -11,7 +9,7 @@ import { phaseOptions } from './model'
 
 export { PhaseButtons, PhaseHistoryButton } from './PhaseButtons'
 
-/** PHS-05: "updated by" toasts for other browsers' selections; mount once per project */
+/** "Updated by" toasts for other browsers' selections; mount once per project */
 export function usePhaseRuntime(pid: string) {
   const { t } = useTranslation()
   const onEvent = useCallback(
@@ -24,7 +22,7 @@ export function usePhaseRuntime(pid: string) {
   useProjectEvents(pid, onEvent)
 }
 
-/** PHS-06: `exports/phase_selections.json`, shaped like `phase.json` */
+/** Writes `exports/phase_selections.json`, shaped like `phase.json` */
 async function writeExport() {
   const pid = useWorkbench.getState().pid
   if (!pid) return
@@ -45,7 +43,7 @@ function activeScan() {
   return item ? { pid, item } : null
 }
 
-/** AUD-A1-06: "Phase: Set NP" etc. for the active scan (PHS-01, same event as the buttons) */
+/** "Phase: Set NP" etc. for the active scan; the same event as the buttons */
 function setPhase(value: string) {
   const at = activeScan()
   if (!at) return

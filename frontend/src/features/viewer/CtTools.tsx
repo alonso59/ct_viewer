@@ -1,6 +1,5 @@
-// CT tools beyond the basic tool bar (VW-17/22/23), loaded lazily with their strings (NFR-07):
-// numeric W/L + the DICOM header window, slab MIP/MinIP/average, invert, measurements and header
-// info. The same components serve the case tab (shell tool bar) and Open mode (CtToolbar).
+// CT tools beyond the basic tool bar, loaded lazily with their strings. The same components serve
+// the case tab (shell tool bar) and Open mode (CtToolbar).
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -10,9 +9,8 @@ import { useViewerSync, type ViewerDisplay, type ViewerTool } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useViewerLocal } from './local'
 import { dicomWindowOf } from './model/wl'
-import { LayoutMenu, OverlayToggles, ResetAndSnapshot, ToolGroup, WindowPresets, useShown } from './Tools'
+import { LayoutMenu, OverlayToggles, ResetAndSnapshot, ToolGroup, WindowPresets, useEnabled, useShown } from './Tools'
 
-const useEnabled = () => useViewerLocal((s) => s.active !== null)
 const SLABS: ViewerDisplay['slab']['mode'][] = ['none', 'mip', 'minip', 'avg']
 const MEASURE: { id: ViewerTool; icon: string }[] = [
   { id: 'distance', icon: 'symbol-ruler' },
@@ -20,7 +18,6 @@ const MEASURE: { id: ViewerTool; icon: string }[] = [
   { id: 'roi', icon: 'circle-large-outline' },
 ]
 
-/** VW-22: numeric W/L and the DICOM header window of the visible item */
 export function WindowInputs() {
   const { t } = useTranslation()
   const { ww, wl, setWindow } = useViewerSync()
@@ -49,7 +46,7 @@ export function WindowInputs() {
   )
 }
 
-/** VW-23: slab projection with a thickness in mm, and invert */
+/** Slab projection (thickness in mm) and invert */
 export function SlabControls() {
   const { t } = useTranslation()
   const display = useViewerSync((s) => s.display)
@@ -89,7 +86,7 @@ export function SlabControls() {
   )
 }
 
-/** VW-17: distance, angle and ROI mean/SD; the drawn ones clear with the item or on request */
+/** Distance, angle and ROI mean/SD; the drawn ones clear with the item or on request */
 export function MeasureTools() {
   const { t } = useTranslation()
   const tool = useViewerSync((s) => s.tool)
@@ -122,7 +119,7 @@ function tagValue(el: unknown): string {
   return vals.map((x) => (typeof x === 'object' && x !== null ? ((x as { Alphabetic?: string }).Alphabetic ?? JSON.stringify(x)) : String(x))).join(' \\ ')
 }
 
-/** VW-22: NIfTI header facts of the item and, on demand, its DICOM tags */
+/** NIfTI header facts of the item and, on demand, its DICOM tags */
 export function HeaderInfo() {
   const { t } = useTranslation()
   const info = useViewerLocal((s) => s.info)
@@ -172,7 +169,7 @@ export function HeaderInfo() {
   )
 }
 
-/** The CT tool bar for Open mode (VW-22: the same tools as the case tab) */
+/** The CT tool bar for Open mode */
 export default function CtToolbar() {
   return (
     <div className="toolbar ct-toolbar" role="toolbar">

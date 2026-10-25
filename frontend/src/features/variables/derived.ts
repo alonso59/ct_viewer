@@ -1,4 +1,3 @@
-// Pure helpers for the derived-variable form (VAR-06)
 import type { DerivedDef, Variable } from '../../api'
 
 export const numericSources = (vars: Variable[]) => vars.filter((v) => v.type === 'continuous' || v.type === 'numeric-discrete')

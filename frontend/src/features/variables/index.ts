@@ -1,11 +1,9 @@
-// Study variables (VARIABLES.md): catalog, overrides, derived and external variables (VAR-*)
 import { registry, useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { codicon } from '../../theme'
 import { useVariablesUi } from './store'
 import { createElement, lazy, Suspense } from 'react'
 
-// The view, its dialogs and strings load on first open (NFR-07)
 const load = () => Promise.all([import('./VariablesView'), import('../../i18n/lazy')]).then(([m]) => m)
 const View = lazy(() => load().then((m) => ({ default: m.VariablesView })))
 const Actions = lazy(() => load().then((m) => ({ default: m.VariablesActions })))

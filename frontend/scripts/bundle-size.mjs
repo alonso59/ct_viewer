@@ -1,4 +1,4 @@
-// NFR-07 / FE-05 / REL-04 gate: initial JS = the entry script of dist/index.html plus its
+// Gate: initial JS = the entry script of dist/index.html plus its
 // `modulepreload` set, each file gzip -9, summed. Budget in KiB (1 KiB = 1024 B): above it the gate
 // fails. Growth over the committed baseline (`bundle-baseline.json`) by more than `--warn-kib`
 // prints a warning but does not fail; `--write-baseline` records the current size as the baseline.

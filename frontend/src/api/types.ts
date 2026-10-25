@@ -1,4 +1,4 @@
-// Domain payload types. Built endpoints alias the generated `schema.d.ts` (FE-03); the HTTP client
+// Domain payload types. Built endpoints alias the generated `schema.d.ts`; the HTTP client
 // normalizes payloads into these shapes so features stay independent of wire details.
 import type { components } from './schema'
 
@@ -9,39 +9,36 @@ export const PHASES: Phase[] = ['NC', 'CMP', 'NP', 'EP', 'UNK']
 export type Scope = S['Item']['scope']
 export type Side = S['Item']['side']
 
-/** PRJ-14 default modality of a neutral project */
+/** Default modality of a neutral project */
 export const MODALITIES = ['CT', 'MR', 'mixed'] as const
 export type ProjectModality = (typeof MODALITIES)[number]
 
-/** API-02 list row */
 export type ProjectSummary = Omit<S['ProjectSummary'], 'last_opened_at'> & { last_opened_at: string | null }
 
 export type LabelDef = Required<S['LabelEntry']>
 export type RootInfo = S['RootInfo']
 export type RelinkResult = S['RelinkResult']
-/** API-06 import report (PRJ-09): the new project and a per-alias resolve check */
+/** Bundle import report: the new project and a per-alias resolve check */
 export type BundleImportResult = S['BundleImportResult']
-/** API-06 export: the `.zip` and its server-chosen file name (PRJ-08) */
+/** Bundle export: the `.zip` and its server-chosen file name */
 export interface ProjectBundle {
   blob: Blob
   filename: string
 }
-/** API-15 `202` (IMP-09): progress arrives as `job.*` events of kind `hash` */
+/** `202`: progress arrives as `job.*` events of kind `hash` */
 export type HashJobStarted = S['HashJobStarted']
 
-/** API-03 detail */
 export type Project = Omit<Required<S['ProjectDetail']>, 'label_map'> & { label_map: LabelDef[] }
-/** API-03 PATCH body (PRJ-15: sent with `If-Match`) */
+/** Sent with `If-Match` */
 export type ProjectPatch = S['ProjectPatch']
 export type DisplaySettings = S['Display']
-/** API-28 study packs (PRJ-16) */
 export type PackInfo = S['PackInfo']
 export type PackApplied = S['PackApplied']
-/** API-61 view-only link (PRJ-17) */
+/** View-only link */
 export type ViewToken = S['ViewToken']
 
 
-/** API-22 item; server defaults make every field present */
+/** Server defaults make every field present */
 export type ItemRecord = Required<S['Item']>
 export type ItemPage = S['Page_Item_']
 export interface ItemFilter {
@@ -54,17 +51,16 @@ export interface ItemFilter {
   limit?: number
 }
 export type ItemDetail = ItemRecord & {
-  /** `image_abs`/`mask_abs` alias the API names for P0.5 code (viewer ImageSection); drop after lane/2-viewer merges */
-  advanced: Required<S['ItemAdvanced']> & { image_abs: string | null; mask_abs: string | null }
+  advanced: Required<S['ItemAdvanced']>
   warnings: QCWarning[]
 }
 
 export type VariableValue = string | number | null
 
 export type CaseSummary = Omit<Required<S['CaseSummary']>, 'group' | 'curation_status'> & {
-  /** CUR-08 case rollup: the worst decision, or `partially_reviewed` (see `review_state`) */
+  /** The worst decision, or `partially_reviewed` (see `review_state`) */
   curation_status: CaseRollup
-  /** Case-level values of study variables (VAR-02/10); `{}` until the backend sends them */
+  /** Case-level values of study variables; `{}` until the backend sends them */
   variables: Record<string, VariableValue>
   /** Item used for the list thumbnail; null = derive it from the case detail */
   thumb_item_id: string | null
@@ -90,11 +86,11 @@ export const CURATION_STATUSES = [
   'cannot_assess',
 ] as const
 export type CurationStatus = (typeof CURATION_STATUSES)[number]
-/** CUR-08 case rollup values: a status, or `partially_reviewed` while an active item has no decision */
+/** Case rollup values: a status, or `partially_reviewed` while an active item has no decision */
 export const CASE_ROLLUPS = [...CURATION_STATUSES.slice(0, 1), 'partially_reviewed', ...CURATION_STATUSES.slice(1)] as const
 export type CaseRollup = (typeof CASE_ROLLUPS)[number]
 
-// CUR §Status: queue membership
+/** Statuses that put an item in the correction queue */
 export const QUEUE_STATUSES: CurationStatus[] = [
   'rejected',
   'needs_major_correction',
@@ -105,7 +101,7 @@ export const QUEUE_STATUSES: CurationStatus[] = [
 
 export type Priority = 'low' | 'medium' | 'high'
 
-/** CUR §Event schema: audit snapshot; the server adds fingerprints, phase and import id */
+/** Audit snapshot; the server adds fingerprints, phase and import id */
 export interface CurationContext {
   viewer?: { axis: string; slice: number; ww: number; wl: number }
   image_fp?: string
@@ -114,7 +110,6 @@ export interface CurationContext {
   import_id?: string
 }
 
-/** API-50 event (CUR §Event schema) */
 export type CurationEvent = Omit<Required<S['CurationEvent']>, 'context'> & { context: CurationContext }
 
 export type NewCurationEvent = Pick<
@@ -123,8 +118,8 @@ export type NewCurationEvent = Pick<
 > &
   Partial<Pick<CurationEvent, 'proposed_side' | 'context' | 'seg_id'>>
 
-/** CUR-08 derived state, one row per `(item_id, target, seg_id)`; `item_id = null` for case targets.
- *  Flattened from API-51 `CurationState` (items[].targets, cases[].targets). */
+/** Derived curation state, one row per `(item_id, target, seg_id)`; `item_id = null` for case targets.
+ *  Flattened from `CurationState` (items[].targets, cases[].targets). */
 export interface CurationStateRow {
   item_id: string | null
   case_id: string
@@ -137,42 +132,38 @@ export interface CurationStateRow {
   event_id: string
   add_to_queue: boolean
   proposed_side: 'L' | 'R' | null
-  /** Mask targets: the segmentation set (ADR-0015; `imported` when an old event had none); else null */
+  /** Mask targets: the segmentation set (`imported` when an old event had none); else null */
   seg_id: string | null
 }
 
-/** API-52 row (CUR §Correction queue CSV columns); absolute paths resolved by the server */
+/** Absolute paths resolved by the server */
 export type QueueRow = Required<S['QueueRow']>
-/** API-53 result: files written into the project's `exports/` */
+/** Files written into the project's `exports/` */
 export type CurationExport = S['ExportResult']
-/** API-54 report */
 export type V2ImportReport = S['V2ImportReport']
 
-// ---- radiomics (API-30/32/36; RAD-* records of API-43..47), from the generated schema ---------
-/** API-30 engine schema (RAD-01) */
 export type SettingsSchema = S['SettingsSchema']
 export type OptionSpec = S['OptionSpec']
 export type FilterSpec = S['FilterSpec']
 export type FeatureClassSpec = S['FeatureClassSpec']
-/** Engine settings snapshot sent to API-43/44/45 and stored in profiles */
+/** Engine settings snapshot sent to validate, estimate and run, and stored in profiles */
 export type RadiomicsSettings = S['RadiomicsSettings']
-/** API-43 (radiomics) finding; `loc` is the path into `RadiomicsSettings` (or `labels`, `n_items`) */
+/** `loc` is the path into `RadiomicsSettings` (or `labels`, `n_items`) */
 export type ValidationIssue = S['Issue']
 export type ValidateResult = S['ValidateResult']
-/** API-44/45 item selection (RAD-05) */
 export type Selection = S['TaskSelection']
 export type SelectionFilter = S['TaskSelectionFilter']
-/** API-44 pre-run estimate (RAD-11), `TaskEstimate.radiomics` */
+/** Pre-run estimate, `TaskEstimate.radiomics` */
 export type EstimateResult = S['EstimateResult']
-/** API-32 profile; identified by `profile_hash` (RAD-03) */
+/** Identified by `profile_hash` */
 export type Profile = S['app__radiomics__models__Profile']
-/** API-45 list row and detail (`radiomics` of the task run) */
+/** List row and detail (`radiomics` of the task run) */
 export type RunSummary = S['RunSummary']
 export type RunDetail = S['RunDetail']
 export type RunStatus = RunSummary['status']
-/** API-47 per-item failure (RAD-07), `TaskItemError.radiomics` */
+/** Per-item failure, `TaskItemError.radiomics` */
 export type RunError = S['app__radiomics__models__RunError']
-/** API-45 start body (task `radiomics.pyradiomics`) */
+/** Start body (task `radiomics.pyradiomics`) */
 export interface StartRunBody {
   name: string
   settings: RadiomicsSettings
@@ -181,7 +172,7 @@ export interface StartRunBody {
 export type RunExportFormat = 'csv' | 'parquet'
 export type RunExportShape = 'long' | 'wide'
 
-/** API-36 long rows (RAD §Output schema). `feature` is the full column name used by API-38/39
+/** Long feature rows. `feature` is the full column name used by the dashboard and analyses
  *  (`{image_type}_{feature_class}_{name}`, e.g. `original_firstorder_Mean`). */
 export interface FeatureRow {
   item_id: string
@@ -200,10 +191,9 @@ export interface FeatureRow {
   ibsi_status: 'compliant' | 'deviates' | 'not_defined' | null
 }
 
-/** API-41 job */
 export type Job = Required<S['JobInfo']>
 export type JobStatus = Job['status']
-/** API-40 `job.progress` / `job.finished` payloads */
+/** `job.progress` / `job.finished` payloads */
 export type JobProgress = Pick<Job, 'job_id' | 'kind' | 'done' | 'total' | 'eta_s'>
 export type JobFinished = Pick<Job, 'job_id' | 'kind' | 'status' | 'ref'>
 
@@ -214,48 +204,44 @@ export type ImportHistory = S['ImportHistory']
 export type CommitResult = S['CommitResult']
 export type Health = S['Health']
 
-/** Import preview request: a server folder (IMP-01/02), optionally with uploaded metadata files */
+/** Import preview request: a server folder, optionally with uploaded metadata files */
 export interface PreviewRequest {
   root: string
   alias: string
   files?: { metadata: File; phase?: File | null; voi_catalog?: File | null }
-  /** SRC-03/04: `nifti-files` builds v1 rows from file names; `root` may be one NIfTI file (SRC-05) */
+  /** `nifti-files` builds v1 rows from file names; `root` may be one NIfTI file */
   adapter?: ImportAdapter
-  /** `nifti-files` options, or IMP-15 `{reconstruct_sidecars}` for `metadata-v1` */
+  /** `nifti-files` options, or `{reconstruct_sidecars}` for `metadata-v1` */
   options?: NiftiOptions | { reconstruct_sidecars: boolean }
-  /** SRC-15: keep the project's other sources (SOURCES §Imports) */
+  /** Keep the project's other sources */
   add?: boolean
 }
 export type ImportAdapter = NonNullable<S['ImportPreview']['adapter']>
-/** `nifti-files` options (SOURCES §NIfTI files) */
 export interface NiftiOptions {
   pattern?: string
   case_id_from?: 'pattern' | 'stem' | 'sequential'
   modality?: string
   include?: string[] | null
   mask_conventions?: string[]
-  /** image → mask: the segmentation attached in Open mode (ADR-0027) */
+  /** image → mask: the segmentation attached in Open mode */
   masks?: Record<string, string> | null
-  /** SRC-04: the mask path from the pattern's groups, `{stem}`, `{dir}`; a folder is a mask set */
+  /** The mask path from the pattern's groups, `{stem}`, `{dir}`; a folder is a mask set */
   mask_template?: string | null
 }
-/** API-19 */
 export type DetectResult = S['DetectResult']
 export type DetectCandidate = S['Candidate']
-/** API-07/08 Open mode (SRC-09/10) */
 export type OpenSession = S['OpenSession']
 export type OpenItem = S['OpenItem']
 export type AxisOrder = 'xyz' | 'zyx'
 
-// ---- Study variables (VARIABLES.md, API-16..18) -----------------------------------------------
-// Enums come from the generated schema (FE-03). The UI works on `Variable`, adapted from the
-// API-16/17 `Catalog` in http.ts (profile `distinct`/`top` → `n_distinct`/`levels`, derived
-// definitions joined in, bin `quantiles` as a group count instead of cut probabilities).
+// The UI works on `Variable`, adapted from the wire `Catalog` in http.ts (profile
+// `distinct`/`top` → `n_distinct`/`levels`, derived definitions joined in, bin `quantiles` as a
+// group count instead of cut probabilities).
 type WireVariable = S['Variable']
-/** VAR-06 derived definition that no longer builds, with the reason (AUD-A5-08) */
+/** Derived definition that no longer builds, with the reason */
 export type BrokenDerived = S['BrokenDerived']
 export type VariableType = WireVariable['type']
-/** Types a user can pick when confirming or overriding an inference (VAR-03; API `VariableOverride.type`) */
+/** Types a user can pick when confirming or overriding an inference (`VariableOverride.type`) */
 export const OVERRIDE_TYPES = ['continuous', 'categorical', 'date', 'identifier', 'text'] as const satisfies readonly NonNullable<S['VariableOverride']['type']>[]
 export type OverrideType = (typeof OVERRIDE_TYPES)[number]
 export const VARIABLE_TAGS = ['confounder', 'outcome', 'sensitive'] as const satisfies readonly NonNullable<WireVariable['tags']>[number][]
@@ -292,23 +278,23 @@ export interface Variable {
   visible: boolean
   /** 0..1 */
   confidence: number
-  /** Low-confidence inference: the UI shows a "Review" badge until confirmed (VAR-03) */
+  /** Low-confidence inference: the UI shows a "Review" badge until confirmed */
   review: boolean
   overridden: boolean
-  /** VAR-13: offered for side-by-side comparison (Labeling reference columns, LBL-09) */
+  /** Offered for side-by-side comparison (Labeling reference columns) */
   comparable: boolean
   profile: VariableProfile
   definition?: DerivedDef | null
 }
 
-/** API-16 PATCH body (`VariableOverride`) */
+/** PATCH body (`VariableOverride`) */
 export interface VariablePatch {
   type?: OverrideType
   visible?: boolean
   tags?: VariableTag[]
 }
 
-/** API-18 match report (`ExternalReport`), in UI terms */
+/** Match report (`ExternalReport`), in UI terms */
 export interface ExternalImportResult {
   key: 'case_id' | 'patient_id'
   n_rows: number
@@ -322,7 +308,6 @@ export interface ExternalImportResult {
   added: string[]
 }
 
-// ---- Dashboard views (API-38) and guided analysis (API-39): generated types (FE-03) ----------
 export type GlobalFilters = S['GlobalFilters']
 export type ColorBy = S['ColorBy']
 export type UnitSpec = S['UnitSpec']
@@ -338,7 +323,7 @@ export type AnalysisExportFile = 'tidy' | 'results' | 'descriptives' | 'spec'
 /** Request body: fields with a server default are optional (openapi-typescript marks them required) */
 type Body<T, K extends keyof T = never> = Partial<T> & Pick<T, K>
 
-/** API-38 `{view}` → request body / response (DASHBOARD §Views) */
+/** Dashboard `{view}` → request body / response */
 export interface DashboardViews {
   'run-overview': { req: Body<S['RunOverviewRequest']>; res: S['RunOverviewResponse'] }
   'feature-distribution': { req: Body<S['FeatureDistributionRequest'], 'feature'>; res: S['FeatureDistributionResponse'] }
@@ -363,9 +348,8 @@ export interface Problem {
   detail?: string
 }
 
-// ---- Native phase selection (PHASE.md PHS-*, ADR-0026; API-63..65) --------------------------------
 export type PhaseEvent = S['PhaseEvent']
-/** API-63 POST body; the client adds the session id */
+/** POST body; the client adds the session id */
 export type NewPhaseEvent = Omit<S['PhaseIn'], 'session_id'>
 export type PhaseExport = S['PhaseExportResult']
 
@@ -378,11 +362,10 @@ export type ServerEvent =
   | { event: 'job.status'; data: Pick<Job, 'job_id' | 'status'> }
   | { event: 'index.rebuilt'; data: { import_id: string; n_items: number; n_warnings: number } }
   | { event: 'project.updated'; data: { fields: string[] } }
-  /** AUD-A5-11: missed events cannot be replayed (server) or the stream reopened after an error
+  /** Missed events cannot be replayed (server) or the stream reopened after an error
    *  (client): refetch everything of the project */
   | { event: 'reset'; data: Record<string, never> }
 
-// ---- P7b: tasks (API-42..47, TSK-*) and segmentation sets (API-27, ADR-0015) --------------------
 export type RootRole = S['PathRoot']['role']
 export type SegmentationSet = S['SegmentationSet']
 export type SegmentationInfo = S['SegmentationInfo']
@@ -397,7 +380,7 @@ export type EstimateProgress = S['EstimateProgress']
 export type TaskRunRequest = S['TaskRunRequest']
 export type TaskRunStarted = S['TaskRunStarted']
 export type RunAttemptControl = S['RunAttemptControl']
-/** API-45 list row; a radiomics row carries its RAD-09 summary (`radiomics`) */
+/** A radiomics row carries its run summary (`radiomics`) */
 export type TaskRunSummary = S['TaskRunListItem']
 export type TaskRunDetail = S['TaskRunDetail']
 export type TaskRunStatus = TaskRunSummary['status']
@@ -405,14 +388,11 @@ export type TaskItemError = S['TaskItemError']
 export type TaskRunOutput = S['TaskRunOutput']
 export type AnnotationRow = S['AnnotationRow']
 export type AnnotationSources = S['AnnotationSources']
-/** API-09 (SRC-14) */
 export type SaveOpenBody = S['SaveBody']
 export type SavedOpen = S['Saved']
 
-// ---- P7c: plugins (API-49, PLG-*) ------------------------------------------------------------------
 export type PluginInfo = S['PluginInfo']
 export type PluginList = S['PluginList']
-/** API-62 workspace tasks (TSK-13) and API-59 layers (ADR-0020) */
 export type WorkspaceRun = S['WorkspaceRun']
 export type WorkspaceRunRequest = S['WorkspaceRunRequest']
 export type SourceOperation = S['SourceOperation']
@@ -424,7 +404,6 @@ export type SourcePlanPage = S['SourcePlanPage']
 export type InventoryPage = S['InventoryPage']
 export type LayerInfo = S['LayerInfo']
 
-// ---- P7c: labeling tables (API-56..58, LBL-*) -------------------------------------------------
 export type LabelTable = S['LabelTable']
 export type LabelTableInfo = S['TableInfo']
 export type LabelColumn = S['LabelColumn']

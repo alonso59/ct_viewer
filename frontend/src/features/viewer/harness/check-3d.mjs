@@ -1,4 +1,4 @@
-// VW-09/27 WebGL regression. Start the fixture harness on :5175 (make fixtures first).
+// 3D view WebGL regression. Start the fixture harness on :5175 (make fixtures first).
 // Run: node src/features/viewer/harness/check-3d.mjs
 // HARNESS_URL, CHROME and CDP_URL optionally select the server/browser.
 import assert from 'node:assert/strict'

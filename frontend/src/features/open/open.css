@@ -1,4 +1,3 @@
-/* Open mode (UI-17): title row + one left-aligned action row above the viewer */
 .open-title {
   display: flex;
   align-items: center;
@@ -21,13 +20,12 @@
   align-items: center;
   gap: var(--sp-2);
 }
-/* UI-24: Close is non-destructive (releases the session, deletes nothing) — a red
-   border marks it as the exit action without borrowing --btn-danger's destructive color. */
+/* Close is non-destructive (releases the session, deletes nothing): a red border marks it as
+   the exit action without borrowing --btn-danger's destructive color. */
 .open-close-btn {
   border-color: var(--error);
 }
 
-/* Open-mode layout (UI-17; AUD-A3-17: classes instead of inline styles) */
 .open-inner {
   display: flex;
   flex-direction: column;

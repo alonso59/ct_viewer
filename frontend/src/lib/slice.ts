@@ -1,7 +1,6 @@
-// CPU slice rendering for P0.5 placeholders and thumbnails: W/L + label overlay (fill or outline).
-// P3 replaces viewport rendering with NiiVue (GPU); thumbnails come from IMP-12 in P2.
+// CPU slice rendering for thumbnails: W/L + label overlay (fill or outline).
 
-export interface SliceRender {
+interface SliceRender {
   w: number
   h: number
   image: Int16Array

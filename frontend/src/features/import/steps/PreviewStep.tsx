@@ -1,4 +1,4 @@
-// Import wizard, step 3 (IMP-03/04, IMP-08): counts, the field mapping or the `nifti-files` sample,
+// Import wizard, step 3: counts, the field mapping or the `nifti-files` sample,
 // and the errors that block the commit.
 import { useTranslation } from 'react-i18next'
 
@@ -60,7 +60,6 @@ function NiftiSample({ p }: { p: ImportPreview }) {
   )
 }
 
-/** IMP-03: unmatched names, orphan masks and ignored extensions, shown next to the counts */
 function NiftiNotices({ p }: { p: ImportPreview }) {
   const { t } = useTranslation()
   return (
@@ -90,7 +89,7 @@ export function PreviewStep({ p }: { p: ImportPreview }) {
         <h3>{t('import.previewTitle')}</h3>
         <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${nifti ? 4 : 2}, 1fr)`, marginTop: 0 }}>
           {previewCounts(p).map(({ key, n }) => (
-            // AUD-A1-08: the case count leaves out cases excluded upstream (and says so)
+            // the case count leaves out cases excluded upstream (and says so)
             <div key={key} className="card" data-zero={n === 0 || undefined} title={key === 'import.kpiCases' ? t('import.kpiCasesHelp', { excluded: p.counts.excluded_cases ?? 0 }) : undefined}><span className="kpi num">{n}</span><span className="muted">{t(key)}</span></div>
           ))}
         </div>

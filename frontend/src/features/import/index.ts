@@ -1,4 +1,3 @@
-// Import wizard (IMP-01..05)
 import { registry, useWorkbench } from '../../shell'
 
 export { FolderBrowser } from './FolderBrowser'

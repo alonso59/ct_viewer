@@ -1,4 +1,3 @@
-// Variables view UI state: collapsed sections and which dialog is open
 import { create } from 'zustand'
 
 type Dialog = 'derived' | 'external' | null

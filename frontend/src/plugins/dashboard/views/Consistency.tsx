@@ -22,7 +22,7 @@ export function ConsistencyView({ runId }: ViewProps) {
   const q = useDashboardView(pid, runId, 'phase-side-consistency', feature ? { filters, feature, pair: { kind } } : null)
   const d = q.data
   const points = useMemo<ScatterPoint[]>(
-    () => (d?.points ?? []).map((p) => ({ item_id: p.item_id_a, case_id: p.case_id, x: p.mean, y: p.diff, level: null, note: `${p.item_id_b}` })),
+    () => (d?.points ?? []).map((p) => ({ item_id: p.item_id_a, case_id: p.case_id, x: p.mean, y: p.diff, level: null, note: p.item_id_b })),
     [d],
   )
   const lines = useMemo(

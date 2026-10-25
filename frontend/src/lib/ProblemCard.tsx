@@ -1,7 +1,5 @@
-// UI-18: every error shows its cause (`detail`) and its next actions (`actions[]`) as buttons.
-// The title comes from the problem code in plain words; the raw message is never the title and
-// the slug is not shown as a chip (AUD-A2-07, AUD-A3-03); it stays in `data-problem` and the
-// title's tooltip for support.
+// Every error shows its cause (`detail`) and its next actions (`actions[]`) as buttons.
+// The title comes from the problem code in plain words; the slug stays in `data-problem` and the title's tooltip.
 import { useTranslation } from 'react-i18next'
 
 import { ProblemError, parseAction } from '../api/problem'

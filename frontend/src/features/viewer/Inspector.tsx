@@ -1,4 +1,3 @@
-// Inspector sections contributed by the viewer: layers (VW-07) and window/level (VW-05)
 import { useTranslation } from 'react-i18next'
 
 import { useProject, useSegmentations } from '../../api'
@@ -13,7 +12,6 @@ export function LayersSection() {
   const labels = project?.label_map ?? []
   const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
-  // VW-19: the choice is per project (AUD-A5-05)
   const active = v.segChoice[pid] ?? project?.default_seg ?? 'imported'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-panel)' }}>

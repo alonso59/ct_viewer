@@ -8,9 +8,9 @@ import { paletteScore } from './paletteMatch'
 import { registry, routeScope } from './registry'
 import { useWorkbench } from './workbenchStore'
 
-/** Command palette (Ctrl/Cmd+Shift+P) and quick open (Ctrl/Cmd+P) on every route (UI-05,
- *  AUD-A1-01). A leading `>` switches to commands, as in VS Code. Only the commands of the
- *  current route are listed, ranked by `paletteScore` (AUD-A1-07). */
+/** Command palette (Ctrl/Cmd+Shift+P) and quick open (Ctrl/Cmd+P) on every route. A
+ *  leading `>` switches to commands, as in VS Code. Only the commands of the current route are
+ *  listed, ranked by `paletteScore`. */
 export function CommandPalette() {
   const { t } = useTranslation()
   const mode = useWorkbench((s) => s.palette)
@@ -23,7 +23,7 @@ export function CommandPalette() {
     openPalette(null)
     setValue('')
   }
-  // A palette never outlives its page (AUD-A2-09: a press on one route must not pop up on the next)
+  // A palette never outlives its page: a press on one route must not pop up on the next
   const { pathname } = useLocation()
   const page = `${routeScope(pathname)}:${pathname.split('/')[2] ?? ''}`
   const lastPage = useRef(page)

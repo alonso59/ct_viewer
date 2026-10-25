@@ -1,4 +1,4 @@
-// ROADMAP P6: Variables view end to end against the real API-16..18 on the synthetic fixtures
+// P6: Variables view end to end against the real API-16..18 on the synthetic fixtures
 // (TST-11 variables cohort). The project is created and imported through the API to save time.
 import { expect, test, type Page } from '@playwright/test'
 

@@ -1,4 +1,3 @@
-// Left pane Curation view (QuPath Annotations analog): decision form, progress, queue shortcut
 import { useTranslation } from 'react-i18next'
 
 import { useCases, useQueue } from '../../api'

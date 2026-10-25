@@ -1,20 +1,18 @@
-// The Explorer filter as a radiomics selection (RAD-05 "current Explorer filter"). API-44/45
-// take either an item-id list or level lists (phase, side, `var`), so ranges and case-only
-// criteria cannot be sent; they are reported as dropped.
+// The Explorer filter as a radiomics selection. The API takes either an item-id list or level
+// lists (phase, side, `var`), so ranges and case-only criteria cannot be sent; they are reported as dropped.
 import type { CaseFilter, Variable } from '../../api'
 
-/** Criteria of the Explorer filter that have no API-44/45 equivalent */
-export type DroppedCriterion = 'text' | 'status' | 'warning' | 'voi' | 'showExcluded' | 'phase' | 'vars'
+/** Criteria of the Explorer filter that have no API equivalent */
+type DroppedCriterion = 'text' | 'status' | 'warning' | 'voi' | 'showExcluded' | 'phase' | 'vars'
 
 export interface ExplorerSelection {
-  /** DB-04 item list; when set, the other criteria are dropped (item_ids and filter are exclusive) */
+  /** When set, the other criteria are dropped (item_ids and filter are exclusive) */
   itemIds: string[] | null
   /** Scope shared by every listed item, if any */
   scope: 'complete' | 'voi' | null
   phase: string[]
-  /** Level lists per variable (VAR-10) */
   vars: Record<string, string[]>
-  /** Continuous variables filtered by a `min..max` range: bin them first (VAR-06) */
+  /** Continuous variables filtered by a `min..max` range: bin them first */
   ranges: string[]
   dropped: DroppedCriterion[]
 }

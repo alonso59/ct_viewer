@@ -5,7 +5,7 @@ import { useLayout } from '../state'
 import { registry } from './registry'
 import { Sash } from './Sash'
 
-/** Optional right inspector (UI-01), closed by default; sections come from features. */
+/** Optional right inspector, closed by default; sections come from features. */
 export function Inspector() {
   const { t } = useTranslation()
   const layout = useLayout()

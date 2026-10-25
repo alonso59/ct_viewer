@@ -1,4 +1,4 @@
-// The viewer without a project tab (Open mode, SRC-09 / VW-21): same surface, no curation or tasks.
+// The viewer without a project tab (Open mode): same surface, no curation or tasks.
 import type { ItemRecord, LabelDef } from '../../api'
 import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
 import './viewer.css'

@@ -1,4 +1,3 @@
-// Plugin Library view (UI-22): core, lazy with its strings (NFR-07).
 import { createElement, lazy, Suspense } from 'react'
 
 import { registry } from '../../shell'

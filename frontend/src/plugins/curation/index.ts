@@ -1,4 +1,3 @@
-// Curation: decisions, history, correction queue, live sync (CUR-*)
 import { createElement, lazy, Suspense, useCallback, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -12,16 +11,16 @@ import { revealView, type FrontendPlugin } from '../host'
 import { activeSegOf, submitDecision, useDraft } from './decision'
 import { statusOf } from './model'
 
-// Curation UI stays out of the initial bundle (FE-05, NFR-07); shortcuts only need ./decision.
+// Curation UI stays out of the initial bundle; shortcuts only need ./decision.
 // Editors render inside the editor area's Suspense; views and panel tabs get their own boundary.
 const QueueEditor = lazy(() => import('./QueueEditor').then((m) => ({ default: m.QueueEditor })))
 const suspended = (C: ComponentType) => () => createElement(Suspense, { fallback: null }, createElement(C))
 const CurationView = suspended(lazy(() => import('./CurationView').then((m) => ({ default: m.CurationView }))))
-const InspectorCuration = suspended(lazy(() => import('./CurationForm').then((m) => ({ default: m.InspectorCuration }))))
+const InspectorCuration = suspended(lazy(() => import('./CurationForm').then((m) => ({ default: m.CurationForm }))))
 const HistoryView = suspended(lazy(() => import('./History').then((m) => ({ default: m.HistoryView }))))
 const HistoryPanel = suspended(lazy(() => import('./History').then((m) => ({ default: m.HistoryPanel }))))
 
-/** Mount once in the workbench: shows "updated by" toasts for other reviewers' events (CUR-11). */
+/** Mount once in the workbench: shows "updated by" toasts for other reviewers' events. */
 export function useCurationRuntime(pid: string) {
   const { t } = useTranslation()
   const onEvent = useCallback(
@@ -44,7 +43,6 @@ function currentStatus() {
   return statusOf(rows, activeItemId, activeCaseId, useDraft.getState().target, activeSegOf(pid))
 }
 
-/** CUR-10: write curation_state.csv and events.jsonl into `exports/` */
 async function writeExports() {
   const pid = useWorkbench.getState().pid
   if (!pid) return
@@ -62,7 +60,7 @@ export const plugin: FrontendPlugin = {
   open: () => revealView('curation'),
 }
 
-/** A case tab is active and its item is loaded (AUD-A2-02: never the previous case's item) */
+/** A case tab is active and its item is loaded (the viewer may still hold the previous case's item) */
 const hasItem = () => {
   const a = useWorkbench.getState().active
   const { activeCaseId, activeItemId } = useViewerSync.getState()
@@ -113,7 +111,7 @@ export function registerCuration() {
     menuGroup: 1,
     when: 'viewer',
     enabled: hasItem,
-    // Q flags the item for the queue and keeps its current status (CUR-09)
+    // Q flags the item for the queue and keeps its current status
     run: () => void submitDecision(currentStatus(), { addToQueue: true }),
   })
   registry.command({ id: 'curation.openQueue', writes: true, title: 'curation.openQueue', category: 'cat.navigate', menuGroup: 3, run: () => openEditor('queue', {}) })

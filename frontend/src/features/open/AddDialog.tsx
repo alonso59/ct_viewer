@@ -1,4 +1,3 @@
-// SRC-15 "Add to project…": the open file becomes a new import next to the project's sources.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -10,7 +9,7 @@ import { useImportWizard } from '../import'
 import { importSource } from './model'
 
 /** The path to add: the file itself; a DICOM series of several files → its folder */
-export function addPath(session: OpenSession, item: OpenItem): string {
+function addPath(session: OpenSession, item: OpenItem): string {
   const file = [session.root, item.rel].join('/')
   return item.format === 'dicom' && (item.files?.length ?? 0) > 1 ? file.slice(0, file.lastIndexOf('/')) : file
 }
@@ -24,7 +23,6 @@ export function AddDialog({ session, item, mask, modality, onClose }: { session:
     if (!pid) return
     onClose()
     navigate(`/p/${pid}`)
-    // an attached segmentation travels with the image (ADR-0027, AUD-A2-12)
     const src = importSource(session, item, mask, addPath(session, item))
     useImportWizard.getState().open(pid, { adapter: item.format === 'dicom' ? 'dicom.convert' : 'nifti-files', ...src, add: true, modality })
   }

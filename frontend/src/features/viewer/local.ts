@@ -7,20 +7,19 @@ import type { Scene3DOptions, ViewerHandle, ViewportId } from './model/types'
 import { DEFAULT_SCENE_3D } from './model/scene3d'
 
 interface LocalState {
-  /** VW-06: zoom/pan linked across the 2D views (opt-in, not persisted) */
+  /** Zoom/pan linked across the 2D views (opt-in, not persisted) */
   linkZoom: boolean
-  /** Viewport under the pointer (VW-26 `F`) */
+  /** Viewport under the pointer (target of `F`) */
   hovered: ViewportId | null
-  /** VW-09 3D viewport */
   volume3d: boolean
   mask3d: boolean
   ctOpacity: number
   surfaces: boolean
   blend: number
   scene3d: Scene3DOptions
-  /** Handle of the visible case tab (screenshot, VW-16 context) */
+  /** Handle of the visible case tab (screenshot, curation context) */
   active: ViewerHandle | null
-  /** VW-22 header info of the visible viewer's item */
+  /** Header info of the visible viewer's item */
   info: { item: ItemRecord; tags?: () => Promise<Record<string, unknown>> } | null
 }
 

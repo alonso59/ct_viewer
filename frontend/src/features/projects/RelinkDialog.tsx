@@ -1,5 +1,4 @@
-// Relink dialog (PRJ-05, API-05), shared by the workspace home and the bundle import report; its
-// own module so neither imports the other (AUD-A6-10).
+// Shared by the workspace home and the bundle import report; its own module so neither imports the other.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -8,7 +7,7 @@ import { Dialog } from '../../lib'
 import { toast } from '../../shell'
 import { codicon } from '../../theme'
 
-/** Relink (PRJ-05, API-05): point an alias at a new root; the server verifies a sample of items */
+/** Point an alias at a new root; the server verifies a sample of items */
 export function RelinkDialog({ pid, name, onOpenChange }: { pid: string; name: string; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
   const roots = useRoots(pid)
@@ -84,5 +83,3 @@ export function RelinkDialog({ pid, name, onOpenChange }: { pid: string; name: s
     </Dialog>
   )
 }
-
-/** Axial thumbnail of the project's first case (Open Recent) */

@@ -1,7 +1,6 @@
-// SRC-17 pattern suggester: candidate `nifti-files` patterns derived only from the sampled file
-// paths (no per-dataset presets, ADR-0024). Patterns use Python syntax, as the backend fullmatches
-// them against each file stem, or the relative path without extension when the pattern has a `/`
-// (SRC-04); `toJsRegex` converts one for highlighting in the browser.
+// Candidate `nifti-files` patterns derived only from the sampled file paths. Patterns use Python
+// syntax, as the backend fullmatches them against each file stem, or the relative path without
+// extension when the pattern has a `/`; `toJsRegex` converts one for highlighting in the browser.
 
 export interface PatternCandidate {
   /** Python regex for the `pattern` field */
@@ -13,12 +12,12 @@ export interface PatternCandidate {
 }
 
 const EXT = /\.(nii\.gz|nii|npy)$/i
-// SRC-04 default mask conventions: `_seg` / `_mask` stems are masks, not items
+// default mask conventions: `_seg` / `_mask` stems are masks, not items
 const MASK = /_(seg|mask)$/i
 const MASK_DIR = /(^|\/)(seg|masks)\//i
 const MAX = 3
 
-/** SRC-04: one case per image folder (its parent, at any depth); scans numbered within it */
+/** One case per image folder (its parent, at any depth); scans numbered within it */
 export const FOLDER_PATTERN = '^(?:.*/)?(?P<case_id>[^/]+)/[^/]+$'
 
 export const stemOf = (name: string) => name.replace(EXT, '')
@@ -36,7 +35,7 @@ const namesRepeat = (paths: string[]) => new Set(paths.map(baseOf)).size < paths
 
 export const toJsRegex = (pattern: string) => new RegExp(pattern.replace(/\(\?P</g, '(?<'), 'd')
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+export const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** The most common `case` literal (with its separator) in front of digits, e.g. `case_` */
 function caseLiteral(stems: string[]): string | null {
@@ -110,9 +109,8 @@ export function segments(pattern: string, stem: string): { text: string; group?:
 export const prefillPattern = (paths: string[]) => converterPattern(paths) ?? (paths.length && namesRepeat(paths) ? FOLDER_PATTERN : null)
 
 /**
- * The converter's own file naming `{scan_idx}_[{MOD}_]{case_id}_{channel}` (DICOM_CONVERTER,
- * kept by ADR-0024 §3). The wizard pre-fills it, visible and editable, only when every sampled
- * image stem follows it (ADR-0027, AUD-A2-12); otherwise the default (one case per stem) stays.
+ * The converter's own file naming `{scan_idx}_[{MOD}_]{case_id}_{channel}`. The wizard pre-fills
+ * it only when every sampled image stem follows it; otherwise the default (one case per stem) stays.
  */
 export const CONVERTER_PATTERN = '^(?P<scan_idx>\\d+)_(?:(?P<modality>[A-Z]{2,3})_)?(?P<case_id>.+)_(?P<channel>\\d{4})$'
 

@@ -1,4 +1,4 @@
-/* Analysis panel (DB-08): a narrow, scrolling column that also works in a side sub-panel */
+/* Analysis panel: a narrow, scrolling column that also works in a side sub-panel */
 .an-panel {
   display: flex;
   flex-direction: column;

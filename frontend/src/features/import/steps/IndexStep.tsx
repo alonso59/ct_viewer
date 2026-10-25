@@ -1,4 +1,4 @@
-// Import wizard, step 4 (IMP-05, API-40): the indexing (or conversion) job's progress or failure.
+// Import wizard, step 4: the indexing (or conversion) job's progress or failure.
 import { useTranslation } from 'react-i18next'
 
 import type { Job } from '../../../api'

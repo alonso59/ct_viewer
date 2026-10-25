@@ -1,4 +1,4 @@
-// Viewer state shared by the tool bar, status bar, inspector and the case editor (VW-*).
+// Viewer state shared by the tool bar, status bar, inspector and the case editor.
 import { create } from 'zustand'
 
 export type LayoutId =
@@ -9,12 +9,11 @@ export type LayoutId =
   | 'one-up-sagittal'
   | 'one-up-coronal'
   | 'one-up-3d'
-export const LAYOUT_CYCLE: LayoutId[] = ['four-up', 'conventional', 'three-mpr', 'one-up-axial']
-/** VW-06 tools + VW-17 measurements */
+const LAYOUT_CYCLE: LayoutId[] = ['four-up', 'conventional', 'three-mpr', 'one-up-axial']
 export type ViewerTool = 'pan' | 'window' | 'crosshair' | 'zoom' | 'distance' | 'angle' | 'roi'
 export type ViewportId = 'axial' | 'sagittal' | 'coronal' | '3d'
 
-// VW-05 presets (ww / wl)
+// [ww, wl]
 export const WL_PRESETS = {
   soft_tissue: [400, 50],
   bone: [1800, 400],
@@ -22,9 +21,9 @@ export const WL_PRESETS = {
   brain: [80, 40],
   kidney: [500, 100],
 } as const
-export type WlPreset = keyof typeof WL_PRESETS | 'custom'
+type WlPreset = keyof typeof WL_PRESETS | 'custom'
 
-/** VW-22/23/25 display options of the 2D tiles (project `display` or Open-mode defaults) */
+/** Display options of the 2D tiles (project `display` or Open-mode defaults) */
 export interface ViewerDisplay {
   invert: boolean
   slab: { mode: 'none' | 'mip' | 'minip' | 'avg'; mm: number }
@@ -32,17 +31,16 @@ export interface ViewerDisplay {
   convention: 'radiological' | 'neurological'
 }
 
-/** VW-19: the set to show for an item: the chosen one (else `default_seg`); an item without a
+/** The set to show for an item: the chosen one (else `default_seg`); an item without a
  *  mask in the chosen set falls back to `default_seg` and reports the set it is `missing` from. */
 export function resolveSeg(masks: Record<string, unknown>, chosen: string | undefined, defaultSeg: string): { seg: string | null; missing: string | null } {
   const want = chosen ?? defaultSeg
   if (masks[want]) return { seg: want, missing: null }
-  const any = Object.keys(masks).length > 0
   if (masks[defaultSeg]) return { seg: defaultSeg, missing: want }
-  return { seg: null, missing: any ? want : null }
+  return { seg: null, missing: Object.keys(masks).length > 0 ? want : null }
 }
 
-export interface WindowPreset {
+interface WindowPreset {
   name: string
   ww: number
   wl: number
@@ -53,17 +51,17 @@ export interface CursorReadout {
   ras: [number, number, number]
   value: number
   label: number
-  /** The label's name from the shown labels (VW-08), when it has one */
+  /** The label's name from the shown labels, when it has one */
   labelName?: string
 }
 
 interface ViewerSyncState {
   activeCaseId: string | null
   activeItemId: string | null
-  /** VW-19: the segmentation set chosen per project (pid → seg_id); absent = its `default_seg`.
-   *  Keyed by project so a choice never leaks into another project (AUD-A5-05). */
+  /** The segmentation set chosen per project (pid → seg_id); absent = its `default_seg`.
+   *  Keyed by project so a choice never leaks into another project. */
   segChoice: Record<string, string>
-  /** VW-19: the set whose mask is on screen for the active item, i.e. the `seg_id` of mask
+  /** The set whose mask is on screen for the active item, i.e. the `seg_id` of mask
    *  decisions; null = no mask shown (set by the case editor) */
   shownSeg: string | null
   viewerFocused: boolean
@@ -81,20 +79,20 @@ interface ViewerSyncState {
   labelOpacity: Record<number, number>
   cursor: CursorReadout | null
   resetToken: number
-  /** VW-05: display-only modality chosen for items without one, keyed by `modalityKey(item)` */
+  /** Display-only modality chosen for items without one, keyed by `modalityKey(item)` */
   modalityOverride: Record<string, string>
-  /** VW-05: modality of the visible viewer's item; `assumed` = the item has none (selector shown) */
+  /** Modality of the visible viewer's item; `assumed` = the item has none (selector shown) */
   activeModality: { key: string; value: string; assumed: boolean } | null
   display: ViewerDisplay
-  /** VW-25: initial CT window (project `display.wl.CT`, else soft tissue) */
+  /** Initial CT window (project `display.wl.CT`, else soft tissue) */
   ctWindow: [number, number]
-  /** VW-25: project W/L presets (`display.wl_presets`); empty = the built-in presets */
+  /** Project W/L presets (`display.wl_presets`); empty = the built-in presets */
   customPresets: WindowPreset[]
-  /** VW-22: open on the DICOM header window when the item has one */
+  /** Open on the DICOM header window when the item has one */
   useDicomWindow: boolean
-  /** PRJ-14: the modality assumed for items without one */
+  /** The modality assumed for items without one */
   defaultModality: string
-  /** VW-17: bumping it clears the measurements of the visible viewer */
+  /** Bumping it clears the measurements of the visible viewer */
   measureClear: number
   set: (patch: Partial<ViewerSyncState>) => void
   setModality: (key: string, modality: string) => void

@@ -1,4 +1,4 @@
-// Import wizard, step 1 (IMP-01/02, SRC-09, IMP-14): the data root or one file on the server, its
+// Import wizard, step 1: the data root or one file on the server, its
 // alias, or uploaded metadata files (images stay on the server).
 import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -10,7 +10,6 @@ import { cleanAlias } from '../model'
 
 export type Uploads = NonNullable<PreviewRequest['files']>
 
-/** IMP-02 alternative: upload the metadata files (images stay on the server) */
 function UploadFields({ files, onFiles }: { files: Partial<Uploads>; onFiles: (f: Partial<Uploads>) => void }) {
   const { t } = useTranslation()
   const pick = (k: keyof Uploads) => (e: ChangeEvent<HTMLInputElement>) => onFiles({ ...files, [k]: e.target.files?.[0] ?? null })

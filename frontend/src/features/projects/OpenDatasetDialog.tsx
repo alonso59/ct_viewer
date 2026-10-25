@@ -1,4 +1,4 @@
-// PRJ-19: register projects saved alongside a dataset in this workspace.
+// Register projects saved alongside a dataset in this workspace.
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'

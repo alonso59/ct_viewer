@@ -1,4 +1,3 @@
-// Jobs: jobs panel, output log, status bar progress (API-41, BE-06)
 import { registry } from '../../shell'
 import { JobsPanel, JobStatus, OutputPanel, useJobsBadge } from './JobsPanel'
 

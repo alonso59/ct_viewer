@@ -5,7 +5,6 @@ import { useWorkbench } from './workbenchStore'
 
 const ICON = { info: 'info', ok: 'pass', warn: 'warning', error: 'error' } as const
 
-/** Notifications at bottom-right (UI-10) */
 export function Toasts() {
   const { t } = useTranslation()
   const toasts = useWorkbench((s) => s.toasts)

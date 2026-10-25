@@ -1,13 +1,12 @@
-// Label map import (PRJ-18 Labels tab): 3D Slicer colour tables (`.ctbl` / `.txt`), ITK-SNAP label
+// Label map import (Labels tab): 3D Slicer colour tables (`.ctbl` / `.txt`), ITK-SNAP label
 // descriptions and nnU-Net `dataset.json`. Pure parsers → LabelDef[]; background (0) is skipped.
 import type { LabelDef } from '../../../api'
 import { autoLabelColor } from '../../../theme'
 
-export type LabelFileKind = 'slicer' | 'itksnap' | 'nnunet'
+type LabelFileKind = 'slicer' | 'itksnap' | 'nnunet'
 
 const hex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0').toUpperCase()
 const rgb = (r: number, g: number, b: number) => `#${hex(r)}${hex(g)}${hex(b)}`
-const auto = autoLabelColor
 
 function label(value: number, name: string, color: string, opacity = 0.2, visible = true): LabelDef {
   return { value, name: name.trim() || `label_${value}`, color, opacity: Math.max(0, Math.min(1, opacity)), visible }
@@ -55,7 +54,7 @@ export function parseNnunet(text: string): LabelDef[] {
   return pairs
     .filter(([value]) => Number.isInteger(value) && value > 0)
     .sort((a, b) => a[0] - b[0])
-    .map(([value, name]) => label(value, name, auto(value)))
+    .map(([value, name]) => label(value, name, autoLabelColor(value)))
 }
 
 export function detectKind(fileName: string, text: string): LabelFileKind | null {
@@ -73,7 +72,7 @@ export function parseLabelFile(fileName: string, text: string): { kind: LabelFil
   return { kind, labels }
 }
 
-/** Imported labels replace entries with the same value; the others are kept (nothing deleted). */
+/** Imported labels replace entries with the same value; the others are kept. */
 export function mergeLabels(current: LabelDef[], incoming: LabelDef[]): LabelDef[] {
   const byValue = new Map(current.map((l) => [l.value, l]))
   for (const l of incoming) byValue.set(l.value, l)
