@@ -57,6 +57,34 @@ def units(inventory: SourceInventory) -> Iterator[tuple[str, formats.Kind, list[
         yield "series:" + group["series_key"], "dicom", rels
 
 
+def dependency_stat(root: Path, path: Path) -> list[int] | None:
+    """Pin optional geometry inputs, including their absence, without reading pixels."""
+    try:
+        st = path.stat(follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+    if not dicom_stage.local_source_file(root, path):
+        raise JobConflict("Open geometry dependency is not a local source file")
+    return [st.st_size, st.st_mtime_ns, st.st_dev, st.st_ino]
+
+
+def numpy_dependencies(root: Path, path: Path) -> dict[str, Any]:
+    from app.imaging import npy_convert
+
+    sidecar = path.with_name(path.name + ".json")
+    result: dict[str, Any] = {"sidecar": dependency_stat(root, sidecar)}
+    if result["sidecar"] is not None:
+        reference = npy_convert.read_sidecar(path).get("reference_ref")
+        if isinstance(reference, str):
+            target = (path.parent / reference).resolve()
+            if target.is_relative_to(root.resolve()):
+                result["reference"] = [
+                    str(target.relative_to(root.resolve())),
+                    dependency_stat(root, target),
+                ]
+    return result
+
+
 def signature(inventory: SourceInventory, rels: list[str]) -> str:
     digest = hashlib.sha256()
     for rel in rels:
@@ -69,7 +97,39 @@ def signature(inventory: SourceInventory, rels: list[str]) -> str:
         if saved[1:] != [st.st_size, st.st_mtime_ns, st.st_dev, st.st_ino]:
             raise JobConflict("Open source changed after discovery; resume discovery again")
         digest.update(json.dumps([rel, saved], separators=(",", ":")).encode())
+        if path.suffix.lower() == ".npy":
+            digest.update(
+                json.dumps(numpy_dependencies(inventory.root, path), sort_keys=True).encode()
+            )
     return digest.hexdigest()
+
+
+def validate_prepared_open(
+    inventory: SourceInventory, generation: str, session: open_mode.OpenSession
+) -> None:
+    """Check the prepared input snapshot on hydration; never re-probe image headers."""
+    summary = inventory.summary()
+    if not summary["complete"] or summary["generation"] != generation:
+        raise JobConflict("Open inventory changed; open the source again")
+    identity = reader_identity()
+    geometry = {
+        item.rel
+        for item in session.items
+        if item.kind == "image" and item.geometry is not None and not item.error
+    }
+    remaining = set(geometry)
+    for key, _kind, rels in units(inventory):
+        remaining.difference_update(rels)
+        pin = signature(inventory, rels)
+        cached = inventory.db.execute(
+            "SELECT signature, reader FROM open_headers WHERE unit=?", (key,)
+        ).fetchone()
+        if (cached is None and any(rel in geometry for rel in rels)) or (
+            cached is not None and (cached[0] != pin or cached[1] != identity)
+        ):
+            raise JobConflict("Prepared Open geometry inputs changed; open the source again")
+    if remaining:
+        raise JobConflict("Prepared Open inventory lost image pins; open the source again")
 
 
 def prepare_open(

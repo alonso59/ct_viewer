@@ -183,3 +183,24 @@ def test_open_inventory_and_journal_are_private_to_the_owner(tmp_path: Path) -> 
         for file in database.parent.iterdir():
             if file.is_file():
                 assert file.stat().st_mode & 0o077 == 0, file.name
+
+
+def test_prepared_open_validation_reads_no_image_headers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SRC-19 / BE-12: hydration validates pins rather than repeating native probing."""
+    from app.tasks.source_open import validate_prepared_open
+
+    source = tmp_path / "source"
+    nii(source / "image.nii.gz", ct())
+    write_series(source / "series", shape=(3, 3, 3), marker=(1, 1, 2))
+    with SourceInventory(tmp_path / "state/inventory.sqlite", source) as inventory:
+        inventory.scan()
+        session = prepare_open(inventory)
+        assert session is not None
+
+        def forbidden(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("Hydration re-read image headers")
+
+        monkeypatch.setattr(open_mode, "probe", forbidden)
+        validate_prepared_open(inventory, inventory.summary()["generation"], session)

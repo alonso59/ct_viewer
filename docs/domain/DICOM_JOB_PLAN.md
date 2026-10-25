@@ -425,3 +425,20 @@ tests and workflow wiring tests are separate from actual image acceptance; a new
 Docker/udocker run is required for this tree. Active-pixel crashes, cross-container
 ownership and the remaining plan matrix are still open. No production rollout is
 certified by adding this gate.
+
+### Restored Open input validation checkpoint
+
+Hydration now checks the prepared inventory generation and image stat pins before
+returning saved geometry. NumPy pins include optional sidecar/reference dependencies
+and their absence. Managed attachment state uses version 2 with mask stat pins;
+changed masks and lost inventory/header pins refuse restoration with next actions.
+Async byte/preview/attach/save requests restore outside the API event loop. Mask
+attachment also refuses an input changed or removed during header probing.
+These checks cover stat-visible changes, not content rewritten while preserving the
+same stat tuple. The strict code/reader identity refuses older prepared artifacts;
+reader migration/rollback acceptance and the rest of the plan remain open.
+
+Evidence for this checkpoint: 48 affected backend cases with zero skips/failures
+(`dicom-open-pins-final.xml`), both Chromium/Firefox background-Open journeys
+(48.6 s, synthetic source hashes unchanged), and lint/types/426 requirement IDs/
+dead-code checks pass. This is local evidence, not final CI/image acceptance.

@@ -205,3 +205,12 @@ API evidence, plus both-browser minimize/reload/cancel/resume coverage in
 `open-background.spec.ts`. The recorded window verifies completed restoration and refuses
 cancellation across attempt changes. Counts and logs live in the plan checkpoint; the full
 B08, resource/quota/performance and general import-loading rows remain open.
+
+Restored Open input cases in `test_source_operations_api.py` cover NIfTI/DICOM
+changes, missing/symlinked inputs, NumPy sidecar creation/change and a reference
+outside the single-file inventory, lost inventory/header pins and changed attached
+masks. The unchanged-session case checks metadata/byte hydration off the API loop;
+`test_source_open.py` refuses header probing during validation. Attachment tests
+cover replacement/deletion during header reading. These are stat-based checks;
+same-stat content rewriting, broader active-session validation and real process
+interruption at these barriers remain separate acceptance work.

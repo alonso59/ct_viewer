@@ -152,3 +152,30 @@ def test_modality_from_the_dataset_rows(oc: TestClient, data: Path) -> None:
     assert single["items"][0]["modality"] == "MR"  # type: ignore[index]
     plain = open_(oc, data / "nn" / "imagesTr" / "case_001_0000.nii.gz")
     assert plain["items"][0]["modality"] is None  # type: ignore[index]
+
+
+@pytest.mark.parametrize("change", ["replace", "delete"])
+def test_attach_refuses_a_mask_changed_during_header_read(
+    oc: TestClient, data: Path, monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    """SRC-10/19: never persist geometry from a different version of the mask."""
+    from app.sources import open as open_mode
+
+    session = open_(oc, data / "ds/nifti/01_case_00001_0000.nii.gz")
+    mask = data / "ds/seg/01_case_00001.nii.gz"
+    probe = open_mode.probe
+
+    def changed_after_probe(*args: Any, **kwargs: Any) -> Any:
+        rows = probe(*args, **kwargs)
+        if change == "delete":
+            mask.unlink()
+        else:
+            nii(mask, lab()[:2, :3, :4])
+        return rows
+
+    monkeypatch.setattr(open_mode, "probe", changed_after_probe)
+    response = oc.post(f"{API}/open/{session['sid']}/items/0/attach", json={"path": str(mask)})
+    assert response.status_code == 409, response.text
+    assert response.json()["actions"] == ["choose_another_path", "home"]
+    current = oc.get(f"{API}/open/{session['sid']}").json()
+    assert len(current["items"]) == 1
