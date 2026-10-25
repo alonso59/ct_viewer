@@ -83,7 +83,7 @@ Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`);
 | FE-01 | TypeScript `strict`; no `any` in `features/`. | M |
 | FE-02 | Server data only via TanStack Query; query keys centralized in `api/keys.ts`. | M |
 | FE-03 | API types generated from OpenAPI (`npm run gen:api`); CI checks they are up to date. | M |
-| FE-04 | The URL encodes project, case, item and layout; open editor tabs persist per project in `localStorage`. A new tab, case or item pushes a history entry, so browser Back returns to the previous one inside the project; a layout or other query change replaces the entry. History reconciliation takes precedence over an older active-panel snapshot during a layout refresh. | M |
+| FE-04 | The URL encodes project, case, item and layout; open editor tabs persist per project in `localStorage`. A new tab, case or item pushes a history entry, so browser Back returns to the previous one inside the project; a layout or other query change replaces the entry. History reconciliation takes precedence over an older active-panel snapshot during a layout refresh and works when the preceding router transition has not committed. | M |
 | FE-05 | Lazy-load the viewer, radiomics and dashboard chunks; initial JS ≤ 400 KiB gzip (NFR-07), gated by `make bundle-size`, which also warns above +25 KiB over the committed baseline. | S |
 | FE-06 | No runtime network calls outside the app origin; fonts and icons are bundled. | M |
 | FE-07 | Electron readiness: no Node or DOM-global hacks; the API base URL is configurable. | M |
