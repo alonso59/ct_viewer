@@ -23,7 +23,7 @@ from app.sources import identity as identity_store
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.estimate import EstimateBase
-from app.tasks.models import TaskRunOutput
+from app.tasks.models import TaskRunOutput, TaskRunRecord
 from app.tasks.records import ANNOTATIONS, LEDGER, Live, default_seg_id, sha256_file
 
 
@@ -77,25 +77,9 @@ class RegistrationBase(EstimateBase):
                         record.error = None
                     self.runs.write(live.run_dir, record)
                     self.phase_runs.finish(live.pid, record, live.job_dir, result)
-                resolver = self.workspace.resolver(live.pid)
-                for output in record.outputs:
-                    if output.kind in {"image", "sidecar"} and output.ref and output.sha256:
-                        digest = await asyncio.to_thread(sha256_file, resolver.resolve(output.ref))
-                        if digest != output.sha256:
-                            raise JobConflict(
-                                "A committed conversion artifact changed before registration"
-                            )
+                await self._verify_committed_artifacts(live, record)
                 await self._register_tabular(live, result)
-                imports = [o for o in self.runs.read(live.run_dir).outputs if o.kind == "import"]
-                if len(imports) != 1 or not imports[0].detail:
-                    raise JobConflict("Conversion registration has no unique index receipt")
-                index = self.jobs.get(imports[0].detail)
-                if index.kind != "index" or index.project_id != live.pid:
-                    raise JobConflict("Conversion index receipt belongs to another operation")
-                index = await self.jobs.wait(index.job_id)
-                self._check_registration_active(live)
-                if index.status != "succeeded":
-                    raise JobConflict("Conversion index did not finish; retry output registration")
+                await self._await_index_receipt(live)
                 atomic_write_json(path, {**identity, "status": "completed", "index_verified": True})
                 await self._clear_registration_error(live)
             except _RegistrationCancelled:
@@ -117,11 +101,34 @@ class RegistrationBase(EstimateBase):
                 atomic_write_json(
                     path, {**identity, "status": "failed", "error": type(exc).__name__}
                 )
-                async with self.locks(live.pid):
-                    current = self.runs.read(live.run_dir)
-                    current.error = f"output registration: {type(exc).__name__}: {exc}"
-                    self.runs.write(live.run_dir, current)
+                await self._record_registration_error(live.pid, live.run_dir, exc)
                 raise
+
+    async def _verify_committed_artifacts(self, live: Live, record: TaskRunRecord) -> None:
+        resolver = self.workspace.resolver(live.pid)
+        for output in record.outputs:
+            if output.kind in {"image", "sidecar"} and output.ref and output.sha256:
+                digest = await asyncio.to_thread(sha256_file, resolver.resolve(output.ref))
+                if digest != output.sha256:
+                    raise JobConflict("A committed conversion artifact changed before registration")
+
+    async def _await_index_receipt(self, live: Live) -> None:
+        imports = [o for o in self.runs.read(live.run_dir).outputs if o.kind == "import"]
+        if len(imports) != 1 or not imports[0].detail:
+            raise JobConflict("Conversion registration has no unique index receipt")
+        index = self.jobs.get(imports[0].detail)
+        if index.kind != "index" or index.project_id != live.pid:
+            raise JobConflict("Conversion index receipt belongs to another operation")
+        index = await self.jobs.wait(index.job_id)
+        self._check_registration_active(live)
+        if index.status != "succeeded":
+            raise JobConflict("Conversion index did not finish; retry output registration")
+
+    async def _record_registration_error(self, pid: str, run_dir: Path, exc: Exception) -> None:
+        async with self.locks(pid):
+            rec = self.runs.read(run_dir)
+            rec.error = f"output registration: {type(exc).__name__}: {exc}"
+            self.runs.write(run_dir, rec)
 
     def _check_registration_active(self, live: Live) -> None:
         if (self.runs.read(live.run_dir).execution or {}).get("registration_cancel_requested"):

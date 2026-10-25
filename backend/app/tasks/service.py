@@ -78,91 +78,9 @@ class TaskService(DriverBase):
         if rec.task.id != DICOM_CONVERT or not native_job_id:
             return
         if rec.status == "completed":
-            key = f"dicom.registration:{rec.run_id}"
-            lock = self.locks(f"_dicom_registration:{pid}:{rec.run_id}")
-            if (rec.execution or {}).get("registration_cancel_requested"):
-                if retry_registration:
-                    if not (rec.execution or {}).get("registration_cancelled"):
-                        raise JobConflict("Wait for metadata registration to stop before resuming")
-                    async with self.locks(pid):
-                        rec = self.runs.read(run_dir)
-                        for field in ("registration_cancel_requested", "registration_cancelled"):
-                            if rec.execution is not None:
-                                rec.execution.pop(field, None)
-                        self.runs.write(run_dir, rec)
-                elif (rec.execution or {}).get("registration_cancelled"):
-                    return
-            if lock.locked() or self.jobs.active(pid, "task", key) is not None:
-                return
-            if (
-                rec.error
-                and rec.error.startswith("output registration:")
-                and not retry_registration
-                and (
-                    self.runs.job(rec.job_id) is not None
-                    or self.runs.job((rec.execution or {}).get("registration_job_id")) is not None
-                )
-            ):
-                return
-            job = run_dir / "attempts" / native_job_id
-            result = protocol.read_result(job)
-            if result is None or not attempt_cleaned(job, rec.attempts):
-                return
-            manifest = rec.manifest_snapshot or self.registry.get(rec.task.id).manifest
-            live = Live(pid, rec.run_id, run_dir, job, manifest, rec.selection.seg_id)
-            try:
-                checkpoint = read_json(run_dir / "registration.json")
-            except (OSError, ValueError):
-                checkpoint = None
-            if (
-                isinstance(checkpoint, dict)
-                and checkpoint.get("status") == "completed"
-                and checkpoint.get("index_verified") is True
-            ):
-                try:
-                    await self._finalize_dicom(live, result)
-                except Exception as exc:
-                    async with self.locks(pid):
-                        current = self.runs.read(run_dir)
-                        current.error = f"output registration: {type(exc).__name__}: {exc}"
-                        self.runs.write(run_dir, current)
-                return
-
-            async def recover_registration(_handle: JobHandle) -> None:
-                try:
-                    await self._finalize_dicom(live, result)
-                except Exception as exc:
-                    async with self.locks(pid):
-                        current = self.runs.read(run_dir)
-                        current.error = f"output registration: {type(exc).__name__}: {exc}"
-                        self.runs.write(run_dir, current)
-                    raise
-
-            async with lock:
-                if self.jobs.active(pid, "task", key) is not None:
-                    return
-                registration_job = new_ulid()
-                async with self.locks(pid):
-                    current = self.runs.read(run_dir)
-                    current.execution = {
-                        **(current.execution or {}),
-                        "registration_pending": True,
-                        "registration_job_id": registration_job,
-                    }
-                    if current.error and current.error.startswith("output registration:"):
-                        current.error = None
-                    self.runs.write(run_dir, current)
-                self.jobs.submit(
-                    JobSpec(
-                        project_id=pid,
-                        job_id=registration_job,
-                        kind="task",
-                        units=[],
-                        key=key,
-                        ref=rec.run_id,
-                        driver=recover_registration,
-                    )
-                )
+            await self._recover_registration(
+                pid, run_dir, rec, native_job_id, retry_registration=retry_registration
+            )
             return
         if rec.status in TERMINAL_TASK_RUN or (
             self.runs.job(rec.job_id) is not None and rec.status != "cleanup_pending"
@@ -196,6 +114,96 @@ class TaskService(DriverBase):
             current.error = "Backend interrupted; resume after verified cleanup"
 
         await self.runs.update(pid, run_dir, recover)
+
+    async def _recover_registration(
+        self,
+        pid: str,
+        run_dir: Path,
+        rec: TaskRunRecord,
+        native_job_id: str,
+        *,
+        retry_registration: bool,
+    ) -> None:
+        key = f"dicom.registration:{rec.run_id}"
+        lock = self.locks(f"_dicom_registration:{pid}:{rec.run_id}")
+        if (rec.execution or {}).get("registration_cancel_requested"):
+            if retry_registration:
+                if not (rec.execution or {}).get("registration_cancelled"):
+                    raise JobConflict("Wait for metadata registration to stop before resuming")
+                async with self.locks(pid):
+                    rec = self.runs.read(run_dir)
+                    for field in ("registration_cancel_requested", "registration_cancelled"):
+                        if rec.execution is not None:
+                            rec.execution.pop(field, None)
+                    self.runs.write(run_dir, rec)
+            elif (rec.execution or {}).get("registration_cancelled"):
+                return
+        if lock.locked() or self.jobs.active(pid, "task", key) is not None:
+            return
+        if (
+            rec.error
+            and rec.error.startswith("output registration:")
+            and not retry_registration
+            and (
+                self.runs.job(rec.job_id) is not None
+                or self.runs.job((rec.execution or {}).get("registration_job_id")) is not None
+            )
+        ):
+            return
+        job = run_dir / "attempts" / native_job_id
+        result = protocol.read_result(job)
+        if result is None or not attempt_cleaned(job, rec.attempts):
+            return
+        manifest = rec.manifest_snapshot or self.registry.get(rec.task.id).manifest
+        live = Live(pid, rec.run_id, run_dir, job, manifest, rec.selection.seg_id)
+        try:
+            checkpoint = read_json(run_dir / "registration.json")
+        except (OSError, ValueError):
+            checkpoint = None
+        if (
+            isinstance(checkpoint, dict)
+            and checkpoint.get("status") == "completed"
+            and checkpoint.get("index_verified") is True
+        ):
+            try:
+                await self._finalize_dicom(live, result)
+            except Exception as exc:
+                await self._record_registration_error(pid, run_dir, exc)
+            return
+
+        async def recover_registration(_handle: JobHandle) -> None:
+            try:
+                await self._finalize_dicom(live, result)
+            except Exception as exc:
+                await self._record_registration_error(pid, run_dir, exc)
+                raise
+
+        async with lock:
+            if self.jobs.active(pid, "task", key) is not None:
+                return
+            registration_job = new_ulid()
+            async with self.locks(pid):
+                current = self.runs.read(run_dir)
+                current.execution = {
+                    **(current.execution or {}),
+                    "registration_pending": True,
+                    "registration_job_id": registration_job,
+                }
+                if current.error and current.error.startswith("output registration:"):
+                    current.error = None
+                self.runs.write(run_dir, current)
+            self.jobs.submit(
+                JobSpec(
+                    project_id=pid,
+                    job_id=registration_job,
+                    kind="task",
+                    units=[],
+                    key=key,
+                    ref=rec.run_id,
+                    driver=recover_registration,
+                )
+            )
+        return
 
     def list_tasks(self) -> TaskList:
         return TaskList(

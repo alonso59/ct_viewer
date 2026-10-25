@@ -612,9 +612,6 @@ class DriverBase(RegistrationBase):
                     await self._register_tabular(live, result)
             except Exception as exc:  # the run is done; a registration failure is recorded
                 log.exception("task output registration failed", extra={"run_id": live.rid})
-                async with self.locks(live.pid):
-                    rec = self.runs.read(live.run_dir)
-                    rec.error = f"output registration: {type(exc).__name__}: {exc}"
-                    self.runs.write(live.run_dir, rec)
+                await self._record_registration_error(live.pid, live.run_dir, exc)
         if live.manifest.runtime.type == "builtin" and live.manifest.id != DICOM_CONVERT:
             shutil.rmtree(live.job_dir, ignore_errors=True)  # disposable scratch
