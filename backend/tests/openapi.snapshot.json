@@ -2,7 +2,6 @@
  "components": {
   "schemas": {
    "Analysis": {
-    "description": "GET \u2026/analyses/{aid}: results + descriptives + recommendations (DB-08).",
     "properties": {
      "analysis_id": {
       "title": "Analysis Id",
@@ -118,7 +117,7 @@
     "type": "object"
    },
    "AnalysisSpec": {
-    "description": "ANA-01: run + filter + unit + question type + variable (+ optional confounder).\n\n`balance` compares `variable` x `confounder` (both categorical). `paired` (ANA-10) is\nplanned for v3.1 and rejected with `validation`.",
+    "description": "Run + filter + unit + question type + variable (+ optional confounder).\n\n`balance` compares `variable` x `confounder` (both categorical). `paired` is rejected\nwith `validation`.",
     "properties": {
      "confounder": {
       "anyOf": [
@@ -599,7 +598,7 @@
     "type": "object"
    },
    "BinDef": {
-    "description": "VAR-06 bin: continuous \u2192 categorical by thresholds or quantiles (`v < t` \u2192 lower bin).",
+    "description": "Bin: continuous \u2192 categorical by thresholds or quantiles (`v < t` \u2192 lower bin).",
     "properties": {
      "labels": {
       "anyOf": [
@@ -670,7 +669,7 @@
     "properties": {
      "bundle": {
       "contentMediaType": "application/octet-stream",
-      "description": "A PRJ-08 bundle .zip",
+      "description": "A project bundle .zip",
       "title": "Bundle",
       "type": "string"
      }
@@ -868,7 +867,7 @@
     "type": "object"
    },
    "BrokenDerived": {
-    "description": "VAR-06: a stored derived definition that no longer builds (e.g. its source column's\nlabel table was deleted, LBL-10); listed so it can be deleted (AUD-A5-08).",
+    "description": "A stored derived definition that no longer builds (e.g. its source column's label\ntable was deleted); listed so it can be deleted.",
     "properties": {
      "name": {
       "title": "Name",
@@ -922,7 +921,7 @@
     "type": "object"
    },
    "BundleRoot": {
-    "description": "One alias of the imported project, checked on this server (PRJ-09).",
+    "description": "One alias of the imported project, checked on this server.",
     "properties": {
      "root": {
       "$ref": "#/components/schemas/RootInfo"
@@ -1031,7 +1030,7 @@
     "type": "object"
    },
    "CaseState": {
-    "description": "Case rollup = worst over its items and case-target events (CUR-08).",
+    "description": "Case rollup = worst over its items and case-target events.",
     "properties": {
      "at": {
       "title": "At",
@@ -1229,7 +1228,7 @@
     "type": "object"
    },
    "Catalog": {
-    "description": "`variables/catalog.json` (VAR-11) and the API-16 response.",
+    "description": "`variables/catalog.json` and the catalog API response.",
     "properties": {
      "broken": {
       "items": {
@@ -1334,7 +1333,7 @@
     "type": "object"
    },
    "CellEvent": {
-    "description": "LBL-04: one line of `events/labeling.jsonl`.",
+    "description": "One line of `events/labeling.jsonl`.",
     "properties": {
      "at": {
       "title": "At",
@@ -1408,7 +1407,7 @@
     "type": "object"
    },
    "CellRow": {
-    "description": "API-57 row: a target of the table's level with its current values.",
+    "description": "A target of the table's level with its current values.",
     "properties": {
      "case_id": {
       "title": "Case Id",
@@ -1538,7 +1537,7 @@
     "type": "object"
    },
    "ColorBy": {
-    "description": "DB-07 color/split: a categorical variable, an item attribute, or curation status.",
+    "description": "Color/split: a categorical variable, an item attribute, or curation status.",
     "properties": {
      "kind": {
       "enum": [
@@ -1660,7 +1659,7 @@
         "type": "null"
        }
       ],
-      "description": "LBL-09: mirror this comparable variable (new columns only)",
+      "description": "Mirror this comparable variable (new columns only)",
       "title": "Ref"
      },
      "type": {
@@ -2061,7 +2060,7 @@
    },
    "Contributes": {
     "additionalProperties": false,
-    "description": "Contribution points (PLUGINS.md \u00a7Contribution points). Values are ids.",
+    "description": "Contribution points. Values are ids.",
     "properties": {
      "columns": {
       "items": {
@@ -2224,7 +2223,7 @@
     "type": "object"
    },
    "CurationEvent": {
-    "description": "One append-only decision in `curation/events.jsonl` (CUR-02, schema v1).",
+    "description": "One append-only decision in `curation/events.jsonl`.",
     "properties": {
      "add_to_queue": {
       "default": false,
@@ -2363,7 +2362,7 @@
     "type": "object"
    },
    "CurationState": {
-    "description": "API-51 response and the `curation/state.json` snapshot (derived, PRJ-10).",
+    "description": "Derived state; also the `curation/state.json` snapshot.",
     "properties": {
      "cases": {
       "items": {
@@ -2417,7 +2416,7 @@
     "type": "object"
    },
    "DescriptiveRow": {
-    "description": "ANA-07 per feature x group.",
+    "description": "One feature x group.",
     "properties": {
      "excluded": {
       "default": false,
@@ -2573,7 +2572,6 @@
     "type": "object"
    },
    "Display": {
-    "description": "`project.json.display` (PRJ-18, VW-25); was `viewer_defaults` before format 3.",
     "properties": {
      "convention": {
       "default": "radiological",
@@ -2743,7 +2741,7 @@
     "type": "object"
    },
    "DominantDef": {
-    "description": "VAR-06 dominant: name of the largest of N numeric variables (missing if any is missing;\n`tie` when several share the maximum).",
+    "description": "Dominant: name of the largest of N numeric variables (missing if any is missing;\n`tie` when several share the maximum).",
     "properties": {
      "name": {
       "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
@@ -3086,7 +3084,7 @@
    },
    "EventIn": {
     "additionalProperties": false,
-    "description": "API-50 POST body. The server sets `event_id`, `at`, `reviewer`, `schema_version`.",
+    "description": "The server sets `event_id`, `at`, `reviewer`, `schema_version`.",
     "properties": {
      "add_to_queue": {
       "default": false,
@@ -3218,7 +3216,7 @@
     "type": "object"
    },
    "Excluded": {
-    "description": "VAR-08/09: fields that are never variables, with the reason.",
+    "description": "Fields that are never variables, with the reason.",
     "properties": {
      "name": {
       "title": "Name",
@@ -3245,7 +3243,7 @@
     "type": "object"
    },
    "ExportResult": {
-    "description": "API-53: files written under the project folder's `dir` (CUR-10).",
+    "description": "Files written under the project folder's `dir`.",
     "properties": {
      "at": {
       "title": "At",
@@ -3323,7 +3321,7 @@
     "type": "object"
    },
    "ExternalTable": {
-    "description": "VAR-07 external case-keyed table, snapshotted under `variables/external/`.",
+    "description": "External case-keyed table, snapshotted under `variables/external/`.",
     "properties": {
      "columns": {
       "items": {
@@ -3632,7 +3630,7 @@
     "type": "object"
    },
    "FeaturesTable": {
-    "description": "API-36 JSON: long rows follow the features.parquet schema; wide rows one per item+label.",
+    "description": "Long rows follow the features.parquet schema; wide rows are one per item+label.",
     "properties": {
      "columns": {
       "items": {
@@ -3942,7 +3940,7 @@
     "type": "object"
    },
    "GlobalFilters": {
-    "description": "DB-02 global filters, applied to every view and analysis (AND across fields).\n\n`var` uses the VAR-10 syntax: `{name: [values]}`, categorical values OR'ed, numeric\n`min..max` ranges. `status` is the curation status (CUR-08; unreviewed = `not_reviewed`).\n`item_ids` carries a DB-04 selection.",
+    "description": "Global filters, applied to every view and analysis (AND across fields).\n\n`var` maps a variable name to values: categorical values OR'ed, numeric `min..max`\nranges. `status` is the curation status (unreviewed = `not_reviewed`).\n`item_ids` carries a selection of items.",
     "properties": {
      "item_ids": {
       "anyOf": [
@@ -4270,7 +4268,7 @@
     "type": "object"
    },
    "HashJobStarted": {
-    "description": "API-15 `202`: progress and completion arrive as `job.*` SSE events (API-40).",
+    "description": "Progress and completion arrive as `job.*` SSE events.",
     "properties": {
      "job_id": {
       "title": "Job Id",
@@ -4316,7 +4314,6 @@
     "type": "object"
    },
    "IbsiInfo": {
-    "description": "Metadata only: never shown in the GUI (RADIOMICS.md \u00a7Principles).",
     "properties": {
      "code": {
       "anyOf": [
@@ -4516,7 +4513,7 @@
     "type": "object"
    },
    "ImportRecord": {
-    "description": "One line of `sources/imports.jsonl` (IMP-04).",
+    "description": "One line of `sources/imports.jsonl`.",
     "properties": {
      "adapter": {
       "default": "metadata-v1",
@@ -4577,7 +4574,6 @@
     "type": "object"
    },
    "ImportReport": {
-    "description": "LBL-07 match report (as VAR-07).",
     "properties": {
      "columns": {
       "items": {
@@ -4634,7 +4630,7 @@
     "type": "object"
    },
    "IndexStatus": {
-    "description": "`index/status.json`: persisted index job state (BE-06).",
+    "description": "`index/status.json`: persisted index job state.",
     "properties": {
      "error": {
       "anyOf": [
@@ -5300,7 +5296,6 @@
     "type": "object"
    },
    "JobInfo": {
-    "description": "API-41 payload.",
     "properties": {
      "created_at": {
       "title": "Created At",
@@ -5428,7 +5423,7 @@
     "type": "object"
    },
    "LabelColumn": {
-    "description": "LBL-02: a rename keeps `column_id` and `slug` (the variable name); delete = hidden.",
+    "description": "A rename keeps `column_id` and `slug` (the variable name); delete = hidden.",
     "properties": {
      "column_id": {
       "title": "Column Id",
@@ -6586,7 +6581,7 @@
     "type": "object"
    },
    "PackInfo": {
-    "description": "API-28 row: a study pack contributed by a plugin (PRJ-16).",
+    "description": "A study pack contributed by a plugin.",
     "properties": {
      "description": {
       "title": "Description",
@@ -6988,7 +6983,7 @@
     "type": "object"
    },
    "ParsedFile": {
-    "description": "`nifti-files` preview row (SRC-04).",
+    "description": "`nifti-files` preview row.",
     "properties": {
      "case_id": {
       "title": "Case Id",
@@ -7134,7 +7129,7 @@
     "type": "object"
    },
    "PhaseChange": {
-    "description": "PHS-03 / AUD-A5-04: an item whose effective phase differs from the run's value.",
+    "description": "An item whose effective phase differs from the run's value.",
     "properties": {
      "case_id": {
       "title": "Case Id",
@@ -7163,7 +7158,7 @@
     "type": "object"
    },
    "PhaseEvent": {
-    "description": "One append-only selection in `events/phase.jsonl` (PHS-02).",
+    "description": "One append-only selection in `events/phase.jsonl`.",
     "properties": {
      "accepted_run_id": {
       "anyOf": [
@@ -7235,7 +7230,7 @@
     "type": "object"
    },
    "PhaseExportResult": {
-    "description": "PHS-06: files written under the project folder's `dir`.",
+    "description": "Files written under the project folder's `dir`.",
     "properties": {
      "at": {
       "title": "At",
@@ -7263,7 +7258,7 @@
    },
    "PhaseIn": {
     "additionalProperties": false,
-    "description": "POST body. The server sets `event_id`, `at`, `reviewer`; imports use their own routes.",
+    "description": "The server sets `event_id`, `at`, `reviewer`; imports use their own routes.",
     "properties": {
      "accepted_run_id": {
       "anyOf": [
@@ -7274,7 +7269,7 @@
         "type": "null"
        }
       ],
-      "description": "Required with `analyzer_accept`: the active phase run (PHS-04)",
+      "description": "Required with `analyzer_accept`: the active phase run",
       "title": "Accepted Run Id"
      },
      "case_id": {
@@ -7362,7 +7357,7 @@
     "type": "object"
    },
    "PhaseSelection": {
-    "description": "Latest event for one scan (PHS-02), with the index-time value it overrides (PHS-03).",
+    "description": "Latest event for one scan, with the index-time value it overrides.",
     "properties": {
      "accepted_run_id": {
       "anyOf": [
@@ -7396,7 +7391,6 @@
         "type": "null"
        }
       ],
-      "description": "INPUT_METADATA \u00a7Phase resolution",
       "title": "Resolved"
      },
      "resolved_source": {
@@ -7467,7 +7461,7 @@
     "type": "object"
    },
    "PluginInfo": {
-    "description": "API-49 row: the manifest plus the computed status (PLG-05/06).",
+    "description": "The manifest plus the computed status.",
     "properties": {
      "actions": {
       "items": {
@@ -7535,7 +7529,7 @@
    },
    "PluginManifest": {
     "additionalProperties": false,
-    "description": "`plugins/<id>/plugin.json` (PLG-02). Unknown keys are refused like task manifests.",
+    "description": "`plugins/<id>/plugin.json`. Unknown keys are refused.",
     "properties": {
      "contributes": {
       "$ref": "#/components/schemas/Contributes"
@@ -7650,7 +7644,7 @@
     "type": "object"
    },
    "PreflightResult": {
-    "description": "TSK-04: items that aren't ready are skipped, never failed.",
+    "description": "Items that aren't ready are skipped, never failed.",
     "properties": {
      "derived_root_required": {
       "default": false,
@@ -7793,7 +7787,7 @@
     "type": "object"
    },
    "ProjectCreate": {
-    "description": "PRJ-14: a name and an optional default modality; `packs` is for scripts (PRJ-16).",
+    "description": "A name and an optional default modality; `packs` is for scripts.",
     "properties": {
      "dataset_root": {
       "anyOf": [
@@ -7828,7 +7822,7 @@
       "type": "string"
      },
      "packs": {
-      "description": "Study packs to apply (API-28)",
+      "description": "Study packs to apply",
       "items": {
        "type": "string"
       },
@@ -7843,7 +7837,7 @@
     "type": "object"
    },
    "ProjectDetail": {
-    "description": "API-03 response: project.json + share link (PRJ-03) + the `ETag` value (PRJ-15).",
+    "description": "`project.json` plus the share link and the `ETag` value.",
     "properties": {
      "annotation_sources": {
       "additionalProperties": {
@@ -8019,7 +8013,7 @@
     "type": "object"
    },
    "ProjectPatch": {
-    "description": "API-03 PATCH body: only provided fields change.",
+    "description": "PATCH body: only provided fields change.",
     "properties": {
      "default_modality": {
       "anyOf": [
@@ -8143,7 +8137,7 @@
     "type": "object"
    },
    "ProjectSummary": {
-    "description": "PRJ-02 workspace home row.",
+    "description": "Workspace home row.",
     "properties": {
      "archived": {
       "default": false,
@@ -8316,7 +8310,7 @@
     "type": "object"
    },
    "QueueRow": {
-    "description": "Correction queue row (CUR-09); fields = CURATION.md \u00a7Correction queue CSV columns.",
+    "description": "Correction queue row; fields = the queue CSV columns.",
     "properties": {
      "at": {
       "title": "At",
@@ -8534,7 +8528,7 @@
     "type": "object"
    },
    "RecodeDef": {
-    "description": "VAR-06 recode: merge/rename categories; unmapped values are kept as they are.",
+    "description": "Recode: merge/rename categories; unmapped values are kept as they are.",
     "properties": {
      "map": {
       "additionalProperties": {
@@ -8568,7 +8562,7 @@
     "type": "object"
    },
    "Recommendation": {
-    "description": "ANA-08: a triggered rule; `view` + `params` open the view that shows the problem.",
+    "description": "A triggered rule; `view` + `params` open the view that shows the problem.",
     "properties": {
      "code": {
       "enum": [
@@ -8851,7 +8845,7 @@
     "type": "object"
    },
    "ResultRow": {
-    "description": "ANA-05: one tested feature (or the single balance-check row).",
+    "description": "One tested feature (or the single balance-check row).",
     "properties": {
      "effect": {
       "anyOf": [
@@ -9005,7 +8999,6 @@
     "type": "object"
    },
    "RootInfo": {
-    "description": "API-05 alias row.",
     "properties": {
      "alias": {
       "title": "Alias",
@@ -9300,7 +9293,6 @@
     "type": "object"
    },
    "RunOverviewResponse": {
-    "description": "Run overview: items ok/failed, per-label counts, runtime, error list \u2192 item.",
     "properties": {
      "created_at": {
       "anyOf": [
@@ -9714,7 +9706,6 @@
     "type": "object"
    },
    "SaveBody": {
-    "description": "API-09 (SRC-14).",
     "properties": {
      "anonymize": {
       "default": "none",
@@ -9859,7 +9850,7 @@
     "type": "object"
    },
    "SegProducer": {
-    "description": "The task run that produced a segmentation set (ADR-0015).",
+    "description": "The task run that produced a segmentation set.",
     "properties": {
      "run_id": {
       "title": "Run Id",
@@ -10007,7 +9998,7 @@
     "type": "object"
    },
    "SegmentationSet": {
-    "description": "`project.json.segmentations[]` (ADR-0015): one mask per item, per set.",
+    "description": "`project.json.segmentations[]`: one mask per item, per set.",
     "properties": {
      "created_at": {
       "default": "",
@@ -10066,7 +10057,7 @@
     "type": "object"
    },
    "SeriesPlan": {
-    "description": "One series of a converter dry run (DCM-06, AUD-A2-13): what happens to it and why.",
+    "description": "One series of a converter dry run: what happens to it and why.",
     "properties": {
      "action": {
       "enum": [
@@ -10818,7 +10809,6 @@
     "type": "object"
    },
    "TableInfo": {
-    "description": "API-56 row with LBL-08 progress.",
     "properties": {
      "columns": {
       "items": {
@@ -10933,7 +10923,7 @@
     "type": "object"
    },
    "TargetState": {
-    "description": "Latest event for one `(item_id, target)` (or case-target) key (CUR-08).",
+    "description": "Latest event for one `(item_id, target)` (or case-target) key.",
     "properties": {
      "add_to_queue": {
       "default": false,
@@ -11088,7 +11078,6 @@
     "type": "object"
    },
    "TaskEstimate": {
-    "description": "TSK-05.",
     "properties": {
      "basis": {
       "enum": [
@@ -11193,7 +11182,7 @@
     "type": "object"
    },
    "TaskInfo": {
-    "description": "API-42 row: a loaded manifest plus where it came from and whether it can run now.",
+    "description": "A loaded manifest plus where it came from and whether it can run now.",
     "properties": {
      "available": {
       "default": true,
@@ -11362,7 +11351,7 @@
    },
    "TaskManifest": {
     "additionalProperties": false,
-    "description": "`task.json` (TSK-01). Unknown keys are refused so typos surface as invalid manifests.",
+    "description": "`task.json`. Unknown keys are refused so typos surface as invalid manifests.",
     "properties": {
      "defaults": {
       "additionalProperties": true,
@@ -11917,7 +11906,7 @@
     "type": "object"
    },
    "TaskRunListItem": {
-    "description": "API-45 list row; a radiomics.pyradiomics row carries its RAD-09 summary (RAD-13).",
+    "description": "A run list row; a radiomics.pyradiomics row carries its radiomics run summary.",
     "properties": {
      "archived": {
       "default": false,
@@ -12071,7 +12060,6 @@
     "type": "object"
    },
    "TaskRunOutput": {
-    "description": "A registered output (TSK-09).",
     "properties": {
      "detail": {
       "anyOf": [
@@ -12269,7 +12257,7 @@
     "type": "object"
    },
    "TaskSelection": {
-    "description": "TSK-03: all active items / an Explorer filter / an explicit list; scope; seg + labels.",
+    "description": "All active items / an Explorer filter / an explicit list; scope; seg + labels.",
     "properties": {
      "filter": {
       "anyOf": [
@@ -12491,7 +12479,7 @@
     "type": "object"
    },
    "TestChoice": {
-    "description": "ANA-04: the rule outcome with a one-line reason.",
+    "description": "The test rule outcome with a one-line reason.",
     "properties": {
      "alternative_test": {
       "anyOf": [
@@ -12587,7 +12575,7 @@
     "type": "object"
    },
    "UnitPoint": {
-    "description": "One unit row (ANA-03): representative item + the items it aggregates.",
+    "description": "One unit row: representative item + the items it aggregates.",
     "properties": {
      "case_id": {
       "title": "Case Id",
@@ -12652,7 +12640,7 @@
     "type": "object"
    },
    "UnitSpec": {
-    "description": "ANA-03 unit of analysis: one label, one scope, one phase per case.\n\n`phase = null` picks, per case, the item whose phase ranks first in the project phase\npriority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then\nscan, side), `mean` (feature means), or `none` (keep every item; triggers REC-NONINDEP).\n`label`/`scope` default to the most frequent in the filtered run.",
+    "description": "Unit of analysis: one label, one scope, one phase per case.\n\n`phase = null` picks, per case, the item whose phase ranks first in the project phase\npriority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then\nscan, side), `mean` (feature means), or `none` (keep every item; triggers REC-NONINDEP).\n`label`/`scope` default to the most frequent in the filtered run.",
     "properties": {
      "aggregate": {
       "default": "first",
@@ -12771,7 +12759,6 @@
     "type": "object"
    },
    "V2ImportReport": {
-    "description": "API-54 result (CUR-13).",
     "properties": {
      "imported": {
       "title": "Imported",
@@ -13044,7 +13031,7 @@
     "type": "object"
    },
    "VariableOverride": {
-    "description": "API-16 PATCH body; only provided fields change (VAR-03/05).",
+    "description": "PATCH body; only provided fields change.",
     "properties": {
      "tags": {
       "anyOf": [
@@ -13313,7 +13300,7 @@
     "type": "object"
    },
    "WorkspaceRun": {
-    "description": "`plugins/{plugin}/runs/{run_id}/run.json` and the API-62 payload.",
+    "description": "`plugins/{plugin}/runs/{run_id}/run.json` and its API payload.",
     "properties": {
      "attempts": {
       "default": 1,
@@ -13647,7 +13634,7 @@
     "type": "object"
    },
    "app__radiomics__models__RunError": {
-    "description": "One `errors.jsonl` row (RAD-07). `skipped` rows do not make a run fail.\n\n`code` names the cause (`radiomics/causes.py`, AUD-A2-05), `error` says it in plain words,\n`detail` keeps the engine's own text for failures. Rows written before FB5 have no code.",
+    "description": "One `errors.jsonl` row. `skipped` rows do not make a run fail.\n\n`code` names the cause, `error` says it in plain words, `detail` keeps the engine's own text\nfor failures. Older rows have no code.",
     "properties": {
      "at": {
       "title": "At",
@@ -13707,7 +13694,7 @@
     "type": "object"
    },
    "app__variables__models__Profile": {
-    "description": "VAR-01: computed over units of the variable's level (cases or scans).",
+    "description": "Computed over units of the variable's level (cases or scans).",
     "properties": {
      "distinct": {
       "title": "Distinct",
@@ -13797,7 +13784,7 @@
  "paths": {
   "/api/v1/fs/list": {
    "post": {
-    "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS (PRJ-13) instead of ALLOWED_DATA_ROOTS.\n\nA POST so browsed folders (often patient names) stay out of URLs and access logs (NFR-17).",
+    "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS instead of ALLOWED_DATA_ROOTS.\n\nA POST so browsed folders (often patient names) stay out of URLs and access logs.",
     "operationId": "fs_list_api_v1_fs_list_post",
     "requestBody": {
      "content": {
@@ -13998,7 +13985,7 @@
   },
   "/api/v1/open": {
    "post": {
-    "description": "API-07: a file or folder \u2192 an ephemeral session, headers only (SRC-09).",
+    "description": "A file or folder \u2192 an ephemeral session, headers only.",
     "operationId": "open_path_api_v1_open_post",
     "requestBody": {
      "content": {
@@ -14115,7 +14102,7 @@
   },
   "/api/v1/open/{sid}/items": {
    "get": {
-    "description": "API-07 / SRC-18: stable paging over complete series, never a prefix of slices.",
+    "description": "Stable paging over complete series, never a prefix of slices.",
     "operationId": "open_items_api_v1_open__sid__items_get",
     "parameters": [
      {
@@ -14188,7 +14175,7 @@
   },
   "/api/v1/open/{sid}/items/{n}/attach": {
    "post": {
-    "description": "API-08 attach (SRC-10, ADR-0027): a segmentation for item n from anywhere under\nALLOWED_DATA_ROOTS, only if the geometry matches.",
+    "description": "Attach a segmentation for item n from anywhere under ALLOWED_DATA_ROOTS, only if the\ngeometry matches.",
     "operationId": "open_attach_api_v1_open__sid__items__n__attach_post",
     "parameters": [
      {
@@ -14250,7 +14237,7 @@
   },
   "/api/v1/open/{sid}/items/{n}/dicom-tags": {
    "get": {
-    "description": "Header info for a DICOM item (VW-22): its first file's DICOM JSON, never PixelData.",
+    "description": "Header info for a DICOM item: its first file's DICOM JSON, never PixelData.",
     "operationId": "open_dicom_tags_api_v1_open__sid__items__n__dicom_tags_get",
     "parameters": [
      {
@@ -14304,7 +14291,7 @@
   },
   "/api/v1/open/{sid}/items/{n}/image": {
    "get": {
-    "description": "API-08. NumPy without a decisive order \u2192 `ambiguous-axis-order` (SRC-12).",
+    "description": "NumPy without a decisive order \u2192 `ambiguous-axis-order`.",
     "operationId": "open_image_api_v1_open__sid__items__n__image_get",
     "parameters": [
      {
@@ -14428,7 +14415,7 @@
       "description": "Validation Error"
      }
     },
-    "summary": "NumPy middle slice in one axis order (the Open dialog, SRC-12)",
+    "summary": "NumPy middle slice in one axis order (the Open dialog)",
     "tags": [
      "sources"
     ]
@@ -14436,7 +14423,7 @@
   },
   "/api/v1/open/{sid}/items/{n}/save": {
    "post": {
-    "description": "SRC-14: write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once.",
+    "description": "Write the open volume as a new `.nii.gz` under ALLOWED_DERIVED_ROOTS, once.",
     "operationId": "open_save_api_v1_open__sid__items__n__save_post",
     "parameters": [
      {
@@ -14572,7 +14559,7 @@
   },
   "/api/v1/plugins/labeling/projects/{pid}/tables": {
    "get": {
-    "description": "`?deleted=true` lists only the deleted tables (LBL-10).",
+    "description": "`?deleted=true` lists only the deleted tables.",
     "operationId": "list_tables_api_v1_plugins_labeling_projects__pid__tables_get",
     "parameters": [
      {
@@ -15314,7 +15301,7 @@
   },
   "/api/v1/projects/import-bundle": {
    "post": {
-    "description": "API-06 import (PRJ-09): new project from a bundle, plus a per-alias resolve report.",
+    "description": "New project from a bundle, plus a per-alias resolve report.",
     "operationId": "import_bundle_api_v1_projects_import_bundle_post",
     "requestBody": {
      "content": {
@@ -15356,7 +15343,7 @@
   },
   "/api/v1/projects/open": {
    "post": {
-    "description": "API-67 / PRJ-19: open saved dataset-local projects from their folder.",
+    "description": "Open saved dataset-local projects from their folder.",
     "operationId": "open_dataset_api_v1_projects_open_post",
     "requestBody": {
      "content": {
@@ -15492,7 +15479,7 @@
       "description": "Successful Response"
      },
      "412": {
-      "description": "Stale If-Match (PRJ-15)"
+      "description": "Stale If-Match"
      },
      "422": {
       "content": {
@@ -15573,7 +15560,7 @@
     ]
    },
    "post": {
-    "description": "Create and run an analysis synchronously (ANA-01..08); saved under `analyses/`.",
+    "description": "Create and run an analysis synchronously; saved under `analyses/`.",
     "operationId": "create_analysis_api_v1_projects__pid__analyses_post",
     "parameters": [
      {
@@ -15642,7 +15629,7 @@
   },
   "/api/v1/projects/{pid}/analyses/{aid}": {
    "get": {
-    "description": "Results + descriptives + recommendations (DB-08).",
+    "description": "Results + descriptives + recommendations.",
     "operationId": "get_analysis_api_v1_projects__pid__analyses__aid__get",
     "parameters": [
      {
@@ -15694,7 +15681,7 @@
   },
   "/api/v1/projects/{pid}/analyses/{aid}/export": {
    "get": {
-    "description": "ANA-09: `tidy` (unit rows x ids + variables + features), `results`, `descriptives`\nCSV, or `spec` JSON.",
+    "description": "`tidy` (unit rows x ids + variables + features), `results`, `descriptives` CSV,\nor `spec` JSON.",
     "operationId": "export_analysis_api_v1_projects__pid__analyses__aid__export_get",
     "parameters": [
      {
@@ -15746,7 +15733,7 @@
         }
        }
       },
-      "description": "tidy/results/descriptives CSV, or the spec JSON (ANA-09)"
+      "description": "tidy/results/descriptives CSV, or the spec JSON"
      },
      "422": {
       "content": {
@@ -15809,7 +15796,7 @@
   },
   "/api/v1/projects/{pid}/annotation-sources/{field}": {
    "put": {
-    "description": "ANZ-04: activate a run for one field (or `null`), then rebuild the index.",
+    "description": "Activate a run for one field (or `null`), then rebuild the index.",
     "operationId": "put_source_api_v1_projects__pid__annotation_sources__field__put",
     "parameters": [
      {
@@ -16008,7 +15995,7 @@
   },
   "/api/v1/projects/{pid}/bundle": {
    "post": {
-    "description": "API-06 export: `.zip` of the project folder without `cache/` and never image data.",
+    "description": "`.zip` of the project folder without `cache/` and never image data.",
     "operationId": "export_bundle_api_v1_projects__pid__bundle_post",
     "parameters": [
      {
@@ -16031,7 +16018,7 @@
         }
        }
       },
-      "description": "Project bundle (PRJ-08)"
+      "description": "Project bundle"
      },
      "422": {
       "content": {
@@ -16052,7 +16039,7 @@
   },
   "/api/v1/projects/{pid}/cases": {
    "get": {
-    "description": "Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max` (VAR-10);\na case matches when any of its items matches every variable filter.",
+    "description": "Also accepts `var.{name}=value` (repeatable, OR) and `var.{name}=min..max`;\na case matches when any of its items matches every variable filter.",
     "operationId": "list_cases_api_v1_projects__pid__cases_get",
     "parameters": [
      {
@@ -16122,7 +16109,7 @@
       }
      },
      {
-      "description": "CUR-08 case rollup (the Search view's Status)",
+      "description": "Case curation rollup (the Search view's Status)",
       "in": "query",
       "name": "curation_status",
       "required": false,
@@ -16146,7 +16133,7 @@
          "type": "null"
         }
        ],
-       "description": "CUR-08 case rollup (the Search view's Status)",
+       "description": "Case curation rollup (the Search view's Status)",
        "title": "Curation Status"
       }
      },
@@ -16310,7 +16297,7 @@
   },
   "/api/v1/projects/{pid}/curation/events": {
    "get": {
-    "description": "API-50 history, newest first (CUR-14); every event is kept (CUR-02/12).",
+    "description": "History, newest first; every event is kept.",
     "operationId": "list_events_api_v1_projects__pid__curation_events_get",
     "parameters": [
      {
@@ -16413,7 +16400,7 @@
     ]
    },
    "post": {
-    "description": "API-50 append one decision (CUR-02/03/05/07); pushes `curation.appended` (CUR-11).\n\n428 `reviewer-required` without `X-Reviewer` (CUR-01).",
+    "description": "Append one decision; pushes `curation.appended`.\n\n428 `reviewer-required` without `X-Reviewer`.",
     "operationId": "append_event_api_v1_projects__pid__curation_events_post",
     "parameters": [
      {
@@ -16426,7 +16413,7 @@
       }
      },
      {
-      "description": "Reviewer name or initials (CUR-01); required for writes",
+      "description": "Reviewer name or initials; required for writes",
       "in": "header",
       "name": "x-reviewer",
       "required": false,
@@ -16439,7 +16426,7 @@
          "type": "null"
         }
        ],
-       "description": "Reviewer name or initials (CUR-01); required for writes",
+       "description": "Reviewer name or initials; required for writes",
        "title": "X-Reviewer"
       }
      },
@@ -16502,7 +16489,7 @@
   },
   "/api/v1/projects/{pid}/curation/exports": {
    "post": {
-    "description": "API-53 write the CUR-10 files into the project's `exports/`.",
+    "description": "Write `curation_state.csv` and an `events.jsonl` copy into the project's `exports/`.",
     "operationId": "export_curation_api_v1_projects__pid__curation_exports_post",
     "parameters": [
      {
@@ -16545,7 +16532,7 @@
   },
   "/api/v1/projects/{pid}/curation/import-converter": {
    "post": {
-    "description": "API-55: import the standalone converter's manual decisions once (CUR-15, DCM-08).",
+    "description": "Import the standalone converter's manual decisions once.",
     "operationId": "import_converter_api_v1_projects__pid__curation_import_converter_post",
     "parameters": [
      {
@@ -16558,7 +16545,7 @@
       }
      },
      {
-      "description": "Reviewer name or initials (CUR-01); required for writes",
+      "description": "Reviewer name or initials; required for writes",
       "in": "header",
       "name": "x-reviewer",
       "required": false,
@@ -16571,7 +16558,7 @@
          "type": "null"
         }
        ],
-       "description": "Reviewer name or initials (CUR-01); required for writes",
+       "description": "Reviewer name or initials; required for writes",
        "title": "X-Reviewer"
       }
      }
@@ -16616,7 +16603,7 @@
   },
   "/api/v1/projects/{pid}/curation/import-v2": {
    "post": {
-    "description": "API-54 import v2 decisions as `source: \"v2_import\"` events (CUR-13).\n\n`X-Reviewer` is required (CUR-01) and used for rows without a reviewer.",
+    "description": "Import v2 decisions as `source: \"v2_import\"` events.\n\n`X-Reviewer` is required and used for rows without a reviewer.",
     "operationId": "import_v2_api_v1_projects__pid__curation_import_v2_post",
     "parameters": [
      {
@@ -16629,7 +16616,7 @@
       }
      },
      {
-      "description": "Reviewer name or initials (CUR-01); required for writes",
+      "description": "Reviewer name or initials; required for writes",
       "in": "header",
       "name": "x-reviewer",
       "required": false,
@@ -16642,7 +16629,7 @@
          "type": "null"
         }
        ],
-       "description": "Reviewer name or initials (CUR-01); required for writes",
+       "description": "Reviewer name or initials; required for writes",
        "title": "X-Reviewer"
       }
      }
@@ -16687,7 +16674,7 @@
   },
   "/api/v1/projects/{pid}/curation/queue": {
    "get": {
-    "description": "API-52 correction queue (CUR-09); CSV for 3D Slicer with absolute paths.",
+    "description": "Correction queue; CSV for 3D Slicer with absolute paths.",
     "operationId": "get_queue_api_v1_projects__pid__curation_queue_get",
     "parameters": [
      {
@@ -16749,7 +16736,7 @@
   },
   "/api/v1/projects/{pid}/curation/state": {
    "get": {
-    "description": "API-51 derived latest state per item and per case (CUR-08, last-writer-wins CUR-12).",
+    "description": "Derived latest state per item and per case (last writer wins).",
     "operationId": "get_state_api_v1_projects__pid__curation_state_get",
     "parameters": [
      {
@@ -16895,7 +16882,7 @@
   },
   "/api/v1/projects/{pid}/exports/dataset-table": {
    "get": {
-    "description": "API-59: `dataset_table.csv|parquet`, or `dataset.jsonl` (ADR-0025), built on demand.",
+    "description": "`dataset_table.csv|parquet`, or `dataset.jsonl`, built on demand.",
     "operationId": "dataset_table_api_v1_projects__pid__exports_dataset_table_get",
     "parameters": [
      {
@@ -16923,13 +16910,13 @@
       }
      },
      {
-      "description": "Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers (VAR-09). Absolute paths and `raw_metadata` never leave.",
+      "description": "Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers. Absolute paths and `raw_metadata` never leave.",
       "in": "query",
       "name": "include_sensitive",
       "required": false,
       "schema": {
        "default": false,
-       "description": "Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers (VAR-09). Absolute paths and `raw_metadata` never leave.",
+       "description": "Also export `sensitive` fields: patient_id, dates, UIDs, accession numbers. Absolute paths and `raw_metadata` never leave.",
        "title": "Include Sensitive",
        "type": "boolean"
       }
@@ -16963,7 +16950,7 @@
   },
   "/api/v1/projects/{pid}/hash-jobs": {
    "post": {
-    "description": "API-15 (IMP-09): full SHA-256 of every indexed image/mask file, in job workers.\n\nResults land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item\nrecords (API-21/22). One `hash` job per project (`job-conflict`).",
+    "description": "Full SHA-256 of every indexed image/mask file, in job workers.\n\nResults land in `index/hashes.json` and show up as `image.sha256` / `mask.sha256` on item\nrecords. One `hash` job per project (`job-conflict`).",
     "operationId": "start_hash_api_v1_projects__pid__hash_jobs_post",
     "parameters": [
      {
@@ -17023,7 +17010,7 @@
   },
   "/api/v1/projects/{pid}/imports": {
    "get": {
-    "description": "API-13: import history (newest first) plus the current index status.",
+    "description": "Import history (newest first) plus the current index status.",
     "operationId": "list_imports_api_v1_projects__pid__imports_get",
     "parameters": [
      {
@@ -17094,7 +17081,7 @@
     ]
    },
    "post": {
-    "description": "IMP-04/05: snapshot + start the index job. A workspace dataset (SRC-16) brings its analyzer\nannotations along as a completed run, active where no run is (ANZ-04).",
+    "description": "Snapshot + start the index job. A workspace dataset brings its analyzer annotations along\nas a completed run, active where no run is.",
     "operationId": "commit_import_api_v1_projects__pid__imports_post",
     "parameters": [
      {
@@ -17147,7 +17134,7 @@
   },
   "/api/v1/projects/{pid}/imports/preview": {
    "post": {
-    "description": "IMP-02/03: JSON `{root, detect: true, alias?}` or multipart uploads of the inputs.",
+    "description": "JSON `{root, detect: true, alias?}` or multipart uploads of the inputs.",
     "operationId": "preview_import_api_v1_projects__pid__imports_preview_post",
     "parameters": [
      {
@@ -17164,7 +17151,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "description": "API-11 JSON body (IMP-01/02; SRC-01..06). `root` may be one file (SRC-05).",
+        "description": "`root` may be one file.",
         "properties": {
          "adapter": {
           "anyOf": [
@@ -17276,7 +17263,7 @@
   },
   "/api/v1/projects/{pid}/items": {
    "get": {
-    "description": "API-68: active indexed items, filtered before paging; no source reads or ID inference.",
+    "description": "Active indexed items, filtered before paging.",
     "operationId": "list_items_api_v1_projects__pid__items_get",
     "parameters": [
      {
@@ -17488,7 +17475,7 @@
   },
   "/api/v1/projects/{pid}/items/{iid}/dicom-tags": {
    "get": {
-    "description": "The item's DICOM JSON sidecar (DCM-04), read on demand only (DCM-05: PHI stays here).",
+    "description": "The item's DICOM JSON sidecar, read on demand only (PHI stays here).",
     "operationId": "get_dicom_tags_api_v1_projects__pid__items__iid__dicom_tags_get",
     "parameters": [
      {
@@ -17664,7 +17651,7 @@
   },
   "/api/v1/projects/{pid}/items/{iid}/mesh/{label}": {
    "get": {
-    "description": "`seg` = segmentation set (ADR-0015); default `default_seg`.",
+    "description": "`seg` = segmentation set; default `default_seg`.",
     "operationId": "get_mesh_api_v1_projects__pid__items__iid__mesh__label__get",
     "parameters": [
      {
@@ -17760,7 +17747,7 @@
   },
   "/api/v1/projects/{pid}/items/{iid}/recycle": {
    "get": {
-    "description": "API-66 / CUR-16: preview the whole scan, related outputs and default recycle bin.",
+    "description": "Preview the whole scan, related outputs and default recycle bin.",
     "operationId": "preview_recycle_api_v1_projects__pid__items__iid__recycle_get",
     "parameters": [
      {
@@ -17810,7 +17797,7 @@
     ]
    },
    "post": {
-    "description": "API-66: confirmed, audited removal; never a permanent delete.",
+    "description": "Confirmed, audited removal; never a permanent delete.",
     "operationId": "recycle_scan_api_v1_projects__pid__items__iid__recycle_post",
     "parameters": [
      {
@@ -17984,7 +17971,7 @@
   },
   "/api/v1/projects/{pid}/packs": {
    "post": {
-    "description": "PRJ-16: never deletes data; the index is rebuilt with the new phase rules.",
+    "description": "Never deletes data; the index is rebuilt with the new phase rules.",
     "operationId": "apply_pack_api_v1_projects__pid__packs_post",
     "parameters": [
      {
@@ -18037,7 +18024,7 @@
   },
   "/api/v1/projects/{pid}/phase/events": {
    "get": {
-    "description": "API-63 history, newest first (PHS-07).",
+    "description": "History, newest first.",
     "operationId": "list_events_api_v1_projects__pid__phase_events_get",
     "parameters": [
      {
@@ -18140,7 +18127,7 @@
     ]
    },
    "post": {
-    "description": "API-63 one-click selection (PHS-01) or accepting the analyzer guess (PHS-04); replaces\nthe effective phase at once and pushes `phase.appended` (PHS-05). 428 without `X-Reviewer`.",
+    "description": "One-click selection or accepting the analyzer guess; replaces the effective phase at once\nand pushes `phase.appended`. 428 without `X-Reviewer`.",
     "operationId": "append_event_api_v1_projects__pid__phase_events_post",
     "parameters": [
      {
@@ -18153,7 +18140,7 @@
       }
      },
      {
-      "description": "Reviewer name or initials (ADR-0004)",
+      "description": "Reviewer name or initials",
       "in": "header",
       "name": "X-Reviewer",
       "required": false,
@@ -18166,7 +18153,7 @@
          "type": "null"
         }
        ],
-       "description": "Reviewer name or initials (ADR-0004)",
+       "description": "Reviewer name or initials",
        "title": "X-Reviewer"
       }
      },
@@ -18229,7 +18216,7 @@
   },
   "/api/v1/projects/{pid}/phase/exports": {
    "post": {
-    "description": "API-65 write `exports/phase_selections.json` (PHS-06).",
+    "description": "Write `exports/phase_selections.json`.",
     "operationId": "export_phase_api_v1_projects__pid__phase_exports_post",
     "parameters": [
      {
@@ -18272,7 +18259,7 @@
   },
   "/api/v1/projects/{pid}/phase/state": {
    "get": {
-    "description": "API-64 latest selection per scan (PHS-02) next to the value it overrides (PHS-03).",
+    "description": "Latest selection per scan next to the value it overrides.",
     "operationId": "get_state_api_v1_projects__pid__phase_state_get",
     "parameters": [
      {
@@ -18331,7 +18318,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/profiles": {
    "get": {
-    "description": "API-32 (RAD-03): saved profiles, by name.",
+    "description": "Saved profiles, by name.",
     "operationId": "list_profiles_api_v1_projects__pid__radiomics_profiles_get",
     "parameters": [
      {
@@ -18402,7 +18389,7 @@
     ]
    },
    "post": {
-    "description": "API-32 (RAD-03): save settings; content-addressed by `profile_hash` (200 if it exists).",
+    "description": "Save settings; content-addressed by `profile_hash` (200 if it exists).",
     "operationId": "create_profile_api_v1_projects__pid__radiomics_profiles_post",
     "parameters": [
      {
@@ -18465,7 +18452,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/profiles/{phash}": {
    "delete": {
-    "description": "API-32 (RAD-03): delete a profile \u2192 remaining profiles (runs keep their snapshot).",
+    "description": "Delete a profile \u2192 remaining profiles (runs keep their snapshot).",
     "operationId": "delete_profile_api_v1_projects__pid__radiomics_profiles__phash__delete",
     "parameters": [
      {
@@ -18545,7 +18532,7 @@
     ]
    },
    "patch": {
-    "description": "API-32 (RAD-03): rename. `phash` is `sha256:<hex>` or `<hex>`.",
+    "description": "Rename. `phash` is `sha256:<hex>` or `<hex>`.",
     "operationId": "rename_profile_api_v1_projects__pid__radiomics_profiles__phash__patch",
     "parameters": [
      {
@@ -18607,7 +18594,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/features": {
    "get": {
-    "description": "API-36 (RAD-10, UI-14): long or wide features as JSON, CSV or Parquet.",
+    "description": "Long or wide features as JSON, CSV or Parquet.",
     "operationId": "get_features_api_v1_projects__pid__radiomics_runs__rid__features_get",
     "parameters": [
      {
@@ -18708,7 +18695,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/association": {
    "post": {
-    "description": "Scatter feature x continuous variable with rho; ranked table (ANA-04/05).",
+    "description": "Scatter feature x continuous variable with rho; ranked table.",
     "operationId": "association_api_v1_projects__pid__radiomics_runs__rid__views_association_post",
     "parameters": [
      {
@@ -18901,7 +18888,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/embedding": {
    "post": {
-    "description": "PCA (default) or UMAP (optional extra) on z-scored features (DB-03/07).",
+    "description": "PCA (default) or UMAP (optional extra) on z-scored features.",
     "operationId": "embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post",
     "parameters": [
      {
@@ -18970,7 +18957,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/feature-distribution": {
    "post": {
-    "description": "Histogram / box of one feature split by a color variable (DB-03/07).",
+    "description": "Histogram / box of one feature split by a color variable.",
     "operationId": "feature_distribution_api_v1_projects__pid__radiomics_runs__rid__views_feature_distribution_post",
     "parameters": [
      {
@@ -19094,7 +19081,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/group-comparison": {
    "post": {
-    "description": "Box per group + test for one feature, results for all features (ANA-03..07).",
+    "description": "Box per group + test for one feature, results for all features.",
     "operationId": "group_comparison_api_v1_projects__pid__radiomics_runs__rid__views_group_comparison_post",
     "parameters": [
      {
@@ -19156,7 +19143,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/missing-matrix": {
    "post": {
-    "description": "Feature x item NaN/inf/absent cells, sparse (DB-05).",
+    "description": "Feature x item NaN/inf/absent cells, sparse.",
     "operationId": "missing_matrix_api_v1_projects__pid__radiomics_runs__rid__views_missing_matrix_post",
     "parameters": [
      {
@@ -19356,7 +19343,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/run-overview": {
    "post": {
-    "description": "Run overview: items ok/failed, per-label counts, runtime, errors -> item (API-38).",
+    "description": "Run overview: items ok/failed, per-label counts, runtime, errors -> item.",
     "operationId": "run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post",
     "parameters": [
      {
@@ -19639,7 +19626,7 @@
   },
   "/api/v1/projects/{pid}/task-runs": {
    "get": {
-    "description": "API-45; `archived=true` lists the archived runs instead (J6).",
+    "description": "`archived=true` lists the archived runs instead.",
     "operationId": "list_runs_api_v1_projects__pid__task_runs_get",
     "parameters": [
      {
@@ -19829,7 +19816,7 @@
   },
   "/api/v1/projects/{pid}/task-runs/{rid}/archive": {
    "post": {
-    "description": "API-46 supervised runs (TSK-15): 409 while active or cleanup is pending.",
+    "description": "Supervised runs: 409 while active or cleanup is pending.",
     "operationId": "archive_run_api_v1_projects__pid__task_runs__rid__archive_post",
     "parameters": [
      {
@@ -20059,7 +20046,7 @@
   },
   "/api/v1/projects/{pid}/task-runs/{rid}/pause": {
    "post": {
-    "description": "API-46 supervised runs (TSK-15): idempotent; `pausing` until cleanup is verified.",
+    "description": "Supervised runs: idempotent; `pausing` until cleanup is verified.",
     "operationId": "pause_run_api_v1_projects__pid__task_runs__rid__pause_post",
     "parameters": [
      {
@@ -20421,7 +20408,7 @@
   },
   "/api/v1/projects/{pid}/variables": {
    "get": {
-    "description": "Catalog with profiles (VAR-01..05, 08, 09); profiles lazily after the first index.",
+    "description": "Catalog with profiles; profiles lazily after the first index.",
     "operationId": "get_variables_api_v1_projects__pid__variables_get",
     "parameters": [
      {
@@ -20464,7 +20451,7 @@
   },
   "/api/v1/projects/{pid}/variables/derived": {
    "post": {
-    "description": "Bin / recode / dominant (VAR-06).",
+    "description": "Bin / recode / dominant.",
     "operationId": "add_derived_api_v1_projects__pid__variables_derived_post",
     "parameters": [
      {
@@ -20587,7 +20574,7 @@
   },
   "/api/v1/projects/{pid}/variables/external": {
    "post": {
-    "description": "External case-keyed table \u2192 match report (VAR-07).",
+    "description": "External case-keyed table \u2192 match report.",
     "operationId": "import_external_api_v1_projects__pid__variables_external_post",
     "parameters": [
      {
@@ -20640,7 +20627,7 @@
   },
   "/api/v1/projects/{pid}/variables/{name}": {
    "patch": {
-    "description": "Confirm or override the type; set visibility and tags (VAR-03/05).",
+    "description": "Confirm or override the type; set visibility and tags.",
     "operationId": "patch_variable_api_v1_projects__pid__variables__name__patch",
     "parameters": [
      {
@@ -20735,7 +20722,7 @@
     ]
    },
    "post": {
-    "description": "PRJ-17 / API-61: create or rotate; the previous link stops working at once.",
+    "description": "Create or rotate; the previous link stops working at once.",
     "operationId": "create_view_token_api_v1_projects__pid__view_token_post",
     "parameters": [
      {
@@ -20778,7 +20765,6 @@
   },
   "/api/v1/projects/{pid}/warnings": {
    "get": {
-    "description": "API-14 (IMP-08).",
     "operationId": "list_warnings_api_v1_projects__pid__warnings_get",
     "parameters": [
      {
@@ -20915,7 +20901,7 @@
   },
   "/api/v1/radiomics/schema": {
    "get": {
-    "description": "API-30 (RAD-01/02): every engine option with type, default, constraints and group.",
+    "description": "Every engine option with type, default, constraints and group.",
     "operationId": "get_schema_api_v1_radiomics_schema_get",
     "responses": {
      "200": {
@@ -21501,7 +21487,7 @@
   },
   "/api/v1/sources/detect": {
    "post": {
-    "description": "API-19: candidate adapters with reasons, counts and confidence (SRC-01/02).",
+    "description": "Candidate adapters with reasons, counts and confidence.",
     "operationId": "detect_source_api_v1_sources_detect_post",
     "requestBody": {
      "content": {
@@ -21543,7 +21529,7 @@
   },
   "/api/v1/task-estimates/{eid}": {
    "get": {
-    "description": "Where a dry run started with `progress_id=eid` is (DCM-06); 404 once it has returned.",
+    "description": "Where a dry run started with `progress_id=eid` is; 404 once it has returned.",
     "operationId": "estimate_progress_api_v1_task_estimates__eid__get",
     "parameters": [
      {
@@ -21960,7 +21946,7 @@
   },
   "/api/v1/tasks/{tid}/estimate": {
    "post": {
-    "description": "The converter's dry run without a project (DCM-06, UI-25 step 3).",
+    "description": "The converter's dry run without a project.",
     "operationId": "workspace_estimate_api_v1_tasks__tid__estimate_post",
     "parameters": [
      {
@@ -22125,7 +22111,7 @@
   },
   "/api/v1/view/{token}/jobs": {
    "get": {
-    "description": "The project's jobs (API-41) as the view-only link sees them: no `project_id`, no paths.",
+    "description": "The project's jobs as the view-only link sees them: no `project_id`, no paths.",
     "operationId": "view_jobs_api_v1_view__token__jobs_get",
     "parameters": [
      {
