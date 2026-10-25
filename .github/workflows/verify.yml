@@ -58,6 +58,19 @@ jobs:
             python -m tools.make_fixtures --out /fixtures/synthetic
       - name: Verify Docker runtime, arbitrary UID, health, IBSI and immutable sources
         run: IMAGE=radiology-workbench:verification scripts/container-smoke.sh
+      - name: Verify native DICOM conversion and durable Open after API restart
+        run: |
+          mkdir -p build/ci/image-lifecycle
+          docker run --rm --init --user "$(id -u):$(id -g)" \
+            -v "$PWD/build/ci/image-lifecycle:/evidence" radiology-workbench:verification \
+            python -m tools.dicom_image_smoke --evidence /evidence
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: product-image-diagnostics
+          path: build/ci/image-lifecycle
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Save the tested image for udocker acceptance
         run: |
           mkdir -p build/ci
