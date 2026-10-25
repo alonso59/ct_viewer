@@ -7,7 +7,7 @@ import { vi } from 'vitest'
 import { codicon } from '../theme'
 import { EditorArea } from './EditorArea'
 import { registry } from './registry'
-import { refreshUrl, useWorkbench, type EditorParams } from './workbenchStore'
+import { openEditor, refreshUrl, useWorkbench, type EditorParams } from './workbenchStore'
 
 const route = vi.hoisted(() => ({
   location: { pathname: '/p/P/case/second', search: '' },
@@ -60,9 +60,7 @@ function dock() {
   } as unknown as DockviewApi
 }
 
-test('history reconciliation cannot be overwritten by an active panel captured before that reconciliation', () => {
-  localStorage.clear()
-  registry.setReadOnly(false)
+function registerEditor() {
   registry.editor({
     type: 'history-probe', component: () => null,
     id: (p: { caseId: string }) => `history-${p.caseId}`,
@@ -70,6 +68,12 @@ test('history reconciliation cannot be overwritten by an active panel captured b
     path: (pid, p) => `/p/${pid}/case/${p.caseId}`,
     match: (path) => path.startsWith('/case/') ? { caseId: path.slice('/case/'.length) } : null,
   })
+}
+
+test('history reconciliation cannot be overwritten by an active panel captured before that reconciliation', () => {
+  localStorage.clear()
+  registry.setReadOnly(false)
+  registerEditor()
   route.dock = dock()
   route.location = { pathname: '/p/P/case/second', search: '' }
   useWorkbench.setState({ pid: 'P', dock: null, active: null, urlToken: 0 })
@@ -88,6 +92,38 @@ test('history reconciliation cannot be overwritten by an active panel captured b
     }
   } finally {
     view.unmount()
+    registry.editors.delete('history-probe')
+    useWorkbench.setState({ pid: null, dock: null, active: null })
+  }
+})
+
+test.each([['first', 'second'], ['second', 'first']])('browser history reconciles %s after an uncommitted transition to %s', (initial, next) => {
+  localStorage.clear()
+  registry.setReadOnly(false)
+  registerEditor()
+  const previousUrl = window.location.href
+  window.history.replaceState(null, '', `/p/P/case/${initial}`)
+  route.dock = dock()
+  route.location = { pathname: `/p/P/case/${initial}`, search: '' }
+  useWorkbench.setState({ pid: 'P', dock: null, active: null, urlToken: 0 })
+  const view = render(<EditorArea pid="P" />)
+  try {
+    act(() => openEditor('history-probe', { caseId: next }))
+    expect(useWorkbench.getState().active?.caseId).toBe(next)
+    expect(route.navigate).toHaveBeenCalledWith(`/p/P/case/${next}`, { replace: false })
+    // The address changed, but the router's deferred render still describes the initial case.
+    // Returning to that entry can leave pathname/search dependencies unchanged.
+    route.navigate.mockClear()
+    window.history.replaceState(null, '', `/p/another-project/case/${initial}`)
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')))
+    expect(useWorkbench.getState().active?.caseId).toBe(next)
+    window.history.replaceState(null, '', `/p/P/case/${initial}`)
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')))
+    expect(useWorkbench.getState().active?.caseId).toBe(initial)
+    expect(route.navigate).not.toHaveBeenCalled()
+  } finally {
+    view.unmount()
+    window.history.replaceState(null, '', previousUrl)
     registry.editors.delete('history-probe')
     useWorkbench.setState({ pid: null, dock: null, active: null })
   }
