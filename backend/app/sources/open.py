@@ -1,6 +1,7 @@
 """Open mode (SRC-09/10, API-07/08): view files without a project.
 
-Sessions live in memory only: nothing is written to a project or to the workspace registry.
+Compatibility sessions live in memory. Durable source operations restore their prepared
+results through OpenService; neither form creates a project or a workspace project entry.
 NumPy (and, with the converter, DICOM) volumes are converted into the disposable
 `WORKSPACE_ROOT/.scratch/open/{fingerprint}/`, inside the global `CACHE_MAX_GB` LRU budget
 (`core/cache_budget.py`).
@@ -14,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import io
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -85,12 +87,18 @@ class OpenSession(BaseModel):
 
 
 def probe(
-    root: str, rels: list[str], kinds: dict[str, formats.Kind] | None = None
+    root: str,
+    rels: list[str],
+    kinds: dict[str, formats.Kind] | None = None,
+    *,
+    cancelled: Callable[[], bool] | None = None,
 ) -> list[dict[str, Any]]:
     """Worker: header per accepted file (NIfTI, NumPy). Never raises."""
     out: list[dict[str, Any]] = []
     dicom: list[str] = []
     for rel in rels:
+        if cancelled is not None and cancelled():
+            raise InterruptedError("Open header reading cancelled")
         path = Path(root) / rel
         fmt = kinds.get(rel) if kinds is not None else formats.classify(path, Path(root))
         row: dict[str, Any] = {"rel": rel, "format": fmt}
@@ -129,7 +137,7 @@ def probe(
     if dicom:
         from app.tasks.dicom_stage import probe_series
 
-        out += probe_series(root, dicom)
+        out += probe_series(root, dicom, cancelled=cancelled)
     return out
 
 

@@ -18,6 +18,22 @@ from typing import Any
 def workspace_database(path: Path) -> sqlite3.Connection:
     """Embedded inventory file, not a database service; caller supplies a managed state path."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    # SQLite inherits this file's mode for its WAL/SHM. Never expose cached source headers
+    # through the host user's potentially group/world-readable process umask.
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
+    for journal in (Path(str(path) + "-wal"), Path(str(path) + "-shm")):
+        try:
+            fd = os.open(journal, os.O_RDWR | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            continue
+        try:
+            os.fchmod(fd, 0o600)
+        finally:
+            os.close(fd)
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")

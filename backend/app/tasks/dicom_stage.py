@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +54,9 @@ def series_fingerprint(root: str, rels: list[str]) -> str:
     return f"series-{digest.hexdigest()}"
 
 
-def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
+def probe_series(
+    root: str, rels: list[str], *, cancelled: Callable[[], bool] | None = None
+) -> list[dict[str, Any]]:
     """DICOM files → one record per series (headers only, R1): files, modality, geometry."""
     from plugins.dicom import scan
     from plugins.text import split_multi_value, value_to_text
@@ -62,6 +64,8 @@ def probe_series(root: str, rels: list[str]) -> list[dict[str, Any]]:
     groups: dict[tuple[str, str], list[tuple[str, Any]]] = {}
     errors: list[dict[str, Any]] = []
     for rel in rels:
+        if cancelled is not None and cancelled():
+            raise InterruptedError("Open DICOM header reading cancelled")
         try:
             ds = scan.read_header(Path(root) / rel, Path(root))
         except Exception as exc:

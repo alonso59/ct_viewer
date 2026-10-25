@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -75,20 +76,48 @@ def main() -> None:
             rec.call("POST", f"{API}/fs/list", {"path": None, "role": "derived"})
             for path in (data, first.parent, masks[0].parent):
                 rec.call("POST", f"{API}/fs/list", {"path": str(path), "role": "source"})
+            response = client.post(
+                f"{API}/source-operations",
+                json={
+                    "path": str(first.parent),
+                    "purpose": "open",
+                    "idempotency_key": "record-background-open",
+                },
+            )
+            if response.status_code != 202:
+                raise SystemExit(f"record-open: background start failed ({response.status_code})")
+            operation = response.json()["operation_id"]
+            deadline = time.monotonic() + 30
+            while True:
+                state = client.get(f"{API}/source-operations/{operation}").json()
+                if state["status"] not in {"queued", "running"}:
+                    break
+                if time.monotonic() > deadline:
+                    raise SystemExit("record-open: background preparation timed out")
+                time.sleep(0.05)
+            if state["status"] != "completed" or state["stage"] != "opened":
+                raise SystemExit("record-open: background preparation did not finish")
+            rec.get(f"{API}/source-operations/{operation}")
+            rec.call("POST", f"{API}/source-operations/{operation}/open")
+            rec.get(f"{API}/open/{operation}")
         after = {
             p: hashlib.sha256(p.read_bytes()).hexdigest() for p in data.rglob("*") if p.is_file()
         }
         if before != after:
             raise SystemExit("record-open: sources changed")
-        text = redact(
-            dump(list(rec.log.values())),
-            "__no_project__",
-            data,
-            workspace,
-            derived,
-            plugins,
-            data_alias="/open-data",
-        ).replace(sid, SID)
+        text = (
+            redact(
+                dump(list(rec.log.values())),
+                "__no_project__",
+                data,
+                workspace,
+                derived,
+                plugins,
+                data_alias="/open-data",
+            )
+            .replace(sid, SID)
+            .replace(operation, "01JSYNTHOPENBACKGROUND00000")
+        )
         additions = json.loads(text)
         recording = json.loads(OUT.read_text())
         keys = {(e["method"], e["path"], e["query"], dump(e["body"])) for e in additions}

@@ -452,6 +452,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
     openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
     openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),
+    openSourceOperation: (oid) => unwrap(client.POST('/api/v1/source-operations/{oid}/open', { params: { path: { oid } } })),
     getOpen: (sid, item) => unwrap(client.GET('/api/v1/open/{sid}', { params: { path: { sid }, query: { item } } })),
     openItems: (sid, options) => unwrap(client.GET('/api/v1/open/{sid}/items', { params: { path: { sid }, query: { ...options, kind: 'image' } } })),
     async closeOpen(sid) {

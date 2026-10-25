@@ -98,6 +98,11 @@ Implementation (UI-24): File › Close project (palette "Close project") goes to
 Implementation (UI-25/28): the `dicom` plugin contributes the converter overlay on every route.
 Welcome, Open mode, Library and Project commands retain their existing entry points and destination choices.
 Settings and result actions retain UI-25; unfinished workspace outputs cannot be opened/imported as complete datasets.
+Opening a file/folder uses the same window with an Open title, source counts and header-unit
+progress. It supports minimize, reload restoration, cancel and resume without a project.
+A completed unminimized opening enters the viewer automatically; restored/minimized results
+offer Open in viewer. The source-operations command opens retained operations.
+
 Dry run creates a server source operation whose persisted intent chains discovery to header-only planning.
 The window retrieves the linked run and pages the complete plan; API-69 owns commands and recovery.
 Back edits/re-estimates the existing operation; a changed destination starts a new context. A stale fence refetches state without replaying the command.

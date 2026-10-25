@@ -21,6 +21,44 @@ async function recordedOperation(): Promise<SourceOperation> {
 
 afterEach(() => { useConverter.getState().close(); vi.restoreAllMocks() })
 
+test('U08 restores a completed background Open result through the shared window', async () => {
+  const id = '01JSYNTHOPENBACKGROUND00000'
+  const result = await api.getSourceOperation(id)
+  expect(result.purpose).toBe('open')
+  const open = vi.spyOn(api, 'openSourceOperation')
+  useConverter.getState().attach(id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  const button = await screen.findByRole('button', { name: 'Open in viewer' })
+  expect(screen.getByRole('dialog', { name: 'Open file or folder' })).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Dry run' })).not.toBeInTheDocument()
+  fireEvent.click(button)
+  await waitFor(() => expect(open).toHaveBeenCalledWith(id))
+  await waitFor(() => expect(useConverter.getState().open).toBe(false))
+})
+
+test.each([false, true])('U07 refreshes cancellation progress without controlling a newer attempt (%s)', async (newAttempt) => {
+  const result = await api.getSourceOperation('01JSYNTHOPENBACKGROUND00000')
+  const cached: SourceOperation = { ...result, status: 'running', stage: 'discovering', revision: 10, attempt: 1, progress_stage: 'waiting_for_resources' }
+  let current = cached
+  vi.spyOn(api, 'getSourceOperation').mockImplementation(async () => current)
+  const cancel = vi.spyOn(api, 'cancelSourceOperation').mockResolvedValue({ ...cached, status: 'cancelled', cleanup_verified: true })
+  useConverter.getState().attach(cached.operation_id, true)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  const button = await screen.findByRole('button', { name: /^Cancel$/ })
+  current = { ...cached, revision: 11, attempt: newAttempt ? 2 : 1 }
+  fireEvent.click(button)
+  if (newAttempt) {
+    await waitFor(() => expect(useConverter.getState().error).toBeInstanceOf(Error))
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }))
+    expect(await screen.findByText('This operation has a newer attempt. Review it before cancelling.')).toBeVisible()
+    expect(cancel).not.toHaveBeenCalled()
+  } else {
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith(cached.operation_id, { expected_revision: 11, expected_attempt: 1 }))
+  }
+})
+
 test.each([false, true])('U10 displays a measured conversion range and prefers live remaining work (running: %s)', async (running) => {
   const recorded = await recordedOperation()
   if (!recorded.estimate || !recorded.conversion_run) throw new Error('Missing recorded conversion')
@@ -430,7 +468,7 @@ test('a dry run shows its stages, minimizes to a chip while it works and can be 
   useConverter.getState().show({ source: '/data/other', pid: null })
   expect(useConverter.getState()).toMatchObject({ minimized: false, source: '/data/dicom/P900' })
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel dry run' }))
-  expect(cancel).toHaveBeenCalledWith(pending.operation_id, { expected_revision: pending.revision, expected_attempt: pending.attempt })
+  await waitFor(() => expect(cancel).toHaveBeenCalledWith(pending.operation_id, { expected_revision: pending.revision, expected_attempt: pending.attempt }))
   expect(useConverter.getState().working).toBe(true)
   prog.mockResolvedValue({ ...pending, status: 'cancelled', cleanup_verified: true })
   expect(await screen.findByRole('button', { name: 'Dry run' }, { timeout: 3000 })).toBeInTheDocument()

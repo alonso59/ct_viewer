@@ -50,6 +50,8 @@ def svc(ctx: Ctx) -> OpenService:
         workspace_root=ctx.settings.workspace_root,
         settings=ctx.settings,
         on_cache_write=ctx.cache_written,
+        restore_session=ctx.source_operations.open_session,
+        persist_session=ctx.source_operations.save_open_session,
     )
 
 
@@ -63,7 +65,7 @@ async def open_path(ctx: Ctx, body: PathBody) -> open_mode.OpenSession:
 def get_open(
     ctx: Ctx, sid: str, item: Annotated[int | None, Query(ge=0)] = None
 ) -> open_mode.OpenSession:
-    session = ctx.open_sessions.get(sid)
+    session = svc(ctx).session(sid)
     return open_mode.focused(session, item) if item is not None else open_mode.preview(session)
 
 
@@ -72,12 +74,13 @@ def open_items(
     ctx: Ctx, sid: str, pg: Paging, kind: open_mode.ItemKind | None = None
 ) -> Page[open_mode.OpenItem]:
     """API-07 / SRC-18: stable paging over complete series, never a prefix of slices."""
-    items = ctx.open_sessions.get(sid).items
+    items = svc(ctx).session(sid).items
     return paginate([item for item in items if item.kind == kind] if kind else items, pg)
 
 
 @router.delete("/open/{sid}", status_code=204)
 def close_open(ctx: Ctx, sid: str) -> Response:
+    ctx.source_operations.close_open_session(sid)
     ctx.open_sessions.drop(sid)
     return Response(status_code=204)
 
