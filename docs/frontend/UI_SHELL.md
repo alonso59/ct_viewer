@@ -105,10 +105,10 @@ offer Open in viewer. The source-operations command opens retained operations.
 
 Import source inspection uses that shared work window with the title Inspect import
 source. It supports minimize/reload/cancel/resume; Continue import restores the
-initial project/alias/options and completed detection to the existing adapter wizard.
+saved project/alias/options, Preview or Index stage and completed detection to the existing adapter wizard.
 Single-file/folder identity comes from detection, including extensionless DICOM.
 DICOM selection enters the shared dry-run/conversion flow; other adapters keep their
-Preview/Commit controls. Without a project, continuing discovery asks the user to
+Preview/Commit controls. Preview and Index reuse managed jobs in the background window; minimizing or reloading retains the operation ID. Form edits persist on the server. Without a project, continuing discovery asks the user to
 create one explicitly.
 
 Dry run creates a server source operation whose persisted intent chains discovery to header-only planning.

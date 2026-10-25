@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     dicom_cpu_threads: int = Field(default=4, ge=1, le=12)
     dicom_header_mb: int = Field(default=8, ge=1, le=64)
     dicom_inventory_mb: int = Field(default=512, ge=1, le=16384)
+    dicom_inventory_total_mb: int = Field(default=2048, ge=1, le=1048576)
     dicom_batch_size: int = Field(default=64, ge=1, le=512)
     dicom_cleanup_seconds: float = Field(default=28.0, ge=0.1, le=28.0)
     dicom_retention_days: int = Field(default=30, ge=1, le=3650)

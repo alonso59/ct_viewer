@@ -8,6 +8,11 @@ export interface WizardPrefill {
   discoveryId?: string
   kind?: 'file' | 'folder'
   alias?: string
+  step?: 'detect' | 'preview' | 'index'
+  revision?: number
+  attempt?: number
+  reconstruct?: boolean
+  anonymize?: boolean
   adapter?: string
   /** "Add to project…": keep the project's other sources */
   add?: boolean

@@ -121,6 +121,7 @@ def header_row(ds: Any, series: Series, patient_folder: str, insp: Inspection) -
         "image_orientation": orientation,
         "number_of_frames": _t(ds, "NumberOfFrames"),
         "geometry_status": insp.geometry_status,
+        "dicom_identity_codes": ";".join(insp.identity_codes),
         "geometry_warning_codes": ";".join(insp.geometry_codes),
         "nominal_slice_spacing": "" if insp.nominal_slice_spacing is None else str(insp.nominal_slice_spacing),
         "advanced_dicom_status": insp.advanced_status,

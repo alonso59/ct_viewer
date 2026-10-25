@@ -82,6 +82,7 @@ import type {
   SourceOperation,
   SourceOperationStart,
   SourceOperationControl,
+  SourceImportUpdate,
   SourceOperationEstimate,
   SourceOperationConvert,
   SourcePlanPage,
@@ -240,6 +241,9 @@ export interface Api {
   listSourceOperations(): Promise<SourceOperation[]>
   getSourceOperation(id: string): Promise<SourceOperation>
   sourceOperationDetection(id: string): Promise<DetectResult>
+  saveSourceImport(id: string, body: SourceImportUpdate): Promise<SourceOperation>
+  prepareSourceImport(id: string, body: SourceOperationControl): Promise<SourceOperation>
+  commitSourceImport(id: string, body: SourceOperationControl): Promise<SourceOperation>
   estimateSourceOperation(id: string, body: SourceOperationEstimate): Promise<SourceOperation>
   convertSourceOperation(id: string, body: SourceOperationConvert): Promise<SourceOperation>
   cancelSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>

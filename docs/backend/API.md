@@ -87,6 +87,15 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-68 | `GET /projects/{pid}/items` | Active indexed items, sorted by case/scan/item, filtered before cursor paging. `q` searches case/patient/item IDs and image reference (case-insensitive); `scope`, `phase`, `modality`, `has_mask` filter metadata. Returns `{items, next_cursor, total}` without source/header reads. Also available through API-60 redaction. | TSK-03 |
 | API-69 | `POST·GET /source-operations` · `GET /source-operations/{id}` · `GET …/series` · `GET …/detection` · `GET …/plan` · `POST …/estimate` · `POST …/convert` · `POST …/cancel` · `POST …/resume` · `POST …/retry-failed` · `POST …/open` | Durable source operation start (202 after write), list/detail, generation-paged reads and revision/attempt-fenced controls; path/context in body, opaque public IDs. Legacy API-07/19/44/62 response contracts retained. | TSK-16, DCM-15..19 |
 
+API-69 also provides revision/attempt-fenced `POST …/import-draft`,
+`POST …/import-preview` (202), and `POST …/import-commit` (202). Draft choices
+persist on the operation; preview and commit intent/job identities persist before
+acknowledgment. The existing import service builds previews and indexes in managed
+background jobs. Detail responses expose `import_preview` and `import_job`;
+Cancel drains current work, and Resume restarts the retained stage. Committing a
+retained preview reuses the same import identity and immutable snapshot. A project
+must be chosen explicitly before Preview/Commit.
+
 API-69 discovery-only requests can include `import_context` with `alias`, preferred
 `adapter`, `add` and draft adapter `options`. These choices persist on the operation
 before 202, independent of browser storage. Context is refused for Open/conversion

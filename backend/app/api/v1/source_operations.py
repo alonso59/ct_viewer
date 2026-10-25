@@ -13,6 +13,7 @@ from app.sources import open as open_mode
 from app.sources.detect import DetectResult
 from app.tasks.source_inventory import InventoryPage
 from app.tasks.source_operations import (
+    SourceImportUpdate,
     SourceOperation,
     SourceOperationControl,
     SourceOperationConvert,
@@ -22,6 +23,25 @@ from app.tasks.source_operations import (
 from app.tasks.source_plans import SourcePlanPage
 
 router = APIRouter(tags=["source-operations"])
+
+
+@router.post("/source-operations/{oid}/import-draft", response_model=SourceOperation)
+async def import_draft(ctx: Ctx, oid: str, body: SourceImportUpdate) -> SourceOperation:
+    return await ctx.source_operations.save_import(oid, body)
+
+
+@router.post(
+    "/source-operations/{oid}/import-preview", response_model=SourceOperation, status_code=202
+)
+async def import_preview(ctx: Ctx, oid: str, body: SourceOperationControl) -> SourceOperation:
+    return await ctx.source_operations.start_import(oid, body)
+
+
+@router.post(
+    "/source-operations/{oid}/import-commit", response_model=SourceOperation, status_code=202
+)
+async def import_commit(ctx: Ctx, oid: str, body: SourceOperationControl) -> SourceOperation:
+    return await ctx.source_operations.start_import(oid, body, commit=True)
 
 
 @router.post("/source-operations", response_model=SourceOperation, status_code=202)

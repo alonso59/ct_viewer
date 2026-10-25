@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
@@ -10,7 +9,6 @@ from starlette.datastructures import UploadFile
 from app.api.v1.deps import Ctx
 from app.api.v1.paging import Page, Paging, paginate
 from app.core.errors import ValidationProblem
-from app.core.ids import new_ulid
 from app.ingest.codes import QcCode, Severity
 from app.ingest.hashing import HashJobRequest, HashJobStarted, start_hash_job
 from app.ingest.models import QcWarning
@@ -24,7 +22,7 @@ from app.ingest.schemas import (
     PreviewRequest,
 )
 from app.ingest.service import IngestService
-from app.tasks import workspace_runs
+from app.tasks.source_import import commit_with_annotations
 
 router = APIRouter(tags=["imports"])
 
@@ -102,31 +100,9 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
 async def commit_import(pid: str, body: CommitRequest, ctx: Ctx) -> CommitResult:
     """Snapshot + start the index job. A workspace dataset brings its analyzer annotations along
     as a completed run, active where no run is."""
-    svc = ingest_service(ctx)
-    pv = svc.preview_of(pid, body.preview_id)
-    found = (
-        workspace_runs.dataset_annotations(Path(pv.root), ctx.source_operations.tasks.phase_runs)
-        if pv.root
-        else None
+    return await commit_with_annotations(
+        ingest_service(ctx), pid, body.preview_id, ctx.source_operations.tasks.phase_runs
     )
-    if found is not None and found[1]:
-        meta, rows = found
-        layers = [(meta, rows)]
-        if meta.get("phase_task"):
-            layers = [
-                (meta, [r for r in rows if r["field"] != "phase"]),
-                ({**meta, "task": meta["phase_task"]}, [r for r in rows if r["field"] == "phase"]),
-            ]
-        for layer_meta, layer_rows in layers:
-            if not layer_rows:
-                continue
-            rid = new_ulid()
-            async with ctx.locks(pid):
-                run_dir = ctx.workspace.project_dir(pid) / "tasks" / "runs" / rid
-                workspace_runs.write_imported_run(run_dir, layer_meta, layer_rows)
-            for field in sorted({str(r["field"]) for r in layer_rows}):
-                await ctx.workspace.set_annotation_source(pid, field, rid, only_if_unset=True)
-    return await svc.commit(pid, body.preview_id)
 
 
 @router.get("/projects/{pid}/imports", response_model=ImportHistory)

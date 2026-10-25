@@ -4,7 +4,7 @@
 // share a view-only link that cannot write; every plugin opens from the Library.
 import { expect, test, type Page } from '@playwright/test'
 
-import { continueImportInspection } from './importMode'
+import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
 import { API } from './helpers'
 
@@ -51,7 +51,9 @@ test('the P7c journey', async ({ page, browserName }) => {
   const wizard = await continueImportInspection(page)
   await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
   await wizard.getByRole('button', { name: 'Next' }).click()
+  await continueImportPreview(page)
   await wizard.getByRole('button', { name: 'Import and index' }).click()
+  await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
   expect((await json<{ packs: string[] }>(await fetch(`${API}/projects/${pid}`))).packs).toEqual([])
 

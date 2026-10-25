@@ -10343,13 +10343,143 @@
       "title": "Alias",
       "type": "string"
      },
+     "anonymize": {
+      "default": false,
+      "title": "Anonymize",
+      "type": "boolean"
+     },
+     "import_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Import Id"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
      "options": {
       "additionalProperties": true,
       "title": "Options",
       "type": "object"
+     },
+     "preview_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Preview Id"
+     },
+     "reconstruct": {
+      "default": false,
+      "title": "Reconstruct",
+      "type": "boolean"
+     },
+     "step": {
+      "default": "detect",
+      "enum": [
+       "detect",
+       "previewing",
+       "preview",
+       "index"
+      ],
+      "title": "Step",
+      "type": "string"
      }
     },
     "title": "SourceImportContext",
+    "type": "object"
+   },
+   "SourceImportUpdate": {
+    "additionalProperties": false,
+    "properties": {
+     "adapter": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Adapter"
+     },
+     "add": {
+      "default": false,
+      "title": "Add",
+      "type": "boolean"
+     },
+     "alias": {
+      "default": "DATA",
+      "pattern": "^[A-Z][A-Z0-9_]{0,15}$",
+      "title": "Alias",
+      "type": "string"
+     },
+     "anonymize": {
+      "default": false,
+      "title": "Anonymize",
+      "type": "boolean"
+     },
+     "expected_attempt": {
+      "minimum": 1.0,
+      "title": "Expected Attempt",
+      "type": "integer"
+     },
+     "expected_revision": {
+      "minimum": 0.0,
+      "title": "Expected Revision",
+      "type": "integer"
+     },
+     "expected_run_attempt": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Run Attempt"
+     },
+     "options": {
+      "additionalProperties": true,
+      "title": "Options",
+      "type": "object"
+     },
+     "project_id": {
+      "title": "Project Id",
+      "type": "string"
+     },
+     "reconstruct": {
+      "default": false,
+      "title": "Reconstruct",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "expected_revision",
+     "expected_attempt",
+     "project_id"
+    ],
+    "title": "SourceImportUpdate",
     "type": "object"
    },
    "SourceOperation": {
@@ -10439,6 +10569,26 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/SourceImportContext"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "import_job": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/JobInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "import_preview": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ImportPreview"
        },
        {
         "type": "null"
@@ -21462,6 +21612,162 @@
      }
     },
     "summary": "Estimate",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/import-commit": {
+   "post": {
+    "operationId": "import_commit_api_v1_source_operations__oid__import_commit_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Commit",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/import-draft": {
+   "post": {
+    "operationId": "import_draft_api_v1_source_operations__oid__import_draft_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceImportUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Draft",
+    "tags": [
+     "source-operations"
+    ]
+   }
+  },
+  "/api/v1/source-operations/{oid}/import-preview": {
+   "post": {
+    "operationId": "import_preview_api_v1_source_operations__oid__import_preview_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "oid",
+      "required": true,
+      "schema": {
+       "title": "Oid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOperationControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceOperation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Preview",
     "tags": [
      "source-operations"
     ]

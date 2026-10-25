@@ -10,7 +10,7 @@ export function ImportWizard() {
   const prefill = useImportWizard((s) => s.prefill)
   return pid ? (
     <Suspense fallback={null}>
-      <Wizard key={pid} pid={pid} prefill={prefill} />
+      <Wizard key={`${pid}:${prefill?.discoveryId ?? ''}`} pid={pid} prefill={prefill} />
     </Suspense>
   ) : null
 }

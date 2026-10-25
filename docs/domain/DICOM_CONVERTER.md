@@ -83,7 +83,9 @@ completed/failed/pending counts and the original destination. Phase retry requir
 
 ## Row fields (contract v1 + converter extras)
 
-Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as variables per VAR-08): `patient_folder`, `study_uid`, `series_uid`, `series_number`, `series_description`, `protocol_name`, `body_part`, `dicom_category`, `scan_type`, dates and times, geometry status and codes, `contrast_delay_*`, `spacing_quality`, `dicom_sidecar`. No study guesses or selection results (`output_role`, `exclude_reason` are readiness-analyzer layers; DCM-13).
+Identity inspection retains `SOPInstanceUID` in cached header facts. Missing, malformed or duplicate instance UIDs, missing/malformed series UIDs and conflicting series identities produce typed `dicom_identity` diagnostics. Such series are skipped with `invalid_dicom_identity` in the dry run regardless of geometry-skip settings; an actual run with no safe selected series refuses conversion. Valid neighbors keep their normal selection. A missing series UID quarantines all image members in its containing folder, because assigning that object to a neighboring stack would guess membership; repair or separate those inputs before rediscovery. These candidates are counted separately as rejections; unreadable inputs still make discovery incomplete. Open shows an identity error rather than fabricating geometry for an invalid group.
+
+Core fields as INPUT_METADATA. Converter extras (kept in `extra`, profiled as variables per VAR-08): `patient_folder`, `study_uid`, `series_uid`, `series_number`, `series_description`, `protocol_name`, `body_part`, `dicom_category`, `scan_type`, dates and times, geometry status and codes, `dicom_identity_codes`, `contrast_delay_*`, `spacing_quality`, `dicom_sidecar`. No study guesses or selection results (`output_role`, `exclude_reason` are readiness-analyzer layers; DCM-13).
 
 ## Implementation notes
 

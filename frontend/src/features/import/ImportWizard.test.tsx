@@ -38,7 +38,7 @@ test('starts discovery with its project and import choices, then opens the share
   await waitFor(() => expect(start).toHaveBeenCalled())
   expect(start).toHaveBeenCalledWith(expect.objectContaining({
     path: '/open-data/images', project_id: DEMO_PID, purpose: 'discover', prepare_plan: false,
-    import_context: { alias: 'SCANS', adapter: null, add: true, options: { include: ['0000.nii.gz'], modality: 'MR' } },
+    import_context: { alias: 'SCANS', adapter: null, add: true, options: { include: ['0000.nii.gz'], modality: 'MR' }, reconstruct: false, anonymize: false, step: 'detect' },
     idempotency_key: expect.any(String),
   }))
   expect(legacy).not.toHaveBeenCalled()
@@ -56,4 +56,40 @@ test('DICOM hands off to a durable dry run before any conversion is launched', a
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
   await waitFor(() => expect(start).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'convert', prepare_plan: true, project_id: DEMO_PID })))
   expect(native).not.toHaveBeenCalled()
+})
+
+test('U06 restores the recorded preview after a fresh wizard mount', async () => {
+  const id = '01JSYNTHIMPORTPREVIEW00000'
+  const record = await api.getSourceOperation(id)
+  const context = record.import_context!
+  const synchronous = vi.spyOn(api, 'importPreview')
+  show({ path: record.source, kind: 'folder', discoveryId: id, alias: context.alias, adapter: 'nifti-files', options: context.options, step: 'preview', revision: record.revision, attempt: record.attempt })
+  await screen.findByText('0000.nii.gz')
+  expect(screen.getByRole('button', { name: 'Import and index' })).toBeEnabled()
+  expect(synchronous).not.toHaveBeenCalled()
+})
+
+test('U02 saves the server draft before minimizing a restored preview', async () => {
+  const id = '01JSYNTHIMPORTPREVIEW00000'
+  const record = await api.getSourceOperation(id)
+  const context = record.import_context!
+  const save = vi.spyOn(api, 'saveSourceImport')
+  plugin.activate({ registry, revealView: () => undefined })
+  show({ path: record.source, kind: 'folder', discoveryId: id, alias: context.alias, adapter: 'nifti-files', options: context.options, step: 'preview', revision: record.revision, attempt: record.attempt })
+  await screen.findByText('0000.nii.gz')
+  fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
+  await waitFor(() => expect(useConverter.getState().minimized).toBe(true))
+  expect(useConverter.getState().operationId).toBe(id)
+  expect(save).toHaveBeenCalledWith(id, expect.objectContaining({ project_id: DEMO_PID, alias: 'RECOVERY', adapter: 'nifti-files', expected_attempt: record.attempt }))
+})
+
+test('U06 closes a restored completed index without starting another import', async () => {
+  const id = '01JSYNTHIMPORTINDEX0000000'
+  const record = await api.getSourceOperation(id)
+  const commit = vi.spyOn(api, 'commitSourceImport')
+  plugin.activate({ registry, revealView: () => undefined })
+  useConverter.getState().attach(id)
+  show({ path: record.source, kind: 'folder', discoveryId: id, alias: record.import_context!.alias, adapter: 'nifti-files', options: record.import_context!.options, step: 'index', revision: record.revision, attempt: record.attempt })
+  await waitFor(() => expect(useConverter.getState().operationId).toBe(null))
+  expect(commit).not.toHaveBeenCalled()
 })

@@ -267,7 +267,6 @@ class IngestService:
         """Snapshot inputs, record the import, set the root, start indexing."""
         pdir = self.workspace.project_dir(project_id)
         pv, data = self._load_preview(pdir, preview_id)
-        self._check_no_index_job(project_id)
         import_id = import_id or new_ulid()
         if not is_ulid(import_id):
             raise JobConflict("Invalid import identity")
@@ -281,6 +280,31 @@ class IngestService:
             adapter=pv.adapter,
             source_key=pv.source_key,
         )
+        existing = next((r for r in self.imports(project_id) if r.import_id == import_id), None)
+        if existing is not None and existing.model_dump(exclude={"at"}) != record.model_dump(
+            exclude={"at"}
+        ):
+            raise JobConflict("Import identity belongs to different preview contents")
+        if existing is not None:
+            for kind, blob in data.items():
+                snapshot = pdir / SOURCES / import_id / FILE_NAMES[kind]
+                if not snapshot.is_file() or snapshot.read_bytes() != blob:
+                    raise JobConflict(
+                        "The committed import snapshot changed; restore it before resuming"
+                    )
+        active = self.jobs.active(project_id, "index")
+        if active is not None:
+            if existing is not None and active.ref == import_id:
+                return CommitResult(job_id=active.job_id, import_id=import_id)
+            self._check_no_index_job(project_id)
+        status = self.store.status(project_id)
+        if (
+            existing is not None
+            and status.state == "ready"
+            and status.import_id == import_id
+            and status.job_id
+        ):
+            return CommitResult(job_id=status.job_id, import_id=import_id)
         source = SourceInfo(
             adapter=pv.adapter,
             adapter_version=nifti_files.VERSION if pv.adapter == "nifti-files" else "1",
@@ -289,15 +313,16 @@ class IngestService:
         )
         draft = pdir / PREVIEWS / preview_id / identity.IDENTITY
         async with self.locks(project_id):
-            for kind, blob in data.items():
-                atomic_write_bytes(pdir / SOURCES / import_id / FILE_NAMES[kind], blob)
-            atomic_write_json(
-                pdir / SOURCES / import_id / "source.json", source.model_dump(mode="json")
-            )
-            if draft.is_file():  # append-only merge, keys never renumbered
-                merged = identity.load(pdir / SOURCES).merge(identity.load(draft.parent))
-                identity.save(pdir / SOURCES, merged)
-            append_jsonl(pdir / SOURCES / IMPORTS, [record.model_dump(mode="json")])
+            if existing is None:
+                for kind, blob in data.items():
+                    atomic_write_bytes(pdir / SOURCES / import_id / FILE_NAMES[kind], blob)
+                atomic_write_json(
+                    pdir / SOURCES / import_id / "source.json", source.model_dump(mode="json")
+                )
+                if draft.is_file():  # append-only merge, keys never renumbered
+                    merged = identity.load(pdir / SOURCES).merge(identity.load(draft.parent))
+                    identity.save(pdir / SOURCES, merged)
+                append_jsonl(pdir / SOURCES / IMPORTS, [record.model_dump(mode="json")])
         current = next(
             (r for r in self.workspace.get(project_id).path_roots if r.alias == pv.alias), None
         )

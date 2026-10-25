@@ -46,6 +46,7 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
             initialize_dicom_resources(s)
             RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).recover()
             ctx.after_index.append(thumbnails.after_index_hook(ctx.workspace, ctx.index, ctx.jobs))
+            ctx.source_operations.ingest.after_index = ctx.after_index
             ctx.jobs.on_finished.append(
                 lambda info: ctx.cache_budget.request() if info.kind in CACHE_WRITERS else None
             )

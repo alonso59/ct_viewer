@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 import { api } from './helpers'
-import { continueImportInspection } from './importMode'
+import { continueImportInspection, continueImportPreview } from './importMode'
 import { stopProcess } from './processes'
 
 test('import inspection reloads, cancels and resumes with its original project and alias', async ({ page }) => {
@@ -51,11 +51,12 @@ test('import inspection reloads, cancels and resumes with its original project a
     await stopProcess(locker)
     await continueImportInspection(page)
     await expect(wizard.getByRole('radio', { name: /Metadata table/ })).toBeChecked()
-    const preview = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith('/imports/preview'))
+    const preview = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith('/import-preview'))
     await wizard.getByRole('button', { name: 'Next', exact: true }).click()
     const result = await preview
-    expect(result.status()).toBe(200)
-    expect((await result.json() as { alias: string }).alias).toBe('IMAGES')
+    expect(result.status()).toBe(202)
+    await continueImportPreview(page)
+    await expect(wizard.getByRole('button', { name: 'Import and index', exact: true })).toBeVisible()
     const restored = await api<{ import_context: { alias: string }; conversion_run_id: string | null }>('GET', `/source-operations/${operation.operation_id}`)
     expect(restored.import_context.alias).toBe('IMAGES')
     expect(restored.conversion_run_id).toBeNull()

@@ -6,6 +6,8 @@ Depends: DICOM_CONVERTER.md, SOURCES.md, TASKS.md, ANALYZERS.md, ../ops/DICOM_JO
 
 ## Status and boundaries
 
+Owner workflow update (2026-10-25): finish the missing implementation first, then add focused local verification. Run the complete regression in GitHub CI; do not repeat it locally. This changes the implementation/test order below, without relaxing ADR-0035 safety or recovery requirements.
+
 Implementation authorized on 2026-10-23: the owner requested implementation of this plan/tests and compliance with ADR-0035, now Accepted. Implementation/test evidence is tracked below; acceptance alone does not certify behavior, production readiness or phase completion. Interruption/resume is required. P7g's existing closure gates remain separate; this plan does not open Electron or SLURM work.
 
 Reuse `dicom.convert`, SimpleITK/GDCM, `ConverterOverlay`, the job manager and project/workspace run registries. Keep CLI compatibility, source immutability, contract-v1 metadata, identity rules and existing output layouts. Other formats keep their import behavior; their long-running discovery/indexing gets the shared minimize/reconnect control where applicable. Do not couple DICOM work to the GPU runner.
@@ -506,3 +508,38 @@ The import-window checkpoint passed 20 additional Chromium/Firefox regressions
 (converter, G1/G2, project/import/share, P7c and task entry points) with unchanged
 sources. Its published commit is `e84bd0d`; CI run `40229246585` is pending.
 Production remains unchanged until the remaining release gates are satisfied.
+
+### Import continuation, inventory policy and identity checkpoint (2026-10-25)
+
+The Claude cleanup was fast-forwarded to `4eb56a9` after reviewing the frontend
+conflict resolutions. Its separate worktree and branch were removed; pre-existing
+uncommitted changes remain preserved in stash `c3427bad` rather than overwritten.
+
+The generic import window now persists adapter/form choices, prepared Preview,
+commit identity and indexing stage on the server. Preview/Index use managed jobs;
+Cancel drains work and Resume retains its project, snapshot and import identity.
+Reload can restore Preview or the indexing result without creating another import.
+Legacy and durable entry points share annotation-import orchestration in `tasks/`.
+
+Aggregate SQLite admission and conservative retention are implemented. Completed,
+old inventories can expire; interrupted work, import drafts, unclosed Open sessions
+and active hydration leases remain protected. Corrupt history is preserved and
+refused individually without preventing application startup or unrelated work.
+Missing/malformed/duplicate instance identities produce diagnostics and prevent
+unsafe conversion, with valid neighboring series still usable. Missing series
+identity quarantines the containing folder until repaired or separated.
+
+Focused evidence: 44 inventory/identity/scanner cases, three inventory-policy cases,
+32 import/API/layering cases and 61 affected converter/inventory/Open cases pass.
+Nine recorded frontend import/API cases pass; scoped Python/TypeScript checks pass.
+The real browser exposed an obsolete test selector for the indexing window; the
+corrected Chromium import/index/share journey passes with unchanged source hashes. Generated replay exchanges come from disposable
+real API calls and verify source hashes. Full regression belongs to GitHub CI under
+the owner workflow above. The prior public `2c4aead` passed verify and Docker image
+jobs in CI run `40229601981`; that result does not certify this new candidate.
+
+These changes close implementation gaps in import continuation and inventory policy,
+not the entire ADR acceptance matrix. Remaining broad crash/migration/cross-container
+acceptance, non-conversion stage duration history, representative performance/ETA
+calibration and final same-image deployment verification remain explicit gates.
+GPU launch authorization/safety is unchanged and no GPU workload was launched.

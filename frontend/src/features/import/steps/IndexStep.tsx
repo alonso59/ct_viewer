@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Job } from '../../../api'
 import { Progress, runStatusKey } from '../../../lib'
 
-export function IndexStep({ job, failed }: { job: Job | undefined; failed: boolean }) {
+export function IndexStep({ job, failed }: { job: (Pick<Job, 'status' | 'done' | 'total'> & { error?: string | null }) | undefined; failed: boolean }) {
   const { t } = useTranslation()
   return (
     <div className="wiz-progress">

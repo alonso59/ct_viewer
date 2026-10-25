@@ -54,6 +54,7 @@ interface ConverterState extends Draft {
   minimize: () => void
   restore: () => void
   close: () => void
+  hideForImport: (id: string) => void
   attach: (id: string, minimized?: boolean, autoOpen?: boolean) => void
   newOperation: () => void
 }
@@ -101,6 +102,7 @@ export const useConverter = create<ConverterState>()(persist((set) => ({
   minimize: () => set({ minimized: true }),
   restore: () => set({ minimized: false }),
   close: () => set({ ...draft(null, null), open: false, minimized: false, working: false, createFrom: null, pid: null }),
+  hideForImport: (id) => set({ ...draft(null, null), operationId: id, open: false, minimized: true, working: false, createFrom: null }),
   attach: (id, minimized = false, autoOpen = false) => set((s) => ({ ...draft(null, null), operationId: id, autoOpen, open: true, minimized, working: false, pid: null, session: s.session + 1 })),
   newOperation: () => set((s) => ({ ...draft(null, s.pid), open: true, minimized: false, working: false, session: s.session + 1 })),
 }), { name: 'rw.converter', partialize: (s) => ({ operationId: s.operationId, minimized: s.minimized }) }))

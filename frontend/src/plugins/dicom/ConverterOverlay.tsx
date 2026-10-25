@@ -142,7 +142,7 @@ function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, d
   const current = progress?.stage ?? 'check'
   const stages: readonly string[] = opening ? ['listing', 'opening'] : discovering ? ['listing'] : SCAN_STAGES
   const at = stages.indexOf(current)
-  const determinate = (current === 'reading' || current === 'planning' || current === 'opening') && !!progress?.total
+  const determinate = (current === 'reading' || current === 'planning' || current === 'opening' || current === 'import_index') && !!progress?.total
   return (
     <div className="conv-scan" data-testid="conv-scan" role="status" aria-live="polite">
       <ol className="conv-stages">
@@ -218,8 +218,9 @@ export default function ConverterOverlay() {
   const operation = operationQuery.data
   const isOpening = operation?.purpose === 'open'
   const isDiscovering = operation?.purpose === 'discover'
+  const importStage = operation?.import_context?.step
   const isSourceOnly = isOpening || isDiscovering
-  const title = t(isOpening ? 'open.backgroundTitle' : isDiscovering ? 'import.backgroundTitle' : 'conv.title')
+  const title = t(isOpening ? 'open.backgroundTitle' : isDiscovering ? importStage === 'index' ? 'import.indexing' : importStage === 'previewing' ? 'import.preparingPreview' : 'import.backgroundTitle' : 'conv.title')
   const operations = useSourceOperations().data ?? []
   const project = useProject(pid ?? '').data
   const manifest = useTasks().data?.tasks.find((x) => x.manifest.id === 'dicom.convert')?.manifest
@@ -292,10 +293,13 @@ export default function ConverterOverlay() {
         path: result.path, kind: result.kind, discoveryId: record.operation_id,
         alias: context?.alias ?? 'DATA', adapter: context?.adapter ?? undefined,
         add: context?.add ?? false, options: context?.options ?? {},
+        step: context?.step === 'index' ? 'index' : context?.step === 'preview' ? 'preview' : 'detect',
+        reconstruct: context?.reconstruct ?? false, anonymize: context?.anonymize ?? false,
+        revision: record.revision, attempt: record.attempt,
       }
       qc.setQueryData(keys.sourceDetection(record.operation_id), result)
       if (record.project_id) {
-        close()
+        c.hideForImport(record.operation_id)
         navigate(`/p/${record.project_id}`)
         useImportWizard.getState().open(record.project_id, draft)
       } else {
@@ -507,19 +511,22 @@ export default function ConverterOverlay() {
           </div>
           {!isSourceOnly ? <StepBar step={step} /> : null}
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
-            <dl>{(['folders', 'files', 'dicom', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
+            <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
+            {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
             <ConversionTime value={conversionTime} />
             {!operation.summary?.complete && !operation.conversion_run ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
             <code className="conv-path">{source}</code>
-            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? 'listing', done: operation.progress_stage === 'opening' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
+            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? 'listing', done: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
               <p>{t('open.prepared')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>
-            </> : isDiscovering && operation.stage === 'discovered' && operation.status === 'completed' ? <>
-              <p>{t('import.discovered')}</p>
+            </> : isDiscovering && operation.status === 'completed' ? <>
+              <p>{t(importStage === 'index' ? 'import.indexReady' : importStage === 'preview' ? 'import.previewReady' : 'import.discovered')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || discovery.isPending} onClick={() => discovery.mutate(operation)}>{t('import.continueImport')}</button>
             </> : null}
+            {isDiscovering && operation.error ? <p className="error-card" role="alert">{operation.error}</p> : null}
+            {isDiscovering && importStage === 'previewing' && operation.cleanup_verified && !working ? <button type="button" className="btn" disabled={discovery.isPending} onClick={() => discovery.mutate(operation)}>{t('import.editOptions')}</button> : null}
           </div> : null}
           {!isSourceOnly && step === 'source' ? (
             <div className="conv-body">

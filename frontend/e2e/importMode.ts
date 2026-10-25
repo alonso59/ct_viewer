@@ -8,3 +8,13 @@ export async function continueImportInspection(page: Page) {
   await expect(wizard).toBeVisible()
   return wizard
 }
+
+// Preview and indexing use the same durable background window as discovery.
+export async function continueImportPreview(page: Page) {
+  return continueImportInspection(page)
+}
+
+export async function finishImportIndex(page: Page) {
+  const inspection = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Continue import', exact: true }) })
+  await inspection.getByRole('button', { name: 'Continue import', exact: true }).click({ timeout: 30_000 })
+}

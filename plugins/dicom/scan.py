@@ -60,6 +60,7 @@ class Diagnostic:
 
 @dataclass
 class Inspection:
+    identity_codes: list[str] = field(default_factory=list)
     geometry_status: str = "ok"
     geometry_codes: list[str] = field(default_factory=list)
     nominal_slice_spacing: float | None = None
@@ -99,7 +100,7 @@ def candidate_files(root: Path) -> list[tuple[Path, list[Path]]]:
 # Everything grouping, ordering and `inspect` need; the discovery pass reads only these, once
 # per file, so a dry run reads each file one time (the full header only for a series' first)
 SCAN_TAGS = [
-    "SeriesInstanceUID", "SOPClassUID", "InstanceNumber", "Modality", "ImageOrientationPatient",
+    "SeriesInstanceUID", "SOPClassUID", "SOPInstanceUID", "InstanceNumber", "Modality", "ImageOrientationPatient",
     "ImagePositionPatient", "PixelSpacing", "Rows", "Columns", "NumberOfFrames", "EchoNumbers",
     "TemporalPositionIdentifier", "DiffusionBValue", "GantryDetectorTilt",
     "ComplexImageComponent", "ImageType", "SharedFunctionalGroupsSequence",
@@ -196,13 +197,56 @@ def _scan_header(path: Path, root: Path | None = None) -> tuple[Any, int] | None
         return None
 
 
+class HeaderRejected(ValueError):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 def image_info(path: Path, root: Path | None = None) -> tuple[Any, int] | None:
     """Validated header facts for inventory; preserve read/budget errors as diagnostics."""
     head = _head(path, check=True, root=root)
     if head is None:
         return None
     ds = _parse(path, head, root=root, specific_tags=SCAN_TAGS)
+    if (
+        getattr(ds, "SOPClassUID", None)
+        and (_int(getattr(ds, "Rows", None)) or 0) > 0
+        and (_int(getattr(ds, "Columns", None)) or 0) > 0
+        and not value_to_text(getattr(ds, "SeriesInstanceUID", "")).strip()
+    ):
+        raise HeaderRejected("MISSING_SERIES_INSTANCE_UID")
     return (ds, head[2]) if image_header(ds) else None
+
+
+def identity_codes(headers: list[Any]) -> list[str]:
+    """An instance UID identifies one object, even when that object has many frames."""
+    from pydicom.config import IGNORE
+    from pydicom.uid import UID
+
+    codes: list[str] = []
+    for keyword in ("SeriesInstanceUID", "SOPInstanceUID"):
+        values = [value_to_text(getattr(ds, keyword, "")).strip() for ds in headers]
+        prefix = "SERIES_INSTANCE_UID" if keyword == "SeriesInstanceUID" else "SOP_INSTANCE_UID"
+        if any(not value for value in values):
+            codes.append("MISSING_" + prefix)
+        if any(value and not UID(value, validation_mode=IGNORE).is_valid for value in values):
+            codes.append("INVALID_" + prefix)
+        present = [value for value in values if value]
+        if keyword == "SOPInstanceUID" and len(present) != len(set(present)):
+            codes.append("DUPLICATE_SOP_INSTANCE_UID")
+        if keyword == "SeriesInstanceUID" and len(set(present)) > 1:
+            codes.append("CONFLICTING_SERIES_INSTANCE_UID")
+    return codes
+
+
+def _scan_candidate(path: Path, root: Path) -> tuple[tuple[Any, int] | None, str | None]:
+    try:
+        return image_info(path, root), None
+    except HeaderRejected as exc:
+        return None, exc.code
+    except Exception:  # noqa: BLE001 - malformed candidate headers become diagnostics
+        return None, "DICOM_HEADER_UNREADABLE"
 
 
 def image_header(ds: Any) -> bool:
@@ -251,11 +295,23 @@ def discover(
     with ThreadPoolExecutor(READ_THREADS, thread_name_prefix="dcm-scan") as pool:
         for d, paths in files if files is not None else candidate_files(root):
             groups: dict[str, tuple[list[Path], list[Any], list[int]]] = {}
-            headers = pool.map(lambda p: _scan_header(p, root), paths)
-            for path, got in zip(paths, headers, strict=True):
+            ambiguous = False
+            headers = pool.map(lambda p: _scan_candidate(p, root), paths)
+            for path, (got, rejected) in zip(paths, headers, strict=True):
                 if tick is not None:
                     tick(1)
                 if got is None:
+                    if rejected:
+                        ambiguous = ambiguous or rejected == "MISSING_SERIES_INSTANCE_UID"
+                        diagnostics.append(
+                            Diagnostic(
+                                "ERROR",
+                                "dicom_discovery",
+                                rejected,
+                                f"Candidate cannot be safely used: {rejected}",
+                                str(path),
+                            )
+                        )
                     continue
                 ds, size = got
                 uid = value_to_text(getattr(ds, "SeriesInstanceUID", "")).strip()
@@ -264,6 +320,17 @@ def discover(
                     g[0].append(path)
                     g[1].append(ds)
                     g[2].append(size)
+            if ambiguous:
+                diagnostics.append(
+                    Diagnostic(
+                        "ERROR",
+                        "dicom_discovery",
+                        "AMBIGUOUS_SERIES_MEMBERSHIP",
+                        "A missing series UID makes this directory's membership uncertain",
+                        str(d),
+                    )
+                )
+                groups.clear()
             if not groups and paths:
                 diagnostics.append(
                     Diagnostic(
@@ -317,6 +384,18 @@ def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspec
         )
         out.geometry_status = "unknown"
         return out
+    out.identity_codes = identity_codes(headers)
+    for code in out.identity_codes:
+        diagnostics.append(
+            Diagnostic(
+                "ERROR",
+                "dicom_identity",
+                code,
+                f"DICOM identity is not usable: {code}",
+                str(series.dicom_dir),
+                series.series_id,
+            )
+        )
     frames = _int(getattr(first, "NumberOfFrames", None))
     if len(headers) > 1 or not frames or frames <= 1:
         _geometry(headers, out)

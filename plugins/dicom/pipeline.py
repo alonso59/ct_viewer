@@ -142,6 +142,8 @@ def _estimate(ds: Any, s: scan.Series, row: dict[str, Any]) -> tuple[int, int]:
 
 def decide_conversion(row: dict[str, Any], role: str, role_reason: str, settings: Settings) -> tuple[bool, str]:
     """Convert / skip decision for one series: (planned, skip reason or "")."""
+    if row.get("dicom_identity_codes"):
+        return False, "invalid_dicom_identity: " + str(row["dicom_identity_codes"])
     planned = {
         "PRIMARY": settings.convert_primary,
         "SECONDARY": settings.convert_secondary,
@@ -265,6 +267,8 @@ def run(
         selected_total += int(decide_conversion(candidate.row, role, reason, settings)[0])
     if on_total is not None:
         on_total(len(found) if dry_run else selected_total)
+    if not dry_run and selected_total == 0 and any(g.row.get("dicom_identity_codes") for g in found):
+        raise ValueError("No selected DICOM series has usable instance identities; review the dry-run diagnostics")
 
     by_case: dict[str, list[Series]] = {}
     for f in found:

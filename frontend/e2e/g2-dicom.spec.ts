@@ -4,7 +4,7 @@
 // UI-25, DCM-04/06/14, TSK-13, SRC-16, UI-09, VW-22; AUD-A2-04, A2-10, A2-13, A2-14, A1-15 (FB4).
 import { expect, test } from '@playwright/test'
 
-import { continueImportInspection } from './importMode'
+import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
 import { gotoOpen } from './openMode'
 import { API } from './helpers'
@@ -58,7 +58,9 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   const wizard = await continueImportInspection(page)
   await expect(wizard.getByRole('radio', { name: /Metadata table \(metadata\.jsonl\)/ })).toBeChecked()
   await wizard.getByRole('button', { name: 'Next' }).click()
+  await continueImportPreview(page)
   await wizard.getByRole('button', { name: 'Import and index' }).click()
+  await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
 
   // Explorer: the cases with their phases (the chained analyzer's layer) and warning badges

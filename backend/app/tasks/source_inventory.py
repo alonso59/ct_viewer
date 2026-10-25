@@ -63,6 +63,39 @@ class InventoryPage(BaseModel):
     total: int
 
 
+def inventory_limit(root: Path, target: Path, per_mb: int, total_mb: int) -> int:
+    """Allocate the sole writer's SQLite allowance while execution.lock is held."""
+    if target.name != "inventory.sqlite" or not target.parent.is_relative_to(root):
+        raise ValidationProblem("Inventory budget needs a managed operation inventory")
+    others = 0
+    directories = {path.parent for path in root.glob("*/inventory.sqlite*")}
+    for directory in directories:
+        if directory.is_symlink():
+            raise JobConflict("Inventory state contains an unsafe directory")
+        if directory == target.parent:
+            continue
+        size = 0
+        for name in ("inventory.sqlite", "inventory.sqlite-wal", "inventory.sqlite-shm"):
+            path = directory / name
+            try:
+                if path.is_symlink():
+                    raise JobConflict("Inventory state contains an unsafe database file")
+                size += path.stat(follow_symlinks=False).st_size
+            except FileNotFoundError:
+                pass
+        # A read-only connection may recreate its 32 KiB SQLite shared-memory index.
+        others += size + 64 * 1024
+    remaining = total_mb * 1024**2 - others
+    allowance = min(per_mb, remaining // 1024**2)
+    if allowance < 1:
+        raise ValidationProblem(
+            "The aggregate inventory budget is exhausted; retain recoverable work and increase "
+            "DICOM_INVENTORY_TOTAL_MB before resuming",
+            actions=["configure:DICOM_INVENTORY_TOTAL_MB"],
+        )
+    return allowance
+
+
 class SourceInventory:
     def __init__(self, path: Path, root: Path) -> None:
         self.source = root.resolve()
@@ -148,7 +181,11 @@ class SourceInventory:
             previous = self.db.execute(
                 "SELECT signature, error, kind FROM files WHERE rel=?", (rel,)
             ).fetchone()
-            if previous is not None and previous[0] == signature and not previous[1]:
+            if (
+                previous is not None
+                and previous[0] == signature
+                and (not previous[1] or previous[2] == "rejected")
+            ):
                 return str(previous[2])
             ext = path.suffix.lower()
             if ext == ".nii" or path.name.lower().endswith(".nii.gz"):
@@ -160,6 +197,8 @@ class SourceInventory:
                 if found is not None:
                     ds, size = found
                     kind, uid, header = "dicom", str(ds.SeriesInstanceUID), ds.to_json()
+        except dicom_scan.HeaderRejected as exc:
+            kind, error = "rejected", exc.code
         except Exception as exc:
             error = type(exc).__name__
         self._change()
@@ -227,7 +266,7 @@ class SourceInventory:
         self.db.execute("CREATE TEMP TABLE IF NOT EXISTS visited (rel TEXT PRIMARY KEY)")
         self.db.execute("DELETE FROM visited")
         seen = 0
-        dicom_count = series_count = 0
+        dicom_count = series_count = rejected_count = 0
         errors: list[OSError] = []
         stopped = False
         self.db.commit()
@@ -248,6 +287,7 @@ class SourceInventory:
                         "folders": folders,
                         "files": seen,
                         "dicom": dicom_count,
+                        "rejected": rejected_count,
                         "series": series_count,
                     }
                 )
@@ -260,6 +300,8 @@ class SourceInventory:
                 kind = self._record(path)
                 if kind == "dicom":
                     dicom_count += 1
+                elif kind == "rejected":
+                    rejected_count += 1
                 self.db.execute(
                     "INSERT INTO visited VALUES (?)", (path.relative_to(self.root).as_posix(),)
                 )
@@ -273,11 +315,33 @@ class SourceInventory:
                             "folders": folders,
                             "files": seen,
                             "dicom": dicom_count,
+                            "rejected": rejected_count,
                             "series": series_count,
                         }
                     )
             if stopped:
                 break
+            ambiguous = self.db.execute(
+                "SELECT 1 FROM files f JOIN visited v ON f.rel=v.rel "
+                "WHERE f.directory=? AND f.error='MISSING_SERIES_INSTANCE_UID' LIMIT 1",
+                (folder,),
+            ).fetchone()
+            condition = "kind='dicom'" if ambiguous else "error='AMBIGUOUS_SERIES_MEMBERSHIP'"
+            affected = self.db.execute(
+                f"SELECT COUNT(*) FROM files WHERE directory=? AND {condition}", (folder,)
+            ).fetchone()[0]
+            if affected:
+                self._change()
+                self.db.execute(
+                    f"UPDATE files SET kind=?, error=? WHERE directory=? AND {condition}",
+                    (
+                        "rejected" if ambiguous else "dicom",
+                        "AMBIGUOUS_SERIES_MEMBERSHIP" if ambiguous else "",
+                        folder,
+                    ),
+                )
+                dicom_count += -affected if ambiguous else affected
+                rejected_count += affected if ambiguous else -affected
             self.db.execute("UPDATE directories SET complete=1 WHERE rel=?", (folder,))
             series_count += self.db.execute(
                 "SELECT COUNT(DISTINCT uid) FROM files WHERE directory=? AND kind='dicom'",
@@ -293,7 +357,9 @@ class SourceInventory:
             if removed:
                 self._change()
                 self.db.execute("DELETE FROM files WHERE rel NOT IN (SELECT rel FROM visited)")
-            error = self.db.execute("SELECT 1 FROM files WHERE error != '' LIMIT 1").fetchone()
+            error = self.db.execute(
+                "SELECT 1 FROM files WHERE error != '' AND kind != 'rejected' LIMIT 1"
+            ).fetchone()
             self._set("complete", "0" if error else "1")
         self._set("walk_errors", str(len(errors)))
         self.db.commit()
@@ -333,7 +399,9 @@ class SourceInventory:
 
     def summary(self) -> dict[str, Any]:
         counts = dict(self.db.execute("SELECT kind, COUNT(*) FROM files GROUP BY kind").fetchall())
-        errors = self.db.execute("SELECT COUNT(*) FROM files WHERE error != ''").fetchone()[0]
+        errors = self.db.execute(
+            "SELECT COUNT(*) FROM files WHERE error != '' AND kind != 'rejected'"
+        ).fetchone()[0]
         errors += int(self._get("walk_errors") or 0)
         total = self.db.execute(
             "SELECT COUNT(*) FROM (SELECT f.directory, f.uid FROM files f JOIN directories d "
@@ -348,6 +416,12 @@ class SourceInventory:
             "generation": self.generation,
             "files": sum(counts.values()),
             "dicom": counts.get("dicom", 0),
+            "rejected": counts.get("rejected", 0),
+            "rejections": dict(
+                self.db.execute(
+                    "SELECT error, COUNT(*) FROM files WHERE kind='rejected' GROUP BY error"
+                ).fetchall()
+            ),
             "series": total,
             "ignored": counts.get("ignored", 0),
             "nifti": counts.get("nifti", 0),

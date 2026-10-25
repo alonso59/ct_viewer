@@ -19,7 +19,7 @@ export const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/'
 export function initialState(prefill: WizardPrefill | null): { step: Step; dir: string | null; file: string | null } {
   if (!prefill) return { step: 'root', dir: null, file: null }
   const isFile = prefill.kind ? prefill.kind === 'file' : ACCEPTED.test(prefill.path)
-  return { step: 'detect', dir: isFile ? parentOf(prefill.path) : prefill.path, file: isFile ? prefill.path : null }
+  return { step: prefill.step ?? 'detect', dir: isFile ? parentOf(prefill.path) : prefill.path, file: isFile ? prefill.path : null }
 }
 
 /** The alias as typed: upper case letters, digits and `_` only */

@@ -441,6 +441,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-operations/{oid}/import-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Draft */
+        post: operations["import_draft_api_v1_source_operations__oid__import_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/import-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Preview */
+        post: operations["import_preview_api_v1_source_operations__oid__import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-operations/{oid}/import-commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Commit */
+        post: operations["import_commit_api_v1_source_operations__oid__import_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-operations": {
         parameters: {
             query?: never;
@@ -6129,10 +6180,71 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             };
+            /**
+             * Reconstruct
+             * @default false
+             */
+            reconstruct: boolean;
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
+            /**
+             * Step
+             * @default detect
+             * @enum {string}
+             */
+            step: "detect" | "previewing" | "preview" | "index";
+            /** Preview Id */
+            preview_id?: string | null;
+            /** Import Id */
+            import_id?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+        };
+        /** SourceImportUpdate */
+        SourceImportUpdate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Expected Attempt */
+            expected_attempt: number;
+            /** Expected Run Attempt */
+            expected_run_attempt?: number | null;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Alias
+             * @default DATA
+             */
+            alias: string;
+            /** Adapter */
+            adapter?: string | null;
+            /**
+             * Add
+             * @default false
+             */
+            add: boolean;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Reconstruct
+             * @default false
+             */
+            reconstruct: boolean;
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
         };
         /** SourceOperation */
         SourceOperation: {
             import_context?: components["schemas"]["SourceImportContext"] | null;
+            import_preview?: components["schemas"]["ImportPreview"] | null;
+            import_job?: components["schemas"]["JobInfo"] | null;
             /**
              * Version
              * @default 1
@@ -8255,6 +8367,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Saved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_draft_api_v1_source_operations__oid__import_draft_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceImportUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_preview_api_v1_source_operations__oid__import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_commit_api_v1_source_operations__oid__import_commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOperationControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOperation"];
                 };
             };
             /** @description Validation Error */

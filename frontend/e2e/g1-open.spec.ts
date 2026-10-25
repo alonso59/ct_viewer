@@ -4,7 +4,7 @@
 // SRC-09/10/14/05, VW-05/08/22/26, UI-17/24; AUD-A2-03, A2-11, A2-12, A3-05, A1-16 (FB4).
 import { expect, test, type Page } from '@playwright/test'
 
-import { continueImportInspection } from './importMode'
+import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 import { basename } from 'node:path'
 
 import { API, managedDataset } from './helpers'
@@ -95,7 +95,9 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await expect(wizard.getByRole('note').filter({ hasText: `seg/${MASK}` })).toBeVisible()
   await expect(wizard.getByLabel('File name pattern')).toHaveValue(/\(\?P<scan_idx>/)
   await wizard.getByRole('button', { name: 'Next' }).click()
+  await continueImportPreview(page)
   await wizard.getByRole('button', { name: 'Import and index' }).click()
+  await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00030/ })).toBeVisible()
   const item = (await (await fetch(`${API}/projects/${pid}/items/case_00030.01.complete.-`)).json()) as { masks: Record<string, { ref: string }> }

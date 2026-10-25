@@ -157,6 +157,18 @@ async def run_dicom_job(
             lock.release()
             raise
     try:
+        inventory = spec.get("inventory") or (spec.get("source_inventory") or {}).get("path")
+        if inventory:
+            from app.tasks.source_inventory import inventory_limit
+
+            limits = config.dicom_limits
+            limits["inventory_mb"] = inventory_limit(
+                root / "operations",
+                Path(inventory),
+                config.dicom_inventory_mb,
+                config.dicom_inventory_total_mb,
+            )
+            atomic_write_json(job / "resources.json", limits)
         append_jsonl(
             job / protocol.PROGRESS, [{"t": "stage", "stage": "admitted", "done": 0, "total": 0}]
         )

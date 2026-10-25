@@ -86,6 +86,11 @@ def probe_series(
             "description": value_to_text(getattr(ds, "SeriesDescription", "")),
             "window": _window(ds),
         }
+        identity = scan.identity_codes([member for _, member in members])
+        if identity:
+            rec["error"] = "DICOM identity is not usable: " + "; ".join(identity)
+            out.append(rec)
+            continue
         if sop == scan.DICOM_SEG_SOP_CLASS_UID:
             rec["error"] = "DICOM SEG is not supported yet"
         frames = int(value_to_text(getattr(ds, "NumberOfFrames", "")) or 0)
