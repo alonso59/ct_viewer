@@ -133,11 +133,11 @@ history. A test file or a narrower pass does not certify its entire matrix row.
 
 | Area / matrix portions | Implemented behavior | Decisive evidence |
 |---|---|---|
-| Discovery / D01–D07, D10–D12 | Streamed guarded traversal; suffix-independent bounded headers; complete directory+UID groups; durable SQLite batches and generation invalidation; typed bad/missing/duplicate identity diagnostics and cross-folder UID warning. | `test_dicom_discovery.py`, `test_dicom_scan.py`, `test_source_inventory.py`, `test_dicom_identity.py`; cached/uncached grouping and actual 750-slice geometry cases. |
+| Discovery / D01–D07, D10–D12 | Streamed guarded traversal; suffix-independent bounded headers; complete directory+UID groups; durable SQLite batches and generation invalidation; typed bad/missing/duplicate identity diagnostics and cross-folder UID warning. | `test_dicom_discovery.py`, `test_dicom_scan.py`, `test_source_inventory.py`, `test_dicom_identity.py`; actual 750-slice geometry, six independent GDCM mixed-UID/encoding cases and two native enhanced CT/MR geometry cases. |
 | Operations / D08–D16, D32–D33 | Durable start/control receipts, fenced attempts/revisions, generation-paged reads, retained results, restart reconciliation, shared Open/import/conversion window. | `test_source_operations_api.py`, `test_dicom_operation_recovery.py`, `test_dicom_progress.py`, `test_source_detection.py`; real SIGKILL inventory/header tests and recorded frontend exchanges. |
 | Open / D02, D09, D31, U08 | Complete chosen series, later pages, lazy hydration, attached masks and Save; retained geometry/stat pins refuse changed or lost dependencies. | `test_open_paging.py`, `test_source_open.py`, `test_source_operations_api.py`, `test_open_convert_once.py`; Open/background/paging Chromium and Firefox journeys. Same-stat rewrites are outside the stat-based hydration check. |
 | Import continuation / U02, U06, B04/B08 portions | Server-retained form edits, Preview, commit identity and Index; minimize/reload/cancel/resume; explicit project selection; reused snapshots; lightweight polling, damaged-preview repreparation and cancellation through the Index handoff. | `test_source_import_context.py`, `ImportWizard.test.tsx`, `Host.test.tsx`, `import-background.spec.ts`, `p2-flow.spec.ts`; 37 affected backend/API cases pass, including parser responsiveness, one NIfTI scan and deterministic finalization barriers. |
-| Native lifecycle / D17–D24 | Owned process/descendant cleanup, durable control handoff, same logical run/destination, verified pending/failed-only retry, source/settings/output conflict refusal and no-clobber publication. | `test_dicom_process_lifecycle.py`, `test_dicom_resume.py`, `test_dicom_retry_failed.py`, `test_source_operation_conversion.py`, `test_dicom_operation_recovery.py`; actual processes plus focused fault injection. The full crash/platform matrix is not inferred from unit coverage. |
+| Native lifecycle / D17–D24 | Owned process/descendant cleanup, durable control handoff, same logical run/destination, verified pending/failed-only retry, source/settings/output conflict refusal and no-clobber publication. | `test_dicom_process_lifecycle.py`, `test_dicom_resume.py`, `test_dicom_retry_failed.py`, `test_source_operation_conversion.py`, `test_dicom_operation_recovery.py`; four API-SIGKILL cases inside actual ITK writer callbacks, at progress 0/1 in project/workspace scopes, verify parent-death cleanup, resume, unchanged completed bytes/mtime, landmarks and one registration. The full crash/platform matrix is not inferred from these cases. |
 | Metadata registration / D18–D24, D35 | Durable metadata journals; directory sync before success; idempotent import/annotation publication; completed registration waits for a successful index; recovery does not block polling. | `test_dicom_metadata_durability.py`, `test_dicom_registration.py`, `test_dicom_registration_cancel.py`, `test_dicom_publication.py`; ENOSPC and interrupted registration cases. |
 | Resources and retention / D07, D27, D32 | Explicit DICOM budgets, native affinity/address-space bounds, shared participating allocation, aggregate SQLite quota and conservative completed-history retention; recoverable drafts/Open sessions and corrupt evidence remain protected. | `test_dicom_resources.py`, `test_dicom_admission.py`, `test_dicom_inventory_policy.py`; production pool device/inode matches its fresh runner. Cross-container/multi-workspace host acceptance remains separate. |
 | Phase / D29 | Separate recorded analyzer after successful native commits; off executes no phase rules; phase-only retry preserves converted images and manual annotations. | `test_dicom_phase_runs.py`, `test_dicom_phase_step.py`, `test_metadata_ownership.py`, existing phase/analyzer suites; bounded private input checkpoints and retry conflict cases. |
@@ -152,6 +152,10 @@ not published as patient data). Relevant latest logs are `dicom-inventory-identi
 `dicom-import-load-final.log` and `dicom-followup-contract-layering.log`.
 These include 60 affected publication/resume/retry/CLI cases, 37 import/API cases and
 five contract/layering cases for the current optimization.
+Additional acceptance logs: `dicom-active-writer-api-recovery-v2.log` (four cases),
+`dicom-gdcm-encoding-oracle-v2.log` (six cases) and `dicom-enhanced-native-oracle-v2.log`
+(two cases). Writer callbacks are deterministic test barriers inside native Execute, not
+timing-based attempts to catch a particular filesystem write or proof of every blocked-I/O state.
 
 ### Publication, cleanup and production
 
@@ -165,8 +169,9 @@ five contract/layering cases for the current optimization.
   production release record. This does not certify active-pixel or cross-container barriers.
 - Timing/diagnostic release `0232b5d` passed full static/unit/contract/bundle checks, serial
   runner regressions, Chromium/Firefox and the Docker product-image job in CI `40290324632`.
-  Subsequent source/CRC read optimizations and import handoff fixes are not covered by that
-  CI result and need their own publication gate.
+  Source/CRC read optimizations and import handoff fixes are published as `8a77665`, tree
+  `0958a6822377212272ad3334529bc41f620844b4`; CI `40299871973` is in progress. They are
+  not covered by the older release's acceptance. Subsequent native/GDCM cases need their own CI.
 - Cleanup removes redundant work/forwarding and keeps checks at real file/process boundaries.
   Ruff, affected strict types, knip/vulture and the 426-ID requirement check pass locally.
   Full regression runs in GitHub under the owner workflow; no GPU workload was launched.
@@ -191,7 +196,9 @@ The plan is not closed. Required remaining evidence is the full matrix in
 
 - Complete crash/torn-record/registration/index/analyzer barriers, reader-version migrations,
   rollback, CLI parity and byte/identity preservation across those transitions.
-- Independent encoding/multiframe GDCM membership/geometry oracles; multi-workspace and
+- Broader compressed-transfer-syntax/real-data GDCM membership and geometry oracles beyond
+  the now-tested explicit/implicit little-endian, explicit big-endian and enhanced CT/MR cases;
+  multi-workspace and
   same-image cross-container ownership, aggregate accounting, cleanup and unrelated-work survival.
 - Every B01–B08 interruption/failure/keyboard/theme journey in both browsers, including active
   pixel death rather than queued/header-only interruption. Published full existing journeys pass;

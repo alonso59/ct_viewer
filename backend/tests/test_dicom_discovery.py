@@ -23,6 +23,151 @@ from app.tasks import dicom_stage
 from tools.dicom_fixtures import MARKER, write_series
 
 
+@pytest.mark.parametrize(
+    "syntax", ["1.2.840.10008.1.2", "1.2.840.10008.1.2.1", "1.2.840.10008.1.2.2"]
+)
+@pytest.mark.parametrize("suffix", ["", ".ima"])
+def test_encoded_mixed_uid_membership_and_geometry_match_independent_gdcm(
+    tmp_path: Path, syntax: str, suffix: str
+) -> None:
+    """D03/D06/D28 / SRC-02, DCM-02/10: no suffix or InstanceNumber ordering assumption."""
+    import SimpleITK as sitk
+    from pydicom.uid import UID
+
+    from app.tasks.source_inventory import SourceInventory
+
+    source = tmp_path / "source"
+    folder = source / "deep/study/series"
+    folder.mkdir(parents=True)
+    expected = set()
+    for index in range(2):
+        temporary = tmp_path / f"staging{index}"
+        facts = write_series(
+            temporary,
+            patient_id=f"ENCODING{index}",
+            shape=(4, 3, 5),
+            marker=(1, 2, 3),
+            seed="gdcm-encoding-oracle",
+        )
+        expected.add(str(facts["series_uid"]))
+        for position, path in enumerate(sorted(temporary.iterdir())):
+            ds = pydicom.dcmread(path)
+            pixels = ds.pixel_array
+            ds.file_meta.TransferSyntaxUID = UID(syntax)
+            ds.InstanceNumber = 100 - position
+            if syntax == "1.2.840.10008.1.2.2":
+                ds.PixelData = pixels.astype(">i2").tobytes()
+            target = folder / f"{index}-{5 - position:03d}{suffix}"
+            pydicom.dcmwrite(
+                target,
+                ds,
+                implicit_vr=syntax == "1.2.840.10008.1.2",
+                little_endian=syntax != "1.2.840.10008.1.2.2",
+                enforce_file_format=True,
+            )
+    before = {path: path.read_bytes() for path in folder.iterdir()}
+    native_ids = sitk.ImageSeriesReader.GetGDCMSeriesIDs(str(folder))
+    assert set(native_ids) == expected
+    native_members = {
+        uid: tuple(
+            Path(path) for path in sitk.ImageSeriesReader.GetGDCMSeriesFileNames(str(folder), uid)
+        )
+        for uid in native_ids
+    }
+    assert sum(map(len, native_members.values())) == 10
+    assert len(formats.scan(source).files["dicom"]) == 10
+    discovered = scan.discover(source, [])
+    assert {series.series_id: series.files for series in discovered} == native_members
+    with SourceInventory(tmp_path / "workspace/inventory.sqlite", source) as inventory:
+        assert inventory.scan()["complete"]
+        assert {
+            series.series_id: series.files for series in inventory.discover(source)
+        } == native_members
+    for index, series in enumerate(discovered):
+        reader = sitk.ImageSeriesReader()
+        reader.SetImageIO("GDCMImageIO")
+        reader.SetFileNames([str(path) for path in native_members[series.series_id]])
+        reference = sitk.DICOMOrient(reader.Execute(), "RAS")
+        output = tmp_path / f"derived/{index}.nii.gz"
+        assert (
+            dicom_stage.convert_series(
+                str(source), [str(path.relative_to(source)) for path in series.files], str(output)
+            )
+            is None
+        )
+        image = nib.load(output)
+        np.testing.assert_array_equal(
+            np.asanyarray(image.dataobj), sitk.GetArrayFromImage(reference).transpose(2, 1, 0)
+        )
+        [marker] = np.argwhere(np.asanyarray(image.dataobj) == MARKER)
+        np.testing.assert_allclose(image.affine @ [*marker, 1], [19.3, 28.2, 107.5, 1], atol=1e-4)
+    assert before == {path: path.read_bytes() for path in before}
+
+
+@pytest.mark.parametrize(
+    "modality,sop", [("CT", "1.2.840.10008.5.1.4.1.1.2.1"), ("MR", "1.2.840.10008.5.1.4.1.1.4.1")]
+)
+def test_enhanced_multiframe_geometry_matches_native_reader_and_known_landmark(
+    tmp_path: Path, modality: str, sop: str
+) -> None:
+    """D03/D28/D31 / SRC-02, DCM-02/10: one enhanced object retains every frame."""
+    import SimpleITK as sitk
+    from pydicom.dataset import Dataset
+    from pydicom.sequence import Sequence
+
+    staging = tmp_path / "staging"
+    write_series(
+        staging, shape=(4, 3, 5), marker=(1, 2, 3), modality=modality, seed="enhanced-oracle"
+    )
+    slices = [pydicom.dcmread(path) for path in sorted(staging.iterdir())]
+    ds = slices[0]
+    pixels = b"".join(part.PixelData for part in slices)
+    ds.SOPClassUID = ds.file_meta.MediaStorageSOPClassUID = sop
+    ds.NumberOfFrames = len(slices)
+    ds.PixelData = pixels
+    ds.VolumetricProperties = "VOLUME"
+    measures = Dataset()
+    measures.PixelSpacing, measures.SliceThickness = ds.PixelSpacing, ds.SliceThickness
+    measures.SpacingBetweenSlices = ds.SliceThickness
+    orientation = Dataset()
+    orientation.ImageOrientationPatient = ds.ImageOrientationPatient
+    shared = Dataset()
+    shared.PixelMeasuresSequence = Sequence([measures])
+    shared.PlaneOrientationSequence = Sequence([orientation])
+    ds.SharedFunctionalGroupsSequence = Sequence([shared])
+    frames = []
+    for index, part in enumerate(slices):
+        position = Dataset()
+        position.ImagePositionPatient = part.ImagePositionPatient
+        content = Dataset()
+        content.StackID, content.InStackPositionNumber = "1", index + 1
+        frame = Dataset()
+        frame.PlanePositionSequence = Sequence([position])
+        frame.FrameContentSequence = Sequence([content])
+        frames.append(frame)
+    ds.PerFrameFunctionalGroupsSequence = Sequence(frames)
+    source = tmp_path / "source/deep/series"
+    source.mkdir(parents=True)
+    path = source / "enhanced"
+    ds.save_as(path, enforce_file_format=True)
+    before = path.read_bytes()
+    reference = sitk.DICOMOrient(sitk.ReadImage(str(path), imageIO="GDCMImageIO"), "RAS")
+    assert reference.GetSize() == (4, 3, 5)
+    assert formats.classify(path) == "dicom"
+    [series] = scan.discover(source, [])
+    assert series.files == (path,)
+    assert "MULTIFRAME_OBJECT" in scan.inspect(series, scan.first_header(series), []).advanced_codes
+    output = tmp_path / "derived/enhanced.nii.gz"
+    assert dicom_stage.convert_series(str(source), [path.name], str(output)) is None
+    image = nib.load(output)
+    np.testing.assert_array_equal(
+        np.asanyarray(image.dataobj), sitk.GetArrayFromImage(reference).transpose(2, 1, 0)
+    )
+    [marker] = np.argwhere(np.asanyarray(image.dataobj) == MARKER)
+    np.testing.assert_allclose(image.affine @ [*marker, 1], [19.3, 28.2, 107.5, 1], atol=1e-4)
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize("suffix", [".dcm", ".DCM", "", ".ima", ".001", ".dicom"])
 @pytest.mark.parametrize("preamble", [True, False])
 def test_recognition_agrees_across_entry_points(

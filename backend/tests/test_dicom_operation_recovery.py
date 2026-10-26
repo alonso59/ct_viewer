@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,231 @@ from plugins.dicom import commits, convert, sidecar
 
 from tests.test_dicom_resume import digest, run_conversion
 from tools.dicom_fixtures import MARKER, write_series
+
+
+def native_writer_child(job: Path, point: float) -> None:
+    from app.core.fsio import atomic_write_json
+    from app.tasks.dicom_worker import main
+
+    original = convert.write_nifti
+
+    def convert_at_barrier(series: Any, output: Path, **kwargs: Any) -> Any:
+        import SimpleITK as sitk
+
+        if series.dicom_dir.name != "P1":
+            return original(series, output, **kwargs)
+
+        def write(image: Any, filename: str, compression: bool) -> None:
+            writer = sitk.ImageFileWriter()
+            writer.SetFileName(filename)
+            writer.SetUseCompression(compression)
+
+            def progress() -> None:
+                if writer.GetProgress() == point:
+                    atomic_write_json(
+                        job / "native-writer-barrier.json",
+                        {"pid": os.getpid(), "progress": point, "temporary": filename},
+                    )
+                    os.kill(os.getpid(), signal.SIGSTOP)
+
+            writer.AddCommand(sitk.sitkProgressEvent, progress)
+            writer.Execute(image)
+
+        sitk.WriteImage = write
+        return original(series, output, **kwargs)
+
+    convert.write_nifti = convert_at_barrier
+    raise SystemExit(main(job))
+
+
+def native_api_child(root: Path, in_project: bool, point: float) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.config import Settings
+    from app.core.fsio import atomic_write_json
+    from app.main import create_app
+    from app.tasks import dicom_process
+    from tests.test_api_ingest import wait
+    from tests.test_source_operation_conversion import native_run
+    from tests.test_source_operations_api import API, wait_operation
+
+    original = dicom_process.asyncio.create_subprocess_exec
+    code = (
+        "import sys; from pathlib import Path; "
+        "from tests.test_dicom_operation_recovery import native_writer_child; "
+        "native_writer_child(Path(sys.argv[1]), float(sys.argv[2]))"
+    )
+
+    async def launch(*args: Any, **kwargs: Any) -> Any:
+        if args[1:3] == ("-m", "app.tasks.dicom_worker"):
+            return await original(args[0], "-c", code, args[3], str(point), **kwargs)
+        return await original(*args, **kwargs)
+
+    dicom_process.asyncio.create_subprocess_exec = launch
+    settings = Settings(
+        workspace_root=root / "workspace",
+        allowed_data_roots=str(root / "source"),
+        allowed_derived_roots=str(root / "derived"),
+        dicom_memory_mb=1024,
+        _env_file=None,
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        pid = None
+        if in_project:
+            pid = client.post(
+                "/api/v1/projects", json={"name": "Native crash", "packs": []}
+            ).json()["project_id"]
+            response = client.put(
+                f"/api/v1/projects/{pid}/roots/DERIVED",
+                json={"path": str(root / "derived"), "role": "derived"},
+            )
+            assert response.status_code == 200, response.text
+        response = client.post(
+            API,
+            json={
+                "path": str(root / "source"),
+                "project_id": pid,
+                "purpose": "convert",
+                "idempotency_key": "native-writer-api-crash",
+                "prepare_plan": True,
+                "settings": {"phase_analyzer": False},
+            },
+        )
+        assert response.status_code == 202, response.text
+        oid = response.json()["operation_id"]
+        ready = wait_operation(client, oid)
+        response = client.post(
+            f"{API}/{oid}/convert",
+            json={
+                "expected_revision": ready["revision"],
+                "expected_attempt": ready["attempt"],
+                "inventory_generation": ready["summary"]["generation"],
+                "plan_attempt": ready["plan_attempt"],
+                "name": "native-crash",
+            },
+        )
+        assert response.status_code == 202, response.text
+        run = native_run(client, oid)
+        atomic_write_json(
+            root / "started.json", {"operation_id": oid, "project_id": pid, "run": run}
+        )
+        wait(client, run["job_id"])
+        raise AssertionError("The native writer barrier was not reached")
+
+
+@pytest.mark.parametrize("in_project", [False, True])
+@pytest.mark.parametrize("point", [0.0, 1.0])
+def test_api_sigkill_inside_native_writer_resumes_pending_units_without_rewriting_commits(
+    tmp_path: Path, in_project: bool, point: float
+) -> None:
+    """D17/D19/D23 / DCM-17/18: real ITK callbacks, API death and parent-death cleanup."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Settings
+    from app.main import create_app
+    from app.tasks.dicom_process import group_running, process_identity, signal_owned
+    from tests.test_source_operation_conversion import native_run
+    from tests.test_source_operations_api import API, control, wait_operation
+
+    source, output = tmp_path / "source", tmp_path / "derived"
+    output.mkdir()
+    for index in range(2):
+        write_series(
+            source / f"P{index}", patient_id=f"P{index}", shape=(5, 4, 12), marker=(2, 1, 3)
+        )
+    inputs = {path: digest(path) for path in source.rglob("*") if path.is_file()}
+    code = (
+        "import sys; from pathlib import Path; "
+        "from tests.test_dicom_operation_recovery import native_api_child; "
+        "native_api_child(Path(sys.argv[1]), sys.argv[2] == 'True', float(sys.argv[3]))"
+    )
+    sentinel = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(90)"], start_new_session=True
+    )
+    owner = None
+    with (tmp_path / "native-api.log").open("w") as log:
+        api = subprocess.Popen(
+            [sys.executable, "-c", code, str(tmp_path), str(in_project), str(point)],
+            env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            deadline = time.monotonic() + 25
+            barriers: list[Path] = []
+            while time.monotonic() < deadline:
+                assert api.poll() is None, (tmp_path / "native-api.log").read_text()
+                barriers = list((tmp_path / "workspace").rglob("native-writer-barrier.json"))
+                if barriers and (tmp_path / "started.json").exists():
+                    break
+                time.sleep(0.02)
+            assert len(barriers) == 1, (tmp_path / "native-api.log").read_text()
+            barrier = json.loads(barriers[0].read_text())
+            owner = process_identity(barrier["pid"])
+            assert barrier["progress"] == point
+            saved = {
+                p: (digest(p), p.stat().st_mtime_ns)
+                for p in output.rglob("*.nii.gz")
+                if p.is_file()
+                and not any(part.startswith(".") for part in p.relative_to(output).parts)
+            }
+            assert len(saved) == 1
+            api.kill()
+            api.wait(timeout=5)
+            deadline = time.monotonic() + 5
+            while group_running(owner["group"]) and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert not group_running(owner["group"]), "Native writer survived API death"
+            assert sentinel.poll() is None
+            started = json.loads((tmp_path / "started.json").read_text())
+            settings = Settings(
+                workspace_root=tmp_path / "workspace",
+                allowed_data_roots=str(source),
+                allowed_derived_roots=str(output),
+                dicom_memory_mb=1024,
+                _env_file=None,
+            )  # type: ignore[call-arg]
+            with TestClient(create_app(settings, inline_jobs=True)) as client:
+                oid = started["operation_id"]
+                interrupted = client.get(f"{API}/{oid}").json()
+                assert interrupted["status"] == "interrupted" and interrupted["cleanup_verified"], (
+                    interrupted
+                )
+                assert control(client, oid, "resume").status_code == 202
+                completed = wait_operation(client, oid)
+                assert completed["status"] == "completed", completed
+                run = native_run(client, oid)
+                assert run["run_id"] == started["run"]["run_id"]
+                assert run["attempts"] == started["run"]["attempts"] + 1
+                if in_project:
+                    imports = client.get(f"/api/v1/projects/{started['project_id']}/imports").json()
+                    assert imports["total"] == 1
+                else:
+                    assert client.get("/api/v1/projects").json() == []
+                    assert len(list(output.glob("_datasets/*/dataset.json"))) == 1
+            assert saved == {p: (digest(p), p.stat().st_mtime_ns) for p in saved}
+            images = [
+                p
+                for p in output.rglob("*.nii.gz")
+                if not any(part.startswith(".") for part in p.relative_to(output).parts)
+            ]
+            assert len(images) == 2 and not list(output.rglob("*.tmp.nii.gz"))
+            for path in images:
+                image = nib.load(path)
+                [marker] = np.argwhere(image.get_fdata() == MARKER)
+                np.testing.assert_allclose(
+                    image.affine @ [*marker, 1], [18.6, 29.1, 107.5, 1], atol=1e-4
+                )
+            assert inputs == {path: digest(path) for path in inputs}
+        finally:
+            if api.poll() is None:
+                api.kill()
+                api.wait(timeout=5)
+            if owner is not None:
+                signal_owned(owner, signal.SIGKILL)
+            sentinel.terminate()
+            sentinel.wait(timeout=5)
 
 
 def kill_at_publication(source: Path, output: Path, barrier: str) -> None:
