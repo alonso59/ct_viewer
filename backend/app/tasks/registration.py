@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from app.projects.models import LabelEntry, SegmentationSet, SegProducer
 from app.projects.presets import AUTO_LABEL_COLORS, auto_label_name
 from app.sources import identity as identity_store
 from app.tasks.dicom_execution import attempt_cleaned
+from app.tasks.dicom_timings import record_stage
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.estimate import EstimateBase
 from app.tasks.models import TaskRunOutput, TaskRunRecord
@@ -68,6 +70,7 @@ class RegistrationBase(EstimateBase):
                     "Conversion registration requires completed work and verified cleanup"
                 )
             atomic_write_json(path, {**identity, "status": "pending"})
+            started = time.monotonic()
             try:
                 async with self.locks(live.pid):
                     record = self.runs.read(live.run_dir)
@@ -82,6 +85,13 @@ class RegistrationBase(EstimateBase):
                 await self._await_index_receipt(live)
                 atomic_write_json(path, {**identity, "status": "completed", "index_verified": True})
                 await self._clear_registration_error(live)
+                await asyncio.to_thread(
+                    record_stage,
+                    live.job_dir,
+                    "registration",
+                    time.monotonic() - started,
+                    int(result.get("estimate", {}).get("series", record.counts.items)),
+                )
             except _RegistrationCancelled:
                 cancelled_index = self._registration_index(live.pid, live.rid)
                 if cancelled_index is not None:

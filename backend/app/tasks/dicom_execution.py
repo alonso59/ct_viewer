@@ -96,7 +96,10 @@ async def run_dicom_job(
     ):
         require_pixel_budget(config)
     atomic_write_json(job / "resources.json", config.dicom_limits)
-    atomic_write_json(job / "timing-history-path.json", {"path": str(root / "timing-history.json")})
+    atomic_write_json(
+        job / "timing-history-path.json",
+        {"path": str(root / "timing-history.json"), "job_workers": config.job_workers},
+    )
     attempt = int(spec.get("attempt", 1))
     atomic_write_json(job / "reserved.json", {"attempt": attempt})
     allocation = HostAllocation(config, job, attempt)

@@ -93,3 +93,42 @@ def test_missing_series_uid_quarantines_the_folder_and_reuses_rejected_facts(
         repaired = inventory.scan()
         assert repaired["complete"] and repaired["rejected"] == 0 and repaired["dicom"] == 6
         assert repaired["generation"] != summary["generation"]
+
+
+@pytest.mark.parametrize("cached", [False, True])
+def test_reused_series_uid_across_folders_is_reported_without_merging(
+    tmp_path: Path, cached: bool
+) -> None:
+    from plugins.dicom import pipeline
+    from plugins.dicom.identity import Identity
+
+    source = tmp_path / "source"
+    for name in ("first", "second"):
+        write_series(source / name, shape=(3, 3, 3), marker=(1, 1, 2), seed="reused-series")
+    first = pydicom.dcmread(next((source / "first").glob("*.dcm"))).SeriesInstanceUID
+    for path in (source / "second").glob("*.dcm"):
+        ds = pydicom.dcmread(path)
+        ds.SeriesInstanceUID = first
+        ds.save_as(path, enforce_file_format=True)
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in source.rglob("*.dcm")}
+    with SourceInventory(tmp_path / "state/inventory.sqlite", source) as inventory:
+        inventory.scan()
+        result = pipeline.run(
+            source,
+            pipeline.Settings(),
+            Identity(),
+            nifti_dir=tmp_path / "output/nifti",
+            sidecar_dir=tmp_path / "output/sidecars",
+            ref_rel="dataset",
+            ref_alias="DERIVED",
+            salt="",
+            previous=[],
+            dry_run=True,
+            cached_discover=inventory.discover if cached else None,
+            cached_file_total=6 if cached else None,
+        )
+    assert result.counts["series"] == 2
+    assert len(result.plan) == 2
+    assert any(d.code == "SERIES_UID_REUSED_ACROSS_FOLDERS" for d in result.diagnostics)
+    assert not (tmp_path / "output").exists()
+    assert before == {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in before}

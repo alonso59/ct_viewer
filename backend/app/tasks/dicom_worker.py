@@ -36,6 +36,7 @@ def main(job_dir: Path) -> int:
     from app.tasks.dicom_resources import apply_worker
 
     apply_worker(job_dir)
+    from app.tasks.dicom_timings import record_stage
     from app.tasks.source_inventory import SourceInventory
 
     spec = read_json(job_dir / protocol.JOB)
@@ -49,6 +50,7 @@ def main(job_dir: Path) -> int:
 
         from plugins.analyzers.checkpoint import AnalysisConflict, retry_phase
 
+        started = time.monotonic()
         try:
             seed = spec.get("analysis_seed")
             analysis = retry_phase(
@@ -76,6 +78,13 @@ def main(job_dir: Path) -> int:
                 if isinstance(exc, AnalysisConflict)
                 else f"{type(exc).__name__}: phase checkpoint unavailable; retry analysis",
             }
+        record_stage(
+            job_dir,
+            "analyzing",
+            time.monotonic() - started,
+            int(analysis.get("done", 0)),
+            complete=analysis.get("status") == "completed",
+        )
         annotations = analysis.pop("annotations", [])
         output = job_dir / "annotations.jsonl"
         write_jsonl_atomic(output, annotations)
@@ -133,13 +142,35 @@ def main(job_dir: Path) -> int:
                         },
                     )
                     return 0
-                return run(
+                code = run(
                     str(job_dir),
                     cached_discover=inventory.discover,
                     cached_file_total=summary["dicom"],
                     on_timing=timer,
                 )
-        return run(str(job_dir), on_timing=timer)
+        else:
+            code = run(str(job_dir), on_timing=timer)
+        task_result = protocol.read_result(job_dir) or {}
+        analysis = task_result.get("provenance", {}).get("phase_analyzer", {})
+        if analysis.get("duration_s") is not None:
+            record_stage(
+                job_dir,
+                "analyzing",
+                analysis["duration_s"],
+                int(analysis.get("done", 0)),
+                complete=analysis.get("status") == "completed",
+            )
+        publication = task_result.get("provenance", {}).get("dataset_publication_seconds")
+        if publication is not None:
+            counts = task_result.get("estimate", {})
+            record_stage(
+                job_dir,
+                "registration",
+                publication,
+                int(counts.get("converted", 0)) + int(counts.get("already_converted", 0)),
+                complete=not stop() and not counts.get("failed") and not counts.get("pending"),
+            )
+        return code
     last_tick = float("-inf")
 
     def progress(counters: Mapping[str, object]) -> None:
@@ -149,6 +180,7 @@ def main(job_dir: Path) -> int:
             last_tick = time.monotonic()
 
     if spec["operation"] == "inventory":
+        started = time.monotonic()
         open_ready = False
         inventory_path = Path(spec.get("inventory", job_dir.parent / "inventory.sqlite"))
         with SourceInventory(inventory_path, Path(spec["source"])) as inventory:
@@ -158,6 +190,15 @@ def main(job_dir: Path) -> int:
                 batch_size=int(limits.get("batch_size", 64)),
                 max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
             )
+            measured = record_stage(
+                job_dir,
+                "discovery",
+                time.monotonic() - started,
+                int(summary["files"]),
+                complete=bool(summary["complete"]),
+            )
+            if measured is not None:
+                summary["discovery_time"] = measured
             if spec.get("purpose") == "open" and summary["complete"]:
                 import hashlib
 
@@ -219,6 +260,7 @@ def main(job_dir: Path) -> int:
                     job_dir / protocol.RESULT, {"status": "failed", "summary": summary}
                 )
                 return 0
+            planned = time.monotonic()
             result = pipeline.run(
                 source,
                 pipeline.Settings.from_dict({**spec.get("context", {}), **spec["settings"]}),
@@ -236,6 +278,13 @@ def main(job_dir: Path) -> int:
                 cached_file_total=summary["dicom"],
                 on_timing=for_job(job_dir),
             )
+        record_stage(
+            job_dir,
+            "planning",
+            time.monotonic() - planned,
+            int(result.counts["series"]),
+            complete=not stop(),
+        )
         atomic_write_json(
             job_dir / protocol.RESULT,
             {

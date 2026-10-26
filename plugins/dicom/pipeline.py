@@ -260,6 +260,20 @@ def run(
             )
             continue
         found += per_folder
+    folders_by_uid: dict[str, set[Path]] = {}
+    for candidate in found:
+        folders_by_uid.setdefault(candidate.series.series_id, set()).add(candidate.series.dicom_dir)
+    for uid, folders in folders_by_uid.items():
+        if len(folders) > 1:
+            diagnostics.append(
+                scan.Diagnostic(
+                    "WARN",
+                    "dicom_identity",
+                    "SERIES_UID_REUSED_ACROSS_FOLDERS",
+                    "The same series UID occurs in multiple folders; stacks remain separate. Verify the source grouping.",
+                    series_id=uid,
+                )
+            )
     selected_total = 0
     for candidate in found:
         level, _ = target_rules.match(candidate.row, profile)

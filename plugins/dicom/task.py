@@ -109,6 +109,7 @@ def run(
     ):
         job.stage("analyzing", 0, len(result.analyzer_rows))
         inputs_seed = None
+        analysis_started = time.monotonic()
         try:
             inputs_seed = checkpoint.write_seed(
                 job.dir / "phase-inputs",
@@ -133,6 +134,7 @@ def run(
                 if isinstance(exc, checkpoint.AnalysisConflict)
                 else f"{type(exc).__name__}: phase analyzer failed; retry analysis",
             }
+        analysis["duration_s"] = time.monotonic() - analysis_started
         if inputs_seed is not None:
             analysis["inputs_seed"] = inputs_seed
         analysis["run_id"] = spec.get("phase_run_id")
@@ -140,6 +142,7 @@ def run(
         if analysis["status"] == "completed":
             annotations = [*annotations, *phase_annotations]
         extra["provenance"] = {"phase_analyzer": analysis}
+    publication_started = time.monotonic()
     workspace = bool(spec.get("workspace"))
     if workspace:  # rows relative to the dataset root, which is imported as-is
         for r in result.rows:
@@ -180,6 +183,8 @@ def run(
             },
             {"kind": "annotations", "path": "annotations.jsonl", "sha256": _digest(job.rel("annotations.jsonl"))},
         ]
+    if workspace and not dry:
+        extra.setdefault("provenance", {})["dataset_publication_seconds"] = time.monotonic() - publication_started
     failed_all = result.counts["failed"] and not (result.counts["converted"] + result.counts["already_converted"])
     status = None
     error = None

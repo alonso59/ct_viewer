@@ -249,3 +249,10 @@ The 2026-10-25 import/policy/identity checkpoint is tracked in
 DICOM_JOB_PLAN.md. D07/D32 and U06/U08 now have focused implementation coverage;
 this does not mark their complete acceptance matrix or migration cases as passed.
 Full local regression is intentionally deferred to GitHub under the owner workflow.
+
+
+Stage-duration cases now live in `test_dicom_timings.py`: replay idempotency, separation
+of stage/concurrency/scope/resume, advisory corruption, bounded history and actual
+project/workspace conversion with all four stages and source hashes. Cross-folder UID
+reuse is covered in `test_dicom_identity.py` for cached and uncached dry runs. These
+checks supply focused D25/D26 evidence; they do not certify P06 reference calibration.

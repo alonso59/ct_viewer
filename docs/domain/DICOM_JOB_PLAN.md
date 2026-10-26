@@ -543,3 +543,25 @@ not the entire ADR acceptance matrix. Remaining broad crash/migration/cross-cont
 acceptance, non-conversion stage duration history, representative performance/ETA
 calibration and final same-image deployment verification remain explicit gates.
 GPU launch authorization/safety is unchanged and no GPU workload was launched.
+
+
+### Stage-duration implementation checkpoint (2026-10-26)
+
+Discovery, planning, project registration/workspace dataset publication and phase analysis
+now record active durations separately, with bounded compatible local history and idempotent
+attempt identities. Cancelled discovery/planning/analysis retains its observation without
+training completed history; project registration is measured after verified indexing. Focused tests cover corruption, concurrency/stage separation, bounded retention and
+actual project/workspace pipelines with unchanged sources. Conversion ETA still uses its
+existing compatible pixel-commit history; non-conversion duration observations are not passed
+off as conversion forecasts. Reference calibration and the broader acceptance matrix remain
+open. The currently deployed image is `de35f38`; these subsequent edits require their own CI
+and image verification before deployment.
+
+
+Focused stage-duration evidence: 39 timing/ETA cases, 13 final stage/identity cases
+(including actual pipelines in both scopes), and 64 affected registration/phase/resume/
+CLI/cache/layering cases pass. Ruff, affected strict types, knip/vulture and the 426-ID
+requirements check pass. The cleanup removed the intermediate post-task wrapper and
+kept validation at persisted-file boundaries. Full CI and same-image acceptance for
+this next candidate are still required; reference performance/calibration and the
+remaining acceptance rows are not inferred from these focused tests.
