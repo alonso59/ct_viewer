@@ -526,6 +526,9 @@ class SourceOperations:
             if job.status in {"succeeded", "failed", "cancelled", "interrupted"}:
                 try:
                     await self.jobs.wait(job.job_id, timeout=0.001)
+                    current = self.get(record.operation_id)
+                    if current.revision != record.revision:
+                        return await self._import_view(current)
                     record.cleanup_verified = True
                 except TimeoutError:
                     record.status = "cancelling"
@@ -592,6 +595,8 @@ class SourceOperations:
         context.step = "index" if commit else "previewing"
         if commit:
             context.import_id = context.import_id or new_ulid()
+        else:
+            context.preview_id = None
         context.job_id = new_ulid()
         record.attempt += 1
         record.error = None
@@ -637,6 +642,8 @@ class SourceOperations:
                     return None
                 if index_job is not None:
                     draft.job_id = index_job
+                    if current.control.get("action") == "cancel":
+                        self.jobs.cancel(index_job, drain=True)
                 elif info.status == "succeeded" and prepared is not None:
                     draft.preview_id, draft.step = prepared.preview_id, "preview"
                 current.error = info.error

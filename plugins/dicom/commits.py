@@ -6,6 +6,7 @@ import contextlib
 import fcntl
 import gzip
 import hashlib
+import io
 import json
 import math
 import os
@@ -76,13 +77,38 @@ def reader_versions(version: str) -> dict[str, str]:
     return {"dicom.convert": version, **{name: metadata.version(name) for name in ("SimpleITK", "pydicom")}}
 
 
+class _DigestReader(io.BufferedReader):
+    def __init__(self, raw: Any) -> None:
+        super().__init__(raw)
+        self.sha = hashlib.sha256()
+
+    def read(self, size: int | None = -1) -> bytes:
+        data = super().read(size)
+        self.sha.update(data)
+        return data
+
+
+def _image_digest(path: Path, geometry: dict[str, Any]) -> dict[str, Any]:
+    with path.open("rb", buffering=0) as raw:
+        before = os.fstat(raw.fileno())
+        checked = _DigestReader(raw)
+        with gzip.GzipFile(fileobj=checked, mode="rb") as stream:
+            while stream.read(CHUNK):
+                pass
+        _geometry(path, geometry)
+        after = os.fstat(raw.fileno())
+        if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            raise CommitConflict("Resume conflict: image changed during validation")
+        return {"size": after.st_size, "sha256": checked.sha.hexdigest()}
+
+
 def _geometry(path: Path, geometry: dict[str, Any]) -> None:
     import SimpleITK as sitk
 
-    # Check the entire compressed stream, including CRC, without another volume allocation.
-    with gzip.open(path, "rb") as stream:
-        while stream.read(CHUNK):
-            pass
     reader = sitk.ImageFileReader()
     reader.SetFileName(str(path))
     reader.ReadImageInformation()
@@ -108,7 +134,7 @@ def _verify(path: Path, expected: dict[str, Any]) -> None:
         raise CommitConflict("Resume conflict: committed artifact content changed")
 
 
-def _publish(record: dict[str, Any], out: Path, side: Path, stage: Path) -> None:
+def _publish(record: dict[str, Any], out: Path, side: Path, stage: Path, *, image_verified: bool = False) -> None:
     for name, target in [("image", out), ("sidecar", side)]:
         expected = record["artifacts"].get(name)
         if expected is None:
@@ -121,7 +147,11 @@ def _publish(record: dict[str, Any], out: Path, side: Path, stage: Path) -> None
             target.parent.mkdir(parents=True, exist_ok=True)
             os.link(candidate, target)
         _sync(target.parent)
-    _geometry(out, record["geometry"])
+    if image_verified:
+        # The publish hash proves these bytes match the stream already validated in this attempt.
+        _geometry(out, record["geometry"])
+    else:
+        _image_digest(out, record["geometry"])
 
 
 def commit_series(
@@ -135,6 +165,7 @@ def commit_series(
     sidecars: bool,
     before_pixels: Callable[[], None] | None = None,
     verify_only: bool = False,
+    input_pin: dict[str, Any] | None = None,
 ) -> tuple[convert.Converted, bool, list[dict[str, Any]]] | None:
     """Return geometry, reused flag and outputs only after durable commit of all artifacts."""
     state = out.parent / ".checkpoints" / out.name
@@ -149,7 +180,9 @@ def commit_series(
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise CommitConflict("Resume conflict: another writer owns this series") from None
-        return _commit(series, header, out, side, state, settings, version, sidecars, before_pixels, verify_only)
+        return _commit(
+            series, header, out, side, state, settings, version, sidecars, before_pixels, verify_only, input_pin
+        )
     finally:
         os.close(lock_fd)
 
@@ -165,10 +198,12 @@ def _commit(
     sidecars: bool,
     before_pixels: Callable[[], None] | None,
     verify_only: bool,
+    input_pin: dict[str, Any] | None,
 ) -> tuple[convert.Converted, bool, list[dict[str, Any]]] | None:
-    manifest = input_manifest(series)
-    identity = {"inputs": manifest, "settings": settings, "versions": reader_versions(version)}
     path = state / "commit.json"
+    # A fresh unit must commit the run preflight bytes, including changes before decoding.
+    manifest = input_pin if input_pin is not None and not path.exists() else input_manifest(series)
+    identity = {"inputs": manifest, "settings": settings, "versions": reader_versions(version)}
     stage = state / "staged"
     reused = False
     if path.exists():
@@ -181,7 +216,7 @@ def _commit(
                 for name, target in [("image", out), ("sidecar", side)]:
                     if name in record["artifacts"]:
                         _verify(target, record["artifacts"][name])
-                _geometry(out, record["geometry"])
+                _image_digest(out, record["geometry"])
             elif record["status"] == "prepared":
                 if verify_only:
                     return None
@@ -205,8 +240,7 @@ def _commit(
             before_pixels()
         converted = convert.write_nifti(series, image)
         geometry = json.loads(json.dumps(asdict(converted)))
-        _geometry(image, geometry)
-        artifacts = {"image": file_digest(image)}
+        artifacts = {"image": _image_digest(image, geometry)}
         if sidecars:
             staged_side = stage / "sidecar.json"
             sidecar.write_sidecar(header, staged_side)
@@ -224,7 +258,7 @@ def _commit(
         }
         _sync(stage)
         _write(path, record)  # recovery can finish a crash between the individual publications
-        _publish(record, out, side, stage)
+        _publish(record, out, side, stage, image_verified=True)
     if not reused:
         record["status"] = "committed"
         _write(path, record)

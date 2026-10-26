@@ -129,6 +129,14 @@ project registration includes artifact verification, import and successful index
 active durations, excluding the queue and time between attempts. They are not conversion-time
 forecasts; representative calibration remains required before raising ETA confidence.
 
+- Fresh units reuse the strong input manifest already pinned by the run preflight, then hash
+  inputs again after native conversion before publication. Existing prepared/committed units
+  still rehash current inputs before recovery/reuse. A change between preflight and decoding
+  cannot replace the run's pin. This removes a redundant third input read.
+- New NIfTI streams validate gzip CRC and compute the compressed SHA-256 in the same read,
+  with file-stat stability across validation. Publication verifies that digest and world geometry;
+  it avoids a second decompression only for bytes validated in that same attempt. Recovery and
+  reuse retain full-stream CRC/geometry validation. No optional decoder dependency is required.
 - Scan cost (DCM-06): bounded doubling reads from `HEAD_BYTES` to `MAX_HEADER_BYTES` (currently 16 KiB / 8 MiB), parsed with pydicom `stop_before_pixels`, retaining `SCAN_TAGS`. A PixelData byte pattern inside a private value triggers bounded parser retries, never a whole-file fallback. Four header threads group by folder and SeriesInstanceUID; inspection reuses those facts. Inventory-backed Estimate restats cached facts and reads a full header only for each series' sidecar facts. Unknown/absent suffixes share image-header validation through the task boundary.
 - Inventory reuse pins scanner/guard code, reader version, selected tags and effective header budget in each cached signature; changed contracts invalidate facts and plan-page generations during scanning. Historical reads alone do not invalidate records. Quota/batch deployment behavior is owned by DEPLOYMENT.md; partial folders never expose a slice prefix as a complete series.
 - DCM-16 progress counts committed selected series, including verified reused commits; skipped/failed units never increment it.

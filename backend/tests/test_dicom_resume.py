@@ -363,3 +363,64 @@ def test_api_resume_reuses_run_and_output_and_keeps_completed_series(
             assert (dataset / "dataset.json").is_file()
             assert sorted(p.name for p in (output / "_datasets").iterdir()) == ["resume-demo"]
         assert client.post(prefix + "/task-runs/" + rid + "/resume").status_code == 409
+
+
+def test_fresh_pinned_conversion_hashes_sources_twice_and_reuses_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from collections import Counter
+
+    from plugins.dicom import commits
+
+    source = tmp_path / "source"
+    write_series(source, seed="preflight-read-count")
+    output = tmp_path / "derived"
+    inputs = sorted(source.glob("*.dcm"))
+    reads: Counter[Path] = Counter()
+    original = commits.file_digest
+
+    def measured(path: Path, root: Path | None = None) -> dict[str, Any]:
+        if path.is_relative_to(source):
+            reads[path] += 1
+        return original(path, root)
+
+    monkeypatch.setattr(commits, "file_digest", measured)
+    result = run_conversion(source, output, checkpoint=output / "pin.json")
+    assert result.counts["converted"] == 1
+    assert reads == Counter({path: 2 for path in inputs})
+    hashes = {path: digest(path) for path in (output / "nifti").glob("*.nii.gz")}
+    reads.clear()
+    resumed = run_conversion(source, output, checkpoint=output / "pin.json")
+    assert resumed.counts["already_converted"] == 1
+    assert reads == Counter({path: 2 for path in inputs})
+    assert hashes == {path: digest(path) for path in hashes}
+
+
+@pytest.mark.parametrize("already_committed", [False, True])
+def test_input_change_after_run_preflight_cannot_be_committed_or_reused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, already_committed: bool
+) -> None:
+    import pydicom
+    from plugins.dicom import commits
+
+    source = tmp_path / "source"
+    write_series(source, seed="preflight-mutation")
+    output = tmp_path / "derived"
+    checkpoint = output / "pin.json"
+    if already_committed:
+        assert run_conversion(source, output, checkpoint=checkpoint).counts["converted"] == 1
+    committed = {p: digest(p) for p in (output / "nifti").glob("*.nii.gz")}
+    original = commits.pin_run
+
+    def change_after_pin(*args: Any, **kwargs: Any) -> None:
+        original(*args, **kwargs)
+        path = next(source.glob("*.dcm"))
+        ds = pydicom.dcmread(path)
+        ds.PatientName = "SYNTHETIC EXTERNAL CHANGE"
+        ds.save_as(path, enforce_file_format=True)
+
+    monkeypatch.setattr(commits, "pin_run", change_after_pin)
+    result = run_conversion(source, output, checkpoint=checkpoint)
+    assert result.counts["failed"] == 1
+    assert not result.counts["converted"] and not result.counts["already_converted"]
+    assert committed == {p: digest(p) for p in (output / "nifti").glob("*.nii.gz")}

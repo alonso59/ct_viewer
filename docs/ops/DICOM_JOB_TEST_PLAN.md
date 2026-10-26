@@ -142,117 +142,15 @@ Commands above refer to existing Make targets; new DICOM process/browser/benchma
 - [ ] Full checks, browser journeys, shared-runtime regressions, CI and same-image Docker/udocker lanes pass; no mandatory skip hidden as success.
 - [ ] Reviewer can reproduce evidence from recorded tree/image/settings; production migration/rollback readiness documented separately. Planning alone closes none of these boxes.
 
-## Current implementation checkpoint (not closure)
+## Current implementation evidence
 
-Focused cases cover portions of D01–D35; each complete acceptance row remains the gate.
-Native resume, strong input/output pins, owned cleanup, publication/ENOSPC and registration have synthetic evidence.
-Discovery/Estimate include actual backend SIGKILL/restart and durable inventory batches.
-Operation controls now test handoff-vs-cancel, stale native attempts and lost resume acknowledgments in both contexts.
-Lifecycle restart tests preserve the linked run/destination and replay its acknowledged command without another attempt.
-Those lifecycle tests do not replace abrupt SIGKILL at each conversion/registration/index barrier.
-`test_dicom_progress.py` additionally covers selected/committed counters, typed resource waits and late old/current completed-worker callbacks.
-Cached re-estimates cover preserved generation/name, destination changes and stale-fence refresh; D22/D26/D27 remain partial.
+DICOM_JOB_PLAN.md §Implementation evidence owns the current implementation map, actual
+verification artifacts, published/deployed trees, measured performance and remaining gates.
+It replaces superseded incremental checkpoints. The D/U/B/P matrices and closure checklist
+above remain the accepted scope; no row is certified merely because a test file exists.
 
-Window tests cover server restoration, pending-control replay, privacy of persisted browser state,
-complete plan pagination/filtering, stopping/resource states and extensionless source selection.
-They provide partial U coverage; B01–B08 and performance P01–P06 are not certified.
-Six real Chromium/Firefox converter cases now cover conversion/import, non-DICOM remedies and minimized reload recovery.
-Source hashes remain unchanged. These cases do not certify all B rows or real WebGL viewer acceptance.
-
-Verification counts, artifact names and remaining closure work live in DICOM_JOB_PLAN.md §Implementation evidence.
-Independent phase run/API/window retry has focused evidence; complete D29 and release gates remain open.
-CLI cases now cover a real post-commit SIGKILL, strong resume conflicts, single-writer output locking,
-failed-series status/retry, dry-run immutability, legacy YAML names and stable incremental identities.
-They do not replace complete D34/D35 crash/migration/resource acceptance.
-Failure-only retry now has native/project/workspace API and window evidence, including missing cleanup
-proof, stale/missing fences, duplicate/lost acknowledgments and preservation of committed images.
-Partial retry leaves unattempted series pending and blocks phase, dataset sealing and registration.
-CLI failure-only selection additionally survives actual SIGKILL after a recorded failure, preserves
-unattempted work and refuses unusable histories; a torn fragment is retained and outcome-sync
-failure cannot acknowledge completion. These checks do not certify every abrupt retry/registration
-barrier or B07.
-`test_dicom_operation_recovery.py` adds actual SIGKILL at native publication and API registration
-barriers, independent world-coordinate/voxel checks, legacy early-registration recovery,
-directory-sync ordering, responsive polling during indexing and registration-only response replay.
-Additional SIGKILL cases cover identity/annotations and the index warnings/cases/items/ready
-publications. The remaining within-write/sync/rename, torn-record and migration barriers
-still need their own evidence.
-The failing disposable Cancel-during-registration probe led to
-`test_dicom_registration_cancel.py`: pre-import/dispatch/probe cancellation, lost replies,
-metadata-only resume and actual API SIGKILL after acknowledgment. Shared-job cases verify
-all stopped workers return before completion/exclusivity release, including worker failure;
-a timed-out shutdown leaves completion unconfirmed. Complete D16/U09/B06 barrier, browser,
-latency and shared-runtime acceptance remain open; native pixel cleanup is insufficient.
-`test_dicom_metadata_durability.py` injects directory-sync failures during creation, submission,
-Estimate, Convert and Cancel acknowledgment. Replays must reconfirm durability, admit unlaunched work
-once and refuse retained execution/lost committed state; legacy receipt compatibility is covered.
-Cases also cover a missing queued job, missing launch files with retained process/dispatch evidence,
-and read-time recovery after a failed state publication. Resume remains blocked without cleanup proof.
-`test_core.py` checks propagation of directory open/sync errors and descriptor cleanup.
-No closure checkbox is certified by these narrower checks.
-`test_dicom_eta.py` covers the minimum compatible sample count, context/storage/reader/concurrency
-separation, bounded private history, invalid durations, sample replay, history failures and
-remaining work. Real tiny synthetic commits train a subsequent pixel-free Estimate and verified
-resume preserves images without training on reuse. Project/workspace owned API cases cover
-history reaching later plans. A deterministic hold-out corpus checks coverage/error/range width;
-this is model regression evidence, not measured reference-host P06 calibration. Conversion-only
-estimates do not close discovery/registration/analyzer duration-history requirements.
-
-Open paging adds focused service/API and recorded-window coverage for D09/U08
-(see DICOM_JOB_PLAN.md §Open pagination checkpoint). General background Open
-loading and the remaining crash/performance matrix stay open.
-
-Durable Open now has header-unit SIGKILL/cancellation/cache invalidation and restored-session
-API evidence, plus both-browser minimize/reload/cancel/resume coverage in
-`open-background.spec.ts`. The recorded window verifies completed restoration and refuses
-cancellation across attempt changes. Counts and logs live in the plan checkpoint; the full
-B08, resource/quota/performance and general import-loading rows remain open.
-
-Restored Open input cases in `test_source_operations_api.py` cover NIfTI/DICOM
-changes, missing/symlinked inputs, NumPy sidecar creation/change and a reference
-outside the single-file inventory, lost inventory/header pins and changed attached
-masks. The unchanged-session case checks metadata/byte hydration off the API loop;
-`test_source_open.py` refuses header probing during validation. Attachment tests
-cover replacement/deletion during header reading. These are stat-based checks;
-same-stat content rewriting, broader active-session validation and real process
-interruption at these barriers remain separate acceptance work.
-
-`test_source_detection.py` compares durable adapter results with API-19 for mixed,
-metadata and single NIfTI/NumPy/DICOM sources, including a 121-image sample. It
-restarts the API and forbids rescanning/classification while retrieving results;
-queued/cancelled, missing-inventory and changed-reader cases must refuse. The client
-test consumes a real synthetic detection recording. Complete import-window/browser
-and durable preview/index recovery coverage is still required.
-
-Import-discovery integration adds `test_source_import_context.py` for restart,
-wrong-purpose refusal and legacy receipt hashes. Wizard/window tests require a
-durable discovery handoff, no synchronous rescan on return, retained project/alias/
-options and DICOM dry-run handoff instead of immediate native conversion. The
-remaining preview/index and broader browser interruption matrix stays open.
-
-Import-window focused checkpoint: five context/receipt API cases, 49 frontend
-cases, and four Chromium/Firefox cases pass (project inspection reload, explicit
-cancel/resume with original alias/project, and anonymized conversion after an
-explicit dry-run confirmation). The browser harness verifies unchanged synthetic
-sources and launches no GPU compute. This covers initial draft restoration, not
-later option edits, Preview or Index recovery, nor the remaining D01–D35 matrix.
-
-D13/D18 header-processing evidence: `test_source_open.py` includes actual SIGKILL
-after DICOM headers 1/3/6. Only the earlier whole NIfTI unit survives in the cache;
-the entire DICOM series is rebuilt and source hashes remain unchanged. All ten
-file cases pass. Native pixel and supervised ownership/cleanup barriers remain
-separate acceptance evidence. The import integration also passes 20 existing real
-Chromium/Firefox journeys; CI for published `e84bd0d` is still pending.
-
-
-The 2026-10-25 import/policy/identity checkpoint is tracked in
-DICOM_JOB_PLAN.md. D07/D32 and U06/U08 now have focused implementation coverage;
-this does not mark their complete acceptance matrix or migration cases as passed.
-Full local regression is intentionally deferred to GitHub under the owner workflow.
-
-
-Stage-duration cases now live in `test_dicom_timings.py`: replay idempotency, separation
-of stage/concurrency/scope/resume, advisory corruption, bounded history and actual
-project/workspace conversion with all four stages and source hashes. Cross-folder UID
-reuse is covered in `test_dicom_identity.py` for cached and uncached dry runs. These
-checks supply focused D25/D26 evidence; they do not certify P06 reference calibration.
+New focused duration cases are in `test_dicom_timings.py`; import recovery in
+`test_source_import_context.py`; quota/retention/corruption in `test_dicom_inventory_policy.py`;
+identity diagnostics in `test_dicom_identity.py`; input-preflight/CRC/publication boundaries
+in `test_dicom_resume.py` and `test_dicom_publication.py`. Reference performance/calibration,
+all promised interruption barriers and final same-image deployment remain explicit gates.

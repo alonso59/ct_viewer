@@ -88,6 +88,7 @@ class NiftiPlan(BaseModel):
     # files that gave an already used (case_id, scan_idx): `case/scan: first, other`
     collisions: list[str] = Field(default_factory=list)
     registry: IdentityRegistry
+    ignored: dict[str, int]
 
 
 def _is_mask(rel: str, conventions: list[str]) -> bool:
@@ -275,4 +276,5 @@ def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPla
         skipped_channels=skipped,
         collisions=collisions,
         registry=reg,
+        ignored=dict(s.ignored),
     )

@@ -291,9 +291,9 @@ def run(
         f.row["case_identity_key"] = key
         by_case.setdefault(key, []).append(f)
 
+    input_pins: dict[int, dict[str, Any]] = {}
     if checkpoint is not None and not dry_run:
         commits.restore_identity(checkpoint, identity)
-        manifests = []
         for key, group in sorted(by_case.items()):
             identity.case_id(key)
             for g in sorted(group, key=lambda g: rows.series_sort_key(g.row)):
@@ -301,9 +301,9 @@ def run(
                 level, _ = target_rules.match(g.row, profile)
                 role, reason = readiness_rules.output_role(g.row, level)
                 if decide_conversion(g.row, role, reason, settings)[0]:
-                    manifests.append(commits.input_manifest(g.series))
-                    stage("verifying_inputs", len(manifests), selected_total)
-        commits.pin_run(checkpoint, {**asdict(settings), "salt": salt}, VERSION, identity, manifests)
+                    input_pins[id(g)] = commits.input_manifest(g.series)
+                    stage("verifying_inputs", len(input_pins), selected_total)
+        commits.pin_run(checkpoint, {**asdict(settings), "salt": salt}, VERSION, identity, list(input_pins.values()))
 
     if retry_ids is not None:
         available = set()
@@ -446,6 +446,7 @@ def run(
                         version=VERSION,
                         sidecars=settings.sidecars,
                         before_pixels=before_pixels,
+                        input_pin=input_pins.get(id(g)),
                         verify_only=retry_ids is not None and iid not in retry_ids,
                     )
                     if publication is None:

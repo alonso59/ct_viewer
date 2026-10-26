@@ -188,7 +188,11 @@ class IngestService:
                     ],
                     actions=[f"use_pattern:{nifti_files.FOLDER_PATTERN}"] if use else [],
                 )
-            data = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in plan.rows).encode()
+            data = await asyncio.to_thread(
+                lambda: "".join(
+                    json.dumps(r, ensure_ascii=False) + "\n" for r in plan.rows
+                ).encode()
+            )
             blobs: dict[FileKind, preview.InputBlob] = {
                 "metadata": preview.InputBlob("metadata", FILE_NAMES["metadata"], "generated", data)
             }
@@ -198,10 +202,10 @@ class IngestService:
                 "sample": plan.sample,
                 "unmatched": plan.unmatched[:SAMPLE_NAMES],
                 "orphan_masks": plan.orphan_masks[:SAMPLE_NAMES],
-                "ignored": dict(formats.scan(real, opts.include).ignored),
+                "ignored": plan.ignored,
             }
         elif uploads is None:
-            blobs = preview.detect_inputs(real)
+            blobs = await asyncio.to_thread(preview.detect_inputs, real)
         else:
             blobs = {
                 k: preview.InputBlob(k, name or FILE_NAMES[k], "uploaded", data)
@@ -222,7 +226,9 @@ class IngestService:
             derived_guard=project_resolver.derived_guard,
             source_exclusions=project_resolver.source_exclusions,
         )
-        parsed = parse_inputs({k: b.data for k, b in blobs.items()}, resolver=resolver, alias=alias)
+        parsed = await asyncio.to_thread(
+            parse_inputs, {k: b.data for k, b in blobs.items()}, resolver=resolver, alias=alias
+        )
         pv = ImportPreview(
             preview_id=new_ulid(),
             root=os.path.normpath(root),
@@ -246,27 +252,28 @@ class IngestService:
             atomic_write_json(d / "preview.json", pv.model_dump(mode="json"))
         return pv
 
-    def _load_preview(
-        self, pdir: Path, preview_id: str
-    ) -> tuple[ImportPreview, dict[FileKind, bytes]]:
-        d = pdir / PREVIEWS / preview_id
-        if not is_ulid(preview_id) or not (d / "preview.json").is_file():
-            raise NotFound(f"Preview {preview_id!r} not found")
-        pv = ImportPreview.model_validate(read_json(d / "preview.json"))
-        data: dict[FileKind, bytes] = {}
-        for f in pv.files:
-            data[f.kind] = (d / FILE_NAMES[f.kind]).read_bytes()
-        return pv, data
-
     def preview_of(self, project_id: str, preview_id: str) -> ImportPreview:
-        return self._load_preview(self.workspace.project_dir(project_id), preview_id)[0]
+        d = self.workspace.project_dir(project_id) / PREVIEWS / preview_id
+        if not is_ulid(preview_id):
+            raise NotFound("Import preview not found; prepare it again")
+        try:
+            pv = ImportPreview.model_validate(read_json(d / "preview.json"))
+            if any(not (d / FILE_NAMES[f.kind]).is_file() for f in pv.files):
+                raise NotFound("Import preview inputs are unavailable; prepare it again")
+            return pv
+        except (OSError, ValueError):
+            raise NotFound("Import preview is unavailable; prepare it again") from None
 
     async def commit(
         self, project_id: str, preview_id: str, *, import_id: str | None = None
     ) -> CommitResult:
         """Snapshot inputs, record the import, set the root, start indexing."""
         pdir = self.workspace.project_dir(project_id)
-        pv, data = self._load_preview(pdir, preview_id)
+        pv = self.preview_of(project_id, preview_id)
+        data: dict[FileKind, bytes] = {}
+        for f in pv.files:
+            path = pdir / PREVIEWS / preview_id / FILE_NAMES[f.kind]
+            data[f.kind] = await asyncio.to_thread(path.read_bytes)
         import_id = import_id or new_ulid()
         if not is_ulid(import_id):
             raise JobConflict("Invalid import identity")

@@ -74,6 +74,12 @@ Each import has a `source_key`: `{adapter}:{alias}` by default (a re-import of t
 
 Import data sends folder/file inspection to the shared recoverable source window. The project, alias, preferred adapter, add mode, options and later Preview/Index references persist on the discovery operation; browser storage keeps only its operation ID and window preference. Continue import returns the retained inspection to the adapter wizard without rescanning. DICOM selection hands off to a recoverable header-only dry run before explicit conversion; other adapters retain Preview/Commit. Form edits are saved with revision fences. Preview and Index run as background jobs; the same window can minimize, cancel, restore and resume them. A committed import keeps one identity and does not append another snapshot on replay.
 
+Polling a prepared import reads its summary and checks retained input availability without
+loading metadata blobs. Missing or corrupt previews retain the form and offer explicit
+repreparation. Metadata loading and parsing run off the API event loop; NIfTI Preview
+collects ignored-file counts during its existing scan. Cancellation during the commit-to-Index
+handoff also drains the linked Index job before reporting a terminal operation.
+
 Durable discovery (`purpose=discover`, API-69) retains the complete inventory for adapter
 selection after restart. Its detection result shares API-19's adapter policy and bounded,
 evenly spread sample; it does not rescan or decode pixels. Incomplete or incompatible
