@@ -1062,11 +1062,63 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Remove Segmentation */
+        delete: operations["remove_segmentation_api_v1_projects__pid__segmentations__seg__delete"];
         options?: never;
         head?: never;
         /** Patch Segmentation */
         patch: operations["patch_segmentation_api_v1_projects__pid__segmentations__seg__patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/segmentations/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Segmentation */
+        post: operations["import_segmentation_api_v1_projects__pid__segmentations_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/segmentations/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reindex Segmentations */
+        post: operations["reindex_segmentations_api_v1_projects__pid__segmentations_reindex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/segmentations/{seg}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Segmentation */
+        post: operations["restore_segmentation_api_v1_projects__pid__segmentations__seg__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/projects/{pid}/curation/events": {
@@ -5996,6 +6048,42 @@ export interface components {
             /** Labels */
             labels?: string[];
         };
+        /** SegmentationImportRequest */
+        SegmentationImportRequest: {
+            /** Seg Id */
+            seg_id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Root */
+            root: string;
+            /**
+             * Template
+             * @default {case_id}.nii.gz
+             */
+            template: string;
+            /**
+             * Mode
+             * @default auto
+             * @enum {string}
+             */
+            mode: "auto" | "combined" | "binary";
+            /** Item Id */
+            item_id?: string | null;
+        };
+        /** SegmentationImportStarted */
+        SegmentationImportStarted: {
+            /** Import Id */
+            import_id: string;
+            /** Job Id */
+            job_id: string;
+            /** Matched */
+            matched: number;
+            /** Missing */
+            missing: number;
+        };
         /** SegmentationInfo */
         SegmentationInfo: {
             /** Seg Id */
@@ -6023,6 +6111,13 @@ export interface components {
              * @default
              */
             created_at: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Artifact Id */
+            artifact_id?: string | null;
             /**
              * N Items
              * @default 0
@@ -6073,6 +6168,13 @@ export interface components {
              * @default
              */
             created_at: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Artifact Id */
+            artifact_id?: string | null;
         };
         /**
          * SeriesPlan
@@ -9659,7 +9761,9 @@ export interface operations {
     };
     list_segmentations_api_v1_projects__pid__segmentations_get: {
         parameters: {
-            query?: never;
+            query?: {
+                removed?: boolean;
+            };
             header?: never;
             path: {
                 pid: string;
@@ -9688,6 +9792,36 @@ export interface operations {
             };
         };
     };
+    remove_segmentation_api_v1_projects__pid__segmentations__seg__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                seg: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     patch_segmentation_api_v1_projects__pid__segmentations__seg__patch: {
         parameters: {
             query?: never;
@@ -9703,6 +9837,104 @@ export interface operations {
                 "application/json": components["schemas"]["SegmentationPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentationInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_segmentation_api_v1_projects__pid__segmentations_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentationImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentationImportStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reindex_segmentations_api_v1_projects__pid__segmentations_reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_segmentation_api_v1_projects__pid__segmentations__seg__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                seg: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

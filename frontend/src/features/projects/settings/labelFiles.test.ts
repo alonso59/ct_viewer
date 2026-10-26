@@ -36,3 +36,22 @@ test('detects the format and merges by value without deleting', () => {
   )
   expect(merged.map((l) => l.name)).toEqual(['kidney', 'tumor', 'label_5'])
 })
+
+test('project catalogs retain label values, names, colors and display defaults on reimport', () => {
+  const catalog = [{ value: 17, name: 'Reviewed structure', color: '#12abef', opacity: 0.45, visible: false }]
+  for (const doc of [catalog, { label_map: catalog }]) {
+    const parsed = parseLabelFile('catalog.json', JSON.stringify(doc))
+    expect(parsed.kind).toBe('project')
+    expect(parsed.labels).toEqual([{ ...catalog[0], color: '#12ABEF' }])
+  }
+})
+
+test.each([
+  [{ value: 1, name: 'A', color: '#112233' }, { value: 1, name: 'B', color: '#445566' }],
+  [{ value: 70000, name: 'A', color: '#112233' }],
+  [{ value: 1, name: 'A', color: 'red' }],
+  [{ value: 1, name: 'A', color: '#112233', opacity: 2 }],
+  [{ value: 1, name: 'A', color: '#112233', visible: 'yes' }],
+].map((catalog) => ({ catalog })))('invalid catalogs cannot change the label draft: $catalog', ({ catalog }) => {
+  expect(() => parseLabelFile('catalog.json', JSON.stringify(catalog))).toThrow()
+})

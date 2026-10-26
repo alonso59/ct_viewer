@@ -77,12 +77,18 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const iid = current?.item_id ?? ''
   // The set chosen for this project (Layers section), else its default; an item without
   // a mask in that set shows the default set's mask with a notice
-  const chosen = useViewerSync((s) => s.segChoice[pid])
-  const defaultSeg = project.data?.default_seg ?? 'imported'
-  const masks = current?.masks
-  const { seg: shownSeg, missing } = useMemo(() => resolveSeg(masks ?? {}, chosen, defaultSeg), [masks, chosen, defaultSeg])
-  const segId = shownSeg ?? chosen ?? defaultSeg
+  const storedChoice = useViewerSync((s) => s.segChoice[pid])
   const sets = useSegmentations(pid).data
+  const defaultSeg = sets === undefined
+    ? (project.data?.default_seg ?? 'imported')
+    : (sets.find((set) => set.seg_id === project.data?.default_seg)?.seg_id ?? sets[0]?.seg_id ?? '')
+  const chosen = sets?.some((set) => set.seg_id === storedChoice) ? storedChoice : undefined
+  const masks = current?.masks
+  const { seg: shownSeg, missing } = useMemo(
+    () => defaultSeg ? resolveSeg(masks ?? {}, chosen, defaultSeg) : { seg: null, missing: null },
+    [masks, chosen, defaultSeg],
+  )
+  const segId = shownSeg ?? chosen ?? defaultSeg
   const mapping = sets?.find((s) => s.seg_id === segId)?.label_mapping
   const meshUrl = useMemo(() => meshUrlOf(pid, iid, segId), [pid, iid, segId])
   const labels = useMemo(() => setLabels(project.data?.label_map ?? [], mapping), [project.data, mapping])

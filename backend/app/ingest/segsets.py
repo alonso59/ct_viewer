@@ -1,9 +1,4 @@
-"""Segmentation sets produced by task runs, joined into the derived index.
-
-A task run that outputs masks records them in `tasks/runs/{run_id}/masks.jsonl`, one line per
-item `{item_id, ref, format, fp, labels}`. The index is derived, so every rebuild and
-every registration re-applies the masks of each `task` set in `project.json.segmentations`.
-"""
+"""Rejoin active task and manual segmentation manifests into the derived index."""
 
 from __future__ import annotations
 
@@ -16,6 +11,7 @@ from app.ingest.models import Item, VolumeRef
 from app.projects.models import ProjectConfig
 
 MASKS = "masks.jsonl"
+IMPORTS = Path("segmentations") / "imports"
 
 
 def masks_path(project_dir: Path, run_id: str) -> Path:
@@ -36,21 +32,28 @@ def record_masks(project_dir: Path, run_id: str, rows: Sequence[dict[str, Any]])
         append_jsonl(path, fresh)
 
 
-def task_masks(project_dir: Path, cfg: ProjectConfig) -> dict[str, dict[str, VolumeRef]]:
-    """item_id → seg_id → mask for every task-produced set (later lines win)."""
-    out: dict[str, dict[str, VolumeRef]] = {}
+def apply_registered_masks(items: Sequence[Item], project_dir: Path, cfg: ProjectConfig) -> None:
+    """Apply active task/manual manifests; later rows win without changing source volumes."""
+    by_id = {item.item_id: item for item in items}
     for seg in cfg.segmentations:
-        if seg.producer is None:
+        if not seg.active:
             continue
-        for row in iter_jsonl(masks_path(project_dir, seg.producer.run_id)):
-            ref = VolumeRef(ref=row["ref"], format=row.get("format", "nifti"), fp=row.get("fp"))
-            out.setdefault(str(row["item_id"]), {})[seg.seg_id] = ref
-    return out
-
-
-def apply_task_masks(items: Sequence[Item], masks: dict[str, dict[str, VolumeRef]]) -> None:
-    """Attach task sets to items in place; the `imported` set is never replaced."""
-    for it in items:
-        extra = masks.get(it.item_id)
-        if extra:
-            it.masks = {**it.masks, **{k: v for k, v in extra.items() if k != "imported"}}
+        if seg.producer is not None:
+            path = masks_path(project_dir, seg.producer.run_id)
+        elif seg.artifact_id is not None:
+            path = project_dir / IMPORTS / seg.artifact_id / MASKS
+        else:
+            continue
+        for row in iter_jsonl(path):
+            item = by_id.get(str(row["item_id"]))
+            if item is None:
+                continue
+            fmt = row.get("format", "nifti")
+            item.masks[seg.seg_id] = VolumeRef(
+                ref=row["ref"],
+                format=fmt,
+                fp=row.get("fp"),
+                labels=row.get("labels") if fmt == "nifti_dir" else None,
+            )
+            if seg.seg_id == "imported":
+                item.labels_present = list(row.get("labels_present", []))

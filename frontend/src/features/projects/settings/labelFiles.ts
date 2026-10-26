@@ -3,7 +3,7 @@
 import type { LabelDef } from '../../../api'
 import { autoLabelColor } from '../../../theme'
 
-type LabelFileKind = 'slicer' | 'itksnap' | 'nnunet'
+type LabelFileKind = 'slicer' | 'itksnap' | 'nnunet' | 'project'
 
 const hex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0').toUpperCase()
 const rgb = (r: number, g: number, b: number) => `#${hex(r)}${hex(g)}${hex(b)}`
@@ -58,7 +58,10 @@ export function parseNnunet(text: string): LabelDef[] {
 }
 
 export function detectKind(fileName: string, text: string): LabelFileKind | null {
-  if (/\.json$/i.test(fileName) || text.trimStart().startsWith('{')) return 'nnunet'
+  if (/\.json$/i.test(fileName) || text.trimStart().startsWith('{') || text.trimStart().startsWith('[')) {
+    const doc: unknown = JSON.parse(text)
+    return Array.isArray(doc) || (doc !== null && typeof doc === 'object' && 'label_map' in doc) ? 'project' : 'nnunet'
+  }
   if (/^\s*\d+\s+\d+\s+\d+\s+\d+\s+[\d.]+\s+\d\s+\d\s+"/m.test(text)) return 'itksnap'
   if (/\.(ctbl|txt)$/i.test(fileName) || /^\s*\d+\s+\S+\s+\d+\s+\d+\s+\d+/m.test(text)) return 'slicer'
   return null
@@ -67,8 +70,26 @@ export function detectKind(fileName: string, text: string): LabelFileKind | null
 export function parseLabelFile(fileName: string, text: string): { kind: LabelFileKind; labels: LabelDef[] } {
   const kind = detectKind(fileName, text)
   if (!kind) throw new Error('unrecognized')
-  const labels = kind === 'nnunet' ? parseNnunet(text) : kind === 'itksnap' ? parseItkSnap(text) : parseSlicer(text)
+  let labels: LabelDef[]
+  if (kind === 'project') {
+    const doc: unknown = JSON.parse(text)
+    const entries: unknown = Array.isArray(doc) ? doc : (doc !== null && typeof doc === 'object' && 'label_map' in doc ? doc.label_map : null)
+    if (!Array.isArray(entries)) throw new Error('invalid label map')
+    labels = entries.map((entry: unknown) => {
+      if (entry === null || typeof entry !== 'object') throw new Error('invalid label')
+      const l = entry as Record<string, unknown>
+      if (!Number.isInteger(l.value) || typeof l.value !== 'number' || l.value < 0 || l.value > 65535
+        || typeof l.name !== 'string' || typeof l.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(l.color)
+        || (l.opacity !== undefined && (typeof l.opacity !== 'number' || !Number.isFinite(l.opacity) || l.opacity < 0 || l.opacity > 1))
+        || (l.visible !== undefined && typeof l.visible !== 'boolean')) throw new Error('invalid label')
+      return label(l.value, l.name, l.color.toUpperCase(), l.opacity, l.visible)
+    }).filter((l) => l.value > 0)
+  } else {
+    labels = kind === 'nnunet' ? parseNnunet(text) : kind === 'itksnap' ? parseItkSnap(text) : parseSlicer(text)
+  }
   if (!labels.length) throw new Error('empty')
+  if (new Set(labels.map((l) => l.value)).size !== labels.length) throw new Error('duplicate label value')
+  if (labels.some((l) => l.value > 65535 || !Number.isFinite(l.opacity) || !/^#[0-9a-f]{6}$/i.test(l.color))) throw new Error('invalid label')
   return { kind, labels }
 }
 

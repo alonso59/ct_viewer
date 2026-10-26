@@ -98,6 +98,10 @@ class SegmentationSet(BaseModel):
     # Set values auto-named `label_{value}` at registration, flagged for review.
     unmatched: list[int] = Field(default_factory=list)
     created_at: str = ""
+    # Soft removal keeps provenance and referenced source files available for restoration.
+    active: bool = True
+    # Manual imports keep their immutable mask manifest under segmentations/imports/{artifact_id}.
+    artifact_id: str | None = None
 
 
 def imported_set(label_map: list[LabelEntry], created_at: str) -> SegmentationSet:
@@ -154,8 +158,11 @@ class ProjectConfig(BaseModel):
         """The project's single `derived` root, if registered."""
         return next((r for r in self.path_roots if r.role == "derived"), None)
 
-    def segmentation(self, seg_id: str) -> SegmentationSet | None:
-        return next((s for s in self.segmentations if s.seg_id == seg_id), None)
+    def segmentation(self, seg_id: str, *, include_removed: bool = False) -> SegmentationSet | None:
+        return next(
+            (s for s in self.segmentations if s.seg_id == seg_id and (include_removed or s.active)),
+            None,
+        )
 
 
 class ProjectPatch(BaseModel):

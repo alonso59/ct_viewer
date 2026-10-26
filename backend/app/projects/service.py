@@ -498,8 +498,12 @@ class Workspace:
             raise NotFound("This folder has no saved projects; use New project to create one")
         return found
 
-    async def update(self, project_id: str, patch: ProjectPatch) -> ProjectConfig:
+    async def update(
+        self, project_id: str, patch: ProjectPatch, *, expected_etag: str | None = None
+    ) -> ProjectConfig:
         async with self.locks(project_id):
+            if expected_etag is not None:
+                self.check_etag(project_id, expected_etag)
             cur = self.get(project_id)
             changes = {
                 k: v for k, v in patch.model_dump(exclude_unset=True).items() if v is not None
@@ -620,7 +624,42 @@ class Workspace:
                 (i for i, s in enumerate(cur.segmentations) if s.seg_id == seg.seg_id), len(sets)
             )
             sets.insert(pos, seg)
-            new = cur.model_copy(update={"segmentations": sets, "updated_at": utc_now()})
+            default = cur.default_seg
+            if seg.active and not any(s.seg_id == default and s.active for s in sets):
+                default = seg.seg_id
+            new = cur.model_copy(
+                update={"segmentations": sets, "default_seg": default, "updated_at": utc_now()}
+            )
+            return self._save(new)
+
+    async def set_segmentation_active(
+        self, project_id: str, seg_id: str, active: bool
+    ) -> ProjectConfig:
+        """Soft-remove or restore a set without deleting its masks or provenance."""
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            found = next((s for s in cur.segmentations if s.seg_id == seg_id), None)
+            if found is None:
+                raise NotFound(f"Segmentation set {seg_id!r} not found")
+            if found.active == active:
+                return cur
+            sets = [
+                s.model_copy(update={"active": active}) if s.seg_id == seg_id else s
+                for s in cur.segmentations
+            ]
+            default = cur.default_seg
+            active_sets = [s for s in sets if s.active]
+            if not active and default == seg_id and active_sets:
+                default = active_sets[0].seg_id
+            elif active and not any(s.seg_id == default and s.active for s in cur.segmentations):
+                default = seg_id
+            new = cur.model_copy(
+                update={
+                    "segmentations": sets,
+                    "default_seg": default,
+                    "updated_at": utc_now(),
+                }
+            )
             return self._save(new)
 
     async def set_annotation_source(

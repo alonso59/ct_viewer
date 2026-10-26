@@ -768,13 +768,20 @@
     "noLabels": "No labels yet: they are named from mask values at import, or come from a study pack.",
     "addLabel": "Add label",
     "importLabels": "Import label file…",
-    "importHelp": "3D Slicer colour table (.ctbl), ITK-SNAP label description or nnU-Net dataset.json; labels with the same value are replaced, others kept.",
-    "imported": "{{n}} labels imported from {{kind}}",
+    "importHelp": "3D Slicer colour table (.ctbl), ITK-SNAP labels, nnU-Net dataset.json or a JSON label_map/label array.",
+    "catalogMode": "Label import mode",
+    "catalogMerge": "Merge by label value",
+    "catalogReplace": "Replace label catalog",
+    "catalogPreview": "{{n}} labels from {{kind}} loaded into the draft. Review the table and Save to apply.",
+    "catalogHelp": "Remove or import labels in this draft, then Save or Discard. This changes names, colors and display defaults; mask files and their voxel values stay intact. Reimport the original catalog to restore its entries.",
+    "actions": "Actions",
+    "removeLabel": "Remove label {{name}} from the catalog",
     "importFailed": "{{name}} is not a label file this app can read",
     "kind": {
       "slicer": "a 3D Slicer colour table",
       "itksnap": "an ITK-SNAP label description",
-      "nnunet": "an nnU-Net dataset.json"
+      "nnunet": "an nnU-Net dataset.json",
+      "project": "a JSON label catalog"
     },
     "defaultSeg": "Default segmentation set",
     "alias": "Alias",

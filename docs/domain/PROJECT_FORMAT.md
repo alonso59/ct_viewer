@@ -20,7 +20,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
 | PRJ-04 | Items store image paths as `ALIAS:relative/posix/path`, never as absolute paths. | M |
 | PRJ-05 | "Relink" edits an alias's root path and verifies it on a sample of items via quick fingerprint. | M |
 | PRJ-06 | Rename and archive a project (archive moves it to `projects/.archive/` and purges `cache/`); archive is refused while a job of the project runs (AUD-A5-10). The UI archives with a confirmation (File menu, home card) and restores from the home's Archived list. The UI and API **never** delete a project permanently; an admin removes archived folders on the filesystem. | M |
-| PRJ-07 | Label map is project-level and editable (name, value, color, default opacity/visibility); seeded from the project preset, or auto-named `label_{value}` from mask values when no preset applies. | S |
+| PRJ-07 | Label map is project-level and editable (name, value, color, default opacity/visibility); seeded from the project preset, or auto-named `label_{value}` from mask values when no preset applies. Settings supports removing catalog entries and importing/reimporting Slicer, ITK-SNAP, nnU-Net or JSON catalogs as a reviewed draft, merging by value or explicitly replacing the catalog before Save/Discard. These edits preserve source masks, voxel values and segmentation mappings; existing If-Match rules apply. | S |
 | PRJ-08 | Export a project bundle (`.zip` of the project folder without `cache/`, and never image data or DICOM sidecars, NFR-17). | S |
 | PRJ-09 | Import a bundle; the relink dialog opens if any alias fails to resolve. | S |
 | PRJ-10 | Everything under `index/` and `cache/` is derived and rebuildable; deleting `cache/` is always safe. | M |
@@ -66,6 +66,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
         │   ├── profiles/{profile_hash}.json
         │   └── runs/{run_id}/     # run.json, parts/*.parquet, features.parquet, errors.jsonl, run.log
         ├── tasks/runs/{run_id}/   # other task runs: run.json, items.jsonl, log.jsonl, masks.jsonl, annotations.jsonl (TSK-10)
+        ├── segmentations/imports/{artifact_id}/ # immutable manual mask manifest, source settings and validation report (SRC-20)
         ├── derived/runs.jsonl     # ledger of files written to the DERIVED root: run, task, refs, sha256 (ADR-0014)
         ├── events/{namespace}.jsonl # core event store per namespace (plugins, e.g. labeling, and native `phase`; ADR-0022, ADR-0026); curation keeps curation/events.jsonl
         ├── plugins/{plugin_id}/   # plugin state, e.g. labeling/tables.json (PLG-07)
@@ -107,7 +108,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
     "use_dicom_window": true, "wl_presets": null, "interpolation": "linear", "convention": "radiological"
   },
   "segmentations": [                          // ADR-0015
-    { "seg_id": "imported", "name": "", "kind": "imported", "producer": null, "label_mapping": { "1": 1, "2": 2, "3": 3 }, "unmatched": [], "created_at": "…" }
+    { "seg_id": "imported", "name": "", "kind": "imported", "producer": null, "label_mapping": { "1": 1, "2": 2, "3": 3 }, "unmatched": [], "created_at": "…", "active": true, "artifact_id": null }
   ],
   "default_seg": "imported",
   "annotation_sources": { "phase": null }     // active analyzer run per field (ANZ-04)

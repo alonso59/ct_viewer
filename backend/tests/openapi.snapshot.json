@@ -9978,8 +9978,106 @@
     "title": "SegRequirement",
     "type": "object"
    },
+   "SegmentationImportRequest": {
+    "properties": {
+     "item_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item Id"
+     },
+     "mode": {
+      "default": "auto",
+      "enum": [
+       "auto",
+       "combined",
+       "binary"
+      ],
+      "title": "Mode",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "maxLength": 200,
+      "title": "Name",
+      "type": "string"
+     },
+     "root": {
+      "minLength": 1,
+      "title": "Root",
+      "type": "string"
+     },
+     "seg_id": {
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+      "title": "Seg Id",
+      "type": "string"
+     },
+     "template": {
+      "default": "{case_id}.nii.gz",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Template",
+      "type": "string"
+     }
+    },
+    "required": [
+     "seg_id",
+     "root"
+    ],
+    "title": "SegmentationImportRequest",
+    "type": "object"
+   },
+   "SegmentationImportStarted": {
+    "properties": {
+     "import_id": {
+      "title": "Import Id",
+      "type": "string"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "string"
+     },
+     "matched": {
+      "title": "Matched",
+      "type": "integer"
+     },
+     "missing": {
+      "title": "Missing",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "import_id",
+     "job_id",
+     "matched",
+     "missing"
+    ],
+    "title": "SegmentationImportStarted",
+    "type": "object"
+   },
    "SegmentationInfo": {
     "properties": {
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     },
+     "artifact_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artifact Id"
+     },
      "created_at": {
       "default": "",
       "title": "Created At",
@@ -10081,6 +10179,22 @@
    "SegmentationSet": {
     "description": "`project.json.segmentations[]`: one mask per item, per set.",
     "properties": {
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     },
+     "artifact_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artifact Id"
+     },
      "created_at": {
       "default": "",
       "title": "Created At",
@@ -19883,6 +19997,16 @@
        "title": "Pid",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "removed",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Removed",
+       "type": "boolean"
+      }
      }
     ],
     "responses": {
@@ -19917,7 +20041,143 @@
     ]
    }
   },
+  "/api/v1/projects/{pid}/segmentations/imports": {
+   "post": {
+    "operationId": "import_segmentation_api_v1_projects__pid__segmentations_imports_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SegmentationImportRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SegmentationImportStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Segmentation",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/segmentations/reindex": {
+   "post": {
+    "operationId": "reindex_segmentations_api_v1_projects__pid__segmentations_reindex_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reindex Segmentations",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}/segmentations/{seg}": {
+   "delete": {
+    "operationId": "remove_segmentation_api_v1_projects__pid__segmentations__seg__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seg",
+      "required": true,
+      "schema": {
+       "title": "Seg",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Segmentation",
+    "tags": [
+     "segmentations"
+    ]
+   },
    "patch": {
     "operationId": "patch_segmentation_api_v1_projects__pid__segmentations__seg__patch",
     "parameters": [
@@ -19973,6 +20233,57 @@
      }
     },
     "summary": "Patch Segmentation",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/segmentations/{seg}/restore": {
+   "post": {
+    "operationId": "restore_segmentation_api_v1_projects__pid__segmentations__seg__restore_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seg",
+      "required": true,
+      "schema": {
+       "title": "Seg",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SegmentationInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restore Segmentation",
     "tags": [
      "segmentations"
     ]

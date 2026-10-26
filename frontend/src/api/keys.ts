@@ -60,7 +60,9 @@ export const keys = {
   workspaceRun: (rid: string) => ['workspace-runs', rid] as const,
   estimateProgress: (eid: string) => ['task-estimates', eid] as const,
   layers: (pid: string) => ['project', pid, 'layers'] as const,
-  segmentations: (pid: string) => ['project', pid, 'segmentations'] as const,
+  segmentations: (pid: string, removed = false) => removed
+    ? ['project', pid, 'segmentations', 'removed'] as const
+    : ['project', pid, 'segmentations'] as const,
   taskRuns: (pid: string) => ['project', pid, 'task-runs'] as const,
   archivedTaskRuns: (pid: string) => ['project', pid, 'task-runs', 'archived'] as const,
   taskRun: (pid: string, rid: string) => ['project', pid, 'task-runs', rid] as const,

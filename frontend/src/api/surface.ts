@@ -62,6 +62,8 @@ import type {
   PreflightResult,
   RootRole,
   SegmentationInfo,
+  SegmentationImportRequest,
+  SegmentationImportStarted,
   SegmentationPatch,
   ServerEvent,
   PluginList,
@@ -217,8 +219,12 @@ export interface Api {
   /** Thumbnail URL, or null when the binding renders thumbnails itself (mock) */
   thumbnailUrl(pid: string, iid: string): string | null
 
-  listSegmentations(pid: string): Promise<SegmentationInfo[]>
+  listSegmentations(pid: string, removed?: boolean): Promise<SegmentationInfo[]>
   patchSegmentation(pid: string, segId: string, patch: SegmentationPatch): Promise<SegmentationInfo>
+  importSegmentation(pid: string, body: SegmentationImportRequest): Promise<SegmentationImportStarted>
+  reindexSegmentations(pid: string): Promise<Job>
+  removeSegmentation(pid: string, segId: string): Promise<void>
+  restoreSegmentation(pid: string, segId: string): Promise<SegmentationInfo>
   /** URL of one set's mask (`seg` omitted = `default_seg`) */
   maskUrl(pid: string, iid: string, segId?: string): string | null
 

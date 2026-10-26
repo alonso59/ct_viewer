@@ -374,6 +374,26 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     get(f"{API}/source-operations")
     get(f"{API}/task-runs")
 
+    imported_seg = call(
+        "POST",
+        f"{P}/segmentations/imports",
+        {
+            "seg_id": "reviewed",
+            "name": "Reviewed masks",
+            "root": root,
+            "template": "seg/{scan_idx}_{case_id}.nii.gz",
+            "mode": "combined",
+            "item_id": None,
+        },
+    )
+    wait_jobs(c, pid)
+    assert c.get(f"{API}/jobs/{imported_seg['job_id']}").json()["status"] == "succeeded"
+    call("DELETE", f"{P}/segmentations/reviewed")
+    call("POST", f"{P}/segmentations/reviewed/restore")
+    call("DELETE", f"{P}/segmentations/reviewed")
+    call("POST", f"{P}/segmentations/reindex")
+    wait_jobs(c, pid)
+
     # Reads of the final state (what the workbench fetches)
     get(f"{API}/health")
     get(f"{API}/projects?archived=false")
@@ -387,6 +407,7 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     get(f"{P}/warnings", paged=True)
     get(f"{P}/variables")
     get(f"{P}/segmentations")
+    get(f"{P}/segmentations?removed=true")
     get(f"{P}/layers")
     get(f"{P}/annotations")
     get(f"{P}/curation/state")

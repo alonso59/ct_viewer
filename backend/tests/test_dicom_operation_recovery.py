@@ -157,7 +157,9 @@ def test_api_sigkill_inside_native_writer_resumes_pending_units_without_rewritin
         "native_api_child(Path(sys.argv[1]), sys.argv[2] == 'True', float(sys.argv[3]))"
     )
     sentinel = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(90)"], start_new_session=True
+        [sys.executable, "-c", "import sys; sys.stdin.buffer.read()"],
+        stdin=subprocess.PIPE,
+        start_new_session=True,
     )
     owner = None
     with (tmp_path / "native-api.log").open("w") as log:
@@ -169,7 +171,8 @@ def test_api_sigkill_inside_native_writer_resumes_pending_units_without_rewritin
             start_new_session=True,
         )
         try:
-            deadline = time.monotonic() + 25
+            # Setup includes four owned worker boots; shared CI load is not a cleanup deadline.
+            deadline = time.monotonic() + 90
             barriers: list[Path] = []
             while time.monotonic() < deadline:
                 assert api.poll() is None, (tmp_path / "native-api.log").read_text()

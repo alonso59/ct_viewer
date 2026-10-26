@@ -29,7 +29,7 @@ backend/app/
 │       jobs, events, view (API-60)
 ├── core/            # errors (problem+json, settings issues → errors), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, logs, redact (paths → alias refs, NFR-17), cache_budget (CACHE_MAX_GB LRU), reviewer (the `X-Reviewer` stamp rule)
 ├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
-├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, sidecars (IMP-15), full-hash job (IMP-09)
+├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, manual segmentation imports/manifests (SRC-20), sidecars (IMP-15), full-hash job (IMP-09)
 ├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions + service (open_service.py: open, attach, save; SRC-*)
 ├── layers/          # metadata layers joined onto the rows; dataset table (API-59, ADR-0020)
 ├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*); the service is split records → selection → jobspec → estimate → registration → driver → service

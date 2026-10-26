@@ -556,6 +556,9 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   if (e.event === 'index.rebuilt') {
     void qc.invalidateQueries({ queryKey: keys.project(pid) })
     void qc.invalidateQueries({ queryKey: keys.projects() })
+    void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
+    void qc.invalidateQueries({ queryKey: keys.scope(pid, 'case') })
+    void qc.invalidateQueries({ queryKey: keys.scope(pid, 'item') })
   }
   if (e.event === 'project.updated' && e.data.fields.includes('recycle')) {
     void refreshQueries(qc, keys.project(pid))
@@ -563,6 +566,8 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   }
   if (e.event === 'project.updated') {
     void qc.invalidateQueries({ queryKey: keys.project(pid) })
+    if (e.data.fields.includes('segmentations'))
+      void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
     if (e.data.fields.includes('variables')) invalidateVariables(qc, pid)
     // Bulk curation imports (> 500 events) publish one `project.updated` instead of per-event SSE
     if (e.data.fields.includes('curation')) invalidateCuration(qc, pid)
@@ -592,6 +597,46 @@ export const usePlugins = (pid: string | null) =>
 export const useTasks = () => useQuery({ queryKey: keys.tasks(), queryFn: () => api.listTasks(), staleTime: 30_000 })
 export const useSegmentations = (pid: string) =>
   useQuery({ queryKey: keys.segmentations(pid), queryFn: () => api.listSegmentations(pid), enabled: enabled(pid) })
+export const useRemovedSegmentations = (pid: string) =>
+  useQuery({ queryKey: keys.segmentations(pid, true), queryFn: () => api.listSegmentations(pid, true), enabled: enabled(pid) })
+
+export function useImportSegmentation(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Parameters<typeof api.importSegmentation>[1]) => api.importSegmentation(pid, body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allJobs() }),
+  })
+}
+
+export function useReindexSegmentations(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.reindexSegmentations(pid),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allJobs() }),
+  })
+}
+
+export function useRemoveSegmentation(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (segId: string) => api.removeSegmentation(pid, segId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
+      void qc.invalidateQueries({ queryKey: keys.project(pid) })
+    },
+  })
+}
+
+export function useRestoreSegmentation(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (segId: string) => api.restoreSegmentation(pid, segId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
+      void qc.invalidateQueries({ queryKey: keys.project(pid) })
+    },
+  })
+}
 /** Polls while a supervised run waits for its verified cleanup: no job event announces it */
 const STOPPING_RUN: readonly string[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
 export const useTaskRuns = (pid: string) =>

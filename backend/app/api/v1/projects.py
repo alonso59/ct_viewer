@@ -128,7 +128,7 @@ async def patch_project(
 ) -> ProjectDetail:
     ctx.workspace.check_etag(pid, if_match)
     before = ctx.workspace.get(pid)
-    after = await ctx.workspace.update(pid, patch)
+    after = await ctx.workspace.update(pid, patch, expected_etag=if_match)
     fields = [f for f in sorted(patch.model_fields_set) if getattr(before, f) != getattr(after, f)]
     if "default_seg" in fields:
         ctx.index.invalidate(pid)  # the deprecated `mask` alias follows default_seg

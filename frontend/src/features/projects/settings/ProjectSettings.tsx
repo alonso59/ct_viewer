@@ -97,6 +97,7 @@ function SaveBar({ pid, dirty, patch, etag, onSaved, onDiscard }: { pid: string;
       <button type="button" className="btn btn-primary" disabled={!dirty || update.isPending} onClick={() => void save(etag).catch(() => undefined)}>
         {t('common.save')}
       </button>
+      {!conflict ? <button type="button" className="btn" disabled={!dirty || update.isPending} onClick={onDiscard}>{t('psettings.discard')}</button> : null}
     </div>
   )
 }
@@ -234,6 +235,7 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
   const d = useDraft(project, (p) => ({ label_map: p.label_map, default_seg: p.default_seg }))
   const sets = useSegmentations(pid).data ?? []
   const [importError, setImportError] = useState<string | null>(null)
+  const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge')
   if (!d.value) return null
   const v = d.value
   const edit = (value: number, patch: Partial<LabelDef>) => d.set({ ...v, label_map: v.label_map.map((l) => (l.value === value ? { ...l, ...patch } : l)) })
@@ -242,8 +244,8 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
     setImportError(null)
     try {
       const { kind, labels } = parseLabelFile(file.name, await file.text())
-      d.set({ ...v, label_map: mergeLabels(v.label_map, labels) })
-      toast({ message: t('psettings.imported', { n: labels.length, kind: t(`psettings.kind.${kind}`) }), tone: 'ok' })
+      d.set({ ...v, label_map: importMode === 'replace' ? labels : mergeLabels(v.label_map, labels) })
+      toast({ message: t('psettings.catalogPreview', { n: labels.length, kind: t(`psettings.kind.${kind}`) }), tone: 'info' })
     } catch {
       setImportError(t('psettings.importFailed', { name: file.name }))
     }
@@ -253,7 +255,7 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
     <div className="psettings-form">
       <table className="psettings-table">
         <thead>
-          <tr><th>{t('labels.value')}</th><th>{t('labels.name')}</th><th>{t('psettings.color')}</th><th>{t('psettings.opacity')}</th><th>{t('psettings.visible')}</th></tr>
+          <tr><th>{t('labels.value')}</th><th>{t('labels.name')}</th><th>{t('psettings.color')}</th><th>{t('psettings.opacity')}</th><th>{t('psettings.visible')}</th><th>{t('psettings.actions')}</th></tr>
         </thead>
         <tbody>
           {v.label_map.map((l) => (
@@ -263,6 +265,7 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
               <td><input type="color" className="label-swatch" aria-label={t('labels.color', { name: l.name })} value={l.color} onChange={(e) => edit(l.value, { color: e.target.value.toUpperCase() })} /></td>
               <td><NumberInput className="input input-sm num" min={0} max={1} step={0.05} aria-label={t('psettings.opacity')} value={l.opacity} onChange={(n) => edit(l.value, { opacity: n ?? 0 })} /></td>
               <td><input type="checkbox" aria-label={t('labels.visible', { name: l.name })} checked={l.visible} onChange={(e) => edit(l.value, { visible: e.target.checked })} /></td>
+              <td><button type="button" className="btn btn-sm" aria-label={t('psettings.removeLabel', { name: l.name })} onClick={() => d.set({ ...v, label_map: v.label_map.filter((entry) => entry.value !== l.value) })}>{t('layers.remove')}</button></td>
             </tr>
           ))}
         </tbody>
@@ -270,12 +273,17 @@ function Labels({ pid, project }: { pid: string; project: Project }) {
       {!v.label_map.length ? <p className="muted">{t('psettings.noLabels')}</p> : null}
       <div className="psettings-row">
         <button type="button" className="btn btn-sm" onClick={() => d.set({ ...v, label_map: [...v.label_map, { value: nextValue, name: `label_${nextValue}`, color: autoLabelColor(nextValue), opacity: 0.2, visible: true }] })}>{t('psettings.addLabel')}</button>
+        <select className="select input-sm" aria-label={t('psettings.catalogMode')} value={importMode} onChange={(event) => setImportMode(event.target.value as typeof importMode)}>
+          <option value="merge">{t('psettings.catalogMerge')}</option>
+          <option value="replace">{t('psettings.catalogReplace')}</option>
+        </select>
         <label className="btn btn-sm">
           {t('psettings.importLabels')}
-          <input type="file" accept=".ctbl,.txt,.json,.label" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
+          <input type="file" aria-label={t('psettings.importLabels')} accept=".ctbl,.txt,.json,.label" hidden onChange={(e) => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; void onFile(file) }} />
         </label>
       </div>
       <span className="muted psettings-help">{t('psettings.importHelp')}</span>
+      <span className="muted psettings-help">{t('psettings.catalogHelp')}</span>
       {importError ? <div className="error-card">{importError}</div> : null}
       <Field label={t('psettings.defaultSeg')}>
         <select className="input" value={v.default_seg} onChange={(e) => d.set({ ...v, default_seg: e.target.value })}>

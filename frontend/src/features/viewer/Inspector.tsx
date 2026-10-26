@@ -1,9 +1,19 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useProject, useSegmentations } from '../../api'
 import { NumberInput } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
+import { SegmentationControls } from './SegmentationControls'
+
+function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixed: boolean; onChange: (checked: boolean) => void; label: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = mixed
+  }, [mixed])
+  return <input ref={ref} type="checkbox" aria-label={label} checked={checked} onChange={(event) => onChange(event.target.checked)} />
+}
 
 export function LayersSection() {
   const { t } = useTranslation()
@@ -12,10 +22,25 @@ export function LayersSection() {
   const labels = project?.label_map ?? []
   const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
-  const active = v.segChoice[pid] ?? project?.default_seg ?? 'imported'
+  const preferred = v.segChoice[pid] ?? project?.default_seg
+  const active = sets.some((set) => set.seg_id === preferred) ? (preferred ?? '') : (sets[0]?.seg_id ?? '')
+  const visible = labels.filter((label) => v.labelVisibility[label.value] ?? label.visible).length
+  const setAll = (show: boolean) => v.set({
+    labelVisibility: {
+      ...v.labelVisibility,
+      ...Object.fromEntries(labels.map((label) => [label.value, show])),
+    },
+  })
+  const removed = (segId: string) => {
+    const next = sets.find((set) => set.seg_id !== segId)?.seg_id
+    const choices = { ...v.segChoice }
+    if (next) choices[pid] = next
+    else delete choices[pid]
+    v.set({ segChoice: choices, shownSeg: null })
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-panel)' }}>
-      {sets.length > 1 ? (
+      {sets.length ? (
         <label className="field">
           <span className="field-label">{t('layers.segSet')}</span>
           <select className="select input-sm" value={active} onChange={(e) => v.set({ segChoice: { ...v.segChoice, [pid]: e.target.value } })}>
@@ -31,6 +56,12 @@ export function LayersSection() {
         <input type="checkbox" checked={v.overlay} onChange={(e) => v.set({ overlay: e.target.checked })} />
         {t('viewer.overlay')}
       </label>
+      {labels.length ? (
+        <label className="check">
+          <AllLabels checked={visible === labels.length} mixed={visible > 0 && visible < labels.length} onChange={setAll} label={t('layers.toggleAll')} />
+          {t(visible === labels.length ? 'layers.hideAll' : 'layers.showAll')}
+        </label>
+      ) : null}
       <label className="field">
         <span className="field-label">{t('layers.globalOpacity', { v: Math.round(v.overlayOpacity * 100) })}</span>
         <input type="range" min={0} max={1} step={0.05} value={v.overlayOpacity} onChange={(e) => v.set({ overlayOpacity: +e.target.value })} />
@@ -49,6 +80,9 @@ export function LayersSection() {
           </div>
         )
       })}
+      {!project?.read_only ? (
+        <SegmentationControls pid={pid} sets={sets} active={active} itemId={v.activeItemId} onRemoved={removed} />
+      ) : null}
     </div>
   )
 }

@@ -650,9 +650,19 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       unwrap(client.POST('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, header: { 'x-reviewer': reviewer } }, body: spec })),
     exportAnalysis: (pid, aid, file) => blob(`/projects/${enc(pid)}/analyses/${enc(aid)}/export?file=${file}`),
 
-    listSegmentations: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid } } })),
+    listSegmentations: (pid, removed = false) =>
+      unwrap(client.GET('/api/v1/projects/{pid}/segmentations', { params: { path: { pid }, query: removed ? { removed } : {} } })),
     patchSegmentation: (pid, seg, body) =>
       unwrap(client.PATCH('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } }, body })),
+    importSegmentation: (pid, body) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/segmentations/imports', { params: { path: { pid } }, body })),
+    reindexSegmentations: async (pid) =>
+      normalizeJob(await unwrap(client.POST('/api/v1/projects/{pid}/segmentations/reindex', { params: { path: { pid } } }))),
+    async removeSegmentation(pid, seg) {
+      await unwrap(client.DELETE('/api/v1/projects/{pid}/segmentations/{seg}', { params: { path: { pid, seg } } }))
+    },
+    restoreSegmentation: (pid, seg) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/segmentations/{seg}/restore', { params: { path: { pid, seg } } })),
     maskUrl: (pid, iid, seg) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`),
 
     listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),

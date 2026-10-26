@@ -142,6 +142,14 @@ def test_view_only_never_returns_project_id_or_server_paths(
     assert run["output_dir"].startswith(f"DERIVED:view-{token}/")
     jobs = env.get(f"{v}/jobs").json()
     assert jobs and {j["project_id"] for j in jobs} == {f"view-{token}"}
+    for method, path in [
+        ("POST", "/segmentations/imports"),
+        ("POST", "/segmentations/reindex"),
+        ("DELETE", "/segmentations/imported"),
+        ("POST", "/segmentations/imported/restore"),
+        ("PATCH", ""),
+    ]:
+        assert env.request(method, v + path, json={}).status_code == 405
     # include_sensitive stays allowed on view-only (owner 2026-09-26), paths still redacted
     rows = env.get(
         f"{v}/exports/dataset-table", params={"format": "jsonl", "include_sensitive": True}

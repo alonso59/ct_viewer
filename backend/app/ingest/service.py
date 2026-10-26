@@ -55,7 +55,7 @@ from app.ingest.schemas import (
     ScanGroup,
     SourceInfo,
 )
-from app.ingest.segsets import apply_task_masks, task_masks
+from app.ingest.segsets import apply_registered_masks
 from app.ingest.store import IndexStore
 from app.ingest.validator import finalize, probes_for
 from app.jobs.manager import JobManager
@@ -488,7 +488,7 @@ class IngestService:
                     previous = self.store.load(project_id).by_id
                     items, warnings = finalize(drafts, results, previous, import_id)
                     cfg = self.workspace.get(project_id)
-                    apply_task_masks(items, task_masks(self.workspace.project_dir(project_id), cfg))
+                    apply_registered_masks(items, self.workspace.project_dir(project_id), cfg)
                     cases = build_cases(items, warnings, rules, cfg.phase_priority)
                     self.store.replace(project_id, items, cases, warnings)
                     n_items, n_excluded = split_items(i.status for i in items)
@@ -558,7 +558,7 @@ class IngestService:
         return job_id
 
     async def reapply_segmentations(self, project_id: str) -> None:
-        """Re-join task segmentation sets into the derived index."""
+        """Rejoin registered segmentation manifests into the derived index."""
         async with self.locks(project_id):
             idx = self.store.load_resolved(project_id)  # never the phase join
             if not idx.items:
@@ -567,7 +567,7 @@ class IngestService:
             items = [i.model_copy(deep=True) for i in idx.items]
             for it in items:
                 it.masks = {k: v for k, v in it.masks.items() if k == "imported"}
-            apply_task_masks(items, task_masks(self.workspace.project_dir(project_id), cfg))
+            apply_registered_masks(items, self.workspace.project_dir(project_id), cfg)
             rules = self.phase_rules(project_id)
             cases = build_cases(items, idx.warnings, rules, cfg.phase_priority)
             self.store.replace(project_id, items, cases, idx.warnings)

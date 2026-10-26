@@ -5,7 +5,7 @@ Python 3.12 · FastAPI · Pydantic v2. Package `app/`, dev tools `tools/`, tests
 **Owns** (per-package detail: `docs/backend/ARCHITECTURE.md` §Module layout)
 - `api/v1/`: thin routers (validate → call service → map errors).
 - `core/`: every path resolution and file write (`paths`, `fsio`), problem+json errors, locks, redaction of host paths.
-- Data in: `projects`, `sources` (adapters, Open mode), `ingest`, `layers`.
+- Data in: `projects`, `sources` (adapters, Open mode), `ingest` (imports, indexing, manual segmentation manifests; SRC-20), `layers`.
 - Review state: `eventstore` → `curation`, `labeling`, `phase`.
 - Compute: `tasks` (with `plugins` loader and `selection`), `jobs`, `radiomics`, `imaging`, `events` (SSE).
 - Analysis: `variables`, `analytics`.

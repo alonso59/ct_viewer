@@ -162,16 +162,18 @@ timing-based attempts to catch a particular filesystem write or proof of every b
 - Claude cleanup was fast-forwarded at `4eb56a9`, with retained frontend behavior and 44 focused
   merge cases passing. Its requested worktree/branch were removed. Earlier main-tree edits
   remain preserved in stash `c3427bad`; `scripts/claude` is retained untouched and untracked.
-- `0232b5d` is deployed on john at port 5180. CI run `40290324632` passed full verification and
+- `8a77665` is deployed on john at port 5180. CI run `40299871973` passed full verification and
   Docker/image checks. The same image passed non-root uid-1008 udocker conversion, queued API
   SIGKILL/restart, cancel/resume and restored Open with unchanged source/output hashes.
-  Evidence: `dicom-product-0232b5d/acceptance.json`; release/rollback metadata lives in the
+  Evidence: `dicom-product-8a77665/acceptance.json`; release/rollback metadata lives in the
   production release record. This does not certify active-pixel or cross-container barriers.
-- Timing/diagnostic release `0232b5d` passed full static/unit/contract/bundle checks, serial
-  runner regressions, Chromium/Firefox and the Docker product-image job in CI `40290324632`.
-  Source/CRC read optimizations and import handoff fixes are published as `8a77665`, tree
-  `0958a6822377212272ad3334529bc41f620844b4`; CI `40299871973` is in progress. They are
-  not covered by the older release's acceptance. Subsequent native/GDCM cases need their own CI.
+- Release `8a77665`, tree `0958a6822377212272ad3334529bc41f620844b4`, includes the
+  timing/diagnostic work, source/CRC read optimizations and import handoff fixes. Full static,
+  unit, contract, bundle, serial runner, Chromium/Firefox and Docker gates passed.
+  The subsequent native/GDCM cases at `c745e5d` reached 1,183 passed / one failed in CI
+  `40301621809`: the new writer-barrier test exhausted its combined worker-startup wait under
+  full-suite load. The current fix separates that setup allowance from the unchanged five-second
+  cleanup assertion; it requires a fresh CI result. Production excludes that later test-only commit.
 - Cleanup removes redundant work/forwarding and keeps checks at real file/process boundaries.
   Ruff, affected strict types, knip/vulture and the 426-ID requirement check pass locally.
   Full regression runs in GitHub under the owner workflow; no GPU workload was launched.
@@ -180,6 +182,7 @@ timing-based attempts to catch a particular filesystem write or proof of every b
 
 | Measurement | Result and limit |
 |---|---|
+| P01/P05 inventory control on john, three read-only TCGA samples, four assigned CPUs | HTTP start acknowledgment 6–37 ms; cancel acknowledgment 1.8–2.2 ms; confirmed cleanup 0.16–0.22 s, with the owned group gone and an unrelated process alive (`dicom-reference-controls-v2/result.json`). These are listing/header cancellation samples, not native-writer cancellation or full-load RSS acceptance; the recorded progress observation was after at least 1,000 files. |
 | P02 pure enumeration, same 141,164-file TCGA membership hash, three alternating warm runs | Old median 18.70 s; streamed 6.66 s (2.81×), four assigned CPUs, no cache resets. `dicom-enumeration-benchmark.json`. This is not header or pixel acceptance. |
 | Conversion history overhead, 12 tiny synthetic series with 2,048 prior samples | Batched observations measured 1.5% overhead, equal source hashes/voxels/affines (`dicom-eta-batched-overhead.log`). Synthetic hold-out covers 31/31, 3.3% mean relative error, but interval width is 99.1% of point estimate. This does not certify useful reference P06 calibration. |
 | P03 principal converter, three 512×512×96 Gaussian-HU synthetic volumes, three pairs | After removing repeated reads, guarded current median 5.31 s versus principal 4.25 s, with equal source hashes/voxels/affines (`dicom-single-pass-principal-benchmark.json`). The remaining 25% overhead is real, not noise or a passed 10% target. CRC plus strong source/artifact verification account for most remaining cost. An isolated optional-decoder/parallel-hash experiment did not meet the target and was not added as a dependency. |

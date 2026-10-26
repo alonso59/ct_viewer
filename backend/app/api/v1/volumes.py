@@ -57,7 +57,10 @@ async def _serve(
         if vol is None:
             raise NotFound("item has no image")
     else:
-        seg_id = seg or ctx.workspace.get(pid).default_seg
+        cfg = ctx.workspace.get(pid)
+        seg_id = seg or cfg.default_seg
+        if cfg.segmentation(seg_id) is None:
+            raise NotFound(f"Segmentation set {seg_id!r} is removed or unknown")
         vol = item.masks.get(seg_id)
         if vol is None:
             raise NotFound(f"item has no mask in segmentation set {seg_id!r}")

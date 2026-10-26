@@ -116,7 +116,10 @@ class CurationService:
             if int(body.target.removeprefix("label:")) not in values:
                 raise _invalid("target", f"label value not in label map: {sorted(values)}")
         mask_target = body.target in ("seg", "voi_mask") or body.target.startswith("label:")
-        if body.seg_id is not None and (not mask_target or cfg.segmentation(body.seg_id) is None):
+        seg_id = body.seg_id or cfg.default_seg
+        if (body.seg_id is not None and not mask_target) or (
+            mask_target and cfg.segmentation(seg_id) is None
+        ):
             raise _invalid("seg_id", "seg_id must name a segmentation set, on mask targets only")
         return case_id, item
 

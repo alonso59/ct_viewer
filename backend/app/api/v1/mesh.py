@@ -43,7 +43,10 @@ async def get_mesh(
     """`seg` = segmentation set; default `default_seg`."""
     mesh.check_params(label, smooth)
     item = ctx.index.get_item(pid, iid)
-    seg_id = seg or ctx.workspace.get(pid).default_seg
+    cfg = ctx.workspace.get(pid)
+    seg_id = seg or cfg.default_seg
+    if cfg.segmentation(seg_id) is None:
+        raise NotFound(f"Segmentation set {seg_id!r} is removed or unknown")
     vol = item.masks.get(seg_id)
     if vol is None:
         raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
