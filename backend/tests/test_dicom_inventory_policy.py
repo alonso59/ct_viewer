@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -106,7 +107,10 @@ def test_retention_protects_open_sessions_import_drafts_and_interrupted_work(
         assert (root / recoverable["operation_id"] / "inventory.sqlite").is_file()
 
 
-def test_corrupt_history_does_not_prevent_startup_or_other_operations(tmp_path: Path) -> None:
+@pytest.mark.parametrize("damage", ["torn_json", "old_version", "future_version", "missing_source"])
+def test_corrupt_history_does_not_prevent_startup_or_other_operations(
+    tmp_path: Path, damage: str
+) -> None:
     source = tmp_path / "source"
     nii(source / "image.nii.gz", ct())
     settings = Settings(
@@ -120,7 +124,15 @@ def test_corrupt_history_does_not_prevent_startup_or_other_operations(tmp_path: 
         / original["operation_id"]
         / "operation.json"
     )
-    damaged = b'{"version": '
+    saved = json.loads(record.read_text())
+    if damage == "torn_json":
+        damaged = b'{"version": '
+    else:
+        if damage == "missing_source":
+            del saved["source"]
+        else:
+            saved["version"] = 0 if damage == "old_version" else 2
+        damaged = json.dumps(saved).encode()
     record.write_bytes(damaged)
     with TestClient(create_app(settings, inline_jobs=True)) as client:
         response = client.get(f"{API}/{original['operation_id']}")

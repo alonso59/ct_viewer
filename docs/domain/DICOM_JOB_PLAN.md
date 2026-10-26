@@ -133,7 +133,7 @@ history. A test file or a narrower pass does not certify its entire matrix row.
 
 | Area / matrix portions | Implemented behavior | Decisive evidence |
 |---|---|---|
-| Discovery / D01–D07, D10–D12 | Streamed guarded traversal; suffix-independent bounded headers; complete directory+UID groups; durable SQLite batches and generation invalidation; typed bad/missing/duplicate identity diagnostics and cross-folder UID warning. | `test_dicom_discovery.py`, `test_dicom_scan.py`, `test_source_inventory.py`, `test_dicom_identity.py`; actual 750-slice geometry, six independent GDCM mixed-UID/encoding cases and two native enhanced CT/MR geometry cases. |
+| Discovery / D01–D07, D10–D12 | Streamed guarded traversal; suffix-independent bounded headers; complete directory+UID groups; durable SQLite batches and generation invalidation; typed bad/missing/duplicate identity diagnostics and cross-folder UID warning. | `test_dicom_discovery.py`, `test_dicom_scan.py`, `test_source_inventory.py`, `test_dicom_identity.py`; actual 750-slice geometry, 12 independent GDCM mixed-UID/encoding cases (implicit/explicit little-endian, big-endian, deflated, RLE and JPEG 2000 lossless) and two native enhanced CT/MR geometry cases. |
 | Operations / D08–D16, D32–D33 | Durable start/control receipts, fenced attempts/revisions, generation-paged reads, retained results, restart reconciliation, shared Open/import/conversion window. | `test_source_operations_api.py`, `test_dicom_operation_recovery.py`, `test_dicom_progress.py`, `test_source_detection.py`; real SIGKILL inventory/header tests and recorded frontend exchanges. |
 | Open / D02, D09, D31, U08 | Complete chosen series, later pages, lazy hydration, attached masks and Save; retained geometry/stat pins refuse changed or lost dependencies. | `test_open_paging.py`, `test_source_open.py`, `test_source_operations_api.py`, `test_open_convert_once.py`; Open/background/paging Chromium and Firefox journeys. Same-stat rewrites are outside the stat-based hydration check. |
 | Import continuation / U02, U06, B04/B08 portions | Server-retained form edits, Preview, commit identity and Index; minimize/reload/cancel/resume; explicit project selection; reused snapshots; lightweight polling, damaged-preview repreparation and cancellation through the Index handoff. | `test_source_import_context.py`, `ImportWizard.test.tsx`, `Host.test.tsx`, `import-background.spec.ts`, `p2-flow.spec.ts`; 37 affected backend/API cases pass, including parser responsiveness, one NIfTI scan and deterministic finalization barriers. |
@@ -162,14 +162,14 @@ timing-based attempts to catch a particular filesystem write or proof of every b
 - Claude cleanup was fast-forwarded at `4eb56a9`, with retained frontend behavior and 44 focused
   merge cases passing. Its requested worktree/branch were removed. Earlier main-tree edits
   remain preserved in stash `c3427bad`; `scripts/claude` is retained untouched and untracked.
-- `50d83ca` is deployed on john at port 5180. CI run `40331738997` passed full verification and
-  Docker/image checks: 1,196 backend, 431 frontend, 108 serial runner and 76 browser tests.
+- `29bac01` is deployed on john at port 5180. CI run `40371515442` passed full verification and
+  Docker/image checks: 1,200 backend, 431 frontend, 108 serial runner and 76 browser tests.
   The same image passed non-root uid-1008 udocker conversion, queued API
   SIGKILL/restart, cancel/resume and restored Open with unchanged source/output hashes.
-  Evidence: `dicom-product-50d83ca/acceptance.json`; release/rollback metadata lives in the
+  Evidence: `dicom-product-29bac01/acceptance.json`; release/rollback metadata lives in the
   production release record. This does not certify active-pixel or cross-container barriers.
-- Release tree `8717d57501503fe3d81cdc0e8852e4bbcc33c1fc` includes timing/diagnostic work,
-  source/CRC read optimizations, import handoff fixes and segmentation import/catalog controls.
+- Release tree `b760c138663c2b9f3d26d19fdf826707339fb8b7` includes timing/diagnostic work,
+  source/CRC read optimizations, faster gzip, import handoff fixes and segmentation import/catalog controls.
   Native/GDCM cases are included in the passing full suite. Their setup allowance is separate
   from the unchanged five-second worker cleanup assertion.
 - Two disposable udocker containers with separate workspaces and a shared allocation pool
@@ -188,23 +188,38 @@ timing-based attempts to catch a particular filesystem write or proof of every b
 - Cleanup removes redundant work/forwarding and keeps checks at real file/process boundaries.
   Ruff, affected strict types, knip/vulture and the 427-ID requirement check pass locally.
   Full regression runs in GitHub under the owner workflow; no GPU workload was launched.
-- The subsequent compression change passed 63 focused publication/resume/ETA/native-writer
+- The compression change passed 63 focused publication/resume/ETA/native-writer
   cases and 45 CLI/converter/layering cases. Ruff, strict types (243 sources) and vulture pass.
   The first focused run caught nondeterministic gzip filenames/timestamps; fixed headers now
   preserve identical uninterrupted/resumed bytes. Write/close failures remove both temporaries,
-  old gzip commits retain bytes/mtime, and compressor changes fence ETA history. Full CI and
-  same-image rollout for this change are pending; the deployed segmentation release stays available.
+  old gzip commits retain bytes/mtime, and compressor changes fence ETA history. Full CI,
+  same-image Docker/udocker checks and rollout passed.
+- A drained disposable workspace passed packaged-image rollback/forward `29bac01` →
+  `50d83ca` → `29bac01` as uid 1008. Both readers restore the same two Open images and
+  completed run; all source/derived bytes remain unchanged, including ISA-L gzip artifacts.
+  Evidence: `dicom-product-29bac01/rollback-acceptance.json`. This is format compatibility
+  after drain, not permission to roll an old reader onto incompatible active records.
+- Additional acceptance extends the native codec oracle to deflated/RLE/JPEG 2000 lossless
+  and checks torn JSON, unsupported old/future record versions and a missing required source.
+  Each damaged record remains byte-identical and produces an actionable conflict while fresh
+  operations still complete. The 12 codec and four record cases pass locally; their CI is pending.
+  The RLE oracle uses 64×64 images: the installed native reader rejects the initially tried
+  4×3/4×4 RLE fixtures even though pydicom decodes them. This is a reader limitation, not a
+  reason to bypass it or fabricate a successful conversion.
 
 ### Performance observations and remaining closure
 
 | Measurement | Result and limit |
 |---|---|
-| P01/P05 inventory control on john, three read-only TCGA samples, four assigned CPUs | HTTP start acknowledgment 6–37 ms; cancel acknowledgment 1.8–2.2 ms; confirmed cleanup 0.16–0.22 s, with the owned group gone and an unrelated process alive (`dicom-reference-controls-v2/result.json`). These are listing/header cancellation samples, not native-writer cancellation or full-load RSS acceptance; the recorded progress observation was after at least 1,000 files. |
+| P01/P05 inventory control on john, three read-only TCGA samples, four assigned CPUs | HTTP start acknowledgment 5–38 ms; first nonzero progress 0.73–0.86 s; cancel acknowledgment 2.0–2.5 ms; confirmed cleanup 0.16–0.19 s, with the owned group gone and an unrelated process alive (`dicom-reference-controls-v3/result.json`). These are listing/header cancellation samples, not native-writer cancellation or full-load RSS acceptance. |
+| P04 disposable real API, 201,128 mixed files and 1,005 complete DICOM series | Start acknowledgment 38 ms; full header inventory 37.2 s; three bounded 500-series pages 82–121 ms, no duplicate/missing series. API RSS 201.1→202.3 MiB; sampled worker peak 187.4 MiB (`dicom-large-api-inventory/result.json`). Source image hashes unchanged; 200,123 listing-only text files remain present; no pixel output. This is a local synthetic filesystem workload, not TCGA throughput or pixel-memory acceptance. |
 | P02 pure enumeration, same 141,164-file TCGA membership hash, three alternating warm runs | Old median 18.70 s; streamed 6.66 s (2.81×), four assigned CPUs, no cache resets. `dicom-enumeration-benchmark.json`. This is not header or pixel acceptance. |
 | Conversion history overhead, 12 tiny synthetic series with 2,048 prior samples | Batched observations measured 1.5% overhead, equal source hashes/voxels/affines (`dicom-eta-batched-overhead.log`). Synthetic hold-out covers 31/31, 3.3% mean relative error, but interval width is 99.1% of point estimate. This does not certify useful reference P06 calibration. |
+| P06 actual native conversion, synthetic 512×512 CT, 64–120 slices, native/RLE/JPEG 2000 lossless | Five completed training series per codec, then nine frozen hold-outs: 9/9 covered, mean relative error 1.25%, mean range width 54.3% of the point estimate (`dicom-eta-codec-holdout/result.json`). All voxel arrays/affines and source hashes match; process peak 705 MiB. The training cohort is flushed before hold-out forecasts; hold-outs never train history. Sidecars/anonymization off, four assigned CPUs, shared john host. This measures per-unit conversion ETA for those classes; unseen codecs/storage/geometries retain unknown/low confidence. |
 | P03 principal converter, three 512×512×96 Gaussian-HU synthetic volumes, three pairs | After removing repeated reads, guarded current median 5.31 s versus principal 4.25 s, with equal source hashes/voxels/affines (`dicom-single-pass-principal-benchmark.json`). The remaining 25% overhead is real, not noise or a passed 10% target. CRC plus strong source/artifact verification account for most remaining cost. An isolated optional-decoder/parallel-hash experiment did not meet the target and was not added as a dependency. |
 | Isolated P03 decoder experiment, same synthetic workload and three alternating pairs | ISA-L CRC plus parallel SHA on a pinned inode measured 4.87 s versus principal 4.14 s (17.7% overhead), with equal voxels/affines and unchanged sources (`dicom-native-decode-parallel-digest.json`). Still fails the target; no dependency or product change adopted. |
 | Native NIfTI plus ISA-L gzip, three alternating synthetic pairs | Working implementation median 2.25 s versus principal 4.21 s (46.6% faster), with unchanged CRC/SHA/geometry checks, equal voxels/affines and unchanged sources (`dicom-fast-compression-product-benchmark.json`). Compressed output is 0.16% larger; one uncompressed-volume temporary is needed. Native default gzip and ISA-L level 2 differ, so the tradeoff is explicit. This improves the synthetic comparison, not representative P03/P06 acceptance. |
+| P03 mixed-codec native/RLE/JPEG 2000 lossless CT, 512×512×96, three alternating pairs | Current median 7.11 s versus principal 12.33 s (42.3% faster), with equal voxel arrays/affines and unchanged source hashes (`dicom-mixed-codec-principal-benchmark.json`). Outputs are 1.79% larger; one raw-volume temporary remains the disk tradeoff. Trial variation is below 1% per implementation, with four assigned CPUs and no cache reset. This passes the throughput target for this synthetic mixed-codec reference workload; it does not claim real TCGA pixel throughput or every storage/codec combination. |
 
 The current optimization reuses the run's complete preflight manifest for fresh units, then
 rehashes after decoding; existing prepared/committed units still rehash before recovery/reuse.
@@ -225,10 +240,10 @@ The plan is not closed. Required remaining evidence is the full matrix in
 - Every B01–B08 interruption/failure/keyboard/theme journey in both browsers, including active
   pixel death rather than queued/header-only interruption. Published full existing journeys pass;
   that alone does not assert the entire new matrix.
-- Representative P01–P06 latency, throughput, RSS and ETA calibration. P02 enumeration is measured;
-  the production writer's original P03 comparison failed; the new compression implementation
-  improves that synthetic lane but still needs representative throughput/space evidence and
-  final CI/image acceptance. P06 remains low confidence.
+- Real-data pixel throughput/geometry and broader workload validation beyond the measured
+  P01–P06 lanes above. The old P03 comparison failed; the current writer passes the synthetic
+  native and mixed-codec comparisons. P06 is measured for three 512×512 regular CT classes;
+  other codecs/storage/geometries retain unknown/low confidence.
 - Preserve CI/image/udocker acceptance and rollout for any further code changes. Preserve compatibility or
   restore a drained metadata snapshot when rolling back; never treat an old image as a migration.
 

@@ -24,7 +24,15 @@ from tools.dicom_fixtures import MARKER, write_series
 
 
 @pytest.mark.parametrize(
-    "syntax", ["1.2.840.10008.1.2", "1.2.840.10008.1.2.1", "1.2.840.10008.1.2.2"]
+    "syntax",
+    [
+        "1.2.840.10008.1.2",
+        "1.2.840.10008.1.2.1",
+        "1.2.840.10008.1.2.2",
+        "1.2.840.10008.1.2.1.99",
+        "1.2.840.10008.1.2.5",
+        "1.2.840.10008.1.2.4.90",
+    ],
 )
 @pytest.mark.parametrize("suffix", ["", ".ima"])
 def test_encoded_mixed_uid_membership_and_geometry_match_independent_gdcm(
@@ -45,7 +53,7 @@ def test_encoded_mixed_uid_membership_and_geometry_match_independent_gdcm(
         facts = write_series(
             temporary,
             patient_id=f"ENCODING{index}",
-            shape=(4, 3, 5),
+            shape=(64, 64, 5),
             marker=(1, 2, 3),
             seed="gdcm-encoding-oracle",
         )
@@ -53,10 +61,30 @@ def test_encoded_mixed_uid_membership_and_geometry_match_independent_gdcm(
         for position, path in enumerate(sorted(temporary.iterdir())):
             ds = pydicom.dcmread(path)
             pixels = ds.pixel_array
-            ds.file_meta.TransferSyntaxUID = UID(syntax)
             ds.InstanceNumber = 100 - position
+            if syntax == "1.2.840.10008.1.2.5":
+                ds.compress(UID(syntax), generate_instance_uid=False)
+            else:
+                ds.file_meta.TransferSyntaxUID = UID(syntax)
             if syntax == "1.2.840.10008.1.2.2":
                 ds.PixelData = pixels.astype(">i2").tobytes()
+            elif syntax == "1.2.840.10008.1.2.4.90":
+                from io import BytesIO
+
+                from PIL import Image
+                from pydicom.encaps import encapsulate
+
+                encoded = BytesIO()
+                Image.fromarray((pixels.astype(np.int32) + 1024).astype(np.uint16)).save(
+                    encoded,
+                    format="JPEG2000",
+                    no_jp2=True,
+                    irreversible=False,
+                    num_resolutions=1,
+                )
+                ds.PixelData = encapsulate([encoded.getvalue()])
+                ds["PixelData"].is_undefined_length = True
+                ds.PixelRepresentation, ds.RescaleIntercept = 0, -1024
             target = folder / f"{index}-{5 - position:03d}{suffix}"
             pydicom.dcmwrite(
                 target,
