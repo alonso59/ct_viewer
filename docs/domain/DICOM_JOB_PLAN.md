@@ -162,21 +162,38 @@ timing-based attempts to catch a particular filesystem write or proof of every b
 - Claude cleanup was fast-forwarded at `4eb56a9`, with retained frontend behavior and 44 focused
   merge cases passing. Its requested worktree/branch were removed. Earlier main-tree edits
   remain preserved in stash `c3427bad`; `scripts/claude` is retained untouched and untracked.
-- `8a77665` is deployed on john at port 5180. CI run `40299871973` passed full verification and
-  Docker/image checks. The same image passed non-root uid-1008 udocker conversion, queued API
+- `50d83ca` is deployed on john at port 5180. CI run `40331738997` passed full verification and
+  Docker/image checks: 1,196 backend, 431 frontend, 108 serial runner and 76 browser tests.
+  The same image passed non-root uid-1008 udocker conversion, queued API
   SIGKILL/restart, cancel/resume and restored Open with unchanged source/output hashes.
-  Evidence: `dicom-product-8a77665/acceptance.json`; release/rollback metadata lives in the
+  Evidence: `dicom-product-50d83ca/acceptance.json`; release/rollback metadata lives in the
   production release record. This does not certify active-pixel or cross-container barriers.
-- Release `8a77665`, tree `0958a6822377212272ad3334529bc41f620844b4`, includes the
-  timing/diagnostic work, source/CRC read optimizations and import handoff fixes. Full static,
-  unit, contract, bundle, serial runner, Chromium/Firefox and Docker gates passed.
-  The subsequent native/GDCM cases at `c745e5d` reached 1,183 passed / one failed in CI
-  `40301621809`: the new writer-barrier test exhausted its combined worker-startup wait under
-  full-suite load. The current fix separates that setup allowance from the unchanged five-second
-  cleanup assertion; it requires a fresh CI result. Production excludes that later test-only commit.
+- Release tree `8717d57501503fe3d81cdc0e8852e4bbcc33c1fc` includes timing/diagnostic work,
+  source/CRC read optimizations, import handoff fixes and segmentation import/catalog controls.
+  Native/GDCM cases are included in the passing full suite. Their setup allowance is separate
+  from the unchanged five-second worker cleanup assertion.
+- Two disposable udocker containers with separate workspaces and a shared allocation pool
+  passed inventory admission, API-death cleanup, restart/resume, conservative lease recovery
+  and unrelated-process survival using the preceding `8a77665` image. Evidence:
+  `dicom-product-8a77665/multi-workspace-acceptance/result.json`. This proves the shared-host
+  PID-namespace inventory case; pixels and Docker PID-namespace boundaries remain separate.
+- The full read-only TCGA header lane matches GDCM across all 2,523 folders: 141,164 files,
+  1,919 series, exact membership and physical ordering, no rejections. A 1-GiB inventory
+  envelope stopped explicitly at 95,552 files; raising it to 2 GiB resumed the retained
+  batches and completed. Evidence: `dicom-tcga-membership-oracle/result.json` and the
+  initial/resumed/final logs. The database used 392 MB; four 500-series pages took
+  0.25–0.40 s. Source stat signatures stayed unchanged; this was not pixel conversion or
+  content-hash verification. John now uses that 2-GiB per-inventory envelope with its
+  unchanged 2-GiB aggregate ceiling; rollout was drained and backed up.
 - Cleanup removes redundant work/forwarding and keeps checks at real file/process boundaries.
-  Ruff, affected strict types, knip/vulture and the 426-ID requirement check pass locally.
+  Ruff, affected strict types, knip/vulture and the 427-ID requirement check pass locally.
   Full regression runs in GitHub under the owner workflow; no GPU workload was launched.
+- The subsequent compression change passed 63 focused publication/resume/ETA/native-writer
+  cases and 45 CLI/converter/layering cases. Ruff, strict types (243 sources) and vulture pass.
+  The first focused run caught nondeterministic gzip filenames/timestamps; fixed headers now
+  preserve identical uninterrupted/resumed bytes. Write/close failures remove both temporaries,
+  old gzip commits retain bytes/mtime, and compressor changes fence ETA history. Full CI and
+  same-image rollout for this change are pending; the deployed segmentation release stays available.
 
 ### Performance observations and remaining closure
 
@@ -186,6 +203,8 @@ timing-based attempts to catch a particular filesystem write or proof of every b
 | P02 pure enumeration, same 141,164-file TCGA membership hash, three alternating warm runs | Old median 18.70 s; streamed 6.66 s (2.81×), four assigned CPUs, no cache resets. `dicom-enumeration-benchmark.json`. This is not header or pixel acceptance. |
 | Conversion history overhead, 12 tiny synthetic series with 2,048 prior samples | Batched observations measured 1.5% overhead, equal source hashes/voxels/affines (`dicom-eta-batched-overhead.log`). Synthetic hold-out covers 31/31, 3.3% mean relative error, but interval width is 99.1% of point estimate. This does not certify useful reference P06 calibration. |
 | P03 principal converter, three 512×512×96 Gaussian-HU synthetic volumes, three pairs | After removing repeated reads, guarded current median 5.31 s versus principal 4.25 s, with equal source hashes/voxels/affines (`dicom-single-pass-principal-benchmark.json`). The remaining 25% overhead is real, not noise or a passed 10% target. CRC plus strong source/artifact verification account for most remaining cost. An isolated optional-decoder/parallel-hash experiment did not meet the target and was not added as a dependency. |
+| Isolated P03 decoder experiment, same synthetic workload and three alternating pairs | ISA-L CRC plus parallel SHA on a pinned inode measured 4.87 s versus principal 4.14 s (17.7% overhead), with equal voxels/affines and unchanged sources (`dicom-native-decode-parallel-digest.json`). Still fails the target; no dependency or product change adopted. |
+| Native NIfTI plus ISA-L gzip, three alternating synthetic pairs | Working implementation median 2.25 s versus principal 4.21 s (46.6% faster), with unchanged CRC/SHA/geometry checks, equal voxels/affines and unchanged sources (`dicom-fast-compression-product-benchmark.json`). Compressed output is 0.16% larger; one uncompressed-volume temporary is needed. Native default gzip and ISA-L level 2 differ, so the tradeoff is explicit. This improves the synthetic comparison, not representative P03/P06 acceptance. |
 
 The current optimization reuses the run's complete preflight manifest for fresh units, then
 rehashes after decoding; existing prepared/committed units still rehash before recovery/reuse.
@@ -207,8 +226,10 @@ The plan is not closed. Required remaining evidence is the full matrix in
   pixel death rather than queued/header-only interruption. Published full existing journeys pass;
   that alone does not assert the entire new matrix.
 - Representative P01–P06 latency, throughput, RSS and ETA calibration. P02 enumeration is measured;
-  P03's 10% target is not met by the guarded synthetic comparison, and P06 remains low confidence.
-- Final CI/image/udocker acceptance and rollout for the final tree. Preserve compatibility or
+  the production writer's original P03 comparison failed; the new compression implementation
+  improves that synthetic lane but still needs representative throughput/space evidence and
+  final CI/image acceptance. P06 remains low confidence.
+- Preserve CI/image/udocker acceptance and rollout for any further code changes. Preserve compatibility or
   restore a drained metadata snapshot when rolling back; never treat an old image as a migration.
 
 No checkbox is certified by plan acceptance, a test-file name, a narrow pass or an older image.

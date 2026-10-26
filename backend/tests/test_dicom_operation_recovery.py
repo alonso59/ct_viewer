@@ -230,7 +230,7 @@ def test_api_sigkill_inside_native_writer_resumes_pending_units_without_rewritin
                 for p in output.rglob("*.nii.gz")
                 if not any(part.startswith(".") for part in p.relative_to(output).parts)
             ]
-            assert len(images) == 2 and not list(output.rglob("*.tmp.nii.gz"))
+            assert len(images) == 2 and not list(output.rglob("*.tmp.nii*"))
             for path in images:
                 image = nib.load(path)
                 [marker] = np.argwhere(image.get_fdata() == MARKER)

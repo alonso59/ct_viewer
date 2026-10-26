@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,73 @@ import pytest
 from plugins.dicom import convert, scan
 
 from tools.dicom_fixtures import write_series
+
+
+@pytest.mark.parametrize("failure", ["write", "close"])
+def test_compression_failure_removes_both_temporaries_without_publishing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    """D28/D35: partial gzip and native NIfTI scratch cannot become a successful artifact."""
+    import errno
+
+    from isal import igzip
+
+    root = tmp_path / "source"
+    write_series(root, shape=(3, 3, 3), marker=(1, 1, 2))
+    before = {p: p.read_bytes() for p in root.iterdir()}
+    out = tmp_path / "derived/volume.nii.gz"
+    original = igzip.IGzipFile
+
+    class FailingWrite:
+        def __init__(self, stream: Any):
+            self.stream = stream
+
+        def write(self, data: bytes) -> int:
+            self.stream.write(data[:16])
+            raise OSError(errno.ENOSPC, "synthetic compressed-write failure")
+
+    @contextmanager
+    def fail(*args: Any, **kwargs: Any) -> Any:
+        with original(*args, **kwargs) as stream:
+            yield FailingWrite(stream) if failure == "write" else stream
+            raise OSError(errno.ENOSPC, "synthetic compressed-close failure")
+
+    monkeypatch.setattr(igzip, "IGzipFile", fail)
+    with pytest.raises(OSError, match="synthetic compressed-"):
+        convert.write_nifti(scan.discover(root, [])[0], out)
+    assert not list(out.parent.iterdir())
+    assert before == {p: p.read_bytes() for p in before}
+
+
+def test_resume_preserves_committed_native_gzip_after_compressor_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D19/D21: the compressor changes new bytes, not existing committed images."""
+    import SimpleITK as sitk
+
+    from tests.test_dicom_resume import run_conversion
+
+    root, output = tmp_path / "source", tmp_path / "derived"
+    write_series(root, shape=(3, 3, 3), marker=(1, 1, 2))
+
+    def native(series: scan.Series, out: Path, **_: Any) -> convert.Converted:
+        image = sitk.DICOMOrient(convert.read_image(series), "RAS")
+        sitk.WriteImage(image, str(out), True)
+        return convert.Converted(
+            tuple(image.GetSize()),
+            tuple(image.GetSpacing()),
+            tuple(image.GetOrigin()),
+            tuple(image.GetDirection()),
+            image.GetPixelIDTypeAsString(),
+        )
+
+    with monkeypatch.context() as patch:
+        patch.setattr(convert, "write_nifti", native)
+        assert run_conversion(root, output).counts["converted"] == 1
+    image = next((output / "nifti").glob("*.nii.gz"))
+    saved = image.read_bytes(), image.stat().st_mtime_ns
+    assert run_conversion(root, output).counts["already_converted"] == 1
+    assert saved == (image.read_bytes(), image.stat().st_mtime_ns)
 
 
 def test_reader_does_not_add_files_appearing_after_the_plan(tmp_path: Path) -> None:

@@ -25,6 +25,7 @@ dependencies = [
   "scipy>=1.15",  # Welch ANOVA needs f_oneway(equal_var=False)
   "pydicom>=3.0",
   "SimpleITK>=2.3",  # DICOM series → NIfTI with geometry
+  "isal>=1.8,<2",
 ]
 
 [project.optional-dependencies]

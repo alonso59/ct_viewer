@@ -25,7 +25,7 @@ def _versions() -> dict[str, str]:
     from importlib import metadata
 
     out = {"dicom.convert": pipeline.VERSION}
-    for pkg in ("pydicom", "SimpleITK"):
+    for pkg in ("pydicom", "SimpleITK", "isal"):
         try:
             out[pkg] = metadata.version(pkg)
         except metadata.PackageNotFoundError:

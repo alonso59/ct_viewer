@@ -137,6 +137,13 @@ forecasts; representative calibration remains required before raising ETA confid
   with file-stat stability across validation. Publication verifies that digest and world geometry;
   it avoids a second decompression only for bytes validated in that same attempt. Recovery and
   reuse retain full-stream CRC/geometry validation. No optional decoder dependency is required.
+- ITK writes the NIfTI geometry and pixels to owned uncompressed scratch; ISA-L level 2
+  compresses that stream in bounded chunks before the existing validation/publication steps.
+  This needs one uncompressed volume of additional temporary disk space. Both temporaries
+  are removed on write/close failure and reconciled on interrupted retry. Gzip headers omit
+  filenames and timestamps, so uninterrupted/resumed artifacts remain byte reproducible.
+  Existing native-gzip commits remain reusable without rewriting; compressor version and
+  implementation changes invalidate timing history, not previously verified image bytes.
 - Scan cost (DCM-06): bounded doubling reads from `HEAD_BYTES` to `MAX_HEADER_BYTES` (currently 16 KiB / 8 MiB), parsed with pydicom `stop_before_pixels`, retaining `SCAN_TAGS`. A PixelData byte pattern inside a private value triggers bounded parser retries, never a whole-file fallback. Four header threads group by folder and SeriesInstanceUID; inspection reuses those facts. Inventory-backed Estimate restats cached facts and reads a full header only for each series' sidecar facts. Unknown/absent suffixes share image-header validation through the task boundary.
 - Inventory reuse pins scanner/guard code, reader version, selected tags and effective header budget in each cached signature; changed contracts invalidate facts and plan-page generations during scanning. Historical reads alone do not invalidate records. Quota/batch deployment behavior is owned by DEPLOYMENT.md; partial folders never expose a slice prefix as a complete series.
 - DCM-16 progress counts committed selected series, including verified reused commits; skipped/failed units never increment it.

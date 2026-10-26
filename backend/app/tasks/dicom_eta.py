@@ -11,6 +11,7 @@ import statistics
 import sys
 from collections import defaultdict
 from collections.abc import Callable
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,7 @@ def context_signature(
             "source_storage": [str(source.resolve()), source.stat().st_dev],
             "output_storage": [str(destination.resolve()), target.stat().st_dev],
             "reader": commits.reader_versions(pipeline.VERSION),
+            "compressor": metadata.version("isal"),
             "code": code,
             "settings": settings,
             "limits": limits,

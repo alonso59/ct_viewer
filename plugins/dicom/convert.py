@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import resource
+import shutil
 from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -54,13 +55,21 @@ def read_image(series: Series) -> Any:
 def write_nifti(series: Series, out: Path, *, before_publish: Callable[[], None] | None = None) -> Converted:
     """Publish a fully written file atomically without replacement."""
     import SimpleITK as sitk
+    from isal import igzip
 
     image = sitk.DICOMOrient(read_image(series), "RAS")
     out.parent.mkdir(parents=True, exist_ok=True)
     # unique per writer: two processes converting the same series never share a temp file
     tmp = out.with_name(f".{out.name}.{os.getpid()}.{os.urandom(4).hex()}.tmp.nii.gz")
+    plain = tmp.with_suffix("")
     try:
-        sitk.WriteImage(image, str(tmp), True)
+        sitk.WriteImage(image, str(plain), False)
+        with (
+            plain.open("rb") as source,
+            tmp.open("wb") as target,
+            igzip.IGzipFile(filename="", fileobj=target, mode="wb", compresslevel=2, mtime=0) as compressed,
+        ):
+            shutil.copyfileobj(source, compressed, 1024 * 1024)
         with tmp.open("rb") as fh:
             os.fsync(fh.fileno())
         if before_publish is not None:
@@ -73,6 +82,7 @@ def write_nifti(series: Series, out: Path, *, before_publish: Callable[[], None]
             os.close(directory)
     finally:
         tmp.unlink(missing_ok=True)
+        plain.unlink(missing_ok=True)
     return Converted(
         tuple(int(v) for v in image.GetSize()),
         tuple(float(v) for v in image.GetSpacing()),

@@ -64,7 +64,8 @@ def test_incompatible_context_or_series_cannot_supply_an_eta(tmp_path: Path, cha
 
 
 @pytest.mark.parametrize(
-    "change", ["host", "runtime", "source_root", "output_root", "reader", "concurrency"]
+    "change",
+    ["host", "runtime", "source_root", "output_root", "reader", "compressor", "concurrency"],
 )
 def test_measured_context_signature_tracks_execution_and_storage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
@@ -82,6 +83,12 @@ def test_measured_context_signature_tracks_execution_and_storage(
         monkeypatch.setattr("app.tasks.dicom_eta._runtime", lambda: {"python": "another-runtime"})
     elif change == "reader":
         monkeypatch.setattr(commits, "reader_versions", lambda _: {"reader": "changed"})
+    elif change == "compressor":
+        original = commits.metadata.version
+        monkeypatch.setattr(
+            "app.tasks.dicom_eta.metadata.version",
+            lambda name: "changed" if name == "isal" else original(name),
+        )
     elif change == "concurrency":
         limits["cpu_threads"] = 2
     else:
