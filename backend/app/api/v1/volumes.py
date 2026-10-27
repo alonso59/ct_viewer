@@ -16,7 +16,7 @@ from app.imaging.fingerprint import quick_fingerprint
 router = APIRouter(tags=["volumes"])
 
 _VOLUME_RESPONSES: dict[int | str, dict[str, Any]] = {
-    200: {"content": {streaming.VOLUME_MEDIA_TYPE: {}}, "description": "Original file bytes"},
+    200: {"content": {streaming.VOLUME_MEDIA_TYPE: {}}, "description": "Volume bytes"},
     206: {"description": "Partial content (HTTP Range)"},
     304: {"description": "Not modified (If-None-Match)"},
 }

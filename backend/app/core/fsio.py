@@ -96,15 +96,21 @@ def write_jsonl_atomic(path: Path, rows: Iterable[dict[str, Any]]) -> None:
     atomic_write_bytes(path, data.encode("utf-8"))
 
 
-def iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
-    """Yield objects from a jsonl file; skips blank lines. Missing file yields nothing."""
+def iter_jsonl_lines(path: Path) -> Iterator[bytes]:
+    """Keep raw JSON available to typed readers without an intermediate object graph."""
     if not path.exists():
         return
     with path.open("rb") as fh:
         for raw in fh:
             line = raw.strip()
             if line:
-                yield json.loads(line.decode("utf-8"))
+                yield line
+
+
+def iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
+    """Yield objects from a jsonl file; skips blank lines. Missing file yields nothing."""
+    for line in iter_jsonl_lines(path):
+        yield json.loads(line.decode("utf-8"))
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:

@@ -58,7 +58,7 @@ Outside `backend/`: first-party plugins and the host runner, mapped in `plugins/
 | BE-01 | Run as a single Uvicorn process (`--workers 1`). CPU-heavy work runs in job worker processes (BE-06). | M |
 | BE-02 | Every path access goes through `core.paths.resolve(ref)`, which enforces alias root containment and `ALLOWED_DATA_ROOTS` and rejects symlink escapes. | M |
 | BE-03 | Files under `source` roots are only ever opened `rb`. A test fails if any module opens a resolved `source` path for writing. Writes to a `derived` root happen only in task code, inside the run's `output_dir` or the task's `dataset/` (ADR-0014). | M |
-| BE-04 | Volumes are streamed as the original file bytes (`FileResponse`, HTTP Range, `ETag` = quick fingerprint). The server does not decode volumes for viewing, except the npy→NIfTI cache (IMP-10). | M |
+| BE-04 | Volumes are streamed as the original file bytes (`FileResponse`, HTTP Range, `ETag` = quick fingerprint). The server does not decode volumes for viewing, except npy→NIfTI (IMP-10) and composed/filtered segmentation caches (SRC-04/20). | M |
 | BE-05 | Writes: one `asyncio.Lock` per project serializes appends and atomic writes. On startup, take an exclusive `fcntl` lock on `WORKSPACE_ROOT/.server.lock`; refuse to start if it is held. | M |
 | BE-06 | Job manager: `ProcessPoolExecutor(JOB_WORKERS)`, with job types `index`, `hash`, `thumbnail`, `radiomics`, `mesh`, `task` (builtin tasks, TSK-07), `open-convert` (SRC-09). Progress is relayed to the event bus, and state is persisted (index status, `run.json`; task and radiomics runs share one run lifecycle, `jobs/runs.py`, AUD-A6-06). On restart, running jobs become `interrupted`. A `task` job has a *driver* coroutine instead of units: it owns progress and status (`waiting_for_runner` ↔ `running`, event `job.status`) and one job per `(project, task_id)` is active (TSK-12). | M |
 | BE-07 | Per-project in-memory caches (index, curation state, label map) are loaded on first access and invalidated on write. An LRU keeps at most `PROJECT_CACHE_MAX` projects. | M |
@@ -84,6 +84,10 @@ browser C ─┘   (single writer)     └─ …  → writes only inside runs/{
 - Index jobs retain their exclusivity until stopped worker calls return. Cancellation/failure
   stops new unit dispatch and discards late results without terminating the shared pool.
   A shutdown timeout cannot announce an unfinished drain as a finished job.
+- Terminal job history retains public metadata; completed units and execution callbacks are released
+  after finalization and worker drain, without changing the caller's reusable job specification.
+- The project index cache retains validated QC rows as compressed snapshots. Queries decode only
+  the requested page when unfiltered; cached generations remain independent of later index writes.
 - NFS/GPFS caveat: `fcntl` may be unreliable. Put `WORKSPACE_ROOT` on local disk when possible (OPS-06).
 
 ## Mesh generation

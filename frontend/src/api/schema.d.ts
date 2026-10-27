@@ -9678,7 +9678,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Original file bytes */
+            /** @description Volume bytes */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -9726,7 +9726,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Original file bytes */
+            /** @description Volume bytes */
             200: {
                 headers: {
                     [name: string]: unknown;

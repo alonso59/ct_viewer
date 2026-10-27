@@ -569,12 +569,13 @@ class IngestService:
                 it.masks = {k: v for k, v in it.masks.items() if k == "imported"}
             apply_registered_masks(items, self.workspace.project_dir(project_id), cfg)
             rules = self.phase_rules(project_id)
-            cases = build_cases(items, idx.warnings, rules, cfg.phase_priority)
-            self.store.replace(project_id, items, cases, idx.warnings)
+            warnings = list(idx.warnings)
+            cases = build_cases(items, warnings, rules, cfg.phase_priority)
+            self.store.replace(project_id, items, cases, warnings)
         self.bus.publish(
             project_id,
             "index.rebuilt",
-            {"import_id": None, "n_items": len(items), "n_warnings": len(idx.warnings)},
+            {"import_id": None, "n_items": len(items), "n_warnings": len(warnings)},
         )
 
     @property
@@ -632,10 +633,13 @@ class IngestService:
         severity: str | None = None,
         case_id: str | None = None,
         item_id: str | None = None,
-    ) -> list[QcWarning]:
+    ) -> Sequence[QcWarning]:
+        rows = self.store.load(project_id).warnings
+        if code is None and severity is None and case_id is None and item_id is None:
+            return rows
         return [
             w
-            for w in self.store.load(project_id).warnings
+            for w in rows
             if (code is None or w.code == code)
             and (severity is None or w.severity == severity)
             and (case_id is None or w.case_id == case_id)
@@ -671,9 +675,10 @@ class IngestService:
         for it in idx.items:
             statuses.setdefault(it.case_id, set()).add(it.status)
         warned: dict[str, set[str]] = {}
-        for w in idx.warnings:
-            if w.case_id:
-                warned.setdefault(w.case_id, set()).add(w.code)
+        if warning is not None:
+            for w in idx.warnings:
+                if w.case_id:
+                    warned.setdefault(w.case_id, set()).add(w.code)
         needle = (q or "").strip().lower()
 
         def keep(c: CaseSummary) -> bool:

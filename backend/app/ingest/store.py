@@ -9,19 +9,39 @@ the join.
 
 from __future__ import annotations
 
+import zlib
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, overload
 
 from app.core.errors import NotFound
-from app.core.fsio import atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
+from app.core.fsio import atomic_write_json, iter_jsonl_lines, read_json, write_jsonl_atomic
 from app.ingest.hashing import load_hashes
 from app.ingest.models import CaseSummary, IndexStatus, Item, QcWarning
 from app.phase import state as phase_state
 
 ITEMS, CASES, WARNINGS, STATUS = "items.jsonl", "cases.jsonl", "qc_warnings.jsonl", "status.json"
+
+
+class WarningRows(Sequence[QcWarning]):
+    def __init__(self, compressed: bytes) -> None:
+        self._rows = zlib.decompress(compressed).splitlines()
+
+    def __len__(self) -> int:
+        return len(self._rows)
+
+    @overload
+    def __getitem__(self, key: int) -> QcWarning: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> list[QcWarning]: ...
+
+    def __getitem__(self, key: int | slice) -> QcWarning | list[QcWarning]:
+        if isinstance(key, slice):
+            return [QcWarning.model_validate_json(row) for row in self._rows[key]]
+        return QcWarning.model_validate_json(self._rows[key])
 
 
 @dataclass
@@ -30,7 +50,11 @@ class ProjectIndex:
     by_id: dict[str, Item]
     cases: list[CaseSummary]
     cases_by_id: dict[str, CaseSummary]
-    warnings: list[QcWarning]
+    warnings_zlib: bytes
+
+    @property
+    def warnings(self) -> Sequence[QcWarning]:
+        return WarningRows(self.warnings_zlib)
 
 
 @dataclass
@@ -83,7 +107,7 @@ class IndexStore:
         )
         return ProjectIndex(
             items, {i.item_id: i for i in items}, cases, {c.case_id: c for c in cases},
-            idx.warnings,
+            idx.warnings_zlib,
         )  # fmt: skip
 
     def _entry(self, project_id: str) -> _Entry:
@@ -92,7 +116,7 @@ class IndexStore:
             self._cache.move_to_end(project_id)
             return hit
         d = self.index_dir(project_id)
-        items = [Item.model_validate(r) for r in iter_jsonl(d / ITEMS)]
+        items = [Item.model_validate_json(r) for r in iter_jsonl_lines(d / ITEMS)]
         default = self._default_seg(project_id)
         for it in items:
             it.mask = it.masks.get(default)  # deprecated alias
@@ -101,8 +125,11 @@ class IndexStore:
             for vol in (v for it in items for v in it.volumes()):
                 h = hashes.get(vol.ref)
                 vol.sha256 = h.sha256 if h is not None and h.fp == vol.fp else None
-        cases = [CaseSummary.model_validate(r) for r in iter_jsonl(d / CASES)]
-        warnings = [QcWarning.model_validate(r) for r in iter_jsonl(d / WARNINGS)]
+        cases = [CaseSummary.model_validate_json(r) for r in iter_jsonl_lines(d / CASES)]
+        rows = list(iter_jsonl_lines(d / WARNINGS))
+        for row in rows:
+            QcWarning.model_validate_json(row)
+        warnings = zlib.compress(b"\n".join(rows), level=1)
         idx = ProjectIndex(
             items, {i.item_id: i for i in items}, cases, {c.case_id: c for c in cases}, warnings
         )

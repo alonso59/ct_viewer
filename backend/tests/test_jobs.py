@@ -459,3 +459,56 @@ def test_jobs_api(client: TestClient) -> None:
     for r in (client.get("/api/v1/jobs/nope"), client.post("/api/v1/jobs/nope/cancel")):
         assert r.status_code == 404
         assert r.headers["content-type"].startswith("application/problem+json")
+
+
+@pytest.mark.parametrize("driven", [False, True])
+def test_finished_history_releases_work_payload_and_keeps_reusable_specs(driven: bool) -> None:
+    """BE-06/NFR-08: terminal history keeps metadata, not completed units or callback inputs."""
+    import gc
+    import weakref
+
+    class Payload(list):
+        pass
+
+    async def body() -> None:
+        _, jm = await started()
+        payload = Payload(range(4096))
+        reference = weakref.ref(payload)
+
+        async def on_result(value, retained=payload):
+            assert value == len(retained)
+
+        async def on_finish(info, retained=payload):
+            assert info.status == "succeeded" and len(retained) == 4096
+            return "completed-ref"
+
+        async def drive(handle, retained=payload):
+            assert await handle.run_in_worker(len, retained) == 4096
+            handle.set_total(1)
+            handle.set_done(1)
+
+        spec = JobSpec(
+            "p",
+            "index",
+            [] if driven else [WorkUnit(len, (payload,))],
+            on_result,
+            on_finish,
+            driver=drive if driven else None,
+        )
+        ids = []
+        try:
+            for _ in range(2):
+                info = jm.submit(spec)
+                done = await jm.wait(info.job_id)
+                assert done.status == "succeeded" and done.done == 1
+                assert done.ref == "completed-ref"
+                ids.append(info.job_id)
+            del payload, spec, on_result, on_finish, drive
+            await asyncio.sleep(0)
+            gc.collect()
+            assert reference() is None
+            assert all(jm.get(job_id).status == "succeeded" for job_id in ids)
+        finally:
+            await jm.shutdown()
+
+    run(body())

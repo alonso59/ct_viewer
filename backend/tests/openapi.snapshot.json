@@ -18044,7 +18044,7 @@
       "content": {
        "application/octet-stream": {}
       },
-      "description": "Original file bytes"
+      "description": "Volume bytes"
      },
      "206": {
       "description": "Partial content (HTTP Range)"
@@ -18113,7 +18113,7 @@
       "content": {
        "application/octet-stream": {}
       },
-      "description": "Original file bytes"
+      "description": "Volume bytes"
      },
      "206": {
       "description": "Partial content (HTTP Range)"

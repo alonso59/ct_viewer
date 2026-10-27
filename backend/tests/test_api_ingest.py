@@ -10,9 +10,11 @@ import nibabel as nib
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.api.v1.imports import ingest_service
 from app.context import AppContext
+from app.core.fsio import write_jsonl_atomic
 from app.ingest.models import IndexStatus
 from app.jobs.types import JobInfo
 
@@ -234,6 +236,33 @@ def test_warnings_match_expected(
     by_item = pages(client, f"{API}/projects/{pid}/warnings?item_id=case_00014.01.voi.R")
     assert [w["code"] for w in by_item] == ["missing_voi_mask"]
     assert client.get(f"{API}/projects/{pid}/warnings?code=nope").status_code == 422
+
+
+def test_warning_snapshot_survives_index_replacement(
+    client: TestClient, imported: tuple[str, dict[str, Any], dict[str, Any]]
+) -> None:
+    """BE-04/IMP-08: paging preserves all diagnostics and an acquired index generation."""
+    pid = imported[0]
+    url = f"{API}/projects/{pid}/warnings"
+    original = pages(client, url)
+    assert len(original) > 3 and pages(client, url, limit=3) == original
+    store = ctx_of(client).index
+    snapshot = store.load(pid)
+    store.replace(pid, snapshot.items, snapshot.cases, [])
+    assert pages(client, url) == []
+    assert [w.model_dump(mode="json") for w in snapshot.warnings] == original
+
+
+def test_invalid_diagnostic_refuses_index_load(
+    client: TestClient, imported: tuple[str, dict[str, Any], dict[str, Any]]
+) -> None:
+    """BE-04: compressed cache must not conceal malformed persisted diagnostics."""
+    pid = imported[0]
+    store = ctx_of(client).index
+    write_jsonl_atomic(store.index_dir(pid) / "qc_warnings.jsonl", [{"code": "unknown"}])
+    store.invalidate(pid)
+    with pytest.raises(ValidationError):
+        store.load(pid)
 
 
 def test_paging(client: TestClient, imported: tuple[str, dict[str, Any], dict[str, Any]]) -> None:

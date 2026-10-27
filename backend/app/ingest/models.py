@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from app.core.ids import Scope, Side
 from app.curation.models import ReviewState, RollupStatus
@@ -65,13 +65,9 @@ class Item(BaseModel):
     import_id: str
     extra: dict[str, Any] = Field(default_factory=dict)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _v1_mask(cls, raw: Any) -> Any:
-        """A format_version 1 index record: `mask` → `masks.imported`."""
-        if isinstance(raw, dict) and "masks" not in raw and raw.get("mask") is not None:
-            raw = {**raw, "masks": {"imported": raw["mask"]}}
-        return raw
+    def model_post_init(self, _context: Any, /) -> None:
+        if self.mask is not None and "masks" not in self.model_fields_set:
+            self.masks = {"imported": self.mask}
 
     def volumes(self) -> list[VolumeRef]:
         """Image and every mask."""

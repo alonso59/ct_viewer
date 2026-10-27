@@ -262,3 +262,35 @@ def test_workers_open_sources_read_only(data_root: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(builtins, "open", guarded)
     run_index(build_drafts(load_inputs(data_root), resolver_for(data_root), "DATA"))
     assert bad == []
+
+
+@pytest.mark.parametrize("decode_json", [False, True])
+def test_legacy_mask_migration_preserves_modern_mapping_and_validation(decode_json: bool) -> None:
+    """SRC-04/PRJ-11: cache parsing retains legacy masks without accepting a malformed map."""
+    from pydantic import ValidationError
+
+    def load(raw):
+        return (
+            Item.model_validate_json(json.dumps(raw)) if decode_json else Item.model_validate(raw)
+        )
+
+    raw = {
+        "item_id": "case_00001.01.complete.-",
+        "case_id": "case_00001",
+        "scan_idx": "01",
+        "scope": "complete",
+        "side": "-",
+        "phase": {"canonical": "NP"},
+        "import_id": IMPORT,
+    }
+    mask = {"ref": "DATA:mask.npy", "format": "npy", "fp": "retained-fingerprint"}
+    legacy = load({**raw, "mask": mask})
+    assert legacy.masks["imported"].model_dump() == legacy.mask.model_dump()
+    assert legacy.masks["imported"].fp == "retained-fingerprint"
+    assert legacy.masks["imported"].format == "npy"
+    assert load({**raw, "mask": mask, "masks": {}}).masks == {}
+    assert load({**raw, "mask": None}).masks == {}
+    modern = load({**raw, "mask": mask, "masks": {"reviewed": mask}})
+    assert set(modern.masks) == {"reviewed"}
+    with pytest.raises(ValidationError):
+        load({**raw, "mask": mask, "masks": None})

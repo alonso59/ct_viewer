@@ -14,7 +14,7 @@ import time
 from collections import deque
 from collections.abc import Callable, Iterator
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.core.errors import JobConflict, NotFound, ServerBusy
@@ -341,6 +341,7 @@ class JobManager:
                 hook(info)
             except Exception:
                 log.exception("job finished hook failed", extra={"job_id": info.job_id})
+        job.spec = replace(job.spec, units=(), on_result=None, on_finish=None, driver=None)
         self._terminal.append(info.job_id)
         while len(self._terminal) > KEEP_TERMINAL:
             self._jobs.pop(self._terminal.popleft(), None)
