@@ -18,19 +18,25 @@ from typing import Any
 from plugins.protocol import write_json_atomic
 
 RESOURCE_POLICY = "dicom-resources.json"
+MIN_FREE_MB = 16 * 1024
 
 
-def idle(row: dict[str, Any]) -> bool:
+def available(row: dict[str, Any], minimum_mb: int = MIN_FREE_MB) -> bool:
     return (
         type(row.get("used_mb")) is int
-        and 0 <= row["used_mb"] <= 64
-        and type(row.get("utilization")) is int
-        and 0 <= row["utilization"] <= 5
-        and row.get("pids") == []
+        and type(row.get("total_mb")) is int
+        and 0 <= row["used_mb"] <= row["total_mb"]
+        and row["total_mb"] - row["used_mb"] >= minimum_mb
     )
 
 
-def select_devices(rows: list[dict[str, Any]], pool: list[str], requested: list[str], count: int) -> list[str]:
+def select_devices(
+    rows: list[dict[str, Any]],
+    pool: list[str],
+    requested: list[str],
+    count: int,
+    minimum_mb: int = MIN_FREE_MB,
+) -> list[str]:
     if not 1 <= count <= 4:
         raise ValueError("GPU count must be 1..4")
     aliases: dict[str, dict[str, Any]] = {}
@@ -48,17 +54,38 @@ def select_devices(rows: list[dict[str, Any]], pool: list[str], requested: list[
 
     if requested:
         chosen = explicit[:count]
-        if any(not idle(aliases[value]) for value in chosen):
-            raise ValueError("requested GPU is busy or unknown")
+        if any(not available(aliases[value], minimum_mb) for value in chosen):
+            raise ValueError(f"requested GPU needs at least {minimum_mb} MiB free; memory is insufficient or unknown")
     else:
         chosen = [
             str(row["uuid"])
             for row in sorted(rows, key=lambda row: int(row["index"]))
-            if row["uuid"] in approved and idle(row)
+            if row["uuid"] in approved and available(row, minimum_mb)
         ][:count]
     if len(chosen) != count:
         raise ValueError("insufficient available GPUs")
     return chosen
+
+
+def device_path(identity: str) -> Path:
+    for info in Path("/proc/driver/nvidia/gpus").glob("*/information"):
+        fields = {
+            key.strip(): value.strip()
+            for line in info.read_text().splitlines()
+            if ":" in line
+            for key, value in [line.split(":", 1)]
+        }
+        if fields.get("GPU UUID") != identity:
+            continue
+        minor = fields.get("Device Minor", "")
+        if not minor.isascii() or not minor.isdecimal():
+            raise ValueError("GPU device minor is unavailable")
+        path = Path(f"/dev/nvidia{int(minor)}")
+        node = path.stat()
+        if not stat.S_ISCHR(node.st_mode) or os.minor(node.st_rdev) != int(minor):
+            raise ValueError("GPU device node does not match driver metadata")
+        return path
+    raise ValueError("GPU device mapping is unavailable")
 
 
 def inventory() -> list[dict[str, Any]]:

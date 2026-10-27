@@ -43,8 +43,9 @@ def task_info(info: TaskInfo, queue: Path) -> TaskInfo:
 def _gpu_label(device: dict[str, Any]) -> str:
     used, total = device.get("used_mb") or 0, device.get("total_mb") or 0
     name = device.get("name") or "GPU"
-    label = f"GPU {device['index']} · {name} · {used / 1024:.1f}/{total / 1024:.0f} GB"
-    return label + (" · busy" if device.get("busy") else "")
+    free = max(0, total - used) / 1024
+    label = f"GPU {device['index']} · {name} · {free:.1f}/{total / 1024:.0f} GiB free"
+    return label + (" · insufficient memory" if device.get("busy") else "")
 
 
 def _gpu_fields(info: TaskInfo) -> None:

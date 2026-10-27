@@ -44,7 +44,7 @@ def setup(tmp_path: Path) -> tuple[Supervisor, Path, Path, dict[str, Any]]:
 
 
 def prepare(supervisor: Supervisor, job: Path, spec: dict[str, Any]) -> dict[str, Any]:
-    return supervisor.prepare(job, {"runtime": {"command": ["{python}"]}}, job.parent, spec, [], [])
+    return supervisor.prepare(job, {"runtime": {"command": ["{python}"]}}, job.parent, spec, [])
 
 
 def test_managed_output_is_permitted_without_writable_input_access(tmp_path: Path) -> None:

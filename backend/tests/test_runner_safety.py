@@ -74,8 +74,18 @@ def test_supervised_control_at_claim_publishes_matching_cleanup_ack(
     monkeypatch.setattr(
         supervised.gpu,
         "inventory",
-        lambda: [{"index": "0", "uuid": "GPU-test", "used_mb": 0, "utilization": 0, "pids": []}],
+        lambda: [
+            {
+                "index": "0",
+                "uuid": "GPU-test",
+                "total_mb": 46068,
+                "used_mb": 0,
+                "utilization": 0,
+                "pids": [],
+            }
+        ],
     )
+    monkeypatch.setattr(supervised.gpu, "device_path", lambda identity: Path("/dev/null"))
 
     def no_launch(*args: Any) -> None:
         raise AssertionError("cancelled claim launched an attempt")

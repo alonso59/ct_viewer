@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { api, keys, type TaskInfo } from '../../api'
 import { fmtAgo, ProblemCard } from '../../lib'
 
-type Inventory = { at?: string; error?: string | null; devices?: { busy?: boolean }[] }
+type Inventory = { at?: string; error?: string | null; required_free_mb?: number; devices?: { index?: string; name?: string; total_mb?: number; used_mb?: number; busy?: boolean }[] }
 const inventoryOf = (info: TaskInfo) => info.execution?.inventory as Inventory | undefined
 
 export function GpuAvailability({ info }: { info: TaskInfo }) {
@@ -49,6 +49,14 @@ export function GpuAvailability({ info }: { info: TaskInfo }) {
       <span className="muted task-help" role="status">{inventory?.at && !inventory.error ? t('tasks.gpu.snapshot', { available, total: inventory.devices?.length ?? 0, age: fmtAgo(inventory.at) }) : t('tasks.gpu.unknown')}</span>
     </div>
     <p className="muted task-help">{t('tasks.gpu.help')}</p>
+    {inventory?.required_free_mb != null ? <p className="muted task-help">{t('tasks.gpu.memoryRequired', { gib: (inventory.required_free_mb / 1024).toFixed(1) })}</p> : null}
+    {inventory?.devices?.length ? <ul aria-label={t('tasks.gpu.memoryList')}>
+      {inventory.devices.map((device, index) => <li key={device.index ?? index}>
+        {device.total_mb != null && device.used_mb != null
+          ? t('tasks.gpu.deviceMemory', { index: device.index ?? index, free: (Math.max(0, device.total_mb - device.used_mb) / 1024).toFixed(1), total: (device.total_mb / 1024).toFixed(1), state: t(device.busy ? 'tasks.gpu.insufficient' : 'tasks.gpu.available') })
+          : t('tasks.gpu.unknown')}
+      </li>)}
+    </ul> : null}
     {error ? <ProblemCard error={error} /> : null}
   </div>
 }

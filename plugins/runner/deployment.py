@@ -47,6 +47,7 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         "limits",
         "slurm",
         "gpu_pool",
+        "gpu_min_free_mb",
         "state_dir",
         "profiles_dir",
     }
@@ -89,6 +90,9 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         if type(limits[name]) is not int or not 1 <= limits[name] <= maximum:
             raise ValueError(f"invalid {name} limit (maximum {maximum})")
     pool = raw.get("gpu_pool", [])
+    minimum = raw.get("gpu_min_free_mb")
+    if "gpu_min_free_mb" in raw and (type(minimum) is not int or not 1 <= minimum <= 1048576):
+        raise ValueError("gpu_min_free_mb must be a positive memory budget in MiB (maximum 1048576)")
     if (
         not isinstance(pool, list)
         or len(pool) != len(set(map(str, pool)))

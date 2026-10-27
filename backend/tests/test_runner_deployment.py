@@ -112,3 +112,16 @@ def test_default_pool_state_cannot_be_written_inside_a_source_root(
     raw["source_roots"] = [str(Path.home())]
     with pytest.raises(ValueError, match=r"state.*overlap"):
         validate_config(raw)
+
+
+@pytest.mark.parametrize("minimum", [0, -1, True, "16384", None, 1048577])
+def test_invalid_gpu_memory_budget_is_refused(minimum: Any) -> None:
+    raw = config()
+    raw["gpu_min_free_mb"] = minimum
+    with pytest.raises(ValueError, match="gpu_min_free_mb"):
+        validate_config(raw)
+
+
+def test_gpu_memory_budget_is_operator_configurable() -> None:
+    raw = {**config(), "gpu_min_free_mb": 24576}
+    assert validate_config(raw)["gpu_min_free_mb"] == 24576

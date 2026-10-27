@@ -320,6 +320,8 @@ def _command_templates(profile: Profile, predictor: Predictor, parts: int) -> li
 
 
 def _batch(job: Job, profile: Profile, gpus: list[str], parts: int, staged: list[Staged], scratch: Path) -> None:
+    log_path = job.dir / "task.log"
+    log_start = log_path.stat().st_size if log_path.exists() else 0
     scratch.mkdir(parents=True, exist_ok=True)
     input_dir = scratch / "input"
     input_dir.mkdir()
@@ -350,17 +352,33 @@ def _batch(job: Job, profile: Profile, gpus: list[str], parts: int, staged: list
     final = scratch / "postprocessed"
     successful_parts = {part_id for part_id in range(len(part_dirs)) if codes[f"part-{part_id}"] == 0}
     post_code = _postprocess(job, profile, merged, final) if successful_parts else 1
+    failure = None
+    if len(successful_parts) != len(part_dirs) or post_code != 0:
+        lines = []
+        if log_path.exists():
+            with log_path.open("rb") as log:
+                log.seek(0, os.SEEK_END)
+                log.seek(max(log_start, log.tell() - 32768))
+                lines = log.read().decode("utf-8", errors="replace").splitlines()
+        failure = next(
+            (line.strip()[:2000] for line in reversed(lines) if "Error:" in line or "CUDA out of memory" in line), None
+        )
+        if failure and ("out of memory" in failure.lower() and "cuda" in failure.lower()):
+            failure = (
+                "CUDA out of memory. Choose GPUs with more free memory or wait for other GPU work to finish, then resume. "
+                + failure
+            )
     for index, item in enumerate(staged):
         part_id = index % parts
         if part_id not in successful_parts:
             job.item(
                 item.item_id,
                 "failed",
-                message=f"prediction part {part_id} exited with code {codes[f'part-{part_id}']}",
+                message=failure or f"prediction part {part_id} exited with code {codes[f'part-{part_id}']}",
             )
             continue
         if post_code != 0:
-            job.item(item.item_id, "failed", message=f"postprocessing exited with code {post_code}")
+            job.item(item.item_id, "failed", message=failure or f"postprocessing exited with code {post_code}")
             continue
         try:
             output = _publish(job, item, final / f"{item.token}.nii.gz", profile.labels)
@@ -368,6 +386,8 @@ def _batch(job: Job, profile: Profile, gpus: list[str], parts: int, staged: list
             job.item(item.item_id, "failed", message=f"{type(exc).__name__}: {exc}")
         else:
             job.item(item.item_id, "ok", output)
+    if failure and any(marker in failure.lower() for marker in ("cuda", "accelerator device")):
+        raise RuntimeError(failure)
 
 
 def _execute(job: Job, profile: Profile, gpus: list[str]) -> dict[str, Any]:

@@ -32,6 +32,11 @@ Implementation (TSK-13): the manifest key `scope` (`project` default, `workspace
 TSK-03 picker: selection controls wait for the current search/page results, including search debounce.
 Select-all shows the pending checkbox intent while resolving IDs; failure restores the committed selection.
 
+For nnU-Net, preserve the native failure detail in per-item errors, the run and the job status.
+CUDA failures stop later batches; CUDA out of memory suggests choosing GPUs with more free memory or waiting for other GPU work before resuming.
+The frontend notifies on a failed or partially failed run transition, links to the task and keeps the error visible in its row.
+Already completed failures do not generate notifications when opening a project.
+
 ## Manifest (`task.json`)
 
 ```jsonc

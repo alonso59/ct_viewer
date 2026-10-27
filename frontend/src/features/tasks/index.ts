@@ -1,9 +1,10 @@
-import { createElement, lazy, Suspense, useEffect } from 'react'
+import { createElement, lazy, Suspense, useEffect, useRef } from 'react'
 
-import { useTasks } from '../../api'
-import { registry } from '../../shell'
+import { useTaskRuns, useTasks } from '../../api'
+import i18n from '../../i18n'
+import { registry, toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
-import { syncTaskCommands } from './commands'
+import { openTask, syncTaskCommands } from './commands'
 import type { TaskParams } from './TaskEditor'
 
 const View = lazy(() => Promise.all([import('./TasksView'), import('../../i18n/lazy')]).then(([m]) => m))
@@ -39,8 +40,22 @@ export { syncTaskCommands, taskCommandId } from './commands'
 /** Mount once per writable project: keeps the `Task: Run …` commands in step with the task list */
 export function TaskCommands() {
   const tasks = useTasks().data?.tasks
+  const pid = useWorkbench((state) => state.pid) ?? ''
+  const runs = useTaskRuns(pid).data
+  const previous = useRef<{ pid: string; runs: Map<string, string> } | null>(null)
   useEffect(() => {
     if (tasks) syncTaskCommands(tasks)
   }, [tasks])
+  useEffect(() => {
+    if (!runs) return
+    for (const run of runs) {
+      const stamp = `${run.job_id}:${run.status}:${run.error}`
+      const before = previous.current?.pid === pid ? previous.current.runs.get(run.run_id) : undefined
+      if (previous.current?.pid === pid && before !== stamp && run.error && ['failed', 'completed_with_errors'].includes(run.status)) {
+        toast({ message: i18n.t('jobs.taskFailedDetail', { name: run.name, error: run.error }), tone: 'error', action: { label: i18n.t('jobs.showTask'), run: () => openTask(run.task.id) } })
+      }
+    }
+    previous.current = { pid, runs: new Map(runs.map((run) => [run.run_id, `${run.job_id}:${run.status}:${run.error}`])) }
+  }, [pid, runs])
   return null
 }

@@ -557,11 +557,16 @@
     "gpu": {
       "check": "Check GPUs",
       "checking": "Checking GPUs…",
-      "snapshot": "{{available}} of {{total}} approved GPUs idle · updated {{age}}",
+      "snapshot": "{{available}} of {{total}} approved GPUs have enough free memory · updated {{age}}",
       "unknown": "GPU availability is unavailable. Check the runner and try again.",
       "offline": "The runner is offline. Start it before checking GPU availability.",
       "timeout": "The runner did not provide a new GPU reading within 20 seconds. Try again.",
-      "help": "Waits for the runner's next nvidia-smi reading (up to 20 seconds). This does not reserve GPUs or start inference; availability is checked again before launch."
+      "help": "GPUs may be shared when they have enough free memory. Check GPUs waits for a fresh reading (up to 20 seconds); memory is checked again before launch and may change during inference.",
+      "memoryRequired": "Minimum free memory per GPU: {{gib}} GiB (configured for this runner).",
+      "memoryList": "GPU memory availability",
+      "deviceMemory": "GPU {{index}}: {{free}} / {{total}} GiB free · {{state}}",
+      "insufficient": "insufficient free memory",
+      "available": "available"
     },
     "kind": {
       "conversion": "Conversion",
@@ -615,10 +620,10 @@
       "scan": "Scan",
       "empty": "No files match these filters.",
       "elapsed": "{{s}} s · work continues while this window is minimized",
-    "backgroundTitle": "Open file or folder",
-    "openPrepared": "Open in viewer",
-    "prepared": "Source headers are ready. No image conversion outputs were created.",
-    "pageCount": "{{count}} of {{total}} matching files on this page",
+      "backgroundTitle": "Open file or folder",
+      "openPrepared": "Open in viewer",
+      "prepared": "Source headers are ready. No image conversion outputs were created.",
+      "pageCount": "{{count}} of {{total}} matching files on this page",
       "previous": "Previous page",
       "next": "Next page",
       "manual": "Paste or edit item IDs"

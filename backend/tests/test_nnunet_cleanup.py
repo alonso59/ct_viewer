@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -106,3 +107,39 @@ def test_fake_cli_ignores_inherited_failure_switches(
     assert "FAKE_NNUNET_BAD_GEOMETRY" not in environment
     assert run_plugin(job, environment).returncode == 0
     assert len(list((tmp_path / "derived").glob("*.nii.gz"))) == 2
+
+
+def test_cuda_oom_preserves_detail_and_stops_later_batches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results, profiles = make_model(tmp_path)
+    monkeypatch.setenv("nnUNet_results", str(results))
+    monkeypatch.setenv("RW_NNUNET_PROFILES_DIR", str(profiles))
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-one,GPU-two")
+    profile = load_profile("kits2023-dataset220")
+    job = tmp_path / "job"
+    write_job(job, make_images(tmp_path, 4), tmp_path / "outputs")
+    monkeypatch.setattr(inference, "_command_exists", lambda name: None)
+    monkeypatch.setattr(inference, "_versions", lambda: {})
+    calls = []
+
+    class FailedProcess:
+        def poll(self) -> int:
+            return 1
+
+    def spawn(name: str, command: list[str], env: dict[str, str]) -> Any:
+        calls.append(name)
+        with (job / "task.log").open("a") as log:
+            log.write("torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1 GiB.\n")
+        return inference.Child(name, FailedProcess())
+
+    monkeypatch.setattr(inference, "load_profile", lambda name: profile)
+    monkeypatch.setattr(inference, "_spawn", spawn)
+    assert inference.run(str(job)) == 1
+    result = json.loads((job / "result.json").read_text())
+    assert result["status"] == "failed"
+    assert "CUDA out of memory" in result["error"]
+    assert "resume" in result["error"]
+    assert result["counts"]["failed"] == 2
+    assert len(calls) == 2

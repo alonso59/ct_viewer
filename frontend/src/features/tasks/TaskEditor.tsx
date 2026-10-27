@@ -74,7 +74,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         </p>
       ) : null}
       <span className="muted num">{run.task.id === 'dicom.convert' ? t('conv.recoveryCounts', { complete: c?.ok ?? 0, failed: c?.failed ?? 0, pending: c?.pending ?? 0 }) : t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
-      {run.error ? <span className="field-error">{run.error}</span> : null}
+      {run.error ? <p className="field-error" role="alert">{run.error}</p> : null}
       <div className="task-run-actions">
         {actions.map((a) => (
           <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} onClick={() => void control(a)}>

@@ -170,6 +170,20 @@ class DriverBase(RegistrationBase):
                 await self._drive_external(h, live, n_todo)
             else:
                 await self._drive(h, live, n_todo)
+            result = protocol.read_result(live.job_dir)
+            if m.id == "segment.nnunet" and result and result.get("status") == "failed":
+                failures = [
+                    v.get("message")
+                    for v in item_outcomes(live.run_dir).values()
+                    if v.get("status") == "failed"
+                ]
+                raise RuntimeError(
+                    result.get("error")
+                    or next(
+                        (message for message in failures if message),
+                        "Task failed; see its error details",
+                    )
+                )
 
         async def on_finish(info: JobInfo) -> str | None:
             await self._finish(live, info)
@@ -515,7 +529,11 @@ class DriverBase(RegistrationBase):
                 )
             n = Counter(v["status"] for v in outcomes.values())
             rec.counts = TaskRunCounts(
-                items=len(rec.item_ids), ok=n["ok"], failed=n["failed"], skipped=n["skipped"]
+                items=len(rec.item_ids),
+                ok=n["ok"],
+                failed=n["failed"],
+                skipped=n["skipped"],
+                pending=max(0, len(rec.item_ids) - sum(n.values())),
             )
             if rec.task.id == DICOM_CONVERT:
                 counts = (result or {}).get("estimate", {})
@@ -535,7 +553,7 @@ class DriverBase(RegistrationBase):
             elif info.status == "interrupted":
                 status = "interrupted"
             elif info.status == "failed":
-                status, rec.error = "failed", info.error
+                status, rec.error = "failed", (result or {}).get("error") or info.error
             elif result is None:
                 status = "failed"
                 code = (protocol.read_exit(live.job_dir) or {}).get("code")
@@ -546,7 +564,14 @@ class DriverBase(RegistrationBase):
                 status = raw if raw in TERMINAL_TASK_RUN else "failed"  # type: ignore[assignment]
                 if n["failed"] and status == "completed":
                     status = "completed_with_errors"
-                rec.error = result.get("error")
+                rec.error = result.get("error") or next(
+                    (
+                        v.get("message")
+                        for v in outcomes.values()
+                        if v["status"] == "failed" and v.get("message")
+                    ),
+                    None,
+                )
                 versions = result.get("versions")
                 if isinstance(versions, dict):
                     rec.versions = {str(k): str(v) for k, v in versions.items()}

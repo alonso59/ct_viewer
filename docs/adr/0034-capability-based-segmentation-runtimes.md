@@ -1,5 +1,5 @@
 # ADR-0034 Capability-based segmentation runtimes without administrator access
-Status: Accepted · Date: 2026-10-22
+Status: Accepted (§5 admission criterion superseded by ADR-0039) · Date: 2026-10-22
 Supersedes: ADR-0033 (preserves catalog, lifecycle, ownership and immutable-output contracts)
 Amends: ADR-0016 external lifecycle; ADR-0007 host-runner deployment; BE-06 external recovery
 

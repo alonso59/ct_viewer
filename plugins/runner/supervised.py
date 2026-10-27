@@ -70,7 +70,8 @@ class Supervisor:
             "backend": self.config["backend"],
             "limits": self.config["limits"],
             "gpu_inventory": [
-                {key: value for key, value in row.items() if key != "pids"} | {"busy": not gpu.idle(row)}
+                {key: value for key, value in row.items() if key != "pids"}
+                | {"busy": not gpu.available(row, self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB))}
                 for row in gpu.inventory()
             ],
             "limitations": [
@@ -88,8 +89,10 @@ class Supervisor:
             return {
                 "at": utc_now(),
                 "error": None,
+                "required_free_mb": self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB),
                 "devices": [
-                    {key: value for key, value in row.items() if key != "pids"} | {"busy": not gpu.idle(row)}
+                    {key: value for key, value in row.items() if key != "pids"}
+                    | {"busy": not gpu.available(row, self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB))}
                     for row in rows
                 ],
             }
@@ -164,7 +167,6 @@ class Supervisor:
         plugin: Path,
         spec: dict[str, Any],
         selected: list[str],
-        rows: list[dict[str, Any]],
     ) -> dict[str, Any]:
         output = Path(spec["output_dir"]).resolve()
         if not within(output, self.config["derived_roots"]):
@@ -207,7 +209,7 @@ class Supervisor:
                 Path("/dev/nvidiactl"),
                 Path("/dev/nvidia-uvm"),
                 Path("/dev/nvidia-uvm-tools"),
-                *[Path(f"/dev/nvidia{row['index']}") for row in rows if row["uuid"] in selected],
+                *[gpu.device_path(identity) for identity in selected],
             ]
             if path.exists()
         ]
@@ -275,11 +277,17 @@ class Supervisor:
         count = min(max(1, len(pending)), cap, len(requested) if requested else cap)
         rows = gpu.inventory()
         try:
-            selected = gpu.select_devices(rows, self.config.get("gpu_pool", []), requested, count)
+            selected = gpu.select_devices(
+                rows,
+                self.config.get("gpu_pool", []),
+                requested,
+                count,
+                self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB),
+            )
         except ValueError as exc:
             self.last_error = str(exc)
             return False
-        record = self.prepare(job, manifest, plugin, spec, selected, rows)
+        record = self.prepare(job, manifest, plugin, spec, selected)
         if not self.pool.reserve(record, claim=lambda: claim(job)):
             self.last_error = "waiting for the participating host allocation"
             return False
@@ -337,7 +345,17 @@ class Supervisor:
             return
         try:
             rows = gpu.inventory()
-            gpu.select_devices(rows, record["gpus"], record["gpus"], len(record["gpus"]))
+            by_uuid = {row["uuid"]: row for row in rows}
+            for identity in record["gpus"]:
+                if identity not in by_uuid:
+                    raise ValueError("reserved GPU is missing from fresh inventory")
+                for pid in by_uuid[identity]["pids"]:
+                    try:
+                        group = Path(f"/proc/{pid}/cgroup").read_text()
+                    except FileNotFoundError:
+                        continue
+                    if service.unit_name(record["attempt"]) in group:
+                        raise ValueError("attempt still owns a GPU process")
         except (OSError, ValueError) as exc:
             self.last_error = f"cleanup_pending: GPU release unknown: {exc}"
             return

@@ -50,7 +50,7 @@ export function JobsPanel() {
         {jobs.map((j) => (
           <tr key={j.job_id}>
             <td>{t(`jobs.kind.${j.kind}`)}</td>
-            <td><RunStatusBadge status={j.status} title={j.error ?? undefined} /></td>
+            <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error" role="alert">{j.error}</p> : null}</td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} /></div>

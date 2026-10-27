@@ -657,7 +657,9 @@
       "thumbnail": "Thumbnails",
       "radiomics": "Radiomics",
       "mesh": "Mesh"
-    }
+    },
+    "taskFailedDetail": "{{name}}: {{error}}",
+    "showTask": "Show task"
   },
   "output": {
     "curation": "[curation] {{reviewer}} → {{id}} {{target}} = {{status}}",

@@ -7,13 +7,46 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.runner.gpu import Pool, select_devices
+from plugins.runner.gpu import Pool, device_path, select_devices
 
 ROWS: list[dict[str, Any]] = [
-    {"index": "0", "uuid": "GPU-A", "used_mb": 0, "utilization": 0, "pids": []},
-    {"index": "6", "uuid": "GPU-B", "used_mb": 0, "utilization": 0, "pids": []},
-    {"index": "7", "uuid": "GPU-C", "used_mb": 0, "utilization": 0, "pids": []},
+    {"index": "0", "uuid": "GPU-A", "total_mb": 46068, "used_mb": 0, "utilization": 0, "pids": []},
+    {"index": "6", "uuid": "GPU-B", "total_mb": 46068, "used_mb": 0, "utilization": 0, "pids": []},
+    {"index": "7", "uuid": "GPU-C", "total_mb": 46068, "used_mb": 0, "utilization": 0, "pids": []},
 ]
+
+
+@pytest.mark.parametrize("minor", ["5", "missing", "-1"])
+def test_driver_uuid_mapping_uses_device_minor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, minor: str
+) -> None:
+    info = tmp_path / "information"
+    info.write_text(f"GPU UUID: GPU-B\nDevice Minor: {minor}\n")
+    original_glob, original_stat = Path.glob, Path.stat
+    device_stat = Path("/dev/zero").stat()
+    monkeypatch.setattr(
+        Path,
+        "glob",
+        lambda path, pattern: (
+            iter([info])
+            if path == Path("/proc/driver/nvidia/gpus")
+            else original_glob(path, pattern)
+        ),
+    )
+    monkeypatch.setattr(
+        Path,
+        "stat",
+        lambda path, **kwargs: (
+            device_stat if path == Path("/dev/nvidia5") else original_stat(path, **kwargs)
+        ),
+    )
+    if minor == "5":
+        assert device_path("GPU-B") == Path("/dev/nvidia5")
+    else:
+        with pytest.raises(ValueError, match="minor"):
+            device_path("GPU-B")
+    with pytest.raises(ValueError, match="mapping"):
+        device_path("GPU-unknown")
 
 
 def test_explicit_physical_selection_survives_reordered_inventory() -> None:
@@ -21,11 +54,11 @@ def test_explicit_physical_selection_survives_reordered_inventory() -> None:
 
 
 @pytest.mark.parametrize(
-    "field,value", [("used_mb", 500), ("utilization", 20), ("pids", [123]), ("used_mb", None)]
+    "field,value", [("used_mb", 40000), ("total_mb", None), ("used_mb", -1), ("used_mb", None)]
 )
 def test_busy_or_unobservable_requested_gpu_is_refused(field: str, value: Any) -> None:
     rows = [{**row, field: value} if row["index"] == "6" else row for row in ROWS]
-    with pytest.raises(ValueError, match=r"busy|unknown"):
+    with pytest.raises(ValueError, match=r"insufficient|unknown"):
         select_devices(rows, ["0", "6"], ["6"], 1)
 
 
@@ -103,3 +136,10 @@ def test_simultaneous_processes_never_share_the_participating_host_slot(tmp_path
                 process.join(timeout=5)
         results.close()
     assert all(process.exitcode == 0 for process in processes)
+
+
+def test_active_gpu_with_sufficient_free_memory_can_be_selected() -> None:
+    rows = [{**ROWS[1], "used_mb": 24000, "utilization": 100, "pids": [123]}]
+    assert select_devices(rows, ["6"], ["6"], 1, minimum_mb=16000) == ["GPU-B"]
+    with pytest.raises(ValueError, match="insufficient"):
+        select_devices(rows, ["6"], ["6"], 1, minimum_mb=24000)

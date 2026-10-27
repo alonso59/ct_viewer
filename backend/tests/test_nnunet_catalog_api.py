@@ -119,7 +119,7 @@ def test_gpu_settings_follow_the_runner_pool(client: TestClient) -> None:
     """G1: only the runner's approved devices are offered and accepted; the cap fits the pool."""
 
     def device(index: str, busy: bool) -> dict[str, Any]:
-        used = 3000 if busy else 14
+        used = 40000 if busy else 14
         return {"index": index, "uuid": f"GPU-{index}", "name": "NVIDIA A40",
                 "total_mb": 46068, "used_mb": used, "busy": busy}  # fmt: skip
 
@@ -135,7 +135,7 @@ def test_gpu_settings_follow_the_runner_pool(client: TestClient) -> None:
     props = props["properties"]
     assert props["gpu_ids"]["items"]["enum"] == ["0", "6"]
     names = props["gpu_ids"]["items"]["x-enumNames"]
-    assert "A40" in names[0] and "busy" in names[1].lower()
+    assert "A40" in names[0] and "insufficient memory" in names[1].lower()
     assert props["gpu_cap"]["maximum"] == 2 and props["gpu_cap"]["default"] <= 2
     assert props["profile"]["x-enumNames"] == [PROFILE_ID, "other-ct"]
 
