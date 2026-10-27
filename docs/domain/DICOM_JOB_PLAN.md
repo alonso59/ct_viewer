@@ -151,14 +151,19 @@ actual native callback, second tab, minimized reload, both themes, fresh browser
 `dicom-native-browser-final-matrix.log` passes 8/8; the final port-reservation cleanup passes its focused
 crash case (`dicom-native-browser-after-cleanup.log`); four original host recovery cases still pass.
 These deterministic barriers do not certify every blocked-I/O or crash point.
+Active discovery/planning browser coverage now holds an actual parsed header or inspected series in the owned worker, minimizes/reloads, closes the browser context, restores from server history, cancels with confirmed process-group cleanup and resumes the same operation in project/workspace scopes. Seven combinations pass in `dicom-active-stages-browser-final.log`; Firefox project discovery passes with the visible-cancellation synchronization in `dicom-header-firefox-after-visible-cancel.log`. Source hashes, settings, project identity and one-operation ownership are preserved. A newly exposed admitted-header caption/count defect has a red/green regression; all 36 overlay cases pass (`dicom-admitted-discovery-red.log`, `dicom-header-progress-green.log`). The final published browser matrix remains required.
 
 ### Publication and packaged runtime
 
-- Production john:5180 runs `29bac01`, tree `b760c138663c2b9f3d26d19fdf826707339fb8b7`, image
+- Last verified immutable deployment: `29bac01`, tree `b760c138663c2b9f3d26d19fdf826707339fb8b7`, image
   `85745aa64356ea0f:verification`. CI `40371515442` passed 1,200 backend, 431 frontend,
   108 serial runner and 76 browser tests. Non-root uid-1008 same-image udocker conversion,
   queued API SIGKILL/restart, cancel/resume and restored Open preserve source/output hashes
   (`dicom-product-29bac01/acceptance.json`). No GPU workload was launched.
+- Current john:5180 release metadata records a provisional checkout snapshot deployed at
+  2026-10-27 12:06 UTC (`rw-production-checkout-20261027T120659Z`, base `f56aaad`, with
+  uncommitted changes). That snapshot is not the immutable image certified above; replace it
+  with the final CI image after same-image acceptance and draining active work.
 - Published `63b8869` adds test/docs only; CI `40376987867` passed 1,209 backend, 431 frontend,
   108 serial runner and 76 browser tests, plus image/static/contract gates. Twelve native codec cases
   cover implicit/explicit LE, BE, deflated, RLE and JPEG 2000 lossless, with independent GDCM geometry.
@@ -205,10 +210,9 @@ they do not certify every codec/storage/pathology class. Private clinical output
 The plan remains open until the full companion matrix is audited with evidence, especially:
 
 - Complete the per-case evidence audit. Existing real SIGKILL coverage includes staging/image/sidecar/commit/progress and eleven registration/Index barriers (`test_dicom_operation_recovery.py`); registration cancellation has separate durable-acknowledgment cases. Remaining analyzer/CLI paths must be mapped individually rather than inferred from filenames.
-- Remaining B04–B08 branches in both browsers: active scan/estimate recovery,
-  stage-specific cancellation and partial pixel/phase failures. B01 deep project import passes in both browsers, including extensionless/IMA files, minimize/navigation/restore and indexed results (`dicom-import-deep-browser-fixed-root.log`). B02 result Open and Add-to-existing pass in both browsers (`dicom-result-open-browser-final.log`, `dicom-result-branches-browser-fixed-key.log`); Create was already covered. B03 passes in both browsers: 503 DICOM series/2,274 files, later-page selection of all 750 slices, exact independent GDCM membership, full voxel/affine/marker oracle, paged identities without gaps, converter handoff and truthful minimum-size skips (`dicom-large-series-browser-summary.log`). Active scanning minimization remains a separate branch. The eight native recovery cases above cover portions.
+- Remaining B05/B07 branches in both browsers: registration/analyzer cancellation and partial pixel/phase failures. B01 deep project import passes in both browsers, including extensionless/IMA files, minimize/navigation/restore and indexed results (`dicom-import-deep-browser-fixed-root.log`). B02 result Open and Add-to-existing pass in both browsers (`dicom-result-open-browser-final.log`, `dicom-result-branches-browser-fixed-key.log`); Create was already covered. B03 passes in both browsers: 503 DICOM series/2,274 files, later-page selection of all 750 slices, exact independent GDCM membership, full voxel/affine/marker oracle, paged identities without gaps, converter handoff and truthful minimum-size skips (`dicom-large-series-browser-summary.log`). Active scanning minimization, fresh-context scan/estimate recovery and header-stage cancellation now have the additional local evidence above. Full B08 regression still requires the final CI run.
 - Pixel ownership/accounting/cleanup across distinct Docker PID namespaces and multi-workspace workloads;
   existing same-namespace inventory proof is narrower. Never relax an unverified cleanup fence.
 - P04 NFR-03/04/08 now pass at the recorded reference workload and allocator setting; final image must retain that setting. P06 has frozen native/RLE/JPEG-2000 hold-out evidence; unsupported classes retain unknown estimates. Windows Docker and actual Safari remain unavailable platform lanes.
-- Full CI and same-image Docker/udocker acceptance for the segmentation editor, inspector and memory fixes before rollout. Published `3cec8b2` includes the deterministic cancellation barrier and B01/B02 journeys; CI `40541772503` passed full static/unit/contract checks and serial runner safety and is still running the browser gate. The local Explorer, allocator and B03 follow-up requires publication and final image acceptance.
+- Full CI and same-image Docker/udocker acceptance for the segmentation editor, inspector and memory fixes before rollout. Published `8dbfb9d` contains the reference-workload fixes and B03; CI `40546369236` is running. The preceding `3cec8b2` run passed full static/unit/contract checks and 120 serial runner cases, then was cancelled near its 35-minute limit after 83 browser passes; it produced no image. The follow-up separates full Chromium/Firefox suites onto independent runners, with product export gated by both, rather than sharing one serial deadline. Active-stage recovery and its caption follow-up require publication and final image acceptance.
   Rollback requires compatible readers or a drained metadata snapshot, never an assumed migration.

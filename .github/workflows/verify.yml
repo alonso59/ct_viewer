@@ -13,7 +13,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -26,14 +26,6 @@ jobs:
         run: docker run --rm --init rw-verification make check RUNTIME=native VENV=/opt/ci FULL_TESTS=1
       - name: Serial runner safety regressions
         run: docker run --rm --init rw-verification make test-runner VENV=/opt/ci FULL_TESTS=1 PYTEST_WORKERS=0
-      - name: Real-backend browser regressions, Chromium and Firefox
-        run: |
-          mkdir -p build/ci/browser-results build/ci/browser-report
-          docker run --rm --init --shm-size=1g \
-            -e E2E_XVFB=1 -e LIBGL_ALWAYS_SOFTWARE=1 -e LP_NUM_THREADS=2 \
-            -v "$PWD/build/ci/browser-results:/repo/frontend/test-results" \
-            -v "$PWD/build/ci/browser-report:/repo/frontend/playwright-report" \
-            rw-verification xvfb-run -a make fixtures e2e RUNTIME=native VENV=/opt/ci
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -41,8 +33,39 @@ jobs:
           path: build/ci/
           if-no-files-found: ignore
           retention-days: 7
-  image:
+  browser:
     needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build isolated full-test environment
+        run: >-
+          docker build -f Dockerfile.verify
+          --build-arg VERIFY_UID="$(id -u)" --build-arg VERIFY_GID="$(id -g)"
+          -t rw-verification .
+      - name: Real-backend browser regressions
+        run: |
+          mkdir -p build/ci/browser-results build/ci/browser-report
+          docker run --rm --init --shm-size=1g \
+            -e E2E_XVFB=1 -e LIBGL_ALWAYS_SOFTWARE=1 -e LP_NUM_THREADS=2 \
+            -v "$PWD/build/ci/browser-results:/repo/frontend/test-results" \
+            -v "$PWD/build/ci/browser-report:/repo/frontend/playwright-report" \
+            rw-verification xvfb-run -a make fixtures e2e RUNTIME=native VENV=/opt/ci PROJECT=${{ matrix.project }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-diagnostics-${{ matrix.project }}
+          path: build/ci/
+          if-no-files-found: ignore
+          retention-days: 7
+  image:
+    needs: [verify, browser]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

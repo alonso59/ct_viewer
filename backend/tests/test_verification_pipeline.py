@@ -29,7 +29,10 @@ def test_verification_runs_full_checks_serial_safety_and_both_browsers() -> None
     path = REPO / ".github/workflows/verify.yml"
     assert path.exists(), "no enforced verification workflow exists"
     workflow = yaml.safe_load(path.read_text())
-    commands = "\n".join(step.get("run", "") for step in workflow["jobs"]["verify"]["steps"])
+    jobs = workflow["jobs"]
+    commands = "\n".join(
+        step.get("run", "") for name in ("verify", "browser") for step in jobs[name]["steps"]
+    )
     for required in (
         "make check",
         "FULL_TESTS=1",
@@ -38,7 +41,13 @@ def test_verification_runs_full_checks_serial_safety_and_both_browsers() -> None
         "make fixtures e2e",
     ):
         assert required in commands, f"required gate missing: {required}"
-    assert "--project=" not in commands, "the browser gate must exercise both configured browsers"
+    browser = jobs["browser"]
+    assert browser["needs"] == "verify"
+    assert set(browser["strategy"]["matrix"]["project"]) == {"chromium", "firefox"}
+    browser_commands = "\n".join(step.get("run", "") for step in browser["steps"])
+    assert "PROJECT=${{ matrix.project }}" in browser_commands
+    assert "SPEC=" not in browser_commands, "each browser must run every spec"
+    assert set(jobs["image"]["needs"]) == {"verify", "browser"}
 
 
 def test_test_target_uses_explicit_bounded_worker_counts() -> None:

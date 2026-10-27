@@ -7,15 +7,36 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import uvicorn
 
-from app.config import Settings
-from app.main import create_app
-from app.tasks import dicom_process
-from tools.dicom_fixtures import write_series
+def staged_worker(job_dir: Path, stage: str) -> int:
+    from threading import Event
+
+    from plugins.dicom import scan
+
+    from app.core.fsio import atomic_write_json
+    from app.tasks import dicom_worker
+
+    symbol = "image_info" if stage == "discovering" else "inspect"
+    original = getattr(scan, symbol)
+
+    def held(*args: Any, **kwargs: Any) -> Any:
+        result = original(*args, **kwargs)
+        atomic_write_json(job_dir / "stage-barrier.json", {"pid": os.getpid(), "stage": stage})
+        Event().wait()
+        return result
+
+    setattr(scan, symbol, held)
+    return dicom_worker.main(job_dir)
 
 
 def main() -> None:
+    import uvicorn
+
+    from app.config import Settings
+    from app.main import create_app
+    from app.tasks import dicom_process
+    from tools.dicom_fixtures import write_series
+
     root, port, public_url = Path(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
     os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:2])
     source = root / "source"
@@ -38,6 +59,14 @@ def main() -> None:
 
     async def launch(*args: Any, **kwargs: Any) -> Any:
         if args[1:3] == ("-m", "app.tasks.dicom_worker") and (root / "pause").exists():
+            stage = (root / "pause").read_text()
+            if stage in {"discovering", "planning"}:
+                staged = (
+                    "import sys; from pathlib import Path; "
+                    "from tests.dicom_browser_server import staged_worker; "
+                    "raise SystemExit(staged_worker(Path(sys.argv[1]), sys.argv[2]))"
+                )
+                return await original(args[0], "-c", staged, args[3], stage, **kwargs)
             return await original(args[0], "-c", code, args[3], **kwargs)
         return await original(*args, **kwargs)
 

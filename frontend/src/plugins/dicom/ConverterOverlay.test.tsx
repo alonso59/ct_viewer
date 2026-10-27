@@ -438,6 +438,21 @@ test('a dataset name that is taken is said in the settings step (DCM-14, AUD-A2-
   expect(screen.queryByText(/exists; this one will be saved/)).toBeNull()
 })
 
+test('UI-28 shows admitted conversion discovery as folder listing with its folder count', async () => {
+  const recorded = await recordedOperation()
+  const operation: SourceOperation = {
+    ...recorded, project_id: null, purpose: 'convert', status: 'running', stage: 'discovering',
+    work_kind: 'inventory', progress_stage: 'admitted', progress: { folders: 3, files: 20 },
+    conversion_run_id: null, conversion_run: null, phase_run: null, estimate: null,
+  }
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
+  useConverter.getState().attach(operation.operation_id, true)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText('Listing folders (3 so far)')).toBeVisible()
+  expect(screen.getByTestId('conv-chip')).not.toHaveTextContent('Starting conversion')
+})
+
 test('a dry run shows its stages, minimizes to a chip while it works and can be cancelled (UI-25, DCM-06)', async () => {
   const completed = await recordedOperation()
   const pending: SourceOperation = { ...completed, status: 'running', stage: 'planning', work_kind: 'estimate', conversion_run_id: null, conversion_run: null, estimate: null, progress_stage: 'reading', progress: { done: 120, total: 450 }, cleanup_verified: false }

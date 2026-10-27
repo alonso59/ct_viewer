@@ -253,6 +253,7 @@ export default function ConverterOverlay() {
   const scanProgress = useEstimateProgress(scan?.id ?? null).data
   const elapsed = useElapsed(operation ? Date.parse(operation.created_at) : scan?.started ?? null)
   const inventoryCounts = operation?.summary?.complete && (!isTaskRunPending(operation.status) || linked) ? operation.summary : operation?.progress
+  const progressStage = operation?.progress_stage === 'admitted' && operation.work_kind !== 'convert' ? 'listing' : operation?.progress_stage
   const shownError = error ?? (operation?.problem ? toProblemError(Number(operation.problem.status ?? 500), operation.problem, operation.error ?? t('problemTitle.unknown')) : operation?.error && operation.status !== 'waiting_for_resources' ? new Error(operation.error) : null)
   useEffect(() => {
     if (!operation) return
@@ -330,9 +331,10 @@ export default function ConverterOverlay() {
     activity = { label: t('conv.connecting'), done: 0, total: 0, finished: false }
   } else if (operation && !linked && operation.stage !== 'ready') {
     const progress = operation.progress ?? {}
-    const stage = isSourceOnly && operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? (operation.stage === 'discovering' ? 'listing' : 'planning')
+    const stage = progressStage ?? (operation.stage === 'discovering' ? 'listing' : 'planning')
+    const done = stage === 'listing' ? progress.folders ?? 0 : progress.done ?? progress.files ?? 0
     const finished = !isTaskRunPending(operation.status)
-    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : t(`conv.stage.${stage}`, { done: progress.done ?? progress.files ?? 0, total: progress.total ?? 0 }), done: progress.done ?? 0, total: progress.total ?? 0, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
+    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : t(`conv.stage.${stage}`, { done, total: progress.total ?? 0 }), done, total: progress.total ?? 0, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
   } else if (scan) {
     const s = scanProgress?.stage ?? 'check'
     activity = { label: `${t('conv.dryRunning')} · ${t(`conv.stage.${s}`, { done: scanProgress?.done ?? 0, total: scanProgress?.total ?? 0 })}`, done: scanProgress?.done ?? 0, total: s === 'reading' || s === 'planning' ? scanProgress?.total ?? 0 : 0, finished: false }
@@ -518,7 +520,7 @@ export default function ConverterOverlay() {
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
             <code className="conv-path">{source}</code>
-            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage === 'admitted' ? 'listing' : operation.progress_stage ?? 'listing', done: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
+            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : progressStage ?? 'listing', done: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
               <p>{t('open.prepared')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>
             </> : isDiscovering && operation.status === 'completed' ? <>
@@ -582,7 +584,7 @@ export default function ConverterOverlay() {
                 </div>
               ) : null}
               {working ? (
-                <ScanPanel progress={operation ? { stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : operation.progress_stage ?? 'listing', done: operation.progress?.done ?? operation.progress?.files ?? 0, total: operation.progress?.total ?? 0 } : scanProgress} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} />
+                <ScanPanel progress={operation ? { stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : progressStage ?? 'listing', done: progressStage === 'listing' ? operation.progress?.folders ?? 0 : operation.progress?.done ?? operation.progress?.files ?? 0, total: operation.progress?.total ?? 0 } : scanProgress} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} />
               ) : (
                 <div className="conv-row conv-actions">
                   <button type="button" className="btn btn-primary" disabled={needsDerived || busy} onClick={() => void dryRun()}>{t('conv.dryRun')}</button>

@@ -22,6 +22,77 @@ const test = base.extend<{ server: Awaited<ReturnType<typeof startRecoveryServer
 })
 test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 })
 
+for (const stage of ['discovering', 'planning']) {
+  for (const scope of ['dataset', 'project']) {
+    test(`${scope}: fresh browser restores and cancels active ${stage}`, async ({ page, browser, server }) => {
+      test.setTimeout(180_000)
+      writeFileSync(join(server.root, 'pause'), stage)
+      const inputs = fixtureHashes(server.source)
+      let pid: string | undefined
+      if (scope === 'project') {
+        pid = (await server.request<{ project_id: string }>('POST', '/projects', { name: 'Header recovery', packs: [] })).project_id
+        await server.request('PUT', `/projects/${pid}/roots/DERIVED`, { path: server.derived, role: 'derived' })
+      }
+      await page.goto(pid ? `${server.url}/p/${pid}` : server.url)
+      if (pid) {
+        await page.keyboard.press('ControlOrMeta+Shift+P')
+        await page.getByRole('dialog').getByRole('combobox').fill('Convert DICOM')
+        await page.getByRole('option', { name: /Convert DICOM/ }).click()
+      } else await page.getByRole('button', { name: /Convert DICOM/ }).click()
+      let dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
+      await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+      await dialog.getByRole('button', { name: 'Next', exact: true }).click()
+      await dialog.getByRole('checkbox', { name: /phase analyzer/ }).uncheck()
+      const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
+      await dialog.getByRole('button', { name: 'Dry run', exact: true }).click()
+      const { operation_id: oid } = await (await created).json() as { operation_id: string }
+      const workspace = join(server.root, 'workspace')
+      const barrier = () => readdirSync(workspace, { recursive: true, encoding: 'utf8' }).find((path) => path.endsWith('stage-barrier.json'))
+      await expect.poll(barrier, { timeout: 30_000 }).toBeTruthy()
+      const held = JSON.parse(readFileSync(join(workspace, barrier()!), 'utf8')) as { stage: string; pid: number }
+      const owner = JSON.parse(readFileSync(join(workspace, barrier()!.replace('stage-barrier.json', 'process.json')), 'utf8')) as { pid: number; group: number }
+      expect(held).toEqual({ stage, pid: owner.pid })
+      const original = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
+      expect(original.status).toBe('running')
+      expect(original.project_id).toBe(pid ?? null)
+      await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+      await page.reload()
+      await expect(page.getByTestId('conv-chip')).toBeVisible()
+      await page.context().close()
+      const fresh = await browser.newContext()
+      try {
+        page = await fresh.newPage()
+        await page.goto(server.url)
+        await page.getByRole('button', { name: /Convert DICOM/ }).click()
+        dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
+        await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(oid)
+        await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+        const chip = page.getByTestId('conv-chip')
+        await chip.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect.poll(async () => {
+          const record = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
+          return record.status === 'cancelled' && record.cleanup_verified
+        }, { timeout: 30_000 }).toBe(true)
+        await execute(server.python, ['-c', 'import sys;from app.tasks.dicom_process import group_running;assert not group_running(int(sys.argv[1]))', String(owner.group)], { cwd: server.backend })
+        unlinkSync(join(server.root, 'pause'))
+        await expect(chip).toContainText('Cancelled')
+        await chip.getByRole('button', { name: 'Show', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+        await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
+        const resumed = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
+        expect(resumed.attempt).toBe(original.attempt + (stage === 'discovering' ? 2 : 1))
+        expect(resumed.plan_attempt).toBe(resumed.attempt)
+        expect(resumed.project_id).toBe(original.project_id)
+        expect(resumed.settings).toEqual(original.settings)
+        expect(resumed.conversion_run).toBeNull()
+        expect((await server.request<{ items: unknown[] }>('GET', '/source-operations')).items).toHaveLength(1)
+        expect((await server.request<unknown[]>('GET', '/projects'))).toHaveLength(pid ? 1 : 0)
+        expect(fixtureHashes(server.source)).toEqual(inputs)
+      } finally { await fresh.close() }
+    })
+  }
+}
+
 test('project import discovers deep extensionless DICOM and converts after minimize/navigation', async ({ page, server }) => {
   test.setTimeout(180_000)
   unlinkSync(join(server.root, 'pause'))
