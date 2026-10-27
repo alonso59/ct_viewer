@@ -8,36 +8,79 @@ from pathlib import Path
 from typing import Any
 
 
+def held_index(batch: Any, *, root: Path) -> Any:
+    import time
+
+    from app.core.fsio import atomic_write_json
+    from app.ingest.indexer import probe_batch
+
+    result = probe_batch(batch)
+    if (root / "hold-index").exists():
+        atomic_write_json(root / "index-barrier.json", {"pid": os.getpid()})
+        while (root / "hold-index").exists():
+            time.sleep(0.01)
+    return result
+
+
 def staged_worker(job_dir: Path, stage: str) -> int:
     from threading import Event
 
-    from plugins.dicom import scan
+    from plugins.analyzers import checkpoint
+    from plugins.dicom import convert, scan
 
     from app.core.fsio import atomic_write_json
     from app.tasks import dicom_worker
 
-    symbol = "image_info" if stage == "discovering" else "inspect"
-    original = getattr(scan, symbol)
+    if stage == "fail-pixel":
+        original_write = convert.write_nifti
+
+        def fail(series: Any, *args: Any, **kwargs: Any) -> Any:
+            if series.dicom_dir.name == "P1":
+                raise OSError("Synthetic pixel publication failure")
+            return original_write(series, *args, **kwargs)
+
+        convert.write_nifti = fail
+        return dicom_worker.main(job_dir)
+
+    module = checkpoint if stage == "analyzing" else scan
+    symbol = (
+        "write_seed"
+        if stage == "analyzing"
+        else "image_info"
+        if stage == "discovering"
+        else "inspect"
+    )
+    original = getattr(module, symbol)
 
     def held(*args: Any, **kwargs: Any) -> Any:
         result = original(*args, **kwargs)
         atomic_write_json(job_dir / "stage-barrier.json", {"pid": os.getpid(), "stage": stage})
-        Event().wait()
+        if stage == "analyzing":
+            import time
+
+            while not (job_dir / "release-stage").exists():
+                time.sleep(0.01)
+        else:
+            Event().wait()
         return result
 
-    setattr(scan, symbol, held)
+    setattr(module, symbol, held)
     return dicom_worker.main(job_dir)
 
 
 def main() -> None:
+    from functools import partial
+
     import uvicorn
 
     from app.config import Settings
+    from app.ingest import indexer
     from app.main import create_app
     from app.tasks import dicom_process
     from tools.dicom_fixtures import write_series
 
     root, port, public_url = Path(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
+    indexer.probe_batch = partial(held_index, root=root)
     os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:2])
     source = root / "source"
     if not source.exists():
@@ -60,7 +103,7 @@ def main() -> None:
     async def launch(*args: Any, **kwargs: Any) -> Any:
         if args[1:3] == ("-m", "app.tasks.dicom_worker") and (root / "pause").exists():
             stage = (root / "pause").read_text()
-            if stage in {"discovering", "planning"}:
+            if stage in {"discovering", "planning", "analyzing", "fail-pixel"}:
                 staged = (
                     "import sys; from pathlib import Path; "
                     "from tests.dicom_browser_server import staged_worker; "

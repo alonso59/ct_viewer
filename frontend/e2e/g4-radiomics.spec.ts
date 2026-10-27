@@ -23,6 +23,24 @@ async function openSideView(page: Page, name: string, shown: () => Promise<boole
   if (!(await shown())) await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name, exact: true }).click()
 }
 
+test('RAD-01/UI-13 setting groups stay clickable after scrolling the selection with the inspector open', async ({ page, browserName }) => {
+  const pid = await project(`Radiomics layout ${browserName} ${Date.now()}`)
+  await page.goto(`/p/${pid}/radiomics`)
+  const form = page.locator('.rad')
+  await expect(form.getByRole('heading', { name: 'Selection' })).toBeVisible()
+  await form.getByRole('radio', { name: 'Filter by variable' }).click()
+  await form.locator('.rad-filter .rad-field').filter({ hasText: 'Phase' }).getByRole('checkbox', { name: 'NP', exact: true }).check()
+  await form.getByLabel('Variable').selectOption('modality')
+  await form.locator('.rad-field').filter({ has: page.locator('.rad-label', { hasText: /^modality$/ }) }).getByRole('checkbox', { name: /^CT/ }).check()
+  await form.getByRole('radio', { name: 'Full image' }).click()
+  await form.getByLabel('Segmentation set').selectOption('imported')
+  const labels = form.locator('.rad-field').filter({ has: page.locator('.rad-label', { hasText: /^Labels$/ }) })
+  for (const box of await labels.getByRole('checkbox').all()) await box.uncheck()
+  await labels.getByRole('checkbox', { name: /tumor/ }).check()
+  await form.getByRole('navigation', { name: 'Setting groups' }).getByRole('button', { name: 'Feature classes' }).click({ timeout: 10_000 })
+  await expect(form.getByRole('heading', { name: 'Feature classes', exact: true })).toBeVisible()
+})
+
 test('G4: radiomics run, failures in plain words, outliers, viewer, group comparison, export', async ({ page, browserName }) => {
   test.setTimeout(240_000)
   const errors: string[] = []

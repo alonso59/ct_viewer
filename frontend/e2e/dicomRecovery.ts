@@ -1,7 +1,7 @@
 // TST-24: the browser gets a private API; the shared E2E server and other jobs stay alive.
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs'
+import { createWriteStream, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, request } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
@@ -61,6 +61,7 @@ export async function startRecoveryServer(root: string) {
     }, { timeout: 45_000 }).toBe(true)
   }
   const close = async () => {
+    rmSync(join(root, 'hold-index'), { force: true })
     await stopProcess(apiProcess)
     proxy.closeAllConnections()
     await new Promise<void>((done) => proxy.close(() => done()))

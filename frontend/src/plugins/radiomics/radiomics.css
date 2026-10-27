@@ -274,6 +274,7 @@ button.rad-issue {
   }
   .rad-nav {
     grid-row: auto;
+    overflow: visible;
     border-right: 0;
     border-bottom: var(--border-width) solid var(--border);
   }

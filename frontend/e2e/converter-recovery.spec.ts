@@ -1,10 +1,10 @@
-// TST-24/B01-B06/B08: real import/result journeys, native cancellation/API death and restore.
+// TST-24/B01-B08: real import/result journeys, native cancellation/API death and restore.
 import { execFile, spawn } from 'node:child_process'
-import { readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 
-import { expect, test as base, type BrowserContext } from '@playwright/test'
+import { expect, test as base, type BrowserContext, type Page } from '@playwright/test'
 
 import type { SourceOperation } from '../src/api/types'
 import { startRecoveryServer } from './dicomRecovery'
@@ -21,6 +21,156 @@ const test = base.extend<{ server: Awaited<ReturnType<typeof startRecoveryServer
   },
 })
 test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 })
+
+async function prepareConversion(page: Page, server: Awaited<ReturnType<typeof startRecoveryServer>>, project: boolean, phase: boolean) {
+  const inputs = fixtureHashes(server.source)
+  let pid: string | undefined
+  if (project) {
+    pid = (await server.request<{ project_id: string }>('POST', '/projects', { name: 'Stage recovery', packs: [] })).project_id
+    await server.request('PUT', `/projects/${pid}/roots/DERIVED`, { path: server.derived, role: 'derived' })
+  }
+  await page.goto(pid ? `${server.url}/p/${pid}` : server.url)
+  if (pid) {
+    await page.keyboard.press('ControlOrMeta+Shift+P')
+    await page.getByRole('dialog').getByRole('combobox').fill('Convert DICOM')
+    await page.getByRole('option', { name: /Convert DICOM/ }).click()
+  } else await page.getByRole('button', { name: /Convert DICOM/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
+  await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+  await dialog.getByRole('button', { name: 'Next', exact: true }).click()
+  await dialog.getByRole('checkbox', { name: /phase analyzer/ }).setChecked(phase)
+  const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
+  await dialog.getByRole('button', { name: 'Dry run', exact: true }).click()
+  const { operation_id: oid } = await (await created).json() as { operation_id: string }
+  await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
+  return { dialog, oid, pid, inputs }
+}
+
+test('B05 cancels registration, drains its shared worker and resumes without rewriting pixels', async ({ page, server }) => {
+  test.setTimeout(180_000)
+  unlinkSync(join(server.root, 'pause'))
+  writeFileSync(join(server.root, 'hold-index'), '')
+  const { dialog, oid, pid, inputs } = await prepareConversion(page, server, true, false)
+  await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
+  await expect.poll(() => existsSync(join(server.root, 'index-barrier.json')), { timeout: 45_000 }).toBe(true)
+  const worker = JSON.parse(readFileSync(join(server.root, 'index-barrier.json'), 'utf8')) as { pid: number }
+  const record = () => server.request<SourceOperation>('GET', `/source-operations/${oid}`)
+  const original = (await record()).conversion_run!
+  const hashes = fixtureHashes(server.derived)
+  const committed = Object.keys(hashes).filter((path) => path.endsWith('.nii.gz'))
+  expect(committed).toHaveLength(2)
+  const mtimes = committed.map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))
+  await dialog.getByRole('button', { name: 'Cancel conversion', exact: true }).click()
+  await expect.poll(async () => (await record()).status).toBe('cancelling')
+  await execute(server.python, ['-c', 'import os,sys;os.kill(int(sys.argv[1]),0)', String(worker.pid)])
+  await expect(dialog.getByRole('button', { name: 'Resume pending work', exact: true })).toHaveCount(0)
+  expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(0)
+  unlinkSync(join(server.root, 'hold-index'))
+  await expect.poll(async () => {
+    const value = await record()
+    return value.status === 'cancelled' && value.cleanup_verified
+  }, { timeout: 30_000 }).toBe(true)
+  await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+  await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
+  const completed = (await record()).conversion_run!
+  expect(completed.run_id).toBe(original.run_id)
+  expect(completed.attempts).toBe(original.attempts)
+  await execute(server.python, ['-c', 'import os,sys;os.kill(int(sys.argv[1]),0)', String(worker.pid)])
+  expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(2)
+  expect((await server.request<{ items: unknown[] }>('GET', `/projects/${pid}/imports`)).items).toHaveLength(1)
+  expect(fixtureHashes(server.derived)).toEqual(hashes)
+  expect(committed.map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))).toEqual(mtimes)
+  expect(fixtureHashes(server.source)).toEqual(inputs)
+})
+
+for (const project of [false, true]) {
+  test(`B07 retries only failed pixels and preserves the first commit (project: ${project})`, async ({ page, server }) => {
+    test.setTimeout(180_000)
+    writeFileSync(join(server.root, 'pause'), 'fail-pixel')
+    const { dialog, oid, pid, inputs } = await prepareConversion(page, server, project, false)
+    await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
+    const record = () => server.request<SourceOperation>('GET', `/source-operations/${oid}`)
+    await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed_with_errors')
+    const original = (await record()).conversion_run!
+    const counts: Record<string, number> = original.counts ?? {}
+    expect(counts.failed).toBe(1)
+    expect(counts.ok ?? (counts.converted ?? 0) + (counts.already_converted ?? 0)).toBe(1)
+    await dialog.getByRole('button', { name: 'Show the result' }).click()
+    if (!project) {
+      await expect(dialog.getByRole('button', { name: 'Open', exact: true })).toBeDisabled()
+      await expect(dialog.getByRole('button', { name: 'Create project from this' })).toBeDisabled()
+    }
+    const before = fixtureHashes(server.derived)
+    const [image] = Object.keys(before).filter((path) => path.endsWith('.nii.gz'))
+    expect(image).toBeTruthy()
+    const mtime = String(statSync(join(server.derived, image!), { bigint: true }).mtimeNs)
+    unlinkSync(join(server.root, 'pause'))
+    await dialog.getByRole('button', { name: 'Retry failed series', exact: true }).click()
+    await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
+    const completed = (await record()).conversion_run!
+    expect(completed.run_id).toBe(original.run_id)
+    expect(completed.attempts).toBe(original.attempts + 1)
+    if ('dataset_dir' in original) expect(completed).toHaveProperty('dataset_dir', original.dataset_dir)
+    else expect(completed).toHaveProperty('output_dir', original.output_dir)
+    const finalCounts: Record<string, number> = completed.counts ?? {}
+    expect(finalCounts.failed).toBe(0)
+    expect(finalCounts.ok ?? (finalCounts.converted ?? 0) + (finalCounts.already_converted ?? 0)).toBe(2)
+    const after = fixtureHashes(server.derived)
+    expect(Object.keys(after).filter((path) => path.endsWith('.nii.gz'))).toHaveLength(2)
+    expect(after[image!]).toBe(before[image!])
+    expect(String(statSync(join(server.derived, image!), { bigint: true }).mtimeNs)).toBe(mtime)
+    if (pid) {
+      expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(2)
+      expect((await server.request<{ items: unknown[] }>('GET', `/projects/${pid}/imports`)).items).toHaveLength(1)
+    } else expect(await server.request('GET', '/projects')).toEqual([])
+    expect(fixtureHashes(server.source)).toEqual(inputs)
+  })
+}
+
+test('B05/B07 phase cancellation and failed retry preserve converted pixels and a manual phase', async ({ page, server }) => {
+  test.setTimeout(180_000)
+  writeFileSync(join(server.root, 'pause'), 'analyzing')
+  const { dialog, oid, pid, inputs } = await prepareConversion(page, server, true, true)
+  await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
+  const workspace = join(server.root, 'workspace')
+  const barrier = () => readdirSync(workspace, { recursive: true, encoding: 'utf8' }).find((path) => path.endsWith('stage-barrier.json'))
+  await expect.poll(barrier, { timeout: 45_000 }).toBeTruthy()
+  const phase = dialog.getByRole('region', { name: 'Phase analysis', exact: true })
+  await phase.getByRole('button', { name: 'Cancel phase analysis', exact: true }).click()
+  const record = () => server.request<SourceOperation>('GET', `/source-operations/${oid}`)
+  await expect.poll(async () => (await record()).phase_run?.status).toBe('cancelling')
+  writeFileSync(join(workspace, barrier()!.replace('stage-barrier.json', 'release-stage')), '')
+  unlinkSync(join(server.root, 'pause'))
+  await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
+  const original = await record()
+  expect(original.phase_run?.status).toBe('cancelled')
+  const converted = fixtureHashes(server.derived)
+  const mtimes = Object.keys(converted).map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))
+  const item = (await server.request<{ items: { item_id: string; case_id: string; scan_idx: string }[] }>('GET', `/projects/${pid}/items`)).items[0]!
+  const manual = await page.request.post(`${server.url}/api/v1/projects/${pid}/phase/events`, {
+    headers: { 'X-Reviewer': 'B07 browser' }, data: { case_id: item.case_id, scan_idx: item.scan_idx, value: 'NC' },
+  })
+  expect(manual.status()).toBe(201)
+  const analyzer = readdirSync(workspace, { recursive: true, encoding: 'utf8' }).find((path) => path.endsWith('phase-analyzer/checkpoint.json'))!
+  expect(analyzer).toBeTruthy()
+  const fault = join(workspace, analyzer.replace('checkpoint.json', 'batch-0.json'))
+  mkdirSync(fault)
+  await phase.getByRole('button', { name: 'Retry phase analysis', exact: true }).click()
+  await expect.poll(async () => (await record()).phase_run?.status, { timeout: 30_000 }).toBe('failed')
+  rmdirSync(fault)
+  await phase.getByRole('button', { name: 'Retry phase analysis', exact: true }).click()
+  await expect.poll(async () => (await record()).phase_run?.status, { timeout: 30_000 }).toBe('completed')
+  const completed = await record()
+  expect(completed.phase_run!.run_id).toBe(original.phase_run!.run_id)
+  expect(completed.phase_run!.attempts).toBe(original.phase_run!.attempts + 2)
+  expect(completed.conversion_run!.run_id).toBe(original.conversion_run!.run_id)
+  expect(completed.conversion_run!.attempts).toBe(original.conversion_run!.attempts)
+  const detail = await server.request<{ phase: { canonical: string; source: string } }>('GET', `/projects/${pid}/items/${item.item_id}`)
+  expect(detail.phase).toMatchObject({ canonical: 'NC', source: 'manual' })
+  expect(fixtureHashes(server.derived)).toEqual(converted)
+  expect(Object.keys(converted).map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))).toEqual(mtimes)
+  expect(fixtureHashes(server.source)).toEqual(inputs)
+})
 
 for (const stage of ['discovering', 'planning']) {
   for (const scope of ['dataset', 'project']) {
