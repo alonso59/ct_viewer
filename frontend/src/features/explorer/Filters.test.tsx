@@ -50,7 +50,7 @@ test('UI-08 / VAR-10: combine conditions, collapse panel, remove one and clear a
   fireEvent.change(screen.getByRole('combobox', { name: 'Curation status' }), { target: { value: 'not_reviewed' } })
   fireEvent.change(screen.getByRole('combobox', { name: 'QC warnings' }), { target: { value: 'any' } })
   fireEvent.change(screen.getByRole('combobox', { name: 'VOI' }), { target: { value: 'none' } })
-  await waitFor(() => expect(requests).toHaveBeenLastCalledWith(DEMO_PID, expect.objectContaining({ q: 'case_00001', phase: 'UNK', status: 'not_reviewed', warning: 'any', voi: 'none' })))
+  await waitFor(() => expect(requests).toHaveBeenLastCalledWith(DEMO_PID, expect.objectContaining({ phase: 'UNK', status: 'not_reviewed', warning: 'any', voi: 'none' })))
 
   fireEvent.click(screen.getByRole('button', { name: 'Filters' }))
   expect(screen.queryByRole('region', { name: 'Filters' })).not.toBeInTheDocument()
@@ -64,6 +64,30 @@ test('UI-08 / VAR-10: combine conditions, collapse panel, remove one and clear a
   fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
   expect(useExplorer.getState().filter).toEqual({})
   expect(screen.getByRole('textbox', { name: 'Filter cases' })).toHaveValue('')
+})
+
+test('UI-08 / NFR-03: text search updates rows, count and navigation without another cohort request', async () => {
+  const { summary } = await api.getCase(DEMO_PID, 'case_00001')
+  const requests = vi.spyOn(api, 'listCases').mockResolvedValue([
+    { ...summary, case_id: 'Alpha', patient_id: 'Study-42' },
+    { ...summary, case_id: 'Beta', patient_id: 'Other patient' },
+  ])
+  mount()
+  await waitFor(() => expect(screen.getAllByRole('treeitem')).toHaveLength(2))
+  const originalRequests = requests.mock.calls.length
+  const search = screen.getByRole('textbox', { name: 'Filter cases' })
+  fireEvent.change(search, { target: { value: ' STUDY-42 ' } })
+  expect(screen.getAllByRole('treeitem')).toHaveLength(1)
+  expect(screen.getByRole('treeitem')).toHaveTextContent('Alpha')
+  expect(screen.getByText('1 case')).toBeInTheDocument()
+  await waitFor(() => expect(useExplorer.getState().order).toEqual(['Alpha']))
+  fireEvent.change(search, { target: { value: 'BETA' } })
+  expect(screen.getByRole('treeitem')).toHaveTextContent('Beta')
+  await waitFor(() => expect(useExplorer.getState().order).toEqual(['Beta']))
+  fireEvent.change(search, { target: { value: ' ' } })
+  expect(screen.getAllByRole('treeitem')).toHaveLength(2)
+  expect(screen.getByText('2 cases')).toBeInTheDocument()
+  expect(requests).toHaveBeenCalledTimes(originalRequests)
 })
 
 test('PHS-03 / DB-04: phase hides other scan rows and intersects the dashboard selection', async () => {

@@ -1,6 +1,6 @@
-// TST-24/B01/B02/B04-B06/B08: real import/result journeys, native cancellation/API death and restore.
+// TST-24/B01-B06/B08: real import/result journeys, native cancellation/API death and restore.
 import { execFile, spawn } from 'node:child_process'
-import { readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 
@@ -9,6 +9,7 @@ import { expect, test as base, type BrowserContext } from '@playwright/test'
 import type { SourceOperation } from '../src/api/types'
 import { startRecoveryServer } from './dicomRecovery'
 import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
+import { openViaHistoryState } from './openMode'
 import { stopProcess } from './processes'
 import { fixtureHashes } from './tst07'
 
@@ -60,6 +61,68 @@ for index, path in enumerate(sorted(root.rglob("*.dcm"))):
   expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items?limit=1`)).total).toBe(2)
   const imports = await server.request<{ items: unknown[] }>('GET', `/projects/${pid}/imports`)
   expect(imports.items).toHaveLength(1)
+  expect(fixtureHashes(server.source)).toEqual(inputs)
+})
+
+test('later-page DICOM series retains all 750 slices in a root with more than 500 series', async ({ page, server }) => {
+  test.setTimeout(180_000)
+  unlinkSync(join(server.root, 'pause'))
+  const fixture = await execute(server.python, ['-c', `
+import json, sys
+from pathlib import Path
+import SimpleITK as sitk
+from tools.dicom_fixtures import write_series
+root = Path(sys.argv[1])
+for index in range(500):
+    write_series(root / f"AA{index:04}", patient_id=f"S{index:04}",
+                 description=f"Small-{index:04}", shape=(5, 4, 3), marker=(2, 1, 2), seed=f"large-browser-{index}")
+long = root / "ZZZ"
+info = write_series(long, patient_id="Long", description="Long-750", shape=(5, 4, 750),
+                    marker=(2, 1, 749), seed="large-browser-long")
+files = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(str(long), info["series_uid"])
+print(json.dumps([str(Path(path).relative_to(root)) for path in files]))
+`, server.source], { cwd: server.backend })
+  const expectedFiles = JSON.parse(fixture.stdout) as string[]
+  expect(expectedFiles).toHaveLength(750)
+  const inputs = fixtureHashes(server.source)
+  await page.goto(server.url)
+  await openViaHistoryState(page, server.source)
+  await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/, { timeout: 60_000 })
+  const sid = page.url().split('/').at(-1)!
+  const files = page.getByRole('listbox', { name: 'Files' })
+  await expect(files.getByRole('button')).toHaveCount(50)
+  for (let index = 1; index <= 10; index++) {
+    await page.getByRole('button', { name: 'Next page', exact: true }).click()
+    if (index < 10) await expect(files.getByRole('button').first()).toHaveText(`Small-${String(index * 50).padStart(4, '0')}`)
+    else await expect(files.getByRole('button', { name: 'Long-750', exact: true })).toBeVisible()
+  }
+  await files.getByRole('button', { name: 'Long-750', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Axial', exact: true }).getByRole('slider')).toHaveAttribute('max', '750', { timeout: 30_000 })
+  const first = await server.request<{ items: { n: number }[]; next_cursor: string; total: number }>('GET', `/open/${sid}/items?limit=500`)
+  const last = await server.request<{ items: { n: number; name: string; n_slices: number; files: string[] }[]; next_cursor: string | null }>('GET', `/open/${sid}/items?limit=500&cursor=${first.next_cursor}`)
+  expect(first.total).toBe(503)
+  expect(last.next_cursor).toBeNull()
+  expect(new Set([...first.items, ...last.items].map((item) => item.n)).size).toBe(503)
+  const long = last.items.find((item) => item.name === 'Long-750')!
+  expect(long.n_slices).toBe(750)
+  expect(long.files).toEqual(expectedFiles)
+  const image = await page.request.get(`${server.url}/api/v1/open/${sid}/items/${long.n}/image`)
+  expect(image.ok()).toBe(true)
+  const output = join(server.derived, 'long-reference.nii.gz')
+  writeFileSync(output, await image.body())
+  await execute(server.python, ['-c', `
+import sys, nibabel as nib, numpy as np
+image = nib.load(sys.argv[1]); pixels = np.asanyarray(image.dataobj)
+assert pixels.shape == (5, 4, 750)
+[marker] = np.argwhere(pixels == 2000)
+assert np.count_nonzero(pixels == -100) == pixels.size - 1
+np.testing.assert_allclose(image.affine @ [*marker, 1], [18.6, 29.1, 1972.5, 1], atol=1e-5)
+`, output])
+  await page.getByRole('button', { name: 'Convert DICOM…', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
+  await dialog.getByRole('button', { name: 'Dry run', exact: true }).click()
+  await expect(dialog.getByRole('button', { name: /Convert 3 series/ })).toBeVisible({ timeout: 30_000 })
+  await expect(dialog.getByText('503 series · 500 skipped', { exact: true })).toBeVisible()
   expect(fixtureHashes(server.source)).toEqual(inputs)
 })
 

@@ -66,7 +66,12 @@ export function ProjectView() {
   const activeCaseId = useViewerSync((s) => s.activeCaseId)
   const project = useProject(pid)
   const index = useImportHistory(pid).data?.index
-  const cases = useCases(pid, filter)
+  const { q, ...conditions } = filter
+  const cases = useCases(pid, conditions)
+  const needle = (q ?? '').trim().toLowerCase()
+  const visibleCases = useMemo(() => needle
+    ? cases.data?.filter((c) => `${c.case_id}\n${c.patient_id ?? ''}`.toLowerCase().includes(needle))
+    : cases.data, [cases.data, needle])
   const variables = useVariables(pid).data ?? []
   const prefs = usePrefs(pid)
   const byName = new Map(variables.map((v) => [v.name, v]))
@@ -83,15 +88,15 @@ export function ProjectView() {
   )
 
   useEffect(() => {
-    if (cases.data) setOrder(cases.data.map((c) => c.case_id))
-  }, [cases.data, setOrder])
+    if (visibleCases) setOrder(visibleCases.map((c) => c.case_id))
+  }, [visibleCases, setOrder])
 
   const { itemIds, phase } = filter
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
     // Item filter: an expanded case lists only the chosen items
     const only = itemIds ? new Set(itemIds) : null
-    for (const c of cases.data ?? []) {
+    for (const c of visibleCases ?? []) {
       out.push({ kind: 'case', c })
       if (expanded[c.case_id]) {
         const items = itemsByCase[c.case_id]
@@ -102,7 +107,7 @@ export function ProjectView() {
       }
     }
     return out
-  }, [cases.data, expanded, itemsByCase, itemIds, phase])
+  }, [visibleCases, expanded, itemsByCase, itemIds, phase])
 
   // Row heights come from the interface-size tokens, read on every render; the fallback, for a
   // document without the tokens, follows the size too
@@ -211,7 +216,7 @@ export function ProjectView() {
         className="pv-tree"
       >
         {cases.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-        {cases.data?.length === 0 ? (
+        {visibleCases?.length === 0 ? (
           <div className="empty">
             {t(index?.state === 'running' ? 'explorer.indexing' : index?.state === 'ready' || activeFilterCount(filter) || filter.q ? 'explorer.noCases' : 'explorer.emptyProject')}
           </div>
@@ -325,7 +330,7 @@ export function ProjectView() {
           ))}
       </div>
       <div className="muted pv-footer">
-        {t('explorer.caseCount', { count: cases.data?.length ?? 0 })}
+        {t('explorer.caseCount', { count: visibleCases?.length ?? 0 })}
       </div>
     </div>
   )

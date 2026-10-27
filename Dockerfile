@@ -40,6 +40,7 @@ ENV PATH=/opt/venv/bin:$PATH \
     PYTHONPATH=/app/backend \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    ARROW_DEFAULT_MEMORY_POOL=system \
     HOME=/tmp \
     CONTAINER_MODE=1 \
     HOST=0.0.0.0 \

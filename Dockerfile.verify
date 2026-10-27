@@ -9,6 +9,7 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && /opt/ci/bin/pip install --no-cache-dir uv==0.9.2
 ENV PATH=/opt/ci/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
+    ARROW_DEFAULT_MEMORY_POOL=system \
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
     FULL_TESTS=1 PYTEST_WORKERS=4 VITEST_WORKERS=2 \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
