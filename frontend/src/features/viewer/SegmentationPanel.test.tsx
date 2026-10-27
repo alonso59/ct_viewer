@@ -30,7 +30,7 @@ test('confirmation retires one label and leaves the whole set and catalog untouc
   expect(change).not.toHaveBeenCalled()
   const dialog = screen.getByRole('dialog', { name: 'Remove segmentation label' })
   expect(dialog).toHaveTextContent('for every case in this project')
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Remove', exact: true }))
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
   await waitFor(() => expect(change).toHaveBeenCalledWith(DEMO_PID, 'imported', 1, false))
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remove segmentation label' })).not.toBeInTheDocument())
   expect(removeSet).not.toHaveBeenCalled()
