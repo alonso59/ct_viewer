@@ -178,6 +178,11 @@ D29/D34 audit: `test_dicom_phase_runs.py` has 14 parameterized cases checking in
 - Two uid-1008 udocker workspaces sharing one pool pass inventory admission, API-death cleanup,
   restart/resume, conservative lease recovery and unrelated-process survival on the preceding `8a77665`
   image (`dicom-product-8a77665/multi-workspace-acceptance/result.json`); same host PID namespace only.
+- `scripts/dicom-namespace-smoke.py` adds a product-image CI gate with two independent Docker
+  PID namespaces, one allocation pool and native Open pixel jobs. The dispatcher/worker sequence
+  passes locally with four actors, two independently checked volumes and unchanged source bytes
+  (`dicom-namespace-native-v2.log`); that local run shares one namespace and does not certify Docker.
+  Actual distinct-namespace acceptance remains pending its CI `image-namespaces/acceptance.json`.
 - Full TCGA read-only headers: 141,164 files / 1,919 series / 2,523 folders exactly match independent
   GDCM membership and physical ordering (`dicom-tcga-membership-oracle/result.json`). Source stat signatures
   unchanged. The 1-GiB inventory limit stopped explicitly at 95,552 files; 2 GiB resumed retained batches.
@@ -219,5 +224,6 @@ The plan remains open until the full companion matrix is audited with evidence, 
   existing same-namespace inventory proof is narrower. Never relax an unverified cleanup fence.
 - P04 NFR-03/04/08 now pass at the recorded reference workload and allocator setting; final image must retain that setting. P06 has frozen native/RLE/JPEG-2000 hold-out evidence; unsupported classes retain unknown estimates. Windows Docker and actual Safari remain unavailable platform lanes.
 - Full CI and same-image Docker/udocker acceptance for the segmentation editor, inspector and memory fixes before rollout. Published `8dbfb9d` CI `40546369236` passed 1,239 backend, 439 frontend and 120 serial runner cases; its browser gate finished with 91 passes and one Firefox radiomics failure, so no image was exported. The narrow settings navigation collapsed beneath the form with the inspector open. A one-property CSS correction has a reproduced red case and two passing Firefox journeys, including complete extraction/export (`radiomics-layout-red.log`, `radiomics-layout-green.log`); both-browser navigation also passes in `dicom-shared-worker-layout-final.log`. Published `d780e32` separates full Chromium/Firefox suites onto independent runners, with product export gated by both. Final follow-up CI/image acceptance remains required.
-- Production rollout must drain the active nnU-Net jobs; read-only preflight on 2026-10-27 17:46 UTC found one running and one queued. None was cancelled or restarted by this acceptance work.
+- Production rollout must preserve the active nnU-Net jobs. Preflight found one running and one queued; the runner belongs to `radiology-workbench-nnunet.service`, outside the API service's control group. `test_api_restart_does_not_cancel_or_duplicate_external_work` passes both claimed/unclaimed cases (`production-external-api-restart-tests.log`), and the current-to-candidate project/task record models are unchanged. A compatible API-only handoff may proceed after image acceptance with pinned job/run/attempt and runner-process checks before/after; builtin work still requires draining. Do not restore a stale active-workspace snapshot or stop the runner service.
+- The owner confirmed that Windows Docker and actual Safari machines are unavailable. Those platform lanes remain unverified and cannot be represented by Linux browser results.
   Rollback requires compatible readers or a drained metadata snapshot, never an assumed migration.

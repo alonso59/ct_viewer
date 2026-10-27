@@ -79,8 +79,16 @@ def test_product_image_lifecycle_gate_precedes_export_and_preserves_diagnostics(
     assert '"$(id -u):$(id -g)"' in command
     assert "radiology-workbench:verification" in command
     assert "--evidence /evidence" in command
+    namespaces = [
+        i
+        for i, step in enumerate(steps)
+        if "scripts/dicom-namespace-smoke.py" in step.get("run", "")
+    ]
+    assert len(namespaces) == 1 and lifecycle[0] < namespaces[0] < exported[0]
+    assert "radiology-workbench:verification" in steps[namespaces[0]]["run"]
     assert any(
         step.get("if") == "failure()"
-        and step.get("with", {}).get("path") == "build/ci/image-lifecycle"
+        and {"build/ci/image-lifecycle", "build/ci/image-namespaces"}
+        <= set(step.get("with", {}).get("path", "").splitlines())
         for step in steps
     ), "retain synthetic lifecycle evidence when acceptance fails"

@@ -20,6 +20,7 @@ Python 3.12 · FastAPI · Pydantic v2. Package `app/`, dev tools `tools/`, tests
 
 **Tests:** `tests/test_<area>*.py`, parallel-safe (TESTING.md §Rules); `host_tests/` are opt-in host effects (`make test-host`). Gate selection: skill `rw-verify`.
 `tests/dicom_browser_server.py` starts the private real API for native DICOM browser recovery tests.
+`scripts/dicom-namespace-smoke.py` checks the product image's owned DICOM dispatch, cancellation and recovery across two Docker PID namespaces in CI.
 
 **Change together**
 - Endpoint or response model → skill `rw-api-change`.

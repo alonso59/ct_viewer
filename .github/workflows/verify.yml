@@ -90,11 +90,17 @@ jobs:
           docker run --rm --init --user "$(id -u):$(id -g)" \
             -v "$PWD/build/ci/image-lifecycle:/evidence" radiology-workbench:verification \
             python -m tools.dicom_image_smoke --evidence /evidence
+      - name: Verify DICOM ownership across separate Docker PID namespaces
+        run: >-
+          python3 scripts/dicom-namespace-smoke.py radiology-workbench:verification
+          "$PWD/build/ci/image-namespaces"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: product-image-diagnostics
-          path: build/ci/image-lifecycle
+          path: |
+            build/ci/image-lifecycle
+            build/ci/image-namespaces
           if-no-files-found: ignore
           retention-days: 7
       - name: Save the tested image for udocker acceptance
