@@ -300,27 +300,56 @@ def test_explicit_seg_id_and_conflicts(env: TestClient, proj: str, tmp_path: Pat
     assert "thr-a" in {s["seg_id"] for s in env.get(f"{API}/projects/{proj}/segmentations").json()}
 
 
-def test_cancel_then_resume_skips_ok_items(env: TestClient, proj: str, tmp_path: Path) -> None:
+def test_cancel_then_resume_skips_ok_items(
+    env: TestClient, proj: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from plugins.threshold import run as threshold
+
     with_derived(env, proj, tmp_path)
-    r = env.post(f"{API}/projects/{proj}/task-runs", json=run_body(delay_s=0.6))
+    entered, release = threading.Event(), threading.Event()
+    job_dirs = []
+    original = threshold._segment
+
+    def held_segment(job, item):
+        if item["item_id"] == ITEMS[1]:
+            job_dirs.append(job.dir)
+            entered.set()
+            assert release.wait(20), "test did not release its worker"
+        return original(job, item)
+
+    monkeypatch.setattr(threshold, "_segment", held_segment)
+    r = env.post(f"{API}/projects/{proj}/task-runs", json=run_body())
+    assert r.status_code == 202, r.text
     started = r.json()
     rid = started["run_id"]
     pdir = ctx_of(env).workspace.project_dir(proj)
-    deadline = time.monotonic() + 20
-    while not (pdir / "tasks" / "runs" / rid / "items.jsonl").exists():
-        assert time.monotonic() < deadline
-        time.sleep(0.05)
-    run = env.post(f"{API}/projects/{proj}/task-runs/{rid}/cancel").json()
+    try:
+        assert entered.wait(10), "second item did not reach the cancellation barrier"
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            cancelling = pool.submit(env.post, f"{API}/projects/{proj}/task-runs/{rid}/cancel")
+            try:
+                deadline = time.monotonic() + 10
+                while not (job_dirs[0] / "cancel").exists():
+                    assert time.monotonic() < deadline
+                    time.sleep(0.01)
+            finally:
+                release.set()
+            response = cancelling.result(timeout=20)
+        assert response.status_code == 200, response.text
+        run = response.json()
+    finally:
+        release.set()
     assert run["status"] == "cancelled", run
     assert 1 <= run["counts"]["ok"] < 3
-    ok_before = run["counts"]["ok"]
     r = env.post(f"{API}/projects/{proj}/task-runs/{rid}/resume")
     assert r.status_code == 202, r.text
     run = finish(env, proj, r.json())
     assert run["status"] == "completed" and run["counts"]["ok"] == 3 and run["attempts"] == 2
     lines = (pdir / "tasks" / "runs" / rid / "items.jsonl").read_text().splitlines()
     assert len(lines) == 3  # resumed attempt ran only the remaining items
-    assert ok_before + (3 - ok_before) == 3
     assert_problem(env.post(f"{API}/projects/{proj}/task-runs/{rid}/resume"), "job-conflict")
 
 

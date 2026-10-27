@@ -40,7 +40,7 @@ Depends: frontend/ARCHITECTURE.md, ADR-0008, ADR-0010, ADR-0023, ADR-0028. Viewe
 ```
 
 AB = activity bar. The left pane has a QuPath-style split: the active view on top, and a compact **Image** properties section below it (collapsible). Image is also a full activity-bar view; views that need the height (Search, Radiomics, Dashboards, Settings) hide the section.
-An optional right **Inspector** (curation form, labels of the case / scan (LBL-03), layers, W/L) toggles with `Ctrl/Cmd+Alt+B`; it is closed by default to keep the QuPath feel.
+An optional right **Inspector** (curation form, labels of the case / scan (LBL-03), layers, W/L) toggles with `Ctrl/Cmd+Alt+B`; it starts visible, with independently collapsible sections and persisted per-project choices (UI-13).
 
 ## Left pane views (activity bar)
 

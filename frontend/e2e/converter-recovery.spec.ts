@@ -1,4 +1,4 @@
-// TST-24/B04-B06/B08: real native cancellation/API death, fresh browser restore and one registration.
+// TST-24/B01/B02/B04-B06/B08: real import/result journeys, native cancellation/API death and restore.
 import { execFile, spawn } from 'node:child_process'
 import { readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
@@ -8,6 +8,7 @@ import { expect, test as base, type BrowserContext } from '@playwright/test'
 
 import type { SourceOperation } from '../src/api/types'
 import { startRecoveryServer } from './dicomRecovery'
+import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 import { stopProcess } from './processes'
 import { fixtureHashes } from './tst07'
 
@@ -19,6 +20,84 @@ const test = base.extend<{ server: Awaited<ReturnType<typeof startRecoveryServer
   },
 })
 test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 })
+
+test('project import discovers deep extensionless DICOM and converts after minimize/navigation', async ({ page, server }) => {
+  test.setTimeout(180_000)
+  unlinkSync(join(server.root, 'pause'))
+  await execute(server.python, ['-c', `
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+deep = root / "one/two/three/four"
+deep.mkdir(parents=True)
+(root / "P0").rename(deep / "P0")
+for index, path in enumerate(sorted(root.rglob("*.dcm"))):
+    path.rename(path.with_suffix("" if index % 2 else ".IMA"))
+`, server.source])
+  const inputs = fixtureHashes(server.source)
+  const { project_id: pid } = await server.request<{ project_id: string }>('POST', '/projects', { name: 'Deep DICOM import', packs: [] })
+  await server.request('PUT', `/projects/${pid}/roots/DERIVED`, { path: server.derived, role: 'derived' })
+  await page.goto(`${server.url}/p/${pid}`)
+  await page.keyboard.press('ControlOrMeta+Shift+P')
+  await page.getByRole('dialog').getByRole('combobox').fill('Import data')
+  await page.getByRole('option', { name: /Import data/ }).click()
+  let wizard = page.getByRole('dialog', { name: 'Import data', exact: true })
+  await wizard.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+  await wizard.getByRole('button', { name: 'Next', exact: true }).click()
+  wizard = await continueImportInspection(page)
+  await wizard.getByRole('radio', { name: /DICOM/ }).check()
+  const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
+  await wizard.getByRole('button', { name: 'Next', exact: true }).click()
+  const { operation_id: oid } = await (await created).json() as { operation_id: string }
+  const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
+  await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
+  await dialog.getByRole('button', { name: 'Minimize', exact: true }).click()
+  await page.getByRole('navigation', { name: /Activity bar/ }).getByRole('button', { name: 'Variables', exact: true }).click()
+  await page.getByTestId('conv-chip').getByRole('button', { name: 'Show', exact: true }).click()
+  await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
+  await dialog.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
+  await expect.poll(async () => (await server.request<SourceOperation>('GET', `/source-operations/${oid}`)).status).toBe('completed')
+  expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items?limit=1`)).total).toBe(2)
+  const imports = await server.request<{ items: unknown[] }>('GET', `/projects/${pid}/imports`)
+  expect(imports.items).toHaveLength(1)
+  expect(fixtureHashes(server.source)).toEqual(inputs)
+})
+
+for (const destination of ['open', 'existing project']) {
+  test(`workspace conversion result opens in ${destination}`, async ({ page, server }) => {
+    test.setTimeout(180_000)
+    unlinkSync(join(server.root, 'pause'))
+    const inputs = fixtureHashes(server.source)
+    const { project_id: pid } = await server.request<{ project_id: string }>('POST', '/projects', { name: 'Existing destination', packs: [] })
+    const { operation_id: oid } = await server.request<{ operation_id: string }>('POST', '/source-operations', {
+      path: server.source, purpose: 'convert', prepare_plan: true, idempotency_key: 'result-branch', settings: { phase_analyzer: false },
+    })
+    await expect.poll(async () => (await server.request<SourceOperation>('GET', `/source-operations/${oid}`)).status, { timeout: 30_000 }).toBe('completed')
+    await page.goto(server.url)
+    await page.getByRole('button', { name: /Convert DICOM/ }).click()
+    const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
+    await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(oid)
+    await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
+    await dialog.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
+    if (destination === 'open') {
+      await dialog.getByRole('button', { name: 'Open', exact: true }).click()
+      await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
+      await expect(page.locator('.vp').first()).toBeVisible()
+      await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+    } else {
+      await dialog.getByRole('combobox', { name: 'Add to project', exact: true }).selectOption(pid)
+      await dialog.getByRole('button', { name: 'Add to project', exact: true }).click()
+      const wizard = await continueImportInspection(page)
+      await wizard.getByRole('button', { name: 'Next', exact: true }).click()
+      await continueImportPreview(page)
+      await wizard.getByRole('button', { name: 'Import and index', exact: true }).click()
+      await finishImportIndex(page)
+      expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items?limit=1`)).total).toBe(2)
+    }
+    expect((await server.request<unknown[]>('GET', '/projects'))).toHaveLength(1)
+    expect(fixtureHashes(server.source)).toEqual(inputs)
+  })
+}
 
 for (const scope of ['dataset', 'project']) {
   for (const action of ['cancel', 'crash']) {

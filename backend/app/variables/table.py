@@ -53,7 +53,7 @@ def write_table(path: Path, table: pa.Table) -> None:
 def read_table(path: Path, columns: Sequence[str] | None = None) -> pa.Table | None:
     if not path.exists():
         return None
-    return pq.read_table(path, columns=list(columns) if columns is not None else None)
+    return pq.ParquetFile(path).read(columns=list(columns) if columns is not None else None)
 
 
 Filters = dict[str, list[str]]

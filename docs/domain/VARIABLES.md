@@ -52,7 +52,7 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 ## Storage
 
 - `variables/catalog.json`: `[{name, source (metadata|derived|external|raw|layer), type, level, group, tags[], visible, confidence, overridden, comparable}]` + derived definitions.
-- `index/variables.parquet` (derived, rebuildable): one row per item, all variables, case-level values joined.
+- `index/variables.parquet` (derived, rebuildable): one row per item, all variables, case-level values joined. Read this single file directly with column projection, without dataset/partition discovery.
 
 ## Reference dataset (2026-09-23 profile, for calibration only)
 
