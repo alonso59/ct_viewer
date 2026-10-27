@@ -110,6 +110,20 @@ async def remove_segmentation(ctx: Ctx, pid: str, seg: str) -> Response:
     return Response(status_code=204)
 
 
+@router.delete("/projects/{pid}/segmentations/{seg}/labels/{label}", status_code=204)
+async def remove_segmentation_label(ctx: Ctx, pid: str, seg: str, label: int) -> Response:
+    await ctx.workspace.set_segmentation_label_active(pid, seg, label, False)
+    ctx.bus.publish(pid, "project.updated", {"fields": ["segmentations"]})
+    return Response(status_code=204)
+
+
+@router.post("/projects/{pid}/segmentations/{seg}/labels/{label}/restore", status_code=204)
+async def restore_segmentation_label(ctx: Ctx, pid: str, seg: str, label: int) -> Response:
+    await ctx.workspace.set_segmentation_label_active(pid, seg, label, True)
+    ctx.bus.publish(pid, "project.updated", {"fields": ["segmentations"]})
+    return Response(status_code=204)
+
+
 @router.post("/projects/{pid}/segmentations/{seg}/restore", response_model=SegmentationInfo)
 async def restore_segmentation(ctx: Ctx, pid: str, seg: str) -> SegmentationInfo:
     if ctx.jobs.active(pid, "index") is not None:

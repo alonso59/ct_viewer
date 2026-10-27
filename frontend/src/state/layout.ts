@@ -10,6 +10,7 @@ export interface LayoutState {
   panelHeight: number | null
   inspectorVisible: boolean
   inspectorWidth: number
+  inspectorCollapsed: string[]
   activeView: string
   activePanelTab: string
   /** Bottom panel visibility per editor type; unknown types use `panelDefault` */
@@ -18,7 +19,7 @@ export interface LayoutState {
 
 /** Editors that fill the height with a form or charts (radiomics settings, a dashboard, a task, project
  *  settings): the panel starts closed there; elsewhere (welcome, queue, tables) it starts open */
-const FULL_HEIGHT = new Set(['radiomics', 'run', 'task', 'settings'])
+const FULL_HEIGHT = new Set(['radiomics', 'run', 'task', 'settings', 'segmentations'])
 /** Editors whose panel stays closed until a panel tab has content for them: a case tab
  *  opens it for a feature row or a problem of its item, so the viewer keeps the height otherwise */
 const CONTENT_FIRST = new Set(['case'])
@@ -34,8 +35,9 @@ const DEFAULTS: LayoutState = {
   imageSectionOpen: true,
   panelVisible: true,
   panelHeight: null,
-  inspectorVisible: false,
+  inspectorVisible: true,
   inspectorWidth: 300,
+  inspectorCollapsed: [],
   activeView: 'project',
   activePanelTab: 'measurements',
   panelByEditor: {},

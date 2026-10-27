@@ -627,6 +627,17 @@ export function useRemoveSegmentation(pid: string) {
   })
 }
 
+export function useSetSegmentationLabelActive(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ segId, label, active }: { segId: string; label: number; active: boolean }) => api.setSegmentationLabelActive(pid, segId, label, active),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
+      void qc.invalidateQueries({ queryKey: keys.project(pid) })
+    },
+  })
+}
+
 export function useRestoreSegmentation(pid: string) {
   const qc = useQueryClient()
   return useMutation({

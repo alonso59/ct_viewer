@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from tests.test_dicom_resume import digest, run_conversion
 from tools.dicom_fixtures import MARKER, write_series
 
 
-def native_writer_child(job: Path, point: float) -> None:
+def native_writer_child(job: Path, point: float, hold: Callable[[], object] | None = None) -> None:
     from app.core.fsio import atomic_write_json
     from app.tasks.dicom_worker import main
 
@@ -43,7 +44,10 @@ def native_writer_child(job: Path, point: float) -> None:
                         job / "native-writer-barrier.json",
                         {"pid": os.getpid(), "progress": point, "temporary": filename},
                     )
-                    os.kill(os.getpid(), signal.SIGSTOP)
+                    if hold is None:
+                        os.kill(os.getpid(), signal.SIGSTOP)
+                    else:
+                        hold()
 
             writer.AddCommand(sitk.sitkProgressEvent, progress)
             writer.Execute(image)

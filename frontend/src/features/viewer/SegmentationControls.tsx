@@ -133,7 +133,7 @@ export function SegmentationControls({
         </button>
         {sets.some((set) => set.seg_id === active) ? (
           <button type="button" className="btn btn-sm" onClick={() => setConfirm(sets.find((set) => set.seg_id === active) ?? null)}>
-            {t('layers.remove')}
+            {t('segmentation.removeSet')}
           </button>
         ) : null}
       </div>

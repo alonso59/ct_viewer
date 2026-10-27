@@ -3,9 +3,8 @@ import { useTranslation } from 'react-i18next'
 
 import { useProject, useSegmentations } from '../../api'
 import { NumberInput } from '../../lib'
-import { useWorkbench } from '../../shell'
+import { openEditor, useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
-import { SegmentationControls } from './SegmentationControls'
 
 function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixed: boolean; onChange: (checked: boolean) => void; label: string }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -19,11 +18,15 @@ export function LayersSection() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const project = useProject(pid).data
-  const labels = project?.label_map ?? []
   const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
   const preferred = v.segChoice[pid] ?? project?.default_seg
   const active = sets.some((set) => set.seg_id === preferred) ? (preferred ?? '') : (sets[0]?.seg_id ?? '')
+  const segmentation = sets.find((set) => set.seg_id === active)
+  const labels = (project?.label_map ?? []).filter((label) => {
+    const values = Object.entries(segmentation?.label_mapping ?? {}).filter(([, value]) => value === label.value).map(([value]) => Number(value))
+    return !(values.length ? values : [label.value]).every((value) => segmentation?.removed_labels?.includes(value))
+  })
   const visible = labels.filter((label) => v.labelVisibility[label.value] ?? label.visible).length
   const setAll = (show: boolean) => v.set({
     labelVisibility: {
@@ -31,13 +34,6 @@ export function LayersSection() {
       ...Object.fromEntries(labels.map((label) => [label.value, show])),
     },
   })
-  const removed = (segId: string) => {
-    const next = sets.find((set) => set.seg_id !== segId)?.seg_id
-    const choices = { ...v.segChoice }
-    if (next) choices[pid] = next
-    else delete choices[pid]
-    v.set({ segChoice: choices, shownSeg: null })
-  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-panel)' }}>
       {sets.length ? (
@@ -81,7 +77,7 @@ export function LayersSection() {
         )
       })}
       {!project?.read_only ? (
-        <SegmentationControls pid={pid} sets={sets} active={active} itemId={v.activeItemId} onRemoved={removed} />
+        <button type="button" className="btn btn-sm" onClick={() => openEditor('segmentations', {})}>{t('segmentation.manage')}</button>
       ) : null}
     </div>
   )

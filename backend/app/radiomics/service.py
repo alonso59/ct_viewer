@@ -479,6 +479,9 @@ class RadiomicsService:
                     skips.append(_row(it.item_id, lab, "skipped", not_ready))
                     continue
                 mask_label = inverse.get(lab, lab)
+                if mask_label in seg.removed_labels:
+                    skips.append(_row(it.item_id, lab, "skipped", "label_not_in_set"))
+                    continue
                 if seg_id != "imported" and inverse and lab not in inverse:
                     skips.append(_row(it.item_id, lab, "skipped", "label_not_in_set"))
                     continue
@@ -500,6 +503,7 @@ class RadiomicsService:
                         "label": lab,
                         "mask_label": mask_label,
                         "seg_id": seg_id,
+                        "removed_labels": seg.removed_labels,
                         "image": it.image.model_dump(mode="json") if it.image else None,
                         "mask": (
                             it.masks[seg_id].model_dump(mode="json") if seg_id in it.masks else None
@@ -511,14 +515,23 @@ class RadiomicsService:
                 )
         return units, skips
 
-    async def _path(self, pid: str, vol: dict[str, Any], spacing: list[float], order: str) -> str:
+    async def _path(
+        self,
+        pid: str,
+        vol: dict[str, Any],
+        spacing: list[float],
+        order: str,
+        removed: list[int] | None = None,
+    ) -> str:
         """Absolute read path for a volume ref; legacy `.npy` → cached NIfTI."""
         path = self.workspace.resolver(pid).resolve(vol["ref"])
         if vol.get("format") == "nifti_dir" and vol.get("labels") and path.is_dir():
             set_fp = vol.get("fp") or await asyncio.to_thread(quick_fingerprint, path)
             pdir = self.workspace.project_dir(pid)
             return str(
-                await maskset.ensure_composed(self.jobs, pdir, path, str(set_fp), vol["labels"])
+                await maskset.ensure_composed(
+                    self.jobs, pdir, path, str(set_fp), vol["labels"], removed
+                )
             )
         if not path.is_file():
             raise SourceMissingError("source file missing")
@@ -560,7 +573,9 @@ class RadiomicsService:
                     continue
                 order = u.get("axis_order", "xyz")
                 image = await self._path(pid, u["image"], u["spacing"], order)
-                mask = await self._path(pid, u["mask"], u["spacing"], order)
+                mask = await self._path(
+                    pid, u["mask"], u["spacing"], order, u.get("removed_labels")
+                )
             except (Problem, SourceMissingError, OSError) as exc:
                 detail = exc.detail if isinstance(exc, Problem) else str(exc)
                 errors.append(

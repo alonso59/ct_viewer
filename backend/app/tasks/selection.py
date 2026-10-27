@@ -58,6 +58,17 @@ class SelectionBase(TaskBase):
         self, cfg: ProjectConfig, m: TaskManifest, it: Item, seg_id: str | None
     ) -> str | None:
         """Why an item can't run (`readiness.not_ready`) as text, or None when ready."""
+        seg = cfg.segmentation(seg_id) if seg_id is not None else None
+        if seg is not None and seg.removed_labels and m.requires.seg is not None:
+            values = {entry.name: entry.value for entry in cfg.label_map}
+            active = {
+                seg.label_mapping.get(str(value), value)
+                for value in ({int(key) for key in seg.label_mapping} or set(values.values()))
+                if value not in seg.removed_labels
+            }
+            for name in m.requires.seg.labels:
+                if values.get(name) not in active:
+                    return _TEXT["label_missing"].format(seg_id=seg_id, label=name)
         r = readiness.not_ready(
             it,
             need_image=m.input == "items",

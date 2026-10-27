@@ -53,3 +53,15 @@ test('default height: at most 220 px and about 20 % of the window; the old store
   useLayout.getState().load('p3')
   expect(useLayout.getState().panelHeight).toBe(300)
 })
+
+
+test('the inspector starts visible and retains section and visibility choices per project', () => {
+  expect(useLayout.getState().inspectorVisible).toBe(true)
+  useLayout.getState().set({ inspectorCollapsed: ['viewer.layers'], inspectorVisible: false })
+  useLayout.getState().load('p2')
+  expect(useLayout.getState().inspectorVisible).toBe(true)
+  expect(useLayout.getState().inspectorCollapsed).toEqual([])
+  useLayout.getState().load('p1')
+  expect(useLayout.getState().inspectorVisible).toBe(false)
+  expect(useLayout.getState().inspectorCollapsed).toEqual(['viewer.layers'])
+})

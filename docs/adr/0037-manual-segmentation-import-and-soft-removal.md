@@ -1,5 +1,5 @@
 # ADR-0037 Manual segmentation import and soft removal
-Status: Accepted (owner 2026-10-26) · Date: 2026-10-26
+Status: Accepted (§5 management location superseded by ADR-0038; owner 2026-10-26) · Date: 2026-10-26
 Extends: ADR-0015 (segmentation sets), ADR-0036 (mask-set folders).
 
 **Context.** Projects can receive imported masks with images and task-produced masks, but a

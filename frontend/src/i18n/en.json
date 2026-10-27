@@ -536,6 +536,22 @@
     "scopeVoiHelp": "Only the cropped region around the organ",
     "scopeNoVoi": "This scan has no cropped region"
   },
+  "segmentation": {
+    "title": "Segmentations",
+    "manage": "Manage segmentations…",
+    "help": "Manage labels across every case in the selected set. Source files stay unchanged. Restore is immediate; reindex keeps your removals.",
+    "catalog": "Edit label names and colors…",
+    "search": "Search labels",
+    "status": "Status",
+    "active": "Active",
+    "removed": "Removed",
+    "removeLabel": "Remove label {{name}} from this set",
+    "restoreLabel": "Restore label {{name}} in this set",
+    "removeTitle": "Remove segmentation label",
+    "removeHelp": "Remove {{name}} from {{set}} for every case in this project? Other labels and sets stay unchanged. Source masks and the label catalog are preserved. You can restore this label here without importing it again.",
+    "removeSet": "Remove set…",
+    "noLabels": "No matching labels"
+  },
   "layers": {
     "globalOpacity": "Overlay opacity {{v}} %",
     "opacity": "{{name}} opacity",

@@ -388,6 +388,8 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
     )
     wait_jobs(c, pid)
     assert c.get(f"{API}/jobs/{imported_seg['job_id']}").json()["status"] == "succeeded"
+    call("DELETE", f"{P}/segmentations/imported/labels/1")
+    call("POST", f"{P}/segmentations/imported/labels/1/restore")
     call("DELETE", f"{P}/segmentations/reviewed")
     call("POST", f"{P}/segmentations/reviewed/restore")
     call("DELETE", f"{P}/segmentations/reviewed")

@@ -298,6 +298,7 @@ class TaskRunInput(BaseModel):
     image_fp: str | None = None
     seg_id: str | None = None
     mask_fp: str | None = None
+    removed_labels: list[int] = Field(default_factory=list)
 
 
 class TaskRunOutput(BaseModel):

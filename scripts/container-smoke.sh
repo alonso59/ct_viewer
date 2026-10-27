@@ -67,7 +67,9 @@ docker run -d --name "$name" --user "$uid:$uid" -p "127.0.0.1:$port:8000" \
   -v "$name-ws:/workspace" -v "$name-data:/data:ro" -e ALLOWED_DATA_ROOTS="$croot" \
   "$image" >/dev/null
 pass "started as arbitrary uid $uid"
-python3 "$repo/scripts/container_smoke.py" --url "http://127.0.0.1:$port" --root "$croot" \
+segmentation_args=()
+[[ -n "${DATA_ROOT:-}" ]] || segmentation_args+=(--segmentations)
+python3 "$repo/scripts/container_smoke.py" --url "http://127.0.0.1:$port" --root "$croot" "${segmentation_args[@]}" \
   || { docker logs --tail 40 "$name" >&2; fail "container_smoke.py"; }
 
 for _ in $(seq 90); do

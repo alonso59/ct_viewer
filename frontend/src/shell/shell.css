@@ -338,6 +338,16 @@
 .inspector-body {
   padding: var(--sp-2) var(--sp-3) var(--sp-3);
 }
+.inspector-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
 
 /* Status bar */
 .statusbar {

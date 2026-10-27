@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from collections.abc import Sequence
 from pathlib import Path
@@ -10,7 +11,10 @@ from typing import Any
 from app.core.errors import JobConflict, Problem
 from app.core.fsio import atomic_write_json, read_json
 from app.core.ids import is_ulid
+from app.imaging import maskset, npy_convert
+from app.imaging.fingerprint import quick_fingerprint
 from app.ingest.models import Item
+from app.jobs.types import JobHandle
 from app.projects.presets import target_profile
 from app.sources import identity as identity_store
 from app.tasks.models import VOLUME_OUTPUTS, TaskManifest
@@ -80,6 +84,7 @@ class JobSpecBase(SelectionBase):
         self, pid: str, items: Sequence[Item], seg_id: str | None
     ) -> list[dict[str, Any]]:
         resolver = self.workspace.resolver(pid)
+        cfg = self.workspace.get(pid)
         out: list[dict[str, Any]] = []
         for it in items:
             image = None
@@ -90,8 +95,13 @@ class JobSpecBase(SelectionBase):
             for sid, vol in it.masks.items():
                 if seg_id is not None and sid != seg_id:
                     continue
+                segmentation = cfg.segmentation(sid)
+                if segmentation is None:
+                    continue
                 with contextlib.suppress(Problem):
                     masks[sid] = {"path": str(resolver.resolve(vol.ref)), "format": vol.format}
+                    if seg_id is not None and segmentation.removed_labels:
+                        masks[sid]["removed_labels"] = segmentation.removed_labels
                     if vol.labels:  # a mask set folder: member name → value
                         masks[sid]["labels"] = vol.labels
             out.append(
@@ -115,6 +125,40 @@ class JobSpecBase(SelectionBase):
                 }
             )
         return out
+
+    async def _prepare_mask_inputs(
+        self, pid: str, spec: dict[str, Any], handle: JobHandle | None = None
+    ) -> None:
+        project_dir = self.workspace.project_dir(pid)
+        runner = handle if handle is not None else self.jobs
+        for item in spec["items"]:
+            for mask in item["masks"].values():
+                if handle is not None and handle.stopped:
+                    return
+                removed = mask.pop("removed_labels", [])
+                if not removed:
+                    continue
+                src = Path(mask["path"])
+                fp = await asyncio.to_thread(quick_fingerprint, src)
+                if mask["format"] == "nifti_dir":
+                    path = await maskset.ensure_composed(
+                        runner, project_dir, src, fp, mask["labels"], removed
+                    )
+                else:
+                    if mask["format"] == "npy":
+                        order = (
+                            npy_convert.axis_order_of(item["meta"]["extra"].get("axis_order"))
+                            or "xyz"
+                        )
+                        spacing = (
+                            item["geometry"]["spacing"] if item["geometry"] else [1.0, 1.0, 1.0]
+                        )
+                        dst = npy_convert.cache_path(project_dir, fp, order)
+                        src = await npy_convert.ensure_nifti(runner, src, dst, spacing, order)
+                        fp = await asyncio.to_thread(quick_fingerprint, src)
+                    path = await maskset.ensure_filtered(runner, project_dir, src, fp, removed)
+                mask.update({"path": str(path), "format": "nifti"})
+                mask.pop("labels", None)
 
     def _output_dir(self, pid: str, m: TaskManifest, rid: str) -> Path | None:
         if not VOLUME_OUTPUTS & set(m.outputs):

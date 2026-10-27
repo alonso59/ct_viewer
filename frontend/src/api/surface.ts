@@ -225,6 +225,7 @@ export interface Api {
   reindexSegmentations(pid: string): Promise<Job>
   removeSegmentation(pid: string, segId: string): Promise<void>
   restoreSegmentation(pid: string, segId: string): Promise<SegmentationInfo>
+  setSegmentationLabelActive(pid: string, segId: string, label: number, active: boolean): Promise<void>
   /** URL of one set's mask (`seg` omitted = `default_seg`) */
   maskUrl(pid: string, iid: string, segId?: string): string | null
 

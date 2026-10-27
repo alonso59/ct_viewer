@@ -482,3 +482,133 @@ def test_curation_decisions_per_segmentation_set(
     assert_problem(
         env.post(f"{API}/projects/{proj}/curation/events", json=side, headers=who), "validation"
     )
+
+
+def test_mask_task_reads_filtered_cache_and_refuses_a_removed_required_label(
+    env: TestClient, proj: str, tmp_path: Path, data_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SRC-20/TSK-03: consumers receive retained labels, never an edited source mask."""
+    import nibabel as nib
+    import numpy as np
+
+    from app.tasks import driver
+    from app.tasks.models import SegRequirement
+
+    received = []
+    original_entry = driver.run_entry
+
+    def capture_inputs(entry, job_dir):
+        received.append(json.loads((Path(job_dir) / "job.json").read_text()))
+        return original_entry(entry, job_dir)
+
+    monkeypatch.setattr(driver, "run_entry", capture_inputs)
+    with_derived(env, proj, tmp_path)
+    before = tree_hashes(data_root)
+    ctx = ctx_of(env)
+    manifest = ctx.registry.get("segment.threshold").manifest
+    manifest.requires.seg = SegRequirement()
+    removed = env.delete(f"{API}/projects/{proj}/segmentations/imported/labels/1")
+    assert removed.status_code == 204
+    body = run_body()
+    body["selection"] = {"item_ids": [ITEMS[0]], "seg_id": "imported"}
+    started = env.post(f"{API}/projects/{proj}/task-runs", json=body)
+    assert started.status_code == 202, started.text
+    run = finish(env, proj, started.json())
+    assert run["status"] == "completed", run
+    assert len(received) == 1
+    spec = received[0]
+    mask = spec["items"][0]["masks"]["imported"]
+    assert "cache" in Path(mask["path"]).parts and mask["format"] == "nifti"
+    values = nib.load(mask["path"]).get_fdata()
+    assert not np.any(values == 1) and np.any(values == 2)
+    manifest.requires.seg = SegRequirement(labels=[ctx.workspace.get(proj).label_map[0].name])
+    preflight = env.post(
+        f"{API}/projects/{proj}/tasks/segment.threshold/preflight",
+        json={"selection": body["selection"], "settings": {}},
+    )
+    assert preflight.status_code == 200, preflight.text
+    assert preflight.json()["n_ready"] == 0
+    assert tree_hashes(data_root) == before
+
+
+@pytest.mark.parametrize("outcome", ["cancel", "fail"])
+def test_mask_preparation_is_background_work_with_terminal_cleanup(
+    env: TestClient,
+    proj: str,
+    tmp_path: Path,
+    data_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: str,
+) -> None:
+    """SRC-20/TSK-11: cache preparation cannot launch a cancelled task or strand a failed run."""
+    import threading
+
+    from app.imaging import maskset
+    from app.tasks import driver
+    from app.tasks.models import SegRequirement
+
+    with_derived(env, proj, tmp_path)
+    ctx = ctx_of(env)
+    ctx.registry.get("segment.threshold").manifest.requires.seg = SegRequirement()
+    before = tree_hashes(data_root)
+    entered, release = threading.Event(), threading.Event()
+    original = maskset.filter_labels
+    launches = []
+    original_entry = driver.run_entry
+
+    def held_filter(*args):
+        entered.set()
+        assert release.wait(10), "test did not release its worker"
+        return "synthetic filtering failure" if outcome == "fail" else original(*args)
+
+    def capture_entry(*args):
+        launches.append(args)
+        return original_entry(*args)
+
+    monkeypatch.setattr(maskset, "filter_labels", held_filter)
+    monkeypatch.setattr(driver, "run_entry", capture_entry)
+    assert env.delete(f"{API}/projects/{proj}/segmentations/imported/labels/1").status_code == 204
+    body = run_body()
+    body["selection"] = {"item_ids": [ITEMS[0]], "seg_id": "imported"}
+    try:
+        started = env.post(f"{API}/projects/{proj}/task-runs", json=body)
+        assert started.status_code == 202, started.text
+        assert entered.wait(5)
+        assert not launches
+        if outcome == "cancel":
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                cancelling = pool.submit(
+                    env.post, f"{API}/projects/{proj}/task-runs/{started.json()['run_id']}/cancel"
+                )
+                try:
+                    deadline = time.monotonic() + 5
+                    while ctx.jobs.get(started.json()["job_id"]).status != "cancelled":
+                        assert time.monotonic() < deadline
+                        time.sleep(0.01)
+                    assert not cancelling.done()
+                    assert (
+                        env.post(f"{API}/projects/{proj}/task-runs", json=body).status_code == 409
+                    )
+                finally:
+                    release.set()
+                cancelled = cancelling.result(timeout=5)
+                assert cancelled.status_code == 200, cancelled.text
+        release.set()
+        run = finish(env, proj, started.json())
+        assert run["status"] == ("cancelled" if outcome == "cancel" else "failed"), run
+        assert not launches
+        assert run["inputs"][0]["removed_labels"] == [1]
+        if outcome == "cancel":
+            assert (
+                env.post(
+                    f"{API}/projects/{proj}/segmentations/imported/labels/1/restore"
+                ).status_code
+                == 204
+            )
+            resumed = env.post(f"{API}/projects/{proj}/task-runs/{run['run_id']}/resume")
+            assert resumed.status_code == 409 and "label selection changed" in resumed.text
+        assert tree_hashes(data_root) == before
+    finally:
+        release.set()

@@ -20,9 +20,15 @@ from typing import Any
 API = "/api/v1"
 
 
-def call(base: str, path: str, body: Any = None, headers: dict[str, str] | None = None) -> Any:
+def call(
+    base: str,
+    path: str,
+    body: Any = None,
+    headers: dict[str, str] | None = None,
+    method: str | None = None,
+) -> Any:
     data = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request(base + path, data=data, headers=dict(headers or {}))
+    req = urllib.request.Request(base + path, data=data, headers=dict(headers or {}), method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req, timeout=30) as res:
@@ -49,7 +55,7 @@ def check(ok: bool, what: str) -> None:
         raise SystemExit(1)
 
 
-def run(base: str, root: str, timeout: float) -> None:
+def run(base: str, root: str, timeout: float, segmentations: bool = False) -> None:
     health = wait_health(base, timeout)
     check(health.get("status") == "ok", f"health {health.get('version')}")
 
@@ -85,14 +91,35 @@ def run(base: str, root: str, timeout: float) -> None:
     viewable = status == 206 and nifti
     check(viewable, f"item {iid} image bytes (Range 206)")
 
+    if not segmentations:
+        return
+    project = call(base, f"{API}/projects/{pid}")
+    item = call(base, f"{API}/projects/{pid}/items/{iid}")
+    check(bool(item["labels_present"]), "synthetic smoke item has segmentation labels")
+    label = item["labels_present"][0]
+    seg = project["default_seg"]
+    mask_url = f"{API}/projects/{pid}/items/{iid}/mask?seg={seg}"
+    label_url = f"{API}/projects/{pid}/segmentations/{seg}/labels/{label}"
+    _, original = call(base, mask_url)
+    call(base, label_url, method="DELETE")
+    _, filtered = call(base, mask_url)
+    check(filtered != original, "individual label removal filters mask output")
+    current = call(base, f"{API}/projects/{pid}/segmentations")
+    check(next(s for s in current if s["seg_id"] == seg)["removed_labels"] == [label], "label exclusion persists")
+    check(call(base, f"{API}/projects/{pid}")["label_map"] == project["label_map"], "label catalog preserved")
+    call(base, f"{label_url}/restore", method="POST")
+    _, restored = call(base, mask_url)
+    check(restored == original, "label restore returns original mask bytes")
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     ap.add_argument("--url", default="http://127.0.0.1:8000")
     ap.add_argument("--root", required=True, help="data root as seen inside the container")
     ap.add_argument("--timeout", type=float, default=120)
+    ap.add_argument("--segmentations", action="store_true", help="Require the synthetic mask label lifecycle checks")
     args = ap.parse_args()
-    run(args.url.rstrip("/"), args.root, args.timeout)
+    run(args.url.rstrip("/"), args.root, args.timeout, args.segmentations)
     print("container smoke pass")
 
 

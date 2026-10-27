@@ -37,7 +37,7 @@ test('removal requires confirmation and updates the displayed selection after su
   const restored = await api.restoreSegmentation(DEMO_PID, 'reviewed')
   const remove = vi.spyOn(api, 'removeSegmentation')
   const onRemoved = controls([restored], restored.seg_id)
-  fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Remove set…' }))
   expect(remove).not.toHaveBeenCalled()
   const dialog = screen.getByRole('dialog', { name: 'Remove segmentation set' })
   fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))

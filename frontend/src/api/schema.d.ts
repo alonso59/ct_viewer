@@ -1104,6 +1104,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/segmentations/{seg}/labels/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Segmentation Label */
+        delete: operations["remove_segmentation_label_api_v1_projects__pid__segmentations__seg__labels__label__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/segmentations/{seg}/labels/{label}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Segmentation Label */
+        post: operations["restore_segmentation_label_api_v1_projects__pid__segmentations__seg__labels__label__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/segmentations/{seg}/restore": {
         parameters: {
             query?: never;
@@ -6106,6 +6140,8 @@ export interface components {
             };
             /** Unmatched */
             unmatched?: number[];
+            /** Removed Labels */
+            removed_labels?: number[];
             /**
              * Created At
              * @default
@@ -6163,6 +6199,8 @@ export interface components {
             };
             /** Unmatched */
             unmatched?: number[];
+            /** Removed Labels */
+            removed_labels?: number[];
             /**
              * Created At
              * @default
@@ -6958,6 +6996,8 @@ export interface components {
             seg_id?: string | null;
             /** Mask Fp */
             mask_fp?: string | null;
+            /** Removed Labels */
+            removed_labels?: number[];
         };
         /**
          * TaskRunListItem
@@ -9912,6 +9952,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["JobInfo"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_segmentation_label_api_v1_projects__pid__segmentations__seg__labels__label__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                seg: string;
+                label: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_segmentation_label_api_v1_projects__pid__segmentations__seg__labels__label__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                seg: string;
+                label: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

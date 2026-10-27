@@ -4,6 +4,7 @@ React 19 · TypeScript ~5.9 strict · Vite · Vitest · Playwright · i18next. P
 
 **Owns** (folder detail: `docs/frontend/ARCHITECTURE.md` §Folder layout)
 - `src/shell/`: workbench chrome, command registry, keybindings; no domain logic.
+- `src/features/viewer/`: viewer, inspector display controls and the dedicated segmentation management editor.
 - `src/features/<name>/`: product areas (projects, import, open, explorer, viewer, tasks, phase, variables, library, jobs).
 - `src/plugins/<name>/`: first-party UI plugins (curation, labeling, radiomics, dashboard, dicom, analyzers, packs); `host.ts` activates them.
 - `src/api/`: typed client over the generated schema, query keys, SSE; `src/state/` cross-feature stores; `src/i18n/`, `src/theme/`, `src/lib/` shared pieces.
@@ -17,6 +18,7 @@ React 19 · TypeScript ~5.9 strict · Vite · Vitest · Playwright · i18next. P
 - UI text only through `t()` (FE-11); no `any` (FE-01); server data only through TanStack Query (FE-02); no external network or CDN (FE-06); colors from theme tokens (UI-11); codicons + CT icon set (UI-15); no MUI (ADR-0008).
 
 **Tests:** Vitest next to the code (`*.test.ts(x)`; DOM tests start with `// @vitest-environment jsdom`), run against the recorded mock API (TESTING.md §Mock API). E2E: `make e2e-one SPEC=<name>`. Gate selection: skill `rw-verify`.
+`e2e/converter-recovery.spec.ts` uses `dicomRecovery.ts` and the private backend test server for actual native cancel/API-crash journeys.
 
 **Change together**
 - Backend contract change → skill `rw-api-change` (never hand-edit `src/api/schema.d.ts`).

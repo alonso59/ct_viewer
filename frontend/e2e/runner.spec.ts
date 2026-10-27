@@ -47,9 +47,7 @@ test('the fake segmentation plugin adds a set through the host runner', async ({
   // VW-19 / ADR-0015 (AUD-A5-05, A5-06): decisions name the set on screen, per project
   await page.evaluate(() => localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: 'Dr. S' }, version: 0 })))
   await page.goto(`/p/${pid}/case/case_00001?item=${encodeURIComponent(ITEM)}`)
-  // ADR-0028: the inspector is in the title bar's Layout menu
-  await page.getByRole('banner').getByRole('button', { name: /^Layout/ }).click()
-  await page.getByRole('menuitemcheckbox', { name: /Inspector/ }).click()
+  await expect(page.locator('.inspector')).toBeVisible()
   const inspector = page.locator('.inspector')
   await inspector.getByLabel('Segmentation set').selectOption(segId)
   await inspector.getByRole('button', { name: /^Accept/ }).first().click()

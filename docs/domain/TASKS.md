@@ -19,7 +19,7 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-07 | Protocol (§Protocol) is identical for builtin and external runtimes. Per-item failures don't stop a run (as RAD-07). Resume skips items already `ok` (as RAD-08). | M |
 | TSK-08 | Tasks that need tool-specific names or layouts (nnU-Net `{case}_0000.nii.gz`) stage symlinks in the job's scratch dir. Source and derived files are never renamed. | M |
 | TSK-09 | Outputs are registered by type (§Outputs). Volumes go only into the project's `derived` root (ADR-0014); tabular outputs go into the project folder. | M |
-| TSK-10 | Run record `tasks/runs/{run_id}/run.json`: task id + version, manifest hash, settings + hash, selection, inputs with fingerprints, dependency versions, counts, outputs (NFR-15). Radiomics keeps `radiomics/runs/{run_id}/` (RAD-09). | M |
+| TSK-10 | Run record `tasks/runs/{run_id}/run.json`: task id + version, manifest hash, settings + hash, selection, inputs with fingerprints and the set label exclusions (SRC-20; changing them refuses resume), dependency versions, counts, outputs (NFR-15). Radiomics keeps `radiomics/runs/{run_id}/` (RAD-09). | M |
 | TSK-11 | External runtime through the file queue (§External runtime); the backend never starts containers or host processes. | M |
 | TSK-12 | One run per `(project, task)` at a time; the runner caps concurrency (default 1 per GPU). | S |
 | TSK-14 | Supervised external completion requires a matching attempt generation and verified cleanup acknowledgement. Missing runner heartbeat alone never permits a replacement GPU attempt; recover the durable backend ownership before retry/release (ADR-0034). | M |

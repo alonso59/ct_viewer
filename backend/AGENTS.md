@@ -19,6 +19,7 @@ Python 3.12 · FastAPI · Pydantic v2. Package `app/`, dev tools `tools/`, tests
 - Heavy work (radiomics, meshes, thumbnails, npy conversion) runs in job workers, never in the API process (BE-12). No outbound network (BE-11).
 
 **Tests:** `tests/test_<area>*.py`, parallel-safe (TESTING.md §Rules); `host_tests/` are opt-in host effects (`make test-host`). Gate selection: skill `rw-verify`.
+`tests/dicom_browser_server.py` starts the private real API for native DICOM browser recovery tests.
 
 **Change together**
 - Endpoint or response model → skill `rw-api-change`.

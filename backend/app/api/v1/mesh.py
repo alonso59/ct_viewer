@@ -45,8 +45,11 @@ async def get_mesh(
     item = ctx.index.get_item(pid, iid)
     cfg = ctx.workspace.get(pid)
     seg_id = seg or cfg.default_seg
-    if cfg.segmentation(seg_id) is None:
+    segmentation = cfg.segmentation(seg_id)
+    if segmentation is None:
         raise NotFound(f"Segmentation set {seg_id!r} is removed or unknown")
+    if label in segmentation.removed_labels:
+        raise NotFound(f"Label {label} is removed from segmentation set {seg_id!r}")
     vol = item.masks.get(seg_id)
     if vol is None:
         raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
@@ -55,7 +58,7 @@ async def get_mesh(
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
     fmt = vol.format
     if fmt == "nifti_dir" and vol.labels and path.is_dir():  # a mask set: its composed label map
-        path, fp = await composed_mask(ctx, pid, path, vol.labels)
+        path, fp = await composed_mask(ctx, pid, path, vol.labels, segmentation.removed_labels)
         fmt = "nifti"
     elif not path.is_file():
         raise SourceMissing("mask file is missing")

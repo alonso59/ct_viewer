@@ -619,6 +619,9 @@ class Workspace:
         """Add or replace one segmentation set; a replaced set keeps its position."""
         async with self.locks(project_id):
             cur = self.get(project_id)
+            previous = cur.segmentation(seg.seg_id)
+            if previous is not None and seg.active:
+                seg = seg.model_copy(update={"removed_labels": previous.removed_labels})
             sets = [s for s in cur.segmentations if s.seg_id != seg.seg_id]
             pos = next(
                 (i for i, s in enumerate(cur.segmentations) if s.seg_id == seg.seg_id), len(sets)
@@ -631,6 +634,36 @@ class Workspace:
                 update={"segmentations": sets, "default_seg": default, "updated_at": utc_now()}
             )
             return self._save(new)
+
+    async def set_segmentation_label_active(
+        self, project_id: str, seg_id: str, label: int, active: bool
+    ) -> ProjectConfig:
+        async with self.locks(project_id):
+            cur = self.get(project_id)
+            seg = cur.segmentation(seg_id)
+            if seg is None:
+                raise NotFound(f"Segmentation set {seg_id!r} not found")
+            known = {int(k) for k in seg.label_mapping if k.isdigit()}
+            if not seg.label_mapping:
+                known.update(e.value for e in cur.label_map)
+            if label <= 0 or label not in known | set(seg.removed_labels):
+                raise NotFound(f"Label {label} is not in segmentation set {seg_id!r}")
+            removed = set(seg.removed_labels)
+            if active:
+                removed.discard(label)
+            else:
+                removed.add(label)
+            if removed == set(seg.removed_labels):
+                return cur
+            sets = [
+                s.model_copy(update={"removed_labels": sorted(removed)})
+                if s.seg_id == seg_id
+                else s
+                for s in cur.segmentations
+            ]
+            return self._save(
+                cur.model_copy(update={"segmentations": sets, "updated_at": utc_now()})
+            )
 
     async def set_segmentation_active(
         self, project_id: str, seg_id: str, active: bool

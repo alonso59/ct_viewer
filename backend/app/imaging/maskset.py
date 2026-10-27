@@ -54,12 +54,19 @@ def fingerprint(folder: Path) -> str:
     return f"set{len(files)}-{h.hexdigest()[:32]}"
 
 
-def cache_path(project_dir: Path, fp: str, labels: dict[str, int]) -> Path:
-    key = hashlib.sha256(json.dumps([fp, sorted(labels.items())]).encode()).hexdigest()[:32]
+def cache_path(
+    project_dir: Path, fp: str, labels: dict[str, int], removed: list[int] | None = None
+) -> Path:
+    parts: list[Any] = [fp, sorted(labels.items())]
+    if removed:
+        parts.append(sorted(set(removed)))
+    key = hashlib.sha256(json.dumps(parts).encode()).hexdigest()[:32]
     return project_dir / CACHE_DIR / CACHE_SUBDIR / f"{key}.nii.gz"
 
 
-def compose(src: str, labels: dict[str, int], dst: str) -> str | None:
+def compose(
+    src: str, labels: dict[str, int], dst: str, removed: list[int] | None = None
+) -> str | None:
     """Worker: members → one label map (`uint8`, `uint16` above 255). None, else the error."""
     try:
         files = [p for p in members(Path(src)) if member_name(p) in labels]
@@ -71,6 +78,8 @@ def compose(src: str, labels: dict[str, int], dst: str) -> str | None:
         dtype = np.uint8 if max(labels.values()) <= 255 else np.uint16
         out = np.zeros(shape, dtype=dtype)
         for p in files:
+            if labels[member_name(p)] in (removed or []):
+                continue
             img: Any = nib.load(p)
             if not np.allclose(img.affine, ref.affine, rtol=0, atol=1e-3):
                 return f"{p.name}: affine differs from {files[0].name}"
@@ -87,10 +96,37 @@ def compose(src: str, labels: dict[str, int], dst: str) -> str | None:
 
 
 async def ensure_composed(
-    jobs: WorkerRunner, project_dir: Path, folder: Path, fp: str, labels: dict[str, int]
+    jobs: WorkerRunner,
+    project_dir: Path,
+    folder: Path,
+    fp: str,
+    labels: dict[str, int],
+    removed: list[int] | None = None,
 ) -> Path:
     """The cached label map of a mask set, composed once in a worker if needed."""
-    dst = cache_path(project_dir, fp, labels)
+    dst = cache_path(project_dir, fp, labels, removed)
     return await ensure_cached(
-        jobs, dst, "compose mask set", compose, str(folder), labels, str(dst)
+        jobs, dst, "compose mask set", compose, str(folder), labels, str(dst), removed
+    )
+
+
+def filter_labels(src: str, removed: list[int], dst: str) -> str | None:
+    try:
+        img: Any = nib.load(src)
+        data = np.asanyarray(img.dataobj).copy()
+        data[np.isin(data, removed)] = 0
+        filtered = img.__class__(data, img.affine, img.header.copy())
+        atomic_write_cache(Path(dst), gzip.compress(filtered.to_bytes(), compresslevel=6, mtime=0))
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return None
+
+
+async def ensure_filtered(
+    jobs: WorkerRunner, project_dir: Path, src: Path, fp: str, removed: list[int]
+) -> Path:
+    key = hashlib.sha256(json.dumps([fp, sorted(set(removed))]).encode()).hexdigest()[:32]
+    dst = project_dir / CACHE_DIR / "segmentation-labels" / f"{key}.nii.gz"
+    return await ensure_cached(
+        jobs, dst, "filter mask labels", filter_labels, str(src), removed, str(dst)
     )

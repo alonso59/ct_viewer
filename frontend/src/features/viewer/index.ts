@@ -1,7 +1,7 @@
 // NiiVue lives only in ./engine.
 import i18n from '../../i18n'
 import { keys, queryClient, type Project, type SegmentationSet } from '../../api'
-import { refreshUrl, registry, toast, useWorkbench } from '../../shell'
+import { openEditor, refreshUrl, registry, toast, useWorkbench } from '../../shell'
 import { useViewerSync, type ViewerTool } from '../../state'
 import { codicon, ct } from '../../theme'
 import { CaseEditor, type CaseParams } from './CaseEditor'
@@ -42,7 +42,17 @@ const segSets = (): SegmentationSet[] => {
 /** Label map for the 1–9 keys, from the cached project query */
 const projectLabels = (pid: string) => queryClient.getQueryData<Project>(keys.project(pid))?.label_map ?? []
 
+const SegmentationPanel = lazy(() => import('./SegmentationPanel'))
+
 export function registerViewer() {
+  registry.editor({
+    type: 'segmentations', writes: true,
+    component: () => createElement(Suspense, { fallback: null }, createElement(SegmentationPanel)),
+    id: () => 'segmentations', title: () => i18n.t('segmentation.title'), icon: () => codicon('layers'),
+    path: (pid) => `/p/${pid}/segmentations`,
+    match: (path) => path === '/segmentations' ? {} : null,
+  })
+  registry.command({ id: 'viewer.segmentations', writes: true, title: 'segmentation.manage', category: 'cat.project', menuGroup: 3, run: () => openEditor('segmentations', {}) })
   registry.editor<CaseParams>({
     type: 'case',
     component: CaseEditor,

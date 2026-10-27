@@ -83,6 +83,8 @@ All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Port
 | `p7c-exit` | The P7c exit criterion in one journey (`docs/archive/v3/ROADMAP-done.md` §P7c) |
 | `tst08-multiuser` · `labeling` · `view-only` | TST-08 · TST-19 · TST-18 |
 | `open-mode` · `tasks-dicom` · `converter` · `runner` | SRC-09..14 (TST-15) · DCM + UI-20 · UI-25 / TSK-13 · TST-14 external runner |
+| `segmentation-lifecycle` | SRC-20 / PRJ-07/15 / VW-19 / UI-13: dedicated segmentation editor, individual label and whole-set Remove/Restore/Reimport, reindex, separate catalog edits, default inspector and persistent keyboard/mouse section toggles. |
+| `converter-recovery` | TST-24 / B04–B06/B08: private real API and native writer callback, cancel/API SIGKILL, same-run resume, fresh browser context, two tabs, theme and keyboard minimize/restore. `e2e/dicomRecovery.ts` proxies the UI to `backend/tests/dicom_browser_server.py`; shared E2E services stay alive. |
 | `variables` · `projects-bundle` | API-16..18 · IMP-09 hash job, PRJ-08/09 export → import, archive / restore |
 | `ct-tools` · `viewer-fov` | VW-17/22/23, UI-24 · VW-06/26 |
 

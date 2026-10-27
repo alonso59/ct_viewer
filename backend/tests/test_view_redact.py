@@ -145,6 +145,8 @@ def test_view_only_never_returns_project_id_or_server_paths(
     for method, path in [
         ("POST", "/segmentations/imports"),
         ("POST", "/segmentations/reindex"),
+        ("DELETE", "/segmentations/imported/labels/1"),
+        ("POST", "/segmentations/imported/labels/1/restore"),
         ("DELETE", "/segmentations/imported"),
         ("POST", "/segmentations/imported/restore"),
         ("PATCH", ""),

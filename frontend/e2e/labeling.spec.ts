@@ -48,9 +48,7 @@ test('two reviewers label a patient table live; columns become variables', async
   // tab shows the edit live
   const target = ((await b.getByRole('rowheader').first().textContent()) ?? '').trim()
   await a.goto(`/p/${pid}/case/${target}`)
-  // ADR-0028: the inspector is in the title bar's Layout menu
-  await a.getByRole('banner').getByRole('button', { name: /^Layout/ }).click()
-  await a.getByRole('menuitemcheckbox', { name: /Inspector/ }).click()
+  await expect(a.locator('.inspector')).toBeVisible()
   const section = a.locator('.inspector').getByRole('group', { name: 'Review' })
   await section.getByRole('button', { name: 'Edit Grade' }).click()
   await section.getByRole('combobox', { name: 'Grade' }).selectOption('G3')

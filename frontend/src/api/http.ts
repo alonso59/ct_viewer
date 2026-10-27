@@ -663,6 +663,10 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     },
     restoreSegmentation: (pid, seg) =>
       unwrap(client.POST('/api/v1/projects/{pid}/segmentations/{seg}/restore', { params: { path: { pid, seg } } })),
+    async setSegmentationLabelActive(pid, seg, label, active) {
+      if (active) await unwrap(client.POST('/api/v1/projects/{pid}/segmentations/{seg}/labels/{label}/restore', { params: { path: { pid, seg, label } } }))
+      else await unwrap(client.DELETE('/api/v1/projects/{pid}/segmentations/{seg}/labels/{label}', { params: { path: { pid, seg, label } } }))
+    },
     maskUrl: (pid, iid, seg) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/mask${seg ? `?seg=${enc(seg)}` : ''}`),
 
     listPlugins: (pid) => unwrap(client.GET('/api/v1/plugins', { params: { query: pid ? { project: pid } : {} } })),

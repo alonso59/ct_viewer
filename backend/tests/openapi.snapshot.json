@@ -10125,6 +10125,13 @@
        }
       ]
      },
+     "removed_labels": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Removed Labels",
+      "type": "array"
+     },
      "seg_id": {
       "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
       "title": "Seg Id",
@@ -10231,6 +10238,13 @@
         "type": "null"
        }
       ]
+     },
+     "removed_labels": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Removed Labels",
+      "type": "array"
      },
      "seg_id": {
       "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
@@ -12307,6 +12321,13 @@
        }
       ],
       "title": "Mask Fp"
+     },
+     "removed_labels": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Removed Labels",
+      "type": "array"
      },
      "seg_id": {
       "anyOf": [
@@ -20233,6 +20254,112 @@
      }
     },
     "summary": "Patch Segmentation",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/segmentations/{seg}/labels/{label}": {
+   "delete": {
+    "operationId": "remove_segmentation_label_api_v1_projects__pid__segmentations__seg__labels__label__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seg",
+      "required": true,
+      "schema": {
+       "title": "Seg",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "label",
+      "required": true,
+      "schema": {
+       "title": "Label",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Segmentation Label",
+    "tags": [
+     "segmentations"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/segmentations/{seg}/labels/{label}/restore": {
+   "post": {
+    "operationId": "restore_segmentation_label_api_v1_projects__pid__segmentations__seg__labels__label__restore_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seg",
+      "required": true,
+      "schema": {
+       "title": "Seg",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "label",
+      "required": true,
+      "schema": {
+       "title": "Label",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restore Segmentation Label",
     "tags": [
      "segmentations"
     ]

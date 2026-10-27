@@ -100,45 +100,46 @@ class DriverBase(RegistrationBase):
                 source=rec.selection.source,
             )
         )
+        preparing_masks = any(
+            mask.get("removed_labels") for item in spec["items"] for mask in item["masks"].values()
+        )
+        payload = spec
         if not recover:
-            protocol.write_job(
-                job_dir,
-                {
-                    **spec,
-                    **inventory_spec(run_dir, self.settings.workspace_root),
-                    "job_id": job_id,
-                    "run_id": rid,
-                    "mode": "run",
-                    "resume": {"skip": list(skip)},
-                    **({"retry_item_ids": retry_item_ids} if retry_item_ids is not None else {}),
-                    "batch": {"size": m.resources.max_batch or max(1, len(items))},
-                    **(
-                        {
-                            "attempt": rec.attempts + 1,
-                            "dicom_process_protocol": 1,
-                            "analysis_state": str(run_dir / "phase-analyzer"),
-                            "phase_run_id": phase_run_id,
-                            "phase_cancel": str(
-                                self._runs_dir(pid) / phase_run_id / protocol.CANCEL
-                            )
-                            if phase_run_id
-                            else None,
-                        }
-                        if m.id == DICOM_CONVERT
-                        else {}
-                    ),
-                    **(
-                        {
-                            "identity": rec.identity,
-                            "committed_outputs": committed_outputs(
-                                rec.outputs, self.workspace.resolver(pid).resolve
-                            ),
-                        }
-                        if rec.identity
-                        else {}
-                    ),
-                },
-            )
+            payload = {
+                **spec,
+                **inventory_spec(run_dir, self.settings.workspace_root),
+                "job_id": job_id,
+                "run_id": rid,
+                "mode": "run",
+                "resume": {"skip": list(skip)},
+                **({"retry_item_ids": retry_item_ids} if retry_item_ids is not None else {}),
+                "batch": {"size": m.resources.max_batch or max(1, len(items))},
+                **(
+                    {
+                        "attempt": rec.attempts + 1,
+                        "dicom_process_protocol": 1,
+                        "analysis_state": str(run_dir / "phase-analyzer"),
+                        "phase_run_id": phase_run_id,
+                        "phase_cancel": str(self._runs_dir(pid) / phase_run_id / protocol.CANCEL)
+                        if phase_run_id
+                        else None,
+                    }
+                    if m.id == DICOM_CONVERT
+                    else {}
+                ),
+                **(
+                    {
+                        "identity": rec.identity,
+                        "committed_outputs": committed_outputs(
+                            rec.outputs, self.workspace.resolver(pid).resolve
+                        ),
+                    }
+                    if rec.identity
+                    else {}
+                ),
+            }
+            if not preparing_masks:
+                protocol.write_job(job_dir, payload)
         live = Live(pid, rid, run_dir, job_dir, m, rec.selection.seg_id)
         events = [*iter_jsonl(run_dir / ITEMS), *iter_jsonl(run_dir / LOGS)]
         live.seen_events = {str(row["event_id"]) for row in events if row.get("event_id")}
@@ -160,6 +161,11 @@ class DriverBase(RegistrationBase):
         )
 
         async def driver(h: JobHandle) -> None:
+            if preparing_masks:
+                await self._prepare_mask_inputs(pid, payload, h)
+                if h.stopped:
+                    return
+                protocol.write_job(job_dir, payload)
             if m.runtime.type == "external":
                 await self._drive_external(h, live, n_todo)
             else:
@@ -173,6 +179,7 @@ class DriverBase(RegistrationBase):
             project_id=pid,
             kind="task",
             units=[],
+            drain_workers=preparing_masks,
             driver=driver,
             on_finish=on_finish,
             ref=rid,

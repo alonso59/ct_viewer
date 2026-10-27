@@ -3,6 +3,8 @@
 // use a custom LUT texture read by the engine's slice shader: row 0 = colour + per-label opacity
 // (0 = hidden), row 1 = outline flag; the outline is the in-plane boundary, as in 3D Slicer.
 // NiiVue's label colormap is still used for the 3D tile, where only visibility matters.
+import type { LabelDef } from '../../../api'
+
 import type { LabelStyle } from './types'
 
 export function hexToRgb(hex: string): [number, number, number] {
@@ -55,4 +57,14 @@ export function niivueLut(labels: LabelStyle[], width: number): LabelLut {
     lut.I.push(i)
   }
   return lut
+}
+
+/** Overlay labels for a set: its values coloured by the project labels they map to */
+export function setLabels(labels: LabelDef[], mapping: Record<string, number> | undefined): LabelDef[] {
+  const entries = Object.entries(mapping ?? {})
+  if (!entries.length || entries.every(([k, v]) => Number(k) === v)) return labels
+  return entries.flatMap(([k, v]) => {
+    const l = labels.find((x) => x.value === v)
+    return l ? [{ ...l, value: Number(k) }] : []
+  })
 }

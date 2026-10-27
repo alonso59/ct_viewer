@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, type ItemRecord, type LabelDef } from '../../api'
+import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, type ItemRecord } from '../../api'
 import { CaseRollupBadge, ProblemCard } from '../../lib'
 import { bindingOf, formatChord, pinEditor, registry, runCommand, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { PhaseButtons, PhaseHistoryButton } from '../phase'
@@ -12,6 +12,7 @@ import { useLoadBudget } from './budget'
 import { ItemSwitcher } from './ItemSwitcher'
 import { RecycleScan } from './RecycleScan'
 import { ViewerSurface, viewerFocusProps } from './ViewerSurface'
+import { setLabels } from './model/labels'
 import './viewer.css'
 
 export interface CaseParams {
@@ -25,16 +26,6 @@ const API = '/api/v1'
 export const itemUrl = (pid: string, iid: string, what: 'image' | 'mask') => viewPath(`${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/${what}`)
 export const meshUrlOf = (pid: string, iid: string, seg?: string) => (label: number) =>
   viewPath(`${API}/projects/${encodeURIComponent(pid)}/items/${encodeURIComponent(iid)}/mesh/${label}?smooth=1${seg ? `&seg=${encodeURIComponent(seg)}` : ''}`)
-
-/** Overlay labels for a set: its values coloured by the project labels they map to */
-export function setLabels(labels: LabelDef[], mapping: Record<string, number> | undefined): LabelDef[] {
-  const entries = Object.entries(mapping ?? {})
-  if (!entries.length || entries.every(([k, v]) => Number(k) === v)) return labels
-  return entries.flatMap(([k, v]) => {
-    const l = labels.find((x) => x.value === v)
-    return l ? [{ ...l, value: Number(k) }] : []
-  })
-}
 
 /** Warning codes that mean the image cannot be opened at all */
 export const FATAL_CODES = ['missing_path', 'unreadable_file', 'outside_root']
@@ -89,9 +80,11 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
     [masks, chosen, defaultSeg],
   )
   const segId = shownSeg ?? chosen ?? defaultSeg
-  const mapping = sets?.find((s) => s.seg_id === segId)?.label_mapping
-  const meshUrl = useMemo(() => meshUrlOf(pid, iid, segId), [pid, iid, segId])
-  const labels = useMemo(() => setLabels(project.data?.label_map ?? [], mapping), [project.data, mapping])
+  const segmentation = sets?.find((s) => s.seg_id === segId)
+  const mapping = segmentation?.label_mapping
+  const removedKey = segmentation?.removed_labels?.join(',') ?? ''
+  const meshUrl = useMemo(() => (label: number) => `${meshUrlOf(pid, iid, segId)(label)}&labels=${encodeURIComponent(removedKey)}`, [pid, iid, segId, removedKey])
+  const labels = useMemo(() => setLabels(project.data?.label_map ?? [], mapping).filter((label) => !segmentation?.removed_labels?.includes(label.value)), [project.data, mapping, segmentation])
   const shown = useMemo(() => (current ? { ...current, mask: current.masks[segId] ?? null } : null), [current, segId])
 
   useEffect(() => {
@@ -176,7 +169,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <ViewerSurface
           item={shown ?? current}
           imageUrl={itemUrl(pid, current.item_id, 'image')}
-          maskUrl={shownSeg ? `${itemUrl(pid, current.item_id, 'mask')}?seg=${encodeURIComponent(shownSeg)}` : undefined}
+          maskUrl={shownSeg ? `${itemUrl(pid, current.item_id, 'mask')}?seg=${encodeURIComponent(shownSeg)}&labels=${encodeURIComponent(removedKey)}` : undefined}
           labels={labels}
           meshUrl={meshUrl}
           active={active}

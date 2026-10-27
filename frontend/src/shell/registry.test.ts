@@ -9,7 +9,7 @@ test('read-only mode hides every contribution marked `writes`', () => {
   registry.setReadOnly(true)
   try {
     const cmds = [...registry.commands.values()].filter((c) => registry.allowed(c)).map((c) => c.id)
-    for (const id of ['curation.accept', 'curation.queue', 'radiomics.new', 'tasks.convertDicom', 'project.settings', 'import.open', 'project.exportBundle'])
+    for (const id of ['curation.accept', 'curation.queue', 'radiomics.new', 'tasks.convertDicom', 'project.settings', 'import.open', 'project.exportBundle', 'viewer.segmentations'])
       expect(cmds).not.toContain(id)
     expect(cmds).toEqual(expect.arrayContaining(['workbench.quickOpen', 'viewer.reset', 'explorer.nextCase']))
     const views = registry.views.filter((v) => registry.allowed(v)).map((v) => v.id)

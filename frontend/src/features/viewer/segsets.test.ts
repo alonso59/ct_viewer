@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // VW-19: a task set's values are coloured by the project labels they map to (ADR-0015 mapping).
 import type { LabelDef } from '../../api'
-import { setLabels } from './CaseEditor'
+import { setLabels } from './model/labels'
 
 const L = (value: number, name: string): LabelDef => ({ value, name, color: `#00000${value}`, opacity: 0.2, visible: true })
 

@@ -97,6 +97,7 @@ class SegmentationSet(BaseModel):
     label_mapping: dict[str, int] = Field(default_factory=dict)
     # Set values auto-named `label_{value}` at registration, flagged for review.
     unmatched: list[int] = Field(default_factory=list)
+    removed_labels: list[int] = Field(default_factory=list)
     created_at: str = ""
     # Soft removal keeps provenance and referenced source files available for restoration.
     active: bool = True

@@ -29,7 +29,6 @@ test('a view-only link cannot write and hides every editing control', async ({ p
   await expect(page.locator('.vp').first()).toBeVisible()
   await page.locator('.vp').first().click()
   await page.keyboard.press('a')
-  await page.keyboard.press('ControlOrMeta+Alt+b')
   await expect(page.locator('.inspector')).toBeVisible()
   await expect(page.locator('.inspector .section-title', { hasText: 'Curation' })).toHaveCount(0)
 

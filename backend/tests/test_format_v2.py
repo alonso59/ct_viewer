@@ -562,3 +562,107 @@ def test_bundle_excludes_derived_ledger_volumes(tmp_path: Path) -> None:
     assert any(n.endswith("derived/runs.jsonl") for n in names)
     assert not any(n.endswith(".nii.gz") for n in names)
     shutil.rmtree(folder)
+
+
+def test_individual_label_removal_applies_to_all_cases_and_survives_reindex(
+    dclient: TestClient, data_root: Path
+) -> None:
+    """SRC-20/API-27: soft label removal preserves other labels, sets, catalog and sources."""
+    import gzip
+
+    import nibabel as nib
+    import numpy as np
+
+    pid = new_project(dclient)
+    do_import(dclient, pid, data_root)
+    base = f"{API}/projects/{pid}"
+    ctx = ctx_of(dclient)
+    cfg = ctx.workspace.get(pid)
+    before = cfg.label_map
+    items = [item for item in ctx.index.load(pid).items if "imported" in item.masks]
+    source = {
+        item.item_id: ctx.workspace.resolver(pid).resolve(item.masks["imported"].ref).read_bytes()
+        for item in items
+    }
+    original_masks = {
+        item.item_id: dclient.get(f"{base}/items/{item.item_id}/mask").content for item in items
+    }
+    label = 1
+    assert any(
+        np.any(nib.Nifti1Image.from_bytes(gzip.decompress(raw)).get_fdata() == label)
+        for raw in original_masks.values()
+    )
+    url = f"{base}/segmentations/imported/labels/{label}"
+    assert dclient.delete(url).status_code == 204
+    assert dclient.delete(url).status_code == 204
+    assert ctx.workspace.get(pid).segmentation("imported").removed_labels == [label]
+    for item in items:
+        response = dclient.get(f"{base}/items/{item.item_id}/mask")
+        assert response.status_code == 200, response.text
+        original = nib.Nifti1Image.from_bytes(gzip.decompress(original_masks[item.item_id]))
+        filtered = nib.Nifti1Image.from_bytes(gzip.decompress(response.content))
+        np.testing.assert_array_equal(
+            filtered.get_fdata(), np.where(original.get_fdata() == label, 0, original.get_fdata())
+        )
+        np.testing.assert_array_equal(filtered.affine, original.affine)
+        assert dclient.get(f"{base}/items/{item.item_id}/mesh/{label}").status_code == 404
+    reindex = dclient.post(f"{base}/segmentations/reindex")
+    assert wait(dclient, reindex.json()["job_id"]).status == "succeeded"
+    assert ctx.workspace.get(pid).segmentation("imported").removed_labels == [label]
+    assert ctx.workspace.get(pid).label_map == before
+    from app.radiomics.service import RadiomicsService
+
+    units, skips = RadiomicsService.plan(
+        items, [1, 2], ctx.workspace.get(pid).segmentation("imported")
+    )
+    assert not any(unit["mask_label"] == 1 for unit in units)
+    assert any(unit["mask_label"] == 2 for unit in units)
+    assert any(skip.label == 1 for skip in skips)
+    assert dclient.post(f"{url}/restore").status_code == 204
+    assert dclient.post(f"{url}/restore").status_code == 204
+    for item in items:
+        assert (
+            dclient.get(f"{base}/items/{item.item_id}/mask").content == original_masks[item.item_id]
+        )
+        assert (
+            ctx.workspace.resolver(pid).resolve(item.masks["imported"].ref).read_bytes()
+            == source[item.item_id]
+        )
+    assert dclient.delete(f"{base}/segmentations/imported/labels/0").status_code == 404
+    assert dclient.delete(f"{base}/segmentations/imported/labels/99999").status_code == 404
+    assert dclient.delete(f"{base}/segmentations/missing/labels/1").status_code == 404
+
+
+def test_mapped_label_actions_are_atomic_and_independent_of_catalog_values(
+    dclient: TestClient, data_root: Path
+) -> None:
+    """SRC-20/API-27: concurrent labels and stale renames preserve each other's edits."""
+    import asyncio
+
+    from app.radiomics.service import RadiomicsService
+
+    pid = new_project(dclient)
+    do_import(dclient, pid, data_root)
+    base = f"{API}/projects/{pid}/segmentations/imported"
+    assert dclient.patch(base, json={"label_mapping": {"1": 2, "2": 1}}).status_code == 200
+    ctx = ctx_of(dclient)
+    stale = ctx.workspace.get(pid).segmentation("imported")
+
+    async def retire_both():
+        await asyncio.gather(
+            ctx.workspace.set_segmentation_label_active(pid, "imported", 1, False),
+            ctx.workspace.set_segmentation_label_active(pid, "imported", 2, False),
+        )
+
+    dclient.portal.call(retire_both)
+    dclient.portal.call(
+        ctx.workspace.put_segmentation, pid, stale.model_copy(update={"name": "Renamed"})
+    )
+    current = ctx.workspace.get(pid).segmentation("imported")
+    assert current.removed_labels == [1, 2] and current.name == "Renamed"
+    assert dclient.post(f"{base}/labels/2/restore").status_code == 204
+    current = ctx.workspace.get(pid).segmentation("imported")
+    assert current.removed_labels == [1]
+    units, skips = RadiomicsService.plan(ctx.index.load(pid).items, [1, 2], current)
+    assert units and all(unit["label"] == 1 and unit["mask_label"] == 2 for unit in units)
+    assert any(skip.label == 2 and skip.code == "label_not_in_set" for skip in skips)

@@ -129,6 +129,10 @@ Web UI uses port **5180** for both the compiled frontend and API. Set `PORT` and
 `PUBLIC_BASE_URL` together in `config/runtime.env` and restart the user service
 to change it. Development Vite keeps its separate 5173 convention (DEV_ENV.md).
 
+Before an image upgrade, drain work and back up workspace metadata and release configuration.
+An image predating ADR-0038 does not preserve per-label exclusions when it writes project metadata;
+rolling back to it requires the compatible pre-upgrade metadata snapshot after verified cleanup.
+
 `radiology-workbench.service` under `$HOME/.config/systemd/user/` runs that release,
 uses `Restart=always`, and is enabled for the user’s session. With user lingering
 disabled it starts at login rather than running independently of all sessions.

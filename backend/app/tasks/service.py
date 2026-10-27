@@ -319,6 +319,7 @@ class TaskService(DriverBase):
         if m.id == DICOM_CONVERT:
             require_pixel_budget(self.settings)
         now = utc_now()
+        selected_seg = cfg.segmentation(seg_id) if seg_id else None
         rec = TaskRunRecord(
             run_id=rid,
             task=TaskRef(id=m.id, version=m.version, manifest_hash=info.manifest_hash),
@@ -340,6 +341,7 @@ class TaskService(DriverBase):
                     image_fp=i.image.fp if i.image else None,
                     seg_id=seg_id,
                     mask_fp=(i.masks[seg_id].fp if seg_id and seg_id in i.masks else None),
+                    removed_labels=(selected_seg.removed_labels if selected_seg else []),
                 )
                 for i in ready
             ],
@@ -348,6 +350,13 @@ class TaskService(DriverBase):
         )
         run_dir = self._runs_dir(pid) / rid
         async with self.locks(pid):
+            current_seg = self.workspace.get(pid).segmentation(seg_id) if seg_id else None
+            if seg_id and (
+                current_seg is None
+                or current_seg.removed_labels
+                != (selected_seg.removed_labels if selected_seg else [])
+            ):
+                raise JobConflict("Segmentation label selection changed; start a new run")
             run_dir.mkdir(parents=True, exist_ok=True)
             skipped = [
                 {
@@ -572,6 +581,16 @@ class TaskService(DriverBase):
                 f"Run used {m.id} {rec.task.version}; installed is {m.version}. Start a new run."
             )
         self._check_conflict(pid, m.id)
+        segmentation = (
+            self.workspace.get(pid).segmentation(rec.selection.seg_id)
+            if rec.selection.seg_id
+            else None
+        )
+        if rec.selection.seg_id and (
+            segmentation is None
+            or any(pinned.removed_labels != segmentation.removed_labels for pinned in rec.inputs)
+        ):
+            raise JobConflict("Segmentation label selection changed; start a new run")
         idx = self.store.load(pid)
         items = [idx.by_id[i] for i in rec.item_ids if i in idx.by_id]
         if m.id == "segment.nnunet" and m.resources.gpu == "required":

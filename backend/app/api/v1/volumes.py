@@ -27,7 +27,11 @@ _THUMB_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 async def composed_mask(
-    ctx: AppContext, pid: str, folder: Path, labels: dict[str, int]
+    ctx: AppContext,
+    pid: str,
+    folder: Path,
+    labels: dict[str, int],
+    removed: list[int] | None = None,
 ) -> tuple[Path, str]:
     """A mask set's cached label map and its content key (the ETag)."""
     project_dir = ctx.workspace.project_dir(pid)
@@ -35,9 +39,9 @@ async def composed_mask(
         fp = await asyncio.to_thread(quick_fingerprint, folder)
     except ValueError as exc:
         raise ValidationProblem(f"Cannot read mask set: {exc}") from None
-    dst = maskset.cache_path(project_dir, fp, labels)
+    dst = maskset.cache_path(project_dir, fp, labels, removed)
     cached = dst.is_file()
-    path = await maskset.ensure_composed(ctx.jobs, project_dir, folder, fp, labels)
+    path = await maskset.ensure_composed(ctx.jobs, project_dir, folder, fp, labels, removed)
     if not cached:
         ctx.cache_budget.request()
     return path, dst.name.removesuffix(".nii.gz")
@@ -52,6 +56,7 @@ async def _serve(
     seg: str | None = None,
 ) -> Response:
     item = ctx.index.get_item(pid, iid)
+    removed: list[int] = []
     if kind == "image":
         vol = item.image
         if vol is None:
@@ -59,15 +64,17 @@ async def _serve(
     else:
         cfg = ctx.workspace.get(pid)
         seg_id = seg or cfg.default_seg
-        if cfg.segmentation(seg_id) is None:
+        segmentation = cfg.segmentation(seg_id)
+        if segmentation is None:
             raise NotFound(f"Segmentation set {seg_id!r} is removed or unknown")
+        removed = segmentation.removed_labels
         vol = item.masks.get(seg_id)
         if vol is None:
             raise NotFound(f"item has no mask in segmentation set {seg_id!r}")
     path = ctx.workspace.resolver(pid).resolve(vol.ref)
     if vol.format == "nifti_dir" and vol.labels and path.is_dir():  # a mask set
         name = f"{path.name}.nii.gz"
-        path, etag = await composed_mask(ctx, pid, path, vol.labels)
+        path, etag = await composed_mask(ctx, pid, path, vol.labels, removed)
         if streaming.is_not_modified(request, etag):
             return streaming.not_modified(streaming.quote_etag(etag))
         return streaming.volume_response(path, etag, name, request)
@@ -77,7 +84,7 @@ async def _serve(
     name = path.name
     if vol.format == "npy":
         name = npy_convert.nifti_name(name)
-        if streaming.is_not_modified(request, fp):
+        if not removed and streaming.is_not_modified(request, fp):
             return streaming.not_modified(streaming.quote_etag(fp))
         spacing = item.geometry.spacing if item.geometry is not None else [1.0, 1.0, 1.0]
         order = npy_convert.axis_order_of(item.extra.get("axis_order")) or "xyz"
@@ -86,6 +93,16 @@ async def _serve(
         path = await npy_convert.ensure_nifti(ctx.jobs, path, dst, spacing, order)
         if not cached:
             ctx.cache_budget.request()
+    if removed:
+        if vol.format == "npy":
+            fp = await asyncio.to_thread(quick_fingerprint, path)
+        path = await maskset.ensure_filtered(
+            ctx.jobs, ctx.workspace.project_dir(pid), path, fp, removed
+        )
+        fp = path.name.removesuffix(".nii.gz")
+        if name.lower().endswith(".nii"):
+            name += ".gz"
+        ctx.cache_budget.request()
     return streaming.volume_response(path, fp, name, request)
 
 

@@ -42,4 +42,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0034 | Capability-based segmentation runtimes without administrator access | Accepted |
 | 0035 | Durable DICOM source operations and verified resume | Accepted |
 | 0036 | Folder-per-case import, mask path templates and mask sets | Accepted (partially supersedes 0027 §3) |
-| 0037 | Manual segmentation import and soft removal | Accepted (extends 0015 and 0036) |
+| 0037 | Manual segmentation import and soft removal | Accepted (§5 management location superseded by 0038) |
+| 0038 | Individual segmentation label removal and management panel | Accepted (extends 0015/0036; supersedes 0037 §5 management location) |

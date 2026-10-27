@@ -66,6 +66,7 @@ class EstimateBase(JobSpecBase):
             source=None,
             scratch=job_dir,
         )
+        await self._prepare_mask_inputs(pid, spec)
         protocol.write_job(
             job_dir,
             {
