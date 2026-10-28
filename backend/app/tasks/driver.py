@@ -28,6 +28,7 @@ from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.identity import committed_outputs
 from app.tasks.jobspec import inventory_spec
 from app.tasks.models import (
+    RESUMABLE_TASK_RUN,
     TERMINAL_TASK_RUN,
     ConversionTimeEstimate,
     TaskManifest,
@@ -77,6 +78,8 @@ class DriverBase(RegistrationBase):
     ) -> TaskRunStarted:
         rid = run_dir.name
         rec = self.runs.read(run_dir)
+        if not recover and rec.attempts and rec.status not in RESUMABLE_TASK_RUN:
+            raise JobConflict("Task run is already active; reload before resuming")
         phase_run_id = rec.phase_run_id
         if m.id == DICOM_CONVERT and rec.settings.get("phase_analyzer", True):
             phase_run_id = phase_run_id or new_ulid()
@@ -103,6 +106,7 @@ class DriverBase(RegistrationBase):
         preparing_masks = any(
             mask.get("removed_labels") for item in spec["items"] for mask in item["masks"].values()
         )
+        publish_in_driver = preparing_masks or m.runtime.type == "external"
         payload = spec
         if not recover:
             payload = {
@@ -138,7 +142,7 @@ class DriverBase(RegistrationBase):
                     else {}
                 ),
             }
-            if not preparing_masks:
+            if not publish_in_driver:
                 protocol.write_job(job_dir, payload)
         live = Live(pid, rid, run_dir, job_dir, m, rec.selection.seg_id)
         events = [*iter_jsonl(run_dir / ITEMS), *iter_jsonl(run_dir / LOGS)]
@@ -163,9 +167,11 @@ class DriverBase(RegistrationBase):
         async def driver(h: JobHandle) -> None:
             if preparing_masks:
                 await self._prepare_mask_inputs(pid, payload, h)
-                if h.stopped:
-                    return
-                protocol.write_job(job_dir, payload)
+            if not recover and publish_in_driver:
+                async with self.locks(pid):
+                    if h.stopped or self.runs.read(run_dir).job_id != job_id:
+                        return
+                    protocol.write_job(job_dir, payload)
             if m.runtime.type == "external":
                 await self._drive_external(h, live, n_todo)
             else:
@@ -204,8 +210,8 @@ class DriverBase(RegistrationBase):
         )
 
         def prepare(rec: TaskRunRecord) -> None:
-            if m.id == DICOM_CONVERT and rec.attempts != prior_attempt:
-                raise JobConflict("Conversion run attempt changed; reload before resuming")
+            if rec.attempts != prior_attempt:
+                raise JobConflict("Task run attempt changed; reload before resuming")
             rec.error, rec.finished_at = None, None
             rec.attempts += 1
             rec.resume_request_id = resume_request_id
@@ -273,7 +279,7 @@ class DriverBase(RegistrationBase):
         """Forward only, as `RunStore.set_status`; a pending control keeps pausing/cancelling."""
 
         def edit(rec: TaskRunRecord) -> bool:
-            if live.manifest.id == DICOM_CONVERT and rec.job_id != live.job_dir.name:
+            if rec.job_id != live.job_dir.name:
                 return False
             if rec.status in TERMINAL_TASK_RUN or rec.status == status or control.pending(rec):
                 return False
@@ -397,10 +403,9 @@ class DriverBase(RegistrationBase):
     ) -> None:
         if not lines:
             return
-        if live.manifest.id == DICOM_CONVERT:
-            current = self.runs.read(live.run_dir)
-            if current.job_id != live.job_dir.name or current.status in TERMINAL_TASK_RUN:
-                return
+        current = self.runs.read(live.run_dir)
+        if current.job_id != live.job_dir.name or current.status in TERMINAL_TASK_RUN:
+            return
         item_rows: list[dict[str, Any]] = []
         logs: list[dict[str, Any]] = []
         masks: list[dict[str, Any]] = []
@@ -476,9 +481,7 @@ class DriverBase(RegistrationBase):
             await self._register_set(live, masks)
         async with self.locks(live.pid):
             rec = self.runs.read(live.run_dir)
-            if live.manifest.id == DICOM_CONVERT and (
-                rec.job_id != live.job_dir.name or rec.status in TERMINAL_TASK_RUN
-            ):
+            if rec.job_id != live.job_dir.name or rec.status in TERMINAL_TASK_RUN:
                 return
             if item_rows:
                 append_jsonl(live.run_dir / ITEMS, item_rows)
@@ -513,7 +516,7 @@ class DriverBase(RegistrationBase):
         result = protocol.read_result(live.job_dir)
         async with self.locks(live.pid):
             rec = self.runs.read(live.run_dir)
-            if rec.task.id == DICOM_CONVERT and rec.job_id != live.job_dir.name:
+            if rec.job_id != live.job_dir.name:
                 return
             outcomes = {
                 k: v

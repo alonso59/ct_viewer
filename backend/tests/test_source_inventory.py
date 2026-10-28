@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from plugins.dicom import scan
@@ -130,6 +131,33 @@ def test_partial_inventory_never_exposes_a_prefix_of_a_series(tmp_path: Path) ->
         assert inventory.scan()["complete"]
         row = inventory.page()["items"][0]
         assert row["n_files"] == len(inventory.series(row["key"]).files) == 750
+
+
+def test_unreadable_subtree_is_partial_and_valid_neighbor_facts_are_retained(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D05: a refused directory cannot become a silently complete inventory."""
+    source = tmp_path / "source"
+    for name in ("good", "blocked"):
+        write_series(source / name, shape=(3, 3, 3), marker=(1, 1, 2), patient_id=name)
+    before = {p: p.read_bytes() for p in source.rglob("*.dcm")}
+    original = os.scandir
+
+    def unreadable(path: Any) -> Any:
+        if path == source / "blocked":
+            raise PermissionError("Synthetic directory permission failure")
+        return original(path)
+
+    with SourceInventory(tmp_path / "state/inventory.sqlite", source) as inventory:
+        with monkeypatch.context() as fault:
+            fault.setattr(os, "scandir", unreadable)
+            partial = inventory.scan()
+            assert not partial["complete"] and partial["errors"] > 0
+            assert partial["dicom"] == 3
+        complete = inventory.scan()
+        assert complete["complete"] and complete["dicom"] == 6
+        assert inventory.page()["total"] == 2
+    assert before == {p: p.read_bytes() for p in before}
 
 
 def test_single_file_inventory_never_includes_neighbor_files(tmp_path: Path) -> None:

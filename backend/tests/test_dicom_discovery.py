@@ -203,7 +203,7 @@ def test_recognition_agrees_across_entry_points(
 ) -> None:
     """D03: supported image headers, not suffixes, decide DICOM membership (SRC-02)."""
     root = tmp_path / "source"
-    folder = root / "deep" / "study" / "series"
+    folder = root / "one/two/three/four/five/six/seven/eight"
     write_series(folder, shape=(3, 3, 1), marker=(1, 1, 0), seed="recognition")
     original = next(folder.iterdir())
     content = original.read_bytes()

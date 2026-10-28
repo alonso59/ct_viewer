@@ -145,6 +145,7 @@ File names below are proposed, not already implemented. Split existing combined 
 
 CI runners must not receive production model roots, workspace paths or GPU reservations. All writes belong under tmp_path or a run-created browser directory; data are synthetic. Never run the shared host out of memory, disk or processes to test a limit; prove the disposable boundary first.
 Use separate tmp roots, pool namespaces, sockets/ports and fake model roots per worker. Do not weaken pool coordination tests by accidentally giving competitors different pool namespaces.
+GPU-free host/browser fixtures report 64 GiB of synthetic VRAM and map only their synthetic UUID to `/dev/null` through a test-owned launcher. This permits testing real user-service and sandbox effects under the accepted memory policy without exposing a real GPU. Actual UUID/device-minor resolution remains a separate GPU acceptance obligation.
 Pin node package installation to package-lock; preflight browser binaries and backend dependencies. E2E runners must prove the backend Python is executable in the chosen container/host topology; a Node-only image is not assumed to contain host conda Python.
 Record dependency/runtime versions, command, commit, environment lane, skips, seeds, logs and teardown outcome. Upload diagnostics on failure with synthetic paths redacted; mark incomplete lanes as incomplete.
 Run a deterministic collision case in both serial and bounded-parallel contexts; repeat race/fault cases only for documented scheduling coverage, never as automatic pass-on-retry.

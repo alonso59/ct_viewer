@@ -84,7 +84,7 @@ def setup(root: Path) -> dict[str, Any]:
     nvidia = root / "tools/nvidia-smi"
     nvidia.write_text(
         '#!/bin/sh\ncase "$1" in\n'
-        " --query-gpu=*) echo '0, GPU-browser, synthetic CPU fixture, 1000, 0, 0';;\nesac\n"
+        " --query-gpu=*) echo '0, GPU-browser, synthetic CPU fixture, 65536, 0, 0';;\nesac\n"
     )
     nvidia.chmod(0o700)
     config = {
@@ -108,6 +108,19 @@ def setup(root: Path) -> dict[str, Any]:
         "derived": str(root / "derived"),
         "state": str(root / "state"),
     }
+
+
+def cpu_runner(root: Path, gpu_identity: str) -> Path:
+    runner = root / "cpu-runner.py"
+    runner.write_text(
+        "import runpy,sys\nfrom pathlib import Path\n"
+        f"sys.path.insert(0,{str(REPO)!r})\n"
+        "from plugins.runner import gpu\noriginal=gpu.device_path\n"
+        "gpu.device_path=lambda identity: "
+        f"Path('/dev/null') if identity=={gpu_identity!r} else original(identity)\n"
+        f"runpy.run_path({str(REPO / 'scripts/rw-runner.py')!r},run_name='__main__')\n"
+    )
+    return runner
 
 
 def main() -> int:
@@ -156,7 +169,7 @@ def main() -> int:
             runner = subprocess.Popen(
                 [
                     sys.executable,
-                    str(REPO / "scripts/rw-runner.py"),
+                    str(cpu_runner(root, "GPU-browser")),
                     "--workspace",
                     fixture["workspace"],
                     "--plugins",

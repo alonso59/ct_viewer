@@ -16,6 +16,7 @@ from plugins.runner import service
 
 from tests.test_runner import RUNNER
 from tests.test_runner_safety import setup_queue
+from tools.runner_browser_acceptance import cpu_runner
 
 
 @pytest.fixture
@@ -57,7 +58,7 @@ def deployment(
     nvidia.write_text(
         """#!/bin/sh
 case "$1" in
-  --query-gpu=*) echo '0, GPU-test, synthetic, 1000, 0, 0';;
+  --query-gpu=*) echo '0, GPU-test, synthetic, 65536, 0, 0';;
 esac
 """
     )
@@ -84,7 +85,7 @@ esac
     config_path.chmod(0o600)
     argv = [
         sys.executable,
-        str(RUNNER),
+        str(cpu_runner(tmp_path, "GPU-test")),
         "--workspace",
         str(workspace),
         "--plugins",

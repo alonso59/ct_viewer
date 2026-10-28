@@ -34,6 +34,41 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def test_sidecar_permission_failure_preserves_commits_and_can_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D35: refused sidecar publication cannot acknowledge a partial successful volume."""
+    from plugins.dicom import sidecar
+
+    source, output = tmp_path / "source", tmp_path / "derived"
+    for name in ("P0", "P1"):
+        write_series(source / name, shape=(3, 3, 3), marker=(1, 1, 2), patient_id=name)
+    inputs = {p: digest(p) for p in source.rglob("*.dcm")}
+    original = sidecar.write_sidecar
+    written = 0
+
+    def refuse(header: Any, path: Path) -> None:
+        nonlocal written
+        written += 1
+        if written == 2:
+            raise PermissionError("Synthetic sidecar permission failure")
+        original(header, path)
+
+    pin = output / "run/pin.json"
+    with monkeypatch.context() as fault:
+        fault.setattr(sidecar, "write_sidecar", refuse)
+        result = run_conversion(source, output, checkpoint=pin)
+    assert result.counts["converted"] == result.counts["failed"] == 1
+    [image] = list((output / "nifti").glob("*.nii.gz"))
+    saved = digest(image), image.stat().st_mtime_ns
+    resumed = run_conversion(source, output, checkpoint=pin)
+    assert resumed.counts["failed"] == resumed.counts["pending"] == 0
+    assert resumed.counts["already_converted"] == resumed.counts["converted"] == 1
+    assert len(list((output / "nifti").glob("*.nii.gz"))) == 2
+    assert (digest(image), image.stat().st_mtime_ns) == saved
+    assert inputs == {p: digest(p) for p in inputs}
+
+
 @pytest.mark.parametrize("mutation", ["input", "output", "sidecar", "settings"])
 def test_resume_rejects_changed_artifacts_instead_of_existence_skip(
     tmp_path: Path, mutation: str

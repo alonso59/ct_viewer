@@ -98,7 +98,7 @@ test: test-env ## Unit tests with bounded workers; FULL_TESTS=1 refuses missing/
 	$(NODE) npm test -- --maxWorkers=$(VITEST_WORKERS)
 
 test-runner: test-env ## Runner safety regression gate (PYTEST_WORKERS=0 for serial)
-	cd backend && $(TEST_ENV) $(BPY) -m pytest -n $(PYTEST_WORKERS) --dist loadscope tests/test_verification_environment.py tests/test_verification_pipeline.py tests/test_full_test_gate.py tests/test_runner_capabilities.py tests/test_runner_host_probe.py tests/test_runner_safety.py tests/test_runner_deployment.py tests/test_gpu_allocation.py tests/test_native_launch.py tests/test_external_completion.py tests/test_external_recovery.py tests/test_nnunet_resources.py tests/test_nnunet_cleanup.py tests/test_nnunet.py tests/test_runner.py
+	cd backend && $(TEST_ENV) $(BPY) -m pytest -n $(PYTEST_WORKERS) --dist loadscope tests/test_verification_environment.py tests/test_verification_pipeline.py tests/test_full_test_gate.py tests/test_runner_capabilities.py tests/test_runner_host_probe.py tests/test_runner_safety.py tests/test_runner_deployment.py tests/test_gpu_allocation.py tests/test_native_launch.py tests/test_external_completion.py tests/test_external_recovery.py tests/test_task_attempt_fencing.py tests/test_nnunet_resources.py tests/test_nnunet_cleanup.py tests/test_nnunet.py tests/test_runner.py
 
 test-host: test-env ## Opt-in GPU-free Linux kernel/user-service effect tests (no skipped prerequisites)
 	cd backend && $(TEST_ENV) $(BPY) -m pytest -n 0 host_tests -ra

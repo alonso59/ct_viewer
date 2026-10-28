@@ -159,15 +159,22 @@ D29/D34 audit: `test_dicom_phase_runs.py` has 14 parameterized cases checking in
 
 ### Publication and packaged runtime
 
-- Last verified immutable deployment: `29bac01`, tree `b760c138663c2b9f3d26d19fdf826707339fb8b7`, image
-  `85745aa64356ea0f:verification`. CI `40371515442` passed 1,200 backend, 431 frontend,
-  108 serial runner and 76 browser tests. Non-root uid-1008 same-image udocker conversion,
-  queued API SIGKILL/restart, cancel/resume and restored Open preserve source/output hashes
-  (`dicom-product-29bac01/acceptance.json`). No GPU workload was launched.
-- Current john:5180 release metadata records a provisional checkout snapshot deployed at
-  2026-10-27 12:06 UTC (`rw-production-checkout-20261027T120659Z`, base `f56aaad`, with
-  uncommitted changes). That snapshot is not the immutable image certified above; replace it
-  with the final CI image after same-image acceptance and draining active work.
+- Production john:5180 runs `6391264`, tree `6365f25e62fc9a2ffaeeb5b2c93e993805735901`, image
+  `bbd19ae1ff454e34:verification`, as uid 1008. CI `40556997368` passed 1,239 backend,
+  440 frontend, 120 serial runner and 110 Chromium/Firefox cases, Docker lifecycle/mask checks
+  and the distinct-PID-namespace gate. Image tar SHA-256 is
+  `02d59bf09ecefef83445561de1badf12bb19488e7c33f088928758aecbd5297f`.
+- The same exported image passes uid-1008 udocker native conversion, queued API SIGKILL/restart,
+  cancel/resume and restored Open with unchanged source/output hashes, plus individual mask-label
+  removal/restoration preserving all 224 synthetic source files. Evidence is under
+  `dicom-product-6391264/`: `acceptance.json`, `nonroot-evidence/result.json`,
+  `segmentation-evidence/acceptance.json` and `production-acceptance.json`.
+- The verified image replaced the provisional checkout snapshot on 2026-10-28 06:47 UTC.
+  Preflight was drained; the independent nnU-Net service identity stayed unchanged. A first backup
+  attempt refused two ephemeral Unix sockets and restored the prior API. The complete retry preserves
+  all regular files/symlinks and lists the two omitted sockets in its backup manifest. The served SPA
+  matches the image bytes; rollback is `releases/pre-6391264-20261028T064727Z` under app state.
+  No GPU workload was launched by these checks or the deployment.
 - Published `63b8869` adds test/docs only; CI `40376987867` passed 1,209 backend, 431 frontend,
   108 serial runner and 76 browser tests, plus image/static/contract gates. Twelve native codec cases
   cover implicit/explicit LE, BE, deflated, RLE and JPEG 2000 lossless, with independent GDCM geometry.
@@ -182,7 +189,10 @@ D29/D34 audit: `test_dicom_phase_runs.py` has 14 parameterized cases checking in
   PID namespaces, one allocation pool and native Open pixel jobs. The dispatcher/worker sequence
   passes locally with four actors, two independently checked volumes and unchanged source bytes
   (`dicom-namespace-native-v2.log`); that local run shares one namespace and does not certify Docker.
-  Actual distinct-namespace acceptance remains pending its CI `image-namespaces/acceptance.json`.
+  CI `40556997368` subsequently passed the actual two-Docker-namespace command before image export.
+  This proves pixel admission, cancellation of a foreign waiter, parent-death cleanup at the dispatch
+  barrier, foreign recovery refusal and owner recovery; active-native callback crashes have the
+  separate API/browser evidence above.
 - Full TCGA read-only headers: 141,164 files / 1,919 series / 2,523 folders exactly match independent
   GDCM membership and physical ordering (`dicom-tcga-membership-oracle/result.json`). Source stat signatures
   unchanged. The 1-GiB inventory limit stopped explicitly at 95,552 files; 2 GiB resumed retained batches.
@@ -219,11 +229,24 @@ they do not certify every codec/storage/pathology class. Private clinical output
 The plan remains open until the full companion matrix is audited with evidence, especially:
 
 - Complete the remaining per-case evidence audit. Existing real SIGKILL coverage includes staging/image/sidecar/commit/progress and eleven registration/Index barriers (`test_dicom_operation_recovery.py`); registration cancellation has separate durable-acknowledgment cases. The analyzer/CLI portions have the explicit audit above; this does not certify every remaining D/U row.
-- Final full both-browser B01–B08 regression. B01 deep project import passes in both browsers, including extensionless/IMA files, minimize/navigation/restore and indexed results (`dicom-import-deep-browser-fixed-root.log`). B02 result Open and Add-to-existing pass in both browsers (`dicom-result-open-browser-final.log`, `dicom-result-branches-browser-fixed-key.log`); Create was already covered. B03 passes in both browsers: 503 DICOM series/2,274 files, later-page selection of all 750 slices, exact independent GDCM membership, full voxel/affine/marker oracle, paged identities without gaps, converter handoff and truthful minimum-size skips (`dicom-large-series-browser-summary.log`). Active scanning minimization, fresh-context scan/estimate recovery, stage cancellation and partial-failure retry have the focused evidence above.
-- Pixel ownership/accounting/cleanup across distinct Docker PID namespaces and multi-workspace workloads;
-  existing same-namespace inventory proof is narrower. Never relax an unverified cleanup fence.
+- Full B01–B08 Chromium/Firefox regression passed in the deployed `6391264` run. A final follow-up
+  is required for the subsequently discovered shared-task attempt-fencing correction.
 - P04 NFR-03/04/08 now pass at the recorded reference workload and allocator setting; final image must retain that setting. P06 has frozen native/RLE/JPEG-2000 hold-out evidence; unsupported classes retain unknown estimates. Windows Docker and actual Safari remain unavailable platform lanes.
-- Full CI and same-image Docker/udocker acceptance for the segmentation editor, inspector and memory fixes before rollout. Published `8dbfb9d` CI `40546369236` passed 1,239 backend, 439 frontend and 120 serial runner cases; its browser gate finished with 91 passes and one Firefox radiomics failure, so no image was exported. The narrow settings navigation collapsed beneath the form with the inspector open. A one-property CSS correction has a reproduced red case and two passing Firefox journeys, including complete extraction/export (`radiomics-layout-red.log`, `radiomics-layout-green.log`); both-browser navigation also passes in `dicom-shared-worker-layout-final.log`. Published `d780e32` separates full Chromium/Firefox suites onto independent runners, with product export gated by both. Final follow-up CI/image acceptance remains required.
+- Final shared-task fix: an obsolete unclaimed nnU-Net queue entry was paused under the allocation
+  lock after checking that its job ID differed from the current failed attempt. The live allocation
+  and runner identity were preserved (`obsolete-nnunet-queue-guard.json`). New regression cases
+  reproduce premature external publication and stale status/progress/completion writes against the
+  published baseline, then pass with durable publication and generation guards; competing resumes
+  preserve exactly one current job. Focused task/external tests pass 28 cases and affected DICOM
+  conversion/registration/phase tests pass 59 (`task-attempt-fencing-valid-red.log`,
+  `task-attempt-fencing-final.log`, `task-attempt-fencing-dicom-regression.log`). The required GPU-free
+  host gate passes 21 cases and its actual API/supervisor browser journeys pass both browsers after
+  updating the synthetic VRAM/device fixture (`task-attempt-fencing-host-final-v2.log`,
+  `task-attempt-fencing-host-browser.log`). The D01/D03/D05/D35 audit also passes 14 focused cases for
+  eight-level suffix-independent discovery, an unreadable branch followed by retained-fact recovery,
+  and sidecar permission failure/resume preserving committed bytes/mtime
+  (`dicom-final-audit-permissions-depth.log`). Full follow-up CI,
+  shared-runtime gates and deployment of this final correction remain open.
 - Production rollout must preserve the active nnU-Net jobs. Preflight found one running and one queued; the runner belongs to `radiology-workbench-nnunet.service`, outside the API service's control group. `test_api_restart_does_not_cancel_or_duplicate_external_work` passes both claimed/unclaimed cases (`production-external-api-restart-tests.log`), and the current-to-candidate project/task record models are unchanged. A compatible API-only handoff may proceed after image acceptance with pinned job/run/attempt and runner-process checks before/after; builtin work still requires draining. Do not restore a stale active-workspace snapshot or stop the runner service.
 - The owner confirmed that Windows Docker and actual Safari machines are unavailable. Those platform lanes remain unverified and cannot be represented by Linux browser results.
   Rollback requires compatible readers or a drained metadata snapshot, never an assumed migration.
