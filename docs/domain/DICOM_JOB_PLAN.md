@@ -8,21 +8,9 @@ Depends: DICOM_CONVERTER.md, SOURCES.md, TASKS.md, ANALYZERS.md, ../ops/DICOM_JO
 
 Owner workflow update (2026-10-25): finish the missing implementation first, then add focused local verification. Run the complete regression in GitHub CI; do not repeat it locally. This changes the implementation/test order below, without relaxing ADR-0035 safety or recovery requirements.
 
-Implementation authorized on 2026-10-23: the owner requested implementation of this plan/tests and compliance with ADR-0035, now Accepted. Implementation/test evidence is tracked below; acceptance alone does not certify behavior, production readiness or phase completion. Interruption/resume is required. P7g's existing closure gates remain separate; this plan does not open Electron or SLURM work.
+Implementation authorized on 2026-10-23: the owner requested implementation of this plan/tests and compliance with ADR-0035, now Accepted. Implementation and Linux acceptance evidence are recorded below; P7 phase completion is separate. Interruption/resume is required. P7g's existing closure gates remain separate; this plan does not open Electron or SLURM work.
 
 Reuse `dicom.convert`, SimpleITK/GDCM, `ConverterOverlay`, the job manager and project/workspace run registries. Keep CLI compatibility, source immutability, contract-v1 metadata, identity rules and existing output layouts. Other formats keep their import behavior; their long-running discovery/indexing gets the shared minimize/reconnect control where applicable. Do not couple DICOM work to the GPU runner.
-
-## Inspection evidence (2026-10-23; not acceptance)
-
-| Area | Current behavior / consequence |
-|---|---|
-| TCGA source | Read-only enumeration of `../data/tcga_kirc`: 141,164 `.dcm`, 2,523 directories including root, 1,919 directories containing files; all files at folder depth 3, no symlink directories/errors. Folder count is not a verified series count. |
-| General detector | `sources/formats.py` found all 141,164 files, no truncation, in 20.08 s in one observation. `sorted(rglob)` materializes the tree before the 200,000-candidate limit, which also counts directories. This is not a controlled performance baseline. |
-| Open mode | `sources/open.accepted` cuts to 500 files before `dicom_stage.probe_series`; the first 500 span 8 leaf folders and incompletely include one. The remaining 140,664 files never reach grouping. |
-| Recognition | Picker regex excludes extensionless/`.ima`; detector accepts those only with `DICM`, ignores `.dicom`/`.001`, and trusts `.dcm`. Converter accepts additional header starts. In-memory probes confirmed the mismatch, not full format compatibility. |
-| Background | Converter store survives minimize/navigation but not browser reload. Dry-run scratch/result is deleted when its HTTP request finishes. Open/import discovery lacks the same operation lifecycle. |
-| Cancellation/resume | Shared builtin pool + coarse cancellation checks cannot establish bounded native-reader cleanup. Project/workspace paths have different lifecycle code; output existence is insufficient for safe resume. |
-| Phase | `pipeline.run` calls phase rules even when `task.py` later drops their annotations. ADR-0020 already places phase in a separate layer. |
 
 ## Expected user behavior
 
@@ -125,81 +113,61 @@ Closure requires every acceptance case in the companion test plan to have a real
 
 ## Implementation evidence
 
-Current state (2026-10-27). The accepted contract and companion D/U/B/P matrix remain the scope.
-Evidence under `build/verification/` is local and ignored; real patient paths/pixels are never published.
-A narrow pass certifies only its stated coverage. Superseded checkpoints remain in Git.
+Closed for Linux Docker and john udocker on 2026-10-28. The owner deferred Windows Docker Desktop and actual Safari; both remain unverified.
+The companion D/U/B/P matrix is unchanged. P7g, other P7 checks, Electron and SLURM remain separate.
+Local evidence is under `build/verification/`; clinical paths/pixels are not published.
 
-### Functional implementation
+### Per-case audit
 
-| Area / matrix portions | Implemented behavior | Decisive evidence |
-|---|---|---|
-| Discovery / D01–D07, D10–D12 | Streamed guarded traversal; suffix-independent bounded headers; complete directory+UID groups; durable SQLite batches and generation invalidation; typed bad/missing/duplicate identity diagnostics and cross-folder UID warning. | `test_dicom_discovery.py`, `test_dicom_scan.py`, `test_source_inventory.py`, `test_dicom_identity.py`; actual 750-slice geometry, 12 independent GDCM mixed-UID/encoding cases (implicit/explicit little-endian, big-endian, deflated, RLE and JPEG 2000 lossless) and two native enhanced CT/MR geometry cases. |
-| Operations / D08–D16, D32–D33 | Durable start/control receipts, fenced attempts/revisions, generation-paged reads, retained results, restart reconciliation, shared Open/import/conversion window. | `test_source_operations_api.py`, `test_dicom_operation_recovery.py`, `test_dicom_progress.py`, `test_source_detection.py`; real SIGKILL inventory/header tests and recorded frontend exchanges. |
-| Open / D02, D09, D31, U08 | Complete chosen series, later pages, lazy hydration, attached masks and Save; retained geometry/stat pins refuse changed or lost dependencies. | `test_open_paging.py`, `test_source_open.py`, `test_source_operations_api.py`, `test_open_convert_once.py`; Open/background/paging Chromium and Firefox journeys. Same-stat rewrites are outside the stat-based hydration check. |
-| Import continuation / U02, U06, B04/B08 portions | Server-retained form edits, Preview, commit identity and Index; minimize/reload/cancel/resume; explicit project selection; reused snapshots; lightweight polling, damaged-preview repreparation and cancellation through the Index handoff. | `test_source_import_context.py`, `ImportWizard.test.tsx`, `Host.test.tsx`, `import-background.spec.ts`, `p2-flow.spec.ts`; 37 affected backend/API cases pass, including parser responsiveness, one NIfTI scan and deterministic finalization barriers. |
-| Native lifecycle / D17–D24 | Owned process/descendant cleanup, durable control handoff, same logical run/destination, verified pending/failed-only retry, source/settings/output conflict refusal and no-clobber publication. | `test_dicom_process_lifecycle.py`, `test_dicom_resume.py`, `test_dicom_retry_failed.py`, `test_source_operation_conversion.py`, `test_dicom_operation_recovery.py`; four API-SIGKILL cases inside actual ITK writer callbacks, at progress 0/1 in project/workspace scopes, verify parent-death cleanup, resume, unchanged completed bytes/mtime, landmarks and one registration. The full crash/platform matrix is not inferred from these cases. |
-| Metadata registration / D18–D24, D35 | Durable metadata journals; directory sync before success; idempotent import/annotation publication; completed registration waits for a successful index; recovery does not block polling. | `test_dicom_metadata_durability.py`, `test_dicom_registration.py`, `test_dicom_registration_cancel.py`, `test_dicom_publication.py`; ENOSPC and interrupted registration cases. |
-| Resources and retention / D07, D27, D32 | Explicit DICOM budgets, native affinity/address-space bounds, shared participating allocation, aggregate SQLite quota and conservative completed-history retention; recoverable drafts/Open sessions and corrupt evidence remain protected. | `test_dicom_resources.py`, `test_dicom_admission.py`, `test_dicom_inventory_policy.py`; production pool device/inode matches its fresh runner. Cross-container/multi-workspace host acceptance remains separate. |
-| Phase / D29 | Separate recorded analyzer after successful native commits; off executes no phase rules; phase-only retry preserves converted images and manual annotations. | `test_dicom_phase_runs.py`, `test_dicom_phase_step.py`, `test_metadata_ownership.py`, existing phase/analyzer suites; bounded private input checkpoints and retry conflict cases. |
-| ETA and measurements / D25–D26 | Compatible bounded conversion history, minimum observations, unknown/low confidence, remaining verified work and no pixel calibration. Active discovery/planning/registration/analysis durations have idempotent bounded history; queue/downtime is excluded. | `test_dicom_eta.py`, `test_dicom_timings.py`: 39 timing/ETA cases and 13 final stage/identity cases pass, including real project/workspace pipelines. Reference hold-out evidence is recorded under performance below. |
-| Compatibility / D30–D31, D34 | Legacy HTTP/CLI response contracts, existing YAML/defaults, clean metadata and layer ownership, view-only redaction, source immutability and service/plugin boundaries. | `test_contract.py`, `test_dicom_cli_resume.py`, `test_metadata_ownership.py`, `test_view_redact.py`, `test_layering.py`; full published-tree CI and both-browser suite. |
+`dicom-closure-case-audit.json` records reviewed D01–D35 assertions and U01–U12 evidence.
+Execution and independent geometry/process checks, rather than filenames alone, support the following groups.
 
-Native API recovery: `dicom-active-writer-api-recovery-v2.log`, four real ITK Execute barriers at
-progress 0/1, project/workspace scopes; owned group gone, completed bytes/mtime unchanged, one registration.
-`converter-recovery.spec.ts` adds eight Chromium/Firefox cases: project/workspace × cancel/API death,
-actual native callback, second tab, minimized reload, both themes, fresh browser-context restore and resume.
-`dicom-native-browser-final-matrix.log` passes 8/8; the final port-reservation cleanup passes its focused
-crash case (`dicom-native-browser-after-cleanup.log`); four original host recovery cases still pass.
-These deterministic barriers do not certify every blocked-I/O or crash point.
-Active discovery/planning browser coverage now holds an actual parsed header or inspected series in the owned worker, minimizes/reloads, closes the browser context, restores from server history, cancels with confirmed process-group cleanup and resumes the same operation in project/workspace scopes. Seven combinations pass in `dicom-active-stages-browser-final.log`; Firefox project discovery passes with the visible-cancellation synchronization in `dicom-header-firefox-after-visible-cancel.log`. Source hashes, settings, project identity and one-operation ownership are preserved. A newly exposed admitted-header caption/count defect has a red/green regression; all 36 overlay cases pass (`dicom-admitted-discovery-red.log`, `dicom-header-progress-green.log`). The final published browser matrix remains required.
+| Cases | Decisive assertions / evidence |
+|---|---|
+| D01–D04 | Eight-level suffix/preamble combinations; fake DICOM refusal; valid neighbors survive typed identity errors; twelve codec/mixed-UID GDCM oracles and enhanced CT/MR landmarks (`test_dicom_discovery.py`, `test_dicom_identity.py`). |
+| D05–D07 | Replaced directory/symlink refusal, unreadable-branch partial recovery, pruned exclusions and bounded quota preserve whole series (`test_source_inventory.py`, `test_dicom_discovery.py`); 201,128-file measured lane below. |
+| D08–D10 | Durable 202/idempotency/restart, complete generation-fenced pages and instrumented header reuse (`test_source_operations_api.py`, `test_source_inventory.py`, `test_source_open.py`, `test_dicom_scan.py`). |
+| D11–D15 | Strong same-stat source/reader/settings fences, 1,027-row filtered plans, real discovery/estimate SIGKILL, unsynced receipts and pre-allocation refusals (`test_dicom_resume.py`, `test_source_plans.py`, `test_dicom_metadata_durability.py`). |
+| D16–D17 | Durable cancel fences before dispatch, actual owned-group/parent-death cleanup, unrelated sentinel survives; unknown cleanup refuses replacement (`test_source_operation_conversion.py`, `test_dicom_process_lifecycle.py`, `test_dicom_admission.py`). |
+| D18–D24 | Seven real publication SIGKILL barriers, eleven API registration/Index barriers, native ITK writer callbacks at progress 0/1, unchanged committed bytes/mtime/identity, failed-only retry and exactly one import (`test_dicom_operation_recovery.py`, `test_dicom_resume.py`, `test_source_operation_conversion.py`). |
+| D25–D26 | Five compatible observations required, bounded context-separated history, replay/failed work excluded; nine frozen codec hold-outs measured below (`test_dicom_eta.py`, `test_dicom_timings.py`). |
+| D27–D28 | Effective child affinity/address-space limits, aggregate segmentation/DICOM exclusion, missing-budget refusal, no-clobber racing publication, full voxel/affine and oblique/enhanced geometry (`test_dicom_resources.py`, `test_dicom_publication.py`, `test_dicom_discovery.py`). |
+| D29 | Fourteen analyzer cases: independent identity, phase-off, publication failures, cancel/retry, manual precedence, unchanged conversion and unknown-cleanup refusal (`test_dicom_phase_runs.py`, `test_dicom_phase_step.py`). |
+| D30–D32 | View-only allowlist/redaction, standalone formats/attached masks/Save, protected Open/import/interrupted inventory and four damaged-record versions (`test_view_redact.py`, `test_sources.py`, `test_dicom.py`, `test_dicom_inventory_policy.py`). |
+| D33 | Stale attempt callbacks cannot regress current bytes; SSE reset refetch and workspace polling use server authority; native timing survives simulated backward/forward wall-clock jumps (`test_dicom_progress.py`, `liveState.test.ts`, `dicom-clock-acceptance.json`). |
+| D34 | Twenty-nine CLI cases: real SIGKILL, pending/failed-only dispatch, YAML/defaults, same-stat refusal, ENOSPC, malformed evidence, concurrent writer exclusion and independent landmarks (`test_dicom_cli_resume.py`); layering/metadata ownership pass. |
+| D35 | Partial compressed writes/close, ENOSPC directory sync, sidecar permission failure and prepared/adopted commit barriers never acknowledge unverified output (`test_dicom_publication.py`, `test_dicom_metadata_durability.py`, `test_dicom_resume.py`). |
+| U01–U04 | Recorded real-API journeys preserve settings/refusals, one DICOM handoff, saved import drafts, suffix-independent picker and provisional stage-specific counts (`ConverterOverlay.test.tsx`, `ImportWizard.test.tsx`, `FolderBrowser.test.tsx`). |
+| U05–U08 | Selected operation only, minimize/close semantics, server Preview/Index restore, fresh browser context and later-page complete Open (`Host.test.tsx`, `store.test.ts`, import/Open browser journeys). |
+| U09–U12 | Fenced resume/retry/cleanup controls, measured ETA/independent analyzer, bounded plan pages, native progress in both themes; deployed keyboard focus/minimize/restore/Tab/Escape passes both browsers without mutations (`keyboard-acceptance.json`). |
+| B01–B08 | Full Chromium/Firefox journeys include deep Import, workspace dataset next steps, 503-series/750-slice late-page Open, active discovery/planning/native cancellation/API death, fresh contexts/two tabs, registration and analyzer failure/retry. |
 
-B05/B07 now also have local branch coverage in both browsers: cancellation during real shared-worker registration drains before resume, preserves its worker, imports once and keeps converted hashes/mtimes; partial native conversion retries only the failed series in project/workspace scopes; phase cancellation followed by a real batch-publication failure and retry preserves the conversion and a manually chosen phase. Branch evidence is in `dicom-registration-phase-partial-final.log` (six passing combinations; its two workspace failures were locator mistakes), `dicom-registration-workspace-final.log` (both workspace branches pass; one registration teardown lost a trace file) and `dicom-shared-worker-layout-final.log` (registration and radiomics layout, four passes in isolation). These are focused branch results, not a full-suite pass.
+Controlled failure barriers prove their stated boundaries, not every possible blocked kernel I/O.
 
-D29/D34 audit: `test_dicom_phase_runs.py` has 14 parameterized cases checking independent analyzer identity, input/batch publication failures, cancellation/retry fencing, manual-phase precedence, unchanged derived hashes and refusal when orphan cleanup is unknown. `test_dicom_cli_resume.py` has 29 parameterized cases: actual SIGKILL, failed-only versus pending dispatch, unchanged bytes/mtime, independent voxel landmarks, same-stat source/settings refusal, ENOSPC on outcome synchronization, malformed recovery evidence, custom YAML paths/clean rows, concurrent-writer exclusion and destination guards. These backend files passed in the published `8dbfb9d` full-check run; collection counts alone are not execution evidence.
+### Published image and deployment
 
-### Publication and packaged runtime
-
-- Production john:5180 runs `6391264`, tree `6365f25e62fc9a2ffaeeb5b2c93e993805735901`, image
-  `bbd19ae1ff454e34:verification`, as uid 1008. CI `40556997368` passed 1,239 backend,
-  440 frontend, 120 serial runner and 110 Chromium/Firefox cases, Docker lifecycle/mask checks
-  and the distinct-PID-namespace gate. Image tar SHA-256 is
-  `02d59bf09ecefef83445561de1badf12bb19488e7c33f088928758aecbd5297f`.
-- The same exported image passes uid-1008 udocker native conversion, queued API SIGKILL/restart,
-  cancel/resume and restored Open with unchanged source/output hashes, plus individual mask-label
-  removal/restoration preserving all 224 synthetic source files. Evidence is under
-  `dicom-product-6391264/`: `acceptance.json`, `nonroot-evidence/result.json`,
-  `segmentation-evidence/acceptance.json` and `production-acceptance.json`.
-- The verified image replaced the provisional checkout snapshot on 2026-10-28 06:47 UTC.
-  Preflight was drained; the independent nnU-Net service identity stayed unchanged. A first backup
-  attempt refused two ephemeral Unix sockets and restored the prior API. The complete retry preserves
-  all regular files/symlinks and lists the two omitted sockets in its backup manifest. The served SPA
-  matches the image bytes; rollback is `releases/pre-6391264-20261028T064727Z` under app state.
-  No GPU workload was launched by these checks or the deployment.
-- Published `63b8869` adds test/docs only; CI `40376987867` passed 1,209 backend, 431 frontend,
-  108 serial runner and 76 browser tests, plus image/static/contract gates. Twelve native codec cases
-  cover implicit/explicit LE, BE, deflated, RLE and JPEG 2000 lossless, with independent GDCM geometry.
-  Four damaged/unsupported-record cases preserve original bytes, refuse recovery actionably and permit fresh work.
-- Drained same-image rollback/forward `29bac01` → `50d83ca` → `29bac01` preserves two restored Open
-  images, one run and all source/derived bytes (`dicom-product-29bac01/rollback-acceptance.json`).
-  This proves drained format compatibility, not active-record migration or cross-PID cleanup.
-- Two uid-1008 udocker workspaces sharing one pool pass inventory admission, API-death cleanup,
-  restart/resume, conservative lease recovery and unrelated-process survival on the preceding `8a77665`
-  image (`dicom-product-8a77665/multi-workspace-acceptance/result.json`); same host PID namespace only.
-- `scripts/dicom-namespace-smoke.py` adds a product-image CI gate with two independent Docker
-  PID namespaces, one allocation pool and native Open pixel jobs. The dispatcher/worker sequence
-  passes locally with four actors, two independently checked volumes and unchanged source bytes
-  (`dicom-namespace-native-v2.log`); that local run shares one namespace and does not certify Docker.
-  CI `40556997368` subsequently passed the actual two-Docker-namespace command before image export.
-  This proves pixel admission, cancellation of a foreign waiter, parent-death cleanup at the dispatch
-  barrier, foreign recovery refusal and owner recovery; active-native callback crashes have the
-  separate API/browser evidence above.
-- Full TCGA read-only headers: 141,164 files / 1,919 series / 2,523 folders exactly match independent
-  GDCM membership and physical ordering (`dicom-tcga-membership-oracle/result.json`). Source stat signatures
-  unchanged. The 1-GiB inventory limit stopped explicitly at 95,552 files; 2 GiB resumed retained batches.
-  Final DB 392 MB; four 500-series pages 0.25–0.40 s. Production inventory/aggregate ceilings are 2 GiB;
-  DICOM memory admission remains 8 GiB. Drain, backup and release records live with the deployment.
-- Claude cleanup was fast-forwarded at `4eb56a9`; 44 focused merge cases passed and its worktree/branch
-  were removed. Earlier main-tree edits remain in stash `c3427bad`; unrelated untracked scripts stay untouched.
+- Published runtime `d67eadd`, tree `ec0798ef1d056ed7718042cb9b822a497eb21c70`; CI
+  [40668168657](https://github.com/alonso59/ct_viewer/actions/runs/40668168657) passes
+  1,245 backend, 440 frontend, 124 serial runner and 110 Chromium/Firefox cases, static/contracts,
+  Docker native/mask lifecycle and distinct-PID-namespace ownership before image export.
+- Image `c795d0856c0ea92b:verification`, tar SHA-256 `ee9be03187eed5ad24b1a3bb2c58045b4674a71284123704720f735abffe7f81`.
+  The same exported image passes uid-1008 udocker queued API death/restart, cancel/resume,
+  restored Open and mask-label removal/restoration; sources and completed outputs stay unchanged.
+- Production john:5180 uses `rw-production-d67eadd`; health and served SPA bytes match the image.
+  Rollback is `pre-d67eadd-20261028T103337Z` under the app state's `releases/` directory.
+  Backup preserves regular files/symlinks and inventories omitted ephemeral sockets.
+  The independent nnU-Net service identity/attempts are preserved; no GPU inference was launched.
+- Evidence: `dicom-product-d67eadd/{acceptance,production-acceptance}.json`, native and segmentation
+  evidence below that directory; `dicom-product-6391264/keyboard-acceptance.json` checks the same SPA.
+- Actual two-Docker-namespace gate proves native admission, foreign-waiter cancellation, dispatch-barrier
+  parent death, foreign recovery refusal and owner recovery; two volumes pass independent landmarks.
+  Same-host multi-workspace evidence is `dicom-product-8a77665/multi-workspace-acceptance/result.json`.
+- Final task fencing has four baseline-red regressions, 28 focused task/external passes, 59 affected
+  DICOM passes, 21 GPU-free host passes and both real supervisor browsers. The old unclaimed superseded
+  queue entry remains paused; original evidence is `obsolete-nnunet-queue-guard.json`.
+  No active GPU task or source/model file was modified by that cleanup.
+- Full read-only TCGA headers match independent GDCM: 141,164 files, 1,919 series, 2,523 folders;
+  unchanged source stat signatures (`dicom-tcga-membership-oracle/result.json`). Inventory cap is 2 GiB.
 
 ### Performance and independent pixel evidence
 
@@ -210,7 +178,7 @@ D29/D34 audit: `test_dicom_phase_runs.py` has 14 parameterized cases checking in
 | P04, disposable API, 201,128 entries / 1,005 series | Complete inventory 37.2 s; three 500-series pages 82–121 ms, no duplicates/missing series. API RSS 201.1→202.3 MiB; worker 187.4 MiB; source image hashes unchanged (`dicom-large-api-inventory/result.json`). No pixel conversion. |
 | P04 NFR-04/08 reference index/cache | Four 10,000-item projects remain cached after normal indexing jobs: API idle 480,047,104 bytes, then 492,720,128 bytes after Explorer use (limit 500,000,000); 1,000-item index 1.136 s (limit 60 s). Reference payload 512×512×600 int16, 241,781,469 compressed bytes; warm local SSD, hardlinked shared payload with distinct item metadata, 4 CPU affinity, 2 workers/native threads 1, `ARROW_DEFAULT_MEMORY_POOL=system`. Full source membership/stat/unique-inode hashes unchanged. `dicom-nfr-reference-system.log`, private `/tmp/rw-dicom-nfr-system-qds6v57g/result.json` and `dicom-nfr-system-post-explorer.json` pin the measured settings/code. No forced GC, reduced cache or cache reset. Earlier allocator measurements exceeded the idle limit; this does not certify cold distinct-volume throughput. |
 | P04 NFR-03 Explorer | Compiled SPA, Chromium 153/software GL, 10,000 items/2,500 cases: five filter interactions ≤26.2 ms and seven scroll interactions ≤74.3 ms, at most 28 mounted rows; no external requests/page errors (`dicom-nfr-explorer-system.json`). Local case/patient text matching preserves shared conditions, counts and navigation; 23 affected frontend cases pass. The prior server-round-trip measurements failed the 100-ms target and were superseded by this implementation. |
-| P04 exact packaged reference, two 512×512×600 int16 CT volumes | Same production image, uid 1008, 8-GiB admission confirmed from actual worker kernel limits; sampled API 216.9 MiB, pixel worker 1,091.4 MiB. Full shape, marker world coordinates, queued API death/cancel/resume, Open restore and source/output hashes pass (`dicom-reference-600-image/state/reference-600-result.json`). Not active native/cross-PID death. |
+| P04 packaged reference, two 512×512×600 int16 CT volumes | Previously accepted `29bac01` image, uid 1008, 8-GiB admission confirmed from actual worker kernel limits; sampled API 216.9 MiB, pixel worker 1,091.4 MiB. Full shape, marker world coordinates, queued API death/cancel/resume, Open restore and source/output hashes pass (`dicom-reference-600-image/state/reference-600-result.json`). Not active native/cross-PID death. |
 | P03, five distinct-patient real TCGA CT series, 64 slices each | Three alternating warm pairs: current median 3.764 s versus principal 8.569 s (56.1% faster); outputs +14.20%. All voxels/affines match independent GDCM and source header geometry; full source SHA/directory metadata unchanged (`dicom-tcga-pixel-reference/result.json`). Four CPUs, native threads 1, private 8-GiB address-space cap; outputs removed afterward. |
 | P03, five distinct-patient real TCGA CTs, 64/128/256/399/559 slices | Three alternating warm pairs: 15.300 s versus principal 23.445 s (34.74% faster); outputs +5.68%. All voxels/affines/source header geometry match; full source SHA/directory metadata unchanged (`dicom-tcga-pixel-reference-large/result.json`). Four CPUs, native threads 1; benchmark-only 16-GiB cap includes independent oracles, measured process peak 2,193.6 MiB. Production remains 8 GiB. |
 | P03, synthetic native/RLE/JPEG 2000 lossless CT, three 512×512×96 volumes | Three alternating pairs: current 7.11 s versus principal 12.33 s (42.3% faster), output +1.79%, equal voxels/affines and unchanged source hashes (`dicom-mixed-codec-principal-benchmark.json`). Four CPUs, variation below 1%, no cache reset. |
@@ -219,39 +187,14 @@ D29/D34 audit: `test_dicom_phase_runs.py` has 14 parameterized cases checking in
 The guarded ISA-L level-2 writer retains source SHA, CRC, geometry and no-clobber checks; one raw-volume
 scratch file and the measured larger gzip outputs are explicit tradeoffs. Fresh units reuse complete
 preflight manifests and rehash after decoding; recovered units undergo full stream validation.
-Earlier 25% and 17.7% overhead experiments were superseded, without weakening verification.
-The native RLE oracle uses 64×64; 4×3/4×4 fixtures are rejected by the installed native reader even
-though pydicom can decode them. Real TCGA pixel measurements cover regular Explicit-VR LE CT;
+The RLE oracle uses 64×64; the native reader rejects smaller 4×3/4×4 fixtures. Real TCGA measurements cover regular Explicit-VR LE CT;
 they do not certify every codec/storage/pathology class. Private clinical outputs were removed.
 
-### Remaining closure gates
+### Deferred validation and limits
 
-The plan remains open until the full companion matrix is audited with evidence, especially:
-
-- Complete the remaining per-case evidence audit. Existing real SIGKILL coverage includes staging/image/sidecar/commit/progress and eleven registration/Index barriers (`test_dicom_operation_recovery.py`); registration cancellation has separate durable-acknowledgment cases. The analyzer/CLI portions have the explicit audit above; this does not certify every remaining D/U row.
-- Full B01–B08 Chromium/Firefox regression passed in the deployed `6391264` run. A final follow-up
-  is required for the subsequently discovered shared-task attempt-fencing correction.
-- P04 NFR-03/04/08 now pass at the recorded reference workload and allocator setting; final image must retain that setting. P06 has frozen native/RLE/JPEG-2000 hold-out evidence; unsupported classes retain unknown estimates. Windows Docker and actual Safari remain unavailable platform lanes.
-- Final shared-task fix: an obsolete unclaimed nnU-Net queue entry was paused under the allocation
-  lock after checking that its job ID differed from the current failed attempt. The live allocation
-  and runner identity were preserved (`obsolete-nnunet-queue-guard.json`). New regression cases
-  reproduce premature external publication and stale status/progress/completion writes against the
-  published baseline, then pass with durable publication and generation guards; competing resumes
-  preserve exactly one current job. Focused task/external tests pass 28 cases and affected DICOM
-  conversion/registration/phase tests pass 59 (`task-attempt-fencing-valid-red.log`,
-  `task-attempt-fencing-final.log`, `task-attempt-fencing-dicom-regression.log`). The required GPU-free
-  host gate passes 21 cases and its actual API/supervisor browser journeys pass both browsers after
-  updating the synthetic VRAM/device fixture (`task-attempt-fencing-host-final-v2.log`,
-  `task-attempt-fencing-host-browser.log`). The D01/D03/D05/D35 audit also passes 14 focused cases for
-  eight-level suffix-independent discovery, an unreadable branch followed by retained-fact recovery,
-  and sidecar permission failure/resume preserving committed bytes/mtime
-  (`dicom-final-audit-permissions-depth.log`). Published `20d2c84` CI `40648287765` passed
-  1,245 backend, 440 frontend and 124 serial runner cases and all 55 Firefox journeys. Chromium
-  passed 54/55: the no-DICOM test's five-second UI wait expired while the correct durable refusal
-  arrived at 4.9 seconds. The trace proves failed state and verified cleanup with the expected
-  cause. The test now waits for that terminal state before checking the same UI remedies and
-  confirms no conversion was allocated; both focused browsers pass (`dicom-refusal-ack-browser.log`).
-  Final follow-up CI/image acceptance and deployment of the correction remain open.
-- Production rollout must preserve the active nnU-Net jobs. Preflight found one running and one queued; the runner belongs to `radiology-workbench-nnunet.service`, outside the API service's control group. `test_api_restart_does_not_cancel_or_duplicate_external_work` passes both claimed/unclaimed cases (`production-external-api-restart-tests.log`), and the current-to-candidate project/task record models are unchanged. A compatible API-only handoff may proceed after image acceptance with pinned job/run/attempt and runner-process checks before/after; builtin work still requires draining. Do not restore a stale active-workspace snapshot or stop the runner service.
-- The owner confirmed that Windows Docker and actual Safari machines are unavailable. Those platform lanes remain unverified and cannot be represented by Linux browser results.
-  Rollback requires compatible readers or a drained metadata snapshot, never an assumed migration.
+- Open hydration uses stat pins; equal-size/mtime rewrites are outside that check. Conversion resume
+  separately verifies strong source/output hashes.
+- Same-image rollback requires compatible readers or drained metadata; never restore a stale
+  workspace snapshot over an active independent runner. Existing compatible API handoff checks pin
+  runner identity and logical run/job/attempt before and after deployment.
+- No remaining implementation change is identified for this scoped plan. Independent P7g/P7 gates and future Electron/HPC work remain separate.

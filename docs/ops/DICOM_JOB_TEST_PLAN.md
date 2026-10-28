@@ -133,14 +133,16 @@ Commands above refer to existing Make targets; new DICOM process/browser/benchma
 
 ## Closure evidence checklist
 
-- [ ] ADR-0035 accepted, owner specs/API updated without duplicate requirements; each accepted behavior maps to tests.
-- [ ] D01–D35 and U01–U12 implemented with linked red/green evidence, both scope variants where relevant.
-- [ ] B01–B08 pass in Chromium/Firefox against real services; unsupported platform evidence explicitly open.
-- [ ] Resume after cancellation/worker crash/backend restart preserves identities, valid output bytes and original destination; no duplicate attempts or registrations.
-- [ ] Strong input/output verification, geometry, anonymization, clean metadata, CLI compatibility, no-clobber publication and source immutability proven.
-- [ ] P01–P06 measured/calibrated on the reference lane; unknown ETA remains truthful; resource bounds/unrelated-work survival verified.
-- [ ] Full checks, browser journeys, shared-runtime regressions, CI and same-image Docker/udocker lanes pass; no mandatory skip hidden as success.
-- [ ] Reviewer can reproduce evidence from recorded tree/image/settings; production migration/rollback readiness documented separately. Planning alone closes none of these boxes.
+Checked for the accepted Linux/john scope; platform deferrals are recorded in the owner plan.
+
+- [x] ADR-0035 accepted, owner specs/API updated without duplicate requirements; each accepted behavior maps to tests.
+- [x] D01–D35 and U01–U12 implemented with linked red/green evidence, both scope variants where relevant.
+- [x] B01–B08 pass in Chromium/Firefox against real services; unsupported platform evidence explicitly open.
+- [x] Resume after cancellation/worker crash/backend restart preserves identities, valid output bytes and original destination; no duplicate attempts or registrations.
+- [x] Strong input/output verification, geometry, anonymization, clean metadata, CLI compatibility, no-clobber publication and source immutability proven.
+- [x] P01–P06 measured/calibrated on the reference lane; unknown ETA remains truthful; resource bounds/unrelated-work survival verified.
+- [x] Full checks, browser journeys, shared-runtime regressions, CI and same-image Docker/udocker lanes pass; no mandatory skip hidden as success.
+- [x] Reviewer can reproduce evidence from recorded tree/image/settings; production migration/rollback readiness documented separately. Planning alone closes none of these boxes.
 
 ## Current implementation evidence
 
@@ -152,5 +154,5 @@ above remain the accepted scope; no row is certified merely because a test file 
 New focused duration cases are in `test_dicom_timings.py`; import recovery in
 `test_source_import_context.py`; quota/retention/corruption in `test_dicom_inventory_policy.py`;
 identity diagnostics in `test_dicom_identity.py`; input-preflight/CRC/publication boundaries
-in `test_dicom_resume.py` and `test_dicom_publication.py`. Reference performance/calibration,
-all promised interruption barriers and final same-image deployment remain explicit gates.
+in `test_dicom_resume.py` and `test_dicom_publication.py`. Measured performance, reviewed case
+assertions, packaged deployment and deferred platforms are recorded in that owner section.
