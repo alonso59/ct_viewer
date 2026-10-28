@@ -245,8 +245,13 @@ The plan remains open until the full companion matrix is audited with evidence, 
   `task-attempt-fencing-host-browser.log`). The D01/D03/D05/D35 audit also passes 14 focused cases for
   eight-level suffix-independent discovery, an unreadable branch followed by retained-fact recovery,
   and sidecar permission failure/resume preserving committed bytes/mtime
-  (`dicom-final-audit-permissions-depth.log`). Full follow-up CI,
-  shared-runtime gates and deployment of this final correction remain open.
+  (`dicom-final-audit-permissions-depth.log`). Published `20d2c84` CI `40648287765` passed
+  1,245 backend, 440 frontend and 124 serial runner cases and all 55 Firefox journeys. Chromium
+  passed 54/55: the no-DICOM test's five-second UI wait expired while the correct durable refusal
+  arrived at 4.9 seconds. The trace proves failed state and verified cleanup with the expected
+  cause. The test now waits for that terminal state before checking the same UI remedies and
+  confirms no conversion was allocated; both focused browsers pass (`dicom-refusal-ack-browser.log`).
+  Final follow-up CI/image acceptance and deployment of the correction remain open.
 - Production rollout must preserve the active nnU-Net jobs. Preflight found one running and one queued; the runner belongs to `radiology-workbench-nnunet.service`, outside the API service's control group. `test_api_restart_does_not_cancel_or_duplicate_external_work` passes both claimed/unclaimed cases (`production-external-api-restart-tests.log`), and the current-to-candidate project/task record models are unchanged. A compatible API-only handoff may proceed after image acceptance with pinned job/run/attempt and runner-process checks before/after; builtin work still requires draining. Do not restore a stale active-workspace snapshot or stop the runner service.
 - The owner confirmed that Windows Docker and actual Safari machines are unavailable. Those platform lanes remain unverified and cannot be represented by Linux browser results.
   Rollback requires compatible readers or a drained metadata snapshot, never an assumed migration.

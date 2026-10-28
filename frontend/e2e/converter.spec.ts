@@ -2,9 +2,10 @@
 // then create a neutral project from the dataset; the phase arrives as a layer. Real backend.
 import { expect, test } from '@playwright/test'
 
+import type { SourceOperation } from '../src/api/types'
 import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
-import { API } from './helpers'
+import { API, api } from './helpers'
 
 test('convert without a project, then create a project from the dataset', async ({ page, browserName }) => {
   test.setTimeout(120_000)
@@ -58,12 +59,20 @@ test('a folder without DICOM is refused with the cause and next steps (UI-18, AU
   await folders.getByRole('button', { name: /Dataset900/ }).click()
   await folders.getByRole('button', { name: /^nifti$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
+  const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
   await dialog.getByRole('button', { name: 'Dry run' }).click()
+  const response = await created
+  expect(response.status()).toBe(202)
+  const operation = await response.json() as SourceOperation
+  await expect.poll(async () => {
+    const current = await api<SourceOperation>('GET', `/source-operations/${operation.operation_id}`)
+    return { status: current.status, cleanup: current.cleanup_verified, conversion: current.conversion_run_id }
+  }, { timeout: 30_000 }).toEqual({ status: 'failed', cleanup: true, conversion: null })
   const alert = dialog.getByRole('alert')
   await expect(alert).toContainText(/No DICOM files in nifti; \d+ NIfTI files found/)
   await expect(alert.getByRole('button', { name: 'Create project from this' })).toBeVisible()
   await alert.getByRole('button', { name: 'Open without a project' }).click()
-  await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
+  await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/, { timeout: 30_000 })
 })
 
 test('UI-28 re-estimates and restores the same minimized operation after browser reload', async ({ page, browserName }) => {
