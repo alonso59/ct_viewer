@@ -35,3 +35,10 @@ test('titles, enum names and bounded GPU toggles', () => {
   fireEvent.click(within(gpus).getByRole('button', { name: 'GPU 6 · A40 · busy' }))
   expect(onChange).toHaveBeenLastCalledWith({ gpu_ids: [] })
 })
+
+test('never offers the folder list a batch plan sets', () => {
+  const withFolders = { type: 'object', properties: { ...schema.properties, patient_folders: { type: 'array', title: 'Patient folders', items: { type: 'string' }, 'x-advanced': true } } }
+  render(<SchemaForm schema={withFolders} values={{}} errors={{}} onChange={vi.fn()} />)
+  expect(screen.queryByRole('button', { name: /advanced/i })).toBeNull()
+  expect(screen.queryByText('Patient folders')).toBeNull()
+})

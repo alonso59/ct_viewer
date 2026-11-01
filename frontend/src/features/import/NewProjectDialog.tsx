@@ -10,16 +10,16 @@ import { FolderBrowser } from './FolderBrowser'
 import { codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from './store'
 
-/** `prefill`: "Create project from this" (Open mode) starts the import wizard on that path */
-type Props = { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill }
+/** `prefill`: "Create project from this" (Open mode) starts the import wizard on that path; `name` suggests the project name */
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill; name?: string }
 
 export function NewProjectDialog(props: Props) {
   return props.open ? <ProjectDialog {...props} /> : null
 }
 
-function ProjectDialog({ open, onOpenChange, prefill }: Props) {
+function ProjectDialog({ open, onOpenChange, prefill, name: suggested }: Props) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
+  const [name, setName] = useState(suggested ?? '')
   const [dataset, setDataset] = useState(prefill?.kind === 'folder' ? prefill.path : prefill?.kind === 'file' ? prefill.path.slice(0, prefill.path.lastIndexOf('/')) || '/' : (prefill?.path ?? '').replace(/\/[^/]+\.(nii(?:\.gz)?|npy|dcm)$/i, ''))
   const [browse, setBrowse] = useState(false)
   const [modality, setModality] = useState<ProjectModality>('CT')

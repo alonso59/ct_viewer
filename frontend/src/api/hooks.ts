@@ -298,6 +298,26 @@ export const useSourceOperation = (id: string | null) => useQuery({
   queryKey: keys.sourceOperation(id ?? ''), queryFn: () => api.getSourceOperation(id ?? ''), enabled: !!id,
   refetchInterval: (q) => isTaskRunPending(q.state.data?.status) || isTaskRunPending(q.state.data?.phase_run?.status) ? 800 : false,
 })
+/** A batch plan; fast polling while it works or counts, slow while it waits for the user */
+export const useBatchPlan = (id: string | null) => useQuery({
+  queryKey: keys.batchPlan(id ?? ''), queryFn: () => api.getSourceBatchPlan(id ?? ''), enabled: !!id,
+  refetchInterval: (q) => {
+    const plan = q.state.data
+    if (!plan) return false
+    if (plan.status === 'running' || plan.counting === 'counting') return 1000
+    return plan.status === 'pending' || plan.status === 'paused' ? 5000 : false
+  },
+})
+export const useBatchPlanCommand = (id: string | null) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (cmd: 'start' | 'continue' | 'cancel' | 'add-new-folders' | { auto: boolean }) => {
+      if (!id) throw new Error('No batch plan')
+      return typeof cmd === 'string' ? api.controlSourceBatchPlan(id, cmd) : api.setSourceBatchAuto(id, cmd.auto)
+    },
+    onSuccess: (plan) => qc.setQueryData(keys.batchPlan(plan.plan_id), plan),
+  })
+}
 export const useSourceDetection = (id: string | null) => useQuery({
   queryKey: keys.sourceDetection(id ?? ''), queryFn: () => api.sourceOperationDetection(id ?? ''), enabled: !!id,
 })

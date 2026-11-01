@@ -23,3 +23,8 @@
 .conv-chip { position: fixed; left: var(--sp-3); bottom: calc(var(--h-statusbar) + var(--sp-3)); z-index: 1100; display: flex; align-items: center; gap: var(--sp-2); width: 360px; max-width: calc(100vw - 2 * var(--sp-3)); padding: var(--sp-2) var(--sp-3); animation: toast-in var(--dur-base) var(--ease); }
 .conv-chip-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; font-size: var(--fs-panel); }
 .conv-chip-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-batch-detail { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.conv-warnings { margin: 0; padding-left: 18px; color: var(--warn); font-size: var(--fs-panel); }
+.badge[data-status='completed'] { color: var(--ok); }
+.badge[data-status='attention'] { color: var(--error); }
+.badge[data-status='paused'] { color: var(--warn); }

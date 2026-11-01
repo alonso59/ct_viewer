@@ -5,6 +5,7 @@ import type {
   AnalysisExportFile,
   AnalysisSpec,
   AnalysisSummary,
+  BatchPlanCreate,
   BundleImportResult,
   CaseDetail,
   CaseSummary,
@@ -87,6 +88,7 @@ import type {
   SourceImportUpdate,
   SourceOperationEstimate,
   SourceOperationConvert,
+  SourceBatchPlan,
   SourcePlanPage,
   InventoryPage,
   EstimateProgress,
@@ -258,6 +260,11 @@ export interface Api {
   retryFailedSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
   sourceOperationSeries(id: string, cursor?: string, limit?: number): Promise<InventoryPage>
   sourceOperationPlan(id: string, options?: { cursor?: string; limit?: number; action?: 'convert' | 'skip' }): Promise<SourcePlanPage>
+  createSourceBatchPlan(body: BatchPlanCreate): Promise<SourceBatchPlan>
+  getSourceBatchPlan(id: string): Promise<SourceBatchPlan>
+  /** `continue` converts the current batch when it is ready, or resumes a paused plan */
+  controlSourceBatchPlan(id: string, action: 'start' | 'continue' | 'cancel' | 'add-new-folders'): Promise<SourceBatchPlan>
+  setSourceBatchAuto(id: string, auto: boolean): Promise<SourceBatchPlan>
   listLayers(pid: string): Promise<LayerInfo[]>
   /** `dataset_table.csv|parquet` or `dataset.jsonl`; sensitive fields only when asked */
   datasetTableUrl(pid: string, format: 'csv' | 'parquet' | 'jsonl', includeSensitive?: boolean): string

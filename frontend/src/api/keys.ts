@@ -55,6 +55,7 @@ export const keys = {
   workspaceRuns: () => ['workspace-runs'] as const,
   sourceOperations: () => ['source-operations'] as const,
   sourceDetection: (id: string) => ['source-operations', id, 'detection'] as const,
+  batchPlan: (id: string) => ['source-batches', id] as const,
   sourceOperation: (id: string) => ['source-operations', id] as const,
   sourcePlan: (id: string, attempt: number | null, cursor: string | undefined, action?: 'convert' | 'skip') => ['source-operations', id, 'plan', attempt, cursor, action] as const,
   workspaceRun: (rid: string) => ['workspace-runs', rid] as const,
