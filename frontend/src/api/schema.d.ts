@@ -680,6 +680,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plans */
+        get: operations["list_plans_api_v1_source_batches_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_source_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-batches/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["get_api_v1_source_batches__plan_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update */
+        patch: operations["update_api_v1_source_batches__plan_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/source-batches/{plan_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_v1_source_batches__plan_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-batches/{plan_id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume */
+        post: operations["resume_api_v1_source_batches__plan_id__continue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-batches/{plan_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_source_batches__plan_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/source-batches/{plan_id}/add-new-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add New Folders */
+        post: operations["add_new_folders_api_v1_source_batches__plan_id__add_new_folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/imports/preview": {
         parameters: {
             query?: never;
@@ -2683,6 +2787,49 @@ export interface components {
             unit: components["schemas"]["UnitSummary"];
             choice: components["schemas"]["TestChoice"];
             table: components["schemas"]["Contingency"];
+        };
+        /** BatchPlanCreate */
+        BatchPlanCreate: {
+            /** Path */
+            path: string;
+            /**
+             * Batch Size
+             * @default 40
+             */
+            batch_size: number;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name?: string | null;
+            /**
+             * Auto
+             * @default false
+             */
+            auto: boolean;
+        };
+        /** BatchPlanUpdate */
+        BatchPlanUpdate: {
+            /** Auto */
+            auto: boolean;
+        };
+        /** BatchWarning */
+        BatchWarning: {
+            /**
+             * Code
+             * @default patient_in_earlier_batch
+             * @constant
+             */
+            code: "patient_in_earlier_batch";
+            /** Batch Index */
+            batch_index: number;
+            /** Earlier Batches */
+            earlier_batches: number[];
+            /** Patients */
+            patients: number;
+            /** Message */
+            message: string;
         };
         /**
          * BinDef
@@ -4995,6 +5142,15 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[SourceBatchPlan] */
+        Page_SourceBatchPlan_: {
+            /** Items */
+            items: components["schemas"]["SourceBatchPlan"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Total */
+            total: number;
+        };
         /** Page[SourceOperation] */
         Page_SourceOperation_: {
             /** Items */
@@ -6294,6 +6450,67 @@ export interface components {
          * @enum {string}
          */
         Severity: "error" | "warning" | "info";
+        /** SourceBatch */
+        SourceBatch: {
+            /** Index */
+            index: number;
+            /** Name */
+            name: string;
+            /** Folder Count */
+            folder_count: number;
+            /** Files Total */
+            files_total: number | null;
+            /** Operation Id */
+            operation_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "discovering" | "ready" | "converting" | "completed" | "attention" | "cancelled";
+            /** Dataset */
+            dataset: string | null;
+            /** Approved */
+            approved: boolean;
+            /** Error */
+            error: string | null;
+            /** Patients */
+            patients: number | null;
+        };
+        /** SourceBatchPlan */
+        SourceBatchPlan: {
+            /** Plan Id */
+            plan_id: string;
+            /** Source */
+            source: string;
+            /** Name */
+            name: string;
+            /** Batch Size */
+            batch_size: number;
+            /** Auto */
+            auto: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "completed" | "cancelled";
+            /** Cursor */
+            cursor: number;
+            /**
+             * Counting
+             * @enum {string}
+             */
+            counting: "counting" | "done" | "cancelled";
+            /** Revision */
+            revision: number;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Warnings */
+            warnings: components["schemas"]["BatchWarning"][];
+            /** Batches */
+            batches: components["schemas"]["SourceBatch"][];
+        };
         /** SourceBody */
         SourceBody: {
             /** Run Id */
@@ -6496,6 +6713,8 @@ export interface components {
             prepare_plan: boolean;
             /** Dataset Name */
             dataset_name?: string | null;
+            /** Folders */
+            folders?: string[] | null;
         };
         /** SourceOperationControl */
         SourceOperationControl: {
@@ -6562,6 +6781,8 @@ export interface components {
             };
             /** Name */
             name?: string | null;
+            /** Folders */
+            folders?: string[] | null;
         };
         /** SourcePlanPage */
         SourcePlanPage: {
@@ -9021,6 +9242,262 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourcePlanPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plans_api_v1_source_batches_get: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `next_cursor` */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SourceBatchPlan_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_source_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_api_v1_source_batches__plan_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_api_v1_source_batches__plan_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_v1_source_batches__plan_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_api_v1_source_batches__plan_id__continue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_source_batches__plan_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_new_folders_api_v1_source_batches__plan_id__add_new_folders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
                 };
             };
             /** @description Validation Error */

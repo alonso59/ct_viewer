@@ -57,6 +57,8 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
                 s, ctx.registry, ctx.workspace, ctx.index, ctx.jobs, ctx.bus, ctx.locks
             ).recover_all()
             await ctx.source_operations.recover_all()
+            ctx.jobs.on_finished.append(lambda _info: ctx.source_batches.nudge())
+            ctx.source_batches.nudge()
             if not ctx.guard.restricted:
                 log.warning("ALLOWED_DATA_ROOTS is empty: path access is unrestricted (dev only)")
             yield

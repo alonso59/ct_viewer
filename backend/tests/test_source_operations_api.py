@@ -276,6 +276,44 @@ def test_prepare_plan_intent_chains_discovery_to_estimate_without_a_browser(tmp_
         assert ready["attempt"] == 2 and not list(settings.workspace_root.rglob("*.nii.gz"))
 
 
+def test_folder_scope_belongs_to_conversion_operations_and_keeps_old_request_hashes(
+    tmp_path: Path,
+) -> None:
+    """DCM-22: `folders` joins the request identity only when given."""
+    import hashlib
+    import json
+
+    source = tmp_path / "source"
+    write_series(source / "a", shape=(3, 3, 3), marker=(1, 1, 2))
+    settings = Settings(
+        workspace_root=tmp_path / "workspace", allowed_data_roots=str(source), _env_file=None
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        opened = client.post(
+            API,
+            json={
+                "path": str(source),
+                "purpose": "open",
+                "idempotency_key": "scope-open-123",
+                "folders": ["a"],
+            },
+        )
+        assert opened.status_code == 422
+        body = {"path": str(source), "idempotency_key": "scope-hash-123"}
+        record = client.post(API, json=body).json()
+        legacy = {
+            "path": str(source),
+            "idempotency_key": "scope-hash-123",
+            "project_id": None,
+            "purpose": "convert",
+            "prepare_plan": False,
+            "settings": {},
+            "name": None,
+        }
+        digest = hashlib.sha256(json.dumps(legacy, sort_keys=True).encode()).hexdigest()
+        assert client.get(f"{API}/{record['operation_id']}").json()["request_hash"] == digest
+
+
 def wait_operation(client: TestClient, operation: str) -> dict[str, Any]:
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
