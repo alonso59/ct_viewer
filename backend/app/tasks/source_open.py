@@ -13,7 +13,7 @@ from app.core.errors import JobConflict
 from app.sources import formats
 from app.sources import open as open_mode
 from app.tasks import dicom_stage
-from app.tasks.source_inventory import SourceInventory
+from app.tasks.source_inventory import SourceInventory, stat_identity
 
 
 def reader_identity() -> str:
@@ -39,22 +39,11 @@ def reader_identity() -> str:
 
 
 def units(inventory: SourceInventory) -> Iterator[tuple[str, formats.Kind, list[str]]]:
-    for row in inventory.db.execute(
-        "SELECT rel, kind FROM files WHERE kind IN ('nifti', 'npy') ORDER BY rel"
-    ):
-        yield "file:" + row["rel"], row["kind"], [row["rel"]]
-    for group in inventory.db.execute(
-        "SELECT directory, uid, series_key FROM files WHERE kind='dicom' "
-        "GROUP BY directory, uid ORDER BY directory, uid"
-    ):
-        rels = [
-            str(row[0])
-            for row in inventory.db.execute(
-                "SELECT rel FROM files WHERE series_key=? AND kind='dicom' ORDER BY rel",
-                (group["series_key"],),
-            )
-        ]
-        yield "series:" + group["series_key"], "dicom", rels
+    for kind in ("nifti", "npy"):
+        for rel in inventory.rels(kind):
+            yield "file:" + rel, kind, [rel]
+    for key, rels in inventory.dicom_units():
+        yield "series:" + key, "dicom", rels
 
 
 def dependency_stat(root: Path, path: Path) -> list[int] | None:
@@ -91,10 +80,12 @@ def signature(inventory: SourceInventory, rels: list[str]) -> str:
         path = inventory.root / rel
         if not dicom_stage.local_source_file(inventory.root, path):
             raise JobConflict("Open source moved outside its guarded root; discover it again")
-        row = inventory.db.execute("SELECT signature FROM files WHERE rel=?", (rel,)).fetchone()
-        saved = json.loads(row[0])
+        row = inventory.entry(rel)
+        if row is None:
+            raise JobConflict("Open source changed after discovery; resume discovery again")
+        saved = [inventory.scanner, *row[2:]]
         st = path.stat(follow_symlinks=False)
-        if saved[1:] != [st.st_size, st.st_mtime_ns, st.st_dev, st.st_ino]:
+        if tuple(saved[1:]) != stat_identity(st):
             raise JobConflict("Open source changed after discovery; resume discovery again")
         digest.update(json.dumps([rel, saved], separators=(",", ":")).encode())
         if path.suffix.lower() == ".npy":

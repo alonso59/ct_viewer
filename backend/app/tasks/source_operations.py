@@ -1140,8 +1140,8 @@ class SourceOperations:
                     raise JobConflict("Prepared source inventory changed")
                 inventory.check_reader()
                 ignored: Counter[str] = Counter()
-                for row in inventory.db.execute("SELECT rel FROM files WHERE kind='ignored'"):
-                    name = Path(row[0]).name
+                for rel in inventory.rels("ignored"):
+                    name = Path(rel).name
                     if name not in formats.SKIP_NAMES:
                         ignored[formats.extension(name)] += 1
                 counts = {key: int(summary[key]) for key in ("nifti", "dicom", "npy")}
@@ -1152,21 +1152,10 @@ class SourceOperations:
                     for index in range(min(count, source_detect.SAMPLE))
                 }
                 sample = [
-                    row[0]
-                    for index, row in enumerate(
-                        inventory.db.execute(
-                            "SELECT rel FROM files WHERE kind='nifti' ORDER BY rel"
-                        )
-                    )
-                    if index in positions
+                    rel for index, rel in enumerate(inventory.rels("nifti")) if index in positions
                 ]
-                has_meta = (
-                    not inventory.single_file
-                    and inventory.db.execute(
-                        "SELECT 1 FROM files WHERE rel='metadata.jsonl' AND error=''"
-                    ).fetchone()
-                    is not None
-                )
+                meta_entry = None if inventory.single_file else inventory.entry("metadata.jsonl")
+                has_meta = meta_entry is not None and not meta_entry["error"]
                 return source_detect.from_facts(
                     source,
                     kind="file" if inventory.single_file else "folder",

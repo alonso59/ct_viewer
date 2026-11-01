@@ -221,11 +221,14 @@ def test_scanner_changes_invalidate_cached_facts_and_page_cursors(
             inventory.page(limit=1, cursor=old_page["next_cursor"])
 
 
+SLICES = 2500
+
+
 def test_inventory_byte_limit_preserves_batches_and_can_continue_with_more_space(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "source"
-    write_series(root / "series", shape=(3, 3, 600), marker=(1, 1, 599))
+    write_series(root / "series", shape=(3, 3, SLICES), marker=(1, 1, SLICES - 1))
     db = tmp_path / "workspace" / "inventory.sqlite"
     calls = []
     original = scan.image_info
@@ -239,7 +242,7 @@ def test_inventory_byte_limit_preserves_batches_and_can_continue_with_more_space
         partial = inventory.scan(max_bytes=1024**2, batch_size=7)
         assert partial["limited"] and not partial["complete"]
         assert partial["limit_reason"] == "inventory_bytes"
-        assert 0 < partial["files"] < 600
+        assert 0 < partial["files"] < SLICES
         assert inventory.page()["items"] == []
         assert inventory.db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     assert (
@@ -250,8 +253,8 @@ def test_inventory_byte_limit_preserves_batches_and_can_continue_with_more_space
     with SourceInventory(db, root) as inventory:
         result = inventory.scan(max_bytes=8 * 1024**2, batch_size=7)
         assert result["complete"] and not result["limited"]
-        assert len(inventory.series(inventory.page()["items"][0]["key"]).files) == 600
-    assert len(calls) <= 600 - cached + 7
+        assert len(inventory.series(inventory.page()["items"][0]["key"]).files) == SLICES
+    assert len(calls) <= SLICES - cached + 7
 
 
 def test_inventory_commits_the_configured_batch_before_a_worker_crash(tmp_path: Path) -> None:
@@ -297,7 +300,7 @@ def test_inventory_quota_also_covers_many_small_directories(tmp_path: Path) -> N
 
 def test_inventory_retains_history_when_a_smaller_budget_cannot_fit_it(tmp_path: Path) -> None:
     root = tmp_path / "source"
-    write_series(root / "series", shape=(3, 3, 350), marker=(1, 1, 349))
+    write_series(root / "series", shape=(3, 3, 1200), marker=(1, 1, 1199))
     with SourceInventory(tmp_path / "workspace" / "inventory.sqlite", root) as inventory:
         assert inventory.scan(max_bytes=8 * 1024**2)["complete"]
         previous = inventory.page()
@@ -395,3 +398,93 @@ def test_precount_of_a_single_file_source(tmp_path: Path) -> None:
     only = next(root.iterdir())
     with SourceInventory(tmp_path / "state" / "inventory.sqlite", only) as inventory:
         assert inventory.precount() == (1, 1)
+
+
+def _scan_one(tmp_path: Path, root: Path) -> SourceInventory:
+    inventory = SourceInventory(tmp_path / "workspace" / "inventory.sqlite", root)
+    assert inventory.scan()["complete"]
+    return inventory
+
+
+def test_inventory_is_at_least_three_times_smaller_per_file_than_the_first_schema(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "source"
+    write_series(root / "series", shape=(3, 3, 200), marker=(1, 1, 199))
+    with _scan_one(tmp_path, root) as inventory:
+        inventory.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        per_file = inventory.cache_bytes() / 200
+    # The row-per-file JSON schema measured 1556 B/file on this series.
+    assert per_file * 3 <= 1556, per_file
+
+
+def test_reconstructed_headers_equal_the_scanned_headers(tmp_path: Path) -> None:
+    import pydicom
+
+    root = tmp_path / "source"
+    write_series(root / "series", shape=(3, 3, 6), marker=(1, 1, 5))
+    odd = root / "series" / "IM0003.dcm"
+    ds = pydicom.dcmread(odd)
+    ds.ImageType = ["DERIVED", "SECONDARY"]  # same VR, changed value
+    ds.EchoNumbers = 2  # tag absent from the shared header
+    del ds.PixelSpacing  # tag the shared header has
+    ds.save_as(odd, enforce_file_format=True)
+    with _scan_one(tmp_path, root) as inventory:
+        series = inventory.series(inventory.page()["items"][0]["key"])
+        assert len(series.files) == 6
+        for path, header in zip(series.files, series.headers, strict=True):
+            expected = scan.image_info(path, root)
+            assert expected is not None
+            assert header.to_json_dict() == expected[0].to_json_dict()
+        assert any("EchoNumbers" in h for h in series.headers)
+        assert any("PixelSpacing" not in h for h in series.headers)
+
+
+def test_unstable_series_headers_fall_back_to_the_full_header() -> None:
+    from app.tasks.source_inventory import _delta, _merge
+
+    base = {f"0020{i:04x}": {"vr": "LO", "Value": ["a"]} for i in range(8)}
+    other = {f"0021{i:04x}": {"vr": "SH", "Value": ["b"]} for i in range(8)}
+    delta = _delta(base, other)
+    assert delta.startswith("[") and _merge(base, delta) == other
+    close = {**base, "00200000": {"vr": "LO", "Value": ["b"]}}
+    assert _merge(base, _delta(base, close)) == close
+    assert _delta(base, base) == "" and _merge(base, "") == base
+
+
+def test_a_touched_file_is_read_again_and_untouched_files_are_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "source"
+    write_series(root / "series", shape=(3, 3, 4), marker=(1, 1, 3))
+    with _scan_one(tmp_path, root):
+        pass
+    calls: list[Path] = []
+    original = scan.image_info
+    monkeypatch.setattr(
+        scan,
+        "image_info",
+        lambda path, source=None: (calls.append(path), original(path, source))[1],
+    )
+    touched = root / "series" / "IM0001.dcm"
+    st = touched.stat()
+    os.utime(touched, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    with SourceInventory(tmp_path / "workspace" / "inventory.sqlite", root) as inventory:
+        assert inventory.scan()["complete"]
+    assert calls == [touched]
+
+
+def test_inventory_from_an_older_schema_asks_for_a_rescan(tmp_path: Path) -> None:
+    import sqlite3
+
+    root = tmp_path / "source"
+    write_series(root / "series", shape=(3, 3, 2), marker=(1, 1, 1))
+    db = tmp_path / "workspace" / "inventory.sqlite"
+    with _scan_one(tmp_path, root):
+        pass
+    with sqlite3.connect(db) as raw:
+        raw.execute("UPDATE meta SET value='1' WHERE key='version'")
+        raw.execute("DROP TABLE files")
+        raw.execute("CREATE TABLE files (rel TEXT PRIMARY KEY, directory TEXT)")
+    with pytest.raises(JobConflict, match="rescan"):
+        SourceInventory(db, root)

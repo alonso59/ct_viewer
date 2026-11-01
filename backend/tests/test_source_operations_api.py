@@ -368,7 +368,7 @@ def test_inventory_quota_is_enforced_by_worker_and_resumes_after_reconfiguration
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "source"
-    write_series(source / "series", shape=(3, 3, 600), marker=(1, 1, 599))
+    write_series(source / "series", shape=(3, 3, 2500), marker=(1, 1, 2499))
     settings = Settings(
         workspace_root=tmp_path / "workspace",
         allowed_data_roots=str(source),
@@ -388,7 +388,7 @@ def test_inventory_quota_is_enforced_by_worker_and_resumes_after_reconfiguration
             partial["summary"]["limited"]
             and partial["summary"]["limit_reason"] == "inventory_bytes"
         )
-        assert 0 < partial["summary"]["files"] < 600
+        assert 0 < partial["summary"]["files"] < 2500
         assert client.get(f"{API}/{operation}/series").json()["items"] == []
     settings.dicom_inventory_mb = 8
     with TestClient(create_app(settings, inline_jobs=True)) as client:
@@ -398,7 +398,7 @@ def test_inventory_quota_is_enforced_by_worker_and_resumes_after_reconfiguration
         complete = wait_operation(client, operation)
         assert complete["status"] == "completed" and complete["summary"]["complete"]
         page = client.get(f"{API}/{operation}/series").json()
-        assert page["total"] == 1 and page["items"][0]["n_files"] == 600
+        assert page["total"] == 1 and page["items"][0]["n_files"] == 2500
 
 
 @pytest.mark.parametrize("in_project", [False, True])
