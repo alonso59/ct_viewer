@@ -4,7 +4,22 @@ import { useTranslation } from 'react-i18next'
 import type { ConversionTimeEstimate, SourceOperation } from '../../api'
 import { fmtBytes, fmtEtaRange, IndeterminateProgress, Progress } from '../../lib'
 
-export function ConversionTime({ value }: { value: ConversionTimeEstimate | null | undefined }) {
+type RunProgress = Record<string, number | string | null | undefined> | null | undefined
+
+/** Bytes converted against planned and the measured speed; shown while the time estimate is still unknown */
+export function ConversionBytes({ progress }: { progress: RunProgress }) {
+  const { t } = useTranslation()
+  const done = Number(progress?.bytes_done ?? 0)
+  const total = Number(progress?.bytes_total ?? 0)
+  const rate = Number(progress?.bytes_per_s ?? 0)
+  if (!(total > 0)) return null
+  return <>
+    <p className="muted conv-help num">{t('conv.bytesProgress', { done: fmtBytes(done), total: fmtBytes(total), percent: Math.min(100, Math.floor((done / total) * 100)) })}</p>
+    {rate > 0 ? <p className="muted conv-help num">{t('conv.bytesRate', { rate: fmtBytes(rate) })}</p> : null}
+  </>
+}
+
+export function ConversionTime({ value, progress }: { value: ConversionTimeEstimate | null | undefined; progress?: RunProgress }) {
   const { t } = useTranslation()
   if (value?.basis === 'history' && value.lower_s != null && value.upper_s != null) {
     return <>
@@ -12,7 +27,10 @@ export function ConversionTime({ value }: { value: ConversionTimeEstimate | null
       <p className="muted conv-help">{t('conv.etaStages')}</p>
     </>
   }
-  return <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
+  return <>
+    <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
+    {value?.basis === 'complete' ? null : <ConversionBytes progress={progress} />}
+  </>
 }
 
 /** Discovery against the pre-counted total, with the time left and the size warning; nothing before a total exists */

@@ -1,4 +1,4 @@
-"""DCM-22..24, API-70: frozen patient-folder batch plans drive one operation per batch."""
+"""DCM-22..25, API-70: frozen patient-folder batch plans drive one operation per batch."""
 
 from __future__ import annotations
 
@@ -390,3 +390,90 @@ def test_unknown_plan_ids_are_not_found(tmp_path: Path) -> None:
     with app_client(tmp_path) as client:
         assert client.get(f"{PLANS}/01JABCDEFGHJKMNPQRSTVWXYZ0").status_code == 404
         assert client.get(f"{PLANS}/not-an-id").status_code == 404
+
+
+def plan_of(*batches: tuple[str, float | None, int | None]) -> Any:
+    from app.tasks.source_batches import PlanBatch, PlanRecord
+
+    return PlanRecord(
+        plan_id="p",
+        source="/s",
+        settings={},
+        batch_size=1,
+        name="n",
+        auto=False,
+        salt="x",
+        created_at="t",
+        updated_at="t",
+        batches=[
+            PlanBatch(
+                index=i,
+                name=f"n-b{i}",
+                folders=[],
+                status=status,
+                convert_s=secs,
+                files_total=files,  # type: ignore[arg-type]
+            )
+            for i, (status, secs, files) in enumerate(batches)
+        ],
+    )
+
+
+def test_overall_eta_is_unknown_until_a_batch_completes() -> None:
+    from app.tasks.source_batches import plan_eta
+
+    for plan in (
+        plan_of(("converting", None, 100), ("pending", None, 100)),
+        plan_of(("completed", None, 100), ("pending", None, 100)),  # no measured time
+        plan_of(("completed", 50.0, 100)),  # nothing left
+    ):
+        assert plan_eta(plan).model_dump() == {"low_s": None, "high_s": None, "basis": "unknown"}
+
+
+def test_overall_eta_scales_remaining_files_by_the_completed_batches_rates() -> None:
+    from app.tasks.source_batches import plan_eta
+
+    one = plan_eta(
+        plan_of(("completed", 100.0, 100), ("converting", None, 200), ("pending", None, 100))
+    )
+    assert one.basis == "completed_batches" and (one.low_s, one.high_s) == (
+        240,
+        375,
+    )  # 300 files x 1 s/file
+    two = plan_eta(
+        plan_of(("completed", 100.0, 100), ("completed", 400.0, 200), ("pending", None, 100))
+    )
+    assert (two.low_s, two.high_s) == (80, 250)  # 100 files x 1..2 s/file, widened
+
+
+def test_overall_eta_counts_batches_not_yet_counted_as_an_average_completed_batch() -> None:
+    from app.tasks.source_batches import plan_eta
+
+    eta = plan_eta(
+        plan_of(("completed", 200.0, 200), ("pending", None, None), ("pending", None, 100))
+    )
+    assert (eta.low_s, eta.high_s) == (240, 375)  # (200 + 100) files x 1 s/file
+
+
+def test_completed_batches_record_their_conversion_time_and_the_api_shows_the_eta(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    patients(source, ["a", "b", "c"])
+    with app_client(tmp_path) as client:
+        pid = create_plan(client, source, batch_size=1, name="eta", auto=True)["plan_id"]
+        client.post(f"{PLANS}/{pid}/start")
+        wait_plan(client, pid, batch_status(0, "ready"))
+        assert client.get(f"{PLANS}/{pid}").json()["eta"]["basis"] == "unknown"
+        client.post(f"{PLANS}/{pid}/continue")
+        mid = wait_plan(client, pid, batch_status(0, "completed"))
+        assert set(mid["eta"]) == {"low_s", "high_s", "basis"}
+        done = wait_plan(client, pid, lambda p: p["status"] == "completed")
+        assert done["eta"]["basis"] == "unknown"  # nothing is left to estimate
+        stored = json.loads(
+            (
+                tmp_path / "workspace" / "plugins" / "dicom" / "batches" / pid / "plan.json"
+            ).read_text()
+        )
+        assert all(b["convert_s"] is None or b["convert_s"] > 0 for b in stored["batches"])
+        assert "convert_s" not in done["batches"][0]

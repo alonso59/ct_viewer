@@ -380,6 +380,9 @@ class TaskRunProgress(BaseModel):
     stage: str | None = None
     stage_done: int = 0
     stage_total: int = 0
+    bytes_done: int | None = Field(default=None, ge=0)
+    bytes_total: int | None = Field(default=None, ge=0)
+    bytes_per_s: int | None = Field(default=None, ge=1)
 
 
 class TaskResourceWait(BaseModel):

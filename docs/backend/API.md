@@ -150,6 +150,7 @@ ordered range; complete has zero remaining work/time. This covers conversion onl
 not discovery, registration or phase analysis. Generic job `eta_s` is not substituted.
 The enclosing estimate retains its existing `basis: sample|manifest|unknown` enum:
 compatible historical measurements use `sample`, with their precise basis in `conversion_time`.
+API-45/62 DICOM run `progress` adds optional `bytes_done`, `bytes_total` (selected series' source bytes, committed incl. verified reuse) and `bytes_per_s` (present once this attempt converted a series), DCM-25. API-70 plans add `eta {low_s, high_s, basis: unknown|completed_batches}`: the time left for unfinished batches, `unknown` with null bounds until a batch completes. All additive.
 API-45/62 resource waits expose typed `resource_wait` (`reason`, optional `required_mb`/`budget_mb`, `remedy`); resume clears the prior wait.
 API-69 projects pending project registration as `status: reconciling`, `stage: registering`,
 even when native conversion is complete. API-45 `execution.registration_pending` and

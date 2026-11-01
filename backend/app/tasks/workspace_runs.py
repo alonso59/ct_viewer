@@ -32,6 +32,7 @@ from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks import dry_run, protocol
 from app.tasks.builtin import run_entry
+from app.tasks.dicom_bytes import progress_fields
 from app.tasks.dicom_execution import attempt_cleaned, run_dicom_job
 from app.tasks.dicom_phase import PhaseRuns
 from app.tasks.dicom_resources import require_pixel_budget
@@ -390,6 +391,7 @@ class WorkspaceTasks:
         )
         done = total = 0
         stage: dict[str, int | str] = {}
+        byte_progress: dict[str, int] = {}
         resource_wait: TaskResourceWait | None = None
         cancel_sent = False
         try:
@@ -402,6 +404,8 @@ class WorkspaceTasks:
                         if m.id != "dicom.convert" or line.get("status") == "ok":
                             done += 1
                         h.set_done(done)
+                    elif line.get("t") == "bytes" and m.id == "dicom.convert":
+                        byte_progress = progress_fields(line)
                     elif line.get("t") == "conversion_time":
                         run = self._read(run_dir)
                         run.conversion_time = ConversionTimeEstimate.model_validate(
@@ -420,7 +424,7 @@ class WorkspaceTasks:
                         }
                 run = self._read(run_dir)
                 self.phase_runs.stage(None, run, stage)
-                run.progress = {"done": done, "total": total, **stage}
+                run.progress = {"done": done, "total": total, **stage, **byte_progress}
                 if stage.get("stage") == "waiting_for_resources":
                     run.status = "waiting_for_resources"
                     pending = (protocol.read_result(job_dir) or {}).get("resource_wait", {})

@@ -7,6 +7,7 @@ import hashlib
 import logging
 import os
 import secrets
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -78,6 +79,7 @@ class PlanBatch(BaseModel):
     approved: bool = False
     error: str | None = None
     patient_hashes: list[str] | None = None
+    convert_s: float | None = None
 
 
 class BatchWarning(BaseModel):
@@ -120,6 +122,14 @@ class SourceBatch(BaseModel):
     patients: int | None
 
 
+class BatchPlanEta(BaseModel):
+    """Time left for the batches that have not completed, from the batches that have."""
+
+    low_s: int | None = None
+    high_s: int | None = None
+    basis: Literal["unknown", "completed_batches"] = "unknown"
+
+
 class SourceBatchPlan(BaseModel):
     plan_id: str
     source: str
@@ -133,21 +143,52 @@ class SourceBatchPlan(BaseModel):
     created_at: str
     updated_at: str
     warnings: list[BatchWarning]
+    eta: BatchPlanEta
     batches: list[SourceBatch]
+
+
+def plan_eta(plan: PlanRecord) -> BatchPlanEta:
+    """Remaining files x the slowest and fastest measured seconds per file, widened by 20% and 25%.
+
+    Batches whose files are not counted yet count as an average completed batch.
+    """
+    done = [b for b in plan.batches if b.status == "completed" and b.convert_s and b.files_total]
+    left = [b for b in plan.batches if b.status != "completed"]
+    if not done or not left:
+        return BatchPlanEta()
+    rates = [b.convert_s / b.files_total for b in done if b.convert_s and b.files_total]
+    average = sum(b.files_total or 0 for b in done) / len(done)
+    remaining = sum(b.files_total if b.files_total is not None else average for b in left)
+    return BatchPlanEta(
+        low_s=round(remaining * min(rates) * 0.8),
+        high_s=round(remaining * max(rates) * 1.25),
+        basis="completed_batches",
+    )
 
 
 def view_of(plan: PlanRecord) -> SourceBatchPlan:
     return SourceBatchPlan(
         **plan.model_dump(exclude={"settings", "salt", "version", "batches"}),
+        eta=plan_eta(plan),
         batches=[
             SourceBatch(
-                **b.model_dump(exclude={"folders", "patient_hashes"}),
+                **b.model_dump(exclude={"folders", "patient_hashes", "convert_s"}),
                 folder_count=len(b.folders),
                 patients=None if b.patient_hashes is None else len(b.patient_hashes),
             )
             for b in plan.batches
         ],
     )
+
+
+def run_seconds(run: WorkspaceRun) -> float | None:
+    """Wall time of the conversion run; time spent paused is included, which only lengthens it."""
+    try:
+        started, finished = (datetime.fromisoformat(v) for v in (run.started_at, run.finished_at))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    seconds = (finished - started).total_seconds()
+    return seconds if seconds > 0 else None
 
 
 def count_files(source: str, folder: str) -> int:
@@ -583,6 +624,7 @@ class SourceBatches:
             return
         if record.status == "completed" and (Path(run.dataset_dir) / DATASET_JSON).is_file():
             batch.status, batch.dataset, batch.error = "completed", run.name, None
+            batch.convert_s = run_seconds(run)
             plan.cursor += 1
             if plan.cursor >= len(plan.batches):
                 plan.status = "completed"

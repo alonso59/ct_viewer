@@ -641,6 +641,44 @@
     "title": "BatchPlanCreate",
     "type": "object"
    },
+   "BatchPlanEta": {
+    "description": "Time left for the batches that have not completed, from the batches that have.",
+    "properties": {
+     "basis": {
+      "default": "unknown",
+      "enum": [
+       "unknown",
+       "completed_batches"
+      ],
+      "title": "Basis",
+      "type": "string"
+     },
+     "high_s": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High S"
+     },
+     "low_s": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low S"
+     }
+    },
+    "title": "BatchPlanEta",
+    "type": "object"
+   },
    "BatchPlanUpdate": {
     "additionalProperties": false,
     "properties": {
@@ -10690,6 +10728,9 @@
       "title": "Cursor",
       "type": "integer"
      },
+     "eta": {
+      "$ref": "#/components/schemas/BatchPlanEta"
+     },
      "name": {
       "title": "Name",
       "type": "string"
@@ -10742,6 +10783,7 @@
      "created_at",
      "updated_at",
      "warnings",
+     "eta",
      "batches"
     ],
     "title": "SourceBatchPlan",
@@ -12933,6 +12975,42 @@
    },
    "TaskRunProgress": {
     "properties": {
+     "bytes_done": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bytes Done"
+     },
+     "bytes_per_s": {
+      "anyOf": [
+       {
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bytes Per S"
+     },
+     "bytes_total": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bytes Total"
+     },
      "done": {
       "title": "Done",
       "type": "integer"

@@ -85,6 +85,7 @@ def run(
         cached_file_total=cached_file_total,
         retry_item_ids=spec.get("retry_item_ids"),
         on_timing=on_timing,
+        on_bytes=None if dry else job.bytes_progress,
     )
     extra: dict[str, Any] = {
         "identity": identity.as_dict(),

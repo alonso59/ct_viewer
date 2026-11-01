@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// UI-25 / DCM-23 / DCM-24: the batch board on hand-written plans (the recording has no batch endpoints).
+// UI-25 / DCM-23 / DCM-24 / DCM-25: the batch board on hand-written plans (the recording has no batch endpoints).
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -15,7 +15,7 @@ const batch = (index: number, patch: Partial<SourceBatch> = {}): SourceBatch => 
 })
 const plan = (patch: Partial<SourceBatchPlan> = {}): SourceBatchPlan => ({
   plan_id: 'plan1', source: '/data/source', name: 'ds', batch_size: 40, auto: false, status: 'pending', cursor: 0, counting: 'done', revision: 1,
-  created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', warnings: [], batches: [batch(0), batch(1)], ...patch,
+  created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', warnings: [], eta: { low_s: null, high_s: null, basis: 'unknown' }, batches: [batch(0), batch(1)], ...patch,
 })
 
 async function operation(patch: Partial<SourceOperation>): Promise<SourceOperation> {
@@ -107,6 +107,35 @@ describe('plan controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add new folders' }))
     expect(await screen.findByText('The source changed.')).toBeVisible()
     expect(screen.queryByText('No new folders found.')).toBeNull()
+  })
+})
+
+describe('time left', () => {
+  test('shows the remaining time of all batches once completed batches measured it', async () => {
+    renderBoard(plan({ status: 'running', eta: { low_s: 4 * 3600, high_s: 6 * 3600, basis: 'completed_batches' }, batches: [batch(0, { status: 'completed' }), batch(1, { status: 'ready' })] }))
+    expect(await screen.findByTestId('batch-overall-eta')).toHaveTextContent('All batches: about 4–6 h left')
+  })
+
+  test('shows nothing before a batch has completed or after the plan ends', async () => {
+    const { unmount } = renderBoard(plan({ status: 'running' }))
+    await screen.findByTestId('batch-0')
+    expect(screen.queryByTestId('batch-overall-eta')).toBeNull()
+    unmount()
+    renderBoard(plan({ status: 'completed', cursor: 2, eta: { low_s: 60, high_s: 120, basis: 'completed_batches' } }))
+    await screen.findByTestId('batch-0')
+    expect(screen.queryByTestId('batch-overall-eta')).toBeNull()
+  })
+
+  test('shows converted bytes and speed while the series time estimate is unknown', async () => {
+    const base = await operation({ operation_id: 'op1', status: 'running' })
+    const [first] = await api.listSourceOperations()
+    const full = await api.getSourceOperation(first!.operation_id)
+    if (!full.conversion_run) throw new Error('Missing recorded conversion run')
+    const running: SourceOperation = { ...base, conversion_run: { ...full.conversion_run, conversion_time: { basis: 'unknown', confidence: 'unknown', sample_count: 0, remaining_units: 3, estimated_s: null, lower_s: null, upper_s: null }, progress: { done: 1, total: 4, bytes_done: 250_000_000, bytes_total: 1_000_000_000, bytes_per_s: 5_000_000 } } }
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue(running)
+    renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'converting', operation_id: 'op1' })] }))
+    expect(await screen.findByText('250 MB of 1 GB converted · 25%')).toBeVisible()
+    expect(screen.getByText('Speed: 5 MB per second')).toBeVisible()
   })
 })
 

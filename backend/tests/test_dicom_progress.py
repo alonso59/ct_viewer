@@ -1,4 +1,4 @@
-"""DCM-16/17/20/21, D26/D27/D36/D37: committed series and stage/resource facts stay distinct."""
+"""DCM-16/17/20/21/25, D26/D27/D36/D37: committed series and stage/resource facts stay distinct."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from plugins.dicom import commits, pipeline, scan
 
+from app.tasks.dicom_bytes import progress_fields
 from app.tasks.records import Live
 from tests.test_api_ingest import ctx_of, wait
 from tests.test_dicom_resume import run_conversion
@@ -75,6 +76,8 @@ def test_api_progress_retains_committed_total_after_native_completion(
         assert final["status"] == "completed", final
         assert final["progress"]["done"] == final["progress"]["total"] == 1
         assert final["counts"]["skipped"] == 1
+        progress = final["progress"]
+        assert progress["bytes_done"] == progress["bytes_total"] > 0
 
 
 @pytest.mark.parametrize("in_project", [False, True])
@@ -239,3 +242,95 @@ def test_discovery_eta_range_uses_window_extremes_and_ignores_reused_and_downtim
     now, read, files = now + 1, read + 100, files + 100
     eta = rate.update(now, read, files, 100_000)
     assert eta["high_s"] == round((100_000 - files) / 100)
+
+
+def folder_bytes(folder: Path) -> int:
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+
+
+def test_bytes_progress_counts_committed_series_and_leaves_out_skips_and_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "derived"
+    write_series(source / "valid", patient_id="P001")
+    write_series(source / "scout", patient_id="P002", description="LOCALIZER")
+    write_series(source / "failure", patient_id="P003")
+    original = commits.commit_series
+
+    def fail_one(series: scan.Series, *args: Any, **kwargs: Any) -> Any:
+        if series.dicom_dir.name == "failure":
+            raise OSError("synthetic publication failure")
+        return original(series, *args, **kwargs)
+
+    monkeypatch.setattr(commits, "commit_series", fail_one)
+    events: list[dict[str, float]] = []
+    run_conversion(source, output, settings=pipeline.Settings(), on_bytes=events.append)
+    planned = folder_bytes(source / "valid") + folder_bytes(source / "failure")
+    assert events[0] == {"done": 0, "total": planned, "fresh_bytes": 0, "fresh_seconds": 0.0}
+    last = events[-1]
+    assert last["total"] == planned and last["done"] == folder_bytes(source / "valid")
+    assert last["fresh_bytes"] == last["done"] and last["fresh_seconds"] > 0
+    assert [e["done"] for e in events] == sorted(e["done"] for e in events)
+
+
+def test_resumed_attempt_counts_reused_commits_as_done_but_not_as_measured_speed(
+    tmp_path: Path,
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "derived"
+    for name in ("a", "b"):
+        write_series(source / name, patient_id=f"P-{name}")
+    first: list[dict[str, float]] = []
+    run_conversion(source, output, on_bytes=first.append)
+    resumed: list[dict[str, float]] = []
+    result = run_conversion(source, output, on_bytes=resumed.append)
+    assert result.counts["already_converted"] == 2
+    total = folder_bytes(source / "a") + folder_bytes(source / "b")
+    assert first[-1]["done"] == resumed[-1]["done"] == resumed[-1]["total"] == total
+    assert resumed[-1]["fresh_bytes"] == 0 and resumed[-1]["fresh_seconds"] == 0
+    assert progress_fields(resumed[-1]) == {"bytes_done": total, "bytes_total": total}
+    assert progress_fields(first[-1])["bytes_per_s"] > 0
+
+
+def test_estimate_runs_report_no_bytes(tmp_path: Path) -> None:
+    from plugins.dicom.identity import Identity
+
+    source = tmp_path / "source"
+    write_series(source / "a")
+    events: list[dict[str, float]] = []
+    pipeline.run(
+        source,
+        pipeline.Settings(),
+        Identity(),
+        nifti_dir=tmp_path / "n",
+        sidecar_dir=tmp_path / "s",
+        ref_rel="dataset",
+        ref_alias="DERIVED",
+        salt="t",
+        previous=[],
+        dry_run=True,
+        on_bytes=events.append,
+    )
+    assert events == []
+
+
+@pytest.mark.parametrize(
+    ("event", "expected"),
+    [
+        (
+            {"done": 5, "total": 10, "fresh_bytes": 4_000, "fresh_seconds": 2.0},
+            {"bytes_done": 5, "bytes_total": 10, "bytes_per_s": 2000},
+        ),
+        ({"done": 50, "total": 10}, {"bytes_done": 10, "bytes_total": 10}),
+        (
+            {"done": 1, "total": 2, "fresh_bytes": 9, "fresh_seconds": 0},
+            {"bytes_done": 1, "bytes_total": 2},
+        ),
+        ({"done": float("nan"), "total": 2}, {}),
+        ({"done": -1, "total": 2}, {}),
+        ({"total": 2}, {}),
+    ],
+)
+def test_progress_fields_are_bounded_and_withhold_speed_without_measured_work(
+    event: dict[str, Any], expected: dict[str, int]
+) -> None:
+    assert progress_fields(event) == expected

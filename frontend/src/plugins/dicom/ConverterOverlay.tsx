@@ -552,7 +552,7 @@ export default function ConverterOverlay() {
             {!operation.summary?.complete && !operation.conversion_run && isTaskRunPending(operation.status) ? <DiscoveryProgress operation={operation} /> : null}
             <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
             {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
-            <ConversionTime value={conversionTime} />
+            <ConversionTime value={conversionTime} progress={(run || linked ? ws?.progress ?? prun?.progress : null) as Record<string, number | string | null | undefined> | null} />
             {!operation.summary?.complete && !operation.conversion_run && !(operation.progress?.files_total || operation.progress_stage === 'counting') ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
             {suggestsBatches ? <div className="conv-row"><button type="button" className="btn btn-sm" disabled={busy} onClick={() => void suggestBatches()}>{t('conv.batches.suggest')}</button></div> : null}
           </div> : null}

@@ -23,6 +23,7 @@ from app.ingest.segsets import record_masks
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks import control, protocol, registry
 from app.tasks.builtin import run_entry
+from app.tasks.dicom_bytes import progress_fields
 from app.tasks.dicom_execution import attempt_cleaned, run_dicom_job
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.identity import committed_outputs
@@ -452,6 +453,8 @@ class DriverBase(RegistrationBase):
                         live.done += 1
                     live.seen_items.add(iid)
                 item_rows.append(row)
+            elif t == "bytes" and live.manifest.id == DICOM_CONVERT:
+                stage_progress.update(progress_fields(line))
             elif t == "conversion_time" and live.manifest.id == DICOM_CONVERT:
                 conversion_time = ConversionTimeEstimate.model_validate(line["estimate"])
             elif t == "stage" and live.manifest.id == DICOM_CONVERT:

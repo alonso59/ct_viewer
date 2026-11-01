@@ -74,6 +74,8 @@ Tests extend existing files where the feature already lives; new filenames are p
 | D40 | Batch plan: sorted frozen partition and `-bNN` names, name-only counts, no folder names or PatientIDs in API or plan hashes, add-new-folders appends one batch, taken names and root DICOM refuse. | DCM-23; `test_source_batches.py` |
 | D41 | Orchestration: first batch waits for Convert, later batches convert with `auto`, datasets sealed in order; failure pauses and `continue` resumes after the operation's own resume; restart re-enters without a second submission; cancel stops unstarted batches. | DCM-23; `test_source_batches.py` |
 | D42 | A patient present in two batches adds a warning (batch, earlier batches, count) without blocking; no PatientID is stored or returned. | DCM-24; `test_source_batches.py` |
+| D43 | Byte progress: planned bytes are the selected series only (skips and failures excluded); committed and verified-reused series count as done; speed uses only series converted by this attempt and is withheld without any; estimates report no bytes. | DCM-25; `test_dicom_progress.py` |
+| D44 | Plan overall time left: unknown until a batch completes; then unfinished files × 0.8 × fastest to 1.25 × slowest completed rate; uncounted batches count as an average completed one; history carries across batches with the same source, derived root and settings. | DCM-25; `test_source_batches.py`, `test_dicom_eta.py` |
 
 ## Frontend unit/integration matrix
 
@@ -93,6 +95,7 @@ Use real QueryClient state and API-recorded synthetic exchanges; assert requests
 | U10 | ETA shows basis/range/unknown/elapsed; resumed ETA excludes completed work; conversion complete + analyzer failed yields Retry analyzer rather than rerun conversion. |
 | U11 | >1,000-plan paging/filtering and virtualized/bounded DOM; generation changes invalidate old pages/selection safely. No implicit Convert on scan/estimate/filter/restore. |
 | U12 | Accessible progressbar/status, keyboard focus on minimize/restore, label/cancel tooltip, responsive floating panel, Dark/Light, all localized keys; unmount stops polling without cancelling the server job. |
+| U13 | While the series estimate is unknown a running conversion shows bytes converted, percent and speed (window and batch row); a known range hides them; the batch board shows the plan's remaining-time range only while the plan is live and an estimate exists. | DCM-25; `ConverterOverlay.test.tsx`, `BatchBoard.test.tsx` |
 
 ## Both-browser acceptance (real disposable backend)
 
