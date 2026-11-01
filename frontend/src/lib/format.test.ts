@@ -1,5 +1,5 @@
 // AUD-A2-13 (DCM-06): storage in the unit that fits, never "1 MB" for 3 KB.
-import { featureUnit, fmtBytes, fmtColumn, fmtNum, fmtValue, midEllipsis, parseNum } from './format'
+import { featureUnit, fmtBytes, fmtColumn, fmtEtaRange, fmtNum, fmtValue, midEllipsis, parseNum } from './format'
 
 test('bytes use the unit that fits', () => {
   expect(fmtBytes(3024)).toBe('3 KB')
@@ -50,4 +50,12 @@ test('middle ellipsis keeps the file name', () => {
   expect(m).toContain('…')
   expect(m.endsWith('01_case_00001_0000.nii.gz')).toBe(true)
   expect(midEllipsis('/short', 40)).toBe('/short')
+})
+
+test('an ETA range shares one unit and reads as about', () => {
+  expect(fmtEtaRange(4 * 3600, 6 * 3600)).toBe('about 4–6 h left')
+  expect(fmtEtaRange(20 * 60, 2 * 3600)).toBe('about 20–120 min left')
+  expect(fmtEtaRange(10, 40)).toBe('about 10–40 s left')
+  expect(fmtEtaRange(3 * 3600, 3 * 3600)).toBe('about 3 h left')
+  expect(fmtEtaRange(2 * 86400, 3 * 86400)).toBe('about 2–3 d left')
 })

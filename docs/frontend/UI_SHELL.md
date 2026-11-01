@@ -122,7 +122,7 @@ The source folder tree is collapsible; a directory named `.dcm` is still navigat
 Outside clicks do nothing; ×/Escape minimize during work, and the compact chip restores the window.
 Cancellation keeps polling until authoritative stopping/terminal state; cleanup uncertainty never becomes a success result.
 Resume pending targets the same operation/run/destination with current fences or its persisted pending command.
-Counts remain provisional during discovery; conversion ETA remains Unknown until compatible history is implemented.
+Discovery shows a progress bar of files against the pre-counted total with percent and an ETA range (none while its basis is unknown), an indeterminate counting state during the pre-count, and a non-blocking notice when the inventory is projected near its cap (DCM-20/21); counts stay provisional only while no total exists. One shared formatter renders every ETA range, conversion included. Conversion ETA remains Unknown until compatible history is implemented.
 DCM-16 overall/stage progress is labeled separately. A memory wait shows its estimate/budget or an unknown-geometry remedy, while Cancel remains available.
 Background refusals retain UI-18 actions, including Open/import for detected NIfTI and choosing another source.
 Remaining UI/browser acceptance is tracked in DICOM_JOB_PLAN.md; this checkpoint is not production certification.
