@@ -490,7 +490,9 @@ def test_inventory_from_an_older_schema_asks_for_a_rescan(tmp_path: Path) -> Non
         SourceInventory(db, root)
 
 
-def test_dicomdir_is_never_read_as_an_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dicomdir_is_never_read_as_an_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = tmp_path / "source"
     write_series(root / "patient", shape=(3, 3, 5), marker=(1, 1, 4))
     for name in ("DICOMDIR", "dicomdir"):
