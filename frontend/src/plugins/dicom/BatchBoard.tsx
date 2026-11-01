@@ -8,7 +8,7 @@ import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCo
 import { NewProjectDialog } from '../../features/import'
 import { fmtEtaRange, IndeterminateProgress, ProblemCard, Progress } from '../../lib'
 import { filesCell } from './BatchPreview'
-import { DiscoveryProgress } from './OperationProgress'
+import { ConversionBytes, DiscoveryProgress } from './OperationProgress'
 
 type Command = Parameters<ReturnType<typeof useBatchPlanCommand>['mutate']>[0]
 
@@ -25,7 +25,7 @@ function ConvertingProgress({ operation }: { operation: SourceOperation }) {
   return <>
     {total > 0 ? <Progress value={done} total={total} /> : <IndeterminateProgress />}
     {total > 0 ? <p className="muted conv-help num">{t('conv.converting', { done, total })}</p> : null}
-    {eta?.basis === 'history' && eta.lower_s != null && eta.upper_s != null ? <p className="muted conv-help">{fmtEtaRange(eta.lower_s, eta.upper_s)}</p> : null}
+    {eta?.basis === 'history' && eta.lower_s != null && eta.upper_s != null ? <p className="muted conv-help">{fmtEtaRange(eta.lower_s, eta.upper_s)}</p> : <ConversionBytes progress={progress} />}
   </>
 }
 
@@ -104,6 +104,8 @@ export function BatchBoard({ planId, onNew, onProjectClosed }: { planId: string;
         <span className="badge" data-status={plan.status}>{t(`conv.batches.plan.${plan.status}`)}</span>
         <span className="muted conv-help num">{t('conv.batches.done', { done, total: plan.batches.length })}</span>
       </div>
+      {live && plan.eta.basis === 'completed_batches' && plan.eta.low_s != null && plan.eta.high_s != null
+        ? <p className="muted conv-help" data-testid="batch-overall-eta">{t('conv.batches.overallEta', { range: fmtEtaRange(plan.eta.low_s, plan.eta.high_s) })}</p> : null}
       {plan.counting === 'counting' ? <>
         <IndeterminateProgress />
         <p className="muted conv-help">{t('conv.counting')}</p>

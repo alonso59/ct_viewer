@@ -839,6 +839,7 @@
     "counting": "Counting files…",
     "batches": {
       "toggle": "Convert in batches",
+      "overallEta": "All batches: {{range}}",
       "size": "Patients per batch",
       "batch": "Batch",
       "patients": "Patients",
@@ -881,6 +882,8 @@
     "projectionWarning": "This source may need about {{projected}} of inventory space; the limit is {{cap}}.",
     "etaStages": "Discovery, registration and phase analysis are excluded.",
     "etaComplete": "Selected conversion work finished.",
+    "bytesProgress": "{{done}} of {{total}} converted · {{percent}}%",
+    "bytesRate": "Speed: {{rate}} per second",
     "provisional": "Discovery counts are provisional until the scan finishes.",
     "partialHelp": "Images already converted are preserved. Resume to finish this dataset.",
     "projectPartial": "Conversion is unfinished or output registration needs attention.",

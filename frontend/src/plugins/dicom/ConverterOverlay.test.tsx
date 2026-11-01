@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// UI-25 on the recorded API (TST-04): source → settings → dry run → run → result with the three
+// UI-25 / DCM-25 on the recorded API (TST-04): source → settings → dry run → run → result with the three
 // next steps. The recording converted `dicom/P900` of the fixtures (one series, one scout).
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -76,6 +76,22 @@ test.each([false, true])('U10 displays a measured conversion range and prefers l
   expect(await screen.findByText('Conversion: about 10–30 s left (6 measured series, low confidence).')).toBeVisible()
   expect(screen.getByText('Discovery, registration and phase analysis are excluded.')).toBeVisible()
   expect(screen.queryByText(/unknown until compatible/)).not.toBeInTheDocument()
+})
+
+test('shows converted bytes and speed while the conversion time is unknown, and drops them once it is known', async () => {
+  const recorded = await recordedOperation()
+  if (!recorded.conversion_run) throw new Error('Missing recorded conversion run')
+  const unknown = { basis: 'unknown' as const, confidence: 'unknown' as const, sample_count: 2, remaining_units: 3, estimated_s: null, lower_s: null, upper_s: null }
+  const progress = { done: 1, total: 4, bytes_done: 500_000_000, bytes_total: 2_000_000_000, bytes_per_s: 10_000_000 }
+  const operation: SourceOperation = { ...recorded, status: 'running', stage: 'converting', work_kind: 'convert', phase_run: null, conversion_run: { ...recorded.conversion_run, status: 'running', conversion_time: unknown, progress } }
+  const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
+  useConverter.getState().attach(operation.operation_id)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText('500 MB of 2 GB converted · 25%')).toBeVisible()
+  expect(screen.getByText('Speed: 10 MB per second')).toBeVisible()
+  get.mockResolvedValue({ ...operation, conversion_run: { ...operation.conversion_run!, conversion_time: { basis: 'history', confidence: 'low', sample_count: 6, remaining_units: 3, estimated_s: 20, lower_s: 10, upper_s: 30 } } })
+  await waitFor(() => expect(screen.queryByText(/converted · 25%/)).toBeNull(), { timeout: 4000 })
 })
 
 test.each([false, true])('D29 retries and cancels only the separate phase run (project: %s)', async (inProject) => {
@@ -616,7 +632,7 @@ describe('discovery progress (UI-25)', () => {
 describe('UI-25 batch conversion (DCM-23)', () => {
   const batchPlan = (patch: Partial<SourceBatchPlan> = {}): SourceBatchPlan => ({
     plan_id: 'plan1', source: '/data/source', name: 'ds', batch_size: 40, auto: false, status: 'pending', cursor: 0, counting: 'counting', revision: 1,
-    created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', warnings: [],
+    created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', warnings: [], eta: { low_s: null, high_s: null, basis: 'unknown' },
     batches: [
       { index: 0, name: 'ds-b01', folder_count: 40, files_total: null, operation_id: null, status: 'pending', dataset: null, approved: false, error: null, patients: null },
       { index: 1, name: 'ds-b02', folder_count: 7, files_total: null, operation_id: null, status: 'pending', dataset: null, approved: false, error: null, patients: null },

@@ -2809,6 +2809,22 @@ export interface components {
              */
             auto: boolean;
         };
+        /**
+         * BatchPlanEta
+         * @description Time left for the batches that have not completed, from the batches that have.
+         */
+        BatchPlanEta: {
+            /** Low S */
+            low_s?: number | null;
+            /** High S */
+            high_s?: number | null;
+            /**
+             * Basis
+             * @default unknown
+             * @enum {string}
+             */
+            basis: "unknown" | "completed_batches";
+        };
         /** BatchPlanUpdate */
         BatchPlanUpdate: {
             /** Auto */
@@ -6508,6 +6524,7 @@ export interface components {
             updated_at: string;
             /** Warnings */
             warnings: components["schemas"]["BatchWarning"][];
+            eta: components["schemas"]["BatchPlanEta"];
             /** Batches */
             batches: components["schemas"]["SourceBatch"][];
         };
@@ -7309,6 +7326,12 @@ export interface components {
              * @default 0
              */
             stage_total: number;
+            /** Bytes Done */
+            bytes_done?: number | null;
+            /** Bytes Total */
+            bytes_total?: number | null;
+            /** Bytes Per S */
+            bytes_per_s?: number | null;
         };
         /** TaskRunRequest */
         TaskRunRequest: {
