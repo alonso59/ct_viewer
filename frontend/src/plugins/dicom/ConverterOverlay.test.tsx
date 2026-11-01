@@ -317,7 +317,7 @@ test.each([900, null])('D27 shows the runner memory requirement and budget (%s M
   useConverter.getState().attach(waiting.operation_id)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText(required === null ? /geometry does not provide a reliable memory estimate/ : /Estimated memory: 900 MiB.*Current budget: 512 MiB/)).toBeVisible()
+  expect(await screen.findByText(required === null ? /geometry does not provide a reliable memory estimate/ : /Estimated memory: 900 MiB.*budget: 512 MiB/)).toBeVisible()
   expect(screen.getByRole('button', { name: 'Cancel conversion' })).toBeEnabled()
   expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
 })

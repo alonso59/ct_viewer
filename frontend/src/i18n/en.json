@@ -257,7 +257,7 @@
     "recent": "Recent",
     "start": "Start",
     "subtitle": "Inspect CT volumes, curate segmentations, extract radiomics and review QC.",
-    "tip1": "Source images and masks are never modified. Everything you do is stored in the project folder.",
+    "tip1": "Source images and masks are never modified; your work is stored in the project folder.",
     "tip2": "Share a project by copying its link. Anyone on the same server sees the same state.",
     "tip3": "Press Ctrl/Cmd+Shift+P anywhere for all commands.",
     "tips": "Good to know",
@@ -292,7 +292,7 @@
     "newTitle": "New project",
     "offline": "data root not reachable",
     "oldPath": "Current path",
-    "relinkHelp": "The data root moved or is not mounted. Point the alias to its new location; a sample of items is verified by fingerprint.",
+    "relinkHelp": "The data root moved or is not mounted. Point the alias to its new location.",
     "relinkTitle": "Relink {{name}}",
     "reviewed": "{{done}}/{{total}} reviewed",
     "switch": "Switch project",
@@ -326,11 +326,11 @@
       "MR": "MR",
       "mixed": "Mixed"
     },
-    "modalityHelp": "Only used for items without a modality. Study packs (labels, phases) are applied later from Project settings.",
+    "modalityHelp": "Applies to items without a modality. Study packs are applied later from Project settings.",
     "archive": "Archive",
     "archiveMenu": "Archive project…",
     "archiveTitle": "Archive “{{name}}”?",
-    "archiveHelp": "The project folder moves to projects/.archive/ and its cache is cleared. Nothing is deleted; restore it from the Archived list on the home. Archiving is refused while a job of the project runs.",
+    "archiveHelp": "Moves the project to the Archived list on the home page; nothing is deleted. Not possible while a job is running.",
     "archived": "“{{name}}” archived",
     "restore": "Restore",
     "restored": "“{{name}}” restored",
@@ -359,7 +359,7 @@
     "hashHelp": "SHA-256 of every image and mask file, for provenance",
     "bundleHelp": "A .zip of the project folder, without image data",
     "settingsHelp": "Name, display defaults, labels, data roots, study packs and the view-only link",
-    "subtitleHelp": "Items = scans × scopes (the complete scan, VOI L and R); cases and items excluded upstream are not counted ({{excluded}} items). Radiomics runs count the items they select; items that are not ready are skipped."
+    "subtitleHelp": "Items are scans × scopes (the complete scan, VOI L and R). {{excluded}} items excluded upstream are not counted."
   },
   "import": {
     "allowedRoots": "Only folders shared with the app are listed.",
@@ -437,8 +437,8 @@
     "projectLevel": "Import (no case)"
   },
   "image": {
-    "tagsPartial": "Reconstructed from the imported metadata row: partial, not the DICOM header",
-    "tagsPartialHelp": "Built from the DICOM fields the metadata.jsonl row already had. Tags the row did not carry are missing.",
+    "tagsPartial": "Partial tags, reconstructed from the imported metadata",
+    "tagsPartialHelp": "Built from the DICOM fields already in the imported metadata. Tags it did not carry are missing.",
     "absolute": "Absolute",
     "hidePaths": "Hide paths",
     "imageRef": "Image",
@@ -518,14 +518,14 @@
     "zoom": "{{zoom}} %",
     "modality": {
       "label": "Modality",
-      "help": "This image carries no modality, so CT is assumed. Change it if it is not a CT: other modalities open on a percentile window.",
+      "help": "This image has no modality, so CT is assumed. Change it if it is not a CT.",
       "assumed": "{{modality}} (assumed)",
       "CT": "CT",
       "MR": "MR",
       "OT": "Other"
     },
     "segShown": "Showing segmentation set {{set}}",
-    "caseNotFoundHelp": "The case {{id}} is not in this project (renamed, excluded or from another project).",
+    "caseNotFoundHelp": "The case {{id}} is not in this project.",
     "scanIndex": "Scan {{scan}}",
     "scanPrev": "Previous scan",
     "scanNext": "Next scan",
@@ -539,7 +539,7 @@
   "segmentation": {
     "title": "Segmentations",
     "manage": "Manage segmentations…",
-    "help": "Manage labels across every case in the selected set. Source files stay unchanged. Restore is immediate; reindex keeps your removals.",
+    "help": "Manage labels across every case in the selected set. Source files stay unchanged.",
     "catalog": "Edit label names and colors…",
     "search": "Search labels",
     "status": "Status",
@@ -548,7 +548,7 @@
     "removeLabel": "Remove label {{name}} from this set",
     "restoreLabel": "Restore label {{name}} in this set",
     "removeTitle": "Remove segmentation label",
-    "removeHelp": "Remove {{name}} from {{set}} for every case in this project? Other labels and sets stay unchanged. Source masks and the label catalog are preserved. You can restore this label here without importing it again.",
+    "removeHelp": "Remove {{name}} from {{set}} for every case in this project? Source masks are kept and you can restore the label here.",
     "removeSet": "Remove set…",
     "noLabels": "No matching labels"
   },
@@ -577,7 +577,7 @@
     "reindexStarted": "Project reindex started. Follow progress in Jobs.",
     "remove": "Remove",
     "removeTitle": "Remove segmentation set",
-    "removeHelp": "Remove {{name}} from this project? Source masks and import provenance are kept, so the set can be restored or reimported later.",
+    "removeHelp": "Remove {{name}} from this project? Source masks are kept, so you can restore or reimport the set later.",
     "removed": "Removed segmentation sets",
     "reimport": "Reimport",
     "restore": "Restore"
@@ -738,7 +738,7 @@
       "blend": "Mask opacity",
       "mask": "Segmentation mask",
       "maskOnly": "Mask only",
-      "maskOnlyHelp": "Show only the segmentation in 3D; click again to restore CT + mask. The 2D slices are unchanged.",
+      "maskOnlyHelp": "Show only the segmentation in 3D; click again to restore CT + mask.",
       "settings": "3D view options",
       "movePanel": "Drag to move; use arrow keys when focused",
       "percent": "{{value}}%",
@@ -843,7 +843,7 @@
     "openDashboard": "Open dashboard",
     "errorsList": "{{name}} · failures and skips",
     "openItem": "Open the item in the viewer",
-    "runCountsHelp": "{{items}} items selected: {{ok}} extracted, {{failed}} failed. {{skipped}} extractions skipped because the item was not ready (no mask, a blocking warning or the label is absent); skipped items are never failed.",
+    "runCountsHelp": "{{items}} items selected: {{ok}} extracted, {{failed}} failed, {{skipped}} skipped because they were not ready (no mask, blocking warning or missing label).",
     "csvLong": "CSV long",
     "csvWide": "CSV wide"
   },
@@ -940,7 +940,7 @@
   "recycle": {
     "button": "Move scan to recycle bin",
     "title": "Recycle {{case}} · scan {{scan}}?",
-    "help": "Move this entire CT scan, its VOIs, segmentations and registered outputs to the dataset’s recycle_bin. Remove its active metadata and feature rows. A separate manifest preserves the original metadata and file locations.",
+    "help": "Move this CT scan, its VOIs, segmentations and registered outputs to the dataset recycle bin, and remove its active metadata and feature rows. The original metadata and file locations are kept.",
     "counts": "{{items}} items · {{files}} files · {{rows}} metadata records",
     "shared_one": "This dataset is used by {{count}} project. Its scan list will update too.",
     "shared_other": "This dataset is used by {{count}} projects. Their scan lists will update too.",
@@ -950,7 +950,7 @@
     "folder": "Dataset folder",
     "pathPlaceholder": "/home/you/data/DatasetID",
     "browse": "Browse folders",
-    "storageHelp": "Project state stays in .workbench/projects/ and results in derived/ inside this dataset. A new folder can be created if its parent already exists.",
+    "storageHelp": "Project state and results are stored inside this dataset. The folder can be created if its parent exists.",
     "open": "Open dataset project…",
     "openHelp": "Choose a dataset folder to reopen its saved projects in this workspace."
   }
