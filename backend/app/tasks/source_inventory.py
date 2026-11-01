@@ -11,7 +11,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -159,8 +159,43 @@ def inventory_limit(root: Path, target: Path, per_mb: int, total_mb: int) -> int
     return allowance
 
 
+def checked_folders(source: Path, folders: Sequence[str]) -> list[str]:
+    """Validated top-level folder scope in the converter's patient order (case-insensitive)."""
+    from plugins.dicom import files as source_files
+    from plugins.dicom import scan as dicom_scan
+
+    if not source.is_dir():
+        raise ValidationProblem("Choose a source folder to limit it to patient folders")
+    if dicom_scan.has_dicom_files(source):
+        raise ValidationProblem(
+            "The source folder holds DICOM files directly; patient folders cannot split it"
+        )
+    names = set(folders)
+    for name in names:
+        if (
+            not name
+            or name in {".", ".."}
+            or "/" in name
+            or "\\" in name
+            or "\x00" in name
+            or source_files.excluded(name)
+        ):
+            raise ValidationProblem("A patient folder name is not a plain top-level folder name")
+        path = source / name
+        if path.is_symlink() or not path.is_dir():
+            raise ValidationProblem("A patient folder is missing, not a folder or a link")
+    return sorted(names, key=str.lower)
+
+
+def scope_hash(folders: Sequence[str] | None) -> str:
+    """Stable identity of a top-level folder scope; empty for the whole source."""
+    if folders is None:
+        return ""
+    return hashlib.sha256(json.dumps(sorted(set(folders))).encode()).hexdigest()
+
+
 class SourceInventory:
-    def __init__(self, path: Path, root: Path) -> None:
+    def __init__(self, path: Path, root: Path, folders: Sequence[str] | None = None) -> None:
         self.source = root.resolve()
         self.single_file = self.source.is_file()
         self.root = self.source.parent if self.single_file else self.source
@@ -187,6 +222,13 @@ class SourceInventory:
                 "Inventory was written by an older version; rescan this source to rebuild it"
             )
         self.db.executescript(SCHEMA)
+        if (
+            existing_root is not None
+            and folders is not None
+            and self._get("scope_hash") != scope_hash(folders)
+        ):
+            self.db.close()
+            raise JobConflict("Inventory was built for a different folder scope")
         if existing_root is not None and self._get("single_file") is not None:
             self.single_file = self._get("single_file") == "1"
             self.root = self.source.parent if self.single_file else self.source
@@ -203,6 +245,8 @@ class SourceInventory:
                 "complete": "0",
                 "limited": "0",
                 "walk_errors": "0",
+                "scope": json.dumps(sorted(set(folders))) if folders is not None else "",
+                "scope_hash": scope_hash(folders),
             }.items():
                 self._set(key, value)
             self.db.commit()
@@ -221,6 +265,11 @@ class SourceInventory:
 
     def _set(self, key: str, value: str) -> None:
         self.db.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (key, value))
+
+    @property
+    def scope(self) -> set[str] | None:
+        raw = self._get("scope")
+        return set(json.loads(raw)) if raw else None
 
     @property
     def generation(self) -> str:
@@ -334,20 +383,25 @@ class SourceInventory:
             raise SourceMissing("Source unavailable; restore it before discovery")
         files = folders = 0
         pending = [str(self.root)]
+        top = self.scope
         last = float("-inf")
         while pending and not self.single_file:
             if cancelled():
                 return None
             folders += 1
+            current = pending.pop()
             try:
-                with os.scandir(pending.pop()) as entries:
+                with os.scandir(current) as entries:
                     for entry in entries:
                         if entry.name.startswith(".") or entry.is_symlink():
                             continue
+                        scoped = top is not None and current == str(self.root)
                         if entry.is_dir(follow_symlinks=False):
-                            if not source_files.excluded(entry.name):
+                            if not source_files.excluded(entry.name) and (
+                                top is None or not scoped or entry.name in top
+                            ):
                                 pending.append(entry.path)
-                        elif entry.is_file(follow_symlinks=False):
+                        elif entry.is_file(follow_symlinks=False) and not scoped:
                             files += 1
             except OSError:
                 pass
@@ -465,7 +519,7 @@ class SourceInventory:
         candidates = (
             iter([(self.root, [self.source])])
             if self.single_file
-            else source_files.folders(self.root, errors.append)
+            else source_files.folders(self.root, errors.append, self.scope)
         )
 
         def row(folders: int) -> dict[str, Any]:
@@ -627,9 +681,33 @@ class SourceInventory:
             "folders": self.db.execute("SELECT COUNT(*) FROM directories").fetchone()[0],
             "files_total": totals[0],
             "folders_total": totals[1],
+            "scope_hash": self._get("scope_hash") or None,
             "inventory_cap_bytes": int(self._get("cap_bytes") or 0) or None,
             "inventory_projection": json.loads(self._get("projection") or "null"),
         }
+
+    def patient_ids(self) -> set[str]:
+        """PatientIDs of the discovered series, read from each series' first file."""
+        from plugins.dicom import files as source_files
+        from pydicom import dcmread
+
+        found: set[str] = set()
+        rows = self.db.execute(
+            "SELECT d.rel, MIN(f.name) FROM files f JOIN directories d ON f.directory_id=d.id "
+            "WHERE f.kind='dicom' AND d.complete=1 GROUP BY f.series_id"
+        ).fetchall()
+        for rel, name in rows:
+            path = self.root / self._rel(rel, name)
+            try:
+                with source_files.open_file(path, self.root) as handle:
+                    ds = dcmread(
+                        handle, stop_before_pixels=True, specific_tags=["PatientID"], force=True
+                    )
+            except Exception:
+                continue
+            if str(getattr(ds, "PatientID", "")).strip():
+                found.add(str(ds.PatientID).strip())
+        return found
 
     @staticmethod
     def _key(directory: str, uid: str) -> str:

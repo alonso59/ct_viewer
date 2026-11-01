@@ -17,6 +17,7 @@ from app.projects.service import Workspace
 from app.sources.open import OpenSessions
 from app.tasks.registry import Registry, build_registry
 from app.tasks.service import TaskService
+from app.tasks.source_batches import SourceBatches
 from app.tasks.source_operations import SourceOperations
 from app.tasks.workspace_runs import WorkspaceTasks
 
@@ -34,6 +35,7 @@ class AppContext:
     registry: Registry
     plugins: PluginRegistry
     source_operations: SourceOperations
+    source_batches: SourceBatches
     # CACHE_MAX_GB: one LRU budget over Open scratch and every project `cache/`
     cache_budget: CacheBudget
     open_sessions: OpenSessions = field(default_factory=OpenSessions)
@@ -59,6 +61,17 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
         settings.builtin_plugins_root, settings.plugins_root, plugins.task_owner()
     )
     tasks = TaskService(settings, registry, workspace, index, jobs, bus, locks)
+    source_operations = SourceOperations(
+        settings,
+        guard,
+        jobs,
+        workspace,
+        locks,
+        tasks,
+        WorkspaceTasks(
+            settings, registry, guard, jobs, plugins.task_owner(), tasks.phase_runs, locks
+        ),
+    )
     return AppContext(
         settings=settings,
         guard=guard,
@@ -70,17 +83,8 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
         server_lock=FileLock(settings.workspace_root / ".server.lock"),
         registry=registry,
         plugins=plugins,
-        source_operations=SourceOperations(
-            settings,
-            guard,
-            jobs,
-            workspace,
-            locks,
-            tasks,
-            WorkspaceTasks(
-                settings, registry, guard, jobs, plugins.task_owner(), tasks.phase_runs, locks
-            ),
-        ),
+        source_operations=source_operations,
+        source_batches=SourceBatches(settings, guard, jobs, locks, source_operations),
         cache_budget=CacheBudget(
             lambda: [
                 *workspace_pools(settings.workspace_root, workspace.projects_dir),

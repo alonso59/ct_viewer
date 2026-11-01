@@ -597,6 +597,101 @@
     "title": "BalanceResponse",
     "type": "object"
    },
+   "BatchPlanCreate": {
+    "additionalProperties": false,
+    "properties": {
+     "auto": {
+      "default": false,
+      "title": "Auto",
+      "type": "boolean"
+     },
+     "batch_size": {
+      "default": 40,
+      "maximum": 1000.0,
+      "minimum": 1.0,
+      "title": "Batch Size",
+      "type": "integer"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 80,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "path": {
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "BatchPlanCreate",
+    "type": "object"
+   },
+   "BatchPlanUpdate": {
+    "additionalProperties": false,
+    "properties": {
+     "auto": {
+      "title": "Auto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "auto"
+    ],
+    "title": "BatchPlanUpdate",
+    "type": "object"
+   },
+   "BatchWarning": {
+    "properties": {
+     "batch_index": {
+      "title": "Batch Index",
+      "type": "integer"
+     },
+     "code": {
+      "const": "patient_in_earlier_batch",
+      "default": "patient_in_earlier_batch",
+      "title": "Code",
+      "type": "string"
+     },
+     "earlier_batches": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Earlier Batches",
+      "type": "array"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     },
+     "patients": {
+      "title": "Patients",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "batch_index",
+     "earlier_batches",
+     "patients",
+     "message"
+    ],
+    "title": "BatchWarning",
+    "type": "object"
+   },
    "BinDef": {
     "description": "Bin: continuous \u2192 categorical by thresholds or quantiles (`v < t` \u2192 lower bin).",
     "properties": {
@@ -6935,6 +7030,38 @@
     "title": "Page[QcWarning]",
     "type": "object"
    },
+   "Page_SourceBatchPlan_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/SourceBatchPlan"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "total"
+    ],
+    "title": "Page[SourceBatchPlan]",
+    "type": "object"
+   },
    "Page_SourceOperation_": {
     "properties": {
      "items": {
@@ -10427,6 +10554,199 @@
     "title": "Severity",
     "type": "string"
    },
+   "SourceBatch": {
+    "properties": {
+     "approved": {
+      "title": "Approved",
+      "type": "boolean"
+     },
+     "dataset": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "files_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Files Total"
+     },
+     "folder_count": {
+      "title": "Folder Count",
+      "type": "integer"
+     },
+     "index": {
+      "title": "Index",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "operation_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Operation Id"
+     },
+     "patients": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Patients"
+     },
+     "status": {
+      "enum": [
+       "pending",
+       "discovering",
+       "ready",
+       "converting",
+       "completed",
+       "attention",
+       "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "index",
+     "name",
+     "folder_count",
+     "files_total",
+     "operation_id",
+     "status",
+     "dataset",
+     "approved",
+     "error",
+     "patients"
+    ],
+    "title": "SourceBatch",
+    "type": "object"
+   },
+   "SourceBatchPlan": {
+    "properties": {
+     "auto": {
+      "title": "Auto",
+      "type": "boolean"
+     },
+     "batch_size": {
+      "title": "Batch Size",
+      "type": "integer"
+     },
+     "batches": {
+      "items": {
+       "$ref": "#/components/schemas/SourceBatch"
+      },
+      "title": "Batches",
+      "type": "array"
+     },
+     "counting": {
+      "enum": [
+       "counting",
+       "done",
+       "cancelled"
+      ],
+      "title": "Counting",
+      "type": "string"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "cursor": {
+      "title": "Cursor",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+     },
+     "revision": {
+      "title": "Revision",
+      "type": "integer"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "pending",
+       "running",
+       "paused",
+       "completed",
+       "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/BatchWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "plan_id",
+     "source",
+     "name",
+     "batch_size",
+     "auto",
+     "status",
+     "cursor",
+     "counting",
+     "revision",
+     "created_at",
+     "updated_at",
+     "warnings",
+     "batches"
+    ],
+    "title": "SourceBatchPlan",
+    "type": "object"
+   },
    "SourceBody": {
     "properties": {
      "run_id": {
@@ -10704,6 +11024,20 @@
         "type": "null"
        }
       ]
+     },
+     "folders": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Folders"
      },
      "import_context": {
       "anyOf": [
@@ -11070,6 +11404,22 @@
    "SourceOperationStart": {
     "additionalProperties": false,
     "properties": {
+     "folders": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "maxItems": 5000,
+        "minItems": 1,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Folders"
+     },
      "idempotency_key": {
       "maxLength": 128,
       "minLength": 8,
@@ -21722,6 +22072,368 @@
     "summary": "Get Schema",
     "tags": [
      "radiomics"
+    ]
+   }
+  },
+  "/api/v1/source-batches": {
+   "get": {
+    "operationId": "list_plans_api_v1_source_batches_get",
+    "parameters": [
+     {
+      "description": "Opaque cursor from `next_cursor`",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Opaque cursor from `next_cursor`",
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Page_SourceBatchPlan_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Plans",
+    "tags": [
+     "source-batches"
+    ]
+   },
+   "post": {
+    "operationId": "create_api_v1_source_batches_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BatchPlanCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create",
+    "tags": [
+     "source-batches"
+    ]
+   }
+  },
+  "/api/v1/source-batches/{plan_id}": {
+   "get": {
+    "operationId": "get_api_v1_source_batches__plan_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get",
+    "tags": [
+     "source-batches"
+    ]
+   },
+   "patch": {
+    "operationId": "update_api_v1_source_batches__plan_id__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BatchPlanUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update",
+    "tags": [
+     "source-batches"
+    ]
+   }
+  },
+  "/api/v1/source-batches/{plan_id}/add-new-folders": {
+   "post": {
+    "operationId": "add_new_folders_api_v1_source_batches__plan_id__add_new_folders_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add New Folders",
+    "tags": [
+     "source-batches"
+    ]
+   }
+  },
+  "/api/v1/source-batches/{plan_id}/cancel": {
+   "post": {
+    "operationId": "cancel_api_v1_source_batches__plan_id__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel",
+    "tags": [
+     "source-batches"
+    ]
+   }
+  },
+  "/api/v1/source-batches/{plan_id}/continue": {
+   "post": {
+    "operationId": "resume_api_v1_source_batches__plan_id__continue_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Resume",
+    "tags": [
+     "source-batches"
+    ]
+   }
+  },
+  "/api/v1/source-batches/{plan_id}/start": {
+   "post": {
+    "operationId": "start_api_v1_source_batches__plan_id__start_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start",
+    "tags": [
+     "source-batches"
     ]
    }
   },

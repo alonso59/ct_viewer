@@ -48,6 +48,7 @@ class Settings:
     mixed_folder_policy: str = "split"
     patient_pattern: str = "*"
     patient_limit: int | None = None
+    patient_folders: list[str] | None = None
     include_modality_prefix: bool = True
     sidecars: bool = True
     anonymize: str = "none"  # none | basic
@@ -106,8 +107,14 @@ def timing_unit(g: Series, ordinal: int) -> dict[str, Any]:
     return {"id": str(ordinal), "class": category, "work": x * y * z if codec and min(x, y, z) > 0 else None}
 
 
-def patient_dirs(source: Path, pattern: str, limit: int | None) -> list[Path]:
-    """The source itself when it holds DICOM directly (or is one file), else its subfolders."""
+def patient_dirs(source: Path, pattern: str, limit: int | None, folders: list[str] | None = None) -> list[Path]:
+    """The source itself when it holds DICOM directly (or is one file), else its subfolders.
+
+    An explicit `folders` list names the top-level folders and overrides pattern and limit.
+    """
+    if folders is not None:
+        chosen = (source / name for name in set(folders))
+        return sorted((p for p in chosen if p.is_dir() and not p.is_symlink()), key=lambda p: p.name.lower())
     if source.is_file() or scan.has_dicom_files(source):
         return [source]
     dirs = sorted(
@@ -188,7 +195,7 @@ def run(
     found: list[Series] = []
     # one walk up front, so header reading has a file total to show
     walked: list[tuple[Path, list[tuple[Path, list[Path]]] | None]] = []
-    for pdir in patient_dirs(source, settings.patient_pattern, settings.patient_limit):
+    for pdir in patient_dirs(source, settings.patient_pattern, settings.patient_limit, settings.patient_folders):
         walked.append((pdir, scan.candidate_files(pdir) if pdir.is_dir() and cached_discover is None else None))
         stage("listing", len(walked), 0)
     n_files = (

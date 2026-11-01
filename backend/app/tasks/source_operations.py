@@ -56,7 +56,7 @@ from app.tasks.models import (
     TaskSelection,
 )
 from app.tasks.source_import import commit_with_annotations
-from app.tasks.source_inventory import SourceInventory
+from app.tasks.source_inventory import SourceInventory, checked_folders
 from app.tasks.source_plans import SourcePlanPage, read_plan_page, write_plan
 from app.tasks.workspace_runs import WorkspaceRun, WorkspaceRunRequest, default_dataset_name
 
@@ -94,6 +94,7 @@ class SourceOperationStart(BaseModel):
     import_context: SourceImportContext | None = None
     settings: dict[str, Any] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=200)
+    folders: list[str] | None = Field(default=None, min_length=1, max_length=5000)
 
 
 class SourceOperationControl(BaseModel):
@@ -168,6 +169,7 @@ class SourceOperation(BaseModel):
     phase_run: TaskRunDetail | WorkspaceRun | None = None
     prepare_plan: bool = False
     dataset_name: str | None = None
+    folders: list[str] | None = None
 
 
 def inventory_limit_message(summary: dict[str, Any]) -> str:
@@ -820,7 +822,18 @@ class SourceOperations:
             raise ValidationProblem("Choose a regular source file or folder")
         if request.project_id is not None:
             self.workspace.get(request.project_id)  # rejects unknown/archived projects
+        folders = None
+        settings = dict(request.settings)
+        if request.folders is not None:
+            if request.purpose != "convert" or request.import_context is not None:
+                raise ValidationProblem("Patient folders limit conversion operations only")
+            folders = checked_folders(source, request.folders)
+            if settings.get("patient_folders") not in (None, folders):
+                raise ValidationProblem("Choose patient folders either by scope or in settings")
+            settings["patient_folders"] = folders
         payload = request.model_dump(mode="json")
+        if request.folders is None:
+            payload.pop("folders")  # receipts created before folder scopes keep their hash
         if request.import_context is None:
             payload.pop("import_context")  # preserve receipts created before import drafts existed
         else:
@@ -864,9 +877,10 @@ class SourceOperations:
                 created_at=utc_now(),
                 updated_at=utc_now(),
                 request_hash=digest,
-                settings=request.settings,
+                settings=settings,
                 prepare_plan=request.prepare_plan,
                 dataset_name=request.name,
+                folders=folders,
             )
             if request.prepare_plan:
                 validation_dir = self._dir(record.operation_id) / "validation"
@@ -875,12 +889,12 @@ class SourceOperations:
                         request.project_id,
                         DICOM_CONVERT,
                         str(source),
-                        request.settings,
+                        settings,
                         validation_dir,
                     )
                     if request.project_id
                     else self.workspace_tasks.source_estimate_spec(
-                        DICOM_CONVERT, str(source), request.settings, validation_dir
+                        DICOM_CONVERT, str(source), settings, validation_dir
                     )
                 )
                 record.settings = spec["settings"]
@@ -918,6 +932,7 @@ class SourceOperations:
                 "attempt": record.attempt,
                 "dicom_process_protocol": 1,
                 "inventory": str(self._dir(record.operation_id) / "inventory.sqlite"),
+                "folders": record.folders,
                 "purpose": record.purpose,
                 "operation_id": record.operation_id,
             },
@@ -1429,7 +1444,12 @@ class SourceOperations:
             ):
                 raise JobConflict("Finish source discovery before its dry run")
             record.control = {"action": "estimate", **request.model_dump()}
-            record.work_kind, record.settings = "estimate", request.settings
+            record.work_kind = "estimate"
+            record.settings = (
+                {**request.settings, "patient_folders": record.folders}
+                if record.folders
+                else request.settings
+            )
             if request.name is not None:
                 record.dataset_name = request.name.strip() or None
             record.estimate, record.plan_attempt, record.plan_total = None, None, 0
@@ -1598,6 +1618,15 @@ class SourceOperations:
             record.control = {"action": "resume", **request.model_dump()}
             self._submit(record)
             return record
+
+    def patient_ids(self, operation: str) -> set[str]:
+        record = self.get(operation)
+        self._require_inventory(record)
+        database = self._dir(operation) / "inventory.sqlite"
+        if not database.exists():
+            return set()
+        with SourceInventory(database, Path(record.source)) as inventory:
+            return inventory.patient_ids()
 
     def series_page(self, operation: str, limit: int, cursor: str | None) -> dict[str, Any]:
         record = self.get(operation)
