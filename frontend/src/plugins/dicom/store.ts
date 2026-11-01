@@ -36,10 +36,16 @@ export interface Draft {
   estimate: TaskEstimate | null
   error: unknown
   scan: Scan | null
+  /** "Convert in batches" in the settings step, with the batch size and the plan previewed for these exact inputs */
+  batchMode: boolean
+  batchSize: number
+  batchPreview: { planId: string; key: string } | null
   run: { kind: Target; rid: string } | null
 }
 
 interface ConverterState extends Draft {
+  /** The batch plan the window shows as its board; it outlives the window so reopening restores it */
+  batchPlanId: string | null
   open: boolean
   /** Hidden behind the running-process chip; the window keeps its state and work */
   minimized: boolean
@@ -58,6 +64,8 @@ interface ConverterState extends Draft {
   attach: (id: string, minimized?: boolean, autoOpen?: boolean) => void
   newOperation: () => void
 }
+
+export const DEFAULT_BATCH_SIZE = 40
 
 const pad = (n: number) => String(n).padStart(2, '0')
 /** The suggested dataset name; never the source folder's, which is often a patient's name */
@@ -81,11 +89,15 @@ const draft = (source: string | null, pid: string | null): Draft => ({
   estimate: null,
   error: null,
   scan: null,
+  batchMode: false,
+  batchSize: DEFAULT_BATCH_SIZE,
+  batchPreview: null,
   run: null,
 })
 
 export const useConverter = create<ConverterState>()(persist((set) => ({
   ...draft(null, null),
+  batchPlanId: null,
   open: false,
   minimized: false,
   working: false,
@@ -96,13 +108,13 @@ export const useConverter = create<ConverterState>()(persist((set) => ({
       if (s.open && s.working) return { minimized: false }
       const source = p?.source ?? null
       const pid = p?.pid ?? null
-      return { ...draft(source, pid), open: true, minimized: false, session: s.session + 1, createFrom: null }
+      return { ...draft(source, pid), ...(source ? { batchPlanId: null } : {}), open: true, minimized: false, session: s.session + 1, createFrom: null }
     }),
   patch: (p) => set(p),
   minimize: () => set({ minimized: true }),
   restore: () => set({ minimized: false }),
   close: () => set({ ...draft(null, null), open: false, minimized: false, working: false, createFrom: null, pid: null }),
   hideForImport: (id) => set({ ...draft(null, null), operationId: id, open: false, minimized: true, working: false, createFrom: null }),
-  attach: (id, minimized = false, autoOpen = false) => set((s) => ({ ...draft(null, null), operationId: id, autoOpen, open: true, minimized, working: false, pid: null, session: s.session + 1 })),
-  newOperation: () => set((s) => ({ ...draft(null, s.pid), open: true, minimized: false, working: false, session: s.session + 1 })),
-}), { name: 'rw.converter', partialize: (s) => ({ operationId: s.operationId, minimized: s.minimized }) }))
+  attach: (id, minimized = false, autoOpen = false) => set((s) => ({ ...draft(null, null), batchPlanId: null, operationId: id, autoOpen, open: true, minimized, working: false, pid: null, session: s.session + 1 })),
+  newOperation: () => set((s) => ({ ...draft(null, s.pid), batchPlanId: null, open: true, minimized: false, working: false, session: s.session + 1 })),
+}), { name: 'rw.converter', partialize: (s) => ({ operationId: s.operationId, batchPlanId: s.batchPlanId, minimized: s.minimized }) }))

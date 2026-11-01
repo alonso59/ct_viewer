@@ -68,10 +68,13 @@ function Field({ name, schema, value, error, onChange }: { name: string; schema:
   )
 }
 
+/** Set by the batch plan, never typed by the user */
+const HIDDEN = new Set(['patient_folders'])
+
 export function SchemaForm({ schema, values, errors, onChange }: { schema: unknown; values: Record<string, unknown>; errors: Record<string, string>; onChange: (v: Record<string, unknown>) => void }) {
   const { t } = useTranslation()
   const [advanced, setAdvanced] = useState(false)
-  const all = fields(schema)
+  const all = fields(schema).filter((f) => !HIDDEN.has(f.name))
   const basic = all.filter((f) => !f.schema['x-advanced'])
   const more = all.filter((f) => f.schema['x-advanced'])
   const set = (name: string) => (v: unknown) => onChange({ ...values, [name]: v })

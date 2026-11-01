@@ -8,7 +8,7 @@ import { describe, vi } from 'vitest'
 
 import '../../i18n'
 import '../../i18n/lazy'
-import { api, ProblemError, type SourceOperation } from '../../api'
+import { api, ProblemError, type SourceBatchPlan, type SourceOperation } from '../../api'
 import { fmtBytes } from '../../lib'
 import ConverterOverlay from './ConverterOverlay'
 import { defaultDatasetName, useConverter } from './store'
@@ -610,5 +610,99 @@ describe('discovery progress (UI-25)', () => {
     await renderScan({ progress: { folders: 3, files: 20 } })
     expect(await screen.findByText(/Discovery counts are provisional/)).toBeVisible()
     expect(screen.queryByText(/ of .* files/)).toBeNull()
+  })
+})
+
+describe('UI-25 batch conversion (DCM-23)', () => {
+  const batchPlan = (patch: Partial<SourceBatchPlan> = {}): SourceBatchPlan => ({
+    plan_id: 'plan1', source: '/data/source', name: 'ds', batch_size: 40, auto: false, status: 'pending', cursor: 0, counting: 'counting', revision: 1,
+    created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', warnings: [],
+    batches: [
+      { index: 0, name: 'ds-b01', folder_count: 40, files_total: null, operation_id: null, status: 'pending', dataset: null, approved: false, error: null, patients: null },
+      { index: 1, name: 'ds-b02', folder_count: 7, files_total: null, operation_id: null, status: 'pending', dataset: null, approved: false, error: null, patients: null },
+    ],
+    ...patch,
+  })
+  const renderOverlay = () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  }
+
+  test('the batch toggle creates a plan and previews batches while files are counted', async () => {
+    const create = vi.spyOn(api, 'createSourceBatchPlan').mockResolvedValue(batchPlan())
+    vi.spyOn(api, 'getSourceBatchPlan').mockResolvedValue(batchPlan())
+    useConverter.getState().show({ source: '/data/source' })
+    renderOverlay()
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Convert in batches' }))
+    expect(await screen.findByRole('spinbutton', { name: 'Patients per batch' })).toHaveValue('40')
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ path: '/data/source', batch_size: 40, auto: false })))
+    const preview = await screen.findByTestId('batch-preview')
+    expect(within(preview).getByText('ds-b01')).toBeVisible()
+    expect(within(preview).getByText('40')).toBeVisible()
+    expect(within(preview).getAllByText('Counting files…').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Dry run' })).toBeNull()
+  })
+
+  test('changing the batch size marks the preview stale until it is updated', async () => {
+    const create = vi.spyOn(api, 'createSourceBatchPlan').mockResolvedValue(batchPlan({ counting: 'done' }))
+    vi.spyOn(api, 'getSourceBatchPlan').mockResolvedValue(batchPlan({ counting: 'done' }))
+    vi.spyOn(api, 'controlSourceBatchPlan').mockResolvedValue(batchPlan({ status: 'cancelled' }))
+    useConverter.getState().show({ source: '/data/source' })
+    renderOverlay()
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Convert in batches' }))
+    await screen.findByRole('button', { name: 'Review batches' })
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Patients per batch' }), { target: { value: '20' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Update batches' }))
+    await waitFor(() => expect(create).toHaveBeenLastCalledWith(expect.objectContaining({ batch_size: 20 })))
+  })
+
+  test('reviewing the preview opens the board, which a persisted plan id restores', async () => {
+    vi.spyOn(api, 'createSourceBatchPlan').mockResolvedValue(batchPlan({ counting: 'done' }))
+    vi.spyOn(api, 'getSourceBatchPlan').mockResolvedValue(batchPlan({ counting: 'done' }))
+    useConverter.getState().show({ source: '/data/source' })
+    const first = renderOverlay()
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Convert in batches' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review batches' }))
+    expect(await screen.findByTestId('batch-board')).toBeVisible()
+    expect(useConverter.getState().batchPlanId).toBe('plan1')
+    first.unmount()
+    useConverter.getState().close()
+    expect(useConverter.getState().batchPlanId).toBe('plan1')
+    useConverter.getState().show()
+    renderOverlay()
+    expect(await screen.findByTestId('batch-board')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
+    useConverter.setState({ batchPlanId: null })
+  })
+
+  test('the size warning offers batches and switches the window to them', async () => {
+    const recorded = await recordedOperation()
+    const operation: SourceOperation = {
+      ...recorded, project_id: null, purpose: 'convert', status: 'running', stage: 'discovering', work_kind: 'inventory', progress_stage: 'listing',
+      progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 }, summary: { inventory_projection: { projected_bytes: 3e9, cap_bytes: 2e9, warning: true } },
+      conversion_run_id: null, conversion_run: null, phase_run: null, estimate: null,
+    }
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
+    const cancel = vi.spyOn(api, 'cancelSourceOperation').mockResolvedValue({ ...operation, status: 'cancelled' })
+    const create = vi.spyOn(api, 'createSourceBatchPlan').mockResolvedValue(batchPlan())
+    vi.spyOn(api, 'getSourceBatchPlan').mockResolvedValue(batchPlan())
+    useConverter.getState().attach(operation.operation_id)
+    renderOverlay()
+    fireEvent.click(await screen.findByRole('button', { name: 'Convert in batches' }))
+    await waitFor(() => expect(cancel).toHaveBeenCalled())
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ path: operation.source })))
+    expect(await screen.findByTestId('batch-preview')).toBeVisible()
+    expect(useConverter.getState().batchMode).toBe(true)
+  })
+
+  test('offers batches after the inventory limit error', async () => {
+    const recorded = await recordedOperation()
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue({
+      ...recorded, project_id: null, purpose: 'convert', status: 'completed_with_errors', stage: 'planning', work_kind: 'estimate',
+      summary: { limit_reason: 'inventory_bytes' }, error: 'Inventory reached its cap.', conversion_run_id: null, conversion_run: null, phase_run: null, estimate: null,
+    })
+    useConverter.getState().attach(recorded.operation_id)
+    renderOverlay()
+    expect(await screen.findByRole('button', { name: 'Convert in batches' })).toBeVisible()
   })
 })

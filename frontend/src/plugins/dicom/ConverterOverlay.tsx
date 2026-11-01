@@ -19,17 +19,20 @@ import {
   useSourceOperation,
   useSourceOperations,
   useSourcePlan,
+  useBatchPlan,
   keys,
   type SourceOperation,
   type EstimateProgress,
   type TaskEstimate,
-  type ConversionTimeEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, fmtEtaRange, IndeterminateProgress, openPath, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
+import { BatchBoard } from './BatchBoard'
+import { BatchPreview } from './BatchPreview'
+import { ConversionTime, DiscoveryProgress } from './OperationProgress'
 import { PhasePanel } from './PhasePanel'
 import './converter.css'
 
@@ -38,6 +41,9 @@ const SCAN_STAGES = ['check', 'listing', 'reading', 'planning'] as const
 
 /** Names a dry run (`progress_id`); `crypto.randomUUID` needs a secure context, a LAN http URL isn't */
 const scanId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+
+/** The batch preview belongs to these inputs; changing any of them makes it stale */
+const batchKeyOf = (d: Pick<Draft, 'source' | 'batchSize' | 'settings'>) => JSON.stringify([d.source, d.batchSize, d.settings])
 
 /** What the window is doing, for its progress panel and its minimized chip */
 interface Activity {
@@ -59,38 +65,6 @@ function StepBar({ step }: { step: Step }) {
       ))}
     </ol>
   )
-}
-
-function ConversionTime({ value }: { value: ConversionTimeEstimate | null | undefined }) {
-  const { t } = useTranslation()
-  if (value?.basis === 'history' && value.lower_s != null && value.upper_s != null) {
-    return <>
-      <p className="muted conv-help">{t('conv.etaHistoryRange', { range: fmtEtaRange(value.lower_s, value.upper_s), n: value.sample_count })}</p>
-      <p className="muted conv-help">{t('conv.etaStages')}</p>
-    </>
-  }
-  return <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
-}
-
-/** Discovery against the pre-counted total, with the time left and the size warning; nothing before a total exists */
-function DiscoveryProgress({ operation }: { operation: SourceOperation }) {
-  const { t } = useTranslation()
-  const files = operation.progress?.files ?? 0
-  const total = operation.progress?.files_total ?? 0
-  const eta = operation.discovery_eta as { low_s?: number | null; high_s?: number | null; basis?: string } | null | undefined
-  const projection = operation.summary?.inventory_projection as { projected_bytes: number; cap_bytes: number; warning?: boolean } | null | undefined
-  const counting = operation.progress_stage === 'counting'
-  return <>
-    {counting ? <>
-      <IndeterminateProgress />
-      <p className="muted conv-help">{t('conv.counting')}</p>
-    </> : total > 0 ? <>
-      <Progress value={files} total={total} />
-      <p className="muted conv-help num">{t('conv.discoveryProgress', { done: files, total, percent: Math.min(100, Math.round((files / total) * 100)) })}</p>
-      {eta?.basis !== 'unknown' && eta?.low_s != null && eta.high_s != null ? <p className="muted conv-help">{fmtEtaRange(eta.low_s, eta.high_s)}</p> : null}
-    </> : null}
-    {projection?.warning ? <p className="muted conv-help" role="note">{t('conv.projectionWarning', { projected: fmtBytes(projection.projected_bytes), cap: fmtBytes(projection.cap_bytes) })}</p> : null}
-  </>
 }
 
 /** Every series of the dry run, what happens to it and why, with its size */
@@ -233,10 +207,12 @@ export default function ConverterOverlay() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const c = useConverter()
-  const { pid, close, createFrom, patch, step, source, browse, target, settings, estimate, error, scan, run, minimized, operationId } = c
+  const { pid, close, createFrom, patch, step, source, browse, target, settings, estimate, error, scan, run, minimized, operationId, batchPlanId, batchMode, batchSize, batchPreview } = c
   const qc = useQueryClient()
   const operationQuery = useSourceOperation(operationId)
   const operation = operationQuery.data
+  const plan = useBatchPlan(batchPlanId).data
+  const previewPlan = useBatchPlan(batchPreview?.planId ?? null).data
   const isOpening = operation?.purpose === 'open'
   const isDiscovering = operation?.purpose === 'discover'
   const importStage = operation?.import_context?.step
@@ -382,12 +358,17 @@ export default function ConverterOverlay() {
   } else if (estimate && step === 'estimate') {
     activity = { label: t('conv.dryRunDone', { n: estimate.n_units }), done: 1, total: 1, finished: true, tone: 'ok' }
   }
-  const chipActivity: Activity | null = phase && runFinished ? {
+  const planDone = plan?.batches.filter((b) => b.status === 'completed').length ?? 0
+  const planActivity: Activity | null = plan ? {
+    label: t('conv.batches.chip', { done: planDone, total: plan.batches.length }), done: planDone, total: plan.batches.length,
+    finished: plan.status !== 'running', tone: plan.status === 'completed' ? 'ok' : plan.status === 'paused' ? 'warn' : undefined,
+  } : null
+  const chipActivity: Activity | null = planActivity ?? (phase && runFinished ? {
     label: t('conv.phaseStatus', { status: t(`conv.status.${phase.status}`, { defaultValue: phase.status }) }),
     done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
     finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
-  } : activity
-  const working = busy || prepared.isPending || phasePending || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
+  } : activity)
+  const working = busy || prepared.isPending || phasePending || plan?.status === 'running' || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
   useEffect(() => {
     useConverter.setState({ working })
   }, [working])
@@ -460,6 +441,37 @@ export default function ConverterOverlay() {
   const cancelScan = () => {
     if (operation) void control('cancel')
   }
+  /** The plan the batch settings would run, created on the server so its folders and files can be counted */
+  const createPreview = () => guard(async () => {
+    const s = useConverter.getState()
+    if (!s.source) return
+    const previous = s.batchPreview
+    const created = await api.createSourceBatchPlan({
+      path: s.source, batch_size: s.batchSize, auto: false, name: s.settings.name.trim() || defaultDatasetName(),
+      settings: { target_profile: s.settings.target_profile, phase_analyzer: s.settings.phase_analyzer, anonymize: s.settings.anonymize },
+    })
+    qc.setQueryData(keys.batchPlan(created.plan_id), created)
+    patch({ batchPreview: { planId: created.plan_id, key: batchKeyOf(s) } })
+    if (previous) void api.controlSourceBatchPlan(previous.planId, 'cancel').catch(() => undefined)
+  })
+  const toggleBatches = (on: boolean) => {
+    patch({ batchMode: on, error: null })
+    if (on) void createPreview()
+    else if (batchPreview) {
+      void api.controlSourceBatchPlan(batchPreview.planId, 'cancel').catch(() => undefined)
+      patch({ batchPreview: null })
+    }
+  }
+  const openBoard = () => {
+    if (!batchPreview) return
+    useConverter.setState({ batchPlanId: batchPreview.planId, batchMode: false, batchPreview: null })
+  }
+  /** After the size warning or the limit error: stop this scan and plan the source in batches instead */
+  const suggestBatches = () => guard(async () => {
+    if (operation && isTaskRunPending(operation.status)) await control('cancel')
+    patch({ operationId: null, requestKey: null, estimate: null, run: null, scan: null, step: 'settings', target: 'dataset', pid: null, batchMode: true })
+    await createPreview()
+  })
   const start = () =>
     guard(async () => {
       if (!source) return
@@ -490,6 +502,8 @@ export default function ConverterOverlay() {
     else close()
   }
   const dataset = ws?.dataset_dir ?? ''
+  const projection = operation?.summary?.inventory_projection as { warning?: boolean } | null | undefined
+  const suggestsBatches = !!operation && operation.purpose === 'convert' && !operation.conversion_run && !operation.project_id && (!!projection?.warning || operation.summary?.limit_reason === 'inventory_bytes')
   const resumable = operation && ['cancelled', 'interrupted', 'failed', 'completed_with_errors'].includes(operation.status)
   const recovery = operation?.conversion_run
   const recoveryCounts = recovery?.counts
@@ -532,6 +546,7 @@ export default function ConverterOverlay() {
             </label>
             <button type="button" className="btn btn-sm" disabled={busy} onClick={c.newOperation}>{t('conv.newOperation')}</button>
           </div>
+          {batchPlanId ? <BatchBoard planId={batchPlanId} onNew={c.newOperation} onProjectClosed={close} /> : <>
           {!isSourceOnly ? <StepBar step={step} /> : null}
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
             {!operation.summary?.complete && !operation.conversion_run && isTaskRunPending(operation.status) ? <DiscoveryProgress operation={operation} /> : null}
@@ -539,6 +554,7 @@ export default function ConverterOverlay() {
             {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
             <ConversionTime value={conversionTime} />
             {!operation.summary?.complete && !operation.conversion_run && !(operation.progress?.files_total || operation.progress_stage === 'counting') ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
+            {suggestsBatches ? <div className="conv-row"><button type="button" className="btn btn-sm" disabled={busy} onClick={() => void suggestBatches()}>{t('conv.batches.suggest')}</button></div> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
             <code className="conv-path">{source}</code>
@@ -590,6 +606,16 @@ export default function ConverterOverlay() {
                   </select>
                   <span className="muted conv-help">{t('conv.profileHelp')}</span>
                 </label>
+                {target === 'dataset' ? <>
+                  <label className="conv-check">
+                    <input type="checkbox" checked={batchMode} onChange={(e) => toggleBatches(e.target.checked)} />
+                    {t('conv.batches.toggle')}
+                  </label>
+                  {batchMode ? <label className="field">
+                    <span className="field-label">{t('conv.batches.size')}</span>
+                    <NumberInput className="input" aria-label={t('conv.batches.size')} value={batchSize} min={1} onChange={(n) => { if (n && n >= 1) patch({ batchSize: Math.floor(n) }) }} />
+                  </label> : null}
+                </> : null}
                 <label className="conv-check">
                   <input type="checkbox" checked={settings.phase_analyzer} onChange={(e) => setSettings({ phase_analyzer: e.target.checked })} />
                   {t('conv.phase')}
@@ -607,7 +633,13 @@ export default function ConverterOverlay() {
               ) : null}
               {working ? (
                 <ScanPanel progress={operation ? { stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : progressStage ?? 'listing', done: progressStage === 'listing' ? operation.progress?.folders ?? 0 : operation.progress?.done ?? operation.progress?.files ?? 0, total: operation.progress?.total ?? 0 } : scanProgress} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} />
-              ) : (
+              ) : batchMode && target === 'dataset' ? <>
+                {previewPlan ? <BatchPreview plan={previewPlan} /> : <p role="status">{t('common.loading')}</p>}
+                <div className="conv-row conv-actions">
+                  {batchPreview && batchPreview.key !== batchKeyOf({ source, batchSize, settings }) ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void createPreview()}>{t('conv.batches.update')}</button>
+                    : <button type="button" className="btn btn-primary" disabled={busy || !previewPlan} onClick={openBoard}>{t('conv.batches.review')}</button>}
+                </div>
+              </> : (
                 <div className="conv-row conv-actions">
                   <button type="button" className="btn btn-primary" disabled={needsDerived || busy} onClick={() => void dryRun()}>{t('conv.dryRun')}</button>
                   <span className="muted conv-help">{t('conv.dryRunHelp')}</span>
@@ -670,6 +702,7 @@ export default function ConverterOverlay() {
             </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}
+          </>}
           {shownError ? (
             <ProblemCard
               error={shownError}
