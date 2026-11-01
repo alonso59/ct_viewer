@@ -116,7 +116,7 @@ test('runs show status, live job progress with ETA, and the matching controls', 
   expect(within(r3).getByRole('link', { name: 'Export CSV (wide)' })).toHaveAttribute('href', expect.stringContaining('/runs/r3/features?format=csv&shape=wide'))
   // AUD-A3-21: labelled actions; AUD-A1-08: the counts explain themselves
   expect(within(r3).getByRole('button', { name: /Open dashboard/ })).toBeInTheDocument()
-  expect(r3.querySelector('.list-row-meta')?.getAttribute('title')).toMatch(/skipped because the item was not ready/)
+  expect(r3.querySelector('.list-row-meta')?.getAttribute('title')).toMatch(/skipped because they were not ready/)
   fireEvent.click(within(r3).getByRole('button', { name: 'Failures and skips' }))
   // AUD-A2-05 (RAD-07, TSK-04): failures first, then skips, in plain words; the cause code is shown
   const dialog = await screen.findByRole('dialog')
