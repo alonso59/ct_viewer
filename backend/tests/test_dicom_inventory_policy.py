@@ -1,4 +1,4 @@
-"""D07/D32: aggregate inventory admission and retention preserve recoverable work."""
+"""D07/D32/D37, DCM-21: aggregate inventory admission and retention preserve recoverable work."""
 
 import hashlib
 import json
@@ -142,3 +142,65 @@ def test_corrupt_history_does_not_prevent_startup_or_other_operations(
         fresh = start(client, source, "after-damaged-history")
         assert fresh["status"] == "completed", fresh
         assert record.read_bytes() == damaged
+
+
+def test_projection_warns_early_when_the_source_would_exceed_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.tasks import source_inventory
+    from app.tasks.source_inventory import SourceInventory
+    from tools.dicom_fixtures import write_series
+
+    source = tmp_path / "source"
+    write_series(source / "series", shape=(3, 3, 40), marker=(1, 1, 39))
+    monkeypatch.setattr(source_inventory, "PROJECTION_MIN_READS", 10)
+    rows: list[dict] = []
+    with SourceInventory(tmp_path / "state" / "inventory.sqlite", source) as inventory:
+        inventory.precount()
+        inventory._set("precount_files", "1000000")  # a much larger source than the fixture
+        summary = inventory.scan(batch_size=8, max_bytes=1024**2, on_progress=rows.append)
+    projection = summary["inventory_projection"]
+    assert projection["cap_bytes"] == 1024**2 // 4 == summary["inventory_cap_bytes"]
+    assert projection["warning"] and projection["projected_bytes"] > projection["cap_bytes"]
+    assert any(row.get("inventory_projection", {}).get("warning") for row in rows)
+    assert summary["files"] == 40  # the warning never stops the scan
+
+
+def test_projection_stays_quiet_below_the_threshold_and_before_enough_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.tasks import source_inventory
+    from app.tasks.source_inventory import SourceInventory
+    from tools.dicom_fixtures import write_series
+
+    source = tmp_path / "source"
+    write_series(source / "series", shape=(3, 3, 40), marker=(1, 1, 39))
+    with SourceInventory(tmp_path / "early" / "inventory.sqlite", source) as inventory:
+        inventory.precount()
+        assert inventory.scan(batch_size=8)["inventory_projection"] is None
+    monkeypatch.setattr(source_inventory, "PROJECTION_MIN_READS", 10)
+    with SourceInventory(tmp_path / "ok" / "inventory.sqlite", source) as inventory:
+        inventory.precount()
+        projection = inventory.scan(batch_size=8)["inventory_projection"]
+    assert projection is not None and not projection["warning"]
+
+
+def test_limit_message_names_cap_setting_and_need() -> None:
+    from app.tasks.source_operations import inventory_limit_message
+
+    mb = 1024**2
+    summary = {
+        "inventory_cap_bytes": 1536 * mb,
+        "inventory_projection": {"projected_bytes": int(3.9 * 1024**3), "cap_bytes": 1536 * mb},
+    }
+    message = inventory_limit_message(summary)
+    assert message.startswith(
+        "Inventory reached its 1,536 MB cap (a quarter of DICOM_INVENTORY_MB=6144)."
+    )
+    assert "about 3.9 GB" in message and "raise DICOM_INVENTORY_MB to 15975" in message
+    assert message.endswith("then resume.")
+    huge = {**summary, "inventory_projection": {"projected_bytes": 9 * 1024**4}}
+    assert "raise" not in inventory_limit_message(huge).split("GB")[1]
+    unknown = {"inventory_cap_bytes": 256 * mb}
+    assert "(a quarter of DICOM_INVENTORY_MB=1024)" in inventory_limit_message(unknown)
+    assert ".md" not in message and "DCM-" not in message

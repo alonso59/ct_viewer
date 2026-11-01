@@ -67,6 +67,8 @@ Tests extend existing files where the feature already lives; new filenames are p
 | D33 | SSE reconnect/refetch and workspace polling converge on the same revision; stale/out-of-order events cannot regress counters/state. Backend clock changes do not corrupt durable durations. | API-40, BE-06, UI-25; new API/recovery tests |
 | D34 | Standalone CLI uses shared discovery and produces contract-v1 output, same identity/geometry and resume behavior; existing YAML/options/defaults accepted. No app imports in plugins, service/API dependency cycles or legacy dependency. | DCM-09/13, TST-20, BE layering/R9; metadata ownership + `test_layering.py` |
 | D35 | ENOSPC, permission failure, short writes and abrupt failure during metadata/sidecar/checkpoint produce failed/interrupted with correct committed counts; no success acknowledgment before durable commit. Hash verification and retry recover safely. | DCM-01/04/07, BE-05, TSK-09; new commit/recovery tests |
+| D36 | Name-only pre-count equals the discovery traversal (symlinks, dot and excluded folders skipped), is cancellable, persists and is reused on resume; operation progress shows `files_total`/`folders_total` and `rejected`. | DCM-16/20; `test_source_inventory.py`, `test_dicom_progress.py` |
+| D37 | Discovery ETA is unknown until 2,000 new files or 30 s, then a low/high range from window rates that ignores reused files and downtime; a tiny cap yields an early size-projection warning without stopping the scan, and the limit error names the cap. | DCM-15/21; `test_dicom_progress.py`, `test_dicom_inventory_policy.py` |
 
 ## Frontend unit/integration matrix
 

@@ -1,4 +1,4 @@
-"""D10-D13 / DCM-15/16: durable bounded inventory, complete series and cached headers."""
+"""D10-D13/D36 / DCM-15/16/20: durable bounded inventory, complete series and cached headers."""
 
 from __future__ import annotations
 
@@ -319,3 +319,79 @@ def test_inventory_does_not_grow_wal_behind_a_pinned_reader(tmp_path: Path) -> N
         assert partial["limited"] and not partial["complete"]
         reader.db.rollback()
         assert inventory.scan(max_bytes=1024**2)["complete"]
+
+
+def _count_tree(root: Path) -> tuple[int, int]:
+    from plugins.dicom import files as source_files
+
+    walked = list(source_files.folders(root))
+    return sum(len(files) for _, files in walked), len(walked)
+
+
+def test_precount_matches_discovery_traversal_and_skips_symlinks_and_dot_folders(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "source"
+    write_series(root / "a", shape=(3, 3, 3), marker=(1, 1, 2))
+    write_series(root / "a" / "nested", shape=(3, 3, 2), marker=(1, 1, 1), series_number=4)
+    write_series(root / ".hidden", shape=(3, 3, 2), marker=(1, 1, 1), series_number=5)
+    write_series(root / "derived", shape=(3, 3, 2), marker=(1, 1, 1), series_number=6)
+    outside = tmp_path / "outside"
+    write_series(outside, shape=(3, 3, 2), marker=(1, 1, 1), series_number=7)
+    (root / "link").symlink_to(outside, target_is_directory=True)
+    (root / "a" / "IM_link.dcm").symlink_to(root / "a" / "IM0000.dcm")
+    (root / ".dotfile").write_bytes(b"x")
+    ticks: list[dict[str, Any]] = []
+    with SourceInventory(tmp_path / "state" / "inventory.sqlite", root) as inventory:
+        counted = inventory.precount(on_progress=ticks.append)
+        assert counted == _count_tree(root) == (5, 3)
+        assert ticks[-1] == {"stage": "counting", "folders": 3, "files": 5}
+        assert inventory.summary()["files_total"] == 5
+        assert inventory.summary()["folders_total"] == 3
+
+
+def test_precount_is_cancellable_and_persists_nothing_until_complete(tmp_path: Path) -> None:
+    root = tmp_path / "source"
+    for index in range(4):
+        write_series(root / str(index), shape=(3, 3, 1), marker=(1, 1, 0), series_number=index)
+    calls = 0
+
+    def cancel_after_first_folder() -> bool:
+        nonlocal calls
+        calls += 1
+        return calls > 1
+
+    with SourceInventory(tmp_path / "state" / "inventory.sqlite", root) as inventory:
+        assert inventory.precount(cancelled=cancel_after_first_folder) is None
+        assert inventory.summary()["files_total"] is None
+        assert inventory.precount() == (4, 5)
+
+
+def test_precount_is_reused_on_resume_and_scan_reports_totals_and_new_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "source"
+    write_series(root / "one", shape=(3, 3, 4), marker=(1, 1, 3))
+    db = tmp_path / "state" / "inventory.sqlite"
+    rows: list[dict[str, Any]] = []
+    with SourceInventory(db, root) as inventory:
+        assert inventory.precount() == (4, 2)
+        inventory.scan(on_progress=rows.append)
+        assert rows[-1]["files_total"] == 4 and rows[-1]["folders_total"] == 2
+        assert rows[-1]["read"] == 4
+    write_series(root / "two", shape=(3, 3, 2), marker=(1, 1, 1), series_number=9)
+    rows.clear()
+    with SourceInventory(db, root) as inventory:
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "scandir", lambda *_: pytest.fail("pre-count walked again"))
+            assert inventory.precount() == (4, 2)
+        inventory.scan(on_progress=rows.append)
+        assert rows[-1]["files"] == 6 and rows[-1]["read"] == 2
+
+
+def test_precount_of_a_single_file_source(tmp_path: Path) -> None:
+    root = tmp_path / "source"
+    write_series(root, shape=(3, 3, 1), marker=(1, 1, 0))
+    only = next(root.iterdir())
+    with SourceInventory(tmp_path / "state" / "inventory.sqlite", only) as inventory:
+        assert inventory.precount() == (1, 1)

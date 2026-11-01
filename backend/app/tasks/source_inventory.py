@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
 
 VERSION = 1
 BATCH_SIZE = 64
+PROJECTION_MIN_READS = 5000
+PROJECTION_WARN = 0.9
 NON_IMAGES = {".txt", ".csv", ".json", ".jsonl", ".yaml", ".yml", ".npz"}
 
 
@@ -102,6 +106,9 @@ class SourceInventory:
         self.single_file = self.source.is_file()
         self.root = self.source.parent if self.single_file else self.source
         self._changed = False
+        self._reused = False
+        self._initial_rows = 0
+        self._projection: dict[str, Any] | None = None
         self.path = path
         self._scanner = scanner_identity()
         if path.resolve().is_relative_to(self.root):
@@ -168,7 +175,10 @@ class SourceInventory:
             self._changed = True
 
     def _record(self, path: Path) -> str:
+        """Cache one file's facts; `_reused` tells whether a cached record was kept."""
         from plugins.dicom import scan as dicom_scan
+
+        self._reused = False
 
         rel = path.relative_to(self.root).as_posix()
         directory = path.parent.relative_to(self.root).as_posix()
@@ -186,6 +196,7 @@ class SourceInventory:
                 and previous[0] == signature
                 and (not previous[1] or previous[2] == "rejected")
             ):
+                self._reused = True
                 return str(previous[2])
             ext = path.suffix.lower()
             if ext == ".nii" or path.name.lower().endswith(".nii.gz"):
@@ -208,6 +219,75 @@ class SourceInventory:
         )
         self.db.execute("UPDATE directories SET complete=0 WHERE rel=?", (directory,))
         return kind
+
+    def precount(
+        self,
+        *,
+        cancelled: Callable[[], bool] = lambda: False,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+    ) -> tuple[int, int] | None:
+        """Name-only walk with the discovery traversal rules; totals persist and are reused.
+
+        Returns (files, folders), or None when cancelled before the walk finished.
+        """
+        from plugins.dicom import files as source_files
+
+        files_known, folders_known = self._totals()
+        if files_known is not None and folders_known is not None:
+            return files_known, folders_known
+        if not self.source.exists():
+            raise SourceMissing("Source unavailable; restore it before discovery")
+        files = folders = 0
+        pending = [str(self.root)]
+        last = float("-inf")
+        while pending and not self.single_file:
+            if cancelled():
+                return None
+            folders += 1
+            try:
+                with os.scandir(pending.pop()) as entries:
+                    for entry in entries:
+                        if entry.name.startswith(".") or entry.is_symlink():
+                            continue
+                        if entry.is_dir(follow_symlinks=False):
+                            if not source_files.excluded(entry.name):
+                                pending.append(entry.path)
+                        elif entry.is_file(follow_symlinks=False):
+                            files += 1
+            except OSError:
+                pass
+            if on_progress is not None and time.monotonic() - last >= 0.25:
+                on_progress({"stage": "counting", "folders": folders, "files": files})
+                last = time.monotonic()
+        if self.single_file:
+            files = folders = 1
+        if on_progress is not None:
+            on_progress({"stage": "counting", "folders": folders, "files": files})
+        self._set("precount_files", str(files))
+        self._set("precount_folders", str(folders))
+        self.db.commit()
+        return files, folders
+
+    def _totals(self) -> tuple[int | None, int | None]:
+        files, folders = self._get("precount_files"), self._get("precount_folders")
+        return (
+            int(files) if files is not None else None,
+            int(folders) if folders is not None else None,
+        )
+
+    def _project(self, read: int, seen: int, max_bytes: int) -> None:
+        """Extrapolate the final database size from the bytes spent per cached file so far."""
+        total = self._totals()[0]
+        if total is None or read < PROJECTION_MIN_READS:
+            return
+        projected = int(self.cache_bytes() / max(self._initial_rows, seen) * total)
+        cap = max_bytes // 4
+        self._projection = {
+            "projected_bytes": projected,
+            "cap_bytes": cap,
+            "warning": projected > PROJECTION_WARN * cap,
+        }
+        self._set("projection", json.dumps(self._projection))
 
     def scan(
         self,
@@ -253,7 +333,10 @@ class SourceInventory:
         self._set("complete", "0")
         self._set("limited", "0")
         self._set("limit_reason", "")
+        self._set("cap_bytes", str(max_bytes // 4))
+        self._projection = None
         self.db.commit()
+        self._initial_rows = int(self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0])
         # Leave room for the WAL, SQLite's shared-memory index and a bounded transaction.
         # Cap pages as well as checkpointing: a large header must not bypass the quota.
         page_size = int(self.db.execute("PRAGMA page_size").fetchone()[0])
@@ -265,7 +348,8 @@ class SourceInventory:
             return self._limited("inventory_bytes")
         self.db.execute("CREATE TEMP TABLE IF NOT EXISTS visited (rel TEXT PRIMARY KEY)")
         self.db.execute("DELETE FROM visited")
-        seen = 0
+        seen = read = 0
+        files_total, folders_total = self._totals()
         dicom_count = series_count = rejected_count = 0
         errors: list[OSError] = []
         stopped = False
@@ -275,6 +359,22 @@ class SourceInventory:
             if self.single_file
             else source_files.folders(self.root, errors.append)
         )
+
+        def row(folders: int) -> dict[str, Any]:
+            counters: dict[str, Any] = {
+                "folders": folders,
+                "files": seen,
+                "read": read,
+                "dicom": dicom_count,
+                "rejected": rejected_count,
+                "series": series_count,
+            }
+            if files_total is not None and folders_total is not None:
+                counters.update(files_total=files_total, folders_total=folders_total)
+            if self._projection is not None:
+                counters["inventory_projection"] = self._projection
+            return counters
+
         for folders, (directory, paths) in enumerate(candidates, 1):
             if cancelled():
                 stopped = True
@@ -282,15 +382,7 @@ class SourceInventory:
             folder = directory.relative_to(self.root).as_posix()
             self.db.execute("INSERT OR IGNORE INTO directories VALUES (?, 0)", (folder,))
             if on_progress is not None:
-                on_progress(
-                    {
-                        "folders": folders,
-                        "files": seen,
-                        "dicom": dicom_count,
-                        "rejected": rejected_count,
-                        "series": series_count,
-                    }
-                )
+                on_progress(row(folders))
             for path in paths:
                 if cancelled() or (max_files is not None and seen >= max_files):
                     stopped = True
@@ -298,6 +390,7 @@ class SourceInventory:
                     break
                 seen += 1
                 kind = self._record(path)
+                read += 0 if self._reused else 1
                 if kind == "dicom":
                     dicom_count += 1
                 elif kind == "rejected":
@@ -309,16 +402,9 @@ class SourceInventory:
                     self.db.commit()
                     if not self._checkpoint(max_bytes):
                         return self._limited("inventory_bytes")
+                    self._project(read, seen, max_bytes)
                 if on_progress is not None:
-                    on_progress(
-                        {
-                            "folders": folders,
-                            "files": seen,
-                            "dicom": dicom_count,
-                            "rejected": rejected_count,
-                            "series": series_count,
-                        }
-                    )
+                    on_progress(row(folders))
             if stopped:
                 break
             ambiguous = self.db.execute(
@@ -403,6 +489,7 @@ class SourceInventory:
             "SELECT COUNT(*) FROM files WHERE error != '' AND kind != 'rejected'"
         ).fetchone()[0]
         errors += int(self._get("walk_errors") or 0)
+        totals = self._totals()
         total = self.db.execute(
             "SELECT COUNT(*) FROM (SELECT f.directory, f.uid FROM files f JOIN directories d "
             "ON f.directory=d.rel WHERE f.kind='dicom' AND d.complete=1 "
@@ -428,6 +515,10 @@ class SourceInventory:
             "npy": counts.get("npy", 0),
             "errors": errors,
             "folders": self.db.execute("SELECT COUNT(*) FROM directories").fetchone()[0],
+            "files_total": totals[0],
+            "folders_total": totals[1],
+            "inventory_cap_bytes": int(self._get("cap_bytes") or 0) or None,
+            "inventory_projection": json.loads(self._get("projection") or "null"),
         }
 
     @staticmethod

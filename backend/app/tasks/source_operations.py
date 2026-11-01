@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sqlite3
+import time
 from collections import Counter
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
@@ -44,6 +45,7 @@ from app.sources.open_service import guarded_source
 from app.tasks import dry_run, protocol
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_execution import run_dicom_job as run_dicom_worker
+from app.tasks.discovery_rate import DiscoveryRate
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
@@ -157,6 +159,7 @@ class SourceOperation(BaseModel):
     plan_attempt: int | None = None
     plan_total: int = 0
     progress_stage: str | None = None
+    discovery_eta: dict[str, Any] | None = None
     error: str | None = None
     problem: dict[str, Any] | None = None
     conversion_run_id: str | None = None
@@ -165,6 +168,31 @@ class SourceOperation(BaseModel):
     phase_run: TaskRunDetail | WorkspaceRun | None = None
     prepare_plan: bool = False
     dataset_name: str | None = None
+
+
+def inventory_limit_message(summary: dict[str, Any]) -> str:
+    """Name the effective cap and, when projected, what the source would need."""
+    cap = int(summary.get("inventory_cap_bytes") or 0)
+    if not cap:
+        return "Discovery is partial; raise DICOM_INVENTORY_MB, then resume."
+    mb = 1024**2
+    message = (
+        f"Inventory reached its {cap // mb:,} MB cap "
+        f"(a quarter of DICOM_INVENTORY_MB={cap * 4 // mb})."
+    )
+    projected = int((summary.get("inventory_projection") or {}).get("projected_bytes") or 0)
+    if projected <= cap:
+        return (
+            f"{message} Raise DICOM_INVENTORY_MB, convert in batches or release open "
+            "inventory readers, then resume."
+        )
+    needed = -(-projected * 4 // mb)
+    fit = (
+        f"raise DICOM_INVENTORY_MB to {needed} or convert in batches"
+        if needed <= 16384
+        else "convert in batches"
+    )
+    return f"{message} This source needs about {projected / 1024**3:.1f} GB: {fit}, then resume."
 
 
 class SourceOperations:
@@ -185,6 +213,7 @@ class SourceOperations:
         self.root = settings.workspace_root / "plugins" / "dicom" / "operations"
         self._slots = asyncio.Semaphore(min(settings.job_workers, 12))
         self._invalid_records: set[str] = set()
+        self._discovery_rates: dict[str, tuple[int, DiscoveryRate]] = {}
 
     def _dir(self, operation: str) -> Path:
         if not is_ulid(operation) or (self.root / operation).is_symlink():
@@ -895,7 +924,7 @@ class SourceOperations:
         )
         record.job_id = new_ulid()
         record.error, record.problem = None, None
-        record.progress, record.progress_stage = {}, None
+        record.progress, record.progress_stage, record.discovery_eta = {}, None, None
         record.status = "queued"
         record.stage = "planning" if record.work_kind == "estimate" else "discovering"
         self._write(record)
@@ -968,15 +997,47 @@ class SourceOperations:
             current = self.get(operation)
             if current.attempt != attempt:
                 return
-            current.progress.update(
-                {
-                    k: int(row[k])
-                    for k in ("files", "folders", "dicom", "series", "done", "total")
-                    if k in row
-                }
-            )
+            if row.get("stage") == "counting":
+                current.progress.update(
+                    files_total=int(row["files"]), folders_total=int(row["folders"])
+                )
+            else:
+                current.progress.update(
+                    {
+                        k: int(row[k])
+                        for k in (
+                            "files",
+                            "folders",
+                            "dicom",
+                            "rejected",
+                            "series",
+                            "done",
+                            "total",
+                            "files_total",
+                            "folders_total",
+                        )
+                        if k in row
+                    }
+                )
             if row.get("stage"):
                 current.progress_stage = str(row["stage"])
+            elif row.get("t") == "inventory" and current.progress_stage == "counting":
+                current.progress_stage = None
+            if "read" in row:
+                held = self._discovery_rates.get(operation)
+                if held is None or held[0] != attempt:
+                    held = self._discovery_rates[operation] = (attempt, DiscoveryRate())
+                current.discovery_eta = held[1].update(
+                    time.monotonic(),
+                    int(row["read"]),
+                    int(row["files"]),
+                    current.progress.get("files_total"),
+                )
+            if isinstance(row.get("inventory_projection"), dict):
+                current.summary = {
+                    **current.summary,
+                    "inventory_projection": row["inventory_projection"],
+                }
             self._write(current)
             handle.set_done(current.progress.get("files", 0))
 
@@ -1343,16 +1404,13 @@ class SourceOperations:
         if record.status == "completed" and record.prepare_plan:
             record.status, record.stage = "queued", "planning"
         if record.summary.get("limit_reason") == "inventory_bytes":
-            record.error = (
-                "Inventory storage limit reached; increase DICOM_INVENTORY_MB "
-                "or release old inventory readers, then resume"
-            )
+            record.error = inventory_limit_message(record.summary)
 
     def _finish_estimate(self, record: SourceOperation, result: dict[str, Any]) -> None:
         record.summary = result.get("summary", {})
         if record.summary.get("limited"):
             record.status, record.stage = "completed_with_errors", "planning"
-            record.error = "Discovery is partial; increase DICOM_INVENTORY_MB and resume Estimate"
+            record.error = inventory_limit_message(record.summary)
             return
         if result.get("status") != "completed":
             raise RuntimeError("Dry run did not finish; inspect discovery diagnostics")

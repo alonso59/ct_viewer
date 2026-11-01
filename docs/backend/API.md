@@ -139,6 +139,7 @@ Project counts add `pending`; workspace counts retain converter names including 
 Failed background plans persist `problem` details/actions; non-DICOM refusals retain API-44/62 remedies.
 API-69 Estimate accepts an optional `name`: omitted/null preserves it; an empty string restores the neutral default.
 Settings-only Estimate retains the operation/inventory but replaces the plan attempt; previous conversion fences return 409.
+API-69 discovery `progress` adds `files_total`/`folders_total` (provisional while `progress_stage` is `counting`, DCM-20) and keeps `rejected`; the operation adds nullable `discovery_eta` `{low_s, high_s, basis: unknown|recent_rate}` (DCM-21), and `summary` adds `files_total`, `folders_total`, `inventory_cap_bytes` and `inventory_projection {projected_bytes, cap_bytes, warning}`. All are additive.
 API-45 DICOM `progress` retains DCM-16 counters and separate `stage`, `stage_done`, `stage_total`; ETA stays null without compatible history.
 API-44/62 estimates and API-45/62 DICOM run details expose additive `conversion_time`:
 `basis: unknown|history|complete`, `confidence: unknown|low`, `sample_count`,

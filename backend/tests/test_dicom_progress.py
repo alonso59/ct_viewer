@@ -1,4 +1,4 @@
-"""DCM-16/17, D26/D27: committed series and stage/resource facts stay distinct."""
+"""DCM-16/17/20/21, D26/D27/D36/D37: committed series and stage/resource facts stay distinct."""
 
 from __future__ import annotations
 
@@ -165,3 +165,77 @@ def test_late_attempt_callbacks_cannot_regress_a_resumed_run(
         else:
             service._finish(run_dir, run_dir / "attempts" / old["job_id"], info)
         assert (run_dir / "run.json").read_bytes() == before
+
+
+def test_discovery_progress_reports_totals_and_rejected_before_the_walk_ends(
+    tmp_path: Path,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.config import Settings
+    from app.main import create_app
+
+    source = tmp_path / "source"
+    write_series(source / "a", patient_id="P001", shape=(3, 3, 3), marker=(1, 1, 2))
+    write_series(source / "b", patient_id="P002", shape=(3, 3, 2), marker=(1, 1, 1))
+    settings = Settings(
+        workspace_root=tmp_path / "workspace", allowed_data_roots=str(source), _env_file=None
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        response = client.post(
+            API, json={"path": str(source), "purpose": "discover", "idempotency_key": "totals-key"}
+        )
+        assert response.status_code == 202, response.text
+        record = wait_operation(client, response.json()["operation_id"])
+    assert record["status"] == "completed", record
+    assert record["progress"]["files_total"] == 5
+    assert record["progress"]["folders_total"] == 3
+    assert "rejected" in record["progress"]
+    assert record["progress_stage"] is None
+    assert record["discovery_eta"]["basis"] == "unknown"
+    assert record["summary"]["files_total"] == 5
+
+
+def test_discovery_eta_is_unknown_until_enough_new_files_or_time() -> None:
+    from app.tasks.discovery_rate import DiscoveryRate
+
+    rate = DiscoveryRate()
+    assert rate.update(0.0, 0, 0, 10_000)["basis"] == "unknown"
+    for second in range(1, 12):
+        eta = rate.update(float(second), second * 50, second * 50, 10_000)
+    assert eta["basis"] == "unknown"  # 550 new files, 11 s
+    for second in range(12, 33):
+        eta = rate.update(float(second), second * 50, second * 50, 10_000)
+    assert eta["basis"] == "recent_rate"  # 30 s of samples
+    assert eta["low_s"] == eta["high_s"] == round((10_000 - 32 * 50) / 50)
+    fast = DiscoveryRate()
+    for second in range(0, 8):
+        eta = fast.update(float(second), second * 500, second * 500, 100_000)
+    assert eta["basis"] == "recent_rate"  # >= 2,000 new files before 30 s
+    assert DiscoveryRate().update(0.0, 0, 0, None)["basis"] == "unknown"
+
+
+def test_discovery_eta_range_uses_window_extremes_and_ignores_reused_and_downtime() -> None:
+    from app.tasks.discovery_rate import DiscoveryRate
+
+    rate = DiscoveryRate()
+    now, read = 0.0, 0
+    rate.update(now, read, 0, 100_000)
+    for per_second in (100, 100, 100, 400, 400, 400, 100):  # 5 s buckets
+        for _ in range(5):
+            now, read = now + 1, read + per_second
+            eta = rate.update(now, read, read, 100_000)
+    remaining = 100_000 - read
+    assert eta["low_s"] == round(remaining / 400)
+    assert eta["high_s"] == round(remaining / 100)
+    # A long pause (downtime) and a stretch of reused files without new reads add no samples.
+    now += 3600
+    files = read
+    for _ in range(30):
+        now, files = now + 1, files + 1000
+        eta = rate.update(now, read, files, 100_000)
+    assert eta["high_s"] == round((100_000 - files) / 100)
+    assert eta["low_s"] == round((100_000 - files) / 400)
+    now, read, files = now + 1, read + 100, files + 100
+    eta = rate.update(now, read, files, 100_000)
+    assert eta["high_s"] == round((100_000 - files) / 100)
