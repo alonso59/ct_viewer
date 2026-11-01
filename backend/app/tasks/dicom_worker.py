@@ -184,6 +184,12 @@ def main(job_dir: Path) -> int:
         open_ready = False
         inventory_path = Path(spec.get("inventory", job_dir.parent / "inventory.sqlite"))
         with SourceInventory(inventory_path, Path(spec["source"])) as inventory:
+            inventory.precount(
+                cancelled=stop,
+                on_progress=lambda counters: append_jsonl(
+                    job_dir / protocol.PROGRESS, [{"t": "inventory", **counters}]
+                ),
+            )
             summary = inventory.scan(
                 cancelled=stop,
                 on_progress=progress,

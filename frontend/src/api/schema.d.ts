@@ -6469,6 +6469,10 @@ export interface components {
             plan_total: number;
             /** Progress Stage */
             progress_stage?: string | null;
+            /** Discovery Eta */
+            discovery_eta?: {
+                [key: string]: unknown;
+            } | null;
             /** Error */
             error?: string | null;
             /** Problem */

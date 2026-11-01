@@ -10672,6 +10672,18 @@
       ],
       "title": "Dataset Name"
      },
+     "discovery_eta": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Discovery Eta"
+     },
      "error": {
       "anyOf": [
        {
