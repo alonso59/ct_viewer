@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from pathlib import Path
 from typing import BinaryIO
 
@@ -15,8 +15,15 @@ def excluded(name: str) -> bool:
     return name.startswith(".") or name.lower() in EXCLUDED_DIRS
 
 
-def folders(root: Path, on_error: Callable[[OSError], None] | None = None) -> Iterator[tuple[Path, list[Path]]]:
-    """Directory-at-a-time traversal. Never follows directory or file symlinks."""
+def folders(
+    root: Path,
+    on_error: Callable[[OSError], None] | None = None,
+    top: Collection[str] | None = None,
+) -> Iterator[tuple[Path, list[Path]]]:
+    """Directory-at-a-time traversal. Never follows directory or file symlinks.
+
+    `top` limits the walk to those direct children of `root`; files directly in `root` are skipped.
+    """
     pending = [root]
     while pending:
         current = pending.pop()
@@ -35,6 +42,9 @@ def folders(root: Path, on_error: Callable[[OSError], None] | None = None) -> It
         except OSError as exc:
             if on_error is not None:
                 on_error(exc)
+        if top is not None and current == root:
+            children = [c for c in children if c.name in top]
+            files = []
         pending.extend(sorted(children, reverse=True))
         yield current, sorted(files)
 

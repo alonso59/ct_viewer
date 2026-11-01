@@ -68,6 +68,14 @@
         "minimum": 1,
         "x-advanced": true
       },
+      "patient_folders": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x-advanced": true
+      },
       "include_modality_prefix": {
         "type": "boolean",
         "default": true,

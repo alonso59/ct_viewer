@@ -97,6 +97,7 @@ def test_legacy_discovery_receipt_keeps_its_hash_when_no_context_is_requested(
     body = {"path": str(source), "purpose": "discover", "idempotency_key": "legacy-context-123"}
     payload = SourceOperationStart.model_validate(body).model_dump(mode="json")
     payload.pop("import_context", None)
+    payload.pop("folders", None)
     legacy_hash = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     with TestClient(create_app(settings, inline_jobs=True)) as client:
         first = client.post(API, json=body)
