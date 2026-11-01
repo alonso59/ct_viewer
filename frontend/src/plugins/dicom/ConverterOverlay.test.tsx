@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { vi } from 'vitest'
+import { describe, vi } from 'vitest'
 
 import '../../i18n'
 import '../../i18n/lazy'
@@ -73,7 +73,7 @@ test.each([false, true])('U10 displays a measured conversion range and prefers l
   useConverter.getState().attach(operation.operation_id)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('Conversion: 10 s–30 s remaining (6 measured series, low confidence).')).toBeVisible()
+  expect(await screen.findByText('Conversion: about 10–30 s left (6 measured series, low confidence).')).toBeVisible()
   expect(screen.getByText('Discovery, registration and phase analysis are excluded.')).toBeVisible()
   expect(screen.queryByText(/unknown until compatible/)).not.toBeInTheDocument()
 })
@@ -555,4 +555,60 @@ test('U02 workspace discovery asks for project creation without allocating one i
   fireEvent.click(within(dialog).getByRole('button', { name: /^Cancel$/ }))
   await waitFor(() => expect(useConverter.getState().open).toBe(false))
   expect(create).not.toHaveBeenCalled()
+})
+
+describe('discovery progress (UI-25)', () => {
+  async function renderScan(patch: Partial<SourceOperation>) {
+    const recorded = await recordedOperation()
+    const operation: SourceOperation = {
+      ...recorded, project_id: null, purpose: 'convert', status: 'running', stage: 'discovering',
+      work_kind: 'inventory', progress_stage: 'listing', summary: {}, discovery_eta: null,
+      conversion_run_id: null, conversion_run: null, phase_run: null, estimate: null, ...patch,
+    }
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
+    useConverter.getState().attach(operation.operation_id)
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
+  }
+
+  test('shows an indeterminate counting state before the total is known', async () => {
+    await renderScan({ progress_stage: 'counting', progress: { folders: 4, files: 900 } })
+    expect(await screen.findByText('Counting files…')).toBeVisible()
+    expect(screen.queryByText(/Discovery counts are provisional/)).toBeNull()
+  })
+
+  test('shows files of total, percent and an ETA range', async () => {
+    await renderScan({
+      progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 },
+      discovery_eta: { low_s: 4 * 3600, high_s: 6 * 3600, basis: 'recent_rate' },
+    })
+    expect(await screen.findByText('250 of 1000 files · 25%')).toBeVisible()
+    expect(screen.getByText('about 4–6 h left')).toBeVisible()
+    expect(screen.getAllByRole('progressbar')[0]).toHaveAttribute('aria-valuenow', '25')
+  })
+
+  test('shows no ETA when the basis is unknown', async () => {
+    await renderScan({
+      progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 },
+      discovery_eta: { low_s: null, high_s: null, basis: 'unknown' },
+    })
+    expect(await screen.findByText('250 of 1000 files · 25%')).toBeVisible()
+    expect(screen.queryByText(/left$/)).toBeNull()
+  })
+
+  test('warns when the inventory is projected to be near its limit', async () => {
+    await renderScan({
+      progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 },
+      summary: { inventory_projection: { projected_bytes: 3e9, cap_bytes: 2e9, warning: true } },
+    })
+    const note = await screen.findByRole('note')
+    expect(note).toHaveTextContent(`about ${fmtBytes(3e9)}`)
+    expect(note).toHaveTextContent(fmtBytes(2e9))
+  })
+
+  test('keeps the plain counters and the provisional note without a total', async () => {
+    await renderScan({ progress: { folders: 3, files: 20 } })
+    expect(await screen.findByText(/Discovery counts are provisional/)).toBeVisible()
+    expect(screen.queryByText(/ of .* files/)).toBeNull()
+  })
 })

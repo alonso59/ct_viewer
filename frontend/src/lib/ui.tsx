@@ -102,6 +102,11 @@ export function Progress({ value, total }: { value: number; total: number }) {
   )
 }
 
+/** A moving bar for work whose total is not known yet */
+export function IndeterminateProgress() {
+  return <div className="progress progress-indeterminate"><span /></div>
+}
+
 type NumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type' | 'min' | 'max' | 'step'> & {
   value: number | string | null | undefined
   /** `n` = the parsed number (null while empty or not a number), `text` = what was typed */

@@ -27,7 +27,7 @@ import {
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, fmtDuration, openPath, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, fmtEtaRange, IndeterminateProgress, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { PhasePanel } from './PhasePanel'
@@ -65,11 +65,32 @@ function ConversionTime({ value }: { value: ConversionTimeEstimate | null | unde
   const { t } = useTranslation()
   if (value?.basis === 'history' && value.lower_s != null && value.upper_s != null) {
     return <>
-      <p className="muted conv-help">{t('conv.etaHistory', { lower: fmtDuration(value.lower_s), upper: fmtDuration(value.upper_s), n: value.sample_count })}</p>
+      <p className="muted conv-help">{t('conv.etaHistoryRange', { range: fmtEtaRange(value.lower_s, value.upper_s), n: value.sample_count })}</p>
       <p className="muted conv-help">{t('conv.etaStages')}</p>
     </>
   }
   return <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
+}
+
+/** Discovery against the pre-counted total, with the time left and the size warning; nothing before a total exists */
+function DiscoveryProgress({ operation }: { operation: SourceOperation }) {
+  const { t } = useTranslation()
+  const files = operation.progress?.files ?? 0
+  const total = operation.progress?.files_total ?? 0
+  const eta = operation.discovery_eta as { low_s?: number | null; high_s?: number | null; basis?: string } | null | undefined
+  const projection = operation.summary?.inventory_projection as { projected_bytes: number; cap_bytes: number; warning?: boolean } | null | undefined
+  const counting = operation.progress_stage === 'counting'
+  return <>
+    {counting ? <>
+      <IndeterminateProgress />
+      <p className="muted conv-help">{t('conv.counting')}</p>
+    </> : total > 0 ? <>
+      <Progress value={files} total={total} />
+      <p className="muted conv-help num">{t('conv.discoveryProgress', { done: files, total, percent: Math.min(100, Math.round((files / total) * 100)) })}</p>
+      {eta?.basis !== 'unknown' && eta?.low_s != null && eta.high_s != null ? <p className="muted conv-help">{fmtEtaRange(eta.low_s, eta.high_s)}</p> : null}
+    </> : null}
+    {projection?.warning ? <p className="muted conv-help" role="note">{t('conv.projectionWarning', { projected: fmtBytes(projection.projected_bytes), cap: fmtBytes(projection.cap_bytes) })}</p> : null}
+  </>
 }
 
 /** Every series of the dry run, what happens to it and why, with its size */
@@ -154,7 +175,7 @@ function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, d
         ))}
       </ol>
       {at < 0 ? <p>{t(`conv.status.${current}`, { defaultValue: t(`conv.stage.${current}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) })}</p> : null}
-      {determinate && progress ? <Progress value={progress.done} total={progress.total} /> : <div className="progress conv-indeterminate"><span /></div>}
+      {determinate && progress ? <Progress value={progress.done} total={progress.total} /> : <IndeterminateProgress />}
       <div className="conv-row">
         <span className="muted conv-help">{t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { s: elapsed })}</span>
         <span style={{ flex: 1 }} />
@@ -169,7 +190,7 @@ function RunPanel({ activity, onResult, onCancel }: { activity: Activity; onResu
   const { t } = useTranslation()
   return (
     <div className="conv-body" role="status" aria-live="polite">
-      {activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <div className="progress conv-indeterminate"><span /></div>}
+      {activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <IndeterminateProgress />}
       <p className="muted">{activity.label}</p>
       <div className="conv-row conv-actions">
         {activity.finished ? (
@@ -195,7 +216,7 @@ function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activit
       <div className="conv-chip-text">
         <strong>{title}</strong>
         <span className="muted">{activity?.label ?? t('conv.idle')}</span>
-        {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <div className="progress conv-indeterminate"><span /></div> : null}
+        {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <IndeterminateProgress /> : null}
       </div>
       <button type="button" className="btn btn-sm" onClick={onShow}>{t('conv.show')}</button>
       {running && onCancel ? <button type="button" className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button> : null}
@@ -513,10 +534,11 @@ export default function ConverterOverlay() {
           </div>
           {!isSourceOnly ? <StepBar step={step} /> : null}
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
+            {!operation.summary?.complete && !operation.conversion_run && isTaskRunPending(operation.status) ? <DiscoveryProgress operation={operation} /> : null}
             <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
             {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
             <ConversionTime value={conversionTime} />
-            {!operation.summary?.complete && !operation.conversion_run ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
+            {!operation.summary?.complete && !operation.conversion_run && !(operation.progress?.files_total || operation.progress_stage === 'counting') ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
             <code className="conv-path">{source}</code>

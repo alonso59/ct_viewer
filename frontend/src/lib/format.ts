@@ -74,6 +74,18 @@ export function fmtDuration(sec: number): string {
   return `${m} min ${Math.round(sec % 60)} s`
 }
 
+const ETA_UNITS = [[86400, 'd'], [3600, 'h'], [60, 'min'], [1, 's']] as const
+
+/** "about 4–6 h left": one unit for both ends, the largest that keeps the lower end at 1 or more */
+export function fmtEtaRange(lowS: number, highS: number): string {
+  const lo = Math.max(0, Math.min(lowS, highS))
+  const hi = Math.max(lowS, highS)
+  const [size, unit] = ETA_UNITS.find(([s]) => hi >= 1.5 * s && lo >= s * 0.95) ?? ETA_UNITS[3]
+  const a = Math.round(lo / size)
+  const b = Math.round(hi / size)
+  return `about ${a === b ? a : `${a}–${b}`} ${unit} left`
+}
+
 /** Bytes with the unit that fits (decimal units, as file managers show them) */
 export function fmtBytes(n: number | null | undefined): string {
   if (n == null) return '—'
