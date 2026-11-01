@@ -1,4 +1,4 @@
-"""D25/D26, TSK-05/DCM-06: compatible measured time, never a pixel calibration."""
+"""D25/D26, TSK-05/DCM-06/DCM-19/DCM-25: compatible measured time, never a pixel calibration."""
 
 from __future__ import annotations
 
@@ -387,3 +387,31 @@ def test_owned_api_conversion_supplies_history_to_a_later_header_only_plan(
         assert estimated["conversion_time"]["sample_count"] == 6
         assert estimated["conversion_time"]["remaining_units"] == estimated["n_units"]
         assert len(json.loads(history.read_text())["samples"]) == 6
+
+
+def test_history_measured_in_one_batch_gives_the_next_batch_an_estimate(tmp_path: Path) -> None:
+    """Batches of a plan share the source, the derived root and the settings, so the signature
+    matches; only the batch's own dataset folder differs, and it is not part of the signature."""
+    source, root = tmp_path / "source", tmp_path / "derived"
+    source.mkdir()
+    root.mkdir()
+    settings, limits = {"anonymize": False}, {"memory_mb": 1024}
+    first = context_signature(source, root, settings, limits)
+    (root / "_datasets" / "plan-b02").mkdir(parents=True)
+    assert context_signature(source, root, settings, limits) == first
+    assert context_signature(source, root, {"anonymize": True}, limits) != first
+    path = tmp_path / "history.json"
+    seed(path, first)
+    next_batch = timer(path, first, attempt="batch-2")
+    assert plan(next_batch, "native-regular", "native-regular")["basis"] == "history"
+    assert plan(timer(path, first, attempt="batch-2b"), "other-class")["basis"] == "unknown"
+
+
+def test_unknown_basis_is_not_changed_by_byte_progress(tmp_path: Path) -> None:
+    t = timer(tmp_path / "history.json")
+    plan(t, "native-regular")
+    result = t({"t": "unit", "id": "0", "seconds": 10})
+    assert result["basis"] == "complete" or result["basis"] == "unknown"
+    t2 = timer(tmp_path / "history2.json")
+    estimate = plan(t2, "native-regular", "native-regular")
+    assert estimate["basis"] == "unknown" and estimate["estimated_s"] is None

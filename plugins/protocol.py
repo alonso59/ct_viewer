@@ -112,6 +112,10 @@ class Job:
         self._stage = (name, now)
         self._line({"t": "stage", "stage": name, "done": int(done), "total": int(total)})
 
+    def bytes_progress(self, counters: dict[str, float]) -> None:
+        """Source bytes committed against planned; `fresh_*` is the work this attempt measured itself."""
+        self._line({"t": "bytes", **counters})
+
     def heartbeat(self) -> None:
         self._line({"t": "heartbeat"})
 

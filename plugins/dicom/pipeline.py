@@ -184,6 +184,7 @@ def run(
     memory_mb: int | None = None,
     retry_item_ids: list[str] | None = None,
     on_timing: Timing | None = None,
+    on_bytes: Callable[[dict[str, float]], None] | None = None,
 ) -> Result:
     retry_ids = set(retry_item_ids) if retry_item_ids is not None else None
     if retry_ids is not None and (not retry_ids or dry_run):
@@ -327,7 +328,8 @@ def run(
 
     timing_ids = {id(g): str(i) for i, g in enumerate(found)}
     conversion_time = None
-    if on_timing is not None:
+    sizes: dict[int, int] = {}
+    if on_timing is not None or on_bytes is not None:
         units = []
         for i, g in enumerate(found):
             level, _ = target_rules.match(g.row, profile)
@@ -340,7 +342,19 @@ def run(
                 if f"{case}.{scan_idx}.complete.-" not in retry_ids:
                     continue
             units.append(timing_unit(g, i))
-        conversion_time = on_timing({"t": "plan", "units": units})
+            if on_bytes is not None and not dry_run:
+                sizes[id(g)] = _estimate(g.header, g.series, g.row)[0]
+        if on_timing is not None:
+            conversion_time = on_timing({"t": "plan", "units": units})
+    bytes_total = sum(sizes.values())
+    bytes_done = fresh_bytes = 0
+    fresh_seconds = 0.0
+
+    def report_bytes() -> None:
+        if on_bytes is not None and not dry_run:
+            on_bytes(
+                {"done": bytes_done, "total": bytes_total, "fresh_bytes": fresh_bytes, "fresh_seconds": fresh_seconds}
+            )
 
     counts = {
         "series": len(found),
@@ -357,6 +371,7 @@ def run(
     resource_wait = None
     analyzer_rows: list[dict[str, Any]] = []
     stage("planning" if dry_run else "converting", 0, len(found) if dry_run else selected_total)
+    report_bytes()
     for key, group in sorted(by_case.items()):
         if resource_wait is not None:
             break
@@ -502,6 +517,12 @@ def run(
                 row["status"] = "skipped"
             if status in counts:
                 counts[status] += 1
+            if status in {"converted", "already_converted"} and id(g) in sizes:
+                bytes_done += sizes[id(g)]
+                if status == "converted" and fresh_pixels:
+                    fresh_bytes += sizes[id(g)]
+                    fresh_seconds += time.monotonic() - started
+                report_bytes()
             ready, reasons = readiness_rules.readiness(row)
             row["analysis_readiness"] = ready
             g.annotations.append(
