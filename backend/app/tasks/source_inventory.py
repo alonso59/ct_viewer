@@ -11,7 +11,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,7 +26,8 @@ from app.core.ids import new_ulid
 if TYPE_CHECKING:
     from plugins.dicom import scan as dicom_scan
 
-VERSION = 1
+VERSION = 2
+BASE_CACHE = 256
 BATCH_SIZE = 64
 PROJECTION_MIN_READS = 5000
 PROJECTION_WARN = 0.9
@@ -49,6 +50,64 @@ def scanner_identity() -> str:
         ],
     }
     return hashlib.sha256(json.dumps(contract, sort_keys=True).encode()).hexdigest()
+
+
+# Per-file rows hold only identity and the tags that differ from the series' shared header
+# (`delta`: a JSON object of changed tags, null meaning absent, or `[full header]` when that is
+# shorter; a changed tag whose VR is unchanged keeps only its value list). Scanner identity
+# lives once in `meta`.
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS directories (
+    id INTEGER PRIMARY KEY, rel TEXT NOT NULL UNIQUE, complete INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS series (
+    id INTEGER PRIMARY KEY, directory_id INTEGER NOT NULL, uid TEXT NOT NULL,
+    key TEXT NOT NULL UNIQUE, header TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS files (
+    directory_id INTEGER NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL, series_id INTEGER,
+    size INTEGER NOT NULL, mtime_ns INTEGER NOT NULL, dev INTEGER NOT NULL, ino INTEGER NOT NULL,
+    delta TEXT NOT NULL, error TEXT NOT NULL, PRIMARY KEY (directory_id, name)) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS file_errors ON files(error) WHERE error != '';
+"""
+
+
+def stat_identity(st: os.stat_result) -> tuple[int, int, int, int]:
+    """(size, mtime_ns, dev, ino) as stored; SQLite ints are signed, Windows ids can be larger."""
+    dev, ino = (v - (1 << 64) if v >= 1 << 63 else v for v in (st.st_dev, st.st_ino))
+    return st.st_size, st.st_mtime_ns, dev, ino
+
+
+def _compact(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"))
+
+
+def _delta(base: dict[str, Any], header: dict[str, Any]) -> str:
+    changed: dict[str, Any] = {}
+    for tag, value in header.items():
+        old = base.get(tag)
+        if old == value:
+            continue
+        same_vr = old is not None and old.get("vr") == value.get("vr")
+        changed[tag] = value["Value"] if same_vr and set(value) == {"vr", "Value"} else value
+    changed.update({tag: None for tag in base if tag not in header})
+    if not changed:
+        return ""
+    short, full = _compact(changed), _compact([header])
+    return short if len(short) < len(full) else full
+
+
+def _merge(base: dict[str, Any], delta: str) -> dict[str, Any]:
+    if not delta:
+        return base
+    changed = json.loads(delta)
+    if isinstance(changed, list):
+        return dict(changed[0])
+    merged = dict(base)
+    for tag, value in changed.items():
+        if value is None:
+            del merged[tag]
+        else:
+            merged[tag] = {**base[tag], "Value": value} if isinstance(value, list) else value
+    return merged
 
 
 class InventorySeries(BaseModel):
@@ -114,22 +173,20 @@ class SourceInventory:
         if path.resolve().is_relative_to(self.root):
             raise ValidationProblem("An inventory must be stored outside its source root")
         self.db = workspace_database(path)
-        self.db.executescript(
-            "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
-            "CREATE TABLE IF NOT EXISTS directories (rel TEXT PRIMARY KEY, "
-            "complete INTEGER NOT NULL);"
-            "CREATE TABLE IF NOT EXISTS files (rel TEXT PRIMARY KEY, directory TEXT NOT NULL, "
-            "signature TEXT NOT NULL, kind TEXT NOT NULL, uid TEXT NOT NULL, "
-            "header TEXT NOT NULL, size INTEGER NOT NULL, error TEXT NOT NULL, "
-            "series_key TEXT NOT NULL);"
-            "CREATE INDEX IF NOT EXISTS series_members ON files(directory, uid, kind);"
-            "CREATE INDEX IF NOT EXISTS series_keys ON files(series_key);"
-            "CREATE INDEX IF NOT EXISTS file_errors ON files(error) WHERE error != '';"
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS meta "
+            "(key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID"
         )
         existing_root = self._get("root")
         if existing_root is not None and existing_root != str(self.source):
             self.db.close()
             raise JobConflict("Inventory belongs to a different source")
+        if existing_root is not None and self._get("version") != str(VERSION):
+            self.db.close()
+            raise JobConflict(
+                "Inventory was written by an older version; rescan this source to rebuild it"
+            )
+        self.db.executescript(SCHEMA)
         if existing_root is not None and self._get("single_file") is not None:
             self.single_file = self._get("single_file") == "1"
             self.root = self.source.parent if self.single_file else self.source
@@ -141,6 +198,7 @@ class SourceInventory:
                 "root": str(self.source),
                 "single_file": "1" if self.single_file else "0",
                 "version": str(VERSION),
+                "scanner": self._scanner,
                 "generation": new_ulid(),
                 "complete": "0",
                 "limited": "0",
@@ -148,9 +206,8 @@ class SourceInventory:
             }.items():
                 self._set(key, value)
             self.db.commit()
-        elif self._get("version") != str(VERSION):
-            self.db.close()
-            raise JobConflict("Inventory version is incompatible; discover this source again")
+        self._dir: tuple[str, int] | None = None
+        self._bases: dict[str, tuple[int, dict[str, Any]]] = {}
 
     def __enter__(self) -> SourceInventory:
         return self
@@ -174,30 +231,65 @@ class SourceInventory:
             self._set("generation", new_ulid())
             self._changed = True
 
+    def _directory_id(self, rel: str) -> int:
+        if self._dir is None or self._dir[0] != rel:
+            self.db.execute(
+                "INSERT OR IGNORE INTO directories (rel, complete) VALUES (?, 0)", (rel,)
+            )
+            row = self.db.execute("SELECT id FROM directories WHERE rel=?", (rel,)).fetchone()
+            self._dir = (rel, int(row[0]))
+            self._bases.clear()
+        return self._dir[1]
+
+    def _series_base(
+        self, directory_id: int, uid: str, header: dict[str, Any]
+    ) -> tuple[int, dict[str, Any]]:
+        """The series row (created from this file's header when new) and its shared header."""
+        cached = self._bases.get(uid)
+        if cached is not None:
+            return cached
+        key = self._key(self._dir[0] if self._dir else ".", uid)
+        row = self.db.execute("SELECT id, header FROM series WHERE key=?", (key,)).fetchone()
+        if row is not None:
+            found = (int(row[0]), json.loads(row[1]))
+        else:
+            cursor = self.db.execute(
+                "INSERT INTO series (directory_id, uid, key, header) VALUES (?, ?, ?, ?)",
+                (directory_id, uid, key, _compact(header)),
+            )
+            found = (int(cursor.lastrowid or 0), header)
+        if len(self._bases) >= BASE_CACHE:
+            self._bases.clear()
+        self._bases[uid] = found
+        return found
+
     def _record(self, path: Path) -> str:
         """Cache one file's facts; `_reused` tells whether a cached record was kept."""
         from plugins.dicom import scan as dicom_scan
 
         self._reused = False
 
-        rel = path.relative_to(self.root).as_posix()
         directory = path.parent.relative_to(self.root).as_posix()
-        signature, kind, uid, header, size, error = "", "ignored", "", "", 0, ""
+        directory_id = self._directory_id(directory)
+        kind, uid, error, delta = "ignored", "", "", ""
+        header: dict[str, Any] = {}
+        series_id: int | None = None
+        size = mtime_ns = dev = ino = 0
         try:
             st = path.stat(follow_symlinks=False)
-            signature = json.dumps(
-                [self._scanner, st.st_size, st.st_mtime_ns, st.st_dev, st.st_ino]
-            )
+            size, mtime_ns, dev, ino = stat_identity(st)
             previous = self.db.execute(
-                "SELECT signature, error, kind FROM files WHERE rel=?", (rel,)
+                "SELECT kind, error, size, mtime_ns, dev, ino FROM files "
+                "WHERE directory_id=? AND name=?",
+                (directory_id, path.name),
             ).fetchone()
             if (
                 previous is not None
-                and previous[0] == signature
-                and (not previous[1] or previous[2] == "rejected")
+                and tuple(previous[2:]) == (size, mtime_ns, dev, ino)
+                and (not previous[1] or previous[0] == "rejected")
             ):
                 self._reused = True
-                return str(previous[2])
+                return str(previous[0])
             ext = path.suffix.lower()
             if ext == ".nii" or path.name.lower().endswith(".nii.gz"):
                 kind = "nifti"
@@ -206,18 +298,21 @@ class SourceInventory:
             elif ext not in NON_IMAGES:
                 found = dicom_scan.image_info(path, self.root)
                 if found is not None:
-                    ds, size = found
-                    kind, uid, header = "dicom", str(ds.SeriesInstanceUID), ds.to_json()
+                    ds, _ = found
+                    header, kind, uid = ds.to_json_dict(), "dicom", str(ds.SeriesInstanceUID)
         except dicom_scan.HeaderRejected as exc:
             kind, error = "rejected", exc.code
         except Exception as exc:
             error = type(exc).__name__
+        if kind == "dicom":
+            series_id, base = self._series_base(directory_id, uid, header)
+            delta = _delta(base, header)
         self._change()
         self.db.execute(
-            "INSERT OR REPLACE INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (rel, directory, signature, kind, uid, header, size, error, self._key(directory, uid)),
+            "INSERT OR REPLACE INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (directory_id, path.name, kind, series_id, size, mtime_ns, dev, ino, delta, error),
         )
-        self.db.execute("UPDATE directories SET complete=0 WHERE rel=?", (directory,))
+        self.db.execute("UPDATE directories SET complete=0 WHERE id=?", (directory_id,))
         return kind
 
     def precount(
@@ -312,6 +407,8 @@ class SourceInventory:
                 raise
             self.db.rollback()
             self._changed = False
+            self._dir = None
+            self._bases.clear()
             return self._limited("inventory_bytes")
 
     def _scan(
@@ -330,11 +427,19 @@ class SourceInventory:
         if not 1 <= batch_size <= 512 or max_bytes < 1024**2:
             raise ValidationProblem("Inventory needs a 1..512 batch size and at least 1 MiB")
         self._changed = False
+        self._dir = None
+        self._bases.clear()
         self._set("complete", "0")
         self._set("limited", "0")
         self._set("limit_reason", "")
         self._set("cap_bytes", str(max_bytes // 4))
         self._projection = None
+        if self._get("scanner") != self._scanner:
+            # Cached facts from another scanner are unusable; every file is read again.
+            self.db.execute("DELETE FROM files")
+            self.db.execute("DELETE FROM series")
+            self._set("scanner", self._scanner)
+            self._change()
         self.db.commit()
         self._initial_rows = int(self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0])
         # Leave room for the WAL, SQLite's shared-memory index and a bounded transaction.
@@ -346,7 +451,10 @@ class SourceInventory:
         self.db.execute("PRAGMA wal_autocheckpoint=0")
         if actual_pages > pages or not self._checkpoint(max_bytes):
             return self._limited("inventory_bytes")
-        self.db.execute("CREATE TEMP TABLE IF NOT EXISTS visited (rel TEXT PRIMARY KEY)")
+        self.db.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS visited (directory_id INTEGER NOT NULL, "
+            "name TEXT NOT NULL, PRIMARY KEY (directory_id, name)) WITHOUT ROWID"
+        )
         self.db.execute("DELETE FROM visited")
         seen = read = 0
         files_total, folders_total = self._totals()
@@ -380,7 +488,7 @@ class SourceInventory:
                 stopped = True
                 break
             folder = directory.relative_to(self.root).as_posix()
-            self.db.execute("INSERT OR IGNORE INTO directories VALUES (?, 0)", (folder,))
+            directory_id = self._directory_id(folder)
             if on_progress is not None:
                 on_progress(row(folders))
             for path in paths:
@@ -395,9 +503,7 @@ class SourceInventory:
                     dicom_count += 1
                 elif kind == "rejected":
                     rejected_count += 1
-                self.db.execute(
-                    "INSERT INTO visited VALUES (?)", (path.relative_to(self.root).as_posix(),)
-                )
+                self.db.execute("INSERT INTO visited VALUES (?, ?)", (directory_id, path.name))
                 if seen % batch_size == 0:
                     self.db.commit()
                     if not self._checkpoint(max_bytes):
@@ -408,41 +514,46 @@ class SourceInventory:
             if stopped:
                 break
             ambiguous = self.db.execute(
-                "SELECT 1 FROM files f JOIN visited v ON f.rel=v.rel "
-                "WHERE f.directory=? AND f.error='MISSING_SERIES_INSTANCE_UID' LIMIT 1",
-                (folder,),
+                "SELECT 1 FROM files f JOIN visited v ON f.directory_id=v.directory_id "
+                "AND f.name=v.name WHERE f.directory_id=? "
+                "AND f.error='MISSING_SERIES_INSTANCE_UID' LIMIT 1",
+                (directory_id,),
             ).fetchone()
             condition = "kind='dicom'" if ambiguous else "error='AMBIGUOUS_SERIES_MEMBERSHIP'"
             affected = self.db.execute(
-                f"SELECT COUNT(*) FROM files WHERE directory=? AND {condition}", (folder,)
+                f"SELECT COUNT(*) FROM files WHERE directory_id=? AND {condition}",
+                (directory_id,),
             ).fetchone()[0]
             if affected:
                 self._change()
                 self.db.execute(
-                    f"UPDATE files SET kind=?, error=? WHERE directory=? AND {condition}",
+                    f"UPDATE files SET kind=?, error=? WHERE directory_id=? AND {condition}",
                     (
                         "rejected" if ambiguous else "dicom",
                         "AMBIGUOUS_SERIES_MEMBERSHIP" if ambiguous else "",
-                        folder,
+                        directory_id,
                     ),
                 )
                 dicom_count += -affected if ambiguous else affected
                 rejected_count += affected if ambiguous else -affected
-            self.db.execute("UPDATE directories SET complete=1 WHERE rel=?", (folder,))
+            self.db.execute("UPDATE directories SET complete=1 WHERE id=?", (directory_id,))
             series_count += self.db.execute(
-                "SELECT COUNT(DISTINCT uid) FROM files WHERE directory=? AND kind='dicom'",
-                (folder,),
+                "SELECT COUNT(DISTINCT series_id) FROM files WHERE directory_id=? AND kind='dicom'",
+                (directory_id,),
             ).fetchone()[0]
             self.db.commit()
             if not self._checkpoint(max_bytes):
                 return self._limited("inventory_bytes")
         if not stopped and not errors:
-            removed = self.db.execute(
-                "SELECT COUNT(*) FROM files WHERE rel NOT IN (SELECT rel FROM visited)"
-            ).fetchone()[0]
+            gone = "(directory_id, name) NOT IN (SELECT directory_id, name FROM visited)"
+            removed = self.db.execute(f"SELECT COUNT(*) FROM files WHERE {gone}").fetchone()[0]
             if removed:
                 self._change()
-                self.db.execute("DELETE FROM files WHERE rel NOT IN (SELECT rel FROM visited)")
+                self.db.execute(f"DELETE FROM files WHERE {gone}")
+            self.db.execute(
+                "DELETE FROM series WHERE id NOT IN "
+                "(SELECT DISTINCT series_id FROM files WHERE series_id IS NOT NULL)"
+            )
             error = self.db.execute(
                 "SELECT 1 FROM files WHERE error != '' AND kind != 'rejected' LIMIT 1"
             ).fetchone()
@@ -479,9 +590,8 @@ class SourceInventory:
 
     def check_reader(self) -> None:
         """Read cached facts only when every batch used the current scanner."""
-        for row in self.db.execute("SELECT signature FROM files"):
-            if not row[0] or json.loads(row[0])[0] != self._scanner:
-                raise JobConflict("Inventory scanner changed; discover this source again")
+        if self._get("scanner") != self._scanner:
+            raise JobConflict("Inventory scanner changed; discover this source again")
 
     def summary(self) -> dict[str, Any]:
         counts = dict(self.db.execute("SELECT kind, COUNT(*) FROM files GROUP BY kind").fetchall())
@@ -491,9 +601,9 @@ class SourceInventory:
         errors += int(self._get("walk_errors") or 0)
         totals = self._totals()
         total = self.db.execute(
-            "SELECT COUNT(*) FROM (SELECT f.directory, f.uid FROM files f JOIN directories d "
-            "ON f.directory=d.rel WHERE f.kind='dicom' AND d.complete=1 "
-            "GROUP BY f.directory, f.uid)"
+            "SELECT COUNT(*) FROM (SELECT f.series_id FROM files f JOIN directories d "
+            "ON f.directory_id=d.id WHERE f.kind='dicom' AND d.complete=1 "
+            "GROUP BY f.series_id)"
         ).fetchone()[0]
         return {
             "complete": self._get("complete") == "1" and not errors,
@@ -537,37 +647,104 @@ class SourceInventory:
             raise ValidationProblem("Inventory page size must be in 1..500")
         offset = decode_cursor(cursor, self.generation)
         rows = self.db.execute(
-            "SELECT f.directory, f.uid, COUNT(*) AS n_files, SUM(f.size) AS source_bytes, "
-            "MIN(f.rel) AS first_rel FROM files f JOIN directories d ON f.directory=d.rel "
-            "WHERE f.kind='dicom' AND d.complete=1 GROUP BY f.directory, f.uid "
-            "ORDER BY f.directory, f.uid LIMIT ? OFFSET ?",
+            "SELECT d.rel AS directory, s.uid, s.key, COUNT(*) AS n_files, "
+            "SUM(f.size) AS source_bytes, MIN(f.name) AS first_name FROM files f "
+            "JOIN directories d ON f.directory_id=d.id JOIN series s ON s.id=f.series_id "
+            "WHERE f.kind='dicom' AND d.complete=1 GROUP BY f.series_id "
+            "ORDER BY d.rel, s.uid LIMIT ? OFFSET ?",
             (limit, offset),
         ).fetchall()
         total = self.summary()["series"]
-        items = [{**dict(row), "key": self._key(row["directory"], row["uid"])} for row in rows]
+        items = [
+            {
+                "key": row["key"],
+                "directory": row["directory"],
+                "uid": row["uid"],
+                "n_files": row["n_files"],
+                "source_bytes": row["source_bytes"],
+                "first_rel": self._rel(row["directory"], row["first_name"]),
+            }
+            for row in rows
+        ]
         nxt = None
         if offset + len(items) < total:
             nxt = encode_cursor(self.generation, offset + len(items))
         return {"items": items, "next_cursor": nxt, "total": total, "generation": self.generation}
 
+    @staticmethod
+    def _rel(directory: str, name: str) -> str:
+        return name if directory == "." else f"{directory}/{name}"
+
+    @staticmethod
+    def _split(rel: str) -> tuple[str, str]:
+        directory, _, name = rel.rpartition("/")
+        return directory or ".", name
+
+    def entry(self, rel: str) -> sqlite3.Row | None:
+        """Cached identity facts of one file: kind, error, size, mtime_ns, dev, ino."""
+        directory, name = self._split(rel)
+        row: sqlite3.Row | None = self.db.execute(
+            "SELECT f.kind, f.error, f.size, f.mtime_ns, f.dev, f.ino FROM files f "
+            "JOIN directories d ON d.id=f.directory_id WHERE d.rel=? AND f.name=?",
+            (directory, name),
+        ).fetchone()
+        return row
+
+    @property
+    def scanner(self) -> str | None:
+        return self._get("scanner")
+
+    def rels(self, kind: str) -> list[str]:
+        """Relative paths of every file of one kind, sorted."""
+        rows = self.db.execute(
+            "SELECT d.rel, f.name FROM files f JOIN directories d ON d.id=f.directory_id "
+            "WHERE f.kind=?",
+            (kind,),
+        )
+        return sorted(self._rel(r[0], r[1]) for r in rows)
+
+    def dicom_units(self) -> Iterator[tuple[str, list[str]]]:
+        """(series key, member paths) for every DICOM series, in directory/uid order."""
+        groups = self.db.execute(
+            "SELECT s.key, s.id, s.directory_id, d.rel FROM (SELECT DISTINCT directory_id, "
+            "series_id FROM files WHERE kind='dicom') x JOIN series s ON s.id=x.series_id "
+            "JOIN directories d ON d.id=x.directory_id ORDER BY d.rel, s.uid"
+        ).fetchall()
+        for group in groups:
+            names = self.db.execute(
+                "SELECT name FROM files WHERE directory_id=? AND series_id=? AND kind='dicom' "
+                "ORDER BY name",
+                (group["directory_id"], group["id"]),
+            )
+            yield group["key"], [self._rel(group["rel"], row[0]) for row in names]
+
     def series(self, key: str) -> dicom_scan.Series:
         """Materialize one series whose folder discovery completed."""
         from plugins.dicom import scan as dicom_scan
 
-        members = self.db.execute(
-            "SELECT f.rel, f.header, f.size, f.directory, f.uid FROM files f "
-            "JOIN directories d ON f.directory=d.rel WHERE f.series_key=? "
-            "AND f.kind='dicom' AND d.complete=1 ORDER BY f.rel",
+        head = self.db.execute(
+            "SELECT s.id, s.uid, s.header, d.id AS directory_id, d.rel FROM series s "
+            "JOIN directories d ON d.id=s.directory_id WHERE s.key=? AND d.complete=1",
             (key,),
-        ).fetchall()
+        ).fetchone()
+        members = (
+            self.db.execute(
+                "SELECT name, size, delta FROM files WHERE directory_id=? AND series_id=? "
+                "AND kind='dicom' ORDER BY name",
+                (head["directory_id"], head["id"]),
+            ).fetchall()
+            if head is not None
+            else []
+        )
         if not members:
             raise NotFound("Series is absent or its inventory is incomplete")
-        paths = [self.root / r["rel"] for r in members]
-        headers = [Dataset.from_json(r["header"]) for r in members]
+        base = json.loads(head["header"])
+        paths = [self.root / self._rel(head["rel"], r["name"]) for r in members]
+        headers = [Dataset.from_json(_merge(base, r["delta"])) for r in members]
         order = dicom_scan._ipp_order(paths, headers)
         return dicom_scan.Series(
-            self.root / members[0]["directory"],
-            members[0]["uid"],
+            self.root / head["rel"],
+            head["uid"],
             tuple(paths[i] for i in order),
             tuple(headers[i] for i in order),
             sum(r["size"] for r in members),
@@ -582,12 +759,12 @@ class SourceInventory:
         condition = ""
         parameters: tuple[str, ...] = ()
         if rel != "." and not self.single_file:
-            condition = " AND (directory=? OR (directory>=? AND directory<?))"
+            condition = " WHERE d.rel=? OR (d.rel>=? AND d.rel<?)"
             parameters = (rel, rel + "/", rel + "0")
         keys = self.db.execute(
-            "SELECT series_key FROM files WHERE kind='dicom'"
-            + condition
-            + " GROUP BY directory, uid ORDER BY directory, uid",
+            "SELECT s.key FROM (SELECT DISTINCT directory_id, series_id FROM files "
+            "WHERE kind='dicom') x JOIN series s ON s.id=x.series_id "
+            "JOIN directories d ON d.id=x.directory_id" + condition + " ORDER BY d.rel, s.uid",
             parameters,
         ).fetchall()
         return [self.series(row[0]) for row in keys]
