@@ -488,3 +488,22 @@ def test_inventory_from_an_older_schema_asks_for_a_rescan(tmp_path: Path) -> Non
         raw.execute("CREATE TABLE files (rel TEXT PRIMARY KEY, directory TEXT)")
     with pytest.raises(JobConflict, match="rescan"):
         SourceInventory(db, root)
+
+
+def test_dicomdir_is_never_read_as_an_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "source"
+    write_series(root / "patient", shape=(3, 3, 5), marker=(1, 1, 4))
+    for name in ("DICOMDIR", "dicomdir"):
+        (root / "patient" / name).write_bytes(b"index")
+    original = scan.image_info
+
+    def reading(path: Path, source: Path | None = None) -> object:
+        if path.name.lower() == "dicomdir":  # real media indexes exceed the header budget
+            raise ValueError("DICOM header exceeds the configured read budget")
+        return original(path, source)
+
+    monkeypatch.setattr(scan, "image_info", reading)
+    with SourceInventory(tmp_path / "workspace" / "inventory.sqlite", root) as inventory:
+        summary = inventory.scan()
+    assert summary["complete"] and summary["errors"] == 0
+    assert summary["dicom"] == 5 and summary["series"] == 1

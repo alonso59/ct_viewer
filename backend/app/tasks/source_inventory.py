@@ -344,7 +344,7 @@ class SourceInventory:
                 kind = "nifti"
             elif ext == ".npy":
                 kind = "npy"
-            elif ext not in NON_IMAGES:
+            elif ext not in NON_IMAGES and path.name.lower() != "dicomdir":
                 found = dicom_scan.image_info(path, self.root)
                 if found is not None:
                     ds, _ = found
