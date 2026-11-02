@@ -585,7 +585,9 @@
     "removeHelp": "Remove {{name}} from this project? Source masks are kept, so you can restore or reimport the set later.",
     "removed": "Removed segmentation sets",
     "reimport": "Reimport",
-    "restore": "Restore"
+    "restore": "Restore",
+    "reindexConfirm": "Rebuild the index of every segmentation set in this project? It runs in the background; sets stay readable meanwhile.",
+    "segIdTaken": "A set with ID {{id}} exists: this import replaces its masks."
   },
   "labels": {
     "color": "{{name}} color",

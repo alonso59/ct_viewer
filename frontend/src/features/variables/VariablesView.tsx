@@ -3,7 +3,7 @@ import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { OVERRIDE_TYPES, VARIABLE_TAGS, useBrokenDerived, useDeleteDerived, usePatchVariable, useVariables, type BrokenDerived, type OverrideType, type Variable, type VariablePatch, type VariableTag } from '../../api'
-import { fmt1 } from '../../lib'
+import { ConfirmInline, fmt1 } from '../../lib'
 import { useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { useVariablesUi } from './store'
@@ -106,15 +106,18 @@ function Detail({ pid, v }: { pid: string; v: Variable }) {
         ))}
       </div>
       {v.source === 'derived' ? (
-        <button
-          type="button"
-          className="btn btn-sm btn-danger"
-          disabled={del.isPending}
-          onClick={() => del.mutate(v.name, { onError: fail })}
-        >
-          <Icon spec={codicon('trash')} />
-          {t('variables.deleteDerived')}
-        </button>
+        <ConfirmInline
+          question={t('variables.deleteConfirm', { name: v.name })}
+          confirm={t('variables.deleteDerived')}
+          keep={t('common.cancel')}
+          onConfirm={() => del.mutate(v.name, { onError: fail })}
+          trigger={(ask) => (
+            <button type="button" className="btn btn-sm" disabled={del.isPending} onClick={ask}>
+              <Icon spec={codicon('trash')} />
+              {t('variables.deleteDerived')}
+            </button>
+          )}
+        />
       ) : null}
     </div>
   )
@@ -163,9 +166,17 @@ function BrokenRow({ pid, b }: { pid: string; b: BrokenDerived }) {
           <span className="badge" data-tone="error">{t('variables.broken')}</span>
           <span className="muted var-meta">{b.reason}</span>
         </span>
-        <button type="button" className="icon-btn" aria-label={t('variables.deleteNamed', { name: b.name })} title={t('variables.deleteDerived')} disabled={del.isPending} onClick={() => del.mutate(b.name, { onError: (e) => toastProblem(e) })}>
-          <Icon spec={codicon('trash')} />
-        </button>
+        <ConfirmInline
+          question={t('variables.deleteConfirm', { name: b.name })}
+          confirm={t('variables.deleteDerived')}
+          keep={t('common.cancel')}
+          onConfirm={() => del.mutate(b.name, { onError: (e) => toastProblem(e) })}
+          trigger={(ask) => (
+            <button type="button" className="icon-btn" aria-label={t('variables.deleteNamed', { name: b.name })} title={t('variables.deleteDerived')} disabled={del.isPending} onClick={ask}>
+              <Icon spec={codicon('trash')} />
+            </button>
+          )}
+        />
       </div>
     </div>
   )

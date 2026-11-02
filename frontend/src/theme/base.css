@@ -97,7 +97,17 @@ textarea {
   color: var(--fg-muted);
 }
 .btn-danger {
-  color: var(--error);
+  background: var(--btn-danger);
+  border-color: transparent;
+  color: var(--fg-on-emphasis);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--btn-danger-hover);
+}
+.btn-danger:disabled {
+  background: var(--btn-secondary);
+  border-color: var(--border);
+  color: var(--fg-muted);
 }
 .btn-sm {
   height: var(--h-control-sm);

@@ -197,9 +197,11 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 | `--error` | `#F85149` | `--done` | `#A371F7` |
 | `--btn-primary` | `#238636` | `--bg-hover` | `#1F2428` |
 | `--bg-pressed` (active toggle) | `#5F6874` (Light `#818B98`) | `--bg-viewport-overlay` | `#000000A6` |
+| `--btn-danger` (destructive confirm; white text ≥ 4.5:1) | `#B62324` (Light `#CF222E`) | `--btn-danger-hover` | `#A40E26` |
 
 - **Typography:** `-apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`. Sizes (UI-27, Default · Compact): UI 14 · 13 px, panels 13 · 12, badges 12 · 11, chips `--fs-chip` 13 · 11, headings 17 · 16, titles 22 · 20, home title `--fs-hero` 30 · 28; no px font size outside `tokens.css`. `ui-monospace` for numbers, except the viewer's slice index (VW-03, ADR-0023).
 - **Shape:** 6 px radius on buttons, inputs and cards; 1 px borders; no shadows except overlays.
+- **Danger:** the filled `.btn-danger` only confirms a destructive action. An irreversible action (delete, revoke, reindex, cancel) asks inline first (`lib/ui` `ConfirmInline`) and says what is kept; a reversible one (archive) is a secondary button in its confirm dialog.
 - **Badges:** Primer "Label" pills (outline in the status color, `--fs-chip`), used for phase chips and QC status; a pressed chip is `--fg` on `--bg-selected` (AUD-A3-19). Segmented controls (`.seg`, `theme/base.css`) are as wide as their options (AUD-A3-08).
 - **Icons:** codicons (VS Code) plus the custom CT set (UI-15). Octicons are not mixed in.
 - **Recycle scan (CUR-16):** the case-header trash button has an opaque vivid red fill and a white icon; hover and pressed states remain red, with the standard keyboard focus outline.

@@ -107,7 +107,7 @@ export function ArchiveDialog() {
       footer={
         <>
           <button type="button" className="btn" onClick={close}>{t('common.cancel')}</button>
-          <button type="button" className="btn btn-primary" disabled={m.isPending} onClick={run}>{t('projects.archive')}</button>
+          <button type="button" className="btn" disabled={m.isPending} onClick={run}>{t('projects.archive')}</button>
         </>
       }
     >

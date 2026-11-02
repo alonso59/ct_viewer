@@ -486,7 +486,8 @@
       "engine": "other"
     },
     "skipCount": "{{why}} ({{n}})",
-    "cancelConfirm": "Cancel this radiomics run? Features already extracted are kept."
+    "cancelConfirm": "Cancel this radiomics run? Features already extracted are kept.",
+    "deleteConfirm": "Delete the profile {{name}}? Runs made with it keep their settings."
   },
   "bundle": {
     "title": "Import project bundle",
@@ -819,7 +820,11 @@
     "exportParquet": "Download dataset table (Parquet)",
     "exportJsonl": "Download dataset.jsonl",
     "exportJsonlHelp": "One JSON line per item: imported metadata, every active layer and analyzer records",
-    "exportSensitive": "Include sensitive fields (patient id, dates, UIDs, accession numbers)"
+    "exportSensitive": "Include sensitive fields (patient id, dates, UIDs, accession numbers)",
+    "rotateConfirm": "Make a new view-only link? Everyone using the current link loses access.",
+    "revokeConfirm": "Revoke the view-only link? Everyone using it loses access.",
+    "rotated": "New view-only link created; the old one no longer works",
+    "revoked": "View-only link revoked"
   },
   "conv": {
     "connecting": "Connecting to the operation…",
@@ -1213,7 +1218,8 @@
     "importDuplicates_other": "{{count}} duplicate keys (first row kept): {{keys}}",
     "importConflicts": "Skipped, name already taken: {{names}}",
     "newDerivedTitle": "New derived variable",
-    "importTableTitle": "Import variable table"
+    "importTableTitle": "Import variable table",
+    "deleteConfirm": "Delete the derived variable {{name}}? Its definition is removed."
   },
   "design": {
     "badges": "Badges",

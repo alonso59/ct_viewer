@@ -55,6 +55,20 @@ test('all five tabs; the Plugins tab applies a pack; General creates a view-only
   expect((await token.mock.results[0]!.value) as { view_url: string }).toMatchObject({ view_url: expect.stringMatching(/\/v\//) })
 })
 
+test('rotating or revoking the view-only link asks first and reports the result (PRJ-17)', async () => {
+  const project = await api.getProject(DEMO_PID)
+  vi.spyOn(api, 'getProject').mockResolvedValue({ ...project, view_url: 'http://127.0.0.1/v/token' })
+  const revoke = vi.spyOn(api, 'revokeViewToken').mockResolvedValue(undefined as never)
+  useWorkbench.setState({ toasts: [] })
+  renderSettings()
+  fireEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
+  expect(revoke).not.toHaveBeenCalled()
+  const ask = screen.getByRole('group', { name: /Revoke the view-only link/ })
+  fireEvent.click(within(ask).getByRole('button', { name: 'Revoke' }))
+  await waitFor(() => expect(revoke).toHaveBeenCalledWith(DEMO_PID))
+  await waitFor(() => expect(useWorkbench.getState().toasts.at(-1)?.message).toBe('View-only link revoked'))
+})
+
 test('catalog removal is a draft, can be discarded and saves only label metadata', async () => {
   const project = await api.getProject(DEMO_PID)
   const update = vi.spyOn(api, 'updateProject')

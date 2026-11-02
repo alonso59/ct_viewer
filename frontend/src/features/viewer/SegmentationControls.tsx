@@ -9,12 +9,12 @@ import {
   useRestoreSegmentation,
   type SegmentationInfo,
 } from '../../api'
-import { Dialog, problemMessage } from '../../lib'
+import { ConfirmInline, Dialog, problemMessage } from '../../lib'
 import { toast } from '../../shell'
 import { codicon } from '../../theme'
 import { FolderBrowser } from '../import'
 
-function ImportDialog({ pid, itemId, initial, close }: { pid: string; itemId: string | null; initial: { segId: string; name: string }; close: () => void }) {
+function ImportDialog({ pid, itemId, initial, taken, close }: { pid: string; itemId: string | null; initial: { segId: string; name: string }; taken: string[]; close: () => void }) {
   const { t } = useTranslation()
   const start = useImportSegmentation(pid)
   const [path, setPath] = useState<string | null>(null)
@@ -69,7 +69,8 @@ function ImportDialog({ pid, itemId, initial, close }: { pid: string; itemId: st
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <label className="field">
             <span className="field-label">{t('layers.segId')}</span>
-            <input className="input mono" value={segId} onChange={(event) => setSegId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} />
+            <input className="input mono" value={segId} aria-describedby={taken.includes(segId) ? 'seg-id-taken' : undefined} onChange={(event) => setSegId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} />
+            {taken.includes(segId) ? <span id="seg-id-taken" className="muted" role="note">{t('layers.segIdTaken', { id: segId })}</span> : null}
           </label>
           <label className="field">
             <span className="field-label">{t('layers.name')}</span>
@@ -120,17 +121,16 @@ export function SegmentationControls({
     <>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-sm" onClick={() => setImporting({ segId: 'reviewed', name: '' })}>{t('layers.import')}</button>
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={reindex.isPending}
-          onClick={() => reindex.mutate(undefined, {
+        <ConfirmInline
+          question={t('layers.reindexConfirm')}
+          confirm={t('layers.reindex')}
+          keep={t('common.cancel')}
+          onConfirm={() => reindex.mutate(undefined, {
             onSuccess: () => toast({ message: t('layers.reindexStarted'), tone: 'info' }),
             onError: (cause) => toast({ message: problemMessage(cause), tone: 'error' }),
           })}
-        >
-          {t('layers.reindex')}
-        </button>
+          trigger={(ask) => <button type="button" className="btn btn-sm" disabled={reindex.isPending} onClick={ask}>{t('layers.reindex')}</button>}
+        />
         {sets.some((set) => set.seg_id === active) ? (
           <button type="button" className="btn btn-sm" onClick={() => setConfirm(sets.find((set) => set.seg_id === active) ?? null)}>
             {t('segmentation.removeSet')}
@@ -153,7 +153,7 @@ export function SegmentationControls({
           ))}
         </div>
       ) : null}
-      {importing ? <ImportDialog pid={pid} itemId={itemId} initial={importing} close={() => setImporting(null)} /> : null}
+      {importing ? <ImportDialog pid={pid} itemId={itemId} initial={importing} taken={sets.map((set) => set.seg_id)} close={() => setImporting(null)} /> : null}
       {confirm ? (
         <Dialog
           open

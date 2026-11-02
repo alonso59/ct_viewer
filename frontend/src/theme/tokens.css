@@ -144,6 +144,9 @@
   --btn-primary-hover: #2EA043;
   --btn-secondary: #21262D;
   --btn-secondary-hover: #30363D;
+  /* destructive confirmations only; white text stays >= 4.5:1 */
+  --btn-danger: #B62324;
+  --btn-danger-hover: #A40E26;
   --ok: #3FB950;
   --warn: #D29922;
   --error: #F85149;
@@ -191,6 +194,8 @@
   --btn-primary-hover: #1A7F37;
   --btn-secondary: #F6F8FA;
   --btn-secondary-hover: #EAEEF2;
+  --btn-danger: #CF222E;
+  --btn-danger-hover: #A40E26;
   --ok: #1A7F37;
   --warn: #9A6700;
   --error: #D1242F;

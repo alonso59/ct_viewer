@@ -75,6 +75,7 @@ test('mask sets restore after reindex and reimport without editing source data; 
 
   const reindex = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith('/segmentations/reindex'))
   await manager.getByRole('button', { name: 'Reindex', exact: true }).click()
+  await manager.getByRole('button', { name: 'Reindex', exact: true }).click() // UI-20: confirm the project-wide reindex
   await waitJob(((await (await reindex).json()) as { job_id: string }).job_id)
   await manager.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect.poll(async () => (await sets()).some((set) => set.seg_id === 'reviewed')).toBe(true)

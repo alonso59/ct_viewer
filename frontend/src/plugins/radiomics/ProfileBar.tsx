@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDeleteProfile, useProfiles, useRenameProfile, useSaveProfile } from '../../api'
-import { Dialog, IconButton, fmtAgo, problemMessage } from '../../lib'
+import { ConfirmInline, Dialog, IconButton, fmtAgo, problemMessage } from '../../lib'
 import { toast, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { fromWire } from './model/settings'
@@ -146,7 +146,7 @@ export function ProfileBar({ pid, schema, wire }: { pid: string; schema: Setting
                         setName(t('rad.copyOf', { name: p.name }))
                       }}
                     />
-                    <IconButton label={t('rad.delete')} icon={codicon('trash')} onClick={() => void doDelete(p)} />
+                    <ConfirmInline question={t('rad.deleteConfirm', { name: p.name })} confirm={t('rad.delete')} keep={t('common.cancel')} onConfirm={() => void doDelete(p)} trigger={(ask) => <IconButton label={t('rad.delete')} icon={codicon('trash')} onClick={ask} />} />
                   </>
                 )}
               </span>

@@ -81,6 +81,7 @@ test('variables view on the real API: review, overrides, derived, external', asy
   await rdlg.getByRole('button', { name: 'Create' }).click()
   await expect(rdlg).toBeHidden()
   await q3.getByRole('button', { name: /Delete derived variable/ }).click()
+  await q3.getByRole('button', { name: /Delete derived variable/ }).click() // confirm the delete
   // UI-10: an error toast is announced at once and stays
   await expect(page.getByRole('alert').filter({ hasText: /used by score_q3_merged/ })).toBeVisible()
   await expect(q3).toBeVisible()
@@ -89,6 +90,7 @@ test('variables view on the real API: review, overrides, derived, external', asy
   const hi = row(page, 'score_hi')
   await hi.locator('.var-name').click()
   await hi.getByRole('button', { name: /Delete derived variable/ }).click()
+  await hi.getByRole('button', { name: /Delete derived variable/ }).click() // confirm the delete
   await expect(hi).toHaveCount(0)
   await expect(derived.locator('.var-item')).toHaveCount(2)
 
