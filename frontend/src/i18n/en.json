@@ -630,7 +630,13 @@
     },
     "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}",
     "undo": "Undo",
-    "undone": "Decision undone: {{status}} again"
+    "undone": "Decision undone: {{status}} again",
+    "mark": {
+      "accepted": "Mark accepted",
+      "needs_minor_correction": "Mark needs minor correction",
+      "needs_major_correction": "Mark needs major correction",
+      "rejected": "Mark rejected"
+    }
   },
   "queue": {
     "exportsWritten": "Wrote {{files}} to {{dir}}/",

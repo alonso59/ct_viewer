@@ -96,7 +96,8 @@ export function registerCuration() {
     registry.command({
       id,
       writes: true,
-      title: `status.${status}`,
+      // an action ("Mark accepted"); the status itself stays "Accepted"
+      title: `curation.mark.${status}`,
       category: 'cat.curation',
       keywords,
       menuGroup: 1,

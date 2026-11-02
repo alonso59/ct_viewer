@@ -207,7 +207,7 @@ for (const stage of ['discovering', 'planning']) {
       const original = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
       expect(original.status).toBe('running')
       expect(original.project_id).toBe(pid ?? null)
-      await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+      await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
       await page.reload()
       await expect(page.getByTestId('conv-chip')).toBeVisible()
       await page.context().close()
@@ -218,7 +218,7 @@ for (const stage of ['discovering', 'planning']) {
         await page.getByRole('button', { name: /Convert DICOM/ }).click()
         dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
         await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(oid)
-        await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+        await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
         const chip = page.getByTestId('conv-chip')
         await chip.getByRole('button', { name: 'Cancel', exact: true }).click()
         await chip.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
@@ -276,7 +276,7 @@ for index, path in enumerate(sorted(root.rglob("*.dcm"))):
   const { operation_id: oid } = await (await created).json() as { operation_id: string }
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
   await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
-  await dialog.getByRole('button', { name: 'Minimize', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
   await page.getByRole('navigation', { name: /Activity bar/ }).getByRole('button', { name: 'Variables', exact: true }).click()
   await page.getByTestId('conv-chip').getByRole('button', { name: 'Show', exact: true }).click()
   await dialog.getByRole('button', { name: /Convert 2 series/ }).click()

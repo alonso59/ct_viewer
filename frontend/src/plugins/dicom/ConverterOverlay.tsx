@@ -537,7 +537,7 @@ export default function ConverterOverlay() {
         size="lg"
         dismissible={false}
         actions={
-          <button type="button" className="icon-btn" aria-label={t('conv.minimize')} title={t('conv.minimizeHint')} onClick={c.minimize}>
+          <button type="button" className="icon-btn" aria-label={t('conv.minimizeWindow')} title={t('conv.minimizeHint')} onClick={c.minimize}>
             <Icon spec={codicon('chrome-minimize')} />
           </button>
         }

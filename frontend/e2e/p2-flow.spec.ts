@@ -20,7 +20,13 @@ test('new project → import → browse → share link', async ({ page, browser,
 
   // Workspace home → New project: name, default modality and a disposable dataset (PRJ-19).
   await page.goto('/')
-  await page.getByRole('button', { name: /New project/ }).click()
+  const newProject = page.getByRole('button', { name: /New project/ })
+  // Escape closes a dialog and gives focus back to the button that opened it (FE-08)
+  await newProject.click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(newProject).toBeFocused()
+  await newProject.click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Project name').fill(name)
   await dialog.getByLabel('Dataset folder').fill(dataset)

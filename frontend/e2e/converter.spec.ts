@@ -103,7 +103,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   expect(revised.plan_attempt).toBeGreaterThan(original.plan_attempt)
   expect(revised.dataset_name).toBe(name)
   expect(revised.settings.phase_analyzer).toBe(false)
-  await dialog.getByRole('button', { name: 'Minimize', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
   await expect(page.getByTestId('conv-chip')).toBeVisible()
   await page.reload()
   const chip = page.getByTestId('conv-chip')

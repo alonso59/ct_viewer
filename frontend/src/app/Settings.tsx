@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { API_MODE } from '../api'
-import { bindingOf, chordOf, commandTitle, formatChord, openEditor, registry, toast } from '../shell'
+import { bindingOf, chordOf, commandMatches, commandTitle, formatChord, openEditor, registry, toast } from '../shell'
 import { useReviewer, useSettings } from '../state'
 import { INTERFACE_SIZES, type ThemeChoice } from '../theme'
 
@@ -14,7 +14,7 @@ export function SettingsView() {
   const [name, setName] = useState(reviewer.name)
   const [filter, setFilter] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
-  const cmds = [...registry.commands.values()].filter((c) => c.keybinding && (!filter || commandTitle(c, t).toLowerCase().includes(filter.toLowerCase())))
+  const cmds = [...registry.commands.values()].filter((c) => c.keybinding && commandMatches(c, filter, t))
   return (
     <div className="settings-view">
       <div className="field">

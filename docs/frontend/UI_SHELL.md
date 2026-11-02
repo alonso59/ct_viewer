@@ -145,7 +145,7 @@ Implementation (Open mode, import): "Open file or folder…" is on the workspace
 | Navigation context (AUD-A1-04) | A case opened from Outliers, the correction queue, Problems or a label table remembers that list: `Alt+↓/↑` follow it and the case header shows e.g. "Outliers 3/22 ›" with × (back to Explorer order). An Explorer or quick-open open drops it. "Next unreviewed" = next case in Explorer order whose CUR-08 `review_state` is not `reviewed`, wrapping |
 | Explorer (AUD-A1-03) | The Project view follows the active case: cursor and scroll move to its row (its item row when the case is expanded); it does not expand cases by itself |
 | Sharing (AUD-A1-11) | The title-bar share button is a menu: Copy edit link · Copy view-only link (created on first use, PRJ-17); both keep the current tab's deep link (`/v/{token}/case/…` opens that case read-only). A view-only workbench shows only its own link |
-| Help (AUD-A4-05) | About: version (API-01), "Research use only · not a medical device" (NFR-16), main open-source licences; the status-bar project item's tooltip repeats the version and the notice. Keyboard shortcuts lists every bound command |
+| Help (AUD-A4-05) | About: version (API-01), "Research use only · not a medical device" (NFR-16), main open-source licences; the status-bar project item's tooltip repeats the version and the notice. Keyboard shortcuts lists every bound command, one group per menu name, named as actions ("Mark accepted"; the status stays "Accepted"), with a filter by title or keys (shared with Settings › Keybindings); its list scrolls by keyboard |
 | Archive (AUD-A4-03) | File › Archive project… and the home card's archive button ask first (PRJ-06); the home's **Archived** toggle lists archived projects with Restore |
 
 ## Default keybindings
@@ -157,8 +157,8 @@ Implementation (Open mode, import): "Open file or folder…" is on the workspace
 | `Ctrl/Cmd+Alt+B` | Toggle inspector | `Alt+W` | Close tab (browsers reserve `Ctrl/Cmd+W`; Electron uses `Ctrl/Cmd+W`) |
 | `Alt+↓` / `Alt+↑` | Next / previous case (navigation list, else filtered Explorer order) | `F8` | Next problem |
 | `Alt+Shift+↓` | Next unreviewed case (AUD-A1-04) | `Ctrl/Cmd+\` | Split editor |
-| `A` | Mark accepted* | `Shift+1` / `Shift+2` | Needs minor / major correction* |
-| `X` | Rejected* | `Q` | Add to correction queue* |
+| `A` | Mark accepted* | `Shift+1` / `Shift+2` | Mark needs minor / major correction* |
+| `X` | Mark rejected* | `Q` | Add to correction queue* |
 | `1`–`9` | Toggle label visibility* | `L` | Cycle viewer layout* |
 | `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset all views* (VW-10) |
 | `F` | Fit the view under the pointer* (VW-26) | `Esc` | Restore a maximized view* |

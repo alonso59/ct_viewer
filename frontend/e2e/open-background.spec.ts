@@ -29,7 +29,7 @@ test('minimized source opening reloads, cancels and resumes the same operation',
     const operation = await response.json() as { operation_id: string; attempt: number }
     let window = page.getByRole('dialog', { name: 'Open file or folder', exact: true })
     await expect(window).toBeVisible()
-    await window.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+    await window.getByRole('button', { name: 'Minimize window', exact: true }).click()
     const chip = page.getByTestId('conv-chip')
     await expect(chip).toBeVisible()
     await page.reload()

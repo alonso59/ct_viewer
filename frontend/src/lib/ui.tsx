@@ -54,10 +54,12 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   )
 })
 
-export function Dialog({ open, onOpenChange, title, icon, children, footer, size, dismissible = true, actions }: {
+export function Dialog({ open, onOpenChange, title, description, icon, children, footer, size, dismissible = true, actions }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: ReactNode
+  /** One sentence under the title, read as the dialog's description */
+  description?: ReactNode
   icon?: IconSpec
   children: ReactNode
   footer?: ReactNode
@@ -67,26 +69,42 @@ export function Dialog({ open, onOpenChange, title, icon, children, footer, size
   /** Extra header buttons, before × */
   actions?: ReactNode
 }) {
+  // Dialogs open from state, not from a Radix trigger: closing gives focus back to the control
+  // that had it when the dialog opened
+  const invoker = useRef<HTMLElement | null>(null)
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
       <RDialog.Portal>
         <RDialog.Overlay className="dialog-scrim" />
         <RDialog.Content
           className={`overlay dialog${size === 'lg' ? ' dialog-lg' : ''}`}
-          aria-describedby={undefined}
+          {...(description ? {} : { 'aria-describedby': undefined })}
           onInteractOutside={dismissible ? undefined : (e) => e.preventDefault()}
+          onOpenAutoFocus={() => {
+            invoker.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+          }}
+          onCloseAutoFocus={(e) => {
+            const back = invoker.current
+            invoker.current = null
+            if (!back?.isConnected) return
+            e.preventDefault()
+            back.focus()
+          }}
         >
           <div className="dialog-header">
             {icon ? <Icon spec={icon} /> : null}
             <RDialog.Title style={{ margin: 0, fontSize: 'var(--fs-ui)', flex: 1 }}>{title}</RDialog.Title>
             {actions}
             <RDialog.Close asChild>
-              <button type="button" className="icon-btn" aria-label="close">
+              <button type="button" className="icon-btn" aria-label={i18n.t('common.close')}>
                 <Icon spec={{ codicon: 'close' }} />
               </button>
             </RDialog.Close>
           </div>
-          <div className="dialog-body">{children}</div>
+          <div className="dialog-body">
+            {description ? <RDialog.Description className="muted dialog-description">{description}</RDialog.Description> : null}
+            {children}
+          </div>
           {footer ? <div className="dialog-footer">{footer}</div> : null}
         </RDialog.Content>
       </RDialog.Portal>

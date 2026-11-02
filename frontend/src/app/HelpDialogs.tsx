@@ -1,9 +1,10 @@
 // Help › Keyboard shortcuts and Help › About, on every route
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useHealth } from '../api'
 import { Dialog } from '../lib'
-import { bindingOf, commandTitle, formatChord, registry } from '../shell'
+import { bindingOf, commandMatches, commandTitle, formatChord, registry } from '../shell'
 import { codicon } from '../theme'
 import { useHelp } from './help'
 
@@ -56,28 +57,36 @@ function About({ onClose }: { onClose: () => void }) {
 
 function Keys({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
-  const rows = [...registry.commands.values()].filter((c) => bindingOf(c) && registry.allowed(c))
-  const cats = [...new Set(rows.map((c) => c.category ?? ''))]
+  const [filter, setFilter] = useState('')
+  const rows = [...registry.commands.values()].filter((c) => bindingOf(c) && registry.allowed(c) && commandMatches(c, filter, t))
+  // one group per menu name: view toggles and "Views ›" are both "View"
+  const groups = new Map<string, typeof rows>()
+  for (const c of rows) {
+    const name = c.category ? t(c.category) : ''
+    groups.set(name, [...(groups.get(name) ?? []), c])
+  }
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={t('cmd.keyboardShortcuts')} icon={codicon('keyboard')} size="lg">
-      <p className="muted">{t('keys.help')}</p>
-      {cats.map((cat) => (
-        <section key={cat}>
-          <h3>{cat ? t(cat) : ''}</h3>
-          <table className="table">
-            <tbody>
-              {rows
-                .filter((c) => (c.category ?? '') === cat)
-                .map((c) => (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={t('cmd.keyboardShortcuts')} description={t('keys.help')} icon={codicon('keyboard')} size="lg">
+      <input className="input input-sm keys-filter" type="search" value={filter} aria-label={t('keys.filter')} placeholder={t('keys.filter')} onChange={(e) => setFilter(e.target.value)} />
+      {/* scrolls on its own, so the keyboard can scroll it */}
+      <div className="keys-list" tabIndex={0} role="region" aria-label={t('keys.list')}>
+        {[...groups].map(([name, cmds]) => (
+          <section key={name}>
+            <h3>{name}</h3>
+            <table className="table">
+              <tbody>
+                {cmds.map((c) => (
                   <tr key={c.id}>
                     <td>{commandTitle(c, t)}</td>
                     <td className="num"><span className="kbd">{formatChord(bindingOf(c))}</span></td>
                   </tr>
                 ))}
-            </tbody>
-          </table>
-        </section>
-      ))}
+              </tbody>
+            </table>
+          </section>
+        ))}
+        {rows.length ? null : <p className="muted">{t('keys.none')}</p>}
+      </div>
     </Dialog>
   )
 }

@@ -1065,7 +1065,8 @@
     "showOutput": "Show output",
     "cancelRunConfirm": "Cancel the conversion? Converted series are kept; the rest stop.",
     "cancelScanConfirm": "Stop this analysis? Nothing is converted or opened yet.",
-    "cancelPhaseConfirm": "Cancel the phase analysis? Converted series are kept."
+    "cancelPhaseConfirm": "Cancel the phase analysis? Converted series are kept.",
+    "minimizeWindow": "Minimize window"
   },
   "ct": {
     "w": "W",
@@ -1503,6 +1504,9 @@
     "components": "Open-source components"
   },
   "keys": {
-    "help": "Change a shortcut in Settings › Keybindings. Browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W."
+    "help": "Change a shortcut in Settings › Keybindings. Browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W.",
+    "filter": "Filter shortcuts",
+    "list": "Shortcuts",
+    "none": "No shortcut matches"
   }
 }

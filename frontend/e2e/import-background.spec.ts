@@ -37,7 +37,7 @@ test('import inspection reloads, cancels and resumes with its original project a
     const operation = await response.json() as { operation_id: string; attempt: number; project_id: string }
     expect(operation.project_id).toBe(project.project_id)
     const inspection = page.getByRole('dialog', { name: 'Inspect import source' })
-    await inspection.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+    await inspection.getByRole('button', { name: 'Minimize window', exact: true }).click()
     await page.reload()
     const chip = page.getByTestId('conv-chip')
     await expect(chip).toBeVisible()

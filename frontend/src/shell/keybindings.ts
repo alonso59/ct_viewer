@@ -107,3 +107,9 @@ export function runCommand(id: string, arg?: string) {
 
 /** The translated title of a command (its `titleArgs` filled in) */
 export const commandTitle = (c: Command, t: (key: string, args?: Record<string, string>) => string) => t(c.title, c.titleArgs)
+
+/** Shortcut filters (Settings, Keyboard shortcuts): a command matches by its title or its keys */
+export function commandMatches(c: Command, query: string, t: (key: string, args?: Record<string, string>) => string): boolean {
+  const q = query.trim().toLowerCase()
+  return !q || commandTitle(c, t).toLowerCase().includes(q) || formatChord(bindingOf(c)).toLowerCase().includes(q)
+}
