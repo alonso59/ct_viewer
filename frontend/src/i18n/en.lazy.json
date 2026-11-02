@@ -554,7 +554,9 @@
     "close": "Close",
     "noSession": "No Open session",
     "noSessionHelp": "Open a file or folder to view it without a project.",
-    "unreadable": "{{name}} cannot be read"
+    "unreadable": "{{name}} cannot be read",
+    "cancelOpening": "Cancel opening",
+    "cancelOpeningConfirm": "Stop opening? Nothing is shown yet and nothing is converted."
   },
   "tasks": {
     "gpu": {
@@ -728,7 +730,8 @@
     "adds": "Adds: {{list}}",
     "openNamed": "Open {{name}}",
     "invalid_one": "{{count}} invalid plugin manifest",
-    "invalid_other": "{{count}} invalid plugin manifests"
+    "invalid_other": "{{count}} invalid plugin manifests",
+    "details": "Details"
   },
   "psettings": {
     "title": "Project settings",

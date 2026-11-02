@@ -1,21 +1,24 @@
+import type { TFunction } from 'i18next'
+
 import { type CurationStateRow, type CurationStatus, type ItemRecord, type LabelDef } from '../../api'
 
-export interface TargetOption {
-  value: string
-  /** i18n key, or `label:{name}` for label-map entries */
-  label: string
+/** Targets: the whole mask, each label of the project map, VOI mask, side, case */
+export function targetsFor(item: Pick<ItemRecord, 'scope'> | undefined, labels: Pick<LabelDef, 'value' | 'name'>[]): string[] {
+  return ['seg', ...labels.map((l) => `label:${l.value}`), ...(item?.scope === 'voi' ? ['voi_mask'] : []), 'side', 'case']
 }
 
-/** Targets: the whole mask, each label of the project map, VOI mask, side, case */
-export function targetsFor(item: Pick<ItemRecord, 'scope'> | undefined, labels: Pick<LabelDef, 'value' | 'name'>[]): TargetOption[] {
-  const out: TargetOption[] = [{ value: 'seg', label: 'curation.target.seg' }]
-  for (const l of labels) out.push({ value: `label:${l.value}`, label: `label:${l.name}` })
-  if (item?.scope === 'voi') out.push({ value: 'voi_mask', label: 'curation.target.voi_mask' })
-  out.push(
-    { value: 'side', label: 'curation.target.side' },
-    { value: 'case', label: 'curation.target.case' },
-  )
-  return out
+const TARGET_KEYS: Record<string, string> = {
+  seg: 'curation.target.seg',
+  voi_mask: 'curation.target.voi_mask',
+  side: 'curation.target.side',
+  case: 'curation.target.case',
+}
+
+/** A target in words ("Segmentation (all labels)", "Label: kidney"); the raw target stays in tooltips */
+export function targetName(target: string, labels: Pick<LabelDef, 'value' | 'name'>[], t: TFunction): string {
+  if (target.startsWith('label:')) return t('curation.target.labelName', { name: labels.find((l) => `label:${l.value}` === target)?.name ?? target.slice(6) })
+  const key = TARGET_KEYS[target]
+  return key ? t(key) : target
 }
 
 /** Mask targets carry `seg_id` */

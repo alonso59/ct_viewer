@@ -158,7 +158,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
         <span style={{ flex: 1 }} />
         {onOutput ? <button type="button" className="btn btn-sm" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
-        <ConfirmInline question={t('conv.cancelScanConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('conv.cancelScan')}</button>} />
+        <ConfirmInline question={t(opening ? 'open.cancelOpeningConfirm' : 'conv.cancelScanConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t(opening ? 'open.cancelOpening' : 'conv.cancelScan')}</button>} />
       </div>
     </div>
   )
@@ -571,14 +571,16 @@ export default function ConverterOverlay() {
             <span className="muted">{t('conv.inPlan', { batch: owner.batch.name, plan: owner.plan.name })}</span>
           </div> : null}
           {!isSourceOnly ? <StepBar step={analysing ? 'estimate' : step} /> : null}
-          {operation && (step === 'settings' || step === 'estimate') ? <div className="conv-inventory">
+          {/* DICOM counts mean nothing while a file or folder opens */}
+          {operation && !isOpening && (step === 'settings' || step === 'estimate') ? <div className="conv-inventory">
             <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
             {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
             {!operation.summary?.complete && !operation.conversion_run && !(operation.progress?.files_total || operation.progress_stage === 'counting') ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
             {suggestsBatches ? <div className="conv-row"><button type="button" className="btn btn-sm" disabled={busy} onClick={() => void suggestBatches()}>{t('conv.batches.suggest')}</button></div> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
-            <code className="conv-path">{source}</code>
+            {/* opening names the file or folder, not its server path (the path is the tooltip) */}
+            <code className="conv-path" title={source ?? undefined}>{isOpening ? source?.split('/').filter(Boolean).at(-1) : source}</code>
             {working && scanCount ? <ScanPanel opening={isOpening} discovering={isDiscovering} count={operation.stage === 'import_index' ? { stage: 'import_index', done: operation.progress?.done ?? 0, total: operation.progress?.total ?? 0 } : scanCount} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
               <p>{t('open.prepared')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>

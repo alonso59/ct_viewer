@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useQueue, type CurationStatus, type V2ImportReport } from '../../api'
+import { api, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useProject, useQueue, useSegmentations, type CurationStatus, type V2ImportReport } from '../../api'
 import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis, problemMessage, useRowKeys } from '../../lib'
 import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
+import { targetName } from './model'
 import '../../i18n/lazy'
 
 function download(name: string, blob: Blob) {
@@ -99,6 +100,8 @@ export function QueueEditor() {
   const [status, setStatus] = useState<CurationStatus | ''>('')
   const [busyCsv, setBusyCsv] = useState(false)
   const rows = (data ?? []).filter((r) => !status || r.status === status)
+  const labels = useProject(pid).data?.label_map ?? []
+  const sets = useSegmentations(pid).data ?? []
   const rowId = (r: (typeof rows)[number]) => `${r.item_id}|${r.target}|${r.seg_id ?? ''}`
   const rowKeys = useRowKeys(rows.map(rowId))
 
@@ -192,8 +195,8 @@ export function QueueEditor() {
                 <td className="mono">{r.case_id}</td>
                 <td className="muted"><ItemName id={r.item_id} phase={r.phase} /></td>
                 <td>{r.phase ? <PhaseChip phase={r.phase} /> : null}</td>
-                <td className="mono">{r.target}</td>
-                <td className="mono muted">{r.seg_id ?? ''}</td>
+                <td title={r.target}>{targetName(r.target, labels, t)}</td>
+                <td className="muted" title={r.seg_id ?? undefined}>{r.seg_id ? sets.find((s) => s.seg_id === r.seg_id)?.name || r.seg_id : ''}</td>
                 <td><StatusBadge status={r.status} /></td>
                 <td>
                   <span className="badge" data-tone={r.priority === 'high' ? 'error' : r.priority === 'medium' ? 'warn' : undefined}>{t(`priority.${r.priority}`)}</span>

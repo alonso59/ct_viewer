@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
@@ -189,6 +189,8 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const m = info.manifest
+  const tasks = useTasks().data?.tasks ?? []
+  const taskTitle = (id: string) => tasks.find((x) => x.manifest.id === id)?.manifest.title ?? id
   const explorer = useExplorerFilter()
   const sets = useSegmentations(pid).data ?? []
   const project = useProject(pid).data
@@ -319,8 +321,8 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
               <p key={reason} className="muted">{t('tasks.missing', { reason, n })}</p>
             ))}
             {(pre.suggestions ?? []).map((s) => (
-              <button key={s.task_id + s.reason} type="button" className="btn btn-sm" onClick={() => openEditor('task', { taskId: s.task_id })}>
-                {t('tasks.suggest', { task: s.task_id, reason: s.reason })}
+              <button key={s.task_id + s.reason} type="button" className="btn btn-sm" title={s.task_id} onClick={() => openEditor('task', { taskId: s.task_id })}>
+                {t('tasks.suggest', { task: taskTitle(s.task_id), reason: s.reason })}
               </button>
             ))}
             {pre.derived_root_required ? (
@@ -372,11 +374,18 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   )
 }
 
-function TaskEditor({ params }: EditorProps<TaskParams>) {
+function TaskEditor({ params, panelId }: EditorProps<TaskParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const { data, error } = useTasks()
   const info = data?.tasks.find((x) => x.manifest.id === params.taskId)
+  // a tab restored before the task list loaded is named after the task id until now
+  const title = info?.manifest.title
+  useEffect(() => {
+    if (!title) return
+    const panel = useWorkbench.getState().dock?.getPanel(panelId)
+    if (panel && panel.title !== title) panel.api.setTitle(title)
+  }, [panelId, title])
   if (error) return <ProblemCard error={error} />
   if (!data) return <div className="empty">{t('common.loading')}</div>
   if (!info) return <div className="error-card">{t('tasks.unknown', { id: params.taskId })}</div>

@@ -1,6 +1,6 @@
 import { createElement, lazy, Suspense, useEffect, useRef } from 'react'
 
-import { useTaskRuns, useTasks } from '../../api'
+import { keys, queryClient, useTaskRuns, useTasks, type TaskList } from '../../api'
 import i18n from '../../i18n'
 import { notify, registry, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
@@ -25,7 +25,8 @@ export function registerTasks() {
     writes: true,
     component: LazyEditor,
     id: (p) => `task:${p.taskId}`,
-    title: (p) => p.taskId,
+    // the manifest title; the id until the task list has loaded (the editor renames the tab then)
+    title: (p) => queryClient.getQueryData<TaskList>(keys.tasks())?.tasks.find((x) => x.manifest.id === p.taskId)?.manifest.title ?? p.taskId,
     icon: () => codicon('run-all'),
     path: (pid, p) => `/p/${pid}/tasks/${encodeURIComponent(p.taskId)}`,
     match: (path) => {

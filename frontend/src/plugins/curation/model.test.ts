@@ -1,5 +1,6 @@
 import type { CurationStateRow } from '../../api'
-import { decisionsFor, statusOf, targetsFor } from './model'
+import i18n from '../../i18n'
+import { decisionsFor, statusOf, targetName, targetsFor } from './model'
 
 const row = (p: Partial<CurationStateRow>): CurationStateRow => ({
   item_id: 'c1.01.complete.-', case_id: 'c1', target: 'seg', status: 'accepted', priority: 'medium', comment: '',
@@ -9,8 +10,17 @@ const row = (p: Partial<CurationStateRow>): CurationStateRow => ({
 describe('curation model', () => {
   test('targets follow the label map (PRJ-07) and add voi_mask only for VOI items', () => {
     const labels = [{ value: 1, name: 'kidney' }, { value: 2, name: 'tumor' }]
-    expect(targetsFor({ scope: 'complete' }, labels).map((o) => o.value)).toEqual(['seg', 'label:1', 'label:2', 'side', 'case'])
-    expect(targetsFor({ scope: 'voi' }, []).map((o) => o.value)).toContain('voi_mask')
+    expect(targetsFor({ scope: 'complete' }, labels)).toEqual(['seg', 'label:1', 'label:2', 'side', 'case'])
+    expect(targetsFor({ scope: 'voi' }, [])).toContain('voi_mask')
+  })
+
+  // UI-08 (names, not identifiers): targets read as words; label targets by their label name
+  test('a target in words', () => {
+    const labels = [{ value: 2, name: 'tumor' }]
+    expect(targetName('seg', labels, i18n.t)).toBe('Segmentation (all labels)')
+    expect(targetName('label:2', labels, i18n.t)).toBe('Label: tumor')
+    expect(targetName('label:7', labels, i18n.t)).toBe('Label: 7')
+    expect(targetName('side', labels, i18n.t)).toBe('Side / laterality')
   })
 
   test('decisions: item targets of the active item plus the case target, newest first', () => {

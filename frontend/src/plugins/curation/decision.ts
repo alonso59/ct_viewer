@@ -4,11 +4,11 @@ import { create } from 'zustand'
 
 import i18n from '../../i18n'
 import { api, keys, ProblemError, queryClient, type CurationContext, type CurationStateRow, type CurationStatus, type Priority, type Project } from '../../api'
-import { problemToastText } from '../../lib'
+import { itemName, knownPhase, problemToastText } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
 import { getViewerContext } from '../../features/viewer'
-import { isMask, rowOf } from './model'
+import { isMask, rowOf, targetName } from './model'
 
 // Draft shared by the left view, the inspector and the keyboard shortcuts. Target and priority are
 // working preferences; comment, queue flag and side belong to the item they were typed for.
@@ -121,7 +121,12 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
       }
     }
     toast({
-      message: t('curation.saved', { status: t(`status.${status}`), target, id: caseTarget ? activeCaseId : activeItemId }),
+      // names, not identifiers: "Accepted · Label: tumor · case_00042 · NP · Full scan"
+      message: t('curation.saved', {
+        status: t(`status.${status}`),
+        target: targetName(target, queryClient.getQueryData<Project>(keys.project(pid))?.label_map ?? [], t),
+        id: caseTarget || !activeItemId ? activeCaseId : itemName(activeItemId, t, knownPhase(pid, activeItemId)),
+      }),
       tone: 'ok',
       action: { label: t('curation.undo'), run: () => void undo() },
     })

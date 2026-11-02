@@ -8,7 +8,7 @@ import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { submitDecision, useDraft } from './decision'
-import { decisionsFor, targetsFor } from './model'
+import { decisionsFor, targetName, targetsFor } from './model'
 import '../../i18n/lazy'
 
 const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
@@ -53,9 +53,9 @@ export function CurationForm() {
       <label className="field">
         <span className="field-label">{t('curation.target.label')}</span>
         <select className="select input-sm" value={d.target} onChange={(e) => d.set({ target: e.target.value })}>
-          {targetsFor(item, labels).map((o) => (
-            <option key={o.value} value={o.value} disabled={o.value !== 'case' && !iid}>
-              {o.label.startsWith('label:') ? t('curation.target.labelName', { name: o.label.slice(6) }) : t(o.label)}
+          {targetsFor(item, labels).map((target) => (
+            <option key={target} value={target} disabled={target !== 'case' && !iid}>
+              {targetName(target, labels, t)}
             </option>
           ))}
         </select>
@@ -120,7 +120,7 @@ export function CurationForm() {
           <div className="section-title" style={{ padding: 0 }}>{t('curation.current')}</div>
           {mine.map((s) => (
             <div key={`${s.item_id ?? s.case_id}|${s.target}|${s.seg_id ?? ''}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
-              <span className="mono muted">{s.target}</span>
+              <span className="muted" title={s.target}>{targetName(s.target, labels, t)}</span>
               {s.seg_id && (sets?.length ?? 0) > 1 ? <span className="badge" title={t('curation.segSet')}>{segName(s.seg_id)}</span> : null}
               <StatusBadge status={s.status} />
               {s.proposed_side ? <span className="muted">{t('history.proposedSide', { side: s.proposed_side })}</span> : null}

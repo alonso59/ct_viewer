@@ -6,3 +6,4 @@
 .plugin-card-head .badge { margin-left: auto; }
 .plugin-card p { margin: 0; }
 .plugin-card-adds, .plugin-card-reason { font-size: var(--fs-badge); }
+.plugin-card-details summary { cursor: pointer; font-size: var(--fs-badge); }
