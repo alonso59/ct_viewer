@@ -696,7 +696,6 @@
   "output": {
     "activity": "Activity",
     "channel": "Output channel",
-    "copied": "Output copied",
     "copy": "Copy",
     "copyFailed": "The browser blocked the clipboard; select the lines and copy them",
     "curation": "[curation] {{reviewer}} → {{id}} {{target}} = {{status}}",
@@ -712,7 +711,17 @@
     },
     "noLines": "No output yet",
     "operation": "{{name}} · output",
-    "project": "[project] updated: {{fields}}"
+    "project": "[project] updated: {{fields}}",
+    "search": "Filter lines",
+    "noMatch": "No line matches the filter",
+    "copiedSome": "Copied {{n}} of {{total}} lines (filtered)",
+    "copiedAll_one": "Copied {{count}} line",
+    "copiedAll_other": "Copied {{count}} lines",
+    "download": "Download",
+    "downloadHelp": "Save the lines shown as a .log file",
+    "ended": "Log ended",
+    "redacted": "Host paths are redacted",
+    "redactedHelp": "Server logs name the data root instead of a folder path on the server"
   },
   "settings": {
     "editKey": "Click to change",
