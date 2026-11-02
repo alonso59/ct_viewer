@@ -103,6 +103,7 @@ export function registerCuration() {
       keybinding: key,
       when: 'viewer',
       enabled: hasItem,
+      disabledReason: () => (hasItem() ? undefined : 'reason.openCase'),
       run: () => void submitDecision(status),
     })
   registry.command({

@@ -992,5 +992,27 @@
   "confirm": {
     "cancelRun": "Cancel this run? Finished items are kept; the rest stop.",
     "cancelJob": "Cancel this job? Work done so far is kept."
+  },
+  "reason": {
+    "working": "Still working…",
+    "checking": "Checking what is ready…",
+    "chooseFolder": "Choose a folder first",
+    "fixAlias": "Fix the alias above",
+    "uploadMetadata": "Upload the metadata file first",
+    "chooseSourceType": "Choose how to read this folder",
+    "notImportable": "This kind of source cannot be imported",
+    "noMetadata": "The preview found no metadata table to import",
+    "projectName": "Enter a project name",
+    "datasetFolder": "Choose a dataset folder",
+    "noFile": "Select a file first",
+    "fileError": "This file could not be read",
+    "npyAdd": "NumPy files are added as NIfTI: save as NIfTI first",
+    "axisOrder": "Choose the axis order first",
+    "fixSettings": "Fix the settings marked above",
+    "nothingReady": "No selected item is ready for this task",
+    "taskUnavailable": "This task is not available here",
+    "cleanup": "Waits until the stop is confirmed and cleaned up",
+    "conversionFirst": "Finish the conversion first",
+    "openCase": "Open a case first"
   }
 }

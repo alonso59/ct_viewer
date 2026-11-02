@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCommand, useBatchPlans, useSourceOperation, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
 import { NewProjectDialog } from '../../features/import'
-import { ConfirmInline, fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
+import { Button, ConfirmInline, fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
 import { filesCell } from './BatchPreview'
 import { showOperationOutput } from './output'
 import { useConverter } from './store'
@@ -65,8 +65,8 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
           {operation ? <button type="button" className="btn btn-sm" onClick={() => { useConverter.getState().minimize(); showOperationOutput(operation) }}>{t('conv.showOutput')}</button> : null}
           {batch.status === 'completed' && batch.dataset ? <button type="button" className="btn btn-sm" onClick={() => onCreate(batch)}>{t('conv.batches.createProject')}</button> : null}
           {batch.status === 'attention' && operation ? <>
-            <button type="button" className="btn btn-sm btn-primary" disabled={busy || control.isPending || !fixable} onClick={() => control.mutate({ op: operation, action: 'resume' })}>{t('conv.resumePending')}</button>
-            {failed > 0 ? <button type="button" className="btn btn-sm" disabled={busy || control.isPending || !fixable} onClick={() => control.mutate({ op: operation, action: 'retry_failed' })}>{t('conv.retryFailed')}</button> : null}
+            <Button className="btn btn-sm btn-primary" disabled={busy || control.isPending || !fixable} reason={t(fixable ? 'reason.working' : 'reason.cleanup')} onClick={() => control.mutate({ op: operation, action: 'resume' })}>{t('conv.resumePending')}</Button>
+            {failed > 0 ? <Button className="btn btn-sm" disabled={busy || control.isPending || !fixable} reason={t(fixable ? 'reason.working' : 'reason.cleanup')} onClick={() => control.mutate({ op: operation, action: 'retry_failed' })}>{t('conv.retryFailed')}</Button> : null}
           </> : null}
         </div>
       </td>

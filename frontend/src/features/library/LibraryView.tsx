@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { usePlugins, type PluginInfo } from '../../api'
-import { ProblemCard } from '../../lib'
+import { Button, ProblemCard } from '../../lib'
 import { openerOf } from '../../plugins/host'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
@@ -33,9 +33,9 @@ export function PluginCard({ info }: { info: PluginInfo }) {
       {adds.length ? <p className="muted plugin-card-adds">{t('library.adds', { list: adds.join(' · ') })}</p> : null}
       {info.reason ? <p className="muted plugin-card-reason">{info.reason}</p> : null}
       <div>
-        <button type="button" className="btn btn-sm" disabled={!open} onClick={() => open?.()} aria-label={t('library.openNamed', { name: m.title })}>
+        <Button className="btn btn-sm" disabled={!open} reason={info.reason ?? t(`library.status.${info.status}`)} onClick={() => open?.()} aria-label={t('library.openNamed', { name: m.title })}>
           {t('common.open')}
-        </button>
+        </Button>
       </div>
     </li>
   )

@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { api, keys, ProblemError, useAttachOpen, useFsList, useStartOpen, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
-import { Dialog, pendingPath, ProblemCard } from '../../lib'
+import { Button, Dialog, pendingPath, ProblemCard } from '../../lib'
 import { FolderBrowser, NewProjectDialog } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
 import { runCommand } from '../../shell'
@@ -138,6 +138,8 @@ export default function OpenRoute() {
   const axisKey = current ? `${sid}:${current.n}` : ''
   const order = current ? (orders[axisKey] ?? current.axis_order) : null
   const needsOrder = !!current && current.format === 'npy' && !order
+  // why the file actions are disabled, before the action-specific reasons
+  const fileBlocker = !current ? 'reason.noFile' : current.error ? 'reason.fileError' : null
   const mask = current ? attachedTo(items, current.n) : null
   const oneSlice = current?.n_slices === 1
   useEffect(() => {
@@ -166,14 +168,14 @@ export default function OpenRoute() {
             <Icon spec={codicon('new-folder')} />
             {t('open.createProject')}
           </button>
-          <button type="button" className="btn" disabled={!current || !!current.error || current.format === 'npy' || selectionBusy} onClick={() => setAdding(true)}>
+          <Button className="btn" disabled={!current || !!current.error || current.format === 'npy' || selectionBusy} reason={t(fileBlocker ?? (current?.format === 'npy' ? 'reason.npyAdd' : 'reason.working'))} onClick={() => setAdding(true)}>
             <Icon spec={codicon('add')} />
             {t('open.addAction')}
-          </button>
-          <button type="button" className="btn" disabled={!current || !!current.error || needsOrder} onClick={() => setSaving(true)}>
+          </Button>
+          <Button className="btn" disabled={!current || !!current.error || needsOrder} reason={t(fileBlocker ?? 'reason.axisOrder')} onClick={() => setSaving(true)}>
             <Icon spec={codicon('save')} />
             {t('open.saveAction')}
-          </button>
+          </Button>
           {(session?.has_dicom || items.some((i) => i.format === 'dicom') || viewable.some((i) => i.format === 'dicom')) && path ? (
             <button type="button" className="btn" onClick={() => runCommand('tasks.convertDicom', path)}>
               <Icon spec={codicon('file-binary')} />
@@ -181,10 +183,10 @@ export default function OpenRoute() {
             </button>
           ) : null}
           <span className="toolbar-sep" />
-          <button type="button" className="btn" disabled={!current || selectionBusy} onClick={() => setAttaching(true)}>
+          <Button className="btn" disabled={!current || selectionBusy} reason={t(current ? 'reason.working' : 'reason.noFile')} onClick={() => setAttaching(true)}>
             <Icon spec={codicon('layers')} />
             {t('open.attachAction')}
-          </button>
+          </Button>
           <ModalityChip />
           <span className="toolbar-sep" />
           <button type="button" className="btn open-close-btn" onClick={() => void close()}>

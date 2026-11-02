@@ -27,7 +27,7 @@ import {
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
+import { Button, ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
@@ -714,8 +714,8 @@ export default function ConverterOverlay() {
             {recoveryCounts ? <p className="muted num">{t('conv.recoveryCounts', { complete: 'ok' in recoveryCounts ? recoveryCounts.ok : (recoveryCounts.converted ?? 0) + (recoveryCounts.already_converted ?? 0), failed: recoveryCounts.failed ?? 0, pending: recoveryCounts.pending ?? 0 })}</p> : null}
             {recoveryOutput ? <code>{recoveryOutput}</code> : null}
             <div className="conv-row conv-actions">
-            {operation.status !== 'completed_with_errors' || (recoveryCounts?.pending ?? 0) > 0 ? <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</button> : null}
-            {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <button type="button" className="btn" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</button> : null}
+            {operation.status !== 'completed_with_errors' || (recoveryCounts?.pending ?? 0) > 0 ? <Button className="btn btn-primary" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</Button> : null}
+            {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <Button className="btn" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</Button> : null}
             </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}

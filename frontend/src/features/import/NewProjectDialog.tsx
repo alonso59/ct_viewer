@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { MODALITIES, useCreateProject, type ProjectModality } from '../../api'
-import { Dialog } from '../../lib'
+import { Button, Dialog } from '../../lib'
 import { FolderBrowser } from './FolderBrowser'
 import { codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from './store'
@@ -43,9 +43,14 @@ function ProjectDialog({ open, onOpenChange, prefill, name: suggested }: Props) 
       footer={
         <>
           <button type="button" className="btn" onClick={() => onOpenChange(false)}>{t('common.cancel')}</button>
-          <button type="button" className="btn btn-primary" disabled={!name.trim() || !dataset.trim() || create.isPending} onClick={() => void submit()}>
+          <Button
+            className="btn btn-primary"
+            disabled={!name.trim() || !dataset.trim() || create.isPending}
+            reason={t(!name.trim() ? 'reason.projectName' : !dataset.trim() ? 'reason.datasetFolder' : 'reason.working')}
+            onClick={() => void submit()}
+          >
             {t('projects.createAndImport')}
-          </button>
+          </Button>
         </>
       }
     >

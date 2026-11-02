@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
-import { ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { Button, ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -78,9 +78,9 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       <div className="task-run-actions">
         {actions.map((a) => {
           const button = (onClick: () => void) => (
-            <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} onClick={onClick}>
+            <Button key={a} className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} reason={t('reason.cleanup')} onClick={onClick}>
               {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
-            </button>
+            </Button>
           )
           return a === 'cancel'
             ? <ConfirmInline key={a} question={t('confirm.cancelRun')} confirm={t('common.yesCancel')} onConfirm={() => void control(a)} trigger={button} />
@@ -322,10 +322,15 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
         ) : null}
         <div className="task-run-actions">
           <button type="button" className="btn" disabled={selecting} onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
-          <button type="button" className="btn btn-primary" disabled={busy || selecting || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)} onClick={() => (heavy ? setConfirming(true) : void run())}>
+          <Button
+            className="btn btn-primary"
+            disabled={busy || selecting || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)}
+            reason={!info.available ? (info.unavailable_reason ?? t('reason.taskUnavailable')) : t(Object.keys(errors).length > 0 ? 'reason.fixSettings' : !pre ? 'reason.checking' : pre.n_ready === 0 ? 'reason.nothingReady' : 'reason.working')}
+            onClick={() => (heavy ? setConfirming(true) : void run())}
+          >
             <Icon spec={codicon('play')} />
             {t('tasks.run')}
-          </button>
+          </Button>
         </div>
         {pre && pre.n_selected === 0 ? <p className="muted">{t(mode === 'list' ? 'tasks.listEmpty' : 'tasks.nothingSelected')}</p> : null}
         {confirming ? (

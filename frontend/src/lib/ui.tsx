@@ -1,7 +1,7 @@
 // Shared UI primitives on Radix, styled by tokens. No domain logic.
 import * as RDialog from '@radix-ui/react-dialog'
 import * as RTooltip from '@radix-ui/react-tooltip'
-import { forwardRef, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
+import { forwardRef, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 
 import { Icon, type IconSpec } from '../theme'
 import i18n from '../i18n'
@@ -93,6 +93,22 @@ export function Dialog({ open, onOpenChange, title, icon, children, footer, size
     </RDialog.Root>
   )
 }
+
+/** A button that says why it is disabled: tooltip and accessible description (`reason`, shown only
+ *  while disabled) */
+export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { reason?: string | null }>(function Button(
+  { reason, disabled, title, ...rest },
+  ref,
+) {
+  const id = useId()
+  const why = disabled && reason ? reason : undefined
+  return (
+    <>
+      <button ref={ref} type="button" {...rest} disabled={disabled} title={why ?? title} aria-describedby={why ? id : rest['aria-describedby']} />
+      {why ? <span id={id} className="visually-hidden">{why}</span> : null}
+    </>
+  )
+})
 
 /**
  * A costly or destructive action asks inline before it runs: the trigger gives way to the
