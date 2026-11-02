@@ -64,14 +64,14 @@ test('B05 cancels registration, drains its shared worker and resumes without rew
   await dialog.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   await expect.poll(async () => (await record()).status).toBe('cancelling')
   await execute(server.python, ['-c', 'import os,sys;os.kill(int(sys.argv[1]),0)', String(worker.pid)])
-  await expect(dialog.getByRole('button', { name: 'Resume pending work', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Resume', exact: true })).toHaveCount(0)
   expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(0)
   unlinkSync(join(server.root, 'hold-index'))
   await expect.poll(async () => {
     const value = await record()
     return value.status === 'cancelled' && value.cleanup_verified
   }, { timeout: 30_000 }).toBe(true)
-  await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Resume', exact: true }).click()
   await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
   const completed = (await record()).conversion_run!
   expect(completed.run_id).toBe(original.run_id)
@@ -106,7 +106,7 @@ for (const project of [false, true]) {
     expect(image).toBeTruthy()
     const mtime = String(statSync(join(server.derived, image!), { bigint: true }).mtimeNs)
     unlinkSync(join(server.root, 'pause'))
-    await dialog.getByRole('button', { name: 'Retry failed series', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Retry failed', exact: true }).click()
     await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
     const completed = (await record()).conversion_run!
     expect(completed.run_id).toBe(original.run_id)
@@ -230,7 +230,7 @@ for (const stage of ['discovering', 'planning']) {
         unlinkSync(join(server.root, 'pause'))
         await expect(chip).toContainText('Cancelled')
         await chip.getByRole('button', { name: 'Show', exact: true }).click()
-        await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Resume', exact: true }).click()
         await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
         const resumed = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
         expect(resumed.attempt).toBe(original.attempt + (stage === 'discovering' ? 2 : 1))
@@ -463,7 +463,7 @@ for (const scope of ['dataset', 'project']) {
           await expect.poll(async () => (await record()).status).toBe('interrupted')
           await expect(dialog).toContainText('Interrupted')
         }
-        await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Resume', exact: true }).click()
         await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
         const completed = await record()
         expect(completed.conversion_run!.run_id).toBe(original.run_id)

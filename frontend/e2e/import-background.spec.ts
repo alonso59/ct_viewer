@@ -46,7 +46,7 @@ test('import inspection reloads, cancels and resumes with its original project a
     await chip.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
     await expect.poll(async () => (await api<{ status: string }>('GET', `/source-operations/${operation.operation_id}`)).status).toBe('cancelled')
     await chip.getByRole('button', { name: 'Show', exact: true }).click()
-    await inspection.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+    await inspection.getByRole('button', { name: 'Resume', exact: true }).click()
     await expect.poll(async () => (await api<{ attempt: number }>('GET', `/source-operations/${operation.operation_id}`)).attempt).toBe(operation.attempt + 1)
     locker.stdin.end()
     await stopProcess(locker)
