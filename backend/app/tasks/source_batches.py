@@ -571,8 +571,8 @@ class SourceBatches:
 
     async def _step_prepare(self, plan: PlanRecord, batch: PlanBatch, record: Any) -> None:
         if record.status in IN_FLIGHT:
-            if batch.status != "discovering":
-                batch.status = "discovering"
+            if (batch.status, batch.error) != ("discovering", None):
+                batch.status, batch.error = "discovering", None
                 self._save(plan)
             return
         if record.status != "completed" or record.stage != "ready":
@@ -616,8 +616,8 @@ class SourceBatches:
     async def _step_convert(self, plan: PlanRecord, batch: PlanBatch, record: Any) -> None:
         run = record.conversion_run
         if record.status in IN_FLIGHT:
-            if batch.status != "converting":
-                batch.status = "converting"
+            if (batch.status, batch.error) != ("converting", None):
+                batch.status, batch.error = "converting", None
                 self._save(plan)
             return
         if not isinstance(run, WorkspaceRun):

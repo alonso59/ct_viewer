@@ -57,10 +57,10 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
       </td>
       <td className="num">{batch.folder_count}</td>
       <td className="num">{filesCell(plan, batch.files_total, t('conv.counting'))}</td>
-      <td><span className="badge" data-status={batch.status}>{t(`conv.batches.status.${preparing ?? batch.status}`)}</span></td>
+      <td><span className="badge" data-status={batch.status}>{t(`conv.batches.status.${preparing ?? (working && batch.status === 'attention' ? 'converting' : batch.status)}`)}</span></td>
       <td className="conv-batch-detail">
         {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
-        {batch.status === 'attention' && batch.error ? <p className="error-card" role="alert">{batch.error}</p> : null}
+        {batch.status === 'attention' && batch.error && !working ? <p className="error-card" role="alert">{batch.error}</p> : null}
         <div className="conv-row">
           {batch.operation_id ? <button type="button" className="btn btn-sm" onClick={() => onOpenOperation(batch.operation_id!)}>{t('conv.batches.details')}</button> : null}
           {operation ? <button type="button" className="btn btn-sm" onClick={() => { useConverter.getState().minimize(); showOperationOutput(operation) }}>{t('conv.showOutput')}</button> : null}

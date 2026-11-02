@@ -82,6 +82,15 @@ describe('rows and chips', () => {
     expect(within(screen.getByTestId('batch-1')).queryByRole('button', { name: 'Details' })).toBeNull()
   })
 
+  test('a batch whose operation was resumed shows it converting, not its old error', async () => {
+    const recorded = await operation({ operation_id: 'op1' })
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue({ ...recorded, status: 'running', stage: 'converting', conversion_run: recorded.conversion_run ?? null })
+    renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'attention', operation_id: 'op1', error: 'Out of memory' }), batch(1)] }))
+    const row = await screen.findByTestId('batch-0')
+    expect(await within(row).findByText('Converting')).toBeVisible()
+    expect(within(row).queryByText('Out of memory')).toBeNull()
+  })
+
   test('shows a dash for files when counting is over without a count', async () => {
     renderBoard(plan({ batches: [batch(0, { files_total: null }), batch(1)] }))
     expect(within(await screen.findByTestId('batch-0')).getByText('—')).toBeVisible()
