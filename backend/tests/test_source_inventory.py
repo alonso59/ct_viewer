@@ -68,6 +68,34 @@ def test_inventory_invalidation_rejects_old_page_generation(tmp_path: Path) -> N
             inventory.page(limit=1, cursor=previous["next_cursor"])
 
 
+def test_reread_with_identical_facts_keeps_the_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.tasks import source_inventory
+
+    root = tmp_path / "source"
+    write_series(root / "a", shape=(3, 3, 3), marker=(1, 1, 2))
+    db = tmp_path / "workspace" / "inventory.sqlite"
+    with SourceInventory(db, root) as inventory:
+        generation = inventory.scan()["generation"]
+    original = source_inventory.stat_identity
+    # A remounted volume reports new device numbers for the same, unchanged files.
+    monkeypatch.setattr(
+        source_inventory,
+        "stat_identity",
+        lambda st: (*original(st)[:2], original(st)[2] + 1, original(st)[3]),
+    )
+    reads: list[int] = []
+    with SourceInventory(db, root) as inventory:
+        summary = inventory.scan(on_progress=lambda row: reads.append(row["read"]))
+        assert summary["complete"] and summary["generation"] == generation
+    assert max(reads) == 3  # every file was read again, and none changed
+    later = os.stat(root / "a" / "IM0000.dcm").st_mtime_ns + 10**9
+    os.utime(root / "a" / "IM0000.dcm", ns=(later, later))
+    with SourceInventory(db, root) as inventory:
+        assert inventory.scan()["generation"] != generation
+
+
 def test_cancelled_inventory_resumes_completed_batches_without_rereading(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -324,17 +324,18 @@ class SourceInventory:
         header: dict[str, Any] = {}
         series_id: int | None = None
         size = mtime_ns = dev = ino = 0
+        previous = None
         try:
             st = path.stat(follow_symlinks=False)
             size, mtime_ns, dev, ino = stat_identity(st)
             previous = self.db.execute(
-                "SELECT kind, error, size, mtime_ns, dev, ino FROM files "
+                "SELECT kind, error, size, mtime_ns, dev, ino, series_id, delta FROM files "
                 "WHERE directory_id=? AND name=?",
                 (directory_id, path.name),
             ).fetchone()
             if (
                 previous is not None
-                and tuple(previous[2:]) == (size, mtime_ns, dev, ino)
+                and tuple(previous[2:6]) == (size, mtime_ns, dev, ino)
                 and (not previous[1] or previous[0] == "rejected")
             ):
                 self._reused = True
@@ -356,7 +357,10 @@ class SourceInventory:
         if kind == "dicom":
             series_id, base = self._series_base(directory_id, uid, header)
             delta = _delta(base, header)
-        self._change()
+        # A remount renumbers dev/ino; identical facts at the same size and mtime are no change.
+        facts = (kind, error, size, mtime_ns, series_id, delta)
+        if previous is None or (*previous[:4], *previous[6:]) != facts:
+            self._change()
         self.db.execute(
             "INSERT OR REPLACE INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (directory_id, path.name, kind, series_id, size, mtime_ns, dev, ino, delta, error),

@@ -244,14 +244,17 @@ def test_settings_only_estimate_keeps_inventory_and_invalidates_the_old_plan(pla
 
 
 @pytest.mark.parametrize("in_project", [False, True])
-def test_changed_source_is_rejected_before_allocating_a_conversion(planned: Any) -> None:
+def test_changed_source_discards_the_plan_before_allocating_a_conversion(planned: Any) -> None:
     client, _, source, derived, record, request = planned
     write_series(source / "added", patient_id="new")
     operation = record["operation_id"]
     assert client.post(f"{API}/{operation}/convert", json=request).status_code == 202
-    failed = wait_operation(client, operation)
-    assert failed["status"] == "failed" and "new dry run" in failed["error"]
-    assert failed["conversion_run"] is None and not list(derived.iterdir())
+    stale = wait_operation(client, operation)
+    assert stale["status"] == "completed" and stale["stage"] == "discovered", stale
+    assert stale["conversion_run_id"] is None and stale["plan_attempt"] is None
+    assert stale["conversion_run"] is None and not list(derived.iterdir())
+    assert control(client, operation, "estimate").status_code == 202
+    assert wait_operation(client, operation)["stage"] == "ready"
 
 
 @pytest.mark.parametrize("in_project", [False, True])

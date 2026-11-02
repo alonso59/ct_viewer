@@ -518,6 +518,58 @@ def test_operation_converts_through_existing_run_authority_and_repeated_command_
             assert not (derived / "_datasets" / "same-dataset-1").exists()
 
 
+def test_unstarted_conversion_replans_when_resume_finds_a_changed_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.core.errors import ValidationProblem
+    from app.tasks.workspace_runs import WorkspaceTasks
+
+    source, derived = tmp_path / "source", tmp_path / "derived"
+    write_series(source)
+    derived.mkdir()
+    settings = Settings(
+        workspace_root=tmp_path / "workspace",
+        allowed_data_roots=str(source),
+        allowed_derived_roots=str(derived),
+        dicom_memory_mb=1024,
+        _env_file=None,
+    )  # type: ignore[call-arg]
+    original = WorkspaceTasks.start
+
+    async def refuse_once(self: WorkspaceTasks, *args: Any, **kwargs: Any) -> Any:
+        monkeypatch.setattr(WorkspaceTasks, "start", original)
+        raise ValidationProblem("Conversion is not configured")
+
+    monkeypatch.setattr(WorkspaceTasks, "start", refuse_once)
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        started = client.post(
+            API,
+            json={"path": str(source), "prepare_plan": True, "idempotency_key": "replan-123"},
+        )
+        operation = started.json()["operation_id"]
+        planned = wait_operation(client, operation)
+        request = {
+            "expected_revision": planned["revision"],
+            "expected_attempt": planned["attempt"],
+            "inventory_generation": planned["summary"]["generation"],
+            "plan_attempt": planned["plan_attempt"],
+            "name": "replanned",
+        }
+        response = client.post(f"{API}/{operation}/convert", json=request)
+        assert response.status_code == 202, response.text
+        refused = wait_operation(client, operation)
+        assert refused["status"] == "failed" and refused["conversion_run_id"], refused
+        later = time.time_ns() + 10**9
+        for item in source.glob("*.dcm"):
+            os.utime(item, ns=(later, later))  # rewritten files: a new inventory generation
+        assert control(client, operation, "resume").status_code == 202
+        ready = wait_operation(client, operation)
+        assert ready["status"] == "completed" and ready["stage"] == "ready", ready
+        assert ready["conversion_run_id"] is None and ready["estimate"]["n_units"] == 1
+        assert ready["summary"]["generation"] != planned["summary"]["generation"]
+        assert not list(derived.rglob("*.nii.gz"))
+
+
 def test_worker_crash_is_a_failed_job_and_can_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -1360,9 +1360,16 @@ class SourceOperations:
 
     async def _allocate_conversion(self, record: SourceOperation, output: dict[str, Any]) -> None:
         summary = output.get("summary", {})
-        if not summary.get("complete") or summary.get(
-            "generation"
-        ) != record.conversion_request.get("inventory_generation"):
+        changed = summary.get("generation") != record.conversion_request.get("inventory_generation")
+        if summary.get("complete") and changed and await self._conversion_run(record) is None:
+            # Nothing was converted yet, so the stale plan is replaced by a fresh dry run
+            # instead of leaving a reserved conversion that can never start.
+            record.conversion_run_id, record.conversion_request = None, {}
+            record.work_kind = "inventory"
+            record.estimate, record.plan_attempt, record.plan_total = None, None, 0
+            self._finish_discovery(record, output)
+            return
+        if not summary.get("complete") or changed:
             record.status, record.error = (
                 "failed",
                 "Source changed or discovery is partial; prepare a new dry run",
