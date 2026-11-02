@@ -73,7 +73,7 @@ Variables (VAR/ANA): no `group` field; case-level numeric study variables with ~
 
 ## E2E specs (Playwright, Chromium + Firefox)
 
-All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Ports: `E2E_API_PORT`, `E2E_WEB_PORT`. Specs share `e2e/helpers.ts` (`api` through the web server's proxy, fixture paths, `importedProject`) and `e2e/openMode.ts`; the servers and temp folders are in `e2e/servers.ts`. The global teardown removes the run's temp workspace, derived and plugins folders unless `E2E_KEEP=1` (AUD-A0-05). Dev loop (AUD-A6-18): `make e2e SPEC=… PROJECT=…`, `make e2e-one SPEC=…` (one browser), `make e2e-servers` + `E2E_REUSE=1` (reuse running servers on fixed folders), `E2E_BUILD=1` (the production build through `vite preview`, for a nightly run).
+All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Ports: `E2E_API_PORT`, `E2E_WEB_PORT`. Specs share `e2e/helpers.ts` (`api` through the web server's proxy, fixture paths, `importedProject`) and `e2e/openMode.ts`; the servers and temp folders are in `e2e/servers.ts`. The global teardown removes the run's temp workspace, derived and plugins folders unless `E2E_KEEP=1` (AUD-A0-05). Dev loop (AUD-A6-18): `make e2e SPEC=… PROJECT=…`, `make e2e-one SPEC=…` (one browser), `make e2e-servers` + `E2E_REUSE=1` (reuse running servers on fixed folders), `E2E_BUILD=1` (the production build through `vite preview`, for a nightly run; the preview server gets the same port and API proxy as the dev server). `e2e/servers.ts` refuses the lane ports 5173 / 8000 / 8010.
 
 | Spec | Covers |
 |---|---|
