@@ -30,7 +30,7 @@ import { ProblemError, toProblemError } from '../../api/problem'
 import { Dialog, fmtBytes, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
-import { BatchBoard } from './BatchBoard'
+import { BatchBoard, BatchPlanList } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
 import { ConversionTime, DiscoveryProgress, preparingKey } from './OperationProgress'
 import { PhasePanel } from './PhasePanel'
@@ -708,6 +708,7 @@ export default function ConverterOverlay() {
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}
           </>}
+          <BatchPlanList current={batchPlanId} onOpen={(planId) => useConverter.setState({ batchPlanId: planId })} />
           {shownError ? (
             <ProblemCard
               error={shownError}

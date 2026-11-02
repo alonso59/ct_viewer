@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import create_app
 from app.tasks import source_operations
+from app.tasks.source_inventory import SourceInventory
 from tools.dicom_fixtures import write_series
 
 API = "/api/v1/source-operations"
@@ -521,7 +522,8 @@ def test_operation_converts_through_existing_run_authority_and_repeated_command_
 def scanned(settings: Settings, operation: str, attempt: int) -> bool:
     """Whether an attempt walked the source (its worker reported inventory rows)."""
     log = settings.workspace_root / "plugins/dicom/operations" / operation / "attempts"
-    return '"t": "inventory"' in (log / str(attempt) / "progress.jsonl").read_text()
+    rows = log / str(attempt) / "progress.jsonl"
+    return rows.exists() and '"t": "inventory"' in rows.read_text()
 
 
 def test_chained_and_resumed_dry_runs_plan_from_the_fresh_inventory(tmp_path: Path) -> None:
@@ -632,7 +634,10 @@ def test_unstarted_conversion_replans_when_resume_finds_a_changed_source(
         assert refused["status"] == "failed" and refused["conversion_run_id"], refused
         later = time.time_ns() + 10**9
         for item in source.glob("*.dcm"):
-            os.utime(item, ns=(later, later))  # rewritten files: a new inventory generation
+            os.utime(item, ns=(later, later))  # rewritten files, found by a later scan
+        database = settings.workspace_root / "plugins/dicom/operations" / operation
+        with SourceInventory(database / "inventory.sqlite", source) as inventory:
+            inventory.scan()
         assert control(client, operation, "resume").status_code == 202
         ready = wait_operation(client, operation)
         assert ready["status"] == "completed" and ready["stage"] == "ready", ready

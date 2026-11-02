@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import '../../i18n'
 import '../../i18n/lazy'
 import { api, ProblemError, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
-import { BatchBoard } from './BatchBoard'
+import { BatchBoard, BatchPlanList } from './BatchBoard'
 
 const batch = (index: number, patch: Partial<SourceBatch> = {}): SourceBatch => ({
   index, name: `ds-b0${index + 1}`, folder_count: 40, files_total: 1200, operation_id: null, status: 'pending', dataset: null, approved: false, error: null, patients: null, ...patch,
@@ -55,6 +55,22 @@ describe('rows and chips', () => {
     const second = screen.getByTestId('batch-1')
     expect(await within(second).findByText('Checking source')).toBeVisible()
     expect(within(second).getByText(/600 of 1200 files/)).toBeVisible()
+  })
+
+  test('lists every plan that is not cancelled so its board can be reopened', async () => {
+    vi.spyOn(api, 'listSourceBatchPlans').mockResolvedValue([
+      plan({ plan_id: 'p1', name: 'first', status: 'paused', batches: [batch(0, { status: 'completed' }), batch(1)] }),
+      plan({ plan_id: 'p2', name: 'gone', status: 'cancelled' }),
+    ])
+    const onOpen = vi.fn()
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={qc}><BatchPlanList current={null} onOpen={onOpen} /></QueryClientProvider>)
+    const list = await screen.findByTestId('batch-plans')
+    expect(within(list).getByText('Batch plans (1)')).toBeInTheDocument()
+    expect(within(list).getByText('1 of 2 batches converted')).toBeInTheDocument()
+    expect(within(list).queryByText('gone')).toBeNull()
+    fireEvent.click(within(list).getByRole('button', { name: 'Open' }))
+    expect(onOpen).toHaveBeenCalledWith('p1')
   })
 
   test('shows a dash for files when counting is over without a count', async () => {

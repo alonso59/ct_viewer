@@ -15,8 +15,9 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import create_app
 from app.tasks import dicom_execution, driver, workspace_runs
+from app.tasks.source_inventory import SourceInventory
 from tests.test_api_ingest import ctx_of, wait
-from tests.test_source_operations_api import API, control, wait_operation
+from tests.test_source_operations_api import API, control, scanned, wait_operation
 from tools.dicom_fixtures import write_series
 
 
@@ -245,9 +246,13 @@ def test_settings_only_estimate_keeps_inventory_and_invalidates_the_old_plan(pla
 
 @pytest.mark.parametrize("in_project", [False, True])
 def test_changed_source_discards_the_plan_before_allocating_a_conversion(planned: Any) -> None:
-    client, _, source, derived, record, request = planned
+    """The inventory moved to a newer generation after the analysis (e.g. a resumed scan)."""
+    client, settings, source, derived, record, request = planned
     write_series(source / "added", patient_id="new")
     operation = record["operation_id"]
+    database = settings.workspace_root / "plugins/dicom/operations" / operation / "inventory.sqlite"
+    with SourceInventory(database, source) as inventory:
+        assert inventory.scan()["generation"] != request["inventory_generation"]
     assert client.post(f"{API}/{operation}/convert", json=request).status_code == 202
     stale = wait_operation(client, operation)
     assert stale["status"] == "completed" and stale["stage"] == "discovered", stale
@@ -258,10 +263,10 @@ def test_changed_source_discards_the_plan_before_allocating_a_conversion(planned
 
 
 @pytest.mark.parametrize("in_project", [False, True])
-def test_native_worker_revalidates_the_plan_after_queue_wait(
+def test_conversion_starts_from_the_analysed_inventory_without_walking_the_source(
     planned: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _, source, derived, record, request = planned
+    client, settings, source, derived, record, request = planned
     changed = False
 
     async def change_before_worker(job: Path, **kwargs: Any) -> dict[str, Any]:
@@ -279,9 +284,10 @@ def test_native_worker_revalidates_the_plan_after_queue_wait(
     native = native_run(client, operation)
     wait(client, native["job_id"])
     final = client.get(f"{API}/{operation}").json()
-    assert changed and final["status"] == "failed" and "plan conflict" in final["error"].lower()
-    assert not [p for p in derived.rglob("*.nii.gz") if p.is_file()]
-    assert not list(derived.rglob("dataset.json"))
+    assert changed and final["conversion_run"]["status"] == "completed", final
+    assert not scanned(settings, operation, final["attempt"])  # the handoff reused the analysis
+    outputs = [p for p in derived.rglob("*.nii.gz") if p.is_file()]
+    assert len(outputs) == record["estimate"]["n_units"]  # the arrival needs a new analysis
 
 
 @pytest.mark.parametrize("in_project", [False, True])

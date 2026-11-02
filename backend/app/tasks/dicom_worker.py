@@ -126,11 +126,15 @@ def main(job_dir: Path) -> int:
         binding = spec.get("source_inventory")
         if binding:
             with SourceInventory(Path(binding["path"]), Path(spec["source"]["path"])) as inventory:
-                summary = inventory.scan(
-                    cancelled=stop,
-                    batch_size=int(limits.get("batch_size", 64)),
-                    max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
-                )
+                # The planned inventory is the conversion's input; a later source change needs a
+                # new analysis. A file that changes while it is read is still refused.
+                summary = inventory.summary() if inventory.scanner_current else {"complete": False}
+                if not summary["complete"] or summary["generation"] != binding["generation"]:
+                    summary = inventory.scan(
+                        cancelled=stop,
+                        batch_size=int(limits.get("batch_size", 64)),
+                        max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
+                    )
                 if not summary["complete"] or summary["generation"] != binding["generation"]:
                     atomic_write_json(
                         job_dir / protocol.RESULT,
@@ -186,27 +190,30 @@ def main(job_dir: Path) -> int:
         with SourceInventory(
             inventory_path, Path(spec["source"]), spec.get("folders")
         ) as inventory:
-            inventory.precount(
-                cancelled=stop,
-                on_progress=lambda counters: append_jsonl(
-                    job_dir / protocol.PROGRESS, [{"t": "inventory", **counters}]
-                ),
-            )
-            summary = inventory.scan(
-                cancelled=stop,
-                on_progress=progress,
-                batch_size=int(limits.get("batch_size", 64)),
-                max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
-            )
-            measured = record_stage(
-                job_dir,
-                "discovery",
-                time.monotonic() - started,
-                int(summary["files"]),
-                complete=bool(summary["complete"]),
-            )
-            if measured is not None:
-                summary["discovery_time"] = measured
+            reuse = spec.get("reuse_inventory") and inventory.scanner_current
+            summary = inventory.summary() if reuse else {"complete": False}
+            if not summary["complete"]:
+                inventory.precount(
+                    cancelled=stop,
+                    on_progress=lambda counters: append_jsonl(
+                        job_dir / protocol.PROGRESS, [{"t": "inventory", **counters}]
+                    ),
+                )
+                summary = inventory.scan(
+                    cancelled=stop,
+                    on_progress=progress,
+                    batch_size=int(limits.get("batch_size", 64)),
+                    max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
+                )
+                measured = record_stage(
+                    job_dir,
+                    "discovery",
+                    time.monotonic() - started,
+                    int(summary["files"]),
+                    complete=bool(summary["complete"]),
+                )
+                if measured is not None:
+                    summary["discovery_time"] = measured
             if spec.get("purpose") == "open" and summary["complete"]:
                 import hashlib
 

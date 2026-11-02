@@ -25,6 +25,8 @@
 .conv-chip-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-batch-detail { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
 .conv-warnings { margin: 0; padding-left: 18px; color: var(--warn); font-size: var(--fs-panel); }
+.conv-plans { border-top: var(--border-width) solid var(--border); padding-top: 8px; }
+.conv-plans ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .badge[data-status='completed'] { color: var(--ok); }
 .badge[data-status='attention'] { color: var(--error); }
 .badge[data-status='paused'] { color: var(--warn); }

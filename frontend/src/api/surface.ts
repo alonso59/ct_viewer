@@ -261,6 +261,7 @@ export interface Api {
   sourceOperationSeries(id: string, cursor?: string, limit?: number): Promise<InventoryPage>
   sourceOperationPlan(id: string, options?: { cursor?: string; limit?: number; action?: 'convert' | 'skip' }): Promise<SourcePlanPage>
   createSourceBatchPlan(body: BatchPlanCreate): Promise<SourceBatchPlan>
+  listSourceBatchPlans(): Promise<SourceBatchPlan[]>
   getSourceBatchPlan(id: string): Promise<SourceBatchPlan>
   /** `continue` converts the current batch when it is ready, or resumes a paused plan */
   controlSourceBatchPlan(id: string, action: 'start' | 'continue' | 'cancel' | 'add-new-folders'): Promise<SourceBatchPlan>

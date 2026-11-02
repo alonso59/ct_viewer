@@ -298,6 +298,8 @@ export const useSourceOperation = (id: string | null) => useQuery({
   queryKey: keys.sourceOperation(id ?? ''), queryFn: () => api.getSourceOperation(id ?? ''), enabled: !!id,
   refetchInterval: (q) => isTaskRunPending(q.state.data?.status) || isTaskRunPending(q.state.data?.phase_run?.status) ? 800 : false,
 })
+/** Every batch plan, newest first, so a board can be reopened */
+export const useBatchPlans = () => useQuery({ queryKey: keys.batchPlans(), queryFn: () => api.listSourceBatchPlans(), refetchInterval: 5000 })
 /** A batch plan; fast polling while it works or counts, slow while it waits for the user */
 export const useBatchPlan = (id: string | null) => useQuery({
   queryKey: keys.batchPlan(id ?? ''), queryFn: () => api.getSourceBatchPlan(id ?? ''), enabled: !!id,

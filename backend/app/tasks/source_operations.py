@@ -913,8 +913,8 @@ class SourceOperations:
             return record
 
     def _submit(self, record: SourceOperation, *, reuse_inventory: bool = False) -> None:
-        """`reuse_inventory`: a dry run right after a complete discovery plans from it unscanned;
-        conversion still checks the source before reading pixels."""
+        """`reuse_inventory`: a complete inventory is used as it is instead of walking the source
+        again (a dry run right after its discovery, or the handoff of a planned conversion)."""
         self._require_inventory(record)
         job_dir = self._attempt_dir(record)
         base: dict[str, Any] = {}
@@ -1364,7 +1364,7 @@ class SourceOperations:
             }
             record.work_kind = "convert"
             record.attempt += 1
-            self._submit(record)
+            self._submit(record, reuse_inventory=True)
             return record
 
     async def _finish_conversion(self, record: SourceOperation, output: dict[str, Any]) -> None:
@@ -1656,7 +1656,7 @@ class SourceOperations:
             )
             if planning:
                 record.work_kind = "estimate"
-            self._submit(record, reuse_inventory=planning)
+            self._submit(record, reuse_inventory=planning or record.work_kind == "convert")
             return record
 
     def patient_ids(self, operation: str) -> set[str]:

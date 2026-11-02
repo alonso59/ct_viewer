@@ -873,6 +873,8 @@
         "attention": "Needs attention",
         "cancelled": "Cancelled"
       },
+      "plans": "Batch plans ({{n}})",
+      "open": "Open",
       "plan": {
         "pending": "Not started",
         "running": "Running",

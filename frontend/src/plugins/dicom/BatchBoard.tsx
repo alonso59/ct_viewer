@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
-import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCommand, useSourceOperation, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
+import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCommand, useBatchPlans, useSourceOperation, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
 import { NewProjectDialog } from '../../features/import'
 import { fmtEtaRange, IndeterminateProgress, ProblemCard, Progress } from '../../lib'
 import { filesCell } from './BatchPreview'
@@ -72,6 +72,29 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed }: {
         </div>
       </td>
     </tr>
+  )
+}
+
+/** Every batch plan that is not cancelled, so its board can be reopened from the converter */
+export function BatchPlanList({ current, onOpen }: { current: string | null; onOpen: (planId: string) => void }) {
+  const { t } = useTranslation()
+  const plans = (useBatchPlans().data ?? []).filter((p) => p.status !== 'cancelled')
+  if (!plans.length) return null
+  return (
+    <details className="conv-plans" data-testid="batch-plans">
+      <summary>{t('conv.batches.plans', { n: plans.length })}</summary>
+      <ul>
+        {plans.map((p) => (
+          <li key={p.plan_id} className="conv-row">
+            <strong>{p.name}</strong>
+            <span className="badge" data-status={p.status}>{t(`conv.batches.plan.${p.status}`)}</span>
+            <span className="muted conv-help num">{t('conv.batches.done', { done: p.batches.filter((b) => b.status === 'completed').length, total: p.batches.length })}</span>
+            <span style={{ flex: 1 }} />
+            <button type="button" className="btn btn-sm" disabled={p.plan_id === current} onClick={() => onOpen(p.plan_id)}>{t('conv.batches.open')}</button>
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
