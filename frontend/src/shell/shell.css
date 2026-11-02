@@ -477,6 +477,11 @@ button.statusbar-item:hover {
   gap: var(--sp-2);
   z-index: 1100;
 }
+.toasts > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
 .toast {
   display: flex;
   align-items: center;

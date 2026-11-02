@@ -104,7 +104,8 @@
       "sidebar": "Side bar",
       "panel": "Panel",
       "inspector": "Inspector"
-    }
+    },
+    "toastCount": "×{{n}}"
   },
   "palette": {
     "cases": "Cases",

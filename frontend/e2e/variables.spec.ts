@@ -81,7 +81,8 @@ test('variables view on the real API: review, overrides, derived, external', asy
   await rdlg.getByRole('button', { name: 'Create' }).click()
   await expect(rdlg).toBeHidden()
   await q3.getByRole('button', { name: /Delete derived variable/ }).click()
-  await expect(page.getByRole('status').filter({ hasText: /used by score_q3_merged/ })).toBeVisible()
+  // UI-10: an error toast is announced at once and stays
+  await expect(page.getByRole('alert').filter({ hasText: /used by score_q3_merged/ })).toBeVisible()
   await expect(q3).toBeVisible()
 
   // Delete one derived variable (API-17 DELETE returns the catalog)

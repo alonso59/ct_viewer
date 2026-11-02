@@ -76,5 +76,5 @@ test('the fake segmentation plugin adds a set through the host runner', async ({
   await expect(page.locator('.case-header').getByRole('note')).toContainText('Not in set')
   await inspector.getByRole('button', { name: /^Accept/ }).first().click()
   await expect.poll(() => seg('case_00002.')).toEqual(['imported:accepted'])
-  await expect(page.getByRole('status').filter({ hasText: 'failed' })).toHaveCount(0)
+  await expect(page.locator('.toasts').filter({ hasText: 'failed' })).toHaveCount(0)
 })
