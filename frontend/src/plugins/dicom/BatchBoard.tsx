@@ -29,9 +29,9 @@ function ConvertingProgress({ operation }: { operation: SourceOperation }) {
   </>
 }
 
-function BatchRow({ plan, batch, busy, onCreate, onError, onResumed }: {
+function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOperation }: {
   plan: SourceBatchPlan; batch: SourceBatch; busy: boolean
-  onCreate: (b: SourceBatch) => void; onError: (e: unknown) => void; onResumed: () => void
+  onCreate: (b: SourceBatch) => void; onError: (e: unknown) => void; onResumed: () => void; onOpenOperation: (id: string) => void
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -64,6 +64,7 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed }: {
         {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : preparing === 'planning' ? <PlanningProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
         {batch.status === 'attention' && batch.error ? <p className="error-card" role="alert">{batch.error}</p> : null}
         <div className="conv-row">
+          {batch.operation_id ? <button type="button" className="btn btn-sm" onClick={() => onOpenOperation(batch.operation_id!)}>{t('conv.batches.details')}</button> : null}
           {batch.status === 'completed' && batch.dataset ? <button type="button" className="btn btn-sm" onClick={() => onCreate(batch)}>{t('conv.batches.createProject')}</button> : null}
           {batch.status === 'attention' && operation ? <>
             <button type="button" className="btn btn-sm btn-primary" disabled={busy || control.isPending || !fixable} onClick={() => control.mutate({ op: operation, action: 'resume' })}>{t('conv.resumePending')}</button>
@@ -98,7 +99,7 @@ export function BatchPlanList({ current, onOpen }: { current: string | null; onO
   )
 }
 
-export function BatchBoard({ planId, onNew, onProjectClosed }: { planId: string; onNew: () => void; onProjectClosed: () => void }) {
+export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: { planId: string; onNew: () => void; onProjectClosed: () => void; onOpenOperation: (id: string) => void }) {
   const { t } = useTranslation()
   const query = useBatchPlan(planId)
   const plan = query.data
@@ -150,7 +151,7 @@ export function BatchBoard({ planId, onNew, onProjectClosed }: { planId: string;
           </thead>
           <tbody>
             {plan.batches.map((b) => (
-              <BatchRow key={b.index} plan={plan} batch={b} busy={busy} onCreate={setCreating} onError={setError} onResumed={() => void query.refetch()} />
+              <BatchRow key={b.index} plan={plan} batch={b} busy={busy} onCreate={setCreating} onError={setError} onResumed={() => void query.refetch()} onOpenOperation={onOpenOperation} />
             ))}
           </tbody>
         </table>

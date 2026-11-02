@@ -874,6 +874,7 @@
         "cancelled": "Cancelled"
       },
       "plans": "Batch plans ({{n}})",
+      "details": "Details",
       "open": "Open",
       "plan": {
         "pending": "Not started",

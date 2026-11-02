@@ -24,10 +24,10 @@ async function operation(patch: Partial<SourceOperation>): Promise<SourceOperati
   return { ...(await api.getSourceOperation(first.operation_id)), project_id: null, conversion_run: null, conversion_run_id: null, phase_run: null, ...patch }
 }
 
-function renderBoard(value: SourceBatchPlan, props: { onNew?: () => void; onProjectClosed?: () => void } = {}) {
+function renderBoard(value: SourceBatchPlan, props: { onNew?: () => void; onProjectClosed?: () => void; onOpenOperation?: (id: string) => void } = {}) {
   vi.spyOn(api, 'getSourceBatchPlan').mockResolvedValue(value)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={qc}><MemoryRouter><BatchBoard planId={value.plan_id} onNew={props.onNew ?? (() => undefined)} onProjectClosed={props.onProjectClosed ?? (() => undefined)} /></MemoryRouter></QueryClientProvider>)
+  return render(<QueryClientProvider client={qc}><MemoryRouter><BatchBoard planId={value.plan_id} onNew={props.onNew ?? (() => undefined)} onProjectClosed={props.onProjectClosed ?? (() => undefined)} onOpenOperation={props.onOpenOperation ?? (() => undefined)} /></MemoryRouter></QueryClientProvider>)
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -71,6 +71,15 @@ describe('rows and chips', () => {
     expect(within(list).queryByText('gone')).toBeNull()
     fireEvent.click(within(list).getByRole('button', { name: 'Open' }))
     expect(onOpen).toHaveBeenCalledWith('p1')
+  })
+
+  test('a batch with an operation opens its conversion details', async () => {
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue(await operation({ operation_id: 'op1', status: 'completed' }))
+    const onOpenOperation = vi.fn()
+    renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'converting', operation_id: 'op1' }), batch(1)] }), { onOpenOperation })
+    fireEvent.click(within(await screen.findByTestId('batch-0')).getByRole('button', { name: 'Details' }))
+    expect(onOpenOperation).toHaveBeenCalledWith('op1')
+    expect(within(screen.getByTestId('batch-1')).queryByRole('button', { name: 'Details' })).toBeNull()
   })
 
   test('shows a dash for files when counting is over without a count', async () => {

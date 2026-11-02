@@ -539,7 +539,7 @@ export default function ConverterOverlay() {
         <div className="conv">
           <div className="conv-row">
             <label className="conv-row"><span className="muted">{t('conv.recentOperations')}</span>
-              <select className="input" aria-label={t('conv.recentOperations')} value={operationId ?? ''} onChange={(e) => { if (e.target.value) c.attach(e.target.value) }}>
+              <select className="input" aria-label={t('conv.recentOperations')} value={batchPlanId ? '' : operationId ?? ''} onChange={(e) => { if (e.target.value) c.attach(e.target.value) }}>
                 <option value="" disabled>{t('conv.chooseOperation')}</option>
                 {operationId && !operations.some((value) => value.operation_id === operationId) ? <option value={operationId}>{t('conv.currentOperation')}</option> : null}
                 {operations.map((value) => {
@@ -551,7 +551,7 @@ export default function ConverterOverlay() {
             </label>
             <button type="button" className="btn btn-sm" disabled={busy} onClick={c.newOperation}>{t('conv.newOperation')}</button>
           </div>
-          {batchPlanId ? <BatchBoard planId={batchPlanId} onNew={c.newOperation} onProjectClosed={close} /> : <>
+          {batchPlanId ? <BatchBoard planId={batchPlanId} onNew={c.newOperation} onProjectClosed={close} onOpenOperation={(id) => c.attach(id)} /> : <>
           {!isSourceOnly ? <StepBar step={step} /> : null}
           {operation ? <div className="conv-inventory" role="status" aria-live="polite">
             {!operation.summary?.complete && !operation.conversion_run && isTaskRunPending(operation.status) ? <DiscoveryProgress operation={operation} /> : null}
