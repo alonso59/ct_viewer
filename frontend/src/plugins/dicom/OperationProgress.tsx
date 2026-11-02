@@ -1,10 +1,16 @@
 // The discovery and conversion progress pieces the converter window and the batch board share.
 import { useTranslation } from 'react-i18next'
 
-import type { ConversionTimeEstimate, SourceOperation } from '../../api'
+import { isTaskRunPending, type ConversionTimeEstimate, type SourceOperation } from '../../api'
 import { fmtBytes, fmtEtaRange, IndeterminateProgress, Progress } from '../../lib'
 
 type RunProgress = Record<string, number | string | null | undefined> | null | undefined
+
+/** The batch-status key for an operation's own work before its conversion runs: discovery, dry run or source check */
+export function preparingKey(op: SourceOperation): 'discovering' | 'planning' | 'verifying' | null {
+  if (!isTaskRunPending(op.status) || op.conversion_run || op.stage === 'converting') return null
+  return op.work_kind === 'estimate' ? 'planning' : op.work_kind === 'convert' ? 'verifying' : 'discovering'
+}
 
 /** Bytes converted against planned and the measured speed; shown while the time estimate is still unknown */
 export function ConversionBytes({ progress }: { progress: RunProgress }) {
@@ -30,6 +36,19 @@ export function ConversionTime({ value, progress }: { value: ConversionTimeEstim
   return <>
     <p className="muted conv-help">{t(value?.basis === 'complete' ? 'conv.etaComplete' : 'conv.etaUnknown')}</p>
     {value?.basis === 'complete' ? null : <ConversionBytes progress={progress} />}
+  </>
+}
+
+/** The dry run's header reading and planning; its own source check first reports like discovery */
+export function PlanningProgress({ operation }: { operation: SourceOperation }) {
+  const { t } = useTranslation()
+  const stage = operation.progress_stage
+  const done = operation.progress?.done ?? 0
+  const total = operation.progress?.total ?? 0
+  if (!(stage === 'reading' || stage === 'planning') || !(total > 0)) return <DiscoveryProgress operation={operation} />
+  return <>
+    <Progress value={done} total={total} />
+    <p className="muted conv-help num">{t(`conv.stage.${stage}`, { done, total })}</p>
   </>
 }
 

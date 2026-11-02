@@ -44,6 +44,19 @@ describe('rows and chips', () => {
     expect(screen.getByText('1 of 2 batches converted')).toBeVisible()
   })
 
+  test('names the analysis and the source check by the operation, with the analysis counts', async () => {
+    const analysis = await operation({ operation_id: 'op1', status: 'running', stage: 'planning', work_kind: 'estimate', progress_stage: 'reading', progress: { files: 1200, files_total: 1200, done: 300, total: 1180 } })
+    const check = await operation({ operation_id: 'op2', status: 'running', stage: 'discovering', work_kind: 'convert', conversion_run_id: 'run2', progress: { files: 600, files_total: 1200 } })
+    vi.spyOn(api, 'getSourceOperation').mockImplementation(async (id) => (id === 'op1' ? analysis : check))
+    renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'discovering', operation_id: 'op1' }), batch(1, { status: 'converting', operation_id: 'op2' })] }))
+    const first = await screen.findByTestId('batch-0')
+    expect(await within(first).findByText('Analysis')).toBeVisible()
+    expect(within(first).getByText('Reading headers: 300 / 1180 files')).toBeVisible()
+    const second = screen.getByTestId('batch-1')
+    expect(await within(second).findByText('Checking source')).toBeVisible()
+    expect(within(second).getByText(/600 of 1200 files/)).toBeVisible()
+  })
+
   test('shows a dash for files when counting is over without a count', async () => {
     renderBoard(plan({ batches: [batch(0, { files_total: null }), batch(1)] }))
     expect(within(await screen.findByTestId('batch-0')).getByText('—')).toBeVisible()
@@ -131,7 +144,7 @@ describe('time left', () => {
     const [first] = await api.listSourceOperations()
     const full = await api.getSourceOperation(first!.operation_id)
     if (!full.conversion_run) throw new Error('Missing recorded conversion run')
-    const running: SourceOperation = { ...base, conversion_run: { ...full.conversion_run, conversion_time: { basis: 'unknown', confidence: 'unknown', sample_count: 0, remaining_units: 3, estimated_s: null, lower_s: null, upper_s: null }, progress: { done: 1, total: 4, bytes_done: 250_000_000, bytes_total: 1_000_000_000, bytes_per_s: 5_000_000 } } }
+    const running: SourceOperation = { ...base, conversion_run: { ...full.conversion_run, conversion_time: { basis: 'unknown', confidence: 'unknown', sample_count: 0, remaining_units: 3, estimated_s: null, lower_s: null, upper_s: null }, progress: { done: 1, total: 4, stage_done: 1, stage_total: 4, bytes_done: 250_000_000, bytes_total: 1_000_000_000, bytes_per_s: 5_000_000 } } }
     vi.spyOn(api, 'getSourceOperation').mockResolvedValue(running)
     renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'converting', operation_id: 'op1' })] }))
     expect(await screen.findByText('250 MB of 1 GB converted · 25%')).toBeVisible()

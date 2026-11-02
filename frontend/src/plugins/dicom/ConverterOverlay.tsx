@@ -27,12 +27,12 @@ import {
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
-import { ConversionTime, DiscoveryProgress } from './OperationProgress'
+import { ConversionTime, DiscoveryProgress, preparingKey } from './OperationProgress'
 import { PhasePanel } from './PhasePanel'
 import './converter.css'
 
@@ -128,11 +128,11 @@ function useElapsed(since: number | null) {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [since])
-  return since == null ? 0 : Math.max(0, Math.round((now - since) / 1000))
+  return since == null ? null : Math.max(0, Math.round((now - since) / 1000))
 }
 
 /** The dry run's stages and progress, so a long scan is visibly alive */
-function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, discovering = false }: { progress: EstimateProgress | undefined; elapsed: number; onCancel: () => void; onMinimize: () => void; opening?: boolean; discovering?: boolean }) {
+function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, discovering = false }: { progress: EstimateProgress | undefined; elapsed: number | null; onCancel: () => void; onMinimize: () => void; opening?: boolean; discovering?: boolean }) {
   const { t } = useTranslation()
   const current = progress?.stage ?? 'check'
   const stages: readonly string[] = opening ? ['listing', 'opening'] : discovering ? ['listing'] : SCAN_STAGES
@@ -144,14 +144,14 @@ function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, d
         {stages.map((s, i) => (
           <li key={s} data-state={i < at ? 'done' : i === at ? 'current' : 'pending'}>
             <Icon spec={codicon(i < at ? 'pass' : i === at ? 'loading' : 'circle-large')} className={i === at ? 'codicon-modifier-spin' : undefined} />
-            <span>{t(`conv.stage.${s}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 })}</span>
+            <span>{i === at ? t(`conv.stage.${s}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) : t(`conv.stageName.${s}`)}</span>
           </li>
         ))}
       </ol>
       {at < 0 ? <p>{t(`conv.status.${current}`, { defaultValue: t(`conv.stage.${current}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) })}</p> : null}
       {determinate && progress ? <Progress value={progress.done} total={progress.total} /> : <IndeterminateProgress />}
       <div className="conv-row">
-        <span className="muted conv-help">{t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { s: elapsed })}</span>
+        <span className="muted conv-help">{elapsed == null ? t(opening || discovering ? 'open.keepsRunning' : 'conv.keepsRunning') : t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { time: fmtDuration(elapsed) })}</span>
         <span style={{ flex: 1 }} />
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
         <button type="button" className="btn btn-sm" onClick={onCancel}>{t('conv.cancelScan')}</button>
@@ -248,7 +248,8 @@ export default function ConverterOverlay() {
   const taskSettings = { target_profile: settings.target_profile, phase_analyzer: settings.phase_analyzer, anonymize: settings.anonymize }
   const setSettings = (s: Partial<Draft['settings']>) => patch({ requestKey: null, settings: { ...settings, ...s } })
   const scanProgress = useEstimateProgress(scan?.id ?? null).data
-  const elapsed = useElapsed(operation ? Date.parse(operation.created_at) : scan?.started ?? null)
+  // An operation can run many attempts over days and carries no attempt start, so only a scan started here is timed.
+  const elapsed = useElapsed(operation ? null : scan?.started ?? null)
   const inventoryCounts = operation?.summary?.complete && (!isTaskRunPending(operation.status) || linked) ? operation.summary : operation?.progress
   const progressStage = operation?.progress_stage === 'admitted' && operation.work_kind !== 'convert' ? 'listing' : operation?.progress_stage
   const shownError = error ?? (operation?.problem ? toProblemError(Number(operation.problem.status ?? 500), operation.problem, operation.error ?? t('problemTitle.unknown')) : operation?.error && operation.status !== 'waiting_for_resources' ? new Error(operation.error) : null)
@@ -541,7 +542,11 @@ export default function ConverterOverlay() {
               <select className="input" aria-label={t('conv.recentOperations')} value={operationId ?? ''} onChange={(e) => { if (e.target.value) c.attach(e.target.value) }}>
                 <option value="" disabled>{t('conv.chooseOperation')}</option>
                 {operationId && !operations.some((value) => value.operation_id === operationId) ? <option value={operationId}>{t('conv.currentOperation')}</option> : null}
-                {operations.map((value) => <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { source: value.source.split('/').at(-1), status: t(`conv.status.${value.status}`, { defaultValue: value.status }) })}</option>)}
+                {operations.map((value) => {
+                  const preparing = preparingKey(value)
+                  const status = preparing ? t(`conv.batches.status.${preparing}`) : t(`conv.status.${value.status}`, { defaultValue: value.status })
+                  return <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { source: value.source.split('/').at(-1), status })}</option>
+                })}
               </select>
             </label>
             <button type="button" className="btn btn-sm" disabled={busy} onClick={c.newOperation}>{t('conv.newOperation')}</button>
@@ -606,7 +611,7 @@ export default function ConverterOverlay() {
                   </select>
                   <span className="muted conv-help">{t('conv.profileHelp')}</span>
                 </label>
-                {target === 'dataset' ? <>
+                {target === 'dataset' && !operationId ? <>
                   <label className="conv-check">
                     <input type="checkbox" checked={batchMode} onChange={(e) => toggleBatches(e.target.checked)} />
                     {t('conv.batches.toggle')}

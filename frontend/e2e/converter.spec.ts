@@ -19,7 +19,7 @@ test('convert without a project, then create a project from the dataset', async 
   await dialog.getByRole('button', { name: 'Next' }).click()
   await dialog.getByLabel('Dataset name').fill(name)
   await expect(dialog.getByRole('checkbox', { name: /phase analyzer/ })).toBeChecked()
-  await dialog.getByRole('button', { name: 'Dry run' }).click()
+  await dialog.getByRole('button', { name: 'Analysis' }).click()
   await dialog.getByRole('button', { name: /Convert \d+ series/ }).click()
   await dialog.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
   await expect(dialog.getByText(`Dataset ${name} is ready.`)).toBeVisible()
@@ -60,7 +60,7 @@ test('a folder without DICOM is refused with the cause and next steps (UI-18, AU
   await folders.getByRole('button', { name: /^nifti$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
   const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
-  await dialog.getByRole('button', { name: 'Dry run' }).click()
+  await dialog.getByRole('button', { name: 'Analysis' }).click()
   const response = await created
   expect(response.status()).toBe(202)
   const operation = await response.json() as SourceOperation
@@ -84,7 +84,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   await folders.getByRole('button', { name: /^dicom$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
   const started = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
-  await dialog.getByRole('button', { name: 'Dry run' }).click()
+  await dialog.getByRole('button', { name: 'Analysis' }).click()
   const operation = await (await started).json() as { operation_id: string }
   await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible()
   const url = `${API}/source-operations/${operation.operation_id}`
@@ -94,7 +94,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   await dialog.getByLabel('Dataset name').fill(name)
   await dialog.getByRole('checkbox', { name: /phase analyzer/ }).uncheck()
   const estimated = page.waitForResponse((r) => r.url() === `${url}/estimate` && r.request().method() === 'POST')
-  await dialog.getByRole('button', { name: 'Dry run' }).click()
+  await dialog.getByRole('button', { name: 'Analysis' }).click()
   expect((await estimated).ok()).toBe(true)
   await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible()
   const revised = await (await page.request.get(url)).json() as { operation_id: string; summary: { generation: string }; plan_attempt: number; dataset_name: string; settings: { phase_analyzer: boolean } }

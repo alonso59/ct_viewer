@@ -518,6 +518,77 @@ def test_operation_converts_through_existing_run_authority_and_repeated_command_
             assert not (derived / "_datasets" / "same-dataset-1").exists()
 
 
+def scanned(settings: Settings, operation: str, attempt: int) -> bool:
+    """Whether an attempt walked the source (its worker reported inventory rows)."""
+    log = settings.workspace_root / "plugins/dicom/operations" / operation / "attempts"
+    return '"t": "inventory"' in (log / str(attempt) / "progress.jsonl").read_text()
+
+
+def test_chained_and_resumed_dry_runs_plan_from_the_fresh_inventory(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    write_series(source)
+    settings = Settings(
+        workspace_root=tmp_path / "workspace", allowed_data_roots=str(source), _env_file=None
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        started = client.post(
+            API, json={"path": str(source), "prepare_plan": True, "idempotency_key": "reuse-123"}
+        )
+        operation = started.json()["operation_id"]
+        ready = wait_operation(client, operation)
+        assert ready["stage"] == "ready" and ready["attempt"] == 2, ready
+        assert scanned(settings, operation, 1) and not scanned(settings, operation, 2)
+        # Stopped after discovery, before the chained dry run was submitted.
+        operations = client.app.state.ctx.source_operations  # type: ignore[attr-defined]
+        record = operations.get(operation)
+        record.work_kind, record.status, record.stage = "inventory", "interrupted", "planning"
+        record.estimate, record.plan_attempt = None, None
+        operations._write(record)
+        assert control(client, operation, "resume").status_code == 202
+        resumed = wait_operation(client, operation)
+        assert resumed["stage"] == "ready" and resumed["estimate"]["n_units"] == 1, resumed
+        assert not scanned(settings, operation, resumed["attempt"])
+        assert control(client, operation, "estimate").status_code == 202
+        assert scanned(settings, operation, wait_operation(client, operation)["attempt"])
+
+
+def test_convert_is_refused_without_a_reservation_while_another_conversion_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, derived = tmp_path / "source", tmp_path / "derived"
+    write_series(source)
+    derived.mkdir()
+    settings = Settings(
+        workspace_root=tmp_path / "workspace",
+        allowed_data_roots=str(source),
+        allowed_derived_roots=str(derived),
+        dicom_memory_mb=1024,
+        _env_file=None,
+    )  # type: ignore[call-arg]
+    with TestClient(create_app(settings, inline_jobs=True)) as client:
+        started = client.post(
+            API, json={"path": str(source), "prepare_plan": True, "idempotency_key": "busy-123"}
+        )
+        operation = started.json()["operation_id"]
+        planned = wait_operation(client, operation)
+        request = {
+            "expected_revision": planned["revision"],
+            "expected_attempt": planned["attempt"],
+            "inventory_generation": planned["summary"]["generation"],
+            "plan_attempt": planned["plan_attempt"],
+        }
+        jobs = client.app.state.ctx.source_operations.jobs  # type: ignore[attr-defined]
+        original = jobs.active
+        monkeypatch.setattr(
+            jobs, "active", lambda project, kind, key=None: key == "dicom.convert" or None
+        )
+        busy = client.post(f"{API}/{operation}/convert", json=request)
+        assert busy.status_code == 503, busy.text
+        assert client.get(f"{API}/{operation}").json()["conversion_run_id"] is None
+        monkeypatch.setattr(jobs, "active", original)
+        assert client.post(f"{API}/{operation}/convert", json=request).status_code == 202
+
+
 def test_unstarted_conversion_replans_when_resume_finds_a_changed_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

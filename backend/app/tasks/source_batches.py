@@ -19,6 +19,7 @@ from app.core.errors import (
     JobConflict,
     NotFound,
     Problem,
+    ServerBusy,
     ValidationProblem,
 )
 from app.core.fsio import atomic_write_json, read_json
@@ -598,9 +599,9 @@ class SourceBatches:
                     name=batch.name,
                 ),
             )
-        except JobConflict as exc:
-            # Another conversion holds the single workspace slot, or the plan changed;
-            # the next finished job re-evaluates this batch.
+        except ServerBusy as exc:
+            # Another conversion holds the single workspace slot; the next finished job
+            # re-evaluates this batch.
             log.info("Batch conversion not admitted yet: %s", exc.detail)
             if batch.error != exc.detail:
                 batch.error = exc.detail

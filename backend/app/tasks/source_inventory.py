@@ -776,6 +776,11 @@ class SourceInventory:
     def scanner(self) -> str | None:
         return self._get("scanner")
 
+    @property
+    def scanner_current(self) -> bool:
+        """Cached facts come from this scanner; otherwise `scan` must read them again."""
+        return self.scanner == self._scanner
+
     def rels(self, kind: str) -> list[str]:
         """Relative paths of every file of one kind, sorted."""
         rows = self.db.execute(

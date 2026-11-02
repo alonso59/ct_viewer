@@ -257,12 +257,15 @@ def main(job_dir: Path) -> int:
         source = Path(spec["source"]["path"])
         identity = Identity.from_dict(spec.get("identity"))
         with SourceInventory(Path(spec["inventory"]), source) as inventory:
-            summary = inventory.scan(
-                cancelled=stop,
-                on_progress=progress,
-                batch_size=int(limits.get("batch_size", 64)),
-                max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
-            )
+            reuse = spec.get("reuse_inventory") and inventory.scanner_current
+            summary = inventory.summary() if reuse else {"complete": False}
+            if not summary["complete"]:
+                summary = inventory.scan(
+                    cancelled=stop,
+                    on_progress=progress,
+                    batch_size=int(limits.get("batch_size", 64)),
+                    max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
+                )
             if not summary["complete"]:
                 atomic_write_json(
                     job_dir / protocol.RESULT, {"status": "failed", "summary": summary}

@@ -11,6 +11,7 @@ import logging
 import os
 import sqlite3
 import time
+import traceback
 from collections import Counter
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
@@ -24,6 +25,7 @@ from app.core.errors import (
     JobConflict,
     NotFound,
     Problem,
+    ServerBusy,
     SourceMissing,
     ValidationProblem,
     problem_body,
@@ -58,7 +60,12 @@ from app.tasks.models import (
 from app.tasks.source_import import commit_with_annotations
 from app.tasks.source_inventory import SourceInventory, checked_folders
 from app.tasks.source_plans import SourcePlanPage, read_plan_page, write_plan
-from app.tasks.workspace_runs import WorkspaceRun, WorkspaceRunRequest, default_dataset_name
+from app.tasks.workspace_runs import (
+    WORKSPACE_JOBS,
+    WorkspaceRun,
+    WorkspaceRunRequest,
+    default_dataset_name,
+)
 
 if TYPE_CHECKING:
     from app.tasks.service import TaskService
@@ -905,7 +912,9 @@ class SourceOperations:
             atomic_write_json(receipt, {**intent, "status": "committed"})
             return record
 
-    def _submit(self, record: SourceOperation) -> None:
+    def _submit(self, record: SourceOperation, *, reuse_inventory: bool = False) -> None:
+        """`reuse_inventory`: a dry run right after a complete discovery plans from it unscanned;
+        conversion still checks the source before reading pixels."""
         self._require_inventory(record)
         job_dir = self._attempt_dir(record)
         base: dict[str, Any] = {}
@@ -935,6 +944,7 @@ class SourceOperations:
                 "folders": record.folders,
                 "purpose": record.purpose,
                 "operation_id": record.operation_id,
+                "reuse_inventory": reuse_inventory,
             },
         )
         record.job_id = new_ulid()
@@ -957,7 +967,7 @@ class SourceOperations:
                 current.work_kind = "estimate"
                 current.attempt += 1
                 try:
-                    self._submit(current)
+                    self._submit(current, reuse_inventory=True)
                 except Exception:
                     current.status = "failed"
                     current.error = "Could not prepare the dry run; review its source/settings"
@@ -1122,6 +1132,16 @@ class SourceOperations:
                     exc.actions,
                 )
             else:
+                # The message may name source paths, so only the type and code location are logged.
+                frame = traceback.extract_tb(exc.__traceback__)[-1]
+                log.error(
+                    "Source operation failed unexpectedly",
+                    extra={
+                        "operation_id": operation,
+                        "error": type(exc).__name__,
+                        "at": f"{Path(frame.filename).name}:{frame.lineno} {frame.name}",
+                    },
+                )
                 current.status = "failed"
                 current.error = (
                     current.error or "Source operation failed; review its source and settings"
@@ -1332,6 +1352,10 @@ class SourceOperations:
                 or not record.summary.get("complete")
             ):
                 raise JobConflict("Source plan generation changed; refresh the dry run")
+            busy = self.jobs.active(WORKSPACE_JOBS, "task", DICOM_CONVERT)
+            if record.project_id is None and busy:
+                # Refused before anything is reserved, so the same request can simply be repeated.
+                raise ServerBusy("Another conversion is running; start this one when it finishes")
             record.control = {"action": "convert", **request.model_dump()}
             record.conversion_run_id = new_ulid()
             record.conversion_request = {
@@ -1623,7 +1647,16 @@ class SourceOperations:
             record.attempt += 1
             record.error = None
             record.control = {"action": "resume", **request.model_dump()}
-            self._submit(record)
+            # Stopped between a complete discovery and its chained dry run: plan from it.
+            planning = (
+                record.work_kind == "inventory"
+                and record.prepare_plan
+                and record.stage == "planning"
+                and bool(record.summary.get("complete"))
+            )
+            if planning:
+                record.work_kind = "estimate"
+            self._submit(record, reuse_inventory=planning)
             return record
 
     def patient_ids(self, operation: str) -> set[str]:

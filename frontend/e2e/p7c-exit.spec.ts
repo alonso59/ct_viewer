@@ -26,7 +26,7 @@ test('the P7c journey', async ({ page, browserName }) => {
   await folders.getByRole('button', { name: /^dicom$/ }).click()
   await conv.getByRole('button', { name: 'Next' }).click()
   await conv.getByLabel('Dataset name').fill(name)
-  await conv.getByRole('button', { name: 'Dry run' }).click()
+  await conv.getByRole('button', { name: 'Analysis' }).click()
   await conv.getByRole('button', { name: /Convert \d+ series/ }).click()
   await conv.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
 

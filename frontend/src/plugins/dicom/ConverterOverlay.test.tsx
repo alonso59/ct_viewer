@@ -31,7 +31,7 @@ test('U08 restores a completed background Open result through the shared window'
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
   const button = await screen.findByRole('button', { name: 'Open in viewer' })
   expect(screen.getByRole('dialog', { name: 'Open file or folder' })).toBeVisible()
-  expect(screen.queryByRole('button', { name: 'Dry run' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Analysis' })).not.toBeInTheDocument()
   fireEvent.click(button)
   await waitFor(() => expect(open).toHaveBeenCalledWith(id))
   await waitFor(() => expect(useConverter.getState().open).toBe(false))
@@ -82,7 +82,7 @@ test('shows converted bytes and speed while the conversion time is unknown, and 
   const recorded = await recordedOperation()
   if (!recorded.conversion_run) throw new Error('Missing recorded conversion run')
   const unknown = { basis: 'unknown' as const, confidence: 'unknown' as const, sample_count: 2, remaining_units: 3, estimated_s: null, lower_s: null, upper_s: null }
-  const progress = { done: 1, total: 4, bytes_done: 500_000_000, bytes_total: 2_000_000_000, bytes_per_s: 10_000_000 }
+  const progress = { done: 1, total: 4, stage_done: 1, stage_total: 4, bytes_done: 500_000_000, bytes_total: 2_000_000_000, bytes_per_s: 10_000_000 }
   const operation: SourceOperation = { ...recorded, status: 'running', stage: 'converting', work_kind: 'convert', phase_run: null, conversion_run: { ...recorded.conversion_run, status: 'running', conversion_time: unknown, progress } }
   const get = vi.spyOn(api, 'getSourceOperation').mockResolvedValue(operation)
   useConverter.getState().attach(operation.operation_id)
@@ -262,7 +262,7 @@ test('DCM-15 re-estimates changed options in the same operation and inventory', 
   fireEvent.change(screen.getByRole('textbox', { name: 'Dataset name' }), { target: { value: 'revised-output' } })
   fireEvent.click(screen.getByRole('checkbox', { name: /phase analyzer/ }))
   fireEvent.click(screen.getByRole('checkbox', { name: /Anonymize/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   await waitFor(() => expect(refresh).toHaveBeenCalledWith(ready.operation_id, { expected_revision: ready.revision, expected_attempt: ready.attempt, settings: { target_profile: 'generic', phase_analyzer: false, anonymize: 'basic' }, name: 'revised-output' }))
   expect(start).not.toHaveBeenCalled()
   expect(await screen.findByRole('button', { name: /Convert \d+ series/ })).toBeEnabled()
@@ -283,7 +283,7 @@ test('DCM-15 changing the destination starts a workspace operation instead of re
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
   fireEvent.click(await screen.findByRole('button', { name: 'Back' }))
   fireEvent.click(screen.getByRole('button', { name: 'As a dataset (no project)' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   await waitFor(() => expect(start).toHaveBeenCalledWith(expect.objectContaining({ path: ready.source, project_id: null })))
   expect(refresh).not.toHaveBeenCalled()
 })
@@ -301,12 +301,12 @@ test('D22 refreshes a stale dry-run fence without replaying the rejected command
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
   fireEvent.click(await screen.findByRole('button', { name: 'Back' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   await screen.findByRole('alert')
   await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
   expect(refresh).toHaveBeenCalledTimes(1)
   fireEvent.click(await screen.findByRole('button', { name: 'Back' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   await waitFor(() => expect(refresh).toHaveBeenLastCalledWith(ready.operation_id, expect.objectContaining({ expected_revision: latest.revision, expected_attempt: latest.attempt })))
 })
 
@@ -420,7 +420,7 @@ test('converts a DICOM folder into a workspace dataset without a project', async
   expect(screen.getByDisplayValue(name)).toBeInTheDocument()
   expect(screen.queryByDisplayValue('P900')).toBeNull()
   expect(screen.getByRole('checkbox', { name: /phase analyzer/ })).toBeChecked()
-  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   const convert = await screen.findByRole('button', { name: 'Convert 1 series' })
   // DCM-06 (AUD-A2-13): which series is skipped and why; storage in the unit that fits
   expect(screen.getByText('2 series · 1 skipped')).toBeInTheDocument()
@@ -485,7 +485,7 @@ test('a dry run shows its stages, minimizes to a chip while it works and can be 
       </MemoryRouter>
     </QueryClientProvider>,
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Dry run' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   const progressId = est.mock.calls[0]?.[0].idempotency_key
   expect(progressId).toMatch(/^[A-Za-z0-9_-]{8,64}$/)
   expect(await screen.findByText('Reading headers: 120 / 450 files')).toBeInTheDocument()
@@ -498,11 +498,11 @@ test('a dry run shows its stages, minimizes to a chip while it works and can be 
   // opening the converter again shows the running window instead of starting over
   useConverter.getState().show({ source: '/data/other', pid: null })
   expect(useConverter.getState()).toMatchObject({ minimized: false, source: '/data/dicom/P900' })
-  fireEvent.click(await screen.findByRole('button', { name: 'Cancel dry run' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel analysis' }))
   await waitFor(() => expect(cancel).toHaveBeenCalledWith(pending.operation_id, { expected_revision: pending.revision, expected_attempt: pending.attempt }))
   expect(useConverter.getState().working).toBe(true)
   prog.mockResolvedValue({ ...pending, status: 'cancelled', cleanup_verified: true })
-  expect(await screen.findByRole('button', { name: 'Dry run' }, { timeout: 3000 })).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Analysis' }, { timeout: 3000 })).toBeInTheDocument()
   expect(useConverter.getState().working).toBe(false)
   vi.restoreAllMocks()
 })
@@ -546,7 +546,7 @@ test('U08 restores import discovery and returns its context to the adapter wizar
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
   await screen.findByRole('dialog', { name: 'Inspect import source' })
-  expect(screen.queryByRole('button', { name: 'Dry run' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Analysis' })).not.toBeInTheDocument()
   fireEvent.click(await screen.findByRole('button', { name: 'Continue import' }))
   await waitFor(() => expect(useImportWizard.getState().prefill?.discoveryId).toBe(id))
   expect(useImportWizard.getState().pid).toBe(DEMO_PID)
@@ -656,7 +656,7 @@ describe('UI-25 batch conversion (DCM-23)', () => {
     expect(within(preview).getByText('ds-b01')).toBeVisible()
     expect(within(preview).getByText('40')).toBeVisible()
     expect(within(preview).getAllByText('Counting files…').length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Dry run' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Analysis' })).toBeNull()
   })
 
   test('changing the batch size marks the preview stale until it is updated', async () => {

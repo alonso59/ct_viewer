@@ -8,7 +8,7 @@ import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCo
 import { NewProjectDialog } from '../../features/import'
 import { fmtEtaRange, IndeterminateProgress, ProblemCard, Progress } from '../../lib'
 import { filesCell } from './BatchPreview'
-import { ConversionBytes, DiscoveryProgress } from './OperationProgress'
+import { ConversionBytes, DiscoveryProgress, PlanningProgress, preparingKey } from './OperationProgress'
 
 type Command = Parameters<ReturnType<typeof useBatchPlanCommand>['mutate']>[0]
 
@@ -46,7 +46,8 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed }: {
     onError,
   })
   const working = !!operation && isTaskRunPending(operation.status)
-  const converting = batch.status === 'converting' || !!operation?.conversion_run
+  const preparing = operation ? preparingKey(operation) : null
+  const converting = !preparing && (batch.status === 'converting' || !!operation?.conversion_run)
   const failed = operation?.conversion_run?.counts?.failed ?? 0
   const fixable = !!operation && !working && operation.cleanup_verified
   const dataset = batch.dataset?.split('/').at(-1)
@@ -58,9 +59,9 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed }: {
       </td>
       <td className="num">{batch.folder_count}</td>
       <td className="num">{filesCell(plan, batch.files_total, t('conv.counting'))}</td>
-      <td><span className="badge" data-status={batch.status}>{t(`conv.batches.status.${batch.status}`)}</span></td>
+      <td><span className="badge" data-status={batch.status}>{t(`conv.batches.status.${preparing ?? batch.status}`)}</span></td>
       <td className="conv-batch-detail">
-        {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
+        {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : preparing === 'planning' ? <PlanningProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
         {batch.status === 'attention' && batch.error ? <p className="error-card" role="alert">{batch.error}</p> : null}
         <div className="conv-row">
           {batch.status === 'completed' && batch.dataset ? <button type="button" className="btn btn-sm" onClick={() => onCreate(batch)}>{t('conv.batches.createProject')}</button> : null}

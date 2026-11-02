@@ -40,7 +40,7 @@ async function prepareConversion(page: Page, server: Awaited<ReturnType<typeof s
   await dialog.getByRole('button', { name: 'Next', exact: true }).click()
   await dialog.getByRole('checkbox', { name: /phase analyzer/ }).setChecked(phase)
   const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
-  await dialog.getByRole('button', { name: 'Dry run', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Analysis', exact: true }).click()
   const { operation_id: oid } = await (await created).json() as { operation_id: string }
   await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
   return { dialog, oid, pid, inputs }
@@ -194,7 +194,7 @@ for (const stage of ['discovering', 'planning']) {
       await dialog.getByRole('button', { name: 'Next', exact: true }).click()
       await dialog.getByRole('checkbox', { name: /phase analyzer/ }).uncheck()
       const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
-      await dialog.getByRole('button', { name: 'Dry run', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Analysis', exact: true }).click()
       const { operation_id: oid } = await (await created).json() as { operation_id: string }
       const workspace = join(server.root, 'workspace')
       const barrier = () => readdirSync(workspace, { recursive: true, encoding: 'utf8' }).find((path) => path.endsWith('stage-barrier.json'))
@@ -341,7 +341,7 @@ np.testing.assert_allclose(image.affine @ [*marker, 1], [18.6, 29.1, 1972.5, 1],
 `, output])
   await page.getByRole('button', { name: 'Convert DICOM…', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-  await dialog.getByRole('button', { name: 'Dry run', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Analysis', exact: true }).click()
   await expect(dialog.getByRole('button', { name: /Convert 3 series/ })).toBeVisible({ timeout: 30_000 })
   await expect(dialog.getByText('503 series · 500 skipped', { exact: true })).toBeVisible()
   expect(fixtureHashes(server.source)).toEqual(inputs)
