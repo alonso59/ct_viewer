@@ -33,6 +33,8 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await folders.getByRole('button', { name: IMAGE }).click()
   await dialog.getByRole('button', { name: 'Open file' }).click()
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
+  // the browser tab names Open mode, never the file (NFR-17)
+  await expect(page).toHaveTitle('Open — Radiology Workbench')
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
 
   // W/L: the CT default on open (VW-05, AUD-A6-16), then a numeric window (VW-22)

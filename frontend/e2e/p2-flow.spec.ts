@@ -61,6 +61,8 @@ test('new project → import → browse → share link', async ({ page, browser,
   await expect(row).toBeVisible()
   await row.dblclick()
   await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/case_00001`))
+  // the browser tab names the case (its item once known) and the project
+  await expect(page).toHaveTitle(new RegExp(`^case_00001( · [^—]+)? — ${name} — Radiology Workbench$`))
 
   // Problems panel lists the fixture warnings. AUD-A3-01 (UI-13): on a case tab the panel stays
   // closed while the item has neither features nor problems; the Layout menu opens it (ADR-0028)

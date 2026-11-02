@@ -12,6 +12,7 @@ import { useSettings } from '../state'
 import { applyTheme } from '../theme'
 import { bootstrap } from './bootstrap'
 import { ProjectRoute } from './ProjectRoute'
+import { PageTitle } from './useDocumentTitle'
 
 bootstrap()
 
@@ -61,9 +62,9 @@ export function App() {
           <OpenDialogHost />
           <ErrorBoundary>
             <Routes>
-              <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
-              <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
-              <Route path="/open/:sid" element={<><OpenRoute /><ShellOverlays /></>} />
+              <Route path="/" element={<><PageTitle /><WorkspaceHome /><ShellOverlays /></>} />
+              <Route path="/open" element={<><PageTitle titleKey="common.open" /><OpenRoute /><ShellOverlays /></>} />
+              <Route path="/open/:sid" element={<><PageTitle titleKey="common.open" /><OpenRoute /><ShellOverlays /></>} />
               <Route path="/v/:token/*" element={<ViewLink />} />
               <Route path="/p/:pid/*" element={<ProjectRoute />} />
             </Routes>
