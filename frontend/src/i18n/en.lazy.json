@@ -885,7 +885,10 @@
       },
       "cancelConfirm": "Cancel this plan? Finished batches are kept.",
       "cancelYes": "Yes, cancel",
-      "keep": "Keep the plan"
+      "keep": "Keep the plan",
+      "problems": "Batch problems",
+      "problemDetails": "Details",
+      "problem": "{{batch}} · {{problem}}"
     },
     "projectionWarning": "This source may need about {{projected}} of inventory space; the limit is {{cap}}.",
     "etaStages": "Discovery, registration and phase analysis are excluded.",

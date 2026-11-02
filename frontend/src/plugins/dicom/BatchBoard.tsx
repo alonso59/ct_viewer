@@ -60,7 +60,6 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
       <td><span className="badge" data-status={batch.status}>{t(`conv.batches.status.${preparing ?? (working && batch.status === 'attention' ? 'converting' : batch.status)}`)}</span></td>
       <td className="conv-batch-detail">
         {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
-        {batch.status === 'attention' && batch.error && !working ? <p className="error-card" role="alert">{batch.error}</p> : null}
         <div className="conv-row">
           {batch.operation_id ? <button type="button" className="btn btn-sm" onClick={() => onOpenOperation(batch.operation_id!)}>{t('conv.batches.details')}</button> : null}
           {operation ? <button type="button" className="btn btn-sm" onClick={() => { useConverter.getState().minimize(); showOperationOutput(operation) }}>{t('conv.showOutput')}</button> : null}
@@ -72,6 +71,22 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
         </div>
       </td>
     </tr>
+  )
+}
+
+/** A stopped batch's problem under the table: what happened in one line, the full report on request */
+function BatchProblem({ batch }: { batch: SourceBatch }) {
+  const { t } = useTranslation()
+  const operation = useSourceOperation(batch.operation_id).data
+  if (!batch.error || (operation && isTaskRunPending(operation.status))) return null
+  // A worker report ends with the exception that stopped it; that line says what happened.
+  const lines = batch.error.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const summary = lines.at(-1) ?? batch.error
+  return (
+    <li className="error-card" role="alert">
+      {t('conv.batches.problem', { batch: batch.name, problem: summary })}
+      {lines.length > 1 ? <details><summary>{t('conv.batches.problemDetails')}</summary><pre className="mono">{batch.error}</pre></details> : null}
+    </li>
   )
 }
 
@@ -157,6 +172,9 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
           </tbody>
         </table>
       </div>
+      {plan.batches.some((b) => b.status === 'attention' && b.error) ? <ul className="conv-problems" aria-label={t('conv.batches.problems')}>
+        {plan.batches.filter((b) => b.status === 'attention').map((b) => <BatchProblem key={b.index} batch={b} />)}
+      </ul> : null}
       <div className="conv-row conv-actions">
         {plan.status === 'pending' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run('start')}>{t('conv.batches.start')}</button> : null}
         {plan.status === 'running' && current?.status === 'ready' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run('continue')}>{t('conv.batches.convertThis')}</button> : null}

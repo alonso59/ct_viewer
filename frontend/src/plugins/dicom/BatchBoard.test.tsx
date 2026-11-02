@@ -91,6 +91,16 @@ describe('rows and chips', () => {
     expect(within(row).queryByText('Out of memory')).toBeNull()
   })
 
+  test('problems are listed under the table with the last line of the report first', async () => {
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue(await operation({ operation_id: 'op1', status: 'failed' }))
+    const report = ['RuntimeError: input_manifest(g.series)', '  File "commits.py", line 55', 'OSError: [Errno 12] Cannot allocate memory'].join('\n')
+    renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'attention', operation_id: 'op1', error: report }), batch(1)] }))
+    const problems = await screen.findByRole('list', { name: 'Batch problems' })
+    expect(within(problems).getByRole('alert')).toHaveTextContent('ds-b01 · OSError: [Errno 12] Cannot allocate memory')
+    expect(within(screen.getByTestId('batch-0')).queryByText(/Cannot allocate memory/)).toBeNull()
+    expect(within(problems).getByText('Details')).toBeInTheDocument()
+  })
+
   test('shows a dash for files when counting is over without a count', async () => {
     renderBoard(plan({ batches: [batch(0, { files_total: null }), batch(1)] }))
     expect(within(await screen.findByTestId('batch-0')).getByText('—')).toBeVisible()
