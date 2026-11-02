@@ -39,6 +39,12 @@ test('the fake segmentation plugin adds a set through the host runner', async ({
   const workspace = process.env.E2E_WORKSPACE ?? ''
   runner = spawn(resolve(REPO, 'backend/.venv/bin/python'), [resolve(REPO, 'scripts/rw-runner.py'), '--workspace', workspace, '--plugins', process.env.E2E_PLUGINS ?? '', '--poll', '0.2'], { stdio: 'ignore' })
   await expect(row.getByText('Completed', { exact: true })).toBeVisible({ timeout: 45_000 })
+  // FE-11: the task run's job has a label in the Jobs panel, never a raw key
+  // the panel stays closed on a task tab until asked for (UI-13)
+  if (!(await page.getByRole('tab', { name: /^Jobs/ }).isVisible())) await page.keyboard.press('Control+j')
+  await page.getByRole('tab', { name: /^Jobs/ }).click()
+  await expect(page.getByText('Task run').first()).toBeVisible()
+  await expect(page.getByText(/jobs\.kind\./)).toHaveCount(0)
   await expect(row.getByText('Segmentation set')).toBeVisible()
   const sets = await api<{ seg_id: string; kind: string; n_items: number }[]>('GET', `/projects/${pid}/segmentations`)
   expect(sets.filter((s) => s.kind === 'task').map((s) => s.n_items)).toEqual([1])

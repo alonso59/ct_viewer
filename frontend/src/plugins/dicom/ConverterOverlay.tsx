@@ -32,7 +32,7 @@ import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
-import { ConversionTime, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
+import { ConversionTime, CONV_STATUS, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
 import { showOperationOutput } from './output'
 import { PhasePanel } from './PhasePanel'
 import './converter.css'
@@ -343,7 +343,7 @@ export default function ConverterOverlay() {
     activity = { label: t('conv.connecting'), done: 0, total: 0, finished: false }
   } else if (operation && scanCount && !linked && operation.stage !== 'ready') {
     const finished = !isTaskRunPending(operation.status)
-    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
+    activity = { label: finished ? t(CONV_STATUS[operation.status]) : countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
   } else if (scan && scanCount) {
     activity = { label: countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished: false }
   } else if (run) {
@@ -351,9 +351,9 @@ export default function ConverterOverlay() {
     if (runFinished) {
       const tone = runStatus === 'completed' ? 'ok' : runStatus === 'completed_with_errors' ? 'warn' : 'error'
       const p = runProgress
-      activity = { label: t(`conv.status.${runStatus}`, { defaultValue: runStatus }), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), finished: true, tone }
+      activity = { label: t(CONV_STATUS[runStatus]), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), finished: true, tone }
     } else if (runStatus === 'waiting_for_resources' || runStatus === 'cancelling' || runStatus === 'cleanup_pending' || runStatus === 'reconciling') {
-      activity = { label: t(`conv.status.${runStatus}`), done: count.done, total: count.total, finished: false }
+      activity = { label: t(CONV_STATUS[runStatus]), done: count.done, total: count.total, finished: false }
     } else {
       activity = { label: countLabel(t, count), done: count.done, total: count.total, finished: false }
     }
@@ -366,7 +366,7 @@ export default function ConverterOverlay() {
     finished: plan.status !== 'running', tone: plan.status === 'completed' ? 'ok' : plan.status === 'paused' ? 'warn' : undefined,
   } : null
   const chipActivity: Activity | null = planActivity ?? (phase && runFinished ? {
-    label: t('conv.phaseStatus', { status: t(`conv.status.${phase.status}`, { defaultValue: phase.status }) }),
+    label: t('conv.phaseStatus', { status: t(CONV_STATUS[phase.status]) }),
     done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
     finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
   } : activity)
@@ -548,7 +548,7 @@ export default function ConverterOverlay() {
                 {operationId && !operations.some((value) => value.operation_id === operationId) ? <option value={operationId}>{t('conv.currentOperation')}</option> : null}
                 {operations.map((value) => {
                   const preparing = preparingKey(value)
-                  const status = preparing ? t(`conv.batches.status.${preparing}`) : t(`conv.status.${value.status}`, { defaultValue: value.status })
+                  const status = preparing ? t(`conv.batches.status.${preparing}`) : t(CONV_STATUS[value.status])
                   const name = value.dataset_name ?? value.source.split('/').at(-1)
                   return <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { name, status, date: fmtDate(value.created_at) })}</option>
                 })}

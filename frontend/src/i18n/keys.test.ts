@@ -1,6 +1,9 @@
+// @vitest-environment jsdom
 // FE-11: every translation key used in the source exists in en.json (static keys + enum families).
 import { CASE_ROLLUPS, PHASES } from '../api/types'
+import { JOB_KIND } from '../features/jobs/JobsPanel'
 import { RUN_STATES } from '../lib/badges'
+import { CONV_STATUS } from '../plugins/dicom/OperationProgress'
 import { MENUS, SUBMENUS } from '../shell/menus'
 import { WL_PRESETS } from '../state/viewerSync'
 import en from './en.json'
@@ -106,6 +109,12 @@ test('enum families are complete', () => {
   ]
   const missing = families.flatMap(([ns, values]) => values.map((v) => `${ns}.${v}`).filter((k) => !has(k)))
   expect(missing).toEqual([])
+})
+
+// FE-11: typed label maps (every job kind, every operation / conversion state) point at real keys
+test('typed label maps resolve', () => {
+  const keys = [...Object.values(JOB_KIND), ...Object.values(CONV_STATUS)]
+  expect(keys.filter((k) => !has(k))).toEqual([])
 })
 
 // FB12: every key in the locale files is used. A key counts as used when the source quotes it

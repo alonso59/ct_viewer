@@ -1005,7 +1005,11 @@
       "completed_with_errors": "Completed with errors",
       "failed": "Failed",
       "cancelled": "Cancelled",
-      "interrupted": "Interrupted"
+      "interrupted": "Interrupted",
+      "queued": "Queued",
+      "waiting_for_runner": "Waiting for runner",
+      "pausing": "Pausing…",
+      "paused": "Paused"
     },
     "showResult": "Show the result",
     "datasetReady": "Dataset {{name}} is ready.",

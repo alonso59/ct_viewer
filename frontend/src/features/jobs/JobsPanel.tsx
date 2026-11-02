@@ -3,11 +3,22 @@ import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
-import { useCancelJob, useJobs, type ServerEvent } from '../../api'
+import { useCancelJob, useJobs, type Job, type ServerEvent } from '../../api'
 import { Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
+
+/** Every job kind has a label: a new server kind fails typecheck, never shows a raw key */
+export const JOB_KIND: Record<Job['kind'], string> = {
+  index: 'jobs.kind.index',
+  hash: 'jobs.kind.hash',
+  thumbnail: 'jobs.kind.thumbnail',
+  radiomics: 'jobs.kind.radiomics',
+  mesh: 'jobs.kind.mesh',
+  task: 'jobs.kind.task',
+  'open-convert': 'jobs.kind.open-convert',
+}
 
 interface LogState {
   lines: { at: string; text: string; tone?: 'ok' | 'warn' | 'error' }[]
@@ -24,7 +35,7 @@ export function logEvent(e: ServerEvent) {
   if (e.event === 'curation.appended')
     push(t('output.curation', { reviewer: e.data.reviewer, id: e.data.item_id ?? e.data.case_id, target: e.data.target, status: e.data.status }))
   if (e.event === 'job.finished')
-    push(t('output.job', { title: t(`jobs.kind.${e.data.kind}`), status: t(runStatusKey(e.data.status)) }), e.data.status === 'succeeded' ? 'ok' : 'warn')
+    push(t('output.job', { title: t(JOB_KIND[e.data.kind as Job['kind']] ?? 'jobs.kind.task'), status: t(runStatusKey(e.data.status)) }), e.data.status === 'succeeded' ? 'ok' : 'warn')
   if (e.event === 'index.rebuilt') push(t('output.index', { items: e.data.n_items, warnings: e.data.n_warnings }), 'ok')
   if (e.event === 'project.updated') push(t('output.project', { fields: e.data.fields.join(', ') }))
 }
@@ -49,7 +60,7 @@ export function JobsPanel() {
       <tbody>
         {jobs.map((j) => (
           <tr key={j.job_id}>
-            <td>{t(`jobs.kind.${j.kind}`)}</td>
+            <td>{t(JOB_KIND[j.kind])}</td>
             <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error" role="alert">{j.error}</p> : null}</td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -100,7 +111,7 @@ export function JobStatus() {
   const running = (useJobs(pid).data ?? []).filter((j) => j.status === 'running')
   const j = running[0]
   if (!j) return null
-  const title = t(`jobs.kind.${j.kind}`)
+  const title = t(JOB_KIND[j.kind])
   return (
     <button type="button" className="statusbar-item" onClick={() => useLayout.getState().showPanelTab('jobs')} title={title}>
       <Icon spec={codicon('sync')} className="codicon-modifier-spin" />

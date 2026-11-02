@@ -657,7 +657,9 @@
       "hash": "Full hash",
       "thumbnail": "Thumbnails",
       "radiomics": "Radiomics",
-      "mesh": "Mesh"
+      "mesh": "Mesh",
+      "task": "Task run",
+      "open-convert": "Opening a source"
     },
     "taskFailedDetail": "{{name}}: {{error}}",
     "showTask": "Show task"
