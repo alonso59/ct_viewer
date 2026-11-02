@@ -30,6 +30,7 @@ Depends: all domain docs.
 | TST-22 | Supervised-job verification gates | pytest + CI + host preflight | ADR-0034: fail-closed required backend/environment protections, bounded workers, hermetic fake processes, first-failure diagnostics and enforced pre-publication checks; further P7g cases/gates in SEGMENTATION_JOB_TEST_PLAN.md |
 | TST-23 | Effective local/server containment | opt-in Linux host pytest | OPS-16..19: bounded owned services, actual source-write/network restrictions and native IPC, inherited confinement, descendant cancel/crash cleanup, unaffected sentinel and verified generation release. `make test-host` runs serially and never skips missing prerequisites; normal container CI does not certify host effects |
 | TST-24 | Durable DICOM lifecycle | pytest + real-process restart/cleanup tests + Playwright + benchmark | SRC-18/19, DCM-15..19, TSK-16, BE-16, UI-28, API-69; DICOM_JOB_TEST_PLAN.md owns D01–D35/U01–U12/B01–B08/P01–P06 and actual evidence remains separate from plan acceptance |
+| TST-25 | Accessibility | Playwright + axe-core (`@axe-core/playwright`, a dev dependency only) | FE-08, UI-01, UI-11: axe (WCAG 2.2 A/AA + best practice) on the home, the converter, Open mode, the workbench, a case tab, the Jobs panel, the palette, Keyboard shortcuts and Settings fails on any serious or critical violation outside an allow-list with reasons that may only shrink; a keyboard walk checks the skip link, the F6 regions and a visible focus ring (`e2e/a11y.spec.ts`) |
 
 TST-21 commands: `cd backend && .venv/bin/pytest -q tests/test_nnunet.py`; real host acceptance: `.venv/bin/python -m tools.nnunet_acceptance --items 1 --gpus 0 --gpu-cap 1 --backend server`, then `--items 2 --gpus 0,6 --gpu-cap 2 --backend local`. Authorized idle devices only; full source/model hashes and geometry/index checks are required. Current evidence is owned by SEGMENTATION_JOB_TEST_PLAN.md.
 
@@ -87,6 +88,7 @@ All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Port
 | `converter-recovery` | TST-24 / B04–B06/B08: private real API and native writer callback, cancel/API SIGKILL, same-run resume, fresh browser context, two tabs, theme and keyboard minimize/restore. `e2e/dicomRecovery.ts` proxies the UI to `backend/tests/dicom_browser_server.py`; shared E2E services stay alive. |
 | `variables` · `projects-bundle` | API-16..18 · IMP-09 hash job, PRJ-08/09 export → import, archive / restore |
 | `ct-tools` · `viewer-fov` | VW-17/22/23, UI-24 · VW-06/26 |
+| `a11y` | TST-25: axe on the key screens (allow-list may only shrink), skip link, F6 regions, visible focus |
 
 ## Verification gates and CI wiring
 
