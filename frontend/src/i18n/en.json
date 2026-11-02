@@ -877,7 +877,9 @@
     "close_tab": "Close tab",
     "relink_root": "Relink data root…",
     "show_problems": "Show in Problems",
-    "use_pattern": "Use one case per folder"
+    "use_pattern": "Use one case per folder",
+    "retry": "Try again",
+    "reload": "Reload the app"
   },
   "open": {
     "command": "Open file or folder…"
@@ -950,7 +952,8 @@
     "unsupported-format": "This file cannot be used here",
     "unreadable": "This file cannot be read",
     "geometry-mismatch": "The segmentation does not match the image",
-    "source-missing": "A source file is missing"
+    "source-missing": "A source file is missing",
+    "render-failed": "This part of the window stopped working"
   },
   "recycle": {
     "button": "Move scan to recycle bin",

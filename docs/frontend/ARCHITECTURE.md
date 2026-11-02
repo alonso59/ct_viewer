@@ -88,7 +88,7 @@ Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`);
 | FE-06 | No runtime network calls outside the app origin; fonts and icons are bundled. | M |
 | FE-07 | Electron readiness: no Node or DOM-global hacks; the API base URL is configurable. | M |
 | FE-08 | Keyboard- and screen-reader-friendly tree, tabs and dialogs (ARIA roles, focus rings). | S |
-| FE-09 | Every async surface has loading, empty and error states (problem+json `title`/`detail`). | M |
+| FE-09 | Every async surface has loading, empty and error states (problem+json `title`/`detail`). A render or effect failure stays inside its region (side bar, editor area, panel, inspector; the routes as a last resort) and shows Try again · Reload the app (`lib/ErrorBoundary`); effects use block bodies so a callee's value is never taken as a cleanup (lint rule). | M |
 | FE-10 | The reviewer name comes from `state/reviewer` and is sent as `X-Reviewer` on writes. | M |
 | FE-11 | No hard-coded UI strings: all text goes through `t()` with keys in `i18n/en.json`. Dates and numbers use `Intl`. A lint rule flags literal JSX text. | M |
 

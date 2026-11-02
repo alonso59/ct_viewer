@@ -202,16 +202,28 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   }, [handle])
 
   // Store → engine
-  useEffect(() => handle?.setWindow(v.ww, v.wl), [handle, v.ww, v.wl])
-  useEffect(() => handle?.setDisplay(v.display), [handle, v.display])
+  useEffect(() => {
+    handle?.setWindow(v.ww, v.wl)
+  }, [handle, v.ww, v.wl])
+  useEffect(() => {
+    handle?.setDisplay(v.display)
+  }, [handle, v.display])
   const styles = useMemo<LabelStyle[]>(
     () => labels.map((l) => ({ value: l.value, color: l.color, visible: v.labelVisibility[l.value] ?? l.visible, opacity: Math.min(1, (v.labelOpacity[l.value] ?? l.opacity) * 2), outline: v.outline })),
     [labels, v.labelVisibility, v.labelOpacity, v.outline],
   )
-  useEffect(() => handle?.setLabels(styles), [handle, styles])
-  useEffect(() => handle?.setOverlay({ visible: v.overlay, opacity: v.overlayOpacity }), [handle, v.overlay, v.overlayOpacity])
-  useEffect(() => handle?.setLinkedZoom(local.linkZoom), [handle, local.linkZoom])
-  useEffect(() => handle?.setRender({ volume: !hasMask || local.volume3d, mask: hasMask && local.mask3d, surfaces: local.surfaces && !!meshUrl, opacity: local.ctOpacity, blend: local.blend, scene: local.scene3d }), [handle, hasMask, meshUrl, local.volume3d, local.mask3d, local.surfaces, local.ctOpacity, local.blend, local.scene3d])
+  useEffect(() => {
+    handle?.setLabels(styles)
+  }, [handle, styles])
+  useEffect(() => {
+    handle?.setOverlay({ visible: v.overlay, opacity: v.overlayOpacity })
+  }, [handle, v.overlay, v.overlayOpacity])
+  useEffect(() => {
+    handle?.setLinkedZoom(local.linkZoom)
+  }, [handle, local.linkZoom])
+  useEffect(() => {
+    handle?.setRender({ volume: !hasMask || local.volume3d, mask: hasMask && local.mask3d, surfaces: local.surfaces && !!meshUrl, opacity: local.ctOpacity, blend: local.blend, scene: local.scene3d })
+  }, [handle, hasMask, meshUrl, local.volume3d, local.mask3d, local.surfaces, local.ctOpacity, local.blend, local.scene3d])
   const resetToken = useRef(v.resetToken)
   useEffect(() => {
     if (resetToken.current === v.resetToken) return
@@ -285,7 +297,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     ro.observe(el)
     return () => ro.disconnect()
   }, [measure, v.layout, v.maximized])
-  useEffect(() => handle?.setLayout(v.layout), [handle, v.layout])
+  useEffect(() => {
+    handle?.setLayout(v.layout)
+  }, [handle, v.layout])
 
   // Space+drag pans
   useEffect(() => {

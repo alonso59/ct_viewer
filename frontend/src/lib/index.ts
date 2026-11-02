@@ -4,6 +4,7 @@ export { CaseRollupBadge, rollupTitle, StatusBadge, StatusIcon, PhaseChip, Sever
 export { fmtNum, fmt1, fmtInt, fmtDate, fmtAgo, fmtDuration, fmtEtaRange, fmtBytes, fmtValue, fmtColumn, featureUnit, midEllipsis, robustZ } from './format'
 export { SliceThumb } from './SliceThumb'
 export { ProblemCard, type ActionHandlers } from './ProblemCard'
+export { ErrorBoundary } from './ErrorBoundary'
 export { problemMessage, problemToastText } from './problem'
 export { openPath, pendingPath } from './openNavigate'
 export { ItemName, itemName, knownPhase } from './itemName'

@@ -1,6 +1,7 @@
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 
+import { ErrorBoundary } from '../lib/ErrorBoundary'
 import { useLayout } from '../state'
 import { ActivityBar } from './ActivityBar'
 import { CommandPalette } from './CommandPalette'
@@ -41,15 +42,17 @@ export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode
       <ToolBar />
       <div className="wb-main">
         <ActivityBar />
-        <SideBar />
+        <ErrorBoundary><SideBar /></ErrorBoundary>
         <div className="wb-center">
-          <Suspense fallback={<div className="wb-editor" />}>
-            <EditorArea key={pid} pid={pid} />
-          </Suspense>
-          <Panel />
+          <ErrorBoundary>
+            <Suspense fallback={<div className="wb-editor" />}>
+              <EditorArea key={pid} pid={pid} />
+            </Suspense>
+          </ErrorBoundary>
+          <ErrorBoundary><Panel /></ErrorBoundary>
           <PanelContentWatch />
         </div>
-        <Inspector />
+        <ErrorBoundary><Inspector /></ErrorBoundary>
       </div>
       <StatusBar />
       <ShellOverlays />

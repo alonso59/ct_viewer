@@ -26,7 +26,9 @@ vi.mock('dockview-react', async () => {
   return {
     DockviewReact: ({ onReady }: { onReady: (event: DockviewReadyEvent) => void }) => {
       const first = useRef(onReady)
-      useEffect(() => first.current({ api: route.dock as DockviewApi }), [])
+      useEffect(() => {
+        first.current({ api: route.dock as DockviewApi })
+      }, [])
       return createElement('div')
     },
   }

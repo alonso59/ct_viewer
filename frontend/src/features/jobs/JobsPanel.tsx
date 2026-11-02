@@ -78,7 +78,9 @@ export function ActivityLog() {
   const { t } = useTranslation()
   const lines = useOutput((s) => s.lines)
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [lines.length])
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [lines.length])
   if (!lines.length) return <div className="empty">{t('output.empty')}</div>
   return (
     <div className="mono" style={{ fontSize: 'var(--fs-panel)', padding: '4px 12px', whiteSpace: 'pre-wrap' }}>

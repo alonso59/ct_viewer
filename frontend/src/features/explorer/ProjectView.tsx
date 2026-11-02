@@ -123,7 +123,9 @@ export function ProjectView() {
     estimateSize: (i) => (rows[i]?.kind === 'case' ? caseH : rowH),
     overscan: 8,
   })
-  useEffect(() => virt.measure(), [caseH, rowH, virt])
+  useEffect(() => {
+    virt.measure()
+  }, [caseH, rowH, virt])
 
   // Follow the active case (and item, when its case is expanded), like VS Code's
   // "reveal active file": the keyboard cursor moves there and the row scrolls into view

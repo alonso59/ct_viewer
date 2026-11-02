@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router'
 import { queryClient, useHealth, viewPid } from '../api'
 import { OpenDialogHost, OpenRoute } from '../features/open'
 import { WorkspaceHome } from '../features/projects'
+import { ErrorBoundary } from '../lib'
 import { configureViewer } from '../features/viewer'
 import { ShellOverlays, ShellProviders, useGlobalKeybindings } from '../shell'
 import { useSettings } from '../state'
@@ -58,13 +59,15 @@ export function App() {
           <Keys />
           <ViewerConfig />
           <OpenDialogHost />
-          <Routes>
-            <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
-            <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
-            <Route path="/open/:sid" element={<><OpenRoute /><ShellOverlays /></>} />
-            <Route path="/v/:token/*" element={<ViewLink />} />
-            <Route path="/p/:pid/*" element={<ProjectRoute />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<><WorkspaceHome /><ShellOverlays /></>} />
+              <Route path="/open" element={<><OpenRoute /><ShellOverlays /></>} />
+              <Route path="/open/:sid" element={<><OpenRoute /><ShellOverlays /></>} />
+              <Route path="/v/:token/*" element={<ViewLink />} />
+              <Route path="/p/:pid/*" element={<ProjectRoute />} />
+            </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </ShellProviders>
     </QueryClientProvider>

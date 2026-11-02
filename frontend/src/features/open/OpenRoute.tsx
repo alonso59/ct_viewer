@@ -110,7 +110,9 @@ export default function OpenRoute() {
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
   const openDialog = useOpenDialog((s) => s.show)
-  useEffect(() => resetDisplay(), [])
+  useEffect(() => {
+    resetDisplay()
+  }, [])
   const qc = useQueryClient()
   const close = async () => {
     if (session) {
