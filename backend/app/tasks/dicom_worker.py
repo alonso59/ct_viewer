@@ -10,6 +10,7 @@ import sys
 import time
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 
 def arm_parent_death(expected_parent: int) -> None:
@@ -128,7 +129,9 @@ def main(job_dir: Path) -> int:
             with SourceInventory(Path(binding["path"]), Path(spec["source"]["path"])) as inventory:
                 # The planned inventory is the conversion's input; a later source change needs a
                 # new analysis. A file that changes while it is read is still refused.
-                summary = inventory.summary() if inventory.scanner_current else {"complete": False}
+                summary: dict[str, Any] = (
+                    inventory.summary() if inventory.scanner_current else {"complete": False}
+                )
                 if not summary["complete"] or summary["generation"] != binding["generation"]:
                     summary = inventory.scan(
                         cancelled=stop,
