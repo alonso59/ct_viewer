@@ -64,7 +64,7 @@ An optional right **Inspector** (curation form, labels of the case / scan (LBL-0
 
 | ID | Requirement | Pri |
 |---|---|---|
-| UI-01 | Shell regions as drawn: title bar, tool bar, activity bar, left pane, editor area, panel, status bar, inspector (visible by default). | M |
+| UI-01 | Shell regions as drawn: title bar, tool bar, activity bar, left pane, editor area, panel, status bar, inspector (visible by default). The editor area is the page's `main` landmark (the home's start columns and the Open-mode page are theirs); a **Skip to editor** link is the first Tab stop, and `F6` / `Shift+F6` move focus to the next / previous region (title bar, left pane, editor area, panel, inspector; hidden ones are skipped). | M |
 | UI-02 | Features register views, editor types, tools, inspector sections, panel tabs, commands and status items in a registry, and the shell renders them. Registration is idempotent: every contribution is keyed by its id, so registering an id again replaces the entry (a hot-reloaded module swaps its component, AUD-A8-01). | M |
 | UI-03 | Editor tabs: case, radiomics settings, run dashboard, correction queue, welcome, labeling table, project settings. Tabs support preview mode (italic until pinned), drag, split and close-others. | M |
 | UI-04 | Workspace home (`/`) looks like the QuPath/VS Code welcome: New Project (name + optional default modality, PRJ-14), Open file or folder…, Convert DICOM… (UI-25), Open Recent (with thumbnail and progress) followed by the converted workspace datasets (name, series, Open · Create project; AUD-A2-14), and a share-link copy button. | M |
@@ -163,6 +163,7 @@ Implementation (Open mode, import): "Open file or folder…" is on the workspace
 | `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset all views* (VW-10) |
 | `F` | Fit the view under the pointer* (VW-26) | `Esc` | Restore a maximized view* |
 | `Ctrl/Cmd+,` | Settings | `Ctrl/Cmd+Shift+E` / `F` | Project / Search view |
+| `F6` / `Shift+F6` | Focus next / previous region (UI-01) | | |
 
 \* Only while a viewer is shown (a case tab, or Open mode) and focus is not in a text field or menu; DOM focus inside the viewer is not needed, so `A → Alt+↓ → A` records both cases (AUD-A2-02). Curation keys wait until the new case's item has loaded and target it with the default target `seg`. No shortcut fires while a dialog is open (AUD-A2-09).
 

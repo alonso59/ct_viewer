@@ -154,7 +154,7 @@ export default function OpenRoute() {
 
   return (
     <div className="page">
-      <div className="page-inner open-inner">
+      <main className="page-inner open-inner">
         <header className="open-title">
           <button type="button" className="btn btn-brand" onClick={() => navigate('/')} title={t('open.home')} aria-label={t('open.home')}>
             <BrandMark size={18} />
@@ -242,7 +242,7 @@ export default function OpenRoute() {
             </div>
           </div>
         ) : null}
-      </div>
+      </main>
       {askOrder && session && current ? (
         <AxisOrderDialog
           session={session}

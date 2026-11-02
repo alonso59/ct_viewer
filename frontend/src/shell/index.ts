@@ -17,3 +17,4 @@ export {
   refreshUrl,
 } from './workbenchStore'
 export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, commandTitle } from './keybindings'
+export { focusRegion } from './regions'

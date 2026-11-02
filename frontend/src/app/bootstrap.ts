@@ -16,6 +16,7 @@ import { activatePlugins, FIRST_PARTY } from '../plugins'
 import {
   closeActiveEditor,
   closeOtherEditors,
+  focusRegion,
   openEditor,
   registry,
   splitActiveEditor,
@@ -74,6 +75,8 @@ export function bootstrap() {
   cmd({ id: 'workbench.toggleSidebar', title: 'cmd.toggleSidebar', category: 'cat.view', keybinding: 'mod+b', menuGroup: 2, run: () => useLayout.getState().toggle('sidebarVisible') })
   cmd({ id: 'workbench.togglePanel', title: 'cmd.togglePanel', category: 'cat.view', keybinding: 'mod+j', menuGroup: 2, run: () => useLayout.getState().toggle('panelVisible') })
   cmd({ id: 'workbench.toggleInspector', title: 'cmd.toggleInspector', category: 'cat.view', keybinding: 'mod+alt+b', menuGroup: 2, run: () => useLayout.getState().toggle('inspectorVisible') })
+  cmd({ id: 'workbench.nextRegion', title: 'cmd.nextRegion', category: 'cat.view', keybinding: 'f6', keywords: ['kw.focus'], menuGroup: 2, run: () => focusRegion(1) })
+  cmd({ id: 'workbench.previousRegion', title: 'cmd.previousRegion', category: 'cat.view', keybinding: 'shift+f6', keywords: ['kw.focus'], menuGroup: 2, run: () => focusRegion(-1) })
   // Browsers reserve Ctrl/Cmd+W, so the web app uses Alt+W
   cmd({ id: 'workbench.closeTab', title: 'cmd.closeTab', category: 'cat.file', keybinding: 'alt+w', menuGroup: 9, enabled: hasTab, run: closeActiveEditor })
   cmd({ id: 'workbench.closeOthers', title: 'cmd.closeOthers', category: 'cat.file', menuGroup: 9, enabled: hasTab, run: closeOtherEditors })

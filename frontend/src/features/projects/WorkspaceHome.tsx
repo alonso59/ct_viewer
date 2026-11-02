@@ -164,7 +164,7 @@ export function WorkspaceHome() {
             <p className="muted">{t('home.subtitle')}</p>
           </div>
         </header>
-        <div className="home-cols">
+        <main className="home-cols">
           <section>
             <h2>{t('home.start')}</h2>
             <div className="home-actions">
@@ -240,7 +240,7 @@ export function WorkspaceHome() {
             <RecentDatasets onCreate={setFromDataset} />
             </>}
           </section>
-        </div>
+        </main>
         <footer className="home-footer muted">
           {t('app.tagline')}
           <button type="button" className="link" onClick={() => runCommand('help.about')}>{t('cmd.about')}</button>

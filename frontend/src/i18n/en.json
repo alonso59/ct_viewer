@@ -75,7 +75,9 @@
     "newLabelTable": "New label table…",
     "exportDatasetCsv": "Export dataset table (CSV)",
     "exportDatasetParquet": "Export dataset table (Parquet)",
-    "exportDatasetJsonl": "Export dataset.jsonl"
+    "exportDatasetJsonl": "Export dataset.jsonl",
+    "nextRegion": "Focus next region",
+    "previousRegion": "Focus previous region"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -107,7 +109,9 @@
       "panel": "Panel",
       "inspector": "Inspector"
     },
-    "toastCount": "×{{n}}"
+    "toastCount": "×{{n}}",
+    "skipToEditor": "Skip to editor",
+    "editorArea": "Editor area"
   },
   "palette": {
     "cases": "Cases",
@@ -952,7 +956,8 @@
     "dataset": "dataset",
     "export": "export",
     "labeling": "labeling",
-    "phase": "phase"
+    "phase": "phase",
+    "focus": "focus"
   },
   "about": {
     "statusTip": "Radiology Workbench {{version}} · Research use only"
