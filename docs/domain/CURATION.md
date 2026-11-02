@@ -92,5 +92,6 @@ Absolute paths are resolved at export time so the 3D Slicer user can open the fi
 
 - v2 import target mapping: `SEG→seg`, `VOI_mask→voi_mask`, `side_laterality_issue→side`, `{name}_mask→label:{value}` via the label map; rows without `scan_idx` → `target=case`. `phase_issue` maps to a native phase event instead (PHS-08).
 - The correction queue holds item-level entries only.
+- The UI keeps an unsaved comment, queue flag and side with the item it was typed for (target and priority are working preferences); moving to another case never sends them with that case's decision. Every decision toast offers Undo, which appends the previous decision for the same item, target and set again (status, priority, comment, queue flag, side; `not_reviewed` when there was none), so the history shows both events.
 - API-50 GET is a page; API-51 filters by `case_id`/`item_id`; API-53/54 return 201; API-54 needs `X-Reviewer`. Imports over 500 events publish one `project.updated {fields: ["curation"]}` instead of per-event SSE.
 - The correction-queue CSV is produced by the server (API-52 `format=csv`), not built in the client. Writes also send `X-Session-Id` (API-50).

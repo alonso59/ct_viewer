@@ -144,3 +144,24 @@ test('G3: review loop with the keyboard, review order and history', async ({ pag
 
   expect(errors).toEqual([])
 })
+
+// CUR-14: an unsaved comment stays with its case; Undo appends the previous decision again
+test('a draft stays with its case; Undo restores the previous decision', async ({ page }) => {
+  const pid = await importedProject(`G3 undo ${Date.now()}`)
+  const [first, second] = (await api<{ items: CaseRow[] }>('GET', `/projects/${pid}/cases?limit=500`)).items
+  await page.addInitScript(() => localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: 'Dr. G3' }, version: 0 })))
+  await page.goto(`/p/${pid}`)
+  await page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: new RegExp(first!.case_id) }).dblclick()
+  await onCase(page, pid, first!.case_id)
+  await page.getByRole('textbox', { name: 'Comment' }).fill('Leak at the upper pole')
+  await page.getByRole('textbox', { name: 'Comment' }).blur()
+  await page.keyboard.press('Alt+ArrowDown')
+  await onCase(page, pid, second!.case_id)
+  await expect(page.getByRole('textbox', { name: 'Comment' })).toHaveValue('')
+  await page.keyboard.press('a')
+  await expect.poll(async () => (await events(pid, second!.case_id)).map((e) => e.status), { timeout: 15_000 }).toEqual(['accepted'])
+  const saved = await api<{ items: { comment: string }[] }>('GET', `/projects/${pid}/curation/events?case_id=${second!.case_id}`)
+  expect(saved.items[0]?.comment).toBe('')
+  await page.getByRole('status').getByRole('button', { name: 'Undo' }).click()
+  await expect.poll(async () => (await events(pid, second!.case_id)).map((e) => e.status).sort(), { timeout: 15_000 }).toEqual(['accepted', 'not_reviewed'])
+})

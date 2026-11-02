@@ -615,7 +615,9 @@
       "side": "Side / laterality",
       "voi_mask": "VOI mask"
     },
-    "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}"
+    "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}",
+    "undo": "Undo",
+    "undone": "Decision undone: {{status}} again"
   },
   "queue": {
     "exportsWritten": "Wrote {{files}} to {{dir}}/",

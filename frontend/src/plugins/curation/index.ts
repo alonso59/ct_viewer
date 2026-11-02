@@ -1,4 +1,4 @@
-import { createElement, lazy, Suspense, useCallback, type ComponentType } from 'react'
+import { createElement, lazy, Suspense, useCallback, useEffect, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
@@ -8,7 +8,7 @@ import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { openItem } from '../../features/explorer'
 import { revealView, type FrontendPlugin } from '../host'
-import { activeSegOf, submitDecision, useDraft } from './decision'
+import { activeSegOf, submitDecision, trackDraftOwner, useDraft } from './decision'
 import { statusOf } from './model'
 
 // Curation UI stays out of the initial bundle; shortcuts only need ./decision.
@@ -34,6 +34,9 @@ export function useCurationRuntime(pid: string) {
     [t],
   )
   useProjectEvents(pid, onEvent)
+  useEffect(() => {
+    return trackDraftOwner()
+  }, [])
 }
 
 function currentStatus() {
