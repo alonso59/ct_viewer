@@ -171,7 +171,14 @@
     "connecting": "connecting",
     "connectingHelp": "Connecting to the server event stream…",
     "stale": "offline: updates paused",
-    "staleHelp": "The live connection dropped. Views refresh every few seconds; click to refresh now."
+    "staleHelp": "The live connection dropped. Views refresh every few seconds; click to refresh now.",
+    "jobsRunning_one": "{{count}} running",
+    "jobsRunning_other": "{{count}} running",
+    "jobsQueued_one": "{{count}} queued",
+    "jobsQueued_other": "{{count}} queued",
+    "jobsWaiting_one": "{{count}} waiting for a runner",
+    "jobsWaiting_other": "{{count}} waiting for a runner",
+    "jobsHelp": "Background work of this project: open the Jobs panel"
   },
   "statusShort": {
     "not_reviewed": "Not reviewed",

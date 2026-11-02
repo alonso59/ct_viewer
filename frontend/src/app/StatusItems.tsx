@@ -34,7 +34,7 @@ export function LiveStatus() {
       </button>
     )
   return (
-    <span className="statusbar-item" title={t(`status.${state}Help`)} data-state={state}>
+    <span className="statusbar-item" title={t(`status.${state}Help`)} data-state={state} role="status">
       <span className="dot" style={{ background: LIVE_TONE[state] }} />
       {t(`status.${state}`)}
     </span>

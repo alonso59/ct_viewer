@@ -116,22 +116,40 @@ export function ActivityLog() {
   )
 }
 
+/** Background work that is not finished, by state */
+function activeJobs(jobs: Job[]) {
+  return {
+    running: jobs.filter((j) => j.status === 'running'),
+    queued: jobs.filter((j) => j.status === 'queued'),
+    waiting: jobs.filter((j) => j.status === 'waiting_for_runner'),
+  }
+}
+
+/** One running job reads with its progress; more work reads as counts ("1 running · 2 queued") */
 export function JobStatus() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid)
-  const running = (useJobs(pid).data ?? []).filter((j) => j.status === 'running')
+  const { running, queued, waiting } = activeJobs(useJobs(pid).data ?? [])
   const j = running[0]
-  if (!j) return null
-  const title = t(JOB_KIND[j.kind])
+  if (!j && !queued.length && !waiting.length) return null
+  const single = j && running.length === 1 && !queued.length && !waiting.length
+  const label = single
+    ? t('status.job', { title: t(JOB_KIND[j.kind]), done: j.done, total: j.total })
+    : [
+        running.length ? t('status.jobsRunning', { count: running.length }) : '',
+        queued.length ? t('status.jobsQueued', { count: queued.length }) : '',
+        waiting.length ? t('status.jobsWaiting', { count: waiting.length }) : '',
+      ].filter(Boolean).join(' · ')
   return (
-    <button type="button" className="statusbar-item" onClick={() => useLayout.getState().showPanelTab('jobs')} title={title}>
-      <Icon spec={codicon('sync')} className="codicon-modifier-spin" />
-      {t('status.job', { title, done: j.done, total: j.total })}
+    <button type="button" className="statusbar-item" onClick={() => useLayout.getState().showPanelTab('jobs')} title={t('status.jobsHelp')}>
+      <Icon spec={codicon('sync')} className={running.length ? 'codicon-modifier-spin' : undefined} />
+      {label}
     </button>
   )
 }
 
 export function useJobsBadge(): number | null {
   const pid = useWorkbench((s) => s.pid)
-  return (useJobs(pid).data ?? []).filter((j) => j.status === 'running').length || null
+  const { running, queued, waiting } = activeJobs(useJobs(pid).data ?? [])
+  return running.length + queued.length + waiting.length || null
 }
