@@ -46,7 +46,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   const kpi = (label: string) => wizard.locator('.card', { hasText: label }).locator('.kpi')
   // IMP-03 (AUD-A1-08 / A2-08): 50 case ids − case_00022 excluded upstream = 49 cases, and the card says why
   await expect(kpi('cases')).toHaveText('49')
-  await expect(wizard.locator('.card', { hasText: 'cases' }).first()).toHaveAttribute('title', /1 case\(s\) whose every row is excluded/)
+  await expect(wizard.locator('.card', { hasText: 'cases' }).first()).toHaveAttribute('title', /1 case\(s\) with every row excluded/)
   await expect(kpi('scan rows')).toHaveText('89')
   await wizard.getByRole('button', { name: 'Import and index' }).click()
   await finishImportIndex(page)
