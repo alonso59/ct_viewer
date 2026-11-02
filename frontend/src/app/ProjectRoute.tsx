@@ -14,6 +14,20 @@ import { TaskCommands } from '../features/tasks'
 import { applyProjectDisplay } from '../features/viewer'
 import { registry, ShellOverlays, Workbench } from '../shell'
 import { BrandMark } from '../theme'
+import { ProblemCard } from '../lib'
+
+function ProjectLoadFailed({ error, retry }: { error: unknown; retry: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="home">
+      <div className="home-inner">
+        <ProblemCard error={error} onRetry={retry} />
+        <Link className="btn" to="/">{t('projects.home')}</Link>
+      </div>
+      <ShellOverlays />
+    </div>
+  )
+}
 
 function ProjectNotFound({ pid, detail }: { pid: string; detail?: string }) {
   const { t } = useTranslation()
@@ -65,6 +79,7 @@ export function ProjectRoute() {
   useProjectEvents(pid, useCallback((e: ServerEvent) => logEvent(e), []))
   if (project.error instanceof ProblemError && project.error.status === 404)
     return <ProjectNotFound pid={pid} detail={project.error.detail} />
+  if (project.error && !project.data) return <ProjectLoadFailed error={project.error} retry={() => void project.refetch()} />
   return (
     <>
       <Workbench pid={pid} brand={readOnly ? <ViewOnlyBrand name={project.data?.name ?? ''} /> : <ProjectSwitcher pid={pid} />} share={<ShareMenu pid={pid} />} />

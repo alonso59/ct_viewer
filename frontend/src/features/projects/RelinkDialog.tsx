@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useRelink, useRoots, type RelinkResult } from '../../api'
-import { Dialog } from '../../lib'
+import { Dialog, ProblemCard } from '../../lib'
 import { toast } from '../../shell'
 import { codicon } from '../../theme'
 
@@ -68,7 +68,7 @@ export function RelinkDialog({ pid, name, onOpenChange }: { pid: string; name: s
           <span className="field-label">{t('projects.newPath')}</span>
           <input className="input mono" value={path} placeholder={root?.path ?? t('projects.newPathPlaceholder')} onChange={(e) => { setPath(e.target.value); setResult(null) }} />
         </label>
-        {relink.isError ? <div className="error-card" style={{ margin: 0 }}>{relink.error.message}</div> : null}
+        {relink.isError ? <ProblemCard error={relink.error} /> : null}
         {result ? (
           <div className={ok ? 'card' : 'error-card'} style={{ margin: 0 }} role="status">
             {t(ok ? 'projects.verifyOk' : 'projects.verifyFailed', {

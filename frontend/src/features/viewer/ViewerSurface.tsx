@@ -89,7 +89,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const hasMask = !!maskUrl && !!item.mask
   const viewports = visibleViewports(v.layout, v.maximized)
   const [handleId, setHandleId] = useState(0)
-  const loadKey = `${handleId}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
+  // Try again after a failed load starts a new load of the same item
+  const [attempt, setAttempt] = useState(0)
+  const loadKey = `${handleId}|${attempt}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
   const load = loadState.error?.code === 'viewer-init' || loadState.key === loadKey ? loadState : LOADING(loadKey)
 
   // Engine lifecycle: one per tab while it holds volumes
@@ -458,7 +460,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
               {load.error.status ? <span className="badge mono">{t('vw.errorCode', { status: load.error.status, code: load.error.code ?? '—' })}</span> : null}
             </div>
             <div className="muted">{load.error.code === 'viewer-init' ? t('vw.engineError') : load.error.message}</div>
-            {load.error.code === 'viewer-init' ? <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button> : null}
+            {load.error.code === 'viewer-init'
+              ? <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button>
+              : <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>{t('problemAction.retry')}</button>}
           </div>
         </div>
       ) : null}

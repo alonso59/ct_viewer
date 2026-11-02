@@ -8,12 +8,15 @@ import { Icon, codicon } from '../theme'
 /** Actions the caller can perform; others are shown as plain hints (e.g. `configure:…`) */
 export type ActionHandlers = Partial<Record<string, (arg: string | null) => void>>
 
-export function ProblemCard({ error, onAction, labels }: { error: unknown; onAction?: ActionHandlers; labels?: Partial<Record<string, string>> }) {
+/** `onRetry`: a Try again button (a failed load, a lost connection) */
+export function ProblemCard({ error, onAction, labels, onRetry }: { error: unknown; onAction?: ActionHandlers; labels?: Partial<Record<string, string>>; onRetry?: () => void }) {
   const { t } = useTranslation()
   const p = error instanceof ProblemError ? error : null
   const raw = error instanceof Error ? error.message : String(error)
-  const title = p ? (p.generic ? t(`problemTitle.${p.type}`, { defaultValue: p.title }) : p.title) : t('problemTitle.unknown')
-  const detail = p ? p.detail : raw
+  // fetch() rejects with a TypeError when the server cannot be reached
+  const offline = !p && error instanceof TypeError
+  const title = p ? (p.generic ? t(`problemTitle.${p.type}`, { defaultValue: p.title }) : p.title) : t(offline ? 'problemTitle.offline' : 'problemTitle.unknown')
+  const detail = p ? p.detail : offline ? t('problem.offlineDetail') : raw
   return (
     <div className="error-card" role="alert" data-problem={p?.type}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -23,9 +26,10 @@ export function ProblemCard({ error, onAction, labels }: { error: unknown; onAct
         <strong title={p?.type}>{title}</strong>
       </div>
       {detail ? <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{detail}</div> : null}
-      {p?.actions.length ? (
+      {p?.actions.length || onRetry ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-          {p.actions.map((a) => {
+          {onRetry ? <button type="button" className="btn" onClick={onRetry}>{t('problemAction.retry')}</button> : null}
+          {(p?.actions ?? []).map((a) => {
             const { name, arg } = parseAction(a)
             const run = onAction?.[name]
             const label = labels?.[name] ?? t(`problemAction.${name}`, { arg: arg ?? '' })

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { MODALITIES, useCreateProject, type ProjectModality } from '../../api'
-import { Button, Dialog } from '../../lib'
+import { Button, Dialog, ProblemCard } from '../../lib'
 import { FolderBrowser } from './FolderBrowser'
 import { codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from './store'
@@ -76,7 +76,7 @@ function ProjectDialog({ open, onOpenChange, prefill, name: suggested }: Props) 
           </div>
           <span className="muted small">{t('projects.modalityHelp')}</span>
         </div>
-        {create.isError ? <div className="error-card" style={{ margin: 0 }}>{create.error.message}</div> : null}
+        {create.isError ? <ProblemCard error={create.error} /> : null}
       </form>
     </Dialog>
   )

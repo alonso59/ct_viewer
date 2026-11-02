@@ -3,7 +3,7 @@ import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { OVERRIDE_TYPES, VARIABLE_TAGS, useBrokenDerived, useDeleteDerived, usePatchVariable, useVariables, type BrokenDerived, type OverrideType, type Variable, type VariablePatch, type VariableTag } from '../../api'
-import { ConfirmInline, fmt1 } from '../../lib'
+import { ConfirmInline, fmt1, ProblemCard } from '../../lib'
 import { useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { useVariablesUi } from './store'
@@ -193,13 +193,7 @@ export function VariablesView() {
   const toggleSection = useVariablesUi((s) => s.toggleSection)
   const list = (vars.data ?? []).filter((v) => !q || v.name.toLowerCase().includes(q.trim().toLowerCase()))
   const review = (vars.data ?? []).filter((v) => v.review).length
-  if (vars.isError)
-    return (
-      <div className="error-card" role="alert">
-        <strong>{t('common.error')}</strong>
-        <div className="muted">{vars.error.message}</div>
-      </div>
-    )
+  if (vars.isError) return <ProblemCard error={vars.error} onRetry={() => void vars.refetch()} />
   return (
     <div className="var-view">
       <div style={{ padding: '0 8px 6px' }}>

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
 import { Button, ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
-import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
+import { openEditor, registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
@@ -54,7 +54,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       else if (fenced) await api.resumeTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
       else await api.resumeTaskRun(pid, run.run_id)
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+      toastProblem(e)
     }
     void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
   }

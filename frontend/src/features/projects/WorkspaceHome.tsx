@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { pickThumbItem, useCase, useCases, useArchiveProject, useProjects, useWorkspaceRuns, type ProjectSummary } from '../../api'
-import { IconButton, Progress, SliceThumb, fmtAgo } from '../../lib'
+import { IconButton, Progress, SliceThumb, fmtAgo, ProblemCard } from '../../lib'
 import { runCommand, toast, toastProblem } from '../../shell'
 import { BrandMark, Icon, codicon } from '../../theme'
 import { NewProjectDialog } from '../import'
@@ -230,12 +230,7 @@ export function WorkspaceHome() {
             </div>
             {showArchived ? <ArchivedList /> : <>
             {projects.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-            {projects.isError ? (
-              <div className="error-card" role="alert">
-                <strong>{t('home.serverDown')}</strong>
-                <div className="muted">{projects.error.message}</div>
-              </div>
-            ) : null}
+            {projects.isError ? <ProblemCard error={projects.error} onRetry={() => void projects.refetch()} /> : null}
             {projects.data && sorted.length === 0 ? <div className="empty">{t('home.noProjects')}</div> : null}
             <div role="list" className="home-list">
               {sorted.map((p) => (

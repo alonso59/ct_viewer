@@ -274,7 +274,6 @@
     "tip2": "Share a project by copying its link. Anyone on the same server sees the same state.",
     "tip3": "Press Ctrl/Cmd+Shift+P anywhere for all commands.",
     "tips": "Good to know",
-    "serverDown": "Cannot reach the server",
     "noProjects": "No projects yet. Create one to start.",
     "openPath": "Open file or folder…",
     "sourceOperations": "Show source operations…",
@@ -348,7 +347,8 @@
     "restore": "Restore",
     "restored": "“{{name}}” restored",
     "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted.",
-    "switchNamed": "Project {{name}}: switch project"
+    "switchNamed": "Project {{name}}: switch project",
+    "unavailable": "Project unavailable"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -883,7 +883,8 @@
     "csvWide": "CSV wide"
   },
   "problem": {
-    "next": "{{message}} Next: {{actions}}."
+    "next": "{{message}} Next: {{actions}}.",
+    "offlineDetail": "The app could not contact its server. Check that it is running, then try again."
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",
@@ -973,7 +974,8 @@
     "unreadable": "This file cannot be read",
     "geometry-mismatch": "The segmentation does not match the image",
     "source-missing": "A source file is missing",
-    "render-failed": "This part of the window stopped working"
+    "render-failed": "This part of the window stopped working",
+    "offline": "Cannot reach the server"
   },
   "recycle": {
     "button": "Move scan to recycle bin",

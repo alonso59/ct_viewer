@@ -16,7 +16,7 @@ import {
   type LabelDef,
   type Variable,
 } from '../../api'
-import { PhaseChip, rollupTitle, SliceThumb, StatusIcon } from '../../lib'
+import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
@@ -165,15 +165,8 @@ export function ProjectView() {
     e.preventDefault()
   }
 
-  if (project.isError || cases.isError) {
-    const err = (cases.error ?? project.error) as { title?: string; detail?: string } | null
-    return (
-      <div className="error-card" role="alert">
-        <strong>{err?.title ?? t('common.error')}</strong>
-        <div className="muted">{err?.detail}</div>
-      </div>
-    )
-  }
+  if (project.isError || cases.isError)
+    return <ProblemCard error={cases.error ?? project.error} onRetry={() => { void project.refetch(); void cases.refetch() }} />
 
   return (
     <div className="fill">
