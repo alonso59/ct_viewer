@@ -187,21 +187,24 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 | Token | Value | Token | Value |
 |---|---|---|---|
 | `--bg-editor` | `#0D1117` | `--fg` | `#E6EDF3` |
-| `--bg-sidebar` | `#010409` | `--fg-muted` | `#7D8590` |
+| `--bg-sidebar` | `#010409` | `--fg-muted` | `#8B949E` |
 | `--bg-activitybar` | `#010409` | `--border` | `#30363D` |
 | `--bg-panel` | `#010409` | `--border-muted` | `#21262D` |
 | `--bg-overlay` (menus, popovers) | `#161B22` | `--focus` | `#1F6FEB` |
 | `--bg-tab-active` | `#0D1117` | `--bg-tab-inactive` | `#010409` |
-| `--tab-active-indicator` | `var(--fg)` (ADR-0028) | `--accent` | `#2F81F7` |
+| `--tab-active-indicator` | `var(--fg)` (ADR-0028) | `--accent` | `#4493F8` |
 | `--bg-statusbar` | `#0D1117` | `--bg-viewport` | `#000000` |
 | `--ok` | `#3FB950` | `--warn` | `#D29922` |
 | `--error` | `#F85149` | `--done` | `#A371F7` |
 | `--btn-primary` | `#238636` | `--bg-hover` | `#1F2428` |
-| `--bg-pressed` (active toggle) | `#5F6874` (Light `#818B98`) | `--bg-viewport-overlay` | `#000000A6` |
+| `--bg-pressed` (active icon toggle) | `#6E7681` (Light `#7D8590`) | `--bg-viewport-overlay` | `#000000A6` |
+| `--border-control` (inputs, selects, secondary buttons, segmented controls) | `#6E7681` (Light `#7D8590`) | `--bg-selected` (selected rows, pressed chips) | `#1F6FEB1F` (Light opaque `#EBF3FC`) |
+| `--bg-drop` (dockview drop target) | `#1F6FEB26` (Light `#0969DA1A`) | | |
 | `--btn-danger` (destructive confirm; white text ≥ 4.5:1) | `#B62324` (Light `#CF222E`) | `--btn-danger-hover` | `#A40E26` |
 
 - **Typography:** `-apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`. Sizes (UI-27, Default · Compact): UI 14 · 13 px, panels 13 · 12, badges 12 · 11, chips `--fs-chip` 13 · 11, headings 17 · 16, titles 22 · 20, home title `--fs-hero` 30 · 28; no px font size outside `tokens.css`. `ui-monospace` for numbers, except the viewer's slice index (VW-03, ADR-0023).
-- **Shape:** 6 px radius on buttons, inputs and cards; 1 px borders; no shadows except overlays.
+- **Shape:** 6 px radius on buttons, inputs and cards; 1 px borders; no shadows except overlays. Focus is a 2 px `--focus` outline inside the control.
+- **Contrast by construction (UI-11):** every text colour (`--fg`, `--fg-muted`, `--accent`, status colours) is ≥ 4.5:1 on every surface, on `--bg-hover`, on secondary buttons (`kbd` hints) and on a selected row; controls are bounded by `--border-control` (≥ 3:1 on every surface; dividers and cards keep `--border`); `--bg-pressed` is ≥ 3:1 against the bars and `--bg-hover`. `theme/tokens.test.ts` computes every pair, so a token change that breaks one fails the unit tests. To get there the Dark muted and accent text and the Light status text are a few percent off GitHub's values.
 - **Danger:** the filled `.btn-danger` only confirms a destructive action. An irreversible action (delete, revoke, reindex, cancel) asks inline first (`lib/ui` `ConfirmInline`) and says what is kept; a reversible one (archive) is a secondary button in its confirm dialog.
 - **Badges:** Primer "Label" pills (outline in the status color, `--fs-chip`), used for phase chips and QC status; a pressed chip is `--fg` on `--bg-selected` (AUD-A3-19). Segmented controls (`.seg`, `theme/base.css`) are as wide as their options (AUD-A3-08).
 - **Icons:** codicons (VS Code) plus the custom CT set (UI-15). Octicons are not mixed in.

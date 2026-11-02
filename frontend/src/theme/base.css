@@ -30,8 +30,8 @@ textarea {
 }
 
 :focus-visible {
-  outline: 1px solid var(--focus);
-  outline-offset: -1px;
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 ::selection {
@@ -67,7 +67,7 @@ textarea {
   gap: var(--sp-1);
   height: var(--h-control);
   padding: 0 var(--sp-3);
-  border: var(--border-width) solid var(--border);
+  border: var(--border-width) solid var(--border-control);
   border-radius: var(--radius);
   background: var(--btn-secondary);
   color: var(--fg);
@@ -158,7 +158,7 @@ textarea {
 .select {
   height: var(--h-control);
   padding: 0 var(--sp-2);
-  border: var(--border-width) solid var(--border);
+  border: var(--border-width) solid var(--border-control);
   border-radius: var(--radius);
   background: var(--bg-input);
   color: var(--fg);
@@ -213,7 +213,7 @@ textarea.input {
   align-self: flex-start;
   width: max-content;
   max-width: 100%;
-  border: var(--border-width) solid var(--border);
+  border: var(--border-width) solid var(--border-control);
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -719,7 +719,7 @@ kbd.key {
   --dv-separator-border: var(--border);
   --dv-paneview-header-border-color: var(--border);
   --dv-paneview-active-outline-color: var(--focus);
-  --dv-drag-over-background-color: var(--bg-selected);
+  --dv-drag-over-background-color: var(--bg-drop);
   --dv-drag-over-border-color: var(--focus);
   --dv-sash-color: transparent;
   --dv-active-sash-color: var(--focus);

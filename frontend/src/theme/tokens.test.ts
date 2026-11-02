@@ -58,17 +58,56 @@ test('a pressed toggle uses --bg-pressed in both themes', () => {
   expect(pressed).not.toMatch(/--focus|--accent|box-shadow/)
 })
 
+// WCAG relative luminance and contrast of #RRGGBB colours; an #RRGGBBAA token is first laid
+// over the surface it sits on
+const lum = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+}
+const ratio = (a: string, b: string) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+  return (hi! + 0.05) / (lo! + 0.05)
+}
+const over = (colour: string, surface: string) => {
+  if (colour.length === 7) return colour
+  const a = parseInt(colour.slice(7, 9), 16) / 255
+  return `#${[1, 3, 5].map((i) => Math.round(a * parseInt(colour.slice(i, i + 2), 16) + (1 - a) * parseInt(surface.slice(i, i + 2), 16)).toString(16).padStart(2, '0')).join('')}`
+}
+const themeColours = (selector: string) => {
+  const at = tokens.indexOf(selector)
+  const block = tokens.slice(at, tokens.indexOf('}', at))
+  return Object.fromEntries([...block.matchAll(/(--[a-z0-9-]+): (#[0-9A-Fa-f]{6,8})\b/g)].map((m) => [m[1]!, m[2]!])) as Record<string, string>
+}
+
 // UI-11: the destructive confirm is a filled red that keeps white text at >= 4.5:1 in both themes
 test('the danger button keeps its text readable in both themes', () => {
-  const lum = (hex: string) => {
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
-  }
-  const ratio = (a: string, b: string) => {
-    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
-    return (hi! + 0.05) / (lo! + 0.05)
-  }
   const fills = [...tokens.matchAll(/--btn-danger(?:-hover)?: (#[0-9A-F]{6})/g)].map((m) => m[1]!)
   expect(fills).toHaveLength(4)
   for (const fill of fills) expect(ratio(fill, '#FFFFFF')).toBeGreaterThanOrEqual(4.5)
+})
+
+// UI-11 (contrast by construction): every text colour is >= 4.5:1 on every surface, on hover, on a
+// secondary button (kbd hints) and on a selected row; control boundaries (--border-control) and the
+// pressed toggle are >= 3:1 against what surrounds them, and the pressed toggle's icon >= 3:1
+test('text, control boundaries and pressed toggles keep their contrast in both themes', () => {
+  const dark = themeColours(':root[data-theme="dark"]')
+  const light = { ...dark, ...themeColours(':root[data-theme="light"]') }
+  const surfaces = ['--bg-editor', '--bg-sidebar', '--bg-panel', '--bg-overlay', '--bg-input', '--bg-hover', '--btn-secondary']
+  const lists = ['--bg-editor', '--bg-sidebar', '--bg-panel', '--bg-overlay']
+  const low: string[] = []
+  for (const [theme, c] of [['dark', dark], ['light', light]] as const) {
+    const grounds = [...surfaces.map((s) => [s, c[s]!]), ...lists.map((s) => [`selected row on ${s}`, over(c['--bg-selected']!, c[s]!)])]
+    for (const text of ['--fg', '--fg-muted', '--accent', '--ok', '--warn', '--error', '--done'])
+      for (const [where, ground] of grounds) if (ratio(c[text]!, ground!) < 4.5) low.push(`${theme}: ${text} on ${where}`)
+    for (const s of surfaces) if (ratio(c['--border-control']!, c[s]!) < 3) low.push(`${theme}: --border-control on ${s}`)
+    for (const s of ['--bg-editor', '--bg-sidebar', '--bg-statusbar', '--bg-hover']) if (ratio(c['--bg-pressed']!, c[s]!) < 3) low.push(`${theme}: --bg-pressed on ${s}`)
+    if (ratio(c['--fg']!, c['--bg-pressed']!) < 3) low.push(`${theme}: --fg icon on --bg-pressed`)
+  }
+  expect(low).toEqual([])
+  // controls are bounded by the control border, dividers keep the quiet one
+  const base = (import.meta.glob('./base.css', { query: '?cssraw', import: 'default', eager: true }) as Record<string, string>)['./base.css'] ?? ''
+  for (const rule of ['.btn {', '.input,\n.select {', '.seg {']) {
+    const at = base.indexOf(rule)
+    expect(base.slice(at, base.indexOf('}', at))).toContain('var(--border-control)')
+  }
 })

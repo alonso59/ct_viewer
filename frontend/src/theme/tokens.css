@@ -128,17 +128,20 @@
   --bg-tab-inactive: #010409;
   --bg-statusbar: #0D1117;
   --bg-hover: #1F2428;
-  --bg-selected: #1F6FEB26;
+  --bg-selected: #1F6FEB1F; /* text, muted and status colours stay >= 4.5:1 on it over every surface */
+  --bg-drop: #1F6FEB26; /* dockview drop target, see-through */
   --bg-input: #0D1117;
   --bg-inset: #010409;
-  --bg-pressed: #5F6874; /* active toggle: 3.35:1 vs --bg-editor, 3.64:1 vs --bg-sidebar; --fg on it 4.78:1 */
+  --bg-pressed: #6E7681; /* active icon toggle: >= 3:1 vs the bars and --bg-hover; its --fg icon >= 3:1 */
   --fg: #E6EDF3;
-  --fg-muted: #7D8590;
+  --fg-muted: #8B949E; /* >= 4.5:1 on every surface, --bg-hover and --btn-secondary (kbd hints) */
   --fg-on-emphasis: #FFFFFF;
   --border: #30363D;
   --border-muted: #21262D;
+  /* inputs, selects, secondary buttons: >= 3:1 on every surface (dividers keep --border) */
+  --border-control: #6E7681;
   --focus: #1F6FEB;
-  --accent: #2F81F7;
+  --accent: #4493F8; /* >= 4.5:1 on --bg-hover, --btn-secondary and selected rows */
   --tab-active-indicator: var(--fg); /* neutral, not GitHub's orange */
   --btn-primary: #238636;
   --btn-primary-hover: #2EA043;
@@ -178,17 +181,20 @@
   --bg-tab-inactive: #F6F8FA;
   --bg-statusbar: #F6F8FA;
   --bg-hover: #EAEEF2;
-  --bg-selected: #0969DA1A;
+  --bg-selected: #EBF3FC; /* opaque: the same on every surface; text and status colours >= 4.5:1 */
+  --bg-drop: #0969DA1A;
   --bg-input: #FFFFFF;
   --bg-inset: #F6F8FA;
-  --bg-pressed: #818B98; /* 3.45:1 vs --bg-editor, 3.24:1 vs --bg-sidebar; --fg on it 4.57:1 */
+  --bg-pressed: #7D8590; /* >= 3:1 vs the bars and --bg-hover; its --fg icon >= 3:1 */
   --fg: #1F2328;
   --fg-muted: #636C76;
   --fg-on-emphasis: #FFFFFF;
   --border: #D0D7DE;
   --border-muted: #D8DEE4;
+  --border-control: #7D8590;
   --focus: #0969DA;
-  --accent: #0969DA;
+  /* text colours a few % darker than GitHub's: >= 4.5:1 on --bg-hover and --bg-selected too */
+  --accent: #0966D3;
   --tab-active-indicator: var(--fg);
   --btn-primary: #1F883D;
   --btn-primary-hover: #1A7F37;
@@ -196,10 +202,10 @@
   --btn-secondary-hover: #EAEEF2;
   --btn-danger: #CF222E;
   --btn-danger-hover: #A40E26;
-  --ok: #1A7F37;
-  --warn: #9A6700;
-  --error: #D1242F;
-  --done: #8250DF;
+  --ok: #197934;
+  --warn: #8A5C00;
+  --error: #CB232E;
+  --done: #7C4CD4;
   --danger-bg: #FFEBE9;
   --scrim: #1F232866;
   --shadow-overlay: 0 8px 24px #8C959F33;
