@@ -29,7 +29,7 @@ export function ProjectSwitcher({ pid }: { pid: string }) {
               <Menu.Item key={p.project_id} className="menu-item" onSelect={() => navigate(`/p/${p.project_id}`)}>
                 <Icon spec={codicon(p.project_id === pid ? 'check' : 'folder')} />
                 {p.name}
-                <span className="kbd">{t('projects.casesShort', { n: p.n_cases })}</span>
+                <span className="kbd">{t('projects.casesShort', { count: p.n_cases })}</span>
               </Menu.Item>
             ))}
             <Menu.Separator className="menu-sep" />

@@ -138,7 +138,7 @@ export function QuickOpenProjects({ query, close }: { query: string; close: () =
         >
           <Icon spec={codicon('folder')} />
           <span>{p.name}</span>
-          <span className="palette-detail">{t('projects.casesShort', { n: p.n_cases })}</span>
+          <span className="palette-detail">{t('projects.casesShort', { count: p.n_cases })}</span>
           <span className="palette-detail" style={{ marginLeft: 'auto' }}>{fmtAgo(p.last_opened_at ?? p.created_at)}</span>
         </Command.Item>
       ))}

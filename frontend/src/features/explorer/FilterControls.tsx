@@ -98,13 +98,13 @@ export function ActiveFilterChips() {
   const { t } = useTranslation()
   const { filter, setFilter, setVarFilter } = useExplorer()
   const chips: { key: string; label: string; clear: () => void }[] = []
-  if (filter.phase) chips.push({ key: 'phase', label: `${t('search.phase')}: ${filter.phase}`, clear: () => setFilter({ phase: '' }) })
-  if (filter.status) chips.push({ key: 'status', label: `${t('search.status')}: ${t(`status.${filter.status}`)}`, clear: () => setFilter({ status: '' }) })
+  if (filter.phase) chips.push({ key: 'phase', label: t('search.chip', { name: t('search.phase'), value: filter.phase }), clear: () => setFilter({ phase: '' }) })
+  if (filter.status) chips.push({ key: 'status', label: t('search.chip', { name: t('search.status'), value: t(`status.${filter.status}`) }), clear: () => setFilter({ status: '' }) })
   if (filter.warning) chips.push({ key: 'warning', label: t(filter.warning === 'any' ? 'search.hasWarnings' : 'search.noWarnings'), clear: () => setFilter({ warning: '' }) })
   if (filter.voi) chips.push({ key: 'voi', label: t(filter.voi === 'any' ? 'search.hasVoi' : 'search.noVoi'), clear: () => setFilter({ voi: '' }) })
   if (filter.showExcluded) chips.push({ key: 'excluded', label: t('search.showExcluded'), clear: () => setFilter({ showExcluded: false }) })
   for (const [name, value] of Object.entries(filter.vars ?? {})) {
-    if (value) chips.push({ key: `var.${name}`, label: `${name}: ${value}`, clear: () => setVarFilter(name, '') })
+    if (value) chips.push({ key: `var.${name}`, label: t('search.chip', { name, value }), clear: () => setVarFilter(name, '') })
   }
   if (!chips.length) return null
   return (

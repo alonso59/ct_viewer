@@ -296,7 +296,6 @@
   },
   "projects": {
     "alias": "Alias",
-    "casesShort": "{{n}} cases",
     "createAndImport": "Create and import",
     "empty": "empty",
     "home": "Workspace home",
@@ -353,7 +352,9 @@
     "restored": "“{{name}}” restored",
     "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted.",
     "switchNamed": "Project {{name}}: switch project",
-    "unavailable": "Project unavailable"
+    "unavailable": "Project unavailable",
+    "casesShort_one": "{{count}} case",
+    "casesShort_other": "{{count}} cases"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -449,7 +450,8 @@
     "minShort": "min",
     "maxShort": "max",
     "to": "to",
-    "levelOption": "{{value}} ({{count}})"
+    "levelOption": "{{value}} ({{count}})",
+    "chip": "{{name}}: {{value}}"
   },
   "problems": {
     "none": "No problems",
@@ -1049,5 +1051,16 @@
     "cleanup": "Waits until the stop is confirmed and cleaned up",
     "conversionFirst": "Finish the conversion first",
     "openCase": "Open a case first"
+  },
+  "format": {
+    "seconds": "{{s}} s",
+    "minutesSeconds": "{{m}} min {{s}} s",
+    "etaRange": "about {{range}} {{unit}} left",
+    "unit": {
+      "d": "d",
+      "h": "h",
+      "min": "min",
+      "s": "s"
+    }
   }
 }
