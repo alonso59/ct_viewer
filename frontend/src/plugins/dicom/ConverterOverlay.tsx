@@ -33,6 +33,7 @@ import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type 
 import { BatchBoard, BatchPlanList } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
 import { ConversionTime, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
+import { showOperationOutput } from './output'
 import { PhasePanel } from './PhasePanel'
 import './converter.css'
 
@@ -133,7 +134,7 @@ function useElapsed(since: number | null) {
 }
 
 /** The scan or analysis stages with the current one's counter, so a long scan is visibly alive */
-function ScanPanel({ count, elapsed, onCancel, onMinimize, opening = false, discovering = false, children }: { count: StageCount; elapsed: number | null; onCancel: () => void; onMinimize: () => void; opening?: boolean; discovering?: boolean; children?: ReactNode }) {
+function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = false, discovering = false, children }: { count: StageCount; elapsed: number | null; onCancel: () => void; onMinimize: () => void; onOutput?: () => void; opening?: boolean; discovering?: boolean; children?: ReactNode }) {
   const { t } = useTranslation()
   const stages: readonly string[] = opening ? ['listing', 'opening'] : discovering ? ['listing'] : SCAN_STAGES
   // Scanning the source is the first stage of every flow; its own sub-steps are not listed.
@@ -154,6 +155,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, opening = false, disc
       <div className="conv-row">
         <span className="muted conv-help">{elapsed == null ? t(opening || discovering ? 'open.keepsRunning' : 'conv.keepsRunning') : t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { time: fmtDuration(elapsed) })}</span>
         <span style={{ flex: 1 }} />
+        {onOutput ? <button type="button" className="btn btn-sm" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
         <button type="button" className="btn btn-sm" onClick={onCancel}>{t('conv.cancelScan')}</button>
       </div>
@@ -162,7 +164,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, opening = false, disc
 }
 
 /** `resumable`: a stopped conversion continues from the resume controls below instead of a result page */
-function RunPanel({ activity, resumable, onResult, onCancel, children }: { activity: Activity; resumable: boolean; onResult: () => void; onCancel: () => void; children?: ReactNode }) {
+function RunPanel({ activity, resumable, onResult, onCancel, onOutput, children }: { activity: Activity; resumable: boolean; onResult: () => void; onCancel: () => void; onOutput?: () => void; children?: ReactNode }) {
   const { t } = useTranslation()
   const stopped = activity.finished && activity.tone === 'error' && resumable
   return (
@@ -173,6 +175,7 @@ function RunPanel({ activity, resumable, onResult, onCancel, children }: { activ
       <div className="conv-row conv-actions">
         {!activity.finished ? <button type="button" className="btn" onClick={onCancel}>{t('conv.cancelRun')}</button>
           : stopped ? null : <button type="button" className="btn btn-primary" onClick={onResult}>{t('conv.showResult')}</button>}
+        {onOutput ? <button type="button" className="btn" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
       </div>
     </div>
   )
@@ -325,6 +328,8 @@ export default function ConverterOverlay() {
       ? t('conv.memoryBudget', { required: resourceWait.required_mb, budget: resourceWait.budget_mb }) : null
   const runFinished = !!runStatus && !isTaskRunPending(runStatus)
   const lost = !operation && !!operationQuery.error
+  // The docked Output panel would sit behind this window, so the window steps aside first.
+  const showLog = operation ? () => { c.minimize(); showOperationOutput(operation) } : undefined
   const plans = useBatchPlans().data ?? []
   const owner = plans.flatMap((plan) => plan.batches.map((batch) => ({ plan, batch }))).find((x) => !!operationId && x.batch.operation_id === operationId) ?? null
   const analysing = step === 'settings' && operation?.purpose === 'convert' && !linked && isTaskRunPending(operation.status)
@@ -641,7 +646,7 @@ export default function ConverterOverlay() {
                 </div>
               ) : null}
               {working ? (
-                scanCount ? <ScanPanel count={scanCount} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize}>{operation ? <DiscoveryNotes operation={operation} /> : null}</ScanPanel>
+                scanCount ? <ScanPanel count={scanCount} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} onOutput={showLog}>{operation ? <DiscoveryNotes operation={operation} /> : null}</ScanPanel>
                   : <p role="status">{t('conv.connecting')}</p>
               ) : batchMode && target === 'dataset' ? <>
                 {previewPlan ? <BatchPreview plan={previewPlan} /> : <p role="status">{t('common.loading')}</p>}
@@ -674,7 +679,7 @@ export default function ConverterOverlay() {
               </div>
             </div>
           ) : null}
-          {step === 'run' && activity ? <RunPanel activity={activity} resumable={!!resumable} onResult={() => patch({ step: 'result' })} onCancel={() => void cancelRun()}>
+          {step === 'run' && activity ? <RunPanel activity={activity} resumable={!!resumable} onOutput={showLog} onResult={() => patch({ step: 'result' })} onCancel={() => void cancelRun()}>
             {runProgress?.stage === 'converting' || Number(runProgress?.bytes_total ?? 0) > 0 || conversionTime?.basis === 'history' ? <ConversionTime value={conversionTime} progress={runProgress} /> : null}
           </RunPanel> : null}
           {step === 'run' && memoryMessage ? <p className="muted conv-help" role="status">{memoryMessage}</p> : null}

@@ -8,6 +8,8 @@ import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCo
 import { NewProjectDialog } from '../../features/import'
 import { fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
 import { filesCell } from './BatchPreview'
+import { showOperationOutput } from './output'
+import { useConverter } from './store'
 import { ConversionBytes, CountProgress, DiscoveryProgress, preparingKey, runCount } from './OperationProgress'
 
 type Command = Parameters<ReturnType<typeof useBatchPlanCommand>['mutate']>[0]
@@ -61,6 +63,7 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
         {batch.status === 'attention' && batch.error ? <p className="error-card" role="alert">{batch.error}</p> : null}
         <div className="conv-row">
           {batch.operation_id ? <button type="button" className="btn btn-sm" onClick={() => onOpenOperation(batch.operation_id!)}>{t('conv.batches.details')}</button> : null}
+          {operation ? <button type="button" className="btn btn-sm" onClick={() => { useConverter.getState().minimize(); showOperationOutput(operation) }}>{t('conv.showOutput')}</button> : null}
           {batch.status === 'completed' && batch.dataset ? <button type="button" className="btn btn-sm" onClick={() => onCreate(batch)}>{t('conv.batches.createProject')}</button> : null}
           {batch.status === 'attention' && operation ? <>
             <button type="button" className="btn btn-sm btn-primary" disabled={busy || control.isPending || !fixable} onClick={() => control.mutate({ op: operation, action: 'resume' })}>{t('conv.resumePending')}</button>

@@ -1042,7 +1042,8 @@
     "countSoFar": "{{name}} · {{done}} so far",
     "stopped": "The conversion stopped. Resume it below to continue where it left off.",
     "backToBatches": "Back to batches",
-    "inPlan": "{{batch}} · plan {{plan}}"
+    "inPlan": "{{batch}} · plan {{plan}}",
+    "showOutput": "Show output"
   },
   "ct": {
     "w": "W",
