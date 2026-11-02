@@ -20,12 +20,12 @@ test('maps an operation to its workspace run, else to itself', async () => {
   const base: SourceOperation = { ...full, project_id: null, dataset_name: 'ds' }
   showOperationOutput({ ...base, conversion_run: null })
   expect(registry.outputChannels).toEqual([
-    { id: `dicom.${base.operation_id}`, label: 'ds · output', kind: 'source-operation', ref: base.operation_id },
+    { id: `dicom.${base.operation_id}`, label: 'ds · log', kind: 'source-operation', ref: base.operation_id },
   ])
   if (full.conversion_run) {
     showOperationOutput({ ...base, conversion_run: full.conversion_run })
     expect(registry.outputChannels).toEqual([
-      { id: `dicom.${base.operation_id}`, label: 'ds · output', kind: 'workspace-run', ref: full.conversion_run.run_id },
+      { id: `dicom.${base.operation_id}`, label: 'ds · log', kind: 'workspace-run', ref: full.conversion_run.run_id },
     ])
   }
 })

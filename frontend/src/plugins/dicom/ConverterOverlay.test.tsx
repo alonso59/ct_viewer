@@ -53,7 +53,7 @@ test.each([false, true])('U07 refreshes cancellation progress without controllin
   if (newAttempt) {
     await waitFor(() => expect(useConverter.getState().error).toBeInstanceOf(Error))
     fireEvent.click(screen.getByRole('button', { name: 'Show' }))
-    expect(await screen.findByText('This operation was restarted meanwhile. Check it before cancelling.')).toBeVisible()
+    expect(await screen.findByText('This work was restarted meanwhile. Check it before cancelling.')).toBeVisible()
     expect(cancel).not.toHaveBeenCalled()
   } else {
     await waitFor(() => expect(cancel).toHaveBeenCalledWith(cached.operation_id, { expected_revision: 11, expected_attempt: 1 }))
@@ -713,7 +713,7 @@ describe('UI-25 batch conversion (DCM-23)', () => {
     useConverter.getState().attach('01JSYNTHGONE0000000000000')
     renderOverlay()
     expect(await screen.findByText('Unknown source operation')).toBeVisible()
-    expect(screen.queryByText('Connecting to the operation…')).toBeNull()
+    expect(screen.queryByText('Connecting…')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Cancel analysis' })).toBeNull()
     expect(useConverter.getState().working).toBe(false)
   })

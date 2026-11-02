@@ -53,7 +53,7 @@
     "nextProblem": "Next problem",
     "prevCase": "Previous case",
     "quickOpen": "Go to case…",
-    "showOutput": "Show output log",
+    "showOutput": "Show log",
     "split": "Split editor right",
     "toggleInspector": "Toggle inspector",
     "toggleLabel": "Toggle label {{n}}",
@@ -144,7 +144,7 @@
     "history": "History",
     "jobs": "Jobs",
     "measurements": "Measurements",
-    "output": "Output",
+    "output": "Log",
     "problems": "Problems"
   },
   "inspector": {
@@ -281,7 +281,7 @@
     "tips": "Good to know",
     "noProjects": "No projects yet. Create one to start.",
     "openPath": "Open file or folder…",
-    "sourceOperations": "Show source operations…",
+    "sourceOperations": "Show recent work…",
     "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project",
     "convertDicom": "Convert DICOM…",
     "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed",
@@ -697,7 +697,7 @@
   },
   "output": {
     "activity": "Activity",
-    "channel": "Output channel",
+    "channel": "Log channel",
     "copy": "Copy",
     "copyFailed": "The browser blocked the clipboard; select the lines and copy them",
     "curation": "[curation] {{reviewer}} → {{id}} {{target}} = {{status}}",
@@ -711,8 +711,8 @@
       "error": "Errors",
       "warn": "Warnings"
     },
-    "noLines": "No output yet",
-    "operation": "{{name}} · output",
+    "noLines": "No log lines yet",
+    "operation": "{{name}} · log",
     "project": "[project] updated: {{fields}}",
     "search": "Filter lines",
     "noMatch": "No line matches the filter",

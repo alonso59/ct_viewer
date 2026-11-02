@@ -1,4 +1,4 @@
-// UI-29 / FE-09: every Output channel uses the one log view. Activity lists this session's events
+// UI-29 / FE-09: every Log channel uses the one log view. Activity lists this session's events
 // while a job runs, the workbench stays mounted, and the text filter, the copy count and a Download
 // made in the browser act on the lines shown.
 import { readFileSync } from 'node:fs'
@@ -13,7 +13,7 @@ test('Activity follows a job, filters by text, copies with a count and downloads
   await page.goto(`/p/${pid}`)
   await expect(page.getByRole('tree', { name: 'Project' })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: /Compute full hashes/ }).click()
-  const output = page.getByRole('tab', { name: 'Output', exact: true })
+  const output = page.getByRole('tab', { name: 'Log', exact: true })
   if (!(await output.isVisible())) await page.keyboard.press('ControlOrMeta+j')
   await output.click()
   const log = page.getByRole('log')

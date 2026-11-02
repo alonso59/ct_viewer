@@ -30,8 +30,8 @@ test('compute full hashes: job in the Jobs panel, then up to date', async ({ pag
   const jobs = page.getByRole('tabpanel').filter({ has: page.getByRole('columnheader', { name: 'Job' }) })
   const row = jobs.getByRole('row').filter({ hasText: 'Full hash' }).first()
   await expect(row).toBeVisible()
-  // FE-09 / UI-29: Output › Activity stays mounted while the job's events arrive
-  await page.getByRole('tab', { name: 'Output', exact: true }).click()
+  // FE-09 / UI-29: Log › Activity stays mounted while the job's events arrive
+  await page.getByRole('tab', { name: 'Log', exact: true }).click()
   await expect(page.getByText(/\[job\] Full hash: Completed/)).toBeVisible({ timeout: 90_000 })
   await expect(page.getByRole('tree', { name: 'Project' })).toBeVisible()
   await page.getByRole('tab', { name: /^Jobs/ }).click()
