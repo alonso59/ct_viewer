@@ -141,7 +141,8 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
     <div className="conv-body" data-testid="batch-board">
       <div className="conv-row">
         <strong>{plan.name}</strong>
-        <span className="badge" data-status={plan.status}>{t(`conv.batches.plan.${plan.status}`)}</span>
+        {/* a plan that waits for the user's "Convert this batch" says so, not just "Running" */}
+        <span className="badge" data-status={plan.status}>{t(plan.status === 'running' && !plan.auto && current?.status === 'ready' ? 'conv.batches.plan.yourTurn' : `conv.batches.plan.${plan.status}`)}</span>
         <span className="muted conv-help num">{t('conv.batches.done', { done, total: plan.batches.length })}</span>
       </div>
       {live && plan.eta.basis === 'completed_batches' && plan.eta.low_s != null && plan.eta.high_s != null

@@ -150,7 +150,8 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
         ))}
       </ol>
       {at < 0 ? <p>{countLabel(t, count)}</p> : null}
-      {count.total > 0 ? <Progress value={count.done} total={count.total} label={countLabel(t, count)} /> : <IndeterminateProgress label={countLabel(t, count)} />}
+      {/* a stage that counted to its end but is still the current one is finishing: no full bar yet */}
+      {count.total > 0 && count.done < count.total ? <Progress value={count.done} total={count.total} label={countLabel(t, count)} /> : <IndeterminateProgress label={countLabel(t, count)} />}
       {children}
       <div className="conv-row">
         <span className="muted conv-help">{elapsed == null ? t(opening || discovering ? 'open.keepsRunning' : 'conv.keepsRunning') : t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { time: fmtDuration(elapsed) })}</span>
@@ -253,7 +254,8 @@ export default function ConverterOverlay() {
   const setSettings = (s: Partial<Draft['settings']>) => patch({ requestKey: null, settings: { ...settings, ...s } })
   const scanProgress = useEstimateProgress(scan?.id ?? null).data
   // An operation can run many attempts over days and carries no attempt start, so only a scan started here is timed.
-  const elapsed = useElapsed(operation ? null : scan?.started ?? null)
+  // server operations count from their creation; a local scan from its start
+  const elapsed = useElapsed(operation ? (isTaskRunPending(operation.status) ? Date.parse(operation.created_at) : null) : scan?.started ?? null)
   const inventoryCounts = operation?.summary?.complete && (!isTaskRunPending(operation.status) || linked) ? operation.summary : operation?.progress
   const shownError = error ?? (operation?.problem ? toProblemError(Number(operation.problem.status ?? 500), operation.problem, operation.error ?? t('problemTitle.unknown')) : operation?.error && operation.status !== 'waiting_for_resources' ? new Error(operation.error) : null)
   useEffect(() => {

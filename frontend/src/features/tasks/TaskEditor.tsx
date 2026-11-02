@@ -68,7 +68,9 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       </div>
       {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} stale={stale} /> : null}
       {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
-      {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingHelp')}</p> : null}
+      {run.status === 'waiting_for_runner' ? <p className="muted" title={t('tasks.waitingHelp')}>{t('tasks.waitingUser')}</p> : null}
+      {run.status === 'queued' ? <p className="muted">{t('tasks.queuedHelp')}</p> : null}
+      {run.status === 'waiting_for_resources' ? <p className="muted">{t('tasks.resourcesHelp')}</p> : null}
       {STOPPING_RUN.includes(run.status) ? (
         <p className={run.status === 'cleanup_pending' ? 'field-error' : 'muted'} role="status">
           {t(run.execution?.phase_step && run.status === 'cleanup_pending' ? 'conv.phaseCleanup' : run.status === 'cleanup_pending' ? 'tasks.cleanupPendingHelp' : 'tasks.stoppingHelp')}
@@ -264,7 +266,15 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
       <h1>{m.title}</h1>
       <p className="muted">{m.description}</p>
       {!info.available ? <div className="error-card">{info.unavailable_reason}</div> : null}
-      {m.runtime.type === 'external' && info.runner_online === false ? <div className="error-card">{t('tasks.noRunner', { hint: m.runtime.env_hint ?? '' })}</div> : null}
+      {m.runtime.type === 'external' && info.runner_online === false ? (
+        <div className="card" role="note">
+          <p>{t('tasks.noRunnerUser')}</p>
+          <details>
+            <summary>{t('tasks.adminDetails')}</summary>
+            <p className="muted">{t('tasks.noRunner', { hint: m.runtime.env_hint ?? '' })}</p>
+          </details>
+        </div>
+      ) : null}
 
       <Section title={t('tasks.selection')}>
         {m.input === 'source' ? (

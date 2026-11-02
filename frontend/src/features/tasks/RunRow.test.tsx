@@ -88,3 +88,13 @@ test('D23 DICOM retry and resume stay disabled while cleanup is unverified', asy
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Retry failed series' })).toBeDisabled()
 })
+
+// UI-20: every waiting state says why and what happens next
+test.each([
+  ['queued', 'Queued: starts when earlier work of this task finishes.'],
+  ['waiting_for_resources', 'Waiting for free GPUs or memory; it starts on its own. Cancel stays available.'],
+  ['waiting_for_runner', 'Waiting for the task runner to start; it begins on its own.'],
+] as const)('a %s run explains its wait (UI-20)', async (status, help) => {
+  show({ status })
+  expect(await screen.findByText(help)).toBeInTheDocument()
+})

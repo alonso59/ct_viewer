@@ -691,7 +691,12 @@
     "derivedTitle": "Choose the derived folder",
     "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here. Only output folders shared with the app are listed.",
     "derivedUse": "Use this folder",
-    "radiomicsHere": "Set up radiomics runs in the Radiomics settings tab."
+    "radiomicsHere": "Set up radiomics runs in the Radiomics settings tab.",
+    "noRunnerUser": "This task runs on the server's task runner, which is not running now. New runs wait until it starts.",
+    "adminDetails": "Details for administrators",
+    "waitingUser": "Waiting for the task runner to start; it begins on its own.",
+    "queuedHelp": "Queued: starts when earlier work of this task finishes.",
+    "resourcesHelp": "Waiting for free GPUs or memory; it starts on its own. Cancel stays available."
   },
   "library": {
     "status": {
@@ -887,7 +892,8 @@
         "running": "Running",
         "paused": "Paused",
         "completed": "Done",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "yourTurn": "Ready: convert this batch"
       },
       "cancelConfirm": "Cancel this plan? Finished batches are kept.",
       "cancelYes": "Yes, cancel",
@@ -1012,7 +1018,7 @@
       "failed": "Failed",
       "cancelled": "Cancelled",
       "interrupted": "Interrupted",
-      "queued": "Queued",
+      "queued": "Waiting for a free worker",
       "waiting_for_runner": "Waiting for runner",
       "pausing": "Pausing…",
       "paused": "Paused"

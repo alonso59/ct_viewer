@@ -226,7 +226,7 @@
   "runStatus": {
     "queued": "Queued",
     "waiting_for_runner": "Waiting for runner",
-    "waiting_for_resources": "Waiting for GPUs",
+    "waiting_for_resources": "Waiting for resources",
     "running": "Running",
     "pausing": "Pausing",
     "paused": "Paused",
