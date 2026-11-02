@@ -4,7 +4,7 @@ import { create } from 'zustand'
 
 import i18n from '../../i18n'
 import { useCancelJob, useJobs, type Job, type ServerEvent } from '../../api'
-import { Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
+import { ConfirmInline, Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -70,11 +70,18 @@ export function JobsPanel() {
             </td>
             <td className="num muted">{j.status === 'running' && j.eta_s !== null ? fmtDuration(j.eta_s) : ''}</td>
             <td>
-              {j.status === 'running' ? (
-                <button type="button" className="btn btn-sm" onClick={() => cancel.mutate(j.job_id)}>
-                  <Icon spec={codicon('debug-stop')} />
-                  {t('common.cancel')}
-                </button>
+              {j.status === 'running' || (j.status === 'queued' && j.kind !== 'task') ? (
+                <ConfirmInline
+                  question={t('confirm.cancelJob')}
+                  confirm={t('common.yesCancel')}
+                  onConfirm={() => cancel.mutate(j.job_id)}
+                  trigger={(ask) => (
+                    <button type="button" className="btn btn-sm" onClick={ask}>
+                      <Icon spec={codicon('debug-stop')} />
+                      {t('common.cancel')}
+                    </button>
+                  )}
+                />
               ) : null}
             </td>
           </tr>

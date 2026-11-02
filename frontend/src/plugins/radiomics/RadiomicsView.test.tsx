@@ -102,6 +102,7 @@ test('runs show status, live job progress with ETA, and the matching controls', 
   expect(within(r1).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25')
   expect(r1).toHaveTextContent('10/40 · 1 min 30 s left')
   fireEvent.click(within(r1).getByRole('button', { name: 'Cancel run' }))
+  fireEvent.click(await within(r1).findByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(posted).toContain(`/projects/${PID}/task-runs/r1/cancel`))
 
   const r2 = row('Interrupted one')

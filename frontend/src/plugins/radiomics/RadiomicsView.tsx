@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
-import { Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage } from '../../lib'
+import { ConfirmInline, Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage } from '../../lib'
 import { openEditor, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -89,7 +89,7 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
         </div>
       ) : null}
       <div className="list-row-actions">
-        {ACTIVE.includes(run.status) ? <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={() => void act('cancel')} /> : null}
+        {ACTIVE.includes(run.status) ? <ConfirmInline question={t('rad.cancelConfirm')} confirm={t('common.yesCancel')} onConfirm={() => void act('cancel')} trigger={(ask) => <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={ask} />} /> : null}
         {RESUMABLE.includes(run.status) ? <IconButton label={t('rad.resume')} icon={codicon('debug-continue')} disabled={control.isPending} onClick={() => void act('resume')} /> : null}
         {done ? (
           <button type="button" className="btn btn-sm" onClick={() => openEditor('run', { runId: run.run_id })}>

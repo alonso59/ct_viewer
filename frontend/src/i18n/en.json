@@ -13,7 +13,9 @@
     "none": "None",
     "open": "Open",
     "save": "Save",
-    "saveFailed": "Could not save. Try again."
+    "saveFailed": "Could not save. Try again.",
+    "keepRunning": "Keep running",
+    "yesCancel": "Yes, cancel"
   },
   "menu": {
     "file": "File",
@@ -982,5 +984,9 @@
     "filled": "Cells filled",
     "run": "Run progress",
     "volume": "Loading the volume"
+  },
+  "confirm": {
+    "cancelRun": "Cancel this run? Finished items are kept; the rest stop.",
+    "cancelJob": "Cancel this job? Work done so far is kept."
   }
 }

@@ -1,7 +1,7 @@
 // Shared UI primitives on Radix, styled by tokens. No domain logic.
 import * as RDialog from '@radix-ui/react-dialog'
 import * as RTooltip from '@radix-ui/react-tooltip'
-import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
+import { forwardRef, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 
 import { Icon, type IconSpec } from '../theme'
 import i18n from '../i18n'
@@ -91,6 +91,40 @@ export function Dialog({ open, onOpenChange, title, icon, children, footer, size
         </RDialog.Content>
       </RDialog.Portal>
     </RDialog.Root>
+  )
+}
+
+/**
+ * A costly or destructive action asks inline before it runs: the trigger gives way to the
+ * question, a danger-styled confirm and a keep button. Focus moves to the confirm and returns
+ * to the trigger when kept; Escape keeps.
+ */
+export function ConfirmInline({ question, confirm, keep, onConfirm, trigger }: {
+  question: string
+  confirm: string
+  keep?: string
+  onConfirm: () => void
+  /** Renders the trigger; call `ask` to show the question */
+  trigger: (ask: () => void) => ReactNode
+}) {
+  const [asking, setAsking] = useState(false)
+  const box = useRef<HTMLSpanElement>(null)
+  const asked = useRef(false)
+  useEffect(() => {
+    if (asking) box.current?.querySelector<HTMLButtonElement>('.btn-danger')?.focus()
+    else if (asked.current) box.current?.querySelector<HTMLElement>('button')?.focus()
+    asked.current = asking
+  }, [asking])
+  return (
+    <span ref={box} className="confirm-inline">
+      {asking ? (
+        <span role="group" aria-label={question} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setAsking(false) } }}>
+          <span role="note">{question}</span>
+          <button type="button" className="btn btn-sm btn-danger" onClick={() => { setAsking(false); onConfirm() }}>{confirm}</button>
+          <button type="button" className="btn btn-sm" onClick={() => setAsking(false)}>{keep ?? i18n.t('common.keepRunning')}</button>
+        </span>
+      ) : trigger(() => setAsking(true))}
+    </span>
   )
 }
 

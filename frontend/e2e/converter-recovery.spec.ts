@@ -61,6 +61,7 @@ test('B05 cancels registration, drains its shared worker and resumes without rew
   expect(committed).toHaveLength(2)
   const mtimes = committed.map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))
   await dialog.getByRole('button', { name: 'Cancel conversion', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   await expect.poll(async () => (await record()).status).toBe('cancelling')
   await execute(server.python, ['-c', 'import os,sys;os.kill(int(sys.argv[1]),0)', String(worker.pid)])
   await expect(dialog.getByRole('button', { name: 'Resume pending work', exact: true })).toHaveCount(0)
@@ -137,6 +138,7 @@ test('B05/B07 phase cancellation and failed retry preserve converted pixels and 
   await expect.poll(barrier, { timeout: 45_000 }).toBeTruthy()
   const phase = dialog.getByRole('region', { name: 'Phase analysis', exact: true })
   await phase.getByRole('button', { name: 'Cancel phase analysis', exact: true }).click()
+  await phase.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   const record = () => server.request<SourceOperation>('GET', `/source-operations/${oid}`)
   await expect.poll(async () => (await record()).phase_run?.status).toBe('cancelling')
   writeFileSync(join(workspace, barrier()!.replace('stage-barrier.json', 'release-stage')), '')
@@ -219,6 +221,7 @@ for (const stage of ['discovering', 'planning']) {
         await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
         const chip = page.getByTestId('conv-chip')
         await chip.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await chip.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
         await expect.poll(async () => {
           const record = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
           return record.status === 'cancelled' && record.cleanup_verified
@@ -436,6 +439,7 @@ for (const scope of ['dataset', 'project']) {
         await page.getByTestId('conv-chip').getByRole('button', { name: 'Show', exact: true }).click()
         if (action === 'cancel') {
           await dialog.getByRole('button', { name: 'Cancel conversion', exact: true }).click()
+          await dialog.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
           await expect.poll(async () => {
             const value = await record()
             return value.status === 'cancelled' && value.cleanup_verified

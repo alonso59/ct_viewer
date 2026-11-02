@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCommand, useBatchPlans, useSourceOperation, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
 import { NewProjectDialog } from '../../features/import'
-import { fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
+import { ConfirmInline, fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
 import { filesCell } from './BatchPreview'
 import { showOperationOutput } from './output'
 import { useConverter } from './store'
@@ -122,7 +122,6 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
   const [error, setError] = useState<unknown>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [creating, setCreating] = useState<SourceBatch | null>(null)
-  const [confirming, setConfirming] = useState(false)
   const run = async (cmd: Command) => {
     setError(null)
     setMessage(null)
@@ -181,12 +180,8 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
         {plan.status === 'paused' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run('continue')}>{t('conv.batches.continue')}</button> : null}
         {live ? <button type="button" className="btn" aria-pressed={plan.auto} disabled={busy} onClick={() => void run({ auto: !plan.auto })}>{t(plan.auto ? 'conv.batches.stopAuto' : 'conv.batches.auto')}</button> : null}
         {live ? <button type="button" className="btn" disabled={busy} onClick={() => void run('add-new-folders')}>{t('conv.batches.addFolders')}</button> : null}
-        {live && !confirming ? <button type="button" className="btn" disabled={busy} onClick={() => setConfirming(true)}>{t('conv.batches.cancel')}</button> : null}
-        {live && confirming ? <>
-          <span role="note">{t('conv.batches.cancelConfirm')}</span>
-          <button type="button" className="btn btn-danger" disabled={busy} onClick={() => { setConfirming(false); void run('cancel') }}>{t('conv.batches.cancelYes')}</button>
-          <button type="button" className="btn" onClick={() => setConfirming(false)}>{t('conv.batches.keep')}</button>
-        </> : null}
+        {live ? <ConfirmInline question={t('conv.batches.cancelConfirm')} confirm={t('conv.batches.cancelYes')} keep={t('conv.batches.keep')} onConfirm={() => void run('cancel')}
+          trigger={(ask) => <button type="button" className="btn" disabled={busy} onClick={ask}>{t('conv.batches.cancel')}</button>} /> : null}
         {!live ? <button type="button" className="btn" onClick={onNew}>{t('conv.newOperation')}</button> : null}
       </div>
       {message ? <p className="muted conv-help" role="status">{message}</p> : null}

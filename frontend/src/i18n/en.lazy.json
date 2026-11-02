@@ -485,7 +485,8 @@
       "label_not_in_set": "label not in the set",
       "engine": "other"
     },
-    "skipCount": "{{why}} ({{n}})"
+    "skipCount": "{{why}} ({{n}})",
+    "cancelConfirm": "Cancel this radiomics run? Features already extracted are kept."
   },
   "bundle": {
     "title": "Import project bundle",
@@ -1050,7 +1051,10 @@
     "stopped": "The conversion stopped. Resume it below to continue where it left off.",
     "backToBatches": "Back to batches",
     "inPlan": "{{batch}} · plan {{plan}}",
-    "showOutput": "Show output"
+    "showOutput": "Show output",
+    "cancelRunConfirm": "Cancel the conversion? Converted series are kept; the rest stop.",
+    "cancelScanConfirm": "Stop this analysis? Nothing is converted or opened yet.",
+    "cancelPhaseConfirm": "Cancel the phase analysis? Converted series are kept."
   },
   "ct": {
     "w": "W",

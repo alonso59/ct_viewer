@@ -733,3 +733,11 @@ kbd.key {
 .btn-brand {
   padding: 0 var(--sp-1);
 }
+
+/* An inline confirmation: question, danger confirm, keep */
+.confirm-inline > [role='group'] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}

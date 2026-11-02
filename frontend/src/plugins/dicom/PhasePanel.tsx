@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { isTaskRunPending, type SourceOperation } from '../../api'
-import { Progress, RunStatusBadge } from '../../lib'
+import { ConfirmInline, Progress, RunStatusBadge } from '../../lib'
 
 export function PhasePanel({ phase, busy, conversionComplete, onControl }: { phase: NonNullable<SourceOperation['phase_run']>; busy: boolean; conversionComplete: boolean; onControl: (action: 'resume' | 'cancel') => void }) {
   const { t } = useTranslation()
@@ -19,7 +19,7 @@ export function PhasePanel({ phase, busy, conversionComplete, onControl }: { pha
     <p className="muted conv-help">{t('conv.phaseHelp')}</p>
     <div className="conv-row conv-actions">
       {retry ? <button type="button" className="btn" disabled={busy || !cleaned || !conversionComplete} onClick={() => onControl('resume')}>{t('conv.retryPhase')}</button> : null}
-      {pending && phase.status !== 'cancelling' && phase.status !== 'cleanup_pending' && phase.status !== 'reconciling' ? <button type="button" className="btn" disabled={busy} onClick={() => onControl('cancel')}>{t('conv.cancelPhase')}</button> : null}
+      {pending && phase.status !== 'cancelling' && phase.status !== 'cleanup_pending' && phase.status !== 'reconciling' ? <ConfirmInline question={t('conv.cancelPhaseConfirm')} confirm={t('common.yesCancel')} onConfirm={() => onControl('cancel')} trigger={(ask) => <button type="button" className="btn" disabled={busy} onClick={ask}>{t('conv.cancelPhase')}</button>} /> : null}
       {phase.status === 'cleanup_pending' ? <span role="status">{t('conv.phaseCleanup')}</span> : null}
     </div>
   </section>

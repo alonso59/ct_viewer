@@ -1,5 +1,5 @@
 // Shared helpers and UI primitives (no feature logic)
-export { Tooltip, IconButton, Dialog, Progress, IndeterminateProgress, NumberInput } from './ui'
+export { Tooltip, IconButton, Dialog, ConfirmInline, Progress, IndeterminateProgress, NumberInput } from './ui'
 export { CaseRollupBadge, rollupTitle, StatusBadge, StatusIcon, PhaseChip, SeverityIcon, RunStatusBadge, runStatusKey } from './badges'
 export { fmtNum, fmt1, fmtInt, fmtDate, fmtAgo, fmtDuration, fmtEtaRange, fmtBytes, fmtValue, fmtColumn, featureUnit, midEllipsis, robustZ } from './format'
 export { SliceThumb } from './SliceThumb'

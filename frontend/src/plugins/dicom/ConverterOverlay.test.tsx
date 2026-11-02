@@ -49,6 +49,7 @@ test.each([false, true])('U07 refreshes cancellation progress without controllin
   const button = await screen.findByRole('button', { name: /^Cancel$/ })
   current = { ...cached, revision: 11, attempt: newAttempt ? 2 : 1 }
   fireEvent.click(button)
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   if (newAttempt) {
     await waitFor(() => expect(useConverter.getState().error).toBeInstanceOf(Error))
     fireEvent.click(screen.getByRole('button', { name: 'Show' }))
@@ -114,6 +115,7 @@ test.each([false, true])('D29 retries and cancels only the separate phase run (p
   fireEvent.click(await screen.findByRole('button', { name: 'Retry phase analysis' }))
   await waitFor(() => expect(resume).toHaveBeenCalledWith(...(inProject ? ['project-phase', phaseId, { expected_attempt: 2 }] : [phaseId, { expected_attempt: 2 }])))
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel phase analysis' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(cancel).toHaveBeenCalledWith(...(inProject ? ['project-phase', phaseId, { expected_attempt: 3 }] : [phaseId, { expected_attempt: 3 }])))
   expect(conversion).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Show the result' })).toBeEnabled()
@@ -383,6 +385,7 @@ test('U09 cancels registration, waits for workers and resumes metadata despite c
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel conversion' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   await screen.findByText('Cancelling…')
   expect(cancel).toHaveBeenCalledWith(registering.operation_id, expect.objectContaining({ expected_run_attempt: native.attempts }))
   expect(screen.queryByRole('button', { name: 'Resume pending work' })).toBeNull()
@@ -499,6 +502,7 @@ test('a dry run shows its stages, minimizes to a chip while it works and can be 
   useConverter.getState().show({ source: '/data/other', pid: null })
   expect(useConverter.getState()).toMatchObject({ minimized: false, source: '/data/dicom/P900' })
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel analysis' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(cancel).toHaveBeenCalledWith(pending.operation_id, { expected_revision: pending.revision, expected_attempt: pending.attempt }))
   expect(useConverter.getState().working).toBe(true)
   prog.mockResolvedValue({ ...pending, status: 'cancelled', cleanup_verified: true })

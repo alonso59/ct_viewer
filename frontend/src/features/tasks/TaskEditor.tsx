@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
-import { Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -76,11 +76,16 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       <span className="muted num">{run.task.id === 'dicom.convert' ? t('conv.recoveryCounts', { complete: c?.ok ?? 0, failed: c?.failed ?? 0, pending: c?.pending ?? 0 }) : t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <p className="field-error" role="alert">{run.error}</p> : null}
       <div className="task-run-actions">
-        {actions.map((a) => (
-          <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} onClick={() => void control(a)}>
-            {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
-          </button>
-        ))}
+        {actions.map((a) => {
+          const button = (onClick: () => void) => (
+            <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} onClick={onClick}>
+              {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
+            </button>
+          )
+          return a === 'cancel'
+            ? <ConfirmInline key={a} question={t('confirm.cancelRun')} confirm={t('common.yesCancel')} onConfirm={() => void control(a)} trigger={button} />
+            : button(() => void control(a))
+        })}
       </div>
       <Outputs pid={pid} run={run} />
     </li>

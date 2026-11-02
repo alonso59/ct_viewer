@@ -27,7 +27,7 @@ import {
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
+import { ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
@@ -157,7 +157,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
         <span style={{ flex: 1 }} />
         {onOutput ? <button type="button" className="btn btn-sm" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
-        <button type="button" className="btn btn-sm" onClick={onCancel}>{t('conv.cancelScan')}</button>
+        <ConfirmInline question={t('conv.cancelScanConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('conv.cancelScan')}</button>} />
       </div>
     </div>
   )
@@ -173,7 +173,7 @@ function RunPanel({ activity, resumable, onResult, onCancel, onOutput, children 
       <p className="muted num">{activity.label}</p>
       {stopped ? <p className="muted conv-help">{t('conv.stopped')}</p> : children}
       <div className="conv-row conv-actions">
-        {!activity.finished ? <button type="button" className="btn" onClick={onCancel}>{t('conv.cancelRun')}</button>
+        {!activity.finished ? <ConfirmInline question={t('conv.cancelRunConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn" onClick={ask}>{t('conv.cancelRun')}</button>} />
           : stopped ? null : <button type="button" className="btn btn-primary" onClick={onResult}>{t('conv.showResult')}</button>}
         {onOutput ? <button type="button" className="btn" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
       </div>
@@ -197,7 +197,7 @@ function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activit
         {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} label={activity.label} /> : <IndeterminateProgress label={activity.label} /> : null}
       </div>
       <button type="button" className="btn btn-sm" onClick={onShow}>{t('conv.show')}</button>
-      {running && onCancel ? <button type="button" className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button> : null}
+      {running && onCancel ? <ConfirmInline question={t('confirm.cancelJob')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('common.cancel')}</button>} /> : null}
       {running ? null : (
         <button type="button" className="icon-btn" aria-label={t('conv.close')} onClick={onClose}>
           <Icon spec={codicon('close')} />

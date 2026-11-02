@@ -44,6 +44,7 @@ test('cleanup pending is shown until the supervisor confirms it; cancel stays av
   expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(cancel).toHaveBeenCalledWith(DEMO_PID, base.run_id))
 })
 
