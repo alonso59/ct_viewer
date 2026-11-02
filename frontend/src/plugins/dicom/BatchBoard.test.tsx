@@ -51,10 +51,10 @@ describe('rows and chips', () => {
     renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'discovering', operation_id: 'op1' }), batch(1, { status: 'converting', operation_id: 'op2' })] }))
     const first = await screen.findByTestId('batch-0')
     expect(await within(first).findByText('Analysis')).toBeVisible()
-    expect(within(first).getByText('Reading headers: 300 / 1180 files')).toBeVisible()
+    expect(within(first).getByText('Reading headers · 300 / 1,180')).toBeVisible()
     const second = screen.getByTestId('batch-1')
     expect(await within(second).findByText('Checking source')).toBeVisible()
-    expect(within(second).getByText(/600 of 1200 files/)).toBeVisible()
+    expect(within(second).getByText('Checking the source · 600 / 1,200')).toBeVisible()
   })
 
   test('lists every plan that is not cancelled so its board can be reopened', async () => {
@@ -107,7 +107,7 @@ describe('plan controls', () => {
     renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'discovering', operation_id: 'op1' }), batch(1)] }))
     await screen.findByTestId('batch-0')
     expect(screen.queryByRole('button', { name: 'Convert this batch' })).toBeNull()
-    expect(await screen.findByText('Counting files…')).toBeVisible()
+    expect(await screen.findByText('Counting files')).toBeVisible()
   })
 
   test('toggles automatic conversion of the remaining batches', async () => {
@@ -123,7 +123,9 @@ describe('plan controls', () => {
     renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'attention', error: 'Conversion stopped.' }), batch(1)] }))
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }))
     await waitFor(() => expect(run).toHaveBeenCalledWith('plan1', 'continue'))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel plan' }))
+    expect(run).not.toHaveBeenLastCalledWith('plan1', 'cancel')
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }))
     await waitFor(() => expect(run).toHaveBeenLastCalledWith('plan1', 'cancel'))
   })
 
@@ -131,14 +133,14 @@ describe('plan controls', () => {
     const onNew = vi.fn()
     renderBoard(plan({ status: 'completed', cursor: 2, batches: [batch(0, { status: 'completed' }), batch(1, { status: 'completed' })] }), { onNew })
     await screen.findByTestId('batch-1')
-    for (const name of ['Start', 'Continue', 'Cancel', 'Convert remaining automatically']) expect(screen.queryByRole('button', { name })).toBeNull()
+    for (const name of ['Start', 'Continue', 'Cancel plan', 'Add new folders', 'Convert remaining automatically']) expect(screen.queryByRole('button', { name })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'New conversion' }))
     expect(onNew).toHaveBeenCalled()
   })
 
   test('says so when there are no new folders and shows other refusals as problems', async () => {
     const run = vi.spyOn(api, 'controlSourceBatchPlan').mockRejectedValueOnce(new ProblemError(409, 'conflict', 'Conflict'))
-    renderBoard(plan({ status: 'completed', cursor: 2, batches: [batch(0, { status: 'completed' })] }))
+    renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'completed' }), batch(1)] }))
     fireEvent.click(await screen.findByRole('button', { name: 'Add new folders' }))
     expect(await screen.findByText('No new folders found.')).toBeVisible()
     run.mockRejectedValueOnce(new ProblemError(422, 'validation', 'Invalid', 'The source changed.'))

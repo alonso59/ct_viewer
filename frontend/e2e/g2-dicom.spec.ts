@@ -41,7 +41,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await expect(dialog.getByText(`Dataset ${name} is ready.`)).toBeVisible()
   const phase = dialog.getByRole('region', { name: 'Phase analysis' })
   await expect(phase.getByText('Completed', { exact: true })).toBeVisible()
-  await expect(phase.getByText(/metadata rows analyzed/)).toBeVisible()
+  await expect(phase.getByText(/rows analyzed/)).toBeVisible()
   const runs = (await (await fetch(`${API}/task-runs`)).json()) as { name: string; dataset_dir: string }[]
   const dataset = runs.find((r) => r.name === name)?.dataset_dir ?? ''
   expect(dataset).toContain(`/_datasets/${name}`)

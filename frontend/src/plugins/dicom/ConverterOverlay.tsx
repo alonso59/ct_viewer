@@ -1,7 +1,7 @@
 // Without a project the output is a write-once workspace dataset (`{derived}/_datasets/{name}/`);
 // inside a project it can convert into it instead. While it works, × and Escape minimize it to a
 // chip that shows the progress and the work goes on server-side.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -20,24 +20,25 @@ import {
   useSourceOperations,
   useSourcePlan,
   useBatchPlan,
+  useBatchPlans,
   keys,
   type SourceOperation,
-  type EstimateProgress,
   type TaskEstimate,
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
+import { Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
-import { ConversionTime, DiscoveryProgress, preparingKey } from './OperationProgress'
+import { ConversionTime, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
 import { PhasePanel } from './PhasePanel'
 import './converter.css'
 
 /** The dry run's stages in order (`pipeline.Stage`); `check` = the source is searched for DICOM */
 const SCAN_STAGES = ['check', 'listing', 'reading', 'planning'] as const
+const SOURCE_SCAN = ['counting', 'scanning', 'verifying']
 
 /** Names a dry run (`progress_id`); `crypto.randomUUID` needs a secure context, a LAN http URL isn't */
 const scanId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -131,25 +132,25 @@ function useElapsed(since: number | null) {
   return since == null ? null : Math.max(0, Math.round((now - since) / 1000))
 }
 
-/** The dry run's stages and progress, so a long scan is visibly alive */
-function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, discovering = false }: { progress: EstimateProgress | undefined; elapsed: number | null; onCancel: () => void; onMinimize: () => void; opening?: boolean; discovering?: boolean }) {
+/** The scan or analysis stages with the current one's counter, so a long scan is visibly alive */
+function ScanPanel({ count, elapsed, onCancel, onMinimize, opening = false, discovering = false, children }: { count: StageCount; elapsed: number | null; onCancel: () => void; onMinimize: () => void; opening?: boolean; discovering?: boolean; children?: ReactNode }) {
   const { t } = useTranslation()
-  const current = progress?.stage ?? 'check'
   const stages: readonly string[] = opening ? ['listing', 'opening'] : discovering ? ['listing'] : SCAN_STAGES
-  const at = stages.indexOf(current)
-  const determinate = (current === 'reading' || current === 'planning' || current === 'opening' || current === 'import_index') && !!progress?.total
+  // Scanning the source is the first stage of every flow; its own sub-steps are not listed.
+  const at = stages.indexOf(SOURCE_SCAN.includes(count.stage) ? stages[0]! : count.stage)
   return (
     <div className="conv-scan" data-testid="conv-scan" role="status" aria-live="polite">
       <ol className="conv-stages">
         {stages.map((s, i) => (
           <li key={s} data-state={i < at ? 'done' : i === at ? 'current' : 'pending'}>
             <Icon spec={codicon(i < at ? 'pass' : i === at ? 'loading' : 'circle-large')} className={i === at ? 'codicon-modifier-spin' : undefined} />
-            <span>{i === at ? t(`conv.stage.${s}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) : t(`conv.stageName.${s}`)}</span>
+            <span>{i === at ? countLabel(t, count) : t(`conv.stageName.${s}`)}</span>
           </li>
         ))}
       </ol>
-      {at < 0 ? <p>{t(`conv.status.${current}`, { defaultValue: t(`conv.stage.${current}`, { done: progress?.done ?? 0, total: progress?.total ?? 0 }) })}</p> : null}
-      {determinate && progress ? <Progress value={progress.done} total={progress.total} /> : <IndeterminateProgress />}
+      {at < 0 ? <p>{countLabel(t, count)}</p> : null}
+      {count.total > 0 ? <Progress value={count.done} total={count.total} /> : <IndeterminateProgress />}
+      {children}
       <div className="conv-row">
         <span className="muted conv-help">{elapsed == null ? t(opening || discovering ? 'open.keepsRunning' : 'conv.keepsRunning') : t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { time: fmtDuration(elapsed) })}</span>
         <span style={{ flex: 1 }} />
@@ -160,18 +161,18 @@ function ScanPanel({ progress, elapsed, onCancel, onMinimize, opening = false, d
   )
 }
 
-function RunPanel({ activity, onResult, onCancel }: { activity: Activity; onResult: () => void; onCancel: () => void }) {
+/** `resumable`: a stopped conversion continues from the resume controls below instead of a result page */
+function RunPanel({ activity, resumable, onResult, onCancel, children }: { activity: Activity; resumable: boolean; onResult: () => void; onCancel: () => void; children?: ReactNode }) {
   const { t } = useTranslation()
+  const stopped = activity.finished && activity.tone === 'error' && resumable
   return (
     <div className="conv-body" role="status" aria-live="polite">
-      {activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <IndeterminateProgress />}
-      <p className="muted">{activity.label}</p>
+      {stopped ? null : activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : activity.finished ? null : <IndeterminateProgress />}
+      <p className="muted num">{activity.label}</p>
+      {stopped ? <p className="muted conv-help">{t('conv.stopped')}</p> : children}
       <div className="conv-row conv-actions">
-        {activity.finished ? (
-          <button type="button" className="btn btn-primary" onClick={onResult}>{t('conv.showResult')}</button>
-        ) : (
-          <button type="button" className="btn" onClick={onCancel}>{t('conv.cancelRun')}</button>
-        )}
+        {!activity.finished ? <button type="button" className="btn" onClick={onCancel}>{t('conv.cancelRun')}</button>
+          : stopped ? null : <button type="button" className="btn btn-primary" onClick={onResult}>{t('conv.showResult')}</button>}
       </div>
     </div>
   )
@@ -251,7 +252,6 @@ export default function ConverterOverlay() {
   // An operation can run many attempts over days and carries no attempt start, so only a scan started here is timed.
   const elapsed = useElapsed(operation ? null : scan?.started ?? null)
   const inventoryCounts = operation?.summary?.complete && (!isTaskRunPending(operation.status) || linked) ? operation.summary : operation?.progress
-  const progressStage = operation?.progress_stage === 'admitted' && operation.work_kind !== 'convert' ? 'listing' : operation?.progress_stage
   const shownError = error ?? (operation?.problem ? toProblemError(Number(operation.problem.status ?? 500), operation.problem, operation.error ?? t('problemTitle.unknown')) : operation?.error && operation.status !== 'waiting_for_resources' ? new Error(operation.error) : null)
   useEffect(() => {
     if (!operation) return
@@ -324,37 +324,33 @@ export default function ConverterOverlay() {
     : resourceWait?.reason === 'memory_budget' && typeof resourceWait.required_mb === 'number' && typeof resourceWait.budget_mb === 'number'
       ? t('conv.memoryBudget', { required: resourceWait.required_mb, budget: resourceWait.budget_mb }) : null
   const runFinished = !!runStatus && !isTaskRunPending(runStatus)
+  const lost = !operation && !!operationQuery.error
+  const plans = useBatchPlans().data ?? []
+  const owner = plans.flatMap((plan) => plan.batches.map((batch) => ({ plan, batch }))).find((x) => !!operationId && x.batch.operation_id === operationId) ?? null
+  const analysing = step === 'settings' && operation?.purpose === 'convert' && !linked && isTaskRunPending(operation.status)
+  // The counter that means something right now, so a bar never reads "0 / 0" or "N / 0"
+  const scanCount: StageCount | null = operation
+    ? ['cancelling', 'cleanup_pending'].includes(operation.status) ? { stage: operation.status, done: 0, total: 0 } : operationCount(operation)
+    : scan ? { stage: scanProgress?.stage ?? 'check', done: scanProgress?.done ?? 0, total: scanProgress?.stage === 'reading' || scanProgress?.stage === 'planning' ? scanProgress.total ?? 0 : 0 } : null
+  const runProgress = (run?.kind === 'dataset' ? ws?.progress : prun?.progress) as Record<string, number | string | null | undefined> | undefined
   let activity: Activity | null = null
-  if ((busy && !operation && !run && !scan) || (operationId && !operation)) {
+  if ((busy && !operation && !run && !scan) || (operationId && !operation && !lost)) {
     activity = { label: t('conv.connecting'), done: 0, total: 0, finished: false }
-  } else if (operation && !linked && operation.stage !== 'ready') {
-    const progress = operation.progress ?? {}
-    const stage = progressStage ?? (operation.stage === 'discovering' ? 'listing' : 'planning')
-    const done = stage === 'listing' ? progress.folders ?? 0 : progress.done ?? progress.files ?? 0
+  } else if (operation && scanCount && !linked && operation.stage !== 'ready') {
     const finished = !isTaskRunPending(operation.status)
-    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : t(`conv.stage.${stage}`, { done, total: progress.total ?? 0 }), done, total: progress.total ?? 0, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
-  } else if (scan) {
-    const s = scanProgress?.stage ?? 'check'
-    activity = { label: `${t('conv.dryRunning')} · ${t(`conv.stage.${s}`, { done: scanProgress?.done ?? 0, total: scanProgress?.total ?? 0 })}`, done: scanProgress?.done ?? 0, total: s === 'reading' || s === 'planning' ? scanProgress?.total ?? 0 : 0, finished: false }
+    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
+  } else if (scan && scanCount) {
+    activity = { label: countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished: false }
   } else if (run) {
-    const p = (run.kind === 'dataset' ? ws?.progress : prun?.progress) as Record<string, number | string | null | undefined> | undefined
-    const done = Number(p?.done ?? 0)
-    const total = Number(p?.total ?? 0)
+    const count = runCount(runProgress)
     if (runFinished) {
       const tone = runStatus === 'completed' ? 'ok' : runStatus === 'completed_with_errors' ? 'warn' : 'error'
-      activity = { label: t(`conv.status.${runStatus}`, { defaultValue: runStatus }), done, total, finished: true, tone }
+      const p = runProgress
+      activity = { label: t(`conv.status.${runStatus}`, { defaultValue: runStatus }), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), finished: true, tone }
     } else if (runStatus === 'waiting_for_resources' || runStatus === 'cancelling' || runStatus === 'cleanup_pending' || runStatus === 'reconciling') {
-      activity = { label: t(`conv.status.${runStatus}`), done, total, finished: false }
-    } else if (total === 0 && p?.stage) {
-      // still scanning headers: the run reports the same stages as the dry run
-      const sd = Number(p.stage_done ?? 0)
-      const st = Number(p.stage_total ?? 0)
-      activity = { label: `${t('conv.status.running')} · ${t(`conv.stage.${String(p.stage)}`, { done: sd, total: st })}`, done: sd, total: p.stage === 'reading' ? st : 0, finished: false }
+      activity = { label: t(`conv.status.${runStatus}`), done: count.done, total: count.total, finished: false }
     } else {
-      const overall = total ? t('conv.converting', { done, total }) : t('conv.status.running')
-      const label = p?.stage && p.stage !== 'converting' && p.stage !== 'admitted'
-        ? t('conv.progressStage', { progress: overall, stage: t(`conv.stage.${String(p.stage)}`, { done: Number(p.stage_done ?? 0), total: Number(p.stage_total ?? 0) }) }) : overall
-      activity = { label, done, total, finished: false }
+      activity = { label: countLabel(t, count), done: count.done, total: count.total, finished: false }
     }
   } else if (estimate && step === 'estimate') {
     activity = { label: t('conv.dryRunDone', { n: estimate.n_units }), done: 1, total: 1, finished: true, tone: 'ok' }
@@ -369,7 +365,7 @@ export default function ConverterOverlay() {
     done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
     finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
   } : activity)
-  const working = busy || prepared.isPending || phasePending || plan?.status === 'running' || (operationId ? !operation || isTaskRunPending(operation.status) : !!scan || (!!run && !runFinished))
+  const working = busy || prepared.isPending || phasePending || plan?.status === 'running' || (operationId ? (!operation && !lost) || (!!operation && isTaskRunPending(operation.status)) : !!scan || (!!run && !runFinished))
   useEffect(() => {
     useConverter.setState({ working })
   }, [working])
@@ -500,7 +496,10 @@ export default function ConverterOverlay() {
   const onOpenChange = (o: boolean) => {
     if (o) return
     if (working) c.minimize()
-    else close()
+    else {
+      if (batchPreview) void api.controlSourceBatchPlan(batchPreview.planId, 'cancel').catch(() => undefined)
+      close()
+    }
   }
   const dataset = ws?.dataset_dir ?? ''
   const projection = operation?.summary?.inventory_projection as { warning?: boolean } | null | undefined
@@ -545,25 +544,30 @@ export default function ConverterOverlay() {
                 {operations.map((value) => {
                   const preparing = preparingKey(value)
                   const status = preparing ? t(`conv.batches.status.${preparing}`) : t(`conv.status.${value.status}`, { defaultValue: value.status })
-                  return <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { source: value.source.split('/').at(-1), status })}</option>
+                  const name = value.dataset_name ?? value.source.split('/').at(-1)
+                  return <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { name, status, date: fmtDate(value.created_at) })}</option>
                 })}
               </select>
             </label>
             <button type="button" className="btn btn-sm" disabled={busy} onClick={c.newOperation}>{t('conv.newOperation')}</button>
           </div>
           {batchPlanId ? <BatchBoard planId={batchPlanId} onNew={c.newOperation} onProjectClosed={close} onOpenOperation={(id) => c.attach(id)} /> : <>
-          {!isSourceOnly ? <StepBar step={step} /> : null}
-          {operation ? <div className="conv-inventory" role="status" aria-live="polite">
-            {!operation.summary?.complete && !operation.conversion_run && isTaskRunPending(operation.status) ? <DiscoveryProgress operation={operation} /> : null}
+          {owner ? <div className="conv-row conv-crumb">
+            <button type="button" className="btn btn-sm" onClick={() => useConverter.setState({ batchPlanId: owner.plan.plan_id })}>
+              <Icon spec={codicon('arrow-left')} /> {t('conv.backToBatches')}
+            </button>
+            <span className="muted">{t('conv.inPlan', { batch: owner.batch.name, plan: owner.plan.name })}</span>
+          </div> : null}
+          {!isSourceOnly ? <StepBar step={analysing ? 'estimate' : step} /> : null}
+          {operation && (step === 'settings' || step === 'estimate') ? <div className="conv-inventory" role="status" aria-live="polite">
             <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
             {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
-            <ConversionTime value={conversionTime} progress={(run || linked ? ws?.progress ?? prun?.progress : null) as Record<string, number | string | null | undefined> | null} />
             {!operation.summary?.complete && !operation.conversion_run && !(operation.progress?.files_total || operation.progress_stage === 'counting') ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
             {suggestsBatches ? <div className="conv-row"><button type="button" className="btn btn-sm" disabled={busy} onClick={() => void suggestBatches()}>{t('conv.batches.suggest')}</button></div> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
             <code className="conv-path">{source}</code>
-            {working ? <ScanPanel opening={isOpening} discovering={isDiscovering} progress={{ stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : progressStage ?? 'listing', done: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.done ?? 0 : operation.progress?.folders ?? 0, total: operation.progress_stage === 'opening' || operation.stage === 'import_index' ? operation.progress?.total ?? 0 : 0 }} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
+            {working && scanCount ? <ScanPanel opening={isOpening} discovering={isDiscovering} count={operation.stage === 'import_index' ? { stage: 'import_index', done: operation.progress?.done ?? 0, total: operation.progress?.total ?? 0 } : scanCount} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
               <p>{t('open.prepared')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>
             </> : isDiscovering && operation.status === 'completed' ? <>
@@ -637,7 +641,8 @@ export default function ConverterOverlay() {
                 </div>
               ) : null}
               {working ? (
-                <ScanPanel progress={operation ? { stage: ['cancelling', 'cleanup_pending'].includes(operation.status) ? operation.status : progressStage ?? 'listing', done: progressStage === 'listing' ? operation.progress?.folders ?? 0 : operation.progress?.done ?? operation.progress?.files ?? 0, total: operation.progress?.total ?? 0 } : scanProgress} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} />
+                scanCount ? <ScanPanel count={scanCount} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize}>{operation ? <DiscoveryNotes operation={operation} /> : null}</ScanPanel>
+                  : <p role="status">{t('conv.connecting')}</p>
               ) : batchMode && target === 'dataset' ? <>
                 {previewPlan ? <BatchPreview plan={previewPlan} /> : <p role="status">{t('common.loading')}</p>}
                 <div className="conv-row conv-actions">
@@ -660,6 +665,7 @@ export default function ConverterOverlay() {
                 <div className="card"><span className="kpi num">{estimate.n_skipped}</span><span className="muted">{t('conv.skipped')}</span></div>
                 <div className="card"><span className="kpi num">{fmtBytes(estimate.output_bytes)}</span><span className="muted">{t('conv.storage')}</span></div>
               </div>
+              <ConversionTime value={conversionTime} />
               <SeriesPlanTable key={`${operationId ?? 'legacy'}.${operation?.plan_attempt ?? ''}`} estimate={estimate} operation={operation} />
               {estimate.sample_errors?.length ? <div className="error-card">{estimate.sample_errors.join('; ')}</div> : null}
               <div className="conv-row conv-actions">
@@ -668,7 +674,9 @@ export default function ConverterOverlay() {
               </div>
             </div>
           ) : null}
-          {step === 'run' && activity ? <RunPanel activity={activity} onResult={() => patch({ step: 'result' })} onCancel={() => void cancelRun()} /> : null}
+          {step === 'run' && activity ? <RunPanel activity={activity} resumable={!!resumable} onResult={() => patch({ step: 'result' })} onCancel={() => void cancelRun()}>
+            {runProgress?.stage === 'converting' || Number(runProgress?.bytes_total ?? 0) > 0 || conversionTime?.basis === 'history' ? <ConversionTime value={conversionTime} progress={runProgress} /> : null}
+          </RunPanel> : null}
           {step === 'run' && memoryMessage ? <p className="muted conv-help" role="status">{memoryMessage}</p> : null}
           {step === 'run' && runStatus !== 'waiting_for_resources' && (ws?.error || prun?.error) ? <div className="error-card">{ws?.error ?? prun?.error}</div> : null}
           {step === 'result' && run?.kind === 'dataset' && ws ? (
@@ -701,9 +709,8 @@ export default function ConverterOverlay() {
             {recoveryCounts ? <p className="muted num">{t('conv.recoveryCounts', { complete: 'ok' in recoveryCounts ? recoveryCounts.ok : (recoveryCounts.converted ?? 0) + (recoveryCounts.already_converted ?? 0), failed: recoveryCounts.failed ?? 0, pending: recoveryCounts.pending ?? 0 })}</p> : null}
             {recoveryOutput ? <code>{recoveryOutput}</code> : null}
             <div className="conv-row conv-actions">
-            <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</button>
+            {operation.status !== 'completed_with_errors' || (recoveryCounts?.pending ?? 0) > 0 ? <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</button> : null}
             {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <button type="button" className="btn" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</button> : null}
-            {!isSourceOnly ? <button type="button" className="btn" disabled={busy} onClick={() => patch({ operationId: null, requestKey: null, step: 'settings', run: null })}>{t('conv.newDryRun')}</button> : null}
             </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}

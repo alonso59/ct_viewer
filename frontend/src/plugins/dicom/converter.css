@@ -30,3 +30,5 @@
 .badge[data-status='completed'] { color: var(--ok); }
 .badge[data-status='attention'] { color: var(--error); }
 .badge[data-status='paused'] { color: var(--warn); }
+.conv-crumb { gap: var(--sp-2); }
+.table tr[data-current] > td { background: var(--bg-selected); }

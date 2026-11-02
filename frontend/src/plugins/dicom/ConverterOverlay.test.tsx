@@ -52,7 +52,7 @@ test.each([false, true])('U07 refreshes cancellation progress without controllin
   if (newAttempt) {
     await waitFor(() => expect(useConverter.getState().error).toBeInstanceOf(Error))
     fireEvent.click(screen.getByRole('button', { name: 'Show' }))
-    expect(await screen.findByText('This operation has a newer attempt. Review it before cancelling.')).toBeVisible()
+    expect(await screen.findByText('This operation was restarted meanwhile. Check it before cancelling.')).toBeVisible()
     expect(cancel).not.toHaveBeenCalled()
   } else {
     await waitFor(() => expect(cancel).toHaveBeenCalledWith(cached.operation_id, { expected_revision: 11, expected_attempt: 1 }))
@@ -127,7 +127,7 @@ test('D29 keeps polling phase after conversion completes and minimizes while pha
   useConverter.getState().attach(recorded.operation_id)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('1 of 2 metadata rows analyzed')).toBeInTheDocument()
+  expect(await screen.findByText('1 of 2 rows analyzed')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
   expect(screen.getByTestId('conv-chip')).toHaveTextContent('Phase analysis')
   get.mockResolvedValue({ ...recorded, phase_run: { ...recorded.phase_run, status: 'completed' } })
@@ -206,7 +206,7 @@ test.each([false, true])('D23 retries only recorded failures and shows pending w
   useConverter.getState().attach(interrupted.operation_id)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('1 verified complete · 1 failed · 1 pending')).toBeInTheDocument()
+  expect(await screen.findByText('1 converted · 1 failed · 1 pending')).toBeInTheDocument()
   if (pending) expect(screen.getByRole('button', { name: 'Resume pending work' })).toBeDisabled()
   else expect(screen.getByRole('button', { name: 'Resume pending work' })).toBeEnabled()
   fireEvent.click(screen.getByRole('button', { name: 'Retry failed series' }))
@@ -346,7 +346,7 @@ test('DCM-16 distinguishes committed volume progress from phase metadata progres
   useConverter.getState().attach(analyzing.operation_id)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('Converted: 1 / 1 selected series · Analyzing phase: 0 / 1 rows')).toBeVisible()
+  expect(await screen.findByText('Analyzing phase · 0 / 1')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Cancel conversion' })).toBeEnabled()
   expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
 })
@@ -358,10 +358,10 @@ test('D24 waits for registration while native conversion is complete and can min
   useConverter.getState().attach(registering.operation_id)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('Registering results…')).toBeVisible()
+  expect(await screen.findByText('Saving results…')).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Minimize' }))
-  expect(screen.getByTestId('conv-chip')).toHaveTextContent('Registering results…')
+  expect(screen.getByTestId('conv-chip')).toHaveTextContent('Saving results…')
   get.mockResolvedValue({ ...completed, phase_run: null })
   await waitFor(() => expect(screen.getByTestId('conv-chip')).toHaveTextContent('Completed'), { timeout: 3000 })
 })
@@ -388,9 +388,9 @@ test('U09 cancels registration, waits for workers and resumes metadata despite c
   expect(screen.queryByRole('button', { name: 'Resume pending work' })).toBeNull()
   get.mockResolvedValue(stopped)
   await screen.findByRole('button', { name: 'Resume pending work' }, { timeout: 2500 })
-  fireEvent.click(screen.getByRole('button', { name: 'Show the result' }))
-  expect(screen.getByText('Conversion is unfinished or output registration needs attention.')).toBeVisible()
-  expect(screen.queryByText('The converted series were imported into the project.')).toBeNull()
+  // a stopped conversion leads to Resume, not to a result page
+  expect(screen.queryByRole('button', { name: 'Show the result' })).toBeNull()
+  expect(screen.getByText('The conversion stopped. Resume it below to continue where it left off.')).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Resume pending work' }))
   await waitFor(() => expect(resume).toHaveBeenCalledWith(registering.operation_id, expect.objectContaining({ expected_run_attempt: native.attempts })))
 })
@@ -465,7 +465,7 @@ test('UI-28 shows admitted conversion discovery as folder listing with its folde
   useConverter.getState().attach(operation.operation_id, true)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('Listing folders (3 so far)')).toBeVisible()
+  expect(await screen.findByText('Scanning source · 20 so far')).toBeVisible()
   expect(screen.getByTestId('conv-chip')).not.toHaveTextContent('Starting conversion')
 })
 
@@ -488,13 +488,13 @@ test('a dry run shows its stages, minimizes to a chip while it works and can be 
   fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
   const progressId = est.mock.calls[0]?.[0].idempotency_key
   expect(progressId).toMatch(/^[A-Za-z0-9_-]{8,64}$/)
-  expect(await screen.findByText('Reading headers: 120 / 450 files')).toBeInTheDocument()
+  expect(await screen.findByText('Reading headers · 120 / 450')).toBeInTheDocument()
   expect(prog).toHaveBeenCalledWith(pending.operation_id)
   // × while it works minimizes (nothing is lost); the chip says where it is
   fireEvent.click(screen.getByRole('button', { name: 'close' }))
   expect(useConverter.getState()).toMatchObject({ open: true, minimized: true, working: true })
   const chip = await screen.findByTestId('conv-chip')
-  expect(chip).toHaveTextContent('Reading headers: 120 / 450 files')
+  expect(chip).toHaveTextContent('Reading headers · 120 / 450')
   // opening the converter again shows the running window instead of starting over
   useConverter.getState().show({ source: '/data/other', pid: null })
   expect(useConverter.getState()).toMatchObject({ minimized: false, source: '/data/dicom/P900' })
@@ -510,7 +510,7 @@ test('a dry run shows its stages, minimizes to a chip while it works and can be 
 test.each([
   ['waiting_for_resources', 'Waiting for resources…'],
   ['cancelling', 'Cancelling…'],
-  ['cleanup_pending', 'Verifying that execution stopped…'],
+  ['cleanup_pending', 'Stopping…'],
 ] as const)('keeps %s active until the server confirms completion', async (status, label) => {
   const [run] = await api.listWorkspaceRuns()
   const poll = vi.spyOn(api, 'getWorkspaceRun').mockResolvedValue({ ...run!, status })
@@ -589,8 +589,8 @@ describe('discovery progress (UI-25)', () => {
 
   test('shows an indeterminate counting state before the total is known', async () => {
     await renderScan({ progress_stage: 'counting', progress: { folders: 4, files: 900 } })
-    expect(await screen.findByText('Counting files…')).toBeVisible()
-    expect(screen.queryByText(/Discovery counts are provisional/)).toBeNull()
+    expect(await screen.findByText('Counting files')).toBeVisible()
+    expect(screen.queryByText(/Counts update while the scan runs/)).toBeNull()
   })
 
   test('shows files of total, percent and an ETA range', async () => {
@@ -598,7 +598,7 @@ describe('discovery progress (UI-25)', () => {
       progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 },
       discovery_eta: { low_s: 4 * 3600, high_s: 6 * 3600, basis: 'recent_rate' },
     })
-    expect(await screen.findByText('250 of 1000 files · 25%')).toBeVisible()
+    expect(await screen.findByText('Scanning source · 250 / 1,000')).toBeVisible()
     expect(screen.getByText('about 4–6 h left')).toBeVisible()
     expect(screen.getAllByRole('progressbar')[0]).toHaveAttribute('aria-valuenow', '25')
   })
@@ -608,7 +608,7 @@ describe('discovery progress (UI-25)', () => {
       progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 },
       discovery_eta: { low_s: null, high_s: null, basis: 'unknown' },
     })
-    expect(await screen.findByText('250 of 1000 files · 25%')).toBeVisible()
+    expect(await screen.findByText('Scanning source · 250 / 1,000')).toBeVisible()
     expect(screen.queryByText(/left$/)).toBeNull()
   })
 
@@ -624,8 +624,8 @@ describe('discovery progress (UI-25)', () => {
 
   test('keeps the plain counters and the provisional note without a total', async () => {
     await renderScan({ progress: { folders: 3, files: 20 } })
-    expect(await screen.findByText(/Discovery counts are provisional/)).toBeVisible()
-    expect(screen.queryByText(/ of .* files/)).toBeNull()
+    expect(await screen.findByText(/Counts update while the scan runs/)).toBeVisible()
+    expect(screen.queryByText(/ \/ /)).toBeNull()
   })
 })
 
@@ -689,6 +689,29 @@ describe('UI-25 batch conversion (DCM-23)', () => {
     expect(await screen.findByTestId('batch-board')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
     useConverter.setState({ batchPlanId: null })
+  })
+
+  test('a batch conversion leads back to its board', async () => {
+    const recorded = await recordedOperation()
+    vi.spyOn(api, 'getSourceOperation').mockResolvedValue(recorded)
+    vi.spyOn(api, 'listSourceBatchPlans').mockResolvedValue([batchPlan({ status: 'running', batches: [{ ...batchPlan().batches[0]!, status: 'converting', operation_id: recorded.operation_id }] })])
+    vi.spyOn(api, 'getSourceBatchPlan').mockResolvedValue(batchPlan({ status: 'running' }))
+    useConverter.getState().attach(recorded.operation_id)
+    renderOverlay()
+    expect(await screen.findByText('ds-b01 · plan ds')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to batches' }))
+    expect(await screen.findByTestId('batch-board')).toBeVisible()
+    useConverter.setState({ batchPlanId: null })
+  })
+
+  test('an operation that no longer exists does not leave the window waiting', async () => {
+    vi.spyOn(api, 'getSourceOperation').mockRejectedValue(new ProblemError(404, 'not-found', 'Not found', 'Unknown source operation'))
+    useConverter.getState().attach('01JSYNTHGONE0000000000000')
+    renderOverlay()
+    expect(await screen.findByText('Unknown source operation')).toBeVisible()
+    expect(screen.queryByText('Connecting to the operation…')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Cancel analysis' })).toBeNull()
+    expect(useConverter.getState().working).toBe(false)
   })
 
   test('the size warning offers batches and switches the window to them', async () => {

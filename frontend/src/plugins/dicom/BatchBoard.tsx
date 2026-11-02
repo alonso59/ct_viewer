@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next'
 
 import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCommand, useBatchPlans, useSourceOperation, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
 import { NewProjectDialog } from '../../features/import'
-import { fmtEtaRange, IndeterminateProgress, ProblemCard, Progress } from '../../lib'
+import { fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
 import { filesCell } from './BatchPreview'
-import { ConversionBytes, DiscoveryProgress, PlanningProgress, preparingKey } from './OperationProgress'
+import { ConversionBytes, CountProgress, DiscoveryProgress, preparingKey, runCount } from './OperationProgress'
 
 type Command = Parameters<ReturnType<typeof useBatchPlanCommand>['mutate']>[0]
 
@@ -16,15 +16,11 @@ type Command = Parameters<ReturnType<typeof useBatchPlanCommand>['mutate']>[0]
 const fence = (op: SourceOperation) => ({ expected_revision: op.revision, expected_attempt: op.attempt, ...(op.conversion_run ? { expected_run_attempt: op.conversion_run.attempts } : {}) })
 
 function ConvertingProgress({ operation }: { operation: SourceOperation }) {
-  const { t } = useTranslation()
   const run = operation.conversion_run
   const progress = run?.progress as Record<string, number | string | null | undefined> | undefined
-  const done = Number(progress?.done ?? 0)
-  const total = Number(progress?.total ?? 0)
   const eta = run?.conversion_time
   return <>
-    {total > 0 ? <Progress value={done} total={total} /> : <IndeterminateProgress />}
-    {total > 0 ? <p className="muted conv-help num">{t('conv.converting', { done, total })}</p> : null}
+    <CountProgress count={runCount(progress)} />
     {eta?.basis === 'history' && eta.lower_s != null && eta.upper_s != null ? <p className="muted conv-help">{fmtEtaRange(eta.lower_s, eta.upper_s)}</p> : <ConversionBytes progress={progress} />}
   </>
 }
@@ -52,7 +48,7 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
   const fixable = !!operation && !working && operation.cleanup_verified
   const dataset = batch.dataset?.split('/').at(-1)
   return (
-    <tr data-testid={`batch-${batch.index}`} data-status={batch.status}>
+    <tr data-testid={`batch-${batch.index}`} data-status={batch.status} data-current={plan.batches[plan.cursor]?.index === batch.index && plan.status !== 'completed' ? true : undefined}>
       <td>
         <strong>{batch.name}</strong>
         {dataset && dataset !== batch.name ? <div className="muted conv-help">{dataset}</div> : null}
@@ -61,7 +57,7 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
       <td className="num">{filesCell(plan, batch.files_total, t('conv.counting'))}</td>
       <td><span className="badge" data-status={batch.status}>{t(`conv.batches.status.${preparing ?? batch.status}`)}</span></td>
       <td className="conv-batch-detail">
-        {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : preparing === 'planning' ? <PlanningProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
+        {working && operation ? (converting ? <ConvertingProgress operation={operation} /> : <DiscoveryProgress operation={operation} />) : null}
         {batch.status === 'attention' && batch.error ? <p className="error-card" role="alert">{batch.error}</p> : null}
         <div className="conv-row">
           {batch.operation_id ? <button type="button" className="btn btn-sm" onClick={() => onOpenOperation(batch.operation_id!)}>{t('conv.batches.details')}</button> : null}
@@ -79,7 +75,8 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
 /** Every batch plan that is not cancelled, so its board can be reopened from the converter */
 export function BatchPlanList({ current, onOpen }: { current: string | null; onOpen: (planId: string) => void }) {
   const { t } = useTranslation()
-  const plans = (useBatchPlans().data ?? []).filter((p) => p.status !== 'cancelled')
+  // A plan never started is a preview the user did not review; only the open one is listed.
+  const plans = (useBatchPlans().data ?? []).filter((p) => p.status !== 'cancelled' && (p.status !== 'pending' || p.plan_id === current))
   if (!plans.length) return null
   return (
     <details className="conv-plans" data-testid="batch-plans">
@@ -107,6 +104,7 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
   const [error, setError] = useState<unknown>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [creating, setCreating] = useState<SourceBatch | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const run = async (cmd: Command) => {
     setError(null)
     setMessage(null)
@@ -161,8 +159,13 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
         {plan.status === 'running' && current?.status === 'ready' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run('continue')}>{t('conv.batches.convertThis')}</button> : null}
         {plan.status === 'paused' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run('continue')}>{t('conv.batches.continue')}</button> : null}
         {live ? <button type="button" className="btn" aria-pressed={plan.auto} disabled={busy} onClick={() => void run({ auto: !plan.auto })}>{t(plan.auto ? 'conv.batches.stopAuto' : 'conv.batches.auto')}</button> : null}
-        {live ? <button type="button" className="btn" disabled={busy} onClick={() => void run('cancel')}>{t('conv.batches.cancel')}</button> : null}
-        {plan.status !== 'cancelled' ? <button type="button" className="btn" disabled={busy} onClick={() => void run('add-new-folders')}>{t('conv.batches.addFolders')}</button> : null}
+        {live ? <button type="button" className="btn" disabled={busy} onClick={() => void run('add-new-folders')}>{t('conv.batches.addFolders')}</button> : null}
+        {live && !confirming ? <button type="button" className="btn" disabled={busy} onClick={() => setConfirming(true)}>{t('conv.batches.cancel')}</button> : null}
+        {live && confirming ? <>
+          <span role="note">{t('conv.batches.cancelConfirm')}</span>
+          <button type="button" className="btn btn-danger" disabled={busy} onClick={() => { setConfirming(false); void run('cancel') }}>{t('conv.batches.cancelYes')}</button>
+          <button type="button" className="btn" onClick={() => setConfirming(false)}>{t('conv.batches.keep')}</button>
+        </> : null}
         {!live ? <button type="button" className="btn" onClick={onNew}>{t('conv.newOperation')}</button> : null}
       </div>
       {message ? <p className="muted conv-help" role="status">{message}</p> : null}

@@ -13,7 +13,7 @@ export function PhasePanel({ phase, busy, conversionComplete, onControl }: { pha
   const retry = ['failed', 'cancelled', 'interrupted'].includes(phase.status)
   return <section className="conv-body" aria-label={t('conv.phaseTitle')}>
     <div className="conv-row"><strong>{t('conv.phaseTitle')}</strong><RunStatusBadge status={phase.status} /></div>
-    <p className="muted">{t('conv.phaseProgress', { done, total })}</p>
+    {total > 0 ? <p className="muted num">{t('conv.phaseProgress', { done, total })}</p> : null}
     {pending && total > 0 ? <Progress value={done} total={total} /> : null}
     {phase.error ? <p className="field-error">{phase.error}</p> : null}
     <p className="muted conv-help">{t('conv.phaseHelp')}</p>
