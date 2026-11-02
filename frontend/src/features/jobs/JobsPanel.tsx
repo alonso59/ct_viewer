@@ -73,7 +73,8 @@ export function JobsPanel() {
   )
 }
 
-export function OutputPanel() {
+/** The Output tab's Activity channel: this session's server events */
+export function ActivityLog() {
   const { t } = useTranslation()
   const lines = useOutput((s) => s.lines)
   const end = useRef<HTMLDivElement>(null)

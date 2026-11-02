@@ -3,7 +3,8 @@
 `Redactor` rewrites strings so that no absolute server path and no real `project_id` leaves:
 a path under a project root becomes its alias ref (`/data/ds/nifti/a.nii.gz` →
 `DATA:nifti/a.nii.gz`), a path under any other known server folder (workspace, allowed roots)
-loses that prefix (`…/rest`), and the project id is replaced by a stand-in.
+loses that prefix (`…/rest`), a path under an opaque root becomes its bare alias (`DATA:`), and the
+project id is replaced by a stand-in.
 """
 
 from __future__ import annotations
@@ -36,9 +37,11 @@ class Redactor:
         aliases: Iterable[tuple[str, str]] = (),
         folders: Iterable[str] = (),
         ids: Iterable[tuple[str, str]] = (),
+        opaque: Iterable[tuple[str, str]] = (),
     ) -> None:
         """`aliases`: (alias, absolute root); `folders`: other absolute server folders;
-        `ids`: (real id, stand-in) substring replacements."""
+        `ids`: (real id, stand-in) substring replacements; `opaque`: (alias, absolute root)
+        whose descendants are never named (source folder names are often patient names)."""
         rules: dict[str, tuple[str, str]] = {}  # prefix → (followed by `/`, bare)
         for folder in folders:
             for v in _variants(folder):
@@ -52,8 +55,17 @@ class Redactor:
             for prefix, (slash, bare) in sorted(rules.items(), key=lambda kv: -len(kv[0]))
         ]
         self._ids = [(a, b) for a, b in ids if a]
+        # The rest of an opaque path runs to a quote or line end: folder names may hold spaces.
+        hidden = {v: alias for alias, root in opaque for v in _variants(root)}
+        self._opaque = [
+            (prefix, re.compile(re.escape(prefix) + r"(?:/[^\"'`\r\n\t]*)?" + _END), f"{alias}:")
+            for prefix, alias in sorted(hidden.items(), key=lambda kv: -len(kv[0]))
+        ]
 
     def text(self, s: str) -> str:
+        for prefix, pattern, alias in self._opaque:
+            if prefix in s:
+                s = pattern.sub(alias, s)
         for prefix, pattern, slash, bare in self._paths:
             if prefix in s:
                 s = pattern.sub(bare, s.replace(prefix + "/", slash))  # aliases need no escaping

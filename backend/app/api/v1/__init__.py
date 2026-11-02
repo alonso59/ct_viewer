@@ -13,6 +13,7 @@ from app.api.v1 import (
     items,
     jobs,
     labeling,
+    logs,
     mesh,
     phase,
     plugins,
@@ -32,6 +33,6 @@ router = APIRouter()
 for _module in (
     health, projects, fs, sources, source_operations, source_batches, imports, variables, cases,
     items, volumes, segmentations, curation, phase, annotations, exports, radiomics, tasks,
-    plugins, labeling, dashboard, jobs, events, view, mesh,
+    plugins, labeling, dashboard, jobs, logs, events, view, mesh,
 ):  # fmt: skip
     router.include_router(_module.router)

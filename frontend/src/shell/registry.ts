@@ -115,6 +115,15 @@ export interface OverlayContribution {
   writes?: boolean
 }
 
+/** A server log the Output tab can follow. Contributed at run time (e.g. when a conversion is
+ *  shown), so the list notifies subscribers; `label` is display text, not an i18n key. */
+export interface OutputChannelContribution {
+  id: string
+  label: string
+  kind: 'source-operation' | 'workspace-run'
+  ref: string
+}
+
 /** Quick open (Ctrl/Cmd+P) sources: a component that renders cmdk items for the query */
 export interface QuickOpenProvider {
   id: string
@@ -143,6 +152,9 @@ class Registry {
   readonly quickOpen: QuickOpenProvider[] = []
   readonly imageSection: ItemContribution[] = []
   readonly overlays: OverlayContribution[] = []
+  /** Replaced (never mutated) on change, so it is a stable snapshot for `useSyncExternalStore` */
+  outputChannels: readonly OutputChannelContribution[] = []
+  private readonly channelListeners = new Set<() => void>()
   /** Set by the workbench of a view-only link; contributions with `writes` are hidden */
   readOnly = false
 
@@ -195,6 +207,21 @@ class Registry {
   /** Overlays keep registration order (no `order` field) */
   overlay(o: OverlayContribution) {
     upsert(this.overlays, o)
+  }
+  outputChannel(c: OutputChannelContribution) {
+    const i = this.outputChannels.findIndex((x) => x.id === c.id)
+    this.setChannels(i >= 0 ? this.outputChannels.map((x, j) => (j === i ? c : x)) : [...this.outputChannels, c])
+  }
+  removeOutputChannel(id: string) {
+    this.setChannels(this.outputChannels.filter((c) => c.id !== id))
+  }
+  subscribeOutputChannels = (listener: () => void) => {
+    this.channelListeners.add(listener)
+    return () => void this.channelListeners.delete(listener)
+  }
+  private setChannels(list: readonly OutputChannelContribution[]) {
+    this.outputChannels = list
+    this.channelListeners.forEach((l) => l())
   }
   imageSectionContent(s: ItemContribution) {
     upsert(this.imageSection, s)

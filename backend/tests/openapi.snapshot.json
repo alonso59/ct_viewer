@@ -5937,6 +5937,76 @@
     "title": "Loading",
     "type": "object"
    },
+   "LogLine": {
+    "properties": {
+     "level": {
+      "default": "info",
+      "enum": [
+       "info",
+       "warn",
+       "error"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "stream": {
+      "enum": [
+       "stage",
+       "log",
+       "stderr"
+      ],
+      "title": "Stream",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "ts": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ts"
+     }
+    },
+    "required": [
+     "stream",
+     "text"
+    ],
+    "title": "LogLine",
+    "type": "object"
+   },
+   "LogPage": {
+    "properties": {
+     "done": {
+      "title": "Done",
+      "type": "boolean"
+     },
+     "lines": {
+      "items": {
+       "$ref": "#/components/schemas/LogLine"
+      },
+      "title": "Lines",
+      "type": "array"
+     },
+     "next_cursor": {
+      "title": "Next Cursor",
+      "type": "string"
+     }
+    },
+    "required": [
+     "lines",
+     "next_cursor",
+     "done"
+    ],
+    "title": "LogPage",
+    "type": "object"
+   },
    "MissingCell": {
     "properties": {
      "feature": {
@@ -14872,6 +14942,89 @@
     "summary": "Cancel Job",
     "tags": [
      "jobs"
+    ]
+   }
+  },
+  "/api/v1/logs/{kind}/{ref}": {
+   "get": {
+    "operationId": "read_api_v1_logs__kind___ref__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "kind",
+      "required": true,
+      "schema": {
+       "enum": [
+        "source-operation",
+        "workspace-run"
+       ],
+       "title": "Kind",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "ref",
+      "required": true,
+      "schema": {
+       "title": "Ref",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 500,
+       "maximum": 2000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LogPage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read",
+    "tags": [
+     "logs"
     ]
    }
   },

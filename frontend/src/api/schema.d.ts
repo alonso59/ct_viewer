@@ -2505,6 +2505,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/logs/{kind}/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_api_v1_logs__kind___ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/events": {
         parameters: {
             query?: never;
@@ -4765,6 +4782,33 @@ export interface components {
             feature: string;
             /** Weight */
             weight: number;
+        };
+        /** LogLine */
+        LogLine: {
+            /** Ts */
+            ts?: string | null;
+            /**
+             * Level
+             * @default info
+             * @enum {string}
+             */
+            level: "info" | "warn" | "error";
+            /**
+             * Stream
+             * @enum {string}
+             */
+            stream: "stage" | "log" | "stderr";
+            /** Text */
+            text: string;
+        };
+        /** LogPage */
+        LogPage: {
+            /** Lines */
+            lines: components["schemas"]["LogLine"][];
+            /** Next Cursor */
+            next_cursor: string;
+            /** Done */
+            done: boolean;
         };
         /** MissingCell */
         MissingCell: {
@@ -13086,6 +13130,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_api_v1_logs__kind___ref__get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                kind: "source-operation" | "workspace-run";
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogPage"];
                 };
             };
             /** @description Validation Error */

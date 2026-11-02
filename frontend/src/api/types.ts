@@ -410,6 +410,8 @@ export type SourceBatchPlan = S['SourceBatchPlan']
 export type SourceBatch = S['SourceBatch']
 export type BatchPlanCreate = S['BatchPlanCreate']
 export type InventoryPage = S['InventoryPage']
+export type LogPage = S['LogPage']
+export type LogLine = S['LogLine']
 export type LayerInfo = S['LayerInfo']
 
 export type LabelTable = S['LabelTable']
