@@ -46,7 +46,7 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
               : t('projects.metaNew', { cases: p.n_cases, ago: fmtAgo(p.created_at) })}
           </span>
           <span className="home-progress">
-            <Progress value={reviewed} total={p.n_cases} />
+            <Progress value={reviewed} total={p.n_cases} label={t('progress.reviewed')} />
             <span className="muted num">{t('projects.reviewed', { done: reviewed, total: p.n_cases })}</span>
           </span>
         </span>

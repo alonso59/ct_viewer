@@ -148,7 +148,7 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
       {live && plan.eta.basis === 'completed_batches' && plan.eta.low_s != null && plan.eta.high_s != null
         ? <p className="muted conv-help" data-testid="batch-overall-eta">{t('conv.batches.overallEta', { range: fmtEtaRange(plan.eta.low_s, plan.eta.high_s) })}</p> : null}
       {plan.counting === 'counting' ? <>
-        <IndeterminateProgress />
+        <IndeterminateProgress label={t('conv.counting')} />
         <p className="muted conv-help">{t('conv.counting')}</p>
       </> : null}
       {plan.warnings.length ? <ul className="conv-warnings" aria-label={t('conv.batches.warnings')}>

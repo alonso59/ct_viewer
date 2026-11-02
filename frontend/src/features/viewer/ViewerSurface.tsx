@@ -403,7 +403,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
       <div ref={canvasHost} className="vp-engine-host" />
       {load.phase === 'loading' ? (
         <div className="case-loading" title={pct !== null ? t('vw.loading', { pct }) : t('vw.decoding')}>
-          <Progress value={load.progress?.loaded ?? 0} total={load.progress?.total ?? 0} />
+          <Progress value={load.progress?.loaded ?? 0} total={load.progress?.total ?? 0} label={t('progress.volume')} />
         </div>
       ) : null}
       <div ref={grid} className={`vp-grid vp-grid-${v.maximized ? 'one' : v.layout}`} onContextMenu={(e) => e.preventDefault()}>

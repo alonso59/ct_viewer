@@ -65,7 +65,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         <span className="task-run-name" title={run.run_id}>{run.name}</span>
         <span className="muted ml-auto">{fmtAgo(run.created_at)}</span>
       </div>
-      {live ? <Progress value={job.done} total={job.total || 1} /> : null}
+      {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} /> : null}
       {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
       {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingHelp')}</p> : null}
       {STOPPING_RUN.includes(run.status) ? (

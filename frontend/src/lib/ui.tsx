@@ -4,7 +4,8 @@ import * as RTooltip from '@radix-ui/react-tooltip'
 import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 
 import { Icon, type IconSpec } from '../theme'
-import { parseNum } from './format'
+import i18n from '../i18n'
+import { fmtInt, parseNum } from './format'
 
 export function Tooltip({ label, shortcut, children, side = 'bottom' }: {
   label: ReactNode
@@ -93,18 +94,19 @@ export function Dialog({ open, onOpenChange, title, icon, children, footer, size
   )
 }
 
-export function Progress({ value, total }: { value: number; total: number }) {
+/** `label` names the bar for assistive technology ("Indexing"); the value reads "86 of 187" */
+export function Progress({ value, total, label }: { value: number; total: number; label: string }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0
   return (
-    <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+    <div className="progress" role="progressbar" aria-label={label} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-valuetext={i18n.t('progress.of', { done: fmtInt(value), total: fmtInt(total) })}>
       <span style={{ width: `${pct}%` }} />
     </div>
   )
 }
 
 /** A moving bar for work whose total is not known yet */
-export function IndeterminateProgress() {
-  return <div className="progress progress-indeterminate"><span /></div>
+export function IndeterminateProgress({ label }: { label: string }) {
+  return <div className="progress progress-indeterminate" role="progressbar" aria-label={label} aria-busy="true"><span /></div>
 }
 
 type NumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type' | 'min' | 'max' | 'step'> & {

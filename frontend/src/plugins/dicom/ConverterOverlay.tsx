@@ -150,7 +150,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
         ))}
       </ol>
       {at < 0 ? <p>{countLabel(t, count)}</p> : null}
-      {count.total > 0 ? <Progress value={count.done} total={count.total} /> : <IndeterminateProgress />}
+      {count.total > 0 ? <Progress value={count.done} total={count.total} label={countLabel(t, count)} /> : <IndeterminateProgress label={countLabel(t, count)} />}
       {children}
       <div className="conv-row">
         <span className="muted conv-help">{elapsed == null ? t(opening || discovering ? 'open.keepsRunning' : 'conv.keepsRunning') : t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { time: fmtDuration(elapsed) })}</span>
@@ -169,7 +169,7 @@ function RunPanel({ activity, resumable, onResult, onCancel, onOutput, children 
   const stopped = activity.finished && activity.tone === 'error' && resumable
   return (
     <div className="conv-body" role="status" aria-live="polite">
-      {stopped ? null : activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : activity.finished ? null : <IndeterminateProgress />}
+      {stopped ? null : activity.total > 0 ? <Progress value={activity.done} total={activity.total} label={activity.label} /> : activity.finished ? null : <IndeterminateProgress label={activity.label} />}
       <p className="muted num">{activity.label}</p>
       {stopped ? <p className="muted conv-help">{t('conv.stopped')}</p> : children}
       <div className="conv-row conv-actions">
@@ -194,7 +194,7 @@ function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activit
       <div className="conv-chip-text">
         <strong>{title}</strong>
         <span className="muted">{activity?.label ?? t('conv.idle')}</span>
-        {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <IndeterminateProgress /> : null}
+        {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} label={activity.label} /> : <IndeterminateProgress label={activity.label} /> : null}
       </div>
       <button type="button" className="btn btn-sm" onClick={onShow}>{t('conv.show')}</button>
       {running && onCancel ? <button type="button" className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button> : null}

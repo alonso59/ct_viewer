@@ -82,7 +82,7 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
       <div className="list-row-meta">{t('rad.runBy', { reviewer: run.reviewer, ago: fmtAgo(run.created_at) })}</div>
       {p ? (
         <div className="rad-run-progress" data-testid={`progress-${run.run_id}`}>
-          <Progress value={p.done} total={p.total} />
+          <Progress value={p.done} total={p.total} label={t('jobs.kind.radiomics')} />
           <span className="muted num">
             {p.eta !== null && p.eta > 0 ? t('rad.progressEta', { done: p.done, total: p.total, time: fmtDuration(p.eta) }) : t('rad.progress', { done: p.done, total: p.total })}
           </span>

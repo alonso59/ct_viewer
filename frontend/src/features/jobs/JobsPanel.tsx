@@ -64,7 +64,7 @@ export function JobsPanel() {
             <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error" role="alert">{j.error}</p> : null}</td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} /></div>
+                <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={t(JOB_KIND[j.kind])} /></div>
                 <span className="num muted">{t('jobs.count', { done: j.done, total: j.total })}</span>
               </div>
             </td>

@@ -26,7 +26,7 @@ function TableCard({ pid, t }: { pid: string; t: LabelTableInfo }) {
           <span className="badge">{tr(`lbl.level.${t.level}`)}</span>
         </span>
         <span className="muted lbl-small">{tr('lbl.summary', { rows: t.n_rows, cols: cols.length, filled, total })}</span>
-        <Progress value={filled} total={total || 1} />
+        <Progress value={filled} total={total || 1} label={tr('progress.filled')} />
         <span className="lbl-cols">
           {cols.map((c) => {
             const p = t.progress?.find((x) => x.column_id === c.column_id)?.filled ?? 0

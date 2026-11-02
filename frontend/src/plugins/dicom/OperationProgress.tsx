@@ -69,7 +69,7 @@ export function countLabel(t: TFunction, { stage, done, total }: StageCount): st
 export function CountProgress({ count }: { count: StageCount }) {
   const { t } = useTranslation()
   return <>
-    {count.total > 0 ? <Progress value={count.done} total={count.total} /> : <IndeterminateProgress />}
+    {count.total > 0 ? <Progress value={count.done} total={count.total} label={countLabel(t, count)} /> : <IndeterminateProgress label={countLabel(t, count)} />}
     <p className="muted conv-help num">{countLabel(t, count)}</p>
   </>
 }

@@ -17,7 +17,7 @@ export function ProjectSwitcher({ pid }: { pid: string }) {
   return (
     <>
       <Menu.Root>
-        <Menu.Trigger className="titlebar-brand" aria-label={t('projects.switch')}>
+        <Menu.Trigger className="titlebar-brand" aria-label={current ? t('projects.switchNamed', { name: current.name }) : t('projects.switch')}>
           <BrandMark size={18} />
           {current?.name ?? t('common.loading')}
           <Icon spec={codicon('chevron-down')} />

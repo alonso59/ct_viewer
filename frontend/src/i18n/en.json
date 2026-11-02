@@ -335,7 +335,8 @@
     "archived": "“{{name}}” archived",
     "restore": "Restore",
     "restored": "“{{name}}” restored",
-    "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted."
+    "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted.",
+    "switchNamed": "Project {{name}}: switch project"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -973,5 +974,12 @@
     "storageHelp": "Project state and results are stored inside this dataset. The folder can be created if its parent exists.",
     "open": "Open dataset project…",
     "openHelp": "Choose a dataset folder to reopen its saved projects in this workspace."
+  },
+  "progress": {
+    "of": "{{done}} of {{total}}",
+    "reviewed": "Cases reviewed",
+    "filled": "Cells filled",
+    "run": "Run progress",
+    "volume": "Loading the volume"
   }
 }
