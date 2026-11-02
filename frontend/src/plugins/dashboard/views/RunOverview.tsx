@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView } from '../../../api'
-import { ItemName, StatusBadge, fmtDuration, fmtInt } from '../../../lib'
+import { ItemName, StatusBadge, fmtDuration, fmtInt, useRowKeys } from '../../../lib'
 import { Icon, codicon } from '../../../theme'
 import { useRunDashboard } from '../store'
 import { asStatus, rowProps, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
@@ -15,6 +15,9 @@ export function RunOverviewView({ runId }: ViewProps) {
   const labelName = useLabelName()
   const { selected } = useSelection(runId)
   const d = q.data
+  // errors without an item are plain rows; the others open the item
+  const errorId = (e: NonNullable<typeof d>['errors'][number], i: number) => `${e.item_id}|${e.label ?? ''}|${i}`
+  const rowKeys = useRowKeys((d?.errors ?? []).flatMap((e, i) => (e.item_id ? [errorId(e, i)] : [])))
   return (
     <ViewFrame
       name={t('dashboard.view.run-overview')}
@@ -81,7 +84,7 @@ export function RunOverviewView({ runId }: ViewProps) {
                       </td>
                     )
                     return e.item_id ? (
-                      <tr key={`${e.item_id}|${e.label ?? ''}|${i}`} data-kind={e.kind} {...rowProps({ item_id: e.item_id, case_id: e.case_id ?? e.item_id.split('.')[0] ?? '' }, selected)} title={t('dashboard.openInViewer')}>
+                      <tr key={errorId(e, i)} data-kind={e.kind} {...rowProps({ item_id: e.item_id, case_id: e.case_id ?? e.item_id.split('.')[0] ?? '' }, selected)} {...rowKeys(errorId(e, i))} title={t('dashboard.openInViewer')}>
                         {icon}
                         <td><ItemName id={e.item_id} pid={pid} /></td>
                         <td>{e.label != null ? labelName(e.label) : ''}</td>

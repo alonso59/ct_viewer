@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useQueue, type CurationStatus, type V2ImportReport } from '../../api'
-import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis, problemMessage } from '../../lib'
+import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis, problemMessage, useRowKeys } from '../../lib'
 import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -99,6 +99,8 @@ export function QueueEditor() {
   const [status, setStatus] = useState<CurationStatus | ''>('')
   const [busyCsv, setBusyCsv] = useState(false)
   const rows = (data ?? []).filter((r) => !status || r.status === status)
+  const rowId = (r: (typeof rows)[number]) => `${r.item_id}|${r.target}|${r.seg_id ?? ''}`
+  const rowKeys = useRowKeys(rows.map(rowId))
 
   const exportCsv = async () => {
     setBusyCsv(true)
@@ -186,7 +188,7 @@ export function QueueEditor() {
           <tbody>
             {rows.map((r, i) => (
               // Alt+↓ then follows the queue
-              <tr key={`${r.item_id}|${r.target}|${r.seg_id ?? ''}`} data-clickable="true" onClick={() => openInContext(t('queue.title'), rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id })), i, false)}>
+              <tr key={rowId(r)} data-clickable="true" onClick={() => openInContext(t('queue.title'), rows.map((x) => ({ caseId: x.case_id, itemId: x.item_id })), i, false)} {...rowKeys(rowId(r))}>
                 <td className="mono">{r.case_id}</td>
                 <td className="muted"><ItemName id={r.item_id} phase={r.phase} /></td>
                 <td>{r.phase ? <PhaseChip phase={r.phase} /> : null}</td>

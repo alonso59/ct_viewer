@@ -14,7 +14,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 |---|---|---|
 | DB-01 | One dashboard tab per run; views arranged as dockview sub-panels; the arrangement persists per run. | M |
 | DB-02 | Global filters on any visible variable (VAR-10) plus phase, scope, side, label, curation status apply to every view. | M |
-| DB-03 | Every point, bar or cell that represents items supports hover (ID + value) and click (opens the item in a case tab, same slice context if available). | M |
+| DB-03 | Every point, bar or cell that represents items supports hover (ID + value) and click (opens the item in a case tab, same slice context if available). Table rows that open an item or pick a feature also work from the keyboard: one Tab stop per table (the row focused last), ↑ ↓ Home End move between rows, Enter acts as the click and Shift+F10 (or the menu key) opens the item menu. | M |
 | DB-04 | Selection in one view (lasso/brush) highlights the same items in all views and can be sent to the Explorer as a filter. | S |
 | DB-05 | Heavy computations run server-side (API-38, DuckDB/NumPy); the client receives aggregates, not raw long tables above 50k rows. | M |
 | DB-06 | Any view can be exported as PNG (chart) and CSV (underlying data). | S |
@@ -42,7 +42,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 ## Interaction with curation
 
 - The outlier table and scatter show the curation status badge per item.
-- The context menu on an item offers "Open in viewer", "Add to correction queue" (writes a CUR event) and "Copy item_id".
+- The context menu on an item (right click, or Shift+F10 on a focused row) offers "Open in viewer", "Add to correction queue" (writes a CUR event) and "Copy item_id".
 
 ## Decisions
 
@@ -53,5 +53,6 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 - Views are dockview sub-panels per run (layout in localStorage); the Analysis panel is one of them. Mock mode serves only the QC views.
 - "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Project view.
 - Phase (DB-02, DB-07; AUD-A5-04, owner 2026-09-26): every view and analysis uses the **effective** phase (PHS-03), joined at read time (`IndexStore.effective_phases` → `analytics/data.join_phase`); the run's own value is `phase_at_run` (overview details, tidy and feature exports).
+- Keyboard rows (DB-03): `lib/rowKeys.ts` (`useRowKeys`) holds the roving Tab stop and the keys; a row keeps one click and one context-menu handler, which Enter and Shift+F10 reuse. The correction queue and the radiomics failures list use the same rows.
 - Values (DB-03; AUD-A3-04, A3-15): formats and units follow UI_SHELL §Implementation notes; axis ticks use the same format.
 - Charts (AUD-A3-14): the brush toolbox sits top right above the plot (a legend beside it starts 80 px in); histogram bars sit on a hidden category axis with a visible value axis over the same range (round ticks; the bin range is the tooltip title); chart font sizes read `--fs-badge` / `--fs-panel`.
