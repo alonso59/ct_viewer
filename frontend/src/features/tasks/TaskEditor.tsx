@@ -82,7 +82,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         {actions.map((a) => {
           const button = (onClick: () => void) => (
             <Button key={a} className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} reason={t('reason.cleanup')} onClick={onClick}>
-              {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
+              {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
             </Button>
           )
           return a === 'cancel'

@@ -696,7 +696,8 @@
     "adminDetails": "Details for administrators",
     "waitingUser": "Waiting for the task runner to start; it begins on its own.",
     "queuedHelp": "Queued: starts when earlier work of this task finishes.",
-    "resourcesHelp": "Waiting for free GPUs or memory; it starts on its own. Cancel stays available."
+    "resourcesHelp": "Waiting for free GPUs or memory; it starts on its own. Cancel stays available.",
+    "cancel": "Cancel run"
   },
   "library": {
     "status": {

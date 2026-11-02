@@ -693,7 +693,8 @@
     },
     "taskFailedDetail": "{{name}}: {{error}}",
     "showTask": "Show task",
-    "stale": "The live connection is down: progress refreshes every few seconds and may lag."
+    "stale": "The live connection is down: progress refreshes every few seconds and may lag.",
+    "cancel": "Cancel job"
   },
   "output": {
     "activity": "Activity",

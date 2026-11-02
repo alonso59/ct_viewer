@@ -91,7 +91,7 @@ export function JobsPanel() {
                   trigger={(ask) => (
                     <button type="button" className="btn btn-sm" onClick={ask}>
                       <Icon spec={codicon('debug-stop')} />
-                      {t('common.cancel')}
+                      {t('jobs.cancel')}
                     </button>
                   )}
                 />

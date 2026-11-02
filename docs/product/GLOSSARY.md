@@ -69,7 +69,7 @@ One term per concept in the interface (strings in `frontend/src/i18n/`; keys kee
 | DICOM dry run | Analysis (owner decision, 2026-11) | Preview, estimate |
 | Waiting | Queued · Waiting for runner · Waiting for resources (the reason line says GPU or memory) · Not started | Waiting, Pending |
 | Stopping | Stopping… · Saving results… | Cleanup pending, Reconciling |
-| Cancel | Cancel + the object ("Cancel conversion"), confirmed first (UI-20) | a bare Cancel on work |
+| Cancel | Cancel + the object ("Cancel conversion", "Cancel run", "Cancel job"), confirmed first (UI-20); the minimized work chip's Cancel sits under the title that names its work | a bare Cancel on a row of work |
 | Resume, retry | Resume · Retry failed | Continue, Resume pending work, Retry failed series / items |
 | Outcome | Completed · Completed with errors · Failed | Done, Needs attention, finished with problems |
 | Log | Log (the panel and its channels) · Results (what a run produced) · Destination (a folder) | Output |
