@@ -6,7 +6,7 @@ import { api } from './client'
 import { useConnection } from './connection'
 import { keys } from './keys'
 import { isTaskRunPending } from './taskStatus'
-import type { CaseFilter } from './surface'
+import type { CaseFilter, LogKind } from './surface'
 import type {
   AnalysisSpec,
   CaseSummary,
@@ -14,6 +14,7 @@ import type {
   DerivedDef,
   ItemRecord,
   Job,
+  LogLine,
   NewCurationEvent,
   NewPhaseEvent,
   CurationEvent,
@@ -334,6 +335,24 @@ export const useWorkspaceRun = (rid: string | null) =>
     enabled: !!rid,
     refetchInterval: (q) => (isTaskRunPending(q.state.data?.status) ? 800 : false),
   })
+/** Lines kept by a log stream; older ones are dropped */
+const LOG_KEEP = 5000
+interface LogStream { lines: LogLine[]; cursor?: string; done: boolean }
+/** An output channel's lines, following the server cursor every second until the attempt ended */
+export function useLogStream(kind: LogKind, ref: string, { enabled: on = true }: { enabled?: boolean } = {}) {
+  const qc = useQueryClient()
+  const key = keys.logs(kind, ref)
+  return useQuery({
+    queryKey: key,
+    queryFn: async (): Promise<LogStream> => {
+      const prev = qc.getQueryData<LogStream>(key)
+      const page = await api.readLogs(kind, ref, prev?.cursor)
+      return { lines: [...(prev?.lines ?? []), ...page.lines].slice(-LOG_KEEP), cursor: page.next_cursor, done: page.done }
+    },
+    enabled: on && !!ref,
+    refetchInterval: (q) => (q.state.data?.done ? false : 1000),
+  })
+}
 /** A named dry run's stage while it runs; `not-found` before it starts and after it returned */
 export const useEstimateProgress = (eid: string | null) =>
   useQuery({ queryKey: keys.estimateProgress(eid ?? ''), queryFn: () => api.estimateProgress(eid ?? ''), enabled: !!eid, retry: false, refetchInterval: 500 })

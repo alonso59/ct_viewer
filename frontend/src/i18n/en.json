@@ -51,6 +51,7 @@
     "nextProblem": "Next problem",
     "prevCase": "Previous case",
     "quickOpen": "Go to case…",
+    "showOutput": "Show output log",
     "split": "Split editor right",
     "toggleInspector": "Toggle inspector",
     "toggleLabel": "Toggle label {{n}}",
@@ -662,10 +663,24 @@
     "showTask": "Show task"
   },
   "output": {
+    "activity": "Activity",
+    "channel": "Output channel",
+    "copied": "Output copied",
+    "copy": "Copy",
+    "copyFailed": "The browser blocked the clipboard; select the lines and copy them",
     "curation": "[curation] {{reviewer}} → {{id}} {{target}} = {{status}}",
     "empty": "Server events appear here",
+    "filter": "Show levels",
     "index": "[index] rebuilt: {{items}} items, {{warnings}} warnings",
     "job": "[job] {{title}}: {{status}}",
+    "jump": "Jump to latest",
+    "level": {
+      "all": "All",
+      "error": "Errors",
+      "warn": "Warnings"
+    },
+    "noLines": "No output yet",
+    "operation": "{{name}} · output",
     "project": "[project] updated: {{fields}}"
   },
   "settings": {

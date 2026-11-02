@@ -90,6 +90,7 @@ import type {
   SourceOperationConvert,
   SourceBatchPlan,
   SourcePlanPage,
+  LogPage,
   InventoryPage,
   EstimateProgress,
   TaskEstimate,
@@ -141,6 +142,8 @@ export function filterByItems<C extends { case_id: string }>(cases: C[], itemIds
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'offline'
+/** What an output channel reads: a source operation or a workspace run */
+export type LogKind = 'source-operation' | 'workspace-run'
 
 export interface Api {
   readonly mode: 'http' | 'mock'
@@ -260,6 +263,8 @@ export interface Api {
   retryFailedSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
   sourceOperationSeries(id: string, cursor?: string, limit?: number): Promise<InventoryPage>
   sourceOperationPlan(id: string, options?: { cursor?: string; limit?: number; action?: 'convert' | 'skip' }): Promise<SourcePlanPage>
+  /** New output lines of the current attempt after `cursor` (redacted by the server) */
+  readLogs(kind: LogKind, ref: string, cursor?: string): Promise<LogPage>
   createSourceBatchPlan(body: BatchPlanCreate): Promise<SourceBatchPlan>
   listSourceBatchPlans(): Promise<SourceBatchPlan[]>
   getSourceBatchPlan(id: string): Promise<SourceBatchPlan>

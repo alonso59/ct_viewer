@@ -1,4 +1,4 @@
-import type { CaseFilter } from './surface'
+import type { CaseFilter, LogKind } from './surface'
 import type { DashboardView, ItemFilter } from './types'
 
 /** Parts of a project that are invalidated as a whole (a prefix of the keys below) */
@@ -60,6 +60,7 @@ export const keys = {
   sourceOperation: (id: string) => ['source-operations', id] as const,
   sourcePlan: (id: string, attempt: number | null, cursor: string | undefined, action?: 'convert' | 'skip') => ['source-operations', id, 'plan', attempt, cursor, action] as const,
   workspaceRun: (rid: string) => ['workspace-runs', rid] as const,
+  logs: (kind: LogKind, ref: string) => ['logs', kind, ref] as const,
   estimateProgress: (eid: string) => ['task-estimates', eid] as const,
   layers: (pid: string) => ['project', pid, 'layers'] as const,
   segmentations: (pid: string, removed = false) => removed

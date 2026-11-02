@@ -76,6 +76,7 @@ Tests extend existing files where the feature already lives; new filenames are p
 | D42 | A patient present in two batches adds a warning (batch, earlier batches, count) without blocking; no PatientID is stored or returned. | DCM-24; `test_source_batches.py` |
 | D43 | Byte progress: planned bytes are the selected series only (skips and failures excluded); committed and verified-reused series count as done; speed uses only series converted by this attempt and is withheld without any; estimates report no bytes. | DCM-25; `test_dicom_progress.py` |
 | D44 | Plan overall time left: unknown until a batch completes; then unfinished files × 0.8 × fastest to 1.25 × slowest completed rate; uncounted batches count as an average completed one; history carries across batches with the same source, derived root and settings. | DCM-25; `test_source_batches.py`, `test_dicom_eta.py` |
+| D45 | Log reads (API-71) return only new lines per cursor, restart with a separator on a new attempt, stay within the line/byte bound and 404 unknown ids; a traceback naming a source file and host roots comes back with source paths as bare `DATA:` (no folder or file names) and no raw root. | NFR-17, DCM-24; `test_logs_api.py` |
 
 ## Frontend unit/integration matrix
 
