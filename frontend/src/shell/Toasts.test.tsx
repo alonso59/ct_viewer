@@ -26,6 +26,12 @@ test('an error stays in the alert region; info leaves the status region after 6 
   expect(screen.getByRole('status')).not.toHaveTextContent('Saved')
 })
 
+test('no empty alert region competes with error cards on the page (UI-10)', () => {
+  render(<Toasts />)
+  act(() => toast({ message: 'Saved', tone: 'ok' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
 test('hovering pauses the timer; leaving resumes it (UI-10)', () => {
   render(<Toasts />)
   act(() => toast({ message: 'Exported' }))

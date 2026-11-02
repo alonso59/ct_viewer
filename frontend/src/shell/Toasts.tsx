@@ -15,7 +15,8 @@ export function Toasts() {
   const calm = toasts.filter((x) => !(x.tone === 'error' || x.tone === 'warn'))
   return (
     <div className="toasts">
-      <div role="alert">{urgent.map((x) => <ToastItem key={x.id} toast={x} />)}</div>
+      {/* an alert is announced when it appears; an empty one would read as a second error on the page */}
+      {urgent.length ? <div role="alert">{urgent.map((x) => <ToastItem key={x.id} toast={x} />)}</div> : null}
       <div role="status" aria-live="polite">{calm.map((x) => <ToastItem key={x.id} toast={x} />)}</div>
     </div>
   )
