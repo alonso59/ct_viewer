@@ -53,7 +53,7 @@ test('the workbench, a case tab, the Jobs panel, the palette, shortcuts and sett
   test.setTimeout(180_000)
   const pid = await importedProject(`a11y ${Date.now()}`)
   await page.goto(`/p/${pid}`)
-  await expect(page.getByRole('tree', { name: 'Project' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('tree', { name: 'Explorer' })).toBeVisible({ timeout: 30_000 })
   await scan(page, 'workbench')
   await page.goto(`/p/${pid}/case/case_00001`)
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
@@ -82,7 +82,7 @@ test('the skip link reaches the editor, F6 walks the regions and focus is always
   test.setTimeout(120_000)
   const pid = await importedProject(`a11y keys ${Date.now()}`)
   await page.goto(`/p/${pid}`)
-  await expect(page.getByRole('tree', { name: 'Project' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('tree', { name: 'Explorer' })).toBeVisible({ timeout: 30_000 })
   // the first Tab stop is the skip link; Enter moves focus into the editor area
   await page.keyboard.press('Tab')
   const skip = page.getByRole('link', { name: 'Skip to editor' })

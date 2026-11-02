@@ -64,7 +64,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
 
   // Explorer: the cases with their phases (the chained analyzer's layer) and warning badges
-  const tree = page.getByRole('tree', { name: 'Project' })
+  const tree = page.getByRole('tree', { name: 'Explorer' })
   await expect(tree.getByRole('treeitem', { name: /case_00000/ })).toBeVisible()
   await expect(tree.getByRole('treeitem', { name: /case_00001/ })).toBeVisible()
   const item = (await (await fetch(`${API}/projects/${pid}/items/case_00000.01.complete.-`)).json()) as { phase: { canonical: string } }

@@ -105,7 +105,7 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await wizard.getByRole('button', { name: 'Import and index' }).click()
   await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00030/ })).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00030/ })).toBeVisible()
   const item = (await (await fetch(`${API}/projects/${pid}/items/case_00030.01.complete.-`)).json()) as { masks: Record<string, { ref: string }> }
   expect(item.masks.imported?.ref).toBe(`DATA:seg/${MASK}`)
   const warnings = (await (await fetch(`${API}/projects/${pid}/warnings`)).json()) as { items: { code: string }[] }

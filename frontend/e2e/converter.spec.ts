@@ -44,7 +44,7 @@ test('convert without a project, then create a project from the dataset', async 
   await wizard.getByRole('button', { name: 'Import and index' }).click()
   await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00000/ })).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00000/ })).toBeVisible()
   const project = (await (await fetch(`${API}/projects/${pid}`)).json()) as { packs: string[]; annotation_sources: Record<string, string | null> }
   expect(project.packs).toEqual([]) // neutral
   expect(project.annotation_sources.phase).toBeTruthy() // the chained phase analyzer's layer

@@ -62,7 +62,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await expect(wizard).toBeHidden()
 
   // Browse: Project view lists cases; open case_00001
-  const tree = page.getByRole('tree', { name: 'Project' })
+  const tree = page.getByRole('tree', { name: 'Explorer' })
   const row = tree.getByRole('treeitem', { name: /case_00001/ })
   await expect(row).toBeVisible()
   await row.dblclick()
@@ -98,7 +98,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await page2.goto(url)
   await expect(page2.getByRole('button', { name: 'Switch project' })).toContainText(name)
   await expect(page2).toHaveURL(new RegExp(`/p/${pid}/case/case_00001`))
-  await expect(page2.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible()
+  await expect(page2.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible()
   await other.close()
 
   expect(errors).toEqual([])

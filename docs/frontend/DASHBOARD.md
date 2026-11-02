@@ -51,7 +51,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 ## Implementation notes
 
 - Views are dockview sub-panels per run (layout in localStorage); the Analysis panel is one of them. Mock mode serves only the QC views.
-- "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Project view.
+- "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Explorer.
 - Phase (DB-02, DB-07; AUD-A5-04, owner 2026-09-26): every view and analysis uses the **effective** phase (PHS-03), joined at read time (`IndexStore.effective_phases` → `analytics/data.join_phase`); the run's own value is `phase_at_run` (overview details, tidy and feature exports).
 - Keyboard rows (DB-03): `lib/rowKeys.ts` (`useRowKeys`) holds the roving Tab stop and the keys; a row keeps one click and one context-menu handler, which Enter and Shift+F10 reuse. The correction queue and the radiomics failures list use the same rows.
 - Values (DB-03; AUD-A3-04, A3-15): formats and units follow UI_SHELL §Implementation notes; axis ticks use the same format.

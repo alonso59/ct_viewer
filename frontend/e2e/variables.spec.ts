@@ -113,7 +113,7 @@ test('variables view on the real API: review, overrides, derived, external', asy
   await expect(row(page, 'site_x')).toBeVisible()
 
   // VAR-10: the derived variable is offered as an explorer column / colour
-  await page.getByRole('navigation', { name: /Activity bar/i }).getByRole('button', { name: 'Project' }).click()
+  await page.getByRole('navigation', { name: /Activity bar/i }).getByRole('button', { name: 'Explorer' }).click()
   await page.getByRole('button', { name: 'Columns and colour' }).click()
   await expect(page.getByRole('menuitemcheckbox', { name: 'score_q3', exact: true })).toBeVisible()
   await expect(page.getByRole('menuitemradio', { name: 'score_q3', exact: true })).toBeVisible()
