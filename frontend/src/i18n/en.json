@@ -50,7 +50,7 @@
     "commandPalette": "Show all commands",
     "cycleLayout": "Cycle viewer layout",
     "nextCase": "Next case",
-    "nextProblem": "Next problem",
+    "nextProblem": "Next QC warning",
     "prevCase": "Previous case",
     "quickOpen": "Go to case…",
     "showOutput": "Show log",
@@ -145,7 +145,7 @@
     "jobs": "Jobs",
     "measurements": "Measurements",
     "output": "Log",
-    "problems": "Problems"
+    "problems": "QC warnings"
   },
   "inspector": {
     "curation": "Curation",
@@ -260,7 +260,7 @@
     "fingerprint_changed": "File changed since indexing"
   },
   "item": {
-    "full": "Full",
+    "full": "Full scan",
     "label": "Scan {{scan}} · {{scope}}",
     "voi": "VOI",
     "voiSide": "VOI {{side}}",
@@ -291,7 +291,7 @@
     "datasets": "Converted datasets",
     "datasetMeta_one": "{{count}} series · {{ago}}",
     "datasetMeta_other": "{{count}} series · {{ago}}",
-    "datasetOpen": "Open",
+    "datasetOpen": "View without a project",
     "datasetCreate": "Create project"
   },
   "projects": {
@@ -454,7 +454,7 @@
     "chip": "{{name}}: {{value}}"
   },
   "problems": {
-    "none": "No problems",
+    "none": "No QC warnings",
     "projectLevel": "Import (no case)"
   },
   "image": {
@@ -518,7 +518,7 @@
       "custom": "Custom"
     },
     "reset": "Reset view",
-    "restore": "Restore layout",
+    "restore": "Show all views",
     "scan": "Scan",
     "scope": "Show",
     "screenshot": "Screenshot (PNG)",
@@ -667,7 +667,7 @@
     "noItem": "Open a case to see its measurements",
     "none": "This item has no features in the selected run",
     "noRuns": "No completed radiomics run yet",
-    "outlier": "Outlier (|z| ≥ 3.5)",
+    "outlier": "Outlier feature (|z| ≥ 3.5)",
     "outliers_one": "{{count}} outlier",
     "outliers_other": "{{count}} outliers",
     "run": "Run",
@@ -792,7 +792,7 @@
     "render": {
       "volume": "CT / image volume",
       "surfaces": "Smooth label surfaces",
-      "blend": "Mask opacity",
+      "blend": "Segmentation opacity",
       "mask": "Segmentation mask",
       "maskOnly": "Mask only",
       "maskOnlyHelp": "Show only the segmentation in 3D; click again to restore CT + mask.",
@@ -827,7 +827,7 @@
       "plane_off": "Hidden",
       "plane_outline": "Outline",
       "plane_slice": "Image + outline",
-      "reset": "Restore 3D defaults"
+      "reset": "Reset 3D view"
     },
     "meshBuilding": "Building surfaces…",
     "meshError": "Surfaces unavailable",
@@ -911,7 +911,7 @@
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",
-    "open": "Open without a project",
+    "open": "View without a project",
     "choose_another_path": "Choose another file or folder",
     "choose_derived_root": "Choose the output folder",
     "configure": "Ask the admin to set {{arg}}",
@@ -920,7 +920,7 @@
     "quick_open": "Go to case…",
     "close_tab": "Close tab",
     "relink_root": "Relink source folder…",
-    "show_problems": "Show in Problems",
+    "show_problems": "Show in QC warnings",
     "use_pattern": "Use one case per folder",
     "retry": "Try again",
     "reload": "Reload the app"
@@ -1016,7 +1016,7 @@
     "pathPlaceholder": "/home/you/data/DatasetID",
     "browse": "Browse folders",
     "storageHelp": "Project state and results are stored inside this dataset. The folder can be created if its parent exists.",
-    "open": "Open dataset project…",
+    "open": "Reopen from a dataset folder…",
     "openHelp": "Choose a dataset folder to reopen its saved projects in this workspace."
   },
   "progress": {

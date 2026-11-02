@@ -71,7 +71,7 @@ test('a folder without DICOM is refused with the cause and next steps (UI-18, AU
   const alert = dialog.getByRole('alert')
   await expect(alert).toContainText(/No DICOM files in nifti; \d+ NIfTI files found/)
   await expect(alert.getByRole('button', { name: 'Create project from this' })).toBeVisible()
-  await alert.getByRole('button', { name: 'Open without a project' }).click()
+  await alert.getByRole('button', { name: 'View without a project' }).click()
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/, { timeout: 30_000 })
 })
 

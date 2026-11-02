@@ -1,4 +1,4 @@
-// Item display names: people read "case_00055 · NP · Full", not the internal
+// Item display names: people read "case_00055 · NP · Full scan", not the internal
 // `item_id` "case_00055.01.complete.-". The raw id stays in the tooltip and in every copy action.
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'

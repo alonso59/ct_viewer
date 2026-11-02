@@ -321,7 +321,7 @@ test('UI-18 preserves background dry-run refusal actions for non-DICOM sources',
   render(<QueryClientProvider client={qc}><MemoryRouter><ConverterOverlay /></MemoryRouter></QueryClientProvider>)
   const alert = await screen.findByRole('alert')
   expect(alert).toHaveTextContent(failed.error!)
-  expect(screen.getByRole('button', { name: 'Open without a project' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'View without a project' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Create project from this' })).toBeEnabled()
   fireEvent.click(screen.getByRole('button', { name: 'Choose another file or folder' }))
   expect(useConverter.getState()).toMatchObject({ operationId: null, requestKey: null, step: 'source' })

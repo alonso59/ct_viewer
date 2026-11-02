@@ -410,7 +410,7 @@
     "itemIdsCount_other": "{{count}} items",
     "scope": "Scope",
     "scopeName": {
-      "complete": "Full image",
+      "complete": "Full scan",
       "voi": "VOI"
     },
     "labels": "Labels",
@@ -502,7 +502,7 @@
     "needsRelink": "Some source folders are not reachable on this server. Use Relink to point them at the data."
   },
   "open": {
-    "title": "Open",
+    "title": "View without a project",
     "home": "Workspace home",
     "noProject": "Viewing without a project",
     "items": "Files",
@@ -603,7 +603,7 @@
       "modality": "Modality",
       "masks": "Segmentation sets",
       "any": "Any",
-      "complete": "Complete volume",
+      "complete": "Full scan",
       "voi": "VOI",
       "groupCount": "({{count}})",
       "noMasks": "Without segmentation",
@@ -1027,7 +1027,7 @@
     "datasetReady": "Dataset {{name}} is ready.",
     "datasetPartial": "Dataset {{name}} completed with errors.",
     "datasetHelp": "NIfTI volumes, DICOM sidecars and analyzer layers. Open it, make a project from it, or add it to an existing project.",
-    "open": "Open",
+    "open": "View without a project",
     "createProject": "Create project from this",
     "addTo": "Add to project",
     "pickProject": "Choose a project…",
@@ -1273,7 +1273,7 @@
     "done": "Import finished: {{cases}} cases indexed",
     "errors_one": "{{count}} validation error",
     "errors_other": "{{count}} validation errors",
-    "errorsHelp": "Rows with parse errors or missing required fields are skipped. Accepted rows may get QC warnings, shown in the Problems panel.",
+    "errorsHelp": "Rows with parse errors or missing required fields are skipped. Accepted rows may get QC warnings, listed in the QC warnings panel.",
     "indexing": "Indexing…",
     "indexingHelp": "Thumbnails are generated in the background after indexing.",
     "kpiCases": "cases",
@@ -1411,8 +1411,8 @@
     "newTable": "New label table",
     "empty": "No label tables yet. A table has typed columns per patient, CT scan or item; every column becomes a study variable.",
     "level": {
-      "case": "Patient",
-      "scan": "CT scan",
+      "case": "Case",
+      "scan": "Scan",
       "item": "Item"
     },
     "levelLabel": "One row per",

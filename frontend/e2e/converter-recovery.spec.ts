@@ -98,7 +98,7 @@ for (const project of [false, true]) {
     expect(counts.ok ?? (counts.converted ?? 0) + (counts.already_converted ?? 0)).toBe(1)
     await dialog.getByRole('button', { name: 'Show the result' }).click()
     if (!project) {
-      await expect(dialog.getByRole('button', { name: 'Open', exact: true })).toBeDisabled()
+      await expect(dialog.getByRole('button', { name: 'View without a project', exact: true })).toBeDisabled()
       await expect(dialog.getByRole('button', { name: 'Create project from this' })).toBeDisabled()
     }
     const before = fixtureHashes(server.derived)
@@ -367,7 +367,7 @@ for (const destination of ['open', 'existing project']) {
     await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
     await dialog.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
     if (destination === 'open') {
-      await dialog.getByRole('button', { name: 'Open', exact: true }).click()
+      await dialog.getByRole('button', { name: 'View without a project', exact: true }).click()
       await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
       await expect(page.locator('.vp').first()).toBeVisible()
       await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })

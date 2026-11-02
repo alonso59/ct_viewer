@@ -76,7 +76,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await expect.poll(async () => page.evaluate(shown), { timeout: 30_000 }).toBeGreaterThan(0)
 
   // Problems → the item opens in its case tab (UI-09)
-  await page.getByRole('tab', { name: /Problems/ }).click()
+  await page.getByRole('tab', { name: /QC warnings/ }).click()
   const problem = page.getByRole('tabpanel').getByRole('treeitem').filter({ hasText: 'case_00000' }).first()
   await expect(problem).toBeVisible()
   await problem.click()

@@ -75,7 +75,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await expect(page.getByRole('region', { name: 'Panel' })).toBeHidden()
   await page.getByRole('banner').getByRole('button', { name: /^Layout/ }).click()
   await page.getByRole('menuitemcheckbox', { name: /Panel/ }).click()
-  await page.getByRole('tab', { name: /Problems/ }).click()
+  await page.getByRole('tab', { name: /QC warnings/ }).click()
   await expect(page.getByRole('tabpanel').getByRole('treeitem').filter({ hasText: 'case_00010' }).first()).toBeVisible()
 
   // SSE connected

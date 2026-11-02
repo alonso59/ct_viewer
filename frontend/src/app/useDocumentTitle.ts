@@ -1,4 +1,4 @@
-// The browser tab says where the user is, e.g. "case_00042 · NP · Full — Dataset820 — Radiology
+// The browser tab says where the user is, e.g. "case_00042 · NP · Full scan — Dataset820 — Radiology
 // Workbench". Open mode names no file or folder: source paths may carry patient names.
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'

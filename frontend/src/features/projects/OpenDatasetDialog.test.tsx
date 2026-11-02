@@ -16,7 +16,7 @@ test('PRJ-19 opens the saved project through the real recorded API contract', as
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<MemoryRouter><QueryClientProvider client={qc}><OpenDatasetDialog onClose={close} /></QueryClientProvider></MemoryRouter>)
   fireEvent.change(screen.getByLabelText('Dataset folder'), { target: { value: '/data/Dataset900' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Open dataset project…' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Reopen from a dataset folder…' }))
   await waitFor(() => expect(open).toHaveBeenCalledWith('/data/Dataset900'))
   await waitFor(() => expect(close).toHaveBeenCalledOnce())
 })

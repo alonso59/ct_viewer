@@ -29,7 +29,7 @@ function project(active: EditorParams | null) {
 
 test('a case tab names its item with the phase, then the project', () => {
   project({ type: 'case', caseId: 'case_00042', itemId: ITEM })
-  expect(document.title).toBe('case_00042 · NP · Full — Dataset820 — Radiology Workbench')
+  expect(document.title).toBe('case_00042 · NP · Full scan — Dataset820 — Radiology Workbench')
 })
 
 test('another tab names itself; without a tab the project comes first', () => {
