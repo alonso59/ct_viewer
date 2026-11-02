@@ -16,7 +16,7 @@ import {
   type LabelDef,
   type Variable,
 } from '../../api'
-import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard } from '../../lib'
+import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard, useAnnounce } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
@@ -72,6 +72,9 @@ export function ProjectView() {
   const visibleCases = useMemo(() => needle
     ? cases.data?.filter((c) => `${c.case_id}\n${c.patient_id ?? ''}`.toLowerCase().includes(needle))
     : cases.data, [cases.data, needle])
+  // a filter's result count is a milestone for screen readers
+  const filtered = activeFilterCount(filter) > 0 || !!needle
+  useAnnounce(filtered && visibleCases ? t('explorer.caseCount', { count: visibleCases.length }) : null)
   const variables = useVariables(pid).data ?? []
   const prefs = usePrefs(pid)
   const byName = new Map(variables.map((v) => [v.name, v]))

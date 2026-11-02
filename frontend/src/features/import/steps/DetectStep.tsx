@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { DetectCandidate, NiftiOptions } from '../../../api'
-import { ProblemCard, type ActionHandlers } from '../../../lib'
+import { ProblemCard, useAnnounce, type ActionHandlers } from '../../../lib'
 import { Icon, codicon } from '../../../theme'
 import { CONVERTER_PATTERN, FOLDER_PATTERN, segments, subjectOf, suggestPatterns } from '../patternSuggest'
 import { GROUP_COLOR, Highlight, PatternByExample } from './PatternByExample'
@@ -146,6 +146,8 @@ export function DetectStep(p: {
   ignored: Record<string, number> | undefined
 }) {
   const { t } = useTranslation()
+  // the scan and its end are milestones for screen readers
+  useAnnounce(p.pending ? t('import.scanning') : p.cands.length ? t('import.scanned') : null)
   return (
     <div>
       <h3>{t('import.detectTitle')}</h3>

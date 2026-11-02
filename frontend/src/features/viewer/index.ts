@@ -1,6 +1,7 @@
 // NiiVue lives only in ./engine.
 import i18n from '../../i18n'
 import { keys, queryClient, type Project, type SegmentationSet } from '../../api'
+import { announce } from '../../lib'
 import { openEditor, refreshUrl, registry, toast, useWorkbench } from '../../shell'
 import { useViewerSync, type ViewerTool } from '../../state'
 import { codicon, ct } from '../../theme'
@@ -10,6 +11,7 @@ import { LayersSection, WindowSection } from './Inspector'
 import { CursorStatus, WindowStatus } from './StatusItems'
 import { useViewerLocal } from './local'
 import { isLayoutId, visibleViewports } from './model/layouts'
+import { cursorParts } from './readout'
 import type { ViewerContext } from './model/types'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, WindowPresets } from './Tools'
 import { createElement, lazy, Suspense, type ComponentType } from 'react'
@@ -125,6 +127,21 @@ export function registerViewer() {
   }
   registry.command({ id: 'viewer.fit', title: 'viewer.fit', category: 'cat.viewer', keybinding: 'f', when: 'viewer', scope: [...both], keywords: ['kw.zoom'], menuGroup: 1, enabled: isCase, run: fit })
   registry.command({ id: 'viewer.restore', title: 'viewer.restore', category: 'cat.viewer', keybinding: 'esc', when: 'viewer', scope: [...both], menu: false, enabled: () => useViewerSync.getState().maximized !== null, run: () => useViewerSync.setState({ maximized: null }) })
+  // The probe is not a live region; this reads the value under the cursor on request
+  registry.command({
+    id: 'viewer.readProbe',
+    title: 'cmd.readProbe',
+    category: 'cat.viewer',
+    keybinding: 'h',
+    when: 'viewer',
+    scope: [...both],
+    keywords: ['kw.hu'],
+    menuGroup: 4,
+    run: () => {
+      const s = useViewerSync.getState()
+      announce(s.cursor ? cursorParts(s.cursor, { modality: s.activeModality?.value }, i18n.t).join(' · ') : i18n.t('status.cursorIdle'))
+    },
+  })
   registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => void screenshot() })
   registry.command({ id: 'viewer.toggleOverlay', title: 'viewer.overlay', category: 'cat.viewer', scope: [...both], keywords: ['kw.mask'], menuGroup: 3, enabled: isCase, run: () => useViewerSync.setState((s) => ({ overlay: !s.overlay })) })
   registry.command({ id: 'viewer.toggleOutline', title: 'viewer.outline', category: 'cat.viewer', scope: [...both], keywords: ['kw.mask'], menuGroup: 3, enabled: isCase, run: () => useViewerSync.setState((s) => ({ outline: !s.outline })) })

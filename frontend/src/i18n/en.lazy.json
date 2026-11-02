@@ -1397,7 +1397,8 @@
       "mask_outside": "The mask must be inside the chosen folder.",
       "mask_same": "This path does not contain the example's case, so every image would get the same mask. Pick the mask that belongs to this image.",
       "advanced": "Advanced: pattern and mask template as text"
-    }
+    },
+    "scanned": "Scan finished"
   },
   "lbl": {
     "derivedUsers_one": "The derived variable {{list}} uses it and will show as broken until you delete it in Variables.",

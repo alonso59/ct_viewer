@@ -163,7 +163,7 @@ Implementation (Open mode, import): "Open file or folder…" is on the workspace
 | `M` / `W` / `C` / `Z` | Tools: move/pan, window-level, crosshair, zoom* | `R` | Reset all views* (VW-10) |
 | `F` | Fit the view under the pointer* (VW-26) | `Esc` | Restore a maximized view* |
 | `Ctrl/Cmd+,` | Settings | `Ctrl/Cmd+Shift+E` / `F` | Project / Search view |
-| `F6` / `Shift+F6` | Focus next / previous region (UI-01) | | |
+| `F6` / `Shift+F6` | Focus next / previous region (UI-01) | `H` | Read the value under the cursor aloud* (FE-08) |
 
 \* Only while a viewer is shown (a case tab, or Open mode) and focus is not in a text field or menu; DOM focus inside the viewer is not needed, so `A → Alt+↓ → A` records both cases (AUD-A2-02). Curation keys wait until the new case's item has loaded and target it with the default target `seg`. No shortcut fires while a dialog is open (AUD-A2-09).
 

@@ -2,6 +2,7 @@ import * as RTooltip from '@radix-ui/react-tooltip'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Announcer } from '../lib/announce'
 import { ErrorBoundary } from '../lib/ErrorBoundary'
 import { useLayout } from '../state'
 import { ActivityBar } from './ActivityBar'
@@ -83,6 +84,7 @@ export function ShellOverlays() {
     <>
       <CommandPalette />
       <Toasts />
+      <Announcer />
       <ReviewerPrompt />
       {registry.overlays.filter((o) => registry.allowed(o)).map(({ id, component: C }) => <C key={id} />)}
     </>

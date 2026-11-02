@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useCases } from '../../api'
+import { useAnnounce } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { FilterFields, PhaseFilter } from './FilterControls'
@@ -12,6 +13,8 @@ export function SearchView() {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const { filter, setFilter, clearFilter } = useExplorer()
   const matches = useCases(pid, filter)
+  const filtered = activeFilterCount(filter) > 0 || !!filter.q
+  useAnnounce(filtered && matches.data ? t('explorer.caseCount', { count: matches.data.length }) : null)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px 12px' }}>
       {filter.itemIds ? <ItemFilterChip ids={filter.itemIds} /> : null}

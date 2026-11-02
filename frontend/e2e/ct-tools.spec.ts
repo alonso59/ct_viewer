@@ -20,7 +20,7 @@ async function useTools(page: Page, bar: ReturnType<Page['getByRole']>) {
   const axial = page.locator('[data-tile="axial"]')
   const box = (await axial.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await expect(page.getByRole('status', { name: 'Value under the cursor' })).toBeVisible()
+  await expect(page.locator('.vp-probe')).toBeVisible()
   // a distance measurement: two clicks on the axial tile
   await bar.getByRole('button', { name: 'Distance' }).click()
   await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5)

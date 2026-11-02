@@ -49,9 +49,13 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   const axial = view(page, 'Axial').locator('.vp-body')
   const box = (await axial.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  const probe = view(page, 'Axial').getByRole('status', { name: 'Value under the cursor' })
+  const probe = view(page, 'Axial').locator('.vp-probe')
   await expect(probe).toHaveText(/^-?\d+(\.\d+)? HU · (.+ · )?ijk \d+, \d+, \d+ · RAS .+ mm$/)
-  await expect(view(page, 'Coronal').getByRole('status', { name: 'Value under the cursor' })).toHaveCount(0)
+  await expect(view(page, 'Coronal').locator('.vp-probe')).toHaveCount(0)
+  // the probe is not a live region; H reads it to a screen reader on request (FE-08)
+  await bar.getByLabel('Window level').blur()
+  await page.keyboard.press('h')
+  await expect(page.getByTestId('announcer')).toContainText(/HU · .*ijk/)
 
   // Fit (VW-26): zoom the axial view, then fit it back to 100 %
   await page.keyboard.down('Control')

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, LabelDef } from '../../api'
-import { Progress } from '../../lib'
+import { Progress, useAnnounce } from '../../lib'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { createViewer, hasWebgl2, VolumeFetchError } from './engine'
@@ -93,6 +93,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const [attempt, setAttempt] = useState(0)
   const loadKey = `${handleId}|${attempt}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
   const load = loadState.error?.code === 'viewer-init' || loadState.key === loadKey ? loadState : LOADING(loadKey)
+  // the end of loading is a milestone for screen readers; the bar is not a live region
+  useAnnounce(load.phase === 'ready' ? t('vw.volumeLoaded') : null)
 
   // Engine lifecycle: one per tab while it holds volumes
   useEffect(() => {
@@ -476,7 +478,8 @@ function ProbeReadout() {
   const text = useCursorText()
   if (!text) return null
   return (
-    <div className="vp-probe mono" role="status" aria-label={t('vw.probe')}>
+    // not a live region: a pointer move must not speak; the probe command reads it on request
+    <div className="vp-probe mono" title={t('vw.probe')}>
       {text}
     </div>
   )

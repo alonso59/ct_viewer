@@ -2,10 +2,12 @@
 import { useTranslation } from 'react-i18next'
 
 import type { Job } from '../../../api'
-import { Progress, runStatusKey } from '../../../lib'
+import { Progress, runStatusKey, useAnnounce } from '../../../lib'
 
 export function IndexStep({ job, failed }: { job: (Pick<Job, 'status' | 'done' | 'total'> & { error?: string | null }) | undefined; failed: boolean }) {
   const { t } = useTranslation()
+  // the start is a milestone for screen readers; a failure has its own alert
+  useAnnounce(failed ? null : t('import.indexing'))
   return (
     <div className="wiz-progress">
       <h3>{t(failed ? 'import.indexFailed' : 'import.indexing')}</h3>

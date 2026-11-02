@@ -77,7 +77,8 @@
     "exportDatasetParquet": "Export dataset table (Parquet)",
     "exportDatasetJsonl": "Export dataset.jsonl",
     "nextRegion": "Focus next region",
-    "previousRegion": "Focus previous region"
+    "previousRegion": "Focus previous region",
+    "readProbe": "Read the value under the cursor"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -829,7 +830,8 @@
     "mm": "{{v}} mm",
     "deg": "{{v}}°",
     "roi": "μ {{mean}} σ {{sd}} · n {{n}} · {{area}} cm²",
-    "probe": "Value under the cursor"
+    "probe": "Value under the cursor",
+    "volumeLoaded": "Volume loaded"
   },
   "rad": {
     "title": "Radiomics settings",
@@ -963,7 +965,8 @@
     "export": "export",
     "labeling": "labeling",
     "phase": "phase",
-    "focus": "focus"
+    "focus": "focus",
+    "hu": "HU value"
   },
   "about": {
     "statusTip": "Radiology Workbench {{version}} · Research use only"
