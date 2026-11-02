@@ -11,7 +11,7 @@ import { TaskCommands } from './index'
 
 const run = { run_id: 'run', job_id: 'job', name: 'Kidney segmentation', status: 'running', task: { id: 'segment.nnunet' }, error: null } as TaskRunSummary
 
-afterEach(() => useWorkbench.setState({ pid: null, toasts: [] }))
+afterEach(() => useWorkbench.setState({ pid: null, toasts: [], active: null }))
 
 function show(initial: TaskRunSummary) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
@@ -43,5 +43,16 @@ test('opening a project does not replay a previous failure notification', () => 
 test('a newly submitted run that fails before its first refresh still notifies', async () => {
   const client = show(run)
   act(() => client.setQueryData(keys.taskRuns(DEMO_PID), [run, { ...run, run_id: 'new-run', job_id: 'new-job', status: 'failed', error: 'CUDA out of memory' }]))
+  await waitFor(() => expect(useWorkbench.getState().toasts).toHaveLength(1))
+})
+
+// UI-10: one event, one primary channel: the run's own task tab, when active, shows the failure
+test('no toast while the run\'s own task tab is active; one from any other tab (UI-10)', async () => {
+  const client = show(run)
+  act(() => useWorkbench.setState({ active: { type: 'task', taskId: run.task.id } }))
+  act(() => client.setQueryData(keys.taskRuns(DEMO_PID), [{ ...run, status: 'failed', error: 'CUDA out of memory' }]))
+  expect(useWorkbench.getState().toasts).toHaveLength(0)
+  act(() => useWorkbench.setState({ active: { type: 'task', taskId: 'analyzer.phase' } }))
+  act(() => client.setQueryData(keys.taskRuns(DEMO_PID), [{ ...run, status: 'failed', error: 'Out of disk space' }]))
   await waitFor(() => expect(useWorkbench.getState().toasts).toHaveLength(1))
 })

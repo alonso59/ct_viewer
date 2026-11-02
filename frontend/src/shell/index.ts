@@ -14,6 +14,7 @@ export {
   splitActiveEditor,
   toast,
   toastProblem,
+  notify,
   updateActiveParams,
   refreshUrl,
 } from './workbenchStore'

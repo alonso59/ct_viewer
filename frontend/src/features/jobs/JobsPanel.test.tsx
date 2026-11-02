@@ -6,7 +6,7 @@ import { act, render, screen } from '@testing-library/react'
 import '../../i18n'
 import { keys, type Job } from '../../api'
 import { useWorkbench } from '../../shell'
-import { ActivityLog, JobStatus, logEvent } from './JobsPanel'
+import { ActivityLog, JobStatus, JobsPanel, logEvent } from './JobsPanel'
 
 test('new Activity lines and unmount do not throw when scrollIntoView returns a Promise (UI-29)', () => {
   Element.prototype.scrollIntoView = vi.fn(() => Promise.resolve()) as unknown as typeof Element.prototype.scrollIntoView
@@ -27,4 +27,14 @@ test('running, queued and waiting jobs read as counts (UI-07)', () => {
   useWorkbench.setState({ pid: 'P1' })
   render(<QueryClientProvider client={qc}><JobStatus /></QueryClientProvider>)
   expect(screen.getByRole('button', { name: '1 running · 2 queued · 1 waiting for a runner' })).toBeInTheDocument()
+})
+
+// UI-10: one event, one primary channel; the Jobs row repeats a failure as text, not as another alert
+test('a failed job shows its error as text, not as another alert (UI-10)', () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  qc.setQueryData(keys.jobs('P1'), [{ job_id: 'j1', kind: 'hash', status: 'failed', done: 1, total: 4, eta_s: null, error: 'Disk full' } as unknown as Job])
+  useWorkbench.setState({ pid: 'P1' })
+  render(<QueryClientProvider client={qc}><JobsPanel /></QueryClientProvider>)
+  expect(screen.getByText('Disk full')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).toBeNull()
 })
