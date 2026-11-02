@@ -145,10 +145,10 @@ export function ConfirmInline({ question, confirm, keep, onConfirm, trigger }: {
 }
 
 /** `label` names the bar for assistive technology ("Indexing"); the value reads "86 of 187" */
-export function Progress({ value, total, label }: { value: number; total: number; label: string }) {
+export function Progress({ value, total, label, stale }: { value: number; total: number; label: string; stale?: boolean }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0
   return (
-    <div className="progress" role="progressbar" aria-label={label} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-valuetext={i18n.t('progress.of', { done: fmtInt(value), total: fmtInt(total) })}>
+    <div className="progress" data-stale={stale || undefined} role="progressbar" aria-label={label} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-valuetext={i18n.t('progress.of', { done: fmtInt(value), total: fmtInt(total) })}>
       <span style={{ width: `${pct}%` }} />
     </div>
   )

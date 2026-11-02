@@ -1,7 +1,7 @@
 // Core status bar items: project, live/offline SSE state, reviewer
 import { useTranslation } from 'react-i18next'
 
-import { useConnection, useHealth, useProject } from '../api'
+import { queryClient, useConnection, useHealth, useProject, useStaleLive } from '../api'
 import { useWorkbench } from '../shell'
 import { changeReviewer, useReviewer } from '../state'
 import { Icon, codicon } from '../theme'
@@ -25,6 +25,14 @@ const LIVE_TONE = { live: 'var(--ok)', connecting: 'var(--warn)', offline: 'var(
 export function LiveStatus() {
   const { t } = useTranslation()
   const state = useConnection((s) => s.state)
+  // Down for a while: say so, and offer a refresh now (views already poll meanwhile)
+  if (useStaleLive())
+    return (
+      <button type="button" className="statusbar-item" title={t('status.staleHelp')} data-state="stale" onClick={() => void queryClient.invalidateQueries()}>
+        <span className="dot" style={{ background: LIVE_TONE.offline }} />
+        {t('status.stale')}
+      </button>
+    )
   return (
     <span className="statusbar-item" title={t(`status.${state}Help`)} data-state={state}>
       <span className="dot" style={{ background: LIVE_TONE[state] }} />

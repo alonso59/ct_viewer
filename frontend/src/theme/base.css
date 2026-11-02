@@ -761,3 +761,8 @@ kbd.key {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Possibly behind: the event stream is down and the view polls */
+.progress[data-stale] > span {
+  opacity: 0.45;
+}

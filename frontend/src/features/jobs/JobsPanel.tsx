@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
-import { useCancelJob, useJobs, type Job, type ServerEvent } from '../../api'
+import { useCancelJob, useJobs, useStaleLive, type Job, type ServerEvent } from '../../api'
 import { ConfirmInline, Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
@@ -45,8 +45,11 @@ export function JobsPanel() {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const jobs = useJobs(pid).data ?? []
   const cancel = useCancelJob(pid)
+  const stale = useStaleLive()
   if (!jobs.length) return <div className="empty">{t('jobs.none')}</div>
   return (
+    <>
+    {stale ? <p className="muted jobs-stale" role="status">{t('jobs.stale')}</p> : null}
     <table className="table">
       <thead>
         <tr>
@@ -64,7 +67,7 @@ export function JobsPanel() {
             <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error" role="alert">{j.error}</p> : null}</td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={t(JOB_KIND[j.kind])} /></div>
+                <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={t(JOB_KIND[j.kind])} stale={stale} /></div>
                 <span className="num muted">{t('jobs.count', { done: j.done, total: j.total })}</span>
               </div>
             </td>
@@ -88,6 +91,7 @@ export function JobsPanel() {
         ))}
       </tbody>
     </table>
+    </>
   )
 }
 

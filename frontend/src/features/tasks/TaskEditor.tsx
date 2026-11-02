@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, useArchivedTaskRuns, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
+import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
 import { Button, ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
@@ -40,6 +40,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const sharedPhase = run.execution?.phase_step === true && run.execution.shared_conversion_job === true
   const live = !sharedPhase && ACTIVE_RUN.includes(run.status) && job && job.status !== 'succeeded'
   const actions = runActions(run, registry.readOnly)
+  const stale = useStaleLive()
   const fenced = run.execution?.phase_step === true || run.task.id === 'dicom.convert'
   const control = async (action: RunAction) => {
     try {
@@ -65,7 +66,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         <span className="task-run-name" title={run.run_id}>{run.name}</span>
         <span className="muted ml-auto">{fmtAgo(run.created_at)}</span>
       </div>
-      {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} /> : null}
+      {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} stale={stale} /> : null}
       {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
       {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingHelp')}</p> : null}
       {STOPPING_RUN.includes(run.status) ? (

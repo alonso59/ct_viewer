@@ -169,7 +169,9 @@
     "reviewerHelp": "Reviewer name stamped on your decisions. Click to change.",
     "wl": "W{{ww}} L{{wl}}",
     "connecting": "connecting",
-    "connectingHelp": "Connecting to the server event stream…"
+    "connectingHelp": "Connecting to the server event stream…",
+    "stale": "offline: updates paused",
+    "staleHelp": "The live connection dropped. Views refresh every few seconds; click to refresh now."
   },
   "statusShort": {
     "not_reviewed": "Not reviewed",
@@ -670,7 +672,8 @@
       "open-convert": "Opening a source"
     },
     "taskFailedDetail": "{{name}}: {{error}}",
-    "showTask": "Show task"
+    "showTask": "Show task",
+    "stale": "The live connection is down: progress refreshes every few seconds and may lag."
   },
   "output": {
     "activity": "Activity",

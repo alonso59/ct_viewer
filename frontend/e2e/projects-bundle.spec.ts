@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
-import { api, DATASET } from './helpers'
+import { api, DATASET, importedProject } from './helpers'
 
 let pid = ''
 let name = ''
@@ -42,6 +42,20 @@ test('compute full hashes: job in the Jobs panel, then up to date', async ({ pag
   // A second run has nothing to do
   await action.click()
   await expect(page.getByRole('status').filter({ hasText: /Full hashes are up to date/ })).toBeVisible()
+})
+
+// UI-07: with the event stream down, the status bar says updates are paused and jobs still reach
+// their end on screen (the views poll)
+test('jobs finish on screen while the event stream is down', async ({ page }) => {
+  test.setTimeout(120_000)
+  const offline = await importedProject(`Offline ${Date.now()}`)
+  await page.route('**/api/v1/projects/*/events**', (r) => r.abort())
+  await page.goto(`/p/${offline}`)
+  await expect(page.getByRole('button', { name: /offline: updates paused/ })).toBeVisible({ timeout: 20_000 })
+  await page.getByRole('button', { name: /Compute full hashes/ }).click()
+  const jobs = page.getByRole('tabpanel').filter({ has: page.getByRole('columnheader', { name: 'Job' }) })
+  if (!(await jobs.isVisible())) await page.getByRole('tab', { name: /^Jobs/ }).click()
+  await expect(jobs.getByRole('row').filter({ hasText: 'Full hash' }).first()).toContainText('Completed', { timeout: 60_000 })
 })
 
 test('bundle export downloads a zip; import shows the resolve report and opens the copy', async ({ page }) => {
