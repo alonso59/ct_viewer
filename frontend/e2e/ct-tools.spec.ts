@@ -78,7 +78,7 @@ test('case errors state the cause and the next steps (UI-18, AUD-A3-03, AUD-A2-0
   // a missing image (fixture defect `missing_path`): relink or look at the Problems
   await page.goto(`/p/${pid}/case/case_00010`)
   const card = page.getByRole('alert').filter({ hasText: 'DATA:' })
-  await expect(card.getByRole('button', { name: 'Relink data root…' })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Relink source folder…' })).toBeVisible()
   await card.getByRole('button', { name: 'Show in Problems' }).click()
   await expect(page.getByRole('tab', { name: /Problems/ })).toHaveAttribute('aria-selected', 'true')
 })

@@ -43,7 +43,7 @@ test('a card shows the status reason and what the plugin adds', () => {
       }}
     />,
   )
-  expect(screen.getByText('needs derived root')).toBeInTheDocument()
+  expect(screen.getByText('needs an output folder')).toBeInTheDocument()
   expect(screen.getByText('Adds: 1 task · 1 command')).toBeInTheDocument()
   expect(screen.getByText(/ALLOWED_DERIVED_ROOTS/)).toBeInTheDocument()
 })

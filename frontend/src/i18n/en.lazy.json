@@ -478,7 +478,7 @@
       "missing_seg": "no mask",
       "missing_path": "file missing",
       "unreadable_file": "file unreadable",
-      "outside_root": "file outside the data roots",
+      "outside_root": "file outside the source folders",
       "affine_mismatch": "mask does not line up with the image",
       "shape_mismatch": "mask size differs from the image",
       "label_absent": "label absent",
@@ -499,7 +499,7 @@
     "path": "Path on this server",
     "check": "Check",
     "verify": "{{matched}}/{{sampled}} sampled items match · {{mismatched}} changed · {{missing}} missing",
-    "needsRelink": "Some data roots do not resolve on this server. Use Relink to point them at the data."
+    "needsRelink": "Some source folders are not reachable on this server. Use Relink to point them at the data."
   },
   "open": {
     "title": "Open",
@@ -540,7 +540,7 @@
     "changeFolder": "Change folder…",
     "sidecar": "Also write the DICOM tags (JSON sidecar)",
     "anonymize": "Anonymize: neutral file name, patient name and ID",
-    "phiNotice": "DICOM tags can contain patient data. Keep sidecars in the derived folder and anonymize before sharing.",
+    "phiNotice": "DICOM tags can contain patient data. Keep sidecars in the output folder and anonymize before sharing.",
     "saved": "Saved {{path}}",
     "addTitle": "Add {{name}} to a project",
     "addHelp": "The file becomes a new import of the chosen project. DICOM goes through the converter.",
@@ -632,7 +632,7 @@
       "manual": "Paste or edit item IDs"
     },
     "segSet": "Segmentation set",
-    "sourceHelp": "Choose the DICOM folder (or one DICOM file) to convert. It is read only; outputs go to the project's derived folder.",
+    "sourceHelp": "Choose the DICOM folder (or one DICOM file) to convert. It is read only; outputs go to the project's output folder.",
     "noSource": "No source chosen",
     "fromProject": "From the project preset",
     "noSettings": "This task has no settings.",
@@ -642,7 +642,7 @@
     "ready": "{{ready}} of {{n}} ready",
     "missing": "{{n}} skipped: {{reason}}",
     "suggest": "Run {{task}} first ({{reason}})",
-    "derivedNeeded": "This task writes volumes: the project needs a derived folder first.",
+    "derivedNeeded": "This task writes volumes: the project needs an output folder first.",
     "estimate": "Estimate",
     "run": "Run",
     "resume": "Resume",
@@ -688,7 +688,7 @@
       "enum": "Not an allowed value",
       "pattern": "Does not match the expected pattern"
     },
-    "derivedTitle": "Choose the derived folder",
+    "derivedTitle": "Choose the output folder",
     "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here. Only output folders shared with the app are listed.",
     "derivedUse": "Use this folder",
     "radiomicsHere": "Set up radiomics runs in the Radiomics settings tab.",
@@ -702,7 +702,7 @@
     "status": {
       "ready": "ready",
       "needs_runner": "needs runner",
-      "needs_derived_root": "needs derived root",
+      "needs_derived_root": "needs an output folder",
       "needs_segmentation": "needs segmentation",
       "pending": "pending"
     },
@@ -804,7 +804,7 @@
       "source": "source (read only)",
       "derived": "derived (task outputs)"
     },
-    "missing": "missing",
+    "missing": "not reachable",
     "noRoots": "No data yet.",
     "packs": "Study packs",
     "packsHelp": "A pack sets labels, the phase vocabulary and the organ focus of the analyzers. Applying one never deletes your data.",
@@ -966,9 +966,9 @@
     },
     "phase": "Run the phase analyzer after conversion",
     "anonymize": "Anonymize DICOM metadata",
-    "phiNotice": "DICOM headers can contain patient data. Sidecars stay in the derived folder; anonymize before sharing.",
-    "needsDerived": "This project has no derived folder for the converted volumes yet.",
-    "chooseDerived": "Choose derived folder…",
+    "phiNotice": "DICOM headers can contain patient data. Sidecars stay in the output folder; anonymize before sharing.",
+    "needsDerived": "This project has no output folder for the converted volumes yet.",
+    "chooseDerived": "Choose output folder…",
     "dryRun": "Analysis",
     "dryRunHelp": "Reads the DICOM headers only and shows what would be converted; nothing is written.",
     "dryRunDone": "Analysis ready: {{n}} series to convert",
@@ -1279,14 +1279,14 @@
     "kpiCases": "cases",
     "kpiRows": "scan rows",
     "previewTitle": "Preview",
-    "readOnly": "The data root is read-only for this app. Images and masks are never written.",
+    "readOnly": "The source folder is read-only for this app. Images and masks are never written.",
     "rootHelp": "Choose a folder (with metadata.jsonl, NIfTI or DICOM files) or one NIfTI file. The folder becomes a path alias of this project.",
-    "rootTitle": "Data root",
+    "rootTitle": "Source folder",
     "skip": "Skip for now",
     "skipHelp": "The project is created either way — import data later from File → Import data.",
     "scanning": "Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…",
     "step": {
-      "root": "Data root",
+      "root": "Source folder",
       "detect": "Detect",
       "preview": "Preview",
       "index": "Index"

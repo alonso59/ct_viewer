@@ -18,7 +18,7 @@ test('the cause first, then the plain title; other errors use the fallback or th
 
 test('a toast names the next steps', () => {
   const e = toProblemError(409, { type: '/problems/derived-root-required', title: 't', detail: 'Choose a derived folder first', actions: ['choose_derived_root'] }, 'x')
-  expect(problemActions(e)).toEqual(['Choose the derived folder'])
-  expect(problemToastText(e)).toBe('Choose a derived folder first Next: Choose the derived folder.')
+  expect(problemActions(e)).toEqual(['Choose the output folder'])
+  expect(problemToastText(e)).toBe('Choose a derived folder first Next: Choose the output folder.')
   expect(problemToastText(new Error('boom'))).toBe('boom')
 })

@@ -73,7 +73,7 @@ test('bundle export downloads a zip; import shows the resolve report and opens t
   await expect(dialog.getByText(/already had project/)).toBeVisible()
   const data = dialog.getByRole('row').filter({ hasText: 'DATA' })
   await expect(data).toContainText(/sampled items match · 0 changed · 0 missing/)
-  await expect(dialog.getByRole('button', { name: 'Relink data root…' })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Relink source folder…' })).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Open project' }).click()
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   expect(page.url()).not.toContain(pid)
