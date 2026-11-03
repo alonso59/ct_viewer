@@ -52,7 +52,8 @@ Already completed failures do not generate notifications when opening a project.
                                          // builtin: { "type": "builtin", "entry": "plugins.analyzers.phase:run" }
   "resources": { "gpu": "required", "max_batch": 20, "seconds_per_item": 40 },
   "labels": { "from": "dataset.json" },  // segmentation tasks: label names ({"names": {"1": "kidney"}} inline)
-  "test_only": false }                   // CI plugins: hidden from the Tasks view and from suggestions
+  "test_only": false,                    // CI plugins: hidden from the Tasks view and from suggestions
+  "command": { "name": "dicom2nii", "options": {} } }   // CTFlow name and option spellings (CTF-03); default: the task id
 ```
 
 Loading (TSK-01): builtin manifests are `app/radiomics/task.json` and `{BUILTIN_PLUGINS_ROOT}/*/task*.json` with `runtime.type = builtin` (external manifests shipped there, e.g. `plugins/threshold/`, are for `PLUGINS_ROOT` only); external ones are `PLUGINS_ROOT/*/task.json`, must use the external runtime and must be contributed by a first-party `plugin.json` (PLUGINS.md §Manifest). Unknown keys, a duplicate id or a schema outside the subset make a manifest invalid. Builtin entries are `run(job_dir) -> int` and follow the protocol below; plugins never import `app` (shared helper: `plugins/protocol.py`, stdlib only).

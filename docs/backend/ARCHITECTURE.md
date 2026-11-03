@@ -26,13 +26,14 @@ backend/app/
 ├── api/v1/          # thin routers only: validation + call service + map errors; paging helper (limits)
 │   └── health, projects, fs, imports, cases, items, volumes, segmentations, sources, curation,
 │       phase, labeling, annotations, variables, exports, radiomics, dashboard, tasks, plugins,
-│       jobs, events, view (API-60)
+│       jobs, logs, ctflow, events, view (API-60)
 ├── core/            # errors (problem+json, settings issues → errors), ids, fsio (atomic json, jsonl append), paths (alias + guards), locks, logs, redact (paths → alias refs, NFR-17), cache_budget (CACHE_MAX_GB LRU), reviewer (the `X-Reviewer` stamp rule)
 ├── projects/        # workspace.json + project.json service, migrations (PRJ-11), bundles (PRJ-08/09)
 ├── ingest/          # parsers (metadata.jsonl, phase.json, voi_catalog), normalizer, indexer, validator, manual segmentation imports/manifests (SRC-20), sidecars (IMP-15), full-hash job (IMP-09)
 ├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions + service (open_service.py: open, attach, save; SRC-*)
 ├── layers/          # metadata layers joined onto the rows; dataset table (API-59, ADR-0020)
 ├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*); the service is split records → selection → jobspec → estimate → registration → driver → service
+├── ctflow/          # CTFlow console: line parser, command catalog from task manifests, evaluation through the task services (CTF-*); targets live in tasks/targets.py
 ├── plugins/         # plugin.json loader, task ownership, Library status (PLG-*, API-49)
 ├── eventstore/      # namespaced append-only log `events/{ns}.jsonl`, reviewer/session stamps, `{ns}.appended` SSE, LWW state (ADR-0022)
 ├── curation/        # Curation & QC on the event store: reducer (derived state), queue, exports (CUR-*)
@@ -49,7 +50,7 @@ backend/app/
 
 Outside `backend/`: first-party plugins and the host runner, mapped in `plugins/AGENTS.md`.
 
-**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|selection|tasks|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
+**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|selection|tasks|ctflow|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
 
 ## Requirements
 

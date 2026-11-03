@@ -87,6 +87,14 @@ class Registry:
                 InvalidManifest(path=str(path or m.id), error=f"duplicate task id {m.id!r}")
             )
             return
+        name = m.command.name if m.command else None
+        if name and any(
+            i.manifest.command and i.manifest.command.name == name for i in self.tasks.values()
+        ):
+            self.invalid.append(
+                InvalidManifest(path=str(path or m.id), error=f"duplicate command name {name!r}")
+            )
+            return
         reason = _entry_available(m.runtime.entry) if m.runtime.entry else None
         if (
             m.id == RADIOMICS_TASK

@@ -5,7 +5,7 @@ Read when: working on the console interpreter, the `ctflow` client, script runs,
 Depends: ADR-0041, TASKS.md, SOURCES.md, PROJECT_FORMAT.md (PRJ-19), SEGMENTATION.md, API.md (API-71), NFR.md (NFR-17).
 
 CTFlow is a domain language, not a shell. Every command calls a service the GUI already uses; processing stays task runs (TSK-*) and source operations (TSK-16).
-Status: planned, ROADMAP P7h. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
+Status: ROADMAP P7h; C1 (attribution, project-run logs) and C2 (catalog, targets, one-line evaluation, plan mode; API-72) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ Status: planned, ROADMAP P7h. Rows move their facts into the owning doc (TSK, AP
 | CTF-06 | A command that reads masks uses `-seg <id>`, or `-seg default` for the project default on purpose. Without `-seg` it uses the one active set that covers every selected item; when several do, it stops and lists them. | S |
 | CTF-07 | The language is the subset in §Language. There is no `eval` of strings, `uplevel`, or file, environment, process or network access; `source` reads only the script library (CTF-17). Limits cap steps, nesting depth, list size and child starts per script; exceeding one stops the script with a clear error. | S |
 | CTF-08 | Interactive sessions keep variables and procedures in server memory with an idle timeout. A server restart clears them, and clients say so. Durable work is never session state. | S |
-| CTF-09 | Plan mode resolves, validates, preflights and estimates each command without starting anything. For a script it stops at the first step that depends on a run's result and says so. | S |
+| CTF-09 | Plan mode resolves, validates and preflights each command without starting anything; an estimate (TSK-05) may start a sample job, so it is a separate request. For a script it stops at the first step that depends on a run's result and says so. | S |
 | CTF-10 | A script run is a durable workspace record (PLG-07 namespace): script text and hash, parameters, reviewer, origin, status, revision and journal. It runs as a server job and does not depend on any client (§Script runs). | S |
 | CTF-11 | Journal: every side-effecting call appends `{key, command, resolved request, child, outcome}`, where child is `(project_id, run_id)` or a source-operation id. The key is deterministic from the script run and the call sequence and is the child start's idempotency key. The journal plus the child run records (TSK-10) are the execution record; there is no separate pipeline schema. | S |
 | CTF-12 | After a server restart a non-terminal script run is `interrupted`. Resume re-executes the script from the beginning and returns journaled results for calls already made, so no child starts twice. A changed script hash or parameters refuse resume. | S |
@@ -73,6 +73,12 @@ Status: planned, ROADMAP P7h. Rows move their facts into the owning doc (TSK, AP
 - Statuses: `queued`, `running`, `waiting` (busy task, CTF-13), `attention`, `pausing`, `paused`, `cancelling`, `cancelled`, `completed`, `completed_with_errors`, `failed`, `interrupted`.
 - Driven by a job driver; waiting re-enters on job completion (as the batch plan's `nudge`). Recovery joins the startup recovery list.
 - Child failure policy: the script stops at a failed child; a partially failed child continues only when the script says so.
+
+## Implementation notes
+
+- Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`. `segment.nnunet` keeps its id until its manifest gains the key: that changes the manifest hash nnU-Net resume pins, so interrupted runs from before it could not resume.
+- `dicom2nii` starts a durable source operation with its analysis (API-69); `convert <operation>` then converts it, as the converter window does.
+- Test-only tasks are callable by id and not listed. Numbers that look like integers stay integers, so settings hash as the GUI's do.
 
 ## Deferred to implementation
 

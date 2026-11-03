@@ -71,6 +71,15 @@ class Requires(BaseModel):
     seg: SegRequirement | None = None  # the task reads masks (seg_id + labels)
 
 
+class TaskCommand(BaseModel):
+    """The CTFlow command of a task: a short name and option spellings for settings keys."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(pattern=r"^[a-z][a-z0-9-]{0,31}$")
+    options: dict[str, str] = Field(default_factory=dict)
+
+
 class TaskManifest(BaseModel):
     """`task.json`. Unknown keys are refused so typos surface as invalid manifests."""
 
@@ -95,6 +104,8 @@ class TaskManifest(BaseModel):
     test_only: bool = False
     # `workspace` tasks can also run without a project; `project` ones cannot.
     scope: Literal["project", "workspace"] = "project"
+    # CTFlow: without it the task id is the command name.
+    command: TaskCommand | None = None
 
 
 class ModelProfileInfo(BaseModel):

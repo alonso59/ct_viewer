@@ -10,5 +10,6 @@
   "requires": { "seg": { "labels": [] } },
   "settings_schema": { "type": "object", "additionalProperties": true },
   "runtime": { "type": "builtin", "entry": "app.radiomics.worker:extract_unit" },
-  "resources": { "gpu": "none" }
+  "resources": { "gpu": "none" },
+  "command": { "name": "radiomics" }
 }

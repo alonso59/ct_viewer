@@ -1849,6 +1849,63 @@
     "title": "ColumnProgress",
     "type": "object"
    },
+   "CommandInfo": {
+    "properties": {
+     "available": {
+      "default": true,
+      "title": "Available",
+      "type": "boolean"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/OptionInfo"
+      },
+      "title": "Options",
+      "type": "array"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     },
+     "usage": {
+      "title": "Usage",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "summary",
+     "usage"
+    ],
+    "title": "CommandInfo",
+    "type": "object"
+   },
    "CommitRequest": {
     "properties": {
      "preview_id": {
@@ -3289,6 +3346,153 @@
      "estimated_total_s"
     ],
     "title": "EstimateResult",
+    "type": "object"
+   },
+   "EvalPlan": {
+    "properties": {
+     "issues": {
+      "items": {
+       "$ref": "#/components/schemas/SettingsIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "preflight": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PreflightResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "settings": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Settings"
+     }
+    },
+    "required": [
+     "ok"
+    ],
+    "title": "EvalPlan",
+    "type": "object"
+   },
+   "EvalRequest": {
+    "additionalProperties": false,
+    "properties": {
+     "client": {
+      "default": "console",
+      "enum": [
+       "console",
+       "terminal"
+      ],
+      "title": "Client",
+      "type": "string"
+     },
+     "line": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Line",
+      "type": "string"
+     },
+     "plan": {
+      "default": false,
+      "title": "Plan",
+      "type": "boolean"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     }
+    },
+    "required": [
+     "line"
+    ],
+    "title": "EvalRequest",
+    "type": "object"
+   },
+   "EvalResult": {
+    "properties": {
+     "command": {
+      "title": "Command",
+      "type": "string"
+     },
+     "data": {
+      "title": "Data"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EvalPlan"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "started": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StartedWork"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "target": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ResolvedTarget"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     },
+     "text": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Text",
+      "type": "array"
+     }
+    },
+    "required": [
+     "command"
+    ],
+    "title": "EvalResult",
     "type": "object"
    },
    "EventIn": {
@@ -6570,6 +6774,55 @@
     "title": "OpenSession",
     "type": "object"
    },
+   "OptionInfo": {
+    "properties": {
+     "default": {
+      "title": "Default"
+     },
+     "enum": {
+      "anyOf": [
+       {
+        "items": {},
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Enum"
+     },
+     "help": {
+      "default": "",
+      "title": "Help",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "setting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Setting"
+     },
+     "type": {
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "type"
+    ],
+    "title": "OptionInfo",
+    "type": "object"
+   },
    "OptionSpec": {
     "properties": {
      "constraints": {
@@ -9158,6 +9411,67 @@
      }
     },
     "title": "Requires",
+    "type": "object"
+   },
+   "ResolvedTarget": {
+    "properties": {
+     "item_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Item Ids",
+      "type": "array"
+     },
+     "kind": {
+      "enum": [
+       "items",
+       "case",
+       "all",
+       "path",
+       "source"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "labels": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "n_items": {
+      "default": 0,
+      "title": "N Items",
+      "type": "integer"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     }
+    },
+    "required": [
+     "kind"
+    ],
+    "title": "ResolvedTarget",
     "type": "object"
    },
    "Resources": {
@@ -11749,6 +12063,55 @@
     "title": "SourcePlanPage",
     "type": "object"
    },
+   "StartedWork": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "kind": {
+      "enum": [
+       "task-run",
+       "source-operation"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "id",
+     "status"
+    ],
+    "title": "StartedWork",
+    "type": "object"
+   },
    "Suggestion": {
     "properties": {
      "reason": {
@@ -12001,6 +12364,29 @@
      "event_id"
     ],
     "title": "TargetState",
+    "type": "object"
+   },
+   "TaskCommand": {
+    "additionalProperties": false,
+    "description": "The CTFlow command of a task: a short name and option spellings for settings keys.",
+    "properties": {
+     "name": {
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "title": "Name",
+      "type": "string"
+     },
+     "options": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Options",
+      "type": "object"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "TaskCommand",
     "type": "object"
    },
    "TaskControl": {
@@ -12354,6 +12740,16 @@
     "additionalProperties": false,
     "description": "`task.json`. Unknown keys are refused so typos surface as invalid manifests.",
     "properties": {
+     "command": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TaskCommand"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "defaults": {
       "additionalProperties": true,
       "title": "Defaults",
@@ -14887,6 +15283,90 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/v1/ctflow/commands": {
+   "get": {
+    "operationId": "commands_api_v1_ctflow_commands_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CommandInfo"
+         },
+         "title": "Response Commands Api V1 Ctflow Commands Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Commands",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/eval": {
+   "post": {
+    "operationId": "evaluate_api_v1_ctflow_eval_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EvalRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EvalResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Evaluate",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
   "/api/v1/fs/list": {
    "post": {
     "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS instead of ALLOWED_DATA_ROOTS.\n\nA POST so browsed folders (often patient names) stay out of URLs and access logs.",

@@ -104,5 +104,6 @@
   "resources": {
     "gpu": "none"
   },
-  "scope": "workspace"
+  "scope": "workspace",
+  "command": { "name": "dicom2nii" }
 }
