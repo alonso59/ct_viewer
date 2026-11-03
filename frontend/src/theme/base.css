@@ -229,11 +229,12 @@ textarea.input {
 .seg button + button {
   border-left: var(--border-width) solid var(--border);
 }
-.seg button:hover:not(:disabled, [aria-pressed='true']) {
+.seg button:hover:not(:disabled, [aria-pressed='true'], [aria-checked='true']) {
   background: var(--bg-hover);
   color: var(--fg);
 }
-.seg button[aria-pressed='true'] {
+.seg button[aria-pressed='true'],
+.seg button[aria-checked='true'] {
   background: var(--bg-selected);
   color: var(--fg);
 }

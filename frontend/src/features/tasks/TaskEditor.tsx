@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
-import { Button, ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { Button, ConfirmInline, Progress, ProblemCard, RadioSeg, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -287,13 +287,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
           </>
         ) : (
           <>
-            <div className="seg" role="radiogroup" aria-label={t('tasks.selection')}>
-              {(['all', 'explorer', 'list'] as SelectionMode[]).map((k) => (
-                <button key={k} type="button" role="radio" aria-checked={mode === k} aria-pressed={mode === k} onClick={() => setMode(k)}>
-                  {t(`tasks.mode.${k}`)}
-                </button>
-              ))}
-            </div>
+            <RadioSeg label={t('tasks.selection')} value={mode} options={(['all', 'explorer', 'list'] as SelectionMode[]).map((k) => ({ value: k, label: t(`tasks.mode.${k}`) }))} onChange={setMode} />
             {mode === 'list' ? <ItemPicker pid={pid} value={list} onChange={setList} onBusyChange={setSelecting} /> : null}
             {readsMasks ? (
               <label className="field">

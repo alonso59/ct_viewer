@@ -42,3 +42,30 @@ test('never offers the folder list a batch plan sets', () => {
   expect(screen.queryByRole('button', { name: /advanced/i })).toBeNull()
   expect(screen.queryByText('Patient folders')).toBeNull()
 })
+
+// TSK-02 / UI-20 (accessible schema form): help, default and error are linked to the field; an error
+// shows once the field is left, not while typing; a required field is marked; without a title the
+// property name reads as words and a unit suffix becomes the unit
+test('linked help, errors after leaving a field, required fields and readable titles', () => {
+  const s = {
+    type: 'object',
+    required: ['patient_limit'],
+    properties: {
+      patient_limit: { type: 'integer', minimum: 1, 'x-help': 'Patients per batch' },
+      delay_s: { type: 'integer', minimum: 0, maximum: 30, default: 0 },
+    },
+  }
+  render(<SchemaForm schema={s} values={{ delay_s: 99 }} errors={{ delay_s: 'tasks.err.max' }} onChange={vi.fn()} />)
+  const limit = screen.getByRole('spinbutton', { name: 'Patient limit' })
+  expect(limit).toHaveAttribute('aria-required', 'true')
+  expect(limit).toHaveAccessibleDescription('Patients per batch')
+  expect(screen.getByText('required')).toBeInTheDocument()
+  const delay = screen.getByRole('spinbutton', { name: 'Delay' })
+  expect(screen.getByText('s')).toBeInTheDocument()
+  expect(delay).toHaveAccessibleDescription('Default: 0')
+  expect(screen.queryByText('Must be ≤ 30')).toBeNull()
+  fireEvent.blur(delay)
+  expect(screen.getByText('Must be ≤ 30')).toBeInTheDocument()
+  expect(delay).toHaveAttribute('aria-invalid', 'true')
+  expect(delay).toHaveAccessibleDescription('Default: 0 Must be ≤ 30')
+})

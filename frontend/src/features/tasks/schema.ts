@@ -13,6 +13,8 @@ export interface FieldSchema {
   maxItems?: number
   uniqueItems?: boolean
   properties?: Record<string, FieldSchema>
+  /** Object level: the property names that must be set */
+  required?: string[]
   title?: string
   'x-help'?: string
   /** Display names for `enum` values, same order (e.g. a model title for its profile id) */
@@ -24,11 +26,27 @@ export interface FieldSchema {
 interface FormField {
   name: string
   schema: FieldSchema
+  required: boolean
 }
 
 export function fields(schema: unknown): FormField[] {
-  const props = (schema as FieldSchema | null)?.properties ?? {}
-  return Object.entries(props).map(([name, s]) => ({ name, schema: s }))
+  const s = schema as FieldSchema | null
+  const required = new Set(s?.required ?? [])
+  return Object.entries(s?.properties ?? {}).map(([name, field]) => ({ name, schema: field, required: required.has(name) }))
+}
+
+/** Property-name suffixes that are units (`delay_s`, `spacing_mm`) */
+const UNITS = new Set(['s', 'mm', 'mb', 'hu', 'pct'])
+
+/** The manifest's title, else the property name in words ("patient_limit" → "Patient limit");
+ *  `unit` is a unit suffix of the name, for `tasks.unit.*` */
+export function fieldTitle(name: string, s: FieldSchema): { title: string; unit?: string } {
+  const parts = name.split('_')
+  const last = parts[parts.length - 1] ?? ''
+  const unit = parts.length > 1 && UNITS.has(last) ? last : undefined
+  if (s.title) return { title: s.title, unit }
+  const words = (unit ? parts.slice(0, -1) : parts).join(' ')
+  return { title: words.charAt(0).toUpperCase() + words.slice(1), unit }
 }
 
 export function defaults(schema: unknown): Record<string, unknown> {

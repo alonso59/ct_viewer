@@ -112,6 +112,38 @@ export function Dialog({ open, onOpenChange, title, description, icon, children,
   )
 }
 
+/** A segmented control that is one radio group (WAI-ARIA): one Tab stop on the checked option,
+ *  arrow keys move the choice and the focus */
+export function RadioSeg<V extends string>({ label, value, options, onChange, className }: {
+  label: string
+  value: V
+  options: readonly { value: V; label: ReactNode }[]
+  onChange: (v: V) => void
+  className?: string
+}) {
+  const at = Math.max(0, options.findIndex((o) => o.value === value))
+  const move = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const next = (i + step + options.length) % options.length
+    const option = options[next]
+    if (!option) return
+    onChange(option.value)
+    const buttons = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+    buttons?.[next]?.focus()
+  }
+  return (
+    <div className={className ? `seg ${className}` : 'seg'} role="radiogroup" aria-label={label}>
+      {options.map((o, i) => (
+        <button key={o.value} type="button" role="radio" aria-checked={o.value === value} tabIndex={i === at ? 0 : -1} onClick={() => onChange(o.value)} onKeyDown={(e) => move(e, i)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /** A button that says why it is disabled: tooltip and accessible description (`reason`, shown only
  *  while disabled) */
 export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { reason?: string | null }>(function Button(

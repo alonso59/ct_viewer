@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCreateDerived, useImportExternal, useVariables, type DerivedOp, type ExternalImportResult } from '../../api'
-import { Dialog, NumberInput, problemMessage } from '../../lib'
+import { Dialog, NumberInput, RadioSeg, problemMessage } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import { categoricalSources, defaultLabels, numericSources, parseNumbers, toDefinition, type DerivedDraft } from './derived'
@@ -60,15 +60,9 @@ function DerivedDialog({ pid }: { pid: string }) {
           <span className="field-label">{t('variables.name')}</span>
           <input className="input mono" autoFocus value={d.name} placeholder={t('variables.namePlaceholder')} onChange={(e) => set({ name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} />
         </label>
-        <div className="field" role="radiogroup" aria-label={t('variables.operation')}>
+        <div className="field">
           <span className="field-label">{t('variables.operation')}</span>
-          <div className="seg">
-            {OPS.map((op) => (
-              <button key={op} type="button" role="radio" aria-checked={d.op === op} aria-pressed={d.op === op} onClick={() => set({ op, source: '', map: {}, sources: [] })}>
-                {t(`variables.op.${op}`)}
-              </button>
-            ))}
-          </div>
+          <RadioSeg label={t('variables.operation')} value={d.op} options={OPS.map((op) => ({ value: op, label: t(`variables.op.${op}`) }))} onChange={(op) => set({ op, source: '', map: {}, sources: [] })} />
           <span className="muted panel-size">{t(`variables.opHelp.${d.op}`)}</span>
         </div>
         {d.op !== 'dominant' ? (
@@ -188,15 +182,9 @@ function ExternalDialog({ pid }: { pid: string }) {
           <span className="field-label">{t('variables.tableFile')}</span>
           <input type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null) }} />
         </label>
-        <div className="field" role="radiogroup" aria-label={t('variables.keyColumn')}>
+        <div className="field">
           <span className="field-label">{t('variables.keyColumn')}</span>
-          <div className="seg">
-            {(['case_id', 'patient_id'] as const).map((k) => (
-              <button key={k} type="button" role="radio" aria-checked={key === k} aria-pressed={key === k} onClick={() => setKey(k)}>
-                <span className="mono">{k}</span>
-              </button>
-            ))}
-          </div>
+          <RadioSeg label={t('variables.keyColumn')} value={key} options={(['case_id', 'patient_id'] as const).map((k) => ({ value: k, label: <span className="mono">{k}</span> }))} onChange={setKey} />
         </div>
         {upload.isError ? (
           <div className="error-card" role="alert" style={{ margin: 0 }}>
