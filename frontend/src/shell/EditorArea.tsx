@@ -74,11 +74,10 @@ function EditorTab(props: IDockviewPanelHeaderProps<EditorParams>) {
     >
       {contrib ? <Icon spec={contrib.icon(props.params)} /> : null}
       <span className="etab-title">{title}</span>
-      {/* for the mouse; a tab holds no focusable child, the keyboard closes with Alt+W */}
-      <button
-        type="button"
+      {/* for the mouse only: a tab holds no interactive child (not even an unfocusable button), the
+          keyboard closes with Alt+W */}
+      <span
         className="icon-btn etab-close"
-        tabIndex={-1}
         aria-hidden="true"
         title={t('shell.closeTab')}
         onPointerDown={(e) => e.stopPropagation()}
@@ -88,7 +87,7 @@ function EditorTab(props: IDockviewPanelHeaderProps<EditorParams>) {
         }}
       >
         <Icon spec={codicon('close')} />
-      </button>
+      </span>
     </div>
   )
 }

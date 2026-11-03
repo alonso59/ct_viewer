@@ -24,9 +24,9 @@ test('the scan drop-down lists the scans and picks one; previous / next step thr
   const current = items.find((i) => i.scan_idx === scans[0]!.idx && i.scope === 'complete')!
   const onPick = vi.fn()
   render(<ItemSwitcher items={items} current={current} onPick={onPick} />)
-  // one trigger names the current scan
-  expect(screen.queryAllByRole('button', { name: /^Scan \d+$/ })).toHaveLength(1)
-  const trigger = screen.getByRole('button', { name: `Scan ${current.scan_idx}` })
+  // one trigger names the current scan, with what it shows (phase, position)
+  expect(screen.queryAllByRole('button', { name: /^Scan \d+ / })).toHaveLength(1)
+  const trigger = screen.getByRole('button', { name: `Scan ${current.scan_idx} ${current.phase.canonical} 1 of ${scans.length}` })
   expect(trigger).toHaveTextContent(`1 of ${scans.length}`)
   expect(screen.getByRole('button', { name: 'Previous scan' })).toBeDisabled()
   fireEvent.click(screen.getByRole('button', { name: 'Next scan' }))
@@ -34,6 +34,6 @@ test('the scan drop-down lists the scans and picks one; previous / next step thr
   fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
   const menu = await screen.findByRole('menu')
   expect(within(menu).getAllByRole('menuitem')).toHaveLength(scans.length)
-  fireEvent.click(within(menu).getByRole('menuitem', { name: `Scan ${scans[1]!.idx}` }))
+  fireEvent.click(within(menu).getByRole('menuitem', { name: new RegExp(`^Scan ${scans[1]!.idx} ${scans[1]!.phase}`) }))
   expect(onPick).toHaveBeenCalledTimes(2)
 })

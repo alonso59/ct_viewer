@@ -35,6 +35,7 @@ export function scansOf(items: ItemRecord[]): ScanInfo[] {
 
 export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current: ItemRecord; onPick: (id: string) => void }) {
   const { t } = useTranslation()
+  const scanMeta = (s: ScanInfo) => [s.modality, s.slices != null ? t('viewer.scanSlices', { n: s.slices }) : null, s.description].filter(Boolean).join(' · ')
   const scans = scansOf(items)
   const at = scans.findIndex((s) => s.idx === current.scan_idx)
   const inScan = items.filter((i) => i.scan_idx === current.scan_idx)
@@ -57,22 +58,17 @@ export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; 
         <Icon spec={codicon('chevron-left')} />
       </button>
       <Menu.Root>
-        <Menu.Trigger className="scan-select" aria-label={t('viewer.scanIndex', { scan: current.scan_idx })} title={t('viewer.scanPick')}>
-          <span className="mono">{current.scan_idx}</span>
-          <PhaseChip phase={current.phase.canonical as Phase} />
-          {scans.length > 1 ? <span className="muted">{t('viewer.scanPosition', { n: at + 1, total: scans.length })}</span> : null}
+        {/* names hold what the trigger and items show (WCAG 2.5.3) */}
+        <Menu.Trigger className="scan-select" aria-label={[t('viewer.scanIndex', { scan: current.scan_idx }), current.phase.canonical, scans.length > 1 ? t('viewer.scanPosition', { n: at + 1, total: scans.length }) : null].filter(Boolean).join(' ')} title={t('viewer.scanPick')}>
+          <span className="mono">{current.scan_idx}</span> <PhaseChip phase={current.phase.canonical as Phase} /> {scans.length > 1 ? <span className="muted">{t('viewer.scanPosition', { n: at + 1, total: scans.length })}</span> : null}
           <Icon spec={codicon('chevron-down')} />
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Content className="overlay menu scan-menu" sideOffset={4} align="start">
             {scans.map((s) => (
-              <Menu.Item key={s.idx} className="menu-item" aria-label={t('viewer.scanIndex', { scan: s.idx })} onSelect={() => goScan(s.idx)}>
+              <Menu.Item key={s.idx} className="menu-item" aria-label={[t('viewer.scanIndex', { scan: s.idx }), s.phase, scanMeta(s)].filter(Boolean).join(' ')} onSelect={() => goScan(s.idx)}>
                 <Icon spec={codicon(s.idx === current.scan_idx ? 'check' : 'blank')} />
-                <span className="mono">{s.idx}</span>
-                <PhaseChip phase={s.phase} />
-                <span className="scan-meta">
-                  {[s.modality, s.slices != null ? t('viewer.scanSlices', { n: s.slices }) : null, s.description].filter(Boolean).join(' · ')}
-                </span>
+                <span className="mono">{s.idx}</span> <PhaseChip phase={s.phase} /> <span className="scan-meta">{scanMeta(s)}</span>
               </Menu.Item>
             ))}
           </Menu.Content>
