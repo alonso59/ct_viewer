@@ -371,7 +371,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
 function TaskEditor({ params, panelId }: EditorProps<TaskParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const { data, error } = useTasks()
+  const { data, error, refetch } = useTasks()
   const info = data?.tasks.find((x) => x.manifest.id === params.taskId)
   // a tab restored before the task list loaded is named after the task id until now
   const title = info?.manifest.title
@@ -380,7 +380,7 @@ function TaskEditor({ params, panelId }: EditorProps<TaskParams>) {
     const panel = useWorkbench.getState().dock?.getPanel(panelId)
     if (panel && panel.title !== title) panel.api.setTitle(title)
   }, [panelId, title])
-  if (error) return <ProblemCard error={error} />
+  if (error) return <ProblemCard error={error} onRetry={() => void refetch()} />
   if (!data) return <div className="empty">{t('common.loading')}</div>
   if (!info) return <div className="error-card">{t('tasks.unknown', { id: params.taskId })}</div>
   return <Body pid={pid} info={info} />

@@ -132,7 +132,7 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
       else setError(e)
     }
   }
-  if (!plan) return query.error ? <ProblemCard error={query.error} /> : <p role="status">{t('common.loading')}</p>
+  if (!plan) return query.error ? <ProblemCard error={query.error} onRetry={() => void query.refetch()} /> : <p role="status">{t('common.loading')}</p>
   const current = plan.batches[plan.cursor]
   const live = plan.status === 'pending' || plan.status === 'running' || plan.status === 'paused'
   const done = plan.batches.filter((b) => b.status === 'completed').length

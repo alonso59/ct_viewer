@@ -95,7 +95,6 @@
       "spec": "spec.json (redo in Python/R)"
     },
     "exportFailed": "Export failed",
-    "failed": "The analysis could not be computed",
     "test": {
       "welch_t": "Welch t-test",
       "mann_whitney": "Mann–Whitney U",

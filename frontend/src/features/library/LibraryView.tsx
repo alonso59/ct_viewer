@@ -50,10 +50,10 @@ export function PluginCard({ info }: { info: PluginInfo }) {
 export default function LibraryView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid)
-  const { data, error, isLoading } = usePlugins(pid)
+  const { data, error, isLoading, refetch } = usePlugins(pid)
   return (
     <div className="library-view">
-      {error ? <ProblemCard error={error} /> : null}
+      {error ? <ProblemCard error={error} onRetry={() => void refetch()} /> : null}
       {isLoading ? <p className="muted">{t('common.loading')}</p> : null}
       <ul className="plugin-list">{(data?.plugins ?? []).map((p) => <PluginCard key={p.manifest.id} info={p} />)}</ul>
       {data?.invalid.length ? <p className="muted">{t('library.invalid', { count: data.invalid.length })}</p> : null}

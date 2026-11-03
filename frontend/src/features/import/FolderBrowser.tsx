@@ -31,7 +31,7 @@ export function FolderBrowser({
   fileFilter?: (name: string) => boolean
 }) {
   const { t } = useTranslation()
-  const { data, isLoading, isError, error } = useFsList(path, role)
+  const { data, isLoading, isError, error, refetch } = useFsList(path, role)
   const roots = useFsList(null, role).data
   // the filter resets per folder
   const [filter, setFilter] = useState({ path, text: '' })
@@ -67,7 +67,7 @@ export function FolderBrowser({
         <input className="input fs-filter" type="search" value={text} placeholder={t('import.filter')} aria-label={t('import.filter')} onChange={(e) => setFilter({ path, text: e.target.value })} />
       ) : null}
       {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-      {isError ? <ProblemCard error={error} /> : null}
+      {isError ? <ProblemCard error={error} onRetry={() => void refetch()} /> : null}
       {data && data.entries.length === 0 && path !== null ? <div className="empty">{t('import.emptyFolder')}</div> : null}
       {/* the server setting's name is for administrators */}
       {data && data.entries.length === 0 && path === null ? (

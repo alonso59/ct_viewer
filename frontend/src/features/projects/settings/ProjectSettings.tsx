@@ -443,7 +443,7 @@ export default function ProjectSettings({ params }: EditorProps<SettingsParams>)
             </button>
           ))}
         </div>
-        {project.error ? <ProblemCard error={project.error} /> : null}
+        {project.error ? <ProblemCard error={project.error} onRetry={() => void project.refetch()} /> : null}
         {p ? (
           <div role="tabpanel" id="psettings-panel" aria-labelledby={`psettings-tab-${tab}`}>
             {tab === 'general' ? <General pid={pid} project={p} /> : null}

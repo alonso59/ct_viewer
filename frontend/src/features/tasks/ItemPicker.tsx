@@ -41,7 +41,7 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
     return () => clearTimeout(timer)
   }, [search, filters.q])
   const filter: ItemFilter = { ...filters, cursor: cursors.at(-1), limit: pageSize }
-  const { data, error, isFetching } = useQuery({ queryKey: keys.items(pid, filter), queryFn: () => api.listItems(pid, filter), retry: false })
+  const { data, error, isFetching, refetch } = useQuery({ queryKey: keys.items(pid, filter), queryFn: () => api.listItems(pid, filter), retry: false })
   const selectionPending = isFetching || search.trim() !== (filters.q ?? '')
   const rows = data?.items ?? []
   const groups = new Map<string, Row[]>()
@@ -97,7 +97,7 @@ export function ItemPicker({ pid, value, onChange, onBusyChange }: { pid: string
       </div>
       <p className="muted task-help">{t('tasks.pick.help')}</p>
       {selecting ? <p role="status" className="muted">{t('tasks.pick.selecting')}</p> : null}
-      {error || selectionError ? <ProblemCard error={error ?? selectionError} /> : null}
+      {error || selectionError ? <ProblemCard error={error ?? selectionError} onRetry={error ? () => void refetch() : undefined} /> : null}
       <div ref={grid} className="task-picker-grid" aria-busy={selectionPending || selecting}>
         <table aria-label={t('tasks.pick.table')}>
           <thead><tr>

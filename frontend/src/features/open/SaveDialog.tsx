@@ -64,7 +64,7 @@ export function SaveDialog({ session, item, axisOrder, onClose }: { session: Ope
       }
     >
       <p className="muted">{t('open.saveHelp')}</p>
-      {roots.error ? <ProblemCard error={roots.error} /> : null}
+      {roots.error ? <ProblemCard error={roots.error} onRetry={() => void roots.refetch()} /> : null}
       <p className="mono">{shown ?? t('common.loading')}</p>
       <button type="button" className="btn btn-sm" onClick={() => setChanging((c) => !c)}>{t('open.changeFolder')}</button>
       {changing ? (

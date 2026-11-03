@@ -112,7 +112,7 @@ function SeriesPlanTable({ estimate, operation }: { estimate: TaskEstimate; oper
         </table>
       </div>
       {page.isFetching ? <p role="status">{t('common.loading')}</p> : null}
-      {page.error ? <ProblemCard error={page.error} /> : null}
+      {page.error ? <ProblemCard error={page.error} onRetry={() => void page.refetch()} /> : null}
       {operation ? <div className="conv-row"><span className="muted">{t('conv.planPage', { n: rows.length, total })}</span>
         <button type="button" className="btn btn-sm" disabled={!cursors.length || page.isFetching} onClick={() => setCursors((values) => values.slice(0, -1))}>{t('conv.previousPage')}</button>
         <button type="button" className="btn btn-sm" disabled={!page.data?.next_cursor || page.isFetching} onClick={() => page.data?.next_cursor && setCursors((values) => [...values, page.data!.next_cursor!])}>{t('conv.nextPage')}</button>
@@ -727,7 +727,7 @@ export default function ConverterOverlay() {
             {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <Button className="btn" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</Button> : null}
             </div>
           </div> : null}
-          {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}
+          {operationQuery.error ? <ProblemCard error={operationQuery.error} onRetry={() => void operationQuery.refetch()} /> : null}
           </>}
           <BatchPlanList current={batchPlanId} onOpen={(planId) => useConverter.setState({ batchPlanId: planId })} />
           {shownError ? (

@@ -14,13 +14,13 @@ const ICON: Record<(typeof KINDS)[number], string> = { conversion: 'file-binary'
 export default function TasksView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const { data, error } = useTasks()
+  const { data, error, refetch } = useTasks()
   const runs = useTaskRuns(pid).data ?? []
   const visible = (data?.tasks ?? []).filter((x) => !x.manifest.test_only || x.runner_online)
   const byKind = (k: string) => visible.filter((x) => x.manifest.kind === k)
   return (
     <div className="tasks-view">
-      {error ? <ProblemCard error={error} /> : null}
+      {error ? <ProblemCard error={error} onRetry={() => void refetch()} /> : null}
       {KINDS.map((k) =>
         byKind(k).length ? (
           <section key={k}>

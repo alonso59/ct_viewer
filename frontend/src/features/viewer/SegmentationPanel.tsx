@@ -27,7 +27,7 @@ export default function SegmentationPanel() {
   }
   const shown = labels.filter((label) => `${label.name} ${label.value}`.toLowerCase().includes(search.toLowerCase()))
   const error = project.error ?? query.error
-  if (error) return <ProblemCard error={error} />
+  if (error) return <ProblemCard error={error} onRetry={() => void Promise.all([project.refetch(), query.refetch()])} />
   return (
     <div className="segmentation-panel">
       <h2>{t('segmentation.title')}</h2>
