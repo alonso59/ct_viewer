@@ -641,7 +641,11 @@
       "needs_minor_correction": "Mark needs minor correction",
       "needs_major_correction": "Mark needs major correction",
       "rejected": "Mark rejected"
-    }
+    },
+    "held": "{{reviewer}} set {{status}} {{ago}}, after you opened this item. Your {{mine}} is not saved yet.",
+    "heldToast": "{{reviewer}} set {{status}} {{ago}}: your decision is not saved yet",
+    "keepMine": "Keep mine",
+    "useTheirs": "Use theirs"
   },
   "queue": {
     "exportsWritten": "Wrote {{files}} to {{dir}}/",

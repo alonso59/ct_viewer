@@ -7,7 +7,7 @@ import { ItemName, StatusBadge, StatusIcon, fmtAgo } from '../../lib'
 import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
-import { submitDecision, useDraft } from './decision'
+import { dropHeld, keepHeld, submitDecision, useConflict, useDraft } from './decision'
 import { decisionsFor, targetName, targetsFor } from './model'
 import '../../i18n/lazy'
 
@@ -37,6 +37,7 @@ export function CurationForm() {
   const stateQ = useCurationState(pid)
   const d = useDraft()
   const [busy, setBusy] = useState(false)
+  const held = useConflict((s) => s.held)
   if (!cid) return <div className="muted panel-size">{t('curation.noActive')}</div>
 
   const seg = shownSeg ?? project?.default_seg ?? 'imported'
@@ -50,6 +51,16 @@ export function CurationForm() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--fs-panel)' }}>
       <div className="muted small">{iid ? <ItemName id={iid} phase={item?.phase.canonical} /> : cid}</div>
+      {held ? (
+        // someone else decided this target after the item was opened: nothing is written until the reviewer chooses
+        <div className="error-card" role="alert">
+          {t('curation.held', { reviewer: held.theirs.reviewer, status: t(`status.${held.theirs.status}`), ago: fmtAgo(held.theirs.at), mine: t(`status.${held.status}`) })}
+          <div className="row mt-2">
+            <button type="button" className="btn btn-sm" onClick={keepHeld}>{t('curation.keepMine')}</button>
+            <button type="button" className="btn btn-sm" onClick={dropHeld}>{t('curation.useTheirs')}</button>
+          </div>
+        </div>
+      ) : null}
       <label className="field">
         <span className="field-label">{t('curation.target.label')}</span>
         <select className="select input-sm" value={d.target} onChange={(e) => d.set({ target: e.target.value })}>

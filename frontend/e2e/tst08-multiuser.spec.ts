@@ -1,6 +1,7 @@
 // TST-08: two reviewers in two browser contexts on the same case.
 // CUR-11: a decision by A reaches B over SSE ("updated by" toast + new state).
-// CUR-12: concurrent writes to the same (item, target) → last writer wins everywhere; history keeps both.
+// CUR-12: concurrent writes to the same (item, target) → the later writer is told first and keeps its
+// decision with one more click; last writer wins everywhere; history keeps both.
 // CUR-08 (AUD-A5-15, A5-09, A2-16): a case with one decided item of several is "Partially reviewed",
 // the Search Status filter finds it on the real API, the queue CSV names the segmentation set.
 // Real backend on the synthetic fixtures (playwright.config.ts starts it); setup goes through the API.
@@ -40,7 +41,7 @@ test.setTimeout(120_000)
 
 const form = (page: Page) => page.getByRole('complementary', { name: 'Curation' })
 const decisions = (page: Page) => form(page).getByRole('list', { name: 'Current decisions' })
-const segRow = (page: Page) => decisions(page).getByRole('listitem').filter({ hasText: /^seg/ })
+const segRow = (page: Page) => decisions(page).getByRole('listitem').filter({ hasText: /^Segmentation/ })
 const quick = (page: Page, label: RegExp) => form(page).getByRole('button', { name: label })
 
 test('live sync and last-writer-wins between two reviewers', async ({ browser }) => {
@@ -59,8 +60,12 @@ test('live sync and last-writer-wins between two reviewers', async ({ browser })
   // A's own event does not toast "updated by" in A's tab (same session)
   await expect(a.getByRole('status').filter({ hasText: 'updated by' })).toHaveCount(0)
 
-  // CUR-12: both write the same (item, target) at once; the server keeps the last one
+  // CUR-12: both write the same (item, target) at once. A decided after B opened the case, so B is
+  // told first and keeps its decision with one more click; the server keeps the last one
   await Promise.all([quick(a, /^Minor/).click(), quick(b, /^Reject/).click()])
+  const notice = form(b).getByRole('alert').filter({ hasText: 'Dr. A set' })
+  await expect(notice).toBeVisible()
+  await notice.getByRole('button', { name: 'Keep mine' }).click()
   // Wait until both writes are in (3 events), then read the derived winner
   await expect.poll(async () => (await api<{ n_events: number }>('GET', `/projects/${pid}/curation/state`)).n_events).toBe(3)
   const st = await api<CurationState>('GET', `/projects/${pid}/curation/state`)

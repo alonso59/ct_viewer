@@ -23,7 +23,7 @@ Live sync: a `curation.appended` event updates the cached state row of its `(ite
 | CUR-09 | Correction queue = items whose latest status is in the queue set, or with `add_to_queue=true`; exportable as CSV for 3D Slicer work. | M |
 | CUR-10 | Exports: `curation_state.csv` and `events.jsonl` copy into `exports/`. | M |
 | CUR-11 | Live sync: new events are pushed to other open browsers via SSE (API-40). The UI shows "Updated by {reviewer}". | M |
-| CUR-12 | Conflict policy: last-writer-wins on derived state; history shows every event. | M |
+| CUR-12 | Conflict policy: last-writer-wins on derived state; history shows every event. Before overwriting, the client checks the live events: if another session decided the same target after the item was opened, the decision is held and the form says so ("Dr. AP set Rejected 12 seconds ago") with **Keep mine** (write it) and **Use theirs** (drop it and the draft); a warning toast offers Keep mine to a reviewer working by keyboard. The server keeps last-writer-wins. | M |
 | CUR-13 | Import v2 `curation_review.csv` as events (`source: "v2_import"`). | S |
 | CUR-14 | History panel per item and per case, newest first. | M |
 | CUR-15 | Import the standalone converter's `curation.csv` once as events (`source: "converter_import"`): `curated_keep`, `curated_quality`, `notes` map to status and comment (DCM-08); target `seg`: keep false → `rejected`, quality poor/bad/low → major, fair/medium → minor correction, keep true or quality good → `accepted`. `curated_phase` maps to a native phase event instead (PHS-08), not a curation decision. One import per `case_id\|scan_idx`. | S |
