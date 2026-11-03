@@ -1129,7 +1129,8 @@
     "orientation": "Orientation",
     "loadTags": "Show DICOM tags",
     "noTags": "No DICOM header for this item.",
-    "phi": "DICOM tags can contain patient data; they are shown here only, never exported."
+    "phi": "DICOM tags can contain patient data; they are shown here only, never exported.",
+    "slabNamed": "Slab projection: {{mode}}"
   },
   "variables": {
     "filter": "Filter variables",

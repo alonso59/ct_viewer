@@ -562,12 +562,12 @@
     "wlValues": "{{ww}} / {{wl}}",
     "zoom": "{{zoom}} %",
     "modality": {
-      "label": "Modality",
       "help": "This image has no modality, so CT is assumed. Change it if it is not a CT.",
       "assumed": "{{modality}} (assumed)",
       "CT": "CT",
       "MR": "MR",
-      "OT": "Other"
+      "OT": "Other",
+      "named": "Modality: {{value}}"
     },
     "segShown": "Showing segmentation set {{set}}",
     "caseNotFoundHelp": "The case {{id}} is not in this project.",

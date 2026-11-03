@@ -13,7 +13,7 @@ export function ModalityChip() {
   if (!active?.assumed) return null
   return (
     <Menu.Root>
-      <Menu.Trigger className="toolbar-select" title={t('viewer.modality.help')} aria-label={t('viewer.modality.label')}>
+      <Menu.Trigger className="toolbar-select" title={t('viewer.modality.help')} aria-label={t('viewer.modality.named', { value: t('viewer.modality.assumed', { modality: t(`viewer.modality.${active.value}`) }) })}>
         {t('viewer.modality.assumed', { modality: t(`viewer.modality.${active.value}`) })}
         <Icon spec={codicon('chevron-down')} />
       </Menu.Trigger>

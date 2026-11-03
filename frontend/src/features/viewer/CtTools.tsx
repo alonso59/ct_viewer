@@ -58,7 +58,8 @@ export function SlabControls() {
     <>
       <span className="toolbar-label">{t('ct.slabLabel')}</span>
       <Menu.Root>
-        <Menu.Trigger className="toolbar-select" disabled={!enabled} aria-label={t('ct.slab')} title={t('ct.slab')}>
+        {/* the name holds the visible mode too (WCAG 2.5.3) */}
+        <Menu.Trigger className="toolbar-select" disabled={!enabled} aria-label={t('ct.slabNamed', { mode: t(`ct.slabMode.${display.slab.mode}`) })} title={t('ct.slab')}>
           <Icon spec={codicon('layers-active')} />
           {t(`ct.slabMode.${display.slab.mode}`)}
           <Icon spec={codicon('chevron-down')} />
