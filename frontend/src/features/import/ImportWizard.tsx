@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { api, keys, useCommitImport, useSourceDetection, useSourceOperation, useFsList, useImportPreview, useJobs, useRoots, type SourceOperation, type SourceImportUpdate, type SourceOperationStart, type ImportAdapter, type NiftiOptions, type PreviewRequest } from '../../api'
+import { api, keys, ProblemError, useCommitImport, useSourceDetection, useSourceOperation, useFsList, useImportPreview, useJobs, useRoots, type SourceOperation, type SourceImportUpdate, type SourceOperationStart, type ImportAdapter, type NiftiOptions, type PreviewRequest } from '../../api'
 import { Button, Dialog, openPath, ProblemCard } from '../../lib'
 import { runCommand, toast } from '../../shell'
 import { Icon, codicon } from '../../theme'
@@ -74,8 +74,20 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const work = useMutation({
     mutationFn: async ({ committing, choices }: { committing: boolean; choices: Omit<SourceImportUpdate, 'expected_revision' | 'expected_attempt' | 'expected_run_attempt'> }) => {
       const saved = await save.mutateAsync(choices)
-      const fence = { expected_revision: saved.revision, expected_attempt: saved.attempt }
-      return committing ? api.commitSourceImport(saved.operation_id, fence) : api.prepareSourceImport(saved.operation_id, fence)
+      const start = (op: SourceOperation) => {
+        const fence = { expected_revision: op.revision, expected_attempt: op.attempt }
+        return committing ? api.commitSourceImport(op.operation_id, fence) : api.prepareSourceImport(op.operation_id, fence)
+      }
+      try {
+        return await start(saved)
+      } catch (error) {
+        // the server may write the operation between the save and this request (the finished
+        // inspection's bookkeeping): read it again once; another attempt is a real conflict
+        if (!(error instanceof ProblemError) || error.status !== 409) throw error
+        const current = await api.getSourceOperation(saved.operation_id)
+        if (current.attempt !== saved.attempt || current.pending_control) throw error
+        return start(current)
+      }
     },
     onSuccess: (operation) => {
       qc.setQueryData(keys.sourceOperation(operation.operation_id), operation)

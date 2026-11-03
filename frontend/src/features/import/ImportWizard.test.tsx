@@ -7,7 +7,7 @@ import { vi } from 'vitest'
 
 import '../../i18n'
 import '../../i18n/lazy'
-import { api } from '../../api'
+import { api, ProblemError } from '../../api'
 import { DEMO_PID } from '../../api/mock/server'
 import { plugin } from '../../plugins/dicom'
 import { useConverter } from '../../plugins/dicom/store'
@@ -93,3 +93,23 @@ test('U06 closes a restored completed index without starting another import', as
   await waitFor(() => expect(useConverter.getState().operationId).toBe(null))
   expect(commit).not.toHaveBeenCalled()
 })
+
+// SRC-19: a write by the server between saving the draft and starting the import (a stale revision,
+// 409) is read again once, instead of failing the user's Import
+test('a stale revision between saving the draft and starting the import is read again once', async () => {
+  const id = '01JSYNTHIMPORTPREVIEW00000'
+  const record = await api.getSourceOperation(id)
+  const context = record.import_context!
+  vi.spyOn(api, 'saveSourceImport').mockResolvedValue(record)
+  vi.spyOn(api, 'getSourceOperation').mockResolvedValue({ ...record, revision: record.revision + 1 })
+  const commit = vi.spyOn(api, 'commitSourceImport')
+    .mockRejectedValueOnce(new ProblemError(409, 'conflict', 'Source operation revision/attempt changed'))
+    .mockResolvedValueOnce(record)
+  plugin.activate({ registry, revealView: () => undefined })
+  show({ path: record.source, kind: 'folder', discoveryId: id, alias: context.alias, adapter: 'nifti-files', options: context.options, step: 'preview', revision: record.revision, attempt: record.attempt })
+  await screen.findByText('0000.nii.gz')
+  fireEvent.click(screen.getByRole('button', { name: 'Import and index' }))
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(2))
+  expect(commit).toHaveBeenLastCalledWith(id, { expected_revision: record.revision + 1, expected_attempt: record.attempt })
+})
+
