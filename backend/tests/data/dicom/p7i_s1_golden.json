@@ -1,0 +1,168 @@
+{
+  "anonymized": {
+    "annotations": "f82bccdb192624121a024e01c21ad6eef39f8cbf16d27f415127ee2e9d10c328",
+    "images": {
+      "01_CT_case_00000_0000.nii.gz": {
+        "affine": [
+          [
+            0.7,
+            0.0,
+            -0.0,
+            16.5
+          ],
+          [
+            0.0,
+            0.9,
+            -0.0,
+            26.4
+          ],
+          [
+            0.0,
+            0.0,
+            2.5,
+            100.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "dtype": "int16",
+        "shape": [
+          6,
+          5,
+          12
+        ],
+        "voxels": "80bf59833aa3a9e495d1d9db3165bd4f98bb41be216eab93604e1db862ebd7d1"
+      },
+      "01_CT_case_00001_0000.nii.gz": {
+        "affine": [
+          [
+            0.7,
+            0.0,
+            -0.0,
+            16.5
+          ],
+          [
+            0.0,
+            0.9,
+            -0.0,
+            26.4
+          ],
+          [
+            0.0,
+            0.0,
+            2.5,
+            100.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "dtype": "int16",
+        "shape": [
+          6,
+          5,
+          12
+        ],
+        "voxels": "80bf59833aa3a9e495d1d9db3165bd4f98bb41be216eab93604e1db862ebd7d1"
+      }
+    },
+    "rows": "273e66bda9b4aea0030f2020267134bcb16d6a8b5b9a8d1812f468b3baea4216",
+    "sidecars": {
+      "01_CT_case_00000_0000.nii.gz.dicom.json": "770c98fdbb59b3ce6049fc523dac02ce70e086b7ee5138aebe8371b8d1a9fc67",
+      "01_CT_case_00001_0000.nii.gz.dicom.json": "483aec75c39ae163d44cf68dc42c584a0f01811474066e8303de068d1890c226"
+    }
+  },
+  "plain": {
+    "annotations": "f82bccdb192624121a024e01c21ad6eef39f8cbf16d27f415127ee2e9d10c328",
+    "images": {
+      "01_CT_case_00000_0000.nii.gz": {
+        "affine": [
+          [
+            0.7,
+            0.0,
+            -0.0,
+            16.5
+          ],
+          [
+            0.0,
+            0.9,
+            -0.0,
+            26.4
+          ],
+          [
+            0.0,
+            0.0,
+            2.5,
+            100.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "dtype": "int16",
+        "shape": [
+          6,
+          5,
+          12
+        ],
+        "voxels": "80bf59833aa3a9e495d1d9db3165bd4f98bb41be216eab93604e1db862ebd7d1"
+      },
+      "01_CT_case_00001_0000.nii.gz": {
+        "affine": [
+          [
+            0.7,
+            0.0,
+            -0.0,
+            16.5
+          ],
+          [
+            0.0,
+            0.9,
+            -0.0,
+            26.4
+          ],
+          [
+            0.0,
+            0.0,
+            2.5,
+            100.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "dtype": "int16",
+        "shape": [
+          6,
+          5,
+          12
+        ],
+        "voxels": "80bf59833aa3a9e495d1d9db3165bd4f98bb41be216eab93604e1db862ebd7d1"
+      }
+    },
+    "rows": "73358e8940b2439511aa9897c0afbb551076f92addb589eaf902e78d27b4b2db",
+    "sidecars": {
+      "01_CT_case_00000_0000.nii.gz.dicom.json": "9bbec6fc990aa9d936f8375b4b6b06fcae98848d39ce6f00cb70769f94517ebc",
+      "01_CT_case_00001_0000.nii.gz.dicom.json": "a2d50dc07eed47f867178bb2afa1b599c7718be1269c187ec8d051366723540c"
+    }
+  },
+  "versions": {
+    "SimpleITK": "2.5.6",
+    "isal": "1.8.0",
+    "nibabel": "5.4.2",
+    "pydicom": "3.0.2"
+  }
+}
