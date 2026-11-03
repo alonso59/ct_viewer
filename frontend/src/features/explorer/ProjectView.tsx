@@ -339,8 +339,9 @@ export function ProjectView() {
             <ExpandedItems key={cid} caseId={cid} onItems={onItems} />
           ))}
       </div>
+      {/* no count before the cases are in: "0 cases" would be wrong while loading */}
       <div className="muted pv-footer">
-        {t('explorer.caseCount', { count: visibleCases?.length ?? 0 })}
+        {visibleCases ? t('explorer.caseCount', { count: visibleCases.length }) : t('common.loading')}
       </div>
     </div>
   )

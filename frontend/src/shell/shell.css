@@ -135,6 +135,10 @@
 .toolbar:hover {
   scrollbar-width: thin;
 }
+/* no tool for the active editor: the row takes no height */
+.toolbar:empty {
+  display: none;
+}
 .toolbar-sep {
   width: 1px;
   height: 18px;

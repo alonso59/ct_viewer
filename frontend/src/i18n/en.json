@@ -171,7 +171,8 @@
     "curation": "Curation",
     "layers": "Layers",
     "labels": "Labels · this case / scan",
-    "window": "Window / level"
+    "window": "Window / level",
+    "needsViewer": "Open a case or a file to use these controls."
   },
   "status": {
     "not_reviewed": "Not reviewed",

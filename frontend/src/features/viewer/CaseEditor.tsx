@@ -106,7 +106,17 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
     pinEditor(panelId)
   }
 
-  if (isLoading) return <div className="empty">{t('common.loading')}</div>
+  if (isLoading)
+    return (
+      // the tab's frame while the case loads, so nothing jumps when it arrives
+      <div className="case-editor" aria-busy="true">
+        <div className="case-header">
+          <span className="mono case-id">{params.caseId}</span>
+          <span className="muted">{t('common.loading')}</span>
+        </div>
+        <div className="case-skeleton" />
+      </div>
+    )
   if (isError || !data || !current) {
     const p = error instanceof ProblemError ? error : null
     const notFound = !p || p.status === 404

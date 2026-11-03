@@ -6,6 +6,7 @@ import { NumberInput } from '../../lib'
 import { openEditor, useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
 import { shownLabels, shownSet } from './model/labels'
+import { useShown } from './Tools'
 
 function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixed: boolean; onChange: (checked: boolean) => void; label: string }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -15,7 +16,17 @@ function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixe
   return <input ref={ref} type="checkbox" aria-label={label} checked={checked} onChange={(event) => onChange(event.target.checked)} />
 }
 
+/** Layers and Window/level act on a viewer; on other tabs they are one line saying so */
+function NeedsViewer() {
+  const { t } = useTranslation()
+  return <div className="muted panel-size">{t('inspector.needsViewer')}</div>
+}
+
 export function LayersSection() {
+  return useShown() ? <Layers /> : <NeedsViewer />
+}
+
+function Layers() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const project = useProject(pid).data
@@ -92,6 +103,10 @@ export function LayersSection() {
 }
 
 export function WindowSection() {
+  return useShown() ? <WindowLevel /> : <NeedsViewer />
+}
+
+function WindowLevel() {
   const { t } = useTranslation()
   const { ww, wl, setWindow, setPreset, preset } = useViewerSync()
   return (

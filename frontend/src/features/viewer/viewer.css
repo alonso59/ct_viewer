@@ -7,6 +7,10 @@
   outline: none;
   background: var(--bg-editor);
 }
+.case-skeleton {
+  flex: 1;
+  background: var(--bg-viewport);
+}
 .case-editor:focus-within .vp {
   --vp-focus: 1;
 }
