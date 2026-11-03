@@ -58,6 +58,15 @@
   background: var(--bg-hover);
   border-color: var(--border-muted);
 }
+/* New project… on an empty workspace: the one primary action there */
+.home-action-primary,
+.home-action-primary:hover {
+  background: var(--btn-primary);
+  color: var(--fg-on-emphasis);
+}
+.home-action-primary .muted {
+  color: var(--fg-on-emphasis);
+}
 .home-action > span {
   display: flex;
   flex-direction: column;

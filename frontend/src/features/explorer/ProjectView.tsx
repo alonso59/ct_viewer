@@ -17,7 +17,7 @@ import {
   type Variable,
 } from '../../api'
 import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard, useAnnounce } from '../../lib'
-import { useWorkbench } from '../../shell'
+import { registry, runCommand, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
 import { ActiveFilterChips, FilterFields, PhaseFilter } from './FilterControls'
@@ -207,6 +207,15 @@ export function ProjectView() {
           </button>
         </div>
       ) : null}
+      {visibleCases?.length === 0 ? (
+        <div className="empty">
+          {t(index?.state === 'running' ? 'explorer.indexing' : index?.state === 'ready' || activeFilterCount(filter) || filter.q ? 'explorer.noCases' : 'explorer.emptyProject')}
+          {/* an empty project offers its next step (outside the tree: a tree holds only cases) */}
+          {index?.state !== 'running' && index?.state !== 'ready' && !activeFilterCount(filter) && !filter.q && registry.allowed({ writes: true }) ? (
+            <button type="button" className="btn btn-sm mt-2" onClick={() => runCommand('import.open')}>{t('import.title')}</button>
+          ) : null}
+        </div>
+      ) : null}
       {/* one Tab stop: the cursor row is the active descendant, not a focused child */}
       <div
         ref={scrollRef}
@@ -218,11 +227,6 @@ export function ProjectView() {
         className="pv-tree"
       >
         {cases.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-        {visibleCases?.length === 0 ? (
-          <div className="empty">
-            {t(index?.state === 'running' ? 'explorer.indexing' : index?.state === 'ready' || activeFilterCount(filter) || filter.q ? 'explorer.noCases' : 'explorer.emptyProject')}
-          </div>
-        ) : null}
         <div style={{ height: virt.getTotalSize(), position: 'relative' }}>
           {virt.getVirtualItems().map((v) => {
             const r = rows[v.index]
