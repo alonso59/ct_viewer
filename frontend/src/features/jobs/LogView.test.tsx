@@ -3,7 +3,7 @@
 // levels and text, copies and downloads the lines shown, and shows loading, error and ended states.
 import '../../i18n'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, expect, test, vi } from 'vitest'
 
 import type { LogLine } from '../../api'
 import { useWorkbench } from '../../shell'
@@ -13,6 +13,14 @@ afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
   useWorkbench.setState({ toasts: [] })
+})
+
+// jsdom lays nothing out: the virtualised list needs a size to render its rows (prototype
+// properties, so restoring mocks between tests keeps them)
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', { configurable: true, value: () => ({ width: 800, height: 600, top: 0, left: 0, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => ({}) }) })
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 600 })
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 800 })
 })
 
 const lines: LogLine[] = [

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // UI-04, UI-17: the home groups its entries by level (View files, Projects); an empty workspace has
 // exactly one primary action, and its empty Recent offers buttons.
+import * as RTooltip from '@radix-ui/react-tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -12,7 +13,7 @@ import { WorkspaceHome } from './WorkspaceHome'
 function home(projects: ProjectSummary[]) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   qc.setQueryData(keys.projects(false), projects)
-  return render(<MemoryRouter><QueryClientProvider client={qc}><WorkspaceHome /></QueryClientProvider></MemoryRouter>)
+  return render(<MemoryRouter><QueryClientProvider client={qc}><RTooltip.Provider><WorkspaceHome /></RTooltip.Provider></QueryClientProvider></MemoryRouter>)
 }
 
 test('an empty workspace: two groups, New project… is the one primary action, Recent offers buttons', () => {

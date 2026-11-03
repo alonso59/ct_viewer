@@ -435,7 +435,7 @@ test('converts a DICOM folder into a workspace dataset without a project', async
   const [run] = await api.listWorkspaceRuns()
   expect(await screen.findByText(`Dataset ${run!.name} is ready.`)).toBeInTheDocument()
   expect(screen.getByText(run!.dataset_dir!)).toBeInTheDocument()
-  for (const name of ['Open', 'Create project from this', 'Add to project']) expect(screen.getByRole('button', { name })).toBeInTheDocument()
+  for (const name of ['View without a project', 'Create project from this', 'Add to project']) expect(screen.getByRole('button', { name })).toBeInTheDocument()
 })
 
 test('a dataset name that is taken is said in the settings step (DCM-14, AUD-A2-14)', async () => {

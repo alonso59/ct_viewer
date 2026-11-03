@@ -8,6 +8,14 @@ import { keys, type Job } from '../../api'
 import { useWorkbench } from '../../shell'
 import { ActivityLog, JobStatus, JobsPanel, logEvent } from './JobsPanel'
 
+// jsdom lays nothing out: the virtualised list needs a size to render its rows (prototype
+// properties, so restoring mocks between tests keeps them)
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', { configurable: true, value: () => ({ width: 800, height: 600, top: 0, left: 0, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => ({}) }) })
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 600 })
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 800 })
+})
+
 test('new Activity lines and unmount do not throw when scrollIntoView returns a Promise (UI-29)', () => {
   Element.prototype.scrollIntoView = vi.fn(() => Promise.resolve()) as unknown as typeof Element.prototype.scrollIntoView
   const index = (n: number) => ({ event: 'index.rebuilt', data: { n_items: n, n_warnings: 0 } }) as Parameters<typeof logEvent>[0]
