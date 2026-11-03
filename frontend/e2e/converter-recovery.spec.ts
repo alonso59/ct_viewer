@@ -314,10 +314,10 @@ print(json.dumps([str(Path(path).relative_to(root)) for path in files]))
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/, { timeout: 60_000 })
   const sid = page.url().split('/').at(-1)!
   const files = page.getByRole('listbox', { name: 'Files' })
-  await expect(files.getByRole('button')).toHaveCount(50)
+  await expect(files.getByRole('option')).toHaveCount(50)
   for (let index = 1; index <= 10; index++) {
     await page.getByRole('button', { name: 'Next page', exact: true }).click()
-    if (index < 10) await expect(files.getByRole('button').first()).toHaveText(`Small-${String(index * 50).padStart(4, '0')}`)
+    if (index < 10) await expect(files.getByRole('option').first()).toHaveText(`Small-${String(index * 50).padStart(4, '0')}`)
     else await expect(files.getByRole('button', { name: 'Long-750', exact: true })).toBeVisible()
   }
   await files.getByRole('button', { name: 'Long-750', exact: true }).click()
