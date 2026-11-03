@@ -423,6 +423,10 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     return (
       <div className="error-card" role="alert">
         <strong>{t('vw.noWebgl')}</strong>
+        <div className="muted">{t('vw.noWebglHelp')}</div>
+        <div className="row mt-2">
+          <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button>
+        </div>
       </div>
     )
 

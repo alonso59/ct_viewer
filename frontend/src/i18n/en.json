@@ -878,7 +878,8 @@
     "deg": "{{v}}°",
     "roi": "μ {{mean}} σ {{sd}} · n {{n}} · {{area}} cm²",
     "probe": "Value under the cursor",
-    "volumeLoaded": "Volume loaded"
+    "volumeLoaded": "Volume loaded",
+    "noWebglHelp": "Turn on hardware acceleration in the browser settings, or use a current Chrome, Edge or Firefox, then reload."
   },
   "rad": {
     "title": "Radiomics settings",
