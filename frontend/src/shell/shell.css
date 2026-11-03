@@ -1,8 +1,23 @@
 .wb {
   display: grid;
-  grid-template-rows: var(--h-titlebar) var(--h-toolbar) minmax(0, 1fr) var(--h-statusbar);
+  /* the tool bar row is as tall as the tool bar: no row when it is empty (hidden) */
+  grid-template-rows: var(--h-titlebar) auto minmax(0, 1fr) var(--h-statusbar);
   height: 100%;
   background: var(--bg-editor);
+}
+/* Fixed rows, so a hidden tool bar never shifts the regions below it */
+.wb > .titlebar {
+  grid-row: 1;
+}
+.wb > .toolbar {
+  grid-row: 2;
+  height: var(--h-toolbar);
+}
+.wb > .wb-main {
+  grid-row: 3;
+}
+.wb > .statusbar {
+  grid-row: 4;
 }
 .wb-main {
   display: flex;
