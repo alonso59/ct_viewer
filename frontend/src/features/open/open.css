@@ -20,10 +20,10 @@
   align-items: center;
   gap: var(--sp-2);
 }
-/* Close is non-destructive (releases the session, deletes nothing): a red border marks it as
-   the exit action without borrowing --btn-danger's destructive color. */
+/* Close is non-destructive (releases the session, deletes nothing): a plain secondary button,
+   last in the row; red is kept for destructive actions. */
 .open-close-btn {
-  border-color: var(--error);
+  margin-left: var(--sp-2);
 }
 
 .open-inner {

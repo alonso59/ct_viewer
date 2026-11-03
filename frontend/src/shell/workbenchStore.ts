@@ -16,7 +16,16 @@ export interface Toast {
   message: string
   tone?: 'info' | 'ok' | 'warn' | 'error'
   action?: { label: string; run: () => void }
+  /** Same key → one toast with a count; default: tone + message */
+  key?: string
+  /** Stays until dismissed; default for errors and warnings */
+  sticky?: boolean
+  /** How many times this toast was raised */
+  count?: number
 }
+
+/** At most this many toasts; transient ones make room first */
+const MAX_TOASTS = 4
 
 interface WorkbenchState {
   pid: string | null
@@ -29,7 +38,7 @@ interface WorkbenchState {
   setDock: (dock: DockviewApi | null) => void
   setActive: (p: EditorParams | null) => void
   openPalette: (mode: 'commands' | 'quickopen' | null) => void
-  toast: (t: Omit<Toast, 'id'>) => void
+  toast: (t: Omit<Toast, 'id' | 'count'>) => void
   dismissToast: (id: number) => void
 }
 
@@ -45,11 +54,20 @@ export const useWorkbench = create<WorkbenchState>()((set) => ({
   setDock: (dock) => set({ dock }),
   setActive: (active) => set({ active }),
   openPalette: (palette) => set({ palette }),
-  toast: (t) => {
-    const id = ++toastId
-    set((s) => ({ toasts: [...s.toasts.slice(-3), { ...t, id }] }))
-    setTimeout(() => useWorkbench.getState().dismissToast(id), 6000)
-  },
+  // Timing (auto-dismiss, pause on hover or focus) lives in the Toasts component
+  toast: (t) =>
+    set((s) => {
+      const key = t.key ?? `${t.tone ?? 'info'}:${t.message}`
+      const sticky = t.sticky ?? (t.tone === 'error' || t.tone === 'warn')
+      const same = s.toasts.find((x) => x.key === key)
+      if (same) return { toasts: s.toasts.map((x) => (x === same ? { ...x, ...t, key, sticky, count: (x.count ?? 1) + 1 } : x)) }
+      const toasts = [...s.toasts, { ...t, key, sticky, count: 1, id: ++toastId }]
+      while (toasts.length > MAX_TOASTS) {
+        const transient = toasts.findIndex((x) => !x.sticky)
+        toasts.splice(transient >= 0 ? transient : 0, 1)
+      }
+      return { toasts }
+    }),
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
 
@@ -154,6 +172,6 @@ export function updateActiveParams(panelId: string, patch: Record<string, unknow
 
 export const refreshUrl = () => useWorkbench.setState((s) => ({ urlToken: s.urlToken + 1 }))
 
-export const toast = (t: Omit<Toast, 'id'>) => useWorkbench.getState().toast(t)
+export const toast = (t: Omit<Toast, 'id' | 'count'>) => useWorkbench.getState().toast(t)
 /** An error toast with the problem's cause and next steps */
 export const toastProblem = (e: unknown, fallback?: string) => toast({ message: problemToastText(e, fallback), tone: 'error' })

@@ -10,6 +10,9 @@ const backend = resolve(here, '../../backend')
 export const fixtures = resolve(here, '../../.fixtures/synthetic')
 export const API_PORT = Number(process.env.E2E_API_PORT ?? 8011)
 export const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5174)
+// A test run never shares a port with a dev lane or the product (5173 / 8000 / 8010)
+if ([8000, 8010, 5173].includes(API_PORT) || [8000, 8010, 5173].includes(WEB_PORT))
+  throw new Error(`E2E ports ${API_PORT}/${WEB_PORT} collide with a dev lane; choose others`)
 /** `E2E_REUSE=1`: use servers that already run on the ports (`make e2e-servers`), fixed folders */
 export const REUSE = !!process.env.E2E_REUSE
 /** `E2E_BUILD=1`: serve the production build (`vite preview`) instead of the dev server */
@@ -65,7 +68,8 @@ export function serverCommands(d = e2eDirs()) {
     },
     {
       name: 'web',
-      command: `VITE_PORT=${WEB_PORT} VITE_API_PROXY=http://127.0.0.1:${API_PORT} ${web}`,
+      // exported, so `vite preview` after `vite build` (E2E_BUILD) proxies to the E2E API too
+      command: `export VITE_PORT=${WEB_PORT} VITE_API_PROXY=http://127.0.0.1:${API_PORT} && ${web}`,
       url: `http://127.0.0.1:${WEB_PORT}`,
     },
   ]

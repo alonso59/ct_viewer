@@ -61,7 +61,7 @@ export function WelcomeEditor() {
           <div className="card">
             <span className="kpi num">{t('welcome.pct', { v: cases.length ? Math.round((reviewed / cases.length) * 100) : 0 })}</span>
             <span className="muted">{t('welcome.reviewed', { done: reviewed, total: cases.length })}</span>
-            <Progress value={reviewed} total={cases.length} />
+            <Progress value={reviewed} total={cases.length} label={t('progress.reviewed')} />
           </div>
           <button type="button" className="card" onClick={() => useLayout.getState().showPanelTab('problems')}>
             <span className="kpi num" style={{ color: 'var(--warn)' }}>{warnings.length}</span>

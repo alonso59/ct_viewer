@@ -40,3 +40,12 @@ test('a title the app wrote itself is kept', () => {
   render(<ProblemCard error={new ProblemError(404, 'not-found', 'No Open session', 'Open a file or folder.')} />)
   expect(screen.getByRole('alert').querySelector('strong')).toHaveTextContent('No Open session')
 })
+
+test('an unreachable server reads in plain words and offers Try again (UI-18)', () => {
+  const retry = vi.fn()
+  render(<ProblemCard error={new TypeError('Failed to fetch')} onRetry={retry} />)
+  expect(screen.getByRole('alert')).toHaveTextContent('Cannot reach the server')
+  expect(screen.getByRole('alert')).not.toHaveTextContent('Failed to fetch')
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(retry).toHaveBeenCalledTimes(1)
+})

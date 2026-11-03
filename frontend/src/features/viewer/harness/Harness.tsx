@@ -75,10 +75,11 @@ export function Harness() {
 
   // Bench hook (harness/bench.mjs)
   useEffect(
-    () =>
-      useViewerLocal.subscribe((s) => {
+    () => {
+      return useViewerLocal.subscribe((s) => {
         ;(window as unknown as { __viewer?: unknown }).__viewer = s.active
-      }),
+      })
+    },
     [],
   )
 

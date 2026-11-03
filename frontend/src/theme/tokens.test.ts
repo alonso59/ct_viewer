@@ -57,3 +57,18 @@ test('a pressed toggle uses --bg-pressed in both themes', () => {
   expect(pressed).toContain('background: var(--bg-pressed)')
   expect(pressed).not.toMatch(/--focus|--accent|box-shadow/)
 })
+
+// UI-11: the destructive confirm is a filled red that keeps white text at >= 4.5:1 in both themes
+test('the danger button keeps its text readable in both themes', () => {
+  const lum = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+  }
+  const ratio = (a: string, b: string) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+    return (hi! + 0.05) / (lo! + 0.05)
+  }
+  const fills = [...tokens.matchAll(/--btn-danger(?:-hover)?: (#[0-9A-F]{6})/g)].map((m) => m[1]!)
+  expect(fills).toHaveLength(4)
+  for (const fill of fills) expect(ratio(fill, '#FFFFFF')).toBeGreaterThanOrEqual(4.5)
+})

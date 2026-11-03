@@ -27,12 +27,12 @@ import {
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
+import { Button, ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
-import { ConversionTime, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
+import { ConversionTime, CONV_STATUS, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
 import { showOperationOutput } from './output'
 import { PhasePanel } from './PhasePanel'
 import './converter.css'
@@ -150,14 +150,15 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
         ))}
       </ol>
       {at < 0 ? <p>{countLabel(t, count)}</p> : null}
-      {count.total > 0 ? <Progress value={count.done} total={count.total} /> : <IndeterminateProgress />}
+      {/* a stage that counted to its end but is still the current one is finishing: no full bar yet */}
+      {count.total > 0 && count.done < count.total ? <Progress value={count.done} total={count.total} label={countLabel(t, count)} /> : <IndeterminateProgress label={countLabel(t, count)} />}
       {children}
       <div className="conv-row">
         <span className="muted conv-help">{elapsed == null ? t(opening || discovering ? 'open.keepsRunning' : 'conv.keepsRunning') : t(opening || discovering ? 'open.elapsed' : 'conv.elapsed', { time: fmtDuration(elapsed) })}</span>
         <span style={{ flex: 1 }} />
         {onOutput ? <button type="button" className="btn btn-sm" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
-        <button type="button" className="btn btn-sm" onClick={onCancel}>{t('conv.cancelScan')}</button>
+        <ConfirmInline question={t('conv.cancelScanConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('conv.cancelScan')}</button>} />
       </div>
     </div>
   )
@@ -169,11 +170,11 @@ function RunPanel({ activity, resumable, onResult, onCancel, onOutput, children 
   const stopped = activity.finished && activity.tone === 'error' && resumable
   return (
     <div className="conv-body" role="status" aria-live="polite">
-      {stopped ? null : activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : activity.finished ? null : <IndeterminateProgress />}
+      {stopped ? null : activity.total > 0 ? <Progress value={activity.done} total={activity.total} label={activity.label} /> : activity.finished ? null : <IndeterminateProgress label={activity.label} />}
       <p className="muted num">{activity.label}</p>
       {stopped ? <p className="muted conv-help">{t('conv.stopped')}</p> : children}
       <div className="conv-row conv-actions">
-        {!activity.finished ? <button type="button" className="btn" onClick={onCancel}>{t('conv.cancelRun')}</button>
+        {!activity.finished ? <ConfirmInline question={t('conv.cancelRunConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn" onClick={ask}>{t('conv.cancelRun')}</button>} />
           : stopped ? null : <button type="button" className="btn btn-primary" onClick={onResult}>{t('conv.showResult')}</button>}
         {onOutput ? <button type="button" className="btn" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
       </div>
@@ -194,10 +195,10 @@ function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activit
       <div className="conv-chip-text">
         <strong>{title}</strong>
         <span className="muted">{activity?.label ?? t('conv.idle')}</span>
-        {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} /> : <IndeterminateProgress /> : null}
+        {running ? activity.total > 0 ? <Progress value={activity.done} total={activity.total} label={activity.label} /> : <IndeterminateProgress label={activity.label} /> : null}
       </div>
       <button type="button" className="btn btn-sm" onClick={onShow}>{t('conv.show')}</button>
-      {running && onCancel ? <button type="button" className="btn btn-sm" onClick={onCancel}>{t('common.cancel')}</button> : null}
+      {running && onCancel ? <ConfirmInline question={t('confirm.cancelJob')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('common.cancel')}</button>} /> : null}
       {running ? null : (
         <button type="button" className="icon-btn" aria-label={t('conv.close')} onClick={onClose}>
           <Icon spec={codicon('close')} />
@@ -253,7 +254,8 @@ export default function ConverterOverlay() {
   const setSettings = (s: Partial<Draft['settings']>) => patch({ requestKey: null, settings: { ...settings, ...s } })
   const scanProgress = useEstimateProgress(scan?.id ?? null).data
   // An operation can run many attempts over days and carries no attempt start, so only a scan started here is timed.
-  const elapsed = useElapsed(operation ? null : scan?.started ?? null)
+  // server operations count from their creation; a local scan from its start
+  const elapsed = useElapsed(operation ? (isTaskRunPending(operation.status) ? Date.parse(operation.created_at) : null) : scan?.started ?? null)
   const inventoryCounts = operation?.summary?.complete && (!isTaskRunPending(operation.status) || linked) ? operation.summary : operation?.progress
   const shownError = error ?? (operation?.problem ? toProblemError(Number(operation.problem.status ?? 500), operation.problem, operation.error ?? t('problemTitle.unknown')) : operation?.error && operation.status !== 'waiting_for_resources' ? new Error(operation.error) : null)
   useEffect(() => {
@@ -343,7 +345,7 @@ export default function ConverterOverlay() {
     activity = { label: t('conv.connecting'), done: 0, total: 0, finished: false }
   } else if (operation && scanCount && !linked && operation.stage !== 'ready') {
     const finished = !isTaskRunPending(operation.status)
-    activity = { label: finished ? t(`conv.status.${operation.status}`, { defaultValue: operation.status }) : countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
+    activity = { label: finished ? t(CONV_STATUS[operation.status]) : countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished, tone: finished && operation.status !== 'completed' ? 'error' : undefined }
   } else if (scan && scanCount) {
     activity = { label: countLabel(t, scanCount), done: scanCount.done, total: scanCount.total, finished: false }
   } else if (run) {
@@ -351,9 +353,9 @@ export default function ConverterOverlay() {
     if (runFinished) {
       const tone = runStatus === 'completed' ? 'ok' : runStatus === 'completed_with_errors' ? 'warn' : 'error'
       const p = runProgress
-      activity = { label: t(`conv.status.${runStatus}`, { defaultValue: runStatus }), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), finished: true, tone }
+      activity = { label: t(CONV_STATUS[runStatus]), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), finished: true, tone }
     } else if (runStatus === 'waiting_for_resources' || runStatus === 'cancelling' || runStatus === 'cleanup_pending' || runStatus === 'reconciling') {
-      activity = { label: t(`conv.status.${runStatus}`), done: count.done, total: count.total, finished: false }
+      activity = { label: t(CONV_STATUS[runStatus]), done: count.done, total: count.total, finished: false }
     } else {
       activity = { label: countLabel(t, count), done: count.done, total: count.total, finished: false }
     }
@@ -366,7 +368,7 @@ export default function ConverterOverlay() {
     finished: plan.status !== 'running', tone: plan.status === 'completed' ? 'ok' : plan.status === 'paused' ? 'warn' : undefined,
   } : null
   const chipActivity: Activity | null = planActivity ?? (phase && runFinished ? {
-    label: t('conv.phaseStatus', { status: t(`conv.status.${phase.status}`, { defaultValue: phase.status }) }),
+    label: t('conv.phaseStatus', { status: t(CONV_STATUS[phase.status]) }),
     done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
     finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
   } : activity)
@@ -548,7 +550,7 @@ export default function ConverterOverlay() {
                 {operationId && !operations.some((value) => value.operation_id === operationId) ? <option value={operationId}>{t('conv.currentOperation')}</option> : null}
                 {operations.map((value) => {
                   const preparing = preparingKey(value)
-                  const status = preparing ? t(`conv.batches.status.${preparing}`) : t(`conv.status.${value.status}`, { defaultValue: value.status })
+                  const status = preparing ? t(`conv.batches.status.${preparing}`) : t(CONV_STATUS[value.status])
                   const name = value.dataset_name ?? value.source.split('/').at(-1)
                   return <option key={value.operation_id} value={value.operation_id}>{t('conv.operationOption', { name, status, date: fmtDate(value.created_at) })}</option>
                 })}
@@ -714,8 +716,8 @@ export default function ConverterOverlay() {
             {recoveryCounts ? <p className="muted num">{t('conv.recoveryCounts', { complete: 'ok' in recoveryCounts ? recoveryCounts.ok : (recoveryCounts.converted ?? 0) + (recoveryCounts.already_converted ?? 0), failed: recoveryCounts.failed ?? 0, pending: recoveryCounts.pending ?? 0 })}</p> : null}
             {recoveryOutput ? <code>{recoveryOutput}</code> : null}
             <div className="conv-row conv-actions">
-            {operation.status !== 'completed_with_errors' || (recoveryCounts?.pending ?? 0) > 0 ? <button type="button" className="btn btn-primary" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</button> : null}
-            {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <button type="button" className="btn" disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</button> : null}
+            {operation.status !== 'completed_with_errors' || (recoveryCounts?.pending ?? 0) > 0 ? <Button className="btn btn-primary" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</Button> : null}
+            {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <Button className="btn" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</Button> : null}
             </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}

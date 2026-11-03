@@ -134,8 +134,26 @@ test('G4: radiomics run, failures in plain words, outliers, viewer, group compar
     await page.getByRole('button', { name: 'Show the top 10' }).click()
   }
 
-  // One click opens the item in the viewer (DB-03)
-  await table.locator('tbody tr').first().click()
+  // The rows work from the keyboard (DB-03): the table is one Tab stop, arrows move between
+  // rows, Shift+F10 shows the item menu and Enter opens the item in the viewer
+  const first = table.locator('tbody tr').first()
+  await first.focus()
+  await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Tab')
+  await expect(first).toBeFocused()
+  if (n > 1) {
+    await page.keyboard.press('ArrowDown')
+    await expect(table.locator('tbody tr').nth(1)).toBeFocused()
+    await page.keyboard.press('ArrowUp')
+    await expect(first).toBeFocused()
+  }
+  await page.keyboard.press('Shift+F10')
+  const itemMenu = page.getByRole('menu')
+  await expect(itemMenu.getByRole('menuitem', { name: 'Open in viewer' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(itemMenu).toBeHidden()
+  await first.focus()
+  await page.keyboard.press('Enter')
   await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/case_00062`))
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
 

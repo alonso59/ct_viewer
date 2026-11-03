@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView, useProject } from '../../../api'
-import { ItemName, NumberInput, StatusBadge, featureUnit, fmtColumn, fmtInt } from '../../../lib'
+import { ItemName, NumberInput, StatusBadge, featureUnit, fmtColumn, fmtInt, useRowKeys } from '../../../lib'
 import { useDashboardStore, useRunDashboard } from '../store'
 import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
 
@@ -38,6 +38,8 @@ export function OutliersView({ runId }: ViewProps) {
   const d = q.data
   // the server lists flagged items only, ranked
   const rows = d?.items ?? []
+  const rowId = (o: (typeof rows)[number]) => `${o.item_id}|${o.label}`
+  const rowKeys = useRowKeys(rows.map(rowId))
   const zFmt = fmtColumn(rows.map((o) => o.max_abs_z))
   const vFmt = fmtColumn(rows.map((o) => o.top_features[0]?.value))
   return (
@@ -94,7 +96,7 @@ export function OutliersView({ runId }: ViewProps) {
                 const top = o.top_features[0]
                 const unit = top ? featureUnit(top.feature, modality) : ''
                 return (
-                  <tr key={`${o.item_id}|${o.label}`} {...rowProps(o, selected, { label: t('dashboard.view.outliers'), rows })} title={t('dashboard.openInViewer')}>
+                  <tr key={rowId(o)} {...rowProps(o, selected, { label: t('dashboard.view.outliers'), rows })} {...rowKeys(rowId(o))} title={t('dashboard.openInViewer')}>
                     <td className="truncate"><ItemName id={o.item_id} pid={pid} /></td>
                     <td>{labelName(o.label)}</td>
                     <td className="num">{fmtInt(o.n_outlier_features)}</td>

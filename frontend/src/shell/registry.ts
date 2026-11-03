@@ -86,6 +86,8 @@ export interface Command {
   /** Order inside its category's menu section */
   menuGroup?: number
   enabled?: () => boolean
+  /** Why it is disabled now (an i18n key); the palette then lists it dimmed with the reason instead of hiding it */
+  disabledReason?: () => string | undefined
   /** `arg`: from a caller that names what to act on (e.g. the converter's source folder) */
   run: (arg?: string) => void
   /** Changes data: hidden and disabled on a view-only link */

@@ -89,7 +89,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const hasMask = !!maskUrl && !!item.mask
   const viewports = visibleViewports(v.layout, v.maximized)
   const [handleId, setHandleId] = useState(0)
-  const loadKey = `${handleId}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
+  // Try again after a failed load starts a new load of the same item
+  const [attempt, setAttempt] = useState(0)
+  const loadKey = `${handleId}|${attempt}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
   const load = loadState.error?.code === 'viewer-init' || loadState.key === loadKey ? loadState : LOADING(loadKey)
 
   // Engine lifecycle: one per tab while it holds volumes
@@ -202,16 +204,28 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   }, [handle])
 
   // Store → engine
-  useEffect(() => handle?.setWindow(v.ww, v.wl), [handle, v.ww, v.wl])
-  useEffect(() => handle?.setDisplay(v.display), [handle, v.display])
+  useEffect(() => {
+    handle?.setWindow(v.ww, v.wl)
+  }, [handle, v.ww, v.wl])
+  useEffect(() => {
+    handle?.setDisplay(v.display)
+  }, [handle, v.display])
   const styles = useMemo<LabelStyle[]>(
     () => labels.map((l) => ({ value: l.value, color: l.color, visible: v.labelVisibility[l.value] ?? l.visible, opacity: Math.min(1, (v.labelOpacity[l.value] ?? l.opacity) * 2), outline: v.outline })),
     [labels, v.labelVisibility, v.labelOpacity, v.outline],
   )
-  useEffect(() => handle?.setLabels(styles), [handle, styles])
-  useEffect(() => handle?.setOverlay({ visible: v.overlay, opacity: v.overlayOpacity }), [handle, v.overlay, v.overlayOpacity])
-  useEffect(() => handle?.setLinkedZoom(local.linkZoom), [handle, local.linkZoom])
-  useEffect(() => handle?.setRender({ volume: !hasMask || local.volume3d, mask: hasMask && local.mask3d, surfaces: local.surfaces && !!meshUrl, opacity: local.ctOpacity, blend: local.blend, scene: local.scene3d }), [handle, hasMask, meshUrl, local.volume3d, local.mask3d, local.surfaces, local.ctOpacity, local.blend, local.scene3d])
+  useEffect(() => {
+    handle?.setLabels(styles)
+  }, [handle, styles])
+  useEffect(() => {
+    handle?.setOverlay({ visible: v.overlay, opacity: v.overlayOpacity })
+  }, [handle, v.overlay, v.overlayOpacity])
+  useEffect(() => {
+    handle?.setLinkedZoom(local.linkZoom)
+  }, [handle, local.linkZoom])
+  useEffect(() => {
+    handle?.setRender({ volume: !hasMask || local.volume3d, mask: hasMask && local.mask3d, surfaces: local.surfaces && !!meshUrl, opacity: local.ctOpacity, blend: local.blend, scene: local.scene3d })
+  }, [handle, hasMask, meshUrl, local.volume3d, local.mask3d, local.surfaces, local.ctOpacity, local.blend, local.scene3d])
   const resetToken = useRef(v.resetToken)
   useEffect(() => {
     if (resetToken.current === v.resetToken) return
@@ -285,7 +299,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     ro.observe(el)
     return () => ro.disconnect()
   }, [measure, v.layout, v.maximized])
-  useEffect(() => handle?.setLayout(v.layout), [handle, v.layout])
+  useEffect(() => {
+    handle?.setLayout(v.layout)
+  }, [handle, v.layout])
 
   // Space+drag pans
   useEffect(() => {
@@ -389,7 +405,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
       <div ref={canvasHost} className="vp-engine-host" />
       {load.phase === 'loading' ? (
         <div className="case-loading" title={pct !== null ? t('vw.loading', { pct }) : t('vw.decoding')}>
-          <Progress value={load.progress?.loaded ?? 0} total={load.progress?.total ?? 0} />
+          <Progress value={load.progress?.loaded ?? 0} total={load.progress?.total ?? 0} label={t('progress.volume')} />
         </div>
       ) : null}
       <div ref={grid} className={`vp-grid vp-grid-${v.maximized ? 'one' : v.layout}`} onContextMenu={(e) => e.preventDefault()}>
@@ -444,7 +460,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
               {load.error.status ? <span className="badge mono">{t('vw.errorCode', { status: load.error.status, code: load.error.code ?? '—' })}</span> : null}
             </div>
             <div className="muted">{load.error.code === 'viewer-init' ? t('vw.engineError') : load.error.message}</div>
-            {load.error.code === 'viewer-init' ? <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button> : null}
+            {load.error.code === 'viewer-init'
+              ? <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button>
+              : <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>{t('problemAction.retry')}</button>}
           </div>
         </div>
       ) : null}

@@ -109,7 +109,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   const chip = page.getByTestId('conv-chip')
   await expect(chip).toBeVisible()
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('rw.converter') ?? '{}') as { state: Record<string, unknown> })
-  expect(stored.state).toEqual({ operationId: operation.operation_id, minimized: true })
+  expect(stored.state).toEqual({ operationId: operation.operation_id, batchPlanId: null, minimized: true })
   await chip.getByRole('button', { name: 'Show', exact: true }).click()
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible()

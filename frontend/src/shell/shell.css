@@ -466,6 +466,12 @@ button.statusbar-item:hover {
 .palette-kbd {
   margin-left: auto;
 }
+.palette-reason {
+  font-size: var(--fs-panel);
+}
+.palette [cmdk-item][data-disabled='true'] {
+  opacity: 0.6;
+}
 
 /* Toasts */
 .toasts {
@@ -476,6 +482,11 @@ button.statusbar-item:hover {
   flex-direction: column;
   gap: var(--sp-2);
   z-index: 1100;
+}
+.toasts > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
 }
 .toast {
   display: flex;

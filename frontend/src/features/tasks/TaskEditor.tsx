@@ -2,9 +2,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, useArchivedTaskRuns, useJobs, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
-import { Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
-import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
+import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
+import { Button, ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { openEditor, registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
@@ -40,6 +40,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const sharedPhase = run.execution?.phase_step === true && run.execution.shared_conversion_job === true
   const live = !sharedPhase && ACTIVE_RUN.includes(run.status) && job && job.status !== 'succeeded'
   const actions = runActions(run, registry.readOnly)
+  const stale = useStaleLive()
   const fenced = run.execution?.phase_step === true || run.task.id === 'dicom.convert'
   const control = async (action: RunAction) => {
     try {
@@ -53,7 +54,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       else if (fenced) await api.resumeTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
       else await api.resumeTaskRun(pid, run.run_id)
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : String(e), tone: 'error' })
+      toastProblem(e)
     }
     void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
   }
@@ -65,9 +66,11 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         <span className="task-run-name" title={run.run_id}>{run.name}</span>
         <span className="muted ml-auto">{fmtAgo(run.created_at)}</span>
       </div>
-      {live ? <Progress value={job.done} total={job.total || 1} /> : null}
+      {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} stale={stale} /> : null}
       {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
-      {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingHelp')}</p> : null}
+      {run.status === 'waiting_for_runner' ? <p className="muted" title={t('tasks.waitingHelp')}>{t('tasks.waitingUser')}</p> : null}
+      {run.status === 'queued' ? <p className="muted">{t('tasks.queuedHelp')}</p> : null}
+      {run.status === 'waiting_for_resources' ? <p className="muted">{t('tasks.resourcesHelp')}</p> : null}
       {STOPPING_RUN.includes(run.status) ? (
         <p className={run.status === 'cleanup_pending' ? 'field-error' : 'muted'} role="status">
           {t(run.execution?.phase_step && run.status === 'cleanup_pending' ? 'conv.phaseCleanup' : run.status === 'cleanup_pending' ? 'tasks.cleanupPendingHelp' : 'tasks.stoppingHelp')}
@@ -76,11 +79,16 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       <span className="muted num">{run.task.id === 'dicom.convert' ? t('conv.recoveryCounts', { complete: c?.ok ?? 0, failed: c?.failed ?? 0, pending: c?.pending ?? 0 }) : t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <p className="field-error" role="alert">{run.error}</p> : null}
       <div className="task-run-actions">
-        {actions.map((a) => (
-          <button key={a} type="button" className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} onClick={() => void control(a)}>
-            {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
-          </button>
-        ))}
+        {actions.map((a) => {
+          const button = (onClick: () => void) => (
+            <Button key={a} className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} reason={t('reason.cleanup')} onClick={onClick}>
+              {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
+            </Button>
+          )
+          return a === 'cancel'
+            ? <ConfirmInline key={a} question={t('confirm.cancelRun')} confirm={t('common.yesCancel')} onConfirm={() => void control(a)} trigger={button} />
+            : button(() => void control(a))
+        })}
       </div>
       <Outputs pid={pid} run={run} />
     </li>
@@ -258,7 +266,15 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
       <h1>{m.title}</h1>
       <p className="muted">{m.description}</p>
       {!info.available ? <div className="error-card">{info.unavailable_reason}</div> : null}
-      {m.runtime.type === 'external' && info.runner_online === false ? <div className="error-card">{t('tasks.noRunner', { hint: m.runtime.env_hint ?? '' })}</div> : null}
+      {m.runtime.type === 'external' && info.runner_online === false ? (
+        <div className="card" role="note">
+          <p>{t('tasks.noRunnerUser')}</p>
+          <details>
+            <summary>{t('tasks.adminDetails')}</summary>
+            <p className="muted">{t('tasks.noRunner', { hint: m.runtime.env_hint ?? '' })}</p>
+          </details>
+        </div>
+      ) : null}
 
       <Section title={t('tasks.selection')}>
         {m.input === 'source' ? (
@@ -317,10 +333,15 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
         ) : null}
         <div className="task-run-actions">
           <button type="button" className="btn" disabled={selecting} onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
-          <button type="button" className="btn btn-primary" disabled={busy || selecting || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)} onClick={() => (heavy ? setConfirming(true) : void run())}>
+          <Button
+            className="btn btn-primary"
+            disabled={busy || selecting || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)}
+            reason={!info.available ? (info.unavailable_reason ?? t('reason.taskUnavailable')) : t(Object.keys(errors).length > 0 ? 'reason.fixSettings' : !pre ? 'reason.checking' : pre.n_ready === 0 ? 'reason.nothingReady' : 'reason.working')}
+            onClick={() => (heavy ? setConfirming(true) : void run())}
+          >
             <Icon spec={codicon('play')} />
             {t('tasks.run')}
-          </button>
+          </Button>
         </div>
         {pre && pre.n_selected === 0 ? <p className="muted">{t(mode === 'list' ? 'tasks.listEmpty' : 'tasks.nothingSelected')}</p> : null}
         {confirming ? (

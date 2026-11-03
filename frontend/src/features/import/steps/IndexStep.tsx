@@ -13,7 +13,7 @@ export function IndexStep({ job, failed }: { job: (Pick<Job, 'status' | 'done' |
         <div className="error-card" role="alert">{job.error ?? t(runStatusKey(job.status))}</div>
       ) : (
         <>
-          <Progress value={job?.done ?? 0} total={job?.total || 1} />
+          <Progress value={job?.done ?? 0} total={job?.total || 1} label={t('jobs.kind.index')} />
           <span className="muted num">{t('jobs.count', { done: job?.done ?? 0, total: job?.total ?? 0 })}</span>
         </>
       )}

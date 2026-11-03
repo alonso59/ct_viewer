@@ -97,7 +97,17 @@ textarea {
   color: var(--fg-muted);
 }
 .btn-danger {
-  color: var(--error);
+  background: var(--btn-danger);
+  border-color: transparent;
+  color: var(--fg-on-emphasis);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--btn-danger-hover);
+}
+.btn-danger:disabled {
+  background: var(--btn-secondary);
+  border-color: var(--border);
+  color: var(--fg-muted);
 }
 .btn-sm {
   height: var(--h-control-sm);
@@ -732,4 +742,27 @@ kbd.key {
 }
 .btn-brand {
   padding: 0 var(--sp-1);
+}
+
+/* An inline confirmation: question, danger confirm, keep */
+.confirm-inline > [role='group'] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* Read by assistive technology, not drawn */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Possibly behind: the event stream is down and the view polls */
+.progress[data-stale] > span {
+  opacity: 0.45;
 }

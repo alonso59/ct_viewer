@@ -46,5 +46,6 @@ test('filter files, keep selection across filters and submit only the checked it
   expect((await request).postDataJSON().selection.item_ids).toEqual(['case_00001.01.complete.-', 'case_00002.01.complete.-'])
   const row = page.locator('.task-run').first()
   await row.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await row.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   await expect(row.getByText('Cancelled', { exact: true })).toBeVisible({ timeout: 15_000 })
 })

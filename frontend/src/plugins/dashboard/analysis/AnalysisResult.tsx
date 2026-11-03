@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, type Analysis, type AnalysisExportFile, type LabelDef, type Recommendation, type ResultRow } from '../../../api'
-import { fmtInt } from '../../../lib'
+import { fmtInt, useRowKeys } from '../../../lib'
 import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon } from '../../../theme'
 import { useDashboardStore } from '../store'
@@ -85,6 +85,8 @@ function Recommendations({ recs, runId }: { recs: Recommendation[]; runId: strin
 
 function ResultsTable({ rows, selected, onSelect }: { rows: ResultRow[]; selected: string | null; onSelect: (r: ResultRow) => void }) {
   const { t } = useTranslation()
+  const rowId = (r: ResultRow) => r.feature ?? r.test ?? ''
+  const rowKeys = useRowKeys(rows.map(rowId))
   return (
     <div className="an-scroll">
       <table className="table an-table">
@@ -101,7 +103,7 @@ function ResultsTable({ rows, selected, onSelect }: { rows: ResultRow[]; selecte
           {rows.map((r) => {
             const sig = r.q != null && r.q < Q_SIGNIFICANT
             return (
-              <tr key={r.feature ?? r.test ?? ''} data-clickable="true" aria-selected={r.feature === selected} onClick={() => onSelect(r)} title={r.reason}>
+              <tr key={rowId(r)} data-clickable="true" aria-selected={r.feature === selected} onClick={() => onSelect(r)} {...rowKeys(rowId(r))} title={r.reason}>
                 <td className="mono an-feature">{r.feature}</td>
                 <td className="num">{fmtInt(r.n)}</td>
                 <td className="num" title={r.effect_name ? t(`analysis.effect.${r.effect_name}`) : undefined}>{fmtStat(r.effect)}</td>

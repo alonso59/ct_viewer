@@ -33,7 +33,9 @@ function ServedThumb({ url, onEmpty }: { url: string; onEmpty: (empty: boolean) 
   const epoch = useConnection((s) => s.thumbEpoch)
   const [failed, setFailed] = useState<number | null>(null)
   const isEmpty = failed === epoch
-  useEffect(() => onEmpty(isEmpty), [isEmpty, onEmpty])
+  useEffect(() => {
+    onEmpty(isEmpty)
+  }, [isEmpty, onEmpty])
   if (isEmpty) return <Placeholder />
   return (
     <img
@@ -77,7 +79,9 @@ function MockThumb({ itemId, labels, onEmpty }: { itemId: string; labels?: Label
       live = false
     }
   }, [itemId, labels])
-  useEffect(() => onEmpty(missing), [missing, onEmpty])
+  useEffect(() => {
+    onEmpty(missing)
+  }, [missing, onEmpty])
   if (missing) return <Placeholder />
   return <canvas ref={ref} width={64} height={64} />
 }

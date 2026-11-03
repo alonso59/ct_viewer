@@ -13,7 +13,9 @@
     "none": "None",
     "open": "Open",
     "save": "Save",
-    "saveFailed": "Could not save. Try again."
+    "saveFailed": "Could not save. Try again.",
+    "keepRunning": "Keep running",
+    "yesCancel": "Yes, cancel"
   },
   "menu": {
     "file": "File",
@@ -104,7 +106,8 @@
       "sidebar": "Side bar",
       "panel": "Panel",
       "inspector": "Inspector"
-    }
+    },
+    "toastCount": "×{{n}}"
   },
   "palette": {
     "cases": "Cases",
@@ -166,7 +169,16 @@
     "reviewerHelp": "Reviewer name stamped on your decisions. Click to change.",
     "wl": "W{{ww}} L{{wl}}",
     "connecting": "connecting",
-    "connectingHelp": "Connecting to the server event stream…"
+    "connectingHelp": "Connecting to the server event stream…",
+    "stale": "offline: updates paused",
+    "staleHelp": "The live connection dropped. Views refresh every few seconds; click to refresh now.",
+    "jobsRunning_one": "{{count}} running",
+    "jobsRunning_other": "{{count}} running",
+    "jobsQueued_one": "{{count}} queued",
+    "jobsQueued_other": "{{count}} queued",
+    "jobsWaiting_one": "{{count}} waiting for a runner",
+    "jobsWaiting_other": "{{count}} waiting for a runner",
+    "jobsHelp": "Background work of this project: open the Jobs panel"
   },
   "statusShort": {
     "not_reviewed": "Not reviewed",
@@ -214,7 +226,7 @@
   "runStatus": {
     "queued": "Queued",
     "waiting_for_runner": "Waiting for runner",
-    "waiting_for_resources": "Waiting for GPUs",
+    "waiting_for_resources": "Waiting for resources",
     "running": "Running",
     "pausing": "Pausing",
     "paused": "Paused",
@@ -262,7 +274,6 @@
     "tip2": "Share a project by copying its link. Anyone on the same server sees the same state.",
     "tip3": "Press Ctrl/Cmd+Shift+P anywhere for all commands.",
     "tips": "Good to know",
-    "serverDown": "Cannot reach the server",
     "noProjects": "No projects yet. Create one to start.",
     "openPath": "Open file or folder…",
     "sourceOperations": "Show source operations…",
@@ -335,7 +346,9 @@
     "archived": "“{{name}}” archived",
     "restore": "Restore",
     "restored": "“{{name}}” restored",
-    "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted."
+    "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted.",
+    "switchNamed": "Project {{name}}: switch project",
+    "unavailable": "Project unavailable"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -581,7 +594,9 @@
     "removeHelp": "Remove {{name}} from this project? Source masks are kept, so you can restore or reimport the set later.",
     "removed": "Removed segmentation sets",
     "reimport": "Reimport",
-    "restore": "Restore"
+    "restore": "Restore",
+    "reindexConfirm": "Rebuild the index of every segmentation set in this project? It runs in the background; sets stay readable meanwhile.",
+    "segIdTaken": "A set with ID {{id}} exists: this import replaces its masks."
   },
   "labels": {
     "color": "{{name}} color",
@@ -609,7 +624,9 @@
       "side": "Side / laterality",
       "voi_mask": "VOI mask"
     },
-    "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}"
+    "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}",
+    "undo": "Undo",
+    "undone": "Decision undone: {{status}} again"
   },
   "queue": {
     "exportsWritten": "Wrote {{files}} to {{dir}}/",
@@ -657,10 +674,13 @@
       "hash": "Full hash",
       "thumbnail": "Thumbnails",
       "radiomics": "Radiomics",
-      "mesh": "Mesh"
+      "mesh": "Mesh",
+      "task": "Task run",
+      "open-convert": "Opening a source"
     },
     "taskFailedDetail": "{{name}}: {{error}}",
-    "showTask": "Show task"
+    "showTask": "Show task",
+    "stale": "The live connection is down: progress refreshes every few seconds and may lag."
   },
   "output": {
     "activity": "Activity",
@@ -863,7 +883,8 @@
     "csvWide": "CSV wide"
   },
   "problem": {
-    "next": "{{message}} Next: {{actions}}."
+    "next": "{{message}} Next: {{actions}}.",
+    "offlineDetail": "The app could not contact its server. Check that it is running, then try again."
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",
@@ -877,7 +898,9 @@
     "close_tab": "Close tab",
     "relink_root": "Relink data root…",
     "show_problems": "Show in Problems",
-    "use_pattern": "Use one case per folder"
+    "use_pattern": "Use one case per folder",
+    "retry": "Try again",
+    "reload": "Reload the app"
   },
   "open": {
     "command": "Open file or folder…"
@@ -950,7 +973,9 @@
     "unsupported-format": "This file cannot be used here",
     "unreadable": "This file cannot be read",
     "geometry-mismatch": "The segmentation does not match the image",
-    "source-missing": "A source file is missing"
+    "source-missing": "A source file is missing",
+    "render-failed": "This part of the window stopped working",
+    "offline": "Cannot reach the server"
   },
   "recycle": {
     "button": "Move scan to recycle bin",
@@ -968,5 +993,38 @@
     "storageHelp": "Project state and results are stored inside this dataset. The folder can be created if its parent exists.",
     "open": "Open dataset project…",
     "openHelp": "Choose a dataset folder to reopen its saved projects in this workspace."
+  },
+  "progress": {
+    "of": "{{done}} of {{total}}",
+    "reviewed": "Cases reviewed",
+    "filled": "Cells filled",
+    "run": "Run progress",
+    "volume": "Loading the volume"
+  },
+  "confirm": {
+    "cancelRun": "Cancel this run? Finished items are kept; the rest stop.",
+    "cancelJob": "Cancel this job? Work done so far is kept."
+  },
+  "reason": {
+    "working": "Still working…",
+    "checking": "Checking what is ready…",
+    "chooseFolder": "Choose a folder first",
+    "fixAlias": "Fix the alias above",
+    "uploadMetadata": "Upload the metadata file first",
+    "chooseSourceType": "Choose how to read this folder",
+    "notImportable": "This kind of source cannot be imported",
+    "noMetadata": "The preview found no metadata table to import",
+    "projectName": "Enter a project name",
+    "datasetFolder": "Choose a dataset folder",
+    "noFile": "Select a file first",
+    "fileError": "This file could not be read",
+    "npyAdd": "NumPy files are added as NIfTI: save as NIfTI first",
+    "axisOrder": "Choose the axis order first",
+    "fixSettings": "Fix the settings marked above",
+    "nothingReady": "No selected item is ready for this task",
+    "taskUnavailable": "This task is not available here",
+    "cleanup": "Waits until the stop is confirmed and cleaned up",
+    "conversionFirst": "Finish the conversion first",
+    "openCase": "Open a case first"
   }
 }

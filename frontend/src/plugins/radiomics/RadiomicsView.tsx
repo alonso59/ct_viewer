@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
-import { Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage } from '../../lib'
+import { ConfirmInline, Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage, useRowKeys } from '../../lib'
 import { openEditor, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -21,6 +21,8 @@ function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onC
     onClose()
     openInContext(t('rad.errorsList', { name: run.name }), rows.map((e) => ({ caseId: e.item_id.split('.')[0] ?? e.item_id, itemId: e.item_id })), rows.findIndex((e) => e.item_id === itemId), true)
   }
+  const rowId = (e: (typeof rows)[number]) => `${e.item_id}-${e.label}-${e.at}`
+  const rowKeys = useRowKeys(rows.map(rowId))
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={t('rad.errorsTitle', { name: run.name })} icon={codicon('warning')} size="lg">
       {errors.isLoading ? <div className="muted">{t('common.loading')}</div> : null}
@@ -38,7 +40,7 @@ function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onC
           </thead>
           <tbody>
             {rows.map((e) => (
-              <tr key={`${e.item_id}-${e.label}-${e.at}`} data-kind={e.kind} tabIndex={0} title={t('rad.openItem')} onClick={() => open(e.item_id)} onKeyDown={(k) => k.key === 'Enter' && open(e.item_id)}>
+              <tr key={rowId(e)} data-kind={e.kind} title={t('rad.openItem')} onClick={() => open(e.item_id)} {...rowKeys(rowId(e))}>
                 <td><ItemName id={e.item_id} pid={pid} /></td>
                 <td className="num">{e.label}</td>
                 <td>{t(`rad.errKindName.${e.kind}`)}</td>
@@ -82,14 +84,14 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
       <div className="list-row-meta">{t('rad.runBy', { reviewer: run.reviewer, ago: fmtAgo(run.created_at) })}</div>
       {p ? (
         <div className="rad-run-progress" data-testid={`progress-${run.run_id}`}>
-          <Progress value={p.done} total={p.total} />
+          <Progress value={p.done} total={p.total} label={t('jobs.kind.radiomics')} />
           <span className="muted num">
             {p.eta !== null && p.eta > 0 ? t('rad.progressEta', { done: p.done, total: p.total, time: fmtDuration(p.eta) }) : t('rad.progress', { done: p.done, total: p.total })}
           </span>
         </div>
       ) : null}
       <div className="list-row-actions">
-        {ACTIVE.includes(run.status) ? <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={() => void act('cancel')} /> : null}
+        {ACTIVE.includes(run.status) ? <ConfirmInline question={t('rad.cancelConfirm')} confirm={t('common.yesCancel')} onConfirm={() => void act('cancel')} trigger={(ask) => <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={ask} />} /> : null}
         {RESUMABLE.includes(run.status) ? <IconButton label={t('rad.resume')} icon={codicon('debug-continue')} disabled={control.isPending} onClick={() => void act('resume')} /> : null}
         {done ? (
           <button type="button" className="btn btn-sm" onClick={() => openEditor('run', { runId: run.run_id })}>

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import i18n from '../../i18n'
 import { useRun } from '../../api'
-import { RunStatusBadge } from '../../lib'
+import { RunStatusBadge, ProblemCard } from '../../lib'
 import { toast, type EditorProps } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { showItemsInExplorer } from '../../features/explorer'
@@ -165,7 +165,7 @@ export function DashboardEditor({ params }: EditorProps<RunParams>) {
   }, [api, focus, runId])
 
   if (run.isLoading) return <div className="empty">{t('common.loading')}</div>
-  if (!run.data) return <div className="error-card">{t('common.error')}</div>
+  if (!run.data) return <ProblemCard error={run.error} onRetry={() => void run.refetch()} />
   const r = run.data
   return (
     <div className="page db">

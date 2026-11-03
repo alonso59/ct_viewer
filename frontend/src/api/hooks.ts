@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 
 import { requireReviewer } from '../state'
 import { api } from './client'
-import { useConnection } from './connection'
+import { POLL_MS, useConnection } from './connection'
 import { keys } from './keys'
 import { isTaskRunPending } from './taskStatus'
 import type { CaseFilter, LogKind } from './surface'
@@ -100,9 +100,11 @@ export const useAnalysis = (pid: string, aid: string | null) =>
   useQuery({ queryKey: keys.analysis(pid, aid ?? ''), queryFn: () => api.getAnalysis(pid, aid ?? ''), enabled: enabled(pid, aid), staleTime: Infinity })
 export const useProfiles = (pid: string) =>
   useQuery({ queryKey: keys.profiles(pid), queryFn: () => api.listProfiles(pid), enabled: enabled(pid) })
-/** Without a project, all jobs */
-export const useJobs = (pid?: string | null) =>
-  useQuery({ queryKey: keys.jobs(pid ?? undefined), queryFn: () => api.listJobs(pid ?? undefined) })
+/** Without a project, all jobs. A project's jobs poll while its event stream is down */
+export function useJobs(pid?: string | null) {
+  const down = useConnection((s) => s.state !== 'live')
+  return useQuery({ queryKey: keys.jobs(pid ?? undefined), queryFn: () => api.listJobs(pid ?? undefined), refetchInterval: pid && down ? POLL_MS : false })
+}
 /** The engine schema does not change while the server runs */
 export const useRadiomicsSchema = () => useQuery({ queryKey: keys.schema(), queryFn: () => api.radiomicsSchema(), staleTime: Infinity, retry: 1 })
 /** `body = null` disables it. The previous answer stays while a new one loads. */
@@ -691,13 +693,15 @@ export function useRestoreSegmentation(pid: string) {
 }
 /** Polls while a supervised run waits for its verified cleanup: no job event announces it */
 const STOPPING_RUN: readonly string[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
-export const useTaskRuns = (pid: string) =>
-  useQuery({
+export function useTaskRuns(pid: string) {
+  const down = useConnection((s) => s.state !== 'live')
+  return useQuery({
     queryKey: keys.taskRuns(pid),
     queryFn: () => api.listTaskRuns(pid),
     enabled: enabled(pid),
-    refetchInterval: (q) => (q.state.data?.some((r) => STOPPING_RUN.includes(r.status)) ? 2000 : false),
+    refetchInterval: (q) => (q.state.data?.some((r) => STOPPING_RUN.includes(r.status)) ? 2000 : down ? POLL_MS : false),
   })
+}
 /** Archived supervised runs, fetched only when asked */
 export const useArchivedTaskRuns = (pid: string, on: boolean) =>
   useQuery({ queryKey: keys.archivedTaskRuns(pid), queryFn: () => api.listTaskRuns(pid, undefined, true), enabled: on && enabled(pid) })

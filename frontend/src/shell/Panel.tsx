@@ -30,7 +30,9 @@ export function PanelContentWatch() {
 
 function ContentProbe({ p }: { p: PanelTabContribution }) {
   const has = p.useHasContent?.() ?? false
-  useEffect(() => useLayout.getState().setPanelContent(p.id, has), [p.id, has])
+  useEffect(() => {
+    useLayout.getState().setPanelContent(p.id, has)
+  }, [p.id, has])
   return null
 }
 

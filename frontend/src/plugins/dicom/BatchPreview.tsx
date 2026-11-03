@@ -15,7 +15,7 @@ export function BatchPreview({ plan }: { plan: SourceBatchPlan }) {
   return (
     <div className="conv-body" data-testid="batch-preview">
       {plan.counting === 'counting' ? <>
-        <IndeterminateProgress />
+        <IndeterminateProgress label={t('conv.counting')} />
         <p className="muted conv-help">{t('conv.counting')}</p>
       </> : null}
       <div className="table-scroll">

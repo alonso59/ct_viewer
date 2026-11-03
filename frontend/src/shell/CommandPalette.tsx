@@ -5,7 +5,7 @@ import { useLocation } from 'react-router'
 
 import { bindingOf, commandTitle, formatChord } from './keybindings'
 import { paletteScore } from './paletteMatch'
-import { registry, routeScope } from './registry'
+import { registry, routeScope, type Command as CommandSpec } from './registry'
 import { useWorkbench } from './workbenchStore'
 
 /** Command palette (Ctrl/Cmd+Shift+P) and quick open (Ctrl/Cmd+P) on every route. A
@@ -33,7 +33,8 @@ export function CommandPalette() {
     openPalette(null)
   }, [page, openPalette])
   const scope = routeScope(pathname)
-  const cmds = commands ? [...registry.commands.values()].filter((c) => registry.available(c, scope) && (!c.enabled || c.enabled())) : []
+  const off = (c: CommandSpec) => !!c.enabled && !c.enabled()
+  const cmds = commands ? [...registry.commands.values()].filter((c) => registry.available(c, scope) && (!off(c) || !!c.disabledReason?.())) : []
   const byId = new Map(cmds.map((c) => [c.id, c]))
   return (
     <Command.Dialog
@@ -62,6 +63,7 @@ export function CommandPalette() {
               <Command.Item
                 key={c.id}
                 value={c.id}
+                disabled={off(c)}
                 onSelect={() => {
                   close()
                   c.run()
@@ -69,6 +71,7 @@ export function CommandPalette() {
               >
                 {c.category ? <span className="palette-detail">{t('palette.category', { category: t(c.category) })}</span> : null}
                 <span>{commandTitle(c, t)}</span>
+                {off(c) ? <span className="muted palette-reason">{t(c.disabledReason?.() ?? '')}</span> : null}
                 <span className="kbd palette-kbd">{formatChord(bindingOf(c))}</span>
               </Command.Item>
             ))

@@ -10,16 +10,17 @@ import { NewProjectDialog } from '../import'
 export function ProjectSwitcher({ pid }: { pid: string }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const projects = useProjects().data ?? []
+  const list = useProjects()
+  const projects = list.data ?? []
   const current = projects.find((p) => p.project_id === pid)
   const creating = useProjectDialogs((s) => s.creating)
   const setCreating = (creating: boolean) => useProjectDialogs.getState().set({ creating })
   return (
     <>
       <Menu.Root>
-        <Menu.Trigger className="titlebar-brand" aria-label={t('projects.switch')}>
+        <Menu.Trigger className="titlebar-brand" aria-label={current ? t('projects.switchNamed', { name: current.name }) : t('projects.switch')}>
           <BrandMark size={18} />
-          {current?.name ?? t('common.loading')}
+          {current?.name ?? t(list.isError ? 'projects.unavailable' : 'common.loading')}
           <Icon spec={codicon('chevron-down')} />
         </Menu.Trigger>
         <Menu.Portal>

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, isTaskRunPending, keys, ProblemError, useBatchPlan, useBatchPlanCommand, useBatchPlans, useSourceOperation, type SourceBatch, type SourceBatchPlan, type SourceOperation } from '../../api'
 import { NewProjectDialog } from '../../features/import'
-import { fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
+import { Button, ConfirmInline, fmtEtaRange, IndeterminateProgress, ProblemCard } from '../../lib'
 import { filesCell } from './BatchPreview'
 import { showOperationOutput } from './output'
 import { useConverter } from './store'
@@ -65,8 +65,8 @@ function BatchRow({ plan, batch, busy, onCreate, onError, onResumed, onOpenOpera
           {operation ? <button type="button" className="btn btn-sm" onClick={() => { useConverter.getState().minimize(); showOperationOutput(operation) }}>{t('conv.showOutput')}</button> : null}
           {batch.status === 'completed' && batch.dataset ? <button type="button" className="btn btn-sm" onClick={() => onCreate(batch)}>{t('conv.batches.createProject')}</button> : null}
           {batch.status === 'attention' && operation ? <>
-            <button type="button" className="btn btn-sm btn-primary" disabled={busy || control.isPending || !fixable} onClick={() => control.mutate({ op: operation, action: 'resume' })}>{t('conv.resumePending')}</button>
-            {failed > 0 ? <button type="button" className="btn btn-sm" disabled={busy || control.isPending || !fixable} onClick={() => control.mutate({ op: operation, action: 'retry_failed' })}>{t('conv.retryFailed')}</button> : null}
+            <Button className="btn btn-sm btn-primary" disabled={busy || control.isPending || !fixable} reason={t(fixable ? 'reason.working' : 'reason.cleanup')} onClick={() => control.mutate({ op: operation, action: 'resume' })}>{t('conv.resumePending')}</Button>
+            {failed > 0 ? <Button className="btn btn-sm" disabled={busy || control.isPending || !fixable} reason={t(fixable ? 'reason.working' : 'reason.cleanup')} onClick={() => control.mutate({ op: operation, action: 'retry_failed' })}>{t('conv.retryFailed')}</Button> : null}
           </> : null}
         </div>
       </td>
@@ -122,7 +122,6 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
   const [error, setError] = useState<unknown>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [creating, setCreating] = useState<SourceBatch | null>(null)
-  const [confirming, setConfirming] = useState(false)
   const run = async (cmd: Command) => {
     setError(null)
     setMessage(null)
@@ -142,13 +141,14 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
     <div className="conv-body" data-testid="batch-board">
       <div className="conv-row">
         <strong>{plan.name}</strong>
-        <span className="badge" data-status={plan.status}>{t(`conv.batches.plan.${plan.status}`)}</span>
+        {/* a plan that waits for the user's "Convert this batch" says so, not just "Running" */}
+        <span className="badge" data-status={plan.status}>{t(plan.status === 'running' && !plan.auto && current?.status === 'ready' ? 'conv.batches.plan.yourTurn' : `conv.batches.plan.${plan.status}`)}</span>
         <span className="muted conv-help num">{t('conv.batches.done', { done, total: plan.batches.length })}</span>
       </div>
       {live && plan.eta.basis === 'completed_batches' && plan.eta.low_s != null && plan.eta.high_s != null
         ? <p className="muted conv-help" data-testid="batch-overall-eta">{t('conv.batches.overallEta', { range: fmtEtaRange(plan.eta.low_s, plan.eta.high_s) })}</p> : null}
       {plan.counting === 'counting' ? <>
-        <IndeterminateProgress />
+        <IndeterminateProgress label={t('conv.counting')} />
         <p className="muted conv-help">{t('conv.counting')}</p>
       </> : null}
       {plan.warnings.length ? <ul className="conv-warnings" aria-label={t('conv.batches.warnings')}>
@@ -181,12 +181,8 @@ export function BatchBoard({ planId, onNew, onProjectClosed, onOpenOperation }: 
         {plan.status === 'paused' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run('continue')}>{t('conv.batches.continue')}</button> : null}
         {live ? <button type="button" className="btn" aria-pressed={plan.auto} disabled={busy} onClick={() => void run({ auto: !plan.auto })}>{t(plan.auto ? 'conv.batches.stopAuto' : 'conv.batches.auto')}</button> : null}
         {live ? <button type="button" className="btn" disabled={busy} onClick={() => void run('add-new-folders')}>{t('conv.batches.addFolders')}</button> : null}
-        {live && !confirming ? <button type="button" className="btn" disabled={busy} onClick={() => setConfirming(true)}>{t('conv.batches.cancel')}</button> : null}
-        {live && confirming ? <>
-          <span role="note">{t('conv.batches.cancelConfirm')}</span>
-          <button type="button" className="btn btn-danger" disabled={busy} onClick={() => { setConfirming(false); void run('cancel') }}>{t('conv.batches.cancelYes')}</button>
-          <button type="button" className="btn" onClick={() => setConfirming(false)}>{t('conv.batches.keep')}</button>
-        </> : null}
+        {live ? <ConfirmInline question={t('conv.batches.cancelConfirm')} confirm={t('conv.batches.cancelYes')} keep={t('conv.batches.keep')} onConfirm={() => void run('cancel')}
+          trigger={(ask) => <button type="button" className="btn" disabled={busy} onClick={ask}>{t('conv.batches.cancel')}</button>} /> : null}
         {!live ? <button type="button" className="btn" onClick={onNew}>{t('conv.newOperation')}</button> : null}
       </div>
       {message ? <p className="muted conv-help" role="status">{message}</p> : null}

@@ -1,9 +1,11 @@
 // Shared helpers and UI primitives (no feature logic)
-export { Tooltip, IconButton, Dialog, Progress, IndeterminateProgress, NumberInput } from './ui'
+export { Tooltip, IconButton, Button, Dialog, ConfirmInline, Progress, IndeterminateProgress, NumberInput } from './ui'
 export { CaseRollupBadge, rollupTitle, StatusBadge, StatusIcon, PhaseChip, SeverityIcon, RunStatusBadge, runStatusKey } from './badges'
 export { fmtNum, fmt1, fmtInt, fmtDate, fmtAgo, fmtDuration, fmtEtaRange, fmtBytes, fmtValue, fmtColumn, featureUnit, midEllipsis, robustZ } from './format'
 export { SliceThumb } from './SliceThumb'
 export { ProblemCard, type ActionHandlers } from './ProblemCard'
+export { ErrorBoundary } from './ErrorBoundary'
 export { problemMessage, problemToastText } from './problem'
 export { openPath, pendingPath } from './openNavigate'
 export { ItemName, itemName, knownPhase } from './itemName'
+export { useRowKeys } from './rowKeys'

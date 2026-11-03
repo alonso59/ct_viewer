@@ -27,7 +27,7 @@ export function RecycleScan({ pid, item, onRecycled }: { pid: string; item: Item
     </button>
     {open ? <Dialog open onOpenChange={(o) => { if (!o) close() }} title={t('recycle.title', { case: item.case_id, scan: item.scan_idx })} icon={codicon('trash')} footer={<>
       <button type="button" className="btn" disabled={recycle.isPending} onClick={close}>{t('common.cancel')}</button>
-      <button type="button" className="btn danger" disabled={!plan.data || plan.isFetching || plan.isError || recycle.isPending} onClick={confirm}>{t(recycle.isPending ? 'recycle.moving' : 'recycle.button')}</button>
+      <button type="button" className="btn btn-danger" disabled={!plan.data || plan.isFetching || plan.isError || recycle.isPending} onClick={confirm}>{t(recycle.isPending ? 'recycle.moving' : 'recycle.button')}</button>
     </>}>
       <p>{t('recycle.help')}</p>
       {plan.isPending ? <p>{t('common.loading')}</p> : null}

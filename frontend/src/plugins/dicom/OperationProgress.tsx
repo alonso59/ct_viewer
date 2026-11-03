@@ -2,10 +2,28 @@
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
-import { isTaskRunPending, type ConversionTimeEstimate, type SourceOperation } from '../../api'
+import { isTaskRunPending, type ConversionTimeEstimate, type SourceOperation, type TaskRunStatus } from '../../api'
 import { fmtBytes, fmtEtaRange, fmtInt, IndeterminateProgress, Progress } from '../../lib'
 
 type RunProgress = Record<string, number | string | null | undefined> | null | undefined
+
+/** Every operation and conversion state has a label: a new server state fails typecheck, never shows raw */
+export const CONV_STATUS: Record<SourceOperation['status'] | TaskRunStatus, string> = {
+  running: 'conv.status.running',
+  waiting_for_resources: 'conv.status.waiting_for_resources',
+  cancelling: 'conv.status.cancelling',
+  cleanup_pending: 'conv.status.cleanup_pending',
+  reconciling: 'conv.status.reconciling',
+  completed: 'conv.status.completed',
+  completed_with_errors: 'conv.status.completed_with_errors',
+  failed: 'conv.status.failed',
+  cancelled: 'conv.status.cancelled',
+  interrupted: 'conv.status.interrupted',
+  queued: 'conv.status.queued',
+  waiting_for_runner: 'conv.status.waiting_for_runner',
+  pausing: 'conv.status.pausing',
+  paused: 'conv.status.paused',
+}
 
 /** What a stage is doing and how far it is; `total` 0 means the stage has no known end yet */
 export interface StageCount {
@@ -51,7 +69,7 @@ export function countLabel(t: TFunction, { stage, done, total }: StageCount): st
 export function CountProgress({ count }: { count: StageCount }) {
   const { t } = useTranslation()
   return <>
-    {count.total > 0 ? <Progress value={count.done} total={count.total} /> : <IndeterminateProgress />}
+    {count.total > 0 ? <Progress value={count.done} total={count.total} label={countLabel(t, count)} /> : <IndeterminateProgress label={countLabel(t, count)} />}
     <p className="muted conv-help num">{countLabel(t, count)}</p>
   </>
 }

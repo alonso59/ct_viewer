@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router'
 import i18n from '../../i18n'
 import { api, keys, queryClient, useArchiveProject, useProject, useProjects, type Project } from '../../api'
 import { Dialog, ProblemCard, fmtAgo } from '../../lib'
-import { registry, toast, useWorkbench } from '../../shell'
+import { registry, toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { useProjectDialogs } from './store'
 
@@ -43,7 +43,7 @@ export async function copyViewLink(pid = useWorkbench.getState().pid) {
       url = (await api.createViewToken(pid)).view_url ?? undefined
       void queryClient.invalidateQueries({ queryKey: keys.project(pid) })
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : i18n.t('common.error'), tone: 'error' })
+      toastProblem(e)
       return
     }
   }
@@ -107,7 +107,7 @@ export function ArchiveDialog() {
       footer={
         <>
           <button type="button" className="btn" onClick={close}>{t('common.cancel')}</button>
-          <button type="button" className="btn btn-primary" disabled={m.isPending} onClick={run}>{t('projects.archive')}</button>
+          <button type="button" className="btn" disabled={m.isPending} onClick={run}>{t('projects.archive')}</button>
         </>
       }
     >

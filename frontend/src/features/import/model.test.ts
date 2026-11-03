@@ -3,7 +3,7 @@
 import { expect, test } from 'vitest'
 
 import type { DetectCandidate, ImportPreview } from '../../api'
-import { aliasProblem, autoOptions, canNext, cleanAlias, firstAdapter, imageStems, initialState, jobFailed, nextAction, previewCounts, type NextInput } from './model'
+import { aliasProblem, autoOptions, canNext, cleanAlias, nextBlocker, firstAdapter, imageStems, initialState, jobFailed, nextAction, previewCounts, type NextInput } from './model'
 import { FOLDER_PATTERN } from './patternSuggest'
 
 const cand = (adapter: string, available = true): DetectCandidate => ({ adapter, available, reason: '', counts: { nifti: 0, dicom: 0, npy: 0, ignored: 0 }, confidence: 'high', options: {}, unavailable_reason: null }) as DetectCandidate
@@ -53,6 +53,16 @@ test('image names: an include list without its masks, one file, or the folder; t
 
 const base: NextInput = { step: 'root', path: '/data/ds', aliasOk: true, upload: false, hasUploadedMetadata: false, adapter: null, previewPending: false, preview: undefined, commitPending: false }
 const preview = (kinds: string[]) => ({ files: kinds.map((kind) => ({ kind })), counts: { scan_rows: 24, cases: 8, voi_rows: 10, excluded_upstream: 1 } }) as unknown as ImportPreview
+
+// UI-18 / F-17: a disabled Next always names its reason
+test('Next: a disabled step says why (UI-18)', () => {
+  expect(nextBlocker(base)).toBeNull()
+  expect(nextBlocker({ ...base, path: null })).toBe('reason.chooseFolder')
+  expect(nextBlocker({ ...base, aliasOk: false })).toBe('reason.fixAlias')
+  expect(nextBlocker({ ...base, upload: true })).toBe('reason.uploadMetadata')
+  expect(nextBlocker({ ...base, step: 'detect', adapter: null })).toBe('reason.chooseSourceType')
+  expect(nextBlocker({ ...base, step: 'preview', preview: preview(['images']) })).toBe('reason.noMetadata')
+})
 
 test('Next: enabled per step, and what it does', () => {
   expect(canNext(base)).toBe(true)

@@ -7,11 +7,11 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { api, keys, useCommitImport, useSourceDetection, useSourceOperation, useFsList, useImportPreview, useJobs, useRoots, type SourceOperation, type SourceImportUpdate, type SourceOperationStart, type ImportAdapter, type NiftiOptions, type PreviewRequest } from '../../api'
-import { Dialog, openPath, ProblemCard } from '../../lib'
+import { Button, Dialog, openPath, ProblemCard } from '../../lib'
 import { runCommand, toast } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog } from './DerivedRootDialog'
-import { aliasProblem, autoOptions, canNext, firstAdapter, imageStems, IMPORTABLE, initialState, jobFailed, nextAction, STEPS, type Step } from './model'
+import { aliasProblem, autoOptions, firstAdapter, imageStems, IMPORTABLE, initialState, jobFailed, nextAction, nextBlocker, STEPS, type Step } from './model'
 import { DetectStep } from './steps/DetectStep'
 import { IndexStep } from './steps/IndexStep'
 import { PreviewStep } from './steps/PreviewStep'
@@ -177,7 +177,8 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   }
 
   const i = STEPS.indexOf(step)
-  const enabled = canNext({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending || handoff.isPending || work.isPending || (!upload && step === 'detect' && !detection), preview: p, commitPending: commit.isPending || work.isPending })
+  const blocker = nextBlocker({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending || handoff.isPending || work.isPending || (!upload && step === 'detect' && !detection), preview: p, commitPending: commit.isPending || work.isPending })
+  const enabled = blocker === null
   const next = async () => {
     const action = nextAction(step, adapter, upload)
     if (action === 'upload-preview' && path && files.metadata) {
@@ -256,9 +257,9 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
             <button type="button" className="btn" onClick={close}>{t('common.close')}</button>
           ) : null}
           {step !== 'index' ? (
-            <button type="button" className="btn btn-primary" disabled={!enabled} onClick={() => void next()}>
+            <Button className="btn btn-primary" disabled={!enabled} reason={blocker && t(blocker)} onClick={() => void next()}>
               {step === 'preview' ? t('import.commit') : step === 'detect' && adapter === 'open' ? t('import.openInstead') : t('common.next')}
-            </button>
+            </Button>
           ) : null}
         </>
       }

@@ -12,6 +12,8 @@ test('the cause first, then the plain title; other errors use the fallback or th
   expect(problemMessage(new TypeError('Failed to fetch'), 'Could not save')).toBe('Could not save')
   expect(problemMessage(new Error('boom'))).toBe('boom')
   expect(problemMessage('?')).toBe('Something went wrong')
+  // UI-18: an unreachable server reads in plain words when the caller gives no fallback
+  expect(problemMessage(new TypeError('Failed to fetch'))).toBe('Cannot reach the server')
 })
 
 test('a toast names the next steps', () => {

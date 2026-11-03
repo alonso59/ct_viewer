@@ -22,8 +22,8 @@ import {
   type Project,
   type ProjectPatch,
 } from '../../../api'
-import { NumberInput, ProblemCard } from '../../../lib'
-import { runCommand, toast, useWorkbench, type EditorProps } from '../../../shell'
+import { ConfirmInline, NumberInput, ProblemCard } from '../../../lib'
+import { runCommand, toast, toastProblem, useWorkbench, type EditorProps } from '../../../shell'
 import { useLayout } from '../../../state'
 import { Icon, autoLabelColor, codicon } from '../../../theme'
 import { useImportWizard } from '../../import'
@@ -157,12 +157,16 @@ function General({ pid, project }: { pid: string; project: Project }) {
           <div className="psettings-row">
             <code className="mono psettings-url">{project.view_url}</code>
             <button type="button" className="btn btn-sm" onClick={() => copy(project.view_url ?? '', t('shell.shareLinkCopied'))}>{t('psettings.copy')}</button>
-            <button type="button" className="btn btn-sm" onClick={() => view.create.mutate()}>{t('psettings.rotate')}</button>
-            <button type="button" className="btn btn-sm" onClick={() => view.revoke.mutate()}>{t('psettings.revoke')}</button>
+            <ConfirmInline question={t('psettings.rotateConfirm')} confirm={t('psettings.rotate')} keep={t('common.cancel')}
+              onConfirm={() => view.create.mutate(undefined, { onSuccess: () => toast({ message: t('psettings.rotated'), tone: 'ok' }), onError: (e) => toastProblem(e) })}
+              trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('psettings.rotate')}</button>} />
+            <ConfirmInline question={t('psettings.revokeConfirm')} confirm={t('psettings.revoke')} keep={t('common.cancel')}
+              onConfirm={() => view.revoke.mutate(undefined, { onSuccess: () => toast({ message: t('psettings.revoked'), tone: 'ok' }), onError: (e) => toastProblem(e) })}
+              trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('psettings.revoke')}</button>} />
           </div>
         ) : (
           <div>
-            <button type="button" className="btn btn-sm" onClick={() => view.create.mutate()}>{t('psettings.createViewLink')}</button>
+            <button type="button" className="btn btn-sm" onClick={() => view.create.mutate(undefined, { onError: (e) => toastProblem(e) })}>{t('psettings.createViewLink')}</button>
           </div>
         )}
         <span className="muted psettings-help">{t('psettings.viewLinkHelp')}</span>

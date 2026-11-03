@@ -37,6 +37,7 @@ test('minimized source opening reloads, cancels and resumes the same operation',
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(chip.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible()
     await chip.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await chip.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
     await expect.poll(async () => (await api<{ status: string }>('GET', `/source-operations/${operation.operation_id}`)).status).toBe('cancelled')
     await chip.getByRole('button', { name: 'Show', exact: true }).click()
     window = page.getByRole('dialog', { name: 'Open file or folder', exact: true })

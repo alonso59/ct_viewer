@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 
 import type { ResultRow, TestChoice } from '../../../api'
-import { fmtInt, fmtNum } from '../../../lib'
+import { fmtInt, fmtNum, useRowKeys } from '../../../lib'
 
 export type TestMode = 'auto' | 'default' | 'alternative'
 
@@ -46,6 +46,7 @@ export function TestResult({ choice, row }: { choice: TestChoice; row: ResultRow
 export function ResultsTable({ rows, selected, onPick }: { rows: ResultRow[]; selected: string | null; onPick: (r: ResultRow) => void }) {
   const { t } = useTranslation()
   const sorted = [...rows].sort((a, b) => (a.q ?? 2) - (b.q ?? 2) || Math.abs(b.effect ?? 0) - Math.abs(a.effect ?? 0))
+  const rowKeys = useRowKeys(sorted.map((r) => r.feature ?? ''))
   return (
     <table className="table">
       <thead>
@@ -59,7 +60,7 @@ export function ResultsTable({ rows, selected, onPick }: { rows: ResultRow[]; se
       </thead>
       <tbody>
         {sorted.map((r) => (
-          <tr key={r.feature ?? ''} data-clickable="true" aria-selected={r.feature === selected || undefined} onClick={() => onPick(r)}>
+          <tr key={r.feature ?? ''} data-clickable="true" aria-selected={r.feature === selected || undefined} onClick={() => onPick(r)} {...rowKeys(r.feature ?? '')}>
             <td className="mono truncate" title={r.feature ?? undefined}>{(r.feature ?? '').replace(/^original_/, '')}</td>
             <td className="num">{fmtInt(r.n)}</td>
             <td className="num">{r.effect != null ? fmtNum(r.effect) : '—'}</td>

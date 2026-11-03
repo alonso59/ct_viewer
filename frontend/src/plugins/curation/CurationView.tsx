@@ -20,7 +20,7 @@ export function CurationView() {
           <span>{t('curation.progress')}</span>
           <span className="muted num" style={{ marginLeft: 'auto' }}>{t('curation.progressCount', { done: reviewed, total: cases.length })}</span>
         </div>
-        <Progress value={reviewed} total={cases.length} />
+        <Progress value={reviewed} total={cases.length} label={t('progress.reviewed')} />
       </div>
       <CurationForm />
       <button type="button" className="btn btn-sm" onClick={() => openEditor('queue', {})}>

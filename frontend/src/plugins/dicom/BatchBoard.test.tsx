@@ -119,6 +119,8 @@ describe('plan controls', () => {
   test('a ready batch converts on request and a discovering one does not offer it', async () => {
     const run = vi.spyOn(api, 'controlSourceBatchPlan').mockResolvedValue(plan({ status: 'running' }))
     const { unmount } = renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'ready' }), batch(1)] }))
+    // UI-28: a running plan that waits for this click says so instead of just "Running"
+    expect(await screen.findByText('Ready: convert this batch')).toBeVisible()
     fireEvent.click(await screen.findByRole('button', { name: 'Convert this batch' }))
     await waitFor(() => expect(run).toHaveBeenCalledWith('plan1', 'continue'))
     unmount()

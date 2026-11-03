@@ -66,13 +66,27 @@ export interface NextInput {
   commitPending: boolean
 }
 
-/** Whether the footer's primary button is enabled */
-export function canNext(s: NextInput): boolean {
-  if (s.step === 'root') return s.path !== null && s.aliasOk && (!s.upload || s.hasUploadedMetadata)
-  if (s.step === 'detect') return s.adapter !== null && !s.previewPending && (s.adapter === 'open' || s.adapter === 'dicom.convert' || IMPORTABLE.has(s.adapter))
-  if (s.step === 'preview') return (s.preview?.files.some((f) => f.kind === 'metadata') ?? false) && !s.commitPending
-  return false
+/** Why the footer's primary button is disabled (an i18n key), or null when it is enabled */
+export function nextBlocker(s: NextInput): string | null {
+  if (s.step === 'root') {
+    if (s.path === null) return 'reason.chooseFolder'
+    if (!s.aliasOk) return 'reason.fixAlias'
+    return s.upload && !s.hasUploadedMetadata ? 'reason.uploadMetadata' : null
+  }
+  if (s.step === 'detect') {
+    if (s.adapter === null) return 'reason.chooseSourceType'
+    if (s.previewPending) return 'reason.working'
+    return s.adapter === 'open' || s.adapter === 'dicom.convert' || IMPORTABLE.has(s.adapter) ? null : 'reason.notImportable'
+  }
+  if (s.step === 'preview') {
+    if (!(s.preview?.files.some((f) => f.kind === 'metadata') ?? false)) return 'reason.noMetadata'
+    return s.commitPending ? 'reason.working' : null
+  }
+  return 'reason.working'
 }
+
+/** Whether the footer's primary button is enabled */
+export const canNext = (s: NextInput): boolean => nextBlocker(s) === null
 
 export type NextAction = 'upload-preview' | 'detect' | 'open' | 'convert' | 'preview' | 'commit' | null
 

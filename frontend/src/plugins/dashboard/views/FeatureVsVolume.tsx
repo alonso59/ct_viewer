@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDashboardView } from '../../../api'
-import { fmtInt, fmtNum } from '../../../lib'
+import { fmtInt, fmtNum, useRowKeys } from '../../../lib'
 import type { ChartInstance } from '../Chart'
 import { useRunDashboard } from '../store'
 import {
@@ -36,6 +36,7 @@ export function FeatureVsVolumeView({ runId }: ViewProps) {
     () => (d?.points ?? []).map((p) => ({ item_id: p.item_id, case_id: p.case_id, x: p.x, y: p.y, level: p.color ?? null, note: t(`status.${asStatus(p.status)}`) })),
     [d, t],
   )
+  const rowKeys = useRowKeys((d?.ranked ?? []).map((r) => r.feature))
   return (
     <ViewFrame
       name={t('dashboard.view.feature-vs-volume')}
@@ -61,7 +62,7 @@ export function FeatureVsVolumeView({ runId }: ViewProps) {
             </thead>
             <tbody>
               {(d?.ranked ?? []).map((r) => (
-                <tr key={r.feature} data-clickable="true" aria-selected={r.feature === feature || undefined} onClick={() => setWanted(r.feature)}>
+                <tr key={r.feature} data-clickable="true" aria-selected={r.feature === feature || undefined} onClick={() => setWanted(r.feature)} {...rowKeys(r.feature)}>
                   <td className="mono">{r.feature.replace(/^original_/, '')}</td>
                   <td className="num" style={{ color: Math.abs(r.rho ?? 0) > 0.8 ? 'var(--warn)' : undefined }}>{r.rho != null ? fmtNum(r.rho) : '—'}</td>
                 </tr>

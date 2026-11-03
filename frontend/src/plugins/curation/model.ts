@@ -34,12 +34,16 @@ export function decisionsFor(rows: CurationStateRow[], itemId: string | null, ca
 
 /** Derived status of one (item, target, seg); a case target has no item, only mask
  *  targets have a set */
-export function statusOf(rows: CurationStateRow[], itemId: string | null, caseId: string | null, target: string, seg: string): CurationStatus {
+/** The current decision for an item (or the case) and target; mask targets per segmentation set */
+export function rowOf(rows: CurationStateRow[], itemId: string | null, caseId: string | null, target: string, seg: string): CurationStateRow | undefined {
   const caseTarget = target === 'case'
   const want = isMask(target) ? seg : null
-  const row = rows.find((r) =>
+  return rows.find((r) =>
     (caseTarget ? r.item_id === null && r.case_id === caseId : r.item_id === itemId) && r.target === target && rowSeg(r) === want,
   )
-  return row?.status ?? 'not_reviewed'
+}
+
+export function statusOf(rows: CurationStateRow[], itemId: string | null, caseId: string | null, target: string, seg: string): CurationStatus {
+  return rowOf(rows, itemId, caseId, target, seg)?.status ?? 'not_reviewed'
 }
 

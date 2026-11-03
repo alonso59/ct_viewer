@@ -8,6 +8,8 @@ import { ProblemError, parseAction } from '../api/problem'
 export function problemMessage(e: unknown, fallback?: string): string {
   if (e instanceof ProblemError) return e.detail ?? (e.generic ? i18n.t(`problemTitle.${e.type}`, { defaultValue: e.title }) : e.title)
   if (fallback !== undefined) return fallback
+  // fetch() rejects with a TypeError when the server cannot be reached
+  if (e instanceof TypeError) return i18n.t('problemTitle.offline')
   return e instanceof Error && e.message ? e.message : i18n.t('common.error')
 }
 

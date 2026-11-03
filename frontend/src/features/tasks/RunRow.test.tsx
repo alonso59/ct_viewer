@@ -44,6 +44,7 @@ test('cleanup pending is shown until the supervisor confirms it; cancel stays av
   expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(cancel).toHaveBeenCalledWith(DEMO_PID, base.run_id))
 })
 
@@ -86,4 +87,14 @@ test('D23 DICOM retry and resume stay disabled while cleanup is unverified', asy
   show({ status: 'interrupted', supervised: false, task: { ...base.task, id: 'dicom.convert' }, attempts: 2, counts: { items: 2, ok: 1, failed: 1, pending: 0, skipped: 0 }, execution: { cleanup_verified: false } })
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Retry failed series' })).toBeDisabled()
+})
+
+// UI-20: every waiting state says why and what happens next
+test.each([
+  ['queued', 'Queued: starts when earlier work of this task finishes.'],
+  ['waiting_for_resources', 'Waiting for free GPUs or memory; it starts on its own. Cancel stays available.'],
+  ['waiting_for_runner', 'Waiting for the task runner to start; it begins on its own.'],
+] as const)('a %s run explains its wait (UI-20)', async (status, help) => {
+  show({ status })
+  expect(await screen.findByText(help)).toBeInTheDocument()
 })
