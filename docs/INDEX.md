@@ -82,6 +82,7 @@ Read only for the named work. At phase exit, move durable facts into the owning 
 |---|---|
 | Supervised segmentation jobs (P7g): approved plan, GPU safety, acceptance matrix | `domain/SEGMENTATION_JOB_PLAN.md`; `ops/SEGMENTATION_JOB_TEST_PLAN.md`; `adr/0033-supervised-segmentation-jobs.md` |
 | DICOM discovery, background conversion, interruption/resume | `domain/DICOM_JOB_PLAN.md`; `ops/DICOM_JOB_TEST_PLAN.md`; `adr/0035-durable-dicom-source-operations.md` |
+| Standalone DICOM converter package (`rw_dicom`), per-unit pinning, parallel units, incomplete datasets (P7i) | `domain/DICOM_STANDALONE_PLAN.md`; `ops/DICOM_STANDALONE_TEST_PLAN.md`; `adr/0042-standalone-dicom-converter-package.md` |
 
 ## Not for agents
 
