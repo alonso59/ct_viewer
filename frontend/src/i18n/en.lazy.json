@@ -1528,7 +1528,8 @@
     "saving": "Saving…",
     "saved": "Saved",
     "changedCells_one": "{{count}} cell changed",
-    "changedCells_other": "{{count}} cells changed"
+    "changedCells_other": "{{count}} cells changed",
+    "undoImport": "Undo import"
   },
   "about": {
     "title": "About",

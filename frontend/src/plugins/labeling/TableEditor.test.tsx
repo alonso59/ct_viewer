@@ -107,6 +107,29 @@ test('LBL-03/04: the active cell is announced, Ctrl+Z writes a paste back, heade
   expect(header).toHaveAttribute('aria-sort', 'ascending')
 })
 
+test('LBL-03/04: an import is one edit; its report offers Undo import', async () => {
+  useWorkbench.setState({ pid: DEMO_PID })
+  useReviewer.setState({ name: 'Dr. T' })
+  const t = await table('Review')
+  const grade = col(t, 'Grade')
+  const before = await api.labelCells(DEMO_PID, t.table_id)
+  const first = before.items[0]!
+  const old = first.values?.[grade] ?? null
+  const cells = vi.spyOn(api, 'labelCells')
+  const imported = vi.spyOn(api, 'importLabelTable').mockImplementation(async () => {
+    // after the import the server has the new value
+    cells.mockResolvedValue({ ...before, items: before.items.map((r) => (r === first ? { ...r, values: { ...r.values, [grade]: old === 'G3' ? 'G1' : 'G3' } } : r)) })
+    return { matched: 1, n_rows: 1, n_events: 1, key: 'case_id', columns: ['Grade'] } as never
+  })
+  const write = vi.spyOn(api, 'writeLabelCells').mockResolvedValue(undefined as never)
+  spies.push(cells, imported, write)
+  wrap(<TableEditor params={{ tableId: t.table_id }} panelId="p" active />)
+  await screen.findByRole('grid', { name: 'Review' })
+  fireEvent.change(screen.getByLabelText('Import CSV…'), { target: { files: [new File(['case_id,Grade'], 'grades.csv')] } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Undo import' }))
+  await waitFor(() => expect(write).toHaveBeenCalledWith(DEMO_PID, t.table_id, [{ column_id: grade, target: first.target, value: old }], 'Dr. T'))
+})
+
 test('LBL-02/10: edit and delete a column, delete a table, restore one', async () => {
   useWorkbench.setState({ pid: DEMO_PID })
   const patch = vi.spyOn(api, 'patchLabelTable')

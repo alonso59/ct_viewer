@@ -85,6 +85,8 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const [error, setError] = useState<unknown>(null)
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved'>('idle')
   const lastEdit = useRef<Edit | null>(null)
+  // the import report offers Undo once the import's changes are known
+  const [importUndo, setImportUndo] = useState(false)
   // an Undo in a toast runs later: it reads the cells as they are then
   const items = useRef(cells.data?.items)
   useEffect(() => {
@@ -189,12 +191,27 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
     if (!file) return
     const reviewer = await requireReviewer()
     if (!reviewer) return
+    const was = items.current ?? []
     try {
       setReport(await api.importLabelTable(pid, tid, file, reviewer))
-      void qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
+      await qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
     } catch (e) {
       setError(e)
+      return
     }
+    // an import is one edit too: Ctrl/Cmd+Z writes back the cells it changed
+    const now = qc.getQueryData<typeof cells.data>(keys.labelCells(pid, tid))?.items ?? []
+    const changed = now.flatMap((row) =>
+      cols.filter((c) => !c.ref).flatMap((c) => {
+        const before = was.find((r) => r.target === row.target)?.values?.[c.column_id] ?? null
+        const after = row.values?.[c.column_id] ?? null
+        return sameValue(before, after) ? [] : [{ column_id: c.column_id, target: row.target, before, after }]
+      }),
+    )
+    lastEdit.current = changed.length
+      ? { before: changed.map((c) => ({ column_id: c.column_id, target: c.target, value: c.before })), after: changed.map((c) => ({ column_id: c.column_id, target: c.target, value: c.after })) }
+      : null
+    setImportUndo(changed.length > 0)
   }
 
   // deleted (here or by another reviewer) while the tab was open
@@ -332,7 +349,12 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
       ) : null}
       {adding ? <AddColumns pid={pid} tid={tid} level={table.level} labels={labels.map((l) => l.name)} onClose={() => setAdding(false)} /> : null}
       {report ? (
-        <Dialog open onOpenChange={(o) => !o && setReport(null)} title={t('lbl.importTitle')}>
+        <Dialog
+          open
+          onOpenChange={(o) => !o && setReport(null)}
+          title={t('lbl.importTitle')}
+          footer={importUndo ? <button type="button" className="btn" onClick={() => { setReport(null); setImportUndo(false); void revert() }}>{t('lbl.undoImport')}</button> : undefined}
+        >
           <p>{t('lbl.importReport', { matched: report.matched, n: report.n_rows, events: report.n_events, key: report.key })}</p>
           {report.columns?.length ? <p className="muted">{t('lbl.importCols', { list: report.columns.join(', ') })}</p> : null}
           {report.ignored_columns?.length ? <p className="muted">{t('lbl.importIgnored', { list: report.ignored_columns.join(', ') })}</p> : null}
