@@ -266,6 +266,15 @@ def test_queue_json_and_csv(client: TestClient, proj: tuple[str, list[dict[str, 
     assert parsed[0]["comment"] == "x, y" and parsed[0]["status"] == "rejected"
     assert parsed[0]["mask_path_abs"] == rows[0]["mask_path_abs"]
 
+    # CUR-09: the rows shown under a status filter, as JSON and as CSV
+    only = {"status": "rejected"}
+    shown = client.get(f"{API}/projects/{pid}/curation/queue", params=only).json()
+    assert [r["item_id"] for r in shown] == [a["item_id"]]
+    r = client.get(f"{API}/projects/{pid}/curation/queue", params={**only, "format": "csv"})
+    assert [p["item_id"] for p in csv.DictReader(io.StringIO(r.text))] == [a["item_id"]]
+    bad = client.get(f"{API}/projects/{pid}/curation/queue", params={"status": "bogus"})
+    assert bad.status_code == 422
+
 
 def test_exports(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> None:
     pid, items = proj

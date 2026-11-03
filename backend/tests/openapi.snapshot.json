@@ -17756,7 +17756,7 @@
   },
   "/api/v1/projects/{pid}/curation/queue": {
    "get": {
-    "description": "Correction queue; CSV for 3D Slicer with absolute paths.",
+    "description": "Correction queue (only the rows with `status` when given); CSV for 3D Slicer with\nabsolute paths.",
     "operationId": "get_queue_api_v1_projects__pid__curation_queue_get",
     "parameters": [
      {
@@ -17780,6 +17780,32 @@
        ],
        "title": "Format",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "status",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "rejected",
+          "needs_major_correction",
+          "wrong_side_suspected",
+          "needs_minor_correction",
+          "missing",
+          "cannot_assess",
+          "accepted",
+          "not_reviewed"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
       }
      }
     ],

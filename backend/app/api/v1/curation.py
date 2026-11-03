@@ -12,6 +12,7 @@ from app.curation.models import (
     EventIn,
     ExportResult,
     QueueRow,
+    Status,
     V2ImportReport,
 )
 from app.curation.service import CurationService
@@ -83,17 +84,21 @@ def get_state(
     responses={200: {"content": {"text/csv": {}}, "description": "JSON rows, or CSV"}},
 )
 def get_queue(
-    pid: str, ctx: Ctx, format: Annotated[Literal["json", "csv"], Query()] = "json"
+    pid: str,
+    ctx: Ctx,
+    format: Annotated[Literal["json", "csv"], Query()] = "json",
+    status: Annotated[Status | None, Query()] = None,
 ) -> list[QueueRow] | Response:
-    """Correction queue; CSV for 3D Slicer with absolute paths."""
+    """Correction queue (only the rows with `status` when given); CSV for 3D Slicer with
+    absolute paths."""
     svc = curation_service(ctx)
     if format == "csv":
         return Response(
-            svc.queue_csv(pid),
+            svc.queue_csv(pid, status),
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": 'attachment; filename="correction_queue.csv"'},
         )
-    return svc.queue(pid)
+    return svc.queue(pid, status)
 
 
 @router.post("/projects/{pid}/curation/exports", response_model=ExportResult, status_code=201)

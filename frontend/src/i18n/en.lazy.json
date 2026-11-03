@@ -341,7 +341,11 @@
     "importing": "Importing…",
     "noPath": "—",
     "subtitle": "Latest decision per item and target",
-    "writeExportsHelp": "Write curation_state.csv and events.jsonl into the project exports/ folder"
+    "writeExportsHelp": "Write curation_state.csv and events.jsonl into the project exports/ folder",
+    "noMatch": "No queued item has this status.",
+    "showAllStatuses": "Show all statuses",
+    "exportShown": "Export shown ({{count}})",
+    "exportShownHelp": "Download the rows shown as CSV with absolute paths (open them in 3D Slicer)"
   },
   "history": {
     "case": "Case {{id}}",

@@ -68,7 +68,7 @@ Depends: domain/DATA_MODEL.md, backend/ARCHITECTURE.md.
 | API-49 | `GET /plugins` · `GET /plugins/{id}` | Plugin Library: installed first-party plugins, contributions, status (`ready`, `needs runner`, `needs derived root`, `needs segmentation`, `pending`) with the reason | PLG-05/06 |
 | API-50 | `GET·POST /projects/{pid}/curation/events` | History (filter by `item_id`/`case_id`) / append (`X-Reviewer`, optional `X-Session-Id`) | CUR-02/14 |
 | API-51 | `GET /projects/{pid}/curation/state` | Derived latest state | CUR-08 |
-| API-52 | `GET /projects/{pid}/curation/queue?format=json\|csv` | Correction queue | CUR-09 |
+| API-52 | `GET /projects/{pid}/curation/queue?format=json\|csv&status=` | Correction queue; `status` keeps only the rows with that status | CUR-09 |
 | API-53 | `POST /projects/{pid}/curation/exports` | Write CUR-10 files to `exports/` | CUR-10 |
 | API-54 | `POST /projects/{pid}/curation/import-v2` | Import `curation_review.csv` → `201 {n_rows, imported, phase_events, skipped[]}`; `phase_issue` rows become phase events (PHS-08) | CUR-13 |
 | API-55 | `POST /projects/{pid}/curation/import-converter` | Import the converter CLI's `curation.csv` (multipart `file`, `X-Reviewer`) → `201` report as API-54 | CUR-15 |

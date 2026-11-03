@@ -12,6 +12,7 @@ import type {
   CommitResult,
   CurationEvent,
   CurationExport,
+  CurationStatus,
   CurationStateRow,
   DashboardView,
   BrokenDerived,
@@ -323,7 +324,8 @@ export interface Api {
   curationState(pid: string): Promise<CurationStateRow[]>
   queue(pid: string): Promise<QueueRow[]>
   /** `format=csv`: the server resolves absolute paths for 3D Slicer */
-  queueCsv(pid: string): Promise<Blob>
+  /** The queue as CSV; only the rows with `status` when given */
+  queueCsv(pid: string, status?: CurationStatus): Promise<Blob>
   /** Write the curation export files into the project's `exports/` */
   curationExports(pid: string): Promise<CurationExport>
   /** v2 `curation_review.csv` → events */

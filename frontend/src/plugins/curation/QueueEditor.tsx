@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useProject, useQueue, useSegmentations, type CurationStatus, type V2ImportReport } from '../../api'
+import { api, CURATION_STATUSES, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useProject, useQueue, useSegmentations, type CurationStatus, type QueueRow, type V2ImportReport } from '../../api'
 import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis, problemMessage, useRowKeys } from '../../lib'
 import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
@@ -52,6 +52,35 @@ function PathCell({ path }: { path: string | null }) {
   )
 }
 
+const PRIORITY_RANK: Record<string, number> = { low: 0, medium: 1, high: 2 }
+/** Sortable columns and the value each sorts by; the reviewer column sorts by time */
+const SORT_BY = {
+  case: (r: QueueRow) => r.case_id,
+  item: (r: QueueRow) => r.item_id,
+  phase: (r: QueueRow) => r.phase ?? '',
+  target: (r: QueueRow) => r.target,
+  set: (r: QueueRow) => r.seg_id ?? '',
+  status: (r: QueueRow) => CURATION_STATUSES.indexOf(r.status),
+  priority: (r: QueueRow) => PRIORITY_RANK[r.priority] ?? 0,
+  comment: (r: QueueRow) => r.comment ?? '',
+  reviewer: (r: QueueRow) => r.at,
+  image: (r: QueueRow) => r.image_path_abs ?? '',
+  mask: (r: QueueRow) => r.mask_path_abs ?? '',
+} satisfies Record<string, (r: QueueRow) => string | number>
+type SortCol = keyof typeof SORT_BY
+type Sort = { col: SortCol; dir: 'ascending' | 'descending' } | null
+
+function sorted(rows: QueueRow[], sort: Sort): QueueRow[] {
+  if (!sort) return rows
+  const by = SORT_BY[sort.col]
+  const sign = sort.dir === 'ascending' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const x = by(a)
+    const y = by(b)
+    return sign * (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y)))
+  })
+}
+
 function ImportReport({ report, onClose }: { report: V2ImportReport; onClose: () => void }) {
   const { t } = useTranslation()
   return (
@@ -99,17 +128,20 @@ export function QueueEditor() {
   const [report, setReport] = useState<V2ImportReport | null>(null)
   const [status, setStatus] = useState<CurationStatus | ''>('')
   const [busyCsv, setBusyCsv] = useState(false)
-  const rows = (data ?? []).filter((r) => !status || r.status === status)
+  const [sort, setSort] = useState<Sort>(null)
+  const rows = sorted((data ?? []).filter((r) => !status || r.status === status), sort)
+  const sortBy = (col: SortCol) => setSort((s) => ({ col, dir: s?.col === col && s.dir === 'ascending' ? 'descending' : 'ascending' }))
   const labels = useProject(pid).data?.label_map ?? []
   const sets = useSegmentations(pid).data ?? []
   const rowId = (r: (typeof rows)[number]) => `${r.item_id}|${r.target}|${r.seg_id ?? ''}`
   const rowKeys = useRowKeys(rows.map(rowId))
 
-  const exportCsv = async () => {
+  /** The whole queue, or with `only` the rows the status filter shows */
+  const exportCsv = async (only?: CurationStatus) => {
     setBusyCsv(true)
     try {
-      download('correction_queue.csv', await api.queueCsv(pid))
-      toast({ message: t('queue.exported', { count: data?.length ?? 0 }), tone: 'ok' })
+      download(only ? `correction_queue_${only}.csv` : 'correction_queue.csv', await api.queueCsv(pid, only))
+      toast({ message: t('queue.exported', { count: only ? rows.length : (data?.length ?? 0) }), tone: 'ok' })
     } catch (e) {
       toastProblem(e, t('common.error'))
     } finally {
@@ -143,6 +175,12 @@ export function QueueEditor() {
             <option key={s} value={s}>{t(`status.${s}`)}</option>
           ))}
         </select>
+        {status ? (
+          <button type="button" className="btn btn-sm" disabled={!rows.length || busyCsv} onClick={() => void exportCsv(status)} title={t('queue.exportShownHelp')}>
+            <Icon spec={codicon('export')} />
+            {t('queue.exportShown', { count: rows.length })}
+          </button>
+        ) : null}
         <button type="button" className="btn btn-sm" disabled={!data?.length || busyCsv} onClick={() => void exportCsv()} title={t('queue.exportCsvHelp')}>
           <Icon spec={codicon('export')} />
           {t('queue.exportCsv')}
@@ -170,22 +208,29 @@ export function QueueEditor() {
       </div>
       {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
       {isError ? <div className="error-card">{problemMessage(error, t('common.error'))}</div> : null}
-      {!isLoading && !isError && rows.length === 0 ? <div className="empty">{t('queue.empty')}</div> : null}
+      {!isLoading && !isError && rows.length === 0 ? (
+        // a filter that hides every row is not an empty queue
+        data?.length ? (
+          <div className="empty">
+            {t('queue.noMatch')}
+            <button type="button" className="link" onClick={() => setStatus('')}>{t('queue.showAllStatuses')}</button>
+          </div>
+        ) : (
+          <div className="empty">{t('queue.empty')}</div>
+        )
+      ) : null}
       {rows.length ? (
         <table className="table">
           <thead>
             <tr>
-              <th>{t('queue.col.case')}</th>
-              <th>{t('queue.col.item')}</th>
-              <th>{t('queue.col.phase')}</th>
-              <th>{t('queue.col.target')}</th>
-              <th>{t('queue.col.set')}</th>
-              <th>{t('queue.col.status')}</th>
-              <th>{t('queue.col.priority')}</th>
-              <th>{t('queue.col.comment')}</th>
-              <th>{t('queue.col.reviewer')}</th>
-              <th>{t('queue.col.image')}</th>
-              <th>{t('queue.col.mask')}</th>
+              {(Object.keys(SORT_BY) as SortCol[]).map((col) => (
+                <th key={col} aria-sort={sort?.col === col ? sort.dir : undefined}>
+                  <button type="button" className="th-sort" onClick={() => sortBy(col)}>
+                    {t(`queue.col.${col}`)}
+                    {sort?.col === col ? <Icon spec={codicon(sort.dir === 'ascending' ? 'arrow-up' : 'arrow-down')} /> : null}
+                  </button>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>

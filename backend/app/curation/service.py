@@ -29,6 +29,7 @@ from app.curation.models import (
     EventIn,
     ExportResult,
     QueueRow,
+    Status,
     V2ImportReport,
 )
 from app.events.bus import EventBus
@@ -207,8 +208,9 @@ class CurationService:
             ],
         )
 
-    def queue(self, project_id: str) -> list[QueueRow]:
-        """Item keys whose latest status is in the queue set or `add_to_queue=true`.
+    def queue(self, project_id: str, status: Status | None = None) -> list[QueueRow]:
+        """Item keys whose latest status is in the queue set or `add_to_queue=true`;
+        only those with `status` when given.
 
         Absolute paths are resolved now (never stored); null when unresolvable.
         """
@@ -228,6 +230,8 @@ class CurationService:
         latest = sorted(st.reduced(pdir).latest.values(), key=lambda pe: pe[0])
         for _, e in latest:
             if e.item_id is None or not (e.status in QUEUE_STATUSES or e.add_to_queue):
+                continue
+            if status is not None and e.status != status:
                 continue
             item = idx.by_id.get(e.item_id)
             scope, side, phase = _item_cols(e.item_id, item)
@@ -251,8 +255,8 @@ class CurationService:
             )
         return rows
 
-    def queue_csv(self, project_id: str) -> str:
-        return _csv(QUEUE_COLUMNS, (r.model_dump() for r in self.queue(project_id)))
+    def queue_csv(self, project_id: str, status: Status | None = None) -> str:
+        return _csv(QUEUE_COLUMNS, (r.model_dump() for r in self.queue(project_id, status)))
 
     async def export(self, project_id: str) -> ExportResult:
         pdir = self.workspace.project_dir(project_id)

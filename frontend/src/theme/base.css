@@ -464,6 +464,21 @@ button.badge[aria-pressed='true'] {
   padding: 4px var(--sp-2);
   white-space: nowrap;
 }
+/* A sortable column: the header's text is a button; the th carries aria-sort */
+.th-sort {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+.th-sort:hover {
+  color: var(--fg);
+}
+.th-sort:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
 .table td {
   padding: 3px var(--sp-2);
   border-bottom: var(--border-width) solid var(--border-muted);
