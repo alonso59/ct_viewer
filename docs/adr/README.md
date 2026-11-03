@@ -40,10 +40,11 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0032 | nnU-Net v2 inference as a partitioned external segmentation task | Superseded by 0033 |
 | 0033 | Supervised segmentation jobs and approved GPU allocation | Superseded by 0034 |
 | 0034 | Capability-based segmentation runtimes without administrator access | Accepted (§5 admission criterion superseded by 0039) |
-| 0035 | Durable DICOM source operations and verified resume | Accepted |
+| 0035 | Durable DICOM source operations and verified resume | Accepted (§5 whole-run input pin superseded by 0042) |
 | 0036 | Folder-per-case import, mask path templates and mask sets | Accepted (partially supersedes 0027 §3) |
 | 0037 | Manual segmentation import and soft removal | Accepted (§5 management location superseded by 0038) |
 | 0038 | Individual segmentation label removal and management panel | Accepted (extends 0015/0036; supersedes 0037 §5 management location) |
 | 0039 | GPU admission by available memory | Accepted (partially supersedes 0034) |
 | 0040 | Batched DICOM source operations | Accepted (extends 0035) |
 | 0041 | CTFlow: a domain command console over the existing task services | Accepted |
+| 0042 | Standalone DICOM converter package with per-unit input pinning | Accepted (supersedes 0035 §5 whole-run input pin) |

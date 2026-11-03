@@ -1,5 +1,5 @@
 # ADR-0035 Durable DICOM source operations and verified resume
-Status: Accepted · Date: 2026-10-23 (owner: implement the plan and comply with this ADR)
+Status: Accepted (§5 whole-run input content pin superseded by ADR-0042) · Date: 2026-10-23 (owner: implement the plan and comply with this ADR)
 Partially supersedes: ADR-0016 §3, only the execution of DICOM discovery/dry-run/conversion units in the shared worker pool. Other builtin tasks retain their runtime.
 Extends: ADR-0013 (complete-series browsing), ADR-0021 (recoverable converter overlay).
 
