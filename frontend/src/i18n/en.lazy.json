@@ -1524,7 +1524,11 @@
     "deletedColumns": "Deleted columns",
     "deletedTables": "Deleted tables ({{n}})",
     "restore": "Restore",
-    "tableGone": "This table was deleted. Restore it from Deleted tables in the Labeling view."
+    "tableGone": "This table was deleted. Restore it from Deleted tables in the Labeling view.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "changedCells_one": "{{count}} cell changed",
+    "changedCells_other": "{{count}} cells changed"
   },
   "about": {
     "title": "About",

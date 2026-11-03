@@ -73,6 +73,40 @@ test('keyboard edit, paste and progress', async () => {
   expect(within(card).getByText(/Grade: 2 \//)).toBeInTheDocument()
 })
 
+test('LBL-03/04: the active cell is announced, Ctrl+Z writes a paste back, headers report their sort', async () => {
+  useWorkbench.setState({ pid: DEMO_PID })
+  useReviewer.setState({ name: 'Dr. T' })
+  const write = vi.spyOn(api, 'writeLabelCells').mockResolvedValue(undefined as never)
+  spies.push(write)
+  const t = await table('Review')
+  wrap(<TableEditor params={{ tableId: t.table_id }} panelId="p" active />)
+  const grid = await screen.findByRole('grid', { name: 'Review' })
+  const [first, second] = (await screen.findAllByRole('rowheader')).map((h) => (h.textContent ?? '').trim())
+  act(() => grid.focus())
+  // focus stays on the grid; the active cell is its active descendant
+  const cells = () => screen.getAllByRole('gridcell')
+  expect(grid).toHaveAttribute('aria-activedescendant', cells()[0]!.id)
+  fireEvent.keyDown(grid, { key: 'ArrowRight' })
+  expect(grid).toHaveAttribute('aria-activedescendant', cells()[1]!.id)
+  fireEvent.keyDown(grid, { key: 'ArrowLeft' })
+  // a paste is one edit; Ctrl+Z writes the previous values back as new cell events
+  const grade = (r: number) => screen.getAllByRole('row').filter((row) => within(row).queryByRole('rowheader'))[r]!.querySelector('[role="gridcell"]')!.textContent || null
+  const was = [grade(0), grade(1)]
+  fireEvent.paste(grid, { clipboardData: { getData: () => 'G3\nG3\n' } })
+  await waitFor(() => expect(write).toHaveBeenCalledTimes(1))
+  expect(await screen.findByText('Saved')).toBeInTheDocument()
+  fireEvent.keyDown(grid, { key: 'z', ctrlKey: true })
+  await waitFor(() => expect(write).toHaveBeenCalledTimes(2))
+  expect(write).toHaveBeenLastCalledWith(DEMO_PID, t.table_id, [{ column_id: col(t, 'Grade'), target: first, value: was[0] }, { column_id: col(t, 'Grade'), target: second, value: was[1] }], 'Dr. T')
+  // nothing left to revert
+  fireEvent.keyDown(grid, { key: 'z', ctrlKey: true })
+  expect(write).toHaveBeenCalledTimes(2)
+  const header = screen.getByRole('columnheader', { name: /Grade/ })
+  expect(header).not.toHaveAttribute('aria-sort')
+  fireEvent.click(within(header).getAllByRole('button')[0]!)
+  expect(header).toHaveAttribute('aria-sort', 'ascending')
+})
+
 test('LBL-02/10: edit and delete a column, delete a table, restore one', async () => {
   useWorkbench.setState({ pid: DEMO_PID })
   const patch = vi.spyOn(api, 'patchLabelTable')

@@ -41,6 +41,17 @@ test('two reviewers label a patient table live; columns become variables', async
   await cell(a, 1, 1).click()
   await expect(a.getByRole('complementary', { name: 'Cell history' })).toContainText('Dr. B')
 
+  // LBL-03/04: a range delete is one edit that Ctrl/Cmd+Z takes back with new cell events; the grid
+  // says when the cells are saved
+  await cell(a, 0, 1).click()
+  await cell(a, 1, 1).click({ modifiers: ['Shift'] })
+  await a.keyboard.press('Delete')
+  await expect(cell(a, 1, 1)).toHaveText('')
+  await expect(a.getByRole('toolbar', { name: 'Label table actions' }).getByText('Saved')).toBeVisible()
+  await a.keyboard.press('ControlOrMeta+z')
+  await expect(cell(a, 1, 1)).toHaveText('✓')
+  await expect(cell(b, 1, 1)).toHaveText('✓', { timeout: 15_000 })
+
   // LBL-06: the column is a typed variable
   await expect.poll(async () => (await api<{ variables: { name: string; type: string }[] }>('GET', `/projects/${pid}/variables`)).variables.find((v) => v.name === 'lbl.review.grade')?.type, { timeout: 15_000 }).toBe('categorical')
 

@@ -1,15 +1,15 @@
 // Label table tab: a spreadsheet over the table's rows. Arrow keys / Tab move, Enter or typing
 // edits, Space toggles yes/no, Delete clears, Shift extends the selection, paste takes a TSV block
-// from a spreadsheet, "Fill" writes one value into the selection.
+// from a spreadsheet, "Fill" writes one value into the selection, Ctrl/Cmd+Z reverts the last edit.
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useQueryClient } from '@tanstack/react-query'
-import { useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, ProblemError, useLabelCells, useLabelHistory, useLabelTables, useProject, type LabelCellIn, type LabelColumn, type LabelImportReport, type LabelTable } from '../../api'
 import { openInContext } from '../../features/explorer'
 import { Dialog, ProblemCard, toolbarKeyDown } from '../../lib'
-import { registry, useWorkbench, type EditorProps, toastProblem } from '../../shell'
+import { registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { display, fillCells, filterRows, move, parseTsv, pasteCells, rect, sortRows, type Pos } from './model'
@@ -23,6 +23,15 @@ export interface TableParams {
 }
 
 const ROW_H = 26
+
+/** The same cell value, as the grid compares them (empty = none) */
+const sameValue = (a: unknown, b: unknown) => String(a ?? '') === String(b ?? '')
+
+/** The last edit: what the cells held before and what was written */
+interface Edit {
+  before: LabelCellIn[]
+  after: LabelCellIn[]
+}
 
 function History({ pid, tid, target, col }: { pid: string; tid: string; target: string | null; col: LabelColumn | null }) {
   const { t } = useTranslation()
@@ -74,6 +83,14 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const [adding, setAdding] = useState(false)
   const [report, setReport] = useState<LabelImportReport | null>(null)
   const [error, setError] = useState<unknown>(null)
+  const [saving, setSaving] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const lastEdit = useRef<Edit | null>(null)
+  // an Undo in a toast runs later: it reads the cells as they are then
+  const items = useRef(cells.data?.items)
+  useEffect(() => {
+    items.current = cells.data?.items
+  })
+  const valueOf = (c: LabelCellIn) => items.current?.find((r) => r.target === c.target)?.values?.[c.column_id] ?? null
   const scroller = useRef<HTMLDivElement>(null)
   const grid = useRef<HTMLDivElement>(null)
   const picker = useRef<HTMLInputElement>(null)
@@ -82,20 +99,40 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const virt = useVirtualizer({ count: rows.length, getScrollElement: () => scroller.current, estimateSize: () => ROW_H, overscan: 12, initialRect: { width: 800, height: 600 } })
   const sel = rect(active, anchor ?? active)
 
-  const write = async (all: LabelCellIn[]) => {
+  /** Write cells; an edit (not an undo) is kept so Ctrl/Cmd+Z can revert it */
+  const write = async (all: LabelCellIn[], undoing = false) => {
     // reference columns are read-only: paste, fill and Delete skip them
     const refCols = new Set(cols.filter((c) => c.ref).map((c) => c.column_id))
     const list = all.filter((c) => !refCols.has(c.column_id))
     if (readOnly || !list.length) return
     const reviewer = await requireReviewer()
     if (!reviewer) return
+    const before = list.map((c) => ({ ...c, value: valueOf(c) }))
     try {
       setError(null)
+      setSaving('saving')
       await api.writeLabelCells(pid, tid, list, reviewer)
+      setSaving('saved')
       void qc.invalidateQueries({ queryKey: keys.scope(pid, 'labeling') })
     } catch (e) {
+      setSaving('idle')
       setError(e)
+      return
     }
+    lastEdit.current = undoing ? null : { before, after: list }
+    // a paste, fill or range delete is easy to make by mistake: it says how to take it back
+    if (!undoing && list.length > 1) toast({ message: t('lbl.changedCells', { count: list.length }), action: { label: t('common.undo'), run: () => void revert() } })
+  }
+  /** Revert the last edit with new cell events; a cell someone changed since keeps their value */
+  const revert = async () => {
+    const edit = lastEdit.current
+    if (!edit) return
+    lastEdit.current = null
+    const back = edit.before.filter((b, i) => {
+      const now = valueOf(b)
+      return sameValue(now, edit.after[i]?.value) || sameValue(now, b.value)
+    })
+    await write(back, true)
   }
   const commit = (p: Pos, v: unknown) => {
     setEditing(null)
@@ -117,6 +154,11 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   // keeps its own keys (Enter on a column menu, letters in a filter) instead of editing a cell
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || editing || !rows.length || !cols.length) return
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      if (!readOnly) void revert()
+      return
+    }
     const col = cols[active.c]
     const row = rows[active.r]
     if (e.key.startsWith('Arrow') || e.key === 'Tab') {
@@ -159,6 +201,8 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   if (!table) return <div className="page"><p className="muted">{t(tables.data ? 'lbl.tableGone' : 'common.loading')}</p></div>
   const selectedCol = cols[active.c] ?? null
   const selectedRow = rows[active.r] ?? null
+  const cellId = (r: number, c: number) => `lbl-${tid}-${r}-${c}`
+  const sortOf = (col: string) => (sort.col === col ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined)
   return (
     <div className="lbl-editor" data-table={table.slug}>
       <div className="lbl-toolbar" role="toolbar" aria-label={t('lbl.toolbar')} onKeyDown={toolbarKeyDown}>
@@ -167,6 +211,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
         {readOnly ? null : <TableMenu pid={pid} table={table} />}
         <input className="input input-sm" aria-label={t('lbl.findRow')} placeholder={t('lbl.findRow')} value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted lbl-small">{t('lbl.rowsShown', { n: rows.length, total: cells.data?.total ?? 0 })}</span>
+        {saving === 'idle' ? null : <span className="muted lbl-small">{t(saving === 'saving' ? 'lbl.saving' : 'lbl.saved')}</span>}
         {readOnly ? (
           <span className="badge" data-tone="accent">{t('lbl.readOnly')}</span>
         ) : (
@@ -186,18 +231,23 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
           className="lbl-grid"
           role="grid"
           aria-label={table.name}
-          aria-rowcount={rows.length}
+          aria-rowcount={rows.length + 2}
+          // focus stays on the grid; the active cell is its active descendant
+          aria-activedescendant={rows[active.r] && cols[active.c] ? cellId(active.r, active.c) : undefined}
           tabIndex={0}
           onKeyDown={onKey}
           onPaste={onPaste}
           style={{ gridTemplateColumns: `180px repeat(${cols.length}, minmax(110px, 1fr))` }}
         >
-          <div className="lbl-head" role="row">
-            <button type="button" role="columnheader" className="lbl-th" onClick={() => setSort({ col: '__target', dir: sort.col === '__target' ? (-sort.dir as 1 | -1) : 1 })}>
-              {t(`lbl.level.${table.level}`)}
-            </button>
+          <div className="lbl-head" role="row" aria-rowindex={1}>
+            <div role="columnheader" className="lbl-th lbl-th-col" aria-sort={sortOf('__target')}>
+              <button type="button" className="lbl-sort" onClick={() => setSort({ col: '__target', dir: sort.col === '__target' ? (-sort.dir as 1 | -1) : 1 })}>
+                {t(`lbl.level.${table.level}`)}
+                {sort.col === '__target' ? <Icon spec={codicon(sort.dir === 1 ? 'arrow-up' : 'arrow-down')} /> : null}
+              </button>
+            </div>
             {cols.map((c) => (
-              <div key={c.column_id} role="columnheader" className="lbl-th lbl-th-col">
+              <div key={c.column_id} role="columnheader" className="lbl-th lbl-th-col" aria-sort={sortOf(c.column_id)}>
                 <button type="button" className="lbl-sort" title={c.ref ? t('lbl.refOf', { name: c.ref }) : (c.description ?? '')} onClick={() => setSort({ col: c.column_id, dir: sort.col === c.column_id ? (-sort.dir as 1 | -1) : 1 })}>
                   {c.ref ? <Icon spec={codicon('link')} /> : null}
                   {c.name}
@@ -207,7 +257,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
               </div>
             ))}
           </div>
-          <div className="lbl-head lbl-filters" role="row">
+          <div className="lbl-head lbl-filters" role="row" aria-rowindex={2}>
             <span className="lbl-th muted lbl-small">{t('lbl.filter')}</span>
             {cols.map((c) => (
               <input key={c.column_id} className="lbl-filter" aria-label={t('lbl.filterCol', { name: c.name })} value={filters[c.column_id] ?? ''} onChange={(e) => setFilters({ ...filters, [c.column_id]: e.target.value })} />
@@ -218,7 +268,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
               {virt.getVirtualItems().map((v) => {
                 const row = rows[v.index]!
                 return (
-                  <div key={row.target} role="row" className="lbl-tr" style={{ transform: `translateY(${v.start}px)`, height: ROW_H, gridTemplateColumns: `180px repeat(${cols.length}, minmax(110px, 1fr))` }}>
+                  <div key={row.target} role="row" aria-rowindex={v.index + 3} className="lbl-tr" style={{ transform: `translateY(${v.start}px)`, height: ROW_H, gridTemplateColumns: `180px repeat(${cols.length}, minmax(110px, 1fr))` }}>
                     <span role="rowheader" className="lbl-target mono">
                       {row.target}
                       {row.item_id ? (
@@ -235,6 +285,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
                       return (
                         <div
                           key={c.column_id}
+                          id={cellId(at.r, at.c)}
                           role="gridcell"
                           aria-selected={selected}
                           data-active={isActive}
