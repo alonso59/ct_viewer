@@ -86,15 +86,17 @@ test('a project item keeps its window and slice across a reload; another item op
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
   const bar = page.getByRole('toolbar').filter({ has: page.getByRole('button', { name: 'Invert' }) })
   await expect(bar.getByLabel('Window width')).toHaveValue('400')
-  await bar.getByLabel('Window width').fill('1500')
-  await bar.getByLabel('Window level').fill('-600')
   const index = view(page, 'Axial').locator('.vp-index')
   const box = (await view(page, 'Axial').locator('.vp-body').boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  const centre = await index.textContent()
   await page.mouse.wheel(0, 300)
+  await expect(index).not.toHaveText(centre!)
   const slice = await index.textContent()
-  // the view is saved once it settles
-  await page.waitForFunction(`(localStorage.getItem('rw.viewer.items') ?? '').includes('"ww":1500')`)
+  // the window last: once it is saved, the slice before it is saved too
+  await bar.getByLabel('Window width').fill('1500')
+  await bar.getByLabel('Window level').fill('-600')
+  await page.waitForFunction(`(() => { const saved = localStorage.getItem('rw.viewer.items') ?? ''; return saved.includes('"ww":1500') && saved.includes('"wl":-600') })()`)
   await page.reload()
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
   await expect(bar.getByLabel('Window width')).toHaveValue('1500')
