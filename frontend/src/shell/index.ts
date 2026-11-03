@@ -18,5 +18,5 @@ export {
   updateActiveParams,
   refreshUrl,
 } from './workbenchStore'
-export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, commandTitle, commandMatches } from './keybindings'
+export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, commandTitle, commandMatches, keyConflicts } from './keybindings'
 export { focusRegion } from './regions'

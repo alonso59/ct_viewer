@@ -755,7 +755,13 @@
       "default": "Default",
       "large": "Large"
     },
-    "sizeHelp": "Text and control size. Compact fits more rows; Large suits big screens."
+    "sizeHelp": "Text and control size. Compact fits more rows; Large suits big screens.",
+    "noKey": "No keys",
+    "keyOf": "{{command}}: {{keys}}",
+    "pressKeysFor": "Press keys for {{command}}",
+    "keyConflict": "{{keys}} is already used by {{command}}. Replace takes it from there.",
+    "replaceKey": "Replace",
+    "resetMockConfirm": "Reset the prototype's tabs and layout? The page reloads."
   },
   "design": {
     "open": "Open design reference",

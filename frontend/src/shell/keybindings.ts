@@ -108,6 +108,12 @@ export function runCommand(id: string, arg?: string) {
 /** The translated title of a command (its `titleArgs` filled in) */
 export const commandTitle = (c: Command, t: (key: string, args?: Record<string, string>) => string) => t(c.title, c.titleArgs)
 
+/** Other commands bound to `chord` (Settings asks before taking it from them; tests keep the
+ *  defaults free of clashes) */
+export function keyConflicts(chord: string, except?: string): Command[] {
+  return [...registry.commands.values()].filter((c) => c.id !== except && bindingOf(c) === chord)
+}
+
 /** Shortcut filters (Settings, Keyboard shortcuts): a command matches by its title or its keys */
 export function commandMatches(c: Command, query: string, t: (key: string, args?: Record<string, string>) => string): boolean {
   const q = query.trim().toLowerCase()

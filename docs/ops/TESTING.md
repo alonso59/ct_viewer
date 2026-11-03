@@ -90,6 +90,7 @@ All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Port
 | `ct-tools` · `viewer-fov` | VW-17/22/23, UI-24 · VW-06/26 |
 | `a11y` | TST-25: axe on the key screens (allow-list may only shrink), skip link, F6 regions, visible focus |
 | `output-panel` | UI-29 / FE-09: Activity follows a running job in the shared log view; text filter, copy count, Download |
+| `settings` | UI-12 / UI-27: theme and size apply at once; a rebinding that takes a key in use asks first (Cancel, Replace) |
 
 ## Verification gates and CI wiring
 
