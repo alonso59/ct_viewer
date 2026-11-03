@@ -49,7 +49,7 @@ test('open later files, attach and save while keeping pages bounded and sources 
     await expect(page.getByRole('button', { name: 'Attach segmentation…' })).toBeEnabled()
     await page.getByRole('button', { name: 'Attach segmentation…' }).click()
     const attach = page.getByRole('dialog', { name: 'Attach a segmentation' })
-    await attach.getByRole('button', { name: 'seg.nii.gz', exact: true }).click()
+    await attach.getByRole('option', { name: 'seg.nii.gz', exact: true }).click()
     await attach.getByRole('button', { name: 'Attach', exact: true }).click()
     await expect(attach).not.toBeVisible()
     await expect(files.getByRole('option', { name: '0502.nii.gz' }).locator('.codicon-layers')).toHaveCount(1)
