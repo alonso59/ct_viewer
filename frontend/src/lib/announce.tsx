@@ -22,7 +22,7 @@ export function announce(message: string) {
   const timer = setTimeout(() => {
     const { pending, text } = useAnnouncer.getState()
     // the same words again still change the region, so they are read again
-    useAnnouncer.setState({ text: pending === text ? `${pending} ` : pending ?? '', pending: null, last: Date.now(), timer: null })
+    useAnnouncer.setState({ text: pending === text ? `${pending}\u00a0` : pending ?? '', pending: null, last: Date.now(), timer: null })
   }, Math.max(0, s.last + ANNOUNCE_GAP_MS - Date.now()))
   useAnnouncer.setState({ timer })
 }
