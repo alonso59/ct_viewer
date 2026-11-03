@@ -1314,7 +1314,8 @@ export interface paths {
         };
         /**
          * Get Queue
-         * @description Correction queue; CSV for 3D Slicer with absolute paths.
+         * @description Correction queue (only the rows with `status` when given); CSV for 3D Slicer with
+         *     absolute paths.
          */
         get: operations["get_queue_api_v1_projects__pid__curation_queue_get"];
         put?: never;
@@ -10721,6 +10722,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "json" | "csv";
+                status?: ("rejected" | "needs_major_correction" | "wrong_side_suspected" | "needs_minor_correction" | "missing" | "cannot_assess" | "accepted" | "not_reviewed") | null;
             };
             header?: never;
             path: {

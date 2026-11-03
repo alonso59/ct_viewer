@@ -20,11 +20,11 @@ test('a view-only link cannot write and hides every editing control', async ({ p
   await expect(page.getByText('View only', { exact: true })).toBeVisible()
   expect(page.url()).not.toContain(pid)
   const bar = page.getByRole('navigation', { name: 'Activity bar' })
-  await expect(bar.getByRole('button', { name: 'Project', exact: true })).toBeVisible()
+  await expect(bar.getByRole('button', { name: 'Explorer', exact: true })).toBeVisible()
   for (const view of ['Curation', 'Tasks', 'Radiomics', 'Variables', 'Plugin Library']) await expect(bar.getByRole('button', { name: view, exact: true })).toHaveCount(0)
 
   // The viewer works; the curation shortcut does nothing
-  const row = page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00001/ })
+  const row = page.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00001/ })
   await row.dblclick()
   await expect(page.locator('.vp').first()).toBeVisible()
   await page.locator('.vp').first().click()

@@ -19,8 +19,8 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await page.getByRole('button', { name: /Convert DICOM/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM' })
   const folders = dialog.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: /synthetic/ }).click()
-  await folders.getByRole('button', { name: /^dicom$/ }).click()
+  await folders.getByRole('option', { name: /synthetic/ }).click()
+  await folders.getByRole('option', { name: /^dicom$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
   await dialog.getByLabel('Dataset name').fill(name)
   const estimate = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
@@ -64,7 +64,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
 
   // Explorer: the cases with their phases (the chained analyzer's layer) and warning badges
-  const tree = page.getByRole('tree', { name: 'Project' })
+  const tree = page.getByRole('tree', { name: 'Explorer' })
   await expect(tree.getByRole('treeitem', { name: /case_00000/ })).toBeVisible()
   await expect(tree.getByRole('treeitem', { name: /case_00001/ })).toBeVisible()
   const item = (await (await fetch(`${API}/projects/${pid}/items/case_00000.01.complete.-`)).json()) as { phase: { canonical: string } }
@@ -76,8 +76,9 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await expect.poll(async () => page.evaluate(shown), { timeout: 30_000 }).toBeGreaterThan(0)
 
   // Problems → the item opens in its case tab (UI-09)
-  await page.getByRole('tab', { name: /Problems/ }).click()
-  const problem = page.getByRole('tabpanel').getByRole('treeitem').filter({ hasText: 'case_00000' }).first()
+  await page.getByRole('tab', { name: /QC warnings/ }).click()
+  // a warning row (level 2) opens its item; the case row (level 1) opens and closes the group
+  const problem = page.getByRole('tabpanel').getByRole('treeitem', { level: 2 }).filter({ hasText: 'case_00000' }).first()
   await expect(problem).toBeVisible()
   await problem.click()
   await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/case_00000`))

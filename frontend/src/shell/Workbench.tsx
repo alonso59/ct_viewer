@@ -1,6 +1,8 @@
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
+import { Announcer } from '../lib/announce'
 import { ErrorBoundary } from '../lib/ErrorBoundary'
 import { useLayout } from '../state'
 import { ActivityBar } from './ActivityBar'
@@ -11,6 +13,7 @@ import { ReviewerPrompt } from './ReviewerPrompt'
 import { SideBar } from './SideBar'
 import { StatusBar } from './StatusBar'
 import { TitleBar } from './TitleBar'
+import { EDITOR_REGION_ID } from './regions'
 import { registry } from './registry'
 import { Toasts } from './Toasts'
 import { ToolBar } from './ToolBar'
@@ -22,6 +25,7 @@ const EditorArea = lazy(() => import('./EditorArea').then((m) => ({ default: m.E
 
 /** The workbench shell for one project. Domain content comes only from the registry. */
 export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode; share?: ReactNode }) {
+  const { t } = useTranslation()
   const load = useLayout((s) => s.load)
   const loadedPid = useLayout((s) => s.pid)
   useEffect(() => {
@@ -38,17 +42,30 @@ export function Workbench({ pid, brand, share }: { pid: string; brand: ReactNode
   if (loadedPid !== pid) return null
   return (
     <div className="wb">
+      {/* the first Tab stop; it moves focus without touching the URL */}
+      <a
+        className="skip-link"
+        href={`#${EDITOR_REGION_ID}`}
+        onClick={(e) => {
+          e.preventDefault()
+          document.getElementById(EDITOR_REGION_ID)?.focus()
+        }}
+      >
+        {t('shell.skipToEditor')}
+      </a>
       <TitleBar brand={brand} share={share} />
       <ToolBar />
       <div className="wb-main">
         <ActivityBar />
         <ErrorBoundary><SideBar /></ErrorBoundary>
         <div className="wb-center">
-          <ErrorBoundary>
-            <Suspense fallback={<div className="wb-editor" />}>
-              <EditorArea key={pid} pid={pid} />
-            </Suspense>
-          </ErrorBoundary>
+          <main id={EDITOR_REGION_ID} className="wb-editor-region" tabIndex={-1} aria-label={t('shell.editorArea')}>
+            <ErrorBoundary>
+              <Suspense fallback={<div className="wb-editor" />}>
+                <EditorArea key={pid} pid={pid} />
+              </Suspense>
+            </ErrorBoundary>
+          </main>
           <ErrorBoundary><Panel /></ErrorBoundary>
           <PanelContentWatch />
         </div>
@@ -67,6 +84,7 @@ export function ShellOverlays() {
     <>
       <CommandPalette />
       <Toasts />
+      <Announcer />
       <ReviewerPrompt />
       {registry.overlays.filter((o) => registry.allowed(o)).map(({ id, component: C }) => <C key={id} />)}
     </>

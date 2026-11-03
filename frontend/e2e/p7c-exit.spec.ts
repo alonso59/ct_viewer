@@ -22,8 +22,8 @@ test('the P7c journey', async ({ page, browserName }) => {
   await page.getByRole('button', { name: /Convert DICOM/ }).click()
   const conv = page.getByRole('dialog', { name: 'Convert DICOM' })
   const folders = conv.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: /synthetic/ }).click()
-  await folders.getByRole('button', { name: /^dicom$/ }).click()
+  await folders.getByRole('option', { name: /synthetic/ }).click()
+  await folders.getByRole('option', { name: /^dicom$/ }).click()
   await conv.getByRole('button', { name: 'Next' }).click()
   await conv.getByLabel('Dataset name').fill(name)
   await conv.getByRole('button', { name: 'Analysis' }).click()
@@ -31,7 +31,7 @@ test('the P7c journey', async ({ page, browserName }) => {
   await conv.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
 
   // 2 · Open the dataset: the full CT tool set, no project
-  await conv.getByRole('button', { name: 'Open', exact: true }).click()
+  await conv.getByRole('button', { name: 'View without a project', exact: true }).click()
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/) // the session id, never the path (AUD-A1-19)
   expect(page.url()).not.toContain('_datasets')
   await expect(page.getByText('Viewing without a project')).toBeVisible()
@@ -66,7 +66,7 @@ test('the P7c journey', async ({ page, browserName }) => {
   await expect(page.locator('[data-pack="ccrcc"]').getByText('applied')).toBeVisible()
 
   // 5 · Label in a patient-level and a CT-level table
-  for (const [level, label] of [['case', 'Patient'], ['scan', 'CT scan']] as const) {
+  for (const [level, label] of [['case', 'Case'], ['scan', 'Scan']] as const) {
     const r = await fetch(`${API}/plugins/labeling/projects/${pid}/tables`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: `${label} review`, level, columns: [{ name: 'Usable', type: 'bool' }] }) })
     const t = await json<{ table_id: string }>(r)
     await page.goto(`/p/${pid}/labeling/${t.table_id}`)

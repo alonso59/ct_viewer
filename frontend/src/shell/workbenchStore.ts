@@ -173,5 +173,13 @@ export function updateActiveParams(panelId: string, patch: Record<string, unknow
 export const refreshUrl = () => useWorkbench.setState((s) => ({ urlToken: s.urlToken + 1 }))
 
 export const toast = (t: Omit<Toast, 'id' | 'count'>) => useWorkbench.getState().toast(t)
+/** One event, one primary channel: when the active tab shows the object (`shownBy`), its own
+ *  inline state says it and no toast repeats it; otherwise a toast. The Activity log keeps its line
+ *  either way. */
+export function notify(t: Omit<Toast, 'id' | 'count'>, shownBy: (active: EditorParams) => boolean) {
+  const active = useWorkbench.getState().active
+  if (active && shownBy(active)) return
+  toast(t)
+}
 /** An error toast with the problem's cause and next steps */
 export const toastProblem = (e: unknown, fallback?: string) => toast({ message: problemToastText(e, fallback), tone: 'error' })

@@ -12,6 +12,7 @@ interface SettingsState {
   /** Command id → key chord overrides */
   keybindings: Record<string, string>
   set: (patch: Partial<Omit<SettingsState, 'set' | 'setKeybinding'>>) => void
+  /** `null` restores the default; `''` leaves the command without keys */
   setKeybinding: (command: string, chord: string | null) => void
 }
 
@@ -26,8 +27,8 @@ export const useSettings = create<SettingsState>()(
       setKeybinding: (command, chord) =>
         set((s) => {
           const next = { ...s.keybindings }
-          if (chord) next[command] = chord
-          else delete next[command]
+          if (chord === null) delete next[command]
+          else next[command] = chord
           return { keybindings: next }
         }),
     }),

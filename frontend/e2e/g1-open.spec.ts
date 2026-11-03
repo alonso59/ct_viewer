@@ -25,14 +25,17 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await page.getByRole('button', { name: /Open file or folder/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Open file or folder' })
   const folders = dialog.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: process.env.E2E_DATASETS!, exact: true }).click()
-  await expect(folders.getByRole('button', { name: 'Parent folder' })).toHaveCount(0) // a shared root
-  await folders.getByRole('button', { name: new RegExp(`^${basename(dataset)}`) }).click()
-  await folders.getByRole('button', { name: /^nifti$/ }).click()
+  // a shared root reads as its path shortened in the middle; it ends with the folder's own name
+  await folders.getByRole('option', { name: new RegExp(`${basename(process.env.E2E_DATASETS!)}$`) }).click()
+  await expect(folders.getByRole('option', { name: 'Parent folder' })).toHaveCount(0) // a shared root
+  await folders.getByRole('option', { name: new RegExp(`^${basename(dataset)}`) }).click()
+  await folders.getByRole('option', { name: /^nifti$/ }).click()
   await dialog.getByRole('searchbox', { name: 'Filter this folder' }).fill('00030')
-  await folders.getByRole('button', { name: IMAGE }).click()
+  await folders.getByRole('option', { name: IMAGE }).click()
   await dialog.getByRole('button', { name: 'Open file' }).click()
   await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
+  // the browser tab names Open mode, never the file (NFR-17)
+  await expect(page).toHaveTitle('Open — Radiology Workbench')
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
 
   // W/L: the CT default on open (VW-05, AUD-A6-16), then a numeric window (VW-22)
@@ -47,9 +50,13 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   const axial = view(page, 'Axial').locator('.vp-body')
   const box = (await axial.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  const probe = view(page, 'Axial').getByRole('status', { name: 'Value under the cursor' })
+  const probe = view(page, 'Axial').locator('.vp-probe')
   await expect(probe).toHaveText(/^-?\d+(\.\d+)? HU · (.+ · )?ijk \d+, \d+, \d+ · RAS .+ mm$/)
-  await expect(view(page, 'Coronal').getByRole('status', { name: 'Value under the cursor' })).toHaveCount(0)
+  await expect(view(page, 'Coronal').locator('.vp-probe')).toHaveCount(0)
+  // the probe is not a live region; H reads it to a screen reader on request (FE-08)
+  await bar.getByLabel('Window level').blur()
+  await page.keyboard.press('h')
+  await expect(page.getByTestId('announcer')).toContainText(/HU · .*ijk/)
 
   // Fit (VW-26): zoom the axial view, then fit it back to 100 %
   await page.keyboard.down('Control')
@@ -65,7 +72,7 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   const attach = page.getByRole('dialog', { name: 'Attach a segmentation' })
   await expect(attach.locator('.fs-path')).toContainText(`${basename(dataset)}/seg`)
   await attach.getByRole('searchbox', { name: 'Filter this folder' }).fill('00030')
-  await attach.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: MASK }).click()
+  await attach.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: MASK }).click()
   await attach.getByRole('button', { name: 'Attach', exact: true }).click()
   await expect(attach).toBeHidden()
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
@@ -99,7 +106,7 @@ test('G1: open a NIfTI, inspect it, attach its label map, save, make a project, 
   await wizard.getByRole('button', { name: 'Import and index' }).click()
   await finishImportIndex(page)
   await expect(page.getByRole('status').filter({ hasText: 'Import finished' })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00030/ })).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00030/ })).toBeVisible()
   const item = (await (await fetch(`${API}/projects/${pid}/items/case_00030.01.complete.-`)).json()) as { masks: Record<string, { ref: string }> }
   expect(item.masks.imported?.ref).toBe(`DATA:seg/${MASK}`)
   const warnings = (await (await fetch(`${API}/projects/${pid}/warnings`)).json()) as { items: { code: string }[] }

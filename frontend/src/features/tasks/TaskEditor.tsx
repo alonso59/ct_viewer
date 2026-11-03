@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
-import { Button, ConfirmInline, Progress, ProblemCard, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { Button, ConfirmInline, Progress, ProblemCard, RadioSeg, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -82,7 +82,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         {actions.map((a) => {
           const button = (onClick: () => void) => (
             <Button key={a} className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} reason={t('reason.cleanup')} onClick={onClick}>
-              {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'cancel' ? 'common.cancel' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
+              {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
             </Button>
           )
           return a === 'cancel'
@@ -189,6 +189,8 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const m = info.manifest
+  const tasks = useTasks().data?.tasks ?? []
+  const taskTitle = (id: string) => tasks.find((x) => x.manifest.id === id)?.manifest.title ?? id
   const explorer = useExplorerFilter()
   const sets = useSegmentations(pid).data ?? []
   const project = useProject(pid).data
@@ -285,13 +287,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
           </>
         ) : (
           <>
-            <div className="seg" role="radiogroup" aria-label={t('tasks.selection')}>
-              {(['all', 'explorer', 'list'] as SelectionMode[]).map((k) => (
-                <button key={k} type="button" role="radio" aria-checked={mode === k} aria-pressed={mode === k} onClick={() => setMode(k)}>
-                  {t(`tasks.mode.${k}`)}
-                </button>
-              ))}
-            </div>
+            <RadioSeg label={t('tasks.selection')} value={mode} options={(['all', 'explorer', 'list'] as SelectionMode[]).map((k) => ({ value: k, label: t(`tasks.mode.${k}`) }))} onChange={setMode} />
             {mode === 'list' ? <ItemPicker pid={pid} value={list} onChange={setList} onBusyChange={setSelecting} /> : null}
             {readsMasks ? (
               <label className="field">
@@ -319,8 +315,8 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
               <p key={reason} className="muted">{t('tasks.missing', { reason, n })}</p>
             ))}
             {(pre.suggestions ?? []).map((s) => (
-              <button key={s.task_id + s.reason} type="button" className="btn btn-sm" onClick={() => openEditor('task', { taskId: s.task_id })}>
-                {t('tasks.suggest', { task: s.task_id, reason: s.reason })}
+              <button key={s.task_id + s.reason} type="button" className="btn btn-sm" title={s.task_id} onClick={() => openEditor('task', { taskId: s.task_id })}>
+                {t('tasks.suggest', { task: taskTitle(s.task_id), reason: s.reason })}
               </button>
             ))}
             {pre.derived_root_required ? (
@@ -372,12 +368,19 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
   )
 }
 
-function TaskEditor({ params }: EditorProps<TaskParams>) {
+function TaskEditor({ params, panelId }: EditorProps<TaskParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const { data, error } = useTasks()
+  const { data, error, refetch } = useTasks()
   const info = data?.tasks.find((x) => x.manifest.id === params.taskId)
-  if (error) return <ProblemCard error={error} />
+  // a tab restored before the task list loaded is named after the task id until now
+  const title = info?.manifest.title
+  useEffect(() => {
+    if (!title) return
+    const panel = useWorkbench.getState().dock?.getPanel(panelId)
+    if (panel && panel.title !== title) panel.api.setTitle(title)
+  }, [panelId, title])
+  if (error) return <ProblemCard error={error} onRetry={() => void refetch()} />
   if (!data) return <div className="empty">{t('common.loading')}</div>
   if (!info) return <div className="error-card">{t('tasks.unknown', { id: params.taskId })}</div>
   return <Body pid={pid} info={info} />

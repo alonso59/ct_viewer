@@ -29,7 +29,7 @@ test('minimized source opening reloads, cancels and resumes the same operation',
     const operation = await response.json() as { operation_id: string; attempt: number }
     let window = page.getByRole('dialog', { name: 'Open file or folder', exact: true })
     await expect(window).toBeVisible()
-    await window.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+    await window.getByRole('button', { name: 'Minimize window', exact: true }).click()
     const chip = page.getByTestId('conv-chip')
     await expect(chip).toBeVisible()
     await page.reload()
@@ -41,7 +41,7 @@ test('minimized source opening reloads, cancels and resumes the same operation',
     await expect.poll(async () => (await api<{ status: string }>('GET', `/source-operations/${operation.operation_id}`)).status).toBe('cancelled')
     await chip.getByRole('button', { name: 'Show', exact: true }).click()
     window = page.getByRole('dialog', { name: 'Open file or folder', exact: true })
-    await window.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+    await window.getByRole('button', { name: 'Resume', exact: true }).click()
     await expect.poll(async () => (await api<{ attempt: number }>('GET', `/source-operations/${operation.operation_id}`)).attempt).toBe(operation.attempt + 1)
     locker.stdin.end()
     await stopProcess(locker)

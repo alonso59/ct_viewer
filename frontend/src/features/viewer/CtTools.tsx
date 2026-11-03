@@ -4,7 +4,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Dialog, IconButton, NumberInput, itemName } from '../../lib'
+import { Dialog, IconButton, NumberInput, itemName, toolbarKeyDown } from '../../lib'
 import { useViewerSync, type ViewerDisplay, type ViewerTool } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useViewerLocal } from './local'
@@ -171,8 +171,9 @@ export function HeaderInfo() {
 
 /** The CT tool bar for Open mode */
 export default function CtToolbar() {
+  const { t } = useTranslation()
   return (
-    <div className="toolbar ct-toolbar" role="toolbar">
+    <div className="toolbar ct-toolbar" role="toolbar" aria-label={t('shell.toolbar')} onKeyDown={toolbarKeyDown}>
       <ToolGroup />
       <MeasureTools />
       <LayoutMenu />

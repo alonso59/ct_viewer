@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useEvents } from '../../api'
+import { useEvents, useProject } from '../../api'
 import { ItemName, StatusBadge, fmtAgo, fmtDate } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
+import { targetName } from './model'
 import '../../i18n/lazy'
 
 export function HistoryList({ dense }: { dense?: boolean }) {
@@ -15,6 +16,7 @@ export function HistoryList({ dense }: { dense?: boolean }) {
   const [scope, setScope] = useState<'item' | 'case'>('case')
   const f = scope === 'item' && iid ? { item_id: iid } : cid ? { case_id: cid } : {}
   const { data, isLoading, isError } = useEvents(pid, f)
+  const labels = useProject(pid).data?.label_map ?? []
   if (!cid) return <div className="empty">{t('history.noActive')}</div>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', fontSize: 'var(--fs-panel)' }}>
@@ -32,7 +34,7 @@ export function HistoryList({ dense }: { dense?: boolean }) {
           <li key={e.event_id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '6px 12px', borderBottom: '1px solid var(--border-muted)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <StatusBadge status={e.status} />
-              <span className="mono muted">{e.target}</span>
+              <span className="muted" title={e.target}>{targetName(e.target, labels, t)}</span>
               {e.item_id ? <ItemName id={e.item_id} pid={pid} className="muted" /> : null}
               {e.priority !== 'medium' ? <span className="badge" data-tone={e.priority === 'high' ? 'error' : undefined}>{t(`priority.${e.priority}`)}</span> : null}
               {e.source === 'v2_import' ? <span className="badge">{t('history.v2Import')}</span> : null}

@@ -1,3 +1,5 @@
+import i18n from '../i18n'
+
 // English format everywhere: a point as the decimal separator on every machine; counts keep the
 // English thousands separator, measured values never get one ("117583", not "117,583", which reads
 // as 117.6 on a comma-decimal machine).
@@ -69,9 +71,8 @@ export function fmtAgo(iso: string, now = Date.now()): string {
 }
 
 export function fmtDuration(sec: number): string {
-  if (sec < 60) return `${Math.round(sec)} s`
-  const m = Math.floor(sec / 60)
-  return `${m} min ${Math.round(sec % 60)} s`
+  if (sec < 60) return i18n.t('format.seconds', { s: Math.round(sec) })
+  return i18n.t('format.minutesSeconds', { m: Math.floor(sec / 60), s: Math.round(sec % 60) })
 }
 
 const ETA_UNITS = [[86400, 'd'], [3600, 'h'], [60, 'min'], [1, 's']] as const
@@ -83,7 +84,7 @@ export function fmtEtaRange(lowS: number, highS: number): string {
   const [size, unit] = ETA_UNITS.find(([s]) => hi >= 1.5 * s && lo >= s * 0.95) ?? ETA_UNITS[3]
   const a = Math.round(lo / size)
   const b = Math.round(hi / size)
-  return `about ${a === b ? a : `${a}–${b}`} ${unit} left`
+  return i18n.t('format.etaRange', { range: a === b ? String(a) : `${a}–${b}`, unit: i18n.t(`format.unit.${unit}`) })
 }
 
 /** Bytes with the unit that fits (decimal units, as file managers show them) */

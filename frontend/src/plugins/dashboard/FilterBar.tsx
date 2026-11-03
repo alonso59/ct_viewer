@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CURATION_STATUSES, PHASES, useProject, type ColorBy, type GlobalFilters, type Variable } from '../../api'
-import { NumberInput } from '../../lib'
+import { NumberInput, toolbarKeyDown } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { useDashboardStore, useRunDashboard } from './store'
 import { useLabelName, usePid, useVisibleVariables } from './views/common'
@@ -119,7 +119,7 @@ export function FilterBar({ runId, labels, trailing }: { runId: string; labels: 
   }
   const nActive = (['phase', 'scope', 'side', 'label', 'status'] as const).filter((k) => list(k).length).length + activeVars.filter((n) => varFilters[n]?.length).length
   return (
-    <div className="db-filters" role="toolbar" aria-label={t('dashboard.filters')}>
+    <div className="db-filters" role="toolbar" aria-label={t('dashboard.filters')} onKeyDown={toolbarKeyDown}>
       <Icon spec={codicon('filter')} />
       <MultiMenu label={t('dashboard.filter.phase')} options={phases.map((p) => ({ value: p, label: p }))} value={list('phase')} onChange={(v) => setList('phase', v)} />
       <MultiMenu label={t('dashboard.filter.scope')} options={(['complete', 'voi'] as const).map((s) => ({ value: s, label: t(`dashboard.scope.${s}`) }))} value={list('scope')} onChange={(v) => setList('scope', v)} />

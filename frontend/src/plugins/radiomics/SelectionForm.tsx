@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PHASES, useProject, useSegmentations, useVariables, type Variable } from '../../api'
-import { IconButton } from '../../lib'
+import { IconButton, RadioSeg } from '../../lib'
 import { codicon } from '../../theme'
 import { explorerSelection, useExplorerFilter, type ExplorerSelection } from '../../features/explorer'
 import { SIDES, parseItemIds, type ItemsMode, type SelectionForm as Sel } from './model/selection'
@@ -66,13 +66,7 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
       <div className="rad-field">
         <span className="rad-label">{t('rad.items')}</span>
         <div className="field">
-          <div className="seg" role="radiogroup" aria-label={t('rad.items')}>
-            {(['all', 'filter', 'list'] as ItemsMode[]).map((m) => (
-              <button key={m} type="button" role="radio" aria-checked={sel.mode === m} aria-pressed={sel.mode === m} onClick={() => onChange({ mode: m })}>
-                {t(`rad.itemsMode.${m}`)}
-              </button>
-            ))}
-          </div>
+          <RadioSeg label={t('rad.items')} value={sel.mode} options={(['all', 'filter', 'list'] as ItemsMode[]).map((m) => ({ value: m, label: t(`rad.itemsMode.${m}`) }))} onChange={(mode) => onChange({ mode })} />
           <span className="muted rad-help">{t(`rad.itemsHelp.${sel.mode}`)}</span>
           <div>
             <button type="button" className="btn btn-sm" disabled={explorerEmpty} title={t(explorerEmpty ? 'rad.fromExplorer.empty' : 'rad.fromExplorer.hint')} onClick={applyExplorer}>
@@ -173,13 +167,7 @@ export function SelectionForm({ pid, sel, onChange, issues }: { pid: string; sel
 
       <div className="rad-field">
         <span className="rad-label">{t('rad.scope')}</span>
-        <div className="seg" role="radiogroup" aria-label={t('rad.scope')}>
-          {(['complete', 'voi'] as const).map((s) => (
-            <button key={s} type="button" role="radio" aria-checked={sel.scope === s} aria-pressed={sel.scope === s} onClick={() => onChange({ scope: s })}>
-              {t(`rad.scopeName.${s}`)}
-            </button>
-          ))}
-        </div>
+        <RadioSeg label={t('rad.scope')} value={sel.scope} options={(['complete', 'voi'] as const).map((s) => ({ value: s, label: t(`rad.scopeName.${s}`) }))} onChange={(scope) => onChange({ scope })} />
       </div>
 
       {/* The set is always shown (default `default_seg`), so the run names its masks */}

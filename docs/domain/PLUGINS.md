@@ -14,7 +14,7 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 | PLG-02 | `plugin.json` declares id, version, title, description, icon, `contributes` (§Contribution points), `requires` (core version, other plugins, capabilities) and `scope` (`workspace` \| `project`). | M |
 | PLG-03 | Plugins register through the shell registry (UI-02) when activated; heavy UI lives in lazy chunks so NFR-07 holds. | M |
 | PLG-04 | Every shipped plugin is installed per workspace and enabled by default. | M |
-| PLG-05 | Plugin Library view (activity bar): each plugin with version, what it adds, status (`ready`, `needs runner`, `needs derived root`, `needs segmentation`, `pending`) and an **Open** action to its main surface. | M |
+| PLG-05 | Plugin Library view (activity bar): each plugin with version, what it adds, status (`ready`, `needs runner`, `needs an output folder`, `needs segmentation`, `pending`) and an **Open** action to its main surface. | M |
 | PLG-06 | Status is computed from `requires` (e.g. a runner heartbeat, `ALLOWED_DERIVED_ROOTS`, a segmentation set) and explains how to satisfy it (UI-18). | M |
 | PLG-07 | Plugin state is namespaced: `{project}/plugins/{id}/` and `{WORKSPACE_ROOT}/plugins/{id}/`; human decisions go to the event store namespace `{id}` (ADR-0022). | M |
 | PLG-08 | New plugin HTTP routes mount under `/api/v1/plugins/{id}/`; existing first-party routes (radiomics, curation, analytics) keep their paths. | M |

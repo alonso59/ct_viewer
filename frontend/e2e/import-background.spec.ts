@@ -27,8 +27,8 @@ test('import inspection reloads, cancels and resumes with its original project a
     await page.getByRole('dialog').getByRole('option', { name: /Import data/ }).click()
     const wizard = page.getByRole('dialog', { name: 'Import data' })
     const folders = wizard.getByRole('listbox', { name: 'Folders' })
-    await folders.getByRole('button', { name: /synthetic/ }).click()
-    await folders.getByRole('button', { name: /^Dataset900(?: metadata.jsonl)?$/ }).click()
+    await folders.getByRole('option', { name: /synthetic/ }).click()
+    await folders.getByRole('option', { name: /^Dataset900(?: metadata.jsonl)?$/ }).click()
     await wizard.locator('#import-alias-help').locator('..').locator('input').fill('IMAGES')
     const created = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith('/api/v1/source-operations'))
     await wizard.getByRole('button', { name: 'Next', exact: true }).click()
@@ -37,7 +37,7 @@ test('import inspection reloads, cancels and resumes with its original project a
     const operation = await response.json() as { operation_id: string; attempt: number; project_id: string }
     expect(operation.project_id).toBe(project.project_id)
     const inspection = page.getByRole('dialog', { name: 'Inspect import source' })
-    await inspection.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+    await inspection.getByRole('button', { name: 'Minimize window', exact: true }).click()
     await page.reload()
     const chip = page.getByTestId('conv-chip')
     await expect(chip).toBeVisible()
@@ -46,7 +46,7 @@ test('import inspection reloads, cancels and resumes with its original project a
     await chip.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
     await expect.poll(async () => (await api<{ status: string }>('GET', `/source-operations/${operation.operation_id}`)).status).toBe('cancelled')
     await chip.getByRole('button', { name: 'Show', exact: true }).click()
-    await inspection.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+    await inspection.getByRole('button', { name: 'Resume', exact: true }).click()
     await expect.poll(async () => (await api<{ attempt: number }>('GET', `/source-operations/${operation.operation_id}`)).attempt).toBe(operation.attempt + 1)
     locker.stdin.end()
     await stopProcess(locker)

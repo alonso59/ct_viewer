@@ -39,11 +39,11 @@ function show(run: Partial<TaskRunSummary>) {
 test('cleanup pending is shown until the supervisor confirms it; cancel stays available', async () => {
   const cancel = vi.spyOn(api, 'cancelTaskRun').mockResolvedValue({} as never)
   show({ status: 'cleanup_pending', control: { control: 1, id: 'C1', action: 'pause', job_id: 'J', requested_at: 'now', deadline_mono: 0, acknowledged_at: null } })
-  expect(await screen.findByText('Cleanup pending')).toBeInTheDocument()
+  expect(await screen.findByText('Stopping…')).toBeInTheDocument()
   expect(screen.getByRole('status')).toHaveTextContent(/GPUs stay reserved/)
   expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel run' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(cancel).toHaveBeenCalledWith(DEMO_PID, base.run_id))
 })
@@ -78,7 +78,7 @@ test('D23 DICOM partial failures offer a separately fenced retry', async () => {
   const retry = vi.spyOn(api, 'retryFailedTaskRun').mockResolvedValue({} as never)
   const resume = vi.spyOn(api, 'resumeTaskRun')
   show({ status: 'completed_with_errors', supervised: false, task: { ...base.task, id: 'dicom.convert' }, attempts: 2, counts: { items: 3, ok: 1, failed: 1, pending: 1, skipped: 0 }, execution: { cleanup_verified: true } })
-  fireEvent.click(await screen.findByRole('button', { name: 'Retry failed series' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry failed' }))
   await waitFor(() => expect(retry).toHaveBeenCalledWith(DEMO_PID, base.run_id, { expected_attempt: 2 }))
   expect(resume).not.toHaveBeenCalled()
 })
@@ -86,7 +86,7 @@ test('D23 DICOM partial failures offer a separately fenced retry', async () => {
 test('D23 DICOM retry and resume stay disabled while cleanup is unverified', async () => {
   show({ status: 'interrupted', supervised: false, task: { ...base.task, id: 'dicom.convert' }, attempts: 2, counts: { items: 2, ok: 1, failed: 1, pending: 0, skipped: 0 }, execution: { cleanup_verified: false } })
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Retry failed series' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Retry failed' })).toBeDisabled()
 })
 
 // UI-20: every waiting state says why and what happens next

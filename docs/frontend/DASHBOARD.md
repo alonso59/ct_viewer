@@ -22,6 +22,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 | DB-09 | Result rows open the feature's distribution split by the analysis variable; recommendation items open the view that shows the problem. | S |
 | DB-07 | Color by any categorical variable, phase or curation status; colors come from the categorical palette tokens. | M |
 | DB-10 | The outlier table flags an item only when at least a share of its features (default 5 %, and at least one feature) has a robust \|z\| over the threshold (default 3.5); both are adjustable in the view. | M |
+| DB-11 | Charts are readable without seeing them: a view with a chart has **Show as table** (its rows: the view's CSV, or the points the chart draws, at most 1,000 rows on screen), where rows of items open the item and have a checkbox for the linked selection (DB-04) as the keyboard alternative to brushing (row keys as in UI_SHELL tables); the canvas has `role="img"` and the ECharts description of its series; series differ by shape as well as colour; a value marked by colour also gets an icon with its meaning (significant q, extreme outlier, a feature that follows volume); no chart animation under `prefers-reduced-motion` (UI-16). | S |
 
 ## Views
 
@@ -51,7 +52,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 ## Implementation notes
 
 - Views are dockview sub-panels per run (layout in localStorage); the Analysis panel is one of them. Mock mode serves only the QC views.
-- "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Project view.
+- "Send to Explorer" sets the Explorer item-id filter (a clearable "N items" chip, combined with the other Explorer filters) and shows the Explorer.
 - Phase (DB-02, DB-07; AUD-A5-04, owner 2026-09-26): every view and analysis uses the **effective** phase (PHS-03), joined at read time (`IndexStore.effective_phases` → `analytics/data.join_phase`); the run's own value is `phase_at_run` (overview details, tidy and feature exports).
 - Keyboard rows (DB-03): `lib/rowKeys.ts` (`useRowKeys`) holds the roving Tab stop and the keys; a row keeps one click and one context-menu handler, which Enter and Shift+F10 reuse. The correction queue and the radiomics failures list use the same rows.
 - Values (DB-03; AUD-A3-04, A3-15): formats and units follow UI_SHELL §Implementation notes; axis ticks use the same format.

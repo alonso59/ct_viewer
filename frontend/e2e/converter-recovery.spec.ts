@@ -1,7 +1,7 @@
 // TST-24/B01-B08: real import/result journeys, native cancellation/API death and restore.
 import { execFile, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
 
 import { expect, test as base, type BrowserContext, type Page } from '@playwright/test'
@@ -36,7 +36,7 @@ async function prepareConversion(page: Page, server: Awaited<ReturnType<typeof s
     await page.getByRole('option', { name: /Convert DICOM/ }).click()
   } else await page.getByRole('button', { name: /Convert DICOM/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-  await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+  await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: new RegExp(`${basename(server.source)}$`) }).click()
   await dialog.getByRole('button', { name: 'Next', exact: true }).click()
   await dialog.getByRole('checkbox', { name: /phase analyzer/ }).setChecked(phase)
   const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
@@ -64,14 +64,14 @@ test('B05 cancels registration, drains its shared worker and resumes without rew
   await dialog.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   await expect.poll(async () => (await record()).status).toBe('cancelling')
   await execute(server.python, ['-c', 'import os,sys;os.kill(int(sys.argv[1]),0)', String(worker.pid)])
-  await expect(dialog.getByRole('button', { name: 'Resume pending work', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Resume', exact: true })).toHaveCount(0)
   expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(0)
   unlinkSync(join(server.root, 'hold-index'))
   await expect.poll(async () => {
     const value = await record()
     return value.status === 'cancelled' && value.cleanup_verified
   }, { timeout: 30_000 }).toBe(true)
-  await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Resume', exact: true }).click()
   await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
   const completed = (await record()).conversion_run!
   expect(completed.run_id).toBe(original.run_id)
@@ -98,7 +98,7 @@ for (const project of [false, true]) {
     expect(counts.ok ?? (counts.converted ?? 0) + (counts.already_converted ?? 0)).toBe(1)
     await dialog.getByRole('button', { name: 'Show the result' }).click()
     if (!project) {
-      await expect(dialog.getByRole('button', { name: 'Open', exact: true })).toBeDisabled()
+      await expect(dialog.getByRole('button', { name: 'View without a project', exact: true })).toBeDisabled()
       await expect(dialog.getByRole('button', { name: 'Create project from this' })).toBeDisabled()
     }
     const before = fixtureHashes(server.derived)
@@ -106,7 +106,7 @@ for (const project of [false, true]) {
     expect(image).toBeTruthy()
     const mtime = String(statSync(join(server.derived, image!), { bigint: true }).mtimeNs)
     unlinkSync(join(server.root, 'pause'))
-    await dialog.getByRole('button', { name: 'Retry failed series', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Retry failed', exact: true }).click()
     await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
     const completed = (await record()).conversion_run!
     expect(completed.run_id).toBe(original.run_id)
@@ -192,7 +192,7 @@ for (const stage of ['discovering', 'planning']) {
         await page.getByRole('option', { name: /Convert DICOM/ }).click()
       } else await page.getByRole('button', { name: /Convert DICOM/ }).click()
       let dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-      await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+      await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: new RegExp(`${basename(server.source)}$`) }).click()
       await dialog.getByRole('button', { name: 'Next', exact: true }).click()
       await dialog.getByRole('checkbox', { name: /phase analyzer/ }).uncheck()
       const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
@@ -207,7 +207,7 @@ for (const stage of ['discovering', 'planning']) {
       const original = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
       expect(original.status).toBe('running')
       expect(original.project_id).toBe(pid ?? null)
-      await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+      await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
       await page.reload()
       await expect(page.getByTestId('conv-chip')).toBeVisible()
       await page.context().close()
@@ -217,8 +217,8 @@ for (const stage of ['discovering', 'planning']) {
         await page.goto(server.url)
         await page.getByRole('button', { name: /Convert DICOM/ }).click()
         dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-        await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(oid)
-        await dialog.getByRole('button', { name: 'Minimize', exact: true }).first().click()
+        await dialog.getByRole('combobox', { name: 'Recent work' }).selectOption(oid)
+        await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
         const chip = page.getByTestId('conv-chip')
         await chip.getByRole('button', { name: 'Cancel', exact: true }).click()
         await chip.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
@@ -230,7 +230,7 @@ for (const stage of ['discovering', 'planning']) {
         unlinkSync(join(server.root, 'pause'))
         await expect(chip).toContainText('Cancelled')
         await chip.getByRole('button', { name: 'Show', exact: true }).click()
-        await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Resume', exact: true }).click()
         await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
         const resumed = await server.request<SourceOperation>('GET', `/source-operations/${oid}`)
         expect(resumed.attempt).toBe(original.attempt + (stage === 'discovering' ? 2 : 1))
@@ -267,7 +267,7 @@ for index, path in enumerate(sorted(root.rglob("*.dcm"))):
   await page.getByRole('dialog').getByRole('combobox').fill('Import data')
   await page.getByRole('option', { name: /Import data/ }).click()
   let wizard = page.getByRole('dialog', { name: 'Import data', exact: true })
-  await wizard.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+  await wizard.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: new RegExp(`${basename(server.source)}$`) }).click()
   await wizard.getByRole('button', { name: 'Next', exact: true }).click()
   wizard = await continueImportInspection(page)
   await wizard.getByRole('radio', { name: /DICOM/ }).check()
@@ -276,7 +276,7 @@ for index, path in enumerate(sorted(root.rglob("*.dcm"))):
   const { operation_id: oid } = await (await created).json() as { operation_id: string }
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
   await expect(dialog.getByRole('button', { name: /Convert 2 series/ })).toBeVisible({ timeout: 30_000 })
-  await dialog.getByRole('button', { name: 'Minimize', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Minimize window', exact: true }).click()
   await page.getByRole('navigation', { name: /Activity bar/ }).getByRole('button', { name: 'Variables', exact: true }).click()
   await page.getByTestId('conv-chip').getByRole('button', { name: 'Show', exact: true }).click()
   await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
@@ -363,11 +363,11 @@ for (const destination of ['open', 'existing project']) {
     await page.goto(server.url)
     await page.getByRole('button', { name: /Convert DICOM/ }).click()
     const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-    await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(oid)
+    await dialog.getByRole('combobox', { name: 'Recent work' }).selectOption(oid)
     await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
     await dialog.getByRole('button', { name: 'Show the result' }).click({ timeout: 60_000 })
     if (destination === 'open') {
-      await dialog.getByRole('button', { name: 'Open', exact: true }).click()
+      await dialog.getByRole('button', { name: 'View without a project', exact: true }).click()
       await expect(page).toHaveURL(/\/open\/[0-9A-Z]{26}$/)
       await expect(page.locator('.vp').first()).toBeVisible()
       await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
@@ -408,7 +408,7 @@ for (const scope of ['dataset', 'project']) {
         await page.goto(server.url)
         await page.getByRole('button', { name: /Convert DICOM/ }).click()
         let dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-        await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(operation.operation_id)
+        await dialog.getByRole('combobox', { name: 'Recent work' }).selectOption(operation.operation_id)
         await dialog.getByRole('button', { name: /Convert 2 series/ }).click()
         const workspace = join(server.root, 'workspace')
         const barriers = () => readdirSync(workspace, { recursive: true, encoding: 'utf8' }).filter((p) => p.endsWith('native-writer-barrier.json'))
@@ -423,7 +423,7 @@ for (const scope of ['dataset', 'project']) {
         expect(Object.keys(commits)).toHaveLength(1)
         const second = await page.context().newPage()
         await second.goto(server.url)
-        await expect(second.getByRole('combobox', { name: 'Recent operations' })).toHaveValue(operation.operation_id)
+        await expect(second.getByRole('combobox', { name: 'Recent work' })).toHaveValue(operation.operation_id)
         expect((await server.request<{ items: unknown[] }>('GET', '/source-operations')).items).toHaveLength(1)
         await second.close()
         await page.keyboard.press('Escape')
@@ -458,12 +458,12 @@ for (const scope of ['dataset', 'project']) {
         await page.goto(server.url)
         await page.getByRole('button', { name: /Convert DICOM/ }).click()
         dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-        await dialog.getByRole('combobox', { name: 'Recent operations' }).selectOption(operation.operation_id)
+        await dialog.getByRole('combobox', { name: 'Recent work' }).selectOption(operation.operation_id)
         if (action === 'crash') {
           await expect.poll(async () => (await record()).status).toBe('interrupted')
           await expect(dialog).toContainText('Interrupted')
         }
-        await dialog.getByRole('button', { name: 'Resume pending work', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Resume', exact: true }).click()
         await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
         const completed = await record()
         expect(completed.conversion_run!.run_id).toBe(original.run_id)

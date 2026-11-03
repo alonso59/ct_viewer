@@ -31,8 +31,19 @@ export function showOutput(channel: OutputChannelContribution) {
 }
 
 function ChannelLog({ channel }: { channel: OutputChannelContribution }) {
-  const { data } = useLogStream(channel.kind, channel.ref)
-  return <LogView lines={data?.lines ?? []} />
+  const log = useLogStream(channel.kind, channel.ref)
+  return (
+    <LogView
+      lines={log.data?.lines ?? []}
+      first={log.data?.first}
+      name={channel.label}
+      loading={log.isLoading}
+      error={log.error}
+      onRetry={() => void log.refetch()}
+      ended={log.data?.done}
+      redacted
+    />
+  )
 }
 
 export function OutputPanel() {

@@ -6,7 +6,7 @@ import { Dialog, ProblemCard, problemMessage } from '../../lib'
 import { openEditor, toast, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { autoLabelColor, codicon } from '../../theme'
-import { setLabels } from './model/labels'
+import { setLabels, shownSet } from './model/labels'
 import { SegmentationControls } from './SegmentationControls'
 
 export default function SegmentationPanel() {
@@ -16,8 +16,7 @@ export default function SegmentationPanel() {
   const query = useSegmentations(pid)
   const sets = query.data ?? []
   const viewer = useViewerSync()
-  const preferred = viewer.segChoice[pid] ?? project.data?.default_seg
-  const selected = sets.find((set) => set.seg_id === preferred) ?? sets[0]
+  const selected = shownSet(sets, viewer.segChoice[pid] ?? project.data?.default_seg)
   const change = useSetSegmentationLabelActive(pid)
   const [search, setSearch] = useState('')
   const [confirm, setConfirm] = useState<{ segId: string; setName: string; label: LabelDef } | null>(null)
@@ -28,7 +27,7 @@ export default function SegmentationPanel() {
   }
   const shown = labels.filter((label) => `${label.name} ${label.value}`.toLowerCase().includes(search.toLowerCase()))
   const error = project.error ?? query.error
-  if (error) return <ProblemCard error={error} />
+  if (error) return <ProblemCard error={error} onRetry={() => void Promise.all([project.refetch(), query.refetch()])} />
   return (
     <div className="segmentation-panel">
       <h2>{t('segmentation.title')}</h2>

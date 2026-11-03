@@ -1,8 +1,8 @@
 import { createElement, lazy, Suspense, useEffect, useRef } from 'react'
 
-import { useTaskRuns, useTasks } from '../../api'
+import { keys, queryClient, useTaskRuns, useTasks, type TaskList } from '../../api'
 import i18n from '../../i18n'
-import { registry, toast, useWorkbench } from '../../shell'
+import { notify, registry, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 import { openTask, syncTaskCommands } from './commands'
 import type { TaskParams } from './TaskEditor'
@@ -25,7 +25,8 @@ export function registerTasks() {
     writes: true,
     component: LazyEditor,
     id: (p) => `task:${p.taskId}`,
-    title: (p) => p.taskId,
+    // the manifest title; the id until the task list has loaded (the editor renames the tab then)
+    title: (p) => queryClient.getQueryData<TaskList>(keys.tasks())?.tasks.find((x) => x.manifest.id === p.taskId)?.manifest.title ?? p.taskId,
     icon: () => codicon('run-all'),
     path: (pid, p) => `/p/${pid}/tasks/${encodeURIComponent(p.taskId)}`,
     match: (path) => {
@@ -52,7 +53,11 @@ export function TaskCommands() {
       const stamp = `${run.job_id}:${run.status}:${run.error}`
       const before = previous.current?.pid === pid ? previous.current.runs.get(run.run_id) : undefined
       if (previous.current?.pid === pid && before !== stamp && run.error && ['failed', 'completed_with_errors'].includes(run.status)) {
-        toast({ message: i18n.t('jobs.taskFailedDetail', { name: run.name, error: run.error }), tone: 'error', action: { label: i18n.t('jobs.showTask'), run: () => openTask(run.task.id) } })
+        // the task's own tab, when active, shows the error in the run row
+        notify(
+          { message: i18n.t('jobs.taskFailedDetail', { name: run.name, error: run.error }), tone: 'error', action: { label: i18n.t('jobs.showTask'), run: () => openTask(run.task.id) } },
+          (active) => active.type === 'task' && active.taskId === run.task.id,
+        )
       }
     }
     previous.current = { pid, runs: new Map(runs.map((run) => [run.run_id, `${run.job_id}:${run.status}:${run.error}`])) }

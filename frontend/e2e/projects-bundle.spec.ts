@@ -30,10 +30,10 @@ test('compute full hashes: job in the Jobs panel, then up to date', async ({ pag
   const jobs = page.getByRole('tabpanel').filter({ has: page.getByRole('columnheader', { name: 'Job' }) })
   const row = jobs.getByRole('row').filter({ hasText: 'Full hash' }).first()
   await expect(row).toBeVisible()
-  // FE-09 / UI-29: Output › Activity stays mounted while the job's events arrive
-  await page.getByRole('tab', { name: 'Output', exact: true }).click()
+  // FE-09 / UI-29: Log › Activity stays mounted while the job's events arrive
+  await page.getByRole('tab', { name: 'Log', exact: true }).click()
   await expect(page.getByText(/\[job\] Full hash: Completed/)).toBeVisible({ timeout: 90_000 })
-  await expect(page.getByRole('tree', { name: 'Project' })).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Explorer' })).toBeVisible()
   await page.getByRole('tab', { name: /^Jobs/ }).click()
   await expect(row).toContainText('Completed', { timeout: 90_000 }) // one run-state vocabulary (AUD-A3-10)
   // Results land on the item records (API-21/22)
@@ -73,11 +73,11 @@ test('bundle export downloads a zip; import shows the resolve report and opens t
   await expect(dialog.getByText(/already had project/)).toBeVisible()
   const data = dialog.getByRole('row').filter({ hasText: 'DATA' })
   await expect(data).toContainText(/sampled items match · 0 changed · 0 missing/)
-  await expect(dialog.getByRole('button', { name: 'Relink data root…' })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Relink source folder…' })).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Open project' }).click()
   await expect(page).toHaveURL(/\/p\/[0-9A-Z]{26}/)
   expect(page.url()).not.toContain(pid)
-  await expect(page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible({ timeout: 30_000 })
 })
 
 // PRJ-06, API-04 (AUD-A4-03): archive from the home card with a confirmation, restore from the

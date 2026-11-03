@@ -9,6 +9,7 @@ import { token } from '../../../theme'
 import { Chart, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
 import {
+  ChartOrTable,
   FeatureSelect,
   openRef,
   str,
@@ -109,15 +110,17 @@ export function GroupComparisonView({ runId }: ViewProps) {
           <div className="db-split-main db-stack">
             <TestResult choice={d.choice} row={d.selected} />
             <div className="db-chart-fill">
-              <Chart
-                option={option}
-                onReady={setChart}
-                onClick={onPoint}
-                onContextMenu={(p, x, y) => {
-                  const r = (p.data as Pt | undefined)?.ref
-                  if (r && Array.isArray((p.data as Pt).value)) useItemMenu.getState().open(r, x, y)
-                }}
-              />
+              <ChartOrTable runId={runId} rows={() => [['item_id', 'case_id', variable ?? '', d.feature ?? ''], ...d.points.map((p) => [p.item_id, p.case_id, p.group, p.value])]}>
+                <Chart
+                  option={option}
+                  onReady={setChart}
+                  onClick={onPoint}
+                  onContextMenu={(p, x, y) => {
+                    const r = (p.data as Pt | undefined)?.ref
+                    if (r && Array.isArray((p.data as Pt).value)) useItemMenu.getState().open(r, x, y)
+                  }}
+                />
+              </ChartOrTable>
             </div>
           </div>
           <div className="db-split-side">

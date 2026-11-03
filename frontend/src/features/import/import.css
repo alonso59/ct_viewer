@@ -72,7 +72,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.fs-list .list-row:disabled {
+.fs-list .list-row:disabled,
+.fs-list .list-row[aria-disabled='true'] {
   color: var(--fg-muted);
   cursor: default;
 }

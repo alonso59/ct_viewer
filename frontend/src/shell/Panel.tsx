@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { IconButton } from '../lib'
@@ -11,7 +11,7 @@ function Tab({ p, selected, onSelect }: { p: PanelTabContribution; selected: boo
   const { t } = useTranslation()
   const badge = p.useBadge?.() ?? null
   return (
-    <button type="button" role="tab" className="panel-tab" aria-selected={selected} onClick={onSelect}>
+    <button type="button" role="tab" id={`panel-tab-${p.id}`} aria-controls="panel-body" tabIndex={selected ? 0 : -1} className="panel-tab" aria-selected={selected} onClick={onSelect}>
       {t(p.title)}
       {badge ? <span className="count">{badge}</span> : null}
     </button>
@@ -46,18 +46,37 @@ export function Panel() {
   const active = registry.panelTabs.find((p) => p.id === layout.activePanelTab) ?? registry.panelTabs[0]
   const Body = active?.component
   const maxed = height > window.innerHeight * 0.6
+  // one Tab stop on the selected tab; the arrows select the next one (WAI-ARIA tabs)
+  const tabs = registry.panelTabs
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = tabs.findIndex((p) => p.id === active?.id)
+    const to = e.key === 'ArrowRight' ? at + 1 : e.key === 'ArrowLeft' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null
+    const next = to === null ? undefined : tabs[(to + tabs.length) % tabs.length]
+    if (!next) return
+    e.preventDefault()
+    layout.showPanelTab(next.id)
+    document.getElementById(`panel-tab-${next.id}`)?.focus()
+  }
   return (
     <>
       <Sash
         direction="h"
+        label={t('shell.resizePanel')}
+        value={height}
+        min={100}
+        max={window.innerHeight - 200}
         onStart={() => (start.current = height)}
         onDrag={(d) => layout.set({ panelHeight: Math.min(window.innerHeight - 200, Math.max(100, start.current - d)) })}
+        onReset={() => layout.resetSize('panelHeight')}
       />
       <section className="panel" style={{ height }} aria-label={t('shell.panel')}>
-        <div className="panel-tabs" role="tablist">
-          {registry.panelTabs.map((p) => (
-            <Tab key={p.id} p={p} selected={p.id === active?.id} onSelect={() => layout.showPanelTab(p.id)} />
-          ))}
+        <div className="panel-tabs">
+          {/* the tablist holds only tabs; the panel's own buttons sit beside it */}
+          <div className="panel-tablist" role="tablist" aria-label={t('shell.panel')} onKeyDown={onTabKey}>
+            {tabs.map((p) => (
+              <Tab key={p.id} p={p} selected={p.id === active?.id} onSelect={() => layout.showPanelTab(p.id)} />
+            ))}
+          </div>
           <div className="panel-actions">
             <IconButton
               icon={codicon(maxed ? 'chevron-down' : 'chevron-up')}
@@ -67,7 +86,7 @@ export function Panel() {
             <IconButton icon={codicon('close')} label={t('shell.closePanel')} onClick={() => layout.set({ panelVisible: false })} />
           </div>
         </div>
-        <div className="panel-body" role="tabpanel">{Body ? <Body /> : null}</div>
+        <div className="panel-body" id="panel-body" role="tabpanel" aria-labelledby={active ? `panel-tab-${active.id}` : undefined}>{Body ? <Body /> : null}</div>
       </section>
     </>
   )

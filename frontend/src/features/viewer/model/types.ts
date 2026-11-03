@@ -141,6 +141,8 @@ export interface ViewerHandle {
   fitView(tile: ViewportId): void
   /** Fit every view, crosshair to the volume centre */
   resetView(): void
+  /** Crosshair to the volume centre; zoom and pan stay */
+  centerCrosshair(): void
   /** Default window for the loaded image (CT preset or 1st–99th percentile) */
   defaultWindow(): [number, number]
   onView(cb: (s: ViewState) => void): Unsubscribe

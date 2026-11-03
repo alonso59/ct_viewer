@@ -36,7 +36,7 @@ describe('rows and chips', () => {
   test('shows one row per batch with patients, files and a status chip', async () => {
     renderBoard(plan({ status: 'running', batches: [batch(0, { status: 'completed', dataset: '/derived/_datasets/ds-b01' }), batch(1, { status: 'ready', files_total: null })], counting: 'counting' }))
     const first = await screen.findByTestId('batch-0')
-    expect(within(first).getByText('Done')).toBeVisible()
+    expect(within(first).getByText('Completed')).toBeVisible()
     expect(within(first).getByText('1200')).toBeVisible()
     const second = screen.getByTestId('batch-1')
     expect(within(second).getByText('Ready')).toBeVisible()
@@ -142,7 +142,7 @@ describe('plan controls', () => {
   test('a paused plan continues and can be cancelled', async () => {
     const run = vi.spyOn(api, 'controlSourceBatchPlan').mockResolvedValue(plan({ status: 'running' }))
     renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'attention', error: 'Conversion stopped.' }), batch(1)] }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Continue' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume plan' }))
     await waitFor(() => expect(run).toHaveBeenCalledWith('plan1', 'continue'))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel plan' }))
     expect(run).not.toHaveBeenLastCalledWith('plan1', 'cancel')
@@ -154,7 +154,7 @@ describe('plan controls', () => {
     const onNew = vi.fn()
     renderBoard(plan({ status: 'completed', cursor: 2, batches: [batch(0, { status: 'completed' }), batch(1, { status: 'completed' })] }), { onNew })
     await screen.findByTestId('batch-1')
-    for (const name of ['Start', 'Continue', 'Cancel plan', 'Add new folders', 'Convert remaining automatically']) expect(screen.queryByRole('button', { name })).toBeNull()
+    for (const name of ['Start', 'Resume plan', 'Cancel plan', 'Add new folders', 'Convert remaining automatically']) expect(screen.queryByRole('button', { name })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'New conversion' }))
     expect(onNew).toHaveBeenCalled()
   })
@@ -232,14 +232,14 @@ describe('batches that need attention', () => {
     const resume = vi.spyOn(api, 'resumeSourceOperation').mockResolvedValue({ ...stopped, status: 'running' })
     renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'attention', operation_id: 'op1', error: 'Conversion stopped.' }), batch(1)] }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Conversion stopped.')
-    const button = await screen.findByRole('button', { name: 'Resume pending work' })
+    const button = await screen.findByRole('button', { name: 'Resume' })
     await waitFor(() => expect(button).toBeEnabled())
     fireEvent.click(button)
     await waitFor(() => expect(resume).toHaveBeenCalledWith('op1', { expected_revision: 7, expected_attempt: 2 }))
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Resume plan' })).toBeVisible()
   })
 
-  test('offers Retry failed series only when series failed and cleanup is verified', async () => {
+  test('offers Retry failed only when series failed and cleanup is verified', async () => {
     const base = await operation({ operation_id: 'op1', status: 'completed_with_errors', cleanup_verified: true })
     const [first] = await api.listSourceOperations()
     const full = await api.getSourceOperation(first!.operation_id)
@@ -248,7 +248,7 @@ describe('batches that need attention', () => {
     vi.spyOn(api, 'getSourceOperation').mockResolvedValue(failed)
     const retry = vi.spyOn(api, 'retryFailedSourceOperation').mockResolvedValue(failed)
     renderBoard(plan({ status: 'paused', batches: [batch(0, { status: 'attention', operation_id: 'op1', error: 'One series failed.' })] }))
-    const button = await screen.findByRole('button', { name: 'Retry failed series' })
+    const button = await screen.findByRole('button', { name: 'Retry failed' })
     await waitFor(() => expect(button).toBeEnabled())
     fireEvent.click(button)
     await waitFor(() => expect(retry).toHaveBeenCalledWith('op1', expect.objectContaining({ expected_revision: failed.revision })))

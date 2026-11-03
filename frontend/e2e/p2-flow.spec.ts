@@ -20,7 +20,13 @@ test('new project → import → browse → share link', async ({ page, browser,
 
   // Workspace home → New project: name, default modality and a disposable dataset (PRJ-19).
   await page.goto('/')
-  await page.getByRole('button', { name: /New project/ }).click()
+  const newProject = page.getByRole('button', { name: /New project/ })
+  // Escape closes a dialog and gives focus back to the button that opened it (FE-08)
+  await newProject.click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(newProject).toBeFocused()
+  await newProject.click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Project name').fill(name)
   await dialog.getByLabel('Dataset folder').fill(dataset)
@@ -56,18 +62,20 @@ test('new project → import → browse → share link', async ({ page, browser,
   await expect(wizard).toBeHidden()
 
   // Browse: Project view lists cases; open case_00001
-  const tree = page.getByRole('tree', { name: 'Project' })
+  const tree = page.getByRole('tree', { name: 'Explorer' })
   const row = tree.getByRole('treeitem', { name: /case_00001/ })
   await expect(row).toBeVisible()
   await row.dblclick()
   await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/case_00001`))
+  // the browser tab names the case (its item once known) and the project
+  await expect(page).toHaveTitle(new RegExp(`^case_00001( · [^—]+)? — ${name} — Radiology Workbench$`))
 
   // Problems panel lists the fixture warnings. AUD-A3-01 (UI-13): on a case tab the panel stays
   // closed while the item has neither features nor problems; the Layout menu opens it (ADR-0028)
   await expect(page.getByRole('region', { name: 'Panel' })).toBeHidden()
   await page.getByRole('banner').getByRole('button', { name: /^Layout/ }).click()
   await page.getByRole('menuitemcheckbox', { name: /Panel/ }).click()
-  await page.getByRole('tab', { name: /Problems/ }).click()
+  await page.getByRole('tab', { name: /QC warnings/ }).click()
   await expect(page.getByRole('tabpanel').getByRole('treeitem').filter({ hasText: 'case_00010' }).first()).toBeVisible()
 
   // SSE connected
@@ -90,7 +98,7 @@ test('new project → import → browse → share link', async ({ page, browser,
   await page2.goto(url)
   await expect(page2.getByRole('button', { name: 'Switch project' })).toContainText(name)
   await expect(page2).toHaveURL(new RegExp(`/p/${pid}/case/case_00001`))
-  await expect(page2.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible()
+  await expect(page2.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: /case_00001/ })).toBeVisible()
   await other.close()
 
   expect(errors).toEqual([])

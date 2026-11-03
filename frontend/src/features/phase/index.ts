@@ -47,11 +47,21 @@ function activeScan() {
 function setPhase(value: string) {
   const at = activeScan()
   if (!at) return
-  appendPhaseNow(queryClient, at.pid, { case_id: at.item.case_id, scan_idx: at.item.scan_idx, value, source: 'manual' }).then(
-    () => toast({ message: i18n.t('phaseSel.setTo', { scan: `${at.item.case_id} · ${at.item.scan_idx}`, phase: value }), tone: 'ok' }),
-    (e: unknown) => {
-      if (!(e instanceof ReviewerCancelled)) toastProblem(e, i18n.t('common.saveFailed'))
-    },
+  const scan = `${at.item.case_id} · ${at.item.scan_idx}`
+  const before = at.item.phase.canonical
+  const failed = (e: unknown) => {
+    if (!(e instanceof ReviewerCancelled)) toastProblem(e, i18n.t('common.saveFailed'))
+  }
+  const write = (v: string) => appendPhaseNow(queryClient, at.pid, { case_id: at.item.case_id, scan_idx: at.item.scan_idx, value: v, source: 'manual' })
+  write(value).then(
+    () =>
+      toast({
+        message: i18n.t('phaseSel.setTo', { scan, phase: value }),
+        tone: 'ok',
+        // the previous phase again as a new event, as from the header chips
+        action: before !== value ? { label: i18n.t('common.undo'), run: () => void write(before).then(() => toast({ message: i18n.t('phaseSel.setTo', { scan, phase: before }), tone: 'ok' }), failed) } : undefined,
+      }),
+    failed,
   )
 }
 

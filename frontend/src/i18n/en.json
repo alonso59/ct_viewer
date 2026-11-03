@@ -15,7 +15,9 @@
     "save": "Save",
     "saveFailed": "Could not save. Try again.",
     "keepRunning": "Keep running",
-    "yesCancel": "Yes, cancel"
+    "yesCancel": "Yes, cancel",
+    "details": "Details",
+    "undo": "Undo"
   },
   "menu": {
     "file": "File",
@@ -50,10 +52,10 @@
     "commandPalette": "Show all commands",
     "cycleLayout": "Cycle viewer layout",
     "nextCase": "Next case",
-    "nextProblem": "Next problem",
+    "nextProblem": "Next QC warning",
     "prevCase": "Previous case",
     "quickOpen": "Go to case…",
-    "showOutput": "Show output log",
+    "showOutput": "Show log",
     "split": "Split editor right",
     "toggleInspector": "Toggle inspector",
     "toggleLabel": "Toggle label {{n}}",
@@ -75,7 +77,27 @@
     "newLabelTable": "New label table…",
     "exportDatasetCsv": "Export dataset table (CSV)",
     "exportDatasetParquet": "Export dataset table (Parquet)",
-    "exportDatasetJsonl": "Export dataset.jsonl"
+    "exportDatasetJsonl": "Export dataset.jsonl",
+    "nextRegion": "Focus next region",
+    "previousRegion": "Focus previous region",
+    "readProbe": "Read the value under the cursor",
+    "pinTab": "Keep tab open",
+    "viewer": {
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "centerCrosshair": "Center the crosshair",
+      "nextSlice": "Next slice",
+      "previousSlice": "Previous slice",
+      "panLeft": "Move the image left",
+      "panRight": "Move the image right",
+      "panUp": "Move the image up",
+      "panDown": "Move the image down",
+      "orbitLeft": "Rotate the 3D view left",
+      "orbitRight": "Rotate the 3D view right",
+      "orbitUp": "Rotate the 3D view up",
+      "orbitDown": "Rotate the 3D view down",
+      "measurePoint": "Place a measurement point at the crosshair"
+    }
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -107,7 +129,13 @@
       "panel": "Panel",
       "inspector": "Inspector"
     },
-    "toastCount": "×{{n}}"
+    "toastCount": "×{{n}}",
+    "skipToEditor": "Skip to editor",
+    "editorArea": "Editor area",
+    "tabsLost": "The saved tabs of this project could not be restored, so it opened without them.",
+    "resizeSidebar": "Resize the side bar",
+    "resizeInspector": "Resize the inspector",
+    "resizePanel": "Resize the panel"
   },
   "palette": {
     "cases": "Cases",
@@ -126,7 +154,7 @@
     "history": "History",
     "image": "Image",
     "labels": "Labels",
-    "project": "Project",
+    "project": "Explorer",
     "radiomics": "Radiomics",
     "search": "Search",
     "settings": "Settings",
@@ -139,14 +167,15 @@
     "history": "History",
     "jobs": "Jobs",
     "measurements": "Measurements",
-    "output": "Output",
-    "problems": "Problems"
+    "output": "Log",
+    "problems": "QC warnings"
   },
   "inspector": {
     "curation": "Curation",
     "layers": "Layers",
     "labels": "Labels · this case / scan",
-    "window": "Window / level"
+    "window": "Window / level",
+    "needsViewer": "Open a case or a file to use these controls."
   },
   "status": {
     "not_reviewed": "Not reviewed",
@@ -216,7 +245,8 @@
     },
     "updatedBy": "{{scan}}: phase set to {{phase}} by {{reviewer}}",
     "export": "Export phase selections",
-    "setTo": "{{scan}}: phase set to {{phase}}"
+    "setTo": "{{scan}}: phase set to {{phase}}",
+    "setPhase": "Set phase"
   },
   "priority": {
     "low": "Low",
@@ -231,8 +261,8 @@
     "pausing": "Pausing",
     "paused": "Paused",
     "cancelling": "Cancelling",
-    "reconciling": "Reconciling",
-    "cleanup_pending": "Cleanup pending",
+    "reconciling": "Saving results…",
+    "cleanup_pending": "Stopping…",
     "completed": "Completed",
     "completed_with_errors": "Completed with errors",
     "failed": "Failed",
@@ -242,7 +272,7 @@
   "warning": {
     "missing_path": "File not found",
     "unreadable_file": "File cannot be read",
-    "outside_root": "Path outside the data root",
+    "outside_root": "Path outside the source folder",
     "missing_seg": "No segmentation",
     "missing_voi_image": "VOI image missing",
     "missing_voi_mask": "VOI mask missing",
@@ -255,7 +285,7 @@
     "fingerprint_changed": "File changed since indexing"
   },
   "item": {
-    "full": "Full",
+    "full": "Full scan",
     "label": "Scan {{scan}} · {{scope}}",
     "voi": "VOI",
     "voiSide": "VOI {{side}}",
@@ -268,15 +298,14 @@
     "newProject": "New project…",
     "newProjectHelp": "Point to a data folder and index it",
     "recent": "Recent",
-    "start": "Start",
     "subtitle": "Inspect CT volumes, curate segmentations, extract radiomics and review QC.",
     "tip1": "Source images and masks are never modified; your work is stored in the project folder.",
     "tip2": "Share a project by copying its link. Anyone on the same server sees the same state.",
     "tip3": "Press Ctrl/Cmd+Shift+P anywhere for all commands.",
     "tips": "Good to know",
-    "noProjects": "No projects yet. Create one to start.",
+    "noProjects": "No projects yet.",
     "openPath": "Open file or folder…",
-    "sourceOperations": "Show source operations…",
+    "sourceOperations": "Show recent work…",
     "openPathHelp": "View NIfTI, NumPy or DICOM without creating a project",
     "convertDicom": "Convert DICOM…",
     "convertDicomHelp": "DICOM folder → NIfTI dataset with metadata, no project needed",
@@ -286,12 +315,13 @@
     "datasets": "Converted datasets",
     "datasetMeta_one": "{{count}} series · {{ago}}",
     "datasetMeta_other": "{{count}} series · {{ago}}",
-    "datasetOpen": "Open",
-    "datasetCreate": "Create project"
+    "datasetOpen": "View without a project",
+    "datasetCreate": "Create project",
+    "viewFiles": "View files",
+    "projects": "Projects"
   },
   "projects": {
     "alias": "Alias",
-    "casesShort": "{{n}} cases",
     "createAndImport": "Create and import",
     "empty": "empty",
     "home": "Workspace home",
@@ -302,9 +332,9 @@
     "newPath": "New root path",
     "newPathPlaceholder": "/data/Dataset820",
     "newTitle": "New project",
-    "offline": "data root not reachable",
+    "offline": "source folder not reachable",
     "oldPath": "Current path",
-    "relinkHelp": "The data root moved or is not mounted. Point the alias to its new location.",
+    "relinkHelp": "The source folder moved or is not mounted. Point the alias to its new location.",
     "relinkTitle": "Relink {{name}}",
     "reviewed": "{{done}}/{{total}} reviewed",
     "switch": "Switch project",
@@ -313,7 +343,7 @@
     "verifying": "Verifying…",
     "notFound": "Project not found",
     "notFoundHelp": "The link points to a project that does not exist in this workspace, or it was archived.",
-    "relink": "Relink data root…",
+    "relink": "Relink source folder…",
     "relinked": "{{alias}} relinked",
     "verifyOk": "Verified {{matched}} of {{sampled}} sampled items.",
     "metaNew": "{{cases}} cases · created {{ago}}",
@@ -348,7 +378,9 @@
     "restored": "“{{name}}” restored",
     "casesHelp": "Cases with at least one scan that is not excluded upstream. {{excluded}} excluded case(s) are not counted.",
     "switchNamed": "Project {{name}}: switch project",
-    "unavailable": "Project unavailable"
+    "unavailable": "Project unavailable",
+    "casesShort_one": "{{count}} case",
+    "casesShort_other": "{{count}} cases"
   },
   "welcome": {
     "commands": "Show all commands",
@@ -372,7 +404,7 @@
     "indexing": "Indexing is running. Cases appear when it finishes.",
     "hashHelp": "SHA-256 of every image and mask file, for provenance",
     "bundleHelp": "A .zip of the project folder, without image data",
-    "settingsHelp": "Name, display defaults, labels, data roots, study packs and the view-only link",
+    "settingsHelp": "Name, display defaults, labels, source and output folders, study packs and the view-only link",
     "subtitleHelp": "Items are scans × scopes (the complete scan, VOI L and R). {{excluded}} items excluded upstream are not counted."
   },
   "import": {
@@ -380,25 +412,24 @@
     "folders": "Folders",
     "title": "Import data",
     "up": "Parent folder",
-    "allowedRootsTitle": "Allowed data roots",
-    "noRoots": "No data roots are configured (ALLOWED_DATA_ROOTS).",
+    "allowedRootsTitle": "Folders shared with the app",
+    "noRoots": "No folders are shared with the app yet.",
     "emptyFolder": "Empty folder",
     "hasMetadata": "metadata.jsonl",
     "truncated": "Listing truncated",
     "allowedDerived": "Only output folders shared with the app are listed.",
     "filter": "Filter this folder",
     "noMatch": "Nothing here matches “{{text}}”",
-    "allRoots": "All shared folders"
+    "allRoots": "All shared folders",
+    "noRootsAdmin": "An administrator lists them in ALLOWED_DATA_ROOTS on the server."
   },
   "explorer": {
     "caseCount_one": "{{count}} case",
     "caseCount_other": "{{count}} cases",
     "clearFilters": "Clear filters",
-    "collapse": "Collapse",
     "collapseAll": "Collapse all",
     "compactRows": "Compact rows",
     "excluded": "excluded",
-    "expand": "Expand",
     "filterPlaceholder": "Filter cases",
     "filters": "Filters",
     "activeFilters": "Active filters",
@@ -406,7 +437,7 @@
     "filtersActive_one": "{{count}} filter active",
     "filtersActive_other": "{{count}} filters active",
     "missing": "missing",
-    "emptyProject": "No data yet. Use File → Import data.",
+    "emptyProject": "No data yet.",
     "noCases": "No cases match",
     "thumbnailRows": "Rows with thumbnails",
     "voi": "VOI",
@@ -431,7 +462,7 @@
     "phase": "Phase",
     "phaseOption": "{{code}} · {{name}}",
     "showExcluded": "Show items excluded upstream",
-    "showInProject": "Show in Project",
+    "showInProject": "Show in Explorer",
     "status": "Curation status",
     "text": "Case or patient ID",
     "voi": "VOI",
@@ -444,10 +475,11 @@
     "minShort": "min",
     "maxShort": "max",
     "to": "to",
-    "levelOption": "{{value}} ({{count}})"
+    "levelOption": "{{value}} ({{count}})",
+    "chip": "{{name}}: {{value}}"
   },
   "problems": {
-    "none": "No problems",
+    "none": "No QC warnings",
     "projectLevel": "Import (no case)"
   },
   "image": {
@@ -495,7 +527,6 @@
     "noSegmentation": "No segmentation",
     "outline": "Outline only",
     "overlay": "Label overlay",
-    "phase": "Phase",
     "plane": {
       "axial": "Axial",
       "sagittal": "Sagittal",
@@ -511,7 +542,7 @@
       "custom": "Custom"
     },
     "reset": "Reset view",
-    "restore": "Restore layout",
+    "restore": "Show all views",
     "scan": "Scan",
     "scope": "Show",
     "screenshot": "Screenshot (PNG)",
@@ -548,7 +579,8 @@
     "scanSlices": "{{n}} slices",
     "scopeFullHelp": "The whole scan",
     "scopeVoiHelp": "Only the cropped region around the organ",
-    "scopeNoVoi": "This scan has no cropped region"
+    "scopeNoVoi": "This scan has no cropped region",
+    "help": "Mouse and keys in the viewer"
   },
   "segmentation": {
     "title": "Segmentations",
@@ -596,7 +628,8 @@
     "reimport": "Reimport",
     "restore": "Restore",
     "reindexConfirm": "Rebuild the index of every segmentation set in this project? It runs in the background; sets stay readable meanwhile.",
-    "segIdTaken": "A set with ID {{id}} exists: this import replaces its masks."
+    "segIdTaken": "A set with ID {{id}} exists: this import replaces its masks.",
+    "percent": "{{v}} %"
   },
   "labels": {
     "color": "{{name}} color",
@@ -625,8 +658,17 @@
       "voi_mask": "VOI mask"
     },
     "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}",
-    "undo": "Undo",
-    "undone": "Decision undone: {{status}} again"
+    "undone": "Decision undone: {{status}} again",
+    "mark": {
+      "accepted": "Mark accepted",
+      "needs_minor_correction": "Mark needs minor correction",
+      "needs_major_correction": "Mark needs major correction",
+      "rejected": "Mark rejected"
+    },
+    "held": "{{reviewer}} set {{status}} {{ago}}, after you opened this item. Your {{mine}} is not saved yet.",
+    "heldToast": "{{reviewer}} set {{status}} {{ago}}: your decision is not saved yet",
+    "keepMine": "Keep mine",
+    "useTheirs": "Use theirs"
   },
   "queue": {
     "exportsWritten": "Wrote {{files}} to {{dir}}/",
@@ -654,7 +696,7 @@
     "noItem": "Open a case to see its measurements",
     "none": "This item has no features in the selected run",
     "noRuns": "No completed radiomics run yet",
-    "outlier": "Outlier (|z| ≥ 3.5)",
+    "outlier": "Outlier feature (|z| ≥ 3.5)",
     "outliers_one": "{{count}} outlier",
     "outliers_other": "{{count}} outliers",
     "run": "Run",
@@ -680,12 +722,12 @@
     },
     "taskFailedDetail": "{{name}}: {{error}}",
     "showTask": "Show task",
-    "stale": "The live connection is down: progress refreshes every few seconds and may lag."
+    "stale": "The live connection is down: progress refreshes every few seconds and may lag.",
+    "cancel": "Cancel job"
   },
   "output": {
     "activity": "Activity",
-    "channel": "Output channel",
-    "copied": "Output copied",
+    "channel": "Log channel",
     "copy": "Copy",
     "copyFailed": "The browser blocked the clipboard; select the lines and copy them",
     "curation": "[curation] {{reviewer}} → {{id}} {{target}} = {{status}}",
@@ -699,9 +741,19 @@
       "error": "Errors",
       "warn": "Warnings"
     },
-    "noLines": "No output yet",
-    "operation": "{{name}} · output",
-    "project": "[project] updated: {{fields}}"
+    "noLines": "No log lines yet",
+    "operation": "{{name}} · log",
+    "project": "[project] updated: {{fields}}",
+    "search": "Filter lines",
+    "noMatch": "No line matches the filter",
+    "copiedSome": "Copied {{n}} of {{total}} lines (filtered)",
+    "copiedAll_one": "Copied {{count}} line",
+    "copiedAll_other": "Copied {{count}} lines",
+    "download": "Download",
+    "downloadHelp": "Save the lines shown as a .log file",
+    "ended": "Log ended",
+    "redacted": "Host paths are redacted",
+    "redactedHelp": "Server logs name the source folder instead of its path on the server"
   },
   "settings": {
     "editKey": "Click to change",
@@ -727,7 +779,13 @@
       "default": "Default",
       "large": "Large"
     },
-    "sizeHelp": "Text and control size. Compact fits more rows; Large suits big screens."
+    "sizeHelp": "Text and control size. Compact fits more rows; Large suits big screens.",
+    "noKey": "No keys",
+    "keyOf": "{{command}}: {{keys}}",
+    "pressKeysFor": "Press keys for {{command}}",
+    "keyConflict": "{{keys}} is already used by {{command}}. Replace takes it from there.",
+    "replaceKey": "Replace",
+    "resetMockConfirm": "Reset the prototype's tabs and layout? The page reloads."
   },
   "design": {
     "open": "Open design reference",
@@ -770,7 +828,7 @@
     "render": {
       "volume": "CT / image volume",
       "surfaces": "Smooth label surfaces",
-      "blend": "Mask opacity",
+      "blend": "Segmentation opacity",
       "mask": "Segmentation mask",
       "maskOnly": "Mask only",
       "maskOnlyHelp": "Show only the segmentation in 3D; click again to restore CT + mask.",
@@ -805,7 +863,7 @@
       "plane_off": "Hidden",
       "plane_outline": "Outline",
       "plane_slice": "Image + outline",
-      "reset": "Restore 3D defaults"
+      "reset": "Reset 3D view"
     },
     "meshBuilding": "Building surfaces…",
     "meshError": "Surfaces unavailable",
@@ -819,7 +877,9 @@
     "mm": "{{v}} mm",
     "deg": "{{v}}°",
     "roi": "μ {{mean}} σ {{sd}} · n {{n}} · {{area}} cm²",
-    "probe": "Value under the cursor"
+    "probe": "Value under the cursor",
+    "volumeLoaded": "Volume loaded",
+    "noWebglHelp": "Turn on hardware acceleration in the browser settings, or use a current Chrome, Edge or Firefox, then reload."
   },
   "rad": {
     "title": "Radiomics settings",
@@ -888,16 +948,16 @@
   },
   "problemAction": {
     "import_as": "Import as {{arg}}",
-    "open": "Open without a project",
+    "open": "View without a project",
     "choose_another_path": "Choose another file or folder",
-    "choose_derived_root": "Choose the derived folder",
+    "choose_derived_root": "Choose the output folder",
     "configure": "Ask the admin to set {{arg}}",
     "axis_order": "Use axis order {{arg}}",
     "home": "Go to the workspace home",
     "quick_open": "Go to case…",
     "close_tab": "Close tab",
-    "relink_root": "Relink data root…",
-    "show_problems": "Show in Problems",
+    "relink_root": "Relink source folder…",
+    "show_problems": "Show in QC warnings",
     "use_pattern": "Use one case per folder",
     "retry": "Try again",
     "reload": "Reload the app"
@@ -952,7 +1012,9 @@
     "dataset": "dataset",
     "export": "export",
     "labeling": "labeling",
-    "phase": "phase"
+    "phase": "phase",
+    "focus": "focus",
+    "hu": "HU value"
   },
   "about": {
     "statusTip": "Radiology Workbench {{version}} · Research use only"
@@ -991,7 +1053,7 @@
     "pathPlaceholder": "/home/you/data/DatasetID",
     "browse": "Browse folders",
     "storageHelp": "Project state and results are stored inside this dataset. The folder can be created if its parent exists.",
-    "open": "Open dataset project…",
+    "open": "Reopen from a dataset folder…",
     "openHelp": "Choose a dataset folder to reopen its saved projects in this workspace."
   },
   "progress": {
@@ -1026,5 +1088,21 @@
     "cleanup": "Waits until the stop is confirmed and cleaned up",
     "conversionFirst": "Finish the conversion first",
     "openCase": "Open a case first"
+  },
+  "format": {
+    "seconds": "{{s}} s",
+    "minutesSeconds": "{{m}} min {{s}} s",
+    "etaRange": "about {{range}} {{unit}} left",
+    "unit": {
+      "d": "d",
+      "h": "h",
+      "min": "min",
+      "s": "s"
+    }
+  },
+  "severity": {
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info"
   }
 }

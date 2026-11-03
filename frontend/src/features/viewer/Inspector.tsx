@@ -5,6 +5,8 @@ import { useProject, useSegmentations } from '../../api'
 import { NumberInput } from '../../lib'
 import { openEditor, useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
+import { shownLabels, shownSet } from './model/labels'
+import { useShown } from './Tools'
 
 function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixed: boolean; onChange: (checked: boolean) => void; label: string }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -14,19 +16,25 @@ function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixe
   return <input ref={ref} type="checkbox" aria-label={label} checked={checked} onChange={(event) => onChange(event.target.checked)} />
 }
 
+/** Layers and Window/level act on a viewer; on other tabs they are one line saying so */
+function NeedsViewer() {
+  const { t } = useTranslation()
+  return <div className="muted panel-size">{t('inspector.needsViewer')}</div>
+}
+
 export function LayersSection() {
+  return useShown() ? <Layers /> : <NeedsViewer />
+}
+
+function Layers() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const project = useProject(pid).data
   const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
-  const preferred = v.segChoice[pid] ?? project?.default_seg
-  const active = sets.some((set) => set.seg_id === preferred) ? (preferred ?? '') : (sets[0]?.seg_id ?? '')
-  const segmentation = sets.find((set) => set.seg_id === active)
-  const labels = (project?.label_map ?? []).filter((label) => {
-    const values = Object.entries(segmentation?.label_mapping ?? {}).filter(([, value]) => value === label.value).map(([value]) => Number(value))
-    return !(values.length ? values : [label.value]).every((value) => segmentation?.removed_labels?.includes(value))
-  })
+  const segmentation = shownSet(sets, v.segChoice[pid] ?? project?.default_seg)
+  const active = segmentation?.seg_id ?? ''
+  const labels = shownLabels(project?.label_map ?? [], segmentation)
   const visible = labels.filter((label) => v.labelVisibility[label.value] ?? label.visible).length
   const setAll = (show: boolean) => v.set({
     labelVisibility: {
@@ -64,15 +72,26 @@ export function LayersSection() {
       </label>
       {labels.map((l, i) => {
         const visible = v.labelVisibility[l.value] ?? l.visible
-        const op = v.labelOpacity[l.value] ?? l.opacity
+        // stored on the label map's scale, where 0.5 draws fully opaque
+        const pct = Math.round(Math.min(1, (v.labelOpacity[l.value] ?? l.opacity) * 2) * 100)
         return (
-          <div key={l.value} style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr 80px', gap: 6, alignItems: 'center' }}>
+          <div key={l.value} style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr 80px 4ch', gap: 6, alignItems: 'center' }}>
             <input type="checkbox" aria-label={l.name} checked={visible} onChange={() => v.toggleLabel(l.value, l.visible)} />
             <span className="dot" style={{ background: l.color }} />
             <span>
-              {l.name} <kbd className="key">{i + 1}</kbd>
+              {l.name} {i < 9 ? <kbd className="key">{i + 1}</kbd> : null}
             </span>
-            <input type="range" aria-label={t('layers.opacity', { name: l.name })} min={0} max={0.5} step={0.01} value={op} onChange={(e) => v.set({ labelOpacity: { ...v.labelOpacity, [l.value]: +e.target.value } })} />
+            <input
+              type="range"
+              aria-label={t('layers.opacity', { name: l.name })}
+              aria-valuetext={t('layers.percent', { v: pct })}
+              min={0}
+              max={100}
+              step={1}
+              value={pct}
+              onChange={(e) => v.set({ labelOpacity: { ...v.labelOpacity, [l.value]: +e.target.value / 200 } })}
+            />
+            <span className="num muted" aria-hidden="true">{t('layers.percent', { v: pct })}</span>
           </div>
         )
       })}
@@ -84,6 +103,10 @@ export function LayersSection() {
 }
 
 export function WindowSection() {
+  return useShown() ? <WindowLevel /> : <NeedsViewer />
+}
+
+function WindowLevel() {
   const { t } = useTranslation()
   const { ww, wl, setWindow, setPreset, preset } = useViewerSync()
   return (

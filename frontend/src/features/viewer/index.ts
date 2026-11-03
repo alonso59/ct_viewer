@@ -1,16 +1,20 @@
 // NiiVue lives only in ./engine.
 import i18n from '../../i18n'
 import { keys, queryClient, type Project, type SegmentationSet } from '../../api'
+import { announce } from '../../lib'
 import { openEditor, refreshUrl, registry, toast, useWorkbench } from '../../shell'
-import { useViewerSync, type ViewerTool } from '../../state'
+import { useViewerSync, type ViewerTool, type ViewportId } from '../../state'
 import { codicon, ct } from '../../theme'
 import { CaseEditor, type CaseParams } from './CaseEditor'
 import { ImageSection } from './ImageSection'
 import { LayersSection, WindowSection } from './Inspector'
 import { CursorStatus, WindowStatus } from './StatusItems'
 import { useViewerLocal } from './local'
-import { isLayoutId, visibleViewports } from './model/layouts'
-import type { ViewerContext } from './model/types'
+import { cursorParts } from './readout'
+import type { ViewerContext, ViewerHandle } from './model/types'
+import { isLayoutId, isPlane, visibleViewports } from './model/layouts'
+import { shownLabels, shownSet } from './model/labels'
+import { isMeasureKind } from './model/measure'
 import { LayoutMenu, OverlayToggles, ResetAndSnapshot, screenshot, ToolGroup, WindowPresets } from './Tools'
 import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
@@ -39,8 +43,11 @@ const segSets = (): SegmentationSet[] => {
   return pid ? (queryClient.getQueryData<SegmentationSet[]>(keys.segmentations(pid)) ?? []) : []
 }
 
-/** Label map for the 1–9 keys, from the cached project query */
-const projectLabels = (pid: string) => queryClient.getQueryData<Project>(keys.project(pid))?.label_map ?? []
+/** The Layers section's labels for the 1–9 keys, from the cached project queries */
+function layerLabels(pid: string) {
+  const project = queryClient.getQueryData<Project>(keys.project(pid))
+  return shownLabels(project?.label_map ?? [], shownSet(segSets(), useViewerSync.getState().segChoice[pid] ?? project?.default_seg))
+}
 
 const SegmentationPanel = lazy(() => import('./SegmentationPanel'))
 
@@ -110,12 +117,17 @@ export function registerViewer() {
     })
   registry.command({ id: 'viewer.cycleLayout', title: 'cmd.cycleLayout', category: 'cat.viewer', keybinding: 'l', when: 'viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => useViewerSync.getState().cycleLayout() })
   registry.command({ id: 'viewer.reset', title: 'viewer.reset', category: 'cat.viewer', keybinding: 'r', when: 'viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => useViewerSync.getState().reset() })
-  // Fit the view under the pointer (else the maximized one); from the palette or a menu,
-  // with no pointer over a view, every visible view
-  const fitTarget = () => useViewerLocal.getState().hovered ?? useViewerSync.getState().maximized
+  // Keys act on the view under the pointer, else the view holding focus, else the maximized one;
+  // with none of these, Fit fits every visible view and the other keys act on the first one
+  const focusedView = () => (document.activeElement?.closest<HTMLElement>('[data-viewport]')?.dataset.viewport ?? null) as ViewportId | null
+  const target = () => useViewerLocal.getState().hovered ?? focusedView() ?? useViewerSync.getState().maximized
+  const keyTarget = () => {
+    const s = useViewerSync.getState()
+    return target() ?? visibleViewports(s.layout, s.maximized)[0]
+  }
   const fit = () => {
     const h = useViewerLocal.getState().active
-    const tile = fitTarget()
+    const tile = target()
     if (!h) return
     if (tile) h.fitView(tile)
     else {
@@ -124,7 +136,76 @@ export function registerViewer() {
     }
   }
   registry.command({ id: 'viewer.fit', title: 'viewer.fit', category: 'cat.viewer', keybinding: 'f', when: 'viewer', scope: [...both], keywords: ['kw.zoom'], menuGroup: 1, enabled: isCase, run: fit })
+  // The keyboard way to do what the pointer does: a key moves like a drag in its direction
+  const ZOOM = 1.25
+  const PAN_PX = 40
+  const ORBIT_DEG = 15
+  const step = (delta: number) => (h: ViewerHandle, tile: ViewportId) => {
+    if (isPlane(tile)) h.step(tile, delta)
+  }
+  // [command, default key, also in the View menu (the directions are palette and keys only), action]
+  const pointerKeys: [string, string, boolean, (h: ViewerHandle, tile: ViewportId) => void][] = [
+    ['zoomIn', '=', true, (h, tile) => h.zoom(tile, ZOOM)],
+    ['zoomOut', '-', true, (h, tile) => h.zoom(tile, 1 / ZOOM)],
+    ['centerCrosshair', 'shift+c', true, (h) => h.centerCrosshair()],
+    ['nextSlice', '.', false, step(1)],
+    ['previousSlice', ',', false, step(-1)],
+    ['panLeft', 'shift+left', false, (h, tile) => h.pan(tile, -PAN_PX, 0)],
+    ['panRight', 'shift+right', false, (h, tile) => h.pan(tile, PAN_PX, 0)],
+    ['panUp', 'shift+up', false, (h, tile) => h.pan(tile, 0, -PAN_PX)],
+    ['panDown', 'shift+down', false, (h, tile) => h.pan(tile, 0, PAN_PX)],
+    ['orbitLeft', 'mod+shift+left', false, (h) => h.orbit(-ORBIT_DEG, 0)],
+    ['orbitRight', 'mod+shift+right', false, (h) => h.orbit(ORBIT_DEG, 0)],
+    ['orbitUp', 'mod+shift+up', false, (h) => h.orbit(0, -ORBIT_DEG)],
+    ['orbitDown', 'mod+shift+down', false, (h) => h.orbit(0, ORBIT_DEG)],
+  ]
+  for (const [name, keybinding, inMenu, run] of pointerKeys)
+    registry.command({
+      id: `viewer.${name}`,
+      title: `cmd.viewer.${name}`,
+      category: 'cat.viewer',
+      keybinding,
+      when: 'viewer',
+      scope: [...both],
+      ...(inMenu ? { menuGroup: 1 } : { menu: false }),
+      enabled: isCase,
+      run: () => {
+        const h = useViewerLocal.getState().active
+        const tile = keyTarget()
+        if (h && tile) run(h, tile)
+      },
+    })
+  // A measure tool's point at the crosshair; the slice keys of the other views move it
+  registry.command({
+    id: 'viewer.measurePoint',
+    title: 'cmd.viewer.measurePoint',
+    category: 'cat.viewer',
+    keybinding: 'p',
+    when: 'viewer',
+    scope: [...both],
+    menu: false,
+    enabled: () => isCase() && isMeasureKind(useViewerSync.getState().tool),
+    run: () => {
+      const tile = keyTarget()
+      if (tile && isPlane(tile)) useViewerLocal.setState({ pointAt: { tile } })
+    },
+  })
   registry.command({ id: 'viewer.restore', title: 'viewer.restore', category: 'cat.viewer', keybinding: 'esc', when: 'viewer', scope: [...both], menu: false, enabled: () => useViewerSync.getState().maximized !== null, run: () => useViewerSync.setState({ maximized: null }) })
+  // The probe is not a live region; this reads the value under the cursor on request
+  registry.command({
+    id: 'viewer.readProbe',
+    title: 'cmd.readProbe',
+    category: 'cat.viewer',
+    keybinding: 'h',
+    when: 'viewer',
+    scope: [...both],
+    keywords: ['kw.hu'],
+    menuGroup: 4,
+    run: () => {
+      const s = useViewerSync.getState()
+      announce(s.cursor ? cursorParts(s.cursor, { modality: s.activeModality?.value }, i18n.t).join(' · ') : i18n.t('status.cursorIdle'))
+    },
+  })
   registry.command({ id: 'viewer.screenshot', title: 'viewer.screenshot', category: 'cat.viewer', scope: [...both], menuGroup: 1, enabled: isCase, run: () => void screenshot() })
   registry.command({ id: 'viewer.toggleOverlay', title: 'viewer.overlay', category: 'cat.viewer', scope: [...both], keywords: ['kw.mask'], menuGroup: 3, enabled: isCase, run: () => useViewerSync.setState((s) => ({ overlay: !s.overlay })) })
   registry.command({ id: 'viewer.toggleOutline', title: 'viewer.outline', category: 'cat.viewer', scope: [...both], keywords: ['kw.mask'], menuGroup: 3, enabled: isCase, run: () => useViewerSync.setState((s) => ({ outline: !s.outline })) })
@@ -159,7 +240,7 @@ export function registerViewer() {
       menu: false,
       run: () => {
         const pid = useWorkbench.getState().pid
-        const label = pid ? projectLabels(pid)[n - 1] : undefined
+        const label = pid ? layerLabels(pid)[n - 1] : undefined
         if (label) useViewerSync.getState().toggleLabel(label.value, label.visible)
       },
     })

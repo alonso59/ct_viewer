@@ -8,7 +8,7 @@ import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { openItem } from '../../features/explorer'
 import { revealView, type FrontendPlugin } from '../host'
-import { activeSegOf, submitDecision, trackDraftOwner, useDraft } from './decision'
+import { activeSegOf, noteTheirs, submitDecision, trackActiveItem, useDraft } from './decision'
 import { statusOf } from './model'
 
 // Curation UI stays out of the initial bundle; shortcuts only need ./decision.
@@ -26,6 +26,7 @@ export function useCurationRuntime(pid: string) {
   const onEvent = useCallback(
     (e: ServerEvent) => {
       if (e.event !== 'curation.appended' || e.data.session_id === api.sessionId) return
+      noteTheirs(e.data)
       toast({
         message: t('curation.updatedBy', { id: e.data.case_id, reviewer: e.data.reviewer, status: t(`status.${e.data.status}`) }),
         action: { label: t('common.open'), run: () => openItem(e.data.case_id, e.data.item_id, true) },
@@ -35,7 +36,7 @@ export function useCurationRuntime(pid: string) {
   )
   useProjectEvents(pid, onEvent)
   useEffect(() => {
-    return trackDraftOwner()
+    return trackActiveItem()
   }, [])
 }
 
@@ -96,7 +97,8 @@ export function registerCuration() {
     registry.command({
       id,
       writes: true,
-      title: `status.${status}`,
+      // an action ("Mark accepted"); the status itself stays "Accepted"
+      title: `curation.mark.${status}`,
       category: 'cat.curation',
       keywords,
       menuGroup: 1,

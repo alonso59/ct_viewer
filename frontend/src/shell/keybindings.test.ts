@@ -73,6 +73,23 @@ describe('dispatch', () => {
     expect(press('KeyA')).toBe(false)
   })
 
+  test('viewer arrow chords leave a focused grid, tree or tab list alone', () => {
+    add({ id: 't.pan', title: 't', keybinding: 'shift+left', when: 'viewer' })
+    try {
+      const grid = document.createElement('div')
+      grid.setAttribute('role', 'grid')
+      const cell = document.createElement('div')
+      grid.append(cell)
+      document.body.append(grid)
+      expect(press('ArrowLeft', { shiftKey: true }, cell)).toBe(false)
+      expect(press('ArrowLeft', { shiftKey: true })).toBe(true)
+      expect(press('KeyA', {}, cell)).toBe(true)
+      expect(ran).toEqual(['t.pan', 't.accept'])
+    } finally {
+      registry.commands.delete('t.pan')
+    }
+  })
+
   test('plain keys never fire while typing; modifier chords do', () => {
     const input = document.createElement('input')
     document.body.append(input)

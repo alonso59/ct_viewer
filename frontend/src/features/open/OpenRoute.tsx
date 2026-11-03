@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { api, keys, ProblemError, useAttachOpen, useFsList, useStartOpen, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
-import { Button, Dialog, pendingPath, ProblemCard } from '../../lib'
+import { Button, Dialog, pendingPath, ProblemCard, toolbarKeyDown, useRowKeys } from '../../lib'
 import { FolderBrowser, NewProjectDialog } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
 import { runCommand } from '../../shell'
@@ -134,6 +134,7 @@ export default function OpenRoute() {
   const items = paged ? selected.data?.items ?? [] : session?.items ?? []
   const viewable = paged ? page.data?.items ?? (cursors.length ? [] : initial.slice(0, PAGE_ITEMS)) : initial
   const current = paged ? items.find((i) => i.n === seed?.n) : seed
+  const itemKeys = useRowKeys(viewable.map((i) => String(i.n)))
   const selectionBusy = paged && selected.isFetching
   const axisKey = current ? `${sid}:${current.n}` : ''
   const order = current ? (orders[axisKey] ?? current.axis_order) : null
@@ -154,7 +155,7 @@ export default function OpenRoute() {
 
   return (
     <div className="page">
-      <div className="page-inner open-inner">
+      <main className="page-inner open-inner">
         <header className="open-title">
           <button type="button" className="btn btn-brand" onClick={() => navigate('/')} title={t('open.home')} aria-label={t('open.home')}>
             <BrandMark size={18} />
@@ -163,7 +164,7 @@ export default function OpenRoute() {
           <span className="mono muted open-path" title={path ?? ''}>{path}</span>
           <span className="badge" data-tone="accent">{t('open.noProject')}</span>
         </header>
-        <div className="open-actions" role="toolbar" aria-label={t('open.actions')}>
+        <div className="open-actions" role="toolbar" aria-label={t('open.actions')} onKeyDown={toolbarKeyDown}>
           <button type="button" className="btn btn-primary" disabled={!path || selectionBusy || (paged && !!selected.error)} onClick={() => setCreating(true)}>
             <Icon spec={codicon('new-folder')} />
             {t('open.createProject')}
@@ -203,7 +204,7 @@ export default function OpenRoute() {
             <div className="open-items">
               <div className="fs-list open-item-list" role="listbox" aria-label={t('open.items')} aria-busy={paged && page.isFetching}>
                 {viewable.map((i) => (
-                  <button key={i.n} type="button" className="list-row" aria-selected={i.n === seed?.n} onClick={() => setPicked({ sid: session.sid, item: i })} title={i.rel}>
+                  <button key={i.n} type="button" role="option" className="list-row" aria-selected={i.n === seed?.n} onClick={() => setPicked({ sid: session.sid, item: i })} title={i.rel} {...itemKeys(String(i.n))}>
                     <Icon spec={codicon(i.format === 'npy' ? 'symbol-array' : 'file-media')} />
                     <span className="truncate" title={i.name}>{i.name}</span>
                     {attachedTo(items, i.n) ? <Icon spec={codicon('layers')} className="ml-auto" /> : null}
@@ -242,7 +243,7 @@ export default function OpenRoute() {
             </div>
           </div>
         ) : null}
-      </div>
+      </main>
       {askOrder && session && current ? (
         <AxisOrderDialog
           session={session}

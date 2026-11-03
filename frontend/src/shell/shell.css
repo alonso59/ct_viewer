@@ -14,10 +14,33 @@
   flex: 1;
   min-width: 0;
 }
+.wb-editor-region {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .wb-editor {
   flex: 1;
   min-height: 0;
   position: relative;
+}
+/* The first Tab stop, shown only while focused */
+.skip-link {
+  position: absolute;
+  top: var(--sp-1);
+  left: var(--sp-1);
+  z-index: 100;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-overlay);
+  color: var(--fg);
+  border: var(--border-width) solid var(--focus);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-overlay);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
 }
 
 /* Title bar */
@@ -111,6 +134,10 @@
 /* tools cut off on a narrow window: the bar shows it can scroll */
 .toolbar:hover {
   scrollbar-width: thin;
+}
+/* no tool for the active editor: the row takes no height */
+.toolbar:empty {
+  display: none;
 }
 .toolbar-sep {
   width: 1px;
@@ -272,8 +299,14 @@
   cursor: row-resize;
 }
 .sash:hover,
+.sash:focus-visible,
 .sash[data-dragging='true'] {
   background: var(--focus);
+}
+/* the whole bar is the focus mark: an outline around 4 px would be lost under the panes */
+.sash:focus-visible {
+  outline: none;
+  transition: none;
 }
 
 /* Bottom panel */
@@ -312,6 +345,13 @@
 .panel-tab[aria-selected='true'] {
   color: var(--fg);
   border-bottom-color: var(--tab-active-indicator);
+}
+.panel-tablist {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 100%;
+  min-width: 0;
 }
 .panel-actions {
   display: flex;
@@ -398,9 +438,10 @@ button.statusbar-item:hover {
 .etab[data-preview='true'] .etab-title {
   font-style: italic;
 }
+/* 24 px: the minimum pointer target (WCAG 2.5.8) */
 .etab-close {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   visibility: hidden;
 }
 .dv-active-tab .etab-close,

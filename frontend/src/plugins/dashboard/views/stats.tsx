@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { ResultRow, TestChoice } from '../../../api'
 import { fmtInt, fmtNum, useRowKeys } from '../../../lib'
+import { ValueFlag } from './common'
 
 export type TestMode = 'auto' | 'default' | 'alternative'
 
@@ -65,7 +66,10 @@ export function ResultsTable({ rows, selected, onPick }: { rows: ResultRow[]; se
             <td className="num">{fmtInt(r.n)}</td>
             <td className="num">{r.effect != null ? fmtNum(r.effect) : '—'}</td>
             <td className="num">{fmtP(r.p)}</td>
-            <td className="num" style={{ color: r.q != null && r.q < 0.05 ? 'var(--ok)' : undefined }}>{fmtP(r.q)}</td>
+            <td className="num" style={{ color: r.q != null && r.q < 0.05 ? 'var(--ok)' : undefined }}>
+              {fmtP(r.q)}
+              {r.q != null && r.q < 0.05 ? <ValueFlag tone="ok" icon="pass" label={t('dashboard.flag.significant')} /> : null}
+            </td>
           </tr>
         ))}
       </tbody>

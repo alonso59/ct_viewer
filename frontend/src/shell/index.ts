@@ -3,6 +3,7 @@ import './shell.css'
 
 export { registry } from './registry'
 export type { EditorProps, OutputChannelContribution } from './registry'
+export type { EditorParams } from './workbenchStore'
 export { Workbench, ShellOverlays, ShellProviders } from './Workbench'
 export {
   useWorkbench,
@@ -13,7 +14,9 @@ export {
   splitActiveEditor,
   toast,
   toastProblem,
+  notify,
   updateActiveParams,
   refreshUrl,
 } from './workbenchStore'
-export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, commandTitle } from './keybindings'
+export { useGlobalKeybindings, runCommand, formatChord, bindingOf, chordOf, commandTitle, commandMatches, keyConflicts } from './keybindings'
+export { focusRegion } from './regions'

@@ -148,6 +148,16 @@
   flex: 1;
   min-height: 220px;
 }
+/* A chart shown as a table: scrolls on its own, so the keyboard can scroll it */
+.db-table {
+  height: 100%;
+  overflow: auto;
+}
+.db-flag {
+  display: inline-flex;
+  margin-left: var(--sp-1);
+  vertical-align: middle;
+}
 .db-test {
   display: flex;
   flex-wrap: wrap;

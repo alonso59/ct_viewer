@@ -1,6 +1,7 @@
 // ECharts wrapper (canvas). Colors are read from tokens at render time.
 import { BarChart, BoxplotChart, HeatmapChart, ScatterChart } from 'echarts/charts'
 import {
+  AriaComponent,
   BrushComponent,
   GridComponent,
   LegendComponent,
@@ -19,8 +20,13 @@ import { token } from '../../theme'
 
 echarts.use([
   BarChart, BoxplotChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, VisualMapComponent,
-  BrushComponent, ToolboxComponent, MarkLineComponent, CanvasRenderer,
+  BrushComponent, ToolboxComponent, MarkLineComponent, AriaComponent, CanvasRenderer,
 ])
+
+/** Series shapes, so the series of a chart differ by more than colour */
+export const SYMBOLS = ['circle', 'rect', 'triangle', 'diamond', 'pin', 'arrow']
+
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export type ChartOption = echarts.EChartsCoreOption
 export type ChartInstance = echarts.ECharts
@@ -63,6 +69,9 @@ function baseOption(): ChartOption {
   const axis = axisStyle()
   return {
     backgroundColor: 'transparent',
+    // the canvas gets role="img" and a description of its series
+    aria: { enabled: true },
+    animation: !reducedMotion(),
     color: palette(),
     textStyle: { color: fg, fontFamily: token('--font-ui'), fontSize: fontSize('--fs-panel') },
     grid: { left: 56, right: 16, top: 32, bottom: 40, containLabel: false },
@@ -78,7 +87,7 @@ function withBase(option: ChartOption): ChartOption {
   const base = baseOption() as Record<string, unknown>
   const o = option as Record<string, unknown>
   const out: Record<string, unknown> = { ...base, ...o }
-  for (const k of ['legend', 'tooltip', 'grid', 'xAxis', 'yAxis', 'textStyle']) {
+  for (const k of ['aria', 'legend', 'tooltip', 'grid', 'xAxis', 'yAxis', 'textStyle']) {
     if (base[k] && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k])) out[k] = { ...(base[k] as object), ...(o[k] as object) }
   }
   return out

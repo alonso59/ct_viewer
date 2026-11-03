@@ -37,19 +37,20 @@ test('a click sends the selection at once; the replaced value and the history sh
   expect(within(dlg).getByText(/Dr\. AP/)).toBeInTheDocument()
 })
 
-// PHS-01 / AUD-A1-12: in the case header the scan's phase is a segmented control with the effective
-// value pressed, apart from the scan drop-down of the item switcher
-test('the case header variant is a segmented control with the effective phase pressed', async () => {
+// PHS-01 (AUD-A1-12): the case header's phase is a write, so it uses chips with the effective
+// value pressed, never the segmented style of the view toggles beside it
+test('the case header writes the phase with chips, the effective one pressed', async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const scan = (await api.getCase(DEMO_PID, 'case_00001')).items.find((i) => i.scope === 'complete')!
   const { container } = render(
     <QueryClientProvider client={qc}>
-      <PhaseButtons pid={DEMO_PID} scan={scan} variant="seg" />
+      <PhaseButtons pid={DEMO_PID} scan={scan} />
     </QueryClientProvider>,
   )
   const group = await screen.findByRole('group', { name: `Phase of ${scan.case_id} · ${scan.scan_idx}` })
   await waitFor(() => expect(within(group).getAllByRole('button').length).toBeGreaterThan(3))
-  expect(container.querySelector('.seg')).not.toBeNull()
+  expect(container.querySelector('.seg')).toBeNull()
+  expect(within(group).getByRole('button', { name: scan.phase.canonical })).toHaveClass('badge')
   expect(within(group).getByRole('button', { name: scan.phase.canonical })).toHaveAttribute('aria-pressed', 'true')
   expect(within(group).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1)
 })

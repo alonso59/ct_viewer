@@ -70,8 +70,8 @@ test('the fake segmentation plugin adds a set through the host runner', async ({
   // an item without a mask in the chosen set shows the default one with a notice; its decision is
   // about the mask on screen (no 422)
   // (the choice lives in the page, so move within the app)
-  const tree = page.getByRole('tree', { name: 'Project' })
-  if (!(await tree.isVisible())) await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Project', exact: true }).click()
+  const tree = page.getByRole('tree', { name: 'Explorer' })
+  if (!(await tree.isVisible())) await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Explorer', exact: true }).click()
   await tree.getByRole('treeitem', { name: /case_00002/ }).dblclick()
   await expect(page.locator('.case-header').getByRole('note')).toContainText('Not in set')
   await inspector.getByRole('button', { name: /^Accept/ }).first().click()

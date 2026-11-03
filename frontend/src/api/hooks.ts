@@ -339,7 +339,8 @@ export const useWorkspaceRun = (rid: string | null) =>
   })
 /** Lines kept by a log stream; older ones are dropped */
 const LOG_KEEP = 5000
-interface LogStream { lines: LogLine[]; cursor?: string; done: boolean }
+/** `first`: the sequence number of `lines[0]` (older lines were dropped), for stable row keys */
+interface LogStream { lines: LogLine[]; first: number; cursor?: string; done: boolean }
 /** An output channel's lines, following the server cursor every second until the attempt ended */
 export function useLogStream(kind: LogKind, ref: string, { enabled: on = true }: { enabled?: boolean } = {}) {
   const qc = useQueryClient()
@@ -349,7 +350,9 @@ export function useLogStream(kind: LogKind, ref: string, { enabled: on = true }:
     queryFn: async (): Promise<LogStream> => {
       const prev = qc.getQueryData<LogStream>(key)
       const page = await api.readLogs(kind, ref, prev?.cursor)
-      return { lines: [...(prev?.lines ?? []), ...page.lines].slice(-LOG_KEEP), cursor: page.next_cursor, done: page.done }
+      const all = [...(prev?.lines ?? []), ...page.lines]
+      const dropped = Math.max(0, all.length - LOG_KEEP)
+      return { lines: all.slice(dropped), first: (prev?.first ?? 0) + dropped, cursor: page.next_cursor, done: page.done }
     },
     enabled: on && !!ref,
     refetchInterval: (q) => (q.state.data?.done ? false : 1000),

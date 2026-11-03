@@ -64,7 +64,7 @@ test('NFR-12: no request leaves the app origin across a journey', async ({ page,
 
   // Project view, then a case tab with a mask (2D overlays and the 3D mesh)
   await page.goto(`/p/${pid}`)
-  await expect(page.getByRole('tree', { name: 'Project' })).toBeVisible()
+  await expect(page.getByRole('tree', { name: 'Explorer' })).toBeVisible()
   await settle(page)
   await page.goto(`/p/${pid}/case/case_00001`)
   await expect(page.locator('.case-header').getByRole('toolbar', { name: 'Item' })).toBeVisible({ timeout: 30_000 })

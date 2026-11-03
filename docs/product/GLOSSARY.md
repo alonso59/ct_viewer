@@ -48,10 +48,37 @@ Depends: none (terms point to their owning docs by ID).
 | Rollup | Case status derived from the worst item status |
 | Correction queue | Items needing external (3D Slicer) correction |
 | Profile | Named, hashed radiomics settings set |
-| Run | One radiomics extraction over a selection with one profile |
+| Run | One execution of a task over a selection (a radiomics extraction with one profile, a conversion, a segmentation, …) |
+| Job | One piece of background work the server tracks (index, hashes, thumbnails, a run, opening a source); the Jobs panel lists them |
+| Dataset | A converted or managed data folder under the workspace (`_datasets/`), viewable without a project or reopened as one (PRJ-19) |
+| Batch | One part of a large DICOM conversion that runs and is confirmed on its own (UI-28) |
 | IBSI | Image Biomarker Standardisation Initiative, the reference for feature definitions |
 | MPR | Multi-planar reconstruction: axial, coronal, sagittal views |
 | W/L | Window width / level for CT intensity display (HU) |
 | RAS | Right-Anterior-Superior world coordinate convention |
 | SSE | Server-Sent Events, the one-way realtime stream from server to browser |
 | udocker | User-space container runner; no root needed |
+
+## UI terms
+
+One term per concept in the interface (strings in `frontend/src/i18n/`; keys keep their names).
+
+| Concept | Say | Not |
+|---|---|---|
+| Background work | Job (the Jobs panel lists the background work); Task = the tool, Run = one execution | operation |
+| DICOM dry run | Analysis (owner decision, 2026-11) | Preview, estimate |
+| Waiting | Queued · Waiting for runner · Waiting for resources (the reason line says GPU or memory) · Not started | Waiting, Pending |
+| Stopping | Stopping… · Saving results… | Cleanup pending, Reconciling |
+| Cancel | Cancel + the object ("Cancel conversion", "Cancel run", "Cancel job"), confirmed first (UI-20); the minimized work chip's Cancel sits under the title that names its work | a bare Cancel on a row of work |
+| Resume, retry | Resume · Retry failed | Continue, Resume pending work, Retry failed series / items |
+| Outcome | Completed · Completed with errors · Failed | Done, Needs attention, finished with problems |
+| Log | Log (the panel and its channels) · Results (what a run produced) · Destination (a folder) | Output |
+| Case list | Explorer | Project (for the list) |
+| Locations | Source folder (read-only input) · Output folder (where tasks write) · Dataset folder (only where project state lives) | data root, derived root / folder |
+| Reachability | Not reachable (folders) · Offline (the live connection) | missing |
+| Segmentation | Segmentation set (a collection) · label (a class) · mask (a file only) | Mask opacity |
+| Case, scan, item | Case · Scan · Item · Full scan | Patient, CT scan, Full image, Complete volume |
+| QC findings | QC warnings | Problems |
+| Flags | queued (curation) · flagged (items) · outlier feature (features) | |
+| Restore, reset | Restore = undo a removal · Reset = back to defaults · Show all views (leave a maximized view) | Restore for defaults |
+| Open | View without a project (Open mode) · Reopen… (a dataset project) | Open for both |

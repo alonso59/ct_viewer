@@ -3,17 +3,18 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, LabelDef } from '../../api'
-import { Progress } from '../../lib'
-import { useViewerSync } from '../../state'
+import { Progress, useAnnounce } from '../../lib'
+import { useViewerSync, WL_PRESETS } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { createViewer, hasWebgl2, VolumeFetchError } from './engine'
 import { useViewerLocal } from './local'
+import { useItemMemory } from './memory'
 import { fetchMesh } from './meshes'
 import { isPlane, visibleViewports } from './model/layouts'
 import type { LabelStyle, LoadProgress, Plane, TileRect, Vec3, ViewerHandle, ViewportId, ViewState } from './model/types'
 import { dicomWindowOf, dragWindow, effectiveModality, isCt, modalityKey } from './model/wl'
 import { MeasureLayer } from './Measurements'
-import { NEEDED, type MeasureKind, type Measurement } from './model/measure'
+import { NEEDED, isMeasureKind, type MeasureKind, type Measurement } from './model/measure'
 import { Viewport, type MeshState } from './Viewport'
 import { useCursorText } from './readout'
 
@@ -29,6 +30,8 @@ export interface SurfaceProps {
   loaded: boolean
   /** The item's DICOM tags for the header info, when it has them */
   tags?: () => Promise<Record<string, unknown>>
+  /** Remember this item's view across reloads under this key (project items) */
+  memoryKey?: string
 }
 
 /** Focus handling of the viewer's container: `when: 'viewer'` shortcuts fire while it has focus */
@@ -67,7 +70,7 @@ interface Drag {
 const sameGeometry = (a: ItemRecord['geometry'], b: ItemRecord['geometry']) =>
   !!a && !!b && a.shape.join() === b.shape.join() && a.spacing.every((s, i) => Math.abs(s - (b.spacing[i] ?? NaN)) < 1e-4)
 
-export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded, tags }: SurfaceProps) {
+export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded, tags, memoryKey }: SurfaceProps) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const canvasHost = useRef<HTMLDivElement>(null)
@@ -93,6 +96,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const [attempt, setAttempt] = useState(0)
   const loadKey = `${handleId}|${attempt}|${item.item_id}|${imageUrl}|${hasMask ? maskUrl : ''}`
   const load = loadState.error?.code === 'viewer-init' || loadState.key === loadKey ? loadState : LOADING(loadKey)
+  // the end of loading is a milestone for screen readers; the bar is not a live region
+  useAnnounce(load.phase === 'ready' ? t('vw.volumeLoaded') : null)
 
   // Engine lifecycle: one per tab while it holds volumes
   useEffect(() => {
@@ -132,9 +137,17 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         signal: ac.signal,
         onProgress: (progress) => update({ progress }),
         onImage: () => {
-          // Same geometry → keep crosshair and W/L; otherwise start centred
+          // Same geometry → keep crosshair and W/L; else the item's last view; else start centred
+          const saved = memoryKey ? useItemMemory.getState().items[memoryKey] : undefined
           if (keep) handle.setCrosshair(keep)
-          else {
+          else if (saved) {
+            handle.setCrosshair(saved.ras)
+            const s = useViewerSync.getState()
+            const preset = (Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).find((p) => WL_PRESETS[p][0] === saved.ww && WL_PRESETS[p][1] === saved.wl)
+            if (preset) s.setPreset(preset)
+            else s.setWindow(saved.ww, saved.wl)
+            s.set({ labelVisibility: saved.labels })
+          } else {
             // The DICOM header window first (when enabled), else the modality default
             const s = useViewerSync.getState()
             const header = s.useDicomWindow ? dicomWindowOf(item) : null
@@ -192,6 +205,12 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => {
     if (view) prev.current = { geometry: item.geometry, ras: view.ras }
   }, [view, item.geometry])
+  // ...and this item's view for its next visit, also after a reload
+  useEffect(() => {
+    if (!memoryKey || !active || !view || load.phase !== 'ready') return
+    const later = setTimeout(() => useItemMemory.getState().remember(memoryKey, { ww: v.ww, wl: v.wl, ras: view.ras, labels: v.labelVisibility }), 500)
+    return () => clearTimeout(later)
+  }, [memoryKey, active, view, load.phase, v.ww, v.wl, v.labelVisibility])
 
   useEffect(() => {
     if (!handle) return
@@ -245,8 +264,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const measureSeq = useRef(0)
   const [measures, setMeasures] = useState<{ key: string; items: Measurement[]; draft: Measurement | null }>({ key: '', items: [], draft: null })
   const mine = measures.key === `${loadKey}|${v.measureClear}` ? measures : { key: `${loadKey}|${v.measureClear}`, items: [], draft: null }
-  const addPoint = (kind: MeasureKind, x: number, y: number) => {
-    const hit = handle?.worldAt(x, y)
+  const addPoint = (kind: MeasureKind, hit: { tile: Plane; ras: Vec3 } | null) => {
     const index = hit ? view?.planes[hit.tile]?.index : undefined
     if (!handle || !hit || !index) return
     const cur = mine.draft && mine.draft.kind === kind && mine.draft.tile === hit.tile ? mine.draft : { id: ++measureSeq.current, kind, tile: hit.tile, slice: index, points: [] }
@@ -259,6 +277,14 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     }
     setMeasures({ ...mine, items: [...mine.items, draft], draft: null })
   }
+  // From the keyboard: a point at the crosshair of the requested view
+  useEffect(() => {
+    if (!active) return
+    return useViewerLocal.subscribe((s, prev) => {
+      const tool = useViewerSync.getState().tool
+      if (s.pointAt && s.pointAt !== prev.pointAt && view && isMeasureKind(tool)) addPoint(tool, { tile: s.pointAt.tile, ras: view.ras })
+    })
+  })
 
   // Surface meshes are fetched only once requested
   const wantMeshes = !!handle && local.surfaces && !!meshUrl && hasMask && load.phase === 'ready'
@@ -331,9 +357,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     let mode: Drag['mode'] | null = null
     if (e.button === 2) mode = tile === '3d' ? 'pan' : 'window'
     else if (e.button === 1 || (e.button === 0 && (space.current || tool === 'pan'))) mode = 'pan'
-    else if (e.button === 0 && tile !== '3d' && (tool === 'distance' || tool === 'angle' || tool === 'roi')) {
+    else if (e.button === 0 && tile !== '3d' && isMeasureKind(tool)) {
       e.preventDefault()
-      addPoint(tool, ...local2canvas(e))
+      addPoint(tool, handle.worldAt(...local2canvas(e)))
       return
     } else if (e.button === 0) mode = tile === '3d' ? 'orbit' : tool === 'window' ? 'window' : tool === 'zoom' ? 'zoom' : 'pick'
     if (!mode) return
@@ -397,6 +423,10 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     return (
       <div className="error-card" role="alert">
         <strong>{t('vw.noWebgl')}</strong>
+        <div className="muted">{t('vw.noWebglHelp')}</div>
+        <div className="row mt-2">
+          <button type="button" className="btn" onClick={() => window.location.reload()}>{t('vw.reloadApp')}</button>
+        </div>
       </div>
     )
 
@@ -476,7 +506,8 @@ function ProbeReadout() {
   const text = useCursorText()
   if (!text) return null
   return (
-    <div className="vp-probe mono" role="status" aria-label={t('vw.probe')}>
+    // not a live region: a pointer move must not speak; the probe command reads it on request
+    <div className="vp-probe mono" title={t('vw.probe')}>
       {text}
     </div>
   )

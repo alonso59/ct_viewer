@@ -153,6 +153,7 @@ export function WorkspaceHome() {
   const sorted = [...(projects.data ?? [])]
     .filter((p) => !p.archived)
     .sort((a, b) => (b.last_opened_at ?? b.created_at).localeCompare(a.last_opened_at ?? a.created_at))
+  const firstRun = !!projects.data && sorted.length === 0
   return (
     <div className="home">
       {openDataset ? <OpenDatasetDialog onClose={() => setOpenDataset(false)} /> : null}
@@ -164,21 +165,11 @@ export function WorkspaceHome() {
             <p className="muted">{t('home.subtitle')}</p>
           </div>
         </header>
-        <div className="home-cols">
+        <main className="home-cols">
           <section>
-            <h2>{t('home.start')}</h2>
+            {/* UI-17's entry levels: files without a project, then projects */}
+            <h2>{t('home.viewFiles')}</h2>
             <div className="home-actions">
-              <button type="button" className="home-action" onClick={() => setOpenDataset(true)}>
-                <Icon spec={codicon('folder-library')} size={20} />
-                <span><strong>{t('dataset.open')}</strong><span className="muted">{t('dataset.openHelp')}</span></span>
-              </button>
-              <button type="button" className="home-action" onClick={() => setCreating(true)}>
-                <Icon spec={codicon('new-folder')} size={20} />
-                <span>
-                  <strong>{t('home.newProject')}</strong>
-                  <span className="muted">{t('home.newProjectHelp')}</span>
-                </span>
-              </button>
               <button type="button" className="home-action" onClick={() => useOpenDialog.getState().show()}>
                 <Icon spec={codicon('folder-opened')} size={20} />
                 <span>
@@ -192,6 +183,21 @@ export function WorkspaceHome() {
                   <strong>{t('home.convertDicom')}</strong>
                   <span className="muted">{t('home.convertDicomHelp')}</span>
                 </span>
+              </button>
+            </div>
+            <h2>{t('home.projects')}</h2>
+            <div className="home-actions">
+              {/* the one primary action of an empty workspace */}
+              <button type="button" className={`home-action${firstRun ? ' home-action-primary' : ''}`} onClick={() => setCreating(true)}>
+                <Icon spec={codicon('new-folder')} size={20} />
+                <span>
+                  <strong>{t('home.newProject')}</strong>
+                  <span className="muted">{t('home.newProjectHelp')}</span>
+                </span>
+              </button>
+              <button type="button" className="home-action" onClick={() => setOpenDataset(true)}>
+                <Icon spec={codicon('folder-library')} size={20} />
+                <span><strong>{t('dataset.open')}</strong><span className="muted">{t('dataset.openHelp')}</span></span>
               </button>
               <button type="button" className="home-action" onClick={() => picker.current?.click()}>
                 <Icon spec={codicon('package')} size={20} />
@@ -231,7 +237,15 @@ export function WorkspaceHome() {
             {showArchived ? <ArchivedList /> : <>
             {projects.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
             {projects.isError ? <ProblemCard error={projects.error} onRetry={() => void projects.refetch()} /> : null}
-            {projects.data && sorted.length === 0 ? <div className="empty">{t('home.noProjects')}</div> : null}
+            {firstRun ? (
+              <div className="empty">
+                <p>{t('home.noProjects')}</p>
+                <div className="row wrap">
+                  <button type="button" className="btn btn-sm" onClick={() => setCreating(true)}>{t('home.newProject')}</button>
+                  <button type="button" className="btn btn-sm" onClick={() => useOpenDialog.getState().show()}>{t('home.openPath')}</button>
+                </div>
+              </div>
+            ) : null}
             <div role="list" className="home-list">
               {sorted.map((p) => (
                 <ProjectCard key={p.project_id} p={p} onRelink={() => setRelink(p)} />
@@ -240,7 +254,7 @@ export function WorkspaceHome() {
             <RecentDatasets onCreate={setFromDataset} />
             </>}
           </section>
-        </div>
+        </main>
         <footer className="home-footer muted">
           {t('app.tagline')}
           <button type="button" className="link" onClick={() => runCommand('help.about')}>{t('cmd.about')}</button>

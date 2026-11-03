@@ -7,8 +7,8 @@ import { ItemName, StatusBadge, StatusIcon, fmtAgo } from '../../lib'
 import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
-import { submitDecision, useDraft } from './decision'
-import { decisionsFor, targetsFor } from './model'
+import { dropHeld, keepHeld, submitDecision, useConflict, useDraft } from './decision'
+import { decisionsFor, targetName, targetsFor } from './model'
 import '../../i18n/lazy'
 
 const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
@@ -37,6 +37,7 @@ export function CurationForm() {
   const stateQ = useCurationState(pid)
   const d = useDraft()
   const [busy, setBusy] = useState(false)
+  const held = useConflict((s) => s.held)
   if (!cid) return <div className="muted panel-size">{t('curation.noActive')}</div>
 
   const seg = shownSeg ?? project?.default_seg ?? 'imported'
@@ -50,12 +51,22 @@ export function CurationForm() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--fs-panel)' }}>
       <div className="muted small">{iid ? <ItemName id={iid} phase={item?.phase.canonical} /> : cid}</div>
+      {held ? (
+        // someone else decided this target after the item was opened: nothing is written until the reviewer chooses
+        <div className="error-card" role="alert">
+          {t('curation.held', { reviewer: held.theirs.reviewer, status: t(`status.${held.theirs.status}`), ago: fmtAgo(held.theirs.at), mine: t(`status.${held.status}`) })}
+          <div className="row mt-2">
+            <button type="button" className="btn btn-sm" onClick={keepHeld}>{t('curation.keepMine')}</button>
+            <button type="button" className="btn btn-sm" onClick={dropHeld}>{t('curation.useTheirs')}</button>
+          </div>
+        </div>
+      ) : null}
       <label className="field">
         <span className="field-label">{t('curation.target.label')}</span>
         <select className="select input-sm" value={d.target} onChange={(e) => d.set({ target: e.target.value })}>
-          {targetsFor(item, labels).map((o) => (
-            <option key={o.value} value={o.value} disabled={o.value !== 'case' && !iid}>
-              {o.label.startsWith('label:') ? t('curation.target.labelName', { name: o.label.slice(6) }) : t(o.label)}
+          {targetsFor(item, labels).map((target) => (
+            <option key={target} value={target} disabled={target !== 'case' && !iid}>
+              {targetName(target, labels, t)}
             </option>
           ))}
         </select>
@@ -120,7 +131,7 @@ export function CurationForm() {
           <div className="section-title" style={{ padding: 0 }}>{t('curation.current')}</div>
           {mine.map((s) => (
             <div key={`${s.item_id ?? s.case_id}|${s.target}|${s.seg_id ?? ''}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
-              <span className="mono muted">{s.target}</span>
+              <span className="muted" title={s.target}>{targetName(s.target, labels, t)}</span>
               {s.seg_id && (sets?.length ?? 0) > 1 ? <span className="badge" title={t('curation.segSet')}>{segName(s.seg_id)}</span> : null}
               <StatusBadge status={s.status} />
               {s.proposed_side ? <span className="muted">{t('history.proposedSide', { side: s.proposed_side })}</span> : null}

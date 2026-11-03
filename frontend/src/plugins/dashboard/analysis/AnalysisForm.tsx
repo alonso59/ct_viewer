@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { PHASES, type AnalysisSpec, type LabelDef, type UnitSpec, type Variable } from '../../../api'
+import { RadioSeg } from '../../../lib'
 import { Icon, codicon } from '../../../theme'
 import { QUESTIONS, analysisVariables, confounderVariables, needsConfirmation, needsVariable, questionsFor, type PanelQuestion } from './model'
 
@@ -51,13 +52,7 @@ export function AnalysisForm({ form, onChange, vars, labels, phases, busy, onRun
     >
       <div className="field">
         <span className="field-label">{t('analysis.question.label')}</span>
-        <div className="seg an-seg" role="radiogroup" aria-label={t('analysis.question.label')}>
-          {QUESTIONS.map((x) => (
-            <button key={x} type="button" role="radio" aria-checked={q === x} aria-pressed={q === x} onClick={() => onChange({ question: x, variable: selected && questionsFor(selected).includes(x) ? form.variable : null })}>
-              {t(`analysis.question.${x}`)}
-            </button>
-          ))}
-        </div>
+        <RadioSeg className="an-seg" label={t('analysis.question.label')} value={q} options={QUESTIONS.map((x) => ({ value: x, label: t(`analysis.question.${x}`) }))} onChange={(x) => onChange({ question: x, variable: selected && questionsFor(selected).includes(x) ? form.variable : null })} />
         <span className="muted an-help">{t(`analysis.questionHelp.${q}`)}</span>
       </div>
 

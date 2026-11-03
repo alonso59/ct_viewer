@@ -43,8 +43,13 @@ export function SideBar() {
       </aside>
       <Sash
         direction="v"
+        label={t('shell.resizeSidebar')}
+        value={layout.sidebarWidth}
+        min={200}
+        max={640}
         onStart={() => (start.current = layout.sidebarWidth)}
         onDrag={(d) => layout.set({ sidebarWidth: Math.min(640, Math.max(200, start.current + d)) })}
+        onReset={() => layout.resetSize('sidebarWidth')}
       />
     </>
   )

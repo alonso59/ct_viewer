@@ -580,7 +580,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
         ...r,
         seg_id: r.seg_id ?? null,
       })),
-    queueCsv: (pid) => blob(`/projects/${enc(pid)}/curation/queue?format=csv`),
+    queueCsv: (pid, status) => blob(`/projects/${enc(pid)}/curation/queue?format=csv${status ? `&status=${enc(status)}` : ''}`),
     curationExports: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/curation/exports', { params: { path: { pid } } })),
     importV2(pid, file, reviewer) {
       const fd = new FormData()

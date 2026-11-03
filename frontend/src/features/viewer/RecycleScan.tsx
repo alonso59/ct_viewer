@@ -31,7 +31,7 @@ export function RecycleScan({ pid, item, onRecycled }: { pid: string; item: Item
     </>}>
       <p>{t('recycle.help')}</p>
       {plan.isPending ? <p>{t('common.loading')}</p> : null}
-      {plan.isError ? <ProblemCard error={plan.error} /> : null}
+      {plan.isError ? <ProblemCard error={plan.error} onRetry={() => void plan.refetch()} /> : null}
       {plan.data ? <>
         <p>{t('recycle.counts', { items: plan.data.item_ids.length, files: plan.data.n_files, rows: plan.data.n_metadata_rows })}</p>
         <p className="mono" style={{ overflowWrap: 'anywhere' }}>{plan.data.recycle_bin}</p>

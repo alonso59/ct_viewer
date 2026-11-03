@@ -2,7 +2,8 @@
 // UI-26: on a view-only link, contributions that need write routes are hidden.
 import '../i18n'
 import { bootstrap } from '../app/bootstrap'
-import { registry } from './registry'
+import { keyConflicts } from './keybindings'
+import { registry, type Command } from './registry'
 
 test('read-only mode hides every contribution marked `writes`', () => {
   bootstrap()
@@ -74,3 +75,22 @@ test('route-scoped commands', () => {
   expect(on('open')).toEqual(expect.arrayContaining(['viewer.fit', 'viewer.reset', 'viewer.tool.window', 'help.about']))
   expect(on('open')).not.toContain('curation.accept')
 })
+
+// VW-06, UI-12: every pointer operation of the viewer has a default key, and no two commands
+// offered on one route share a default key
+test('viewer keys cover the pointer; default keys never clash on a route', () => {
+  bootstrap()
+  const pointer = ['zoomIn', 'zoomOut', 'nextSlice', 'previousSlice', 'centerCrosshair', 'panLeft', 'panRight', 'panUp', 'panDown', 'orbitLeft', 'orbitRight', 'orbitUp', 'orbitDown', 'fit', 'readProbe']
+  for (const name of pointer) {
+    const c = registry.commands.get(`viewer.${name}`)
+    expect(c?.keybinding, name).toBeTruthy()
+    expect(c?.when, name).toBe('viewer')
+    expect(c?.scope, name).toEqual(['project', 'open'])
+  }
+  const scopes = (c: Command) => c.scope ?? ['project']
+  const clashes = [...registry.commands.values()].flatMap((c) =>
+    c.keybinding ? keyConflicts(c.keybinding, c.id).filter((o) => scopes(o).some((s) => scopes(c).includes(s))).map((o) => `${c.id} = ${o.id}`) : [],
+  )
+  expect(clashes).toEqual([])
+})
+

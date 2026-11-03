@@ -1,7 +1,8 @@
+import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useWarnings, type QCWarning } from '../../api'
-import { SeverityIcon, itemName, knownPhase } from '../../lib'
+import { SeverityIcon, itemName, knownPhase, useRowKeys } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import i18n from '../../i18n'
@@ -30,34 +31,76 @@ function openProblem(flat: QCWarning[], i: number) {
   openInContext(i18n.t('panel.problems'), withCase.map((w) => ({ caseId: w.case_id ?? '', itemId: w.item_id })), at, true)
 }
 
+const warningKey = (w: QCWarning) => `${w.code}-${w.item_id ?? ''}-${w.field ?? ''}`
+
+/** A tree of one Tab stop: case rows (level 1) open and close with a click, Enter or ←/→; their
+ *  warnings (level 2) open the item */
 export function ProblemsPanel() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const { data, isLoading } = useWarnings(pid)
+  const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
+  const groups = groupWarnings(data ?? [])
+  const rowKeys = useRowKeys(groups.flatMap(([cid, list]) => [`case:${cid}`, ...(closed.has(cid) ? [] : list.map(warningKey))]))
   if (isLoading) return <div className="empty">{t('common.loading')}</div>
   if (!data?.length) return <div className="empty">{t('problems.none')}</div>
-  const flat = groupWarnings(data).flatMap(([, list]) => list)
+  const flat = groups.flatMap(([, list]) => list)
+  const toggle = (cid: string) =>
+    setClosed((s) => {
+      const next = new Set(s)
+      if (!next.delete(cid)) next.add(cid)
+      return next
+    })
   return (
     <div role="tree" aria-label={t('panel.problems')} className="panel-size">
-      {groupWarnings(data).map(([cid, list]) => (
-        <div key={cid} role="group">
-          <div className="list-row" style={{ cursor: 'default', paddingLeft: 8 }} role="treeitem" aria-expanded>
-            <Icon spec={codicon('chevron-down')} />
-            <span className="mono">{cid || t('problems.projectLevel')}</span>
-            <span className="count">{list.length}</span>
-          </div>
-          {list.map((w) => (
-            <button key={`${w.code}-${w.item_id ?? ''}-${w.field ?? ''}`} type="button" role="treeitem" className="list-row" style={{ paddingLeft: 32 }} disabled={!w.case_id} onClick={() => w.case_id && openProblem(flat, flat.indexOf(w))}>
-              <SeverityIcon severity={w.severity} />
-              <span>{t(`warning.${w.code}`)}</span>
-              <span className="muted">{w.message}</span>
-              <span className="muted problem-where" title={w.item_id ? `${w.code} · ${w.item_id}` : w.code}>
-                {w.item_id ? itemName(w.item_id, t, knownPhase(pid, w.item_id)) : null}
-              </span>
-            </button>
-          ))}
-        </div>
-      ))}
+      {groups.map(([cid, list]) => {
+        const open = !closed.has(cid)
+        const row = rowKeys(`case:${cid}`)
+        return (
+          <Fragment key={cid}>
+            <div
+              role="treeitem"
+              aria-level={1}
+              aria-expanded={open}
+              className="list-row"
+              style={{ paddingLeft: 8 }}
+              onClick={() => toggle(cid)}
+              {...row}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && ((e.key === 'ArrowRight' && !open) || (e.key === 'ArrowLeft' && open))) {
+                  e.preventDefault()
+                  toggle(cid)
+                } else row.onKeyDown(e)
+              }}
+            >
+              <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
+              <span className="mono">{cid || t('problems.projectLevel')}</span>
+              <span className="count">{list.length}</span>
+            </div>
+            {open
+              ? list.map((w) => (
+                  <div
+                    key={warningKey(w)}
+                    role="treeitem"
+                    aria-level={2}
+                    aria-disabled={!w.case_id || undefined}
+                    className="list-row"
+                    style={{ paddingLeft: 32 }}
+                    onClick={() => w.case_id && openProblem(flat, flat.indexOf(w))}
+                    {...rowKeys(warningKey(w))}
+                  >
+                    <SeverityIcon severity={w.severity} />
+                    <span>{t(`warning.${w.code}`)}</span>
+                    <span className="muted">{w.message}</span>
+                    <span className="muted problem-where" title={w.item_id ? `${w.code} · ${w.item_id}` : w.code}>
+                      {w.item_id ? itemName(w.item_id, t, knownPhase(pid, w.item_id)) : null}
+                    </span>
+                  </div>
+                ))
+              : null}
+          </Fragment>
+        )
+      })}
     </div>
   )
 }

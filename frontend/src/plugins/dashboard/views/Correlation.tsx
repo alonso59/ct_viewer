@@ -7,7 +7,7 @@ import { NumberInput, fmtNum } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
 import { useDashboardStore, useRunDashboard } from '../store'
-import { numParam, usePid, useFocusParams, ViewFrame, type ViewProps } from './common'
+import { ChartOrTable, numParam, usePid, useFocusParams, ViewFrame, type ViewProps } from './common'
 
 export function CorrelationView({ runId }: ViewProps) {
   const { t } = useTranslation()
@@ -57,14 +57,16 @@ export function CorrelationView({ runId }: ViewProps) {
         </>
       }
     >
-      <Chart
-        option={option}
-        onReady={setChart}
-        onClick={(p) => {
-          const f = d?.features[(p.data as number[] | undefined)?.[1] ?? -1]
-          if (f) focusView(runId, 'feature-distribution', { feature: f })
-        }}
-      />
+      <ChartOrTable>
+        <Chart
+          option={option}
+          onReady={setChart}
+          onClick={(p) => {
+            const f = d?.features[(p.data as number[] | undefined)?.[1] ?? -1]
+            if (f) focusView(runId, 'feature-distribution', { feature: f })
+          }}
+        />
+      </ChartOrTable>
     </ViewFrame>
   )
 }

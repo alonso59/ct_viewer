@@ -39,7 +39,7 @@ test('G3: review loop with the keyboard, review order and history', async ({ pag
   await page.goto(`/p/${pid}`)
 
   // First case from the Explorer; A records a decision
-  const tree = page.getByRole('tree', { name: 'Project' })
+  const tree = page.getByRole('tree', { name: 'Explorer' })
   await tree.getByRole('treeitem', { name: new RegExp(first!.case_id) }).dblclick()
   await onCase(page, pid, first!.case_id)
   await page.keyboard.press('a')
@@ -98,7 +98,7 @@ test('G3: review loop with the keyboard, review order and history', async ({ pag
 
   // The Explorer shows and selects the active case (AUD-A1-03)
   // (the Project view is still the side bar's view; clicking its icon again would hide it)
-  if (!(await tree.isVisible())) await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Project', exact: true }).click()
+  if (!(await tree.isVisible())) await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Explorer', exact: true }).click()
   const active = tree.getByRole('treeitem', { name: new RegExp(firstQ) })
   await expect(active).toBeVisible()
   await expect(active).toHaveAttribute('aria-selected', 'true')
@@ -151,7 +151,7 @@ test('a draft stays with its case; Undo restores the previous decision', async (
   const [first, second] = (await api<{ items: CaseRow[] }>('GET', `/projects/${pid}/cases?limit=500`)).items
   await page.addInitScript(() => localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: 'Dr. G3' }, version: 0 })))
   await page.goto(`/p/${pid}`)
-  await page.getByRole('tree', { name: 'Project' }).getByRole('treeitem', { name: new RegExp(first!.case_id) }).dblclick()
+  await page.getByRole('tree', { name: 'Explorer' }).getByRole('treeitem', { name: new RegExp(first!.case_id) }).dblclick()
   await onCase(page, pid, first!.case_id)
   await page.getByRole('textbox', { name: 'Comment' }).fill('Leak at the upper pole')
   await page.getByRole('textbox', { name: 'Comment' }).blur()

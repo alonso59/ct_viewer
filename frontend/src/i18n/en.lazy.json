@@ -95,7 +95,6 @@
       "spec": "spec.json (redo in Python/R)"
     },
     "exportFailed": "Export failed",
-    "failed": "The analysis could not be computed",
     "test": {
       "welch_t": "Welch t-test",
       "mann_whitney": "Mann–Whitney U",
@@ -293,7 +292,20 @@
     "phaseChanged_one": "The phase of {{count}} item changed since the run",
     "phaseChanged_other": "The phase of {{count}} items changed since the run",
     "phaseAtRun": "{{item}}: {{phase}} (phase at run time: {{atRun}})",
-    "errorsTable": "Failures and skips"
+    "errorsTable": "Failures and skips",
+    "table": {
+      "show": "Show as table",
+      "label": "Chart values",
+      "capped": "First {{shown}} of {{total}} rows; Export CSV has them all.",
+      "select": "Select",
+      "selectItem": "Select {{id}}",
+      "group": "Group"
+    },
+    "flag": {
+      "significant": "Significant (q < 0.05)",
+      "extreme": "More than twice the threshold",
+      "followsVolume": "Follows volume closely (|ρ| > 0.8)"
+    }
   },
   "queue": {
     "allStatuses": "All statuses",
@@ -328,7 +340,11 @@
     "importing": "Importing…",
     "noPath": "—",
     "subtitle": "Latest decision per item and target",
-    "writeExportsHelp": "Write curation_state.csv and events.jsonl into the project exports/ folder"
+    "writeExportsHelp": "Write curation_state.csv and events.jsonl into the project exports/ folder",
+    "noMatch": "No queued item has this status.",
+    "showAllStatuses": "Show all statuses",
+    "exportShown": "Export shown ({{count}})",
+    "exportShownHelp": "Download the rows shown as CSV with absolute paths (open them in 3D Slicer)"
   },
   "history": {
     "case": "Case {{id}}",
@@ -410,7 +426,7 @@
     "itemIdsCount_other": "{{count}} items",
     "scope": "Scope",
     "scopeName": {
-      "complete": "Full image",
+      "complete": "Full scan",
       "voi": "VOI"
     },
     "labels": "Labels",
@@ -478,7 +494,7 @@
       "missing_seg": "no mask",
       "missing_path": "file missing",
       "unreadable_file": "file unreadable",
-      "outside_root": "file outside the data roots",
+      "outside_root": "file outside the source folders",
       "affine_mismatch": "mask does not line up with the image",
       "shape_mismatch": "mask size differs from the image",
       "label_absent": "label absent",
@@ -499,10 +515,10 @@
     "path": "Path on this server",
     "check": "Check",
     "verify": "{{matched}}/{{sampled}} sampled items match · {{mismatched}} changed · {{missing}} missing",
-    "needsRelink": "Some data roots do not resolve on this server. Use Relink to point them at the data."
+    "needsRelink": "Some source folders are not reachable on this server. Use Relink to point them at the data."
   },
   "open": {
-    "title": "Open",
+    "title": "View without a project",
     "home": "Workspace home",
     "noProject": "Viewing without a project",
     "items": "Files",
@@ -540,7 +556,7 @@
     "changeFolder": "Change folder…",
     "sidecar": "Also write the DICOM tags (JSON sidecar)",
     "anonymize": "Anonymize: neutral file name, patient name and ID",
-    "phiNotice": "DICOM tags can contain patient data. Keep sidecars in the derived folder and anonymize before sharing.",
+    "phiNotice": "DICOM tags can contain patient data. Keep sidecars in the output folder and anonymize before sharing.",
     "saved": "Saved {{path}}",
     "addTitle": "Add {{name}} to a project",
     "addHelp": "The file becomes a new import of the chosen project. DICOM goes through the converter.",
@@ -554,7 +570,9 @@
     "close": "Close",
     "noSession": "No Open session",
     "noSessionHelp": "Open a file or folder to view it without a project.",
-    "unreadable": "{{name}} cannot be read"
+    "unreadable": "{{name}} cannot be read",
+    "cancelOpening": "Cancel opening",
+    "cancelOpeningConfirm": "Stop opening? Nothing is shown yet and nothing is converted."
   },
   "tasks": {
     "gpu": {
@@ -603,7 +621,7 @@
       "modality": "Modality",
       "masks": "Segmentation sets",
       "any": "Any",
-      "complete": "Complete volume",
+      "complete": "Full scan",
       "voi": "VOI",
       "groupCount": "({{count}})",
       "noMasks": "Without segmentation",
@@ -632,7 +650,7 @@
       "manual": "Paste or edit item IDs"
     },
     "segSet": "Segmentation set",
-    "sourceHelp": "Choose the DICOM folder (or one DICOM file) to convert. It is read only; outputs go to the project's derived folder.",
+    "sourceHelp": "Choose the DICOM folder (or one DICOM file) to convert. It is read only; outputs go to the project's output folder.",
     "noSource": "No source chosen",
     "fromProject": "From the project preset",
     "noSettings": "This task has no settings.",
@@ -642,7 +660,7 @@
     "ready": "{{ready}} of {{n}} ready",
     "missing": "{{n}} skipped: {{reason}}",
     "suggest": "Run {{task}} first ({{reason}})",
-    "derivedNeeded": "This task writes volumes: the project needs a derived folder first.",
+    "derivedNeeded": "This task writes volumes: the project needs an output folder first.",
     "estimate": "Estimate",
     "run": "Run",
     "resume": "Resume",
@@ -650,7 +668,7 @@
     "eta": "About {{eta}} left",
     "pause": "Pause",
     "archive": "Archive",
-    "retryFailed": "Retry failed items",
+    "retryFailed": "Retry failed",
     "showArchived": "Show archived runs",
     "hideArchived": "Hide archived runs",
     "noArchived": "No archived runs",
@@ -688,7 +706,7 @@
       "enum": "Not an allowed value",
       "pattern": "Does not match the expected pattern"
     },
-    "derivedTitle": "Choose the derived folder",
+    "derivedTitle": "Choose the output folder",
     "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here. Only output folders shared with the app are listed.",
     "derivedUse": "Use this folder",
     "radiomicsHere": "Set up radiomics runs in the Radiomics settings tab.",
@@ -696,13 +714,23 @@
     "adminDetails": "Details for administrators",
     "waitingUser": "Waiting for the task runner to start; it begins on its own.",
     "queuedHelp": "Queued: starts when earlier work of this task finishes.",
-    "resourcesHelp": "Waiting for free GPUs or memory; it starts on its own. Cancel stays available."
+    "resourcesHelp": "Waiting for free GPUs or memory; it starts on its own. Cancel stays available.",
+    "cancel": "Cancel run",
+    "required": "required",
+    "defaultValue": "Default: {{value}}",
+    "unit": {
+      "s": "s",
+      "mm": "mm",
+      "mb": "MB",
+      "hu": "HU",
+      "pct": "%"
+    }
   },
   "library": {
     "status": {
       "ready": "ready",
       "needs_runner": "needs runner",
-      "needs_derived_root": "needs derived root",
+      "needs_derived_root": "needs an output folder",
       "needs_segmentation": "needs segmentation",
       "pending": "pending"
     },
@@ -804,7 +832,7 @@
       "source": "source (read only)",
       "derived": "derived (task outputs)"
     },
-    "missing": "missing",
+    "missing": "not reachable",
     "noRoots": "No data yet.",
     "packs": "Study packs",
     "packsHelp": "A pack sets labels, the phase vocabulary and the organ focus of the analyzers. Applying one never deletes your data.",
@@ -832,11 +860,11 @@
     "revoked": "View-only link revoked"
   },
   "conv": {
-    "connecting": "Connecting to the operation…",
-    "recentOperations": "Recent operations",
+    "connecting": "Connecting…",
+    "recentOperations": "Recent work",
     "operationOption": "{{name}} · {{status}} · {{date}}",
-    "chooseOperation": "Choose an operation…",
-    "currentOperation": "Current operation",
+    "chooseOperation": "Choose earlier work…",
+    "currentOperation": "Current work",
     "newOperation": "New conversion",
     "planFilter": "Show series",
     "planAll": "All series",
@@ -862,7 +890,7 @@
       "suggest": "Convert in batches",
       "start": "Start",
       "convertThis": "Convert this batch",
-      "continue": "Continue",
+      "continue": "Resume plan",
       "auto": "Convert remaining automatically",
       "stopAuto": "Stop automatic conversion",
       "cancel": "Cancel plan",
@@ -874,14 +902,14 @@
       "warnings": "Warnings",
       "duplicatePatients": "{{batch}} has {{count}} patients that are already in an earlier batch.",
       "status": {
-        "pending": "Waiting",
+        "pending": "Not started",
         "discovering": "Scanning",
         "planning": "Analysis",
         "verifying": "Checking source",
         "ready": "Ready",
         "converting": "Converting",
-        "completed": "Done",
-        "attention": "Needs attention",
+        "completed": "Completed",
+        "attention": "Failed",
         "cancelled": "Cancelled"
       },
       "plans": "Batch plans ({{n}})",
@@ -891,7 +919,7 @@
         "pending": "Not started",
         "running": "Running",
         "paused": "Paused",
-        "completed": "Done",
+        "completed": "Completed",
         "cancelled": "Cancelled",
         "yourTurn": "Ready: convert this batch"
       },
@@ -910,9 +938,9 @@
     "provisional": "Counts update while the scan runs.",
     "partialHelp": "Images already converted are preserved. Resume to finish this dataset.",
     "projectPartial": "The conversion is unfinished or its results were not added to the project yet.",
-    "attemptChanged": "This operation was restarted meanwhile. Check it before cancelling.",
-    "resumePending": "Resume pending work",
-    "retryFailed": "Retry failed series",
+    "attemptChanged": "This work was restarted meanwhile. Check it before cancelling.",
+    "resumePending": "Resume",
+    "retryFailed": "Retry failed",
     "recoveryCounts": "{{complete}} converted · {{failed}} failed · {{pending}} pending",
     "phaseTitle": "Phase analysis",
     "phaseStatus": "Phase analysis · {{status}}",
@@ -949,7 +977,7 @@
     "next": "Next",
     "source": "Source",
     "change": "Change…",
-    "output": "Output",
+    "output": "Destination",
     "intoProject": "Into {{name}}",
     "asDataset": "As a dataset (no project)",
     "name": "Dataset name",
@@ -966,9 +994,9 @@
     },
     "phase": "Run the phase analyzer after conversion",
     "anonymize": "Anonymize DICOM metadata",
-    "phiNotice": "DICOM headers can contain patient data. Sidecars stay in the derived folder; anonymize before sharing.",
-    "needsDerived": "This project has no derived folder for the converted volumes yet.",
-    "chooseDerived": "Choose derived folder…",
+    "phiNotice": "DICOM headers can contain patient data. Sidecars stay in the output folder; anonymize before sharing.",
+    "needsDerived": "This project has no output folder for the converted volumes yet.",
+    "chooseDerived": "Choose output folder…",
     "dryRun": "Analysis",
     "dryRunHelp": "Reads the DICOM headers only and shows what would be converted; nothing is written.",
     "dryRunDone": "Analysis ready: {{n}} series to convert",
@@ -1025,9 +1053,9 @@
     },
     "showResult": "Show the result",
     "datasetReady": "Dataset {{name}} is ready.",
-    "datasetPartial": "Dataset {{name}} finished with problems.",
+    "datasetPartial": "Dataset {{name}} completed with errors.",
     "datasetHelp": "NIfTI volumes, DICOM sidecars and analyzer layers. Open it, make a project from it, or add it to an existing project.",
-    "open": "Open",
+    "open": "View without a project",
     "createProject": "Create project from this",
     "addTo": "Add to project",
     "pickProject": "Choose a project…",
@@ -1062,10 +1090,11 @@
     "stopped": "The conversion stopped. Resume it below to continue where it left off.",
     "backToBatches": "Back to batches",
     "inPlan": "{{batch}} · plan {{plan}}",
-    "showOutput": "Show output",
+    "showOutput": "Show log",
     "cancelRunConfirm": "Cancel the conversion? Converted series are kept; the rest stop.",
     "cancelScanConfirm": "Stop this analysis? Nothing is converted or opened yet.",
-    "cancelPhaseConfirm": "Cancel the phase analysis? Converted series are kept."
+    "cancelPhaseConfirm": "Cancel the phase analysis? Converted series are kept.",
+    "minimizeWindow": "Minimize window"
   },
   "ct": {
     "w": "W",
@@ -1272,20 +1301,20 @@
     "done": "Import finished: {{cases}} cases indexed",
     "errors_one": "{{count}} validation error",
     "errors_other": "{{count}} validation errors",
-    "errorsHelp": "Rows with parse errors or missing required fields are skipped. Accepted rows may get QC warnings, shown in the Problems panel.",
+    "errorsHelp": "Rows with parse errors or missing required fields are skipped. Accepted rows may get QC warnings, listed in the QC warnings panel.",
     "indexing": "Indexing…",
     "indexingHelp": "Thumbnails are generated in the background after indexing.",
     "kpiCases": "cases",
     "kpiRows": "scan rows",
     "previewTitle": "Preview",
-    "readOnly": "The data root is read-only for this app. Images and masks are never written.",
+    "readOnly": "The source folder is read-only for this app. Images and masks are never written.",
     "rootHelp": "Choose a folder (with metadata.jsonl, NIfTI or DICOM files) or one NIfTI file. The folder becomes a path alias of this project.",
-    "rootTitle": "Data root",
+    "rootTitle": "Source folder",
     "skip": "Skip for now",
     "skipHelp": "The project is created either way — import data later from File → Import data.",
     "scanning": "Looking for metadata.jsonl, NIfTI, DICOM and NumPy files…",
     "step": {
-      "root": "Data root",
+      "root": "Source folder",
       "detect": "Detect",
       "preview": "Preview",
       "index": "Index"
@@ -1396,7 +1425,8 @@
       "mask_outside": "The mask must be inside the chosen folder.",
       "mask_same": "This path does not contain the example's case, so every image would get the same mask. Pick the mask that belongs to this image.",
       "advanced": "Advanced: pattern and mask template as text"
-    }
+    },
+    "scanned": "Scan finished"
   },
   "lbl": {
     "derivedUsers_one": "The derived variable {{list}} uses it and will show as broken until you delete it in Variables.",
@@ -1409,8 +1439,8 @@
     "newTable": "New label table",
     "empty": "No label tables yet. A table has typed columns per patient, CT scan or item; every column becomes a study variable.",
     "level": {
-      "case": "Patient",
-      "scan": "CT scan",
+      "case": "Case",
+      "scan": "Scan",
       "item": "Item"
     },
     "levelLabel": "One row per",
@@ -1493,7 +1523,12 @@
     "deletedColumns": "Deleted columns",
     "deletedTables": "Deleted tables ({{n}})",
     "restore": "Restore",
-    "tableGone": "This table was deleted. Restore it from Deleted tables in the Labeling view."
+    "tableGone": "This table was deleted. Restore it from Deleted tables in the Labeling view.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "changedCells_one": "{{count}} cell changed",
+    "changedCells_other": "{{count}} cells changed",
+    "undoImport": "Undo import"
   },
   "about": {
     "title": "About",
@@ -1503,6 +1538,45 @@
     "components": "Open-source components"
   },
   "keys": {
-    "help": "Change a shortcut in Settings › Keybindings. Browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W."
+    "help": "Change a shortcut in Settings › Keybindings. Browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W.",
+    "filter": "Filter shortcuts",
+    "list": "Shortcuts",
+    "none": "No shortcut matches",
+    "mouseTitle": "Mouse in the viewer",
+    "mouse": {
+      "click": {
+        "gesture": "Click or drag (Crosshair tool)",
+        "action": "Move the crosshair; the other views follow"
+      },
+      "wheel": {
+        "gesture": "Wheel, Shift+wheel",
+        "action": "Next or previous slice; with Shift, 10 at a time"
+      },
+      "zoom": {
+        "gesture": "{{mod}}+wheel, pinch, or drag with Zoom",
+        "action": "Zoom the view under the pointer (on 3D, the wheel alone)"
+      },
+      "pan": {
+        "gesture": "Middle-drag, Space+drag, or drag with Move / pan",
+        "action": "Move the image in the view under the pointer (on 3D, also right-drag)"
+      },
+      "window": {
+        "gesture": "Right-drag, or drag with Window / level",
+        "action": "Window/level on 2D: horizontal = width, vertical = level",
+        "keys": "Width and level fields, presets"
+      },
+      "orbit": {
+        "gesture": "Drag on 3D",
+        "action": "Rotate the 3D view"
+      },
+      "measure": {
+        "gesture": "Click with a measure tool",
+        "action": "Place the points of a measurement"
+      },
+      "maximize": {
+        "gesture": "Double-click a view header",
+        "action": "Maximize the view; again, or Esc, shows all views"
+      }
+    }
   }
 }

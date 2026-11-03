@@ -30,8 +30,14 @@ export function PluginCard({ info }: { info: PluginInfo }) {
         <span className="badge" data-tone={TONE[info.status]}>{t(`library.status.${info.status}`)}</span>
       </div>
       <p className="plugin-card-desc">{m.description}</p>
-      {adds.length ? <p className="muted plugin-card-adds">{t('library.adds', { list: adds.join(' · ') })}</p> : null}
-      {info.reason ? <p className="muted plugin-card-reason">{info.reason}</p> : null}
+      {/* what it registers and the server's reason (names of settings) are for administrators */}
+      {adds.length || info.reason ? (
+        <details className="plugin-card-details">
+          <summary className="muted">{t('common.details')}</summary>
+          {info.reason ? <p className="muted plugin-card-reason">{info.reason}</p> : null}
+          {adds.length ? <p className="muted plugin-card-adds">{t('library.adds', { list: adds.join(' · ') })}</p> : null}
+        </details>
+      ) : null}
       <div>
         <Button className="btn btn-sm" disabled={!open} reason={info.reason ?? t(`library.status.${info.status}`)} onClick={() => open?.()} aria-label={t('library.openNamed', { name: m.title })}>
           {t('common.open')}
@@ -44,10 +50,10 @@ export function PluginCard({ info }: { info: PluginInfo }) {
 export default function LibraryView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid)
-  const { data, error, isLoading } = usePlugins(pid)
+  const { data, error, isLoading, refetch } = usePlugins(pid)
   return (
     <div className="library-view">
-      {error ? <ProblemCard error={error} /> : null}
+      {error ? <ProblemCard error={error} onRetry={() => void refetch()} /> : null}
       {isLoading ? <p className="muted">{t('common.loading')}</p> : null}
       <ul className="plugin-list">{(data?.plugins ?? []).map((p) => <PluginCard key={p.manifest.id} info={p} />)}</ul>
       {data?.invalid.length ? <p className="muted">{t('library.invalid', { count: data.invalid.length })}</p> : null}

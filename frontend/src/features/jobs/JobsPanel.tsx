@@ -1,13 +1,13 @@
-import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
-import { useCancelJob, useJobs, useStaleLive, type Job, type ServerEvent } from '../../api'
+import { useCancelJob, useJobs, useStaleLive, type Job, type LogLine, type ServerEvent } from '../../api'
 import { ConfirmInline, Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
+import { LogView } from './LogView'
 
 /** Every job kind has a label: a new server kind fails typecheck, never shows a raw key */
 export const JOB_KIND: Record<Job['kind'], string> = {
@@ -20,13 +20,23 @@ export const JOB_KIND: Record<Job['kind'], string> = {
   'open-convert': 'jobs.kind.open-convert',
 }
 
+/** Activity lines kept for the session; older ones are dropped */
+const ACTIVITY_KEEP = 500
 interface LogState {
-  lines: { at: string; text: string; tone?: 'ok' | 'warn' | 'error' }[]
+  lines: LogLine[]
+  /** Sequence number of `lines[0]` */
+  first: number
   push: (text: string, tone?: 'ok' | 'warn' | 'error') => void
 }
 const useOutput = create<LogState>()((set) => ({
   lines: [],
-  push: (text, tone) => set((s) => ({ lines: [...s.lines.slice(-499), { at: new Date().toISOString().slice(11, 19), text, tone }] })),
+  first: 0,
+  push: (text, tone) =>
+    set((s) => {
+      const line: LogLine = { ts: new Date().toISOString().slice(11, 19), level: tone === 'error' || tone === 'warn' ? tone : 'info', stream: 'log', text }
+      const dropped = Math.max(0, s.lines.length + 1 - ACTIVITY_KEEP)
+      return { lines: [...s.lines.slice(dropped), line], first: s.first + dropped }
+    }),
 }))
 
 export function logEvent(e: ServerEvent) {
@@ -64,7 +74,7 @@ export function JobsPanel() {
         {jobs.map((j) => (
           <tr key={j.job_id}>
             <td>{t(JOB_KIND[j.kind])}</td>
-            <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error" role="alert">{j.error}</p> : null}</td>
+            <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error">{j.error}</p> : null}</td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={t(JOB_KIND[j.kind])} stale={stale} /></div>
@@ -81,7 +91,7 @@ export function JobsPanel() {
                   trigger={(ask) => (
                     <button type="button" className="btn btn-sm" onClick={ask}>
                       <Icon spec={codicon('debug-stop')} />
-                      {t('common.cancel')}
+                      {t('jobs.cancel')}
                     </button>
                   )}
                 />
@@ -95,25 +105,12 @@ export function JobsPanel() {
   )
 }
 
-/** The Output tab's Activity channel: this session's server events */
+/** The Output tab's Activity channel: this session's server events, in the shared log view */
 export function ActivityLog() {
   const { t } = useTranslation()
   const lines = useOutput((s) => s.lines)
-  const end = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    end.current?.scrollIntoView({ block: 'end' })
-  }, [lines.length])
-  if (!lines.length) return <div className="empty">{t('output.empty')}</div>
-  return (
-    <div className="mono" style={{ fontSize: 'var(--fs-panel)', padding: '4px 12px', whiteSpace: 'pre-wrap' }}>
-      {lines.map((l, i) => (
-        <div key={i} style={{ color: l.tone ? `var(--${l.tone})` : undefined }}>
-          <span className="muted">{l.at}</span> {l.text}
-        </div>
-      ))}
-      <div ref={end} />
-    </div>
-  )
+  const first = useOutput((s) => s.first)
+  return <LogView lines={lines} first={first} name="activity" empty={t('output.empty')} />
 }
 
 /** Background work that is not finished, by state */

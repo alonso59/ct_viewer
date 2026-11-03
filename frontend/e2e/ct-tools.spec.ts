@@ -20,7 +20,7 @@ async function useTools(page: Page, bar: ReturnType<Page['getByRole']>) {
   const axial = page.locator('[data-tile="axial"]')
   const box = (await axial.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await expect(page.getByRole('status', { name: 'Value under the cursor' })).toBeVisible()
+  await expect(page.locator('.vp-probe')).toBeVisible()
   // a distance measurement: two clicks on the axial tile
   await bar.getByRole('button', { name: 'Distance' }).click()
   await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5)
@@ -78,7 +78,7 @@ test('case errors state the cause and the next steps (UI-18, AUD-A3-03, AUD-A2-0
   // a missing image (fixture defect `missing_path`): relink or look at the Problems
   await page.goto(`/p/${pid}/case/case_00010`)
   const card = page.getByRole('alert').filter({ hasText: 'DATA:' })
-  await expect(card.getByRole('button', { name: 'Relink data root…' })).toBeVisible()
-  await card.getByRole('button', { name: 'Show in Problems' }).click()
-  await expect(page.getByRole('tab', { name: /Problems/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(card.getByRole('button', { name: 'Relink source folder…' })).toBeVisible()
+  await card.getByRole('button', { name: 'Show in QC warnings' }).click()
+  await expect(page.getByRole('tab', { name: /QC warnings/ })).toHaveAttribute('aria-selected', 'true')
 })

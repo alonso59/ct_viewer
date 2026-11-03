@@ -27,7 +27,7 @@ import {
 } from '../../api'
 import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, type WizardPrefill } from '../../features/import'
 import { ProblemError, toProblemError } from '../../api/problem'
-import { Button, ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress } from '../../lib'
+import { Button, ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress, useAnnounce } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
@@ -112,7 +112,7 @@ function SeriesPlanTable({ estimate, operation }: { estimate: TaskEstimate; oper
         </table>
       </div>
       {page.isFetching ? <p role="status">{t('common.loading')}</p> : null}
-      {page.error ? <ProblemCard error={page.error} /> : null}
+      {page.error ? <ProblemCard error={page.error} onRetry={() => void page.refetch()} /> : null}
       {operation ? <div className="conv-row"><span className="muted">{t('conv.planPage', { n: rows.length, total })}</span>
         <button type="button" className="btn btn-sm" disabled={!cursors.length || page.isFetching} onClick={() => setCursors((values) => values.slice(0, -1))}>{t('conv.previousPage')}</button>
         <button type="button" className="btn btn-sm" disabled={!page.data?.next_cursor || page.isFetching} onClick={() => page.data?.next_cursor && setCursors((values) => [...values, page.data!.next_cursor!])}>{t('conv.nextPage')}</button>
@@ -140,7 +140,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
   // Scanning the source is the first stage of every flow; its own sub-steps are not listed.
   const at = stages.indexOf(SOURCE_SCAN.includes(count.stage) ? stages[0]! : count.stage)
   return (
-    <div className="conv-scan" data-testid="conv-scan" role="status" aria-live="polite">
+    <div className="conv-scan" data-testid="conv-scan">
       <ol className="conv-stages">
         {stages.map((s, i) => (
           <li key={s} data-state={i < at ? 'done' : i === at ? 'current' : 'pending'}>
@@ -158,7 +158,7 @@ function ScanPanel({ count, elapsed, onCancel, onMinimize, onOutput, opening = f
         <span style={{ flex: 1 }} />
         {onOutput ? <button type="button" className="btn btn-sm" onClick={onOutput}>{t('conv.showOutput')}</button> : null}
         <button type="button" className="btn btn-sm" onClick={onMinimize}>{t('conv.minimize')}</button>
-        <ConfirmInline question={t('conv.cancelScanConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('conv.cancelScan')}</button>} />
+        <ConfirmInline question={t(opening ? 'open.cancelOpeningConfirm' : 'conv.cancelScanConfirm')} confirm={t('common.yesCancel')} onConfirm={onCancel} trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t(opening ? 'open.cancelOpening' : 'conv.cancelScan')}</button>} />
       </div>
     </div>
   )
@@ -169,7 +169,7 @@ function RunPanel({ activity, resumable, onResult, onCancel, onOutput, children 
   const { t } = useTranslation()
   const stopped = activity.finished && activity.tone === 'error' && resumable
   return (
-    <div className="conv-body" role="status" aria-live="polite">
+    <div className="conv-body">
       {stopped ? null : activity.total > 0 ? <Progress value={activity.done} total={activity.total} label={activity.label} /> : activity.finished ? null : <IndeterminateProgress label={activity.label} />}
       <p className="muted num">{activity.label}</p>
       {stopped ? <p className="muted conv-help">{t('conv.stopped')}</p> : children}
@@ -188,7 +188,7 @@ function ConverterChip({ activity, onShow, onClose, onCancel, title }: { activit
   const running = !!activity && !activity.finished
   const icon = running ? 'sync' : activity?.tone === 'error' ? 'error' : activity?.tone === 'warn' ? 'warning' : activity ? 'pass' : 'file-binary'
   return (
-    <div className="overlay conv-chip" role="status" aria-live="polite" data-testid="conv-chip">
+    <div className="overlay conv-chip" data-testid="conv-chip">
       <span style={{ color: `var(--${activity?.tone ?? 'accent'})`, display: 'inline-flex' }}>
         <Icon spec={codicon(icon)} className={running ? 'codicon-modifier-spin' : undefined} />
       </span>
@@ -372,6 +372,11 @@ export default function ConverterOverlay() {
     done: Number(phase.progress?.done ?? phase.counts?.ok ?? 0), total: Number(phase.progress?.total ?? phase.counts?.items ?? 0),
     finished: !phasePending, tone: phase.status === 'completed' ? 'ok' : phasePending ? undefined : 'warn',
   } : activity)
+  // Screen readers hear milestones only: what runs now and how it ended, never the counters
+  const milestone = chipActivity === activity && activity && !activity.finished
+    ? `${title}: ${scanCount && !run ? countLabel(t, { ...scanCount, done: 0, total: 0 }) : run && runStatus ? t(CONV_STATUS[runStatus]) : activity.label}`
+    : chipActivity ? `${title}: ${chipActivity.label}` : null
+  useAnnounce(milestone)
   const working = busy || prepared.isPending || phasePending || plan?.status === 'running' || (operationId ? (!operation && !lost) || (!!operation && isTaskRunPending(operation.status)) : !!scan || (!!run && !runFinished))
   useEffect(() => {
     useConverter.setState({ working })
@@ -537,7 +542,7 @@ export default function ConverterOverlay() {
         size="lg"
         dismissible={false}
         actions={
-          <button type="button" className="icon-btn" aria-label={t('conv.minimize')} title={t('conv.minimizeHint')} onClick={c.minimize}>
+          <button type="button" className="icon-btn" aria-label={t('conv.minimizeWindow')} title={t('conv.minimizeHint')} onClick={c.minimize}>
             <Icon spec={codicon('chrome-minimize')} />
           </button>
         }
@@ -566,14 +571,16 @@ export default function ConverterOverlay() {
             <span className="muted">{t('conv.inPlan', { batch: owner.batch.name, plan: owner.plan.name })}</span>
           </div> : null}
           {!isSourceOnly ? <StepBar step={analysing ? 'estimate' : step} /> : null}
-          {operation && (step === 'settings' || step === 'estimate') ? <div className="conv-inventory" role="status" aria-live="polite">
+          {/* DICOM counts mean nothing while a file or folder opens */}
+          {operation && !isOpening && (step === 'settings' || step === 'estimate') ? <div className="conv-inventory">
             <dl>{(['folders', 'files', 'dicom', 'rejected', 'series', 'errors'] as const).map((key) => <div key={key}><dt>{t(`conv.counts.${key}`)}</dt><dd className="num">{String(inventoryCounts?.[key] ?? operation.summary?.[key] ?? 0)}</dd></div>)}</dl>
             {operation.summary?.rejections && typeof operation.summary.rejections === 'object' ? <ul aria-label={t('conv.rejectedCandidates')}>{Object.entries(operation.summary.rejections).map(([code, count]) => <li key={code}>{t('conv.rejectedReason', { reason: t(`conv.rejection.${code}`, { defaultValue: code }), count: Number(count) })}</li>)}</ul> : null}
             {!operation.summary?.complete && !operation.conversion_run && !(operation.progress?.files_total || operation.progress_stage === 'counting') ? <p className="muted conv-help">{t('conv.provisional')}</p> : null}
             {suggestsBatches ? <div className="conv-row"><button type="button" className="btn btn-sm" disabled={busy} onClick={() => void suggestBatches()}>{t('conv.batches.suggest')}</button></div> : null}
           </div> : null}
           {isSourceOnly ? <div className="conv-body">
-            <code className="conv-path">{source}</code>
+            {/* opening names the file or folder, not its server path (the path is the tooltip) */}
+            <code className="conv-path" title={source ?? undefined}>{isOpening ? source?.split('/').filter(Boolean).at(-1) : source}</code>
             {working && scanCount ? <ScanPanel opening={isOpening} discovering={isDiscovering} count={operation.stage === 'import_index' ? { stage: 'import_index', done: operation.progress?.done ?? 0, total: operation.progress?.total ?? 0 } : scanCount} elapsed={elapsed} onCancel={cancelScan} onMinimize={c.minimize} /> : operation.stage === 'opened' && operation.status === 'completed' ? <>
               <p>{t('open.prepared')}</p>
               <button type="button" className="btn btn-primary" disabled={busy || prepared.isPending} onClick={showOpen}>{t('open.openPrepared')}</button>
@@ -720,7 +727,7 @@ export default function ConverterOverlay() {
             {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <Button className="btn" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</Button> : null}
             </div>
           </div> : null}
-          {operationQuery.error ? <ProblemCard error={operationQuery.error} /> : null}
+          {operationQuery.error ? <ProblemCard error={operationQuery.error} onRetry={() => void operationQuery.refetch()} /> : null}
           </>}
           <BatchPlanList current={batchPlanId} onOpen={(planId) => useConverter.setState({ batchPlanId: planId })} />
           {shownError ? (

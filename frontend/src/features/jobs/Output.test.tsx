@@ -62,7 +62,7 @@ test('output.show selects the channel on the project panel, or docks the panel o
   expect(screen.queryByRole('log')).toBeNull()
   act(() => showOutput({ id: 'op', label: 'ds · output', kind: 'source-operation', ref: 'r1' }))
   expect(useOutputView.getState()).toMatchObject({ channel: 'op', docked: true })
-  expect(screen.getByRole('combobox', { name: 'Output channel' })).toHaveProperty('value', 'op')
+  expect(screen.getByRole('combobox', { name: 'Log channel' })).toHaveProperty('value', 'op')
   expect(screen.getByRole('option', { name: 'Activity' })).toBeTruthy()
 })
 

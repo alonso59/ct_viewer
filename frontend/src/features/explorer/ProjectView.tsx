@@ -16,8 +16,8 @@ import {
   type LabelDef,
   type Variable,
 } from '../../api'
-import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard } from '../../lib'
-import { useWorkbench } from '../../shell'
+import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard, useAnnounce } from '../../lib'
+import { registry, runCommand, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
 import { ActiveFilterChips, FilterFields, PhaseFilter } from './FilterControls'
@@ -47,6 +47,8 @@ function VarColumns({ c, columns }: { c: CaseSummary; columns: Variable[] }) {
 }
 
 type Row = { kind: 'case'; c: CaseSummary } | { kind: 'item'; item: ItemRecord; caseId: string } | { kind: 'loading'; caseId: string }
+/** The row's element id, for the tree's aria-activedescendant (ids stay valid IDREFs) */
+const rowDomId = (r: Row) => (r.kind === 'item' ? `pv-item-${r.item.item_id}` : `pv-case-${r.kind === 'case' ? r.c.case_id : r.caseId}`).replace(/[^\w.-]/g, '_')
 
 function ExpandedItems({ caseId, onItems }: { caseId: string; onItems: (cid: string, items: ItemRecord[]) => void }) {
   const pid = useWorkbench((s) => s.pid) ?? ''
@@ -72,6 +74,9 @@ export function ProjectView() {
   const visibleCases = useMemo(() => needle
     ? cases.data?.filter((c) => `${c.case_id}\n${c.patient_id ?? ''}`.toLowerCase().includes(needle))
     : cases.data, [cases.data, needle])
+  // a filter's result count is a milestone for screen readers
+  const filtered = activeFilterCount(filter) > 0 || !!needle
+  useAnnounce(filtered && visibleCases ? t('explorer.caseCount', { count: visibleCases.length }) : null)
   const variables = useVariables(pid).data ?? []
   const prefs = usePrefs(pid)
   const byName = new Map(variables.map((v) => [v.name, v]))
@@ -202,20 +207,26 @@ export function ProjectView() {
           </button>
         </div>
       ) : null}
+      {visibleCases?.length === 0 ? (
+        <div className="empty">
+          {t(index?.state === 'running' ? 'explorer.indexing' : index?.state === 'ready' || activeFilterCount(filter) || filter.q ? 'explorer.noCases' : 'explorer.emptyProject')}
+          {/* an empty project offers its next step (outside the tree: a tree holds only cases) */}
+          {index?.state !== 'running' && index?.state !== 'ready' && !activeFilterCount(filter) && !filter.q && registry.allowed({ writes: true }) ? (
+            <button type="button" className="btn btn-sm mt-2" onClick={() => runCommand('import.open')}>{t('import.title')}</button>
+          ) : null}
+        </div>
+      ) : null}
+      {/* one Tab stop: the cursor row is the active descendant, not a focused child */}
       <div
         ref={scrollRef}
         role="tree"
         aria-label={t('view.project')}
+        aria-activedescendant={rows[cursor] ? rowDomId(rows[cursor]) : undefined}
         tabIndex={0}
         onKeyDown={onKey}
         className="pv-tree"
       >
         {cases.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-        {visibleCases?.length === 0 ? (
-          <div className="empty">
-            {t(index?.state === 'running' ? 'explorer.indexing' : index?.state === 'ready' || activeFilterCount(filter) || filter.q ? 'explorer.noCases' : 'explorer.emptyProject')}
-          </div>
-        ) : null}
         <div style={{ height: virt.getTotalSize(), position: 'relative' }}>
           {virt.getVirtualItems().map((v) => {
             const r = rows[v.index]
@@ -235,6 +246,7 @@ export function ProjectView() {
               return (
                 <div
                   key={it.item_id}
+                  id={rowDomId(r)}
                   role="treeitem"
                   aria-level={2}
                   aria-selected={activeItemId === it.item_id}
@@ -264,6 +276,7 @@ export function ProjectView() {
             return (
               <div
                 key={c.case_id}
+                id={rowDomId(r)}
                 role="treeitem"
                 aria-level={1}
                 aria-expanded={open}
@@ -278,10 +291,12 @@ export function ProjectView() {
                 onClick={() => { setCursor(v.index); activate(r) }}
                 onDoubleClick={() => activate(r, false)}
               >
+                {/* for the mouse; the keyboard uses ←/→ and the row's aria-expanded */}
                 <button
                   type="button"
                   className="icon-btn pv-twisty"
-                  aria-label={t(open ? 'explorer.collapse' : 'explorer.expand')}
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onClick={(e) => { e.stopPropagation(); toggle(c.case_id) }}
                 >
                   <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
@@ -299,7 +314,7 @@ export function ProjectView() {
                         </span>
                       ) : null}
                       <span title={rollupTitle(t, c)}>
-                        <StatusIcon status={c.curation_status} />
+                        <StatusIcon status={c.curation_status} named />
                       </span>
                     </span>
                   </span>
@@ -324,8 +339,9 @@ export function ProjectView() {
             <ExpandedItems key={cid} caseId={cid} onItems={onItems} />
           ))}
       </div>
+      {/* no count before the cases are in: "0 cases" would be wrong while loading */}
       <div className="muted pv-footer">
-        {t('explorer.caseCount', { count: visibleCases?.length ?? 0 })}
+        {visibleCases ? t('explorer.caseCount', { count: visibleCases.length }) : t('common.loading')}
       </div>
     </div>
   )

@@ -67,7 +67,6 @@
 .pv-tree {
   flex: 1;
   overflow: auto;
-  outline: none;
 }
 .pv-loading {
   padding-left: var(--sp-6);
@@ -157,11 +156,6 @@
   margin-left: auto;
   white-space: nowrap;
 }
-/* Light theme: --warn is only 3.96:1 on --bg-selected */
-.list-row[aria-selected='true'] .pv-warn {
-  color: color-mix(in srgb, var(--warn) 80%, var(--fg));
-}
-
 .pv-phase-filter {
   padding: 0 var(--sp-2) var(--sp-2);
 }

@@ -1,6 +1,6 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import type { UseQueryResult } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
@@ -19,7 +19,7 @@ import {
   type UnitSpec,
   type Variable,
 } from '../../../api'
-import { itemName, knownPhase } from '../../../lib'
+import { fmtInt, fmtValue, itemName, knownPhase, useRowKeys } from '../../../lib'
 import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon, token } from '../../../theme'
 import { openInContext, openItem } from '../../../features/explorer'
@@ -42,7 +42,7 @@ function download(name: string, href: string) {
   a.download = name
   a.click()
 }
-type CsvRows = (string | number | null | undefined)[][]
+export type CsvRows = (string | number | null | undefined)[][]
 function downloadCsv(name: string, rows: CsvRows) {
   const esc = (v: string | number | null | undefined) => {
     const s = v == null ? '' : String(v)
@@ -67,7 +67,83 @@ function ProblemState({ error }: { error: unknown }) {
   )
 }
 
-/** Toolbar (controls + exports) and the loading / error / empty states around a view body */
+/** While on, a view's charts show their rows as tables (default rows: the view's CSV) */
+const TableMode = createContext<{ on: boolean; rows?: () => CsvRows }>({ on: false })
+
+/** A chart, or its rows while the view shows tables. With `runId`, rows of items get a checkbox
+ *  for the linked selection: the keyboard way to do what a brush does. */
+export function ChartOrTable({ rows, runId, children }: { rows?: () => CsvRows; runId?: string; children: ReactNode }) {
+  const mode = useContext(TableMode)
+  const data = rows ?? mode.rows
+  return mode.on && data ? <DataTable rows={data()} runId={runId} /> : children
+}
+
+/** Rows a table shows; the CSV keeps every row */
+const TABLE_MAX = 1000
+
+/** Rows (header first) as a table. Rows with an `item_id` and a `case_id` open their item (click,
+ *  Enter) and have the item menu (right click, Shift+F10). */
+function DataTable({ rows, runId }: { rows: CsvRows; runId?: string }) {
+  const { t } = useTranslation()
+  const [head = [], ...body] = rows
+  const itemCol = head.indexOf('item_id')
+  const caseCol = head.indexOf('case_id')
+  const items = itemCol >= 0 && caseCol >= 0
+  const shown = body.slice(0, TABLE_MAX)
+  const rowKeys = useRowKeys(items ? shown.map((_, i) => String(i)) : [])
+  const sel = useSelection(runId ?? '')
+  const pick = items && runId !== undefined
+  const toggle = (id: string, on: boolean) => sel.select(on ? [...sel.selected, id] : [...sel.selected].filter((x) => x !== id))
+  return (
+    <div className="db-table" tabIndex={0} role="region" aria-label={t('dashboard.table.label')}>
+      {body.length > shown.length ? <p className="muted">{t('dashboard.table.capped', { shown: fmtInt(shown.length), total: fmtInt(body.length) })}</p> : null}
+      <table className="table">
+        <thead>
+          <tr>
+            {pick ? <th><span className="visually-hidden">{t('dashboard.table.select')}</span></th> : null}
+            {head.map((h, i) => <th key={i}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((r, i) => {
+            const ref = items ? { item_id: String(r[itemCol] ?? ''), case_id: String(r[caseCol] ?? '') } : null
+            return (
+              <tr key={i} {...(ref ? { ...rowProps(ref, sel.selected), ...rowKeys(String(i)) } : {})}>
+                {pick && ref ? (
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={t('dashboard.table.selectItem', { id: ref.item_id })}
+                      checked={sel.selected.has(ref.item_id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => toggle(ref.item_id, e.target.checked)}
+                    />
+                  </td>
+                ) : null}
+                {r.map((v, j) => (
+                  <td key={j} className={typeof v === 'number' ? 'num' : undefined}>{typeof v === 'number' ? fmtValue(v) : (v ?? '—')}</td>
+                ))}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Marks a value that a colour also marks: an icon to see, its words for screen readers */
+export function ValueFlag({ tone, icon, label }: { tone: 'ok' | 'warn' | 'error'; icon: string; label: string }) {
+  return (
+    <span className="db-flag" style={{ color: `var(--${tone})` }} title={label}>
+      <Icon spec={codicon(icon)} />
+      <span className="visually-hidden">{label}</span>
+    </span>
+  )
+}
+
+/** Toolbar (controls + exports) and the loading / error / empty states around a view body. A view
+ *  with a chart (`chart` given, null until drawn) can show its charts as tables instead. */
 export function ViewFrame({ name, controls, chart, csv, query, empty, children }: {
   name: string
   controls?: ReactNode
@@ -79,13 +155,19 @@ export function ViewFrame({ name, controls, chart, csv, query, empty, children }
   children?: ReactNode
 }) {
   const { t } = useTranslation()
+  const [asTable, setAsTable] = useState(false)
   const failed = query?.error && !query.data
   return (
     <div className="db-view">
       <div className="db-view-bar">
         <div className="db-view-controls">{controls}</div>
         {query?.isFetching ? <span className="muted db-busy" aria-live="polite">{t('common.loading')}</span> : null}
-        {chart ? (
+        {chart !== undefined ? (
+          <button type="button" className="icon-btn" aria-pressed={asTable} title={t('dashboard.table.show')} aria-label={t('dashboard.table.show')} onClick={() => setAsTable((on) => !on)}>
+            <Icon spec={codicon('table')} />
+          </button>
+        ) : null}
+        {chart && !asTable ? (
           <button type="button" className="icon-btn" title={t('dashboard.exportPng')} aria-label={t('dashboard.exportPng')} onClick={() => downloadPng(name, chart)}>
             <Icon spec={codicon('device-camera')} />
           </button>
@@ -97,7 +179,9 @@ export function ViewFrame({ name, controls, chart, csv, query, empty, children }
         ) : null}
       </div>
       <div className="db-view-body">
-        {empty ? <div className="empty">{empty}</div> : failed ? <ProblemState error={query.error} /> : query?.isLoading ? <div className="empty">{t('common.loading')}</div> : children}
+        <TableMode.Provider value={{ on: asTable, rows: csv }}>
+          {empty ? <div className="empty">{empty}</div> : failed ? <ProblemState error={query.error} /> : query?.isLoading ? <div className="empty">{t('common.loading')}</div> : children}
+        </TableMode.Provider>
       </div>
     </div>
   )

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import type { ItemRecord } from '../../api'
-import type { Scene3DOptions, ViewerHandle, ViewportId } from './model/types'
+import type { Plane, Scene3DOptions, ViewerHandle, ViewportId } from './model/types'
 import { DEFAULT_SCENE_3D } from './model/scene3d'
 
 interface LocalState {
@@ -11,6 +11,8 @@ interface LocalState {
   linkZoom: boolean
   /** Viewport under the pointer (target of `F`) */
   hovered: ViewportId | null
+  /** A measurement point requested from the keyboard, at the crosshair of `tile` (a new object each time) */
+  pointAt: { tile: Plane } | null
   volume3d: boolean
   mask3d: boolean
   ctOpacity: number
@@ -26,6 +28,7 @@ interface LocalState {
 export const useViewerLocal = create<LocalState>()(persist((): LocalState => ({
   linkZoom: false,
   hovered: null,
+  pointAt: null,
   volume3d: true,
   mask3d: true,
   ctOpacity: 1,

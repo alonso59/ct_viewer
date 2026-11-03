@@ -1,5 +1,6 @@
 // Viewer state shared by the tool bar, status bar, inspector and the case editor.
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export type LayoutId =
   | 'four-up'
@@ -58,7 +59,7 @@ export interface CursorReadout {
 interface ViewerSyncState {
   activeCaseId: string | null
   activeItemId: string | null
-  /** The segmentation set chosen per project (pid → seg_id); absent = its `default_seg`.
+  /** The segmentation set chosen per project (pid → seg_id), kept across reloads; absent = its `default_seg`.
    *  Keyed by project so a choice never leaks into another project. */
   segChoice: Record<string, string>
   /** The set whose mask is on screen for the active item, i.e. the `seg_id` of mask
@@ -103,7 +104,7 @@ interface ViewerSyncState {
   reset: () => void
 }
 
-export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
+export const useViewerSync = create<ViewerSyncState>()(persist((set, get) => ({
   activeCaseId: null,
   activeItemId: null,
   segChoice: {},
@@ -150,4 +151,4 @@ export const useViewerSync = create<ViewerSyncState>()((set, get) => ({
       const soft = s.ctWindow[0] === WL_PRESETS.soft_tissue[0] && s.ctWindow[1] === WL_PRESETS.soft_tissue[1]
       return { resetToken: s.resetToken + 1, maximized: null, ww: s.ctWindow[0], wl: s.ctWindow[1], preset: soft ? 'soft_tissue' : 'custom' }
     }),
-}))
+}), { name: 'rw.viewer.sets', partialize: ({ segChoice }) => ({ segChoice }) }))

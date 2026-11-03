@@ -8,7 +8,7 @@ import { CT_ICONS, CtIcon, Icon, codicon, type CtIconName } from '../theme'
 
 const TOKENS = [
   ['--bg-editor', '--bg-sidebar', '--bg-overlay', '--bg-hover', '--bg-selected', '--bg-viewport'],
-  ['--fg', '--fg-muted', '--border', '--border-muted', '--focus', '--accent', '--tab-active-indicator'],
+  ['--fg', '--fg-muted', '--border', '--border-muted', '--border-control', '--bg-pressed', '--focus', '--accent', '--tab-active-indicator'],
   ['--ok', '--warn', '--error', '--done', '--btn-primary'],
   ['--plane-axial', '--plane-sagittal', '--plane-coronal', '--plane-3d'],
   ['--cat-1', '--cat-2', '--cat-3', '--cat-4', '--cat-5', '--cat-6', '--cat-7', '--cat-8'],

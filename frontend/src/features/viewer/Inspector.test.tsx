@@ -6,15 +6,16 @@ import '../../i18n'
 import { DEMO_PID } from '../../api/mock/server'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
-import { LayersSection } from './Inspector'
+import { LayersSection, WindowSection } from './Inspector'
 
 afterEach(() => {
-  useWorkbench.setState({ pid: null })
+  useWorkbench.setState({ pid: null, active: null })
   useViewerSync.setState({ labelVisibility: {}, segChoice: {} })
 })
 
 test('the Layers panel can show and hide every label at once', async () => {
-  useWorkbench.setState({ pid: DEMO_PID })
+  // Layers needs a viewer: a case tab is active
+  useWorkbench.setState({ pid: DEMO_PID, active: { type: 'case', caseId: 'case_00001' } })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={client}><LayersSection /></QueryClientProvider>)
 
@@ -27,3 +28,12 @@ test('the Layers panel can show and hide every label at once', async () => {
   expect(all).not.toBeChecked()
   expect(screen.getByText('Show all labels')).toBeInTheDocument()
 })
+
+// UI-13: without a viewer, the Layers and Window/level sections are one line saying what they need
+test('without a viewer the Layers and Window sections say what they need', () => {
+  useWorkbench.setState({ pid: DEMO_PID, active: { type: 'welcome' } })
+  render(<><LayersSection /><WindowSection /></>)
+  expect(screen.getAllByText('Open a case or a file to use these controls.')).toHaveLength(2)
+  expect(screen.queryByRole('checkbox')).toBeNull()
+})
+

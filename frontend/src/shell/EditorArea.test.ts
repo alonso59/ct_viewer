@@ -17,6 +17,7 @@ test('tabs persist per project', () => {
   saveTabs('P2', { panels: { b: 2 } })
   expect(loadTabs('P1')).toEqual({ panels: { a: 1 } })
   expect(loadTabs('P2')).toEqual({ panels: { b: 2 } })
+  // unreadable tabs are not dropped silently: the editor area reports them (UI-13)
   localStorage.setItem('rw.tabs.P3', '{not json')
-  expect(loadTabs('P3')).toBeNull()
+  expect(() => loadTabs('P3')).toThrow()
 })

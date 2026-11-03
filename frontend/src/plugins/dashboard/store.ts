@@ -1,5 +1,6 @@
 // Per-run dashboard UI state shared by the views, the filter bar and the Analysis panel; server data stays in TanStack Query.
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 import type { ColorBy, DashboardView, GlobalFilters } from '../../api'
 
@@ -33,7 +34,10 @@ interface DashboardStore {
   focusView: (runId: string, view: DashboardView, params?: Record<string, unknown>) => void
 }
 
-export const useDashboardStore = create<DashboardStore>()((set) => {
+/** What survives a reload: a run's filters and colouring, not its selection */
+type Kept = Pick<RunDashboard, 'filters' | 'colorBy' | 'filterVars'>
+
+export const useDashboardStore = create<DashboardStore>()(persist((set) => {
   const update = (runId: string, fn: (r: RunDashboard) => Partial<RunDashboard>) =>
     set((s) => {
       const cur = s.runs[runId] ?? EMPTY
@@ -46,7 +50,14 @@ export const useDashboardStore = create<DashboardStore>()((set) => {
     select: (runId, selection) => update(runId, () => ({ selection })),
     focusView: (runId, view, params = {}) => update(runId, (r) => ({ focus: { view, params, nonce: (r.focus?.nonce ?? 0) + 1 } })),
   }
-})
+}, {
+  name: 'rw.dashboard',
+  partialize: (s) => ({ runs: Object.fromEntries(Object.entries(s.runs).map(([id, r]): [string, Kept] => [id, { filters: r.filters, colorBy: r.colorBy, filterVars: r.filterVars }])) }),
+  merge: (saved, current) => ({
+    ...current,
+    runs: Object.fromEntries(Object.entries((saved as { runs?: Record<string, Kept> } | undefined)?.runs ?? {}).map(([id, r]) => [id, { ...EMPTY, ...r }])),
+  }),
+}))
 
 /** State of one run's dashboard (defaults until something is set) */
 export const useRunDashboard = (runId: string): RunDashboard => useDashboardStore((s) => s.runs[runId] ?? EMPTY)

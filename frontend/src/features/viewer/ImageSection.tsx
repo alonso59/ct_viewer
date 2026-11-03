@@ -24,7 +24,7 @@ const tagText = (v: unknown): string => {
 function DicomTags({ pid, iid }: { pid: string; iid: string }) {
   const { t } = useTranslation()
   const q = useQuery({ queryKey: keys.dicomTags(pid, iid), queryFn: () => api.dicomTags(pid, iid), retry: false })
-  if (q.error) return <ProblemCard error={q.error} />
+  if (q.error) return <ProblemCard error={q.error} onRetry={() => void q.refetch()} />
   if (!q.data) return <span className="muted">{t('common.loading')}</span>
   const rows = Object.entries(q.data).filter(([k]) => /^[0-9A-F]{8}$/.test(k))
   // A reconstructed sidecar must not pass as a real DICOM header

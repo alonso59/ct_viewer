@@ -57,6 +57,6 @@ export function GpuAvailability({ info }: { info: TaskInfo }) {
           : t('tasks.gpu.unknown')}
       </li>)}
     </ul> : null}
-    {error ? <ProblemCard error={error} /> : null}
+    {error ? <ProblemCard error={error} onRetry={() => void check()} /> : null}
   </div>
 }

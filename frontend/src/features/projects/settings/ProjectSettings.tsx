@@ -1,7 +1,7 @@
 // Project settings tab: General · Display · Labels · Data · Plugins. Every save sends `If-Match`
 // with the ETag of the version the form was loaded from; a 412 offers
 // "Reload and reapply" (the same changes on the fresh version) or discarding them.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -412,18 +412,40 @@ export default function ProjectSettings({ params }: EditorProps<SettingsParams>)
     if (params.tab) setTab(params.tab)
   }
   const p = project.data
+  // the tab pattern: one Tab stop, ← → Home End choose a tab
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = TABS.indexOf(tab)
+    const to = e.key === 'ArrowRight' ? at + 1 : e.key === 'ArrowLeft' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : null
+    const next = to === null ? undefined : TABS[(to + TABS.length) % TABS.length]
+    if (!next) return
+    e.preventDefault()
+    setTab(next)
+    document.getElementById(`psettings-tab-${next}`)?.focus()
+  }
   return (
     <div className="page psettings">
       <div className="page-inner">
-        <h1>{t('psettings.title')}</h1>
-        <div className="psettings-tabs" role="tablist">
+        <h1 id="psettings-title">{t('psettings.title')}</h1>
+        <div className="psettings-tabs" role="tablist" aria-labelledby="psettings-title" onKeyDown={onTabKey}>
           {TABS.map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} className="psettings-tab" onClick={() => setTab(k)}>{t(`psettings.tab.${k}`)}</button>
+            <button
+              key={k}
+              id={`psettings-tab-${k}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              aria-controls="psettings-panel"
+              tabIndex={tab === k ? 0 : -1}
+              className="psettings-tab"
+              onClick={() => setTab(k)}
+            >
+              {t(`psettings.tab.${k}`)}
+            </button>
           ))}
         </div>
-        {project.error ? <ProblemCard error={project.error} /> : null}
+        {project.error ? <ProblemCard error={project.error} onRetry={() => void project.refetch()} /> : null}
         {p ? (
-          <div role="tabpanel">
+          <div role="tabpanel" id="psettings-panel" aria-labelledby={`psettings-tab-${tab}`}>
             {tab === 'general' ? <General pid={pid} project={p} /> : null}
             {tab === 'display' ? <Display pid={pid} project={p} /> : null}
             {tab === 'labels' ? <Labels pid={pid} project={p} /> : null}

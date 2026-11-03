@@ -7,7 +7,7 @@ import { fmtInt, itemName } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
-import { openRef, useItemMenu, usePid, ViewFrame, type ViewProps } from './common'
+import { ChartOrTable, openRef, useItemMenu, usePid, ViewFrame, type ViewProps } from './common'
 
 const KINDS = ['nan', 'inf', 'absent'] as const
 
@@ -62,15 +62,17 @@ export function MissingMatrixView({ runId }: ViewProps) {
     >
       {d && nInvalid === 0 ? <div className="empty">{t('dashboard.missing.none')}</div> : null}
       {d && nInvalid > 0 ? (
-        <Chart
-          option={option}
-          onReady={setChart}
-          onClick={(p) => openRef(refAt((p.data as number[] | undefined)?.[0] ?? -1))}
-          onContextMenu={(p, x, y) => {
-            const r = refAt((p.data as number[] | undefined)?.[0] ?? -1)
-            if (r) useItemMenu.getState().open(r, x, y)
-          }}
-        />
+        <ChartOrTable>
+          <Chart
+            option={option}
+            onReady={setChart}
+            onClick={(p) => openRef(refAt((p.data as number[] | undefined)?.[0] ?? -1))}
+            onContextMenu={(p, x, y) => {
+              const r = refAt((p.data as number[] | undefined)?.[0] ?? -1)
+              if (r) useItemMenu.getState().open(r, x, y)
+            }}
+          />
+        </ChartOrTable>
       ) : null}
     </ViewFrame>
   )

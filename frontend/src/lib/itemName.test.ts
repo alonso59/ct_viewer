@@ -12,8 +12,8 @@ test('parses item ids, also with dots in the case id', () => {
 })
 
 test('names an item by case, phase (else scan), scope and side', () => {
-  expect(itemName('case_00055.01.complete.-', t, 'NP')).toBe('case_00055 · NP · Full')
+  expect(itemName('case_00055.01.complete.-', t, 'NP')).toBe('case_00055 · NP · Full scan')
   expect(itemName('case_00055.01.voi.L', t, 'NP')).toBe('case_00055 · NP · VOI L')
-  expect(itemName('case_00055.02.complete.-', t)).toBe('case_00055 · Scan 02 · Full')
+  expect(itemName('case_00055.02.complete.-', t)).toBe('case_00055 · Scan 02 · Full scan')
   expect(itemName('odd', t)).toBe('odd')
 })

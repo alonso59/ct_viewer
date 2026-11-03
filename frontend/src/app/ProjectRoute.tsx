@@ -15,6 +15,7 @@ import { applyProjectDisplay } from '../features/viewer'
 import { registry, ShellOverlays, Workbench } from '../shell'
 import { BrandMark } from '../theme'
 import { ProblemCard } from '../lib'
+import { ProjectTitle } from './useDocumentTitle'
 
 function ProjectLoadFailed({ error, retry }: { error: unknown; retry: () => void }) {
   const { t } = useTranslation()
@@ -82,6 +83,7 @@ export function ProjectRoute() {
   if (project.error && !project.data) return <ProjectLoadFailed error={project.error} retry={() => void project.refetch()} />
   return (
     <>
+      <ProjectTitle pid={pid} name={project.data?.name} />
       <Workbench pid={pid} brand={readOnly ? <ViewOnlyBrand name={project.data?.name ?? ''} /> : <ProjectSwitcher pid={pid} />} share={<ShareMenu pid={pid} />} />
       {readOnly ? null : <ImportWizard />}
       {readOnly ? null : <TaskCommands />}

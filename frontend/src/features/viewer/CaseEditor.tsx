@@ -106,7 +106,17 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
     pinEditor(panelId)
   }
 
-  if (isLoading) return <div className="empty">{t('common.loading')}</div>
+  if (isLoading)
+    return (
+      // the tab's frame while the case loads, so nothing jumps when it arrives
+      <div className="case-editor" aria-busy="true">
+        <div className="case-header">
+          <span className="mono case-id">{params.caseId}</span>
+          <span className="muted">{t('common.loading')}</span>
+        </div>
+        <div className="case-skeleton" />
+      </div>
+    )
   if (isError || !data || !current) {
     const p = error instanceof ProblemError ? error : null
     const notFound = !p || p.status === 404
@@ -135,8 +145,9 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
         <span className="switcher">
           <span className="switcher-sep" />
-          <span className="switcher-label">{t('viewer.phase')}</span>
-          <PhaseButtons pid={pid} scan={current} variant="seg" />
+          {/* a write, not a view toggle: chips under "Set phase", apart from the segmented view controls */}
+          <span className="switcher-label">{t('phaseSel.setPhase')}</span>
+          <PhaseButtons pid={pid} scan={current} />
           <PhaseHistoryButton pid={pid} caseId={current.case_id} scanIdx={current.scan_idx} />
         </span>
         <span className="case-header-end" />
@@ -175,6 +186,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
           active={active}
           loaded={loaded}
           tags={current.extra.dicom_sidecar ? () => api.dicomTags(pid, current.item_id) : undefined}
+          memoryKey={`${pid}|${current.item_id}`}
         />
       )}
     </div>

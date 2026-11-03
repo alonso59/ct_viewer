@@ -59,7 +59,7 @@ export default function LabelingView() {
           {t('lbl.newTable')}
         </button>
       )}
-      {tables.error ? <ProblemCard error={tables.error} /> : null}
+      {tables.error ? <ProblemCard error={tables.error} onRetry={() => void tables.refetch()} /> : null}
       {tables.data && !tables.data.length ? <p className="muted">{t('lbl.empty')}</p> : null}
       <ul className="lbl-list">{(tables.data ?? []).map((x) => <TableCard key={x.table_id} pid={pid} t={x} />)}</ul>
       {registry.readOnly ? null : <DeletedTables pid={pid} tables={deleted} />}

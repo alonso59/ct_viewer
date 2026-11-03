@@ -23,7 +23,7 @@ export function QuickOpenCases({ query, close }: { query: string; close: () => v
             openFromExplorer(c.case_id, null, false)
           }}
         >
-          <StatusIcon status={c.curation_status} />
+          <StatusIcon status={c.curation_status} named />
           <span className="mono">{c.case_id}</span>
           <span className="palette-detail">{c.patient_id}</span>
           <span style={{ display: 'inline-flex', gap: 4, marginLeft: 'auto' }}>

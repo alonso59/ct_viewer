@@ -2,8 +2,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ProblemError, useAnalyses, useAnalysis, useCreateAnalysis, useProject, useRun, useVariables, type AnalysisSpec, type GlobalFilters } from '../../api'
-import { fmtAgo } from '../../lib'
+import { useAnalyses, useAnalysis, useCreateAnalysis, useProject, useRun, useVariables, type AnalysisSpec, type GlobalFilters } from '../../api'
+import { fmtAgo, ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { AnalysisForm, INITIAL_FORM, type FormState } from './analysis/AnalysisForm'
@@ -15,17 +15,6 @@ import './analysis/analysis.css'
 function countFilters(f: GlobalFilters): number {
   const lists = [f.phase, f.scope, f.side, f.label, f.status, f.item_ids].filter((x) => x && x.length).length
   return lists + Object.values(f.var ?? {}).filter((v) => v.length).length
-}
-
-function ProblemCard({ error }: { error: unknown }) {
-  const { t } = useTranslation()
-  const p = error instanceof ProblemError ? error : null
-  return (
-    <div className="error-card" role="alert">
-      <strong>{p?.title ?? t('analysis.failed')}</strong>
-      {p?.detail ? <div className="an-help">{p.detail}</div> : null}
-    </div>
-  )
 }
 
 export function AnalysisPanel({ runId }: { runId: string }) {
@@ -70,7 +59,7 @@ export function AnalysisPanel({ runId }: { runId: string }) {
     create.mutate(spec, { onSuccess: (a) => setAid(a.analysis_id) })
   }
 
-  if (run.isError) return <ProblemCard error={run.error} />
+  if (run.isError) return <ProblemCard error={run.error} onRetry={() => void run.refetch()} />
   const list = saved.data ?? []
   return (
     <div className="an-panel">
@@ -102,7 +91,7 @@ export function AnalysisPanel({ runId }: { runId: string }) {
       />
       {create.isError ? <ProblemCard error={create.error} /> : null}
       {aid && current.isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-      {aid && current.isError ? <ProblemCard error={current.error} /> : null}
+      {aid && current.isError ? <ProblemCard error={current.error} onRetry={() => void current.refetch()} /> : null}
       {current.data ? <AnalysisResult key={current.data.analysis_id} analysis={current.data} runId={runId} labels={labelMap} /> : null}
     </div>
   )
