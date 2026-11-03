@@ -1,0 +1,77 @@
+.ct-console {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-panel);
+}
+.ct-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px;
+}
+.ct-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ct-in {
+  color: var(--fg);
+  font-weight: 600;
+}
+.ct-in::before {
+  content: "› ";
+  color: var(--fg-muted);
+}
+.ct-err {
+  color: var(--error);
+}
+.ct-note,
+.ct-hint {
+  color: var(--fg-muted);
+}
+.ct-hint {
+  margin: 0;
+}
+.ct-follow {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+.ct-follow:focus-visible {
+  outline: 1px solid var(--focus);
+}
+.ct-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding: 4px 8px;
+}
+.ct-prompt {
+  color: var(--fg-muted);
+}
+.ct-input input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.ct-input input:focus-visible {
+  outline: 1px solid var(--focus);
+}
+.ct-input .ct-hint {
+  white-space: nowrap;
+}

@@ -168,7 +168,8 @@
     "jobs": "Jobs",
     "measurements": "Measurements",
     "output": "Log",
-    "problems": "QC warnings"
+    "problems": "QC warnings",
+    "console": "Console"
   },
   "inspector": {
     "curation": "Curation",
@@ -718,7 +719,8 @@
       "radiomics": "Radiomics",
       "mesh": "Mesh",
       "task": "Task run",
-      "open-convert": "Opening a source"
+      "open-convert": "Opening a source",
+      "script": "Console script"
     },
     "taskFailedDetail": "{{name}}: {{error}}",
     "showTask": "Show task",

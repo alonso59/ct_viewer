@@ -10,6 +10,8 @@ import type {
   CaseDetail,
   CaseSummary,
   CommitResult,
+  ConsoleCommand,
+  ConsoleResult,
   CurationEvent,
   CurationExport,
   CurationStatus,
@@ -143,8 +145,9 @@ export function filterByItems<C extends { case_id: string }>(cases: C[], itemIds
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'offline'
-/** What an output channel reads: a source operation or a workspace run */
-export type LogKind = 'source-operation' | 'workspace-run'
+/** What an output channel reads: a source operation, a workspace run, a project run (with its
+ *  project) or a CTFlow script run */
+export type LogKind = 'source-operation' | 'workspace-run' | 'project-run' | 'script-run'
 
 export interface Api {
   readonly mode: 'http' | 'mock'
@@ -265,7 +268,11 @@ export interface Api {
   sourceOperationSeries(id: string, cursor?: string, limit?: number): Promise<InventoryPage>
   sourceOperationPlan(id: string, options?: { cursor?: string; limit?: number; action?: 'convert' | 'skip' }): Promise<SourcePlanPage>
   /** New output lines of the current attempt after `cursor` (redacted by the server) */
-  readLogs(kind: LogKind, ref: string, cursor?: string): Promise<LogPage>
+  readLogs(kind: LogKind, ref: string, cursor?: string, project?: string): Promise<LogPage>
+  /** The CTFlow command catalog: core commands and one per listed task */
+  consoleCommands(): Promise<ConsoleCommand[]>
+  /** One console line or script, in a server session (CTF-08); writes are stamped with `reviewer` */
+  consoleEval(body: { line: string; session?: string | null; project_id?: string | null; plan?: boolean }, reviewer?: string): Promise<ConsoleResult>
   createSourceBatchPlan(body: BatchPlanCreate): Promise<SourceBatchPlan>
   listSourceBatchPlans(): Promise<SourceBatchPlan[]>
   getSourceBatchPlan(id: string): Promise<SourceBatchPlan>

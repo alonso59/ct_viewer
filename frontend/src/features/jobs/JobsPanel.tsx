@@ -18,6 +18,7 @@ export const JOB_KIND: Record<Job['kind'], string> = {
   mesh: 'jobs.kind.mesh',
   task: 'jobs.kind.task',
   'open-convert': 'jobs.kind.open-convert',
+  script: 'jobs.kind.script',
 }
 
 /** Activity lines kept for the session; older ones are dropped */

@@ -31,7 +31,7 @@ export function showOutput(channel: OutputChannelContribution) {
 }
 
 function ChannelLog({ channel }: { channel: OutputChannelContribution }) {
-  const log = useLogStream(channel.kind, channel.ref)
+  const log = useLogStream(channel.kind, channel.ref, { project: channel.project })
   return (
     <LogView
       lines={log.data?.lines ?? []}

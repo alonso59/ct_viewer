@@ -43,11 +43,11 @@ export function Panel() {
   const height = layout.panelHeight ?? panelAutoHeight()
   const start = useRef(height)
   if (!layout.panelVisible) return null
-  const active = registry.panelTabs.find((p) => p.id === layout.activePanelTab) ?? registry.panelTabs[0]
+  const tabs = registry.panelTabs.filter((p) => registry.allowed(p))
+  const active = tabs.find((p) => p.id === layout.activePanelTab) ?? tabs[0]
   const Body = active?.component
   const maxed = height > window.innerHeight * 0.6
   // one Tab stop on the selected tab; the arrows select the next one (WAI-ARIA tabs)
-  const tabs = registry.panelTabs
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const at = tabs.findIndex((p) => p.id === active?.id)
     const to = e.key === 'ArrowRight' ? at + 1 : e.key === 'ArrowLeft' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null

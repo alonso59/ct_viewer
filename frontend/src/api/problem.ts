@@ -5,6 +5,8 @@ import type { Problem } from './types'
 export class ProblemError extends Error {
   /** From the API: `title` is the slug's generic title, so the UI may word it plainly */
   generic = false
+  /** Field-level details (`loc`, `msg`), e.g. the choices of an ambiguous console target */
+  errors: { loc: (string | number)[]; msg: string }[] = []
   constructor(
     public status: number,
     public type: string,
@@ -22,6 +24,9 @@ export function toProblemError(status: number, body: unknown, fallbackTitle: str
   const actions = Array.isArray(p.actions) ? p.actions.filter((a): a is string => typeof a === 'string') : []
   const e = new ProblemError(status, slug, p.title ?? fallbackTitle, p.detail, actions)
   e.generic = true
+  const raw = (p as { errors?: unknown }).errors
+  if (Array.isArray(raw))
+    e.errors = raw.flatMap((x) => (x && typeof x === 'object' && typeof (x as { msg?: unknown }).msg === 'string' ? [{ loc: Array.isArray((x as { loc?: unknown }).loc) ? ((x as { loc: (string | number)[] }).loc) : [], msg: (x as { msg: string }).msg }] : []))
   return e
 }
 

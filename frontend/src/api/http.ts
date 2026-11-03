@@ -721,7 +721,10 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     retryFailedSourceOperation: (oid, body) => unwrap(client.POST('/api/v1/source-operations/{oid}/retry-failed', { params: { path: { oid } }, body })),
     sourceOperationSeries: (oid, cursor, limit = 50) => unwrap(client.GET('/api/v1/source-operations/{oid}/series', { params: { path: { oid }, query: { cursor, limit } } })),
     sourceOperationPlan: (oid, options = {}) => unwrap(client.GET('/api/v1/source-operations/{oid}/plan', { params: { path: { oid }, query: { limit: 50, ...options } } })),
-    readLogs: (kind, ref, cursor) => unwrap(client.GET('/api/v1/logs/{kind}/{ref}', { params: { path: { kind, ref }, query: { cursor } } })),
+    readLogs: (kind, ref, cursor, project) => unwrap(client.GET('/api/v1/logs/{kind}/{ref}', { params: { path: { kind, ref }, query: { cursor, project } } })),
+    consoleCommands: () => unwrap(client.GET('/api/v1/ctflow/commands')),
+    consoleEval: (body, reviewer) =>
+      unwrap(client.POST('/api/v1/ctflow/eval', { body: { plan: false, ...body, client: 'console' }, headers: reviewer ? reviewerHeader(reviewer) : {} })),
     createSourceBatchPlan: (body) => unwrap(client.POST('/api/v1/source-batches', { body })),
     listSourceBatchPlans: async () => (await unwrap(client.GET('/api/v1/source-batches'))).items,
     getSourceBatchPlan: (plan_id) => unwrap(client.GET('/api/v1/source-batches/{plan_id}', { params: { path: { plan_id } } })),

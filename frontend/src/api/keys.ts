@@ -61,6 +61,7 @@ export const keys = {
   sourcePlan: (id: string, attempt: number | null, cursor: string | undefined, action?: 'convert' | 'skip') => ['source-operations', id, 'plan', attempt, cursor, action] as const,
   workspaceRun: (rid: string) => ['workspace-runs', rid] as const,
   logs: (kind: LogKind, ref: string) => ['logs', kind, ref] as const,
+  consoleCommands: () => ['consoleCommands'] as const,
   estimateProgress: (eid: string) => ['task-estimates', eid] as const,
   layers: (pid: string) => ['project', pid, 'layers'] as const,
   segmentations: (pid: string, removed = false) => removed

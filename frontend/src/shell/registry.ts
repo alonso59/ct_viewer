@@ -57,6 +57,8 @@ export interface PanelTabContribution {
   useBadge?: () => number | null
   /** True when the tab has something for the active item (a case tab opens the panel then) */
   useHasContent?: () => boolean
+  /** Hidden on view-only links (UI-26) */
+  writes?: boolean
 }
 
 /** Title-bar menus, derived from command categories */
@@ -122,8 +124,10 @@ export interface OverlayContribution {
 export interface OutputChannelContribution {
   id: string
   label: string
-  kind: 'source-operation' | 'workspace-run'
+  kind: 'source-operation' | 'workspace-run' | 'project-run' | 'script-run'
   ref: string
+  /** The project of a `project-run` */
+  project?: string
 }
 
 /** Quick open (Ctrl/Cmd+P) sources: a component that renders cmdk items for the query */

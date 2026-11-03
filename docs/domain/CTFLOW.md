@@ -5,7 +5,7 @@ Read when: working on the console interpreter, the `ctflow` client, script runs,
 Depends: ADR-0041, TASKS.md, SOURCES.md, PROJECT_FORMAT.md (PRJ-19), SEGMENTATION.md, API.md (API-71), NFR.md (NFR-17).
 
 CTFlow is a domain language, not a shell. Every command calls a service the GUI already uses; processing stays task runs (TSK-*) and source operations (TSK-16).
-Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) C4 (language, sessions), C5 (durable script runs, API-73) and C6 (library, API-74) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
+Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) C4 (language, sessions), C5 (durable script runs, API-73), C6 (library, API-74) and C7 (web console, UI-30) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
 
 ## Requirements
 

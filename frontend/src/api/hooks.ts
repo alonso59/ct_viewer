@@ -342,14 +342,14 @@ const LOG_KEEP = 5000
 /** `first`: the sequence number of `lines[0]` (older lines were dropped), for stable row keys */
 interface LogStream { lines: LogLine[]; first: number; cursor?: string; done: boolean }
 /** An output channel's lines, following the server cursor every second until the attempt ended */
-export function useLogStream(kind: LogKind, ref: string, { enabled: on = true }: { enabled?: boolean } = {}) {
+export function useLogStream(kind: LogKind, ref: string, { enabled: on = true, project }: { enabled?: boolean; project?: string } = {}) {
   const qc = useQueryClient()
   const key = keys.logs(kind, ref)
   return useQuery({
     queryKey: key,
     queryFn: async (): Promise<LogStream> => {
       const prev = qc.getQueryData<LogStream>(key)
-      const page = await api.readLogs(kind, ref, prev?.cursor)
+      const page = await api.readLogs(kind, ref, prev?.cursor, project)
       const all = [...(prev?.lines ?? []), ...page.lines]
       const dropped = Math.max(0, all.length - LOG_KEEP)
       return { lines: all.slice(dropped), first: (prev?.first ?? 0) + dropped, cursor: page.next_cursor, done: page.done }
@@ -358,6 +358,8 @@ export function useLogStream(kind: LogKind, ref: string, { enabled: on = true }:
     refetchInterval: (q) => (q.state.data?.done ? false : 1000),
   })
 }
+/** The CTFlow command catalog: it changes only with the installed tasks */
+export const useConsoleCommands = () => useQuery({ queryKey: keys.consoleCommands(), queryFn: () => api.consoleCommands(), staleTime: 5 * 60_000 })
 /** A named dry run's stage while it runs; `not-found` before it starts and after it returned */
 export const useEstimateProgress = (eid: string | null) =>
   useQuery({ queryKey: keys.estimateProgress(eid ?? ''), queryFn: () => api.estimateProgress(eid ?? ''), enabled: !!eid, retry: false, refetchInterval: 500 })

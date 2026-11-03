@@ -1579,5 +1579,17 @@
         "action": "Maximize the view; again, or Esc, shows all views"
       }
     }
+  },
+  "console": {
+    "transcript": "Console output",
+    "hint": "CTFlow console. Type help for the commands, plan <command> to check without running. Runs go on after you close the browser.",
+    "placeholder": "segment case_00012 · help · plan radiomics case_00012 -labels tumor",
+    "running": "Running…",
+    "keys": "Enter runs · Tab completes · ↑↓ history",
+    "follow": "Follow",
+    "channel": "Console {{id}}",
+    "needsReviewer": "Set your name first: commands that start work are stamped with it.",
+    "sessionEnded": "The console session ended; its variables and procedures are gone. Starting a new one.",
+    "prompt": "ctflow"
   }
 }

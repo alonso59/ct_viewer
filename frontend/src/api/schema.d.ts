@@ -2523,6 +2523,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ctflow/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commands */
+        get: operations["commands_api_v1_ctflow_commands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/eval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluate */
+        post: operations["evaluate_api_v1_ctflow_eval_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/script-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Script Runs */
+        get: operations["list_script_runs_api_v1_ctflow_script_runs_get"];
+        put?: never;
+        /** Start Script Run */
+        post: operations["start_script_run_api_v1_ctflow_script_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/script-runs/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Script Run */
+        get: operations["get_script_run_api_v1_ctflow_script_runs__rid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/script-runs/{rid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Script Run */
+        post: operations["cancel_script_run_api_v1_ctflow_script_runs__rid__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/script-runs/{rid}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause Script Run */
+        post: operations["pause_script_run_api_v1_ctflow_script_runs__rid__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/script-runs/{rid}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Script Run */
+        post: operations["resume_script_run_api_v1_ctflow_script_runs__rid__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Scripts */
+        get: operations["list_scripts_api_v1_ctflow_scripts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ctflow/scripts/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Script */
+        get: operations["read_script_api_v1_ctflow_scripts__name__get"];
+        /** Save Script */
+        put: operations["save_script_api_v1_ctflow_scripts__name__put"];
+        post?: never;
+        /** Delete Script */
+        delete: operations["delete_script_api_v1_ctflow_scripts__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/events": {
         parameters: {
             query?: never;
@@ -3281,6 +3437,49 @@ export interface components {
             /** Filled */
             filled: number;
         };
+        /** CommandInfo */
+        CommandInfo: {
+            /** Name */
+            name: string;
+            /** Task Id */
+            task_id?: string | null;
+            /** Summary */
+            summary: string;
+            /** Usage */
+            usage: string;
+            /** Options */
+            options?: components["schemas"]["OptionInfo"][];
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * CommandResult
+         * @description One CTFlow command the line ran.
+         */
+        CommandResult: {
+            /** Command */
+            command: string;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /** Task Id */
+            task_id?: string | null;
+            target?: components["schemas"]["ResolvedTarget"] | null;
+            plan?: components["schemas"]["EvalPlan"] | null;
+            started?: components["schemas"]["WorkRef"] | null;
+            work?: components["schemas"]["WorkRef"] | null;
+            /** Data */
+            data?: unknown;
+            /** Text */
+            text?: string[];
+        };
         /** CommitRequest */
         CommitRequest: {
             /** Preview Id */
@@ -3802,6 +4001,75 @@ export interface components {
             estimated_total_s: number | null;
             /** Sample Errors */
             sample_errors?: string[];
+        };
+        /**
+         * EvalError
+         * @description A line that stopped after earlier commands had already acted.
+         */
+        EvalError: {
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
+            /** Line */
+            line?: number | null;
+            /** Errors */
+            errors?: {
+                [key: string]: unknown;
+            }[];
+            /** Actions */
+            actions?: string[];
+        };
+        /** EvalPlan */
+        EvalPlan: {
+            /** Ok */
+            ok: boolean;
+            /** Issues */
+            issues?: components["schemas"]["SettingsIssue"][];
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
+            preflight?: components["schemas"]["PreflightResult"] | null;
+        };
+        /** EvalRequest */
+        EvalRequest: {
+            /** Line */
+            line: string;
+            /** Session */
+            session?: string | null;
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /**
+             * Client
+             * @default console
+             * @enum {string}
+             */
+            client: "console" | "terminal";
+        };
+        /** EvalResult */
+        EvalResult: {
+            /** Session */
+            session: string;
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /** Text */
+            text?: string[];
+            /** Steps */
+            steps?: components["schemas"]["CommandResult"][];
+            /** Plan Stopped */
+            plan_stopped?: string | null;
+            error?: components["schemas"]["EvalError"] | null;
         };
         /**
          * EventIn
@@ -4628,7 +4896,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "index" | "hash" | "thumbnail" | "radiomics" | "mesh" | "task" | "open-convert";
+            kind: "index" | "hash" | "thumbnail" | "radiomics" | "mesh" | "task" | "open-convert" | "script";
             /** Project Id */
             project_id: string;
             /**
@@ -4660,6 +4928,27 @@ export interface components {
             error?: string | null;
             /** Key */
             key?: string | null;
+        };
+        /** JournalEntry */
+        JournalEntry: {
+            /** Seq */
+            seq: number;
+            /** Words */
+            words: string[];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "done" | "failed";
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            child?: components["schemas"]["WorkRef"] | null;
+            error?: components["schemas"]["EvalError"] | null;
+            /** At */
+            at: string;
         };
         /**
          * LabelColumn
@@ -5004,6 +5293,24 @@ export interface components {
              */
             has_dicom: boolean;
         };
+        /** OptionInfo */
+        OptionInfo: {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+            /** Enum */
+            enum?: unknown[] | null;
+            /** Default */
+            default?: unknown;
+            /** Setting */
+            setting?: string | null;
+        };
         /** OptionSpec */
         OptionSpec: {
             /** Name */
@@ -5028,6 +5335,25 @@ export interface components {
              * @default
              */
             description: string;
+        };
+        /**
+         * Origin
+         * @description Which client asked for a run or operation. Records written before origins existed have
+         *     none (unknown); requests through the HTTP API are `gui`.
+         */
+        Origin: {
+            /**
+             * Client
+             * @default gui
+             * @enum {string}
+             */
+            client: "gui" | "console" | "terminal" | "script";
+            /** Session */
+            session?: string | null;
+            /** Script Run Id */
+            script_run_id?: string | null;
+            /** Step */
+            step?: number | null;
         };
         /** OutlierFeature */
         OutlierFeature: {
@@ -5941,6 +6267,27 @@ export interface components {
             channels?: number | null;
             seg?: components["schemas"]["SegRequirement"] | null;
         };
+        /** ResolvedTarget */
+        ResolvedTarget: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "items" | "case" | "all" | "path" | "source";
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * N Items
+             * @default 0
+             */
+            n_items: number;
+            /** Item Ids */
+            item_ids?: string[];
+            /** Seg Id */
+            seg_id?: string | null;
+            /** Labels */
+            labels?: number[];
+        };
         /** Resources */
         Resources: {
             /**
@@ -6057,6 +6404,7 @@ export interface components {
             finished_at?: string | null;
             /** Reviewer */
             reviewer: string;
+            origin?: components["schemas"]["Origin"] | null;
             engine: components["schemas"]["RunEngine"];
             /** Ibsi Map Version */
             ibsi_map_version: string;
@@ -6189,6 +6537,7 @@ export interface components {
             finished_at?: string | null;
             /** Reviewer */
             reviewer: string;
+            origin?: components["schemas"]["Origin"] | null;
             /** Profile Hash */
             profile_hash: string;
             selection: components["schemas"]["RunSelection"];
@@ -6279,6 +6628,205 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /** ScriptBody */
+        ScriptBody: {
+            /** Text */
+            text: string;
+        };
+        /** ScriptInfo */
+        ScriptInfo: {
+            /** Name */
+            name: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "project" | "workspace" | "shipped";
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Params */
+            params?: components["schemas"]["ScriptParam"][];
+        };
+        /** ScriptParam */
+        ScriptParam: {
+            /** Name */
+            name: string;
+            /** Default */
+            default?: string | null;
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+        };
+        /** ScriptRun */
+        ScriptRun: {
+            /** Run Id */
+            run_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "waiting" | "attention" | "pausing" | "paused" | "cancelling" | "cancelled" | "completed" | "failed" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
+            /** Project Id */
+            project_id?: string | null;
+            /** Script */
+            script: string;
+            /** Script Sha256 */
+            script_sha256: string;
+            /** Library */
+            library?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Control */
+            control?: ("pause" | "cancel") | null;
+            /** Waiting */
+            waiting?: string | null;
+            error?: components["schemas"]["EvalError"] | null;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /**
+             * Starts
+             * @default 0
+             */
+            starts: number;
+        };
+        /** ScriptRunDetail */
+        ScriptRunDetail: {
+            /** Run Id */
+            run_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "waiting" | "attention" | "pausing" | "paused" | "cancelling" | "cancelled" | "completed" | "failed" | "interrupted";
+            /** Created At */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
+            /** Project Id */
+            project_id?: string | null;
+            /** Script */
+            script: string;
+            /** Script Sha256 */
+            script_sha256: string;
+            /** Library */
+            library?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Control */
+            control?: ("pause" | "cancel") | null;
+            /** Waiting */
+            waiting?: string | null;
+            error?: components["schemas"]["EvalError"] | null;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /**
+             * Starts
+             * @default 0
+             */
+            starts: number;
+            /** Journal */
+            journal?: components["schemas"]["JournalEntry"][];
+        };
+        /**
+         * ScriptRunStart
+         * @description A script's text, or a library script by name (CTF-17), with parameter values.
+         */
+        ScriptRunStart: {
+            /** Script */
+            script?: string | null;
+            /** Library */
+            library?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
+            /** Name */
+            name?: string | null;
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * Client
+             * @default console
+             * @enum {string}
+             */
+            client: "console" | "terminal";
+        };
+        /** ScriptText */
+        ScriptText: {
+            /** Name */
+            name: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "project" | "workspace" | "shipped";
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Params */
+            params?: components["schemas"]["ScriptParam"][];
+            /** Text */
+            text: string;
         };
         /**
          * SegProducer
@@ -6549,6 +7097,9 @@ export interface components {
             batch_size: number;
             /** Auto */
             auto: boolean;
+            /** Reviewer */
+            reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
             /**
              * Status
              * @enum {string}
@@ -6681,6 +7232,9 @@ export interface components {
              * @enum {string}
              */
             purpose: "discover" | "open" | "convert";
+            /** Reviewer */
+            reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
             /**
              * Status
              * @default queued
@@ -6949,6 +7503,18 @@ export interface components {
             /** Proposed Side */
             proposed_side?: ("L" | "R") | null;
         };
+        /**
+         * TaskCommand
+         * @description The CTFlow command of a task: a short name and option spellings for settings keys.
+         */
+        TaskCommand: {
+            /** Name */
+            name: string;
+            /** Options */
+            options?: {
+                [key: string]: string;
+            };
+        };
         /** TaskControl */
         TaskControl: {
             /**
@@ -7127,6 +7693,7 @@ export interface components {
              * @enum {string}
              */
             scope: "project" | "workspace";
+            command?: components["schemas"]["TaskCommand"] | null;
         };
         /** TaskRef */
         TaskRef: {
@@ -7196,6 +7763,7 @@ export interface components {
             finished_at?: string | null;
             /** Reviewer */
             reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
             /** Job Id */
             job_id?: string | null;
             counts?: components["schemas"]["TaskRunCounts"];
@@ -7309,6 +7877,7 @@ export interface components {
             finished_at?: string | null;
             /** Reviewer */
             reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
             /** Job Id */
             job_id?: string | null;
             counts?: components["schemas"]["TaskRunCounts"];
@@ -7746,6 +8315,25 @@ export interface components {
             /** Wl */
             wl: number;
         };
+        /**
+         * WorkRef
+         * @description A run or source operation the client can follow (status, API-71 logs).
+         */
+        WorkRef: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "task-run" | "source-operation" | "workspace-run" | "script-run";
+            /** Id */
+            id: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Status */
+            status: string;
+            /** Project Id */
+            project_id?: string | null;
+        };
         /** WorkspaceEstimateRequest */
         WorkspaceEstimateRequest: {
             /** Settings */
@@ -7777,6 +8365,9 @@ export interface components {
             started_at?: string | null;
             /** Finished At */
             finished_at?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            origin?: components["schemas"]["Origin"] | null;
             /** Source */
             source: string;
             /** Dataset Dir */
@@ -8956,7 +9547,9 @@ export interface operations {
     start_api_v1_source_operations_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9256,7 +9849,9 @@ export interface operations {
     convert_api_v1_source_operations__oid__convert_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
             path: {
                 oid: string;
             };
@@ -9359,7 +9954,9 @@ export interface operations {
     create_api_v1_source_batches_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12000,7 +12597,9 @@ export interface operations {
     start_workspace_run_api_v1_task_runs_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -13150,10 +13749,12 @@ export interface operations {
             query?: {
                 cursor?: string | null;
                 limit?: number;
+                /** @description The project of a project-run */
+                project?: string | null;
             };
             header?: never;
             path: {
-                kind: "source-operation" | "workspace-run";
+                kind: "source-operation" | "workspace-run" | "project-run" | "script-run";
                 ref: string;
             };
             cookie?: never;
@@ -13168,6 +13769,372 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LogPage"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commands_api_v1_ctflow_commands_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandInfo"][];
+                };
+            };
+        };
+    };
+    evaluate_api_v1_ctflow_eval_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_script_runs_api_v1_ctflow_script_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRun"][];
+                };
+            };
+        };
+    };
+    start_script_run_api_v1_ctflow_script_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptRunStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_script_run_api_v1_ctflow_script_runs__rid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_script_run_api_v1_ctflow_script_runs__rid__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_script_run_api_v1_ctflow_script_runs__rid__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_script_run_api_v1_ctflow_script_runs__rid__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scripts_api_v1_ctflow_scripts_get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_script_api_v1_ctflow_scripts__name__get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptText"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_script_api_v1_ctflow_scripts__name__put: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_script_api_v1_ctflow_scripts__name__delete: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

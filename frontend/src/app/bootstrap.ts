@@ -7,6 +7,7 @@ import { registerImport } from '../features/import'
 import { registerOpen } from '../features/open'
 import { registerPhase } from '../features/phase'
 import { registerTasks } from '../features/tasks'
+import { registerConsole } from '../features/console'
 import { registerJobs } from '../features/jobs'
 import { registerLibrary } from '../features/library'
 import { registerProjects } from '../features/projects'
@@ -55,6 +56,7 @@ export function bootstrap() {
   activatePlugins(FIRST_PARTY) // every shipped plugin, enabled by default
   registerVariables()
   registerJobs()
+  registerConsole()
   registerLibrary()
 
   registry.view({ id: 'settings', title: 'view.settings', icon: codicon('settings-gear'), order: 100, position: 'bottom', component: SettingsView, hideImageSection: true })
@@ -109,5 +111,5 @@ export function bootstrap() {
   for (const v of registry.views)
     cmd({ id: `view.show.${v.id}`, title: v.title, category: 'cat.showView', keybinding: viewKeys[v.id], writes: v.writes, run: () => useLayout.getState().set({ activeView: v.id, sidebarVisible: true }) })
   for (const p of registry.panelTabs)
-    cmd({ id: `panel.show.${p.id}`, title: p.title, category: 'cat.showPanel', run: () => useLayout.getState().showPanelTab(p.id) })
+    cmd({ id: `panel.show.${p.id}`, title: p.title, category: 'cat.showPanel', writes: p.writes, run: () => useLayout.getState().showPanelTab(p.id) })
 }

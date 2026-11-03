@@ -76,7 +76,7 @@ test('the log stream follows the cursor and stops polling once done', async () =
   await act(() => vi.advanceTimersByTimeAsync(1100))
   await waitFor(() => expect(result.current.data?.done).toBe(true))
   expect(result.current.data?.lines.map((l) => l.text)).toEqual(['one', 'two'])
-  expect(read.mock.calls).toEqual([['workspace-run', 'r1', undefined], ['workspace-run', 'r1', 'c1']])
+  expect(read.mock.calls).toEqual([['workspace-run', 'r1', undefined, undefined], ['workspace-run', 'r1', 'c1', undefined]])
   await act(() => vi.advanceTimersByTimeAsync(3000))
   expect(read).toHaveBeenCalledTimes(2)
 })
