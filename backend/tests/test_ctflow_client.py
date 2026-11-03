@@ -94,7 +94,7 @@ def test_one_command_follows_to_the_end_and_exits_with_the_result(
     runs = httpx.get(f"{url}{API}/projects/{pid}/task-runs").json()
     assert runs[0]["origin"]["client"] == "terminal" and runs[0]["reviewer"] == "Term T"
     status = ctflow(tmp_path, url, "-p", pid, "--json", "status", runs[0]["run_id"])
-    assert json.loads(status.stdout)["work"]["status"] == "completed"
+    assert json.loads(status.stdout)["steps"][0]["work"]["status"] == "completed"
     assert not (tmp_path / "config").exists()  # one-shot use writes nothing locally
 
 
@@ -124,7 +124,11 @@ def test_refusals_print_the_cause_and_next_actions(live: tuple[str, str], tmp_pa
     plan = ctflow(
         tmp_path, url, "-p", pid, "--plan", "segment.threshold", ITEMS[0], "-label", "999"
     )
-    assert plan.returncode == 2 and "plan: settings need changes" in plan.stdout
+    assert (
+        plan.returncode == 2
+        and "settings need changes" in plan.stdout
+        and "label: Must be" in plan.stdout
+    )
     down = ctflow(tmp_path, f"http://127.0.0.1:{_free_port()}", "runs")
     assert down.returncode == 2 and "is the app running" in down.stderr
 
@@ -145,3 +149,21 @@ def test_interactive_console_keeps_the_project_and_saves_history_without_paths(
     if history.exists():  # readline is present
         saved = history.read_text()
         assert "cases" in saved and "patient-name" not in saved
+
+
+def test_a_local_script_file_runs_in_one_request(live: tuple[str, str], tmp_path: Path) -> None:
+    url, pid = live
+    path = tmp_path / "count.ctf"
+    path.write_text(
+        "# count the active cases, then plan one segmentation\n"
+        "set n [llength [cases]]\n"
+        'puts "cases: $n"\n'
+        f"segment.threshold {ITEMS[0]} -threshold 100\n"
+    )
+    done = ctflow(tmp_path, url, "-p", pid, "--plan", str(path))
+    assert done.returncode == 0, done.stderr
+    assert "cases: " in done.stdout and "plan segment.threshold: ok, ready 1 of 1" in done.stdout
+    broken = tmp_path / "broken.ctf"
+    broken.write_text("set a 1\nnot-a-command\n")
+    failed = ctflow(tmp_path, url, "-p", pid, str(broken))
+    assert failed.returncode == 2 and "line 2: unknown command" in failed.stderr

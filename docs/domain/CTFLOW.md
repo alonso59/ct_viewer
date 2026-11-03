@@ -5,7 +5,7 @@ Read when: working on the console interpreter, the `ctflow` client, script runs,
 Depends: ADR-0041, TASKS.md, SOURCES.md, PROJECT_FORMAT.md (PRJ-19), SEGMENTATION.md, API.md (API-71), NFR.md (NFR-17).
 
 CTFlow is a domain language, not a shell. Every command calls a service the GUI already uses; processing stays task runs (TSK-*) and source operations (TSK-16).
-Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72) and C3 (`ctflow` client) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
+Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) and C4 (language, sessions) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
 
 ## Requirements
 
@@ -64,8 +64,10 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 ## Language
 
 - Words, `"…"`, `{…}`, `$var`, `[cmd]`; one command per line or `;`; `#` comments.
-- Built-ins: `set`, `if`/`elseif`/`else`, `foreach`, `proc`, `return`, `break`, `continue`, `source`, `list`, `llength`, `lindex`, `lappend`.
-- `expr`: numbers, strings, arithmetic, comparison and boolean operators only.
+- Built-ins: `set`, `unset`, `incr`, `puts`, `if`/`elseif`/`else`, `while`, `foreach`, `proc`, `return`, `break`, `continue`, `global`, `catch`, `source`, `list`, `llength`, `lindex`, `lrange`, `lappend`, `join`. Any other name is a CTFlow command or an error.
+- `expr`: numbers, strings, `+ - * / %`, comparisons, `eq ne in ni`, `! && ||` (short-circuit) only.
+- A command returns a value to the script: a started run's or operation's id, `cases`/`runs` a list, `status`/`cancel` the status; in plan mode a would-start command returns `planned:<task>`.
+- Limits per request: 20,000 steps (every command and loop turn), 64 nesting levels, 1,000,000 characters per value, 10,000 list items, 200 starts, 200 procedures. Every step yields to the event loop.
 - Options are `-name value`; a boolean option alone means true.
 
 ## Script runs
@@ -78,8 +80,13 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 
 - Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`, `segment` (`segment.nnunet`, `-gpus` = `gpu_cap`). Adding the key changed the nnU-Net manifest hash, which its resume pins: nnU-Net runs paused or interrupted before that release start again instead of resuming, and the host runner's `PLUGINS_ROOT` copy must be updated with the image.
 - `dicom2nii` starts a durable source operation with its analysis (API-69); `convert <operation>` then converts it, as the converter window does.
-- `ctflow` (C3, `scripts/ctflow.py`, OPS-21): interactive console, one command (`-c` or the words after the options) followed to its end, `--detach`, `--plan`, `--json`, `attach`, `logs [-f]`, `status`, `cancel`, `runs`. Exit codes: 0 completed, 1 failed/with errors/interrupted, 2 refused, 3 cancelled/paused, 130 stopped following. The console's `project` is held by the client until sessions (CTF-08); script files and `--detach` of a script come with C4/C5.
+- `ctflow` (C3, `scripts/ctflow.py`, OPS-21): interactive console, one command (`-c` or the words after the options) followed to its end, `--detach`, `--plan`, `--json`, `attach`, `logs [-f]`, `status`, `cancel`, `runs`. Exit codes: 0 completed, 1 failed/with errors/interrupted, 2 refused, 3 cancelled/paused, 130 stopped following. `ctflow file.ctf` sends a local script as one request (its runs go on; the script itself is not durable until C5).
 - Test-only tasks are callable by id and not listed. Numbers that look like integers stay integers, so settings hash as the GUI's do.
+
+- Sessions (C4): in server memory, 4 h idle timeout, at most 64 (the oldest is dropped); `project <id>` sets the session's project. An ended session is `not-found` with the action `new_session`; `ctflow` says so and starts a new one.
+- `source <name>.ctf` reads only `WORKSPACE_ROOT/plugins/ctflow/scripts/` (the library of CTF-17, managed in C6).
+- A line that fails after earlier commands acted returns 200 with `error` and the steps so far, so started runs are never hidden; a line that fails before acting is a problem.
+- Two starts of one task in a script meet TSK-12 (one active run per project and task); waiting for it is CTF-13 (C5).
 
 ## Deferred to implementation
 

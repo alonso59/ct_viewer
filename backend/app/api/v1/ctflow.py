@@ -18,4 +18,5 @@ def commands(ctx: Ctx) -> list[CommandInfo]:
 
 @router.post("/ctflow/eval", response_model=EvalResult)
 async def evaluate(ctx: Ctx, body: EvalRequest, x_reviewer: Reviewer = None) -> EvalResult:
-    return await Console(ctx.source_operations).eval(body, x_reviewer)
+    session = ctx.ctflow_sessions.get(body.session)
+    return await Console(ctx.source_operations).eval(body, x_reviewer, session)

@@ -8,6 +8,7 @@ from app.config import Settings
 from app.core.cache_budget import PROJECT_POOLS, CacheBudget, Pool, workspace_pools
 from app.core.locks import FileLock, ProjectLocks
 from app.core.paths import PathGuard
+from app.ctflow.sessions import Sessions
 from app.events.bus import EventBus
 from app.ingest.service import IndexHook
 from app.ingest.store import IndexStore
@@ -39,6 +40,7 @@ class AppContext:
     # CACHE_MAX_GB: one LRU budget over Open scratch and every project `cache/`
     cache_budget: CacheBudget
     open_sessions: OpenSessions = field(default_factory=OpenSessions)
+    ctflow_sessions: Sessions = field(default_factory=Sessions)
     # Called with project_id after a successful index rebuild (e.g. thumbnails).
     after_index: list[IndexHook] = field(default_factory=list)
 

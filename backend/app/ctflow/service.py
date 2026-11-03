@@ -1,18 +1,24 @@
-"""One console line → the same service calls the GUI makes (CTF-02).
+"""A console line or script → the same service calls the GUI makes (CTF-02).
 
-Task commands come from the loaded task manifests (CTF-03); targets go through the shared
-resolver (CTF-04..06). Nothing here writes run files, submits jobs or picks output paths."""
+The script language (`lang`) evaluates the text; every CTFlow command it reaches comes here. Task
+commands come from the loaded task manifests (CTF-03); targets go through the shared resolver
+(CTF-04..06). Nothing here writes run files, submits jobs or picks output paths."""
 
 from __future__ import annotations
 
+import re
 from collections import Counter
+from dataclasses import dataclass, field
 from typing import Any
 
-from app.core.errors import NotFound, ValidationProblem
+from app.core.errors import NotFound, Problem, ValidationProblem
 from app.core.ids import new_ulid
 from app.core.reviewer import Origin
+from app.ctflow.lang import LIMITS, Interp, ScriptError, format_list
 from app.ctflow.models import (
     CommandInfo,
+    CommandResult,
+    EvalError,
     EvalPlan,
     EvalRequest,
     EvalResult,
@@ -20,7 +26,8 @@ from app.ctflow.models import (
     ResolvedTarget,
     WorkRef,
 )
-from app.ctflow.parse import FLAG, Line, parse
+from app.ctflow.parse import FLAG, Line, options_of
+from app.ctflow.sessions import Session
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.models import PreflightRequest, TaskInfo, TaskManifest, TaskRunRequest
 from app.tasks.source_operations import (
@@ -32,6 +39,12 @@ from app.tasks.source_operations import (
 from app.tasks.targets import TargetOptions, resolve
 
 ITEMS_SHOWN = 50
+STEPS_SHOWN = 500
+# Plan mode: what a command that would act returns; a later command that uses it cannot be planned.
+PLANNED = "planned:"
+LIBRARY = ("plugins", "ctflow", "scripts")
+_SCRIPT_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}\.ctf$")
+SCRIPT_MAX = 1_000_000
 TARGET_OPTIONS = [
     OptionInfo(
         name="seg", type="string", help="Segmentation set to read; `default` = the project's"
@@ -43,6 +56,7 @@ TARGET_OPTIONS = [
 ]
 _TARGET_KEYS = {o.name for o in TARGET_OPTIONS}
 CORE = {
+    "project": ("project [id]", "Show or choose the session's current project"),
     "help": ("help [command]", "List the commands, or one command's options"),
     "cases": ("cases [-phase P]", "List the active cases of the project"),
     "runs": ("runs", "List the project's task runs"),
@@ -51,6 +65,32 @@ CORE = {
     "convert": ("convert <operation>", "Convert a DICOM source whose analysis is ready"),
 }
 _SCALARS = {"string", "integer", "number", "boolean"}
+
+
+@dataclass
+class _Call:
+    """One request: its context and what its commands did, in order."""
+
+    project: str | None
+    plan: bool
+    origin: Origin
+    reviewer: str | None
+    starts: int = 0
+    steps: list[CommandResult] = field(default_factory=list)
+    text: list[str] = field(default_factory=list)
+
+
+class _PlanStop(Exception):
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+def _error(exc: ScriptError | Problem) -> EvalError:
+    if isinstance(exc, ScriptError):
+        return EvalError(title="script error", detail=exc.message, line=exc.line)
+    return EvalError(
+        title=exc.slug, detail=str(exc), errors=exc.errors or [], actions=exc.actions or []
+    )
 
 
 def _command_name(m: TaskManifest) -> str:
@@ -156,18 +196,80 @@ class Console:
 
     # --- evaluation ----------------------------------------------------------------------------
 
-    async def eval(self, req: EvalRequest, reviewer: str | None) -> EvalResult:
-        line = parse(req.line)
+    async def eval(self, req: EvalRequest, reviewer: str | None, session: Session) -> EvalResult:
+        call = _Call(
+            project=req.project_id or session.project,
+            plan=req.plan,
+            origin=Origin(client=req.client),
+            reviewer=reviewer,
+        )
+        by_name = self._by_name()
+
+        async def run_command(words: list[str]) -> str:
+            line = options_of(words)
+            if call.plan and any(PLANNED in w for w in words):
+                raise _PlanStop(line.name)
+            step = await self._command(line, call, by_name)
+            if step.started is not None:
+                call.starts += 1
+            call.steps.append(step)
+            call.text.extend(step.text)
+            if call.starts > LIMITS.starts:
+                raise ScriptError(f"a line may start at most {LIMITS.starts} runs")
+            return step.value
+
+        result = EvalResult(session=session.id)
+        async with session.lock:
+            interp = Interp(
+                session.vars,
+                session.procs,
+                run_command,
+                lambda name: name in CORE or name in by_name,
+                self._source,
+                call.text,
+            )
+            try:
+                result.value = await interp.run(req.line)
+            except _PlanStop as stop:
+                result.plan_stopped = (
+                    f"{stop.name} uses the result of a command that plan mode does not run;"
+                    " the plan stops there"
+                )
+            except (ScriptError, Problem) as exc:
+                if not call.steps and not call.text:
+                    if isinstance(exc, Problem):
+                        raise
+                    where = f"line {exc.line}: " if exc.line else ""
+                    raise ValidationProblem(f"{where}{exc.message}") from None
+                result.error = _error(exc)
+            session.project = call.project
+        result.project_id, result.text = call.project, call.text
+        result.steps = call.steps[:STEPS_SHOWN]
+        return result
+
+    async def _command(
+        self, line: Line, call: _Call, by_name: dict[str, TaskInfo]
+    ) -> CommandResult:
         if line.name in CORE:
-            return await self._core(line, req, reviewer)
-        info = self._by_name().get(line.name)
+            return await self._core(line, call)
+        info = by_name.get(line.name)
         if info is None:
             raise NotFound(f"Unknown command {line.name!r}; `help` lists them")
-        return await self._task(info.manifest, line, req, reviewer)
+        return await self._task(info.manifest, line, call)
 
-    async def _task(
-        self, m: TaskManifest, line: Line, req: EvalRequest, reviewer: str | None
-    ) -> EvalResult:
+    def _source(self, name: str) -> str:
+        """`source`: a script of the workspace's CTFlow library, never an arbitrary file."""
+        if not _SCRIPT_NAME.match(name):
+            raise ScriptError("source takes a library script name such as nightly.ctf")
+        path = self.tasks.settings.workspace_root.joinpath(*LIBRARY, name)
+        try:
+            if path.stat().st_size > SCRIPT_MAX:
+                raise ScriptError(f"{name} is larger than {SCRIPT_MAX} bytes")
+            return path.read_text(encoding="utf-8")
+        except OSError:
+            raise ScriptError(f"no script {name!r} in the CTFlow library") from None
+
+    async def _task(self, m: TaskManifest, line: Line, call: _Call) -> CommandResult:
         if len(line.args) > 1:
             raise ValidationProblem(f"{line.name} takes one target; quote a path with spaces")
         settings = self._settings(m, line.options)
@@ -177,7 +279,7 @@ class Console:
             scope=line.options.get("scope"),
             phase=[w for w in line.options.get("phase", "").split(",") if w],
         )
-        pid = req.project_id
+        pid = call.project
         target = resolve(self.tasks, pid, m, line.args[0] if line.args else None, opts)
         shown = ResolvedTarget(
             kind=target.kind,
@@ -187,18 +289,22 @@ class Console:
             seg_id=target.selection.seg_id,
             labels=target.selection.labels,
         )
-        result = EvalResult(command=line.name, task_id=m.id, target=shown)
+        result = CommandResult(command=line.name, task_id=m.id, target=shown)
         name = line.options.get("name")
-        if req.plan:
+        if call.plan:
             check = self.tasks.validate(m.id, settings, target.selection.labels or None)
             plan = EvalPlan(ok=check.ok, issues=check.issues, settings=check.settings)
+            ready = ""
             if pid is not None and check.ok:
                 plan.preflight = await self.tasks.preflight(
                     pid, m.id, PreflightRequest(selection=target.selection, settings=settings)
                 )
-            result.plan = plan
+                ready = f", ready {plan.preflight.n_ready} of {plan.preflight.n_selected}"
+            result.plan, result.value = plan, f"{PLANNED}{m.id}"
+            verdict = "ok" if plan.ok else "settings need changes"
+            result.text = [f"plan {line.name}: {verdict}{ready}"]
             return result
-        origin = Origin(client=req.client)
+        origin, reviewer = call.origin, call.reviewer
         if m.id == DICOM_CONVERT:
             # As the converter window: a durable analysis first, then `convert` (API-69).
             op = await self.operations.start(
@@ -218,6 +324,7 @@ class Console:
                 kind="source-operation", id=op.operation_id, job_id=op.job_id,
                 status=op.status, project_id=pid,
             )  # fmt: skip
+            result.value = op.operation_id
             result.text = [
                 f"analysis {op.operation_id} {op.status}; then: convert {op.operation_id}"
             ]
@@ -234,6 +341,7 @@ class Console:
             kind="task-run", id=started.run_id, job_id=started.job_id,
             status=started.status, project_id=pid,
         )  # fmt: skip
+        result.value = started.run_id
         result.text = [f"{m.id} run {started.run_id} {started.status} ({shown.n_items} items)"]
         return result
 
@@ -257,9 +365,20 @@ class Console:
 
     # --- core commands -------------------------------------------------------------------------
 
-    async def _core(self, line: Line, req: EvalRequest, reviewer: str | None) -> EvalResult:
-        result = EvalResult(command=line.name)
+    async def _core(self, line: Line, call: _Call) -> CommandResult:
+        result = CommandResult(command=line.name)
         arg = line.args[0] if line.args else None
+        if line.name == "project":
+            if arg is not None:
+                project = self.tasks.workspace.get(arg)  # unknown or archived: a problem
+                call.project = project.project_id
+            result.value = call.project or ""
+            result.text = [f"project: {call.project or 'none'}"]
+            return result
+        if call.plan and line.name in {"convert", "cancel"}:
+            result.value = f"{PLANNED}{line.name}"
+            result.text = [f"plan {line.name}: would {line.name} {arg or '?'}"]
+            return result
         if line.name == "help":
             commands = self.commands()
             if arg is not None:
@@ -268,6 +387,7 @@ class Console:
                     raise NotFound(f"Unknown command {arg!r}")
             result.data = [c.model_dump(mode="json") for c in commands]
             result.text = [f"{c.usage}  — {c.summary}" for c in commands]
+            result.value = format_list([c.name for c in commands])
             if arg is not None:
                 result.text += [f"  -{o.name} ({o.type})  {o.help}" for o in commands[0].options]
             return result
@@ -275,7 +395,7 @@ class Console:
             if arg is None:
                 raise ValidationProblem(f"Name the run or operation: {line.name} <id>")
             find = self._status if line.name == "status" else self._cancel
-            return await find(result, arg, req.project_id)
+            return await find(result, arg, call.project)
         if line.name == "convert":
             if arg is None:
                 raise ValidationProblem("Name the operation: convert <operation>")
@@ -288,15 +408,16 @@ class Console:
                     inventory_generation=str(op.summary.get("generation")),
                     plan_attempt=int(op.plan_attempt or 1),
                 ),
-                reviewer,
+                call.reviewer,
             )
+            result.value = arg
             result.started = WorkRef(
                 kind="source-operation", id=arg, job_id=converted.job_id,
                 status=converted.status, project_id=converted.project_id,
             )  # fmt: skip
             result.text = [f"conversion of {arg} {converted.status}"]
             return result
-        pid = req.project_id
+        pid = call.project
         if pid is None:
             raise ValidationProblem(f"{line.name} needs a project", actions=["choose_project"])
         if line.name == "cases":
@@ -309,12 +430,14 @@ class Console:
             counts = Counter(i.case_id for i in items)
             result.data = [{"case_id": c, "n_items": n} for c, n in sorted(counts.items())]
             result.text = [f"{c}  {n} items" for c, n in sorted(counts.items())]
+            result.value = format_list(sorted(counts))
             return result
         runs = await self.tasks.list_runs(pid)
         result.data = [
             r.model_dump(mode="json", include={"run_id", "task", "status", "name"}) for r in runs
         ]
         result.text = [f"{r.run_id}  {r.task.id}  {r.status}" for r in runs]
+        result.value = format_list([r.run_id for r in runs])
         return result
 
     async def _find(self, ref: str, pid: str | None) -> tuple[WorkRef, Any]:
@@ -338,14 +461,15 @@ class Console:
             project_id=op.project_id,
         ), op  # fmt: skip
 
-    async def _status(self, result: EvalResult, ref: str, pid: str | None) -> EvalResult:
+    async def _status(self, result: CommandResult, ref: str, pid: str | None) -> CommandResult:
         work, record = await self._find(ref, pid)
         result.work, result.data = work, record.model_dump(mode="json")
         stage = f"  {record.stage}" if work.kind == "source-operation" else ""
         result.text = [f"{work.id}  {work.kind}{stage}  {work.status}"]
+        result.value = work.status
         return result
 
-    async def _cancel(self, result: EvalResult, ref: str, pid: str | None) -> EvalResult:
+    async def _cancel(self, result: CommandResult, ref: str, pid: str | None) -> CommandResult:
         work, record = await self._find(ref, pid)
         status: str
         if work.kind == "task-run":
@@ -364,4 +488,5 @@ class Console:
             status = (await self.operations.cancel(ref, control)).status
         work.status = status
         result.work, result.text = work, [f"{work.id}  {work.status}"]
+        result.value = status
         return result

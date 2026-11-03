@@ -1906,6 +1906,86 @@
     "title": "CommandInfo",
     "type": "object"
    },
+   "CommandResult": {
+    "description": "One CTFlow command the line ran.",
+    "properties": {
+     "command": {
+      "title": "Command",
+      "type": "string"
+     },
+     "data": {
+      "title": "Data"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EvalPlan"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "started": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/WorkRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "target": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ResolvedTarget"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     },
+     "text": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Text",
+      "type": "array"
+     },
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
+     },
+     "work": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/WorkRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "command"
+    ],
+    "title": "CommandResult",
+    "type": "object"
+   },
    "CommitRequest": {
     "properties": {
      "preview_id": {
@@ -3348,6 +3428,51 @@
     "title": "EstimateResult",
     "type": "object"
    },
+   "EvalError": {
+    "description": "A line that stopped after earlier commands had already acted.",
+    "properties": {
+     "actions": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "detail": {
+      "title": "Detail",
+      "type": "string"
+     },
+     "errors": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Errors",
+      "type": "array"
+     },
+     "line": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Line"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "title",
+     "detail"
+    ],
+    "title": "EvalError",
+    "type": "object"
+   },
    "EvalPlan": {
     "properties": {
      "issues": {
@@ -3403,7 +3528,7 @@
       "type": "string"
      },
      "line": {
-      "maxLength": 4000,
+      "maxLength": 100000,
       "minLength": 1,
       "title": "Line",
       "type": "string"
@@ -3423,6 +3548,17 @@
        }
       ],
       "title": "Project Id"
+     },
+     "session": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session"
      }
     },
     "required": [
@@ -3433,44 +3569,17 @@
    },
    "EvalResult": {
     "properties": {
-     "command": {
-      "title": "Command",
-      "type": "string"
-     },
-     "data": {
-      "title": "Data"
-     },
-     "plan": {
+     "error": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/EvalPlan"
+        "$ref": "#/components/schemas/EvalError"
        },
        {
         "type": "null"
        }
       ]
      },
-     "started": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/WorkRef"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     },
-     "target": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/ResolvedTarget"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     },
-     "task_id": {
+     "plan_stopped": {
       "anyOf": [
        {
         "type": "string"
@@ -3479,7 +3588,29 @@
         "type": "null"
        }
       ],
-      "title": "Task Id"
+      "title": "Plan Stopped"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "session": {
+      "title": "Session",
+      "type": "string"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/CommandResult"
+      },
+      "title": "Steps",
+      "type": "array"
      },
      "text": {
       "items": {
@@ -3488,19 +3619,14 @@
       "title": "Text",
       "type": "array"
      },
-     "work": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/WorkRef"
-       },
-       {
-        "type": "null"
-       }
-      ]
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
      }
     },
     "required": [
-     "command"
+     "session"
     ],
     "title": "EvalResult",
     "type": "object"

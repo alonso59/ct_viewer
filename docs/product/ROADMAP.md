@@ -27,7 +27,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
-| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C3 done 2026-11-03 (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client); C4 next |
+| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C4 done 2026-11-03 (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions); C5 next |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -93,7 +93,7 @@ Each step is a vertical slice with its own tests; stop for owner confirmation af
 - [x] C1 Attribution and logs (2026-11-03; frontend API types regenerate with the frontend owner): reviewer and origin on task, workspace, source-operation and batch-plan records; API-71 project-run kind (CTF-15/16; facts move to TSK-10 and API-71)
 - [x] C2 (2026-11-03) Command catalog, manifest `command` key, target resolver, one-command evaluation with plan mode; parity test against API-45 (CTF-02..06, CTF-09)
 - [x] C3 (2026-11-03) `ctflow` client: interactive, `-c`, runs/status/logs/attach/cancel, reviewer, exit codes (CTF-18)
-- [ ] C4 Language and interactive sessions with limits; safety test suite (CTF-07/08)
+- [x] C4 (2026-11-03) Language and interactive sessions with limits; safety test suite (CTF-07/08)
 - [ ] C5 Durable script runs: journal, replay after restart without duplicate children, bounded wait and `attention`, control cascade (CTF-10..14)
 - [ ] C6 Script library and presets (CTF-17)
 - [ ] C7 Web console panel (CTF-19)

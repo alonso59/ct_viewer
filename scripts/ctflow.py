@@ -8,6 +8,7 @@ server owns every run, so closing the terminal never stops one.
   ctflow                                   interactive console
   ctflow -p PROJECT segment case_00012     one command; follows it to the end (exit code = result)
   ctflow -c "segment case_00012" --detach  start and return at once
+  ctflow nightly.ctf                       run a local script file (one request; its runs go on)
   ctflow attach ID · ctflow logs ID [-f] · ctflow status ID · ctflow cancel ID · ctflow runs
 
 Server: --url, else CTFLOW_URL, else http://127.0.0.1:$PORT with PORT from the same `.env` as
@@ -41,7 +42,7 @@ EXIT = {
 }
 POLL_S = 1.0
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "ctflow"
-LOCAL = {"exit", "quit", "project", "attach", "logs", "plan", "json"}
+LOCAL = {"exit", "quit", "attach", "logs", "plan"}
 # Absolute paths stay out of the saved history: folder names are often patient names (NFR-17).
 _PATH = re.compile(r"(^|\s|\")/[^\s\"]")
 
@@ -85,6 +86,7 @@ class Client:
     def __init__(self, url: str, reviewer: str | None, project: str | None, kind: str) -> None:
         self.url, self.reviewer, self.project, self.kind = url, reviewer, project, kind
         self._catalog: list[dict[str, Any]] | None = None
+        self.session: str | None = None  # the server keeps variables and procedures (CTF-08)
 
     def call(self, method: str, path: str, body: Any = None, **query: Any) -> Any:
         params = {k: v for k, v in query.items() if v is not None}
@@ -111,8 +113,20 @@ class Client:
         return json.loads(raw) if raw else None
 
     def eval(self, line: str, *, plan: bool = False) -> dict[str, Any]:
-        body = {"line": line, "project_id": self.project, "plan": plan, "client": self.kind}
-        return dict(self.call("POST", "/ctflow/eval", body))
+        body = {
+            "line": line, "session": self.session, "project_id": self.project,
+            "plan": plan, "client": self.kind,
+        }  # fmt: skip
+        try:
+            result = dict(self.call("POST", "/ctflow/eval", body))
+        except Refused as exc:
+            if self.session is None or "new_session" not in (exc.body.get("actions") or []):
+                raise
+            print("ctflow: the console session ended; its variables and procedures are gone")
+            self.session = None
+            return self.eval(line, plan=plan)
+        self.session, self.project = result["session"], result.get("project_id")
+        return result
 
     def catalog(self) -> list[dict[str, Any]]:
         if self._catalog is None:
@@ -144,23 +158,28 @@ def show_problem(exc: Refused) -> None:
 
 
 def show(result: dict[str, Any]) -> None:
-    target = result.get("target")
+    steps = result.get("steps") or []
+    target = steps[0].get("target") if len(steps) == 1 else None
     if target:
         what = {"source": "source"}.get(target["kind"], f"{target['kind']} · {target['n_items']} items")
         extra = f" · seg {target['seg_id']}" if target.get("seg_id") else ""
         print(f"target: {what}{extra}")
-    plan = result.get("plan")
-    if plan:
-        print("plan: ok" if plan["ok"] else "plan: settings need changes")
-        for issue in plan.get("issues") or []:
-            print(f"  {'.'.join(map(str, issue['loc']))}: {issue['msg']}")
-        pre = plan.get("preflight")
-        if pre:
-            print(f"  ready {pre['n_ready']} of {pre['n_selected']}")
-            for reason, n in (pre.get("missing") or {}).items():
-                print(f"  skipped {n}: {reason}")
     for line in result.get("text") or []:
         print(line)
+    for step in steps:
+        plan = step.get("plan") or {}
+        for issue in plan.get("issues") or []:
+            print(f"  {step['command']}: {'.'.join(map(str, issue['loc']))}: {issue['msg']}")
+        for reason, n in ((plan.get("preflight") or {}).get("missing") or {}).items():
+            print(f"  {step['command']}: skipped {n}: {reason}")
+    if result.get("plan_stopped"):
+        print(f"plan: {result['plan_stopped']}")
+    if result.get("value") and not result.get("text"):
+        print(result["value"])
+    error = result.get("error")
+    if error:
+        where = f"line {error['line']}: " if error.get("line") else ""
+        show_problem(Refused(422, {**error, "detail": where + error["detail"]}))
 
 
 def is_over(work: dict[str, Any], record: dict[str, Any]) -> bool:
@@ -198,7 +217,8 @@ def follow(client: Client, work: dict[str, Any], *, logs: bool = True) -> int:
 
 
 def find(client: Client, ref: str) -> dict[str, Any]:
-    work = client.eval(f"status {ref}").get("work")
+    steps = client.eval(f"status {ref}").get("steps") or [{}]
+    work = steps[-1].get("work")
     if not work:
         raise Refused(404, {"detail": f"No run or operation {ref}"})
     return dict(work)
@@ -221,13 +241,16 @@ def run_line(client: Client, line: str, *, detach: bool, plan: bool, as_json: bo
         print(json.dumps(result, indent=2))
     else:
         show(result)
+    if result.get("error"):
+        return REFUSED
     if plan:
-        return OK if result["plan"]["ok"] else REFUSED
-    started = result.get("started")
-    if started and not detach:
-        return follow(client, started)
-    if started:
-        print(f"follow with: ctflow attach {started['id']}")
+        plans = [s["plan"] for s in result["steps"] if s.get("plan")]
+        return OK if all(p["ok"] for p in plans) else REFUSED
+    started = [s["started"] for s in result["steps"] if s.get("started")]
+    if len(started) == 1 and not detach:
+        return follow(client, started[0])
+    for work in started:
+        print(f"follow with: ctflow attach {work['id']}")
     return OK
 
 
@@ -289,14 +312,6 @@ def console(client: Client, config: dict[str, Any]) -> int:
         if words[0] in {"exit", "quit"}:
             break
         try:
-            if words[0] == "project":
-                if len(words) > 1:
-                    project = client.call("GET", f"/projects/{words[1]}")
-                    client.project = str(project["project_id"])
-                    print(f"project: {project.get('name')} ({client.project})")
-                else:
-                    print(f"project: {client.project or 'none'}")
-                continue
             plan = words[0] == "plan"
             if plan:
                 line = line.split(None, 1)[1] if len(words) > 1 else ""
@@ -346,6 +361,12 @@ def main(argv: list[str]) -> int:
             command = value
         i += 2
     rest = argv[i:]
+    if command is None and len(rest) == 1 and rest[0].endswith(".ctf"):
+        try:
+            command = Path(rest[0]).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"ctflow: cannot read {rest[0]}: {exc.strerror}", file=sys.stderr)
+            return REFUSED
     if command is None and rest:
         # the server groups words with "…" (not shell quotes)
         command = " ".join(f'"{w}"' if any(c.isspace() for c in w) else w for w in rest)
