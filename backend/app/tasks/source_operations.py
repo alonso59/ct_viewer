@@ -1022,6 +1022,7 @@ class SourceOperations:
             current = self.get(operation)
             if current.attempt != attempt:
                 return
+            before = current.model_dump()
             if row.get("stage") == "counting":
                 current.progress.update(
                     files_total=int(row["files"]), folders_total=int(row["folders"])
@@ -1063,7 +1064,10 @@ class SourceOperations:
                     **current.summary,
                     "inventory_projection": row["inventory_projection"],
                 }
-            self._write(current)
+            # A row that changes nothing (the wait report repeats every second) keeps the
+            # revision, so a cancel fenced on it still applies while the work waits
+            if current.model_dump() != before:
+                self._write(current)
             handle.set_done(current.progress.get("files", 0))
 
         try:

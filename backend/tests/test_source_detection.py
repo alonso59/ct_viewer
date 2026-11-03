@@ -135,6 +135,50 @@ def test_unfinished_and_cancelled_discovery_offer_no_complete_detection(tmp_path
             assert client.get(f"{API}/{oid}/detection").status_code == 409
 
 
+def test_a_waiting_operation_keeps_its_revision_so_a_cancel_applies_at_once(
+    tmp_path: Path,
+) -> None:
+    """UI-28: the repeated wait report changes nothing, so a cancel fenced on the revision a
+    client just read applies on the first try while the work waits for the DICOM worker."""
+    import fcntl
+    import time
+
+    source = tmp_path / "source"
+    nii(source / "image.nii.gz", ct())
+    settings = Settings(
+        workspace_root=tmp_path / "workspace", allowed_data_roots=str(source), _env_file=None
+    )  # type: ignore[call-arg]
+    lock = settings.workspace_root / "plugins/dicom/execution.lock"
+    lock.parent.mkdir(parents=True)
+    with lock.open("a+") as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        with TestClient(create_app(settings, inline_jobs=True)) as client:
+            created = client.post(
+                API,
+                json={"path": str(source), "purpose": "discover", "idempotency_key": "waiting-revision"},
+            )
+            assert created.status_code == 202, created.text
+            oid = created.json()["operation_id"]
+            deadline = time.monotonic() + 30
+            current = client.get(f"{API}/{oid}").json()
+            while current["progress_stage"] != "waiting_for_resources":
+                assert time.monotonic() < deadline, current
+                time.sleep(0.05)
+                current = client.get(f"{API}/{oid}").json()
+            # the wait is reported again every second; the record and its revision stay
+            time.sleep(2.5)
+            assert client.get(f"{API}/{oid}").json()["revision"] == current["revision"]
+            cancelled = client.post(
+                f"{API}/{oid}/cancel",
+                json={
+                    "expected_revision": current["revision"],
+                    "expected_attempt": current["attempt"],
+                },
+            )
+            assert cancelled.status_code == 200, cancelled.text
+            assert wait_operation(client, oid)["status"] == "cancelled"
+
+
 def test_durable_detection_refuses_an_incompatible_inventory_reader(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
