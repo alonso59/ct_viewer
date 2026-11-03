@@ -39,6 +39,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | Test layers, fixtures, gates | `ops/TESTING.md` |
 | Why a decision was made | `adr/README.md` → one ADR |
 | Audit findings cited in code and commits (frozen, closed 2026-09-27) | `archive/v3/audit/` |
+| UX audit 2026-11: findings (F-*), proposals (P-*) and their implementation status (Appendix D) | `reviews/UX_AUDIT_2026-11.md` |
 
 ## Ownership (one fact, one place)
 
