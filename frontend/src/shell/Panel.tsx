@@ -86,7 +86,8 @@ export function Panel() {
             <IconButton icon={codicon('close')} label={t('shell.closePanel')} onClick={() => layout.set({ panelVisible: false })} />
           </div>
         </div>
-        <div className="panel-body" id="panel-body" role="tabpanel" aria-labelledby={active ? `panel-tab-${active.id}` : undefined}>{Body ? <Body /> : null}</div>
+        {/* focusable, so the keyboard can scroll a tab with nothing focusable in it */}
+        <div className="panel-body" id="panel-body" role="tabpanel" tabIndex={0} aria-labelledby={active ? `panel-tab-${active.id}` : undefined}>{Body ? <Body /> : null}</div>
       </section>
     </>
   )
