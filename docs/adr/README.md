@@ -46,3 +46,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0038 | Individual segmentation label removal and management panel | Accepted (extends 0015/0036; supersedes 0037 §5 management location) |
 | 0039 | GPU admission by available memory | Accepted (partially supersedes 0034) |
 | 0040 | Batched DICOM source operations | Accepted (extends 0035) |
+| 0041 | CTFlow: a domain command console over the existing task services | Accepted |

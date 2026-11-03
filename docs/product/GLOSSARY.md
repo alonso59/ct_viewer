@@ -51,6 +51,9 @@ Depends: none (terms point to their owning docs by ID).
 | Run | One execution of a task over a selection (a radiomics extraction with one profile, a conversion, a segmentation, …) |
 | Job | One piece of background work the server tracks (index, hashes, thumbnails, a run, opening a source); the Jobs panel lists them |
 | Dataset | A converted or managed data folder under the workspace (`_datasets/`), viewable without a project or reopened as one (PRJ-19) |
+| CTFlow | The command and script console over the task services, in the browser and as `ctflow` in a terminal (CTF-*) |
+| Command | A CTFlow name with options and a target, over one task or one core action |
+| Script run | One durable execution of a CTFlow script; its journal lists every resolved call and the run it started |
 | Batch | One part of a large DICOM conversion that runs and is confirmed on its own (UI-28) |
 | IBSI | Image Biomarker Standardisation Initiative, the reference for feature definitions |
 | MPR | Multi-planar reconstruction: axial, coronal, sagittal views |

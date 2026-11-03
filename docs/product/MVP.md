@@ -43,3 +43,4 @@ REL-03 counts audit findings whose Decision is not `fixed`, `defer` or `reject` 
 | Later: per-project plugin enable/disable, updates, management | PLG-10 |
 | Pending plugin: VOI extractor | PLG-09, ROADMAP §Pending plugin after P7g |
 | Electron desktop build | P8, ADR-0001 |
+| CTFlow console and `ctflow` client | CTF-*, ROADMAP P7h, ADR-0041 |

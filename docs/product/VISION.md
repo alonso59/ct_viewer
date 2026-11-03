@@ -49,8 +49,8 @@ Targets are owned elsewhere; this table only says which ones define success.
 | User | Goal | Main surfaces |
 |---|---|---|
 | Medical curator | Review scans and masks, record QC decisions, flag phase/side issues | Explorer, viewer, curation inspector |
-| Researcher / data scientist | Configure and run radiomics, find outliers, export features | Radiomics view, dashboard, exports |
-| Admin / data engineer | Create projects, import metadata, relink paths, run the server | Projects view, import wizard, jobs, deployment |
+| Researcher / data scientist | Configure and run radiomics, find outliers, export features | Radiomics view, dashboard, exports, CTFlow scripts |
+| Admin / data engineer | Create projects, import metadata, relink paths, run the server | Projects view, import wizard, jobs, deployment, CTFlow console and `ctflow` |
 
 There are no roles. All users can reach every surface (ADR-0004).
 
@@ -80,6 +80,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 - Study-agnostic variables: any metadata field or external table becomes a typed variable for filters and group-by (VAR-*).
 - Radiomics dashboard with click-through to the viewer (DB-*) and simple guided statistics with recommendations (ANA-*).
 - Multi-user access by shared project link, with live updates between browsers.
+- CTFlow: a command and script console for the same tasks, in the browser and in a terminal (`ctflow`); long scripts run on the server (CTF-*, ADR-0041).
 - Single OCI image; Docker locally, udocker on remote servers without sudo (OPS-*).
 
 ## Out of scope (v3)
@@ -96,6 +97,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 | Electron desktop build | Phase P8, after the web app is stable (ADR-0001) |
 | Clinical use | Research tool, not a medical device |
 | Third-party plugins, plugin marketplace | v3 ships first-party plugins only (ADR-0018) |
+| Shell, Python or file access from the console; user plugins | CTFlow is a domain language; users extend it with scripts and procedures only (ADR-0041) |
 
 ## Principles
 

@@ -17,6 +17,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | File formats, NIfTI/DICOM/NumPy sources, Open mode, case identity | `domain/SOURCES.md` |
 | Entities and relations | `domain/DATA_MODEL.md` |
 | Tasks, run protocol, builtin and external runtimes | `domain/TASKS.md` |
+| CTFlow console: commands, targets, scripts, script runs, `ctflow` client | `domain/CTFLOW.md`; `adr/0041-ctflow-command-console.md` |
 | Plugin model, Plugin Library, catalog | `domain/PLUGINS.md` |
 | nnU-Net segmentation generation, model profiles, multi-GPU inference | `domain/SEGMENTATION.md` |
 | Local/server execution, future SLURM | `domain/SEGMENTATION_RUNTIMES.md`; `adr/0034-capability-based-segmentation-runtimes.md` |
@@ -49,6 +50,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | `IMP-` | domain/INPUT_METADATA.md | Import and indexing |
 | `SRC-` | domain/SOURCES.md | Formats, adapters, Open mode, identity |
 | `TSK-` | domain/TASKS.md | Tasks, plugins, runtimes |
+| `CTF-` | domain/CTFLOW.md | CTFlow console and script runs |
 | `SEG-` | domain/SEGMENTATION.md | nnU-Net segmentation generation |
 | `DCM-` | domain/DICOM_CONVERTER.md | DICOM conversion |
 | `ANZ-` | domain/ANALYZERS.md | Metadata analyzers |

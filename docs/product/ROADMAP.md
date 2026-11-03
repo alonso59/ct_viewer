@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → VOI extractor → P7 remote checks → P8 Electron**.
+Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → P7h CTFlow console → VOI extractor → P7 remote checks → P8 Electron**.
 
 ## Progress
 
@@ -27,6 +27,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
+| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0 decisions and docs done 2026-11-03; C1 next |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -84,6 +85,19 @@ Done 2026-09-24 (exit met; archive).
 - [ ] Run the ordered implementation waves and their red/green checkpoints from `domain/SEGMENTATION_JOB_PLAN.md`
 - [ ] Pass the required environment lanes from `ops/SEGMENTATION_JOB_TEST_PLAN.md`; real host safety/GPU acceptance is mandatory and missing capabilities remain explicit blockers
 **Exit:** accepted criteria have requirement IDs, passing regression tests and real isolation/cleanup evidence; no unrelated process affected, no source/model mutation and no duplicate attempts/output registration.
+
+### P7h — CTFlow console (ADR-0041, CTFLOW.md)
+
+Each step is a vertical slice with its own tests; stop for owner confirmation after each. Frontend work (C7) is coordinated with the frontend owner.
+- [x] C0 Owner decisions D1–D7 (2026-11-03); ADR-0041, CTFLOW.md, INDEX/SRS registration, glossary, PRD scope
+- [ ] C1 Attribution and logs: reviewer and origin on task, workspace, source-operation and batch-plan records; API-71 project-run kind (CTF-15/16; facts move to TSK-10 and API-71)
+- [ ] C2 Command catalog, manifest `command` key, target resolver, one-command evaluation with plan mode; parity test against API-45 (CTF-02..06, CTF-09)
+- [ ] C3 `ctflow` client: interactive, `-c`, runs/status/logs/attach/cancel, reviewer, exit codes (CTF-18)
+- [ ] C4 Language and interactive sessions with limits; safety test suite (CTF-07/08)
+- [ ] C5 Durable script runs: journal, replay after restart without duplicate children, bounded wait and `attention`, control cascade (CTF-10..14)
+- [ ] C6 Script library and presets (CTF-17)
+- [ ] C7 Web console panel (CTF-19)
+**Exit:** a script started from `ctflow` survives the client and a server restart, its children appear in the web UI with reviewer and origin, and no CTFlow path writes runs or outputs outside the existing services.
 
 ### Pending plugin after P7g
 - [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10; default `xyz` until then)
