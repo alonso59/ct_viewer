@@ -1,0 +1,7 @@
+# Segment every active case of one phase, one run after another.
+# param phase ART  the phase whose cases are segmented
+# param gpus 1  GPUs per run (1-4)
+foreach c [cases -phase $phase] {
+    set r [segment $c -gpus $gpus]
+    puts "$c: [wait $r]"
+}

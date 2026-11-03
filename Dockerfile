@@ -56,6 +56,7 @@ COPY backend/app /app/backend/app
 # Builtin task plugins (BUILTIN_PLUGINS_ROOT = /app/plugins): converter, analyzers.
 COPY plugins /app/plugins
 COPY scripts/container_app.py /app/scripts/container_app.py
+COPY scripts/ctflow.py /app/scripts/ctflow.py
 COPY --from=web /src/frontend/dist /app/static
 WORKDIR /app/backend
 EXPOSE 8000

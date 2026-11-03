@@ -1,0 +1,8 @@
+# Segment one case, wait for it, then extract radiomics from the new mask set.
+# param case -  the case id
+# param labels -  labels to extract, by name or value, e.g. tumor,kidney
+# param set ctflow-seg  name of the new segmentation set (must be new)
+set r [segment $case -seg-id $set]
+if {[wait $r] ne "completed"} { return "segmentation ended [status $r]" }
+set f [radiomics $case -seg $set -labels $labels]
+wait $f

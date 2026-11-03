@@ -29,6 +29,7 @@ from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.reviewer import Origin
 from app.ctflow.lang import Interp, Limits, ScriptError
+from app.ctflow.library import header
 from app.ctflow.models import CommandResult, EvalError, WorkRef
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
@@ -51,7 +52,11 @@ SCRIPT_MAX = 100_000
 
 
 class ScriptRunStart(BaseModel):
-    script: str = Field(min_length=1, max_length=SCRIPT_MAX)
+    """A script's text, or a library script by name (CTF-17), with parameter values."""
+
+    script: str | None = Field(default=None, min_length=1, max_length=SCRIPT_MAX)
+    library: str | None = None
+    params: dict[str, str] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=120)
     project_id: str | None = None
     client: Literal["console", "terminal"] = "console"
@@ -77,8 +82,12 @@ class ScriptRun(BaseModel):
     reviewer: str | None = None
     origin: Origin | None = None
     project_id: str | None = None  # the project the script starts in
-    script: str
+    script: (
+        str  # the text it runs; a library script is copied, so editing it never changes a resume
+    )
     script_sha256: str
+    library: str | None = None
+    params: dict[str, str] = Field(default_factory=dict)  # every declared parameter, resolved
     attempts: int = 0
     job_id: str | None = None
     control: Literal["pause", "cancel"] | None = None
@@ -171,19 +180,37 @@ class ScriptRuns:
     async def start(self, req: ScriptRunStart, reviewer: str | None) -> ScriptRun:
         from app.core import reviewer as reviewer_stamp
 
+        console = self._console()
         if req.project_id is not None:
-            self._console().tasks.workspace.get(req.project_id)  # unknown: not found
+            console.tasks.workspace.get(req.project_id)  # unknown: not found
+        if (req.script is None) == (req.library is None):
+            raise ValidationProblem("Send either a script's text or a library script name")
+        script = req.script or console.library.read(str(req.library), req.project_id).text
+        _, declared = header(script)
+        unknown = set(req.params) - {p.name for p in declared}
+        missing = [p.name for p in declared if p.default is None and p.name not in req.params]
+        if unknown or missing:
+            raise ValidationProblem(
+                "Parameters do not match the script",
+                errors=[
+                    *({"loc": ["params", n], "msg": "not declared"} for n in sorted(unknown)),
+                    *({"loc": ["params", n], "msg": "required"} for n in missing),
+                ],
+            )
+        params = {p.name: req.params.get(p.name, p.default or "") for p in declared}
         rid = new_ulid()
         run = ScriptRun(
             run_id=rid,
-            name=(req.name or "").strip() or f"script {utc_now()}",
+            name=(req.name or "").strip() or req.library or f"script {utc_now()}",
             status="queued",
             created_at=utc_now(),
             reviewer=reviewer_stamp.optional(reviewer),
             origin=Origin(client=req.client),
             project_id=req.project_id,
-            script=req.script,
-            script_sha256="sha256:" + hashlib.sha256(req.script.encode()).hexdigest(),
+            script=script,
+            script_sha256="sha256:" + hashlib.sha256(script.encode()).hexdigest(),
+            library=req.library,
+            params=params,
         )
         self._dir(rid).mkdir(parents=True)
         self._write(run)
@@ -331,7 +358,10 @@ class ScriptRuns:
                 raise ScriptError(f"a script run may start at most {LIMITS.starts} runs")
             return step.value
 
-        interp = Interp({}, {}, run_command, console.is_command, console.source, output, LIMITS)
+        interp = Interp(
+            dict(run.params), {}, run_command, console.is_command, console.source(call), output,
+            LIMITS,
+        )  # fmt: skip
         try:
             value = await interp.run(run.script)
         except _Stop as stop:

@@ -177,3 +177,18 @@ def test_a_local_script_file_plans_or_runs_on_the_server(
     assert detached.returncode == 0 and "follow with: ctflow attach" in detached.stdout
     attached = ctflow(tmp_path, url, "attach", rid)
     assert attached.returncode == 0 and "finished" in attached.stdout
+
+
+def test_a_library_script_runs_by_name_with_parameters(
+    live: tuple[str, str], tmp_path: Path
+) -> None:
+    url, pid = live
+    text = "# One item.\n# param item -  the item\nwait [segment.threshold $item]\nputs ok-$item\n"
+    assert httpx.put(f"{url}{API}/ctflow/scripts/one-item.ctf", json={"text": text}).is_success
+    done = ctflow(tmp_path, url, "-p", pid, "one-item.ctf", "--param", f"item={ITEMS[0]}")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert f"ok-{ITEMS[0]}" in done.stdout
+    planned = ctflow(
+        tmp_path, url, "-p", pid, "--plan", "--param", f"item={ITEMS[0]}", "one-item.ctf"
+    )
+    assert planned.returncode == 0 and "plan segment.threshold: ok" in planned.stdout

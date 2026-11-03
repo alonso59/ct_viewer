@@ -33,7 +33,7 @@ backend/app/
 ├── sources/         # adapters (metadata-v1, nifti-files), detect, identity registry, Open-mode sessions + service (open_service.py: open, attach, save; SRC-*)
 ├── layers/          # metadata layers joined onto the rows; dataset table (API-59, ADR-0020)
 ├── tasks/           # manifest registry, run protocol, builtin runtime, external queue, output registration (TSK-*); the service is split records → selection → jobspec → estimate → registration → driver → service
-├── ctflow/          # CTFlow console (CTF-*): the script language (lang), sessions, durable script runs with their journal (runs), command catalog from task manifests, evaluation through the task services; targets live in tasks/targets.py
+├── ctflow/          # CTFlow console (CTF-*): the script language (lang), sessions, durable script runs with their journal (runs), the script library and shipped examples (library, scripts/), command catalog from task manifests, evaluation through the task services; targets live in tasks/targets.py
 ├── plugins/         # plugin.json loader, task ownership, Library status (PLG-*, API-49)
 ├── eventstore/      # namespaced append-only log `events/{ns}.jsonl`, reviewer/session stamps, `{ns}.appended` SSE, LWW state (ADR-0022)
 ├── curation/        # Curation & QC on the event store: reducer (derived state), queue, exports (CUR-*)

@@ -10748,6 +10748,85 @@
     "title": "ScatterPoint",
     "type": "object"
    },
+   "ScriptBody": {
+    "properties": {
+     "text": {
+      "maxLength": 100000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "ScriptBody",
+    "type": "object"
+   },
+   "ScriptInfo": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "params": {
+      "items": {
+       "$ref": "#/components/schemas/ScriptParam"
+      },
+      "title": "Params",
+      "type": "array"
+     },
+     "scope": {
+      "enum": [
+       "project",
+       "workspace",
+       "shipped"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "scope"
+    ],
+    "title": "ScriptInfo",
+    "type": "object"
+   },
+   "ScriptParam": {
+    "properties": {
+     "default": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default"
+     },
+     "help": {
+      "default": "",
+      "title": "Help",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "ScriptParam",
+    "type": "object"
+   },
    "ScriptRun": {
     "properties": {
      "attempts": {
@@ -10811,6 +10890,17 @@
       ],
       "title": "Job Id"
      },
+     "library": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Library"
+     },
      "name": {
       "title": "Name",
       "type": "string"
@@ -10824,6 +10914,13 @@
         "type": "null"
        }
       ]
+     },
+     "params": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "object"
      },
      "project_id": {
       "anyOf": [
@@ -10990,6 +11087,17 @@
       "title": "Journal",
       "type": "array"
      },
+     "library": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Library"
+     },
      "name": {
       "title": "Name",
       "type": "string"
@@ -11003,6 +11111,13 @@
         "type": "null"
        }
       ]
+     },
+     "params": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "object"
      },
      "project_id": {
       "anyOf": [
@@ -11100,6 +11215,7 @@
     "type": "object"
    },
    "ScriptRunStart": {
+    "description": "A script's text, or a library script by name (CTF-17), with parameter values.",
     "properties": {
      "client": {
       "default": "console",
@@ -11109,6 +11225,17 @@
       ],
       "title": "Client",
       "type": "string"
+     },
+     "library": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Library"
      },
      "name": {
       "anyOf": [
@@ -11122,6 +11249,13 @@
       ],
       "title": "Name"
      },
+     "params": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "object"
+     },
      "project_id": {
       "anyOf": [
        {
@@ -11134,16 +11268,60 @@
       "title": "Project Id"
      },
      "script": {
-      "maxLength": 100000,
-      "minLength": 1,
-      "title": "Script",
+      "anyOf": [
+       {
+        "maxLength": 100000,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Script"
+     }
+    },
+    "title": "ScriptRunStart",
+    "type": "object"
+   },
+   "ScriptText": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "params": {
+      "items": {
+       "$ref": "#/components/schemas/ScriptParam"
+      },
+      "title": "Params",
+      "type": "array"
+     },
+     "scope": {
+      "enum": [
+       "project",
+       "workspace",
+       "shipped"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
       "type": "string"
      }
     },
     "required": [
-     "script"
+     "name",
+     "scope",
+     "text"
     ],
-    "title": "ScriptRunStart",
+    "title": "ScriptText",
     "type": "object"
    },
    "SegProducer": {
@@ -16222,6 +16400,232 @@
      }
     },
     "summary": "Resume Script Run",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/scripts": {
+   "get": {
+    "operationId": "list_scripts_api_v1_ctflow_scripts_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ScriptInfo"
+         },
+         "title": "Response List Scripts Api V1 Ctflow Scripts Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Scripts",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/scripts/{name}": {
+   "delete": {
+    "operationId": "delete_script_api_v1_ctflow_scripts__name__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Script",
+    "tags": [
+     "ctflow"
+    ]
+   },
+   "get": {
+    "operationId": "read_script_api_v1_ctflow_scripts__name__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptText"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read Script",
+    "tags": [
+     "ctflow"
+    ]
+   },
+   "put": {
+    "operationId": "save_script_api_v1_ctflow_scripts__name__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScriptBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptInfo"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Save Script",
     "tags": [
      "ctflow"
     ]

@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.api.v1.deps import Ctx, Reviewer
+from app.ctflow.library import SCRIPT_MAX, ScriptInfo, ScriptText
 from app.ctflow.models import CommandInfo, EvalRequest, EvalResult
 from app.ctflow.runs import ScriptRun, ScriptRunDetail, ScriptRunStart
 from app.ctflow.service import Console
 
 router = APIRouter(tags=["ctflow"])
+
+
+class ScriptBody(BaseModel):
+    text: str = Field(min_length=1, max_length=SCRIPT_MAX)
 
 
 def console(ctx: Ctx) -> Console:
@@ -57,3 +63,23 @@ async def pause_script_run(ctx: Ctx, rid: str) -> ScriptRun:
 @router.post("/ctflow/script-runs/{rid}/resume", response_model=ScriptRun, status_code=202)
 async def resume_script_run(ctx: Ctx, rid: str) -> ScriptRun:
     return await ctx.ctflow_runs.resume(rid)
+
+
+@router.get("/ctflow/scripts", response_model=list[ScriptInfo])
+def list_scripts(ctx: Ctx, project: str | None = None) -> list[ScriptInfo]:
+    return console(ctx).library.list(project)
+
+
+@router.get("/ctflow/scripts/{name}", response_model=ScriptText)
+def read_script(ctx: Ctx, name: str, project: str | None = None) -> ScriptText:
+    return console(ctx).library.read(name, project)
+
+
+@router.put("/ctflow/scripts/{name}", response_model=ScriptInfo)
+def save_script(ctx: Ctx, name: str, body: ScriptBody, project: str | None = None) -> ScriptInfo:
+    return console(ctx).library.save(name, body.text, project)
+
+
+@router.delete("/ctflow/scripts/{name}", status_code=204)
+def delete_script(ctx: Ctx, name: str, project: str | None = None) -> None:
+    console(ctx).library.delete(name, project)

@@ -27,7 +27,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
-| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C4 done 2026-11-03 (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs); C6 next |
+| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C4 done 2026-11-03 (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library); C7 (web console) waits for the frontend owner |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -95,7 +95,7 @@ Each step is a vertical slice with its own tests; stop for owner confirmation af
 - [x] C3 (2026-11-03) `ctflow` client: interactive, `-c`, runs/status/logs/attach/cancel, reviewer, exit codes (CTF-18)
 - [x] C4 (2026-11-03) Language and interactive sessions with limits; safety test suite (CTF-07/08)
 - [x] C5 (2026-11-03) Durable script runs: journal, replay after restart without duplicate children, bounded wait and `attention`, control cascade (CTF-10..14)
-- [ ] C6 Script library and presets (CTF-17)
+- [x] C6 (2026-11-03) Script library and presets (CTF-17)
 - [ ] C7 Web console panel (CTF-19)
 **Exit:** a script started from `ctflow` survives the client and a server restart, its children appear in the web UI with reviewer and origin, and no CTFlow path writes runs or outputs outside the existing services.
 

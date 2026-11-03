@@ -6,15 +6,16 @@ commands come from the loaded task manifests (CTF-03); targets go through the sh
 
 from __future__ import annotations
 
-import re
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.errors import NotFound, Problem, ValidationProblem
 from app.core.ids import new_ulid
 from app.core.reviewer import Origin
-from app.ctflow.lang import LIMITS, Interp, ScriptError, format_list
+from app.ctflow.lang import LIMITS, Interp, Proc, ScriptError, format_list
+from app.ctflow.library import Library
 from app.ctflow.models import (
     CommandInfo,
     CommandResult,
@@ -49,9 +50,6 @@ ITEMS_SHOWN = 50
 STEPS_SHOWN = 500
 # Plan mode: what a command that would act returns; a later command that uses it cannot be planned.
 PLANNED = "planned:"
-LIBRARY = ("plugins", "ctflow", "scripts")
-_SCRIPT_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}\.ctf$")
-SCRIPT_MAX = 1_000_000
 TARGET_OPTIONS = [
     OptionInfo(
         name="seg", type="string", help="Segmentation set to read; `default` = the project's"
@@ -72,6 +70,8 @@ CORE = {
     "pause": ("pause <script run>", "Pause a script run (and its supervised child)"),
     "resume": ("resume <script run>", "Resume a script run: it replays its journal"),
     "wait": ("wait <run or operation>", "In a script run: wait until the run ends"),
+    "scripts": ("scripts", "List the library scripts (project, workspace, shipped)"),
+    "save": ("save <proc> [-project]", "Save a session procedure as <proc>.ctf in the library"),
     "convert": ("convert <operation>", "Convert a DICOM source whose analysis is ready"),
 }
 _SCALARS = {"string", "integer", "number", "boolean"}
@@ -85,6 +85,7 @@ class Call:
     plan: bool
     origin: Origin
     reviewer: str | None
+    procs: dict[str, Proc] = field(default_factory=dict)  # the session's, for `save`
     starts: int = 0
     steps: list[CommandResult] = field(default_factory=list)
     text: list[str] = field(default_factory=list)
@@ -167,6 +168,7 @@ class Console:
     def __init__(self, operations: SourceOperations, runs: ScriptRuns) -> None:
         self.operations, self.runs = operations, runs
         self.tasks = operations.tasks
+        self.library = Library(self.tasks.settings, self.tasks.workspace)
         runs.console = self
 
     # --- catalog -------------------------------------------------------------------------------
@@ -213,6 +215,7 @@ class Console:
             plan=req.plan,
             origin=Origin(client=req.client),
             reviewer=reviewer,
+            procs=session.procs,
         )
         by_name = self._by_name()
 
@@ -240,7 +243,7 @@ class Console:
                 session.procs,
                 run_command,
                 self.is_command,
-                self.source,
+                self.source(call),
                 call.text,
             )
             try:
@@ -273,17 +276,16 @@ class Console:
             raise NotFound(f"Unknown command {line.name!r}; `help` lists them")
         return await self._task(info.manifest, line, call)
 
-    def source(self, name: str) -> str:
-        """`source`: a script of the workspace's CTFlow library, never an arbitrary file."""
-        if not _SCRIPT_NAME.match(name):
-            raise ScriptError("source takes a library script name such as nightly.ctf")
-        path = self.tasks.settings.workspace_root.joinpath(*LIBRARY, name)
-        try:
-            if path.stat().st_size > SCRIPT_MAX:
-                raise ScriptError(f"{name} is larger than {SCRIPT_MAX} bytes")
-            return path.read_text(encoding="utf-8")
-        except OSError:
-            raise ScriptError(f"no script {name!r} in the CTFlow library") from None
+    def source(self, call: Call) -> Callable[[str], str]:
+        """`source`: a library script (project, workspace, shipped), never an arbitrary file."""
+
+        def read(name: str) -> str:
+            try:
+                return self.library.read(name, call.project).text
+            except Problem as exc:
+                raise ScriptError(str(exc)) from None
+
+        return read
 
     async def _task(self, m: TaskManifest, line: Line, call: Call) -> CommandResult:
         if len(line.args) > 1:
@@ -394,6 +396,14 @@ class Console:
             result.value = call.project or ""
             result.text = [f"project: {call.project or 'none'}"]
             return result
+        if line.name == "scripts":
+            scripts = self.library.list(call.project)
+            result.data = [s.model_dump(mode="json") for s in scripts]
+            result.value = format_list([s.name for s in scripts])
+            result.text = [f"{s.name}  {s.scope}  {s.summary}" for s in scripts]
+            return result
+        if line.name == "save":
+            return self._save(result, line, call)
         if call.plan and line.name in {"convert", "cancel"}:
             result.value = f"{PLANNED}{line.name}"
             result.text = [f"plan {line.name}: would {line.name} {arg or '?'}"]
@@ -465,6 +475,25 @@ class Console:
         ]
         result.text = [f"{r.run_id}  {r.task.id}  {r.status}" for r in runs]
         result.value = format_list([r.run_id for r in runs])
+        return result
+
+    def _save(self, result: CommandResult, line: Line, call: Call) -> CommandResult:
+        name = line.args[0] if line.args else ""
+        proc = call.procs.get(name)
+        if proc is None:
+            raise ValidationProblem(f"No procedure {name!r} in this session; define it with proc")
+        project = call.project if "project" in line.options else None
+        if "project" in line.options and project is None:
+            raise ValidationProblem("save -project needs a project", actions=["choose_project"])
+        text = (
+            f"# {name}: saved from the console\n"
+            f"proc {name} {{{format_list(proc.params)}}} {{{proc.body}}}\n"
+        )
+        if call.plan:
+            result.value, result.text = f"{PLANNED}save", [f"plan save: would save {name}.ctf"]
+            return result
+        saved = self.library.save(f"{name}.ctf", text, project)
+        result.value, result.text = saved.name, [f"saved {saved.name} ({saved.scope})"]
         return result
 
     async def find_work(self, ref: str, pid: str | None) -> tuple[WorkRef, Any]:

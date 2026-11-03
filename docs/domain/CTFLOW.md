@@ -5,7 +5,7 @@ Read when: working on the console interpreter, the `ctflow` client, script runs,
 Depends: ADR-0041, TASKS.md, SOURCES.md, PROJECT_FORMAT.md (PRJ-19), SEGMENTATION.md, API.md (API-71), NFR.md (NFR-17).
 
 CTFlow is a domain language, not a shell. Every command calls a service the GUI already uses; processing stays task runs (TSK-*) and source operations (TSK-16).
-Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) C4 (language, sessions) and C5 (durable script runs, API-73) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
+Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) C4 (language, sessions), C5 (durable script runs, API-73) and C6 (library, API-74) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
 
 ## Requirements
 
@@ -90,6 +90,8 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 - Every journaled call is replayed by its words; different words stop the run (`the script took another path`). A call left `pending` by a stop is answered by the child whose origin carries this run and step (`origin.step`), else made again; `dicom2nii` in a script uses the call as its idempotency key.
 - A busy task (TSK-12) or a busy converter waits up to 3600 s for jobs to finish, then the run is `attention` with the reason in `waiting`; `resume` tries again. `wait <id>` (script runs only) follows a run or operation to its end and returns its status.
 - `ctflow file.ctf` starts a script run and follows it (`--detach` returns at once, `--plan` plans it as one request); `pause`, `resume` and `cancel` are console commands too.
+
+- Library (C6): project, then workspace, then the shipped examples (`backend/app/ctflow/scripts/`: `segment-phase.ctf`, `segment-then-radiomics.ctf`); a project script hides one of the same name. Header: the first plain `#` line is the summary, `# param <name> [default] <help>` declares a parameter (`-` or none: required). Script runs set the parameters as variables; `source` does not. Console: `scripts`, `save <proc> [-project]`; `ctflow name.ctf --param k=v` runs a library script when no local file has that name.
 
 ## Deferred to implementation
 

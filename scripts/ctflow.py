@@ -10,6 +10,7 @@ server owns every run, so closing the terminal never stops one.
   ctflow -c "segment case_00012" --detach  start and return at once
   ctflow nightly.ctf [--detach]            run a local script as a durable script run on the server
   ctflow --plan nightly.ctf                plan it without starting anything
+  ctflow segment-phase.ctf --param phase=ART   no such local file: the library script of that name
   ctflow attach ID · ctflow logs ID [-f] · ctflow status ID · ctflow cancel ID · ctflow runs
 
 Server: --url, else CTFLOW_URL, else http://127.0.0.1:$PORT with PORT from the same `.env` as
@@ -263,9 +264,19 @@ def run_line(client: Client, line: str, *, detach: bool, plan: bool, as_json: bo
     return OK
 
 
-def run_script(client: Client, script: str, name: str, *, detach: bool) -> int:
+def run_script(
+    client: Client,
+    script: str | None,
+    library: str | None,
+    params: dict[str, str],
+    *,
+    detach: bool,
+) -> int:
     """A durable script run (CTF-10): it goes on when this terminal closes."""
-    body = {"script": script, "name": name, "project_id": client.project, "client": client.kind}
+    body = {
+        "script": script, "library": library, "params": params,
+        "project_id": client.project, "client": client.kind,
+    }  # fmt: skip
     run = client.call("POST", "/ctflow/script-runs", body)
     work = {"kind": "script-run", "id": run["run_id"], "project_id": run.get("project_id")}
     print(f"script run {run['run_id']} {run['status']}")
@@ -356,6 +367,7 @@ def console(client: Client, config: dict[str, Any]) -> int:
 def main(argv: list[str]) -> int:
     url = reviewer = project = command = None
     detach = plan = as_json = False
+    params: dict[str, str] = {}
     i = 0
     while i < len(argv) and argv[i].startswith("-"):
         flag = argv[i]
@@ -368,7 +380,7 @@ def main(argv: list[str]) -> int:
             as_json |= flag == "--json"
             i += 1
             continue
-        if flag not in {"--url", "--reviewer", "-p", "--project", "-c"} or i + 1 >= len(argv):
+        if flag not in {"--url", "--reviewer", "-p", "--project", "-c", "--param"} or i + 1 >= len(argv):
             print(f"ctflow: unknown or incomplete option {flag}; see ctflow --help", file=sys.stderr)
             return REFUSED
         value = argv[i + 1]
@@ -378,17 +390,28 @@ def main(argv: list[str]) -> int:
             reviewer = value
         elif flag in {"-p", "--project"}:
             project = value
+        elif flag == "--param":
+            key, sep, val = value.partition("=")
+            if not sep:
+                print("ctflow: --param takes name=value", file=sys.stderr)
+                return REFUSED
+            params[key] = val
         else:
             command = value
         i += 2
     rest = argv[i:]
-    script_file = None
+    while len(rest) >= 3 and rest[-2] == "--param":  # options after the script name
+        key, _, val = rest[-1].partition("=")
+        params[key], rest = val, rest[:-2]
+    script_file = library = None
     if command is None and len(rest) == 1 and rest[0].endswith(".ctf"):
-        try:
-            command = script_file = Path(rest[0]).read_text(encoding="utf-8")
-        except OSError as exc:
-            print(f"ctflow: cannot read {rest[0]}: {exc.strerror}", file=sys.stderr)
-            return REFUSED
+        local = Path(rest[0])
+        if local.is_file():
+            command = script_file = local.read_text(encoding="utf-8")
+        else:
+            library = rest[0]
+            sets = "".join(f"set {k} {{{v}}}\n" for k, v in params.items())
+            command = f"{sets}source {library}"  # what --plan evaluates
     if command is None and rest:
         # the server groups words with "…" (not shell quotes)
         command = " ".join(f'"{w}"' if any(c.isspace() for c in w) else w for w in rest)
@@ -398,8 +421,8 @@ def main(argv: list[str]) -> int:
     if command is None:
         return console(client, config)
     try:
-        if script_file is not None and not plan:
-            return run_script(client, script_file, Path(rest[0]).stem, detach=detach)
+        if (script_file is not None or library is not None) and not plan:
+            return run_script(client, script_file, library, params, detach=detach)
         return run_line(client, command, detach=detach, plan=plan, as_json=as_json)
     except Refused as exc:
         show_problem(exc)
