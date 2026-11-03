@@ -98,11 +98,12 @@ test('the skip link reaches the editor, F6 walks the regions and focus is always
   }
   expect([...visited]).toEqual(expect.arrayContaining(['header', 'aside', 'main']))
   expect([...visited].filter((tag) => !['header', 'aside', 'main', 'section'].includes(tag))).toEqual([])
-  // UI-08: the tree is one Tab stop, so the editor tabs are at most 3 Tab presses away from it
+  // UI-08: the tree is one Tab stop, so the editor area (its tabs, or the welcome page when no tab is
+  // open) is at most 3 Tab presses away from it: the Image section, the side bar's sash, the editor
   await page.getByRole('tree', { name: 'Explorer' }).focus()
-  const onTab = () => page.evaluate<boolean>('!!document.activeElement?.closest(".dv-tabs-and-actions-container")')
-  for (let i = 0; i < 3 && !(await onTab()); i++) await page.keyboard.press('Tab')
-  expect(await onTab()).toBe(true)
+  const inEditor = () => page.evaluate<boolean>('!!document.activeElement?.closest("#workbench-editor")')
+  for (let i = 0; i < 3 && !(await inEditor()); i++) await page.keyboard.press('Tab')
+  expect(await inEditor()).toBe(true)
   // every Tab stop on the home shows a focus ring
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Radiology Workbench' })).toBeVisible()
