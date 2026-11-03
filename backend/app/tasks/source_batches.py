@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import Settings
+from app.core import reviewer as reviewer_stamp
 from app.core.errors import (
     DerivedRootRequired,
     JobConflict,
@@ -26,6 +27,7 @@ from app.core.fsio import atomic_write_json, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard
+from app.core.reviewer import Origin
 from app.jobs.manager import JobManager
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.source_inventory import checked_folders
@@ -99,6 +101,8 @@ class PlanRecord(BaseModel):
     batch_size: int
     name: str
     auto: bool
+    reviewer: str | None = None
+    origin: Origin | None = None
     status: PlanStatus = "pending"
     cursor: int = 0
     counting: Counting = "counting"
@@ -137,6 +141,8 @@ class SourceBatchPlan(BaseModel):
     name: str
     batch_size: int
     auto: bool
+    reviewer: str | None = None
+    origin: Origin | None = None
     status: PlanStatus
     cursor: int
     counting: Counting
@@ -289,7 +295,10 @@ class SourceBatches:
 
     # --- plan creation ---------------------------------------------------------------------
 
-    async def create(self, request: BatchPlanCreate) -> PlanRecord:
+    async def create(
+        self, request: BatchPlanCreate, reviewer: str | None = None, origin: Origin | None = None
+    ) -> PlanRecord:
+        who = reviewer_stamp.optional(reviewer)
         if not Path(request.path).is_absolute():
             raise ValidationProblem("Choose an absolute source path")
         source = self.guard.check(Path(request.path))
@@ -316,6 +325,8 @@ class SourceBatches:
             batch_size=request.batch_size,
             name=stem,
             auto=request.auto,
+            reviewer=who,
+            origin=origin or Origin(),
             salt=secrets.token_hex(16),
             created_at=utc_now(),
             updated_at=utc_now(),
@@ -555,7 +566,9 @@ class SourceBatches:
                         settings=plan.settings,
                         name=batch.name,
                         folders=batch.folders,
-                    )
+                    ),
+                    plan.reviewer,
+                    plan.origin,
                 )
             except Problem as exc:
                 self._pause(plan, batch, exc.detail)
@@ -598,6 +611,7 @@ class SourceBatches:
                     plan_attempt=int(record.plan_attempt or 1),
                     name=batch.name,
                 ),
+                plan.reviewer,
             )
         except ServerBusy as exc:
             # Another conversion holds the single workspace slot; the next finished job

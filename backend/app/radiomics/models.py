@@ -12,6 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.core.ids import Scope, Side
+from app.core.reviewer import Origin
 
 IbsiStatus = Literal["compliant", "deviates", "not_defined"]
 OptionType = Literal["bool", "int", "float", "str", "enum", "float_list", "int_list"]
@@ -234,6 +235,7 @@ class RunRecord(BaseModel):
     started_at: str | None = None
     finished_at: str | None = None
     reviewer: str
+    origin: Origin | None = None
     engine: RunEngine
     ibsi_map_version: str
     profile_hash: str
@@ -263,6 +265,7 @@ class RunSummary(BaseModel):
     started_at: str | None = None
     finished_at: str | None = None
     reviewer: str
+    origin: Origin | None = None
     profile_hash: str
     selection: RunSelection
     counts: RunCounts

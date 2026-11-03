@@ -191,3 +191,95 @@ def test_workspace_run_output_is_redacted(
     ]
     assert {x["stream"] for x in page["lines"][2:]} == {"stderr"}
     assert page["done"] is True
+
+
+def project_run(client: TestClient, rid: str, *, radiomics: bool = False) -> tuple[str, Path]:
+    """A completed project run record written as the driver leaves it; returns (pid, run dir)."""
+    pid = str(client.post("/api/v1/projects", json={"name": "logs"}).json()["project_id"])
+    project = client.app.state.ctx.workspace.project_dir(pid)  # type: ignore[attr-defined]
+    now = utc_now()
+    if radiomics:
+        run_dir = project / "radiomics/runs" / rid
+        record: dict[str, Any] = {
+            "run_id": rid, "name": "rad", "status": "completed_with_errors", "created_at": now,
+            "reviewer": "T", "engine": {"name": "e", "version": "1", "deps": {}},
+            "ibsi_map_version": "1", "profile_hash": "x", "settings": {},
+            "selection": {"labels": [1], "item_ids": []}, "inputs": [], "counts": {},
+        }  # fmt: skip
+    else:
+        run_dir = project / "tasks/runs" / rid
+        record = {
+            "run_id": rid, "name": "thr",
+            "task": {"id": "segment.threshold", "version": "1", "manifest_hash": "x"},
+            "status": "completed_with_errors", "created_at": now,
+            "runtime": "builtin", "settings": {}, "settings_hash": "x", "selection": {},
+        }  # fmt: skip
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(json.dumps(record))
+    return pid, run_dir
+
+
+def test_project_run_reads_relayed_logs_and_failures_incrementally(client: TestClient) -> None:
+    """API-71 project-run (CTF-16): `log.jsonl` rows and failed `items.jsonl` rows, by cursor."""
+    rid = new_ulid()
+    pid, run_dir = project_run(client, rid)
+    append(run_dir / "log.jsonl", [{"at": "t1", "level": "warning", "message": "slow item"}])
+    append(
+        run_dir / "items.jsonl",
+        [
+            {"item_id": "case_00001.01.complete.-", "status": "ok", "message": ""},
+            {"item_id": "case_00002.01.complete.-", "status": "failed", "message": "CUDA OOM"},
+            {"item_id": "case_00003.01.complete.-", "status": "skipped", "message": "no image"},
+        ],
+    )
+    first = read(client, "project-run", rid, project=pid)
+    assert [(line["level"], line["text"]) for line in first["lines"]] == [
+        ("warn", "slow item"),
+        ("error", "case_00002.01.complete.- failed: CUDA OOM"),
+    ]
+    assert first["lines"][0]["ts"] == "t1" and first["done"] is True
+    append(run_dir / "log.jsonl", [{"at": "t2", "level": "info", "message": "retry"}])
+    second = read(client, "project-run", rid, first["next_cursor"], project=pid)
+    assert [line["text"] for line in second["lines"]] == ["retry"]
+    assert read(client, "project-run", rid, second["next_cursor"], project=pid)["lines"] == []
+
+
+def test_project_run_of_radiomics_lists_its_failed_units(client: TestClient) -> None:
+    rid = new_ulid()
+    pid, run_dir = project_run(client, rid, radiomics=True)
+    append(
+        run_dir / "errors.jsonl",
+        [
+            {"item_id": "case_00001.01.complete.-", "label": 2, "kind": "failed",
+             "error": "Mask is empty", "at": "t1"},
+            {"item_id": "case_00002.01.complete.-", "label": 2, "kind": "skipped",
+             "error": "No mask"},
+        ],
+    )  # fmt: skip
+    page = read(client, "project-run", rid, project=pid)
+    assert [line["text"] for line in page["lines"]] == [
+        "case_00001.01.complete.- label 2 failed: Mask is empty"
+    ]
+
+
+def test_project_run_output_is_redacted_and_needs_its_project(
+    client: TestClient, settings: Settings
+) -> None:
+    rid = new_ulid()
+    pid, run_dir = project_run(client, rid)
+    derived = settings.derived_roots[0]
+    append(
+        run_dir / "log.jsonl",
+        [
+            {"level": "error", "message": f"cannot read {SOURCE}/ANONYM-ABC/a.nii.gz"},
+            {"level": "info", "message": f"wrote {derived}/m.nii.gz"},
+        ],
+    )
+    texts = [line["text"] for line in read(client, "project-run", rid, project=pid)["lines"]]
+    assert texts == ["cannot read DATA:", "wrote DERIVED:m.nii.gz"]
+    missing = client.get(f"/api/v1/logs/project-run/{rid}")
+    assert missing.status_code == 422
+    assert (
+        client.get(f"/api/v1/logs/project-run/{new_ulid()}", params={"project": pid}).status_code
+        == 404
+    )

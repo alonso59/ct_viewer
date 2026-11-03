@@ -23,11 +23,13 @@ from typing import Any, Final
 from pydantic import BaseModel, Field
 
 from app.config import Settings
+from app.core import reviewer as reviewer_stamp
 from app.core.errors import DerivedRootRequired, JobConflict, NotFound, ValidationProblem
 from app.core.fsio import atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard
+from app.core.reviewer import Origin
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks import dry_run, protocol
@@ -85,6 +87,8 @@ class WorkspaceRun(BaseModel):
     created_at: str
     started_at: str | None = None
     finished_at: str | None = None
+    reviewer: str | None = None
+    origin: Origin | None = None
     source: str
     dataset_dir: str
     settings: dict[str, Any]
@@ -266,8 +270,11 @@ class WorkspaceTasks:
         *,
         run_id: str | None = None,
         source_inventory: dict[str, Any] | None = None,
+        reviewer: str | None = None,
+        origin: Origin | None = None,
     ) -> TaskRunStarted:
         m = self._manifest(req.task_id)
+        who = reviewer_stamp.optional(reviewer)
         settings, shash = self._settings(m, req.settings)
         if run_id is not None:
             if not is_ulid(run_id) or m.id != "dicom.convert":
@@ -313,6 +320,8 @@ class WorkspaceTasks:
             name=out.name,
             status="queued",
             created_at=utc_now(),
+            reviewer=who,
+            origin=origin or Origin(),
             source=str(source),
             dataset_dir=str(out),
             settings=settings,

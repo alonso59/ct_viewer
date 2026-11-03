@@ -37,6 +37,7 @@ from app.core.errors import (
 from app.core.fsio import append_jsonl, atomic_write_json, read_json, read_jsonl, write_jsonl_atomic
 from app.core.ids import new_ulid, utc_now
 from app.core.locks import ProjectLocks
+from app.core.reviewer import Origin
 from app.events.bus import EventBus
 from app.imaging import maskset, npy_convert
 from app.imaging.fingerprint import quick_fingerprint
@@ -657,7 +658,9 @@ class RadiomicsService:
     def _runs_dir(self, pid: str) -> Path:
         return self.workspace.project_dir(pid) / RADIOMICS / RUNS
 
-    async def start(self, pid: str, req: RunRequest, reviewer: str | None) -> RunDetail:
+    async def start(
+        self, pid: str, req: RunRequest, reviewer: str | None, origin: Origin | None = None
+    ) -> RunDetail:
         """Validate, select, snapshot, then one `radiomics` job."""
         who = reviewer_stamp.require(reviewer)
         eng = self.engine()
@@ -683,6 +686,7 @@ class RadiomicsService:
             status="queued",
             created_at=now,
             reviewer=who,
+            origin=origin or Origin(),
             engine=RunEngine(name=eng.name, version=eng.version, deps=eng.dependency_versions()),
             ibsi_map_version=ibsi.map_version(),
             profile_hash=phash,

@@ -20,6 +20,7 @@ from app.core import reviewer as reviewer_stamp
 from app.core.errors import JobConflict, Problem, ValidationProblem
 from app.core.fsio import append_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
+from app.core.reviewer import Origin
 from app.jobs.types import TERMINAL, JobHandle, JobSpec
 from app.projects.models import SEG_ID_RE
 from app.tasks import control, dry_run, protocol, registry
@@ -240,12 +241,13 @@ class TaskService(DriverBase):
         pid: str,
         req: TaskRunRequest,
         reviewer: str | None,
+        origin: Origin | None = None,
         *,
         run_id: str | None = None,
         source_inventory: dict[str, Any] | None = None,
     ) -> TaskRunStarted:
         if req.task_id == RADIOMICS_TASK:
-            return await self._radiomics().start_task(pid, req, reviewer)
+            return await self._radiomics().start_task(pid, req, reviewer, origin)
         info = self.get(req.task_id)
         if run_id is not None:
             if req.task_id != DICOM_CONVERT or not is_ulid(run_id):
@@ -327,6 +329,7 @@ class TaskService(DriverBase):
             status="queued",
             created_at=now,
             reviewer=who,
+            origin=origin or Origin(),
             runtime=m.runtime.type,
             settings=settings,
             settings_hash=shash,
@@ -372,6 +375,11 @@ class TaskService(DriverBase):
             self.runs.write(run_dir, rec)
             bind_inventory(run_dir, self.settings.workspace_root, source_inventory)
         return await self._submit(pid, run_dir, m, ready, seg_id, skip=[])
+
+    def run_dir(self, pid: str, rid: str) -> Path:
+        """The run's folder: `radiomics/runs/` for a radiomics run, else `tasks/runs/`."""
+        rad = self._radiomics()
+        return rad.runs.run_dir(pid, rid) if rad.has_run(pid, rid) else self.runs.run_dir(pid, rid)
 
     async def get_run(
         self, pid: str, rid: str, *, retry_registration: bool = False

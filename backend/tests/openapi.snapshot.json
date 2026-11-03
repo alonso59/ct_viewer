@@ -6618,6 +6618,46 @@
     "title": "OptionSpec",
     "type": "object"
    },
+   "Origin": {
+    "description": "Which client asked for a run or operation. Records written before origins existed have\nnone (unknown); requests through the HTTP API are `gui`.",
+    "properties": {
+     "client": {
+      "default": "gui",
+      "enum": [
+       "gui",
+       "console",
+       "terminal",
+       "script"
+      ],
+      "title": "Client",
+      "type": "string"
+     },
+     "script_run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Script Run Id"
+     },
+     "session": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session"
+     }
+    },
+    "title": "Origin",
+    "type": "object"
+   },
    "OutlierFeature": {
     "properties": {
      "feature": {
@@ -9456,6 +9496,16 @@
       "title": "Name",
       "type": "string"
      },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "profile_hash": {
       "title": "Profile Hash",
       "type": "string"
@@ -9840,6 +9890,16 @@
      "name": {
       "title": "Name",
       "type": "string"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "profile_hash": {
       "title": "Profile Hash",
@@ -10805,9 +10865,30 @@
       "title": "Name",
       "type": "string"
      },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "plan_id": {
       "title": "Plan Id",
       "type": "string"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
      },
      "revision": {
       "title": "Revision",
@@ -11196,6 +11277,16 @@
       "title": "Operation Id",
       "type": "string"
      },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "pending_control": {
       "anyOf": [
        {
@@ -11294,6 +11385,17 @@
      "request_hash": {
       "title": "Request Hash",
       "type": "string"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
      },
      "revision": {
       "default": 0,
@@ -12587,6 +12689,16 @@
       "title": "Name",
       "type": "string"
      },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "output_dir": {
       "anyOf": [
        {
@@ -12899,6 +13011,16 @@
      "name": {
       "title": "Name",
       "type": "string"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "radiomics": {
       "anyOf": [
@@ -14326,6 +14448,16 @@
       "title": "Name",
       "type": "string"
      },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "phase_run_id": {
       "anyOf": [
        {
@@ -14380,6 +14512,17 @@
        }
       ],
       "title": "Resume Request Id"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
      },
      "run_id": {
       "title": "Run Id",
@@ -14956,7 +15099,8 @@
       "schema": {
        "enum": [
         "source-operation",
-        "workspace-run"
+        "workspace-run",
+        "project-run"
        ],
        "title": "Kind",
        "type": "string"
@@ -14997,6 +15141,24 @@
        "minimum": 1,
        "title": "Limit",
        "type": "integer"
+      }
+     },
+     {
+      "description": "The project of a project-run",
+      "in": "query",
+      "name": "project",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "The project of a project-run",
+       "title": "Project"
       }
      }
     ],
@@ -22396,6 +22558,24 @@
    },
    "post": {
     "operationId": "create_api_v1_source_batches_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {
@@ -22758,6 +22938,24 @@
    },
    "post": {
     "operationId": "start_api_v1_source_operations_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {
@@ -22901,6 +23099,22 @@
       "schema": {
        "title": "Oid",
        "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
       }
      }
     ],
@@ -23644,6 +23858,24 @@
    },
    "post": {
     "operationId": "start_workspace_run_api_v1_task_runs_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {

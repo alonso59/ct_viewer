@@ -186,6 +186,8 @@ class PhaseRuns:
             selection=TaskSelection(source=source),
             manifest_snapshot=manifest,
             attempts=parent.attempts,
+            reviewer=parent.reviewer,
+            origin=parent.origin,
             provenance={"source_conversion_run_id": parent.run_id},
             execution={
                 "phase_step": True,
@@ -557,6 +559,8 @@ class PhaseRuns:
             created_at=run.created_at,
             started_at=run.started_at,
             finished_at=run.finished_at,
+            reviewer=run.reviewer,
+            origin=run.origin,
             source=run.selection.source or "",
             dataset_dir=run.output_dir or "",
             settings=run.settings,

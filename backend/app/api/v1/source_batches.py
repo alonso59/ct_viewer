@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.deps import Ctx
+from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.paging import Page, Paging, paginate
 from app.tasks.source_batches import (
     BatchPlanCreate,
@@ -17,8 +17,8 @@ router = APIRouter(tags=["source-batches"])
 
 
 @router.post("/source-batches", response_model=SourceBatchPlan, status_code=201)
-async def create(ctx: Ctx, body: BatchPlanCreate) -> SourceBatchPlan:
-    return view_of(await ctx.source_batches.create(body))
+async def create(ctx: Ctx, body: BatchPlanCreate, x_reviewer: Reviewer = None) -> SourceBatchPlan:
+    return view_of(await ctx.source_batches.create(body, x_reviewer))
 
 
 @router.get("/source-batches", response_model=Page[SourceBatchPlan])

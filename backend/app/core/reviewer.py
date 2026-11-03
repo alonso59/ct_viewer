@@ -1,12 +1,24 @@
-"""The reviewer stamp: free text from `X-Reviewer`, one rule for every writer."""
+"""The reviewer stamp: free text from `X-Reviewer`, one rule for every writer; and the origin of
+a run or operation. Both are advisory attribution, not identity."""
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Literal
+
+from pydantic import BaseModel
 
 from app.core.errors import ReviewerRequired, ValidationProblem
 
 REVIEWER_MAX: Final = 100
+
+
+class Origin(BaseModel):
+    """Which client asked for a run or operation. Records written before origins existed have
+    none (unknown); requests through the HTTP API are `gui`."""
+
+    client: Literal["gui", "console", "terminal", "script"] = "gui"
+    session: str | None = None
+    script_run_id: str | None = None
 
 
 def optional(raw: str | None) -> str | None:

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import Settings
+from app.core import reviewer as reviewer_stamp
 from app.core.errors import (
     JobConflict,
     NotFound,
@@ -34,6 +35,7 @@ from app.core.fsio import atomic_write_json, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import FileLock, LockHeldError, ProjectLocks
 from app.core.paths import PathGuard
+from app.core.reviewer import Origin
 from app.ingest.schemas import ImportPreview
 from app.ingest.service import IngestService
 from app.jobs.manager import JobManager
@@ -148,6 +150,8 @@ class SourceOperation(BaseModel):
     source: str
     project_id: str | None
     purpose: Literal["discover", "open", "convert"]
+    reviewer: str | None = None
+    origin: Origin | None = None
     status: TaskRunStatus = "queued"
     stage: str = "discovering"
     revision: int = 0
@@ -801,7 +805,13 @@ class SourceOperations:
             return True
         return False
 
-    async def start(self, request: SourceOperationStart) -> SourceOperation:
+    async def start(
+        self,
+        request: SourceOperationStart,
+        reviewer: str | None = None,
+        origin: Origin | None = None,
+    ) -> SourceOperation:
+        who = reviewer_stamp.optional(reviewer)
         if request.import_context is not None and (
             request.import_context.step != "detect"
             or request.import_context.preview_id is not None
@@ -880,6 +890,8 @@ class SourceOperations:
                 source=str(source),
                 project_id=request.project_id,
                 purpose=request.purpose,
+                reviewer=who,
+                origin=origin or Origin(),
                 import_context=request.import_context,
                 created_at=utc_now(),
                 updated_at=utc_now(),
@@ -1341,7 +1353,10 @@ class SourceOperations:
         if record.purpose == "open":
             atomic_write_json(self._dir(operation) / "open-closed.json", {"closed_at": utc_now()})
 
-    async def convert(self, operation: str, request: SourceOperationConvert) -> SourceOperation:
+    async def convert(
+        self, operation: str, request: SourceOperationConvert, reviewer: str | None = None
+    ) -> SourceOperation:
+        who = reviewer_stamp.optional(reviewer)
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
             if not self._check_control(record, request, "convert"):
@@ -1365,6 +1380,8 @@ class SourceOperations:
             record.conversion_request = {
                 **request.model_dump(),
                 "name": request.name or record.dataset_name or default_dataset_name(),
+                # whoever asks for the conversion is its reviewer, else whoever started the source
+                "reviewer": who or record.reviewer,
             }
             record.work_kind = "convert"
             record.attempt += 1
@@ -1418,7 +1435,8 @@ class SourceOperations:
                     settings=record.settings,
                     selection=TaskSelection(source=record.source),
                 ),
-                None,
+                record.conversion_request.get("reviewer"),
+                record.origin,
                 run_id=record.conversion_run_id,
                 source_inventory=binding,
             )
@@ -1432,6 +1450,8 @@ class SourceOperations:
                 ),
                 run_id=record.conversion_run_id,
                 source_inventory=binding,
+                reviewer=record.conversion_request.get("reviewer"),
+                origin=record.origin,
             )
         record.status, record.stage = "completed", "converting"
 

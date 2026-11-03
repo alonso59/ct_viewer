@@ -641,3 +641,28 @@ def test_mask_preparation_is_background_work_with_terminal_cleanup(
         assert tree_hashes(data_root) == before
     finally:
         release.set()
+
+
+def test_project_run_records_reviewer_and_origin_and_logs_its_failures(
+    env: TestClient, proj: str, tmp_path: Path
+) -> None:
+    """CTF-15/16: an API-45 run is stamped `gui` with its reviewer; API-71 lists its failures."""
+    with_derived(env, proj, tmp_path)
+    idx = ctx_of(env).index.load(proj)
+    img = ctx_of(env).workspace.resolver(proj).resolve(idx.by_id[ITEMS[1]].image.ref)  # type: ignore[union-attr]
+    os.chmod(img, 0)  # unreadable for the task only
+    try:
+        started = env.post(
+            f"{API}/projects/{proj}/task-runs", json=run_body(), headers={"X-Reviewer": " Dr. A "}
+        ).json()
+        run = finish(env, proj, started)
+    finally:
+        os.chmod(img, 0o644)
+    assert run["reviewer"] == "Dr. A" and run["origin"]["client"] == "gui"
+    listed = env.get(f"{API}/projects/{proj}/task-runs").json()
+    assert next(r for r in listed if r["run_id"] == run["run_id"])["origin"]["client"] == "gui"
+    page = env.get(f"{API}/logs/project-run/{run['run_id']}", params={"project": proj}).json()
+    assert page["done"] is True
+    failures = [line["text"] for line in page["lines"] if " failed: " in line["text"]]
+    assert [f.split(" failed: ")[0] for f in failures] == [ITEMS[1]]
+    assert all(str(tmp_path) not in line["text"] for line in page["lines"])  # redacted (NFR-17)

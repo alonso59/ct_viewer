@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
-from app.api.v1.deps import Ctx
+from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.paging import Page, Paging, paginate
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult
@@ -45,8 +45,10 @@ async def import_commit(ctx: Ctx, oid: str, body: SourceOperationControl) -> Sou
 
 
 @router.post("/source-operations", response_model=SourceOperation, status_code=202)
-async def start(ctx: Ctx, body: SourceOperationStart) -> SourceOperation:
-    return await ctx.source_operations.start(body)
+async def start(
+    ctx: Ctx, body: SourceOperationStart, x_reviewer: Reviewer = None
+) -> SourceOperation:
+    return await ctx.source_operations.start(body, x_reviewer)
 
 
 @router.get("/source-operations", response_model=Page[SourceOperation])
@@ -115,8 +117,10 @@ async def estimate(ctx: Ctx, oid: str, body: SourceOperationEstimate) -> SourceO
 
 
 @router.post("/source-operations/{oid}/convert", response_model=SourceOperation, status_code=202)
-async def convert(ctx: Ctx, oid: str, body: SourceOperationConvert) -> SourceOperation:
-    return await ctx.source_operations.convert(oid, body)
+async def convert(
+    ctx: Ctx, oid: str, body: SourceOperationConvert, x_reviewer: Reviewer = None
+) -> SourceOperation:
+    return await ctx.source_operations.convert(oid, body, x_reviewer)
 
 
 @router.get("/source-operations/{oid}/plan", response_model=SourcePlanPage)

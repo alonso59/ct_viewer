@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.errors import ValidationProblem
+from app.core.reviewer import Origin
 from app.radiomics.models import (
     EstimateRequest,
     RadiomicsSettings,
@@ -86,6 +87,7 @@ def _summary(r: RunSummary | RunDetail) -> TaskRunListItem:
         started_at=r.started_at,
         finished_at=r.finished_at,
         reviewer=r.reviewer,
+        origin=r.origin,
         job_id=r.job_id,
         counts=TaskRunCounts(
             items=r.counts.items, ok=r.counts.ok, failed=r.counts.failed, skipped=r.counts.skipped
@@ -134,7 +136,7 @@ class RadiomicsTask(RadiomicsService):
         )
 
     async def start_task(
-        self, pid: str, req: TaskRunRequest, reviewer: str | None
+        self, pid: str, req: TaskRunRequest, reviewer: str | None, origin: Origin | None = None
     ) -> TaskRunStarted:
         settings, phash = _settings(req.settings)
         body = RunRequest(
@@ -143,7 +145,7 @@ class RadiomicsTask(RadiomicsService):
             profile_hash=phash,
             selection=_selection(req.selection),
         )
-        d = await self.start(pid, body, reviewer)
+        d = await self.start(pid, body, reviewer, origin)
         return TaskRunStarted(run_id=d.run_id, job_id=d.job_id, status=d.status)
 
     def has_run(self, pid: str, rid: str) -> bool:

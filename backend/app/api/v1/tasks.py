@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Query
 
-from app.api.v1.deps import Ctx
+from app.api.v1.deps import Ctx, Reviewer
 from app.context import AppContext
 from app.tasks import dry_run
 from app.tasks.dry_run import EstimateProgress
@@ -36,7 +36,6 @@ from app.tasks.workspace_runs import (
 )
 
 router = APIRouter(tags=["tasks"])
-Reviewer = Annotated[str | None, Header(alias="X-Reviewer")]
 # names a dry run so `GET /task-estimates/{id}` can report its progress while it runs
 ProgressId = Annotated[str | None, Query(max_length=64)]
 
@@ -163,8 +162,10 @@ def cancel_estimate(ctx: Ctx, eid: str) -> None:
 
 
 @router.post("/task-runs", response_model=TaskRunStarted, status_code=202)
-async def start_workspace_run(ctx: Ctx, body: WorkspaceRunRequest) -> TaskRunStarted:
-    return await wsvc(ctx).start(body)
+async def start_workspace_run(
+    ctx: Ctx, body: WorkspaceRunRequest, x_reviewer: Reviewer = None
+) -> TaskRunStarted:
+    return await wsvc(ctx).start(body, reviewer=x_reviewer)
 
 
 @router.get("/task-runs", response_model=list[WorkspaceRun])

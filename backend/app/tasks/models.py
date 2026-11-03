@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # `radiomics.pyradiomics` answers the task endpoints with its own records attached
+from app.core.reviewer import Origin
 from app.radiomics.models import EstimateResult, RunDetail, RunError, RunSummary, ValidateResult
 
 TASK_ID_RE = r"^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$"
@@ -336,6 +337,7 @@ class TaskRunSummary(BaseModel):
     started_at: str | None = None
     finished_at: str | None = None
     reviewer: str | None = None
+    origin: Origin | None = None
     job_id: str | None = None
     counts: TaskRunCounts = Field(default_factory=TaskRunCounts)
     attempts: int = 0
