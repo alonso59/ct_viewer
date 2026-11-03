@@ -18,6 +18,7 @@ import {
   closeOtherEditors,
   focusRegion,
   openEditor,
+  pinEditor,
   registry,
   splitActiveEditor,
   useWorkbench,
@@ -79,6 +80,11 @@ export function bootstrap() {
   cmd({ id: 'workbench.previousRegion', title: 'cmd.previousRegion', category: 'cat.view', keybinding: 'shift+f6', keywords: ['kw.focus'], menuGroup: 2, run: () => focusRegion(-1) })
   // Browsers reserve Ctrl/Cmd+W, so the web app uses Alt+W
   cmd({ id: 'workbench.closeTab', title: 'cmd.closeTab', category: 'cat.file', keybinding: 'alt+w', menuGroup: 9, enabled: hasTab, run: closeActiveEditor })
+  // a preview tab (single click in the Explorer) becomes a kept tab, as a double click on it does
+  cmd({ id: 'workbench.pinTab', title: 'cmd.pinTab', category: 'cat.file', menuGroup: 9, enabled: () => (wb().dock?.activePanel?.params as { preview?: boolean } | undefined)?.preview === true, run: () => {
+    const panel = wb().dock?.activePanel
+    if (panel) pinEditor(panel.id)
+  } })
   cmd({ id: 'workbench.closeOthers', title: 'cmd.closeOthers', category: 'cat.file', menuGroup: 9, enabled: hasTab, run: closeOtherEditors })
   cmd({ id: 'workbench.split', title: 'cmd.split', category: 'cat.view', keybinding: 'mod+\\', menuGroup: 4, enabled: hasTab, run: splitActiveEditor })
   cmd({ id: 'workbench.welcome', title: 'cmd.welcome', category: 'cat.help', menuGroup: 1, run: () => openEditor('welcome', {}) })

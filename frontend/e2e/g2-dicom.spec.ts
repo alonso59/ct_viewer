@@ -19,8 +19,8 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await page.getByRole('button', { name: /Convert DICOM/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM' })
   const folders = dialog.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: /synthetic/ }).click()
-  await folders.getByRole('button', { name: /^dicom$/ }).click()
+  await folders.getByRole('option', { name: /synthetic/ }).click()
+  await folders.getByRole('option', { name: /^dicom$/ }).click()
   await dialog.getByRole('button', { name: 'Next' }).click()
   await dialog.getByLabel('Dataset name').fill(name)
   const estimate = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST', { timeout: 30_000 })
@@ -77,7 +77,8 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
 
   // Problems → the item opens in its case tab (UI-09)
   await page.getByRole('tab', { name: /QC warnings/ }).click()
-  const problem = page.getByRole('tabpanel').getByRole('treeitem').filter({ hasText: 'case_00000' }).first()
+  // a warning row (level 2) opens its item; the case row (level 1) opens and closes the group
+  const problem = page.getByRole('tabpanel').getByRole('treeitem', { level: 2 }).filter({ hasText: 'case_00000' }).first()
   await expect(problem).toBeVisible()
   await problem.click()
   await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/case_00000`))

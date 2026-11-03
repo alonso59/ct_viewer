@@ -1,7 +1,7 @@
 // TST-24/B01-B08: real import/result journeys, native cancellation/API death and restore.
 import { execFile, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
 
 import { expect, test as base, type BrowserContext, type Page } from '@playwright/test'
@@ -36,7 +36,7 @@ async function prepareConversion(page: Page, server: Awaited<ReturnType<typeof s
     await page.getByRole('option', { name: /Convert DICOM/ }).click()
   } else await page.getByRole('button', { name: /Convert DICOM/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-  await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+  await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: new RegExp(`${basename(server.source)}$`) }).click()
   await dialog.getByRole('button', { name: 'Next', exact: true }).click()
   await dialog.getByRole('checkbox', { name: /phase analyzer/ }).setChecked(phase)
   const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
@@ -192,7 +192,7 @@ for (const stage of ['discovering', 'planning']) {
         await page.getByRole('option', { name: /Convert DICOM/ }).click()
       } else await page.getByRole('button', { name: /Convert DICOM/ }).click()
       let dialog = page.getByRole('dialog', { name: 'Convert DICOM', exact: true })
-      await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+      await dialog.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: new RegExp(`${basename(server.source)}$`) }).click()
       await dialog.getByRole('button', { name: 'Next', exact: true }).click()
       await dialog.getByRole('checkbox', { name: /phase analyzer/ }).uncheck()
       const created = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
@@ -267,7 +267,7 @@ for index, path in enumerate(sorted(root.rglob("*.dcm"))):
   await page.getByRole('dialog').getByRole('combobox').fill('Import data')
   await page.getByRole('option', { name: /Import data/ }).click()
   let wizard = page.getByRole('dialog', { name: 'Import data', exact: true })
-  await wizard.getByRole('listbox', { name: 'Folders' }).getByRole('button', { name: server.source, exact: true }).click()
+  await wizard.getByRole('listbox', { name: 'Folders' }).getByRole('option', { name: new RegExp(`${basename(server.source)}$`) }).click()
   await wizard.getByRole('button', { name: 'Next', exact: true }).click()
   wizard = await continueImportInspection(page)
   await wizard.getByRole('radio', { name: /DICOM/ }).check()

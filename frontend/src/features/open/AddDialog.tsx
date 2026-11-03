@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { useProjects, type OpenItem, type OpenSession } from '../../api'
-import { Dialog } from '../../lib'
+import { Dialog, useRowKeys } from '../../lib'
 import { codicon } from '../../theme'
 import { useImportWizard } from '../import'
 import { importSource } from './model'
@@ -19,6 +19,7 @@ export function AddDialog({ session, item, mask, modality, onClose }: { session:
   const navigate = useNavigate()
   const projects = useProjects().data ?? []
   const [pid, setPid] = useState<string | null>(null)
+  const projectKeys = useRowKeys(projects.map((p) => p.project_id))
   const go = () => {
     if (!pid) return
     onClose()
@@ -40,15 +41,17 @@ export function AddDialog({ session, item, mask, modality, onClose }: { session:
       }
     >
       <p className="muted">{t('open.addHelp')}</p>
+      {!projects.length ? <div className="empty">{t('open.noProjects')}</div> : null}
+      {projects.length ? (
       <div className="fs-list" role="listbox" aria-label={t('open.projects')} style={{ height: 220 }}>
         {projects.map((p) => (
-          <button key={p.project_id} type="button" className="list-row" aria-selected={pid === p.project_id} onClick={() => setPid(p.project_id)}>
+          <button key={p.project_id} type="button" role="option" className="list-row" aria-selected={pid === p.project_id} onClick={() => setPid(p.project_id)} {...projectKeys(p.project_id)}>
             <span>{p.name}</span>
             <span className="muted" style={{ marginLeft: 'auto' }}>{t('open.cases', { count: p.n_cases })}</span>
           </button>
         ))}
-        {!projects.length ? <div className="empty">{t('open.noProjects')}</div> : null}
       </div>
+      ) : null}
     </Dialog>
   )
 }

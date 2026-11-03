@@ -80,7 +80,8 @@
     "exportDatasetJsonl": "Export dataset.jsonl",
     "nextRegion": "Focus next region",
     "previousRegion": "Focus previous region",
-    "readProbe": "Read the value under the cursor"
+    "readProbe": "Read the value under the cursor",
+    "pinTab": "Keep tab open"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -404,11 +405,9 @@
     "caseCount_one": "{{count}} case",
     "caseCount_other": "{{count}} cases",
     "clearFilters": "Clear filters",
-    "collapse": "Collapse",
     "collapseAll": "Collapse all",
     "compactRows": "Compact rows",
     "excluded": "excluded",
-    "expand": "Expand",
     "filterPlaceholder": "Filter cases",
     "filters": "Filters",
     "activeFilters": "Active filters",
@@ -1069,5 +1068,10 @@
       "min": "min",
       "s": "s"
     }
+  },
+  "severity": {
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info"
   }
 }

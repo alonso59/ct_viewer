@@ -30,11 +30,15 @@ const STATUS_ICON: Record<CaseRollup, string> = {
   not_reviewed: 'circle-large-outline',
 }
 
-export function StatusIcon({ status }: { status: CaseRollup }) {
+/** `named`: the icon is the only sign of the status there (a list row), so it carries the status as
+ *  text for screen readers; inside a labelled button it stays decorative */
+export function StatusIcon({ status, named = false }: { status: CaseRollup; named?: boolean }) {
+  const { t } = useTranslation()
   const tone = STATUS_TONE[status]
   return (
     <span style={{ color: tone ? `var(--${tone})` : 'var(--fg-muted)', display: 'inline-flex' }}>
       <Icon spec={{ codicon: STATUS_ICON[status] }} />
+      {named ? <span className="visually-hidden">{t(`status.${status}`)}</span> : null}
     </span>
   )
 }
@@ -86,11 +90,14 @@ export function PhaseChip({ phase, active, onClick }: { phase: Phase; active?: b
   )
 }
 
+/** The severity as an icon, and as text for screen readers */
 export function SeverityIcon({ severity }: { severity: 'error' | 'warning' | 'info' }) {
+  const { t } = useTranslation()
   const tone = severity === 'error' ? 'var(--error)' : severity === 'warning' ? 'var(--warn)' : 'var(--fg-muted)'
   return (
     <span style={{ color: tone, display: 'inline-flex' }}>
       <Icon spec={{ codicon: severity }} />
+      <span className="visually-hidden">{t(`severity.${severity}`)}</span>
     </span>
   )
 }

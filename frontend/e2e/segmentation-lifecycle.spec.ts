@@ -5,8 +5,8 @@ import { api, importedProject } from './helpers'
 
 async function chooseMasks(dialog: Locator) {
   const folders = dialog.getByRole('listbox', { name: 'Folders' })
-  await folders.getByRole('button', { name: /synthetic/ }).click()
-  await folders.getByRole('button', { name: /^Dataset900(?:\s|$)/ }).click()
+  await folders.getByRole('option', { name: /synthetic/ }).click()
+  await folders.getByRole('option', { name: /^Dataset900(?:\s|$)/ }).click()
   await dialog.getByLabel('Path template below the selected folder').fill('seg/{scan_idx}_{case_id}.nii.gz')
 }
 

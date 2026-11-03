@@ -47,6 +47,8 @@ function VarColumns({ c, columns }: { c: CaseSummary; columns: Variable[] }) {
 }
 
 type Row = { kind: 'case'; c: CaseSummary } | { kind: 'item'; item: ItemRecord; caseId: string } | { kind: 'loading'; caseId: string }
+/** The row's element id, for the tree's aria-activedescendant (ids stay valid IDREFs) */
+const rowDomId = (r: Row) => (r.kind === 'item' ? `pv-item-${r.item.item_id}` : `pv-case-${r.kind === 'case' ? r.c.case_id : r.caseId}`).replace(/[^\w.-]/g, '_')
 
 function ExpandedItems({ caseId, onItems }: { caseId: string; onItems: (cid: string, items: ItemRecord[]) => void }) {
   const pid = useWorkbench((s) => s.pid) ?? ''
@@ -205,10 +207,12 @@ export function ProjectView() {
           </button>
         </div>
       ) : null}
+      {/* one Tab stop: the cursor row is the active descendant, not a focused child */}
       <div
         ref={scrollRef}
         role="tree"
         aria-label={t('view.project')}
+        aria-activedescendant={rows[cursor] ? rowDomId(rows[cursor]) : undefined}
         tabIndex={0}
         onKeyDown={onKey}
         className="pv-tree"
@@ -238,6 +242,7 @@ export function ProjectView() {
               return (
                 <div
                   key={it.item_id}
+                  id={rowDomId(r)}
                   role="treeitem"
                   aria-level={2}
                   aria-selected={activeItemId === it.item_id}
@@ -267,6 +272,7 @@ export function ProjectView() {
             return (
               <div
                 key={c.case_id}
+                id={rowDomId(r)}
                 role="treeitem"
                 aria-level={1}
                 aria-expanded={open}
@@ -281,10 +287,12 @@ export function ProjectView() {
                 onClick={() => { setCursor(v.index); activate(r) }}
                 onDoubleClick={() => activate(r, false)}
               >
+                {/* for the mouse; the keyboard uses ←/→ and the row's aria-expanded */}
                 <button
                   type="button"
                   className="icon-btn pv-twisty"
-                  aria-label={t(open ? 'explorer.collapse' : 'explorer.expand')}
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onClick={(e) => { e.stopPropagation(); toggle(c.case_id) }}
                 >
                   <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
@@ -302,7 +310,7 @@ export function ProjectView() {
                         </span>
                       ) : null}
                       <span title={rollupTitle(t, c)}>
-                        <StatusIcon status={c.curation_status} />
+                        <StatusIcon status={c.curation_status} named />
                       </span>
                     </span>
                   </span>
