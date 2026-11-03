@@ -61,8 +61,13 @@ export function Panel() {
     <>
       <Sash
         direction="h"
+        label={t('shell.resizePanel')}
+        value={height}
+        min={100}
+        max={window.innerHeight - 200}
         onStart={() => (start.current = height)}
         onDrag={(d) => layout.set({ panelHeight: Math.min(window.innerHeight - 200, Math.max(100, start.current - d)) })}
+        onReset={() => layout.resetSize('panelHeight')}
       />
       <section className="panel" style={{ height }} aria-label={t('shell.panel')}>
         <div className="panel-tabs">

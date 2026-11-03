@@ -3,7 +3,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, Phase } from '../../api'
-import { PhaseChip } from '../../lib'
+import { PhaseChip, toolbarKeyDown } from '../../lib'
 import { Icon, codicon } from '../../theme'
 
 interface ScanInfo {
@@ -51,7 +51,7 @@ export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; 
   }
   const inCurrentScan = (scope: ItemRecord['scope']) => (i: ItemRecord) => i.scan_idx === current.scan_idx && i.scope === scope
   return (
-    <div className="switcher" role="toolbar" aria-label={t('viewer.itemSwitcher')}>
+    <div className="switcher" role="toolbar" aria-label={t('viewer.itemSwitcher')} onKeyDown={toolbarKeyDown}>
       <span className="switcher-label">{t('viewer.scan')}</span>
       <button type="button" className="icon-btn" aria-label={t('viewer.scanPrev')} title={t('viewer.scanPrev')} disabled={at <= 0} onClick={() => step(-1)}>
         <Icon spec={codicon('chevron-left')} />

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, keys, ProblemError, useLabelCells, useLabelHistory, useLabelTables, useProject, type LabelCellIn, type LabelColumn, type LabelImportReport, type LabelTable } from '../../api'
 import { openInContext } from '../../features/explorer'
-import { Dialog, ProblemCard } from '../../lib'
+import { Dialog, ProblemCard, toolbarKeyDown } from '../../lib'
 import { registry, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { requireReviewer } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -161,7 +161,7 @@ export default function TableEditor({ params }: EditorProps<TableParams>) {
   const selectedRow = rows[active.r] ?? null
   return (
     <div className="lbl-editor" data-table={table.slug}>
-      <div className="lbl-toolbar" role="toolbar" aria-label={t('lbl.toolbar')}>
+      <div className="lbl-toolbar" role="toolbar" aria-label={t('lbl.toolbar')} onKeyDown={toolbarKeyDown}>
         <strong>{table.name}</strong>
         <span className="badge">{t(`lbl.level.${table.level}`)}</span>
         {readOnly ? null : <TableMenu pid={pid} table={table} />}

@@ -299,8 +299,14 @@
   cursor: row-resize;
 }
 .sash:hover,
+.sash:focus-visible,
 .sash[data-dragging='true'] {
   background: var(--focus);
+}
+/* the whole bar is the focus mark: an outline around 4 px would be lost under the panes */
+.sash:focus-visible {
+  outline: none;
+  transition: none;
 }
 
 /* Bottom panel */

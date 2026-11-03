@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { api, keys, ProblemError, useAttachOpen, useFsList, useStartOpen, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
-import { Button, Dialog, pendingPath, ProblemCard, useRowKeys } from '../../lib'
+import { Button, Dialog, pendingPath, ProblemCard, toolbarKeyDown, useRowKeys } from '../../lib'
 import { FolderBrowser, NewProjectDialog } from '../import'
 import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
 import { runCommand } from '../../shell'
@@ -164,7 +164,7 @@ export default function OpenRoute() {
           <span className="mono muted open-path" title={path ?? ''}>{path}</span>
           <span className="badge" data-tone="accent">{t('open.noProject')}</span>
         </header>
-        <div className="open-actions" role="toolbar" aria-label={t('open.actions')}>
+        <div className="open-actions" role="toolbar" aria-label={t('open.actions')} onKeyDown={toolbarKeyDown}>
           <button type="button" className="btn btn-primary" disabled={!path || selectionBusy || (paged && !!selected.error)} onClick={() => setCreating(true)}>
             <Icon spec={codicon('new-folder')} />
             {t('open.createProject')}

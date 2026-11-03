@@ -15,8 +15,13 @@ export function Inspector() {
     <>
       <Sash
         direction="v"
+        label={t('shell.resizeInspector')}
+        value={layout.inspectorWidth}
+        min={240}
+        max={560}
         onStart={() => (start.current = layout.inspectorWidth)}
         onDrag={(d) => layout.set({ inspectorWidth: Math.min(560, Math.max(240, start.current - d)) })}
+        onReset={() => layout.resetSize('inspectorWidth')}
       />
       <aside className="inspector" style={{ width: layout.inspectorWidth }} aria-label={t('shell.inspector')}>
         {registry.inspectorSections.filter((s) => registry.allowed(s)).map(({ id, title, component: C }) => {

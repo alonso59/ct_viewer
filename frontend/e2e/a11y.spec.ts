@@ -1,7 +1,7 @@
-// TST-25 (FE-08, UI-01, UI-11): axe scans the key screens, and a keyboard walk checks the skip
-// link, the F6 regions and a visible focus ring. A serious or critical violation fails unless its
-// rule is in ALLOWED with the reason; the list may only shrink: an entry that no screen needs any
-// more fails the last test, so it gets removed.
+// TST-25 (FE-08, UI-01, UI-06, UI-11): axe scans the key screens, and keyboard walks check the skip
+// link, the F6 regions, a visible focus ring and one Tab stop per toolbar. A serious or critical
+// violation fails unless its rule is in ALLOWED with the reason; the list may only shrink: an entry
+// that no screen needs any more fails the last test, so it gets removed.
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
@@ -108,6 +108,23 @@ test('the skip link reaches the editor, F6 walks the regions and focus is always
     if (ring !== 'ring') missing.push(ring)
   }
   expect(missing).toEqual([])
+})
+
+test('Open mode: each toolbar is one Tab stop, so the viewer is within 8 Tab presses (UI-06)', async ({ page }) => {
+  await gotoOpen(page, `${FIXTURES}/Dataset900/nifti/04_case_00002_0000.nii.gz`)
+  await expect(page.locator('.vp').first()).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  let stops = 0
+  while (stops < 8 && !(await page.evaluate<boolean>('!!document.activeElement?.closest(".vp")'))) {
+    await page.keyboard.press('Tab')
+    stops++
+  }
+  expect(await page.evaluate<boolean>('!!document.activeElement?.closest(".vp")')).toBe(true)
+  // inside the tool bar the arrows move between its controls
+  const bar = page.getByRole('toolbar', { name: 'Tool bar' })
+  await bar.getByRole('button').first().focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(bar.getByRole('button').nth(1)).toBeFocused()
 })
 
 test('the allow-list names only rules that still occur', () => {

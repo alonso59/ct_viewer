@@ -132,7 +132,10 @@
     "toastCount": "×{{n}}",
     "skipToEditor": "Skip to editor",
     "editorArea": "Editor area",
-    "tabsLost": "The saved tabs of this project could not be restored, so it opened without them."
+    "tabsLost": "The saved tabs of this project could not be restored, so it opened without them.",
+    "resizeSidebar": "Resize the side bar",
+    "resizeInspector": "Resize the inspector",
+    "resizePanel": "Resize the panel"
   },
   "palette": {
     "cases": "Cases",

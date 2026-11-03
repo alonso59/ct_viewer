@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { toolbarKeyDown } from '../lib'
 import { registry } from './registry'
 
 /** QuPath-style tool bar. Items are contributed by features, e.g. the viewer. */
@@ -13,7 +14,7 @@ export function ToolBar() {
     if (el && el.scrollWidth > el.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) el.scrollLeft += e.deltaY
   }
   return (
-    <div className="toolbar" role="toolbar" aria-label={t('shell.toolbar')} ref={bar} onWheel={wheel}>
+    <div className="toolbar" role="toolbar" aria-label={t('shell.toolbar')} ref={bar} onWheel={wheel} onKeyDown={toolbarKeyDown}>
       {registry.tools.map(({ id, component: C }) => (
         <C key={id} />
       ))}

@@ -60,6 +60,8 @@ interface Store extends LayoutState {
   toggle: (k: 'sidebarVisible' | 'panelVisible' | 'inspectorVisible' | 'imageSectionOpen') => void
   showView: (id: string) => void
   showPanelTab: (id: string) => void
+  /** Back to the default size (a sash's Enter) */
+  resetSize: (k: 'sidebarWidth' | 'inspectorWidth' | 'panelHeight') => void
 }
 
 function save(s: Store) {
@@ -125,4 +127,5 @@ export const useLayout = create<Store>()((set, get) => ({
     else s.set({ activeView: id, sidebarVisible: true })
   },
   showPanelTab: (id) => get().set({ activePanelTab: id, panelVisible: true }),
+  resetSize: (k) => get().set({ [k]: DEFAULTS[k] }),
 }))
