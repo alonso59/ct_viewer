@@ -28,6 +28,6 @@ test('an empty workspace: two groups, New project… is the one primary action, 
 })
 
 test('with a project, no entry is primary', () => {
-  const { container } = home([{ project_id: 'p1', name: 'Dataset900', created_at: '2026-01-01T00:00:00Z', archived: false } as ProjectSummary])
+  const { container } = home([{ project_id: 'p1', name: 'Dataset900', created_at: '2026-01-01T00:00:00Z', last_opened_at: null, archived: false, n_cases: 3, n_cases_excluded: 0, curation_progress: 0 } as unknown as ProjectSummary])
   expect(container.querySelectorAll('.home-action-primary')).toHaveLength(0)
 })
