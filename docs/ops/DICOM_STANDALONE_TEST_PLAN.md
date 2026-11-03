@@ -11,7 +11,7 @@ Depends: ../domain/DICOM_STANDALONE_PLAN.md, DICOM_JOB_TEST_PLAN.md, TESTING.md,
 - DICOM_JOB_TEST_PLAN.md cases D17–D24, D28, D29, D34 and D35 stay required at every phase exit.
 - **Data:** synthetic data for CI, recordings and screenshots, with no patient paths or tags in artifacts. Real data is opt-in local acceptance only, never a CI fixture or an upload.
 - **Assertions:** test public behavior and file-system and process effects, not private structure. Validate geometry with independent readers (nibabel, known landmarks), never only with the writer's own return values.
-- **Evidence:** record revision, environment, lock hash, command and evidence location in DICOM_STANDALONE_PLAN.md at each phase exit.
+- **Evidence:** record revision, environment, lock hash, command and evidence location in this file (§S1 evidence, then one section per phase).
 
 ## Fixtures
 
@@ -129,3 +129,30 @@ DCM-26..34 are `S`, so this feature is not a v3.0 release dependency. Releasing 
 - **Method:** alternate configurations in pairs, at least 3 repetitions, report median and spread.
   - Pin to each result: code revision, lock hash, settings, CPU affinity, memory limit, file system and worker count.
   - Set no targets before the S1 baseline. P03 in DICOM_JOB_TEST_PLAN (no conversion-throughput regression above 10%) stays in force.
+
+## S1 evidence (2026-11-03)
+
+Converter code at `41c5859` (small, pixel, medium, large) and `2b7f752` (scaling and 10⁶; no converter change between them); tool `tools/dicom_bench.py`; results `build/verification/p7i-s1/*.json` (git-ignored).
+Lock `b767577…`; Python 3.12.3, pydicom 3.0.2, SimpleITK 2.5.6, isal 1.8.0; 64 CPUs, 504 GiB; source and work on local ext4. One worker, default settings, synthetic seeded data (8–64 px matrices; 512 px for "pixel").
+Warm page cache unless marked cold. The 10,000-patient CLI stage and the 10⁶ run overlapped partly with an 8-worker test run: their wall times are indicative; memory figures are unaffected.
+
+| Dataset (runs) | Files | Discovery s | Plan s | App convert s | CLI s | CLI first output s | Resume s (first pending decode s) | Peak RSS MiB plan / CLI |
+|---|---|---|---|---|---|---|---|---|
+| small 1×4×100 (3) | 400 | 0.7 | 0.5 | 1.0 | 1.2 | 1.0 | 1.0 (0.9) | 68 / 158 |
+| pixel 4×2×200, 512² (3) | 1,600 | 1.6 | 0.7 | 7.0 | 8.9 | 4.1 | 7.3 (4.4) | 75 / 468 |
+| medium 50×4×50 (3) | 10,000 | 8.0 | 3.2 | 12.8 | 22.4 | 14.2 | 19.0 (14.8) | 90 / 180 |
+| large 500×4×100 (1) | 200,000 | 150.9 | 90.6 | 263.4 | 354.3 | 211.1 | 328.4 (257.1) | 284 / 629 |
+| large, cold (1) | 200,000 | 170.6 | 80.7 | — | 402.6 | 264.7 | — | 284 / 629 |
+| 50×4×K, K = 10 / 100 / 1000 (1) | 2k / 20k / 200k | 2.1 / 15.2 / 149.0 | 1.1 / 6.4 / 77.8 | 5.3 / 22.2 / 225.9 | 6.6 / 37.4 / 435.7 | 2.5 / 24.0 / 323.6 | — | 76→278 / 153→608 |
+| M×1×10, M = 100 / 1000 / 10000 (1) | 1k / 10k / 100k | 1.3 / 9.5 / 92.4 | 0.7 / 6.1 / 255.9 | 3.0 / 26.1 / 454.6 | 3.5 / 29.1 / 294.1 | 1.6 / 11.1 / 102.2 | — | 70→470 / 151→787 |
+| 1000×4×250 (1) | 1,000,000 | 750.4 | 489.8 | — | — | — | — | 929 / — |
+
+Findings:
+- The first CLI output waits for discovery plus the whole-run pin: 211 s warm and 265 s cold on 200,000 files.
+- Resume after an abrupt stop at half the units took 328 s against 354 s for the full run: all headers read again, all inputs hashed at the pin and again per unit (2,000 + 2,000 series hashes, 1,000 decodes); first pending decode after 257 s.
+- Memory grows with files, not only series: at a fixed 200 series, ×100 files raises plan RSS 76→278 MiB and CLI 153→608 MiB; 10⁶ files need 362 MiB for discovery and 929 MiB for planning (A17 baseline).
+- Planning is quadratic in patient folders: each `SourceInventory.discover` call scans the whole `files` table (`EXPLAIN`: `SCAN files`, 25 ms per call at 10⁵ rows), so 10,000 patients plan in 256 s against 92 s of discovery.
+- GDCM/ITK opens each source file 6–11 times while decoding and reads about 640 KiB plus twice the file per file (the same with plain paths, so not the descriptor guard): bytes read are 38–80× the source for small files and 6.3× for 512² slices.
+- CLI CPU/wall is 1.05–1.3 on the large sets (one core). Of the CLI wall time: decode 16–27%, decode plus write and compression 20–42%, pin hashing 3–10%, per-unit rehash 3–11%, output validation ≤ 12%, fsync ≤ 6% (most with many tiny series); the rest is discovery and planning.
+
+Open for S1 exit: B06 lanes other than local ext4 (NFS, SMB, Docker Desktop bind mount) are not available on this host; peak temporary disk is not measured; large sets have one run each; the CLI was not run at 10⁶ files.

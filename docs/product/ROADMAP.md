@@ -28,7 +28,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
-| P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0 approved 2026-11-03; S1 characterization in progress (domain/DICOM_STANDALONE_PLAN.md) |
+| P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0 approved 2026-11-03; S1 characterization green, baselines recorded, awaiting owner review (domain/DICOM_STANDALONE_PLAN.md) |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -104,7 +104,7 @@ Each step is a vertical slice with its own tests; stop for owner confirmation af
 
 Each step leaves ct_viewer conversion, source operations, batches and imports working; stop for owner confirmation after each. Cases: `ops/DICOM_STANDALONE_TEST_PLAN.md`. DCM-26..34 are `S` (not a v3.0 dependency); release requires the test plan's §Release gates. S4–S8 wait for P7g's mandatory gates and the P7 remote checks.
 - [x] S0 (2026-11-03) ADR-0042 accepted; plan, test plan, DCM-26..34
-- [ ] S1 Characterization and baselines (tests and tools only): C01–C12, B01–B06
+- [ ] S1 Characterization and baselines (tests and tools only): C01–C12, B01–B06 — characterization green and baselines recorded 2026-11-03 (test plan §S1 evidence); open: B06 non-ext4 lanes, temporary disk, repeated large runs
 - [ ] S2 One settings contract, shared atomic emission, private state, CLI artifact parity: A01–A08
 - [ ] S3 Behavior-preserving plan / execute / assemble split: A09
 - [ ] S4 `rw_dicom` package, CLI, Python API, generated schema, conda instructions: A10–A14
