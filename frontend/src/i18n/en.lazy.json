@@ -730,8 +730,7 @@
     "adds": "Adds: {{list}}",
     "openNamed": "Open {{name}}",
     "invalid_one": "{{count}} invalid plugin manifest",
-    "invalid_other": "{{count}} invalid plugin manifests",
-    "details": "Details"
+    "invalid_other": "{{count}} invalid plugin manifests"
   },
   "psettings": {
     "title": "Project settings",

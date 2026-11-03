@@ -72,7 +72,17 @@ export function FolderBrowser({
         ) : null}
         {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
         {isError ? <ProblemCard error={error} /> : null}
-        {data && data.entries.length === 0 ? <div className="empty">{t(path === null ? 'import.noRoots' : 'import.emptyFolder')}</div> : null}
+        {data && data.entries.length === 0 && path !== null ? <div className="empty">{t('import.emptyFolder')}</div> : null}
+        {/* the server setting's name is for administrators */}
+        {data && data.entries.length === 0 && path === null ? (
+          <div className="empty">
+            {t('import.noRoots')}
+            <details>
+              <summary className="small">{t('common.details')}</summary>
+              <span className="muted small">{t('import.noRootsAdmin')}</span>
+            </details>
+          </div>
+        ) : null}
         {data && data.entries.length > 0 && entries.length === 0 ? <div className="empty">{t('import.noMatch', { text })}</div> : null}
         {entries.map((e) => {
           const pickable = e.kind === 'file' && !!onSelectFile && fileFilter(e.name)

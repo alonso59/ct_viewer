@@ -15,7 +15,8 @@
     "save": "Save",
     "saveFailed": "Could not save. Try again.",
     "keepRunning": "Keep running",
-    "yesCancel": "Yes, cancel"
+    "yesCancel": "Yes, cancel",
+    "details": "Details"
   },
   "menu": {
     "file": "File",
@@ -387,14 +388,15 @@
     "title": "Import data",
     "up": "Parent folder",
     "allowedRootsTitle": "Folders shared with the app",
-    "noRoots": "No data roots are configured (ALLOWED_DATA_ROOTS).",
+    "noRoots": "No folders are shared with the app yet.",
     "emptyFolder": "Empty folder",
     "hasMetadata": "metadata.jsonl",
     "truncated": "Listing truncated",
     "allowedDerived": "Only output folders shared with the app are listed.",
     "filter": "Filter this folder",
     "noMatch": "Nothing here matches “{{text}}”",
-    "allRoots": "All shared folders"
+    "allRoots": "All shared folders",
+    "noRootsAdmin": "An administrator lists them in ALLOWED_DATA_ROOTS on the server."
   },
   "explorer": {
     "caseCount_one": "{{count}} case",

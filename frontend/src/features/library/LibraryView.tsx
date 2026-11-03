@@ -33,7 +33,7 @@ export function PluginCard({ info }: { info: PluginInfo }) {
       {/* what it registers and the server's reason (names of settings) are for administrators */}
       {adds.length || info.reason ? (
         <details className="plugin-card-details">
-          <summary className="muted">{t('library.details')}</summary>
+          <summary className="muted">{t('common.details')}</summary>
           {info.reason ? <p className="muted plugin-card-reason">{info.reason}</p> : null}
           {adds.length ? <p className="muted plugin-card-adds">{t('library.adds', { list: adds.join(' · ') })}</p> : null}
         </details>

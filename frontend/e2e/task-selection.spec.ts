@@ -49,3 +49,22 @@ test('filter files, keep selection across filters and submit only the checked it
   await row.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   await expect(row.getByText('Cancelled', { exact: true })).toBeVisible({ timeout: 15_000 })
 })
+
+// UI-08 (names, not identifiers): a task tab and the Tasks view show task titles; ids stay in
+// tooltips and URLs, never in the visible text
+test('a task tab and the Tasks view never show a task id as text', async ({ page }) => {
+  const pid = await importedProject(`Task names ${Date.now()}`)
+  const { tasks } = await api<{ tasks: { manifest: { id: string } }[] }>('GET', '/tasks')
+  const ids = tasks.map((x) => x.manifest.id)
+  expect(ids).toContain('segment.threshold')
+  const shownIds = async () => {
+    const text = await page.locator('body').innerText()
+    return ids.filter((id) => text.includes(id))
+  }
+  await page.goto(`/p/${pid}/tasks/segment.threshold`)
+  await expect(page.getByRole('radio', { name: 'Item list' })).toBeVisible({ timeout: 30_000 })
+  expect(await shownIds()).toEqual([])
+  await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Tasks', exact: true }).click()
+  await expect(page.getByRole('complementary', { name: 'Tasks' })).toBeVisible()
+  expect(await shownIds()).toEqual([])
+})
