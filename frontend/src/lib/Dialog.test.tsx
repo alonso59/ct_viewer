@@ -45,3 +45,32 @@ test('a description describes the dialog; without one nothing is referenced (FE-
   fireEvent.click(screen.getByRole('button', { name: 'Open settings' }))
   expect((await screen.findByRole('dialog', { name: 'Settings' })).hasAttribute('aria-describedby')).toBe(false)
 })
+
+// FE-08: a caller that renders the dialog only while open (New project…) removes it at once; focus
+// still goes back to the invoking button (Radix restores it on removal)
+test('a dialog removed on close gives focus back too', async () => {
+  function RenderedWhileOpen() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          New project
+        </button>
+        {open ? (
+          <Dialog open onOpenChange={setOpen} title="New project">
+            <input aria-label="Project name" />
+          </Dialog>
+        ) : null}
+      </>
+    )
+  }
+  render(<RenderedWhileOpen />)
+  const invoker = screen.getByRole('button', { name: 'New project' })
+  invoker.focus()
+  fireEvent.click(invoker)
+  await screen.findByRole('dialog', { name: 'New project' })
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  await waitFor(() => expect(invoker).toHaveFocus())
+})
+

@@ -23,6 +23,8 @@ test('new project → import → browse → share link', async ({ page, browser,
   const newProject = page.getByRole('button', { name: /New project/ })
   // Escape closes a dialog and gives focus back to the button that opened it (FE-08)
   await newProject.click()
+  // the dialog loads on first use: Escape only once it is open
+  await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toBeHidden()
   await expect(newProject).toBeFocused()
