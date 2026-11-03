@@ -17,7 +17,7 @@ import asyncio
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from app.core.errors import Problem
 
@@ -312,6 +312,12 @@ class Frame:
 Call = Callable[[list[str]], Awaitable[str]]
 
 
+class Sink(Protocol):
+    """Where `puts` writes: a list, or a run's output file."""
+
+    def append(self, text: str, /) -> None: ...
+
+
 class Interp:
     """One evaluation over a session's variables and procedures."""
 
@@ -322,7 +328,7 @@ class Interp:
         call: Call,
         is_command: Callable[[str], bool],
         source: Callable[[str], str],
-        output: list[str],
+        output: Sink,
         limits: Limits = LIMITS,
     ) -> None:
         self.top = Frame(variables)

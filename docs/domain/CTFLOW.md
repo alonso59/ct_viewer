@@ -5,7 +5,7 @@ Read when: working on the console interpreter, the `ctflow` client, script runs,
 Depends: ADR-0041, TASKS.md, SOURCES.md, PROJECT_FORMAT.md (PRJ-19), SEGMENTATION.md, API.md (API-71), NFR.md (NFR-17).
 
 CTFlow is a domain language, not a shell. Every command calls a service the GUI already uses; processing stays task runs (TSK-*) and source operations (TSK-16).
-Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) and C4 (language, sessions) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
+Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72), C3 (`ctflow` client) C4 (language, sessions) and C5 (durable script runs, API-73) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
 
 ## Requirements
 
@@ -86,7 +86,10 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 - Sessions (C4): in server memory, 4 h idle timeout, at most 64 (the oldest is dropped); `project <id>` sets the session's project. An ended session is `not-found` with the action `new_session`; `ctflow` says so and starts a new one.
 - `source <name>.ctf` reads only `WORKSPACE_ROOT/plugins/ctflow/scripts/` (the library of CTF-17, managed in C6).
 - A line that fails after earlier commands acted returns 200 with `error` and the steps so far, so started runs are never hidden; a line that fails before acting is a problem.
-- Two starts of one task in a script meet TSK-12 (one active run per project and task); waiting for it is CTF-13 (C5).
+- Script runs (C5) live in `WORKSPACE_ROOT/plugins/ctflow/runs/{id}/`: `run.json`, `journal.jsonl` (a `pending` line before each call, then `done` or `failed`; the last line per call wins) and `output.jsonl`. A run's limits: 500,000 steps and 2,000 starts; the others as in §Language.
+- Every journaled call is replayed by its words; different words stop the run (`the script took another path`). A call left `pending` by a stop is answered by the child whose origin carries this run and step (`origin.step`), else made again; `dicom2nii` in a script uses the call as its idempotency key.
+- A busy task (TSK-12) or a busy converter waits up to 3600 s for jobs to finish, then the run is `attention` with the reason in `waiting`; `resume` tries again. `wait <id>` (script runs only) follows a run or operation to its end and returns its status.
+- `ctflow file.ctf` starts a script run and follows it (`--detach` returns at once, `--plan` plans it as one request); `pause`, `resume` and `cancel` are console commands too.
 
 ## Deferred to implementation
 

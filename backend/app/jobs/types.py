@@ -10,7 +10,9 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
 
-JobKind = Literal["index", "hash", "thumbnail", "radiomics", "mesh", "task", "open-convert"]
+JobKind = Literal[
+    "index", "hash", "thumbnail", "radiomics", "mesh", "task", "open-convert", "script"
+]
 JobStatus = Literal[
     "queued", "waiting_for_runner", "running", "succeeded", "failed", "cancelled", "interrupted"
 ]

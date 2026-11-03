@@ -27,9 +27,16 @@ from app.ctflow.models import (
     WorkRef,
 )
 from app.ctflow.parse import FLAG, Line, options_of
+from app.ctflow.runs import ACTIVE, ScriptRuns
 from app.ctflow.sessions import Session
 from app.tasks.dry_run import DICOM_CONVERT
-from app.tasks.models import PreflightRequest, TaskInfo, TaskManifest, TaskRunRequest
+from app.tasks.models import (
+    TERMINAL_TASK_RUN,
+    PreflightRequest,
+    TaskInfo,
+    TaskManifest,
+    TaskRunRequest,
+)
 from app.tasks.source_operations import (
     SourceOperationControl,
     SourceOperationConvert,
@@ -61,14 +68,17 @@ CORE = {
     "cases": ("cases [-phase P]", "List the active cases of the project"),
     "runs": ("runs", "List the project's task runs"),
     "status": ("status <run or operation>", "Show one run or source operation"),
-    "cancel": ("cancel <run or operation>", "Cancel a run or source operation"),
+    "cancel": ("cancel <run or operation>", "Cancel a run, source operation or script run"),
+    "pause": ("pause <script run>", "Pause a script run (and its supervised child)"),
+    "resume": ("resume <script run>", "Resume a script run: it replays its journal"),
+    "wait": ("wait <run or operation>", "In a script run: wait until the run ends"),
     "convert": ("convert <operation>", "Convert a DICOM source whose analysis is ready"),
 }
 _SCALARS = {"string", "integer", "number", "boolean"}
 
 
 @dataclass
-class _Call:
+class Call:
     """One request: its context and what its commands did, in order."""
 
     project: str | None
@@ -85,7 +95,7 @@ class _PlanStop(Exception):
         self.name = name
 
 
-def _error(exc: ScriptError | Problem) -> EvalError:
+def error_of(exc: ScriptError | Problem) -> EvalError:
     if isinstance(exc, ScriptError):
         return EvalError(title="script error", detail=exc.message, line=exc.line)
     return EvalError(
@@ -154,9 +164,10 @@ def _coerce(option: OptionInfo, raw: str, schema: dict[str, Any]) -> Any:
 
 
 class Console:
-    def __init__(self, operations: SourceOperations) -> None:
-        self.operations = operations
+    def __init__(self, operations: SourceOperations, runs: ScriptRuns) -> None:
+        self.operations, self.runs = operations, runs
         self.tasks = operations.tasks
+        runs.console = self
 
     # --- catalog -------------------------------------------------------------------------------
 
@@ -197,7 +208,7 @@ class Console:
     # --- evaluation ----------------------------------------------------------------------------
 
     async def eval(self, req: EvalRequest, reviewer: str | None, session: Session) -> EvalResult:
-        call = _Call(
+        call = Call(
             project=req.project_id or session.project,
             plan=req.plan,
             origin=Origin(client=req.client),
@@ -209,7 +220,11 @@ class Console:
             line = options_of(words)
             if call.plan and any(PLANNED in w for w in words):
                 raise _PlanStop(line.name)
-            step = await self._command(line, call, by_name)
+            if line.name == "wait":
+                raise ValidationProblem(
+                    "wait works inside a script run; in the console, follow with ctflow attach"
+                )
+            step = await self.dispatch(line, call, by_name)
             if step.started is not None:
                 call.starts += 1
             call.steps.append(step)
@@ -224,8 +239,8 @@ class Console:
                 session.vars,
                 session.procs,
                 run_command,
-                lambda name: name in CORE or name in by_name,
-                self._source,
+                self.is_command,
+                self.source,
                 call.text,
             )
             try:
@@ -241,15 +256,16 @@ class Console:
                         raise
                     where = f"line {exc.line}: " if exc.line else ""
                     raise ValidationProblem(f"{where}{exc.message}") from None
-                result.error = _error(exc)
+                result.error = error_of(exc)
             session.project = call.project
         result.project_id, result.text = call.project, call.text
         result.steps = call.steps[:STEPS_SHOWN]
         return result
 
-    async def _command(
-        self, line: Line, call: _Call, by_name: dict[str, TaskInfo]
-    ) -> CommandResult:
+    def is_command(self, name: str) -> bool:
+        return name in CORE or name in self._by_name()
+
+    async def dispatch(self, line: Line, call: Call, by_name: dict[str, TaskInfo]) -> CommandResult:
         if line.name in CORE:
             return await self._core(line, call)
         info = by_name.get(line.name)
@@ -257,7 +273,7 @@ class Console:
             raise NotFound(f"Unknown command {line.name!r}; `help` lists them")
         return await self._task(info.manifest, line, call)
 
-    def _source(self, name: str) -> str:
+    def source(self, name: str) -> str:
         """`source`: a script of the workspace's CTFlow library, never an arbitrary file."""
         if not _SCRIPT_NAME.match(name):
             raise ScriptError("source takes a library script name such as nightly.ctf")
@@ -269,7 +285,7 @@ class Console:
         except OSError:
             raise ScriptError(f"no script {name!r} in the CTFlow library") from None
 
-    async def _task(self, m: TaskManifest, line: Line, call: _Call) -> CommandResult:
+    async def _task(self, m: TaskManifest, line: Line, call: Call) -> CommandResult:
         if len(line.args) > 1:
             raise ValidationProblem(f"{line.name} takes one target; quote a path with spaces")
         settings = self._settings(m, line.options)
@@ -307,10 +323,13 @@ class Console:
         origin, reviewer = call.origin, call.reviewer
         if m.id == DICOM_CONVERT:
             # As the converter window: a durable analysis first, then `convert` (API-69).
+            script = call.origin.script_run_id
+            # in a script run the key is the journaled call, so a replay finds the same operation
+            key = f"ctflow-{script}-{call.origin.step}" if script else f"ctflow-{new_ulid()}"
             op = await self.operations.start(
                 SourceOperationStart(
                     path=str(target.selection.source),
-                    idempotency_key=f"ctflow-{new_ulid()}",
+                    idempotency_key=key,
                     project_id=pid,
                     purpose="convert",
                     prepare_plan=True,
@@ -365,7 +384,7 @@ class Console:
 
     # --- core commands -------------------------------------------------------------------------
 
-    async def _core(self, line: Line, call: _Call) -> CommandResult:
+    async def _core(self, line: Line, call: Call) -> CommandResult:
         result = CommandResult(command=line.name)
         arg = line.args[0] if line.args else None
         if line.name == "project":
@@ -391,11 +410,19 @@ class Console:
             if arg is not None:
                 result.text += [f"  -{o.name} ({o.type})  {o.help}" for o in commands[0].options]
             return result
-        if line.name in {"status", "cancel"}:
+        if line.name in {"status", "cancel", "pause", "resume"}:
             if arg is None:
                 raise ValidationProblem(f"Name the run or operation: {line.name} <id>")
-            find = self._status if line.name == "status" else self._cancel
-            return await find(result, arg, call.project)
+            if line.name == "status":
+                return await self._status(result, arg, call.project)
+            if line.name == "cancel":
+                return await self._cancel(result, arg, call.project)
+            run = await (
+                self.runs.resume(arg) if line.name == "resume" else self.runs.control(arg, "pause")
+            )
+            result.work = WorkRef(kind="script-run", id=arg, job_id=run.job_id, status=run.status)
+            result.value, result.text = run.status, [f"{arg}  {run.status}"]
+            return result
         if line.name == "convert":
             if arg is None:
                 raise ValidationProblem("Name the operation: convert <operation>")
@@ -440,8 +467,18 @@ class Console:
         result.value = format_list([r.run_id for r in runs])
         return result
 
-    async def _find(self, ref: str, pid: str | None) -> tuple[WorkRef, Any]:
-        """A project run (with a project), else a source operation, else a workspace run."""
+    async def find_work(self, ref: str, pid: str | None) -> tuple[WorkRef, Any]:
+        """A project run (with a project), else a script run, a source operation or a workspace
+        run."""
+        try:
+            script = self.runs.get(ref)
+        except NotFound:
+            pass
+        else:
+            return WorkRef(
+                kind="script-run", id=ref, job_id=script.job_id, status=script.status,
+                project_id=script.project_id,
+            ), script  # fmt: skip
         if pid is not None:
             try:
                 run = await self.tasks.get_run(pid, ref)
@@ -462,7 +499,7 @@ class Console:
         ), op  # fmt: skip
 
     async def _status(self, result: CommandResult, ref: str, pid: str | None) -> CommandResult:
-        work, record = await self._find(ref, pid)
+        work, record = await self.find_work(ref, pid)
         result.work, result.data = work, record.model_dump(mode="json")
         stage = f"  {record.stage}" if work.kind == "source-operation" else ""
         result.text = [f"{work.id}  {work.kind}{stage}  {work.status}"]
@@ -470,14 +507,24 @@ class Console:
         return result
 
     async def _cancel(self, result: CommandResult, ref: str, pid: str | None) -> CommandResult:
-        work, record = await self._find(ref, pid)
-        status: str
+        work, _ = await self.find_work(ref, pid)
+        work.status = await self.cancel_work(work)
+        result.work, result.text = work, [f"{work.id}  {work.status}"]
+        result.value = work.status
+        return result
+
+    async def cancel_work(self, work: WorkRef) -> str:
+        """Cancel through the work's own controls; returns its status."""
+        pid, ref = work.project_id, work.id
+        if work.kind == "script-run":
+            return (await self.runs.control(ref, "cancel")).status
         if work.kind == "task-run":
             assert pid is not None
             status = (await self.tasks.cancel(pid, ref)).status
         elif work.kind == "workspace-run":
             status = (await self.operations.workspace_tasks.cancel(ref)).status
         else:
+            record = await self.operations.view(ref)
             control = SourceOperationControl(
                 expected_revision=record.revision,
                 expected_attempt=record.attempt,
@@ -486,7 +533,27 @@ class Console:
                 ),
             )
             status = (await self.operations.cancel(ref, control)).status
-        work.status = status
-        result.work, result.text = work, [f"{work.id}  {work.status}"]
-        result.value = status
-        return result
+        return status
+
+    @staticmethod
+    def is_over(work: WorkRef, record: Any) -> bool:
+        if work.kind == "script-run":
+            return work.status not in ACTIVE
+        return work.status in TERMINAL_TASK_RUN
+
+    async def find_started(self, pid: str | None, rid: str, step: int) -> CommandResult | None:
+        """The run a script run's journaled call started before the server stopped, if any."""
+        if pid is None:
+            return None
+        for run in await self.tasks.list_runs(pid):
+            origin = run.origin
+            if origin and origin.script_run_id == rid and origin.step == step:
+                return CommandResult(
+                    command=run.task.id, task_id=run.task.id, value=run.run_id,
+                    started=WorkRef(
+                        kind="task-run", id=run.run_id, job_id=run.job_id,
+                        status=run.status, project_id=pid,
+                    ),
+                    text=[f"{run.task.id} run {run.run_id} {run.status} (found after a restart)"],
+                )  # fmt: skip
+        return None

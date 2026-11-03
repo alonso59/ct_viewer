@@ -8,14 +8,15 @@ server owns every run, so closing the terminal never stops one.
   ctflow                                   interactive console
   ctflow -p PROJECT segment case_00012     one command; follows it to the end (exit code = result)
   ctflow -c "segment case_00012" --detach  start and return at once
-  ctflow nightly.ctf                       run a local script file (one request; its runs go on)
+  ctflow nightly.ctf [--detach]            run a local script as a durable script run on the server
+  ctflow --plan nightly.ctf                plan it without starting anything
   ctflow attach ID · ctflow logs ID [-f] · ctflow status ID · ctflow cancel ID · ctflow runs
 
 Server: --url, else CTFLOW_URL, else http://127.0.0.1:$PORT with PORT from the same `.env` as
 `./rw` (RW_ENV, default: the repository's `.env`). Reviewer: --reviewer, else CTFLOW_REVIEWER,
 else the name saved in ~/.config/ctflow/config.json (asked once in the console).
 Exit codes: 0 completed · 1 failed, completed with errors or interrupted · 2 refused or usage ·
-3 cancelled or paused · 130 stopped following (the work goes on).
+3 cancelled, paused or held for attention · 130 stopped following (the work goes on).
 """
 
 from __future__ import annotations
@@ -39,7 +40,9 @@ EXIT = {
     "interrupted": FAILED,
     "cancelled": STOPPED,
     "paused": STOPPED,
+    "attention": STOPPED,
 }
+SCRIPT_ACTIVE = {"queued", "running", "waiting", "pausing", "cancelling"}
 POLL_S = 1.0
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "ctflow"
 LOCAL = {"exit", "quit", "attach", "logs", "plan"}
@@ -139,6 +142,8 @@ class Client:
             return dict(self.call("GET", f"/projects/{work['project_id']}/task-runs/{ident}"))
         if kind == "source-operation":
             return dict(self.call("GET", f"/source-operations/{ident}"))
+        if kind == "script-run":
+            return dict(self.call("GET", f"/ctflow/script-runs/{ident}"))
         return dict(self.call("GET", f"/task-runs/{ident}"))
 
     def logs(self, work: dict[str, Any], cursor: str | None) -> dict[str, Any]:
@@ -184,6 +189,8 @@ def show(result: dict[str, Any]) -> None:
 
 def is_over(work: dict[str, Any], record: dict[str, Any]) -> bool:
     status = record.get("status")
+    if work["kind"] == "script-run":
+        return status not in SCRIPT_ACTIVE
     if work["kind"] == "source-operation" and record.get("stage") == "ready":
         return status == "completed"  # analysis done; `convert` is the next step
     return status in EXIT
@@ -201,6 +208,8 @@ def follow(client: Client, work: dict[str, Any], *, logs: bool = True) -> int:
                 print(f"[{work['id']}] {label}")
                 if status == "waiting_for_runner":
                     print("  waiting for the host runner (scripts/rw-runner.py) to start")
+                if record.get("waiting"):
+                    print(f"  {record['waiting']}")
                 last = label
             page: dict[str, Any] = {"done": True}
             if logs:
@@ -252,6 +261,18 @@ def run_line(client: Client, line: str, *, detach: bool, plan: bool, as_json: bo
     for work in started:
         print(f"follow with: ctflow attach {work['id']}")
     return OK
+
+
+def run_script(client: Client, script: str, name: str, *, detach: bool) -> int:
+    """A durable script run (CTF-10): it goes on when this terminal closes."""
+    body = {"script": script, "name": name, "project_id": client.project, "client": client.kind}
+    run = client.call("POST", "/ctflow/script-runs", body)
+    work = {"kind": "script-run", "id": run["run_id"], "project_id": run.get("project_id")}
+    print(f"script run {run['run_id']} {run['status']}")
+    if detach:
+        print(f"follow with: ctflow attach {run['run_id']}")
+        return OK
+    return follow(client, work)
 
 
 def complete_factory(client: Client) -> Any:
@@ -361,9 +382,10 @@ def main(argv: list[str]) -> int:
             command = value
         i += 2
     rest = argv[i:]
+    script_file = None
     if command is None and len(rest) == 1 and rest[0].endswith(".ctf"):
         try:
-            command = Path(rest[0]).read_text(encoding="utf-8")
+            command = script_file = Path(rest[0]).read_text(encoding="utf-8")
         except OSError as exc:
             print(f"ctflow: cannot read {rest[0]}: {exc.strerror}", file=sys.stderr)
             return REFUSED
@@ -376,6 +398,8 @@ def main(argv: list[str]) -> int:
     if command is None:
         return console(client, config)
     try:
+        if script_file is not None and not plan:
+            return run_script(client, script_file, Path(rest[0]).stem, detach=detach)
         return run_line(client, command, detach=detach, plan=plan, as_json=as_json)
     except Refused as exc:
         show_problem(exc)

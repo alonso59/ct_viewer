@@ -151,7 +151,9 @@ def test_interactive_console_keeps_the_project_and_saves_history_without_paths(
         assert "cases" in saved and "patient-name" not in saved
 
 
-def test_a_local_script_file_runs_in_one_request(live: tuple[str, str], tmp_path: Path) -> None:
+def test_a_local_script_file_plans_or_runs_on_the_server(
+    live: tuple[str, str], tmp_path: Path
+) -> None:
     url, pid = live
     path = tmp_path / "count.ctf"
     path.write_text(
@@ -165,5 +167,13 @@ def test_a_local_script_file_runs_in_one_request(live: tuple[str, str], tmp_path
     assert "cases: " in done.stdout and "plan segment.threshold: ok, ready 1 of 1" in done.stdout
     broken = tmp_path / "broken.ctf"
     broken.write_text("set a 1\nnot-a-command\n")
-    failed = ctflow(tmp_path, url, "-p", pid, str(broken))
-    assert failed.returncode == 2 and "line 2: unknown command" in failed.stderr
+    failed = ctflow(tmp_path, url, "-p", pid, str(broken))  # a durable script run, followed
+    assert failed.returncode == 1 and "line 2: unknown command" in failed.stdout
+    assert "] failed" in failed.stdout
+    later = tmp_path / "later.ctf"
+    later.write_text(f"segment.threshold {ITEMS[0]}\nputs finished\n")
+    detached = ctflow(tmp_path, url, "-p", pid, "--detach", str(later))
+    rid = detached.stdout.split()[2]
+    assert detached.returncode == 0 and "follow with: ctflow attach" in detached.stdout
+    attached = ctflow(tmp_path, url, "attach", rid)
+    assert attached.returncode == 0 and "finished" in attached.stdout

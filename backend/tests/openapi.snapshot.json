@@ -5911,7 +5911,8 @@
        "radiomics",
        "mesh",
        "task",
-       "open-convert"
+       "open-convert",
+       "script"
       ],
       "title": "Kind",
       "type": "string"
@@ -5969,6 +5970,67 @@
      "created_at"
     ],
     "title": "JobInfo",
+    "type": "object"
+   },
+   "JournalEntry": {
+    "properties": {
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "child": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/WorkRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EvalError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "state": {
+      "enum": [
+       "pending",
+       "done",
+       "failed"
+      ],
+      "title": "State",
+      "type": "string"
+     },
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
+     },
+     "words": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Words",
+      "type": "array"
+     }
+    },
+    "required": [
+     "seq",
+     "words",
+     "state",
+     "at"
+    ],
+    "title": "JournalEntry",
     "type": "object"
    },
    "LabelColumn": {
@@ -7042,6 +7104,17 @@
        }
       ],
       "title": "Session"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Step"
      }
     },
     "title": "Origin",
@@ -10673,6 +10746,404 @@
      "y"
     ],
     "title": "ScatterPoint",
+    "type": "object"
+   },
+   "ScriptRun": {
+    "properties": {
+     "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+     },
+     "calls": {
+      "default": 0,
+      "title": "Calls",
+      "type": "integer"
+     },
+     "control": {
+      "anyOf": [
+       {
+        "enum": [
+         "pause",
+         "cancel"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Control"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EvalError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "script": {
+      "title": "Script",
+      "type": "string"
+     },
+     "script_sha256": {
+      "title": "Script Sha256",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "starts": {
+      "default": 0,
+      "title": "Starts",
+      "type": "integer"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "running",
+       "waiting",
+       "attention",
+       "pausing",
+       "paused",
+       "cancelling",
+       "cancelled",
+       "completed",
+       "failed",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
+     },
+     "waiting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Waiting"
+     }
+    },
+    "required": [
+     "run_id",
+     "name",
+     "status",
+     "created_at",
+     "script",
+     "script_sha256"
+    ],
+    "title": "ScriptRun",
+    "type": "object"
+   },
+   "ScriptRunDetail": {
+    "properties": {
+     "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+     },
+     "calls": {
+      "default": 0,
+      "title": "Calls",
+      "type": "integer"
+     },
+     "control": {
+      "anyOf": [
+       {
+        "enum": [
+         "pause",
+         "cancel"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Control"
+     },
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EvalError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "journal": {
+      "items": {
+       "$ref": "#/components/schemas/JournalEntry"
+      },
+      "title": "Journal",
+      "type": "array"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Origin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "script": {
+      "title": "Script",
+      "type": "string"
+     },
+     "script_sha256": {
+      "title": "Script Sha256",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "starts": {
+      "default": 0,
+      "title": "Starts",
+      "type": "integer"
+     },
+     "status": {
+      "enum": [
+       "queued",
+       "running",
+       "waiting",
+       "attention",
+       "pausing",
+       "paused",
+       "cancelling",
+       "cancelled",
+       "completed",
+       "failed",
+       "interrupted"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
+     },
+     "waiting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Waiting"
+     }
+    },
+    "required": [
+     "run_id",
+     "name",
+     "status",
+     "created_at",
+     "script",
+     "script_sha256"
+    ],
+    "title": "ScriptRunDetail",
+    "type": "object"
+   },
+   "ScriptRunStart": {
+    "properties": {
+     "client": {
+      "default": "console",
+      "enum": [
+       "console",
+       "terminal"
+      ],
+      "title": "Client",
+      "type": "string"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "maxLength": 120,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "script": {
+      "maxLength": 100000,
+      "minLength": 1,
+      "title": "Script",
+      "type": "string"
+     }
+    },
+    "required": [
+     "script"
+    ],
+    "title": "ScriptRunStart",
     "type": "object"
    },
    "SegProducer": {
@@ -14861,7 +15332,8 @@
       "enum": [
        "task-run",
        "source-operation",
-       "workspace-run"
+       "workspace-run",
+       "script-run"
       ],
       "title": "Kind",
       "type": "string"
@@ -15505,6 +15977,256 @@
     ]
    }
   },
+  "/api/v1/ctflow/script-runs": {
+   "get": {
+    "operationId": "list_script_runs_api_v1_ctflow_script_runs_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ScriptRun"
+         },
+         "title": "Response List Script Runs Api V1 Ctflow Script Runs Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Script Runs",
+    "tags": [
+     "ctflow"
+    ]
+   },
+   "post": {
+    "operationId": "start_script_run_api_v1_ctflow_script_runs_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScriptRunStart"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptRun"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Script Run",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/script-runs/{rid}": {
+   "get": {
+    "operationId": "get_script_run_api_v1_ctflow_script_runs__rid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptRunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Script Run",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/script-runs/{rid}/cancel": {
+   "post": {
+    "operationId": "cancel_script_run_api_v1_ctflow_script_runs__rid__cancel_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptRun"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel Script Run",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/script-runs/{rid}/pause": {
+   "post": {
+    "operationId": "pause_script_run_api_v1_ctflow_script_runs__rid__pause_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptRun"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Pause Script Run",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
+  "/api/v1/ctflow/script-runs/{rid}/resume": {
+   "post": {
+    "operationId": "resume_script_run_api_v1_ctflow_script_runs__rid__resume_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScriptRun"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Resume Script Run",
+    "tags": [
+     "ctflow"
+    ]
+   }
+  },
   "/api/v1/fs/list": {
    "post": {
     "description": "`role=derived` browses ALLOWED_DERIVED_ROOTS instead of ALLOWED_DATA_ROOTS.\n\nA POST so browsed folders (often patient names) stay out of URLs and access logs.",
@@ -15718,7 +16440,8 @@
        "enum": [
         "source-operation",
         "workspace-run",
-        "project-run"
+        "project-run",
+        "script-run"
        ],
        "title": "Kind",
        "type": "string"

@@ -14,6 +14,7 @@ import base64
 import binascii
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final, Literal
 
@@ -32,7 +33,7 @@ from app.tasks.source_operations import SourceOperations
 LIMIT: Final = 500
 MAX_BYTES: Final = 256 * 1024
 TEXT_MAX: Final = 2000
-LogKind = Literal["source-operation", "workspace-run", "project-run"]
+LogKind = Literal["source-operation", "workspace-run", "project-run", "script-run"]
 Level = Literal["info", "warn", "error"]
 # Absolute paths outside every known root (library frames of a traceback, for example).
 _ABSOLUTE = re.compile(r"(?<![\w.\-~:/])/[^\s\"'`]+")
@@ -234,7 +235,7 @@ def _pending(path: Path, offset: int) -> bool:
         return False
 
 
-def _run_log(row: dict[str, Any]) -> LogLine:
+def run_log(row: dict[str, Any]) -> LogLine:
     return LogLine(
         ts=row.get("at") if isinstance(row.get("at"), str) else None,
         level=_level(row.get("level")),
@@ -262,20 +263,22 @@ def _radiomics_failure(row: dict[str, Any]) -> LogLine | None:
     )
 
 
-async def read_project_run(
-    tasks: TaskService, pid: str, rid: str, cursor: str | None, limit: int = LIMIT
+Render = Callable[[dict[str, Any]], LogLine | None]
+
+
+def read_files(
+    files: list[tuple[Path, Render]],
+    key: str,
+    cursor: str | None,
+    ended: bool,
+    red: Redactor,
+    limit: int = LIMIT,
 ) -> LogPage:
-    run = await tasks.get_run(pid, rid)  # settles the status; unknown project or run: not found
-    run_dir = tasks.run_dir(pid, rid)
-    key, offsets = _decode(cursor)
-    if key != rid:
+    """Appended JSONL files read in order, one cursor offset per file (at most two), bound to
+    `key`; for records whose rows span every attempt (project and script runs)."""
+    seen, offsets = _decode(cursor)
+    if seen != key:
         offsets = [0, 0]
-    ended = run.status in TERMINAL_TASK_RUN
-    files = (
-        [(run_dir / ERRORS, _radiomics_failure)]
-        if run.radiomics is not None
-        else [(run_dir / LOGS, _run_log), (run_dir / ITEMS, _item_failure)]
-    )
     lines: list[LogLine] = []
     budget = MAX_BYTES
     for n, (path, render) in enumerate(files):
@@ -291,15 +294,26 @@ async def read_project_run(
             line = render(row) if isinstance(row, dict) else None
             if line is not None:
                 lines.append(line)
-    roots = tasks.workspace.get(pid).path_roots
-    _clean(
-        lines,
-        redactor(
-            tasks.settings,
-            None,
-            aliases=[(r.alias, r.path) for r in roots if r.role == "derived"],
-            opaque=[(r.alias, r.path) for r in roots if r.role != "derived"],
-        ),
-    )
+    _clean(lines, red)
     done = ended and not any(_pending(path, offsets[n]) for n, (path, _) in enumerate(files))
-    return LogPage(lines=lines, next_cursor=_encode(rid, offsets), done=done)
+    return LogPage(lines=lines, next_cursor=_encode(key, offsets), done=done)
+
+
+async def read_project_run(
+    tasks: TaskService, pid: str, rid: str, cursor: str | None, limit: int = LIMIT
+) -> LogPage:
+    run = await tasks.get_run(pid, rid)  # settles the status; unknown project or run: not found
+    run_dir = tasks.run_dir(pid, rid)
+    files: list[tuple[Path, Render]] = (
+        [(run_dir / ERRORS, _radiomics_failure)]
+        if run.radiomics is not None
+        else [(run_dir / LOGS, run_log), (run_dir / ITEMS, _item_failure)]
+    )
+    roots = tasks.workspace.get(pid).path_roots
+    red = redactor(
+        tasks.settings,
+        None,
+        aliases=[(r.alias, r.path) for r in roots if r.role == "derived"],
+        opaque=[(r.alias, r.path) for r in roots if r.role != "derived"],
+    )
+    return read_files(files, rid, cursor, run.status in TERMINAL_TASK_RUN, red, limit)

@@ -27,5 +27,7 @@ async def read(
         if project is None:
             raise ValidationProblem("A project run's log needs ?project=")
         return await read_project_run(ctx.source_operations.tasks, project, ref, cursor, limit)
+    if kind == "script-run":
+        return ctx.ctflow_runs.logs(ref, cursor, limit)
     # these readers stay off the event loop, as before
     return await run_in_threadpool(read_logs, ctx.source_operations, kind, ref, cursor, limit)

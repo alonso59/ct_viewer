@@ -57,7 +57,7 @@ class EvalPlan(BaseModel):
 class WorkRef(BaseModel):
     """A run or source operation the client can follow (status, API-71 logs)."""
 
-    kind: Literal["task-run", "source-operation", "workspace-run"]
+    kind: Literal["task-run", "source-operation", "workspace-run", "script-run"]
     id: str
     job_id: str | None = None
     status: str

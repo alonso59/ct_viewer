@@ -19,6 +19,7 @@ class Origin(BaseModel):
     client: Literal["gui", "console", "terminal", "script"] = "gui"
     session: str | None = None
     script_run_id: str | None = None
+    step: int | None = None  # the script run's journaled call that started it
 
 
 def optional(raw: str | None) -> str | None:
