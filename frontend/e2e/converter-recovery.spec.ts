@@ -318,9 +318,9 @@ print(json.dumps([str(Path(path).relative_to(root)) for path in files]))
   for (let index = 1; index <= 10; index++) {
     await page.getByRole('button', { name: 'Next page', exact: true }).click()
     if (index < 10) await expect(files.getByRole('option').first()).toHaveText(`Small-${String(index * 50).padStart(4, '0')}`)
-    else await expect(files.getByRole('button', { name: 'Long-750', exact: true })).toBeVisible()
+    else await expect(files.getByRole('option', { name: 'Long-750', exact: true })).toBeVisible()
   }
-  await files.getByRole('button', { name: 'Long-750', exact: true }).click()
+  await files.getByRole('option', { name: 'Long-750', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Axial', exact: true }).getByRole('slider')).toHaveAttribute('max', '750', { timeout: 30_000 })
   const first = await server.request<{ items: { n: number }[]; next_cursor: string; total: number }>('GET', `/open/${sid}/items?limit=500`)
   const last = await server.request<{ items: { n: number; name: string; n_slices: number; files: string[] }[]; next_cursor: string | null }>('GET', `/open/${sid}/items?limit=500&cursor=${first.next_cursor}`)

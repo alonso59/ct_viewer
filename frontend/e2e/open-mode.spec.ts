@@ -23,7 +23,7 @@ test('open a NIfTI file from the workspace home without a project', async ({ pag
   expect(page.url()).not.toMatch(/nii|Dataset900|path=/)
   await expect(page.getByText('Viewing without a project')).toBeVisible()
   const files = page.getByRole('listbox', { name: 'Files' })
-  await expect(files.getByRole('button', { name: /01_case_00001_0000/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(files.getByRole('option', { name: /01_case_00001_0000/ })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByTestId('conv-chip')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Create project from this' })).toBeEnabled()
   // the path is shown on the page (server state), not carried by the URL
@@ -31,7 +31,7 @@ test('open a NIfTI file from the workspace home without a project', async ({ pag
 
   // reload restores the session from the server
   await page.reload()
-  await expect(files.getByRole('button', { name: /01_case_00001_0000/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(files.getByRole('option', { name: /01_case_00001_0000/ })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByTestId('conv-chip')).toHaveCount(0)
 
   // Close ends it; going back shows the ended session with its next actions (UI-18)
