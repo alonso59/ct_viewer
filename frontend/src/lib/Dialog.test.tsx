@@ -74,3 +74,31 @@ test('a dialog removed on close gives focus back too', async () => {
   await waitFor(() => expect(invoker).toHaveFocus())
 })
 
+// FE-08: a field that takes focus with autoFocus as the dialog opens (New project…) does not hide
+// the invoker; closing still gives focus back to it
+test('a dialog with an autoFocus field gives focus back to its invoker', async () => {
+  function AutoFocusDialog() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          Rename
+        </button>
+        {open ? (
+          <Dialog open onOpenChange={setOpen} title="Rename">
+            <input aria-label="New name" autoFocus />
+          </Dialog>
+        ) : null}
+      </>
+    )
+  }
+  render(<AutoFocusDialog />)
+  const invoker = screen.getByRole('button', { name: 'Rename' })
+  invoker.focus()
+  fireEvent.click(invoker)
+  await waitFor(() => expect(screen.getByRole('textbox', { name: 'New name' })).toHaveFocus())
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  await waitFor(() => expect(invoker).toHaveFocus())
+})
+

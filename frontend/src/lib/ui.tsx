@@ -54,6 +54,16 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   )
 })
 
+/** The last focused elements, newest last: a dialog whose field takes focus with autoFocus as it opens
+ *  finds its invoker here (Radix then skips the opening focus event) */
+const recentFocus: HTMLElement[] = []
+if (typeof document !== 'undefined')
+  document.addEventListener('focusin', (e) => {
+    if (!(e.target instanceof HTMLElement)) return
+    recentFocus.push(e.target)
+    if (recentFocus.length > 8) recentFocus.shift()
+  }, true)
+
 export function Dialog({ open, onOpenChange, title, description, icon, children, footer, size, dismissible = true, actions }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -72,17 +82,24 @@ export function Dialog({ open, onOpenChange, title, description, icon, children,
   // Dialogs open from state, not from a Radix trigger: closing gives focus back to the control
   // that had it when the dialog opened
   const invoker = useRef<HTMLElement | null>(null)
+  const content = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const inside = (el: Element | null) => !!el && !!content.current?.contains(el)
+    const active = document.activeElement
+    invoker.current = inside(active)
+      ? ([...recentFocus].reverse().find((el) => !inside(el) && el.isConnected) ?? null)
+      : active instanceof HTMLElement && active !== document.body ? active : null
+  }, [open])
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
       <RDialog.Portal>
         <RDialog.Overlay className="dialog-scrim" />
         <RDialog.Content
+          ref={content}
           className={`overlay dialog${size === 'lg' ? ' dialog-lg' : ''}`}
           {...(description ? {} : { 'aria-describedby': undefined })}
           onInteractOutside={dismissible ? undefined : (e) => e.preventDefault()}
-          onOpenAutoFocus={() => {
-            invoker.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-          }}
           onCloseAutoFocus={(e) => {
             const back = invoker.current
             invoker.current = null
