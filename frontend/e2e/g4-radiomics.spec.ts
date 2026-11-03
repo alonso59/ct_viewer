@@ -1,8 +1,9 @@
 // Journey G4 (REL-02; AUD-A6-01) on the real backend: radiomics settings → selection by a
 // variable + segmentation set → estimate → run → failures and skips in plain words (items without a
 // mask are skipped, not failed) → dashboard → outliers top 10, the injected defect `case_00062` first
-// → one click opens it in the viewer → group comparison on a derived variable (p-values) → export.
-// TST-05, RAD-05/07/10/11, TSK-04, DB-01/03/10, ANA-04/05, VAR-06; AUD-A2-05, A2-06, A3-04, A3-10,
+// → one click opens it in the viewer → group comparison on a derived variable (p-values), also as a
+// table → export.
+// TST-05, RAD-05/07/10/11, TSK-04, DB-01/03/04/10/11, ANA-04/05, VAR-06; AUD-A2-05, A2-06, A3-04, A3-10,
 // A3-15, A3-21, A1-08, A1-18, A5-04 (FB5).
 import { readFileSync } from 'node:fs'
 
@@ -167,6 +168,18 @@ test('G4: radiomics run, failures in plain words, outliers, viewer, group compar
   const ps = await results.locator('td:nth-child(4)').allInnerTexts()
   expect(ps.length).toBeGreaterThan(5)
   expect(ps.filter((p) => /^\d/.test(p)).length).toBeGreaterThan(5)
+
+  // The chart as a table (DB-11): the points with their group and value; a checkbox selects an
+  // item as a brush does (DB-04), and Enter on a row opens it
+  await gc.getByRole('button', { name: 'Show as table' }).click()
+  const values = gc.getByRole('region', { name: 'Chart values' })
+  await expect(values.getByRole('columnheader', { name: 'marker_group' })).toBeVisible()
+  const point = values.locator('tbody tr').first()
+  await point.getByRole('checkbox').check()
+  await expect(point).toHaveAttribute('aria-selected', 'true')
+  await point.focus()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(new RegExp(`/p/${pid}/case/`))
 
   // Export (RAD-10, PHS-03): the wide CSV with the effective phase and the phase at run time
   await openSideView(page, 'Radiomics', () => runs.isVisible())

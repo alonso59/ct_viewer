@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next'
 
 import { fmtValue, itemName } from '../../../lib'
 import { token } from '../../../theme'
-import { BRUSH_LEGEND_RIGHT, Chart, fontSize, brushOption, brushed, type ChartInstance, type ChartOption } from '../Chart'
-import { openRef, useItemMenu, useLevelColors, useSelection, type ItemRef } from './common'
+import { BRUSH_LEGEND_RIGHT, Chart, SYMBOLS, fontSize, brushOption, brushed, type ChartInstance, type ChartOption } from '../Chart'
+import { ChartOrTable, openRef, useItemMenu, useLevelColors, useSelection, type ItemRef } from './common'
 
 export interface ScatterPoint extends ItemRef {
   x: number
@@ -39,6 +39,7 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
     const series = levels.map((level, i) => ({
       name: levelName(level),
       type: 'scatter',
+      symbol: SYMBOLS[i % SYMBOLS.length],
       symbolSize: (_: unknown, p: { data: Datum }) => (sel.selected.has(p.data.ref.item_id) ? 11 : 8),
       large: points.length > 5000,
       data: points
@@ -71,15 +72,17 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
   }, [points, levels, levelName, color, sel, xName, yName, markLines, t])
   if (!points.length) return <div className="empty">{t('dashboard.noPoints')}</div>
   return (
-    <Chart
-      option={option}
-      onReady={onReady}
-      onClick={(p) => openRef((p.data as Datum | undefined)?.ref)}
-      onContextMenu={(p, x, y) => {
-        const ref = (p.data as Datum | undefined)?.ref
-        if (ref) useItemMenu.getState().open(ref, x, y)
-      }}
-      onBrush={(areas) => sel.select(brushed(points.map((p) => ({ x: p.x, y: p.y, id: p.item_id })), areas))}
-    />
+    <ChartOrTable runId={runId} rows={() => [['item_id', 'case_id', t('dashboard.table.group'), xName, yName], ...points.map((p) => [p.item_id, p.case_id, levelName(p.level), p.x, p.y])]}>
+      <Chart
+        option={option}
+        onReady={onReady}
+        onClick={(p) => openRef((p.data as Datum | undefined)?.ref)}
+        onContextMenu={(p, x, y) => {
+          const ref = (p.data as Datum | undefined)?.ref
+          if (ref) useItemMenu.getState().open(ref, x, y)
+        }}
+        onBrush={(areas) => sel.select(brushed(points.map((p) => ({ x: p.x, y: p.y, id: p.item_id })), areas))}
+      />
+    </ChartOrTable>
   )
 }

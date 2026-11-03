@@ -293,7 +293,20 @@
     "phaseChanged_one": "The phase of {{count}} item changed since the run",
     "phaseChanged_other": "The phase of {{count}} items changed since the run",
     "phaseAtRun": "{{item}}: {{phase}} (phase at run time: {{atRun}})",
-    "errorsTable": "Failures and skips"
+    "errorsTable": "Failures and skips",
+    "table": {
+      "show": "Show as table",
+      "label": "Chart values",
+      "capped": "First {{shown}} of {{total}} rows; Export CSV has them all.",
+      "select": "Select",
+      "selectItem": "Select {{id}}",
+      "group": "Group"
+    },
+    "flag": {
+      "significant": "Significant (q < 0.05)",
+      "extreme": "More than twice the threshold",
+      "followsVolume": "Follows volume closely (|ρ| > 0.8)"
+    }
   },
   "queue": {
     "allStatuses": "All statuses",

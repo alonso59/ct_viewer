@@ -22,6 +22,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 | DB-09 | Result rows open the feature's distribution split by the analysis variable; recommendation items open the view that shows the problem. | S |
 | DB-07 | Color by any categorical variable, phase or curation status; colors come from the categorical palette tokens. | M |
 | DB-10 | The outlier table flags an item only when at least a share of its features (default 5 %, and at least one feature) has a robust \|z\| over the threshold (default 3.5); both are adjustable in the view. | M |
+| DB-11 | Charts are readable without seeing them: a view with a chart has **Show as table** (its rows: the view's CSV, or the points the chart draws, at most 1,000 rows on screen), where rows of items open the item and have a checkbox for the linked selection (DB-04) as the keyboard alternative to brushing (row keys as in UI_SHELL tables); the canvas has `role="img"` and the ECharts description of its series; series differ by shape as well as colour; a value marked by colour also gets an icon with its meaning (significant q, extreme outlier, a feature that follows volume); no chart animation under `prefers-reduced-motion` (UI-16). | S |
 
 ## Views
 

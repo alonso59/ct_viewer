@@ -15,6 +15,7 @@ import {
   useFocusParams,
   useLevelName,
   usePid,
+  ValueFlag,
   ViewFrame,
   type ViewProps,
 } from './common'
@@ -64,7 +65,10 @@ export function FeatureVsVolumeView({ runId }: ViewProps) {
               {(d?.ranked ?? []).map((r) => (
                 <tr key={r.feature} data-clickable="true" aria-selected={r.feature === feature || undefined} onClick={() => setWanted(r.feature)} {...rowKeys(r.feature)}>
                   <td className="mono">{r.feature.replace(/^original_/, '')}</td>
-                  <td className="num" style={{ color: Math.abs(r.rho ?? 0) > 0.8 ? 'var(--warn)' : undefined }}>{r.rho != null ? fmtNum(r.rho) : '—'}</td>
+                  <td className="num" style={{ color: Math.abs(r.rho ?? 0) > 0.8 ? 'var(--warn)' : undefined }}>
+                    {r.rho != null ? fmtNum(r.rho) : '—'}
+                    {Math.abs(r.rho ?? 0) > 0.8 ? <ValueFlag tone="warn" icon="warning" label={t('dashboard.flag.followsVolume')} /> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

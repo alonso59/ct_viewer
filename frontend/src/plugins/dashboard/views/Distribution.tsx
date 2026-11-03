@@ -7,6 +7,7 @@ import { fmtValue } from '../../../lib'
 import { Chart, axisStyle, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
 import {
+  ChartOrTable,
   FeatureSelect,
   openRef,
   pickFeature,
@@ -96,7 +97,9 @@ export function DistributionView({ runId }: ViewProps) {
         </>
       }
     >
-      <Chart option={option} onReady={setChart} onClick={onBar} />
+      <ChartOrTable runId={runId}>
+        <Chart option={option} onReady={setChart} onClick={onBar} />
+      </ChartOrTable>
     </ViewFrame>
   )
 }

@@ -7,7 +7,7 @@ import { fmtInt, fmtNum } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, type ChartInstance, type ChartOption } from '../Chart'
 import { useRunDashboard } from '../store'
-import { openRef, str, unitFor, useFocusParams, usePid, useSelection, VariableSelect, ViewFrame, type ViewProps } from './common'
+import { ChartOrTable, openRef, str, unitFor, useFocusParams, usePid, useSelection, VariableSelect, ViewFrame, type ViewProps } from './common'
 import { TestResult, TestSwitch, type TestMode } from './stats'
 
 export function BalanceView({ runId }: ViewProps) {
@@ -74,7 +74,9 @@ export function BalanceView({ runId }: ViewProps) {
         <div className="db-stack">
           <TestResult choice={d.choice} row={d.table.result} />
           <div className="db-chart-fill">
-            <Chart option={option} onReady={setChart} onClick={onCell} />
+            <ChartOrTable>
+              <Chart option={option} onReady={setChart} onClick={onCell} />
+            </ChartOrTable>
           </div>
         </div>
       ) : null}

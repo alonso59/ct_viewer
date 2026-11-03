@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useDashboardView, useProject } from '../../../api'
 import { ItemName, NumberInput, StatusBadge, featureUnit, fmtColumn, fmtInt, useRowKeys } from '../../../lib'
 import { useDashboardStore, useRunDashboard } from '../store'
-import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
+import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, useSelection, ValueFlag, ViewFrame, type ViewProps } from './common'
 
 export const OUTLIERS_TOP = 10
 export const OUTLIERS_THRESHOLD = 3.5
@@ -100,7 +100,10 @@ export function OutliersView({ runId }: ViewProps) {
                     <td className="truncate"><ItemName id={o.item_id} pid={pid} /></td>
                     <td>{labelName(o.label)}</td>
                     <td className="num">{fmtInt(o.n_outlier_features)}</td>
-                    <td className="num" style={{ color: o.max_abs_z > threshold * 2 ? 'var(--error)' : 'var(--warn)' }}>{zFmt(o.max_abs_z)}</td>
+                    <td className="num" style={{ color: o.max_abs_z > threshold * 2 ? 'var(--error)' : 'var(--warn)' }}>
+                      {zFmt(o.max_abs_z)}
+                      {o.max_abs_z > threshold * 2 ? <ValueFlag tone="error" icon="error" label={t('dashboard.flag.extreme')} /> : null}
+                    </td>
                     <td className="mono db-top-feature">
                       {top ? (
                         <button
