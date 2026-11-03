@@ -176,6 +176,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
           active={active}
           loaded={loaded}
           tags={current.extra.dicom_sidecar ? () => api.dicomTags(pid, current.item_id) : undefined}
+          memoryKey={`${pid}|${current.item_id}`}
         />
       )}
     </div>

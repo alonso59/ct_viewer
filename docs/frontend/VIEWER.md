@@ -38,7 +38,7 @@ Depends: ADR-0003, ADR-0015, ADR-0023, frontend/ARCHITECTURE.md, API-23/24/25, S
 | VW-12 | Adaptive states: no mask → overlay controls hidden and the 3D panel shows "No segmentation"; missing file → error card with the warning code (IMP-08). | M |
 | VW-13 | Loading UI: progress bar from download bytes; first slice rendered as soon as the volume is decoded. | M |
 | VW-14 | Memory budget: at most `VIEWER_MAX_LOADED` (default 3) tabs keep GPU/CPU volumes; hidden tabs beyond that are unloaded and reload on focus. | M |
-| VW-15 | Crosshair position and W/L are preserved when switching items within a case where the geometry matches. | S |
+| VW-15 | Crosshair position and W/L are preserved when switching items within a case where the geometry matches. Otherwise a project item opens on its last view (W/L, crosshair, so the slices, and label visibility; the 100 most recently viewed items are kept across reloads); an item seen for the first time opens on the defaults (VW-05). Reset (`R`) still resets; Open mode remembers nothing. | S |
 | VW-16 | Curation context (axis, slice, W/L) is attached to each event (CUR event `context.viewer`). | S |
 | VW-17 | Measurements (distance, angle, ROI mean/SD in HU) are read-only helpers; not persisted without a project (ADR-0021). With a measure tool on, `P` places the next point at the crosshair of the target view (VW-06), so a measurement can be made from the keyboard. | S |
 | VW-18 | Compare two items side by side with linked crosshair, e.g. NC vs NP. | C |

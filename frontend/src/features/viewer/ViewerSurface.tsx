@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, LabelDef } from '../../api'
 import { Progress, useAnnounce } from '../../lib'
-import { useViewerSync } from '../../state'
+import { useViewerSync, WL_PRESETS } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { createViewer, hasWebgl2, VolumeFetchError } from './engine'
 import { useViewerLocal } from './local'
+import { useItemMemory } from './memory'
 import { fetchMesh } from './meshes'
 import { isPlane, visibleViewports } from './model/layouts'
 import type { LabelStyle, LoadProgress, Plane, TileRect, Vec3, ViewerHandle, ViewportId, ViewState } from './model/types'
@@ -29,6 +30,8 @@ export interface SurfaceProps {
   loaded: boolean
   /** The item's DICOM tags for the header info, when it has them */
   tags?: () => Promise<Record<string, unknown>>
+  /** Remember this item's view across reloads under this key (project items) */
+  memoryKey?: string
 }
 
 /** Focus handling of the viewer's container: `when: 'viewer'` shortcuts fire while it has focus */
@@ -67,7 +70,7 @@ interface Drag {
 const sameGeometry = (a: ItemRecord['geometry'], b: ItemRecord['geometry']) =>
   !!a && !!b && a.shape.join() === b.shape.join() && a.spacing.every((s, i) => Math.abs(s - (b.spacing[i] ?? NaN)) < 1e-4)
 
-export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded, tags }: SurfaceProps) {
+export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded, tags, memoryKey }: SurfaceProps) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const canvasHost = useRef<HTMLDivElement>(null)
@@ -134,9 +137,17 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         signal: ac.signal,
         onProgress: (progress) => update({ progress }),
         onImage: () => {
-          // Same geometry → keep crosshair and W/L; otherwise start centred
+          // Same geometry → keep crosshair and W/L; else the item's last view; else start centred
+          const saved = memoryKey ? useItemMemory.getState().items[memoryKey] : undefined
           if (keep) handle.setCrosshair(keep)
-          else {
+          else if (saved) {
+            handle.setCrosshair(saved.ras)
+            const s = useViewerSync.getState()
+            const preset = (Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).find((p) => WL_PRESETS[p][0] === saved.ww && WL_PRESETS[p][1] === saved.wl)
+            if (preset) s.setPreset(preset)
+            else s.setWindow(saved.ww, saved.wl)
+            s.set({ labelVisibility: saved.labels })
+          } else {
             // The DICOM header window first (when enabled), else the modality default
             const s = useViewerSync.getState()
             const header = s.useDicomWindow ? dicomWindowOf(item) : null
@@ -194,6 +205,12 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => {
     if (view) prev.current = { geometry: item.geometry, ras: view.ras }
   }, [view, item.geometry])
+  // ...and this item's view for its next visit, also after a reload
+  useEffect(() => {
+    if (!memoryKey || !active || !view || load.phase !== 'ready') return
+    const later = setTimeout(() => useItemMemory.getState().remember(memoryKey, { ww: v.ww, wl: v.wl, ras: view.ras, labels: v.labelVisibility }), 500)
+    return () => clearTimeout(later)
+  }, [memoryKey, active, view, load.phase, v.ww, v.wl, v.labelVisibility])
 
   useEffect(() => {
     if (!handle) return

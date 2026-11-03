@@ -131,7 +131,8 @@
     },
     "toastCount": "×{{n}}",
     "skipToEditor": "Skip to editor",
-    "editorArea": "Editor area"
+    "editorArea": "Editor area",
+    "tabsLost": "The saved tabs of this project could not be restored, so it opened without them."
   },
   "palette": {
     "cases": "Cases",

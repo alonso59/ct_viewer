@@ -3,11 +3,20 @@ import { persist } from 'zustand/middleware'
 
 import type { CaseFilter } from '../../api'
 
-interface ExplorerState {
+interface ProjectState {
   filter: CaseFilter
   expanded: Record<string, boolean>
+}
+
+interface ExplorerState extends ProjectState {
+  /** The project whose filter and expanded cases these are */
+  pid: string | null
+  /** Each project's filter and expanded cases, kept across reloads */
+  byProject: Record<string, ProjectState>
   /** Case ids in the current filtered order, for Alt+↓ / Alt+↑ */
   order: string[]
+  /** Show a project's own filter and expanded cases (none the first time) */
+  openProject: (pid: string) => void
   setFilter: (patch: Partial<CaseFilter>) => void
   /** Set one `var.{name}` filter; empty removes it */
   setVarFilter: (name: string, value: string) => void
@@ -18,10 +27,13 @@ interface ExplorerState {
   setOrder: (ids: string[]) => void
 }
 
-export const useExplorer = create<ExplorerState>()((set) => ({
+export const useExplorer = create<ExplorerState>()(persist((set) => ({
+  pid: null,
+  byProject: {},
   filter: {},
   expanded: {},
   order: [],
+  openProject: (pid) => set((s) => ({ pid, filter: s.byProject[pid]?.filter ?? {}, expanded: s.byProject[pid]?.expanded ?? {}, order: [] })),
   setFilter: (patch) => set((s) => ({ filter: { ...s.filter, ...patch } })),
   setVarFilter: (name, value) =>
     set((s) => {
@@ -39,7 +51,13 @@ export const useExplorer = create<ExplorerState>()((set) => ({
     }),
   toggle: (cid, open) => set((s) => ({ expanded: { ...s.expanded, [cid]: open ?? !s.expanded[cid] } })),
   setOrder: (order) => set({ order }),
-}))
+}), { name: 'rw.explorer.state', partialize: ({ byProject }) => ({ byProject }) }))
+
+// Every change of the filter or the expanded cases is the open project's to keep
+useExplorer.subscribe((s, prev) => {
+  if (s.pid && (s.filter !== prev.filter || s.expanded !== prev.expanded))
+    useExplorer.setState({ byProject: { ...s.byProject, [s.pid]: { filter: s.filter, expanded: s.expanded } } })
+})
 
 export const activeFilterCount = (f: CaseFilter) =>
   [f.phase, f.status, f.warning, f.voi, f.showExcluded, f.itemIds].filter(Boolean).length +

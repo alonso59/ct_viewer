@@ -3,7 +3,7 @@
 // the keyboard (`=`, `-`, `.`, `,`, `F`), also with no pointer over a view.
 import { expect, test, type Page } from '@playwright/test'
 
-import { FIXTURES } from './helpers'
+import { FIXTURES, importedProject } from './helpers'
 import { gotoOpen } from './openMode'
 
 const view = (page: Page, name: string) => page.getByRole('region', { name, exact: true })
@@ -78,6 +78,32 @@ test('the keyboard zooms, steps and fits the view under the pointer, else the vi
   await expect(zoomText(page, 'Coronal')).toHaveCount(0)
   await page.keyboard.press('-')
   await expect(zoomText(page, 'Sagittal')).toHaveCount(0)
+})
+
+test('a project item keeps its window and slice across a reload; another item opens on the defaults (VW-05, VW-15)', async ({ page }) => {
+  const pid = await importedProject(`view memory ${Date.now()}`)
+  await page.goto(`/p/${pid}/case/case_00001`)
+  await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  const bar = page.getByRole('toolbar').filter({ has: page.getByRole('button', { name: 'Invert' }) })
+  await expect(bar.getByLabel('Window width')).toHaveValue('400')
+  await bar.getByLabel('Window width').fill('1500')
+  await bar.getByLabel('Window level').fill('-600')
+  const index = view(page, 'Axial').locator('.vp-index')
+  const box = (await view(page, 'Axial').locator('.vp-body').boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(0, 300)
+  const slice = await index.textContent()
+  // the view is saved once it settles
+  await page.waitForFunction(`(localStorage.getItem('rw.viewer.items') ?? '').includes('"ww":1500')`)
+  await page.reload()
+  await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  await expect(bar.getByLabel('Window width')).toHaveValue('1500')
+  await expect(bar.getByLabel('Window level')).toHaveValue('-600')
+  await expect(index).toHaveText(slice!)
+  // a case not seen before starts on the CT default
+  await page.goto(`/p/${pid}/case/case_00002`)
+  await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  await expect(bar.getByLabel('Window width')).toHaveValue('400')
 })
 
 /** Crosshair position in tile px: the lines move with the image */

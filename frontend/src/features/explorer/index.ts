@@ -71,6 +71,10 @@ export function pickNextUnreviewed(cases: CaseSummary[], current: string | null)
 }
 
 export function registerExplorer() {
+  // Opening a project shows its own filter and expanded cases
+  useWorkbench.subscribe((s, prev) => {
+    if (s.pid && s.pid !== prev.pid) useExplorer.getState().openProject(s.pid)
+  })
   registry.view({
     id: 'project',
     title: 'view.project',

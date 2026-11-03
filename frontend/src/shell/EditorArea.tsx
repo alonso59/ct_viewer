@@ -11,19 +11,21 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { Icon, codicon } from '../theme'
 import { registry } from './registry'
-import { flushPendingOpen, openEditor, pinEditor, requeueOpen, useWorkbench, type EditorParams } from './workbenchStore'
+import { flushPendingOpen, openEditor, pinEditor, requeueOpen, toast, useWorkbench, type EditorParams } from './workbenchStore'
 
 const THEME = { name: 'rw', className: 'dockview-theme-dark dv-rw', gap: 0 }
 const tabsKey = (pid: string) => `rw.tabs.${pid}`
 
 /** The saved dockview layout of one project's editor tabs, or null (none, unreadable) */
+/** The saved tabs of a project; null when none (or no storage); throws when they cannot be read */
 export function loadTabs(pid: string): unknown {
+  let saved: string | null
   try {
-    const saved = localStorage.getItem(tabsKey(pid))
-    return saved ? (JSON.parse(saved) as unknown) : null
+    saved = localStorage.getItem(tabsKey(pid))
   } catch {
     return null
   }
+  return saved ? (JSON.parse(saved) as unknown) : null
 }
 
 export function saveTabs(pid: string, layout: unknown) {
@@ -121,6 +123,7 @@ function matchLocation(pid: string, pathname: string, search: string): EditorPar
 }
 
 export function EditorArea({ pid }: { pid: string }) {
+  const { t } = useTranslation()
   const setDock = useWorkbench((s) => s.setDock)
   const setActive = useWorkbench((s) => s.setActive)
   const location = useLocation()
@@ -131,11 +134,12 @@ export function EditorArea({ pid }: { pid: string }) {
 
   const onReady = (e: DockviewReadyEvent) => {
     setDock(e.api)
-    const saved = loadTabs(pid)
     try {
+      const saved = loadTabs(pid)
       if (saved) e.api.fromJSON(saved as Parameters<typeof e.api.fromJSON>[0])
     } catch {
       e.api.clear()
+      toast({ message: t('shell.tabsLost'), tone: 'info' })
     }
     e.api.onDidLayoutChange(() => saveTabs(pid, e.api.toJSON()))
     e.api.onDidActivePanelChange(({ panel }) => setActive((panel?.params as EditorParams | undefined) ?? null))
