@@ -14,7 +14,7 @@ test('theme, size and a rebinding that asks before taking a key in use', async (
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await settings.getByRole('group', { name: 'Interface size' }).getByRole('button', { name: 'Large', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-size', 'large')
-  await expect(settings.getByLabel('Reviewer name')).toBeVisible()
+  await expect(settings.getByLabel('Reviewer name', { exact: true })).toBeVisible()
 
   // Toggle panel ← the side bar's keys: asks first; Cancel keeps both as they were
   await settings.getByLabel('Keybindings').fill('Toggle panel')
