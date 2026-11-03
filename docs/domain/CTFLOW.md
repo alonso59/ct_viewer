@@ -5,7 +5,7 @@ Read when: working on the console interpreter, the `ctflow` client, script runs,
 Depends: ADR-0041, TASKS.md, SOURCES.md, PROJECT_FORMAT.md (PRJ-19), SEGMENTATION.md, API.md (API-71), NFR.md (NFR-17).
 
 CTFlow is a domain language, not a shell. Every command calls a service the GUI already uses; processing stays task runs (TSK-*) and source operations (TSK-16).
-Status: ROADMAP P7h; C1 (attribution, project-run logs) and C2 (catalog, targets, one-line evaluation, plan mode; API-72) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
+Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, one-line evaluation, plan mode; API-72) and C3 (`ctflow` client) are implemented. Rows move their facts into the owning doc (TSK, API, UI, OPS, TST) when the phase that implements them exits.
 
 ## Requirements
 
@@ -78,6 +78,7 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs) and C2 (catalog, targets
 
 - Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`, `segment` (`segment.nnunet`, `-gpus` = `gpu_cap`). Adding the key changed the nnU-Net manifest hash, which its resume pins: nnU-Net runs paused or interrupted before that release start again instead of resuming, and the host runner's `PLUGINS_ROOT` copy must be updated with the image.
 - `dicom2nii` starts a durable source operation with its analysis (API-69); `convert <operation>` then converts it, as the converter window does.
+- `ctflow` (C3, `scripts/ctflow.py`, OPS-21): interactive console, one command (`-c` or the words after the options) followed to its end, `--detach`, `--plan`, `--json`, `attach`, `logs [-f]`, `status`, `cancel`, `runs`. Exit codes: 0 completed, 1 failed/with errors/interrupted, 2 refused, 3 cancelled/paused, 130 stopped following. The console's `project` is held by the client until sessions (CTF-08); script files and `--detach` of a script come with C4/C5.
 - Test-only tasks are callable by id and not listed. Numbers that look like integers stay integers, so settings hash as the GUI's do.
 
 ## Deferred to implementation

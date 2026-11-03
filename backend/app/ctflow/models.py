@@ -52,8 +52,10 @@ class EvalPlan(BaseModel):
     preflight: PreflightResult | None = None
 
 
-class StartedWork(BaseModel):
-    kind: Literal["task-run", "source-operation"]
+class WorkRef(BaseModel):
+    """A run or source operation the client can follow (status, API-71 logs)."""
+
+    kind: Literal["task-run", "source-operation", "workspace-run"]
     id: str
     job_id: str | None = None
     status: str
@@ -65,6 +67,7 @@ class EvalResult(BaseModel):
     task_id: str | None = None
     target: ResolvedTarget | None = None
     plan: EvalPlan | None = None
-    started: StartedWork | None = None
+    started: WorkRef | None = None  # work this line started
+    work: WorkRef | None = None  # work this line looked at or controlled
     data: Any = None  # what a core command returns
     text: list[str] = Field(default_factory=list)  # the same, as lines for a terminal

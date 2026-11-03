@@ -3453,7 +3453,7 @@
      "started": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/StartedWork"
+        "$ref": "#/components/schemas/WorkRef"
        },
        {
         "type": "null"
@@ -3487,6 +3487,16 @@
       },
       "title": "Text",
       "type": "array"
+     },
+     "work": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/WorkRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [
@@ -12063,55 +12073,6 @@
     "title": "SourcePlanPage",
     "type": "object"
    },
-   "StartedWork": {
-    "properties": {
-     "id": {
-      "title": "Id",
-      "type": "string"
-     },
-     "job_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Job Id"
-     },
-     "kind": {
-      "enum": [
-       "task-run",
-       "source-operation"
-      ],
-      "title": "Kind",
-      "type": "string"
-     },
-     "project_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Project Id"
-     },
-     "status": {
-      "title": "Status",
-      "type": "string"
-     }
-    },
-    "required": [
-     "kind",
-     "id",
-     "status"
-    ],
-    "title": "StartedWork",
-    "type": "object"
-   },
    "Suggestion": {
     "properties": {
      "reason": {
@@ -14750,6 +14711,57 @@
      "wl"
     ],
     "title": "WlPreset",
+    "type": "object"
+   },
+   "WorkRef": {
+    "description": "A run or source operation the client can follow (status, API-71 logs).",
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "job_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Job Id"
+     },
+     "kind": {
+      "enum": [
+       "task-run",
+       "source-operation",
+       "workspace-run"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "id",
+     "status"
+    ],
+    "title": "WorkRef",
     "type": "object"
    },
    "WorkspaceEstimateRequest": {

@@ -201,3 +201,15 @@ def test_shipped_manifests_name_their_commands() -> None:
         )
     }
     assert names == {"segment", "dicom2nii", "radiomics"}
+
+
+def test_status_and_cancel_find_a_run_by_its_id(env: TestClient, proj: str, tmp_path: Path) -> None:
+    with_derived(env, proj, tmp_path)
+    started = run(env, f"{THR} all -delay-s 5", proj)["started"]
+    status = run(env, f"status {started['id']}", proj)["work"]
+    assert status["kind"] == "task-run" and status["project_id"] == proj
+    cancelled = run(env, f"cancel {started['id']}", proj)["work"]
+    assert cancelled["status"] in {"cancelling", "cancelled"}
+    final = finish(env, proj, {"run_id": started["id"], "job_id": started["job_id"]})
+    assert final["status"] == "cancelled"
+    problem(env, f"status {started['id']}", None, "not-found")  # no project: not a workspace id

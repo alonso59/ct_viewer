@@ -18,12 +18,13 @@ from app.ctflow.models import (
     EvalResult,
     OptionInfo,
     ResolvedTarget,
-    StartedWork,
+    WorkRef,
 )
 from app.ctflow.parse import FLAG, Line, parse
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.models import PreflightRequest, TaskInfo, TaskManifest, TaskRunRequest
 from app.tasks.source_operations import (
+    SourceOperationControl,
     SourceOperationConvert,
     SourceOperations,
     SourceOperationStart,
@@ -46,6 +47,7 @@ CORE = {
     "cases": ("cases [-phase P]", "List the active cases of the project"),
     "runs": ("runs", "List the project's task runs"),
     "status": ("status <run or operation>", "Show one run or source operation"),
+    "cancel": ("cancel <run or operation>", "Cancel a run or source operation"),
     "convert": ("convert <operation>", "Convert a DICOM source whose analysis is ready"),
 }
 _SCALARS = {"string", "integer", "number", "boolean"}
@@ -212,7 +214,7 @@ class Console:
                 reviewer,
                 origin,
             )
-            result.started = StartedWork(
+            result.started = WorkRef(
                 kind="source-operation", id=op.operation_id, job_id=op.job_id,
                 status=op.status, project_id=pid,
             )  # fmt: skip
@@ -228,7 +230,7 @@ class Console:
             reviewer,
             origin,
         )
-        result.started = StartedWork(
+        result.started = WorkRef(
             kind="task-run", id=started.run_id, job_id=started.job_id,
             status=started.status, project_id=pid,
         )  # fmt: skip
@@ -269,10 +271,11 @@ class Console:
             if arg is not None:
                 result.text += [f"  -{o.name} ({o.type})  {o.help}" for o in commands[0].options]
             return result
-        if line.name == "status":
+        if line.name in {"status", "cancel"}:
             if arg is None:
-                raise ValidationProblem("Name the run or operation: status <id>")
-            return await self._status(result, arg, req.project_id)
+                raise ValidationProblem(f"Name the run or operation: {line.name} <id>")
+            find = self._status if line.name == "status" else self._cancel
+            return await find(result, arg, req.project_id)
         if line.name == "convert":
             if arg is None:
                 raise ValidationProblem("Name the operation: convert <operation>")
@@ -287,7 +290,7 @@ class Console:
                 ),
                 reviewer,
             )
-            result.started = StartedWork(
+            result.started = WorkRef(
                 kind="source-operation", id=arg, job_id=converted.job_id,
                 status=converted.status, project_id=converted.project_id,
             )  # fmt: skip
@@ -314,23 +317,51 @@ class Console:
         result.text = [f"{r.run_id}  {r.task.id}  {r.status}" for r in runs]
         return result
 
-    async def _status(self, result: EvalResult, ref: str, pid: str | None) -> EvalResult:
+    async def _find(self, ref: str, pid: str | None) -> tuple[WorkRef, Any]:
+        """A project run (with a project), else a source operation, else a workspace run."""
         if pid is not None:
             try:
                 run = await self.tasks.get_run(pid, ref)
             except NotFound:
                 pass
             else:
-                result.data = run.model_dump(mode="json")
-                result.text = [f"{run.run_id}  {run.task.id}  {run.status}  {run.counts}"]
-                return result
+                return WorkRef(
+                    kind="task-run", id=ref, job_id=run.job_id, status=run.status, project_id=pid
+                ), run
         try:
             op = await self.operations.view(ref)
         except NotFound:
-            run_ws = self.operations.workspace_tasks.get(ref)  # raises not-found itself
-            result.data = run_ws.model_dump(mode="json")
-            result.text = [f"{run_ws.run_id}  {run_ws.task.id}  {run_ws.status}"]
-            return result
-        result.data = op.model_dump(mode="json")
-        result.text = [f"{op.operation_id}  {op.purpose}  {op.stage}  {op.status}"]
+            ws = self.operations.workspace_tasks.get(ref)  # raises not-found itself
+            return WorkRef(kind="workspace-run", id=ref, job_id=ws.job_id, status=ws.status), ws
+        return WorkRef(
+            kind="source-operation", id=ref, job_id=op.job_id, status=op.status,
+            project_id=op.project_id,
+        ), op  # fmt: skip
+
+    async def _status(self, result: EvalResult, ref: str, pid: str | None) -> EvalResult:
+        work, record = await self._find(ref, pid)
+        result.work, result.data = work, record.model_dump(mode="json")
+        stage = f"  {record.stage}" if work.kind == "source-operation" else ""
+        result.text = [f"{work.id}  {work.kind}{stage}  {work.status}"]
+        return result
+
+    async def _cancel(self, result: EvalResult, ref: str, pid: str | None) -> EvalResult:
+        work, record = await self._find(ref, pid)
+        status: str
+        if work.kind == "task-run":
+            assert pid is not None
+            status = (await self.tasks.cancel(pid, ref)).status
+        elif work.kind == "workspace-run":
+            status = (await self.operations.workspace_tasks.cancel(ref)).status
+        else:
+            control = SourceOperationControl(
+                expected_revision=record.revision,
+                expected_attempt=record.attempt,
+                expected_run_attempt=(
+                    record.conversion_run.attempts if record.conversion_run else None
+                ),
+            )
+            status = (await self.operations.cancel(ref, control)).status
+        work.status = status
+        result.work, result.text = work, [f"{work.id}  {work.status}"]
         return result
