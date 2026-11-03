@@ -81,7 +81,23 @@
     "nextRegion": "Focus next region",
     "previousRegion": "Focus previous region",
     "readProbe": "Read the value under the cursor",
-    "pinTab": "Keep tab open"
+    "pinTab": "Keep tab open",
+    "viewer": {
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "centerCrosshair": "Center the crosshair",
+      "nextSlice": "Next slice",
+      "previousSlice": "Previous slice",
+      "panLeft": "Move the image left",
+      "panRight": "Move the image right",
+      "panUp": "Move the image up",
+      "panDown": "Move the image down",
+      "orbitLeft": "Rotate the 3D view left",
+      "orbitRight": "Rotate the 3D view right",
+      "orbitUp": "Rotate the 3D view up",
+      "orbitDown": "Rotate the 3D view down",
+      "measurePoint": "Place a measurement point at the crosshair"
+    }
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -557,7 +573,8 @@
     "scanSlices": "{{n}} slices",
     "scopeFullHelp": "The whole scan",
     "scopeVoiHelp": "Only the cropped region around the organ",
-    "scopeNoVoi": "This scan has no cropped region"
+    "scopeNoVoi": "This scan has no cropped region",
+    "help": "Mouse and keys in the viewer"
   },
   "segmentation": {
     "title": "Segmentations",
@@ -605,7 +622,8 @@
     "reimport": "Reimport",
     "restore": "Restore",
     "reindexConfirm": "Rebuild the index of every segmentation set in this project? It runs in the background; sets stay readable meanwhile.",
-    "segIdTaken": "A set with ID {{id}} exists: this import replaces its masks."
+    "segIdTaken": "A set with ID {{id}} exists: this import replaces its masks.",
+    "percent": "{{v}} %"
   },
   "labels": {
     "color": "{{name}} color",

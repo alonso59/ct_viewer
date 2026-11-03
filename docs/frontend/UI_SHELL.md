@@ -164,8 +164,13 @@ Implementation (Open mode, import): "Open file or folder…" is on the workspace
 | `F` | Fit the view under the pointer* (VW-26) | `Esc` | Restore a maximized view* |
 | `Ctrl/Cmd+,` | Settings | `Ctrl/Cmd+Shift+E` / `F` | Explorer / Search view |
 | `F6` / `Shift+F6` | Focus next / previous region (UI-01) | `H` | Read the value under the cursor aloud* (FE-08) |
+| `=` / `-` | Zoom in / out*† (VW-06) | `.` / `,` | Next / previous slice*† (VW-03) |
+| `Shift`+arrows | Move the image*† (VW-06) | `Ctrl/Cmd+Shift`+arrows | Rotate the 3D view* (VW-09) |
+| `Shift+C` | Center the crosshair* (VW-04) | `P` | Measurement point at the crosshair*† (VW-17) |
 
 \* Only while a viewer is shown (a case tab, or Open mode) and focus is not in a text field or menu; DOM focus inside the viewer is not needed, so `A → Alt+↓ → A` records both cases (AUD-A2-02). Curation keys wait until the new case's item has loaded and target it with the default target `seg`. No shortcut fires while a dialog is open (AUD-A2-09).
+
+† On the target view: the view under the pointer, else the view holding focus, else the maximized one, else the first one shown (VW-06). Arrow chords leave a focused tree, grid or tab list alone. Keyboard shortcuts also lists the viewer's mouse gestures, each with the keys that do the same, first while a viewer is shown. Defaults never clash on one route; Settings asks before a rebinding takes a key in use (UI-12).
 
 ## Brand (UI-21)
 

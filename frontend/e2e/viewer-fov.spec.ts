@@ -1,5 +1,6 @@
 // VW-06/26 on the real backend: zoom acts on the view under the pointer only; Fit to window
-// (header button or `F`) restores that view to 100 % and keeps its slice index.
+// (header button or `F`) restores that view to 100 % and keeps its slice index. The same from
+// the keyboard (`=`, `-`, `.`, `,`, `F`), also with no pointer over a view.
 import { expect, test, type Page } from '@playwright/test'
 
 import { FIXTURES } from './helpers'
@@ -49,6 +50,34 @@ test('zoom one view, the others unchanged; Fit restores it and keeps the slice i
   await page.keyboard.press('f')
   await expect(zoomText(page, 'Coronal')).toHaveCount(0)
   await expect(zoomText(page, 'Sagittal')).toHaveText(/\d+ %/)
+})
+
+test('the keyboard zooms, steps and fits the view under the pointer, else the view holding focus (VW-03, VW-06, VW-26)', async ({ page }) => {
+  await gotoOpen(page, `${FIXTURES}/Dataset900/nifti/04_case_00002_0000.nii.gz`)
+  await expect(page.locator('.vp').first()).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
+  const box = (await view(page, 'Coronal').locator('.vp-body').boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.keyboard.press('=')
+  await expect(zoomText(page, 'Coronal')).toHaveText('125 %')
+  await expect(zoomText(page, 'Axial')).toHaveCount(0)
+  const index = view(page, 'Coronal').locator('.vp-index')
+  const before = await index.textContent()
+  await page.keyboard.press('.')
+  await expect(index).not.toHaveText(before!)
+  await page.keyboard.press(',')
+  await expect(index).toHaveText(before!)
+  await page.keyboard.press('f')
+  await expect(zoomText(page, 'Coronal')).toHaveCount(0)
+
+  // no pointer over a view: the keys act on the view whose header holds focus
+  await page.mouse.move(0, 0)
+  await view(page, 'Sagittal').getByRole('button', { name: 'Fit to window' }).focus()
+  await page.keyboard.press('=')
+  await expect(zoomText(page, 'Sagittal')).toHaveText('125 %')
+  await expect(zoomText(page, 'Coronal')).toHaveCount(0)
+  await page.keyboard.press('-')
+  await expect(zoomText(page, 'Sagittal')).toHaveCount(0)
 })
 
 /** Crosshair position in tile px: the lines move with the image */

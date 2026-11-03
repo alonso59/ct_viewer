@@ -4,9 +4,11 @@ import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useViewerSync, type ViewportId } from '../../state'
-import { CtIcon, Icon, codicon } from '../../theme'
+import { IconButton } from '../../lib'
+import { CtIcon, codicon } from '../../theme'
 import { useViewerLocal } from './local'
 import { Render3dControls } from './Render3dControls'
+import { commandChord } from './Tools'
 import { CROSS, ORIENTATION, isPlane } from './model/layouts'
 import type { Plane, PlaneView, Vec3 } from './model/types'
 
@@ -44,6 +46,7 @@ export function Viewport({ id, active, plane, ras, hasMask, canSurface = false, 
   return (
     <section
       className="vp"
+      data-viewport={id}
       aria-label={t(`viewer.plane.${id}`)}
       onDoubleClick={(e) => {
         if ((e.target as HTMLElement).closest('.vp-header')) onMaximize()
@@ -57,12 +60,8 @@ export function Viewport({ id, active, plane, ras, hasMask, canSurface = false, 
         <span className="vp-title">{t(`viewer.plane.${id}`)}</span>
         {plane ? <span className="vp-index">{t('viewer.sliceOf', { index: plane.index, total: plane.total })}</span> : null}
         {id === '3d' ? <Render3dControls active={active} hasMask={hasMask} canSurface={canSurface} meshState={meshState} /> : null}
-        <button type="button" className="icon-btn vp-fit" aria-label={t('viewer.fit')} title={t('viewer.fit')} onClick={onFit}>
-          <Icon spec={codicon('layout-centered')} />
-        </button>
-        <button type="button" className="icon-btn vp-max" aria-label={t(maximized ? 'viewer.restore' : 'viewer.maximize')} title={t(maximized ? 'viewer.restore' : 'viewer.maximize')} onClick={onMaximize}>
-          <Icon spec={codicon(maximized ? 'screen-normal' : 'screen-full')} />
-        </button>
+        <IconButton icon={codicon('layout-centered')} className="vp-fit" label={t('viewer.fit')} shortcut={commandChord('viewer.fit')} onClick={onFit} />
+        <IconButton icon={codicon(maximized ? 'screen-normal' : 'screen-full')} className="vp-max" label={t(maximized ? 'viewer.restore' : 'viewer.maximize')} shortcut={maximized ? commandChord('viewer.restore') : undefined} onClick={onMaximize} />
       </header>
       <div className="vp-body" data-tile={id} data-tool={isPlane(id) ? tool : 'orbit'} {...bodyProps}>
         {isPlane(id) ? <PlaneOverlay plane={id} view={plane} /> : <Overlay3d hasMask={hasMask} ras={ras} />}

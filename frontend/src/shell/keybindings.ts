@@ -43,8 +43,8 @@ export function formatChord(chord: string | undefined): string {
   if (!chord) return ''
   const parts = chord.split('+')
   const map: Record<string, string> = isMac
-    ? { mod: '⌘', shift: '⇧', alt: '⌥', ctrl: '⌃', down: '↓', up: '↑', esc: 'Esc', space: 'Space' }
-    : { mod: 'Ctrl', shift: 'Shift', alt: 'Alt', down: '↓', up: '↑', esc: 'Esc', space: 'Space' }
+    ? { mod: '⌘', shift: '⇧', alt: '⌥', ctrl: '⌃', down: '↓', up: '↑', left: '←', right: '→', esc: 'Esc', space: 'Space' }
+    : { mod: 'Ctrl', shift: 'Shift', alt: 'Alt', down: '↓', up: '↑', left: '←', right: '→', esc: 'Esc', space: 'Space' }
   const out = parts.map((p) => map[p] ?? p.toUpperCase())
   return isMac ? out.join('') : out.join('+')
 }
@@ -64,11 +64,15 @@ function modalOpen(): boolean {
 
 const inMenu = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.('[role="menu"], [role="listbox"]')
 
+/** A focused tree, grid, tab list or radio group moves with the arrow keys (also with Shift) */
+const ownsArrows = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.('[role="tree"], [role="grid"], [role="treegrid"], [role="tablist"], [role="radiogroup"]')
+
 /** One keydown through the registry. Returns whether a command ran.
  *  - only commands offered on the current route and allowed
  *  - nothing while a modal is open or a menu has focus
  *  - `when: 'viewer'`: a viewer is shown and focus is not in a text field; DOM focus inside the
- *    viewer is not needed, so the keys work right after Alt+↓ or a click in the Explorer
+ *    viewer is not needed, so the keys work right after Alt+↓ or a click in the Explorer; arrow
+ *    chords leave a focused tree, grid or tab list alone
  *  - plain keys never fire while typing; chords with a modifier or F-keys do */
 export function dispatchKey(e: KeyboardEvent): boolean {
   if (e.repeat && !e.altKey) return false
@@ -80,7 +84,7 @@ export function dispatchKey(e: KeyboardEvent): boolean {
   const scope = routeScope()
   for (const c of registry.commands.values()) {
     if (bindingOf(c) !== chord || !registry.available(c, scope)) continue
-    if (c.when === 'viewer' && (typing || !registry.inContext('viewer'))) continue
+    if (c.when === 'viewer' && (typing || !registry.inContext('viewer') || (/(up|down|left|right)$/.test(chord) && ownsArrows(target)))) continue
     if (typing && !/mod|alt|ctrl|^f\d/.test(chord)) continue
     if (c.enabled && !c.enabled()) continue
     e.preventDefault()

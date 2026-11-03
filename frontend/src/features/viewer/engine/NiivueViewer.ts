@@ -738,6 +738,10 @@ export class NiivueViewer implements ViewerHandle {
   resetView(): void {
     for (const pl of PLANES) this.fitView(pl)
     this.fitView('3d')
+    this.centerCrosshair()
+  }
+
+  centerCrosshair(): void {
     if (this.image) this.setFrac([0.5, 0.5, 0.5])
   }
 

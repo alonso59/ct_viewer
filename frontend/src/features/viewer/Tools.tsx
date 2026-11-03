@@ -2,7 +2,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 
 import { IconButton } from '../../lib'
-import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
+import { bindingOf, formatChord, registry, runCommand, useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
 import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../../theme'
 import { useViewerLocal } from './local'
@@ -17,7 +17,8 @@ export const useShown = () => {
   const caseTab = useWorkbench((s) => s.active?.type === 'case')
   return viewer || caseTab
 }
-const chord = (id: string) => {
+/** A command's keys as shown, for tooltips */
+export const commandChord = (id: string) => {
   const c = registry.commands.get(id)
   return c ? formatChord(bindingOf(c)) : undefined
 }
@@ -39,7 +40,7 @@ export function ToolGroup() {
   return (
     <>
       {TOOLS.map((x) => (
-        <IconButton key={x.id} icon={x.icon} label={t(`viewer.tool.${x.id}`)} shortcut={chord(x.cmd)} pressed={enabled && tool === x.id} disabled={!enabled} onClick={() => set({ tool: x.id })} />
+        <IconButton key={x.id} icon={x.icon} label={t(`viewer.tool.${x.id}`)} shortcut={commandChord(x.cmd)} pressed={enabled && tool === x.id} disabled={!enabled} onClick={() => set({ tool: x.id })} />
       ))}
       <span className="toolbar-sep" />
     </>
@@ -66,7 +67,7 @@ export function LayoutMenu() {
   return (
     <>
       <Menu.Root>
-        <Menu.Trigger className="toolbar-select" disabled={!enabled} title={`${t('viewer.layoutLabel')} (${chord('viewer.cycleLayout') ?? ''})`}>
+        <Menu.Trigger className="toolbar-select" disabled={!enabled} title={`${t('viewer.layoutLabel')} (${commandChord('viewer.cycleLayout') ?? ''})`}>
           <CtIcon name={LAYOUT_ICONS[layout]} />
           {t(`viewer.layout.${layout}`)}
           <Icon spec={codicon('chevron-down')} />
@@ -153,8 +154,10 @@ export function ResetAndSnapshot() {
   if (!shown) return null
   return (
     <>
-      <IconButton icon={codicon('discard')} label={t('viewer.reset')} shortcut={chord('viewer.reset')} disabled={!enabled} onClick={() => useViewerSync.getState().reset()} />
+      <IconButton icon={codicon('discard')} label={t('viewer.reset')} shortcut={commandChord('viewer.reset')} disabled={!enabled} onClick={() => useViewerSync.getState().reset()} />
       <IconButton icon={codicon('device-camera')} label={t('viewer.screenshot')} disabled={!enabled} onClick={() => void screenshot()} />
+      {/* the shortcuts dialog lists the mouse gestures first while a viewer is shown */}
+      <IconButton icon={codicon('question')} label={t('viewer.help')} shortcut={commandChord('help.keyboard')} onClick={() => runCommand('help.keyboard')} />
     </>
   )
 }

@@ -428,9 +428,10 @@ button.statusbar-item:hover {
 .etab[data-preview='true'] .etab-title {
   font-style: italic;
 }
+/* 24 px: the minimum pointer target (WCAG 2.5.8) */
 .etab-close {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   visibility: hidden;
 }
 .dv-active-tab .etab-close,

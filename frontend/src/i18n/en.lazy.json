@@ -1520,6 +1520,42 @@
     "help": "Change a shortcut in Settings › Keybindings. Browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W.",
     "filter": "Filter shortcuts",
     "list": "Shortcuts",
-    "none": "No shortcut matches"
+    "none": "No shortcut matches",
+    "mouseTitle": "Mouse in the viewer",
+    "mouse": {
+      "click": {
+        "gesture": "Click or drag (Crosshair tool)",
+        "action": "Move the crosshair; the other views follow"
+      },
+      "wheel": {
+        "gesture": "Wheel, Shift+wheel",
+        "action": "Next or previous slice; with Shift, 10 at a time"
+      },
+      "zoom": {
+        "gesture": "{{mod}}+wheel, pinch, or drag with Zoom",
+        "action": "Zoom the view under the pointer (on 3D, the wheel alone)"
+      },
+      "pan": {
+        "gesture": "Middle-drag, Space+drag, or drag with Move / pan",
+        "action": "Move the image in the view under the pointer (on 3D, also right-drag)"
+      },
+      "window": {
+        "gesture": "Right-drag, or drag with Window / level",
+        "action": "Window/level on 2D: horizontal = width, vertical = level",
+        "keys": "Width and level fields, presets"
+      },
+      "orbit": {
+        "gesture": "Drag on 3D",
+        "action": "Rotate the 3D view"
+      },
+      "measure": {
+        "gesture": "Click with a measure tool",
+        "action": "Place the points of a measurement"
+      },
+      "maximize": {
+        "gesture": "Double-click a view header",
+        "action": "Maximize the view; again, or Esc, shows all views"
+      }
+    }
   }
 }

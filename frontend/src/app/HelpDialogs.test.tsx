@@ -5,6 +5,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 
 import '../i18n'
 import '../i18n/lazy'
+import { useWorkbench } from '../shell'
 import { bootstrap } from './bootstrap'
 import { useHelp } from './help'
 import HelpDialogs from './HelpDialogs'
@@ -28,3 +29,24 @@ test('one View group, a focusable list and action names; the filter matches titl
   fireEvent.change(filter, { target: { value: 'zzz' } })
   expect(within(list).getByText('No shortcut matches')).toBeInTheDocument()
 })
+
+// VW-06 / UI_SHELL §Default keybindings: the mouse gestures are listed with their keys, first
+// while a viewer is shown
+test('the viewer mouse map lists each gesture with the keys that do the same', () => {
+  useHelp.setState({ open: 'keys' })
+  const view = render(<HelpDialogs />)
+  const list = screen.getByRole('region', { name: 'Shortcuts' })
+  const wheel = within(list).getByText('Wheel, Shift+wheel').closest('tr')!
+  expect(within(wheel).getByText('.')).toBeInTheDocument()
+  expect(within(wheel).getByText(',')).toBeInTheDocument()
+  expect(within(list).getAllByRole('heading', { level: 3 }).at(-1)).toHaveTextContent('Mouse in the viewer')
+  view.unmount()
+  useWorkbench.setState({ active: { type: 'case', caseId: 'case_00001' } })
+  try {
+    render(<HelpDialogs />)
+    expect(within(screen.getByRole('region', { name: 'Shortcuts' })).getAllByRole('heading', { level: 3 })[0]).toHaveTextContent('Mouse in the viewer')
+  } finally {
+    useWorkbench.setState({ active: null })
+  }
+})
+

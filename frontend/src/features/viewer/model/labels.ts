@@ -3,7 +3,7 @@
 // use a custom LUT texture read by the engine's slice shader: row 0 = colour + per-label opacity
 // (0 = hidden), row 1 = outline flag; the outline is the in-plane boundary, as in 3D Slicer.
 // NiiVue's label colormap is still used for the 3D tile, where only visibility matters.
-import type { LabelDef } from '../../../api'
+import type { LabelDef, SegmentationSet } from '../../../api'
 
 import type { LabelStyle } from './types'
 
@@ -66,5 +66,16 @@ export function setLabels(labels: LabelDef[], mapping: Record<string, number> | 
   return entries.flatMap(([k, v]) => {
     const l = labels.find((x) => x.value === v)
     return l ? [{ ...l, value: Number(k) }] : []
+  })
+}
+
+/** The set the Layers section shows: the chosen one, else the first */
+export const shownSet = (sets: SegmentationSet[], preferred: string | undefined) => sets.find((set) => set.seg_id === preferred) ?? sets[0]
+
+/** Project labels the shown set still has: the Layers rows, their 1–9 hints and the label keys */
+export function shownLabels(labels: LabelDef[], set: SegmentationSet | undefined): LabelDef[] {
+  return labels.filter((label) => {
+    const values = Object.entries(set?.label_mapping ?? {}).filter(([, value]) => value === label.value).map(([value]) => Number(value))
+    return !(values.length ? values : [label.value]).every((value) => set?.removed_labels?.includes(value))
   })
 }

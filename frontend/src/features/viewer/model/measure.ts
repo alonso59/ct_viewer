@@ -16,6 +16,8 @@ export interface Measurement {
 /** Points a measurement needs before it is complete */
 export const NEEDED: Record<MeasureKind, number> = { distance: 2, angle: 3, roi: 2 }
 
+export const isMeasureKind = (tool: string): tool is MeasureKind => tool in NEEDED
+
 export const distanceMm = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 
 /** Angle at the middle point, in degrees */

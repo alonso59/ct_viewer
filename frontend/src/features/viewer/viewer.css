@@ -216,11 +216,12 @@
   inset: 0;
   pointer-events: none;
 }
-/* A 2 px neutral track; the plane colour (--vp-plane) only on the thumb */
+/* A 2 px neutral track; the plane colour (--vp-plane) only on the thumb. 16 px thumb in a
+   24 px tall input: the whole input height takes the pointer (WCAG 2.5.8) */
 .vp-slider {
   flex: none;
   width: 100%;
-  height: 14px;
+  height: 24px;
   margin: 0;
   background: var(--bg-overlay);
   appearance: none;
@@ -232,9 +233,9 @@
 }
 .vp-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 10px;
-  height: 10px;
-  margin-top: -4px;
+  width: 16px;
+  height: 16px;
+  margin-top: -7px;
   border: 0;
   border-radius: 50%;
   background: var(--vp-plane, var(--fg-viewport));
@@ -244,8 +245,8 @@
   background: var(--plane-track);
 }
 .vp-slider::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border: 0;
   border-radius: 50%;
   background: var(--vp-plane, var(--fg-viewport));

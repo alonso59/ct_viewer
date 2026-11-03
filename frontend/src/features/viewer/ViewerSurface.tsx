@@ -13,7 +13,7 @@ import { isPlane, visibleViewports } from './model/layouts'
 import type { LabelStyle, LoadProgress, Plane, TileRect, Vec3, ViewerHandle, ViewportId, ViewState } from './model/types'
 import { dicomWindowOf, dragWindow, effectiveModality, isCt, modalityKey } from './model/wl'
 import { MeasureLayer } from './Measurements'
-import { NEEDED, type MeasureKind, type Measurement } from './model/measure'
+import { NEEDED, isMeasureKind, type MeasureKind, type Measurement } from './model/measure'
 import { Viewport, type MeshState } from './Viewport'
 import { useCursorText } from './readout'
 
@@ -247,8 +247,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const measureSeq = useRef(0)
   const [measures, setMeasures] = useState<{ key: string; items: Measurement[]; draft: Measurement | null }>({ key: '', items: [], draft: null })
   const mine = measures.key === `${loadKey}|${v.measureClear}` ? measures : { key: `${loadKey}|${v.measureClear}`, items: [], draft: null }
-  const addPoint = (kind: MeasureKind, x: number, y: number) => {
-    const hit = handle?.worldAt(x, y)
+  const addPoint = (kind: MeasureKind, hit: { tile: Plane; ras: Vec3 } | null) => {
     const index = hit ? view?.planes[hit.tile]?.index : undefined
     if (!handle || !hit || !index) return
     const cur = mine.draft && mine.draft.kind === kind && mine.draft.tile === hit.tile ? mine.draft : { id: ++measureSeq.current, kind, tile: hit.tile, slice: index, points: [] }
@@ -261,6 +260,14 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     }
     setMeasures({ ...mine, items: [...mine.items, draft], draft: null })
   }
+  // From the keyboard: a point at the crosshair of the requested view
+  useEffect(() => {
+    if (!active) return
+    return useViewerLocal.subscribe((s, prev) => {
+      const tool = useViewerSync.getState().tool
+      if (s.pointAt && s.pointAt !== prev.pointAt && view && isMeasureKind(tool)) addPoint(tool, { tile: s.pointAt.tile, ras: view.ras })
+    })
+  })
 
   // Surface meshes are fetched only once requested
   const wantMeshes = !!handle && local.surfaces && !!meshUrl && hasMask && load.phase === 'ready'
@@ -333,9 +340,9 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     let mode: Drag['mode'] | null = null
     if (e.button === 2) mode = tile === '3d' ? 'pan' : 'window'
     else if (e.button === 1 || (e.button === 0 && (space.current || tool === 'pan'))) mode = 'pan'
-    else if (e.button === 0 && tile !== '3d' && (tool === 'distance' || tool === 'angle' || tool === 'roi')) {
+    else if (e.button === 0 && tile !== '3d' && isMeasureKind(tool)) {
       e.preventDefault()
-      addPoint(tool, ...local2canvas(e))
+      addPoint(tool, handle.worldAt(...local2canvas(e)))
       return
     } else if (e.button === 0) mode = tile === '3d' ? 'orbit' : tool === 'window' ? 'window' : tool === 'zoom' ? 'zoom' : 'pick'
     if (!mode) return
