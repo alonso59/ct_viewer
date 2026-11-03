@@ -50,5 +50,6 @@
     "env_hint": "Activate the torch conda environment and set nnUNet_results to the model results root"
   },
   "resources": {"gpu": "required", "seconds_per_item": 600},
-  "labels": {"from": "dataset.json"}
+  "labels": {"from": "dataset.json"},
+  "command": {"name": "segment", "options": {"gpus": "gpu_cap"}}
 }

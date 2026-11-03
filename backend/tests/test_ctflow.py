@@ -13,7 +13,7 @@ from app.config import Settings
 from app.ctflow.parse import parse
 from app.main import create_app
 from app.tasks.models import TaskCommand
-from app.tasks.registry import Registry, manifest_hash
+from app.tasks.registry import Registry, manifest_hash, parse_manifest
 from tests.test_api_ingest import ctx_of, wait
 from tests.test_contract import assert_problem
 from tests.test_source_operations_api import wait_operation
@@ -188,3 +188,16 @@ def test_dicom2nii_runs_the_converter_window_flow(tmp_path: Path) -> None:
         assert op["conversion_run"]["reviewer"] == "Console T"
         status = run(client, f"status {operation}")
         assert status["data"]["operation_id"] == operation
+
+
+def test_shipped_manifests_name_their_commands() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    names = {
+        parse_manifest(repo / p)[0].command.name  # type: ignore[union-attr]
+        for p in (
+            "plugins/nnunet/task.json",
+            "plugins/dicom/task.json",
+            "backend/app/radiomics/task.json",
+        )
+    }
+    assert names == {"segment", "dicom2nii", "radiomics"}

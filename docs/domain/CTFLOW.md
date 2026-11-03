@@ -76,7 +76,7 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs) and C2 (catalog, targets
 
 ## Implementation notes
 
-- Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`. `segment.nnunet` keeps its id until its manifest gains the key: that changes the manifest hash nnU-Net resume pins, so interrupted runs from before it could not resume.
+- Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`, `segment` (`segment.nnunet`, `-gpus` = `gpu_cap`). Adding the key changed the nnU-Net manifest hash, which its resume pins: nnU-Net runs paused or interrupted before that release start again instead of resuming, and the host runner's `PLUGINS_ROOT` copy must be updated with the image.
 - `dicom2nii` starts a durable source operation with its analysis (API-69); `convert <operation>` then converts it, as the converter window does.
 - Test-only tasks are callable by id and not listed. Numbers that look like integers stay integers, so settings hash as the GUI's do.
 
