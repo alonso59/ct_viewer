@@ -155,7 +155,11 @@ def test_a_waiting_operation_keeps_its_revision_so_a_cancel_applies_at_once(
         with TestClient(create_app(settings, inline_jobs=True)) as client:
             created = client.post(
                 API,
-                json={"path": str(source), "purpose": "discover", "idempotency_key": "waiting-revision"},
+                json={
+                    "path": str(source),
+                    "purpose": "discover",
+                    "idempotency_key": "waiting-revision",
+                },
             )
             assert created.status_code == 202, created.text
             oid = created.json()["operation_id"]
