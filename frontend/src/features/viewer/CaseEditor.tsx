@@ -135,8 +135,9 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
         <span className="switcher">
           <span className="switcher-sep" />
-          <span className="switcher-label">{t('viewer.phase')}</span>
-          <PhaseButtons pid={pid} scan={current} variant="seg" />
+          {/* a write, not a view toggle: chips under "Set phase", apart from the segmented view controls */}
+          <span className="switcher-label">{t('phaseSel.setPhase')}</span>
+          <PhaseButtons pid={pid} scan={current} />
           <PhaseHistoryButton pid={pid} caseId={current.case_id} scanIdx={current.scan_idx} />
         </span>
         <span className="case-header-end" />

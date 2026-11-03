@@ -241,22 +241,16 @@ textarea.input {
   opacity: 0.4;
   cursor: default;
 }
-/* Phase seg + Full/VOI scope (case header): the active option is solid --focus, not translucent
-   --accent (--fg-on-emphasis on --focus is 4.6:1+ in both themes); UNK keeps its warn tone. Hover
-   previews the same blue at low opacity. */
-.seg button[data-phase]:not([data-phase='UNK']):hover:not(:disabled, [aria-pressed='true']),
+/* Full/VOI scope (case header): the active option is solid --focus, not translucent --accent
+   (--fg-on-emphasis on --focus is 4.6:1+ in both themes). Hover previews the same blue at low
+   opacity. Phase chips are writes and use the chip styles below. */
 .seg button[data-scope]:hover:not(:disabled, [aria-pressed='true']) {
   background: color-mix(in srgb, var(--focus) 20%, transparent);
   color: var(--fg);
 }
-.seg button[data-phase]:not([data-phase='UNK'])[aria-pressed='true'],
 .seg button[data-scope][aria-pressed='true'] {
   background: var(--focus);
   color: var(--fg-on-emphasis);
-}
-.seg button[data-phase='UNK'][aria-pressed='true'] {
-  background: color-mix(in srgb, var(--warn) 32%, transparent);
-  color: var(--warn);
 }
 button.badge[data-phase]:not([data-phase='UNK'])[aria-pressed='true'] {
   background: var(--focus);

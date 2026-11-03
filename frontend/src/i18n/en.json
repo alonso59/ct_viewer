@@ -16,7 +16,8 @@
     "saveFailed": "Could not save. Try again.",
     "keepRunning": "Keep running",
     "yesCancel": "Yes, cancel",
-    "details": "Details"
+    "details": "Details",
+    "undo": "Undo"
   },
   "menu": {
     "file": "File",
@@ -222,7 +223,8 @@
     },
     "updatedBy": "{{scan}}: phase set to {{phase}} by {{reviewer}}",
     "export": "Export phase selections",
-    "setTo": "{{scan}}: phase set to {{phase}}"
+    "setTo": "{{scan}}: phase set to {{phase}}",
+    "setPhase": "Set phase"
   },
   "priority": {
     "low": "Low",
@@ -504,7 +506,6 @@
     "noSegmentation": "No segmentation",
     "outline": "Outline only",
     "overlay": "Label overlay",
-    "phase": "Phase",
     "plane": {
       "axial": "Axial",
       "sagittal": "Sagittal",
@@ -634,7 +635,6 @@
       "voi_mask": "VOI mask"
     },
     "updatedBy": "{{id}} updated by {{reviewer}}: {{status}}",
-    "undo": "Undo",
     "undone": "Decision undone: {{status}} again",
     "mark": {
       "accepted": "Mark accepted",

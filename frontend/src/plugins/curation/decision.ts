@@ -128,7 +128,7 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
         id: caseTarget || !activeItemId ? activeCaseId : itemName(activeItemId, t, knownPhase(pid, activeItemId)),
       }),
       tone: 'ok',
-      action: { label: t('curation.undo'), run: () => void undo() },
+      action: { label: t('common.undo'), run: () => void undo() },
     })
   } catch (e) {
     const detail = e instanceof ProblemError ? problemToastText(e) : ''
