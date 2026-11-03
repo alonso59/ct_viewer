@@ -81,6 +81,8 @@ test('the keyboard zooms, steps and fits the view under the pointer, else the vi
 })
 
 test('a project item keeps its window and slice across a reload; another item opens on the defaults (VW-05, VW-15)', async ({ page }) => {
+  // a project import and three volume loads, like the other project journeys
+  test.setTimeout(120_000)
   const pid = await importedProject(`view memory ${Date.now()}`)
   await page.goto(`/p/${pid}/case/case_00001`)
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
@@ -119,11 +121,14 @@ test('pan: the image follows the pointer in every view and both conventions (VW-
   await expect(page.locator('.case-loading')).toHaveCount(0, { timeout: 30_000 })
   await expect(page.locator('.vp-cross-v').first()).toBeAttached()
   for (const convention of ['radiological', 'neurological'] as const) {
-    // The convention is a display setting (VW-25); Open mode has no project to set it from
+    // The convention is a display setting (VW-25); Open mode has no project to set it from. Each
+    // convention starts from reset views (VW-10): pans that add up would carry the crosshair past
+    // the edge of a narrow slice, where its line stops
     await page.evaluate(async (c) => {
       const store = '/src/state/index.ts'
       const { useViewerSync } = await import(/* @vite-ignore */ store)
       useViewerSync.setState((s: { display: object }) => ({ display: { ...s.display, convention: c } }))
+      useViewerSync.getState().reset()
     }, convention)
     // Let the flipped image redraw and the crosshair lines follow before reading the baseline
     await page.waitForFunction('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => r(true)))))')
