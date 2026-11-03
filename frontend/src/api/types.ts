@@ -414,7 +414,6 @@ export type LogPage = S['LogPage']
 export type LogLine = S['LogLine']
 export type ConsoleCommand = S['CommandInfo']
 export type ConsoleResult = S['EvalResult']
-export type ConsoleStep = S['CommandResult']
 export type WorkRef = S['WorkRef']
 export type LayerInfo = S['LayerInfo']
 
