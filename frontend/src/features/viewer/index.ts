@@ -30,7 +30,6 @@ export const CtToolbar = lazyTool((m) => m.default)
 export { configureViewer } from './budget'
 export { StandaloneViewer } from './StandaloneViewer'
 export { applyProjectDisplay, resetDisplay } from './display'
-export { ModalityChip } from './ModalityChip'
 export type { ViewerContext } from './model/types'
 
 /** Viewer context of the visible case tab, for curation events (`context.viewer`) */

@@ -37,3 +37,14 @@ test('the scan drop-down lists the scans and picks one; previous / next step thr
   fireEvent.click(within(menu).getByRole('menuitem', { name: new RegExp(`^Scan ${scans[1]!.idx} ${scans[1]!.phase}`) }))
   expect(onPick).toHaveBeenCalledTimes(2)
 })
+
+test('a scan shows its modality, with the MR component when it is not magnitude (VW-11)', async () => {
+  const items = await caseItems()
+  const [first, ...rest] = items
+  const mr = { ...first!, modality: 'MR', image_component: 'PHASE' }
+  expect(scansOf([mr, ...rest]).find((s) => s.idx === mr.scan_idx)).toMatchObject({ modality: 'MR', component: 'PHASE' })
+  expect(scansOf([{ ...mr, image_component: 'MAGNITUDE' }])[0]!.component).toBeNull()
+  render(<ItemSwitcher items={[mr, ...rest]} current={mr} onPick={() => {}} />)
+  fireEvent.pointerDown(screen.getByRole('button', { name: new RegExp(`^Scan ${mr.scan_idx} `) }), { button: 0, ctrlKey: false })
+  expect(await screen.findByText(/^MR · Phase/)).toBeInTheDocument()
+})

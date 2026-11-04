@@ -1,6 +1,7 @@
 // VW-17 measurement math and VW-22/PRJ-14 window/modality helpers.
 import { angleDeg, distanceMm } from './measure'
-import { dicomWindowOf, effectiveModality } from './wl'
+import { effectiveModality } from '../../../lib/modality'
+import { dicomWindowOf } from './wl'
 
 test('distance in mm and angle at the vertex', () => {
   expect(distanceMm([0, 0, 0], [3, 4, 0])).toBe(5)

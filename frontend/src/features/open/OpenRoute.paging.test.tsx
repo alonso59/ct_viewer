@@ -13,7 +13,6 @@ import OpenRoute from './OpenRoute'
 // The WebGL renderer is the boundary; requests, wire data, selection and dialogs stay real.
 vi.mock('../viewer', () => ({
   CtToolbar: () => null,
-  ModalityChip: () => null,
   resetDisplay: () => undefined,
   StandaloneViewer: ({ item }: { item: ItemRecord }) => <div data-testid="selected-volume" data-item={item.item_id} data-mask={item.mask?.ref ?? ''} />,
 }))

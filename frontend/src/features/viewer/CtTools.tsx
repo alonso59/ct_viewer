@@ -4,7 +4,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Dialog, IconButton, NumberInput, itemName, toolbarKeyDown } from '../../lib'
+import { Dialog, IconButton, NumberInput, itemName, modalityText, namedComponent, toolbarKeyDown } from '../../lib'
 import { useViewerSync, type ViewerDisplay, type ViewerTool } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useViewerLocal } from './local'
@@ -142,7 +142,7 @@ export function HeaderInfo() {
         <Dialog open onOpenChange={setOpen} title={t('ct.headerTitle', { name: itemName(info.item.item_id, t, info.item.phase.canonical) })} icon={codicon('info')} size="lg">
           <table className="ct-header">
             <tbody>
-              <Row k={t('ct.modality')} v={info.item.modality ?? '—'} />
+              <Row k={t('ct.modality')} v={info.item.modality ? modalityText(t, info.item.modality, namedComponent(info.item)) : '—'} />
               <Row k={t('ct.shape')} v={g?.shape.join(' × ') ?? '—'} />
               <Row k={t('ct.spacing')} v={g?.spacing.map((s) => s.toFixed(3)).join(' × ') ?? '—'} />
               <Row k={t('ct.dtype')} v={g?.dtype ?? '—'} />

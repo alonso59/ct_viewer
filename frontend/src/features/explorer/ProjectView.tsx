@@ -16,7 +16,7 @@ import {
   type LabelDef,
   type Variable,
 } from '../../api'
-import { PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard, useAnnounce } from '../../lib'
+import { effectiveModality, ModalityTag, modalityKey, modalityText, namedComponent, PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard, useAnnounce } from '../../lib'
 import { registry, runCommand, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
@@ -57,6 +57,15 @@ function ExpandedItems({ caseId, onItems }: { caseId: string; onItems: (cid: str
     if (data) onItems(caseId, data.items)
   }, [data, caseId, onItems])
   return null
+}
+
+/** The scan's modality, as the viewer shows it: known, or the project default marked as assumed */
+function ItemModality({ item, fallback }: { item: ItemRecord; fallback: string | undefined }) {
+  const { t } = useTranslation()
+  const key = modalityKey(item)
+  const override = useViewerSync((s) => s.modalityOverride[key])
+  const m = effectiveModality(item, override ? { [key]: override } : {}, fallback)
+  return <ModalityTag label={modalityText(t, m.value, m.assumed ? null : namedComponent(item))} assumed={m.assumed} />
 }
 
 export function ProjectView() {
@@ -261,6 +270,7 @@ export function ProjectView() {
                 >
                   <PhaseChip phase={it.phase.canonical} active />
                   <span className="item-label">{itemLabel(it, t)}</span>
+                  <ItemModality item={it} fallback={project.data?.default_modality} />
                   {it.warning_codes.length ? (
                     <span className="pv-warn pv-end" title={it.warning_codes.join(', ')}>
                       <Icon spec={codicon('warning')} />

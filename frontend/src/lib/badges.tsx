@@ -90,6 +90,16 @@ export function PhaseChip({ phase, active, onClick }: { phase: Phase; active?: b
   )
 }
 
+/** The image modality as its DICOM code ("CT", "MR · Phase"); an assumed one is marked for checking */
+export function ModalityTag({ label, assumed = false }: { label: string; assumed?: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <span className="badge" data-tone={assumed ? 'warn' : undefined} title={t(assumed ? 'viewer.modality.help' : 'viewer.modality.known')}>
+      {assumed ? t('viewer.modality.assumed', { modality: label }) : label}
+    </span>
+  )
+}
+
 /** The severity as an icon, and as text for screen readers */
 export function SeverityIcon({ severity }: { severity: 'error' | 'warning' | 'info' }) {
   const { t } = useTranslation()

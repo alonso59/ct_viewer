@@ -6,7 +6,15 @@ import { bindingOf, formatChord, registry, runCommand, useWorkbench } from '../.
 import { useViewerSync, WL_PRESETS, type LayoutId, type ViewerTool } from '../../state'
 import { CtIcon, Icon, codicon, ct, type CtIconName, type IconSpec } from '../../theme'
 import { useViewerLocal } from './local'
-import { ModalityChip } from './ModalityChip'
+import { ModalityBadge } from './ModalityBadge'
+import { applyAutoWindow } from './window'
+
+/** HU presets fit CT only; any other image gets its percentile window */
+export const useCtWindowing = () => useViewerSync((s) => (s.activeModality?.value ?? 'CT') === 'CT')
+export function autoWindow() {
+  const handle = useViewerLocal.getState().active
+  if (handle) applyAutoWindow(handle)
+}
 
 // Enabled while a viewer is visible: a case tab or Open mode
 export const useEnabled = () => useViewerLocal((s) => s.active !== null)
@@ -112,6 +120,7 @@ export function WindowPresets() {
   const { preset, ww, wl, setPreset, customPresets, setWindow } = useViewerSync()
   const enabled = useEnabled()
   const custom = customPresets.find((p) => p.ww === ww && p.wl === wl)
+  const ctWindowing = useCtWindowing()
   const shown = useShown()
   if (!shown) return null
   return (
@@ -125,7 +134,11 @@ export function WindowPresets() {
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Content className="overlay menu" sideOffset={4} align="start">
-            {customPresets.length
+            {!ctWindowing ? (
+              <Menu.Item className="menu-item" title={t('viewer.wlAutoHelp')} onSelect={autoWindow}>
+                {t('viewer.wlAuto')}
+              </Menu.Item>
+            ) : customPresets.length
               ? customPresets.map((p) => (
                   <Menu.Item key={p.name} className="menu-item" onSelect={() => setWindow(p.ww, p.wl)}>
                     {p.name}
@@ -141,7 +154,7 @@ export function WindowPresets() {
           </Menu.Content>
         </Menu.Portal>
       </Menu.Root>
-      <ModalityChip />
+      <ModalityBadge />
       <span className="toolbar-sep" />
     </>
   )

@@ -11,7 +11,7 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 import { api, keys, ProblemError, useAttachOpen, useFsList, useStartOpen, useOpenSession, useOpenItems, useOpenSelection, type AxisOrder, type OpenItem, type OpenSession } from '../../api'
 import { Button, Dialog, pendingPath, ProblemCard, toolbarKeyDown, useRowKeys } from '../../lib'
 import { FolderBrowser, NewProjectDialog } from '../import'
-import { CtToolbar, ModalityChip, resetDisplay, StandaloneViewer } from '../viewer'
+import { CtToolbar, resetDisplay, StandaloneViewer } from '../viewer'
 import { runCommand } from '../../shell'
 import { useViewerSync } from '../../state'
 import { BrandMark, Icon, codicon } from '../../theme'
@@ -188,7 +188,6 @@ export default function OpenRoute() {
             <Icon spec={codicon('layers')} />
             {t('open.attachAction')}
           </Button>
-          <ModalityChip />
           <span className="toolbar-sep" />
           <button type="button" className="btn open-close-btn" onClick={() => void close()}>
             <Icon spec={codicon('close')} />

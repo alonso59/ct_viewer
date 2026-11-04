@@ -7,24 +7,13 @@ export function isCt(item: Pick<ItemRecord, 'modality'>): boolean {
   return typeof m !== 'string' || m.trim() === '' || m.trim().toUpperCase() === 'CT'
 }
 
-/** Modalities the user can pick when the item has none; `OT` = other (percentile window) */
-export const MODALITY_CHOICES = ['CT', 'MR', 'OT'] as const
+export const sameGeometry = (a: ItemRecord['geometry'], b: ItemRecord['geometry']) =>
+  !!a && !!b && a.shape.join() === b.shape.join() && a.spacing.every((s, i) => Math.abs(s - (b.spacing[i] ?? NaN)) < 1e-4)
 
-/** Identity of an item for the display-only modality choice (Open-mode ids repeat across sessions) */
-export const modalityKey = (item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image'>): string =>
-  `${item.case_id}|${item.item_id}|${item.image?.ref ?? ''}`
-
-/** A known modality wins; an unknown one is the user's choice, else the project default
- *  (`mixed` assumes CT), else assumed CT */
-export function effectiveModality(
-  item: Pick<ItemRecord, 'item_id' | 'case_id' | 'image' | 'modality'>,
-  overrides: Record<string, string>,
-  fallback = 'CT',
-): { value: string; assumed: boolean } {
-  const known = typeof item.modality === 'string' && item.modality.trim() !== '' ? item.modality.trim().toUpperCase() : null
-  if (known) return { value: known, assumed: false }
-  return { value: overrides[modalityKey(item)] ?? (fallback === 'MR' ? 'MR' : 'CT'), assumed: true }
-}
+/** The next item keeps the current window only when it is the same kind of image: a CT window
+ *  on an MR (or the reverse) shows nothing useful */
+export const keepsWindow = (prev: { geometry: ItemRecord['geometry']; modality: string } | null, next: { geometry: ItemRecord['geometry']; modality: string }) =>
+  !!prev && sameGeometry(prev.geometry, next.geometry) && prev.modality === next.modality
 
 /** The DICOM header window `[ww, wl]` of an item (converter row facts or Open-mode probe) */
 export function dicomWindowOf(item: Pick<ItemRecord, 'extra'>): [number, number] | null {

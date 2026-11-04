@@ -3,13 +3,14 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, Phase } from '../../api'
-import { PhaseChip, toolbarKeyDown } from '../../lib'
+import { modalityText, namedComponent, PhaseChip, toolbarKeyDown } from '../../lib'
 import { Icon, codicon } from '../../theme'
 
 interface ScanInfo {
   idx: string
   phase: Phase
   modality: string | null
+  component: string | null
   description: string
   slices: number | null
 }
@@ -27,6 +28,7 @@ export function scansOf(items: ItemRecord[]): ScanInfo[] {
         idx,
         phase: full.phase.canonical as Phase,
         modality: full.modality ?? null,
+        component: namedComponent(full),
         description: typeof d === 'string' ? d : '',
         slices: full.geometry?.shape[2] ?? null,
       }
@@ -35,7 +37,7 @@ export function scansOf(items: ItemRecord[]): ScanInfo[] {
 
 export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current: ItemRecord; onPick: (id: string) => void }) {
   const { t } = useTranslation()
-  const scanMeta = (s: ScanInfo) => [s.modality, s.slices != null ? t('viewer.scanSlices', { n: s.slices }) : null, s.description].filter(Boolean).join(' · ')
+  const scanMeta = (s: ScanInfo) => [s.modality ? modalityText(t, s.modality, s.component) : null, s.slices != null ? t('viewer.scanSlices', { n: s.slices }) : null, s.description].filter(Boolean).join(' · ')
   const scans = scansOf(items)
   const at = scans.findIndex((s) => s.idx === current.scan_idx)
   const inScan = items.filter((i) => i.scan_idx === current.scan_idx)

@@ -22,6 +22,7 @@ export function toItemRecord(it: OpenItem, mask: OpenItem | null): ItemRecord {
     side: '-',
     patient_id: null,
     modality: it.modality ?? null,
+    image_component: it.image_component ?? null,
     phase: { canonical: 'UNK', raw: null, source: 'none' },
     image: ref,
     masks: maskRef ? { open: maskRef } : {},

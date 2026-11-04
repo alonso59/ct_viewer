@@ -16,6 +16,12 @@ test('unknown modality uses percentiles (not CT presets); only an attached segme
   expect(withMask.masks.open?.ref).toBe('m.nii.gz')
 })
 
+test('a known modality and its MR component reach the viewer item (VW-05)', () => {
+  const r = toItemRecord(item({ modality: 'MR', image_component: 'PHASE' }), null)
+  expect([r.modality, r.image_component]).toEqual(['MR', 'PHASE'])
+  expect(toItemRecord(item({}), null).image_component).toBeNull()
+})
+
 test('the last attached label wins; auto labels are label_{value}', () => {
   const items = [item({}), item({ n: 1, attached_to: 0 }), item({ n: 2, attached_to: 0 })]
   expect(attachedTo(items, 0)?.n).toBe(2)

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, LabelDef } from '../../api'
-import { Progress, useAnnounce } from '../../lib'
+import { effectiveModality, modalityKey, namedComponent, Progress, useAnnounce } from '../../lib'
 import { useViewerSync, WL_PRESETS } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { createViewer, hasWebgl2, VolumeFetchError } from './engine'
@@ -12,7 +12,8 @@ import { useItemMemory } from './memory'
 import { fetchMesh } from './meshes'
 import { isPlane, visibleViewports } from './model/layouts'
 import type { LabelStyle, LoadProgress, Plane, TileRect, Vec3, ViewerHandle, ViewportId, ViewState } from './model/types'
-import { dicomWindowOf, dragWindow, effectiveModality, isCt, modalityKey } from './model/wl'
+import { dicomWindowOf, dragWindow, isCt, keepsWindow, sameGeometry } from './model/wl'
+import { applyAutoWindow, applyCtWindow } from './window'
 import { MeasureLayer } from './Measurements'
 import { NEEDED, isMeasureKind, type MeasureKind, type Measurement } from './model/measure'
 import { Viewport, type MeshState } from './Viewport'
@@ -46,14 +47,6 @@ export const viewerFocusProps: HTMLAttributes<HTMLDivElement> = {
   },
 }
 
-/** The initial CT window of the store (a preset name when it matches one) */
-function applyCtWindow() {
-  const s = useViewerSync.getState()
-  const [ww, wl] = s.ctWindow
-  if (ww === 400 && wl === 50) s.setPreset('soft_tissue')
-  else s.setWindow(ww, wl)
-}
-
 /** Keyed by the load it belongs to, so a new load starts as "loading" without a reset render */
 type LoadState = { key: string; phase: 'loading' | 'ready' | 'error'; progress: LoadProgress | null; error: { status: number; code: string | null; message: string } | null; maskError: boolean }
 const LOADING = (key: string): LoadState => ({ key, phase: 'loading', progress: null, error: null, maskError: false })
@@ -67,9 +60,6 @@ interface Drag {
   last: [number, number]
 }
 
-const sameGeometry = (a: ItemRecord['geometry'], b: ItemRecord['geometry']) =>
-  !!a && !!b && a.shape.join() === b.shape.join() && a.spacing.every((s, i) => Math.abs(s - (b.spacing[i] ?? NaN)) < 1e-4)
-
 export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active, loaded, tags, memoryKey }: SurfaceProps) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
@@ -81,7 +71,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const [webgl] = useState(hasWebgl2)
   const drag = useRef<Drag | null>(null)
   const space = useRef(false)
-  const prev = useRef<{ geometry: ItemRecord['geometry']; ras: Vec3 } | null>(null)
+  const prev = useRef<{ geometry: ItemRecord['geometry']; ras: Vec3; modality: string } | null>(null)
 
   const v = useViewerSync()
   const local = useViewerLocal()
@@ -126,6 +116,8 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     if (!handle) return
     const ac = new AbortController()
     const keep = prev.current && sameGeometry(prev.current.geometry, item.geometry) ? prev.current.ras : null
+    const opening = useViewerSync.getState()
+    const keepWindow = keepsWindow(prev.current, { geometry: item.geometry, modality: effectiveModality(item, opening.modalityOverride, opening.defaultModality).value })
     const key = loadKey
     const update = (patch: Partial<LoadState>) => setLoad((s) => ({ ...(s.key === key ? s : LOADING(key)), ...patch }))
     const { ww, wl } = useViewerSync.getState()
@@ -137,27 +129,24 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         signal: ac.signal,
         onProgress: (progress) => update({ progress }),
         onImage: () => {
-          // Same geometry → keep crosshair and W/L; else the item's last view; else start centred
+          // Same geometry → keep the crosshair, and the W/L too when the modality is the same;
+          // else the item's last view; else start centred on the modality's default window
           const saved = memoryKey ? useItemMemory.getState().items[memoryKey] : undefined
+          const s = useViewerSync.getState()
           if (keep) handle.setCrosshair(keep)
           else if (saved) {
             handle.setCrosshair(saved.ras)
-            const s = useViewerSync.getState()
-            const preset = (Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).find((p) => WL_PRESETS[p][0] === saved.ww && WL_PRESETS[p][1] === saved.wl)
-            if (preset) s.setPreset(preset)
-            else s.setWindow(saved.ww, saved.wl)
             s.set({ labelVisibility: saved.labels })
-          } else {
-            // The DICOM header window first (when enabled), else the modality default
-            const s = useViewerSync.getState()
-            const header = s.useDicomWindow ? dicomWindowOf(item) : null
-            if (header) s.setWindow(header[0], header[1])
-            else if (isCt({ modality: effectiveModality(item, s.modalityOverride, s.defaultModality).value })) applyCtWindow()
-            else {
-              const [dw, dl] = handle.defaultWindow()
-              s.setWindow(dw, dl)
-            }
           }
+          const header = s.useDicomWindow ? dicomWindowOf(item) : null
+          const preset = saved && (Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).find((p) => WL_PRESETS[p][0] === saved.ww && WL_PRESETS[p][1] === saved.wl)
+          if (keepWindow) return update({ phase: 'ready' })
+          if (preset) s.setPreset(preset)
+          else if (saved) s.setWindow(saved.ww, saved.wl)
+          // The DICOM header window first (when enabled), else the modality default
+          else if (header) s.setWindow(header[0], header[1])
+          else if (isCt({ modality: effectiveModality(item, s.modalityOverride, s.defaultModality).value })) applyCtWindow()
+          else applyAutoWindow(handle)
           update({ phase: 'ready' })
         },
       })
@@ -180,13 +169,14 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   const override = useViewerSync((s) => s.modalityOverride[mKey])
   const fallback = useViewerSync((s) => s.defaultModality)
   const modality = effectiveModality(item, override ? { [mKey]: override } : {}, fallback)
+  const component = modality.assumed ? null : namedComponent(item)
   useEffect(() => {
     if (!active) return
-    useViewerSync.setState({ activeModality: { key: mKey, value: modality.value, assumed: modality.assumed } })
+    useViewerSync.setState({ activeModality: { key: mKey, value: modality.value, assumed: modality.assumed, component } })
     return () => {
       if (useViewerSync.getState().activeModality?.key === mKey) useViewerSync.setState({ activeModality: null })
     }
-  }, [active, mKey, modality.value, modality.assumed])
+  }, [active, mKey, modality.value, modality.assumed, component])
   const windowedFor = useRef<{ key: string; value: string } | null>(null)
   useEffect(() => {
     if (!handle || load.phase !== 'ready') return
@@ -195,16 +185,13 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     // A new item keeps the window onImage chose; only a changed choice re-windows
     if (!w || w.key !== mKey || w.value === modality.value) return
     if (isCt({ modality: modality.value })) applyCtWindow()
-    else {
-      const [dw, dl] = handle.defaultWindow()
-      useViewerSync.getState().setWindow(dw, dl)
-    }
+    else applyAutoWindow(handle)
   }, [handle, load.phase, mKey, modality.value])
 
   // Remember geometry + crosshair for the next item
   useEffect(() => {
-    if (view) prev.current = { geometry: item.geometry, ras: view.ras }
-  }, [view, item.geometry])
+    if (view) prev.current = { geometry: item.geometry, ras: view.ras, modality: modality.value }
+  }, [view, item.geometry, modality.value])
   // ...and this item's view for its next visit, also after a reload
   useEffect(() => {
     if (!memoryKey || !active || !view || load.phase !== 'ready') return
@@ -249,7 +236,11 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
   useEffect(() => {
     if (resetToken.current === v.resetToken) return
     resetToken.current = v.resetToken
-    if (active) handle?.resetView()
+    if (!active || !handle) return
+    handle.resetView()
+    if (!isCt({ modality: modality.value })) applyAutoWindow(handle)
+    // modality is read at reset time only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handle, v.resetToken, active])
   useEffect(() => {
     if (active && handle) {

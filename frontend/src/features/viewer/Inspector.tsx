@@ -6,7 +6,7 @@ import { NumberInput } from '../../lib'
 import { openEditor, useWorkbench } from '../../shell'
 import { useViewerSync, WL_PRESETS } from '../../state'
 import { shownLabels, shownSet } from './model/labels'
-import { useShown } from './Tools'
+import { autoWindow, useCtWindowing, useShown } from './Tools'
 
 function AllLabels({ checked, mixed, onChange, label }: { checked: boolean; mixed: boolean; onChange: (checked: boolean) => void; label: string }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -108,7 +108,8 @@ export function WindowSection() {
 
 function WindowLevel() {
   const { t } = useTranslation()
-  const { ww, wl, setWindow, setPreset, preset } = useViewerSync()
+  const { ww, wl, setWindow, setPreset, preset, customPresets } = useViewerSync()
+  const ctWindowing = useCtWindowing()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8 }}>
@@ -122,11 +123,26 @@ function WindowLevel() {
         </label>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {(Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).map((p) => (
-          <button key={p} type="button" className="badge" aria-pressed={preset === p} data-tone={preset === p ? 'accent' : undefined} onClick={() => setPreset(p)}>
-            {t(`viewer.preset.${p}`)}
+        {!ctWindowing ? (
+          <button type="button" className="badge" title={t('viewer.wlAutoHelp')} onClick={autoWindow}>
+            {t('viewer.wlAuto')}
           </button>
-        ))}
+        ) : customPresets.length ? (
+          customPresets.map((p) => {
+            const on = p.ww === ww && p.wl === wl
+            return (
+              <button key={p.name} type="button" className="badge" aria-pressed={on} data-tone={on ? 'accent' : undefined} onClick={() => setWindow(p.ww, p.wl)}>
+                {p.name}
+              </button>
+            )
+          })
+        ) : (
+          (Object.keys(WL_PRESETS) as (keyof typeof WL_PRESETS)[]).map((p) => (
+            <button key={p} type="button" className="badge" aria-pressed={preset === p} data-tone={preset === p ? 'accent' : undefined} onClick={() => setPreset(p)}>
+              {t(`viewer.preset.${p}`)}
+            </button>
+          ))
+        )}
       </div>
       <span className="muted small">{t('viewer.wlHint')}</span>
     </div>

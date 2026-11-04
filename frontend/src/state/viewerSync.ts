@@ -82,8 +82,9 @@ interface ViewerSyncState {
   resetToken: number
   /** Display-only modality chosen for items without one, keyed by `modalityKey(item)` */
   modalityOverride: Record<string, string>
-  /** Modality of the visible viewer's item; `assumed` = the item has none (selector shown) */
-  activeModality: { key: string; value: string; assumed: boolean } | null
+  /** Modality of the visible viewer's item; `assumed` = the item has none (selector shown);
+   *  `component` = the MR image component worth naming (not magnitude) */
+  activeModality: { key: string; value: string; assumed: boolean; component: string | null } | null
   display: ViewerDisplay
   /** Initial CT window (project `display.wl.CT`, else soft tissue) */
   ctWindow: [number, number]
@@ -146,8 +147,10 @@ export const useViewerSync = create<ViewerSyncState>()(persist((set, get) => ({
   },
   toggleLabel: (value, fallback) =>
     set((s) => ({ labelVisibility: { ...s.labelVisibility, [value]: !(s.labelVisibility[value] ?? fallback) } })),
+  // a non-CT image resets to its own percentile window, which only the viewer can compute
   reset: () =>
     set((s) => {
+      if (s.activeModality && s.activeModality.value !== 'CT') return { resetToken: s.resetToken + 1, maximized: null }
       const soft = s.ctWindow[0] === WL_PRESETS.soft_tissue[0] && s.ctWindow[1] === WL_PRESETS.soft_tissue[1]
       return { resetToken: s.resetToken + 1, maximized: null, ww: s.ctWindow[0], wl: s.ctWindow[1], preset: soft ? 'soft_tissue' : 'custom' }
     }),

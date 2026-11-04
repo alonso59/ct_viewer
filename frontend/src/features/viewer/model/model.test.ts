@@ -2,7 +2,7 @@
 import { lutRows, lutWidth, niivueLut, hexToRgb } from './labels'
 import { CROSS, LAYOUT_IDS, isLayoutId, visibleViewports } from './layouts'
 import type { LabelStyle } from './types'
-import { dragWindow, isCt, percentileWindow, windowToRange } from './wl'
+import { dragWindow, isCt, keepsWindow, percentileWindow, sameGeometry, windowToRange } from './wl'
 
 const L = (value: number, p: Partial<LabelStyle> = {}): LabelStyle => ({ value, color: '#ff8000', visible: true, opacity: 0.5, outline: false, ...p })
 
@@ -64,6 +64,16 @@ describe('window / level (VW-05)', () => {
     expect(isCt({ modality: null })).toBe(true)
     expect(isCt({ modality: 'ct' })).toBe(true)
     expect(isCt({ modality: 'MR' })).toBe(false)
+  })
+
+  test('the next item keeps the window only with the same geometry and the same modality (VW-15)', () => {
+    const geometry = { shape: [4, 4, 4], spacing: [1, 1, 2], dtype: 'int16', orientation: 'RAS' }
+    const other = { ...geometry, shape: [4, 4, 5] }
+    expect(keepsWindow({ geometry, modality: 'CT' }, { geometry: { ...geometry }, modality: 'CT' })).toBe(true)
+    expect(keepsWindow({ geometry, modality: 'CT' }, { geometry, modality: 'MR' })).toBe(false)
+    expect(keepsWindow({ geometry, modality: 'CT' }, { geometry: other, modality: 'CT' })).toBe(false)
+    expect(keepsWindow(null, { geometry, modality: 'CT' })).toBe(false)
+    expect(sameGeometry(geometry, { ...geometry, spacing: [1, 1, 2.00001] })).toBe(true)
   })
 
   test('drag: right = wider, up = higher level; width never below 1', () => {

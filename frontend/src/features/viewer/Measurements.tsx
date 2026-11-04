@@ -2,6 +2,8 @@
 // in memory for the visible item only (never persisted).
 import { useTranslation } from 'react-i18next'
 
+import { useViewerSync } from '../../state'
+
 import { angleDeg, distanceMm, type Measurement } from './model/measure'
 import type { Plane, ViewerHandle, ViewState } from './model/types'
 
@@ -9,6 +11,8 @@ const fmt = (v: number, d = 1) => v.toFixed(d)
 
 export function MeasureLayer({ handle, view, items, draft }: { handle: ViewerHandle | null; view: ViewState | null; items: Measurement[]; draft: Measurement | null }) {
   const { t } = useTranslation()
+  // ROI statistics are Hounsfield units only on CT; other images have no physical unit
+  const unit = useViewerSync((s) => (s.activeModality?.value ?? 'CT') === 'CT') ? ` ${t('vw.huUnit')}` : ''
   if (!handle || !view) return null
   const visible = [...items, ...(draft ? [draft] : [])].filter((m) => view.planes[m.tile]?.index === m.slice)
   return (
@@ -20,7 +24,7 @@ export function MeasureLayer({ handle, view, items, draft }: { handle: ViewerHan
         let text = ''
         if (m.kind === 'distance' && m.points.length === 2) text = t('vw.mm', { v: fmt(distanceMm(m.points[0]!, m.points[1]!)) })
         if (m.kind === 'angle' && m.points.length === 3) text = t('vw.deg', { v: fmt(angleDeg(m.points[0]!, m.points[1]!, m.points[2]!)) })
-        if (m.kind === 'roi' && m.stats) text = t('vw.roi', { mean: fmt(m.stats.mean), sd: fmt(m.stats.sd), n: m.stats.n, area: fmt(m.stats.areaMm2 / 100, 2) })
+        if (m.kind === 'roi' && m.stats) text = t('vw.roi', { mean: fmt(m.stats.mean), sd: fmt(m.stats.sd), unit, n: m.stats.n, area: fmt(m.stats.areaMm2 / 100, 2) })
         const radius = m.kind === 'roi' && pts.length === 2 ? Math.hypot(pts[1]![0] - pts[0]![0], pts[1]![1] - pts[0]![1]) : 0
         return (
           <g key={m.id} data-kind={m.kind}>
