@@ -15,6 +15,23 @@ Phase = str  # a code from the project's phase vocabulary, or a raw value (`none
 PhaseSource = str
 ItemStatus = Literal["active", "excluded_upstream", "missing"]
 IndexState = Literal["empty", "running", "ready", "failed", "cancelled", "interrupted"]
+MR_COMPONENTS = frozenset({"MAGNITUDE", "PHASE", "REAL", "IMAGINARY", "MIXED"})
+
+
+def modality_code(raw: object) -> str | None:
+    """A DICOM modality code (`CT`, `MR`, …): upper case, `MRI` as `MR`; None when blank."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    code = raw.strip().upper()
+    return "MR" if code == "MRI" else code
+
+
+def mr_component(modality: str | None, raw: object) -> str | None:
+    """The converter's `mri_image_component` of an MR image, when it names one component."""
+    if modality != "MR" or not isinstance(raw, str):
+        return None
+    value = raw.strip().upper()
+    return value if value in MR_COMPONENTS else None
 
 
 class PhaseInfo(BaseModel):
@@ -50,8 +67,10 @@ class Item(BaseModel):
     scope: Scope
     side: Side
     patient_id: str | None = None
-    # Input `modality` (e.g. CT, MR); also kept in `extra` for variables.
+    # Input `modality` as a DICOM code (CT, MR, …); also kept in `extra` for variables.
     modality: str | None = None
+    # MR only: MAGNITUDE, PHASE, REAL, IMAGINARY or MIXED, from `extra.mri_image_component`
+    image_component: str | None = None
     phase: PhaseInfo
     image: VolumeRef | None = None
     # seg_id → mask; `imported` holds the masks found at import.
@@ -68,6 +87,11 @@ class Item(BaseModel):
     def model_post_init(self, _context: Any, /) -> None:
         if self.mask is not None and "masks" not in self.model_fields_set:
             self.masks = {"imported": self.mask}
+        self.modality = modality_code(self.modality)
+        if self.image_component is None:  # index rows written before the field existed
+            self.image_component = mr_component(
+                self.modality, self.extra.get("mri_image_component")
+            )
 
     def volumes(self) -> list[VolumeRef]:
         """Image and every mask."""

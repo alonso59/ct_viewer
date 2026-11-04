@@ -4820,6 +4820,8 @@ export interface components {
             patient_id?: string | null;
             /** Modality */
             modality?: string | null;
+            /** Image Component */
+            image_component?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
             /** Masks */
@@ -4874,6 +4876,8 @@ export interface components {
             patient_id?: string | null;
             /** Modality */
             modality?: string | null;
+            /** Image Component */
+            image_component?: string | null;
             phase: components["schemas"]["PhaseInfo"];
             image?: components["schemas"]["VolumeRef"] | null;
             /** Masks */
@@ -5276,6 +5280,8 @@ export interface components {
             geometry?: components["schemas"]["OpenGeometry"] | null;
             /** Modality */
             modality?: string | null;
+            /** Image Component */
+            image_component?: string | null;
             /** N Slices */
             n_slices?: number | null;
             /** Attached To */

@@ -415,7 +415,7 @@ def inspect(series: Series, first: Any, diagnostics: list[Diagnostic]) -> Inspec
     _advanced(headers, out)
     modality = value_to_text(getattr(first, "Modality", "")).upper()
     if modality == "MR":
-        _mri(headers, out)
+        out.mri_component, out.mri_component_status = mri_component(headers)
     return out
 
 
@@ -550,7 +550,8 @@ MRI_ALIASES = {
 }  # fmt: skip
 
 
-def _mri(datasets: list[Any], out: Inspection) -> None:
+def mri_component(datasets: list[Any]) -> tuple[str, str]:
+    """An MR series' complex image component and its status: `ok`, `heterogeneous` or `unknown`."""
     seen: set[str] = set()
     for ds in datasets:
         comp = MRI_ALIASES.get(value_to_text(getattr(ds, "ComplexImageComponent", "")).strip().upper(), "")
@@ -562,11 +563,10 @@ def _mri(datasets: list[Any], out: Inspection) -> None:
         if comp:
             seen.add(comp)
     if len(seen) > 1:
-        out.mri_component, out.mri_component_status = "UNKNOWN", "heterogeneous"
-    elif seen:
-        out.mri_component, out.mri_component_status = seen.pop(), "ok"
-    else:
-        out.mri_component, out.mri_component_status = "UNKNOWN", "unknown"
+        return "UNKNOWN", "heterogeneous"
+    if seen:
+        return seen.pop(), "ok"
+    return "UNKNOWN", "unknown"
 
 
 def _floats(ds: Any, keyword: str, n: int) -> tuple[float, ...] | None:

@@ -64,7 +64,8 @@ def data(tmp_path: Path) -> Path:
     nii(root / "nn" / "imagesTr" / "case_001_0000.nii.gz", ct())
     nii(root / "nn" / "labelsTr" / "case_001.nii.gz", lab())
     nii(tmp_path / "private" / "mask.nii.gz", lab())
-    rows = [{"case_id": "case_00001", "scan_idx": "01", "modality": "MR",
+    rows = [{"case_id": "case_00001", "scan_idx": "01", "modality": "mri",
+             "mri_image_component": "PHASE",
              "relative_path": "nifti/01_case_00001_0000.nii.gz"}]  # fmt: skip
     (root / "ds" / "metadata.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     return root
@@ -143,10 +144,12 @@ def test_open_refusals_carry_actions(oc: TestClient, data: Path, tmp_path: Path)
 
 
 def test_modality_from_the_dataset_rows(oc: TestClient, data: Path) -> None:
-    """VW-05 / SRC-16 (AUD-A2-10): a known modality is not "assumed"."""
+    """VW-05 / SRC-16 (AUD-A2-10): a known modality is not "assumed"; it is a DICOM code and
+    an MR row names its image component."""
     folder = open_(oc, data / "ds")
     by_name = {i["name"]: i for i in folder["items"]}  # type: ignore[attr-defined]
     assert by_name["01_case_00001_0000.nii.gz"]["modality"] == "MR"
+    assert by_name["01_case_00001_0000.nii.gz"]["image_component"] == "PHASE"
     assert by_name["01_case_00001.nii.gz"]["modality"] is None  # no row: unknown
     single = open_(oc, data / "ds" / "nifti" / "01_case_00001_0000.nii.gz")
     assert single["items"][0]["modality"] == "MR"  # type: ignore[index]

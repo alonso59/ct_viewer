@@ -44,6 +44,7 @@ def test_modality() -> None:
         "modality", {"modality": "MR"}
     )
     assert not_ready(item(modality=None), modalities=["CT"]) is None
+    assert not_ready(item(modality="ct"), modalities=["CT"]) is None  # stored as a DICOM code
 
 
 def test_no_mask() -> None:

@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.ingest.models import modality_code
 from app.ingest.schemas import ParsedFile
 from app.sources import formats
 from app.sources.identity import IdentityRegistry, slug
@@ -30,7 +31,6 @@ PLACEHOLDERS = {"stem", "dir"}  # besides the pattern's groups
 _FIELD = re.compile(r"{(\w*)}")
 # `seg/{name minus _0000}`: the metadata-v1 / converter layout
 _SEG_SUFFIX = re.compile(r"_0000$")
-MODALITY_CODES = {"MRI": "MR"}  # DICOM codes
 
 
 class NiftiOptions(BaseModel):
@@ -231,8 +231,7 @@ def plan(root: Path, opts: NiftiOptions, registry: IdentityRegistry) -> NiftiPla
         if mask:
             used_masks.add(mask)
             used_masks.update(folders.get(mask, []) if mask in templated else [])
-        modality = g.get("modality")
-        modality = MODALITY_CODES.get(modality, modality) if modality else opts.modality
+        modality = modality_code(g.get("modality")) or opts.modality
         row: dict[str, Any] = {
             "case_id": case_id,
             "scan_idx": scan_idx,

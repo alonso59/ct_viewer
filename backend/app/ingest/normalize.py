@@ -377,6 +377,8 @@ def _voi_draft(
         axis_order=_axis_order(row),
         line=row.line,
     )
+    if parent is not None and "mri_image_component" in parent.extra:  # a VOI shows its scan's
+        d.extra.setdefault("mri_image_component", parent.extra["mri_image_component"])
     if excluded:
         return d
     if side is None:

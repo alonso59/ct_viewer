@@ -5558,6 +5558,17 @@
        }
       ]
      },
+     "image_component": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Image Component"
+     },
      "import_id": {
       "title": "Import Id",
       "type": "string"
@@ -5727,6 +5738,17 @@
         "type": "null"
        }
       ]
+     },
+     "image_component": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Image Component"
      },
      "import_id": {
       "title": "Import Id",
@@ -6878,6 +6900,17 @@
         "type": "null"
        }
       ]
+     },
+     "image_component": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Image Component"
      },
      "item_id": {
       "title": "Item Id",

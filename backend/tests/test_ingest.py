@@ -120,6 +120,41 @@ def test_modality_absent_is_null(tmp_path: Path) -> None:
     assert Item.model_validate(legacy).modality is None
 
 
+def test_modality_codes_and_mr_image_component(tmp_path: Path) -> None:
+    """DCM-12: modality is a DICOM code; an MR item names its image component, VOIs inherit it."""
+    root = tmp_path / "root"
+    rows = [  # (scan_idx, modality, converter component) → expected (modality, component)
+        ("01", "MR", "PHASE", ("MR", "PHASE")),
+        ("02", "mri", "magnitude", ("MR", "MAGNITUDE")),
+        ("03", "MR", "UNKNOWN", ("MR", None)),
+        ("04", "ct", "", ("CT", None)),
+        ("05", "CT", "PHASE", ("CT", None)),  # a component only describes MR
+    ]
+    for idx, *_ in rows:
+        _write(root / f"nifti/{idx}_case_00001_0000.nii.gz", np.zeros((4, 4, 4), dtype=np.int16))
+    _write(root / "voi/a.nii.gz", np.zeros((4, 4, 4), dtype=np.int16))
+    meta = _rows(
+        *(
+            {"case_id": "case_00001", "scan_idx": idx, "modality": mod,
+             "filename": f"{idx}_case_00001_0000.nii.gz", "mri_image_component": comp}
+            for idx, mod, comp, _ in rows
+        )
+    )  # fmt: skip
+    cat = _rows(
+        {"case_id": "case_00001", "scan_idx": "01", "side": "L", "image_path": "voi/a.nii.gz"}
+    )
+    parsed = parse_inputs({"metadata": meta, "voi_catalog": cat})
+    items_l, _ = run_index(build_drafts(parsed, resolver_for(root), "DATA"))
+    items = {i.item_id: i for i in items_l}
+    for idx, _mod, _comp, expected in rows:
+        it = items[f"case_00001.{idx}.complete.-"]
+        assert (it.modality, it.image_component) == expected
+    voi = items["case_00001.01.voi.L"]
+    assert (voi.modality, voi.image_component) == ("MR", "PHASE")
+    legacy = items["case_00001.01.complete.-"].model_dump(exclude={"image_component"})
+    assert Item.model_validate(legacy).image_component == "PHASE"  # index written before
+
+
 def test_defect_items(indexed: tuple[dict[str, Item], list[QcWarning]]) -> None:
     items, warnings = indexed
     assert items["case_00010.01.complete.-"].status == "missing"

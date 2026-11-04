@@ -47,7 +47,8 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | `case_id` | ✓ | URL-safe slug (SRC-08); `case_\d{5}` is the default identity template |
 | `scan_idx` | ✓ | Scan index within case (string, e.g. `01`) |
 | `filename` or `relative_path` or `nifti_file` | ✓ | Identity: first non-empty of the three. Image location: `relative_path` → `nifti_file` (absolute legacy) → `nifti/{filename}` |
-| `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD); parsed into `Item.modality` and also kept in `extra` |
+| `patient_id`, `dataset_id`, `modality` | | Display; `modality` gates CT-only defaults (VW-05, RAD); parsed into `Item.modality` as a DICOM code and also kept in `extra` |
+| `mri_image_component` | | MR complex image component written by the converter; parsed into `Item.image_component` (DATA_MODEL §Item) and also kept in `extra` |
 | `study_uid`, `series_uid` | | Provenance (advanced) |
 | `phase`, `curated_phase`, `canonical_phase`, `phase_guess`, `phase_guess_confidence` | | Phase resolution (below) |
 | `seg_path` | | Explicit SEG; else convention `seg/{filename minus _0000}`. With `seg_labels`, a folder: a mask set (ADR-0036) |

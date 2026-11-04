@@ -61,7 +61,7 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
 {
   "item_id": "case_00001.01.voi.L",
   "case_id": "case_00001", "scan_idx": "01", "scope": "voi", "side": "L",
-  "patient_id": "…", "modality": "CT",
+  "patient_id": "…", "modality": "CT", "image_component": null,
   "phase": { "canonical": "NP", "raw": "VEN", "source": "phase.json" },
   "image": { "ref": "DATA:voi/images/A/NP/01_case_00001_L.nii.gz", "format": "nifti", "fp": "…", "sha256": null },
   "masks": {                       // seg_id → VolumeRef (ADR-0015); was `mask` in format_version 1
@@ -77,7 +77,7 @@ Examples: `case_00001.01.complete.-`, `case_00001.01.voi.L`.
 }
 ```
 
-`modality` comes from the input `modality` field (VOIs inherit the scan's value) and is null when absent (unknown: the viewer assumes CT, VW-05). `sha256` is null until the full-hash job ran (IMP-09).
+`modality` comes from the input `modality` field as a DICOM code (upper case, `MRI` read as `MR`, DCM-12; VOIs inherit the scan's value) and is null when absent (unknown: the viewer assumes CT, VW-05). `image_component` names an MR image's complex component (`MAGNITUDE`, `PHASE`, `REAL`, `IMAGINARY`, `MIXED`) from the input `mri_image_component`; it is null for other modalities and for an unknown or mixed-per-slice component, and index rows written before it are filled from `extra` on read. `sha256` is null until the full-hash job ran (IMP-09).
 `masks` is empty when no segmentation exists (IMP-11). For one phase the API also returns `mask` = `masks[default_seg]` (deprecated, ADR-0015). `case_id` is a slug (SRC-08).
 
 ## Case summary (derived)

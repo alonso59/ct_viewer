@@ -356,6 +356,25 @@ def test_open_dicom_folder_and_single_file(
     assert (np.asanyarray(single.dataobj) == MARKER).sum() == 1
 
 
+def test_open_dicom_mr_series_names_its_image_component(
+    dc: TestClient, src: tuple[Path, dict[str, Any]]
+) -> None:
+    """VW-05 / DCM-12: an opened MR series carries its complex image component."""
+    root, _ = src
+    write_series(
+        root / "P003" / "mr",
+        patient_id="P003",
+        description="FLOW PHASE",
+        modality="MR",
+        extra={"ComplexImageComponent": "PHASE"},
+    )
+    session = dc.post(f"{API}/open", json={"path": str(root / "P003")}).json()
+    [item] = session["items"]
+    assert (item["modality"], item["image_component"]) == ("MR", "PHASE")
+    ct = dc.post(f"{API}/open", json={"path": str(root / "P001" / "ct")}).json()
+    assert ct["items"][0]["image_component"] is None
+
+
 def test_open_cache_changes_when_a_nonfirst_dicom_slice_changes(
     dc: TestClient, src: tuple[Path, dict[str, Any]]
 ) -> None:

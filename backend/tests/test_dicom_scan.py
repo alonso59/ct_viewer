@@ -160,16 +160,12 @@ def test_mri_component(components: list[str], expected: tuple[str, str]) -> None
         Modality=lambda i, _: "MR",
         ComplexImageComponent=lambda i, _: components[i] or None,
     )
-    out = scan.Inspection()
-    scan._mri(ds, out)
-    assert (out.mri_component, out.mri_component_status) == expected
+    assert scan.mri_component(ds) == expected
 
 
 def test_mri_component_from_image_type() -> None:
     ds = slices(2, Modality=every("MR"), ImageType=every(["ORIGINAL", "PRIMARY", "P"]))
-    out = scan.Inspection()
-    scan._mri(ds, out)
-    assert (out.mri_component, out.mri_component_status) == ("PHASE", "ok")
+    assert scan.mri_component(ds) == ("PHASE", "ok")
 
 
 def test_inspect_reports_unreadable_headers_and_skips_multiframe_geometry(

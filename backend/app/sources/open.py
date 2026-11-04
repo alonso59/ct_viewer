@@ -25,6 +25,7 @@ from app.core.fsio import iter_jsonl
 from app.core.ids import new_ulid, utc_now
 from app.imaging import npy_convert
 from app.imaging.header import AFFINE_ATOL_MM, HeaderError, read_header
+from app.ingest.models import modality_code, mr_component
 from app.sources import formats
 
 MAX_ITEMS = 500
@@ -55,6 +56,7 @@ class OpenItem(BaseModel):
     geometry: OpenGeometry | None = None
     # DICOM, or the `metadata.jsonl` row of a dataset folder; else unknown
     modality: str | None = None
+    image_component: str | None = None  # MR only, as `Item.image_component`
     n_slices: int | None = None
     attached_to: int | None = None
     axis_order: Literal["xyz", "zyx"] | None = None  # NumPy
@@ -175,21 +177,22 @@ class OpenSessions:
         self._s.pop(sid, None)
 
 
-def row_modalities(root: Path) -> dict[str, str]:
-    """File name → `modality` from the `metadata.jsonl` of an opened dataset folder, or of the
-    folder above an opened `nifti/`. Rows without a modality are skipped; an unreadable file gives
-    none."""
+def row_modalities(root: Path) -> dict[str, tuple[str, str | None]]:
+    """File name → (`modality`, MR image component) from the `metadata.jsonl` of an opened dataset
+    folder, or of the folder above an opened `nifti/`. Rows without a modality are skipped; an
+    unreadable file gives none."""
     for d in (root, root.parent):
         meta = d / "metadata.jsonl"
         if not meta.is_file():
             continue
-        out: dict[str, str] = {}
+        out: dict[str, tuple[str, str | None]] = {}
         try:
             for r in iter_jsonl(meta):
-                mod = r.get("modality")
+                mod = modality_code(r.get("modality"))
                 ref = r.get("relative_path") or r.get("filename")
-                if isinstance(mod, str) and mod and isinstance(ref, str) and ref:
-                    out[Path(ref.replace("\\", "/")).name] = mod.upper()
+                if mod and isinstance(ref, str) and ref:
+                    component = mr_component(mod, r.get("mri_image_component"))
+                    out[Path(ref.replace("\\", "/")).name] = (mod, component)
         except (OSError, ValueError):
             return {}
         return out
@@ -200,7 +203,7 @@ def build_session(
     path: Path,
     rows: list[dict[str, Any]],
     scan: formats.Scan,
-    modalities: dict[str, str],
+    modalities: dict[str, tuple[str, str | None]],
 ) -> OpenSession:
     items: list[OpenItem] = []
     for n, r in enumerate(rows):
@@ -210,6 +213,7 @@ def build_session(
         if r["format"] == "dicom" and len(r.get("files") or []) > 1:
             # a series is named by its description or folder
             name = r.get("description") or rel.parent.name or rel.name
+        known: tuple[str | None, str | None] = modalities.get(rel.name) or (None, None)
         items.append(
             OpenItem(
                 n=n,
@@ -225,7 +229,8 @@ def build_session(
                 files=list(r.get("files") or []),
                 series_uid=r.get("series_uid"),
                 description=r.get("description"),
-                modality=r.get("modality") or modalities.get(rel.name),
+                modality=r.get("modality") or known[0],
+                image_component=r.get("image_component") or known[1],
                 window=r.get("window"),
             )
         )

@@ -12,6 +12,8 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
+from app.ingest.models import mr_component
+
 
 def is_dicom_image(path: Path, root: Path | None = None) -> bool:
     from rw_dicom.scan import is_dicom_image as recognize
@@ -77,12 +79,18 @@ def probe_series(
         members.sort(key=lambda m: m[0])
         rel0, ds = members[0]
         sop = value_to_text(getattr(ds, "SOPClassUID", ""))
+        modality = value_to_text(getattr(ds, "Modality", "")).upper() or None
         rec: dict[str, Any] = {
             "rel": rel0,
             "format": "dicom",
             "files": [m[0] for m in members],
             "series_uid": uid,
-            "modality": value_to_text(getattr(ds, "Modality", "")).upper() or None,
+            "modality": modality,
+            "image_component": mr_component(
+                modality, scan.mri_component([member for _, member in members])[0]
+            )
+            if modality == "MR"
+            else None,
             "description": value_to_text(getattr(ds, "SeriesDescription", "")),
             "window": _window(ds),
         }
