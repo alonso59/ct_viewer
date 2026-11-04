@@ -119,7 +119,7 @@ def run(image: str, root: Path) -> None:
                 "--user",
                 f"{os.getuid()}:{os.getgid()}",
                 "-e",
-                "PYTHONPATH=/app/backend:/app",
+                "PYTHONPATH=/app/backend:/app:/app/plugins/dicom/src",
                 "-e",
                 "OMP_NUM_THREADS=1",
                 "-e",

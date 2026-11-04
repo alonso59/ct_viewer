@@ -99,7 +99,7 @@ def run(evidence: Path) -> dict[str, Any]:
         **os.environ,
         **threads,
         "RW_DICOM_IMAGE_SMOKE": token,
-        "PYTHONPATH": f"{REPO / 'backend'}:{REPO}",
+        "PYTHONPATH": f"{REPO / 'backend'}:{REPO}:{REPO / 'plugins/dicom/src'}",
         "PYTHONDONTWRITEBYTECODE": "1",
         "WORKSPACE_ROOT": str(workspace),
         "ALLOWED_DATA_ROOTS": str(data),
