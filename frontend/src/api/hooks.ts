@@ -270,7 +270,7 @@ export function useImportPreview(pid: string) {
 export function useCommitImport(pid: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (previewId: string) => api.commitImport(pid, previewId),
+    mutationFn: ({ previewId, allowIncomplete }: { previewId: string; allowIncomplete?: boolean }) => api.commitImport(pid, previewId, allowIncomplete),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.jobs(pid) })
       void qc.invalidateQueries({ queryKey: keys.imports(pid) })

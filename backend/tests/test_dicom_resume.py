@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.dicom import convert, pipeline
-from plugins.dicom.identity import Identity
+from rw_dicom import convert, pipeline
+from rw_dicom.identity import Identity
 
 from tools.dicom_fixtures import write_series
 
@@ -38,7 +38,7 @@ def test_sidecar_permission_failure_preserves_commits_and_can_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """D35: refused sidecar publication cannot acknowledge a partial successful volume."""
-    from plugins.dicom import sidecar
+    from rw_dicom import sidecar
 
     source, output = tmp_path / "source", tmp_path / "derived"
     for name in ("P0", "P1"):
@@ -156,7 +156,7 @@ def test_recovery_finishes_prepared_artifacts_without_decoding_again(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, barrier: str
 ) -> None:
     """D18/D35: crash between image, sidecar and journal publication is recoverable."""
-    from plugins.dicom import commits
+    from rw_dicom import commits
 
     source, output = tmp_path / "source", tmp_path / "derived"
     write_series(source / "series", shape=(3, 3, 3), marker=(1, 1, 2))
@@ -201,8 +201,11 @@ def test_recovery_finishes_prepared_artifacts_without_decoding_again(
 def test_same_run_pins_pending_input_and_registry_before_the_first_pixel_unit(
     tmp_path: Path,
 ) -> None:
-    """D11/D19/D21: interruption cannot silently admit a changed not-yet-converted input."""
-    from plugins.dicom.commits import CommitConflict
+    """D11/D19/D21, DCM-29: interruption cannot silently admit a changed not-yet-converted input.
+
+    The run pin holds member stats, so even restored bytes (new ctime) refuse the same run; a new
+    run reuses the verified commits and converts the rest."""
+    from rw_dicom.commits import CommitConflict
 
     source, output = tmp_path / "source", tmp_path / "derived"
     for index in range(2):
@@ -233,13 +236,16 @@ def test_same_run_pins_pending_input_and_registry_before_the_first_pixel_unit(
     assert digest(image) == before and len(list((output / "nifti").glob("*.nii.gz"))) == 1
     file.write_bytes(original)
     os.utime(file, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    with pytest.raises(CommitConflict, match="conflict"):
+        run_conversion(source, output, checkpoint=checkpoint)
     fresh_identity = Identity()
-    resumed = run_conversion(source, output, checkpoint=checkpoint, identity=fresh_identity)
+    renewed = output / "run-2" / "pin.json"
+    resumed = run_conversion(source, output, checkpoint=renewed, identity=fresh_identity)
     assert resumed.counts["already_converted"] == 1 and resumed.counts["converted"] == 1
     assert fresh_identity.cases == {"P0": 0, "P1": 1}
     write_series(source / "P2", patient_id="P2", shape=(3, 3, 3), marker=(1, 1, 2))
     with pytest.raises(CommitConflict, match="conflict"):
-        run_conversion(source, output, checkpoint=checkpoint)
+        run_conversion(source, output, checkpoint=renewed)
 
 
 @pytest.mark.parametrize("in_project", [False, True])
@@ -405,7 +411,7 @@ def test_fresh_pinned_conversion_hashes_sources_twice_and_reuses_outputs(
 ) -> None:
     from collections import Counter
 
-    from plugins.dicom import commits
+    from rw_dicom import commits
 
     source = tmp_path / "source"
     write_series(source, seed="preflight-read-count")
@@ -427,7 +433,8 @@ def test_fresh_pinned_conversion_hashes_sources_twice_and_reuses_outputs(
     reads.clear()
     resumed = run_conversion(source, output, checkpoint=output / "pin.json")
     assert resumed.counts["already_converted"] == 1
-    assert reads == Counter({path: 2 for path in inputs})
+    # DCM-29/30: no whole-run hash pass; reuse still rehashes every input once (strict).
+    assert reads == Counter({path: 1 for path in inputs})
     assert hashes == {path: digest(path) for path in hashes}
 
 
@@ -436,7 +443,7 @@ def test_input_change_after_run_preflight_cannot_be_committed_or_reused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, already_committed: bool
 ) -> None:
     import pydicom
-    from plugins.dicom import commits
+    from rw_dicom import commits
 
     source = tmp_path / "source"
     write_series(source, seed="preflight-mutation")

@@ -466,8 +466,8 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       if (req.files.voi_catalog) fd.set('voi_catalog', req.files.voi_catalog)
       return send('POST', `/projects/${enc(pid)}/imports/preview`, fd)
     },
-    commitImport: (pid, preview_id) =>
-      unwrap(client.POST('/api/v1/projects/{pid}/imports', { params: { path: { pid } }, body: { preview_id } })),
+    commitImport: (pid, preview_id, allowIncomplete) =>
+      unwrap(client.POST('/api/v1/projects/{pid}/imports', { params: { path: { pid } }, body: allowIncomplete ? { preview_id, allow_incomplete: true } : { preview_id } })),
     importHistory: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/imports', { params: { path: { pid } } })),
     startHashJob: (pid, force = false) =>
       unwrap(client.POST('/api/v1/projects/{pid}/hash-jobs', { params: { path: { pid } }, body: { force } })),
@@ -763,6 +763,7 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     pauseTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/pause', { params: { path: { pid, rid } } })),
     archiveTaskRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/archive', { params: { path: { pid, rid } } })),
     resumeTaskRun: (pid, rid, body) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } }, body })),
+    registerConvertedRun: (pid, rid) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/register-converted', { params: { path: { pid, rid } } })),
     retryFailedTaskRun: (pid, rid, body) => unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/retry-failed', { params: { path: { pid, rid } }, body })),
     taskRunErrors: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/errors', { params: { path: { pid, rid } } })),
     taskRunOutputs: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/task-runs/{rid}/outputs', { params: { path: { pid, rid } } })),

@@ -1758,6 +1758,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/task-runs/{rid}/register-converted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Converted
+         * @description A DICOM run that ended `completed_with_errors`: import its converted series (DCM-34).
+         */
+        post: operations["register_converted_api_v1_projects__pid__task_runs__rid__register_converted_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/task-runs/{rid}/cancel": {
         parameters: {
             query?: never;
@@ -3484,6 +3504,8 @@ export interface components {
         CommitRequest: {
             /** Preview Id */
             preview_id: string;
+            /** Allow Incomplete */
+            allow_incomplete?: boolean | null;
         };
         /** CommitResult */
         CommitResult: {
@@ -4602,6 +4624,7 @@ export interface components {
             };
             /** Source Key */
             source_key?: string | null;
+            incomplete?: components["schemas"]["IncompleteDataset"] | null;
         };
         /**
          * ImportRecord
@@ -4649,6 +4672,18 @@ export interface components {
             n_events: number;
             /** Errors */
             errors?: string[];
+        };
+        /**
+         * IncompleteDataset
+         * @description A converter dataset with series that failed or are still pending (DCM-34).
+         */
+        IncompleteDataset: {
+            /** Converted */
+            converted: number;
+            /** Failed */
+            failed: number;
+            /** Pending */
+            pending: number;
         };
         /**
          * IndexStatus
@@ -6087,7 +6122,7 @@ export interface components {
          * QcCode
          * @enum {string}
          */
-        QcCode: "missing_path" | "unreadable_file" | "outside_root" | "missing_seg" | "missing_voi_image" | "missing_voi_mask" | "missing_affine" | "affine_mismatch" | "shape_mismatch" | "ambiguous_phase" | "ambiguous_side" | "duplicate_row_identity" | "fingerprint_changed" | "unsupported_format" | "ambiguous_axis_order";
+        QcCode: "missing_path" | "unreadable_file" | "outside_root" | "missing_seg" | "missing_voi_image" | "missing_voi_mask" | "missing_affine" | "affine_mismatch" | "shape_mismatch" | "ambiguous_phase" | "ambiguous_side" | "duplicate_row_identity" | "fingerprint_changed" | "unsupported_format" | "ambiguous_axis_order" | "conversion_failed" | "conversion_pending";
         /** QcWarning */
         QcWarning: {
             code: components["schemas"]["QcCode"];
@@ -7129,6 +7164,17 @@ export interface components {
             /** Run Id */
             run_id?: string | null;
         };
+        /** SourceImportCommit */
+        SourceImportCommit: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Expected Attempt */
+            expected_attempt: number;
+            /** Expected Run Attempt */
+            expected_run_attempt?: number | null;
+            /** Allow Incomplete */
+            allow_incomplete?: boolean | null;
+        };
         /**
          * SourceImportContext
          * @description Import draft choices; Preview remains responsible for validating adapter options.
@@ -7351,6 +7397,8 @@ export interface components {
             expected_run_attempt?: number | null;
             /** Inventory Generation */
             inventory_generation: string;
+            /** Allow Mixed Versions */
+            allow_mixed_versions?: boolean | null;
             /** Plan Attempt */
             plan_attempt: number;
             /** Name */
@@ -7958,6 +8006,8 @@ export interface components {
             selection?: components["schemas"]["TaskSelection"];
             /** Name */
             name?: string | null;
+            /** Allow Mixed Versions */
+            allow_mixed_versions?: boolean | null;
         };
         /** TaskRunStarted */
         TaskRunStarted: {
@@ -9487,7 +9537,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SourceOperationControl"];
+                "application/json": components["schemas"]["SourceImportCommit"];
             };
         };
         responses: {
@@ -12210,6 +12260,38 @@ export interface operations {
         };
     };
     get_run_api_v1_projects__pid__task_runs__rid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_converted_api_v1_projects__pid__task_runs__rid__register_converted_post: {
         parameters: {
             query?: never;
             header?: never;

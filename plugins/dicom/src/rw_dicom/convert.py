@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from plugins.dicom import files as source_files
-from plugins.dicom.scan import Series
+from rw_dicom import files as source_files
+from rw_dicom.scan import Series
 
 
 @dataclass(frozen=True)

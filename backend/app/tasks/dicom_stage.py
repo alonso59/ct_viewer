@@ -14,27 +14,27 @@ from typing import Any
 
 
 def is_dicom_image(path: Path, root: Path | None = None) -> bool:
-    from plugins.dicom.scan import is_dicom_image as recognize
+    from rw_dicom.scan import is_dicom_image as recognize
 
     return recognize(path, root)
 
 
 def source_folders(root: Path) -> Iterator[tuple[Path, list[Path]]]:
     """Read-only streamed traversal."""
-    from plugins.dicom.files import folders
+    from rw_dicom.files import folders
 
     return folders(root)
 
 
 def local_source_file(root: Path, path: Path) -> bool:
-    from plugins.dicom.files import local_file
+    from rw_dicom.files import local_file
 
     return local_file(root, path)
 
 
 def series_fingerprint(root: str, rels: list[str]) -> str:
     """Cache identity covers every guarded member and the native reader."""
-    from plugins.dicom import commits, convert, pipeline, scan
+    from rw_dicom import commits, convert, pipeline, scan
 
     if not rels:
         raise ValueError("DICOM series has no members")
@@ -57,8 +57,8 @@ def probe_series(
     root: str, rels: list[str], *, cancelled: Callable[[], bool] | None = None
 ) -> list[dict[str, Any]]:
     """DICOM files → one record per series (headers only): files, modality, geometry."""
-    from plugins.dicom import scan
-    from plugins.text import split_multi_value, value_to_text
+    from rw_dicom import scan
+    from rw_dicom.text import split_multi_value, value_to_text
 
     groups: dict[tuple[str, str], list[tuple[str, Any]]] = {}
     errors: list[dict[str, Any]] = []
@@ -114,7 +114,7 @@ def probe_series(
 
 def _window(ds: Any) -> list[float] | None:
     """`[width, center]` from the header (first value of each), or None."""
-    from plugins.text import split_multi_value
+    from rw_dicom.text import split_multi_value
 
     try:
         c = split_multi_value(getattr(ds, "WindowCenter", ""))
@@ -127,7 +127,7 @@ def _window(ds: Any) -> list[float] | None:
 
 def dicom_tags(root: str, rel: str) -> dict[str, Any]:
     """Worker: the DICOM JSON model of one file's header (no PixelData)."""
-    from plugins.dicom import scan, sidecar
+    from rw_dicom import scan, sidecar
 
     return sidecar.to_json_model(scan.read_header(Path(root) / rel, Path(root)))
 
@@ -141,7 +141,7 @@ def convert_series(
     expected_fingerprint: str | None = None,
 ) -> str | None:
     """Worker: one series (or one file) → NIfTI at `dst`. None, else the error."""
-    from plugins.dicom import convert, resources, scan
+    from rw_dicom import convert, resources, scan
 
     try:
         paths = tuple(Path(root) / f for f in files)
@@ -178,7 +178,7 @@ def convert_series(
 
 def write_sidecar(src: str, dst: str, anonymize: bool, case_id: str) -> str | None:
     """Worker: the DICOM JSON sidecar of one file, optionally anonymized."""
-    from plugins.dicom import scan, sidecar
+    from rw_dicom import scan, sidecar
 
     try:
         ds = scan.read_header(Path(src))

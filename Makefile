@@ -34,7 +34,7 @@ else
   $(error RUNTIME must be native, docker or udocker)
 endif
 
-.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
+.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api gen-dicom-schema record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^##@ / {printf "\n%s\n", substr($$0, 5)} /^[a-z0-9-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -48,8 +48,8 @@ setup-backend: ## Python 3.12 env + backend[dev] (override PYTHON_VERSION)
 	@if [ ! -x "$(VENV)/bin/python" ]; then \
 	  if command -v uv >/dev/null; then uv venv --python $(PYTHON_VERSION) "$(VENV)"; \
 	  else python$(PYTHON_VERSION) -m venv "$(VENV)"; fi; fi
-	@if command -v uv >/dev/null; then VIRTUAL_ENV="$(VENV)" uv pip install -e 'backend[dev]'; \
-	else "$(VENV)/bin/python" -m pip install -e 'backend[dev]'; fi
+	@if command -v uv >/dev/null; then VIRTUAL_ENV="$(VENV)" uv pip install -e 'backend[dev]' -e 'plugins/dicom[yaml]'; \
+	else "$(VENV)/bin/python" -m pip install -e 'backend[dev]' -e 'plugins/dicom[yaml]'; fi
 
 setup-frontend: ## Install frontend deps from the lockfile
 	$(NODE) npm ci
@@ -68,6 +68,9 @@ dev-backend: ## API with reload on HOST (default 127.0.0.1):8000
 
 dev-frontend: ## Vite dev server on 5173 (proxies /api -> 8000)
 	$(NODE) npm run dev
+
+gen-dicom-schema: ## Copy dicom.convert's settings schema from task.json into the rw_dicom package
+	cd backend && $(BPY) -m tools.gen_dicom_schema
 
 gen-api: ## Write the OpenAPI snapshot and regenerate the frontend API types
 	cd backend && $(BPY) -m tools.openapi_snapshot

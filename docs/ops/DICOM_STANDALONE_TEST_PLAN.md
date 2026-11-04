@@ -156,3 +156,27 @@ Findings:
 - CLI CPU/wall is 1.05–1.3 on the large sets (one core). Of the CLI wall time: decode 16–27%, decode plus write and compression 20–42%, pin hashing 3–10%, per-unit rehash 3–11%, output validation ≤ 12%, fsync ≤ 6% (most with many tiny series); the rest is discovery and planning.
 
 Open for S1 exit: B06 lanes other than local ext4 (NFS, SMB, Docker Desktop bind mount) are not available on this host; peak temporary disk is not measured; large sets have one run each; the CLI was not run at 10⁶ files.
+
+## S2–S8 evidence (2026-11-04)
+
+Same host, data and tool as §S1 evidence; results `build/verification/p7i-s8/*.json`. One run each unless noted.
+
+| Measurement | S1 | After S8 |
+|---|---|---|
+| 200k files: planning (s / peak MiB) | 90.6 / 284 | 52.6 / 92 |
+| 200k files: app-path conversion, 1 worker (s / MiB) | 263.4 / 478 | 261.0 / 202 |
+| 200k files: resume after a stop at half the units (s / first pending decode s) | 328.4 / 257.1 | 205.7 / 67.2 |
+| 200k files: `rw-dicom convert` (s / coordinator MiB), 1 worker | 354.3 / 629 | 423.2 / 247 |
+| 200k files: `rw-dicom convert`, 8 workers (discovery with 4 parsers) | — | 176.6 / 140 |
+| 200k files: discovery, 1 / 4 / 8 / 16 parse workers (s) | 150.9 | 147.0 / 72.4 / 79.2 / 91.9 |
+| 10⁴ patient folders: planning (s / MiB) | 255.9 / 470 | 41.2 / 177 |
+| 10⁶ files: discovery / planning (s), planning peak MiB | 750.4 / 489.8, 929 | 736.4 / 247.9, 112 |
+| Fixed 200 series, ×100 files (2k → 200k): planning peak MiB | 76 → 278 | 68 → 94 |
+| 1,600 512² slices (8 series): `rw-dicom convert` 1 / 4 / 8 workers (s, 2 runs) | 8.9 | 8.4 / 4.5 / 4.2 |
+
+- Correctness: C01 golden semantics unchanged after every phase; CLI and workspace datasets equal (A02); outputs, rows and annotations identical for 1 and 3 workers (A30); the serial and 4-parser inventories are identical (A16).
+- One worker is slower than the S1 CLI (in-memory threaded discovery, no member-stat pin) because discovery and the stat pin are serial; `rw-dicom` therefore defaults to `--workers auto` (CPUs, at most 8), and legacy YAML configs keep one worker. ct_viewer keeps `DICOM_WORKERS=1` until the owner raises it on the deployment host.
+- Discovery stops gaining past 4 parsers: the coordinator's SQLite writes and result decoding dominate (profiled: parsing and JSON conversion are ~85% of serial discovery).
+- Conda: a fresh `conda create -n … python=3.12` plus `pip install -e 'plugins/dicom[yaml]'` installs without backend dependencies (SimpleITK 2.5.7, isal 1.9.1 resolved); `rw-dicom convert` of the 1,600-slice set took 4.5 s with 4 workers and a re-run reused all 8 series in 1.9 s.
+- Verification of this revision: `make check` (1,391 backend and 579 frontend tests, lint, typecheck, dead code, API types, bundle budget, requirements) and 25 Chromium e2e cases (converter, converter-recovery, g2-dicom, tasks-dicom, import-background, console) pass; the §Release gates cases are among them.
+- Still open: B06 lanes other than local ext4 (NFS, SMB, Docker Desktop); peak temporary disk; repeated large runs; the product image build and udocker run (CI).

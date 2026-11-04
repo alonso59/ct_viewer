@@ -17,7 +17,7 @@ from app.core.paths import PathResolver
 from app.imaging.header import VolumeFormat, volume_format
 from app.ingest.codes import QcCode
 from app.ingest.models import ItemStatus, PhaseInfo, PhaseSource
-from app.ingest.parsers import ParsedInputs, PhaseOverrides, Row, is_excluded
+from app.ingest.parsers import CONVERSION_INCOMPLETE, ParsedInputs, PhaseOverrides, Row, is_excluded
 from app.projects.presets import (
     CCRCC,
     MISSING_PHASE_VALUES,
@@ -307,7 +307,13 @@ def _scan_draft(
             d.extra[field_name] = a.value
     _sidecar_ref(d, resolver, alias)
     if excluded:
-        return d  # no file checks, no warnings
+        status = (row.text("status") or "").lower()
+        if status in CONVERSION_INCOMPLETE:  # keep the converter's reason with the item
+            raw = row.text("raw_metadata_error") or row.extra.get("raw_metadata_error") or status
+            reason = " ".join(str(raw).split())[:300]
+            code = QcCode.CONVERSION_FAILED if status == "failed" else QcCode.CONVERSION_PENDING
+            d.warn(code, "image", f"Not converted ({status}): {reason}")
+        return d  # no file checks
     # `nifti-files` rows have phase UNK by design: no warning unless a phase was given
     from_nifti = (row.text("source_kind") or row.extra.get("source_kind")) == "nifti"
     by_design = from_nifti and phase.raw is None

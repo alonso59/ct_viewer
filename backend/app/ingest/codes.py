@@ -25,6 +25,8 @@ class QcCode(StrEnum):
     FINGERPRINT_CHANGED = "fingerprint_changed"
     UNSUPPORTED_FORMAT = "unsupported_format"
     AMBIGUOUS_AXIS_ORDER = "ambiguous_axis_order"
+    CONVERSION_FAILED = "conversion_failed"
+    CONVERSION_PENDING = "conversion_pending"
 
 
 SEVERITY: dict[QcCode, Severity] = {
@@ -43,4 +45,6 @@ SEVERITY: dict[QcCode, Severity] = {
     QcCode.FINGERPRINT_CHANGED: Severity.WARNING,
     QcCode.UNSUPPORTED_FORMAT: Severity.INFO,
     QcCode.AMBIGUOUS_AXIS_ORDER: Severity.ERROR,
+    QcCode.CONVERSION_FAILED: Severity.WARNING,
+    QcCode.CONVERSION_PENDING: Severity.WARNING,
 }

@@ -15,7 +15,7 @@ from typing import Any
 import nibabel as nib
 import numpy as np
 import pytest
-from plugins.dicom import cli, convert
+from rw_dicom import api, cli, convert
 
 from tools.dicom_fixtures import MARKER, write_series
 
@@ -45,7 +45,7 @@ def test_cli_failure_only_retry_after_sigkill_leaves_unattempted_series_pending(
     before_source = contents(source)
     code = """
 import os, signal, sys
-from plugins.dicom import cli, convert
+from rw_dicom import api, cli, convert
 original = convert.write_nifti
 def fault(series, path):
     if series.dicom_dir.name == 'P002':
@@ -178,8 +178,8 @@ def interrupted_cli(config: Path, marker: Path, *, stop: bool = False) -> subpro
     code = """
 import os, signal, sys
 from pathlib import Path
-from plugins.dicom import cli
-original = cli.pipeline.run
+from rw_dicom import api, cli
+original = api.pipeline.run
 def interrupted(*args, **kwargs):
     def committed(item_id, status, outputs, message):
         if status == 'ok':
@@ -187,7 +187,7 @@ def interrupted(*args, **kwargs):
             os.kill(os.getpid(), signal.SIGSTOP if sys.argv[3] == 'stop' else signal.SIGKILL)
     kwargs['progress'] = committed
     return original(*args, **kwargs)
-cli.pipeline.run = interrupted
+api.pipeline.run = interrupted
 raise SystemExit(cli.main([sys.argv[1]]))
 """
     return subprocess.Popen(
@@ -406,17 +406,17 @@ def test_cli_recovers_when_plan_digest_read_fails_before_the_first_pixel(
 ) -> None:
     """D35: unsuccessful plan verification cannot acknowledge pixel dispatch."""
     _, out, config = configured(tmp_path)
-    original = cli.commits.file_digest
+    original = api.commits.file_digest
 
     def unavailable(path: Path, root: Path | None = None) -> dict[str, Any]:
         if path.name == "pin.json":
             raise OSError("Synthetic plan read failure")
         return original(path, root)
 
-    monkeypatch.setattr(cli.commits, "file_digest", unavailable)
+    monkeypatch.setattr(api.commits, "file_digest", unavailable)
     assert cli.main([str(config)]) == 1
     assert not list((out / "nifti").glob("*.nii.gz"))
-    monkeypatch.setattr(cli.commits, "file_digest", original)
+    monkeypatch.setattr(api.commits, "file_digest", original)
     assert cli.main([str(config)]) == 0
     assert len(list((out / "nifti").glob("*.nii.gz"))) == 2
 
@@ -439,7 +439,7 @@ def test_cli_rejects_source_and_output_escape_before_entering_the_pipeline(
     def forbidden(*args: Any, **kwargs: Any) -> Any:
         pytest.fail("Invalid CLI destinations must be refused before discovery or output writes")
 
-    monkeypatch.setattr(cli.pipeline, "run", forbidden)
+    monkeypatch.setattr(api.pipeline, "run", forbidden)
     assert cli.main([str(config)]) == 1
     assert contents(source) == before
     assert not out.exists()

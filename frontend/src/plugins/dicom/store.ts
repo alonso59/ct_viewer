@@ -33,6 +33,8 @@ export interface Draft {
   source: string | null
   target: Target
   settings: ConvSettings
+  /** Into a project: add series converted by the current readers next to series from other reader versions (DCM-31) */
+  allowMixedVersions: boolean
   estimate: TaskEstimate | null
   error: unknown
   scan: Scan | null
@@ -86,6 +88,7 @@ const draft = (source: string | null, pid: string | null): Draft => ({
   source,
   target: pid ? 'project' : 'dataset',
   settings: { target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: defaultDatasetName() },
+  allowMixedVersions: false,
   estimate: null,
   error: null,
   scan: null,

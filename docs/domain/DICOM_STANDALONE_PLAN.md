@@ -8,7 +8,8 @@ Depends: ADR-0042, ADR-0035, ADR-0040, DICOM_CONVERTER.md, DICOM_JOB_PLAN.md, ..
 
 - S0 (this plan, ADR-0042 Accepted, DCM-26..34) was approved by the owner on 2026-11-03. P7i does not depend on P7h (CTFlow).
 - S1 (characterization and baselines, tests and tools only) runs independently. Production refactoring waits until its evidence has been reviewed.
-- S2–S3 change only `plugins/dicom` internals and behave identically. S4–S8 change backend imports, the image, the inventory, execution or the API; they start only after P7g's mandatory gates and the P7 remote checks pass (ROADMAP).
+- Owner decision 2026-11-03 (supersedes the per-phase stops and the P7g gate for this plan): S2–S8 were implemented in one pass on `version_3-dev` and verified together; evidence in the test plan §Evidence.
+- Implementation differences from this plan: workers get no per-unit soft `RLIMIT_AS` (native address space grows unpredictably; admission against the total budget plus the owned process's hard limit bound memory instead); the mixed-version acknowledgment exists for project conversions and `rw-dicom` only, because a workspace dataset cannot mix (resume keeps its pinned versions, a new run gets a new dataset); every `rw-dicom` run walks the source again so added or edited series are seen; restoring an edited file still refuses the same run (new ctime).
 - DCM-26..34 stay `S`: the standalone converter is not a v3.0 release dependency. Its release gates are the mandatory cases in DICOM_STANDALONE_TEST_PLAN.md §Release gates.
 - Every phase is independently verifiable, stops for owner confirmation at its exit and keeps all ct_viewer workflows working: GUI, source operations, batches, project imports, storage rules and recovery.
 - No unrelated refactoring, and no new services, databases, queues or schedulers. At each phase exit, facts move into their owner docs (§Specification ownership). After S8 this plan moves to `archive/`.

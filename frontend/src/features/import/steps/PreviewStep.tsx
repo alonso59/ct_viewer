@@ -79,13 +79,30 @@ function NiftiNotices({ p }: { p: ImportPreview }) {
   )
 }
 
-export function PreviewStep({ p }: { p: ImportPreview }) {
+/** DCM-34: a converter dataset with failed or pending series imports only once acknowledged. */
+function IncompleteNotice({ p, acknowledged, onAcknowledge }: { p: ImportPreview; acknowledged: boolean; onAcknowledge: (v: boolean) => void }) {
+  const { t } = useTranslation()
+  if (!p.incomplete) return null
+  return (
+    <div className="error-card mb-3" role="alert">
+      <strong>{t('import.incompleteTitle')}</strong>
+      <p>{t('import.incompleteBody', { converted: p.incomplete.converted, failed: p.incomplete.failed, pending: p.incomplete.pending })}</p>
+      <label className="check">
+        <input type="checkbox" checked={acknowledged} onChange={(e) => onAcknowledge(e.target.checked)} />
+        {t('import.incompleteAck')}
+      </label>
+    </div>
+  )
+}
+
+export function PreviewStep({ p, acknowledged = false, onAcknowledge = () => undefined }: { p: ImportPreview; acknowledged?: boolean; onAcknowledge?: (v: boolean) => void }) {
   const { t } = useTranslation()
   const nifti = p.adapter === 'nifti-files'
   return (
     // nifti-files has no mapping column: stack KPIs, sample and errors instead of a half-empty grid
     <div className={nifti ? 'wiz-stack' : 'wiz-grid'}>
       <div>
+        <IncompleteNotice p={p} acknowledged={acknowledged} onAcknowledge={onAcknowledge} />
         <h3>{t('import.previewTitle')}</h3>
         <div className="stat-grid" style={{ gridTemplateColumns: `repeat(${nifti ? 4 : 2}, 1fr)`, marginTop: 0 }}>
           {previewCounts(p).map(({ key, n }) => (

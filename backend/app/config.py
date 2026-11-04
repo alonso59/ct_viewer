@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     host_allocation_root: Path | None = None
     dicom_memory_mb: int | None = Field(default=None, ge=512, le=1048576)
     dicom_cpu_threads: int = Field(default=4, ge=1, le=12)
+    dicom_workers: int = Field(default=1, ge=1, le=12)
     dicom_header_mb: int = Field(default=8, ge=1, le=64)
     dicom_inventory_mb: int = Field(default=512, ge=1, le=16384)
     dicom_inventory_total_mb: int = Field(default=2048, ge=1, le=1048576)
@@ -43,6 +44,8 @@ class Settings(BaseSettings):
     def _dicom_limits(self) -> Settings:
         if self.job_workers + self.dicom_cpu_threads > 12:
             raise ValueError("JOB_WORKERS plus DICOM_CPU_THREADS must fit the 12 CPU budget")
+        if self.dicom_workers > self.dicom_cpu_threads:
+            raise ValueError("DICOM_WORKERS must not exceed DICOM_CPU_THREADS")
         pool = self.host_allocation_root
         if pool is not None and (not pool.is_absolute() or pool.resolve() != pool):
             raise ValueError("HOST_ALLOCATION_ROOT must be absolute and canonical")
@@ -64,6 +67,7 @@ class Settings(BaseSettings):
         return {
             "memory_mb": self.dicom_memory_mb,
             "cpu_threads": self.dicom_cpu_threads,
+            "workers": self.dicom_workers,
             "header_mb": self.dicom_header_mb,
             "inventory_mb": self.dicom_inventory_mb,
             "batch_size": self.dicom_batch_size,

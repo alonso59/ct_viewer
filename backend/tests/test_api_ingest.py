@@ -76,7 +76,8 @@ def test_preview_detect(client: TestClient, pid: str, data_root: Path) -> None:
     assert {f["kind"] for f in pv["files"]} == {"metadata", "phase", "voi_catalog"}
     assert all(f["source"] == "detected" and len(f["sha256"]) == 64 for f in pv["files"])
     assert pv["alias"] == "DATA" and pv["n_errors"] == 0 and pv["errors"] == []
-    assert pv["counts"]["excluded_upstream"] == 1 and pv["counts"]["cases"] >= 16
+    # one skipped row and, DCM-34, a failed and a pending converter row of the same case
+    assert pv["counts"]["excluded_upstream"] == 3 and pv["counts"]["cases"] >= 16
     assert pv["field_mapping"]["image"] == "relative_path"
     assert pv["field_mapping"]["seg"] == "seg_path"  # case_00013 names a .mha seg (SRC-02 fixture)
     assert pv["field_mapping"]["phase"] == ["phase.json", "phase"]
@@ -228,7 +229,13 @@ def test_warnings_match_expected(
     for d in expected["defects"]:
         if d["code"] != "fingerprint_changed":
             assert (d["case_id"], d["code"]) in got, d
-    assert not [w for w in warnings if w["case_id"] in expected["excluded_upstream"]]
+    # excluded items carry no QC warning, except the converter's reason for an unconverted series
+    conversion = {"conversion_failed", "conversion_pending"}
+    assert not [
+        w
+        for w in warnings
+        if w["case_id"] in expected["excluded_upstream"] and w["code"] not in conversion
+    ]
     errs = pages(client, f"{API}/projects/{pid}/warnings?severity=error")
     assert errs and all(w["severity"] == "error" for w in errs)
     one = pages(client, f"{API}/projects/{pid}/warnings?code=shape_mismatch")
@@ -298,7 +305,7 @@ def test_cases_filters(
     assert row["n_cases"] == len(default) and row["n_cases_excluded"] == 1
     st = client.get(f"{API}/projects/{pid}/imports").json()["index"]
     idx = ctx_of(client).index.load(pid)
-    assert st["n_excluded_upstream"] == 1
+    assert st["n_excluded_upstream"] == 3  # skipped + failed + pending (DCM-34)
     assert st["n_items"] == sum(1 for i in idx.items if i.status != "excluded_upstream")
     assert set(ids("status=missing")) >= {"case_00010", "case_00012", "case_00014"}
     assert ids("q=00017") == ["case_00017"] and ids("q=p017") == ["case_00017"]

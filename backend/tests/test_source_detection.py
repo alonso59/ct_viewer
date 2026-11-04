@@ -187,7 +187,7 @@ def test_durable_detection_refuses_an_incompatible_inventory_reader(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """D12/D38: old header facts cannot certify a different scanner implementation."""
-    from app.tasks import source_inventory
+    from rw_dicom import inventory as source_inventory
 
     source = tmp_path / "source"
     nii(source / "image.nii.gz", ct())

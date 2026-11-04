@@ -72,7 +72,7 @@ def apply_worker(job: Path) -> None:
             "address_space_limit_mb": bound // 1024**2 if bound is not None else None,
         },
     )
-    from plugins.dicom import scan
+    from rw_dicom import scan
 
     scan.READ_THREADS = min(cpus, 4)
     scan.MAX_HEADER_BYTES = int(limits.get("header_mb", 8)) * 1024**2

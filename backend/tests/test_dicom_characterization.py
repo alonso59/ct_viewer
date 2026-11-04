@@ -26,13 +26,14 @@ import nibabel as nib
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from plugins.dicom import cli, commits, convert, pipeline, task
+from plugins.dicom import task
+from rw_dicom import cli, commits, convert, pipeline
 
 from app.config import Settings
 from app.main import create_app
 from app.tasks import protocol
 from app.tasks.registry import manifest_hash
-from tests.test_api_ingest import do_import, wait
+from tests.test_api_ingest import wait
 from tests.test_dicom import convert as convert_in_project
 from tests.test_dicom import project
 from tests.test_dicom_resume import run_conversion
@@ -169,67 +170,70 @@ def test_c01_workspace_conversion_matches_the_golden_semantics(
     assert observed == golden
 
 
-def test_c02_cli_matches_workspace_images_but_writes_fewer_artifacts(
-    client: TestClient, tmp_path: Path
-) -> None:
-    """C02, DCM-09/14: same images, sidecars and rows; the CLI lacks four dataset files and
-    silently ignores `anonymize` and `sidecars` (keys it does not map)."""
+def test_c02_a02_cli_writes_the_workspace_dataset(client: TestClient, tmp_path: Path) -> None:
+    """C02 → A02/A05/A06, DCM-28: the CLI writes the same dataset as a workspace run (images,
+    sidecars, rows, annotations), honors `anonymize`, and keeps run state private."""
     source = seeded(tmp_path / "src")
-    run = workspace_run(client, source, "parity")
-    dataset = Path(run["dataset_dir"])
-    out = tmp_path / "cli"
-    config = cli_config(tmp_path, source, out, "anonymize: basic\nsidecars: false\n")
-    assert cli.main([str(config)]) == 0
-    workspace, standalone = (
-        semantics(dataset, dataset / "metadata.jsonl"),
-        semantics(out, out / "metadata.jsonl"),
-    )
-    assert standalone["images"] == workspace["images"]
-    assert standalone["sidecars"] == workspace["sidecars"]  # sidecars written, not anonymized
-    assert standalone["rows"] == workspace["rows"]
-    for name in sorted((dataset / "nifti").glob("*.nii.gz")):
-        assert (out / "nifti" / name.name).read_bytes() == name.read_bytes()
-    assert {r["patient_id"] for r in jsonl(out / "metadata.jsonl")} == {"P001", "P002"}
-    top = {p.name for p in dataset.iterdir()} - {p.name for p in out.iterdir()}
-    assert top == {"annotations.jsonl", "dataset.json", "diagnostics.jsonl", "summary.json",
-                   "conversion-pin.json"}  # fmt: skip
-    assert {p.name for p in out.iterdir()} - {p.name for p in dataset.iterdir()} == {
-        ".rw_identity.json",
-        ".rw_active.json",
-        ".rw-runs",
-        ".rw-cli.lock",
+    for label, extra, settings in (
+        ("plain", "", {}),
+        ("anon", "anonymize: basic\n", {"anonymize": "basic"}),
+    ):
+        run = workspace_run(client, source, label, **settings)
+        dataset = Path(run["dataset_dir"])
+        out = tmp_path / f"cli-{label}"
+        assert cli.main([str(cli_config(tmp_path, source, out, extra))]) == 0
+        workspace = semantics(dataset, dataset / "metadata.jsonl")
+        standalone = semantics(out, out / "metadata.jsonl")
+        assert standalone == workspace
+        for name in sorted((dataset / "nifti").glob("*.nii.gz")):
+            assert (out / "nifti" / name.name).read_bytes() == name.read_bytes()
+        shared = {"metadata.jsonl", "nifti", "sidecars", "annotations.jsonl", "dataset.json",
+                  "diagnostics.jsonl", "summary.json"}  # fmt: skip
+        assert shared <= {p.name for p in out.iterdir()} and shared <= {
+            p.name for p in dataset.iterdir()
+        }
+        manifest = json.loads((out / "dataset.json").read_text())
+        assert manifest["settings_hash"].startswith("sha256:") and manifest["units_by_versions"]
+        assert (out / ".rw-runs").stat().st_mode & 0o077 == 0
+    assert {r["patient_id"] for r in jsonl(tmp_path / "cli-anon" / "metadata.jsonl")} == {
+        "case_00000",
+        "case_00001",
     }
 
 
 @pytest.mark.parametrize("change", ["selection_setting", "reader_version"])
-def test_c03_c04_later_run_reports_committed_series_as_conflicts(
+def test_c03_c04_a22_a23_later_run_reuses_verified_series(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
 ) -> None:
-    """C03/C04, DCM-07/17: the commit identity pins every setting and the reader versions, so a
-    later incremental run after a selection-setting or reader change cannot reuse any series."""
+    """C03/C04 → A22/A23, DCM-31: selection settings and reader versions no longer block reuse;
+    reused series keep the versions that produced them."""
     source, out = seeded(tmp_path / "src"), tmp_path / "out"
     config = cli_config(tmp_path, source, out)
     assert cli.main([str(config)]) == 0
     images = {p.name: p.read_bytes() for p in (out / "nifti").glob("*.nii.gz")}
-    if change == "selection_setting":  # selects the same series; no series has unsafe geometry
+    if change == "selection_setting":
         config.write_text(config.read_text() + "conversion:\n  skip_unsafe_geometry: true\n")
     else:
         original = commits.reader_versions
         monkeypatch.setattr(
             commits, "reader_versions", lambda v: {**original(v), "SimpleITK": "0.0.0"}
         )
-    assert cli.main([str(config)]) == 1
+    assert cli.main([str(config)]) == 0
     rows = [r for r in jsonl(out / "metadata.jsonl") if r["planned_conversion"]]
-    assert {r["status"] for r in rows} == {"failed"} and len(rows) == 2
-    assert all("pinned inputs, settings or reader changed" in r["raw_metadata_error"] for r in rows)
+    assert {r["status"] for r in rows} == {"already_converted"} and len(rows) == 2
     assert {p.name: p.read_bytes() for p in (out / "nifti").glob("*.nii.gz")} == images
+    versions = json.loads((out / "dataset.json").read_text())["units_by_versions"]
+    assert [v["versions"]["SimpleITK"] for v in versions.values()] == [
+        metadata.version("SimpleITK")
+    ]
 
 
-def test_c05_workspace_manifests_can_be_torn(
+def test_c05_a04_dataset_manifests_are_written_atomically(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """C05, DCM-14: `summary.json` and `dataset.json` are written in place without fsync, so a
-    failure during the write leaves a partial file."""
+    """C05 → A04, DCM-28: a failure while writing a manifest leaves no torn file."""
+    from rw_dicom import durable
+
     source = seeded(tmp_path / "src")
     job = tmp_path / "attempt"
     protocol.write_job(
@@ -246,59 +250,86 @@ def test_c05_workspace_manifests_can_be_torn(
             "context": {"phase_vocabulary": [], "target_profile": "generic"},
         },
     )
-    original = Path.write_text
+    original = durable.os.replace
 
-    def torn(self: Path, data: str, *args: Any, **kwargs: Any) -> int:
-        if self.name == "dataset.json":
-            original(self, data[: len(data) // 2], *args, **kwargs)
-            raise OSError("synthetic failure during write")
-        return original(self, data, *args, **kwargs)
+    def torn(src: str, dst: Any) -> None:
+        if Path(dst).name == "dataset.json":
+            raise OSError("synthetic failure during publication")
+        original(src, dst)
 
-    monkeypatch.setattr(Path, "write_text", torn)
+    monkeypatch.setattr(durable.os, "replace", torn)
     with pytest.raises(OSError, match="synthetic"):
         task.run(str(job))
-    manifest = tmp_path / "dataset" / "dataset.json"
-    assert manifest.is_file()
-    with pytest.raises(json.JSONDecodeError):
-        json.loads(manifest.read_text())
+    assert not (tmp_path / "dataset" / "dataset.json").exists()
+    assert not list((tmp_path / "dataset").glob(".dataset.json.*"))
 
 
-def test_c06_incomplete_results_import_as_missing_items_or_not_at_all(
+def test_c06_a25_a26_incomplete_dataset_imports_only_when_acknowledged(
     client: TestClient, tmp_path: Path
 ) -> None:
-    """C06, DCM-07/14, IMP-07: a partial workspace dataset has no `dataset.json` or annotations;
-    importing it turns the failed series into a `missing` item with `missing_path` and brings no
-    layers. A project conversion with a failed series is not registered."""
+    """C06 → A25/A26, DCM-34, IMP-07: an incomplete workspace dataset says so, imports only on
+    acknowledgment, keeps failed rows as excluded items with their reason, and brings layers."""
     source = seeded(tmp_path / "src", broken=True)
     run = workspace_run(client, source, "partial")
     assert run["status"] == "completed_with_errors", run
     dataset = Path(run["dataset_dir"])
     names = {p.name for p in dataset.iterdir()}
-    assert "dataset.json" not in names and "annotations.jsonl" not in names
-    assert {"metadata.jsonl", "diagnostics.jsonl", "summary.json"} <= names
-    statuses = {(r["case_id"], r["status"]) for r in jsonl(dataset / "metadata.jsonl")}
-    assert ("case_00001", "failed") in statuses and ("case_00000", "converted") in statuses
+    assert "dataset.json" not in names
+    assert {"dataset.incomplete.json", "annotations.jsonl", "diagnostics.jsonl"} <= names
     pid = neutral(client)
-    do_import(client, pid, dataset)
+    pv = client.post(
+        f"{API}/projects/{pid}/imports/preview", json={"root": str(dataset), "detect": True}
+    )
+    assert pv.status_code == 200, pv.text
+    assert pv.json()["incomplete"] == {"converted": 1, "failed": 1, "pending": 0}
+    refused = client.post(
+        f"{API}/projects/{pid}/imports", json={"preview_id": pv.json()["preview_id"]}
+    )
+    assert (
+        refused.status_code == 409 and "acknowledge:incomplete_dataset" in refused.json()["actions"]
+    )
+    commit = client.post(
+        f"{API}/projects/{pid}/imports",
+        json={"preview_id": pv.json()["preview_id"], "allow_incomplete": True},
+    )
+    assert commit.status_code == 202, commit.text
+    wait(client, commit.json()["job_id"])
     failed = client.get(f"{API}/projects/{pid}/items/case_00001.01.complete.-").json()
-    assert failed["status"] == "missing"
-    assert "missing_path" in {w["code"] for w in failed["warnings"]}
+    assert failed["status"] == "excluded_upstream"
+    [warning] = [w for w in failed["warnings"] if w["code"] == "conversion_failed"]
+    assert "RuntimeError" in warning["message"]
     converted = client.get(f"{API}/projects/{pid}/items/case_00000.01.complete.-").json()
     assert converted["status"] == "active"
-    assert not client.get(f"{API}/projects/{pid}").json()["annotation_sources"]
-    in_project = project(client, tmp_path, preset="none")
-    project_run = convert_in_project(client, in_project, source)
-    assert project_run["status"] == "completed_with_errors", project_run
-    assert not [o for o in project_run["outputs"] if o["kind"] == "import"]
-    cases = client.get(f"{API}/projects/{in_project}/cases").json()["items"]
-    assert cases == []
+    assert client.get(f"{API}/projects/{pid}").json()["annotation_sources"]
 
 
-def test_c07_strict_verification_reads_every_input_twice_per_run(
+def test_c06_a28_project_run_registers_converted_series_only_on_request(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """C06 → A28, DCM-34: a project conversion with failures registers nothing until asked."""
+    source = seeded(tmp_path / "src", broken=True)
+    pid = project(client, tmp_path, preset="none")
+    run = convert_in_project(client, pid, source)
+    assert run["status"] == "completed_with_errors", run
+    assert client.get(f"{API}/projects/{pid}/cases").json()["items"] == []
+    detail = client.post(f"{API}/projects/{pid}/task-runs/{run['run_id']}/register-converted")
+    assert detail.status_code == 200, detail.text
+    deadline = time.monotonic() + 60
+    while not client.get(f"{API}/projects/{pid}/cases").json()["items"]:
+        assert time.monotonic() < deadline
+        time.sleep(0.2)
+        client.get(f"{API}/projects/{pid}/task-runs/{run['run_id']}")
+    assert client.get(f"{API}/projects/{pid}/task-runs/{run['run_id']}").json()["status"] == (
+        "completed_with_errors"
+    )
+
+
+def test_c07_a24_reuse_rehashes_inputs_and_outputs_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """C07, DCM-17: per run, each selected input is hashed twice (whole-run pin, then after decode
-    or on reuse); reuse hashes each output and decompresses each image again."""
+    """C07 → A18/A24, DCM-29/30: a fresh run hashes each input twice inside its unit (no
+    whole-run pass); reuse hashes each input and output once and reads geometry without
+    decompressing the image again."""
     source, output = seeded(tmp_path / "src"), tmp_path / "derived"
     calls: Counter[str] = Counter()
     digest, image_digest = commits.file_digest, commits._image_digest
@@ -327,7 +358,7 @@ def test_c07_strict_verification_reads_every_input_twice_per_run(
     calls.clear()
     reused = run_conversion(source, output, settings=plain, checkpoint=tmp_path / "2" / "pin.json")
     assert reused.counts["already_converted"] == 2
-    assert calls == {"input": 2 * inputs, "decompress": 2, "output": 4}
+    assert calls == {"input": inputs, "output": 4}
 
 
 def test_c11_task_manifest_hash_is_unchanged() -> None:
@@ -336,26 +367,20 @@ def test_c11_task_manifest_hash_is_unchanged() -> None:
     assert manifest_hash(manifest.read_bytes()) == TASK_JSON_HASH
 
 
-@pytest.mark.parametrize(
-    ("sig", "exit_code", "journal"),
-    [
-        (signal.SIGINT, -signal.SIGINT, "interrupted"),
-        (signal.SIGTERM, -signal.SIGTERM, "running"),
-        (signal.SIGHUP, -signal.SIGHUP, "running"),
-    ],
-)
-def test_c12_cli_signal_leaves_a_resumable_run(
-    tmp_path: Path, sig: signal.Signals, exit_code: int, journal: str
+@pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
+def test_c12_a35_cli_signal_stops_gracefully_and_resumes(
+    tmp_path: Path, sig: signal.Signals
 ) -> None:
-    """C12, DCM-09/17: SIGINT records `interrupted`; SIGTERM and SIGHUP end the process with the
-    journal still `running`. Running the command again resumes and keeps committed images."""
+    """C12 → A35, DCM-33: the first signal stops dispatch, lets the running series finish and
+    records `interrupted`; running the command again resumes and keeps committed images."""
+    exit_code, journal = 1, "interrupted"
     source, out = tmp_path / "src", tmp_path / "out"
     for n in range(4):
         write_series(source / f"P{n:03d}", patient_id=f"P{n:03d}", **SERIES)  # type: ignore[arg-type]
     config = cli_config(tmp_path, source, out)
     slowed = """
 import sys, time
-from plugins.dicom import cli, convert
+from rw_dicom import cli, convert
 original = convert.write_nifti
 def slow(series, path):
     time.sleep(0.5)

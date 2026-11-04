@@ -6,7 +6,8 @@ import json
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from plugins.analyzers import Annotation, phase, readiness, target
+from rw_dicom.analyzers import Annotation, phase, readiness, target
+
 from plugins.protocol import Job
 
 Analyze = Callable[[Sequence[dict[str, Any]], dict[str, Any]], list[Annotation]]

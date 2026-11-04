@@ -37,7 +37,7 @@ FROM python:3.12-slim AS runtime
 # No fixed UID; any user may write /workspace when it is not mounted, HOME is /tmp.
 RUN mkdir -m 1777 /workspace
 ENV PATH=/opt/venv/bin:$PATH \
-    PYTHONPATH=/app/backend \
+    PYTHONPATH=/app/backend:/app/plugins/dicom/src \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     ARROW_DEFAULT_MEMORY_POOL=system \

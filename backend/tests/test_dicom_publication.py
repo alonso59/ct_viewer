@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.dicom import convert, scan
+from rw_dicom import convert, scan
 
 from tools.dicom_fixtures import write_series
 
@@ -145,7 +145,7 @@ def test_image_validation_returns_the_full_compressed_digest(tmp_path: Path) -> 
     import json
     from dataclasses import asdict
 
-    from plugins.dicom import commits
+    from rw_dicom import commits
 
     source = tmp_path / "source"
     write_series(source, shape=(3, 3, 3), marker=(1, 1, 2), seed="compressed-validation")
@@ -186,7 +186,7 @@ def test_corrupt_native_gzip_is_refused_before_publication(
 def test_staged_artifact_changed_after_validation_is_not_published(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.dicom import commits
+    from rw_dicom import commits
 
     from tests.test_dicom_resume import run_conversion
 

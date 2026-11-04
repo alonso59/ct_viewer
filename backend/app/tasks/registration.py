@@ -58,18 +58,32 @@ class RegistrationBase(EstimateBase):
                     "cancelled",
                 }:
                     raise JobConflict("Conversion registration checkpoint is corrupt")
-                if any(previous.get(key) != value for key, value in identity.items()):
+                # a partial registration (converted series only) yields to a later attempt
+                superseded = bool(previous.get("partial")) and (
+                    previous.get("attempt", 0) < record.attempts
+                )
+                changed = any(previous.get(key) != value for key, value in identity.items())
+                if not superseded and changed:
                     raise JobConflict(
                         "Conversion registration attempt/result changed; review before recovery"
                     )
-                if previous.get("status") == "completed" and previous.get("index_verified") is True:
+                if (
+                    not superseded
+                    and previous.get("status") == "completed"
+                    and previous.get("index_verified") is True
+                ):
                     await self._clear_registration_error(live)
                     return
-            if record.status != "completed" or not attempt_cleaned(live.job_dir, record.attempts):
+            partial = record.status == "completed_with_errors" and (record.execution or {}).get(
+                "register_converted"
+            )
+            if (record.status != "completed" and not partial) or not attempt_cleaned(
+                live.job_dir, record.attempts
+            ):
                 raise JobConflict(
                     "Conversion registration requires completed work and verified cleanup"
                 )
-            atomic_write_json(path, {**identity, "status": "pending"})
+            atomic_write_json(path, {**identity, "status": "pending", "partial": bool(partial)})
             started = time.monotonic()
             try:
                 async with self.locks(live.pid):
@@ -83,7 +97,15 @@ class RegistrationBase(EstimateBase):
                 await self._verify_committed_artifacts(live, record)
                 await self._register_tabular(live, result)
                 await self._await_index_receipt(live)
-                atomic_write_json(path, {**identity, "status": "completed", "index_verified": True})
+                atomic_write_json(
+                    path,
+                    {
+                        **identity,
+                        "status": "completed",
+                        "index_verified": True,
+                        "partial": bool(partial),
+                    },
+                )
                 await self._clear_registration_error(live)
                 await asyncio.to_thread(
                     record_stage,

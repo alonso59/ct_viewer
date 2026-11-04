@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rw-dicom"
+version = "1.2.0"
+description = "DICOM to NIfTI conversion with resumable, verified outputs that ct_viewer imports directly"
+requires-python = ">=3.12,<3.13"
+dependencies = ["pydicom>=3.0", "SimpleITK>=2.3", "isal>=1.8,<2"]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6"]
+
+[project.scripts]
+rw-dicom = "rw_dicom.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rw_dicom"]

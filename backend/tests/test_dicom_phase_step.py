@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.analyzers import phase
-from plugins.dicom import pipeline, task
-from plugins.dicom.identity import Identity
+from plugins.dicom import task
+from rw_dicom import pipeline
+from rw_dicom.analyzers import phase
+from rw_dicom.identity import Identity
 
 from app.tasks import protocol
 from tools.dicom_fixtures import write_series
@@ -84,7 +85,7 @@ def test_phase_checkpoint_io_failure_leaves_conversion_usable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """D29: failure to persist analyzer state does not invalidate committed image outputs."""
-    from plugins.analyzers import checkpoint
+    from rw_dicom.analyzers import checkpoint
 
     job = make_job(tmp_path)
 
@@ -168,7 +169,7 @@ def test_failed_phase_retry_never_reconverts_or_changes_sealed_dataset(
         if p.is_file()
     }
     monkeypatch.setattr(phase, "analyze", original)
-    from plugins.analyzers.checkpoint import retry_phase
+    from rw_dicom.analyzers.checkpoint import retry_phase
 
     retried = retry_phase(job / "phase-analyzer")
     assert retried["status"] == "completed" and retried["attempt"] == 2
@@ -182,7 +183,7 @@ def test_failed_phase_retry_never_reconverts_or_changes_sealed_dataset(
 def test_analyzer_checkpoint_resumes_batches_and_refuses_incompatible_rules(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.analyzers.checkpoint import AnalysisConflict, analyze_phase, retry_phase
+    from rw_dicom.analyzers.checkpoint import AnalysisConflict, analyze_phase, retry_phase
 
     rows = [{"item_id": str(i), "series_description": "NONCONTRAST"} for i in range(130)]
     state = tmp_path / "workspace" / "phase"
@@ -207,15 +208,15 @@ def test_analyzer_checkpoint_resumes_batches_and_refuses_incompatible_rules(
 def test_analyzer_survives_abrupt_process_exit_without_repeating_committed_batches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.analyzers.checkpoint import retry_phase
+    from rw_dicom.analyzers.checkpoint import retry_phase
 
     state = tmp_path / "workspace" / "phase"
     code = """
 import os
 import sys
 from pathlib import Path
-from plugins.analyzers import phase
-from plugins.analyzers.checkpoint import analyze_phase
+from rw_dicom.analyzers import phase
+from rw_dicom.analyzers.checkpoint import analyze_phase
 original = phase.analyze
 def crash(batch, config):
     if batch[0]['item_id'] == '64':
@@ -248,7 +249,7 @@ analyze_phase(Path(sys.argv[1]), rows, {})
 def test_analyzer_reuse_ignores_conversion_outcome_but_detects_annotation_corruption(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.analyzers.checkpoint import AnalysisConflict, analyze_phase, retry_phase
+    from rw_dicom.analyzers.checkpoint import AnalysisConflict, analyze_phase, retry_phase
 
     state = tmp_path / "workspace" / "phase"
     rows = [
@@ -273,7 +274,7 @@ def test_analyzer_reuse_ignores_conversion_outcome_but_detects_annotation_corrup
     "field,value", [("batches", []), ("attempt", "bad"), ("status", "unknown")]
 )
 def test_corrupt_analyzer_records_return_a_conflict(tmp_path: Path, field: str, value: Any) -> None:
-    from plugins.analyzers.checkpoint import AnalysisConflict, analyze_phase, retry_phase
+    from rw_dicom.analyzers.checkpoint import AnalysisConflict, analyze_phase, retry_phase
 
     state = tmp_path / "workspace" / "phase"
     analyze_phase(state, [{"item_id": "1", "series_description": "NONCONTRAST"}], {})
@@ -288,7 +289,7 @@ def test_corrupt_analyzer_records_return_a_conflict(tmp_path: Path, field: str, 
 def test_completed_analysis_is_idempotent_and_cannot_be_cancelled_retroactively(
     tmp_path: Path,
 ) -> None:
-    from plugins.analyzers.checkpoint import analyze_phase, retry_phase
+    from rw_dicom.analyzers.checkpoint import analyze_phase, retry_phase
 
     state = tmp_path / "workspace" / "phase"
     first = analyze_phase(state, [{"item_id": "1", "series_description": "NONCONTRAST"}], {})
@@ -302,7 +303,7 @@ def test_recovery_seed_restores_missing_inputs_and_reuses_committed_phase_batche
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """D29: recovery needs only private metadata, including before anonymization."""
-    from plugins.analyzers.checkpoint import analyze_phase, retry_phase, write_seed
+    from rw_dicom.analyzers.checkpoint import analyze_phase, retry_phase, write_seed
 
     rows = [
         {"item_id": str(i), "series_description": "NONCONTRAST", "patient_id": "omit-me"}
@@ -342,7 +343,7 @@ def test_invalid_recovery_seed_preserves_the_original_phase_checkpoint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, conflict: str
 ) -> None:
     """D29: a recovery seed cannot bypass content, rules or checkpoint identity pins."""
-    from plugins.analyzers.checkpoint import (
+    from rw_dicom.analyzers.checkpoint import (
         AnalysisConflict,
         analyze_phase,
         retry_phase,

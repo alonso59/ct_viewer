@@ -78,7 +78,10 @@ class TaskService(DriverBase):
         native_job_id = rec.job_id
         if rec.task.id != DICOM_CONVERT or not native_job_id:
             return
-        if rec.status == "completed":
+        if rec.status == "completed" or (
+            rec.status == "completed_with_errors"
+            and (rec.execution or {}).get("register_converted")
+        ):
             await self._recover_registration(
                 pid, run_dir, rec, native_job_id, retry_registration=retry_registration
             )
@@ -337,6 +340,7 @@ class TaskService(DriverBase):
             supervised=m.runtime.type == "external" and m.resources.gpu in {"required", "optional"},
             manifest_snapshot=m.model_copy(deep=True),
             selection=req.selection.model_copy(update={"seg_id": seg_id, "source": source}),
+            execution={"allow_mixed_versions": True} if req.allow_mixed_versions else None,
             item_ids=[i.item_id for i in ready],
             inputs=[
                 TaskRunInput(
@@ -380,6 +384,24 @@ class TaskService(DriverBase):
         """The run's folder: `radiomics/runs/` for a radiomics run, else `tasks/runs/`."""
         rad = self._radiomics()
         return rad.runs.run_dir(pid, rid) if rad.has_run(pid, rid) else self.runs.run_dir(pid, rid)
+
+    async def register_converted(self, pid: str, rid: str) -> TaskRunDetail:
+        """Import the committed series of a DICOM run that ended with failures (DCM-34).
+
+        The run keeps `completed_with_errors`; its failed series import as excluded items with
+        their reasons, and Retry failed can register the full snapshot later."""
+        run_dir = self.runs.run_dir(pid, rid)
+        rec = self.runs.read(run_dir)
+        if rec.task.id != DICOM_CONVERT or rec.status != "completed_with_errors":
+            raise JobConflict("Only a DICOM conversion that ended with failed series qualifies")
+        if not rec.job_id or not attempt_cleaned(run_dir / "attempts" / rec.job_id, rec.attempts):
+            raise JobConflict("Wait for verified cleanup before registering converted series")
+
+        def acknowledge(current: TaskRunRecord) -> None:
+            current.execution = {**(current.execution or {}), "register_converted": True}
+
+        await self.runs.update(pid, run_dir, acknowledge)
+        return await self.get_run(pid, rid, retry_registration=True)
 
     async def get_run(
         self, pid: str, rid: str, *, retry_registration: bool = False

@@ -113,6 +113,10 @@ class SourceOperationControl(BaseModel):
     expected_run_attempt: int | None = Field(default=None, ge=0)
 
 
+class SourceImportCommit(SourceOperationControl):
+    allow_incomplete: bool | None = None  # import a converter dataset that is not complete (DCM-34)
+
+
 class SourceOperationEstimate(SourceOperationControl):
     settings: dict[str, Any] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=200)
@@ -120,6 +124,9 @@ class SourceOperationEstimate(SourceOperationControl):
 
 class SourceOperationConvert(SourceOperationControl):
     inventory_generation: str = Field(min_length=1)
+    # project datasets: add series converted by the current readers next to committed series
+    # from other reader versions (DCM-31)
+    allow_mixed_versions: bool | None = None
     plan_attempt: int = Field(ge=1)
     name: str | None = Field(default=None, max_length=200)
 
@@ -644,6 +651,7 @@ class SourceOperations:
         record.error = None
         self._write(record)  # intent and identities survive a crash before dispatch
         attempt, jid, pid = record.attempt, context.job_id, record.project_id
+        allow_incomplete = bool((record.control or {}).get("allow_incomplete"))
         prepared: ImportPreview | None = None
         index_job: str | None = None
 
@@ -660,6 +668,7 @@ class SourceOperations:
                     context.preview_id,
                     self.tasks.phase_runs,
                     import_id=context.import_id,
+                    allow_incomplete=allow_incomplete,
                 )
                 index_job = result.job_id
                 if handle.stopped:
@@ -1434,6 +1443,9 @@ class SourceOperations:
                     task_id=DICOM_CONVERT,
                     settings=record.settings,
                     selection=TaskSelection(source=record.source),
+                    allow_mixed_versions=bool(
+                        record.conversion_request.get("allow_mixed_versions")
+                    ),
                 ),
                 record.conversion_request.get("reviewer"),
                 record.origin,

@@ -97,7 +97,9 @@ async def run_dicom_worker(
         "OPENBLAS_NUM_THREADS": "1",
         "MKL_NUM_THREADS": "1",
         "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS": "1",
-        "PYTHONPATH": os.pathsep.join([str(backend), str(backend.parent)]),
+        "PYTHONPATH": os.pathsep.join(
+            [str(backend), str(backend.parent), str(backend.parent / "plugins/dicom/src")]
+        ),
     }
     with (job_dir / protocol.LOG).open("ab", buffering=0) as log:
         process = await asyncio.create_subprocess_exec(

@@ -301,6 +301,23 @@ def build(out: Path) -> Plan:
             "planned_conversion": "false",
         }
     )
+    # An incomplete converter dataset (DCM-34): a failed and a pending series stay excluded.
+    for scan_idx, status, code in (
+        ("02", "failed", QcCode.CONVERSION_FAILED),
+        ("03", "pending", QcCode.CONVERSION_PENDING),
+    ):
+        plan.metadata.append(
+            {
+                "dataset_id": DATASET,
+                "case_id": "case_00022",
+                "scan_idx": scan_idx,
+                "status": status,
+                "raw_metadata_error": "RuntimeError: synthetic decode failure"
+                if status == "failed"
+                else "",
+            }
+        )
+        plan.expect(code, "case_00022", f"converter status {status}", scan_idx=scan_idx)
     c = "case_00023"
     scan(c, "01", "NP")
     npy_img = f"voi/images/{VOI_SUBDIR}/NP/01_{c}_L.npy"

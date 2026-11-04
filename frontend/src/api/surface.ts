@@ -87,6 +87,7 @@ import type {
   WorkspaceRunRequest,
   SourceOperation,
   SourceOperationStart,
+  SourceImportCommit,
   SourceOperationControl,
   SourceImportUpdate,
   SourceOperationEstimate,
@@ -204,7 +205,8 @@ export interface Api {
   /** `role: 'derived'` browses ALLOWED_DERIVED_ROOTS */
   fsList(path: string | null, role?: RootRole): Promise<FsListing>
   importPreview(pid: string, req: PreviewRequest): Promise<ImportPreview>
-  commitImport(pid: string, previewId: string): Promise<CommitResult>
+  /** `allowIncomplete`: acknowledge a converter dataset with failed or pending series (DCM-34) */
+  commitImport(pid: string, previewId: string, allowIncomplete?: boolean): Promise<CommitResult>
   importHistory(pid: string): Promise<ImportHistory>
   listWarnings(pid: string): Promise<QCWarning[]>
   /** Full SHA-256 job; 409 `job-conflict` while one runs */
@@ -259,7 +261,7 @@ export interface Api {
   sourceOperationDetection(id: string): Promise<DetectResult>
   saveSourceImport(id: string, body: SourceImportUpdate): Promise<SourceOperation>
   prepareSourceImport(id: string, body: SourceOperationControl): Promise<SourceOperation>
-  commitSourceImport(id: string, body: SourceOperationControl): Promise<SourceOperation>
+  commitSourceImport(id: string, body: SourceImportCommit): Promise<SourceOperation>
   estimateSourceOperation(id: string, body: SourceOperationEstimate): Promise<SourceOperation>
   convertSourceOperation(id: string, body: SourceOperationConvert): Promise<SourceOperation>
   cancelSourceOperation(id: string, body: SourceOperationControl): Promise<SourceOperation>
@@ -308,6 +310,8 @@ export interface Api {
   /** Hide an inactive supervised run; its records and masks stay */
   archiveTaskRun(pid: string, rid: string): Promise<TaskRunDetail>
   resumeTaskRun(pid: string, rid: string, body?: RunAttemptControl): Promise<TaskRunStarted>
+  /** DCM-34: import the converted series of a DICOM run that ended `completed_with_errors` */
+  registerConvertedRun(pid: string, rid: string): Promise<TaskRunDetail>
   retryFailedTaskRun(pid: string, rid: string, body: RunAttemptControl): Promise<TaskRunStarted>
   taskRunErrors(pid: string, rid: string): Promise<TaskItemError[]>
   taskRunOutputs(pid: string, rid: string): Promise<TaskRunOutput[]>

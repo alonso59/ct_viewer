@@ -123,5 +123,7 @@ Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (20
 | `fingerprint_changed` | warning | File changed since indexing |
 | `unsupported_format` | info | File ignored: a row names a file that is not NIfTI or NumPy (e.g. `.mha`); the image or mask counts as absent (SRC-02) |
 | `ambiguous_axis_order` | error | NumPy array without a decisive axis order: a catalog `axis_order` other than `xyz`/`zyx` (SRC-12) |
+| `conversion_failed` | warning | A converter row with `status: failed` in an incomplete dataset: the item is `excluded_upstream`; the message keeps the converter's reason (DCM-34) |
+| `conversion_pending` | warning | A converter row with `status: pending` or `waiting_for_resources`: not converted yet; the item is `excluded_upstream` until a complete dataset is imported (DCM-34) |
 
 Warning record: `{code, severity, item_id?, case_id?, seg_id?, field?, path_ref?, message, detected_at}`. Mask warnings (`missing_seg`, `shape_mismatch`, `affine_mismatch`, …) carry the segmentation set (ADR-0015).

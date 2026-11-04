@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.dicom import scan
-from plugins.dicom.pipeline import Settings, decide_conversion
 from pydicom.dataset import Dataset
 from pydicom.sequence import Sequence
+from rw_dicom import scan
+from rw_dicom.pipeline import Settings, decide_conversion
 
 AXIAL = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
 KEEP = object()

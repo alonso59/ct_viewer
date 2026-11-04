@@ -9,11 +9,13 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+from rw_dicom.inventory import stat_identity
+
 from app.core.errors import JobConflict
 from app.sources import formats
 from app.sources import open as open_mode
 from app.tasks import dicom_stage
-from app.tasks.source_inventory import SourceInventory, stat_identity
+from app.tasks.source_inventory import SourceInventory
 
 
 def reader_identity() -> str:

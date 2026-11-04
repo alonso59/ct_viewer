@@ -142,7 +142,9 @@ def test_excluded_upstream_and_npy(indexed: tuple[dict[str, Item], list[QcWarnin
     items, warnings = indexed
     ex = items["case_00022.01.complete.-"]
     assert ex.status == "excluded_upstream" and ex.image is None
-    assert codes_of(warnings, "case_00022") == set()
+    # DCM-34: its unconverted scans keep the converter's reason; the skipped one has none
+    assert codes_of(warnings, "case_00022") == {"conversion_failed", "conversion_pending"}
+    assert items["case_00022.02.complete.-"].status == "excluded_upstream"
     npy = items["case_00023.01.voi.L"]
     assert npy.image is not None and npy.image.format == "npy" and npy.image.fp
     assert npy.geometry is not None and npy.geometry.spacing == [0.8, 0.8, 1.5]

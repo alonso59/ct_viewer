@@ -49,7 +49,7 @@ def main(job_dir: Path) -> int:
     if spec.get("operation") == "phase":
         import hashlib
 
-        from plugins.analyzers.checkpoint import AnalysisConflict, retry_phase
+        from rw_dicom.analyzers.checkpoint import AnalysisConflict, retry_phase
 
         started = time.monotonic()
         try:
@@ -137,6 +137,7 @@ def main(job_dir: Path) -> int:
                         cancelled=stop,
                         batch_size=int(limits.get("batch_size", 64)),
                         max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
+                        processes=int(limits.get("workers", 1)),
                     )
                 if not summary["complete"] or summary["generation"] != binding["generation"]:
                     atomic_write_json(
@@ -151,7 +152,7 @@ def main(job_dir: Path) -> int:
                     return 0
                 code = run(
                     str(job_dir),
-                    cached_discover=inventory.discover,
+                    inventory=inventory,
                     cached_file_total=summary["dicom"],
                     on_timing=timer,
                 )
@@ -207,6 +208,7 @@ def main(job_dir: Path) -> int:
                     on_progress=progress,
                     batch_size=int(limits.get("batch_size", 64)),
                     max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
+                    processes=int(limits.get("workers", 1)),
                 )
                 measured = record_stage(
                     job_dir,
@@ -240,8 +242,8 @@ def main(job_dir: Path) -> int:
         atomic_write_json(job_dir / protocol.RESULT, {"summary": summary, "open_ready": open_ready})
         return 0
     if spec["operation"] == "estimate":
-        from plugins.dicom import pipeline
-        from plugins.dicom.identity import Identity
+        from rw_dicom import pipeline
+        from rw_dicom.identity import Identity
 
         from app.tasks.dicom_eta import for_job
 
@@ -275,6 +277,7 @@ def main(job_dir: Path) -> int:
                     on_progress=progress,
                     batch_size=int(limits.get("batch_size", 64)),
                     max_bytes=int(limits.get("inventory_mb", 512)) * 1024**2,
+                    processes=int(limits.get("workers", 1)),
                 )
             if not summary["complete"]:
                 atomic_write_json(
@@ -295,7 +298,7 @@ def main(job_dir: Path) -> int:
                 dry_run=True,
                 cancelled=stop,
                 on_stage=stage,
-                cached_discover=inventory.discover,
+                inventory=inventory,
                 cached_file_total=summary["dicom"],
                 on_timing=for_job(job_dir),
             )

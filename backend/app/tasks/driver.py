@@ -118,6 +118,11 @@ class DriverBase(RegistrationBase):
                 "mode": "run",
                 "resume": {"skip": list(skip)},
                 **({"retry_item_ids": retry_item_ids} if retry_item_ids is not None else {}),
+                **(
+                    {"allow_mixed_versions": True}
+                    if (rec.execution or {}).get("allow_mixed_versions")
+                    else {}
+                ),
                 "batch": {"size": m.resources.max_batch or max(1, len(items))},
                 **(
                     {
@@ -219,10 +224,12 @@ class DriverBase(RegistrationBase):
             rec.progress_cursor, rec.progress_done = 0, 0
             if m.id == DICOM_CONVERT:
                 rec.phase_run_id = phase_run_id
+                acknowledged = (rec.execution or {}).get("allow_mixed_versions")
                 rec.execution = {
                     "attempt": rec.attempts,
                     "cleanup_verified": False,
                     "progress": TaskRunProgress(done=0, total=0).model_dump(),
+                    **({"allow_mixed_versions": True} if acknowledged else {}),
                 }
 
         if recover:

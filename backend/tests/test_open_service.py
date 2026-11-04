@@ -23,8 +23,8 @@ def test_open_refuses_source_change_during_native_conversion(
 ) -> None:
     """SRC-13/DCM-17: never publish a volume under a fingerprint of different inputs."""
     import pydicom
-    from plugins.dicom import convert
-    from plugins.dicom.scan import Series
+    from rw_dicom import convert
+    from rw_dicom.scan import Series
 
     from app.tasks import dicom_stage
     from tools.dicom_fixtures import write_series

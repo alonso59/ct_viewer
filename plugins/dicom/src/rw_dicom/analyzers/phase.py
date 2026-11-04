@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from plugins.analyzers import Annotation, annotation, row_key
-from plugins.text import contrast_delay, matches_any, normalized_text, value_to_text
+from rw_dicom.analyzers import Annotation, annotation, row_key
+from rw_dicom.text import contrast_delay, matches_any, normalized_text, value_to_text
 
 RULES_VERSION = "phase-1"
 TEXT_KEYS = (

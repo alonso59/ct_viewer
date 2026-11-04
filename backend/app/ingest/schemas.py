@@ -79,6 +79,14 @@ class ParsedFile(BaseModel):
     matched: bool
 
 
+class IncompleteDataset(BaseModel):
+    """A converter dataset with series that failed or are still pending (DCM-34)."""
+
+    converted: int
+    failed: int
+    pending: int
+
+
 class ImportPreview(BaseModel):
     preview_id: str
     root: str
@@ -97,10 +105,12 @@ class ImportPreview(BaseModel):
     orphan_masks: list[str] = Field(default_factory=list)
     ignored: dict[str, int] = Field(default_factory=dict)
     source_key: str | None = None  # None: `{adapter}:{alias}`
+    incomplete: IncompleteDataset | None = None  # committing needs `allow_incomplete`
 
 
 class CommitRequest(BaseModel):
     preview_id: str
+    allow_incomplete: bool | None = None
 
 
 class CommitResult(BaseModel):

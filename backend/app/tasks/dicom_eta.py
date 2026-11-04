@@ -46,7 +46,7 @@ def _runtime() -> dict[str, Any]:
 def context_signature(
     source: Path, destination: Path, settings: dict[str, Any], limits: dict[str, Any]
 ) -> str:
-    from plugins.dicom import commits, convert, pipeline, scan
+    from rw_dicom import commits, convert, pipeline, scan
 
     target = destination
     while not target.exists():
@@ -223,7 +223,7 @@ class ConversionTimer:
 def for_job(job: Path) -> ConversionTimer | None:
     from dataclasses import asdict
 
-    from plugins.dicom.pipeline import Settings
+    from rw_dicom.pipeline import Settings
 
     from app.core.fsio import append_jsonl, read_json
 

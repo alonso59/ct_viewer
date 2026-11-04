@@ -11,8 +11,8 @@ from typing import Any
 
 import pyarrow.parquet as pq
 from fastapi.testclient import TestClient
-from plugins.dicom import cli
-from plugins.dicom.pipeline import STUDY_FIELDS, STUDY_PREFIXES
+from rw_dicom import cli
+from rw_dicom.pipeline import STUDY_FIELDS, STUDY_PREFIXES
 
 from app.tasks.workspace_runs import default_dataset_name
 from tests.test_api_ingest import ctx_of, do_import, wait

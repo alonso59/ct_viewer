@@ -29,6 +29,7 @@ Knobs: `RUNTIME=native|docker|udocker` selects how Node commands run (default: `
 - Port 5173 is held by VS Code on the dev Mac: use `VITE_PORT`.
 - `make e2e` starts its own backend (port 8011) and Vite (5174) on a temporary workspace (removed afterwards unless `E2E_KEEP=1`); run `make fixtures` first and keep 5174 free, or set `E2E_API_PORT` / `E2E_WEB_PORT`.
 - Dev-only tools (`backend[dev]`: pytest-xdist, vulture; `frontend` devDependencies: knip, @vitest/coverage-v8) are never in the image (the Dockerfile installs `backend[radiomics]` and the built frontend only; R5).
+- `make setup-backend` also installs the converter package editable (`-e 'plugins/dicom[yaml]'`, ADR-0042), which puts `rw-dicom` on the venv's PATH and makes `rw_dicom` importable for subprocesses; an older venv needs `uv pip install -e plugins/dicom` once.
 - PyRadiomics is optional: `VIRTUAL_ENV=backend/.venv uv pip install -e 'backend[radiomics]'` (needs a C compiler). Without it, 3 test modules are skipped.
 - Full verification uses `backend/requirements-ci.lock` (Python 3.12, uv 0.9.2); sync into an explicitly selected disposable venv, then install `backend` editable with `--no-deps`. Pass that absolute venv as `VENV` to Make.
 - `Dockerfile.verify` is CI-only: Node 22 and Python 3.12 on matching Debian bases, locked Python/Node dependencies, browser binaries installed by the locked Playwright CLI. It is separate from the product image; its strict source allowlist excludes data, local settings, venvs and legacy reference. Image publication depends on this verification workflow.

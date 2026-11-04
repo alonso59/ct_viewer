@@ -70,7 +70,7 @@ def test_incompatible_context_or_series_cannot_supply_an_eta(tmp_path: Path, cha
 def test_measured_context_signature_tracks_execution_and_storage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
 ) -> None:
-    from plugins.dicom import commits
+    from rw_dicom import commits
 
     source, output = tmp_path / "source", tmp_path / "derived"
     source.mkdir()
@@ -149,7 +149,7 @@ def test_failed_series_remain_pending_without_training_or_shortening_the_estimat
 def test_real_decode_failure_keeps_a_pending_series(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.dicom import convert
+    from rw_dicom import convert
 
     from tests.test_dicom_resume import run_conversion
     from tools.dicom_fixtures import write_series
@@ -269,7 +269,7 @@ def test_deterministic_holdout_reports_coverage_and_range_width(tmp_path: Path) 
 def test_prepared_commit_adoption_does_not_train_a_decode_duration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.dicom import commits, convert
+    from rw_dicom import commits, convert
 
     from tests.test_dicom_resume import run_conversion
     from tools.dicom_fixtures import write_series
@@ -294,8 +294,8 @@ def test_prepared_commit_adoption_does_not_train_a_decode_duration(
 def test_real_commits_train_history_but_dry_run_and_verified_resume_do_not(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from plugins.dicom import convert
-    from plugins.dicom.identity import Identity
+    from rw_dicom import convert
+    from rw_dicom.identity import Identity
 
     from tests.test_dicom_resume import digest, run_conversion
     from tools.dicom_fixtures import write_series
@@ -325,7 +325,7 @@ def test_real_commits_train_history_but_dry_run_and_verified_resume_do_not(
         raise AssertionError("Estimate/resume must not decode pixels")
 
     monkeypatch.setattr(convert, "write_nifti", no_pixels)
-    from plugins.dicom import pipeline
+    from rw_dicom import pipeline
 
     dry = pipeline.run(
         source,

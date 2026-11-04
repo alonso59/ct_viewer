@@ -11,15 +11,17 @@ import json
 import math
 import os
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-from plugins.dicom import convert, files, sidecar
-from plugins.dicom.scan import Series
+from rw_dicom import convert, files, sidecar
+from rw_dicom.scan import Series
 
 CHUNK = 1024 * 1024
+# Settings that change a series' artifacts; selection settings may differ between runs.
+DATASET_FIXED = ("anonymize", "sidecars", "include_modality_prefix", "salt")
 
 
 class CommitConflict(ValueError):
@@ -74,7 +76,36 @@ def input_manifest(series: Series) -> dict[str, Any]:
 
 
 def reader_versions(version: str) -> dict[str, str]:
-    return {"dicom.convert": version, **{name: metadata.version(name) for name in ("SimpleITK", "pydicom")}}
+    return {"dicom.convert": version, **{name: metadata.version(name) for name in ("SimpleITK", "pydicom", "isal")}}
+
+
+def fixed_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    return {key: settings[key] for key in DATASET_FIXED if key in settings}
+
+
+def versions_differ(recorded: dict[str, Any], current: dict[str, Any]) -> bool:
+    """Only keys both records know count; an older record without isal is not a different version."""
+    return any(recorded[key] != current[key] for key in recorded.keys() & current.keys())
+
+
+def stat_digest(paths: list[Path]) -> str:
+    """Size, mtime and ctime of a unit's members: change detection between analysis and conversion.
+
+    Not an integrity check (DCM-30): committed units are always verified by SHA-256.
+    """
+    digest = hashlib.sha256()
+    for path in sorted(paths):
+        st = os.stat(path, follow_symlinks=False)
+        digest.update(json.dumps([str(path), st.st_size, st.st_mtime_ns, st.st_ctime_ns]).encode())
+    return digest.hexdigest()
+
+
+@dataclass(frozen=True)
+class Publication:
+    converted: convert.Converted
+    reused: bool
+    outputs: list[dict[str, Any]]
+    versions: dict[str, str]  # the readers that produced the artifacts (older ones on reuse)
 
 
 class _DigestReader(io.BufferedReader):
@@ -156,7 +187,7 @@ def _publish(record: dict[str, Any], out: Path, side: Path, stage: Path, *, imag
 
 def commit_series(
     series: Series,
-    header: Any,
+    header: Callable[[], Any],
     out: Path,
     side: Path,
     *,
@@ -165,9 +196,13 @@ def commit_series(
     sidecars: bool,
     before_pixels: Callable[[], None] | None = None,
     verify_only: bool = False,
-    input_pin: dict[str, Any] | None = None,
-) -> tuple[convert.Converted, bool, list[dict[str, Any]]] | None:
-    """Return geometry, reused flag and outputs only after durable commit of all artifacts."""
+    expected_stat: str | None = None,
+) -> Publication | None:
+    """Publication only after durable commit of all artifacts.
+
+    A fresh unit checks its members against the analysed stats, hashes them, reads the sidecar
+    header and decodes, then hashes again: all of it inside one pinned window.
+    """
     state = out.parent / ".checkpoints" / out.name
     if verify_only and not state.exists():
         if out.exists() or side.exists():
@@ -181,7 +216,7 @@ def commit_series(
         except BlockingIOError:
             raise CommitConflict("Resume conflict: another writer owns this series") from None
         return _commit(
-            series, header, out, side, state, settings, version, sidecars, before_pixels, verify_only, input_pin
+            series, header, out, side, state, settings, version, sidecars, before_pixels, verify_only, expected_stat
         )
     finally:
         os.close(lock_fd)
@@ -189,7 +224,7 @@ def commit_series(
 
 def _commit(
     series: Series,
-    header: Any,
+    header: Callable[[], Any],
     out: Path,
     side: Path,
     state: Path,
@@ -198,25 +233,30 @@ def _commit(
     sidecars: bool,
     before_pixels: Callable[[], None] | None,
     verify_only: bool,
-    input_pin: dict[str, Any] | None,
-) -> tuple[convert.Converted, bool, list[dict[str, Any]]] | None:
+    expected_stat: str | None,
+) -> Publication | None:
     path = state / "commit.json"
-    # A fresh unit must commit the run preflight bytes, including changes before decoding.
-    manifest = input_pin if input_pin is not None and not path.exists() else input_manifest(series)
-    identity = {"inputs": manifest, "settings": settings, "versions": reader_versions(version)}
+    fixed = fixed_settings(settings)
     stage = state / "staged"
     reused = False
     if path.exists():
         try:
             record = json.loads(path.read_text())
-            if record["version"] != 1 or record["identity"] != identity:
+            pinned = record["identity"]
+            # Reuse needs equal inputs (hashed again) and artifact settings; versions stay provenance.
+            if (
+                record["version"] not in (1, 2)
+                or fixed_settings(pinned["settings"]) != fixed
+                or pinned["inputs"] != input_manifest(series)
+            ):
                 raise CommitConflict("Resume conflict: pinned inputs, settings or reader changed")
             reused = record["status"] == "committed"
             if reused:
+                # Equal SHA-256 means the bytes that passed the full CRC/geometry check at commit.
                 for name, target in [("image", out), ("sidecar", side)]:
                     if name in record["artifacts"]:
                         _verify(target, record["artifacts"][name])
-                _image_digest(out, record["geometry"])
+                _geometry(out, record["geometry"])
             elif record["status"] == "prepared":
                 if verify_only:
                     return None
@@ -230,6 +270,9 @@ def _commit(
             raise CommitConflict("Resume conflict: existing artifacts have no verified checkpoint")
         if verify_only:
             return None
+        if expected_stat is not None and stat_digest(list(series.files)) != expected_stat:
+            raise CommitConflict("Resume conflict: source changed since analysis; analyse it again")
+        manifest = input_manifest(series)
         stage.mkdir(exist_ok=True)
         # Unpublished staging left before the prepared record is disposable owned scratch.
         for entry in stage.iterdir():
@@ -243,16 +286,16 @@ def _commit(
         artifacts = {"image": _image_digest(image, geometry)}
         if sidecars:
             staged_side = stage / "sidecar.json"
-            sidecar.write_sidecar(header, staged_side)
+            sidecar.write_sidecar(header(), staged_side)
             with staged_side.open("rb") as stream:
                 os.fsync(stream.fileno())
             artifacts["sidecar"] = file_digest(staged_side)
         if input_manifest(series) != manifest:
             raise CommitConflict("Resume conflict: selected inputs changed during conversion")
         record = {
-            "version": 1,
+            "version": 2,
             "status": "prepared",
-            "identity": identity,
+            "identity": {"inputs": manifest, "settings": fixed, "versions": reader_versions(version)},
             "geometry": geometry,
             "artifacts": artifacts,
         }
@@ -280,7 +323,7 @@ def _commit(
     outputs = [{"kind": "image", "path": str(out), "sha256": record["artifacts"]["image"]["sha256"]}]
     if "sidecar" in record["artifacts"]:
         outputs.append({"kind": "sidecar", "path": str(side), "sha256": record["artifacts"]["sidecar"]["sha256"]})
-    return converted, reused, outputs
+    return Publication(converted, reused, outputs, dict(record["identity"]["versions"]))
 
 
 def restore_identity(path: Path, identity: Any) -> None:
@@ -289,7 +332,7 @@ def restore_identity(path: Path, identity: Any) -> None:
         return
     try:
         record = json.loads(path.read_text())
-        if record["version"] != 1:
+        if record["version"] not in (1, 2):  # same identity format in both pin versions
             raise ValueError
         pinned = record["identity"]
         for name in ("template", "start", "strategy"):
@@ -310,13 +353,18 @@ def restore_identity(path: Path, identity: Any) -> None:
         ) from None
 
 
-def pin_run(path: Path, settings: dict[str, Any], version: str, identity: Any, manifests: list[dict[str, Any]]) -> None:
-    pinned = {"version": 1, "settings": settings, "versions": reader_versions(version), "inputs": manifests}
+def pin_run(path: Path, settings: dict[str, Any], version: str, identity: Any, units: list[dict[str, Any]]) -> None:
+    """The run's plan: settings, readers, identity and one stat digest per selected unit."""
+    pinned = {"version": 2, "settings": settings, "versions": reader_versions(version), "units": units}
     if path.exists():
         try:
             record = json.loads(path.read_text())
         except (OSError, ValueError):
             raise CommitConflict("Resume conflict: pinned conversion plan is unavailable or damaged") from None
+        if record.get("version") != 2:
+            raise CommitConflict(
+                "Resume conflict: an earlier converter pinned this run; finish it with that version or start a new run"
+            )
         if any(record.get(key) != value for key, value in pinned.items()):
             raise CommitConflict(
                 "Resume conflict: selected inputs, settings or reader changed; refresh in a new operation"

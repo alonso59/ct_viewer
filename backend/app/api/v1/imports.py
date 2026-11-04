@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
@@ -19,9 +20,11 @@ from app.ingest.schemas import (
     CommitResult,
     ImportHistory,
     ImportPreview,
+    IncompleteDataset,
     PreviewRequest,
 )
 from app.ingest.service import IngestService
+from app.tasks import workspace_runs
 from app.tasks.source_import import commit_with_annotations
 
 router = APIRouter(tags=["imports"])
@@ -81,7 +84,7 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
                 "metadata file is required",
                 errors=[{"loc": ["body", "metadata"], "msg": "required"}],
             )
-        return await svc.preview(pid, root, alias=alias, uploads=uploads)
+        return _with_incomplete(await svc.preview(pid, root, alias=alias, uploads=uploads))
     try:
         body = PreviewRequest.model_validate_json(await request.body())
     except ValidationError as exc:
@@ -91,9 +94,21 @@ async def preview_import(pid: str, request: Request, ctx: Ctx) -> ImportPreview:
             "JSON previews require detect=true; upload files as multipart instead",
             errors=[{"loc": ["body", "detect"], "msg": "must be true"}],
         )
-    return await svc.preview(
-        pid, body.root, alias=body.alias, adapter=body.adapter, options=body.options, add=body.add
+    return _with_incomplete(
+        await svc.preview(
+            pid,
+            body.root,
+            alias=body.alias,
+            adapter=body.adapter,
+            options=body.options,
+            add=body.add,
+        )
     )
+
+
+def _with_incomplete(pv: ImportPreview) -> ImportPreview:
+    counts = workspace_runs.incomplete_dataset(Path(pv.root)) if pv.root else None
+    return pv.model_copy(update={"incomplete": IncompleteDataset(**counts) if counts else None})
 
 
 @router.post("/projects/{pid}/imports", response_model=CommitResult, status_code=202)
@@ -101,7 +116,11 @@ async def commit_import(pid: str, body: CommitRequest, ctx: Ctx) -> CommitResult
     """Snapshot + start the index job. A workspace dataset brings its analyzer annotations along
     as a completed run, active where no run is."""
     return await commit_with_annotations(
-        ingest_service(ctx), pid, body.preview_id, ctx.source_operations.tasks.phase_runs
+        ingest_service(ctx),
+        pid,
+        body.preview_id,
+        ctx.source_operations.tasks.phase_runs,
+        allow_incomplete=bool(body.allow_incomplete),
     )
 
 

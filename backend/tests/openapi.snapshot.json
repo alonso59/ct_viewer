@@ -1988,6 +1988,17 @@
    },
    "CommitRequest": {
     "properties": {
+     "allow_incomplete": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Allow Incomplete"
+     },
      "preview_id": {
       "title": "Preview Id",
       "type": "string"
@@ -4998,6 +5009,16 @@
       "title": "Ignored",
       "type": "object"
      },
+     "incomplete": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/IncompleteDataset"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "n_errors": {
       "title": "N Errors",
       "type": "integer"
@@ -5176,6 +5197,30 @@
      "matched"
     ],
     "title": "ImportReport",
+    "type": "object"
+   },
+   "IncompleteDataset": {
+    "description": "A converter dataset with series that failed or are still pending (DCM-34).",
+    "properties": {
+     "converted": {
+      "title": "Converted",
+      "type": "integer"
+     },
+     "failed": {
+      "title": "Failed",
+      "type": "integer"
+     },
+     "pending": {
+      "title": "Pending",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "converted",
+     "failed",
+     "pending"
+    ],
+    "title": "IncompleteDataset",
     "type": "object"
    },
    "IndexStatus": {
@@ -9041,7 +9086,9 @@
      "duplicate_row_identity",
      "fingerprint_changed",
      "unsupported_format",
-     "ambiguous_axis_order"
+     "ambiguous_axis_order",
+     "conversion_failed",
+     "conversion_pending"
     ],
     "title": "QcCode",
     "type": "string"
@@ -12056,6 +12103,50 @@
     "title": "SourceBody",
     "type": "object"
    },
+   "SourceImportCommit": {
+    "additionalProperties": false,
+    "properties": {
+     "allow_incomplete": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Allow Incomplete"
+     },
+     "expected_attempt": {
+      "minimum": 1.0,
+      "title": "Expected Attempt",
+      "type": "integer"
+     },
+     "expected_revision": {
+      "minimum": 0.0,
+      "title": "Expected Revision",
+      "type": "integer"
+     },
+     "expected_run_attempt": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Run Attempt"
+     }
+    },
+    "required": [
+     "expected_revision",
+     "expected_attempt"
+    ],
+    "title": "SourceImportCommit",
+    "type": "object"
+   },
    "SourceImportContext": {
     "additionalProperties": false,
     "description": "Import draft choices; Preview remains responsible for validating adapter options.",
@@ -12610,6 +12701,17 @@
    "SourceOperationConvert": {
     "additionalProperties": false,
     "properties": {
+     "allow_mixed_versions": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Allow Mixed Versions"
+     },
      "expected_attempt": {
       "minimum": 1.0,
       "title": "Expected Attempt",
@@ -14385,6 +14487,17 @@
    },
    "TaskRunRequest": {
     "properties": {
+     "allow_mixed_versions": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Allow Mixed Versions"
+     },
      "name": {
       "anyOf": [
        {
@@ -23414,6 +23527,58 @@
     ]
    }
   },
+  "/api/v1/projects/{pid}/task-runs/{rid}/register-converted": {
+   "post": {
+    "description": "A DICOM run that ended `completed_with_errors`: import its converted series (DCM-34).",
+    "operationId": "register_converted_api_v1_projects__pid__task_runs__rid__register_converted_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskRunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Register Converted",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
   "/api/v1/projects/{pid}/task-runs/{rid}/resume": {
    "post": {
     "operationId": "resume_run_api_v1_projects__pid__task_runs__rid__resume_post",
@@ -25013,7 +25178,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SourceOperationControl"
+        "$ref": "#/components/schemas/SourceImportCommit"
        }
       }
      },

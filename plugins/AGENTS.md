@@ -3,10 +3,11 @@
 First-party plugins (PLG-01). Each folder has a `plugin.json`; task plugins add `task*.json` manifests. Builtin plugins are installed into the image; `PLUGINS_ROOT` is the host copy the runner executes for `external` runtimes.
 
 **Owns**
-- Task plugins: `dicom/` (converter, DCM), `analyzers/` (phase, readiness, target; ANZ), `nnunet/` (segmentation, SEG), `threshold/` (CI test task).
+- Task plugins: `dicom/` (converter task glue, DCM), `analyzers/` (task glue for phase, readiness, target; ANZ), `nnunet/` (segmentation, SEG), `threshold/` (CI test task).
 - `runner/`: host-runner safety (GPU allocation, sandbox, supervised lifecycle, preflight; OPS-16..19). The host runner itself is `scripts/rw-runner.py` (TSK-11).
 - Contribution-only (UI, routes or pack data): `radiomics/` (its builtin task lives in `backend/app/radiomics/`), `curation/`, `labeling/`, `dashboard/`; packs `ccrcc/`, `generic-ct/`; `voi/` is pending (PLG-09).
-- Shared: `protocol.py` (task side of the run protocol, TSK-07), `text.py` (DICOM value → text).
+- Converter package `dicom/src/rw_dicom/` (distribution `rw-dicom`, ADR-0042): conversion, inventory, workers, dataset emission, settings, the metadata rules (`rw_dicom.analyzers`) and DICOM text helpers; also the standalone `rw-dicom` CLI and Python API. It imports neither `app` nor `plugins`.
+- Shared: `protocol.py` (task side of the run protocol, TSK-07).
 
 **Entry points:** a manifest's `runtime`: `builtin` → `entry` (`module:function`, run in a job worker); `external` → `command` run by the host runner in the plugin's own environment (R4).
 
@@ -21,6 +22,7 @@ First-party plugins (PLG-01). Each folder has a `plugin.json`; task plugins add 
 - `task*.json` settings ↔ the schema-driven task form (`frontend/src/features/tasks/`) ↔ the owning domain doc.
 - `plugin.json` ↔ `docs/domain/PLUGINS.md` §Manifest.
 - Runner, GPU or supervised behavior ↔ `docs/domain/SEGMENTATION_RUNTIMES.md` and the active P7g plan (`docs/INDEX.md` §Active plans).
-- DICOM discovery or conversion ↔ `docs/domain/DICOM_CONVERTER.md` and the active DICOM plan.
+- DICOM discovery or conversion ↔ `docs/domain/DICOM_CONVERTER.md` and the active DICOM plans.
+- `dicom/task.json` settings ↔ `rw_dicom/task_settings.json` (`make gen-dicom-schema`; a test fails on drift).
 
 **Read more:** protocol and runtimes `docs/domain/TASKS.md`; manifest and catalog `docs/domain/PLUGINS.md`; nnU-Net `docs/domain/SEGMENTATION.md`; analyzers `docs/domain/ANALYZERS.md`.

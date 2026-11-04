@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.dicom import convert, task
+from plugins.dicom import task
 from plugins.protocol import Job
+from rw_dicom import convert
 
 from app.core.errors import JobConflict
 from app.tasks import protocol, records

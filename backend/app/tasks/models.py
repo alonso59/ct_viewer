@@ -295,6 +295,9 @@ class TaskRunRequest(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
     selection: TaskSelection = Field(default_factory=lambda: TaskSelection())
     name: str | None = Field(default=None, max_length=200)
+    # dicom.convert: add series converted by the current readers to a dataset whose committed
+    # series came from other reader versions (DCM-31); recorded with the run
+    allow_mixed_versions: bool | None = None
 
 
 class TaskRunCounts(BaseModel):

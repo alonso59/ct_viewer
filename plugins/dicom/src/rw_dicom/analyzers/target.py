@@ -7,8 +7,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from plugins.analyzers import Annotation, annotation, row_key
-from plugins.text import normalized_text
+from rw_dicom.analyzers import Annotation, annotation, row_key
+from rw_dicom.text import normalized_text
 
 RULES_VERSION = "target-1"
 KEYS = ("body_part", "study_description", "series_description", "protocol_name", "image_type")

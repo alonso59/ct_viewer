@@ -212,7 +212,7 @@ export default function ConverterOverlay() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const c = useConverter()
-  const { pid, close, createFrom, patch, step, source, browse, target, settings, estimate, error, scan, run, minimized, operationId, batchPlanId, batchMode, batchSize, batchPreview } = c
+  const { pid, close, createFrom, patch, step, source, browse, target, settings, allowMixedVersions, estimate, error, scan, run, minimized, operationId, batchPlanId, batchMode, batchSize, batchPreview } = c
   const qc = useQueryClient()
   const operationQuery = useSourceOperation(operationId)
   const operation = operationQuery.data
@@ -487,19 +487,24 @@ export default function ConverterOverlay() {
       if (operation) {
         const generation = operation.summary?.generation
         if (typeof generation !== 'string' || !operation.plan_attempt) throw new Error(t('conv.planChanged'))
-        saveOperation(await api.convertSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, inventory_generation: generation, plan_attempt: operation.plan_attempt, name: settings.name.trim() || null }))
+        saveOperation(await api.convertSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, inventory_generation: generation, plan_attempt: operation.plan_attempt, name: settings.name.trim() || null, ...(operation.project_id && allowMixedVersions ? { allow_mixed_versions: true } : {}) }))
         patch({ step: 'run' })
         return
       }
       const selection = { source }
       if (intoProject && pid) {
-        const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings: taskSettings, selection })
+        const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings: taskSettings, selection, ...(allowMixedVersions ? { allow_mixed_versions: true } : {}) })
         patch({ run: { kind: 'project', rid: r.run_id }, step: 'run' })
       } else {
         const r = await api.startWorkspaceRun({ task_id: 'dicom.convert', settings: taskSettings, selection, name: settings.name.trim() || null })
         patch({ run: { kind: 'dataset', rid: r.run_id }, step: 'run' })
       }
     })
+  // DCM-34: the committed series of a project conversion with failures, only on request
+  const registerConverted = (projectId: string, runId: string) => guard(async () => {
+    await api.registerConvertedRun(projectId, runId)
+    void qc.invalidateQueries({ queryKey: keys.taskRuns(projectId) })
+  })
   const cancelRun = () => operation ? control('cancel') : guard(async () => {
       if (!run) return
       if (run.kind === 'project' && pid) await api.cancelTaskRun(pid, run.rid)
@@ -647,6 +652,10 @@ export default function ConverterOverlay() {
                   <input type="checkbox" checked={settings.anonymize === 'basic'} onChange={(e) => setSettings({ anonymize: e.target.checked ? 'basic' : 'none' })} />
                   {t('conv.anonymize')}
                 </label>
+                {intoProject ? <label className="conv-check" title={t('conv.mixedVersionsHelp')}>
+                  <input type="checkbox" checked={allowMixedVersions} onChange={(e) => patch({ allowMixedVersions: e.target.checked })} />
+                  {t('conv.mixedVersions')}
+                </label> : null}
               </fieldset>
               <p className="muted conv-help">{t('conv.phiNotice')}</p>
               {needsDerived ? (
@@ -725,6 +734,7 @@ export default function ConverterOverlay() {
             <div className="conv-row conv-actions">
             {operation.status !== 'completed_with_errors' || (recoveryCounts?.pending ?? 0) > 0 ? <Button className="btn btn-primary" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'resume')} onClick={() => void control('resume')}>{t('conv.resumePending')}</Button> : null}
             {recovery && (recoveryCounts?.failed ?? 0) > 0 ? <Button className="btn" reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified || (operation.pending_control != null && operation.pending_control.action !== 'retry_failed')} onClick={() => void control('retry_failed')}>{t('conv.retryFailed')}</Button> : null}
+            {operation.project_id && operation.conversion_run_id && operation.status === 'completed_with_errors' && (recoveryCounts?.pending ?? 0) === 0 ? <Button className="btn" title={t('conv.registerConvertedHelp')} reason={t(operation.cleanup_verified ? 'reason.working' : 'reason.cleanup')} disabled={busy || !operation.cleanup_verified} onClick={() => void registerConverted(operation.project_id as string, operation.conversion_run_id as string)}>{t('conv.registerConverted')}</Button> : null}
             </div>
           </div> : null}
           {operationQuery.error ? <ProblemCard error={operationQuery.error} onRetry={() => void operationQuery.refetch()} /> : null}

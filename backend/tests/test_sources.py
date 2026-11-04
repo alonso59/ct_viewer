@@ -202,9 +202,9 @@ def test_plan_seg_dir_suffix_and_sequential(tmp_path: Path) -> None:
 
 def test_modality_codes_mri_is_mr(tmp_path: Path) -> None:
     """DCM-12: modality values are DICOM codes; `MRI` (file names, converter CLI) becomes `MR`."""
-    from plugins.dicom.rows import header_row
-    from plugins.dicom.scan import Inspection, Series
     from pydicom.dataset import Dataset
+    from rw_dicom.rows import header_row
+    from rw_dicom.scan import Inspection, Series
 
     root = tmp_path / "r"
     nii(root / "01_MRI_alpha.nii.gz", ct())

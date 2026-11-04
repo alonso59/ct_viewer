@@ -15,7 +15,7 @@ from typing import Any
 import nibabel as nib
 import numpy as np
 import pytest
-from plugins.dicom import commits, convert, sidecar
+from rw_dicom import commits, convert, sidecar
 
 from tests.test_dicom_resume import digest, run_conversion
 from tools.dicom_fixtures import MARKER, write_series
@@ -256,7 +256,7 @@ def kill_at_publication(source: Path, output: Path, barrier: str) -> None:
     code = """
 import os, signal, sys
 from pathlib import Path
-from plugins.dicom import commits, convert, sidecar
+from rw_dicom import commits, convert, sidecar
 from tests.test_dicom_resume import run_conversion
 source, output, barrier = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 original_image, original_side = convert.write_nifti, sidecar.write_sidecar

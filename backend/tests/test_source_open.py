@@ -167,7 +167,7 @@ import os, signal, sys
 from pathlib import Path
 from app.tasks.source_inventory import SourceInventory
 from app.tasks.source_open import prepare_open
-from plugins.dicom import scan
+from rw_dicom import scan
 with SourceInventory(Path(sys.argv[1]), Path(sys.argv[2])) as inventory:
     inventory.scan()
     original = scan.read_header

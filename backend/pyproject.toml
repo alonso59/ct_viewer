@@ -54,7 +54,7 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", ".."]  # `..` makes the repo-level `plugins/` package importable
+pythonpath = [".", "..", "../plugins/dicom/src"]  # `..`: repo-level `plugins/`; then `rw_dicom`
 addopts = "-q"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
 
@@ -67,13 +67,14 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "tools", "tests"]
-known-third-party = ["plugins"]
+known-third-party = ["plugins", "rw_dicom"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["app", "tools", "plugins"]
-mypy_path = ".."
+packages = ["app", "tools", "plugins", "rw_dicom"]
+mypy_path = "..:../plugins/dicom/src"
+exclude = ["/plugins/dicom/src/"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -84,5 +85,5 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # nibabel ships partial type hints; allow calls to its untyped API.
-module = ["app.*", "tools.*", "plugins.*"]
+module = ["app.*", "tools.*", "plugins.*", "rw_dicom.*"]
 disallow_untyped_calls = false

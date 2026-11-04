@@ -103,9 +103,13 @@ class PhaseOverrides:
 FALSY = frozenset({"false", "0", "no", "n", "f"})
 
 
+# Converter rows of an incomplete dataset: the series has no committed image (DCM-34).
+CONVERSION_INCOMPLETE = frozenset({"failed", "pending", "waiting_for_resources"})
+
+
 def is_excluded(row: Row) -> bool:
-    """Skipped or excluded upstream."""
-    if (row.text("status") or "").lower() == "skipped":
+    """Skipped or excluded upstream, or not converted in an incomplete dataset."""
+    if (row.text("status") or "").lower() in {"skipped", *CONVERSION_INCOMPLETE}:
         return True
     return any((row.text(f) or "").lower() in FALSY for f in ("planned_conversion", "curated_keep"))
 

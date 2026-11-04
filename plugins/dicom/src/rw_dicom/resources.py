@@ -46,3 +46,16 @@ def require_memory(row: dict[str, Any], header: Any, budget: int | None) -> None
         raise MemoryBudgetExceeded(budget, None) from None
     if required > budget:
         raise MemoryBudgetExceeded(budget, required)
+
+
+def estimate_mb(row: dict[str, Any], facts: dict[str, Any]) -> int | None:
+    """Working set of one series beyond a worker's own footprint; None when geometry is unknown."""
+    try:
+        dimensions = [int(row.get(k) or 0) for k in ("dim_x", "dim_y", "num_slices")]
+        samples, bits = int(facts["samples"]), int(facts["bits"])
+    except (ValueError, TypeError, KeyError):
+        return None
+    if min([*dimensions, samples]) < 1:
+        return None
+    working = math.prod(dimensions) * max(8, math.ceil(bits / 8)) * samples * 6
+    return math.ceil((128 * MIB + working) / MIB)

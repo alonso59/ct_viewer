@@ -10,9 +10,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from plugins import text
-from plugins.analyzers import phase, row_key
-from plugins.protocol import utc_now, write_json_atomic
+from rw_dicom import text
+from rw_dicom.analyzers import phase, row_key
+from rw_dicom.durable import utc_now, write_json_atomic
 
 BATCH_SIZE = 64
 

@@ -860,6 +860,10 @@
     "revoked": "View-only link revoked"
   },
   "conv": {
+    "mixedVersions": "Allow series from other converter versions",
+    "mixedVersionsHelp": "This project's dataset may hold series converted by older reader versions. New series then use the current readers; each series keeps its own versions as provenance.",
+    "registerConverted": "Import converted series",
+    "registerConvertedHelp": "Import the series this conversion committed; failed series stay excluded with their reasons until Retry failed completes them.",
     "connecting": "Connecting…",
     "recentOperations": "Recent work",
     "operationOption": "{{name}} · {{status}} · {{date}}",

@@ -26,10 +26,23 @@ async def commit_with_annotations(
     phase_runs: PhaseRuns,
     *,
     import_id: str | None = None,
+    allow_incomplete: bool = False,
 ) -> CommitResult:
     pv = ingest.preview_of(project_id, preview_id)
+    incomplete = workspace_runs.incomplete_dataset(Path(pv.root)) if pv.root else None
+    if incomplete is not None and not allow_incomplete:
+        raise JobConflict(
+            f"This dataset is incomplete: {incomplete['converted']} series converted, "
+            f"{incomplete['failed']} failed, {incomplete['pending']} pending. Acknowledge to "
+            "import the converted series; the others stay excluded with their reasons",
+            actions=["acknowledge:incomplete_dataset"],
+        )
     import_id = import_id or new_ulid()
-    found = workspace_runs.dataset_annotations(Path(pv.root), phase_runs) if pv.root else None
+    found = None
+    if pv.root:
+        found = workspace_runs.dataset_annotations(
+            Path(pv.root), phase_runs, allow_incomplete=allow_incomplete
+        )
     if found is not None and found[1]:
         meta, rows = found
         layers = [(meta, rows)]

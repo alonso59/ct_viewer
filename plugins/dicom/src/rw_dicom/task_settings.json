@@ -1,0 +1,90 @@
+{
+  "id": "dicom.convert",
+  "version": "1.1.0",
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "target_profile": {
+        "type": "string",
+        "enum": [
+          "generic",
+          "kidneys",
+          "pancreas",
+          "lung",
+          "brain",
+          "heart"
+        ],
+        "x-help": "Organ focus used to rank series (analyzer.target)"
+      },
+      "phase_analyzer": {
+        "type": "boolean",
+        "default": true,
+        "x-help": "Chain the phase analyzer after conversion; its result is the phase layer"
+      },
+      "convert_primary": {
+        "type": "boolean",
+        "default": true
+      },
+      "convert_secondary": {
+        "type": "boolean",
+        "default": true
+      },
+      "convert_excluded": {
+        "type": "boolean",
+        "default": false,
+        "x-advanced": true
+      },
+      "skip_unsafe_geometry": {
+        "type": "boolean",
+        "default": false,
+        "x-help": "Skip series with irregular spacing, gaps or several stacks"
+      },
+      "mixed_folder_policy": {
+        "type": "string",
+        "enum": [
+          "split",
+          "fail"
+        ],
+        "default": "split",
+        "x-advanced": true
+      },
+      "patient_pattern": {
+        "type": "string",
+        "default": "*",
+        "x-advanced": true
+      },
+      "patient_limit": {
+        "type": "integer",
+        "minimum": 1,
+        "x-advanced": true
+      },
+      "patient_folders": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x-advanced": true
+      },
+      "include_modality_prefix": {
+        "type": "boolean",
+        "default": true,
+        "x-advanced": true
+      },
+      "sidecars": {
+        "type": "boolean",
+        "default": true,
+        "x-help": "One DICOM JSON sidecar per converted series"
+      },
+      "anonymize": {
+        "type": "string",
+        "enum": [
+          "none",
+          "basic"
+        ],
+        "default": "none",
+        "x-help": "basic: PS3.15 Basic Profile subset on sidecars and rows; patient_id becomes the case id"
+      }
+    }
+  }
+}

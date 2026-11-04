@@ -283,7 +283,9 @@
     "ambiguous_phase": "Ambiguous phase",
     "ambiguous_side": "Ambiguous side",
     "duplicate_row_identity": "Duplicate row identity",
-    "fingerprint_changed": "File changed since indexing"
+    "fingerprint_changed": "File changed since indexing",
+    "conversion_failed": "Conversion failed",
+    "conversion_pending": "Not converted yet"
   },
   "item": {
     "full": "Full scan",
@@ -409,6 +411,10 @@
     "subtitleHelp": "Items are scans × scopes (the complete scan, VOI L and R). {{excluded}} items excluded upstream are not counted."
   },
   "import": {
+    "incompleteTitle": "Incomplete conversion",
+    "incompleteBody": "{{converted}} series converted, {{failed}} failed, {{pending}} not converted yet. Failed and pending series are imported as excluded items with their reasons; import the complete dataset later to add them.",
+    "incompleteAck": "Import the converted series of this incomplete dataset",
+    "incompleteBlocker": "Acknowledge the incomplete conversion to import it",
     "allowedRoots": "Only folders shared with the app are listed.",
     "folders": "Folders",
     "title": "Import data",

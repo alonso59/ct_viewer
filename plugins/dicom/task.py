@@ -11,13 +11,14 @@ import hashlib
 import json
 import sys
 import time
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from plugins.analyzers import checkpoint
-from plugins.dicom import pipeline, scan
-from plugins.dicom.identity import Identity
+from rw_dicom import dataset, pipeline
+from rw_dicom.analyzers import checkpoint
+from rw_dicom.durable import write_jsonl
+from rw_dicom.identity import Identity
+
 from plugins.protocol import Job
 
 
@@ -25,7 +26,7 @@ def _versions() -> dict[str, str]:
     from importlib import metadata
 
     out = {"dicom.convert": pipeline.VERSION}
-    for pkg in ("pydicom", "SimpleITK", "isal"):
+    for pkg in ("rw-dicom", "pydicom", "SimpleITK", "isal"):
         try:
             out[pkg] = metadata.version(pkg)
         except metadata.PackageNotFoundError:
@@ -36,16 +37,16 @@ def _versions() -> dict[str, str]:
 def run(
     job_dir: str,
     *,
-    cached_discover: Callable[[Path], list[scan.Series]] | None = None,
+    inventory: pipeline.SeriesSource | None = None,
     cached_file_total: int = 0,
     on_timing: pipeline.Timing | None = None,
 ) -> int:
     job = Job(job_dir)
     spec = job.spec
     source = Path(str((spec.get("source") or {}).get("path", "")))
-    dataset = job.dataset_dir
+    dataset_dir = job.dataset_dir
     out_dir = job.output_dir
-    if not source.exists() or dataset is None or out_dir is None:
+    if not source.exists() or dataset_dir is None or out_dir is None:
         job.finish(status="failed", error="source, dataset_dir and output_dir are required")
         return 0
     alias, _, rel = str(spec.get("dataset_ref", "DERIVED:")).partition(":")
@@ -64,29 +65,35 @@ def run(
         job.counts["items"] += 1
         job.item(iid, status, outputs, message)
 
-    result = pipeline.run(
-        source,
-        settings,
-        identity,
-        nifti_dir=dataset / "nifti",
-        sidecar_dir=dataset / "sidecars",
-        ref_rel=rel,
-        ref_alias=alias,
-        salt=str(spec.get("project_id", "")),
-        previous=previous,
-        dry_run=dry,
-        progress=progress,
-        cancelled=job.cancelled,
-        on_total=job.total,
-        on_stage=job.stage,
-        checkpoint=out_dir / "conversion-pin.json" if not dry else None,
-        memory_mb=runtime.get("memory_mb"),
-        cached_discover=cached_discover,
-        cached_file_total=cached_file_total,
-        retry_item_ids=spec.get("retry_item_ids"),
-        on_timing=on_timing,
-        on_bytes=None if dry else job.bytes_progress,
-    )
+    try:
+        result = pipeline.run(
+            source,
+            settings,
+            identity,
+            nifti_dir=dataset_dir / "nifti",
+            sidecar_dir=dataset_dir / "sidecars",
+            ref_rel=rel,
+            ref_alias=alias,
+            salt=str(spec.get("project_id", "")),
+            previous=previous,
+            dry_run=dry,
+            progress=progress,
+            cancelled=job.cancelled,
+            on_total=job.total,
+            on_stage=job.stage,
+            checkpoint=out_dir / "conversion-pin.json" if not dry else None,
+            memory_mb=runtime.get("memory_mb"),
+            inventory=inventory,
+            cached_file_total=cached_file_total,
+            retry_item_ids=spec.get("retry_item_ids"),
+            on_timing=on_timing,
+            on_bytes=None if dry else job.bytes_progress,
+            workers=int(runtime.get("workers", 1)),
+            allow_mixed_versions=bool(spec.get("allow_mixed_versions")),
+        )
+    except pipeline.MixedVersions as exc:
+        job.finish(status="failed", error=str(exc), versions=_versions())
+        return 0
     extra: dict[str, Any] = {
         "identity": identity.as_dict(),
         "estimate": {**result.counts, **result.storage},
@@ -146,36 +153,35 @@ def run(
     publication_started = time.monotonic()
     workspace = bool(spec.get("workspace"))
     if workspace:  # rows relative to the dataset root, which is imported as-is
-        for r in result.rows:
-            r["relative_path"] = f"nifti/{r.get('filename', '')}"
-            if r.get("dicom_sidecar"):
-                r["dicom_sidecar"] = f"sidecars/{r['filename']}.dicom.json"
+        dataset.relative_rows(result.rows)
     if not dry:
-        pipeline.write_jsonl(out_dir / "metadata.jsonl", result.rows)
-        pipeline.write_jsonl(out_dir / "diagnostics.jsonl", [d.as_dict() for d in result.diagnostics])
-        summary = {"counts": result.counts, "storage": result.storage, "versions": _versions(), "analysis": analysis}
-        (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-        pipeline.write_jsonl(job.rel("annotations.jsonl"), annotations)
-        if (
-            workspace
-            and not job.cancelled()
-            and not result.counts["failed"]
-            and not result.counts["pending"]
-            and result.resource_wait is None
-        ):
-            pipeline.write_jsonl(out_dir / "annotations.jsonl", annotations)
-            manifest = {
-                "dataset": 1,
-                "name": out_dir.name,
-                "task": {"id": "dicom.convert", "version": pipeline.VERSION},
-                "run_id": spec.get("run_id"),
-                "phase_run_id": spec.get("phase_run_id"),
-                "source": str(source),
-                "settings": job.settings,
-                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "counts": result.counts,
-            }
-            (out_dir / "dataset.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        summary = {
+            "counts": result.counts,
+            "storage": result.storage,
+            "versions": _versions(),
+            "analysis": analysis,
+            "units_by_versions": result.units_by_versions,
+        }
+        manifest = None
+        if workspace:
+            manifest = dataset.manifest(
+                name=out_dir.name,
+                run_id=spec.get("run_id"),
+                phase_run_id=spec.get("phase_run_id"),
+                source=source,
+                settings=job.settings,
+                result=result,
+            )
+        dataset.write(
+            out_dir,
+            rows=result.rows,
+            diagnostics=[d.as_dict() for d in result.diagnostics],
+            summary=summary,
+            annotations=annotations,
+            dataset=manifest,
+            complete=dataset.is_complete(result, job.cancelled()),
+        )
+        write_jsonl(job.rel("annotations.jsonl"), annotations)
         job.outputs_manifest += [
             {
                 "kind": "metadata",

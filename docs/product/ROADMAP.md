@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → P7h CTFlow console (C0–C7) → P7i standalone DICOM converter → VOI extractor → P7 remote checks → P8 Electron**. P7i does not depend on P7h. Its S1 runs independently; S4–S8 (backend, image, inventory, execution) start only after P7g's mandatory gates and the P7 remote checks pass.
+Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → P7h CTFlow console (C0–C7) → P7i standalone DICOM converter → VOI extractor → P7 remote checks → P8 Electron**. P7i does not depend on P7h; its phases were implemented in one pass on 2026-11-03 (owner decision).
 
 ## Progress
 
@@ -28,7 +28,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
-| P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0 approved 2026-11-03; S1 characterization green, baselines recorded, awaiting owner review (domain/DICOM_STANDALONE_PLAN.md) |
+| P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -102,17 +102,17 @@ Each step is a vertical slice with its own tests; stop for owner confirmation af
 
 ### P7i — Standalone DICOM converter (ADR-0042, DICOM_STANDALONE_PLAN.md)
 
-Each step leaves ct_viewer conversion, source operations, batches and imports working; stop for owner confirmation after each. Cases: `ops/DICOM_STANDALONE_TEST_PLAN.md`. DCM-26..34 are `S` (not a v3.0 dependency); release requires the test plan's §Release gates. S4–S8 wait for P7g's mandatory gates and the P7 remote checks.
+Owner decision 2026-11-03: all phases implemented in a row, then verified together (no per-phase stop, no P7g gate). Cases: `ops/DICOM_STANDALONE_TEST_PLAN.md`. DCM-26..34 are `S` (not a v3.0 dependency); release requires the test plan's §Release gates.
 - [x] S0 (2026-11-03) ADR-0042 accepted; plan, test plan, DCM-26..34
-- [ ] S1 Characterization and baselines (tests and tools only): C01–C12, B01–B06 — characterization green and baselines recorded 2026-11-03 (test plan §S1 evidence); open: B06 non-ext4 lanes, temporary disk, repeated large runs
-- [ ] S2 One settings contract, shared atomic emission, private state, CLI artifact parity: A01–A08
-- [ ] S3 Behavior-preserving plan / execute / assemble split: A09
-- [ ] S4 `rw_dicom` package, CLI, Python API, generated schema, conda instructions: A10–A14
-- [ ] S5a Durable discovery in the package, bounded-memory planning: A15–A17
-- [ ] S5b Per-unit pinning, commit v2, version policy, settings split: A18–A24
-- [ ] S6 Incomplete datasets: A25–A29
-- [ ] S7 Parallel units and total memory budget: A30–A36, B07; owner sets worker defaults
-- [ ] S8 Measured optimizations only (stat-based checks need a new ADR)
+- [x] S1 Characterization and baselines (tests and tools only): C01–C12, B01–B06 — characterization green and baselines recorded 2026-11-03 (test plan §S1 evidence); open: B06 non-ext4 lanes, temporary disk, repeated large runs
+- [x] S2 One settings contract, shared atomic emission, private state, CLI artifact parity: A01–A08
+- [x] S3 Behavior-preserving plan / execute / assemble split: A09
+- [x] S4 `rw_dicom` package, CLI, Python API, generated schema, conda instructions: A10–A14
+- [x] S5a Durable discovery in the package, bounded-memory planning: A15–A17
+- [x] S5b Per-unit pinning, commit v2, version policy, settings split: A18–A24
+- [x] S6 Incomplete datasets: A25–A29
+- [x] S7 Parallel units and total memory budget: A30–A36, B07; owner sets worker defaults
+- [x] S8 Measured optimizations only (stat-based checks need a new ADR)
 **Exit:** a standalone conversion of the large reference dataset imports into ct_viewer with layers, equals a workspace conversion under the same settings, resumes after interruption without reconverting verified units, and its measured resource use is recorded.
 
 ### Pending plugin after P7g

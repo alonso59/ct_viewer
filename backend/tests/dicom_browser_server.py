@@ -25,8 +25,8 @@ def held_index(batch: Any, *, root: Path) -> Any:
 def staged_worker(job_dir: Path, stage: str) -> int:
     from threading import Event
 
-    from plugins.analyzers import checkpoint
-    from plugins.dicom import convert, scan
+    from rw_dicom import convert, scan
+    from rw_dicom.analyzers import checkpoint
 
     from app.core.fsio import atomic_write_json
     from app.tasks import dicom_worker

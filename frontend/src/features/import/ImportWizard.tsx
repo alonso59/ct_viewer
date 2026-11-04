@@ -40,6 +40,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   const detect = useSourceDetection(prefill?.discoveryId ?? null)
   const preview = useImportPreview(pid)
   const commit = useCommitImport(pid)
+  const [ackIncomplete, setAckIncomplete] = useState(false)
   const durable = useSourceOperation(prefill?.discoveryId ?? null)
   const jobs = useJobs(pid).data ?? []
   const job = durable.data?.import_job ?? jobs.find((j) => j.job_id === jobId)
@@ -76,7 +77,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
       const saved = await save.mutateAsync(choices)
       const start = (op: SourceOperation) => {
         const fence = { expected_revision: op.revision, expected_attempt: op.attempt }
-        return committing ? api.commitSourceImport(op.operation_id, fence) : api.prepareSourceImport(op.operation_id, fence)
+        return committing ? api.commitSourceImport(op.operation_id, ackIncomplete ? { ...fence, allow_incomplete: true } : fence) : api.prepareSourceImport(op.operation_id, fence)
       }
       try {
         return await start(saved)
@@ -189,7 +190,9 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
   }
 
   const i = STEPS.indexOf(step)
-  const blocker = nextBlocker({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending || handoff.isPending || work.isPending || (!upload && step === 'detect' && !detection), preview: p, commitPending: commit.isPending || work.isPending })
+  // DCM-34: an incomplete converter dataset imports only once the user acknowledges it
+  const incompleteBlocker = step === 'preview' && p?.incomplete && !ackIncomplete ? 'import.incompleteBlocker' : null
+  const blocker = incompleteBlocker ?? nextBlocker({ step, path, aliasOk: aliasError === null, upload, hasUploadedMetadata: files.metadata != null, adapter, previewPending: preview.isPending || handoff.isPending || work.isPending || (!upload && step === 'detect' && !detection), preview: p, commitPending: commit.isPending || work.isPending })
   const enabled = blocker === null
   const next = async () => {
     const action = nextAction(step, adapter, upload)
@@ -206,7 +209,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
         work.mutate({ committing: true, choices })
         return
       }
-      const r = await commit.mutateAsync(p.preview_id)
+      const r = await commit.mutateAsync({ previewId: p.preview_id, allowIncomplete: ackIncomplete })
       setJobId(r.job_id)
       setStep('index')
     }
@@ -315,7 +318,7 @@ export default function Wizard({ pid, prefill }: { pid: string; prefill: WizardP
           ignored={detection?.ignored}
         />
       ) : null}
-      {step === 'preview' && p ? <PreviewStep p={p} /> : null}
+      {step === 'preview' && p ? <PreviewStep p={p} acknowledged={ackIncomplete} onAcknowledge={setAckIncomplete} /> : null}
       {step === 'index' ? <IndexStep job={job} failed={failed} /> : null}
       {step !== 'detect' && (save.error || work.error || durable.error) ? <ProblemCard error={save.error || work.error || durable.error} /> : null}
     </Dialog>

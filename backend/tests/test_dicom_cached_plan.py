@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from plugins.dicom import convert, pipeline, scan
-from plugins.dicom.identity import Identity
+from rw_dicom import convert, pipeline, scan
+from rw_dicom.identity import Identity
 
 from app.tasks.source_inventory import SourceInventory
 from tools.dicom_fixtures import write_series

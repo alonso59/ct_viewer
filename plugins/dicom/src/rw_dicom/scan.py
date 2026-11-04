@@ -12,8 +12,8 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-from plugins.dicom import files as source_files
-from plugins.text import split_multi_value, value_to_text
+from rw_dicom import files as source_files
+from rw_dicom.text import split_multi_value, value_to_text
 
 IGNORED_FILE_SUFFIXES = {
     ".ags", ".agm", ".bmp", ".cmd", ".csv", ".doc", ".docx", ".dll", ".exe", ".gz", ".inf",
@@ -43,6 +43,8 @@ class Series:
     # the files' total size, known from that pass (0: unknown); a stat per file is a round trip
     source_bytes: int = 0
     source_root: Path | None = field(default=None, compare=False, repr=False)
+    # the inventory key, so a planned series can be loaded again when it is converted
+    key: str = field(default="", compare=False)
 
 
 @dataclass

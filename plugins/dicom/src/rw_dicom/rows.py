@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from plugins.dicom.scan import Inspection, Series
-from plugins.text import (
+from rw_dicom.scan import Inspection, Series
+from rw_dicom.text import (
     combine_date_time,
     int_or_none,
     parse_dicom_date,

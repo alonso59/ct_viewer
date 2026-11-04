@@ -96,7 +96,7 @@ class Probe:
         setattr(owner, name, timed)
 
     def install(self) -> None:
-        from plugins.dicom import commits, convert, sidecar
+        from rw_dicom import commits, convert, sidecar
 
         original_commit = commits.commit_series
 
@@ -153,8 +153,8 @@ def _inventory(source: Path, work: Path) -> Any:
 
 def stage(name: str, source: Path, work: Path) -> dict[str, Any]:
     """One stage in this process; `resume` expects a `cli` output interrupted by `interrupt`."""
-    from plugins.dicom import cli, pipeline
-    from plugins.dicom.identity import Identity
+    from rw_dicom import cli, pipeline
+    from rw_dicom.identity import Identity
 
     stop_after = os.environ.get("BENCH_INTERRUPT_AFTER") if name == "interrupt" else None
     probe = Probe(int(stop_after) if stop_after else None)
@@ -181,15 +181,17 @@ def stage(name: str, source: Path, work: Path) -> dict[str, Any]:
                 salt="",
                 previous=[],
                 dry_run=dry,
-                cached_discover=inventory.discover,
+                inventory=inventory,
                 cached_file_total=summary["dicom"],
                 checkpoint=None if dry else out / "conversion-pin.json",
             )
         extra["counts"] = result.counts
     elif name in {"cli", "interrupt", "resume"}:
-        config = work / "converter.yaml"
-        config.write_text(f"dataset_root: {source}\noutput_root: {work / 'cli'}\n")
-        extra["exit_code"] = cli.main([str(config)])
+        workers = os.environ.get("BENCH_WORKERS", "1") if name == "cli" else "1"
+        extra["workers"] = workers
+        extra["exit_code"] = cli.main(
+            ["convert", str(source), str(work / "cli"), "--workers", workers]
+        )
     else:
         raise ValueError(name)
     return {**probe.report(), **extra}
@@ -245,7 +247,9 @@ def child(name: str, source: Path, work: Path, env: dict[str, str] | None = None
     return dict(json.loads(out.read_text()))
 
 
-def run(source: Path, work: Path, stages: list[str], cold: bool) -> dict[str, Any]:
+def run(
+    source: Path, work: Path, stages: list[str], cold: bool, workers: int = 1
+) -> dict[str, Any]:
     work.mkdir(parents=True, exist_ok=True)
     files = sum(len(names) for _, _, names in os.walk(source))
     result: dict[str, Any] = {
@@ -267,7 +271,7 @@ def run(source: Path, work: Path, stages: list[str], cold: bool) -> dict[str, An
             )
             if cold:
                 drop_source_cache(source)
-        result["stages"][name] = child(name, source, work)
+        result["stages"][name] = child(name, source, work, {"BENCH_WORKERS": str(workers)})
         print(f"{name}: {result['stages'][name]['wall_s']:.1f} s", file=sys.stderr)
     return result
 
@@ -285,6 +289,9 @@ def main(argv: list[str]) -> int:
     bench.add_argument("--out", type=Path, required=True)
     bench.add_argument("--stages", default=",".join(STAGES))
     bench.add_argument("--cold", action="store_true")
+    bench.add_argument(
+        "--workers", type=int, default=1, help="CLI stage only; units run in workers"
+    )
     one = sub.add_parser("stage")
     one.add_argument("name")
     for name in ("source", "work", "out"):
@@ -294,7 +301,7 @@ def main(argv: list[str]) -> int:
         n = generate(args.root, args.patients, args.series, args.slices, args.matrix)
         print(json.dumps({"files": n}))
     elif args.command == "run":
-        result = run(args.source, args.work, args.stages.split(","), args.cold)
+        result = run(args.source, args.work, args.stages.split(","), args.cold, args.workers)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(result, indent=2, default=str) + "\n")
     else:

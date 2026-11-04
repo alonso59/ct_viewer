@@ -9,9 +9,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from plugins.analyzers import Annotation, annotation, row_key
-from plugins.analyzers import target as target_rules
-from plugins.text import geometry_codes, int_or_none, value_to_text
+from rw_dicom.analyzers import Annotation, annotation, row_key
+from rw_dicom.analyzers import target as target_rules
+from rw_dicom.text import geometry_codes, int_or_none, value_to_text
 
 RULES_VERSION = "readiness-1"
 UNSUITABLE = {

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.dicom import scan
+from rw_dicom import scan
 
 from app.core.errors import JobConflict, SourceMissing
 from app.tasks.source_inventory import SourceInventory
@@ -71,7 +71,7 @@ def test_inventory_invalidation_rejects_old_page_generation(tmp_path: Path) -> N
 def test_reread_with_identical_facts_keeps_the_generation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from app.tasks import source_inventory
+    from rw_dicom import inventory as source_inventory
 
     root = tmp_path / "source"
     write_series(root / "a", shape=(3, 3, 3), marker=(1, 1, 2))
@@ -353,7 +353,7 @@ def test_inventory_does_not_grow_wal_behind_a_pinned_reader(tmp_path: Path) -> N
 
 
 def _count_tree(root: Path) -> tuple[int, int]:
-    from plugins.dicom import files as source_files
+    from rw_dicom import files as source_files
 
     walked = list(source_files.folders(root))
     return sum(len(files) for _, files in walked), len(walked)
@@ -469,7 +469,7 @@ def test_reconstructed_headers_equal_the_scanned_headers(tmp_path: Path) -> None
 
 
 def test_unstable_series_headers_fall_back_to_the_full_header() -> None:
-    from app.tasks.source_inventory import _delta, _merge
+    from rw_dicom.inventory import _delta, _merge
 
     base = {f"0020{i:04x}": {"vr": "LO", "Value": ["a"]} for i in range(8)}
     other = {f"0021{i:04x}": {"vr": "SH", "Value": ["b"]} for i in range(8)}

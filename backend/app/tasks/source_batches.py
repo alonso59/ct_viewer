@@ -200,7 +200,7 @@ def run_seconds(run: WorkspaceRun) -> float | None:
 
 def count_files(source: str, folder: str) -> int:
     """Name-only file count of one patient folder with the discovery traversal rules."""
-    from plugins.dicom import files as source_files
+    from rw_dicom import files as source_files
 
     total = 0
     pending = [os.path.join(source, folder)]
@@ -221,7 +221,7 @@ def count_files(source: str, folder: str) -> int:
 
 
 def top_level_folders(source: Path) -> list[str]:
-    from plugins.dicom import files as source_files
+    from rw_dicom import files as source_files
 
     names = []
     with os.scandir(source) as entries:

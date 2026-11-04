@@ -93,6 +93,12 @@ async def get_run(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
     return await svc(ctx).get_run(pid, rid)
 
 
+@router.post("/projects/{pid}/task-runs/{rid}/register-converted", response_model=TaskRunDetail)
+async def register_converted(ctx: Ctx, pid: str, rid: str) -> TaskRunDetail:
+    """A DICOM run that ended `completed_with_errors`: import its converted series (DCM-34)."""
+    return await svc(ctx).register_converted(pid, rid)
+
+
 @router.post("/projects/{pid}/task-runs/{rid}/cancel", response_model=TaskRunDetail)
 async def cancel_run(
     ctx: Ctx, pid: str, rid: str, body: RunAttemptControl | None = None

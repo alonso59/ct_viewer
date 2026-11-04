@@ -88,7 +88,7 @@ class _Scrubber:
     """Applies the converter's `basic` profile to what a bundle carries."""
 
     def __init__(self, salt: str) -> None:
-        from plugins.dicom.sidecar import anon_uid, hash_identity_key, scrub_for_sharing
+        from rw_dicom.sidecar import anon_uid, hash_identity_key, scrub_for_sharing
 
         self.salt = salt
         self._scrub = scrub_for_sharing

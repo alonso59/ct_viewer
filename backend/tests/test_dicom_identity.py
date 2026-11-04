@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pydicom
 import pytest
-from plugins.dicom import convert, scan
+from rw_dicom import convert, scan
 
 from app.tasks.dicom_stage import probe_series
 from app.tasks.source_inventory import SourceInventory
@@ -99,8 +99,8 @@ def test_missing_series_uid_quarantines_the_folder_and_reuses_rejected_facts(
 def test_reused_series_uid_across_folders_is_reported_without_merging(
     tmp_path: Path, cached: bool
 ) -> None:
-    from plugins.dicom import pipeline
-    from plugins.dicom.identity import Identity
+    from rw_dicom import pipeline
+    from rw_dicom.identity import Identity
 
     source = tmp_path / "source"
     for name in ("first", "second"):

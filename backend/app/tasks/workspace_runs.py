@@ -59,6 +59,7 @@ from app.tasks.schema import normalize, settings_hash
 WORKSPACE_JOBS: Final = "_workspace"  # JobManager project key of workspace task jobs
 DATASETS: Final = "_datasets"
 DATASET_JSON: Final = "dataset.json"
+INCOMPLETE_JSON: Final = "dataset.incomplete.json"
 ANNOTATIONS: Final = "annotations.jsonl"
 POLL_S: Final = 0.2
 _NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
@@ -658,16 +659,38 @@ class WorkspaceTasks:
         return self.get(rid)
 
 
-def dataset_annotations(
-    root: Path, phase_runs: PhaseRuns
-) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
-    """A workspace dataset's manifest and analyzer annotations, if `root` is one."""
-    if not (root / DATASET_JSON).is_file():
+def incomplete_dataset(root: Path) -> dict[str, int] | None:
+    """Converted / failed / pending counts of a converter dataset that is not complete."""
+    if (root / DATASET_JSON).is_file() or not (root / INCOMPLETE_JSON).is_file():
         return None
     try:
-        meta = read_json(root / DATASET_JSON)
+        counts = read_json(root / INCOMPLETE_JSON)["counts"]
+        return {
+            "converted": int(counts.get("converted", 0)) + int(counts.get("already_converted", 0)),
+            "failed": int(counts.get("failed", 0)),
+            "pending": int(counts.get("pending", 0)),
+        }
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {"converted": 0, "failed": 0, "pending": 0}
+
+
+def dataset_annotations(
+    root: Path, phase_runs: PhaseRuns, *, allow_incomplete: bool = False
+) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+    """A workspace dataset's manifest and analyzer annotations, if `root` is one.
+
+    An incomplete dataset counts only when the import acknowledged it; its run says so."""
+    manifest = root / DATASET_JSON
+    if not manifest.is_file() and allow_incomplete and incomplete_dataset(root) is not None:
+        manifest = root / INCOMPLETE_JSON
+    if not manifest.is_file():
+        return None
+    try:
+        meta = read_json(manifest)
     except (OSError, ValueError):
         return None
+    if manifest.name == INCOMPLETE_JSON:
+        meta = {**meta, "name": f"{meta.get('name', '')} (incomplete)".strip()}
     rows = [r for r in iter_jsonl(root / ANNOTATIONS) if r.get("item_id") and r.get("field")]
     phase = phase_runs.dataset_phase(root, meta)
     if phase is not None:
@@ -693,6 +716,8 @@ def write_imported_run(run_dir: Path, meta: dict[str, Any], rows: list[dict[str,
         settings=meta.get("settings") or {},
         settings_hash="",
         selection=TaskSelection(source=str(meta.get("source") or "")),
+        provenance={"dataset_complete": meta.get("complete", True) is not False,
+                    "units_by_versions": meta.get("units_by_versions") or {}},
     )  # fmt: skip
     run_dir.mkdir(parents=True, exist_ok=True)
     write_jsonl_atomic(run_dir / ANNOTATIONS, rows)

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.dicom import commits, pipeline, scan
+from rw_dicom import commits, pipeline, scan
 
 from app.tasks.dicom_bytes import progress_fields
 from app.tasks.records import Live
@@ -292,7 +292,7 @@ def test_resumed_attempt_counts_reused_commits_as_done_but_not_as_measured_speed
 
 
 def test_estimate_runs_report_no_bytes(tmp_path: Path) -> None:
-    from plugins.dicom.identity import Identity
+    from rw_dicom.identity import Identity
 
     source = tmp_path / "source"
     write_series(source / "a")

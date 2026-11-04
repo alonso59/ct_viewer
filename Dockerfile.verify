@@ -25,7 +25,7 @@ RUN cd frontend && npm ci --no-audit --no-fund \
  && rm -rf /var/lib/apt/lists/*
 COPY . .
 RUN ln -s /opt/ci backend/.venv \
- && uv pip install --python /opt/ci/bin/python --no-deps -e backend
+ && uv pip install --python /opt/ci/bin/python --no-deps -e backend -e plugins/dicom
 ARG VERIFY_UID=10001
 ARG VERIFY_GID=10001
 RUN test "$VERIFY_UID" != 0 \

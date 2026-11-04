@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from plugins.analyzers import phase, readiness, target
+from rw_dicom.analyzers import phase, readiness, target
 
 CCRCC = ["NC", "CMP", "NP", "EP", "UNK"]
 GENERIC = ["NC", "ART", "PV", "DELAYED", "UNK"]

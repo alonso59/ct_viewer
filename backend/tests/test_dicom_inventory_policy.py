@@ -147,7 +147,8 @@ def test_corrupt_history_does_not_prevent_startup_or_other_operations(
 def test_projection_warns_early_when_the_source_would_exceed_the_cap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from app.tasks import source_inventory
+    from rw_dicom import inventory as source_inventory
+
     from app.tasks.source_inventory import SourceInventory
     from tools.dicom_fixtures import write_series
 
@@ -169,7 +170,8 @@ def test_projection_warns_early_when_the_source_would_exceed_the_cap(
 def test_projection_stays_quiet_below_the_threshold_and_before_enough_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from app.tasks import source_inventory
+    from rw_dicom import inventory as source_inventory
+
     from app.tasks.source_inventory import SourceInventory
     from tools.dicom_fixtures import write_series
 

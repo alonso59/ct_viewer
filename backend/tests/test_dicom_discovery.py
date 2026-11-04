@@ -13,7 +13,7 @@ import numpy as np
 import pydicom
 import pytest
 from fastapi.testclient import TestClient
-from plugins.dicom import scan
+from rw_dicom import scan
 
 from app.config import Settings
 from app.main import create_app
