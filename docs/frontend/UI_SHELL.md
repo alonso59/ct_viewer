@@ -243,3 +243,7 @@ DICOM acceptance evidence and remaining gates live in DICOM_JOB_PLAN.md §Implem
 Resource waits, cancellation and unknown cleanup remain active until the server confirms completion.
 The converter shows phase analysis as a separate status/progress panel with its own retry/cancel controls.
 An active phase keeps polling and minimizing after conversion completes; converted dataset actions remain available.
+
+## Open questions
+
+- Should view-only links show dashboards (UI-26)? They stay hidden today (`writes`), although reading charts writes nothing, because opening them changes what a link exposes. Owner decision.

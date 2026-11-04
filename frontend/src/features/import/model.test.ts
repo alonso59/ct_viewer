@@ -54,7 +54,7 @@ test('image names: an include list without its masks, one file, or the folder; t
 const base: NextInput = { step: 'root', path: '/data/ds', aliasOk: true, upload: false, hasUploadedMetadata: false, adapter: null, previewPending: false, preview: undefined, commitPending: false }
 const preview = (kinds: string[]) => ({ files: kinds.map((kind) => ({ kind })), counts: { scan_rows: 24, cases: 8, voi_rows: 10, excluded_upstream: 1 } }) as unknown as ImportPreview
 
-// UI-18 / F-17: a disabled Next always names its reason
+// UI-18: a disabled Next always names its reason
 test('Next: a disabled step says why (UI-18)', () => {
   expect(nextBlocker(base)).toBeNull()
   expect(nextBlocker({ ...base, path: null })).toBe('reason.chooseFolder')
