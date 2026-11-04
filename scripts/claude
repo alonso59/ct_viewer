@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# Run Claude Code with the mifral account profile (kept outside the repo), only under ~/Documents.
-case "$PWD/" in "$HOME/Documents/"*) ;; *) echo "claude-mifral only runs under $HOME/Documents" >&2; exit 1 ;; esac
-export CLAUDE_CONFIG_DIR="$HOME/.claude-mifral"
-exec claude "$@"

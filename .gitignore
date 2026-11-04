@@ -47,3 +47,7 @@ webui_state/
 /legacy/
 .rw/
 /rw-*.tar
+
+# Personal launchers
+/scripts/claude
+/scripts/claude.sh
