@@ -36,7 +36,7 @@ codicons) with a 3D Slicer-style 2×2 CT viewer.
 
 | # | Rule |
 |---|---|
-| R1 | Never write to `source` roots (images, masks, input metadata). App state lives in the project folder; task outputs are written only into `derived` roots. Exceptions: CUR-16 (ADR-0029), PRJ-19 managed-folder writes (ADR-0030). See ADR-0002, ADR-0014. |
+| R1 | Never write to `source` roots (images, masks, input metadata). App state lives in the project folder; task outputs are written only into `derived` roots. Exceptions: CUR-16 (ADR-0029), PRJ-19 managed-folder writes (ADR-0030), a new conversion dataset folder in a user-chosen destination (ADR-0044). See ADR-0002, ADR-0014. |
 | R2 | No accounts, no passwords. Reviewer name is a free-text stamp. See ADR-0004. |
 | R3 | One OCI image must run on Docker (local) **and** udocker (remote, no sudo). No compose-only features. Native and HPC deployments use the same source and lock, not a different product. See ADR-0007, ADR-0043. |
 | R4 | No sudo, apt, brew, or system installs on remote servers; only user-space tools (conda). Node there comes from a conda environment or a container, for build and development only, never in production. See ADR-0043. |

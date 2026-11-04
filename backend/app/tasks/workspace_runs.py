@@ -1,7 +1,9 @@
 """`scope: workspace` tasks run without a project.
 
 Inputs come from a source path inside ALLOWED_DATA_ROOTS; outputs go to a new, write-once folder
-`{first ALLOWED_DERIVED_ROOTS}/_datasets/{name}/` (a `-1`, `-2` … suffix when the name is taken);
+`{destination}/{name}/` (a `-1`, `-2` … suffix when the name is taken). The destination is a folder
+the user chose inside the allowed roots, so the dataset can later hold its own project; without
+one it is `{first ALLOWED_DERIVED_ROOTS}/_datasets/`.
 run records live in `WORKSPACE_ROOT/plugins/{plugin}/runs/{run_id}/run.json`. The dataset holds
 `metadata.jsonl` (the converter artifact), `nifti/`, `sidecars/`, `annotations.jsonl`
 (analyzer layers) and `dataset.json`; it opens in Open mode and imports like any root,
@@ -12,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import re
 import shutil
 import time
@@ -28,7 +31,7 @@ from app.core.errors import DerivedRootRequired, JobConflict, NotFound, Validati
 from app.core.fsio import atomic_write_json, iter_jsonl, read_json, write_jsonl_atomic
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
-from app.core.paths import PathGuard
+from app.core.paths import MANAGED_DIRS, PathGuard, is_within, realpath
 from app.core.reviewer import Origin
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
@@ -70,6 +73,7 @@ class WorkspaceRunRequest(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
     selection: TaskSelection
     name: str | None = Field(default=None, max_length=120)
+    destination: str | None = Field(default=None, min_length=1)
 
 
 class WorkspaceEstimateRequest(BaseModel):
@@ -174,6 +178,35 @@ class WorkspaceTasks:
                 actions=["configure:ALLOWED_DERIVED_ROOTS"],
             )
         return roots[0]
+
+    def dataset_parent(self, raw: str | None, source: Path | None = None) -> Path:
+        """The folder a new dataset is created in."""
+        if raw is None:
+            return self._derived() / DATASETS
+        path = Path(raw)
+        if not path.is_absolute():
+            raise ValidationProblem("Choose an absolute destination folder")
+        parent = self.guard.check(path)
+        if parent != path:
+            raise ValidationProblem("The destination folder path cannot go through a symlink")
+        if any(p in MANAGED_DIRS for p in path.parts):
+            raise ValidationProblem(
+                "The destination cannot be inside .workbench, derived, recycle_bin or .git"
+            )
+        if not parent.is_dir():
+            raise ValidationProblem("The destination folder does not exist")
+        app_owned = [
+            self.settings.workspace_root,
+            *self.settings.derived_roots,
+            *([self.settings.host_allocation_root] if self.settings.host_allocation_root else []),
+        ]
+        if any(is_within(parent, realpath(r)) for r in app_owned):
+            raise ValidationProblem("The destination cannot be inside the app's own folders")
+        if source is not None and is_within(parent, source):
+            raise ValidationProblem("The destination cannot be inside the source being converted")
+        if not os.access(parent, os.W_OK | os.X_OK):
+            raise ValidationProblem("The destination folder is not writable")
+        return parent
 
     def _runs_dir(self, plugin: str) -> Path:
         return self.settings.workspace_root / "plugins" / plugin / "runs"
@@ -300,7 +333,7 @@ class WorkspaceTasks:
             await dry_run.require_dicom(m.id, source)
         if self.jobs.active(WORKSPACE_JOBS, "task", m.id) is not None:
             raise JobConflict(f"A {m.id} workspace run is already active")
-        base = self._derived() / DATASETS
+        base = self.dataset_parent(req.destination, source)
         if m.id == "dicom.convert":
             require_pixel_budget(self.settings)
         # never the source folder's name: DICOM folders are often patient names

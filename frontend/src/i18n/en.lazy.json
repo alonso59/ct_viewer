@@ -985,7 +985,12 @@
     "intoProject": "Into {{name}}",
     "asDataset": "As a dataset (no project)",
     "name": "Dataset name",
-    "nameHelp": "Saved as a new dataset folder in the derived location.",
+    "nameHelp": "Saved as a new folder with this name inside the destination folder.",
+    "destination": "Destination folder",
+    "destinationResult": "The dataset folder this conversion creates",
+    "noDestination": "Choose a destination folder",
+    "chooseDestination": "Choose another folder",
+    "destinationHelp": "A folder you can browse, outside the source being converted. The dataset can later become a project in place.",
     "profile": "Organ focus",
     "profileHelp": "Ranks the series: those that do not match the organ are not converted.",
     "profiles": {

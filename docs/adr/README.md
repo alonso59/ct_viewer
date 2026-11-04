@@ -49,3 +49,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0041 | CTFlow: a domain command console over the existing task services | Accepted |
 | 0042 | Standalone DICOM converter package with per-unit input pinning | Accepted (supersedes 0035 §5 whole-run input pin) |
 | 0043 | Three deployment options: native, container, HPC | Accepted (supersedes 0007's rejection of native installs) |
+| 0044 | Projectless conversions write to a destination folder the user chooses | Accepted (partially supersedes 0002/0014 for that folder) |

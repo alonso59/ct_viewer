@@ -15,6 +15,8 @@ export interface ConvSettings {
   phase_analyzer: boolean
   anonymize: 'none' | 'basic'
   name: string
+  /** Folder the new dataset folder is created in */
+  destination: string
 }
 
 /** A dry run in flight: `id` names it for `api.estimateProgress` */
@@ -78,6 +80,19 @@ export const datasetSlug = (raw: string) => raw.replace(/[^A-Za-z0-9_.-]+/g, '-'
 
 const parent = (p: string) => p.replace(/\/[^/]*$/, '') || '/'
 
+const DESTINATION_KEY = 'rw.converter.destination'
+/** The last destination used in this browser, else the folder that holds the source */
+export const defaultDestination = (source: string | null) => {
+  try {
+    const last = localStorage.getItem(DESTINATION_KEY)
+    if (last) return last
+  } catch { /* storage unavailable */ }
+  return source ? parent(source) : ''
+}
+export const rememberDestination = (path: string) => {
+  try { localStorage.setItem(DESTINATION_KEY, path) } catch { /* storage unavailable */ }
+}
+
 const draft = (source: string | null, pid: string | null): Draft => ({
   autoOpen: false,
   operationId: null,
@@ -87,7 +102,7 @@ const draft = (source: string | null, pid: string | null): Draft => ({
   browse: source ? parent(source) : null,
   source,
   target: pid ? 'project' : 'dataset',
-  settings: { target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: defaultDatasetName() },
+  settings: { target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: defaultDatasetName(), destination: defaultDestination(source) },
   allowMixedVersions: false,
   estimate: null,
   error: null,

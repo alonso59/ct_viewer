@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.config import Settings
 from app.core import reviewer as reviewer_stamp
 from app.core.errors import (
-    DerivedRootRequired,
     JobConflict,
     NotFound,
     Problem,
@@ -39,7 +38,6 @@ from app.tasks.source_operations import (
 )
 from app.tasks.workspace_runs import (
     DATASET_JSON,
-    DATASETS,
     WorkspaceRun,
     dataset_name,
     default_dataset_name,
@@ -61,6 +59,7 @@ class BatchPlanCreate(BaseModel):
     batch_size: int = Field(default=40, ge=1, le=1000)
     settings: dict[str, Any] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=80)
+    destination: str | None = Field(default=None, min_length=1)  # parent of the batch datasets
     auto: bool = False
 
 
@@ -100,6 +99,7 @@ class PlanRecord(BaseModel):
     settings: dict[str, Any]
     batch_size: int
     name: str
+    destination: str | None = None
     auto: bool
     reviewer: str | None = None
     origin: Origin | None = None
@@ -285,13 +285,8 @@ class SourceBatches:
     def _lock(self, plan_id: str) -> Any:
         return self.locks(f"_source_batch:{plan_id}")
 
-    def _datasets(self) -> Path:
-        if not self.settings.derived_roots:
-            raise DerivedRootRequired(
-                "ALLOWED_DERIVED_ROOTS is empty: the server has no writable folder for datasets",
-                actions=["configure:ALLOWED_DERIVED_ROOTS"],
-            )
-        return self.settings.derived_roots[0] / DATASETS
+    def _datasets(self, plan: PlanRecord) -> Path:
+        return self.operations.workspace_tasks.dataset_parent(plan.destination)
 
     # --- plan creation ---------------------------------------------------------------------
 
@@ -313,7 +308,8 @@ class SourceBatches:
         ]
         stem = dataset_name(request.name or default_dataset_name())
         batches = self._batches(stem, chunks, first=1, width=max(2, len(str(len(chunks)))))
-        self._check_names(batches)
+        base = self.operations.workspace_tasks.dataset_parent(request.destination, source)
+        self._check_names(base, batches)
         first = {**request.settings, "patient_folders": batches[0].folders}
         self.operations.workspace_tasks.source_estimate_spec(
             DICOM_CONVERT, str(source), first, self.root
@@ -324,6 +320,7 @@ class SourceBatches:
             settings=request.settings,
             batch_size=request.batch_size,
             name=stem,
+            destination=request.destination,
             auto=request.auto,
             reviewer=who,
             origin=origin or Origin(),
@@ -344,8 +341,8 @@ class SourceBatches:
             for i, chunk in enumerate(chunks)
         ]
 
-    def _check_names(self, batches: list[PlanBatch]) -> None:
-        base = self._datasets()
+    @staticmethod
+    def _check_names(base: Path, batches: list[PlanBatch]) -> None:
         for batch in batches:
             if (base / batch.name).exists():
                 raise JobConflict(
@@ -481,7 +478,7 @@ class SourceBatches:
             fresh = await asyncio.to_thread(checked_folders, source, fresh)
             width = len(plan.batches[0].name) - len(plan.name) - 2
             batch = self._batches(plan.name, [fresh], first=len(plan.batches) + 1, width=width)
-            self._check_names(batch)
+            self._check_names(self._datasets(plan), batch)
             plan.batches.extend(batch)
             plan.counting = "counting"
             if plan.status == "completed":
@@ -553,7 +550,7 @@ class SourceBatches:
             return
         batch = plan.batches[plan.cursor]
         if batch.operation_id is None:
-            if (self._datasets() / batch.name).exists():
+            if (self._datasets(plan) / batch.name).exists():
                 self._pause(plan, batch, "A dataset with this batch name already exists")
                 return
             try:
@@ -565,6 +562,7 @@ class SourceBatches:
                         prepare_plan=True,
                         settings=plan.settings,
                         name=batch.name,
+                        destination=plan.destination,
                         folders=batch.folders,
                     ),
                     plan.reviewer,
@@ -598,7 +596,7 @@ class SourceBatches:
             self._save(plan)
         if not (batch.approved or (plan.auto and batch.index > 1)):
             return
-        if (self._datasets() / batch.name).exists():
+        if (self._datasets(plan) / batch.name).exists():
             self._pause(plan, batch, "A dataset with this batch name already exists")
             return
         try:

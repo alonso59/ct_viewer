@@ -60,6 +60,10 @@ def make_ref(alias: str, rel: str) -> str:
     return str(AliasRef(validate_alias(alias), validate_rel(rel)))
 
 
+# Folders the app manages inside a dataset (or that belong to git); never a dataset of their own.
+MANAGED_DIRS = frozenset({".workbench", "derived", "recycle_bin", ".git"})
+
+
 def is_within(path: Path, root: Path) -> bool:
     """Both arguments must already be resolved (realpath)."""
     return path == root or root in path.parents

@@ -2,7 +2,7 @@
 // UI-25 / DCM-25 on the recorded API (TST-04): source → settings → dry run → run → result with the three
 // next steps. The recording converted `dicom/P900` of the fixtures (one series, one scout).
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { describe, vi } from 'vitest'
 
@@ -265,7 +265,7 @@ test('DCM-15 re-estimates changed options in the same operation and inventory', 
   fireEvent.click(screen.getByRole('checkbox', { name: /phase analyzer/ }))
   fireEvent.click(screen.getByRole('checkbox', { name: /Anonymize/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
-  await waitFor(() => expect(refresh).toHaveBeenCalledWith(ready.operation_id, { expected_revision: ready.revision, expected_attempt: ready.attempt, settings: { target_profile: 'generic', phase_analyzer: false, anonymize: 'basic' }, name: 'revised-output' }))
+  await waitFor(() => expect(refresh).toHaveBeenCalledWith(ready.operation_id, { expected_revision: ready.revision, expected_attempt: ready.attempt, settings: { target_profile: 'generic', phase_analyzer: false, anonymize: 'basic' }, name: 'revised-output', destination: ready.source.replace(/\/[^/]*$/, '') }))
   expect(start).not.toHaveBeenCalled()
   expect(await screen.findByRole('button', { name: /Convert \d+ series/ })).toBeEnabled()
   expect(useConverter.getState().settings.name).toBe('revised-output')
@@ -442,7 +442,10 @@ test('a dataset name that is taken is said in the settings step (DCM-14, AUD-A2-
   // the recorded workspace run holds a dataset name
   const [run] = await api.listWorkspaceRuns()
   const name = run!.name
+  // a clash is a name taken in the chosen destination folder
+  const destination = run!.dataset_dir!.replace(/\/[^/]*$/, '')
   useConverter.getState().show({ source: '/data/dicom/P900', pid: null })
+  useConverter.getState().patch({ settings: { ...useConverter.getState().settings, destination } })
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
@@ -453,8 +456,10 @@ test('a dataset name that is taken is said in the settings step (DCM-14, AUD-A2-
   )
   fireEvent.change(screen.getByDisplayValue(defaultDatasetName()), { target: { value: name } })
   expect(await screen.findByText(`A dataset named ${name} exists; this one will be saved as ${name}-1.`)).toBeInTheDocument()
-  fireEvent.change(screen.getByDisplayValue(name), { target: { value: 'fresh name' } })
+  expect(screen.getByText(`${destination}/${name}-1`)).toBeInTheDocument()
+  act(() => useConverter.getState().patch({ settings: { ...useConverter.getState().settings, destination: '/data/elsewhere' } }))
   expect(screen.queryByText(/exists; this one will be saved/)).toBeNull()
+  expect(screen.getByText(`/data/elsewhere/${name}`)).toBeInTheDocument()
 })
 
 test('UI-28 shows admitted conversion discovery as folder listing with its folder count', async () => {

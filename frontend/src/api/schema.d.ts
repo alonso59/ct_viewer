@@ -2997,6 +2997,8 @@ export interface components {
             };
             /** Name */
             name?: string | null;
+            /** Destination */
+            destination?: string | null;
             /**
              * Auto
              * @default false
@@ -7375,6 +7377,8 @@ export interface components {
             prepare_plan: boolean;
             /** Dataset Name */
             dataset_name?: string | null;
+            /** Dataset Destination */
+            dataset_destination?: string | null;
             /** Folders */
             folders?: string[] | null;
         };
@@ -7403,6 +7407,8 @@ export interface components {
             plan_attempt: number;
             /** Name */
             name?: string | null;
+            /** Destination */
+            destination?: string | null;
         };
         /** SourceOperationEstimate */
         SourceOperationEstimate: {
@@ -7418,6 +7424,8 @@ export interface components {
             };
             /** Name */
             name?: string | null;
+            /** Destination */
+            destination?: string | null;
         };
         /** SourceOperationStart */
         SourceOperationStart: {
@@ -7445,6 +7453,8 @@ export interface components {
             };
             /** Name */
             name?: string | null;
+            /** Destination */
+            destination?: string | null;
             /** Folders */
             folders?: string[] | null;
         };
@@ -8472,6 +8482,8 @@ export interface components {
             selection: components["schemas"]["TaskSelection"];
             /** Name */
             name?: string | null;
+            /** Destination */
+            destination?: string | null;
         };
         /** RunError */
         app__analytics__models__RunError: {

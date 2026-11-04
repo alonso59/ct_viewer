@@ -238,6 +238,71 @@ def test_sequential_chaining_waits_for_the_first_convert_then_runs_automatically
         )
 
 
+def test_batches_go_to_the_chosen_destination_and_become_a_project_in_place(
+    tmp_path: Path,
+) -> None:
+    source, out = tmp_path / "source" / "dicom", tmp_path / "source" / "converted"
+    patients(source, ["a", "b"])
+    out.mkdir()
+    with app_client(tmp_path) as client:
+        plan = create_plan(
+            client, source, batch_size=2, name="chosen", auto=True, destination=str(out)
+        )
+        assert client.post(f"{PLANS}/{plan['plan_id']}/start").status_code == 202
+        wait_plan(client, plan["plan_id"], batch_status(0, "ready"))
+        assert client.post(f"{PLANS}/{plan['plan_id']}/continue").status_code == 202
+        wait_plan(client, plan["plan_id"], lambda p: p["status"] == "completed")
+        dataset = out / "chosen-b01"
+        assert len(list((dataset / "nifti").glob("*.nii.gz"))) == 2
+        assert not (tmp_path / "derived" / "_datasets" / "chosen-b01").exists()
+        project = client.post(
+            "/api/v1/projects", json={"name": "Chosen", "dataset_root": str(dataset)}
+        )
+        assert project.status_code == 201, project.text
+
+
+def test_a_destination_must_be_a_plain_writable_folder_outside_app_and_source(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source" / "dicom"
+    patients(source, ["a"])
+    (tmp_path / "source" / "derived").mkdir()
+    (tmp_path / "source" / "real").mkdir()
+    (tmp_path / "source" / "link").symlink_to(tmp_path / "source" / "real")
+    refused = {
+        "relative": "converted",
+        "missing": str(tmp_path / "source" / "missing"),
+        "managed": str(tmp_path / "source" / "derived"),
+        "symlink": str(tmp_path / "source" / "link"),
+        "inside source": str(source / "a"),
+        "app folder": str(tmp_path / "derived"),
+        "outside roots": str(tmp_path),
+    }
+    with app_client(tmp_path) as client:
+        for case, destination in refused.items():
+            plan = client.post(PLANS, json={"path": str(source), "destination": destination})
+            operation = client.post(
+                API,
+                json={
+                    "path": str(source),
+                    "idempotency_key": f"destination-{case}".replace(" ", "-"),
+                    "destination": destination,
+                },
+            )
+            assert plan.status_code in {403, 422}, (case, plan.text)
+            assert operation.status_code in {403, 422}, (case, operation.text)
+        bound = client.post(
+            API,
+            json={
+                "path": str(source),
+                "idempotency_key": "destination-open",
+                "purpose": "open",
+                "destination": str(tmp_path / "source" / "real"),
+            },
+        )
+        assert bound.status_code == 422
+
+
 def test_manual_plan_stops_at_each_batch_until_continue(tmp_path: Path) -> None:
     source = tmp_path / "source"
     patients(source, ["a", "b"])

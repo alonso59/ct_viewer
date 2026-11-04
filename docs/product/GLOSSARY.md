@@ -25,7 +25,7 @@ Depends: none (terms point to their owning docs by ID).
 | Contribution point | What a plugin can add: tasks, views, editors, overlays, panels, commands, columns, packs (PLG-) |
 | Study pack | Optional plugin bundle of labels, phases and profiles applied to a project (PRJ-16) |
 | Layer | Plugin-owned columns joined to the converter rows (analyzers, labeling, curation); never written into `metadata.jsonl` (ADR-0020) |
-| Workspace task | A task that runs without a project and writes to `_datasets/` (TSK-13) |
+| Workspace task | A task that runs without a project and writes a new dataset folder in a chosen destination (TSK-13) |
 | Overlay window | A modal work window a plugin opens from a button, e.g. the converter (UI-25) |
 | View-only link | `/v/{token}`: read-only access to a project without revealing its id (PRJ-17) |
 | Quick fingerprint | `size` + SHA-256 of the first and last 64 KiB of a file |
@@ -50,7 +50,7 @@ Depends: none (terms point to their owning docs by ID).
 | Profile | Named, hashed radiomics settings set |
 | Run | One execution of a task over a selection (a radiomics extraction with one profile, a conversion, a segmentation, …) |
 | Job | One piece of background work the server tracks (index, hashes, thumbnails, a run, opening a source); the Jobs panel lists them |
-| Dataset | A converted or managed data folder under the workspace (`_datasets/`), viewable without a project or reopened as one (PRJ-19) |
+| Dataset | A converted or managed data folder (a conversion's destination, or the legacy `_datasets/`), viewable without a project or reopened as one (PRJ-19) |
 | CTFlow | The command and script console over the task services, in the browser and as `ctflow` in a terminal (CTF-*) |
 | Command | A CTFlow name with options and a target, over one task or one core action |
 | Script run | One durable execution of a CTFlow script; its journal lists every resolved call and the run it started |

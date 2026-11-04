@@ -1,4 +1,4 @@
-// Without a project the output is a write-once workspace dataset (`{derived}/_datasets/{name}/`);
+// Without a project the output is a new write-once dataset folder `{destination}/{name}/`;
 // inside a project it can convert into it instead. While it works, × and Escape minimize it to a
 // chip that shows the progress and the work goes on server-side.
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
@@ -29,7 +29,7 @@ import { DerivedRootDialog, FolderBrowser, NewProjectDialog, useImportWizard, ty
 import { ProblemError, toProblemError } from '../../api/problem'
 import { Button, ConfirmInline, Dialog, fmtBytes, fmtDate, fmtDuration, IndeterminateProgress, NumberInput, openPath, ProblemCard, Progress, useAnnounce } from '../../lib'
 import { Icon, codicon } from '../../theme'
-import { datasetSlug, defaultDatasetName, STEPS, useConverter, type Draft, type Step } from './store'
+import { datasetSlug, defaultDatasetName, defaultDestination, rememberDestination, STEPS, useConverter, type Draft, type Step } from './store'
 import { BatchBoard, BatchPlanList } from './BatchBoard'
 import { BatchPreview } from './BatchPreview'
 import { ConversionTime, CONV_STATUS, countLabel, DiscoveryNotes, operationCount, preparingKey, runCount, type StageCount } from './OperationProgress'
@@ -235,10 +235,12 @@ export default function ConverterOverlay() {
   const projects = useProjects().data ?? []
   const datasets = useWorkspaceRuns().data ?? []
   const slug = datasetSlug(settings.name.trim() || defaultDatasetName())
-  const taken = new Set(datasets.map((r) => r.name))
-  const clash = target === 'dataset' && taken.has(slug) ? { name: slug } : null
+  const destination = settings.destination.trim().replace(/(.)\/+$/, '$1')
+  const taken = new Set(datasets.map((r) => r.dataset_dir))
+  const inDestination = (name: string) => `${destination.replace(/\/$/, '')}/${name}`
+  const clash = target === 'dataset' && taken.has(inDestination(slug)) ? { name: slug } : null
   let nextFree = slug
-  for (let n = 1; taken.has(nextFree); n++) nextFree = `${slug}-${n}`
+  for (let n = 1; taken.has(inDestination(nextFree)); n++) nextFree = `${slug}-${n}`
   const legacyWorkspace = useWorkspaceRun(!operationId && run?.kind === 'dataset' ? run.rid : null).data
   const legacyProject = useTaskRun(pid ?? '', !operationId && run?.kind === 'project' ? run.rid : null).data
   const linked = operation?.conversion_run
@@ -251,6 +253,7 @@ export default function ConverterOverlay() {
   const intoProject = target === 'project' && !!pid
   const needsDerived = intoProject && !!project && !project.path_roots.some((r) => r.role === 'derived')
   const taskSettings = { target_profile: settings.target_profile, phase_analyzer: settings.phase_analyzer, anonymize: settings.anonymize }
+  const datasetDestination = intoProject ? {} : { destination: destination || null }
   const setSettings = (s: Partial<Draft['settings']>) => patch({ requestKey: null, settings: { ...settings, ...s } })
   const scanProgress = useEstimateProgress(scan?.id ?? null).data
   // An operation can run many attempts over days and carries no attempt start, so only a scan started here is timed.
@@ -271,6 +274,7 @@ export default function ConverterOverlay() {
         target_profile: typeof snapshot.target_profile === 'string' ? snapshot.target_profile : 'generic',
         anonymize: snapshot.anonymize === 'basic' ? 'basic' : 'none', phase_analyzer: snapshot.phase_analyzer !== false,
         name: native && 'dataset_dir' in native ? native.name : operation.dataset_name ?? current.settings.name,
+        destination: operation.dataset_destination ?? (current.settings.destination || defaultDestination(operation.source)),
       },
       estimate: operation.estimate ?? null,
       run: native ? { kind: operation.project_id ? 'project' : 'dataset', rid: native.run_id } : null,
@@ -415,13 +419,13 @@ export default function ConverterOverlay() {
   const dryRun = () => guard(async () => {
     if (!source) return
     if (operation?.stage === 'ready' && !operation.conversion_run_id && operation.source === source && operation.project_id === (intoProject ? pid : null)) {
-      saveOperation(await api.estimateSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, settings: taskSettings, name: settings.name.trim() }))
+      saveOperation(await api.estimateSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, settings: taskSettings, name: settings.name.trim(), ...datasetDestination }))
       patch({ estimate: null, step: 'settings' })
       return
     }
     const requestKey = useConverter.getState().requestKey ?? scanId()
     patch({ requestKey })
-    const value = await api.startSourceOperation({ path: source, project_id: intoProject ? pid : null, purpose: 'convert', prepare_plan: true, settings: taskSettings, name: settings.name.trim() || null, idempotency_key: requestKey })
+    const value = await api.startSourceOperation({ path: source, project_id: intoProject ? pid : null, purpose: 'convert', prepare_plan: true, settings: taskSettings, name: settings.name.trim() || null, ...datasetDestination, idempotency_key: requestKey })
     saveOperation(value)
     patch({ operationId: value.operation_id, estimate: null, run: null, scan: null, step: 'settings' })
   })
@@ -456,7 +460,7 @@ export default function ConverterOverlay() {
     if (!s.source) return
     const previous = s.batchPreview
     const created = await api.createSourceBatchPlan({
-      path: s.source, batch_size: s.batchSize, auto: false, name: s.settings.name.trim() || defaultDatasetName(),
+      path: s.source, batch_size: s.batchSize, auto: false, name: s.settings.name.trim() || defaultDatasetName(), destination: s.settings.destination.trim() || null,
       settings: { target_profile: s.settings.target_profile, phase_analyzer: s.settings.phase_analyzer, anonymize: s.settings.anonymize },
     })
     qc.setQueryData(keys.batchPlan(created.plan_id), created)
@@ -484,10 +488,11 @@ export default function ConverterOverlay() {
   const start = () =>
     guard(async () => {
       if (!source) return
+      if (!intoProject && destination) rememberDestination(destination)
       if (operation) {
         const generation = operation.summary?.generation
         if (typeof generation !== 'string' || !operation.plan_attempt) throw new Error(t('conv.planChanged'))
-        saveOperation(await api.convertSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, inventory_generation: generation, plan_attempt: operation.plan_attempt, name: settings.name.trim() || null, ...(operation.project_id && allowMixedVersions ? { allow_mixed_versions: true } : {}) }))
+        saveOperation(await api.convertSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, inventory_generation: generation, plan_attempt: operation.plan_attempt, name: settings.name.trim() || null, ...(operation.project_id ? {} : { destination: destination || null }), ...(operation.project_id && allowMixedVersions ? { allow_mixed_versions: true } : {}) }))
         patch({ step: 'run' })
         return
       }
@@ -496,7 +501,7 @@ export default function ConverterOverlay() {
         const r = await api.startTaskRun(pid, { task_id: 'dicom.convert', settings: taskSettings, selection, ...(allowMixedVersions ? { allow_mixed_versions: true } : {}) })
         patch({ run: { kind: 'project', rid: r.run_id }, step: 'run' })
       } else {
-        const r = await api.startWorkspaceRun({ task_id: 'dicom.convert', settings: taskSettings, selection, name: settings.name.trim() || null })
+        const r = await api.startWorkspaceRun({ task_id: 'dicom.convert', settings: taskSettings, selection, name: settings.name.trim() || null, ...datasetDestination })
         patch({ run: { kind: 'dataset', rid: r.run_id }, step: 'run' })
       }
     })
@@ -602,7 +607,7 @@ export default function ConverterOverlay() {
               <details open><summary>{t('conv.browseFolders')}</summary><FolderBrowser path={browse} onPath={(p) => patch({ browse: p, source: p, requestKey: null })} selected={source} onSelectFile={(p) => patch({ source: p, requestKey: null })} fileFilter={() => true} /></details>
               <div className="conv-row">
                 <span className="mono conv-path">{source ?? t('conv.noSource')}</span>
-                <button type="button" className="btn btn-primary" disabled={!source} onClick={() => patch({ step: 'settings', settings: { ...settings, name: settings.name || defaultDatasetName() } })}>{t('conv.next')}</button>
+                <button type="button" className="btn btn-primary" disabled={!source} onClick={() => patch({ step: 'settings', settings: { ...settings, name: settings.name || defaultDatasetName(), destination: settings.destination || defaultDestination(source) } })}>{t('conv.next')}</button>
               </div>
             </div>
           ) : null}
@@ -626,6 +631,14 @@ export default function ConverterOverlay() {
                     {clash ? <span className="conv-help" role="note" style={{ color: 'var(--warn)' }}>{t('conv.nameTaken', { name: clash.name, next: nextFree })}</span> : null}
                     <span className="muted conv-help">{t('conv.nameHelp')}</span>
                   </label>
+                ) : null}
+                {target === 'dataset' ? (
+                  <div className="field">
+                    <span className="field-label">{t('conv.destination')}</span>
+                    <div className="conv-row"><span className="mono conv-path" title={t('conv.destinationResult')}>{destination ? inDestination(clash ? nextFree : slug) : t('conv.noDestination')}</span></div>
+                    <details><summary>{t('conv.chooseDestination')}</summary><FolderBrowser path={destination || browse} onPath={(p) => setSettings({ destination: p ?? '' })} selected={destination} /></details>
+                    <span className="muted conv-help">{t('conv.destinationHelp')}</span>
+                  </div>
                 ) : null}
                 <label className="field">
                   <span className="field-label">{t('conv.profile')}</span>

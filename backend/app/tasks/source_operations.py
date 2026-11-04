@@ -103,6 +103,7 @@ class SourceOperationStart(BaseModel):
     import_context: SourceImportContext | None = None
     settings: dict[str, Any] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=200)
+    destination: str | None = Field(default=None, min_length=1)  # parent of a workspace dataset
     folders: list[str] | None = Field(default=None, min_length=1, max_length=5000)
 
 
@@ -120,6 +121,7 @@ class SourceImportCommit(SourceOperationControl):
 class SourceOperationEstimate(SourceOperationControl):
     settings: dict[str, Any] = Field(default_factory=dict)
     name: str | None = Field(default=None, max_length=200)
+    destination: str | None = Field(default=None, min_length=1)
 
 
 class SourceOperationConvert(SourceOperationControl):
@@ -129,6 +131,7 @@ class SourceOperationConvert(SourceOperationControl):
     allow_mixed_versions: bool | None = None
     plan_attempt: int = Field(ge=1)
     name: str | None = Field(default=None, max_length=200)
+    destination: str | None = Field(default=None, min_length=1)
 
 
 class SourceImportUpdate(SourceOperationControl):
@@ -187,6 +190,7 @@ class SourceOperation(BaseModel):
     phase_run: TaskRunDetail | WorkspaceRun | None = None
     prepare_plan: bool = False
     dataset_name: str | None = None
+    dataset_destination: str | None = None
     folders: list[str] | None = None
 
 
@@ -857,7 +861,13 @@ class SourceOperations:
             if settings.get("patient_folders") not in (None, folders):
                 raise ValidationProblem("Choose patient folders either by scope or in settings")
             settings["patient_folders"] = folders
+        if request.destination is not None:
+            if request.project_id is not None or request.purpose != "convert":
+                raise ValidationProblem("Only a conversion without a project takes a destination")
+            self.workspace_tasks.dataset_parent(request.destination, source)
         payload = request.model_dump(mode="json")
+        if request.destination is None:
+            payload.pop("destination")  # receipts created before destinations keep their hash
         if request.folders is None:
             payload.pop("folders")  # receipts created before folder scopes keep their hash
         if request.import_context is None:
@@ -908,6 +918,7 @@ class SourceOperations:
                 settings=settings,
                 prepare_plan=request.prepare_plan,
                 dataset_name=request.name,
+                dataset_destination=request.destination,
                 folders=folders,
             )
             if request.prepare_plan:
@@ -1380,6 +1391,10 @@ class SourceOperations:
                 or not record.summary.get("complete")
             ):
                 raise JobConflict("Source plan generation changed; refresh the dry run")
+            if record.project_id is None:
+                self.workspace_tasks.dataset_parent(
+                    request.destination or record.dataset_destination, Path(record.source)
+                )
             busy = self.jobs.active(WORKSPACE_JOBS, "task", DICOM_CONVERT)
             if record.project_id is None and busy:
                 # Refused before anything is reserved, so the same request can simply be repeated.
@@ -1389,6 +1404,7 @@ class SourceOperations:
             record.conversion_request = {
                 **request.model_dump(),
                 "name": request.name or record.dataset_name or default_dataset_name(),
+                "destination": request.destination or record.dataset_destination,
                 # whoever asks for the conversion is its reviewer, else whoever started the source
                 "reviewer": who or record.reviewer,
             }
@@ -1457,6 +1473,7 @@ class SourceOperations:
                 WorkspaceRunRequest(
                     task_id=DICOM_CONVERT,
                     name=record.conversion_request["name"],
+                    destination=record.conversion_request.get("destination"),
                     settings=record.settings,
                     selection=TaskSelection(source=record.source),
                 ),
@@ -1519,6 +1536,8 @@ class SourceOperations:
             )
             if request.name is not None:
                 record.dataset_name = request.name.strip() or None
+            if request.destination is not None:
+                record.dataset_destination = request.destination
             record.estimate, record.plan_attempt, record.plan_total = None, None, 0
             record.attempt += 1
             self._submit(record)

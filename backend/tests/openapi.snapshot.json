@@ -612,6 +612,18 @@
       "title": "Batch Size",
       "type": "integer"
      },
+     "destination": {
+      "anyOf": [
+       {
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Destination"
+     },
      "name": {
       "anyOf": [
        {
@@ -12364,6 +12376,17 @@
       "title": "Created At",
       "type": "string"
      },
+     "dataset_destination": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dataset Destination"
+     },
      "dataset_name": {
       "anyOf": [
        {
@@ -12712,6 +12735,18 @@
       ],
       "title": "Allow Mixed Versions"
      },
+     "destination": {
+      "anyOf": [
+       {
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Destination"
+     },
      "expected_attempt": {
       "minimum": 1.0,
       "title": "Expected Attempt",
@@ -12769,6 +12804,18 @@
    "SourceOperationEstimate": {
     "additionalProperties": false,
     "properties": {
+     "destination": {
+      "anyOf": [
+       {
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Destination"
+     },
      "expected_attempt": {
       "minimum": 1.0,
       "title": "Expected Attempt",
@@ -12819,6 +12866,18 @@
    "SourceOperationStart": {
     "additionalProperties": false,
     "properties": {
+     "destination": {
+      "anyOf": [
+       {
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Destination"
+     },
      "folders": {
       "anyOf": [
        {
@@ -15890,6 +15949,18 @@
    },
    "WorkspaceRunRequest": {
     "properties": {
+     "destination": {
+      "anyOf": [
+       {
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Destination"
+     },
      "name": {
       "anyOf": [
        {

@@ -40,7 +40,7 @@ from app.core.fsio import (
 )
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import FileLock, LockHeldError, ProjectLocks
-from app.core.paths import PathGuard, PathResolver, is_within, realpath
+from app.core.paths import MANAGED_DIRS, PathGuard, PathResolver, is_within, realpath
 from app.curation.state import case_reviews
 from app.ingest.counting import split_cases
 from app.projects.bundle import extract_bundle, write_bundle
@@ -435,10 +435,12 @@ class Workspace:
         if not path.is_absolute():
             raise ValidationProblem("Dataset folder must be an absolute path")
         root = self.guard.check(path)
-        if root != path or any(
-            p in {".workbench", "derived", "recycle_bin", ".git"} for p in path.parts
-        ):
-            raise ValidationProblem("Choose a dataset folder outside managed or symlinked folders")
+        if any(p in MANAGED_DIRS for p in path.parts):
+            raise ValidationProblem(
+                "A dataset folder cannot be inside .workbench, derived, recycle_bin or .git"
+            )
+        if root != path:
+            raise ValidationProblem("The dataset folder path cannot go through a symlink")
         if create and not root.exists():
             if not root.parent.is_dir():
                 raise ValidationProblem("The parent folder must exist before creating a dataset")
