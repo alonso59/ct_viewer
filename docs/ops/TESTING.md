@@ -83,7 +83,7 @@ All in `frontend/e2e/`, real backend on the fixtures (TST-05, TST-07 hook). Port
 |---|---|
 | `g1-open` · `g2-dicom` · `g3-review` · `g4-radiomics` | Journeys G1..G4 (VISION §Journeys, REL-02) |
 | `network-allowlist` | NFR-12 / FE-06 / BE-11 (REL-06): no request or WebSocket outside the app origin across Home, Open mode, a case tab, radiomics, queue, settings and a dashboard; a foreign one is aborted and fails |
-| `smoke` · `p2-flow` | App boots; P2 exit (49 cases / 89 scan rows on the fixtures, AUD-A2-08; share link in a second browser) |
+| `smoke` · `p2-flow` | App boots; P2 exit (49 cases / 91 scan rows on the fixtures, AUD-A2-08; share link in a second browser) |
 | `p7c-exit` | The P7c exit criterion in one journey (`docs/archive/v3/ROADMAP-done.md` §P7c) |
 | `tst08-multiuser` · `labeling` · `view-only` | TST-08 · TST-19 · TST-18 |
 | `open-mode` · `tasks-dicom` · `converter` · `runner` | SRC-09..14 (TST-15) · DCM + UI-20 · UI-25 / TSK-13 · TST-14 external runner |
