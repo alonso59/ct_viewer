@@ -621,8 +621,8 @@ describe('discovery progress (UI-25)', () => {
       progress: { folders: 5, files: 250, files_total: 1000, folders_total: 20 },
       summary: { inventory_projection: { projected_bytes: 3e9, cap_bytes: 2e9, warning: true } },
     })
-    const note = await screen.findByRole('note')
-    expect(note).toHaveTextContent(`about ${fmtBytes(3e9)}`)
+    // the suggested dataset name is today's, so a same-day recording adds its own "name is taken" note
+    const note = (await screen.findAllByRole('note')).find((n) => n.textContent?.includes(`about ${fmtBytes(3e9)}`))
     expect(note).toHaveTextContent(fmtBytes(2e9))
   })
 
