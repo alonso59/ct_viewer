@@ -87,8 +87,8 @@ def save_config(config: dict[str, Any]) -> None:
 
 
 class Client:
-    def __init__(self, url: str, reviewer: str | None, project: str | None, kind: str) -> None:
-        self.url, self.reviewer, self.project, self.kind = url, reviewer, project, kind
+    def __init__(self, url: str, reviewer: str | None, project: str | None) -> None:
+        self.url, self.reviewer, self.project = url, reviewer, project
         self._catalog: list[dict[str, Any]] | None = None
         self.session: str | None = None  # the server keeps variables and procedures (CTF-08)
 
@@ -119,7 +119,7 @@ class Client:
     def eval(self, line: str, *, plan: bool = False) -> dict[str, Any]:
         body = {
             "line": line, "session": self.session, "project_id": self.project,
-            "plan": plan, "client": self.kind,
+            "plan": plan, "client": "terminal",
         }  # fmt: skip
         try:
             result = dict(self.call("POST", "/ctflow/eval", body))
@@ -167,7 +167,7 @@ def show(result: dict[str, Any]) -> None:
     steps = result.get("steps") or []
     target = steps[0].get("target") if len(steps) == 1 else None
     if target:
-        what = {"source": "source"}.get(target["kind"], f"{target['kind']} · {target['n_items']} items")
+        what = "source" if target["kind"] == "source" else f"{target['kind']} · {target['n_items']} items"
         extra = f" · seg {target['seg_id']}" if target.get("seg_id") else ""
         print(f"target: {what}{extra}")
     for line in result.get("text") or []:
@@ -197,7 +197,7 @@ def is_over(work: dict[str, Any], record: dict[str, Any]) -> bool:
     return status in EXIT
 
 
-def follow(client: Client, work: dict[str, Any], *, logs: bool = True) -> int:
+def follow(client: Client, work: dict[str, Any]) -> int:
     """Print status changes and new log lines until the work ends; Ctrl+C only stops watching."""
     cursor, last = None, None
     try:
@@ -212,12 +212,10 @@ def follow(client: Client, work: dict[str, Any], *, logs: bool = True) -> int:
                 if record.get("waiting"):
                     print(f"  {record['waiting']}")
                 last = label
-            page: dict[str, Any] = {"done": True}
-            if logs:
-                page = client.logs(work, cursor)
-                cursor = page["next_cursor"]
-                for line in page["lines"]:
-                    print(f"  {line['level']:5} {line['text']}")
+            page = client.logs(work, cursor)
+            cursor = page["next_cursor"]
+            for line in page["lines"]:
+                print(f"  {line['level']:5} {line['text']}")
             if is_over(work, record) and page["done"]:
                 return EXIT.get(status, OK)
             time.sleep(POLL_S)
@@ -241,7 +239,7 @@ def run_line(client: Client, line: str, *, detach: bool, plan: bool, as_json: bo
             raise Refused(422, {"detail": f"Name the run or operation: {words[0]} <id>"})
         work = find(client, words[1])
         if words[0] == "attach" or "-f" in words:
-            return follow(client, work, logs=True)
+            return follow(client, work)
         page = client.logs(work, None)
         for entry in page["lines"]:
             print(f"{entry['level']:5} {entry['text']}")
@@ -275,7 +273,7 @@ def run_script(
     """A durable script run (CTF-10): it goes on when this terminal closes."""
     body = {
         "script": script, "library": library, "params": params,
-        "project_id": client.project, "client": client.kind,
+        "project_id": client.project, "client": "terminal",
     }  # fmt: skip
     run = client.call("POST", "/ctflow/script-runs", body)
     work = {"kind": "script-run", "id": run["run_id"], "project_id": run.get("project_id")}
@@ -417,7 +415,7 @@ def main(argv: list[str]) -> int:
         command = " ".join(f'"{w}"' if any(c.isspace() for c in w) else w for w in rest)
     config = load_config()
     name = reviewer or os.environ.get("CTFLOW_REVIEWER") or config.get("reviewer")
-    client = Client(server_url(url), name, project, "terminal")
+    client = Client(server_url(url), name, project)
     if command is None:
         return console(client, config)
     try:

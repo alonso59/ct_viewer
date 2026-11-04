@@ -302,7 +302,7 @@ class Console:
         shown = ResolvedTarget(
             kind=target.kind,
             project_id=pid,
-            n_items=len(target.item_ids) if target.kind != "source" else 0,
+            n_items=len(target.item_ids),
             item_ids=target.item_ids[:ITEMS_SHOWN],
             seg_id=target.selection.seg_id,
             labels=target.selection.labels,
@@ -322,7 +322,6 @@ class Console:
             verdict = "ok" if plan.ok else "settings need changes"
             result.text = [f"plan {line.name}: {verdict}{ready}"]
             return result
-        origin, reviewer = call.origin, call.reviewer
         if m.id == DICOM_CONVERT:
             # As the converter window: a durable analysis first, then `convert` (API-69).
             script = call.origin.script_run_id
@@ -338,8 +337,8 @@ class Console:
                     settings=settings,
                     name=name,
                 ),
-                reviewer,
-                origin,
+                call.reviewer,
+                call.origin,
             )
             result.started = WorkRef(
                 kind="source-operation", id=op.operation_id, job_id=op.job_id,
@@ -355,8 +354,8 @@ class Console:
         started = await self.tasks.start(
             pid,
             TaskRunRequest(task_id=m.id, settings=settings, selection=target.selection, name=name),
-            reviewer,
-            origin,
+            call.reviewer,
+            call.origin,
         )
         result.started = WorkRef(
             kind="task-run", id=started.run_id, job_id=started.job_id,
@@ -497,7 +496,7 @@ class Console:
         return result
 
     async def find_work(self, ref: str, pid: str | None) -> tuple[WorkRef, Any]:
-        """A project run (with a project), else a script run, a source operation or a workspace
+        """A script run, else a project run (with a project), a source operation or a workspace
         run."""
         try:
             script = self.runs.get(ref)
@@ -549,23 +548,19 @@ class Console:
             return (await self.runs.control(ref, "cancel")).status
         if work.kind == "task-run":
             assert pid is not None
-            status = (await self.tasks.cancel(pid, ref)).status
-        elif work.kind == "workspace-run":
-            status = (await self.operations.workspace_tasks.cancel(ref)).status
-        else:
-            record = await self.operations.view(ref)
-            control = SourceOperationControl(
-                expected_revision=record.revision,
-                expected_attempt=record.attempt,
-                expected_run_attempt=(
-                    record.conversion_run.attempts if record.conversion_run else None
-                ),
-            )
-            status = (await self.operations.cancel(ref, control)).status
-        return status
+            return (await self.tasks.cancel(pid, ref)).status
+        if work.kind == "workspace-run":
+            return (await self.operations.workspace_tasks.cancel(ref)).status
+        record = await self.operations.view(ref)
+        control = SourceOperationControl(
+            expected_revision=record.revision,
+            expected_attempt=record.attempt,
+            expected_run_attempt=record.conversion_run.attempts if record.conversion_run else None,
+        )
+        return (await self.operations.cancel(ref, control)).status
 
     @staticmethod
-    def is_over(work: WorkRef, record: Any) -> bool:
+    def is_over(work: WorkRef) -> bool:
         if work.kind == "script-run":
             return work.status not in ACTIVE
         return work.status in TERMINAL_TASK_RUN

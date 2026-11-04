@@ -69,10 +69,9 @@ def header(text: str) -> tuple[str, list[ScriptParam]]:
     return summary, params
 
 
-def checked_name(name: str) -> str:
+def checked_name(name: str) -> None:
     if not NAME.match(name):
         raise ValidationProblem("Name a library script like nightly.ctf (letters, digits, . _ -)")
-    return name
 
 
 class Library:

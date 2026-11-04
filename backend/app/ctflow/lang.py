@@ -577,7 +577,8 @@ class Interp:
 
     async def _lindex(self, args: list[str], frame: Frame) -> str:
         self._arity("lindex", args, 2, 2)
-        items, at = self._items(args[0]), self._index(args[1], len(self._items(args[0])))
+        items = self._items(args[0])
+        at = self._index(args[1], len(items))
         return items[at] if 0 <= at < len(items) else ""
 
     async def _lrange(self, args: list[str], frame: Frame) -> str:
@@ -665,16 +666,15 @@ class Interp:
             op = rest[0][1]
             if op in {"&&", "||"} and truth(left) == (op == "||"):
                 # short-circuit: the right side is parsed, not evaluated
-                _, rest = await self._skip(rest[1:], level + 1)
+                rest = self._skip(rest[1:])
                 left = 1 if op == "||" else 0
                 continue
             right, rest = await self._binary(rest[1:], level + 1, frame)
             left = _apply(op, left, right, self._items)
         return left, rest
 
-    async def _skip(
-        self, tokens: list[tuple[str, Any]], level: int
-    ) -> tuple[None, list[tuple[str, Any]]]:
+    @staticmethod
+    def _skip(tokens: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
         depth, i = 0, 0
         while i < len(tokens):
             kind, value = tokens[i]
@@ -687,7 +687,7 @@ class Interp:
             elif kind == "op" and depth == 0 and value in {"&&", "||"}:
                 break
             i += 1
-        return None, tokens[i:]
+        return tokens[i:]
 
     async def _unary(
         self, tokens: list[tuple[str, Any]], frame: Frame

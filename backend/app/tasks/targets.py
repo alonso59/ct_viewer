@@ -94,17 +94,13 @@ def _items(
         raise ValidationProblem("Write the path in full, starting with /")
     path = tasks.workspace.guard.check(Path(raw))
     resolver = tasks.workspace.resolver(pid)
-    under = [i for i in items if i.image and _within(resolver.resolve(i.image.ref), path)]
+    under = [i for i in items if i.image and resolver.resolve(i.image.ref).is_relative_to(path)]
     if not under:
         raise ValidationProblem(
             "This path is not an imported source of the current project",
             actions=["create_project", "import_source"],
         )
     return "path", under
-
-
-def _within(image: Path, path: Path) -> bool:
-    return image == path or path in image.parents
 
 
 def _seg(cfg: ProjectConfig, items: list[Item], chosen: str | None) -> str:

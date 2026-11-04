@@ -23,14 +23,16 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 from pydantic import BaseModel, Field
 
 from app.config import Settings
+from app.core import reviewer as reviewer_stamp
 from app.core.errors import JobConflict, NotFound, Problem, ServerBusy, ValidationProblem
 from app.core.fsio import append_jsonl, atomic_write_json, iter_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.reviewer import Origin
 from app.ctflow.lang import Interp, Limits, ScriptError
-from app.ctflow.library import header
+from app.ctflow.library import SCRIPT_MAX, header
 from app.ctflow.models import CommandResult, EvalError, WorkRef
+from app.ctflow.parse import options_of
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.tasks.logs import LogPage, read_files, redactor, run_log
@@ -48,7 +50,6 @@ RESUMABLE: Final = {"paused", "attention", "interrupted", "failed"}
 LIMITS = Limits(steps=500_000, starts=2_000)
 BUSY_WAIT_S = 3600.0  # a busy task (TSK-12) is waited for this long, then `attention`
 POLL_S = 1.0
-SCRIPT_MAX = 100_000
 
 
 class ScriptRunStart(BaseModel):
@@ -178,8 +179,6 @@ class ScriptRuns:
     # --- lifecycle -----------------------------------------------------------------------------
 
     async def start(self, req: ScriptRunStart, reviewer: str | None) -> ScriptRun:
-        from app.core import reviewer as reviewer_stamp
-
         console = self._console()
         if req.project_id is not None:
             console.tasks.workspace.get(req.project_id)  # unknown: not found
@@ -390,8 +389,6 @@ class ScriptRuns:
         pending: JournalEntry | None,
     ) -> CommandResult:
         """One journaled call; a busy task start waits (CTF-13); `wait` follows a child."""
-        from app.ctflow.parse import options_of
-
         line = options_of(words)
         if pending is not None and line.name in by_name:
             # The server stopped between this start and its journal line: the child, if it was
@@ -429,14 +426,11 @@ class ScriptRuns:
         if not line.args:
             raise ValidationProblem("Name the run or operation: wait <id>")
         while True:
-            work, record = await console.find_work(line.args[0], call.project)
-            if console.is_over(work, record):
+            work, _ = await console.find_work(line.args[0], call.project)
+            if console.is_over(work):
                 break
             await self._set(rid, waiting=f"wait {work.id} ({work.status})")
-            self._finished.clear()
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(self._finished.wait(), POLL_S)
-            self._check(rid, handle)
+            await self._idle(rid, handle, time.monotonic() + POLL_S)
         return CommandResult(
             command="wait", value=work.status, work=work, text=[f"{work.id}  {work.status}"]
         )
@@ -444,10 +438,8 @@ class ScriptRuns:
     # --- output --------------------------------------------------------------------------------
 
     def logs(self, rid: str, cursor: str | None, limit: int) -> LogPage:
-        run = self.get(rid)
-
+        ended = self.get(rid).status not in ACTIVE
         red = redactor(self.settings, None)
-        ended = run.status not in ACTIVE
         return read_files(
             [(self._dir(rid) / "output.jsonl", run_log)], rid, cursor, ended, red, limit
         )
