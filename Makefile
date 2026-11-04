@@ -85,8 +85,8 @@ check: lint typecheck test deadcode api-types bundle-size reqs ## Lint, type che
 
 lint: ## ruff + eslint
 	cd backend && $(BPY) -m ruff check --config pyproject.toml . && $(BPY) -m ruff format --config pyproject.toml --check .
-	$(BPY) -m ruff check --config ruff.toml scripts plugins docs/_sphinx
-	$(BPY) -m ruff format --config ruff.toml --check scripts plugins docs/_sphinx
+	$(VENV)/bin/python -m ruff check --config ruff.toml scripts plugins docs/_sphinx
+	$(VENV)/bin/python -m ruff format --config ruff.toml --check scripts plugins docs/_sphinx
 	$(NODE) npm run lint
 
 typecheck: ## mypy (strict) + tsc (strict)
@@ -131,8 +131,8 @@ reqs: ## Requirement tables check (stdlib, < 1 s)
 
 fix: ## Autofix: ruff check --fix, ruff format, eslint --fix
 	cd backend && $(BPY) -m ruff check --config pyproject.toml --fix . && $(BPY) -m ruff format --config pyproject.toml .
-	$(BPY) -m ruff check --config ruff.toml --fix scripts plugins docs/_sphinx
-	$(BPY) -m ruff format --config ruff.toml scripts plugins docs/_sphinx
+	$(VENV)/bin/python -m ruff check --config ruff.toml --fix scripts plugins docs/_sphinx
+	$(VENV)/bin/python -m ruff format --config ruff.toml scripts plugins docs/_sphinx
 	$(NODE) npx eslint --fix .
 
 bundle-baseline: ## Record the current initial JS size in frontend/bundle-baseline.json (commit it)
