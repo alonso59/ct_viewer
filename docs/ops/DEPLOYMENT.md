@@ -133,6 +133,9 @@ Web UI uses port **5180** for both the compiled frontend and API. Set `PORT` and
 to change it. Development Vite keeps its separate 5173 convention (DEV_ENV.md).
 
 Before an image upgrade, drain work and back up workspace metadata and release configuration.
+Runs that cannot cross an upgrade must finish first or start again afterwards:
+- nnU-Net runs paused or interrupted before the `segment` command: CTFLOW.md §Implementation notes (shipped command names), including the host runner's `PLUGINS_ROOT` copy.
+- DICOM conversions pinned before ADR-0042: resume refuses them, so finish them on the old image.
 An image predating ADR-0038 does not preserve per-label exclusions when it writes project metadata;
 rolling back to it requires the compatible pre-upgrade metadata snapshot after verified cleanup.
 
