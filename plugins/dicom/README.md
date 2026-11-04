@@ -27,9 +27,10 @@ rw-dicom status /data/out
 
 - **Resume:** run the same command again. Verified series are kept (their SHA-256 is checked), the rest is converted. A changed source or changed settings refuse to resume; use a new output folder.
 - **Stop:** Ctrl-C, closing the terminal or `kill` let running series finish and record the run as interrupted; a second signal stops at once. Nothing keeps running after the terminal closes: use `tmux`, `screen`, `nohup rw-dicom … > log 2>&1 &` or `systemd-run --user` for long runs.
-- **Workers:** `--workers auto` (the default: available CPUs, at most 8) or `--workers N`, with `--memory-mb` as the total budget of all workers (default: half of physical memory). `--workers 1` converts in one process. Outputs are identical for any worker count.
+- **Workers:** `--workers auto` (the default: available CPUs, at most 8) or `--workers N`, with `--memory-mb` as the total budget of all workers (default: half of the SLURM allocation, or of physical memory). `--workers 1` converts in one process. Outputs are identical for any worker count.
 - **Settings:** the keys of `dicom.convert` (`target_profile`, `anonymize`, `sidecars`, `convert_primary`, …; see `rw_dicom/task_settings.json`). Unknown keys are refused.
-- **Config file:** `--config run.yaml` (or `.json`) with `source`, `output`, `settings` and `execution` (`workers`, `memory_mb`, `max_failures`, `allow_mixed_versions`, `batch_size`, `inventory_mb`). The converter's original YAML keys (`dataset_root`, `output_root`, `conversion`, `outputs`, `mode`) still work: `rw-dicom old.yaml`.
+- **Config file:** `--config run.yaml` (or `.json`) with `source`, `output`, `settings` and `execution` (`workers`, `memory_mb`, `max_failures`, `allow_mixed_versions`, `batch_size`, `inventory_mb`, `state_dir`). The converter's original YAML keys (`dataset_root`, `output_root`, `conversion`, `outputs`, `mode`) still work: `rw-dicom old.yaml`.
+- **Cluster:** run inside `sbatch`, and when the output is on Lustre, GPFS or NFS add `--state-dir` on node-local disk: SQLite's write-ahead log does not work on those file systems. Losing that folder only costs a new header scan. The output's file system must support `flock`. Example: `docs/ops/DEPLOYMENT.md` §HPC.
 - **Exit code:** 0 when the dataset is complete; 1 when series failed or are pending, or the run was refused.
 
 ## Python

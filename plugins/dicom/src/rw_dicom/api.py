@@ -5,7 +5,8 @@
 
 An output folder is one dataset (ct_viewer's workspace-dataset layout, DCM-14/28). Running the
 same conversion again resumes it: verified series are kept, the rest is converted. Private run
-state (inventory with cached headers, pins, journal, outcomes) lives in `.rw-runs/` (0700).
+state (inventory with cached headers, pins, journal, outcomes) lives in `.rw-runs/` (0700); the
+inventory can live elsewhere (`state_dir`).
 `convert_batches` splits a source's patient folders into one dataset per batch.
 """
 
@@ -14,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import fnmatch
+import hashlib
 import json
 import os
 import tempfile
@@ -51,7 +53,13 @@ def default_workers() -> int:
 
 
 def default_memory_mb() -> int:
-    """Half of physical memory: the total budget shared by all workers when none is given."""
+    """Half of this SLURM allocation or of physical memory: the budget all workers share."""
+    per_node = os.environ.get("SLURM_MEM_PER_NODE", "")
+    per_cpu, cpus = os.environ.get("SLURM_MEM_PER_CPU", ""), os.environ.get("SLURM_CPUS_ON_NODE", "")
+    if per_node.isdigit() and int(per_node) > 0:  # 0 asks for all the node's memory
+        return max(1, int(per_node) // 2)
+    if per_cpu.isdigit() and cpus.isdigit() and int(per_cpu) * int(cpus) > 0:
+        return max(1, int(per_cpu) * int(cpus) // 2)
     try:
         return int(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2 / MIB)
     except (ValueError, OSError):
@@ -151,12 +159,15 @@ def convert(
     nifti_dir: str = "nifti",
     metadata_file: str = "metadata.jsonl",
     inventory_mb: int = 16384,
+    state_dir: str | Path | None = None,
     stop: Callable[[], bool] = lambda: False,
     on_stage: Stage | None = None,
 ) -> dict[str, Any]:
     """Convert (`mode`: convert | retry_failed) or plan (dry_run) one dataset; see the module doc.
 
-    `workers` None: `default_workers()`; with more than one, `memory_mb` None is half the RAM."""
+    `workers` None: `default_workers()`; with more than one, `memory_mb` None is half the RAM.
+    `state_dir` keeps the inventory on a local disk, since SQLite's WAL does not work over network
+    file systems. Losing it costs a new header scan: pins and commits stay in the output."""
     workers = default_workers() if workers is None else workers
     if workers < 1:
         raise ValueError("workers must be at least 1")
@@ -167,6 +178,9 @@ def convert(
         raise ValueError("DICOM source is unavailable")
     if source.is_relative_to(out) or out.is_relative_to(source):
         raise ValueError("DICOM source and output roots must not overlap")
+    state_root = None if state_dir is None else Path(state_dir).resolve()
+    if state_root is not None and state_root.is_relative_to(source):
+        raise ValueError("The state folder must be outside the DICOM source")
     if mode not in {"convert", "dry_run", "retry_failed"}:
         raise ValueError("mode must be convert, dry_run or retry_failed")
     normalized, _ = conversion_settings(settings or {})
@@ -267,7 +281,12 @@ def convert(
                 outcomes_version=1,
             )
             _write(record_path, record)
-            inventory_path = run_dirs / "inventory.sqlite"
+            inventory_dir = run_dirs
+            if state_root is not None:  # one inventory per output, also for batches sharing the folder
+                state_root.mkdir(parents=True, exist_ok=True)
+                inventory_dir = state_root / hashlib.sha256(str(out).encode()).hexdigest()[:16]
+                _private(inventory_dir)
+            inventory_path = inventory_dir / "inventory.sqlite"
         else:
             inventory_path = (
                 Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="rw-dicom-plan-"))) / "inventory.sqlite"

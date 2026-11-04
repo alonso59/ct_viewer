@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -298,3 +299,59 @@ def test_a16_parallel_header_parsing_builds_the_same_inventory(tmp_path: Path) -
         )  # fmt: skip
         db.close()
     assert tables[0] == tables[1] and len(tables[0][1]) == 6
+
+
+def test_state_dir_keeps_the_inventory_on_local_disk_and_may_be_lost(tmp_path: Path) -> None:
+    """OPS-24: a job stopped on one node resumes on another whose local disk has no inventory."""
+    source, out, state = (
+        source_tree(tmp_path / "src", patients=3),
+        tmp_path / "out",
+        tmp_path / "local",
+    )
+    started: list[str] = []
+
+    def stage(name: str, _done: int, _total: int) -> None:
+        started.append(name)
+
+    stopped = api.convert(
+        source,
+        out,
+        workers=1,
+        state_dir=state,
+        on_stage=stage,
+        stop=lambda: "converting" in started,
+    )
+    assert not stopped["complete"]
+    inventories = list(state.glob("*/inventory.sqlite"))
+    assert len(inventories) == 1 and inventories[0].parent.stat().st_mode & 0o077 == 0
+    assert not (out / ".rw-runs" / "inventory.sqlite").exists()
+    shutil.rmtree(state)
+    assert api.convert(source, out, workers=1, state_dir=state)["complete"]
+    assert api.convert(source, out, workers=1)["complete"], "a run without the option keeps working"
+    with pytest.raises(ValueError, match="outside the DICOM source"):
+        api.convert(source, tmp_path / "other", workers=1, state_dir=source / "state")
+
+
+def test_batches_share_a_state_dir_with_one_inventory_each(tmp_path: Path) -> None:
+    """OPS-24, DCM-34: the CLI option reaches every batch, whose folder scopes differ."""
+    source, state = source_tree(tmp_path / "src", patients=3), tmp_path / "local"
+    args = ["convert", str(source), str(tmp_path / "out"), "--batch-size", "2", "--workers", "1"]
+    assert cli.main([*args, "--state-dir", str(state)]) == 0
+    assert len(list(state.glob("*/inventory.sqlite"))) == 2
+
+
+def test_default_memory_budget_follows_the_slurm_allocation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OPS-24: half of the allocation, not half of a shared node's memory."""
+    for name in ("SLURM_MEM_PER_NODE", "SLURM_MEM_PER_CPU", "SLURM_CPUS_ON_NODE"):
+        monkeypatch.delenv(name, raising=False)
+    physical = api.default_memory_mb()
+    monkeypatch.setenv("SLURM_MEM_PER_NODE", "32000")
+    assert api.default_memory_mb() == 16000
+    monkeypatch.setenv("SLURM_MEM_PER_NODE", "0")
+    assert api.default_memory_mb() == physical
+    monkeypatch.delenv("SLURM_MEM_PER_NODE")
+    monkeypatch.setenv("SLURM_MEM_PER_CPU", "4000")
+    monkeypatch.setenv("SLURM_CPUS_ON_NODE", "8")
+    assert api.default_memory_mb() == 16000

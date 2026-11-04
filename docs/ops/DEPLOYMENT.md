@@ -1,8 +1,8 @@
 # Deployment
 
-Scope: OCI image, Docker (local), udocker (remote, no sudo), configuration, upgrades.
+Scope: deployment options (native, Docker/udocker, HPC), OCI image, configuration, upgrades.
 Read when: building or running the image, or changing env vars.
-Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
+Depends: ADR-0007, ADR-0014, ADR-0016, ADR-0043, backend/ARCHITECTURE.md, domain/TASKS.md.
 
 ## Requirements
 
@@ -29,6 +29,17 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | OPS-19 | Where the accepted backend uses an unprivileged sandbox, verify write/network effects and inheritance before GPU admission. Sandbox installation failure refuses launch; conda, torchrun, visibility variables and udocker never certify OS isolation. Explicit runtime filesystem/device allowances and syscall limitations remain documented in domain/SEGMENTATION_RUNTIMES.md. | M |
 | OPS-20 | SLURM execution is a separate deployment acceptance gate: approved scheduler resources, shared filesystem/environment visibility, durable scheduler identity and cleanup reconciliation. Configuration validation or fake scheduler tests do not certify an inaccessible cluster. | M |
 | OPS-21 | `scripts/ctflow.py` (CTF-18) runs with any Python 3 on the host or inside the container, standard library only, nothing installed (R4). It reaches the app at `http://127.0.0.1:$PORT` with `PORT` from the same `.env` as `./rw` (`RW_ENV`), or `--url`/`CTFLOW_URL`. Make it `ctflow` with a link on `PATH`, e.g. `ln -s "$PWD/scripts/ctflow.py" ~/.local/bin/ctflow`. It stores only `~/.config/ctflow/` (reviewer name, history without absolute paths). | S |
+| OPS-22 | Native deployment: `scripts/rw-native.py` runs a frozen release from a conda environment pinned by the lock, as a systemd user service, without sudo. It smoke-tests a release before any restart, refuses to switch while work or a GPU allocation is active, verifies health, projects and the served web app, and restores the previous release on failure. Node is used to build only. | S |
+| OPS-23 | HPC deployment: the app and a light runner run on an approved service or submission node, in Apptainer from the image or a native conda environment; never compute on a login node. Heavy work runs only in scheduler allocations. GPU segmentation there needs OPS-20. Accepted only on a real cluster. | S |
+| OPS-24 | `rw-dicom` under a scheduler: `--state-dir` keeps the inventory on node-local disk while the output stays on shared storage, and losing it costs only a new header scan; the default memory budget is half of the job's allocation; SIGTERM stops dispatch and a new job resumes. The output's file system must support `flock`. | S |
+
+## Options (ADR-0043)
+
+| Option | Use when | Section |
+|---|---|---|
+| Native | One server or workstation with conda, no sudo, performance matters | §Native |
+| Docker / udocker | The server has Docker, or a portable artifact matters more than speed | §Docker, §udocker |
+| HPC | SLURM cluster | §HPC |
 
 ## Config (env vars)
 
@@ -52,7 +63,7 @@ Depends: ADR-0007, ADR-0014, ADR-0016, backend/ARCHITECTURE.md, domain/TASKS.md.
 | `PLUGINS_ROOT` | *(empty)* | Read-only dir of external task manifests (TSK-01); the runner uses the same dir on the host |
 | `BUILTIN_PLUGINS_ROOT` | `plugins/` next to `backend/` (`/app/plugins` in the image) | Builtin task plugins (converter, analyzers); normally left unset |
 | `DICOM_MEMORY_MB` | *(unset: headers/Estimate only)* | Explicit pixel-worker virtual-address ceiling, 512..1,048,576 MiB; with `DICOM_WORKERS` > 1 it is the total for all workers. Per-series admission includes current address space, native-library reserve and conservative working buffers. An oversized series waits with a remedy; raise the declared budget and resume after restart. No free-host-memory inference. |
-| `HOST_ALLOCATION_ROOT` | *(development: workspace-private pool)* | In container mode, pixel work requires an explicit canonical, private, writable pool visible to all participating app workspaces and equal to the host runner's `state_dir`. Same Unix identity; ownership/mode 0700 enforced. Prefer a private directory under an already shared writable mount; the path need not be spelled identically across bind mounts, but device/inode identity must match. |
+| `HOST_ALLOCATION_ROOT` | *(development: workspace-private pool)* | In container mode, pixel work requires an explicit canonical, private, writable pool visible to all participating app workspaces and equal to the host runner's `state_dir`. It must not overlap a source root, except inside a dot folder, which discovery and browsing never enter. Same Unix identity; ownership/mode 0700 enforced. Prefer a private directory under an already shared writable mount; the path need not be spelled identically across bind mounts, but device/inode identity must match. |
 | `DICOM_CPU_THREADS` | `4` | 1..12; plus `JOB_WORKERS` must be ≤12. Owned workers restrict affinity to at most this many available CPUs, header threads to at most four and numerical/ITK threads to one. DICOM and configured GPU attempts serialize through the participating pool. These are application budgets, not host-wide control of other users. |
 | `DICOM_WORKERS` | `1` | 1..`DICOM_CPU_THREADS`; series a conversion converts in parallel inside its owned process group (DCM-32). Workers share `DICOM_MEMORY_MB` as one total: a series starts only while every worker's baseline plus the running series' estimated working sets fit. Raise it after measuring on the host (DICOM_STANDALONE_TEST_PLAN.md §Evidence). |
 | `DICOM_HEADER_MB` | `8` | 1..64; header read cap in owned DICOM workers. Compatibility-adapter/global header-budget consistency remains in DICOM_JOB_PLAN.md. |
@@ -78,6 +89,29 @@ DICOM resource coordination (BE-16): the API writes `dicom-resources.json` under
 ```
 
 `make up` / `make down` / `make logs` wrap it. Every command is idempotent (`init` never overwrites `.env` without `--force`; `up` on a healthy app only prints the URL). On a remote server, open the printed port through the VS Code Ports view (AGENTS R7). Under Docker, `./rw up` is `docker compose up -d` (compose builds the image when it is missing); under udocker it runs `scripts/udocker-run.sh` in the background (pid and log in `.rw/`, git-ignored).
+
+## Native (conda, no sudo)
+
+```bash
+python3 scripts/rw-native.py prepare [--python-env rw-server] [--node-env rwnode]  # release + smoke, nothing restarts
+python3 scripts/rw-native.py deploy native-YYYYMMDD-abcdefg                       # OPS-22, restores on failure
+python3 scripts/rw-native.py rollback                                             # the release before the last deploy
+```
+
+Needs conda, a C compiler for PyRadiomics, and `npm` on `PATH` or a conda environment with Node (`conda create -n rwnode -c conda-forge nodejs=22`). `deploy` keeps `config/runtime.env` and adds `config/native.env` (`CONTAINER_MODE=0`, release paths, the real `HOST_ALLOCATION_ROOT`). Host paths are the container's: projects need no relink. The first switch from a container also restores to it: `rollback` puts back that image's unit. `prepare` builds the commit at `HEAD`; uncommitted changes never ship.
+
+## HPC (SLURM)
+
+Run the app per OPS-23: `apptainer build rw.sif docker-archive:rw-{version}.tar` where the site offers Apptainer, otherwise §Native on the service node. Convert in a job (OPS-24), not through the app:
+
+```bash
+#!/bin/bash
+#SBATCH --cpus-per-task=16 --mem=64G --time=24:00:00 --signal=B:TERM@300
+exec rw-dicom convert /lustre/project/dicom /lustre/project/out --workers "$SLURM_CPUS_PER_TASK" \
+  --state-dir "${SLURM_TMPDIR:-/tmp/rw-$SLURM_JOB_ID}"
+```
+
+Submit the same script again to resume, on any node. Installation: `plugins/dicom/README.md`. Several jobs: one output folder each. Site policy (partition, account, QOS) and scratch location are the operator's; this path is not yet accepted on a real cluster.
 
 ## Docker (local machine)
 

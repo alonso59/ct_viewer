@@ -10,3 +10,5 @@ Status: Accepted · Date: 2026-09-23
 **Rejected.** Separate images for API, workers and DB (incompatible with the simplicity needed for udocker). Native install without containers on servers (dependency drift).
 
 **Amended by ADR-0014 and ADR-0016.** A third, writable mount holds the derived root; heavy plugins run outside the image through a host runner and a file queue, and the image stays the one core artifact.
+
+**Superseded in part by ADR-0043.** Native installs on servers are now an option; the image contract above stands for Docker, udocker and Apptainer.

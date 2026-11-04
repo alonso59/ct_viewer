@@ -7,6 +7,15 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _overlaps_source(pool: Path, root: Path) -> bool:
+    """A dot folder below a source root is outside it: discovery and browsing never enter one."""
+    if pool == root or pool in root.parents:
+        return True
+    return root in pool.parents and not any(
+        part.startswith(".") for part in pool.relative_to(root).parts
+    )
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -49,10 +58,7 @@ class Settings(BaseSettings):
         pool = self.host_allocation_root
         if pool is not None and (not pool.is_absolute() or pool.resolve() != pool):
             raise ValueError("HOST_ALLOCATION_ROOT must be absolute and canonical")
-        if pool is not None and any(
-            pool == root or root in pool.parents or pool in root.parents
-            for root in self.allowed_roots
-        ):
+        if pool is not None and any(_overlaps_source(pool, root) for root in self.allowed_roots):
             raise ValueError("HOST_ALLOCATION_ROOT must not overlap a source root")
         return self
 

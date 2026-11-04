@@ -12,7 +12,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0004 | No accounts; link sharing; reviewer name stamp | Accepted (amended by 0019) |
 | 0005 | Register data in place with path aliases | Accepted (amended by 0014) |
 | 0006 | Radiomics via engine adapter; PyRadiomics default; IBSI reference hidden from the GUI | Accepted (spike passed; pinned upstream commit; amended by 0016) |
-| 0007 | One OCI image for Docker and udocker | Accepted (amended by 0014, 0016) |
+| 0007 | One OCI image for Docker and udocker | Accepted (amended by 0014, 0016; native rejection superseded by 0043) |
 | 0008 | Drop MUI; Radix + tokens + codicons + dockview | Accepted |
 | 0009 | Analytics on Parquet + DuckDB; ECharts for charts | Accepted |
 | 0010 | QuPath-style layout in a VS Code shell, GitHub Dark theme | Accepted |
@@ -48,3 +48,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0040 | Batched DICOM source operations | Accepted (extends 0035) |
 | 0041 | CTFlow: a domain command console over the existing task services | Accepted |
 | 0042 | Standalone DICOM converter package with per-unit input pinning | Accepted (supersedes 0035 §5 whole-run input pin) |
+| 0043 | Three deployment options: native, container, HPC | Accepted (supersedes 0007's rejection of native installs) |

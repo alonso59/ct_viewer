@@ -132,19 +132,14 @@ def run(evidence: Path) -> dict[str, Any]:
         assert process is not None
         if process.poll() is not None:
             return
-        fd = os.pidfd_open(process.pid)
-        try:
-            proc = Path("/proc") / str(process.pid)
-            assert proc.stat().st_uid == os.getuid()
-            assert marker in (proc / "environ").read_bytes().split(b"\0")
-            assert str(REPO / "scripts/container_app.py").encode() in (
-                proc / "cmdline"
-            ).read_bytes().split(b"\0")
-            signal.pidfd_send_signal(fd, sig)
-        except ProcessLookupError:
-            pass
-        finally:
-            os.close(fd)
+        # An unreaped child keeps its PID, so `send_signal` cannot reach a reused one.
+        proc = Path("/proc") / str(process.pid)
+        assert proc.stat().st_uid == os.getuid()
+        assert marker in (proc / "environ").read_bytes().split(b"\0")
+        assert str(REPO / "scripts/container_app.py").encode() in (
+            proc / "cmdline"
+        ).read_bytes().split(b"\0")
+        process.send_signal(sig)
 
     def stop() -> None:
         nonlocal process

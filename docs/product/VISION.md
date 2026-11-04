@@ -81,7 +81,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 - Radiomics dashboard with click-through to the viewer (DB-*) and simple guided statistics with recommendations (ANA-*).
 - Multi-user access by shared project link, with live updates between browsers.
 - CTFlow: a command and script console for the same tasks, in the browser and in a terminal (`ctflow`); long scripts run on the server (CTF-*, ADR-0041).
-- Single OCI image; Docker locally, udocker on remote servers without sudo (OPS-*).
+- Three deployment options without sudo where none is available: native conda, one OCI image on Docker or udocker, and HPC (OPS-22..24, ADR-0043).
 
 ## Out of scope (v3)
 
@@ -106,7 +106,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 3. **Everything is reproducible.** Radiomics runs record their profile hash, engine versions and input fingerprints.
 4. **Portable projects.** A project folder can be copied to another machine and relinked, as in QuPath.
 5. **Quiet, dense UI.** QuPath workflow + VS Code idioms, keyboard-first, progressive disclosure.
-6. **Same image everywhere.** Docker and udocker run the identical artifact.
+6. **One product everywhere.** Docker and udocker run the identical image; native and HPC deployments use the same source and lock (ADR-0043).
 7. **Study-agnostic.** No study-specific field names in code; ccRCC is a preset, not an assumption (ADR-0011).
 
 ## Assumptions

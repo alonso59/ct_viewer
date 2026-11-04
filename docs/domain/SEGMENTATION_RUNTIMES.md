@@ -8,9 +8,9 @@ Depends: ../adr/0034-capability-based-segmentation-runtimes.md, SEGMENTATION.md,
 
 | Backend | Application | Execution | Resource authority | Acceptance |
 |---|---|---|---|---|
-| `local` | Web app in Docker/udocker on the workstation | Existing Python/conda environment on the same Linux host | Verified user-service cgroup; unprivileged sandbox | Linux implementation; other desktop OS adapters and Electron remain future work |
-| `server` | Web app in Docker/udocker on `john` | Existing `torch` conda environment | Same owned cgroup/sandbox backend; cooperative host GPU pool | Real process and inference acceptance required |
-| `slurm` | Web app plus lightweight runner on an approved submission host | Compute allocations; never inference on a login node | Scheduler allocation, site policy and declared worker capabilities | Configuration contract only; submission adapter and real HPC acceptance deferred |
+| `local` | Web app on the workstation, native or in Docker/udocker (OPS-22) | Existing Python/conda environment on the same Linux host | Verified user-service cgroup; unprivileged sandbox | Linux implementation; other desktop OS adapters and Electron remain future work |
+| `server` | Web app on `john`, native or in Docker/udocker (OPS-22) | Existing `torch` conda environment | Same owned cgroup/sandbox backend; cooperative host GPU pool | Real process and inference acceptance required |
+| `slurm` | Web app plus lightweight runner on an approved submission host (OPS-23) | Compute allocations; never inference on a login node | Scheduler allocation, site policy and declared worker capabilities | Configuration contract only; submission adapter and real HPC acceptance deferred |
 
 The browser and API use the same task/job protocol for every backend. A backend is a deployment choice, not arbitrary code supplied by the browser. Three deployments do not imply that a local API can spawn processes on another machine; remote dispatch needs its own approved queue/transport contract.
 

@@ -35,7 +35,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | Shell layout, theme, icons, keybindings | `frontend/UI_SHELL.md` |
 | 2×2 viewer, NiiVue, overlays, W/L | `frontend/VIEWER.md` |
 | Radiomics dashboard | `frontend/DASHBOARD.md` |
-| Docker / udocker / image / env vars | `ops/DEPLOYMENT.md` |
+| Deployment options (native, Docker/udocker, HPC), image, env vars | `ops/DEPLOYMENT.md` |
 | Local and remote dev loop | `ops/DEV_ENV.md` |
 | Test layers, fixtures, gates | `ops/TESTING.md` |
 | Why a decision was made | `adr/README.md` → one ADR |

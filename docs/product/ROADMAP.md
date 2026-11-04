@@ -29,6 +29,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
 | P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
+| P7j | Deployment options: native, Docker/udocker, HPC (ADR-0043) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.

@@ -239,3 +239,25 @@ def test_container_pixel_work_requires_an_explicit_shared_allocation(tmp_path: P
     with pytest.raises(ValidationProblem) as refused:
         require_pixel_budget(settings)
     assert refused.value.actions == ["configure:HOST_ALLOCATION_ROOT"]
+
+
+def test_allocation_root_may_sit_in_a_hidden_folder_below_a_source_root(tmp_path: Path) -> None:
+    """OPS-22: discovery and browsing skip dot folders; a GPU pool in `~/.local` is no source."""
+    root = tmp_path.resolve()
+    workspace = root / ".state" / "workspace"
+    hidden = root / ".local" / "gpu-pool"
+    settings = Settings(
+        workspace_root=workspace,
+        allowed_data_roots=str(root),
+        host_allocation_root=hidden,
+        _env_file=None,  # type: ignore[call-arg]
+    )
+    assert settings.host_allocation_root == hidden
+    for overlapping in (root, root / "data" / "pool", root.parent):
+        with pytest.raises(ValidationError, match="must not overlap a source root"):
+            Settings(
+                workspace_root=workspace,
+                allowed_data_roots=str(root),
+                host_allocation_root=overlapping,
+                _env_file=None,  # type: ignore[call-arg]
+            )

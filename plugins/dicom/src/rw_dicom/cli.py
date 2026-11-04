@@ -4,6 +4,7 @@
     rw-dicom convert SOURCE OUTPUT --batch-size 40      # one dataset per 40 patient folders
     rw-dicom convert SOURCE OUTPUT --dry-run            # plan only: no output state, no pixels
     rw-dicom convert SOURCE OUTPUT --retry-failed       # only the recorded failures
+    rw-dicom convert SOURCE OUTPUT --state-dir /scratch # inventory on local disk (cluster storage)
     rw-dicom status OUTPUT
     rw-dicom LEGACY.yaml                                # the converter's original YAML keys
 
@@ -32,7 +33,15 @@ SETTING_KEYS = (
     "target_profile", "mixed_folder_policy", "patient_pattern", "patient_limit", "patient_folders",
     "anonymize", "sidecars", "phase_analyzer",
 )  # fmt: skip
-EXECUTION_KEYS = {"workers", "memory_mb", "max_failures", "allow_mixed_versions", "batch_size", "inventory_mb"}
+EXECUTION_KEYS = {
+    "workers",
+    "memory_mb",
+    "max_failures",
+    "allow_mixed_versions",
+    "batch_size",
+    "inventory_mb",
+    "state_dir",
+}
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -151,6 +160,7 @@ def parser() -> argparse.ArgumentParser:
     c.add_argument("--batch-size", type=int, help="one dataset per this many patient folders")
     c.add_argument("--allow-mixed-versions", action="store_true", help="add series made by other readers")
     c.add_argument("--inventory-mb", type=int, help="inventory storage budget (default 16384)")
+    c.add_argument("--state-dir", help="local disk for the inventory (needed when OUTPUT is on Lustre, GPFS or NFS)")
     mode = c.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="plan only")
     mode.add_argument("--retry-failed", action="store_true", help="only the recorded failures")
@@ -173,7 +183,7 @@ def _run(args: argparse.Namespace, stop: Stop) -> int:
             raise ValueError("--set needs KEY=VALUE")
         cfg["settings"][key] = _value(value)
     execution = dict(cfg.get("execution") or {})
-    for name in ("memory_mb", "max_failures", "batch_size", "inventory_mb"):
+    for name in ("memory_mb", "max_failures", "batch_size", "inventory_mb", "state_dir"):
         if getattr(args, name) is not None:
             execution[name] = getattr(args, name)
     if args.workers is not None:
@@ -203,6 +213,7 @@ def _convert(source: str, output: str, cfg: dict[str, Any], execution: dict[str,
         "nifti_dir": cfg.get("nifti_dir", "nifti"),
         "metadata_file": cfg.get("metadata_file", "metadata.jsonl"),
         "inventory_mb": int(execution.get("inventory_mb") or 16384),
+        "state_dir": execution.get("state_dir"),
         "stop": stop,
         "on_stage": Progress(stop),
     }
