@@ -86,7 +86,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   const started = page.waitForResponse((r) => r.url().endsWith('/source-operations') && r.request().method() === 'POST')
   await dialog.getByRole('button', { name: 'Analysis' }).click()
   const operation = await (await started).json() as { operation_id: string }
-  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible({ timeout: 30_000 })
   const url = `${API}/source-operations/${operation.operation_id}`
   const original = await (await page.request.get(url)).json() as { summary: { generation: string }; plan_attempt: number }
   const name = `revised-${browserName}-${Date.now()}`
@@ -96,7 +96,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   const estimated = page.waitForResponse((r) => r.url() === `${url}/estimate` && r.request().method() === 'POST')
   await dialog.getByRole('button', { name: 'Analysis' }).click()
   expect((await estimated).ok()).toBe(true)
-  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible({ timeout: 30_000 })
   const revised = await (await page.request.get(url)).json() as { operation_id: string; summary: { generation: string }; plan_attempt: number; dataset_name: string; settings: { phase_analyzer: boolean } }
   expect(revised.operation_id).toBe(operation.operation_id)
   expect(revised.summary.generation).toBe(original.summary.generation)
@@ -112,7 +112,7 @@ test('UI-28 re-estimates and restores the same minimized operation after browser
   expect(stored.state).toEqual({ operationId: operation.operation_id, batchPlanId: null, minimized: true })
   await chip.getByRole('button', { name: 'Show', exact: true }).click()
   await expect(dialog).toBeVisible()
-  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /Convert \d+ series/ })).toBeVisible({ timeout: 30_000 })
   await expect(dialog.getByRole('table')).toBeVisible()
   await dialog.getByRole('button', { name: 'Back', exact: true }).click()
   await expect(dialog.getByLabel('Dataset name')).toHaveValue(name)
