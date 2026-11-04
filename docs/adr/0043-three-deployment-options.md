@@ -31,13 +31,10 @@ udocker gives no network or OS isolation either (ADR-0007, OPS-19), so native lo
 5. **HPC placement.** The app and a light runner never compute on a login node. `rw-dicom` runs inside `sbatch`; the output lives on shared storage and the inventory on node-local disk (`--state-dir`), because it is a rebuildable cache and pins and commits stay in the output. GPU segmentation waits for the adapter and acceptance of OPS-20; nothing here certifies a cluster.
 
 **Consequences.**
-+ On `john`, conversion is 2.6–8.7× and server responses 1.7–16.7× faster, with the same outputs.
-− Native needs its own smoke run: CI's image gates do not exercise a host's environment.
-− A native environment is pinned, not byte-identical across hosts (PyRadiomics compiles locally, needing a C compiler; conda provides Python).
-− HPC remains unaccepted until tried on a real cluster (OPS-20, OPS-23).
++ On `john`, conversion is 2.6–8.7× and server responses 1.7–16.7× faster, with the same outputs. − Native needs its own smoke run: CI's image gates do not exercise a host's environment.
+− A native environment is pinned, not byte-identical across hosts (PyRadiomics compiles locally, needing a C compiler). HPC remains unaccepted until tried on a real cluster (OPS-20, OPS-23).
 
 **Rejected.**
-- Native only, dropping the image: loses the portable artifact and Docker users.
-- Node in production, or Node installed system-wide: no runtime need, and R4.
-- One environment for the app and `torch`: conflicting pins would couple upgrades; allowed only if they happen to coexist.
+- Native only, dropping the image: loses the portable artifact and Docker users. Node in production or system-wide: no runtime need, and R4.
+- One environment required for the app and `torch`: conflicting pins would couple upgrades; allowed only if they happen to coexist.
 - udocker on compute nodes as the HPC default: its emulation overhead hits exactly the heavy work (table above).

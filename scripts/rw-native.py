@@ -230,10 +230,24 @@ def not_socket(folder: str, names: list[str]) -> set[str]:
     return {n for n in names if stat.S_ISSOCK(os.lstat(os.path.join(folder, n)).st_mode)}
 
 
-def restore(backup: Path, state: Path) -> None:
+def write_native_env(state: Path, release: Path, pool: Path) -> None:
+    values = {
+        **release_env(release),
+        "CONTAINER_MODE": "0",
+        "STATIC_ROOT": str(release / "static"),
+        "HOST_ALLOCATION_ROOT": str(pool),
+    }
+    (state / "config/native.env").write_text("".join(f"{k}={v}\n" for k, v in values.items()))
+
+
+def restore(backup: Path, state: Path, pool: Path) -> None:
     """The saved release, units and plugin link; the workspace copy stays a manual decision."""
     has_runner = (backup / RUNNER_UNIT).exists()
     subprocess.run(["systemctl", "--user", "stop", RUNNER_UNIT, APP_UNIT], check=False)
+    previous = json.loads((backup / "release.json").read_text())
+    if previous.get("deployment_kind") == "native-conda":
+        # The unit reads release paths from this file, so a stale one would keep running the new code.
+        write_native_env(state, state / "releases" / previous["tag"], pool)
     shutil.copy2(backup / "release.json", state / "config/release.json")
     shutil.copy2(backup / APP_UNIT, UNITS / APP_UNIT)
     if has_runner:
@@ -287,13 +301,7 @@ def deploy(args: argparse.Namespace) -> int:
         if (pool / "lease.json").exists():
             raise RuntimeError("A GPU allocation appeared")
         shutil.copytree(state / "workspace", backup / "workspace", symlinks=True, ignore=not_socket)
-        values = {
-            **release_env(release),
-            "CONTAINER_MODE": "0",
-            "STATIC_ROOT": str(release / "static"),
-            "HOST_ALLOCATION_ROOT": str(pool),
-        }
-        (state / "config/native.env").write_text("".join(f"{k}={v}\n" for k, v in values.items()))
+        write_native_env(state, release, pool)
         (UNITS / APP_UNIT).write_text(app_unit(state, release, prefix))
         if has_runner:
             text = runner.read_text()
@@ -330,7 +338,7 @@ def deploy(args: argparse.Namespace) -> int:
                 raise RuntimeError("segment.nnunet is not available")
     except Exception as exc:  # noqa: BLE001 - any failure restores the previous release
         print(f"Deploy failed, restoring the previous release: {exc}", file=sys.stderr)
-        restore(backup, state)
+        restore(backup, state, pool)
         print("healthy again:", poll(lambda: api.get("/health")["status"] == "ok", 180), file=sys.stderr)
         return 1
     print(json.dumps({"deployed": meta["tag"], "commit": meta["commit"], "backup": str(backup)}))
@@ -340,7 +348,7 @@ def deploy(args: argparse.Namespace) -> int:
 def rollback(args: argparse.Namespace) -> int:
     state: Path = args.state
     backup = Path(json.loads((state / "config/release.json").read_text())["rollback"])
-    restore(backup, state)
+    restore(backup, state, args.allocation)
     print(json.dumps({"restored": str(backup)}))
     return 0
 
