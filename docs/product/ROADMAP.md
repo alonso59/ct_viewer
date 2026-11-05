@@ -30,8 +30,8 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
 | P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
 | P7j | Deployment options: native, Docker/udocker, HPC (ADR-0043) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
-| P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | 🟨 K1–K3 implemented 2026-11-05 (ADR-0049 for K3), exit pending owner review. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
-| P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | 🟨 A1–A4 done 2026-11-05, exit pending owner review; independent of P7k |
+| P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | ✅ K1–K3 2026-11-05, exit accepted by the owner (ADR-0049 for K3); COH-11 not built. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
+| P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | ✅ 2026-11-05 (owner accepted the exit); independent of P7k |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -120,7 +120,7 @@ Owner decision 2026-11-03: all phases implemented in a row, then verified togeth
 
 ### P7l — Agent interface (ADR-0048, CTFLOW.md)
 
-Independent of P7k. Stop for owner confirmation at the exit.
+Independent of P7k. Exit accepted 2026-11-05.
 - [x] A1 Agent origin; `resume`/`retry`/`diagnose`/`batches`/`batch` commands (CTF-21..23)
 - [x] A2 Batch operation reassign endpoint (API-70)
 - [x] A3 `scripts/rw-mcp.py` (CTF-24, OPS-25)
