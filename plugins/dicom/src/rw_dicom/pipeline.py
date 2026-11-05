@@ -239,6 +239,8 @@ def convert_unit(job: dict[str, Any]) -> dict[str, Any]:
     except resources.MemoryBudgetExceeded as exc:
         return {"status": "waiting_for_resources", "detail": exc.detail}
     except Exception as exc:  # noqa: BLE001 - one failed series never stops the others
+        if "Zero-valued spacing" in str(exc):
+            return {"status": "skipped", "reason": "zero_slice_spacing"}  # slices share one position
         return {"status": "failed", "error": f"{type(exc).__name__}: {exc}", "category": failure_category(exc)}
     if publication is None:
         return {"status": "pending"}
@@ -611,7 +613,21 @@ def run(
         if status == "pending":
             row["status"] = "pending"
             return
-        if status == "failed":
+        if status == "skipped":
+            row["status"] = status
+            row["skip_reason"] = u.message = outcome["reason"]
+            counts["skipped"] += 1
+            diagnostics.append(
+                scan.Diagnostic(
+                    "WARNING",
+                    "series_conversion",
+                    "SERIES_UNSTACKABLE",
+                    outcome["reason"],
+                    str(u.dicom_dir),
+                    u.series_id,
+                )
+            )
+        elif status == "failed":
             row["status"] = "failed"
             u.message = row["raw_metadata_error"] = outcome["error"]
             row["failure_category"] = outcome["category"]
@@ -656,7 +672,7 @@ def run(
             )
         stage("converting", counts["converted"] + counts["already_converted"], selected_total)
         if progress is not None:
-            progress(u.iid, "failed" if status == "failed" else "ok", u.outputs, u.message)
+            progress(u.iid, {"failed": "failed", "skipped": "skipped"}.get(status, "ok"), u.outputs, u.message)
 
     def stop() -> bool:
         return cancelled() or (max_failures is not None and counts["failed"] > max_failures)

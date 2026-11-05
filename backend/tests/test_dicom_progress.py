@@ -46,6 +46,25 @@ def test_native_series_progress_excludes_skips_and_failed_publications(
     assert [row for row in stages if row[0] == "converting"][-1] == ("converting", 1, 2)
 
 
+def test_a_series_with_zero_slice_spacing_is_skipped_not_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "derived"
+    write_series(source / "valid", patient_id="P001")
+    write_series(source / "flat", patient_id="P002")
+    original = commits.commit_series
+
+    def flat_series(series: scan.Series, *args: Any, **kwargs: Any) -> Any:
+        if series.dicom_dir.name == "flat":
+            raise RuntimeError("ITK ERROR: Zero-valued spacing is not supported")
+        return original(series, *args, **kwargs)
+
+    monkeypatch.setattr(commits, "commit_series", flat_series)
+    result = run_conversion(source, output, settings=pipeline.Settings())
+    counts = result.counts
+    assert (counts["converted"], counts["skipped"], counts["failed"]) == (1, 1, 0)
+
+
 @pytest.mark.parametrize("in_project", [False, True])
 def test_api_progress_retains_committed_total_after_native_completion(
     tmp_path: Path, in_project: bool
