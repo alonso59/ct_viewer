@@ -208,6 +208,7 @@ Environment=PATH={prefix / "bin"}:/usr/local/bin:/usr/bin:/bin
 ExecStart={prefix / "bin/python"} {release / "scripts/container_app.py"}
 Restart=always
 RestartSec=3
+LimitNOFILE=1048576
 TimeoutStopSec=30
 KillMode=control-group
 UMask=0022

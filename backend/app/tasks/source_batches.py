@@ -41,6 +41,7 @@ from app.tasks.workspace_runs import (
     WorkspaceRun,
     dataset_name,
     default_dataset_name,
+    incomplete_dataset,
 )
 
 log = logging.getLogger("app.source_batches")
@@ -677,7 +678,7 @@ class SourceBatches:
             counts = incomplete_dataset(dataset)
             if counts is not None and counts["pending"] == 0:
                 failed = counts["failed"]
-        if record.status == "completed" and ((dataset / DATASET_JSON).is_file() or failed):
+        if failed or (record.status == "completed" and (dataset / DATASET_JSON).is_file()):
             batch.status, batch.dataset, batch.error = "completed", run.name, None
             if failed:
                 batch.error = f"{failed} series failed to convert; the rest were kept"

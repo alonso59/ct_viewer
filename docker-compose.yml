@@ -2,7 +2,7 @@
 #   ./rw init && ./rw up     # or: cp .env.example .env (set DATA_HOST); docker compose up -d --build
 services:
   app:
-    image: radiology-workbench:${RW_VERSION:-3.0.0.dev0}
+    image: radiology-workbench:${RW_VERSION:-3.1.0}
     build: .
     env_file: ${RW_ENV:-.env} # ./rw sets RW_ENV when started with another env file
     # These win over .env: container-side paths and bind address are fixed by the image contract.
