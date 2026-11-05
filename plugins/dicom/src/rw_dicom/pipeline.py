@@ -571,6 +571,7 @@ def run(
             sizes = {u.order: sizes[u.order] for u in timed if u.order in sizes}
     bytes_total = sum(sizes.values())
     bytes_done = fresh_bytes = 0
+    unstackable = 0  # selected series the reader rejected; settled, not pending
     fresh_seconds = 0.0
     resource_wait: dict[str, Any] | None = None
     analyzer_rows: list[dict[str, Any]] = []
@@ -602,7 +603,7 @@ def run(
         }
 
     def finish(u: Unit, outcome: dict[str, Any]) -> None:
-        nonlocal bytes_done, fresh_bytes, fresh_seconds, resource_wait, conversion_time
+        nonlocal bytes_done, fresh_bytes, fresh_seconds, resource_wait, conversion_time, unstackable
         status = outcome["status"]
         row = u.row
         if status == "waiting_for_resources":
@@ -617,6 +618,7 @@ def run(
             row["status"] = status
             row["skip_reason"] = u.message = outcome["reason"]
             counts["skipped"] += 1
+            unstackable += 1
             diagnostics.append(
                 scan.Diagnostic(
                     "WARNING",
@@ -726,7 +728,12 @@ def run(
         outputs += u.outputs
     counts["selected"] = selected_total
     counts["pending"] = (
-        0 if dry_run else max(0, selected_total - counts["converted"] - counts["already_converted"] - counts["failed"])
+        0
+        if dry_run
+        else max(
+            0,
+            selected_total - counts["converted"] - counts["already_converted"] - counts["failed"] - unstackable,
+        )
     )
     merged = {_key(r): r for r in previous}
     merged.update({_key(u.row): u.row for u in sorted(found, key=lambda u: u.order)})

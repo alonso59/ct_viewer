@@ -62,7 +62,7 @@ def test_a_series_with_zero_slice_spacing_is_skipped_not_failed(
     monkeypatch.setattr(commits, "commit_series", flat_series)
     result = run_conversion(source, output, settings=pipeline.Settings())
     counts = result.counts
-    assert (counts["converted"], counts["skipped"], counts["failed"]) == (1, 1, 0)
+    assert [counts[k] for k in ("converted", "skipped", "failed", "pending")] == [1, 1, 0, 0]
 
 
 @pytest.mark.parametrize("in_project", [False, True])
