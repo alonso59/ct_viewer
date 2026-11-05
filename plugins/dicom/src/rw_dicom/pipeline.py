@@ -25,7 +25,7 @@ from rw_dicom import commits, resources, rows, scan, sidecar
 from rw_dicom.analyzers import readiness as readiness_rules
 from rw_dicom.analyzers import target as target_rules
 from rw_dicom.identity import Identity
-from rw_dicom.text import contrast_delay, value_to_text
+from rw_dicom.text import contrast_delay, geometry_codes, value_to_text
 
 VERSION = "1.1.0"  # the artifact contract; unchanged while outputs stay byte-identical
 # `metadata.jsonl` holds contract-v1 fields and DICOM facts only. Guesses,
@@ -190,6 +190,8 @@ def decide_conversion(row: dict[str, Any], role: str, role_reason: str, settings
         "PRIMARY": settings.convert_primary,
         "SECONDARY": settings.convert_secondary,
     }.get(role, settings.convert_excluded)
+    if planned and "MATRIX_SIZE_CONFLICT" in geometry_codes(row):
+        return False, "matrix_size_conflict"  # slices of different sizes cannot be stacked
     if planned and settings.skip_unsafe_geometry and readiness_rules.has_unsafe_geometry(row):
         return False, "unsafe_geometry"
     if not planned:

@@ -204,6 +204,7 @@ def test_inspect_turns_geometry_codes_into_diagnostics(monkeypatch: pytest.Monke
 UNSAFE = {"geometry_warning_codes": "LARGE_SLICE_GAP"}
 MISSING = {"geometry_warning_codes": "GEOMETRY_METADATA_MISSING"}
 SKIP = {"skip_unsafe_geometry": True}
+MATRIX = {"geometry_warning_codes": "MATRIX_SIZE_CONFLICT"}
 AXIAL_R = "original axial"
 
 
@@ -220,6 +221,8 @@ AXIAL_R = "original axial"
         ("PRIMARY", AXIAL_R, UNSAFE, SKIP, (False, "unsafe_geometry")),
         ("EXCLUDED", "localizer", UNSAFE, SKIP, (False, "localizer")),
         ("PRIMARY", AXIAL_R, MISSING, SKIP, (True, "")),  # missing tags alone are not unsafe
+        ("PRIMARY", AXIAL_R, MATRIX, {}, (False, "matrix_size_conflict")),  # never stackable
+        ("EXCLUDED", "localizer", MATRIX, {}, (False, "localizer")),
     ],
 )
 def test_convert_or_skip_decision(

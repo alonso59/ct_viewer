@@ -363,3 +363,26 @@ def test_open_pages_complete_series_and_later_items_remain_viewable(
         image = client.get(f"/api/v1/open/{sid}/items/2/image")
         assert image.status_code == 200
         assert nib.Nifti1Image.from_bytes(gzip.decompress(image.content)).shape == (3, 3, 2)
+
+
+def test_raw_data_object_in_a_series_is_left_out_and_the_images_still_convert(
+    tmp_path: Path,
+) -> None:
+    from tests.test_dicom_resume import run_conversion
+
+    source = tmp_path / "source"
+    write_series(source / "mr", shape=(3, 3, 3), marker=(1, 1, 2))
+    images = sorted((source / "mr").glob("*.dcm"))
+    raw = pydicom.dcmread(images[0])
+    raw.SOPClassUID = "1.2.840.10008.5.1.4.1.1.66"
+    raw.file_meta.MediaStorageSOPClassUID = raw.SOPClassUID
+    raw.SOPInstanceUID = raw.file_meta.MediaStorageSOPInstanceUID = pydicom.uid.generate_uid()
+    del raw.ImagePositionPatient, raw.ImageOrientationPatient
+    raw.save_as(source / "mr" / "raw.dcm", enforce_file_format=True)
+
+    diagnostics: list[scan.Diagnostic] = []
+    series = scan.discover(source, diagnostics)
+    assert [len(s.files) for s in series] == [len(images)]
+    assert [d.code for d in diagnostics if d.stage == "dicom_discovery"] == ["RAW_DATA_OBJECT"]
+    result = run_conversion(source, tmp_path / "out")
+    assert result.counts["converted"] == 1 and not result.counts["failed"]

@@ -199,6 +199,11 @@ def _scan_header(path: Path, root: Path | None = None) -> tuple[Any, int] | None
         return None
 
 
+# Vendor raw-data objects share the series UID of the images they came from but carry no slice
+# geometry, so a reader that sees them cannot order the series.
+NON_IMAGE_SOP_CLASSES = frozenset({"1.2.840.10008.5.1.4.1.1.66"})
+
+
 class HeaderRejected(ValueError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -218,7 +223,11 @@ def image_info(path: Path, root: Path | None = None) -> tuple[Any, int] | None:
         and not value_to_text(getattr(ds, "SeriesInstanceUID", "")).strip()
     ):
         raise HeaderRejected("MISSING_SERIES_INSTANCE_UID")
-    return (ds, head[2]) if image_header(ds) else None
+    if not image_header(ds):
+        return None
+    if value_to_text(ds.SOPClassUID).strip() in NON_IMAGE_SOP_CLASSES:
+        raise HeaderRejected("RAW_DATA_OBJECT")
+    return ds, head[2]
 
 
 def identity_codes(headers: list[Any]) -> list[str]:
@@ -307,7 +316,7 @@ def discover(
                         ambiguous = ambiguous or rejected == "MISSING_SERIES_INSTANCE_UID"
                         diagnostics.append(
                             Diagnostic(
-                                "ERROR",
+                                "WARNING" if rejected == "RAW_DATA_OBJECT" else "ERROR",
                                 "dicom_discovery",
                                 rejected,
                                 f"Candidate cannot be safely used: {rejected}",
