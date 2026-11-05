@@ -71,7 +71,7 @@ Outside `backend/`: first-party plugins and the host runner, mapped in `plugins/
 | BE-13 | Graceful shutdown: stop accepting jobs, mark running jobs `interrupted`, flush logs. | S |
 | BE-14 | External tasks: the API process writes `queue/{job_id}/job.json` and `cancel`, tails `progress.jsonl` and relays it as job events; it never starts external processes (TSK-11). A job with no fresh runner heartbeat is `waiting_for_runner`. | M |
 | BE-15 | Startup refuses overlapping `ALLOWED_DATA_ROOTS` / `ALLOWED_DERIVED_ROOTS` (`roots-overlap`, OPS-12). | M |
-| BE-16 | DICOM source work runs in bounded owned processes inside the same OCI image, supervised by the existing job driver (ADR-0035 exception to BE-06 shared-pool execution). Cleanup evidence fences resume/replacement. Aggregate CPU/thread/memory admission accounts for application runner reservations; missing memory configuration blocks pixel conversion actionably. It never kills shared-pool or unrelated work. | M |
+| BE-16 | DICOM source work runs in bounded owned processes inside the same OCI image, supervised by the existing job driver (ADR-0035 exception to BE-06 shared-pool execution). Cleanup evidence fences resume/replacement. DICOM runs on its own CPU/thread/memory budget and does not wait for the host allocation pool (ADR-0047); missing memory configuration blocks pixel conversion actionably. It never kills shared-pool or unrelated work. | M |
 
 ## Concurrency model
 

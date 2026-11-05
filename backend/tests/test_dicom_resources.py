@@ -76,14 +76,13 @@ def test_missing_memory_budget_refuses_conversion_before_allocating_outputs(
         assert list(output.iterdir()) == []
 
 
-def test_segmentation_reservation_blocks_dicom_and_dicom_blocks_the_host_slot(
+def test_dicom_runs_beside_a_segmentation_reservation_without_touching_the_pool(
     tmp_path: Path,
 ) -> None:
     import asyncio
 
     from plugins.runner.gpu import Pool
 
-    from app.core.fsio import read_json
     from app.tasks import protocol
     from app.tasks.dicom_execution import run_dicom_job
 
@@ -91,28 +90,16 @@ def test_segmentation_reservation_blocks_dicom_and_dicom_blocks_the_host_slot(
     write_series(source)
     settings = Settings(workspace_root=workspace, host_allocation_root=pool_root, _env_file=None)  # type: ignore[call-arg]
     pool = Pool(pool_root)
-    assert pool.reserve({"attempt": "synthetic-segmentation", "gpus": ["GPU-test"]})
+    reservation = {"attempt": "synthetic-segmentation", "gpus": ["GPU-test"]}
+    assert pool.reserve(reservation)
     job = workspace / "attempt"
     protocol.write_job(job, {"operation": "inventory", "source": str(source), "attempt": 1})
 
-    async def scenario() -> None:
-        def before_dispatch(_: int) -> None:
-            lease = pool.read()
-            assert lease and lease["owner"] == "dicom" and lease["gpus"] == []
-            assert not pool.reserve({"attempt": "other-workspace", "gpus": ["GPU-test"]})
-
-        execution = asyncio.create_task(
-            run_dicom_job(job, workspace=workspace, settings=settings, on_started=before_dispatch)
-        )
-        await asyncio.sleep(0.2)
-        assert not (job / "launch.json").exists()
-        assert pool.release("synthetic-segmentation")
-        outcome = await asyncio.wait_for(execution, timeout=10)
-        assert outcome["exit_code"] == 0 and outcome["cleanup_verified"]
-        assert read_json(job / "resources.json")["cpu_threads"] == 4
-        assert pool.read() is None
-
-    asyncio.run(scenario())
+    outcome = asyncio.run(
+        asyncio.wait_for(run_dicom_job(job, workspace=workspace, settings=settings), timeout=10)
+    )
+    assert outcome["exit_code"] == 0 and outcome["cleanup_verified"]
+    assert pool.read()["attempt"] == "synthetic-segmentation"
 
 
 def test_insufficient_native_budget_queues_without_pixels_and_can_cancel(tmp_path: Path) -> None:

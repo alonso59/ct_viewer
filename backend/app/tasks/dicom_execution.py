@@ -83,7 +83,6 @@ async def run_dicom_job(
     on_started: Callable[[int], None] | None = None,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
-    from app.tasks.dicom_allocation import HostAllocation
     from app.tasks.dicom_resources import require_pixel_budget
 
     config = settings or Settings(workspace_root=workspace, _env_file=None)  # type: ignore[call-arg]
@@ -102,7 +101,6 @@ async def run_dicom_job(
     )
     attempt = int(spec.get("attempt", 1))
     atomic_write_json(job / "reserved.json", {"attempt": attempt})
-    allocation = HostAllocation(config, job, attempt)
     last_wait = 0.0
 
     def waiting(reason: str) -> None:
@@ -117,9 +115,7 @@ async def run_dicom_job(
             "total": 0,
             "resource_wait": {
                 "reason": reason,
-                "remedy": "configure:HOST_ALLOCATION_ROOT"
-                if reason == "runner_policy_mismatch"
-                else "wait:host_allocation",
+                "remedy": "wait:host_allocation",
             },
         }
         append_jsonl(job / protocol.PROGRESS, [row])
@@ -150,11 +146,6 @@ async def run_dicom_job(
                     waiting("cleanup_pending")
                     await asyncio.sleep(0.1)
                     continue
-            if not allocation.acquire():
-                lock.release()
-                waiting(allocation.blocked_reason)
-                await asyncio.sleep(0.1)
-                continue
             break
         except BaseException:
             lock.release()
@@ -186,12 +177,8 @@ async def run_dicom_job(
     finally:
         # Retain the persistent lease if a process or its cleanup is still unknown.
         if attempt_cleaned(job, attempt):
-            for _ in range(10):
-                if allocation.release():
-                    atomic_write_json(job / "allocation-exit.json", {"attempt": attempt})
-                    lease.unlink(missing_ok=True)
-                    break
-                await asyncio.sleep(0.05)
+            atomic_write_json(job / "allocation-exit.json", {"attempt": attempt})
+            lease.unlink(missing_ok=True)
         lock.release()
     result = protocol.read_result(job) or {}
     if outcome["cleanup_verified"] and result.get("resource_wait"):
