@@ -888,13 +888,14 @@
         "provenance": "Provenance",
         "dataset": "Dataset"
       },
+      "uncategorized": "Other",
       "same": "Same for all: {{value}}",
       "pin": "Pin {{name}}",
       "unpin": "Unpin {{name}}",
       "pinned": "Pinned"
     },
     "grid": {
-      "noColumns": "Pick a group in the navigator to show its fields",
+      "noColumns": "Pick a group in the navigator to add its fields as columns",
       "case": "Case",
       "modality": "Modality",
       "scans": "{{n}} scans",

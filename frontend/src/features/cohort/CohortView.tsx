@@ -98,13 +98,14 @@ export function CohortView() {
                 </GroupRow>
               )
             }
-            return CATEGORIES.map((category) => {
+            // Variables without a category (a NIfTI import has no DICOM fields to classify) go last
+            return [...CATEGORIES, null].map((category) => {
               const inCat = inOrigin.filter((v) => v.category === category)
               if (!inCat.length) return null
               const sel: GroupSelection = { origin: 'metadata', category }
               const open = selEquals(group, sel)
               return (
-                <GroupRow key={category} label={t(`cohort.nav.category.${category}`)} count={inCat.length} open={open} onToggle={() => setGroup(open ? null : sel)}>
+                <GroupRow key={category ?? 'other'} label={t(category ? `cohort.nav.category.${category}` : 'cohort.nav.uncategorized')} count={inCat.length} open={open} onToggle={() => setGroup(open ? null : sel)}>
                   {inCat.map((v) => <VarRow key={v.name} v={v} pinned={pinned} />)}
                 </GroupRow>
               )

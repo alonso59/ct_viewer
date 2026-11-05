@@ -2,7 +2,7 @@
 // COH-03 / COH-10: the grid lists the cases with the open group's fields, expands a case to its
 // scans, marks values that differ across the scans, and orders the rows from the headers.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { useMemo } from 'react'
 import { vi } from 'vitest'
 
@@ -11,6 +11,7 @@ import '../../i18n/lazy'
 import { keys, type CohortCaseRow, type Variable, type VariableCategory, type VariableOrigin } from '../../api'
 import { DEMO_PID } from '../../api/mock/server'
 import { useWorkbench } from '../../shell'
+import { useLayout } from '../../state'
 import { CohortEditor } from './CohortEditor'
 import { useCohort } from './store'
 
@@ -62,6 +63,7 @@ const ROWS: CohortCaseRow[] = [
 function renderGrid() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   qc.setQueryData(keys.variables(DEMO_PID), CATALOG)
+  qc.setQueryData(keys.cohortRows(DEMO_PID, { ...BODY, columns: [] }), { n_cases: 2, n_scans: 3, rows: ROWS })
   qc.setQueryData(keys.cohortRows(DEMO_PID, BODY), { n_cases: 2, n_scans: 3, rows: ROWS })
   qc.setQueryData(keys.cohortRows(DEMO_PID, SORTED), { n_cases: 2, n_scans: 3, rows: [ROWS[1]!, ROWS[0]!] })
   qc.setQueryData(keys.cohortRows(DEMO_PID, SORTED_DESC), { n_cases: 2, n_scans: 3, rows: ROWS })
@@ -81,6 +83,16 @@ beforeEach(() => {
   useCohort.setState({ pid: null, byProject: {}, group: null, pinned: [], expanded: {} })
   useCohort.getState().openProject(DEMO_PID)
   useCohort.getState().setGroup({ origin: 'metadata', category: 'equipment' })
+})
+
+test('with no group chosen the cases still show, and the Cohort navigator opens beside them', () => {
+  useLayout.setState({ activeView: 'project', sidebarVisible: false })
+  renderGrid()
+  act(() => useCohort.getState().setGroup(null))
+  expect(screen.getByText('case-1')).toBeInTheDocument()
+  expect(screen.getByText(/Pick a group in the navigator/)).toBeInTheDocument()
+  expect(useLayout.getState().activeView).toBe('cohort')
+  expect(useLayout.getState().sidebarVisible).toBe(true)
 })
 
 test('a case row expands to its scans and collapses again', () => {

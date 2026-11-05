@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCohortRows, useVariables, type CohortRowsRequest, type CohortSort, type Variable } from '../../api'
 import { ProblemCard } from '../../lib'
 import { useWorkbench } from '../../shell'
+import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { CellMenu } from './CellMenu'
 import { FilterBar } from './FilterBar'
@@ -70,6 +71,8 @@ export function CohortEditor() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
   const vars = useVariables(pid)
+  // The grid's fields are chosen in the Cohort navigator, so opening the grid shows it
+  useEffect(() => { useLayout.getState().set({ activeView: 'cohort', sidebarVisible: true }) }, [])
   const group = useCohort((s) => s.group)
   const pinned = useCohort((s) => s.pinned)
   const filters = useCohort((s) => s.filters)
@@ -93,16 +96,13 @@ export function CohortEditor() {
       {tagsItem ? <TagsPanel itemId={tagsItem} /> : null}
       {balance ? <BalancePanel a={balance.a} b={balance.b} /> : null}
       {timelineCase ? <TimelinePanel caseId={timelineCase} /> : null}
-      {columns.length === 0 ? (
-        <div className="empty">{t('cohort.grid.noColumns')}</div>
-      ) : (
-        <GridSection
-          key={identity}
-          columns={columns}
-          sort={sort}
-          onSort={(column) => setSort(sort?.column === column ? { column, desc: !sort.desc } : { column, desc: false })}
-        />
-      )}
+      {columns.length === 0 ? <div className="muted cohort-hint">{t('cohort.grid.noColumns')}</div> : null}
+      <GridSection
+        key={identity}
+        columns={columns}
+        sort={sort}
+        onSort={(column) => setSort(sort?.column === column ? { column, desc: !sort.desc } : { column, desc: false })}
+      />
     </div>
   )
 }

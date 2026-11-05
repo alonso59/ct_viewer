@@ -55,6 +55,13 @@ test('origin groups in fixed order, Metadata split by category, variable counts'
   expect(screen.queryByRole('button', { name: /Pin status/ })).not.toBeInTheDocument()
 })
 
+test('Metadata fields without a category stay reachable under Other', () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  qc.setQueryData(keys.variables(DEMO_PID), [v('source_kind', 'metadata', null, { type: 'constant', inferred_type: 'constant' })])
+  const { container } = render(<QueryClientProvider client={qc}><CohortView /></QueryClientProvider>)
+  expect(Array.from(container.querySelectorAll('button.cohort-group')).map((b) => b.textContent)).toEqual(['Other1'])
+})
+
 test('search filters field names; a hit selects its group or category', () => {
   renderNav()
   fireEvent.change(screen.getByRole('textbox', { name: 'Search fields' }), { target: { value: 'kvp' } })

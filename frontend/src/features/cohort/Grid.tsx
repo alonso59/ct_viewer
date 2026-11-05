@@ -98,7 +98,7 @@ export function Grid({ columns, rows, sort, onSort }: {
     e.stopPropagation()
     openMenu({ ...target, x: e.clientX, y: e.clientY })
   }
-  const template = `20px 180px 72px 80px repeat(${columns.length}, minmax(90px, 1fr))`
+  const template = `20px 180px 72px 80px${columns.length ? ` repeat(${columns.length}, minmax(90px, 1fr))` : ''}`
   return (
     <div className="cohort-grid-wrap">
       <div className="cohort-grid-head" role="row" style={{ gridTemplateColumns: template }}>
