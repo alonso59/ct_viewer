@@ -91,6 +91,7 @@ class Client:
         self.url, self.reviewer, self.project = url, reviewer, project
         self._catalog: list[dict[str, Any]] | None = None
         self.session: str | None = None  # the server keeps variables and procedures (CTF-08)
+        self.origin = "terminal"  # `rw-mcp` sets "agent"
 
     def call(self, method: str, path: str, body: Any = None, **query: Any) -> Any:
         params = {k: v for k, v in query.items() if v is not None}
@@ -119,7 +120,7 @@ class Client:
     def eval(self, line: str, *, plan: bool = False) -> dict[str, Any]:
         body = {
             "line": line, "session": self.session, "project_id": self.project,
-            "plan": plan, "client": "terminal",
+            "plan": plan, "client": self.origin,
         }  # fmt: skip
         try:
             result = dict(self.call("POST", "/ctflow/eval", body))

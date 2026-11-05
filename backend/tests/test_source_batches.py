@@ -542,3 +542,46 @@ def test_completed_batches_record_their_conversion_time_and_the_api_shows_the_et
         )
         assert all(b["convert_s"] is None or b["convert_s"] > 0 for b in stored["batches"])
         assert "convert_s" not in done["batches"][0]
+
+
+def test_reassign_replaces_the_operation_of_the_batch_a_paused_plan_waits_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    patients(source, ["a", "b"])
+    crash_batch(monkeypatch, "b")
+    with app_client(tmp_path) as client:
+        plan = create_plan(client, source, batch_size=1, name="swap", auto=True)
+        pid, url = plan["plan_id"], f"{PLANS}/{plan['plan_id']}/batches/2/operation"
+        client.post(f"{PLANS}/{pid}/start")
+        wait_plan(client, pid, batch_status(0, "ready"))
+        stale = client.get(f"{PLANS}/{pid}").json()["revision"]
+        client.post(f"{PLANS}/{pid}/continue")
+        paused = wait_plan(client, pid, lambda p: p["status"] == "paused")
+        failed, first = paused["batches"][1]["operation_id"], paused["batches"][0]["operation_id"]
+
+        def start(key: str, folder: str) -> str:
+            body = {"path": str(source), "idempotency_key": key, "folders": [folder]}
+            op = client.post(API, json={**body, "prepare_plan": True, "name": "swap-" + folder})
+            assert op.status_code in {200, 201, 202}, op.text
+            wait_operation(client, op.json()["operation_id"])
+            return str(op.json()["operation_id"])
+
+        replacement, other = start("replace-b-0001", "b"), start("replace-a-0001", "a")
+        revision = paused["revision"]
+        body = {"operation_id": replacement, "expected_revision": revision}
+        assert client.post(url, json={**body, "expected_revision": stale}).status_code == 409
+        assert client.post(url, json={**body, "operation_id": other}).status_code == 422
+        assert client.post(url, json={**body, "operation_id": "missing"}).status_code == 404
+        assert client.post(f"{PLANS}/{pid}/batches/1/operation", json=body).status_code == 409
+        assert failed != replacement != first
+        swapped = client.post(url, json=body)
+        assert swapped.status_code == 200, swapped.text
+        data = swapped.json()
+        assert data["revision"] > revision and data["status"] == "paused"
+        assert data["batches"][1]["operation_id"] == replacement
+        assert data["batches"][1]["status"] == "discovering" and data["batches"][1]["error"] is None
+        assert client.post(f"{PLANS}/{pid}/continue").status_code == 202
+        done = wait_plan(client, pid, lambda p: p["status"] == "completed")
+        assert [b["status"] for b in done["batches"]] == ["completed", "completed"]
+        assert done["batches"][1]["operation_id"] == replacement

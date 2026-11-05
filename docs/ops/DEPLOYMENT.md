@@ -32,6 +32,7 @@ Depends: ADR-0007, ADR-0014, ADR-0016, ADR-0043, backend/ARCHITECTURE.md, domain
 | OPS-22 | Native deployment: `scripts/rw-native.py` runs a frozen release from a conda environment pinned by the lock, as a systemd user service, without sudo. It smoke-tests a release before any restart, refuses to switch while work or a GPU allocation is active, verifies health, projects and the served web app, and restores the previous release on failure. Node is used to build only. | S |
 | OPS-23 | HPC deployment: the app and a light runner run on an approved service or submission node, in Apptainer from the image or a native conda environment; never compute on a login node. Heavy work runs only in scheduler allocations. GPU segmentation there needs OPS-20. Accepted only on a real cluster. | S |
 | OPS-24 | `rw-dicom` under a scheduler: `--state-dir` keeps the inventory on node-local disk while the output stays on shared storage, and losing it costs only a new header scan; the default memory budget is half of the job's allocation; SIGTERM stops dispatch and a new job resumes. The output's file system must support `flock`. | S |
+| OPS-25 | `scripts/rw-mcp.py` (CTF-24) runs with any Python 3, standard library only (R4), and resolves the app URL and reviewer like OPS-21. Register it with an MCP client as a stdio server, e.g. `claude mcp add rw -- python3 scripts/rw-mcp.py`. | S |
 
 ## Options (ADR-0043)
 

@@ -1,4 +1,4 @@
-"""CTF-02..06, CTF-09 / API-72: the console catalog, targets, plan mode and GUI parity."""
+"""CTF-02..06, CTF-09, CTF-21..23 / API-72: console catalog, targets, plan mode, GUI parity."""
 
 from __future__ import annotations
 
@@ -279,3 +279,47 @@ def test_source_reads_the_workspace_library_only(env: TestClient, proj: str) -> 
     assert script(env, "source count.ctf; count_cases", proj)["value"] != "0"
     for name in ("../../../../etc/passwd", "/etc/passwd", "count.py", "missing.ctf"):
         problem(env, f"source {name}", proj, "validation")
+
+
+def test_agent_requests_carry_the_agent_origin(env: TestClient, proj: str, tmp_path: Path) -> None:
+    with_derived(env, proj, tmp_path)
+    started = run(env, f"{THR} {ITEMS[0]}", proj, client="agent")["started"]
+    finish(env, proj, {"run_id": started["id"], "job_id": started["job_id"]})
+    record = env.get(f"{API}/projects/{proj}/task-runs/{started['id']}").json()
+    assert record["origin"]["client"] == "agent" and record["reviewer"] == "Console T"
+
+
+def test_diagnose_reports_counts_of_a_run(env: TestClient, proj: str, tmp_path: Path) -> None:
+    with_derived(env, proj, tmp_path)
+    started = run(env, f"{THR} {ITEMS[0]}", proj)["started"]
+    finish(env, proj, {"run_id": started["id"], "job_id": started["job_id"]})
+    data = run(env, f"diagnose {started['id']}", proj)["data"]
+    assert data["counts"]["failed"] == 0 and data["counts"]["ok"] >= 1
+    assert data["failures"] == [] and data["error"] is None
+
+
+def test_resume_and_retry_find_a_cancelled_run_and_refuse_in_plan_mode(
+    env: TestClient, proj: str, tmp_path: Path
+) -> None:
+    with_derived(env, proj, tmp_path)
+    started = run(env, f"{THR} all -delay-s 5", proj)["started"]
+    run(env, f"cancel {started['id']}", proj)
+    finish(env, proj, {"run_id": started["id"], "job_id": started["job_id"]})
+    for line in (f"resume {started['id']}", f"retry {started['id']}"):
+        planned = run(env, line, proj, plan=True)
+        assert planned["value"].endswith(line.split()[0]) and planned["text"][0].startswith("plan ")
+        assert planned["work"] is None
+    resumed = run(env, f"resume {started['id']}", proj)["work"]
+    assert resumed["kind"] == "task-run" and resumed["status"] != "cancelled"
+    run(env, f"cancel {started['id']}", proj)
+
+
+def test_batch_commands_list_show_and_stay_idle_in_plan_mode(env: TestClient) -> None:
+    assert run(env, "batches")["data"] == []
+    problem(env, "batch 01UNKNOWN", None, "not-found")
+    planned = run(env, "batch 01UNKNOWN cancel", None, plan=True)
+    assert planned["text"][0].startswith("plan batch")
+
+
+def test_batch_reassign_needs_an_index_and_an_operation(env: TestClient) -> None:
+    problem(env, "batch 01UNKNOWN reassign 2", None, "validation")

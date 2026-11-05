@@ -16,7 +16,7 @@ class Origin(BaseModel):
     """Which client asked for a run or operation. Records written before origins existed have
     none (unknown); requests through the HTTP API are `gui`."""
 
-    client: Literal["gui", "console", "terminal", "script"] = "gui"
+    client: Literal["gui", "console", "terminal", "script", "agent"] = "gui"
     session: str | None = None
     script_run_id: str | None = None
     step: int | None = None  # the script run's journaled call that started it

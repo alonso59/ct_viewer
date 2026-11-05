@@ -50,3 +50,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0042 | Standalone DICOM converter package with per-unit input pinning | Accepted (supersedes 0035 §5 whole-run input pin) |
 | 0043 | Three deployment options: native, container, HPC | Accepted (supersedes 0007's rejection of native installs) |
 | 0044 | Projectless conversions write to a destination folder the user chooses | Accepted (partially supersedes 0002/0014 for that folder) |
+| 0047 | DICOM conversion runs outside the host allocation pool (interim, to be redesigned) | Accepted (partially supersedes 0035) |
+| 0048 | Agent interface over CTFlow: MCP client, agent origin, zones | Accepted (extends 0041) |

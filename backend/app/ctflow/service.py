@@ -31,6 +31,7 @@ from app.ctflow.parse import FLAG, Line, options_of
 from app.ctflow.runs import ACTIVE, ScriptRuns
 from app.ctflow.sessions import Session
 from app.tasks.dry_run import DICOM_CONVERT
+from app.tasks.logs import redactor
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
     PreflightRequest,
@@ -38,6 +39,7 @@ from app.tasks.models import (
     TaskManifest,
     TaskRunRequest,
 )
+from app.tasks.source_batches import BatchReassign, SourceBatches, view_of
 from app.tasks.source_operations import (
     SourceOperationControl,
     SourceOperationConvert,
@@ -68,7 +70,17 @@ CORE = {
     "status": ("status <run or operation>", "Show one run or source operation"),
     "cancel": ("cancel <run or operation>", "Cancel a run, source operation or script run"),
     "pause": ("pause <script run>", "Pause a script run (and its supervised child)"),
-    "resume": ("resume <script run>", "Resume a script run: it replays its journal"),
+    "resume": (
+        "resume <run or operation> [-failed]",
+        "Resume a run or source operation (a script run replays its journal)",
+    ),
+    "retry": ("retry <run or operation>", "Run only the failed items again (resume -failed)"),
+    "diagnose": ("diagnose <run or operation>", "Counts and the most frequent failure messages"),
+    "batches": ("batches", "List the batch plans"),
+    "batch": (
+        "batch <plan> [start | continue | cancel | reassign <index> <operation>]",
+        "Show a batch plan, or start, continue, cancel it or replace a batch's operation",
+    ),
     "wait": ("wait <run or operation>", "In a script run: wait until the run ends"),
     "scripts": ("scripts", "List the library scripts (project, workspace, shipped)"),
     "save": ("save <proc> [-project]", "Save a session procedure as <proc>.ctf in the library"),
@@ -101,6 +113,15 @@ def error_of(exc: ScriptError | Problem) -> EvalError:
         return EvalError(title="script error", detail=exc.message, line=exc.line)
     return EvalError(
         title=exc.slug, detail=str(exc), errors=exc.errors or [], actions=exc.actions or []
+    )
+
+
+def _control_of(record: Any) -> SourceOperationControl:
+    """The fences of a source operation as just read."""
+    return SourceOperationControl(
+        expected_revision=record.revision,
+        expected_attempt=record.attempt,
+        expected_run_attempt=record.conversion_run.attempts if record.conversion_run else None,
     )
 
 
@@ -165,8 +186,10 @@ def _coerce(option: OptionInfo, raw: str, schema: dict[str, Any]) -> Any:
 
 
 class Console:
-    def __init__(self, operations: SourceOperations, runs: ScriptRuns) -> None:
-        self.operations, self.runs = operations, runs
+    def __init__(
+        self, operations: SourceOperations, runs: ScriptRuns, batches: SourceBatches
+    ) -> None:
+        self.operations, self.runs, self.batches = operations, runs, batches
         self.tasks = operations.tasks
         self.library = Library(self.tasks.settings, self.tasks.workspace)
         runs.console = self
@@ -403,7 +426,8 @@ class Console:
             return result
         if line.name == "save":
             return self._save(result, line, call)
-        if call.plan and line.name in {"convert", "cancel"}:
+        acting_batch = line.name == "batch" and len(line.args) > 1
+        if call.plan and (line.name in {"convert", "cancel", "resume", "retry"} or acting_batch):
             result.value = f"{PLANNED}{line.name}"
             result.text = [f"plan {line.name}: would {line.name} {arg or '?'}"]
             return result
@@ -419,13 +443,26 @@ class Console:
             if arg is not None:
                 result.text += [f"  -{o.name} ({o.type})  {o.help}" for o in commands[0].options]
             return result
-        if line.name in {"status", "cancel", "pause", "resume"}:
+        if line.name == "batches":
+            plans = self.batches.plans()
+            result.data = [view_of(p).model_dump(mode="json") for p in plans]
+            result.value = format_list([p.plan_id for p in plans])
+            result.text = [f"{p.plan_id}  {p.status}  {p.name}" for p in plans]
+            return result
+        if line.name == "batch":
+            return await self._batch(result, line)
+        if line.name in {"status", "cancel", "pause", "resume", "retry", "diagnose"}:
             if arg is None:
                 raise ValidationProblem(f"Name the run or operation: {line.name} <id>")
             if line.name == "status":
                 return await self._status(result, arg, call.project)
             if line.name == "cancel":
                 return await self._cancel(result, arg, call.project)
+            if line.name == "diagnose":
+                return await self._diagnose(result, arg, call.project)
+            if line.name in {"resume", "retry"}:
+                failed = line.name == "retry" or "failed" in line.options
+                return await self._resume(result, arg, call.project, failed)
             run = await (
                 self.runs.resume(arg) if line.name == "resume" else self.runs.control(arg, "pause")
             )
@@ -541,6 +578,98 @@ class Console:
         result.value = work.status
         return result
 
+    async def _resume(
+        self, result: CommandResult, ref: str, pid: str | None, failed: bool
+    ) -> CommandResult:
+        work, record = await self.find_work(ref, pid)
+        if work.kind == "script-run":
+            if failed:
+                raise ValidationProblem("A script run replays its journal; it has no failed items")
+            run = await self.runs.resume(ref)
+            work.status = run.status
+        elif work.kind == "source-operation":
+            control = _control_of(record)
+            work.status = (await self.operations.resume(ref, control, failed_only=failed)).status
+        else:
+            if work.kind == "task-run":
+                assert pid is not None
+                started = await self.tasks.resume(
+                    pid, ref, expected_attempt=record.attempts, failed_only=failed
+                )
+            else:
+                started = await self.operations.workspace_tasks.resume(
+                    ref, expected_attempt=record.attempts, failed_only=failed
+                )
+            work.status = started.status
+        result.work, result.text = work, [f"{work.id}  {work.status}"]
+        result.value = work.status
+        return result
+
+    async def _diagnose(self, result: CommandResult, ref: str, pid: str | None) -> CommandResult:
+        work, record = await self.find_work(ref, pid)
+        if work.kind == "script-run":
+            raise ValidationProblem("diagnose takes a run or a source operation")
+        error, counts, errors = record.error, record.counts, []
+        if work.kind == "source-operation":
+            run = record.conversion_run
+            counts = run.counts if run else {}
+            if run and record.project_id:
+                errors = self.tasks.errors(record.project_id, run.run_id)
+        elif work.kind == "task-run":
+            assert pid is not None
+            errors = self.tasks.errors(pid, ref)
+        counts = counts if isinstance(counts, dict) else counts.model_dump()
+        red = redactor(self.tasks.settings, None)
+        by_message: dict[str, list[str]] = {}
+        for e in errors:
+            by_message.setdefault(red.text(e.message or e.status), []).append(e.item_id)
+        top = sorted(by_message.items(), key=lambda kv: -len(kv[1]))[:3]
+        result.work = work
+        result.data = {
+            "status": work.status,
+            "counts": counts,
+            "error": red.text(error) if error else None,
+            "failures": [{"message": m, "n": len(ids), "example": ids[0]} for m, ids in top],
+        }
+        result.value = work.status
+        result.text = [
+            f"{work.id}  {work.kind}  {work.status}",
+            "  ".join(f"{k} {v}" for k, v in counts.items()),
+            *([f"error: {red.text(error)}"] if error else []),
+            *(f"{len(ids)}x {m}  (e.g. {ids[0]})" for m, ids in top),
+        ]
+        return result
+
+    async def _batch(self, result: CommandResult, line: Line) -> CommandResult:
+        if not line.args:
+            raise ValidationProblem("Name the plan: batch <plan> [start | continue | cancel | …]")
+        plan_id, action = line.args[0], (line.args[1] if len(line.args) > 1 else None)
+        if action is None:
+            plan = self.batches.get(plan_id)
+        elif action == "start":
+            plan = await self.batches.start(plan_id)
+        elif action == "continue":
+            plan = await self.batches.resume_plan(plan_id)
+        elif action == "cancel":
+            plan = await self.batches.cancel(plan_id)
+        elif action == "reassign":
+            if len(line.args) != 4 or not line.args[2].isdigit():
+                raise ValidationProblem("Usage: batch <plan> reassign <index> <operation>")
+            current = self.batches.get(plan_id)
+            plan = await self.batches.reassign(
+                plan_id,
+                int(line.args[2]),
+                BatchReassign(operation_id=line.args[3], expected_revision=current.revision),
+            )
+        else:
+            raise ValidationProblem(f"batch {plan_id}: unknown action {action!r}")
+        view = view_of(plan)
+        result.data, result.value = view.model_dump(mode="json"), plan.status
+        result.text = [f"{plan.plan_id}  {plan.status}  {plan.name}"] + [
+            f"  {b.index}  {b.status}  {b.name}  {b.operation_id or '-'}" for b in view.batches
+        ]
+        return result
+
     async def cancel_work(self, work: WorkRef) -> str:
         """Cancel through the work's own controls; returns its status."""
         pid, ref = work.project_id, work.id
@@ -552,12 +681,7 @@ class Console:
         if work.kind == "workspace-run":
             return (await self.operations.workspace_tasks.cancel(ref)).status
         record = await self.operations.view(ref)
-        control = SourceOperationControl(
-            expected_revision=record.revision,
-            expected_attempt=record.attempt,
-            expected_run_attempt=record.conversion_run.attempts if record.conversion_run else None,
-        )
-        return (await self.operations.cancel(ref, control)).status
+        return (await self.operations.cancel(ref, _control_of(record))).status
 
     @staticmethod
     def is_over(work: WorkRef) -> bool:

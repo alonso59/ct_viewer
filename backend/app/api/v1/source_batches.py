@@ -9,6 +9,7 @@ from app.api.v1.paging import Page, Paging, paginate
 from app.tasks.source_batches import (
     BatchPlanCreate,
     BatchPlanUpdate,
+    BatchReassign,
     SourceBatchPlan,
     view_of,
 )
@@ -47,6 +48,11 @@ async def start(ctx: Ctx, plan_id: str) -> SourceBatchPlan:
 @router.post("/source-batches/{plan_id}/continue", response_model=SourceBatchPlan, status_code=202)
 async def resume(ctx: Ctx, plan_id: str) -> SourceBatchPlan:
     return view_of(await ctx.source_batches.resume_plan(plan_id))
+
+
+@router.post("/source-batches/{plan_id}/batches/{index}/operation", response_model=SourceBatchPlan)
+async def reassign(ctx: Ctx, plan_id: str, index: int, body: BatchReassign) -> SourceBatchPlan:
+    return view_of(await ctx.source_batches.reassign(plan_id, index, body))
 
 
 @router.post("/source-batches/{plan_id}/cancel", response_model=SourceBatchPlan)

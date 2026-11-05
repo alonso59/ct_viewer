@@ -58,7 +58,8 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
                 s, ctx.registry, ctx.workspace, ctx.index, ctx.jobs, ctx.bus, ctx.locks
             ).recover_all()
             await ctx.source_operations.recover_all()
-            Console(ctx.source_operations, ctx.ctflow_runs)  # script runs execute through it
+            # script runs execute through the console
+            Console(ctx.source_operations, ctx.ctflow_runs, ctx.source_batches)
             await ctx.ctflow_runs.recover_all()
             ctx.jobs.on_finished.append(lambda _info: ctx.source_batches.nudge())
             ctx.source_batches.nudge()

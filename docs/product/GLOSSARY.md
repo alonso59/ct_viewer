@@ -8,6 +8,8 @@ Depends: none (terms point to their owning docs by ID).
 |---|---|
 | Workspace | Server directory (`WORKSPACE_ROOT`) holding all projects |
 | Project | Folder with `project.json`, index, curation and radiomics state; references data by alias |
+| Agent | An MCP client acting through CTFlow with origin `agent` (ADR-0048) |
+| Analysis workspace | Planned: one versioned, server-stored definition of inputs, panels and report, edited by GUI and agent (ADR-0048) |
 | Path alias / root | `ALIAS:rel/path` reference; the alias maps to an absolute root directory |
 | Relink | Changing an alias root when data moves (QuPath "update URIs") |
 | Source root / derived root | Alias role: `source` is read-only input; `derived` receives task outputs (ADR-0014) |

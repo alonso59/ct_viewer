@@ -25,12 +25,16 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 | CTF-12 | After a server restart a non-terminal script run is `interrupted`. Resume re-executes the script from the beginning and returns journaled results for calls already made, so no child starts twice. A changed script hash or parameters refuse resume. | S |
 | CTF-13 | When a child start is refused because the task is busy (TSK-12), the script waits for job completions up to a bounded time, then moves to `attention`; only an explicit resume continues it. Failed children are never retried automatically. | S |
 | CTF-14 | Cancel and pause on a script run stop dispatch and forward to the active child through its existing controls (TSK-15, API-46, API-69). Children stay ordinary runs in the Jobs panel and carry the parent script run id in their provenance. | S |
-| CTF-15 | Writes need a reviewer (`X-Reviewer`, ADR-0004). `ctflow` takes it from `--reviewer`, an environment variable or a saved local setting. Task runs, workspace runs, source operations, batch plans and script runs record the reviewer and an origin `{client: gui \| console \| terminal \| script, session?, script_run_id?}`; requests without one are `gui`. | S |
+| CTF-15 | Writes need a reviewer (`X-Reviewer`, ADR-0004). `ctflow` takes it from `--reviewer`, an environment variable or a saved local setting. Task runs, workspace runs, source operations, batch plans and script runs record the reviewer and an origin `{client: gui \| console \| terminal \| script \| agent, session?, script_run_id?}`; requests without one are `gui`. | S |
 | CTF-16 | Clients show run records, job events and API-71 logs, never a status of their own. API-71 gains project-run and script-run kinds. Output levels: normal (target, run id, status changes), verbose (preflight reasons, effective settings, item failures), trace (interpreter steps, journal). All text is redacted (NFR-17). | S |
 | CTF-17 | The script library holds saved scripts and procedures in the workspace CTFlow namespace and optionally per project; parameters and help come from leading comments. Nothing is stored in a source root (R1). User extensibility is scripts and procedures only (ADR-0018). | S |
 | CTF-18 | `ctflow` is one standard-library Python file with no install (R4). It reaches `http://127.0.0.1:$PORT/api/v1` (PORT from the `./rw` `.env`) or `--url`. Modes: interactive, `-c`, a script file, `--detach`, `runs`, `status`, `logs`, `attach`, `cancel`; exit codes follow the final status. | S |
 | CTF-19 | The web console is a bottom-panel tab (UI-02) with completion from the command catalog and the existing log view; it is hidden on view-only links (UI-26). | C |
 | CTF-20 | GUI journaling: GUI actions shown as the equivalent CTFlow command. Needs one central command dispatch in the frontend first. | C |
+| CTF-21 | Agent origin (ADR-0048): `client: agent` marks requests from `rw-mcp` (CTF-24); it changes nothing else about a request. | S |
+| CTF-22 | `resume <run or operation> [-failed]` and `retry <ref>` (= `resume -failed`) also work on source operations, with the fences read fresh as for `cancel`. Both refuse in plan mode. | S |
+| CTF-23 | `diagnose <run or operation>` is read-only: counts (ok, failed, skipped, pending) and the three most frequent failure messages with one example item each, redacted (NFR-17). `batches` lists batch plans and `batch <plan> [start\|continue\|cancel\|reassign <index> <operation>]` shows or controls one (API-70); acting forms refuse in plan mode. | S |
+| CTF-24 | `scripts/rw-mcp.py` is a standard-library stdio MCP server and a thin client of CTFlow (ADR-0048), with tools `ctflow_commands`, `ctflow_query` (always plan mode), `ctflow_run` (executes; needs a reviewer, CTF-15) and `ctflow_logs` (API-71 tail). It keeps no state but its CTFlow session and returns compact, redacted output. | S |
 
 ## Concepts
 
@@ -49,7 +53,8 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 - Task commands: one per available task (TSK-01), named by the manifest `command` key or the task id; `voi` appears when its plugin ships a task.
 - Core commands:
   - context: `project`, `cases`, `items`, `sets`, `detect`;
-  - runs: `runs`, `status`, `logs`, `wait`, `cancel`, `pause`, `resume`, `retry`;
+  - runs: `runs`, `status`, `logs`, `wait`, `cancel`, `pause`, `resume`, `retry`, `diagnose`;
+  - batch plans: `batches`, `batch`;
   - setup: `project create` (PRJ-19), `import`;
   - help: `help`.
 - Every core command wraps an existing endpoint's service; view-only links get none.

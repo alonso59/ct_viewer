@@ -5,7 +5,7 @@ Read when: choosing what to work on next.
 Depends: all docs (by ID).
 
 Rules: work in phase order; mark tasks `[x]` when done; stop for user confirmation at every phase exit.
-Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → P7h CTFlow console (C0–C7) → P7i standalone DICOM converter → VOI extractor → P7 remote checks → P8 Electron**. P7i does not depend on P7h; its phases were implemented in one pass on 2026-11-03 (owner decision).
+Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P7e nnU-Net generation → P7f job-safety planning → P7g supervised segmentation jobs → P7h CTFlow console (C0–C7) → P7i standalone DICOM converter → VOI extractor → P7 remote checks → P8 Electron**. P7i does not depend on P7h; its phases were implemented in one pass on 2026-11-03 (owner decision). P7l (agent interface, ADR-0048) is independent of P7k.
 
 ## Progress
 
@@ -30,6 +30,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
 | P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
 | P7j | Deployment options: native, Docker/udocker, HPC (ADR-0043) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
+| P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | 🟨 A1–A4 done 2026-11-05, exit pending owner review |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -125,6 +126,15 @@ Owner decision 2026-11-03: all phases implemented in a row, then verified togeth
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
 **Exit:** the desktop app connects to a local Docker backend and a forwarded remote one.
+
+### P7l — Agent interface (ADR-0048, CTFLOW.md)
+
+Stop for owner confirmation at the exit.
+- [x] A1 Agent origin; `resume`/`retry`/`diagnose`/`batches`/`batch` commands (CTF-21..23)
+- [x] A2 Batch operation reassign endpoint (API-70)
+- [x] A3 `scripts/rw-mcp.py` (CTF-24, OPS-25)
+- [x] A4 Agent requirements for Cohort, recorded in the Cohort docs
+**Exit:** an MCP client lists runs, diagnoses a failed operation, retries it and reassigns a batch through `rw-mcp` with the same results as the GUI and API.
 
 ## Migration from v2
 

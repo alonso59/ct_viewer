@@ -35,7 +35,7 @@ class EvalRequest(BaseModel):
     session: str | None = None  # omitted: a new session (CTF-08)
     project_id: str | None = None  # omitted: the session's current project
     plan: bool = False  # resolve, validate and preflight without starting anything (CTF-09)
-    client: Literal["console", "terminal"] = "console"
+    client: Literal["console", "terminal", "agent"] = "console"
 
 
 class ResolvedTarget(BaseModel):

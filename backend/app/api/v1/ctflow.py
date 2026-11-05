@@ -19,7 +19,7 @@ class ScriptBody(BaseModel):
 
 
 def console(ctx: Ctx) -> Console:
-    return Console(ctx.source_operations, ctx.ctflow_runs)
+    return Console(ctx.source_operations, ctx.ctflow_runs, ctx.source_batches)
 
 
 @router.get("/ctflow/commands", response_model=list[CommandInfo])

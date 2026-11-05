@@ -63,6 +63,12 @@ class BatchPlanCreate(BaseModel):
     auto: bool = False
 
 
+class BatchReassign(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    operation_id: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
+
+
 class BatchPlanUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     auto: bool
@@ -431,6 +437,36 @@ class SourceBatches:
                 self._save(plan)
         await self._advance(plan_id)
         return self.get(plan_id)
+
+    async def reassign(self, plan_id: str, index: int, request: BatchReassign) -> PlanRecord:
+        """Replace the operation of the batch a plan is paused on; `continue` then resumes it."""
+        async with self._lock(plan_id):
+            plan = self.get(plan_id)
+            if plan.revision != request.expected_revision:
+                raise JobConflict("The batch plan changed; read it again and retry")
+            batch = next((b for b in plan.batches if b.index == index), None)
+            if batch is None:
+                raise NotFound(f"Batch {index} is not in this plan")
+            if (
+                plan.status != "paused"
+                or batch.status != "attention"
+                or (plan.batches[plan.cursor] is not batch)
+            ):
+                raise JobConflict("Only the batch a paused plan needs attention for can change")
+            if batch.operation_id is None:
+                raise JobConflict("This batch has no operation to replace")
+            old = await self.operations.view(batch.operation_id)
+            if old.status in IN_FLIGHT or not old.cleanup_verified:
+                raise JobConflict("Wait for the batch's operation to stop before replacing it")
+            new = await self.operations.view(request.operation_id)
+            if new.purpose != "convert" or new.source != old.source:
+                raise ValidationProblem("The operation must convert the same source as the plan")
+            if new.settings.get("patient_folders") != batch.folders:
+                raise ValidationProblem("The operation must cover exactly this batch's folders")
+            batch.operation_id, batch.status, batch.error = new.operation_id, "discovering", None
+            batch.patient_hashes, batch.approved = None, False
+            self._save(plan)
+            return plan
 
     async def cancel(self, plan_id: str) -> PlanRecord:
         async with self._lock(plan_id):
