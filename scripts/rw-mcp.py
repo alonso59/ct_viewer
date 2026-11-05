@@ -23,6 +23,7 @@ import ctflow
 
 PROTOCOL = "2024-11-05"
 TEXT_LINES = 40
+VALUE_CHARS = 200
 LOG_PAGES = 20
 LINE = {"type": "string", "description": "A CTFlow line, e.g. `runs` or `diagnose <id>`"}
 PROJECT = {"type": "string", "description": "Project id; omit to use the session's"}
@@ -77,7 +78,10 @@ def summarize(result: dict[str, Any]) -> str:
     for step in result.get("steps") or []:
         work = step.get("started") or step.get("work")
         tail = f" · {work['kind']} {work['id']} {work['status']}" if work else ""
-        out.append(f"{step['command']} → {step.get('value') or ''}{tail}")
+        value = str(step.get("value") or "")
+        if len(value) > VALUE_CHARS:
+            value = f"{value[:VALUE_CHARS]}… ({len(value.split())} items)"
+        out.append(f"{step['command']} → {value}{tail}")
     text = result.get("text") or []
     out += text[:TEXT_LINES]
     if len(text) > TEXT_LINES:
