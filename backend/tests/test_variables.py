@@ -10,16 +10,18 @@ import pytest
 from app.core.errors import ValidationProblem
 from app.ingest.models import Item, PhaseInfo
 from app.projects.presets import Pack, load_packs, normalize_phase_value
-from app.variables.build import ExternalData, build, match_report
+from app.variables.build import ExternalData, LayerData, build, match_report
 from app.variables.external import parse_table
 from app.variables.models import (
     BinDef,
+    Catalog,
     DominantDef,
     ExternalTable,
     RecodeDef,
     VariableOverride,
 )
 from app.variables.profile import as_date, as_text, infer_type, parse_age_years
+from app.variables.schema import CATEGORY_BY_FIELD, CONVERTER_FIELDS, RAW_ALLOWLIST
 from app.variables.table import matching_ids, parse_var_params, to_arrow
 
 
@@ -167,6 +169,65 @@ def test_catalog_levels_groups_and_visibility() -> None:
         "raw_metadata": "blob",
     }
     assert cat.n_cases == 30 and cat.n_items == 60
+
+
+def test_old_catalog_without_origin_and_category_still_loads() -> None:
+    built, _ = build(cohort(3))
+    data = built.catalog.model_dump(mode="json")
+    for v in data["variables"]:
+        v.pop("origin", None)
+        v.pop("category", None)
+    for ov in data["overrides"].values():
+        ov.pop("category", None)
+    cat = Catalog.model_validate(data)
+    assert all(v.origin == "metadata" for v in cat.variables)
+    assert all(v.category is None for v in cat.variables)
+
+
+def test_category_map_covers_every_converter_field() -> None:
+    assert set(CONVERTER_FIELDS) <= set(CATEGORY_BY_FIELD)
+    allowed = set(CONVERTER_FIELDS) | set(RAW_ALLOWLIST.values())
+    assert set(CATEGORY_BY_FIELD) <= allowed
+    assert CATEGORY_BY_FIELD["patient_sex"] == "patient"
+    assert CATEGORY_BY_FIELD["patient_age"] == "patient"
+
+
+def test_origin_and_category_by_source() -> None:
+    # metadata and raw: origin metadata, category from the field map (unknown → dataset)
+    v = by_name(cohort())
+    assert (v["manufacturer"].origin, v["manufacturer"].category) == ("metadata", "equipment")
+    assert (v["kvp"].origin, v["kvp"].category) == ("metadata", "technique")
+    assert (v["scan_date"].origin, v["scan_date"].category) == ("metadata", "dates")
+    assert (v["alpha"].origin, v["alpha"].category) == ("metadata", "dataset")
+    # raw allowlist → patient
+    assert (v["patient_sex"].origin, v["patient_sex"].category) == ("metadata", "patient")
+    assert (v["patient_age"].origin, v["patient_age"].category) == ("metadata", "patient")
+
+    # derived: origin derived, category None
+    hi = BinDef(name="alpha_hi", source="alpha", thresholds=[50], labels=["lo", "hi"])
+    built, _ = build(cohort(), derived=[hi])
+    d = next(x for x in built.catalog.variables if x.name == "alpha_hi")
+    assert (d.origin, d.category) == ("derived", None)
+
+    # external: origin clinical, category None
+    key, cols, rows, _, _ = parse_table(b"case_id,biopsy\ncase_00000,pos\n", "x.csv")
+    t = ExternalTable(
+        table_id="T", filename="T.csv", key=key, columns=cols, sha256="0", imported_at="n"
+    )
+    e = by_name(cohort(4), external=[ExternalData(t, rows)])["biopsy"]
+    assert (e.origin, e.category) == ("clinical", None)
+
+
+def test_layer_origin_by_name() -> None:
+    case = "case_00000"
+    lbl = LayerData("lbl.t.col", "case", "categorical", by_case={case: "yes"})
+    eff = LayerData("phase.effective", "scan", "categorical", by_scan={(case, "01"): "NC"})
+    an = LayerData("phase.analyzer", "scan", "categorical", by_scan={(case, "01"): "NC"})
+    built, _ = build(cohort(2), layers=[lbl, eff, an])
+    v = {x.name: x for x in built.catalog.variables}
+    assert v["lbl.t.col"].origin == "clinical" and v["lbl.t.col"].category is None
+    assert v["phase.effective"].origin == "review" and v["phase.effective"].category is None
+    assert v["phase.analyzer"].origin == "automatic" and v["phase.analyzer"].category is None
 
 
 def test_raw_metadata_allowlist() -> None:

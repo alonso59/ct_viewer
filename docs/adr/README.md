@@ -16,7 +16,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0008 | Drop MUI; Radix + tokens + codicons + dockview | Accepted |
 | 0009 | Analytics on Parquet + DuckDB; ECharts for charts | Accepted |
 | 0010 | QuPath-style layout in a VS Code shell, GitHub Dark theme | Accepted |
-| 0011 | Study-agnostic variable catalog | Accepted (extended by 0019) |
+| 0011 | Study-agnostic variable catalog | Accepted (extended by 0019; external table superseded by 0046) |
 | 0012 | Simple guided statistics in-app (supersedes QC-only dashboard) | Accepted |
 | 0013 | Source adapters with one internal contract; Open mode; identity policy | Accepted (§3 attach location superseded by 0027) |
 | 0014 | Source and derived roots (amends R1) | Accepted (amended by 0021; partially superseded by 0029) |
@@ -50,5 +50,8 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0042 | Standalone DICOM converter package with per-unit input pinning | Accepted (supersedes 0035 §5 whole-run input pin) |
 | 0043 | Three deployment options: native, container, HPC | Accepted (supersedes 0007's rejection of native installs) |
 | 0044 | Projectless conversions write to a destination folder the user chooses | Accepted (partially supersedes 0002/0014 for that folder) |
+| 0045 | Cohort dashboard: read-only imaging metadata by category; editable data in separate sections | Accepted (amended by 0046) |
+| 0046 | Clinical data and label tables are edited in Cohort, on the labeling engine | Accepted (partially supersedes 0011 for external tables) |
 | 0047 | DICOM conversion runs outside the host allocation pool (interim, to be redesigned) | Accepted (partially supersedes 0035) |
 | 0048 | Agent interface over CTFlow: MCP client, agent origin, zones | Accepted (extends 0041) |
+| 0049 | Timeline events are label table rows at an `event` level, dated in days from an anchor | Accepted (extends 0046) |

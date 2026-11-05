@@ -249,6 +249,8 @@ export const VARIABLE_TAGS = ['confounder', 'outcome', 'sensitive'] as const sat
 export type VariableTag = (typeof VARIABLE_TAGS)[number]
 export type VariableSource = WireVariable['source']
 export type VariableGroup = WireVariable['group']
+export type VariableOrigin = WireVariable['origin']
+export type VariableCategory = NonNullable<WireVariable['category']>
 
 export interface VariableProfile {
   missing_pct: number
@@ -275,6 +277,8 @@ export interface Variable {
   inferred_type: VariableType
   level: WireVariable['level']
   group: VariableGroup
+  origin: VariableOrigin
+  category: VariableCategory | null
   tags: VariableTag[]
   visible: boolean
   /** 0..1 */
@@ -295,19 +299,17 @@ export interface VariablePatch {
   tags?: VariableTag[]
 }
 
-/** Match report (`ExternalReport`), in UI terms */
-export interface ExternalImportResult {
-  key: 'case_id' | 'patient_id'
-  n_rows: number
-  matched: number
-  unmatched_keys: string[]
-  /** Keys that occur more than once in the table (the first row wins) */
-  duplicate_keys: string[]
-  /** Columns skipped because the name is already taken */
-  conflicts: string[]
-  /** Columns added as variables */
-  added: string[]
-}
+/** Cohort grid and column-summary reads: the query travels in the body */
+export type CohortRowsRequest = S['RowsRequest']
+export type CohortRowsResponse = S['RowsResponse']
+export type CohortCaseRow = S['CaseRow']
+export type CohortScanRow = S['ScanRow']
+export type CohortSort = S['RowsSort']
+export type CohortSummaryRequest = S['SummaryRequest']
+export type CohortSummary = S['SummaryResponse']
+export type CohortBalanceRequest = S['CohortBalanceRequest']
+export type CohortBalance = S['CohortBalanceResponse']
+
 
 export type GlobalFilters = S['GlobalFilters']
 export type ColorBy = S['ColorBy']
@@ -425,6 +427,8 @@ export type LabelColumnIn = S['ColumnIn']
 export type LabelTableCreate = S['TableCreate']
 export type LabelTablePatch = S['TablePatch']
 export type LabelCellsPage = S['CellsPage']
+export type LabelRowEvent = S['RowEvent']
+export type CohortTimeline = S['Timeline']
 export type LabelCellRow = S['CellRow']
 export type LabelCellIn = S['CellIn']
 export type LabelCellEvent = S['CellEvent']

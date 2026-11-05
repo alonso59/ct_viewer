@@ -22,10 +22,9 @@ export function registerVariables() {
     hideImageSection: true,
   })
   const hasProject = () => useWorkbench.getState().pid !== null
-  const openDialog = (d: 'derived' | 'external') => {
+  const openDialog = (d: 'derived') => {
     useLayout.getState().showView('variables')
     useVariablesUi.getState().openDialog(d)
   }
   registry.command({ id: 'variables.newDerived', writes: true, title: 'variables.newDerived', category: 'cat.edit', menuGroup: 3, enabled: hasProject, run: () => openDialog('derived') })
-  registry.command({ id: 'variables.importTable', writes: true, title: 'variables.importTable', category: 'cat.edit', menuGroup: 3, enabled: hasProject, run: () => openDialog('external') })
 }

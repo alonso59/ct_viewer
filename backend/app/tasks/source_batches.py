@@ -671,8 +671,16 @@ class SourceBatches:
         if not isinstance(run, WorkspaceRun):
             self._pause(plan, batch, record.error or "The batch conversion needs attention")
             return
-        if record.status == "completed" and (Path(run.dataset_dir) / DATASET_JSON).is_file():
+        dataset = Path(run.dataset_dir)
+        failed = None
+        if run.status == "completed_with_errors":
+            counts = incomplete_dataset(dataset)
+            if counts is not None and counts["pending"] == 0:
+                failed = counts["failed"]
+        if record.status == "completed" and ((dataset / DATASET_JSON).is_file() or failed):
             batch.status, batch.dataset, batch.error = "completed", run.name, None
+            if failed:
+                batch.error = f"{failed} series failed to convert; the rest were kept"
             batch.convert_s = run_seconds(run)
             plan.cursor += 1
             if plan.cursor >= len(plan.batches):

@@ -13,6 +13,7 @@ from app.api.v1.deps import Ctx
 from app.api.v1.imports import ingest_service
 from app.context import AppContext
 from app.core.errors import JobConflict
+from app.labeling.models import TableCreate
 from app.projects.models import (
     Modality,
     PathRoot,
@@ -48,6 +49,9 @@ class PackInfo(BaseModel):
     labels: list[str]
     phase_vocabulary: list[str]
     target_profile: str
+    clinical_tables: list[TableCreate] = Field(
+        default_factory=list, description="Label table templates the pack offers"
+    )
 
 
 class PackApply(BaseModel):
@@ -150,6 +154,7 @@ def list_packs() -> list[PackInfo]:
             labels=[s.name for s in p.label_map],
             phase_vocabulary=list(p.phase_vocabulary),
             target_profile=p.target_profile,
+            clinical_tables=[TableCreate.model_validate(t) for t in p.clinical_tables],
         )
         for p in load_packs().values()
     ]

@@ -155,3 +155,18 @@ def test_v2_project_migrates_to_v3(client: TestClient) -> None:
     ws.invalidate(pid)
     p = client.get(f"{API}/projects/{pid}").json()
     assert p["packs"] == [] and p["label_map"] == []
+
+
+def test_a_pack_offers_clinical_table_templates_that_create_a_label_table(
+    client: TestClient, data_root: Path
+) -> None:
+    packs = {p["pack_id"]: p for p in client.get(f"{API}/packs").json()}
+    template = packs["ccrcc"]["clinical_tables"][0]
+    assert template["level"] == "case" and "Histology" in [c["name"] for c in template["columns"]]
+    assert packs["generic-ct"]["clinical_tables"] == []
+    pid = neutral(client)
+    do_import(client, pid, data_root)
+    r = client.post(f"{API}/plugins/labeling/projects/{pid}/tables", json=template, headers=HDR)
+    assert r.status_code == 201, r.text
+    made = r.json()
+    assert made["name"] == template["name"] and len(made["columns"]) == len(template["columns"])

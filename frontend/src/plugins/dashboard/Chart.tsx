@@ -11,7 +11,7 @@ import {
   VisualMapComponent,
 } from 'echarts/components'
 import * as echarts from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
+import { CanvasRenderer, SVGRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 
 import { fmtValue } from '../../lib'
@@ -20,7 +20,7 @@ import { token } from '../../theme'
 
 echarts.use([
   BarChart, BoxplotChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, VisualMapComponent,
-  BrushComponent, ToolboxComponent, MarkLineComponent, AriaComponent, CanvasRenderer,
+  BrushComponent, ToolboxComponent, MarkLineComponent, AriaComponent, CanvasRenderer, SVGRenderer,
 ])
 
 /** Series shapes, so the series of a chart differ by more than colour */
@@ -42,6 +42,59 @@ interface ChartEvent {
 interface BrushArea {
   brushType: string
   coordRange: number[][]
+}
+
+export type ChartImageKind = 'png' | 'png-light' | 'svg'
+
+/** Theme colours a light export swaps for the light theme's */
+const LIGHT_SWAPS = ['--fg', '--fg-muted', '--border', '--border-muted', '--bg-overlay']
+
+/** Token values with the light theme applied for a moment (styles resolve synchronously) */
+function inLightTheme<T>(read: () => T): T {
+  const root = document.documentElement
+  const was = root.dataset.theme
+  root.dataset.theme = 'light'
+  try {
+    return read()
+  } finally {
+    if (was === undefined) delete root.dataset.theme
+    else root.dataset.theme = was
+  }
+}
+
+const swapColors = (node: unknown, swaps: Map<string, string>): unknown => {
+  if (typeof node === 'string') return swaps.get(node) ?? node
+  if (Array.isArray(node)) return node.map((x) => swapColors(x, swaps))
+  if (node && typeof node === 'object') return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, swapColors(v, swaps)]))
+  return node
+}
+
+/** The drawn chart as a data URL: `png` in the theme, `png-light` on white with dark text,
+ *  `svg` as a vector in the theme's colours */
+export function chartImage(chart: ChartInstance, kind: ChartImageKind): string {
+  const bg = token('--bg-editor')
+  if (kind === 'png') return chart.getDataURL({ pixelRatio: 2, backgroundColor: bg })
+  const width = chart.getWidth()
+  const height = chart.getHeight()
+  const light = kind === 'png-light' ? inLightTheme(() => ({ bg: token('--bg-editor'), colors: LIGHT_SWAPS.map((name) => token(name)) })) : null
+  const swaps = new Map(light ? LIGHT_SWAPS.map((name, i) => [token(name), light.colors[i] ?? ''] as [string, string]) : [])
+  const option = { ...(swapColors(chart.getOption(), swaps) as Record<string, unknown>), animation: false }
+  if (kind === 'svg') {
+    const svg = echarts.init(null, undefined, { renderer: 'svg', ssr: true, width, height })
+    svg.setOption({ ...option, backgroundColor: bg })
+    const text = svg.renderToSVGString()
+    svg.dispose()
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`
+  }
+  const node = document.createElement('div')
+  node.style.cssText = `position:fixed;left:-10000px;width:${width}px;height:${height}px`
+  document.body.append(node)
+  const drawn = echarts.init(node, undefined, { renderer: 'canvas', width, height })
+  drawn.setOption(option)
+  const url = drawn.getDataURL({ pixelRatio: 2, backgroundColor: light?.bg ?? bg })
+  drawn.dispose()
+  node.remove()
+  return url
 }
 
 export function palette(): string[] {

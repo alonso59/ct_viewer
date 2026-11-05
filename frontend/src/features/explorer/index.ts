@@ -21,6 +21,12 @@ export function showItemsInExplorer(itemIds: string[]) {
   useLayout.getState().showView('project')
 }
 
+/** Apply variable, phase and text filters to the Explorer and show the Project view */
+export function showFiltersInExplorer(f: { vars: Record<string, string>; phase: string; q: string }) {
+  useExplorer.getState().setFilter({ vars: f.vars, phase: f.phase, q: f.q })
+  useLayout.getState().showView('project')
+}
+
 function useProblemsContent() {
   const pid = useWorkbench((s) => s.pid) ?? ''
   const iid = useViewerSync((s) => s.activeItemId)

@@ -158,7 +158,7 @@ def confounder(c: Ctx) -> Recommendation | None:
     for name in names:
         lv = c.unit.levels(name)
         if q == "compare" and c.computed.row_levels is not None:
-            *_, out = contingency(c.unit, c.computed.row_levels, lv, "auto")
+            *_, out = contingency(c.computed.row_levels, lv, "auto")
         elif c.computed.row_x is not None:
             order = sorted({str(x) for x in lv if x is not None})
             x = c.computed.row_x

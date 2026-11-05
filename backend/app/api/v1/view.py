@@ -2,8 +2,10 @@
 never exposes `project_id` or an absolute server path.
 
 The token is resolved to the project and the request is forwarded, unchanged except for its path,
-to the matching `/projects/{pid}/…` route. Only paths in `READ_ONLY` are served; there is no
-write route on this prefix, so any other method is 405 and any other path 404. Text responses
+to the matching `/projects/{pid}/…` route. Only GET paths in `READ_ONLY` are served, plus the
+three POST cohort reads (`cohort/rows`, `cohort/summary`, `cohort/balance`: queries with a
+body, no side effects);
+any other method on this prefix is 405 and any other path 404. Text responses
 (JSON, JSON lines, CSV, SSE) come back through a `Redactor`: the project id becomes
 `view-{token}`, root paths become alias refs and other server folders are elided.
 Binary responses (volumes, thumbnails, meshes, Parquet) pass through unchanged.
@@ -20,6 +22,7 @@ from starlette.responses import Response
 from starlette.types import Message, Receive, Scope, Send
 
 from app.api.v1.deps import Ctx
+from app.cohort.models import CohortBalanceResponse, RowsResponse, SummaryResponse, Timeline
 from app.context import AppContext
 from app.core.errors import NotFound
 from app.core.redact import Redactor
@@ -161,6 +164,48 @@ def view_jobs(ctx: Ctx, token: str) -> list[JobInfo]:
     ]
 
 
+def _forward_scope(request: Request, path: str) -> dict[str, Any]:
+    scope: dict[str, Any] = dict(request.scope)
+    scope["path"] = path
+    scope["raw_path"] = path.encode()
+    # uncompressed bodies only, so the redactor can read them
+    scope["headers"] = [(k, v) for k, v in scope["headers"] if k.lower() != b"accept-encoding"]
+    return scope
+
+
+def _cohort_read(ctx: Ctx, token: str, request: Request, which: str) -> Response:
+    """The cohort queries forward with their body: reads only, nothing else may POST here."""
+    pid = ctx.workspace.by_view_token(token)
+    return _Forward(
+        _forward_scope(request, f"/api/v1/projects/{pid}/{which}"),
+        view_redactor(ctx, pid, token),
+    )
+
+
+@router.post("/view/{token}/cohort/rows", responses={200: {"model": RowsResponse}})
+def view_cohort_rows(ctx: Ctx, token: str, request: Request) -> Response:
+    """The cohort grid read: filters, sort and paging arrive in the body."""
+    return _cohort_read(ctx, token, request, "cohort/rows")
+
+
+@router.post("/view/{token}/cohort/summary", responses={200: {"model": SummaryResponse}})
+def view_cohort_summary(ctx: Ctx, token: str, request: Request) -> Response:
+    """The column summary read: filters arrive in the body."""
+    return _cohort_read(ctx, token, request, "cohort/summary")
+
+
+@router.post("/view/{token}/cohort/balance", responses={200: {"model": CohortBalanceResponse}})
+def view_cohort_balance(ctx: Ctx, token: str, request: Request) -> Response:
+    """The balance check read: filters arrive in the body."""
+    return _cohort_read(ctx, token, request, "cohort/balance")
+
+
+@router.get("/view/{token}/cohort/timeline/{case_id}", responses={200: {"model": Timeline}})
+def view_cohort_timeline(ctx: Ctx, token: str, case_id: str, request: Request) -> Response:
+    """The Timeline read of one case."""
+    return _cohort_read(ctx, token, request, f"cohort/timeline/{case_id}")
+
+
 @router.get("/view/{token}/{rest:path}", responses={404: {"description": "Not a read route"}})
 def view_read(ctx: Ctx, token: str, rest: str, request: Request) -> Response:
     pid = ctx.workspace.by_view_token(token)
@@ -171,9 +216,4 @@ def view_read(ctx: Ctx, token: str, rest: str, request: Request) -> Response:
         path = f"/api/v1/plugins/labeling/projects/{pid}" + suffix.removeprefix("/plugins/labeling")
     else:
         raise NotFound(f"{suffix!r} is not available on a view-only link")
-    scope: dict[str, Any] = dict(request.scope)
-    scope["path"] = path
-    scope["raw_path"] = path.encode()
-    # uncompressed bodies only, so the redactor can read them
-    scope["headers"] = [(k, v) for k, v in scope["headers"] if k.lower() != b"accept-encoding"]
-    return _Forward(scope, view_redactor(ctx, pid, token))
+    return _Forward(_forward_scope(request, path), view_redactor(ctx, pid, token))

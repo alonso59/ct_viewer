@@ -12,7 +12,6 @@ import type {
   CurationStateRow,
   DerivedDef,
   FeatureRow,
-  ExternalImportResult,
   CaseDetail,
   CaseSummary,
   FsListing,
@@ -138,7 +137,6 @@ const normalizeProject = (p: Schemas['ProjectDetail']): Project => ({
 
 // The variables routes return the whole Catalog; the UI works on Variable[] (profile names differ too).
 type Catalog = Schemas['Catalog']
-type ExternalReport = Schemas['ExternalReport']
 
 type WireDerived = NonNullable<Catalog['derived']>[number]
 
@@ -163,6 +161,8 @@ function catalogToVariables(c: Catalog): Variable[] {
     const p = v.profile
     return {
       ...v,
+      origin: v.origin ?? 'metadata',
+      category: v.category ?? null,
       tags: v.tags ?? [],
       comparable: v.comparable ?? false,
       profile: {
@@ -186,16 +186,6 @@ function variableFrom(c: Catalog, name: string): Variable {
   if (!v) throw new Error(`variable ${name} missing from catalog response`)
   return v
 }
-
-const externalResult = (r: ExternalReport): ExternalImportResult => ({
-  key: r.table.key,
-  n_rows: r.n_rows,
-  matched: r.n_matched,
-  unmatched_keys: r.unmatched_keys ?? [],
-  duplicate_keys: r.duplicate_keys ?? [],
-  conflicts: r.conflicts ?? [],
-  added: (r.table.columns ?? []).filter((c) => !(r.conflicts ?? []).includes(c)),
-})
 
 const normalizeWarning = (w: Schemas['QcWarning']): QCWarning => ({ case_id: null, field: null, item_id: null, path_ref: null, seg_id: null, ...w })
 
@@ -494,12 +484,9 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     async deleteDerived(pid, name) {
       await send('DELETE', `/projects/${enc(pid)}/variables/derived/${enc(name)}`)
     },
-    importExternal(pid, file, key) {
-      const fd = new FormData()
-      fd.set('file', file)
-      fd.set('key', key)
-      return send<ExternalReport>('POST', `/projects/${enc(pid)}/variables/external`, fd).then(externalResult)
-    },
+    cohortRows: (pid, body) => unwrap(client.POST('/api/v1/projects/{pid}/cohort/rows', { params: { path: { pid } }, body })),
+    cohortSummary: (pid, body) => unwrap(client.POST('/api/v1/projects/{pid}/cohort/summary', { params: { path: { pid } }, body })),
+    cohortBalance: (pid, body) => unwrap(client.POST('/api/v1/projects/{pid}/cohort/balance', { params: { path: { pid } }, body })),
 
     async listItemIds(pid, f = {}) {
       const ids = await allPages(async (cursor) => {
@@ -681,6 +668,20 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       )
       return { items, next_cursor: null, total: items.length }
     },
+    addLabelRow: (pid, tid, caseId, reviewer) =>
+      unwrap(
+        client.POST('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/rows', {
+          params: { path: { pid, tid }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
+          body: { case_id: caseId },
+        }),
+      ),
+    removeLabelRow: (pid, tid, target, reviewer) =>
+      unwrap(
+        client.DELETE('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/rows/{target}', {
+          params: { path: { pid, tid, target }, header: { 'X-Reviewer': reviewer, 'X-Session-Id': SESSION_ID } },
+        }),
+      ),
+    cohortTimeline: (pid, caseId) => unwrap(client.GET('/api/v1/projects/{pid}/cohort/timeline/{case_id}', { params: { path: { pid, case_id: caseId } } })),
     writeLabelCells: (pid, tid, cells, reviewer) =>
       unwrap(
         client.POST('/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/cells', {

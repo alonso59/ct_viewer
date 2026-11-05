@@ -17,6 +17,8 @@ import type {
   LogLine,
   NewCurationEvent,
   NewPhaseEvent,
+  CohortBalanceRequest,
+  CohortRowsRequest,
   CurationEvent,
   CurationStateRow,
   Project,
@@ -420,13 +422,41 @@ export function useDeleteDerived(pid: string) {
   const qc = useQueryClient()
   return useMutation({ mutationFn: (name: string) => api.deleteDerived(pid, name), onSuccess: () => invalidateVariables(qc, pid) })
 }
-export function useImportExternal(pid: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (p: { file: File; key: 'case_id' | 'patient_id' }) => api.importExternal(pid, p.file, p.key),
-    onSuccess: () => invalidateVariables(qc, pid),
+/** One grid page. The previous page stays visible while the new request loads. */
+export const useCohortRows = (pid: string, req: CohortRowsRequest | null) =>
+  useQuery({
+    queryKey: keys.cohortRows(pid, req),
+    queryFn: () => api.cohortRows(pid, req as CohortRowsRequest),
+    enabled: enabled(pid) && req !== null,
+    placeholderData: (p) => p,
   })
-}
+/** The column's distribution over the filtered rows; `column = null` disables it. */
+export const useCohortSummary = (pid: string, column: string | null, filters: CohortRowsRequest['filters'] | null) =>
+  useQuery({
+    queryKey: keys.cohortSummary(pid, column === null ? null : { column, filters: filters ?? {} }),
+    queryFn: () => api.cohortSummary(pid, { column: column as string, filters: filters ?? {} }),
+    enabled: enabled(pid) && column !== null,
+    placeholderData: (p) => p,
+    staleTime: 30_000,
+  })
+
+/** One case's scans and events on a day axis; `caseId = null` disables it. */
+export const useCohortTimeline = (pid: string, caseId: string | null) =>
+  useQuery({
+    queryKey: keys.cohortTimeline(pid, caseId ?? ''),
+    queryFn: () => api.cohortTimeline(pid, caseId as string),
+    enabled: enabled(pid) && caseId !== null,
+  })
+
+/** Two categorical variables over the filtered rows with χ² / Fisher; null disables it. */
+export const useCohortBalance = (pid: string, req: CohortBalanceRequest | null) =>
+  useQuery({
+    queryKey: keys.cohortBalance(pid, req),
+    queryFn: () => api.cohortBalance(pid, req as CohortBalanceRequest),
+    enabled: enabled(pid) && req !== null,
+    placeholderData: (p) => p,
+    staleTime: 30_000,
+  })
 
 /** Saving settings that match a profile returns that profile */
 export function useSaveProfile(pid: string) {
@@ -548,7 +578,7 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
 export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   // Other reviewers' cell edits (or a large batch announced as project.updated)
   if (e.event === 'labeling.appended' || (e.event === 'project.updated' && e.data.fields.includes('labeling')))
-    void refreshQueries(qc, ['project', pid, 'labeling'])
+    for (const k of ['labeling', 'cohort', 'variables'] as const) void refreshQueries(qc, ['project', pid, k])
   // A selection here or in another browser (imports announce `project.updated` with `phase`)
   if (e.event === 'phase.appended' || (e.event === 'project.updated' && e.data.fields.includes('phase'))) invalidatePhase(qc, pid)
   if (e.event === 'curation.appended') {

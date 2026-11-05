@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api, keys, useItem } from '../../api'
 import { ItemName, PhaseChip, ProblemCard } from '../../lib'
-import { useWorkbench } from '../../shell'
+import { runCommand, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 
 /** `00100020` → `0010,0020` */
@@ -20,13 +20,16 @@ const tagText = (v: unknown): string => {
     .slice(0, 120)
 }
 
-/** DICOM tags only on demand (they can hold PHI) */
-function DicomTags({ pid, iid }: { pid: string; iid: string }) {
+/** DICOM tags only on demand (they can hold PHI); `search` keeps the tags whose number or text contains it */
+export function DicomTags({ pid, iid, search = '' }: { pid: string; iid: string; search?: string }) {
   const { t } = useTranslation()
   const q = useQuery({ queryKey: keys.dicomTags(pid, iid), queryFn: () => api.dicomTags(pid, iid), retry: false })
   if (q.error) return <ProblemCard error={q.error} onRetry={() => void q.refetch()} />
   if (!q.data) return <span className="muted">{t('common.loading')}</span>
-  const rows = Object.entries(q.data).filter(([k]) => /^[0-9A-F]{8}$/.test(k))
+  const needle = search.trim().toLowerCase()
+  const rows = Object.entries(q.data)
+    .filter(([k]) => /^[0-9A-F]{8}$/.test(k))
+    .filter(([k, v]) => !needle || `${tagName(k)} ${tagText(v)}`.toLowerCase().includes(needle))
   // A reconstructed sidecar must not pass as a real DICOM header
   const partial = (q.data._provenance as { fidelity?: string } | undefined)?.fidelity === 'partial'
   return (
@@ -89,9 +92,12 @@ export function ImageSection() {
         </>
       ) : null}
       <dt />
-      <dd>
+      <dd style={{ display: 'flex', gap: 12 }}>
         <button type="button" className="link small" onClick={() => setAdvanced(!advanced)}>
           {t(advanced ? 'image.hidePaths' : 'image.showPaths')}
+        </button>
+        <button type="button" className="link small" onClick={() => runCommand('cohort.showCase', it.case_id)}>
+          {t('image.showInCohort')}
         </button>
       </dd>
       {it.extra?.dicom_sidecar ? (

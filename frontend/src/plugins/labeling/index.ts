@@ -22,6 +22,8 @@ const tableName = (tid: string) => {
   return queryClient.getQueryData<LabelTableInfo[]>(keys.labelTables(pid))?.find((t) => t.table_id === tid)?.name ?? i18n.t('view.labeling')
 }
 
+export { CellEditor } from './CellEditor'
+
 export const plugin: FrontendPlugin = {
   id: 'labeling',
   activate: ({ registry }) => {

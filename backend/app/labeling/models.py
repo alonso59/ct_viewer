@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-TableLevel = Literal["case", "scan", "item"]
+TableLevel = Literal["case", "scan", "item", "event"]
 ColumnType = Literal["bool", "category", "number", "text", "date"]
 SLUG_RE = r"^[a-z][a-z0-9_]{0,39}$"
 
@@ -105,6 +105,21 @@ class CellEvent(BaseModel):
     column_id: str
     target: str
     value: Any = None
+
+
+class RowIn(BaseModel):
+    """A new row of an event table: one event of a case."""
+
+    case_id: str = Field(min_length=1)
+
+
+class RowEvent(BaseModel):
+    """The row created (or removed) by a `kind: "row"` line of `events/labeling.jsonl`."""
+
+    table_id: str
+    target: str
+    case_id: str
+    removed: bool = False
 
 
 class CellRow(BaseModel):

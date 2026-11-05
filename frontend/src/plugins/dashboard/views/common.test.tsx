@@ -37,3 +37,10 @@ test('a view without a chart has no table switch', () => {
   render(<ViewFrame name="view" csv={() => [['feature'], ['a']]}><span /></ViewFrame>)
   expect(screen.queryByRole('button', { name: 'Show as table' })).toBeNull()
 })
+
+test('a drawn chart offers PNG, PNG on a light background and SVG', () => {
+  const chart = { getDataURL: () => '' } as unknown as Parameters<typeof ViewFrame>[0]['chart']
+  render(<ViewFrame name="view" chart={chart}><span /></ViewFrame>)
+  for (const name of ['Export PNG', 'Export PNG on a light background', 'Export SVG'])
+    expect(screen.getByRole('button', { name })).toBeInTheDocument()
+})

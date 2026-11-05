@@ -88,6 +88,8 @@ def labeling_layers(ctx: LayerContext) -> list[Layer]:
     cells = labeling_state.cell_state(ctx.project_dir)
     out: list[Layer] = []
     for t in labeling_state.active_tables(ctx.project_dir):
+        if t.level == "event":  # several rows per case: only its derived event variables exist
+            continue
         for c in t.columns:
             if c.hidden or c.ref:  # a reference column mirrors another variable
                 continue

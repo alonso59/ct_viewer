@@ -20,13 +20,15 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 | VAR-04 | Source group: fields in the known converter schema are **Acquisition** (hidden by default); unknown fields are **Study** (visible by default). This is how study labels like `hb/lb/sn` surface without knowing their names. | M |
 | VAR-05 | Tags the user can set: `confounder` (scanner, kernel, kVp…), `outcome`, `sensitive`. Default `confounder` on `manufacturer`, `manufacturer_model`, `convolution_kernel`, `kvp`, `slice_thickness`, `spacing_z`, `contrast_agent`, `modality`. | S |
 | VAR-06 | Derived variables, three operations only: **bin** (continuous → categorical by thresholds or quantiles), **recode** (merge/rename categories), **dominant** (name of the largest among N numeric variables). Adding one validates only the new definition; a stored one whose source is gone (re-import, deleted label table LBL-10) is kept, listed as broken with its reason (API-16 `broken[]`) and can be deleted. Deleting a label table or column names the derived variables it breaks. | M |
-| VAR-07 | External table: import a CSV/TSV keyed by `case_id` (or `patient_id`) to add variables not in `metadata.jsonl`. Unmatched keys are reported. | S |
+| VAR-07 | **Retired** (ADR-0046 §5, K2): the app no longer offers new external tables; the UI import is gone. Existing external tables stay readable as variables, and API-18 stays for scripts. Clinical data is loaded with LBL-07. | S |
 | VAR-08 | `raw_metadata` and DICOM sidecars (DCM-04) are not variables. An allowlist of useful tags is flattened: `PatientSex` → categorical, `PatientAge` → continuous years. All other raw tags are ignored. Converter extras in the row (DICOM_CONVERTER §Row fields) and analyzer `target_match` / `readiness` (ANZ) are ordinary fields and are profiled. | S |
 | VAR-09 | Never exposed as variables: absolute paths, UIDs, `AccessionNumber`, blobs. `patient_id` and dates are `sensitive`. Dataset exports (API-59) leave out `sensitive` fields, UIDs and accession numbers unless chosen, and never export absolute paths or the `raw_metadata` tag blob (NFR-17). | M |
 | VAR-10 | Variables drive: Explorer filters and columns (UI-08), radiomics selection (RAD-05), analysis grouping/targets (ANA-*). | M |
 | VAR-12 | Active metadata layers are variables too (ADR-0020): analyzer fields (`phase` guess, `target_match`, `readiness`), the native effective `phase` (PHASE.md, ADR-0026) and labeling columns `lbl.{table}.{column}` at their table's level (LBL-06), with the layer's type. | M |
 | VAR-11 | Catalog overrides and derived definitions live in the project (`variables/catalog.json`); source files are never changed (R1). | M |
 | VAR-13 | `comparable` flag (ADR-0026): true for categorical, layer-sourced variables meant for side-by-side comparison (native `phase`, analyzer `phase`, `target_match`, `readiness`, other `lbl.*` columns); false for continuous/free-text variables. Drives the Labeling reference-column picker (LBL-09). | S |
+| VAR-14 | Origin and category (ADR-0045; planned in P7k step C1): every variable has an origin group (§Categories), computed from its source and, for layers, the providing plugin; Metadata variables also have one category, assigned by a fixed field map for converter fields. The user can override a category like the type (VAR-03). Groups and categories order the Cohort navigator (COH-02) and are independent of the group of VAR-04. | S |
+| VAR-15 | Event variables (ADR-0049): per event table, per level of `kind`, the case-level variables `lbl.{table}.{kind}_days` (continuous: day of the first event of that kind, empty if none) and `lbl.{table}.{kind}_occurred` (categorical yes/no, empty when the case has no event row), and `lbl.{table}.followup_days` (the last event's day). The kind name is lower-cased with non-alphanumerics as `_`. | M |
 
 ## Type inference rules (non-empty values only; empty string = missing)
 
@@ -39,6 +41,28 @@ every metadata field is a **variable**: profiled on import, typed, and confirmed
 | `identifier` | distinct ≈ rows | `acquisition_time` (UIDs are excluded outright, VAR-09) |
 | `text` | anything else | `phase_guess_evidence` |
 | `constant` | 1 distinct value → hidden | `status` |
+
+## Categories (VAR-14, in navigator order)
+
+Origin groups: **Metadata** (sources `metadata`, `raw`) · **Automatic results** (analyzer and task annotation layers, `phase.analyzer`) · **Review** (`phase.effective`) · **Clinical & labels** (`lbl.*`, `external`) · **Derived** (`derived`). Categories below split the Metadata group.
+
+
+| Category | Holds | Basis |
+|---|---|---|
+| Patient | `patient_id`, `patient_sex`, `patient_age`, `patient_folder` | DICOM Patient module, VAR-08 allowlist |
+| Study | study description and index | General Study module |
+| Series | series number and description, protocol, body part, modality, image type, SOP class, DICOM category, scan type | General Series module |
+| Equipment | manufacturer, model, institution | General Equipment module |
+| Technique | kVp, tube current, exposure, kernel, scan options; MR echo and repetition time, flip angle, field strength, sequence, image component | CT Image and MR Image modules |
+| Contrast | agent, route, volume, dose, flow, start and stop, delay | Contrast/Bolus module |
+| Geometry | spacing, slice thickness, dimensions, slices, origin, orientation, reconstruction diameter, spacing and geometry checks | Image Plane module, converter checks |
+| Intensity | bits, pixel representation, rescale, window, CT intensity checks | Image Pixel and CT Image modules, converter checks |
+| Dates & times | every date and time field, `days_from_first_scan` | gathered from all modules |
+| Phase & readiness | converter-written phase guess, readiness, target match, output role, upstream status and skip reasons | converter selection (layer versions are Automatic results) |
+| Provenance | dataset id, case index, conversion date, source kind, other converter bookkeeping | converter |
+| Dataset fields | metadata fields outside the converter schema (e.g. `hb`, `lb`, `sn`) | VAR-04 Study group |
+
+The per-field map lives next to the converter field list (§Implementation notes); a test requires a category for every converter field.
 
 ## Derived variable examples
 

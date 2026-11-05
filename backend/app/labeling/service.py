@@ -38,6 +38,7 @@ from app.labeling.models import (
     ImportReport,
     LabelColumn,
     LabelTable,
+    RowEvent,
     TableCreate,
     TableInfo,
     TablePatch,
@@ -51,6 +52,7 @@ TEXT_MAX: Final = 2000
 TRUE: Final = {"true", "yes", "y", "1", "si", "sí", "x"}
 FALSE: Final = {"false", "no", "n", "0"}
 IMPORT_KEYS: Final = ("case_id", "patient_id", "scan", "item_id", "target")
+EVENT_KINDS: Final = ["Surgery", "Treatment", "Follow-up", "Recurrence", "Death"]
 
 
 def slugify(name: str, taken: set[str]) -> str:
@@ -108,9 +110,17 @@ def coerce(col: LabelColumn, raw: Any) -> Any:
     return t
 
 
-def targets(table: LabelTable, items: Sequence[Item]) -> list[tuple[str, str, str | None]]:
-    """(target, case_id, item to open) for the table's level, in index order."""
+def targets(
+    table: LabelTable, items: Sequence[Item], rows: Sequence[tuple[str, str]] = ()
+) -> list[tuple[str, str, str | None]]:
+    """(target, case_id, item to open) for the table's level, in index order. An event table's
+    rows are the user's (`rows`: target, case_id), kept while their case is active."""
     live = [i for i in items if i.status != "excluded_upstream"]
+    if table.level == "event":
+        first: dict[str, str] = {}
+        for i in live:
+            first.setdefault(i.case_id, i.item_id)
+        return [(tg, cid, first[cid]) for tg, cid in rows if cid in first]
     out: dict[str, tuple[str, str, str | None]] = {}
     for i in live:
         if table.level == "case":
@@ -142,6 +152,10 @@ class LabelingService:
 
     def _save(self, pid: str, doc: TablesFile) -> None:
         atomic_write_json(self._pdir(pid) / state.TABLES, doc.model_dump(mode="json"))
+
+    def _targets(self, pid: str, t: LabelTable) -> list[tuple[str, str, str | None]]:
+        rows = state.row_state(self._pdir(pid)).get(t.table_id, []) if t.level == "event" else []
+        return targets(t, self.store.load(pid).items, rows)
 
     def table(self, pid: str, tid: str) -> LabelTable:
         """A table that is not deleted; a deleted one is 404 until restored."""
@@ -180,7 +194,8 @@ class LabelingService:
         mirrors case-level variables only."""
         var = next((v for v in (catalog.variables if catalog else []) if v.name == c.ref), None)
         why = (
-            "unknown variable" if var is None
+            "an event table has no reference columns" if t.level == "event"
+            else "unknown variable" if var is None
             else "not comparable" if not var.comparable
             else "a scan-level variable cannot be shown per patient"
             if t.level == "case" and var.level != "case" else None
@@ -237,13 +252,12 @@ class LabelingService:
         """Progress = filled cells per column over the table's rows. `deleted` lists only the
         deleted tables instead."""
         pdir = self._pdir(pid)
-        items = self.store.load(pid).items
         cells = state.cell_state(pdir)
         out: list[TableInfo] = []
         for t in state.load_tables(pdir).tables:
             if t.hidden != deleted:
                 continue
-            rows = {r[0] for r in targets(t, items)}
+            rows = {r[0] for r in self._targets(pid, t)}
             prog = [
                 ColumnProgress(
                     column_id=c.column_id,
@@ -259,6 +273,60 @@ class LabelingService:
             out.append(TableInfo(**t.model_dump(), n_rows=len(rows), progress=prog))
         return out
 
+    def _event_columns(self, t: LabelTable, taken: set[str]) -> None:
+        """An event table always has `kind` (category) and `day` (number, days): add what is
+        missing, in front, and refuse a column of that name with another type."""
+        wanted = [
+            ColumnIn(name="Kind", type="category", levels=EVENT_KINDS),
+            ColumnIn(
+                name="Day", type="number", unit="days", description="Days from the anchor scan"
+            ),
+        ]
+        front: list[LabelColumn] = []
+        for spec in wanted:
+            slug = spec.name.lower()
+            have = next((c for c in t.columns if c.slug == slug), None)
+            if have is None:
+                front.append(self._column(t, spec, taken, None))
+            elif have.type != spec.type:
+                raise ValidationProblem(
+                    f"An event table's {spec.name!r} column must be {spec.type}",
+                    errors=[{"loc": ["body", "columns", "type"], "msg": f"must be {spec.type}"}],
+                )
+        t.columns = [*front, *t.columns]
+
+    async def add_row(
+        self, pid: str, tid: str, case_id: str, reviewer: str | None, session_id: str | None
+    ) -> RowEvent:
+        """A new event of a case: `{case_id}#{n}`, n counting up per table."""
+        who = require_reviewer(reviewer)
+        t = self.table(pid, tid)
+        if t.level != "event":
+            raise ValidationProblem("Only an event table has rows to add")
+        if case_id not in {i.case_id for i in self.store.load(pid).items}:
+            raise ValidationProblem(
+                f"Unknown case {case_id!r}",
+                errors=[{"loc": ["body", "case_id"], "msg": "no such case"}],
+            )
+        async with self.locks(f"_labeling_rows:{pid}"):
+            target = f"{case_id}#{state.row_count(self._pdir(pid), tid) + 1}"
+            body = {"table_id": tid, "kind": "row", "target": target, "case_id": case_id}
+            await self.events.append(pid, state.NAMESPACE, [stamp(who, session_id, body)])
+        return RowEvent(table_id=tid, target=target, case_id=case_id)
+
+    async def remove_row(
+        self, pid: str, tid: str, target: str, reviewer: str | None, session_id: str | None
+    ) -> RowEvent:
+        who = require_reviewer(reviewer)
+        t = self.table(pid, tid)
+        rows = dict(state.row_state(self._pdir(pid)).get(tid, []))
+        if t.level != "event" or target not in rows:
+            raise NotFound(f"Row {target!r} not found")
+        body = {"table_id": tid, "kind": "row", "target": target, "case_id": rows[target],
+                "removed": True}  # fmt: skip
+        await self.events.append(pid, state.NAMESPACE, [stamp(who, session_id, body)])
+        return RowEvent(table_id=tid, target=target, case_id=rows[target], removed=True)
+
     async def create(self, pid: str, body: TableCreate) -> LabelTable:
         catalog = await self._catalog(pid, body.columns)
         async with self.locks(pid):
@@ -270,6 +338,8 @@ class LabelingService:
             )  # fmt: skip
             taken: set[str] = set()
             t.columns = [self._column(t, c, taken, catalog) for c in body.columns]
+            if t.level == "event":
+                self._event_columns(t, taken)
             doc.tables.append(t)
             self._save(pid, doc)
         self.bus.publish(pid, "project.updated", {"fields": ["labeling"]})
@@ -326,7 +396,7 @@ class LabelingService:
     ) -> CellsPage:  # fmt: skip
         """`refs`: reference-column values from `ref_values`."""
         t = self.table(pid, tid)
-        rows = targets(t, self.store.load(pid).items)
+        rows = self._targets(pid, t)
         if q:
             rows = [r for r in rows if q.lower() in r[0].lower()]
         cells = state.cell_state(self._pdir(pid))
@@ -360,7 +430,7 @@ class LabelingService:
         who = require_reviewer(reviewer)
         t = self.table(pid, tid)
         by_id = {c.column_id: c for c in t.columns}
-        valid = {r[0] for r in targets(t, self.store.load(pid).items)}
+        valid = {r[0] for r in self._targets(pid, t)}
         errors: list[dict[str, Any]] = []
         records: list[dict[str, Any]] = []
         for n, cell in enumerate(cells):
@@ -396,6 +466,7 @@ class LabelingService:
             CellEvent(**e)
             for e in state.events(self._pdir(pid))
             if e.get("table_id") == tid
+            and e.get("kind") != "row"
             and (target is None or e.get("target") == target)
             and (column_id is None or e.get("column_id") == column_id)
         ]
@@ -417,7 +488,7 @@ class LabelingService:
                 errors=[{"loc": ["body", "file"], "msg": "no key column"}],
             )
         items = self.store.load(pid).items
-        rows = targets(t, items)
+        rows = self._targets(pid, t)
         index: dict[str, list[str]] = {}
         if key == "patient_id":
             by_case = {i.case_id: i.patient_id for i in items if i.patient_id}

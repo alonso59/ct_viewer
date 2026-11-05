@@ -705,6 +705,27 @@
     "title": "BatchPlanUpdate",
     "type": "object"
    },
+   "BatchReassign": {
+    "additionalProperties": false,
+    "properties": {
+     "expected_revision": {
+      "minimum": 0.0,
+      "title": "Expected Revision",
+      "type": "integer"
+     },
+     "operation_id": {
+      "minLength": 1,
+      "title": "Operation Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "operation_id",
+     "expected_revision"
+    ],
+    "title": "BatchReassign",
+    "type": "object"
+   },
    "BatchWarning": {
     "properties": {
      "batch_index": {
@@ -1172,6 +1193,50 @@
      "warnings"
     ],
     "title": "CaseDetail",
+    "type": "object"
+   },
+   "CaseRow": {
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "differs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Differs",
+      "type": "array"
+     },
+     "scans": {
+      "items": {
+       "$ref": "#/components/schemas/ScanRow"
+      },
+      "title": "Scans",
+      "type": "array"
+     },
+     "values": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Values",
+      "type": "object"
+     }
+    },
+    "required": [
+     "case_id"
+    ],
+    "title": "CaseRow",
     "type": "object"
    },
    "CaseState": {
@@ -1679,6 +1744,195 @@
      "features"
     ],
     "title": "Cluster",
+    "type": "object"
+   },
+   "CohortBalanceCell": {
+    "properties": {
+     "col": {
+      "title": "Col",
+      "type": "string"
+     },
+     "expected": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected"
+     },
+     "n": {
+      "title": "N",
+      "type": "integer"
+     },
+     "row": {
+      "title": "Row",
+      "type": "string"
+     }
+    },
+    "required": [
+     "row",
+     "col",
+     "n"
+    ],
+    "title": "CohortBalanceCell",
+    "type": "object"
+   },
+   "CohortBalanceRequest": {
+    "description": "Two categorical variables over the filtered rows; `test` forces \u03c7\u00b2 (`default`) or Fisher.",
+    "properties": {
+     "a": {
+      "title": "A",
+      "type": "string"
+     },
+     "b": {
+      "title": "B",
+      "type": "string"
+     },
+     "filters": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Filters",
+      "type": "object"
+     },
+     "test": {
+      "default": "auto",
+      "enum": [
+       "auto",
+       "default",
+       "alternative"
+      ],
+      "title": "Test",
+      "type": "string"
+     }
+    },
+    "required": [
+     "a",
+     "b"
+    ],
+    "title": "CohortBalanceRequest",
+    "type": "object"
+   },
+   "CohortBalanceResponse": {
+    "description": "Counts of `a` (rows) by `b` (columns) with the test; levels under 5 are `excluded_*`.",
+    "properties": {
+     "cells": {
+      "items": {
+       "$ref": "#/components/schemas/CohortBalanceCell"
+      },
+      "title": "Cells",
+      "type": "array"
+     },
+     "cols": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Cols",
+      "type": "array"
+     },
+     "cramers_v": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cramers V"
+     },
+     "excluded_cols": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Excluded Cols",
+      "type": "array"
+     },
+     "excluded_rows": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Excluded Rows",
+      "type": "array"
+     },
+     "missing": {
+      "default": 0,
+      "title": "Missing",
+      "type": "integer"
+     },
+     "n": {
+      "default": 0,
+      "title": "N",
+      "type": "integer"
+     },
+     "p": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "P"
+     },
+     "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+     },
+     "rows": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "statistic": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Statistic"
+     },
+     "test": {
+      "anyOf": [
+       {
+        "enum": [
+         "chi2",
+         "fisher"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Test"
+     },
+     "unit": {
+      "enum": [
+       "case",
+       "scan"
+      ],
+      "title": "Unit",
+      "type": "string"
+     }
+    },
+    "required": [
+     "unit"
+    ],
+    "title": "CohortBalanceResponse",
     "type": "object"
    },
    "ColorBy": {
@@ -3545,7 +3799,8 @@
       "default": "console",
       "enum": [
        "console",
-       "terminal"
+       "terminal",
+       "agent"
       ],
       "title": "Client",
       "type": "string"
@@ -6298,7 +6553,8 @@
       "enum": [
        "case",
        "scan",
-       "item"
+       "item",
+       "event"
       ],
       "title": "Level",
       "type": "string"
@@ -7168,7 +7424,8 @@
        "gui",
        "console",
        "terminal",
-       "script"
+       "script",
+       "agent"
       ],
       "title": "Client",
       "type": "string"
@@ -7459,6 +7716,14 @@
    "PackInfo": {
     "description": "A study pack contributed by a plugin.",
     "properties": {
+     "clinical_tables": {
+      "description": "Label table templates the pack offers",
+      "items": {
+       "$ref": "#/components/schemas/TableCreate"
+      },
+      "title": "Clinical Tables",
+      "type": "array"
+     },
      "description": {
       "title": "Description",
       "type": "string"
@@ -10001,6 +10266,162 @@
     "title": "RootInfo",
     "type": "object"
    },
+   "RowEvent": {
+    "description": "The row created (or removed) by a `kind: \"row\"` line of `events/labeling.jsonl`.",
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "removed": {
+      "default": false,
+      "title": "Removed",
+      "type": "boolean"
+     },
+     "table_id": {
+      "title": "Table Id",
+      "type": "string"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     }
+    },
+    "required": [
+     "table_id",
+     "target",
+     "case_id"
+    ],
+    "title": "RowEvent",
+    "type": "object"
+   },
+   "RowIn": {
+    "description": "A new row of an event table: one event of a case.",
+    "properties": {
+     "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "case_id"
+    ],
+    "title": "RowIn",
+    "type": "object"
+   },
+   "RowsRequest": {
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "filters": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Filters",
+      "type": "object"
+     },
+     "limit": {
+      "default": 100,
+      "maximum": 500.0,
+      "minimum": 1.0,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "offset": {
+      "default": 0,
+      "minimum": 0.0,
+      "title": "Offset",
+      "type": "integer"
+     },
+     "phase": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase"
+     },
+     "q": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Q"
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RowsSort"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "title": "RowsRequest",
+    "type": "object"
+   },
+   "RowsResponse": {
+    "properties": {
+     "n_cases": {
+      "title": "N Cases",
+      "type": "integer"
+     },
+     "n_scans": {
+      "title": "N Scans",
+      "type": "integer"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/CaseRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "n_cases",
+     "n_scans"
+    ],
+    "title": "RowsResponse",
+    "type": "object"
+   },
+   "RowsSort": {
+    "description": "`column`: a requested column or `case_id`; missing values sort last.",
+    "properties": {
+     "column": {
+      "title": "Column",
+      "type": "string"
+     },
+     "desc": {
+      "default": false,
+      "title": "Desc",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "column"
+    ],
+    "title": "RowsSort",
+    "type": "object"
+   },
    "RunAttemptControl": {
     "additionalProperties": false,
     "properties": {
@@ -10789,6 +11210,57 @@
      "items"
     ],
     "title": "ScanGroup",
+    "type": "object"
+   },
+   "ScanRow": {
+    "properties": {
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "modality": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modality"
+     },
+     "phase": {
+      "title": "Phase",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     },
+     "values": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Values",
+      "type": "object"
+     }
+    },
+    "required": [
+     "scan_idx",
+     "item_id",
+     "phase"
+    ],
+    "title": "ScanRow",
     "type": "object"
    },
    "ScatterPoint": {
@@ -13060,6 +13532,97 @@
     "title": "Suggestion",
     "type": "object"
    },
+   "SummaryBin": {
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "hi": {
+      "title": "Hi",
+      "type": "string"
+     },
+     "lo": {
+      "title": "Lo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "lo",
+     "hi",
+     "count"
+    ],
+    "title": "SummaryBin",
+    "type": "object"
+   },
+   "SummaryRequest": {
+    "properties": {
+     "column": {
+      "title": "Column",
+      "type": "string"
+     },
+     "filters": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Filters",
+      "type": "object"
+     }
+    },
+    "required": [
+     "column"
+    ],
+    "title": "SummaryRequest",
+    "type": "object"
+   },
+   "SummaryResponse": {
+    "description": "Categorical: the top 20 values plus `other` and `missing`; numeric/date:\n20 equal-width bins plus `missing`.",
+    "properties": {
+     "bins": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/SummaryBin"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bins"
+     },
+     "counts": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "integer"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Counts"
+     },
+     "missing": {
+      "default": 0,
+      "title": "Missing",
+      "type": "integer"
+     },
+     "other": {
+      "default": 0,
+      "title": "Other",
+      "type": "integer"
+     }
+    },
+    "title": "SummaryResponse",
+    "type": "object"
+   },
    "TableCreate": {
     "properties": {
      "columns": {
@@ -13073,7 +13636,8 @@
       "enum": [
        "case",
        "scan",
-       "item"
+       "item",
+       "event"
       ],
       "title": "Level",
       "type": "string"
@@ -13114,7 +13678,8 @@
       "enum": [
        "case",
        "scan",
-       "item"
+       "item",
+       "event"
       ],
       "title": "Level",
       "type": "string"
@@ -14967,6 +15532,152 @@
     "title": "TestChoice",
     "type": "object"
    },
+   "Timeline": {
+    "description": "One case on a day axis. Days count from `anchor_scan`, the earliest dated scan; no calendar\ndate leaves the server. Without an anchor the scans cannot be placed.",
+    "properties": {
+     "anchor_scan": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Anchor Scan"
+     },
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/TimelineEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "followup_days": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Followup Days"
+     },
+     "scans": {
+      "items": {
+       "$ref": "#/components/schemas/TimelineScan"
+      },
+      "title": "Scans",
+      "type": "array"
+     }
+    },
+    "required": [
+     "case_id"
+    ],
+    "title": "Timeline",
+    "type": "object"
+   },
+   "TimelineEvent": {
+    "properties": {
+     "day": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Day"
+     },
+     "kind": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kind"
+     },
+     "table": {
+      "title": "Table",
+      "type": "string"
+     },
+     "table_id": {
+      "title": "Table Id",
+      "type": "string"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "values": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Values",
+      "type": "object"
+     }
+    },
+    "required": [
+     "table_id",
+     "table",
+     "target"
+    ],
+    "title": "TimelineEvent",
+    "type": "object"
+   },
+   "TimelineScan": {
+    "properties": {
+     "day": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Day"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "phase": {
+      "title": "Phase",
+      "type": "string"
+     },
+     "scan_idx": {
+      "title": "Scan Idx",
+      "type": "string"
+     }
+    },
+    "required": [
+     "scan_idx",
+     "item_id",
+     "phase"
+    ],
+    "title": "TimelineScan",
+    "type": "object"
+   },
    "UiConfig": {
     "properties": {
      "public_base_url": {
@@ -15331,6 +16042,31 @@
    },
    "Variable": {
     "properties": {
+     "category": {
+      "anyOf": [
+       {
+        "enum": [
+         "patient",
+         "study",
+         "series",
+         "equipment",
+         "technique",
+         "contrast",
+         "geometry",
+         "intensity",
+         "dates",
+         "phase_readiness",
+         "provenance",
+         "dataset"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Category"
+     },
      "comparable": {
       "default": false,
       "title": "Comparable",
@@ -15371,6 +16107,18 @@
      },
      "name": {
       "title": "Name",
+      "type": "string"
+     },
+     "origin": {
+      "default": "metadata",
+      "enum": [
+       "metadata",
+       "automatic",
+       "review",
+       "clinical",
+       "derived"
+      ],
+      "title": "Origin",
       "type": "string"
      },
      "overridden": {
@@ -15444,6 +16192,31 @@
    "VariableOverride": {
     "description": "PATCH body; only provided fields change.",
     "properties": {
+     "category": {
+      "anyOf": [
+       {
+        "enum": [
+         "patient",
+         "study",
+         "series",
+         "equipment",
+         "technique",
+         "contrast",
+         "geometry",
+         "intensity",
+         "dates",
+         "phase_readiness",
+         "provenance",
+         "dataset"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Category"
+     },
      "tags": {
       "anyOf": [
        {
@@ -18361,6 +19134,193 @@
     ]
    }
   },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/rows": {
+   "post": {
+    "description": "A new row (one event of a case) in an event table; its target is `{case_id}#{n}`.",
+    "operationId": "add_row_api_v1_plugins_labeling_projects__pid__tables__tid__rows_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Session-Id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RowIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RowEvent"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Row",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/rows/{target}": {
+   "delete": {
+    "description": "Remove an event row; its history stays and its number is not reused.",
+    "operationId": "remove_row_api_v1_plugins_labeling_projects__pid__tables__tid__rows__target__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "target",
+      "required": true,
+      "schema": {
+       "title": "Target",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Session-Id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Session-Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RowEvent"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Row",
+    "tags": [
+     "labeling"
+    ]
+   }
+  },
   "/api/v1/plugins/{plugin_id}": {
    "get": {
     "operationId": "get_plugin_api_v1_plugins__plugin_id__get",
@@ -19498,6 +20458,217 @@
     "summary": "Get Case",
     "tags": [
      "cases"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/cohort/balance": {
+   "post": {
+    "description": "Two categorical variables over the filtered rows: counts by level, \u03c7\u00b2 or Fisher exact\n(expected counts under 5), Cram\u00e9r's V. Levels with fewer than 5 rows are listed as excluded.",
+    "operationId": "cohort_balance_api_v1_projects__pid__cohort_balance_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CohortBalanceRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CohortBalanceResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cohort Balance",
+    "tags": [
+     "cohort"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/cohort/rows": {
+   "post": {
+    "description": "Case \u2192 scan rows over the requested columns: filtered, sorted and paged by case.\nA column shows the common value in the case row, else `null` with the column listed in\n`differs`. `sort.column` is a requested column or `case_id`; missing values sort last.",
+    "operationId": "cohort_rows_api_v1_projects__pid__cohort_rows_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RowsRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RowsResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cohort Rows",
+    "tags": [
+     "cohort"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/cohort/summary": {
+   "post": {
+    "description": "The column over the filtered rows, at the variable's level: categorical as the top\n20 values plus `other` and `missing`; numeric/date as 20 equal-width bins plus `missing`.",
+    "operationId": "cohort_summary_api_v1_projects__pid__cohort_summary_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SummaryRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SummaryResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cohort Summary",
+    "tags": [
+     "cohort"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/cohort/timeline/{case_id}": {
+   "get": {
+    "description": "One case's scans and events as days from its earliest dated scan. Only day offsets are\nreturned, never a calendar date.",
+    "operationId": "cohort_timeline_api_v1_projects__pid__cohort_timeline__case_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "case_id",
+      "required": true,
+      "schema": {
+       "title": "Case Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Timeline"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cohort Timeline",
+    "tags": [
+     "cohort"
     ]
    }
   },
@@ -24762,6 +25933,67 @@
     ]
    }
   },
+  "/api/v1/source-batches/{plan_id}/batches/{index}/operation": {
+   "post": {
+    "operationId": "reassign_api_v1_source_batches__plan_id__batches__index__operation_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "plan_id",
+      "required": true,
+      "schema": {
+       "title": "Plan Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "index",
+      "required": true,
+      "schema": {
+       "title": "Index",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BatchReassign"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceBatchPlan"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reassign",
+    "tags": [
+     "source-batches"
+    ]
+   }
+  },
   "/api/v1/source-batches/{plan_id}/cancel": {
    "post": {
     "operationId": "cancel_api_v1_source_batches__plan_id__cancel_post",
@@ -26363,6 +27595,187 @@
      }
     },
     "summary": "View Project",
+    "tags": [
+     "view"
+    ]
+   }
+  },
+  "/api/v1/view/{token}/cohort/balance": {
+   "post": {
+    "description": "The balance check read: filters arrive in the body.",
+    "operationId": "view_cohort_balance_api_v1_view__token__cohort_balance_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CohortBalanceResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Cohort Balance",
+    "tags": [
+     "view"
+    ]
+   }
+  },
+  "/api/v1/view/{token}/cohort/rows": {
+   "post": {
+    "description": "The cohort grid read: filters, sort and paging arrive in the body.",
+    "operationId": "view_cohort_rows_api_v1_view__token__cohort_rows_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RowsResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Cohort Rows",
+    "tags": [
+     "view"
+    ]
+   }
+  },
+  "/api/v1/view/{token}/cohort/summary": {
+   "post": {
+    "description": "The column summary read: filters arrive in the body.",
+    "operationId": "view_cohort_summary_api_v1_view__token__cohort_summary_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SummaryResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Cohort Summary",
+    "tags": [
+     "view"
+    ]
+   }
+  },
+  "/api/v1/view/{token}/cohort/timeline/{case_id}": {
+   "get": {
+    "description": "The Timeline read of one case.",
+    "operationId": "view_cohort_timeline_api_v1_view__token__cohort_timeline__case_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "case_id",
+      "required": true,
+      "schema": {
+       "title": "Case Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Timeline"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "View Cohort Timeline",
     "tags": [
      "view"
     ]

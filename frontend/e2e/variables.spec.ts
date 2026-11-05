@@ -94,24 +94,6 @@ test('variables view on the real API: review, overrides, derived, external', asy
   await expect(hi).toHaveCount(0)
   await expect(derived.locator('.var-item')).toHaveCount(2)
 
-  // VAR-07: external table keyed by case_id, one unmatched key
-  await page.getByRole('button', { name: 'Import variable table…' }).first().click()
-  const dlg = page.getByRole('dialog')
-  await dlg.locator('input[type=file]').setInputFiles({
-    name: 'extra.csv',
-    mimeType: 'text/csv',
-    buffer: Buffer.from('case_id,biomarker_x,site_x,score\ncase_00001,1.5,A,1\ncase_00002,2.5,B,2\ncase_99999,3,C,3\ncase_00001,9,Z,4\n'),
-  })
-  await dlg.getByRole('button', { name: 'Import', exact: true }).click()
-  const report = dlg.getByRole('status')
-  await expect(report).toContainText('2 of 4 rows matched')
-  await expect(report).toContainText('Added: biomarker_x, site_x')
-  await expect(report).toContainText('case_99999')
-  await expect(report).toContainText('1 duplicate key (first row kept): case_00001')
-  await expect(report).toContainText('Skipped, name already taken: score')
-  await dlg.getByRole('button', { name: 'Close' }).first().click()
-  await expect(row(page, 'site_x')).toBeVisible()
-
   // VAR-10: the derived variable is offered as an explorer column / colour
   await page.getByRole('navigation', { name: /Activity bar/i }).getByRole('button', { name: 'Explorer' }).click()
   await page.getByRole('button', { name: 'Columns and colour' }).click()

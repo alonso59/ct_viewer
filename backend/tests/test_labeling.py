@@ -8,6 +8,7 @@ import io
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
@@ -335,3 +336,115 @@ def test_reference_column_mirrors_a_comparable_variable(client: TestClient, pid:
     assert row["values"][ref] == new
     exported = client.get(f"{url}/export").text
     assert "App phase" in exported.splitlines()[0] and new in exported
+
+
+def event_table(c: TestClient, pid: str, **extra: Any) -> dict[str, Any]:
+    body = {"name": "Events", "level": "event", "columns": [{"name": "Note", "type": "text"}]}
+    r = c.post(f"{lab(pid)}/tables", json={**body, **extra})
+    assert r.status_code == 201, r.text
+    return dict(r.json())
+
+
+def add_event(
+    c: TestClient, pid: str, t: dict[str, Any], case: str, kind: str, day: float | None
+) -> str:
+    r = c.post(f"{lab(pid)}/tables/{t['table_id']}/rows", json={"case_id": case}, headers=HDR)
+    assert r.status_code == 201, r.text
+    target = str(r.json()["target"])
+    cells = [{"column_id": col(t, "Kind"), "target": target, "value": kind}]
+    if day is not None:
+        cells.append({"column_id": col(t, "Day"), "target": target, "value": day})
+    w = c.post(f"{lab(pid)}/tables/{t['table_id']}/cells", json={"cells": cells}, headers=HDR)
+    assert w.status_code == 200, w.text
+    return target
+
+
+def test_event_table_gets_kind_and_day_and_rows_per_case(client: TestClient, pid: str) -> None:
+    t = event_table(client, pid)
+    assert [c["slug"] for c in t["columns"]] == ["kind", "day", "note"]
+    assert t["columns"][0]["levels"][:2] == ["Surgery", "Treatment"]
+    assert t["columns"][1]["unit"] == "days"
+    url = f"{lab(pid)}/tables/{t['table_id']}"
+    assert client.get(f"{url}/cells").json()["total"] == 0  # no rows until the user adds some
+    first = add_event(client, pid, t, CASE, "Surgery", 12)
+    second = add_event(client, pid, t, CASE, "Death", 400)
+    assert (first, second) == (f"{CASE}#1", f"{CASE}#2")
+    page = client.get(f"{url}/cells").json()
+    assert [r["target"] for r in page["items"]] == [first, second]
+    assert page["items"][0]["values"][col(t, "Day")] == 12
+    # removing a row hides it, keeps the history and does not reuse its number
+    r = client.delete(f"{url}/rows/{quote(first, safe='')}", headers=HDR)  # `#` ends a URL path
+    assert r.status_code == 200 and r.json()["removed"] is True
+    assert [r["target"] for r in client.get(f"{url}/cells").json()["items"]] == [second]
+    assert add_event(client, pid, t, CASE, "Treatment", 30) == f"{CASE}#3"
+    assert {h["target"] for h in client.get(f"{url}/history").json()} >= {first, second}
+    assert client.get(f"{lab(pid)}/tables").json()[0]["n_rows"] == 2
+
+
+def test_event_rows_need_an_event_table_a_case_and_a_reviewer(client: TestClient, pid: str) -> None:
+    t = event_table(client, pid)
+    url = f"{lab(pid)}/tables/{t['table_id']}/rows"
+    assert_problem(client.post(url, json={"case_id": "nope"}, headers=HDR), "validation")
+    assert_problem(client.post(url, json={"case_id": CASE}), "reviewer-required")
+    plain = make_table(client, pid, "case")
+    r = client.post(
+        f"{lab(pid)}/tables/{plain['table_id']}/rows", json={"case_id": CASE}, headers=HDR
+    )
+    assert_problem(r, "validation")
+    bad = {"name": "E2", "level": "event", "columns": [{"name": "Day", "type": "text"}]}
+    assert_problem(client.post(f"{lab(pid)}/tables", json=bad), "validation")
+    bad = {"name": "E3", "level": "event", "columns": [{"name": "Mirror", "ref": "phase"}]}
+    assert_problem(client.post(f"{lab(pid)}/tables", json=bad), "validation")
+
+
+def test_events_become_time_to_event_variables(client: TestClient, pid: str) -> None:
+    t = event_table(client, pid)
+    add_event(client, pid, t, "case_00001", "Surgery", 10)
+    add_event(client, pid, t, "case_00001", "Death", 300)
+    add_event(client, pid, t, "case_00001", "Death", 250)  # the first one counts
+    add_event(client, pid, t, "case_00002", "Surgery", 5)
+    wait_rebuilt(pid)
+    wait_var(client, pid, "lbl.events.death_days")
+    names = {
+        v["name"]: v for v in client.get(f"{API}/projects/{pid}/variables").json()["variables"]
+    }
+    assert {"lbl.events.death_occurred", "lbl.events.followup_days"} <= set(names)
+    assert names["lbl.events.death_days"]["level"] == "case"
+    assert names["lbl.events.death_days"]["origin"] == "clinical"
+    rows = client.post(
+        f"{API}/projects/{pid}/cohort/rows",
+        json={
+            "columns": [
+                "lbl.events.death_days",
+                "lbl.events.death_occurred",
+                "lbl.events.followup_days",
+            ]
+        },
+    ).json()["rows"]
+    by_case = {r["case_id"]: r["values"] for r in rows}
+    assert by_case["case_00001"] == {
+        "lbl.events.death_days": 250.0, "lbl.events.death_occurred": "yes",
+        "lbl.events.followup_days": 300.0,
+    }  # fmt: skip
+    assert by_case["case_00002"]["lbl.events.death_occurred"] == "no"
+    assert by_case["case_00002"]["lbl.events.death_days"] is None
+    assert by_case["case_00003"]["lbl.events.death_occurred"] is None  # no event rows: unknown
+
+
+def test_timeline_places_scans_and_events_in_days_from_the_anchor(
+    client: TestClient, pid: str
+) -> None:
+    t = event_table(client, pid)
+    add_event(client, pid, t, CASE, "Recurrence", 90)
+    add_event(client, pid, t, CASE, "Surgery", 7)
+    url = f"{API}/projects/{pid}/cohort/timeline/{CASE}"
+    tl = client.get(url).json()
+    assert tl["case_id"] == CASE
+    assert [(e["kind"], e["day"]) for e in tl["events"]] == [("Surgery", 7.0), ("Recurrence", 90.0)]
+    assert tl["followup_days"] == 90.0 and tl["events"][0]["table"] == "Events"
+    days = [s["day"] for s in tl["scans"]]
+    assert tl["scans"] and (tl["anchor_scan"] is None or min(d for d in days if d is not None) == 0)
+    assert set(tl["scans"][0]) == {"scan_idx", "item_id", "phase", "day"}  # offsets, no dates
+    assert_problem(client.get(f"{API}/projects/{pid}/cohort/timeline/nope"), "not-found")
+    token = client.post(f"{API}/projects/{pid}/view-token").json()["view_token"]
+    assert client.get(f"{API}/view/{token}/cohort/timeline/{CASE}").json()["case_id"] == CASE

@@ -4,13 +4,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { api, keys, useVariables, type LabelColumnIn, type LabelTable, type Variable } from '../../api'
+import { api, keys, usePacks, useProject, useVariables, type LabelColumnIn, type LabelTable, type Variable } from '../../api'
 import { Dialog, ProblemCard } from '../../lib'
 import { openEditor } from '../../shell'
 import { Icon, codicon } from '../../theme'
 
 const TYPES = ['bool', 'category', 'number', 'text', 'date'] as const
-const LEVELS = ['case', 'scan', 'item'] as const
+const LEVELS = ['case', 'scan', 'item', 'event'] as const
 
 export interface Draft {
   name: string
@@ -74,6 +74,16 @@ export function NewTableDialog({ pid, labels, onClose }: { pid: string; labels: 
   const [drafts, setDrafts] = useState<Draft[]>([empty()])
   const [error, setError] = useState<unknown>(null)
   const refs = useRefOptions(pid, level)
+  const applied = useProject(pid).data?.packs ?? []
+  const templates = (usePacks().data ?? []).filter((p) => applied.includes(p.pack_id)).flatMap((p) => (p.clinical_tables ?? []).map((tpl) => ({ ...tpl, pack: p.title })))
+  // A template fills the form; everything stays editable before the table is created
+  const applyTemplate = (key: string) => {
+    const tpl = templates[Number(key)]
+    if (!tpl) return
+    setName(tpl.name)
+    setLevel(tpl.level)
+    setDrafts((tpl.columns ?? []).map((c) => ({ name: c.name, type: c.type ?? 'text', levels: (c.levels ?? []).join(', '), unit: c.unit ?? '', ref: '' })))
+  }
   const create = async () => {
     try {
       const tbl: LabelTable = await api.createLabelTable(pid, { name: name.trim(), level, columns: toColumns(drafts) })
@@ -98,6 +108,15 @@ export function NewTableDialog({ pid, labels, onClose }: { pid: string; labels: 
       }
     >
       <div className="lbl-form">
+        {templates.length ? (
+          <label className="field">
+            <span className="field-label">{t('lbl.template')}</span>
+            <select className="input" defaultValue="" onChange={(e) => applyTemplate(e.target.value)}>
+              <option value="">{t('lbl.templateNone')}</option>
+              {templates.map((tpl, i) => <option key={`${tpl.pack}:${tpl.name}`} value={i}>{t('lbl.templateOption', { name: tpl.name, pack: tpl.pack })}</option>)}
+            </select>
+          </label>
+        ) : null}
         <label className="field">
           <span className="field-label">{t('lbl.tableName')}</span>
           <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />

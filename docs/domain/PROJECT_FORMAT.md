@@ -158,7 +158,7 @@ the new file installed without a durability acknowledgment; replay must reconcil
 | Rule | Detail |
 |---|---|
 | New project | Neutral defaults: `label_map: []`, `phase_vocabulary: []`, `phase_mapping: {}`, `phase_priority: ["UNK"]`, `packs: []`. API-02 also takes `packs` (scripts, tests); the UI never sends it (PRJ-14) |
-| Packs | `plugins/<id>/pack.json` next to a `plugin.json` that lists the id in `contributes.packs`: `label_map`, `phase_vocabulary`, `phase_aliases` (canonical → raw values), `phase_priority`, `target_profile`, `radiomics_profile`. Shipped: `ccrcc`, `generic-ct` |
+| Packs | `plugins/<id>/pack.json` next to a `plugin.json` that lists the id in `contributes.packs`: `label_map`, `phase_vocabulary`, `phase_aliases` (canonical → raw values), `phase_priority`, `target_profile`, `radiomics_profile`, `clinical_tables` (label table templates: `TableCreate` bodies, listed by API-28; mCODE-aligned names). Shipped: `ccrcc`, `generic-ct` |
 | Applying a pack | Pack labels replace the entries with the same value, other labels stay; the vocabulary and priority become the pack's, the mapping is merged; the `imported` set maps the new values; `packs[]` records it once; if the phase rules changed a reindex job starts (API-28 returns its `job_id`) |
 | ETag | Strong, over the whole `project.json`; also in the body as `etag`. `If-Match` missing → `428 precondition-required`; stale → `412 precondition-failed` with `actions: ["reload"]`; `*` matches any |
 | View token | `secrets.token_urlsafe(24)`; rotation replaces it (the old link is dead at once); bundles reset it to `null` |

@@ -56,21 +56,6 @@ test('createDerived sends quantile cut probabilities and returns the created var
   expect(v.name).toBe('score_tertile')
 })
 
-test('importExternal maps the match report; skipped (conflicting) columns are not "added"', async () => {
-  const fn = vi.fn(async () =>
-    new Response(
-      JSON.stringify({
-        table: { table_id: 't', filename: 't.csv', key: 'case_id', columns: ['biomarker', 'score'], sha256: 'x', imported_at: '2026-09-24T00:00:00Z' },
-        n_rows: 3, n_matched: 2, n_unmatched: 1, unmatched_keys: ['case_99999'], duplicate_keys: ['case_00001'], conflicts: ['score'],
-      }),
-      { status: 201, headers: { 'content-type': 'application/json' } },
-    ),
-  )
-  vi.stubGlobal('fetch', fn)
-  const r = await httpApi.importExternal('p1', new File(['case_id\n'], 't.csv'), 'case_id')
-  expect(r).toEqual({ key: 'case_id', n_rows: 3, matched: 2, unmatched_keys: ['case_99999'], duplicate_keys: ['case_00001'], conflicts: ['score'], added: ['biomarker'] })
-})
-
 test('deleting an in-use derived variable surfaces the 422 detail', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ type: '/problems/validation', title: 'Validation failed', status: 422, detail: "Variable 'a' is used by b" }), { status: 422 })))
   await expect(httpApi.deleteDerived('p1', 'a')).rejects.toMatchObject({ status: 422, type: 'validation', detail: "Variable 'a' is used by b" })

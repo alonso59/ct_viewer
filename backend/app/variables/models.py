@@ -12,6 +12,14 @@ SettableType = Literal["continuous", "categorical", "date", "identifier", "text"
 Level = Literal["case", "scan"]
 VarGroup = Literal["study", "acquisition"]
 VarSource = Literal["metadata", "derived", "external", "raw", "layer"]
+# Origin group of the Cohort navigator: where the value comes from, computed from the
+# source and (for layers) the providing plugin. Independent of the study/acquisition group.
+Origin = Literal["metadata", "automatic", "review", "clinical", "derived"]
+# One category per Metadata variable, assigned by a fixed field map for converter fields.
+Category = Literal[
+    "patient", "study", "series", "equipment", "technique", "contrast",
+    "geometry", "intensity", "dates", "phase_readiness", "provenance", "dataset",
+]  # fmt: skip
 Tag = Literal["confounder", "outcome", "sensitive"]
 ExcludeReason = Literal["core", "uid", "path", "blob", "accession", "reserved"]
 NUMERIC_TYPES: frozenset[str] = frozenset({"continuous", "numeric-discrete"})
@@ -44,6 +52,8 @@ class Variable(BaseModel):
     inferred_type: VarType
     level: Level
     group: VarGroup
+    origin: Origin = "metadata"
+    category: Category | None = None  # set for Metadata variables, None for the other origins
     tags: list[Tag] = Field(default_factory=list)
     visible: bool
     confidence: float  # 0..1
@@ -120,6 +130,7 @@ class VariableOverride(BaseModel):
     type: SettableType | None = None
     visible: bool | None = None
     tags: list[Tag] | None = None
+    category: Category | None = None  # honoured for Metadata variables only
 
 
 class BrokenDerived(BaseModel):

@@ -41,6 +41,7 @@ Depends: none (terms point to their owning docs by ID).
 | Label map | Project-defined label values → name, color, opacity |
 | Phase | Contrast phase: NC (non-contrast), CMP (corticomedullary), NP (nephrographic), EP (excretory), UNK |
 | Variable | Any non-core metadata field (or external/derived column), typed and levelled (VAR-*) |
+| Cohort dashboard | Project tab: one case → scans grid over every variable, grouped by origin (Metadata, Automatic results, Review, Clinical & labels, Derived); only clinical and label cells are editable (COH-*, ADR-0045/0046) |
 | Level | `case` (constant within a case) or `scan` |
 | Derived variable | Bin, recode or dominant computed from other variables |
 | Confounder | Variable that may bias comparisons (scanner, kernel, kVp) |

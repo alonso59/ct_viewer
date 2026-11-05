@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useCreateDerived, useImportExternal, useVariables, type DerivedOp, type ExternalImportResult } from '../../api'
+import { useCreateDerived, useVariables, type DerivedOp } from '../../api'
 import { Dialog, NumberInput, RadioSeg, problemMessage } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
@@ -152,70 +152,9 @@ function DerivedDialog({ pid }: { pid: string }) {
   )
 }
 
-function ExternalDialog({ pid }: { pid: string }) {
-  const { t } = useTranslation()
-  const close = () => useVariablesUi.getState().openDialog(null)
-  const upload = useImportExternal(pid)
-  const [file, setFile] = useState<File | null>(null)
-  const [key, setKey] = useState<'case_id' | 'patient_id'>('case_id')
-  const [result, setResult] = useState<ExternalImportResult | null>(null)
-  return (
-    <Dialog
-      open
-      onOpenChange={(o) => !o && close()}
-      title={t('variables.importTableTitle')}
-      icon={codicon('table')}
-      footer={
-        <>
-          <button type="button" className="btn" onClick={close}>{t(result ? 'common.close' : 'common.cancel')}</button>
-          {!result ? (
-            <button type="button" className="btn btn-primary" disabled={!file || upload.isPending} onClick={() => file && upload.mutate({ file, key }, { onSuccess: setResult })}>
-              {t('variables.importAction')}
-            </button>
-          ) : null}
-        </>
-      }
-    >
-      <div className="var-form">
-        <p className="muted">{t('variables.importHelp')}</p>
-        <label className="field">
-          <span className="field-label">{t('variables.tableFile')}</span>
-          <input type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null) }} />
-        </label>
-        <div className="field">
-          <span className="field-label">{t('variables.keyColumn')}</span>
-          <RadioSeg label={t('variables.keyColumn')} value={key} options={(['case_id', 'patient_id'] as const).map((k) => ({ value: k, label: <span className="mono">{k}</span> }))} onChange={setKey} />
-        </div>
-        {upload.isError ? (
-          <div className="error-card" role="alert" style={{ margin: 0 }}>
-            {problemMessage(upload.error)}
-          </div>
-        ) : null}
-        {result ? (
-          <div className="card" role="status" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <strong>{t('variables.importResult', { matched: result.matched, rows: result.n_rows })}</strong>
-            <span>{t('variables.importAdded', { names: result.added.join(', ') || '—' })}</span>
-            {result.duplicate_keys.length ? (
-              <span className="muted">{t('variables.importDuplicates', { count: result.duplicate_keys.length, keys: result.duplicate_keys.slice(0, 20).join(', ') })}</span>
-            ) : null}
-            {result.conflicts.length ? (
-              <span className="text-warn">{t('variables.importConflicts', { names: result.conflicts.join(', ') })}</span>
-            ) : null}
-            {result.unmatched_keys.length ? (
-              <span className="muted">
-                {t('variables.importUnmatched', { count: result.unmatched_keys.length, keys: result.unmatched_keys.slice(0, 20).join(', ') })}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </Dialog>
-  )
-}
-
 export function VariablesDialogs() {
   const pid = useWorkbench((s) => s.pid)
   const dialog = useVariablesUi((s) => s.dialog)
   if (!pid || !dialog) return null
-  return dialog === 'derived' ? <DerivedDialog pid={pid} /> : <ExternalDialog pid={pid} />
+  return dialog === 'derived' ? <DerivedDialog pid={pid} /> : null
 }

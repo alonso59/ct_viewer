@@ -2,7 +2,7 @@ import type { CaseFilter, LogKind } from './surface'
 import type { DashboardView, ItemFilter } from './types'
 
 /** Parts of a project that are invalidated as a whole (a prefix of the keys below) */
-export type ProjectScope = 'cases' | 'case' | 'item' | 'curation' | 'events' | 'labeling' | 'run' | 'analyses'
+export type ProjectScope = 'cases' | 'case' | 'item' | 'curation' | 'events' | 'labeling' | 'cohort' | 'run' | 'analyses'
 
 export const keys = {
   /** Prefix of every key of one part of a project, for invalidation */
@@ -22,6 +22,11 @@ export const keys = {
   warnings: (pid: string) => ['project', pid, 'warnings'] as const,
   imports: (pid: string) => ['project', pid, 'imports'] as const,
   variables: (pid: string) => ['project', pid, 'variables'] as const,
+  /** The body is part of the key, so equal requests share one answer */
+  cohortRows: (pid: string, body: unknown) => ['project', pid, 'cohort', 'rows', body] as const,
+  cohortSummary: (pid: string, body: unknown) => ['project', pid, 'cohort', 'summary', body] as const,
+  cohortTimeline: (pid: string, caseId: string) => ['project', pid, 'cohort', 'timeline', caseId] as const,
+  cohortBalance: (pid: string, body: unknown) => ['project', pid, 'cohort', 'balance', body] as const,
   brokenDerived: (pid: string) => ['project', pid, 'variables', 'broken'] as const,
   events: (pid: string, f: { item_id?: string; case_id?: string } = {}) => ['project', pid, 'events', f] as const,
   phaseEvents: (pid: string, cid: string, scan: string) => ['project', pid, 'phase', 'events', cid, scan] as const,

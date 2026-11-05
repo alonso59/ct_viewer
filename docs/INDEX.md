@@ -35,6 +35,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | Shell layout, theme, icons, keybindings | `frontend/UI_SHELL.md` |
 | 2×2 viewer, NiiVue, overlays, W/L | `frontend/VIEWER.md` |
 | Radiomics dashboard | `frontend/DASHBOARD.md` |
+| Cohort dashboard: metadata, clinical and label data by origin (P7k) | `frontend/COHORT.md`; ADR-0045, ADR-0046 |
 | Deployment options (native, Docker/udocker, HPC), image, env vars | `ops/DEPLOYMENT.md` |
 | Local and remote dev loop | `ops/DEV_ENV.md` |
 | Test layers, fixtures, gates | `ops/TESTING.md` |
@@ -66,6 +67,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | `UI-` | frontend/UI_SHELL.md | Shell and UX |
 | `VW-` | frontend/VIEWER.md | Viewer |
 | `DB-` | frontend/DASHBOARD.md | Dashboard |
+| `COH-` | frontend/COHORT.md | Cohort dashboard |
 | `OPS-` | ops/DEPLOYMENT.md | Runtime and deployment |
 | `NFR-` | product/NFR.md | Quality targets |
 | `TST-` | ops/TESTING.md | Test layers |
@@ -80,6 +82,7 @@ Read only for the named work. At phase exit, move durable facts into the owning 
 | Work | Read |
 |---|---|
 | Supervised segmentation jobs (P7g): approved plan, GPU safety, acceptance matrix | `domain/SEGMENTATION_JOB_PLAN.md`; `ops/SEGMENTATION_JOB_TEST_PLAN.md`; `adr/0033-supervised-segmentation-jobs.md` |
+| Cohort dashboard K1 (P7k): ordered tasks C1–C5 | `frontend/COHORT_PLAN.md`; `frontend/COHORT.md`; `adr/0045-cohort-dashboard-read-only-metadata.md`; `adr/0046-clinical-and-labels-in-cohort.md` |
 | DICOM discovery, background conversion, interruption/resume | `domain/DICOM_JOB_PLAN.md`; `ops/DICOM_JOB_TEST_PLAN.md`; `adr/0035-durable-dicom-source-operations.md` |
 | Standalone DICOM converter package (`rw_dicom`), per-unit pinning, parallel units, incomplete datasets (P7i) | `domain/DICOM_STANDALONE_PLAN.md`; `ops/DICOM_STANDALONE_TEST_PLAN.md`; `adr/0042-standalone-dicom-converter-package.md` |
 

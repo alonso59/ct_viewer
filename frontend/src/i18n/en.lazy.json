@@ -161,7 +161,11 @@
     "errors_other": "{{count}} failures and skips",
     "excludedLevel": "{{level}} (n < 5)",
     "exportCsv": "Export CSV",
-    "exportPng": "Export PNG",
+    "export": {
+      "png": "Export PNG",
+      "png-light": "Export PNG on a light background",
+      "svg": "Export SVG"
+    },
     "feature": "Feature",
     "featuresUsed_one": "{{count}} feature",
     "featuresUsed_other": "{{count}} features",
@@ -859,6 +863,128 @@
     "rotated": "New view-only link created; the old one no longer works",
     "revoked": "View-only link revoked"
   },
+  "cohort": {
+    "nav": {
+      "search": "Search fields",
+      "noMatch": "No matching fields",
+      "group": {
+        "metadata": "Metadata",
+        "automatic": "Automatic results",
+        "review": "Review",
+        "clinical": "Clinical & labels",
+        "derived": "Derived"
+      },
+      "category": {
+        "patient": "Patient",
+        "study": "Study",
+        "series": "Series",
+        "equipment": "Equipment",
+        "technique": "Technique",
+        "contrast": "Contrast",
+        "geometry": "Geometry",
+        "intensity": "Intensity",
+        "dates": "Dates & times",
+        "phase_readiness": "Phase & readiness",
+        "provenance": "Provenance",
+        "dataset": "Dataset"
+      },
+      "same": "Same for all: {{value}}",
+      "pin": "Pin {{name}}",
+      "unpin": "Unpin {{name}}",
+      "pinned": "Pinned"
+    },
+    "grid": {
+      "noColumns": "Pick a group in the navigator to show its fields",
+      "case": "Case",
+      "modality": "Modality",
+      "scans": "{{n}} scans",
+      "differs": "{{n}} values",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{pages}}"
+    },
+    "filters": {
+      "text": "Case or patient ID",
+      "send": "Send to Explorer"
+    },
+    "menu": {
+      "copy": "Copy value",
+      "copied": "Copied {{value}}",
+      "filter": "Filter by this value",
+      "open": "Open in viewer",
+      "queue": "Add to correction queue",
+      "queued": "Added to correction queue",
+      "summary": "Summarize this column",
+      "compare": "Compare this case's scans",
+      "tags": "DICOM tags of this scan",
+      "timeline": "Timeline of this case"
+    },
+    "panel": { "close": "Close {{title}}" },
+    "timeline": {
+      "title": "Timeline of {{caseId}}",
+      "scans": "Scans",
+      "events": "Events",
+      "scan": "Scan",
+      "noKind": "No kind",
+      "axis": "Days from the first dated scan",
+      "dayN": "day {{day}}",
+      "what": "What",
+      "kind": "Kind",
+      "day": "Day",
+      "dayField": "Day (from the first dated scan)",
+      "eventLine": "{{kind}}, day {{day}} ({{table}})",
+      "remove": "Remove {{kind}} on day {{day}}",
+      "table": "Event table",
+      "add": "Add event",
+      "noTable": "Create an event table in the Labeling view (level Event) to record events.",
+      "noAnchor": "No scan of this case has a date, so its scans cannot be placed; events keep their days.",
+      "failed": "The timeline could not be read"
+    },
+    "balance": {
+      "open": "Balance check",
+      "title": "Balance check",
+      "rows": "Rows",
+      "cols": "Columns",
+      "pick": "Pick two different categorical variables",
+      "tooFew": "Each variable needs at least two levels with 5 or more rows",
+      "chi2": "χ² test: p = {{p}}, Cramér's V = {{v}}, n = {{n}}",
+      "fisher": "Fisher exact test: p = {{p}}, Cramér's V = {{v}}, n = {{n}}",
+      "excluded": "Left out (fewer than 5 rows): {{levels}}"
+    },
+    "edit": {
+      "edit": "Edit value",
+      "fill": "Fill the filtered rows with this value",
+      "clear": "Clear the filtered rows",
+      "paste": "Paste values from here down",
+      "changed_one": "Changed {{count}} cell",
+      "changed_other": "Changed {{count}} cells",
+      "noClipboard": "The clipboard cannot be read here"
+    },
+    "summary": {
+      "title": "Distribution of {{name}}",
+      "value": "Value",
+      "count": "Cases or scans",
+      "other": "Other",
+      "missing": "Missing",
+      "none": "No values to summarize"
+    },
+    "compare": {
+      "title": "Scans of {{caseId}}",
+      "field": "Field",
+      "fields": "Compared fields",
+      "differencesOnly": "Differences only",
+      "none": "No scans to compare"
+    },
+    "tags": {
+      "title": "DICOM tags of {{itemId}}",
+      "search": "Search tags"
+    },
+    "export": {
+      "csv": "Export CSV",
+      "sensitive": "Include sensitive fields",
+      "failed": "Could not export the grid"
+    }
+  },
   "conv": {
     "mixedVersions": "Allow series from other converter versions",
     "mixedVersionsHelp": "This project's dataset may hold series converted by older reader versions. New series then use the current readers; each series keeps its own versions as provenance.",
@@ -1251,19 +1377,7 @@
       "thresholds": "Give one or more numeric thresholds.",
       "labels": "Give one label per bin (or leave labels empty)."
     },
-    "importHelp": "Add variables from a CSV or TSV keyed by case or patient. The file is copied into the project; source data is not changed.",
-    "tableFile": "CSV / TSV file",
-    "keyColumn": "Key column",
-    "importAction": "Import",
-    "importResult": "{{matched}} of {{rows}} rows matched",
-    "importAdded": "Added: {{names}}",
-    "importUnmatched_one": "{{count}} unmatched key: {{keys}}",
-    "importUnmatched_other": "{{count}} unmatched keys: {{keys}}",
-    "importDuplicates_one": "{{count}} duplicate key (first row kept): {{keys}}",
-    "importDuplicates_other": "{{count}} duplicate keys (first row kept): {{keys}}",
-    "importConflicts": "Skipped, name already taken: {{names}}",
     "newDerivedTitle": "New derived variable",
-    "importTableTitle": "Import variable table",
     "deleteConfirm": "Delete the derived variable {{name}}? Its definition is removed."
   },
   "design": {
@@ -1447,17 +1561,22 @@
     "notARow": "Not a row of this table (excluded upstream).",
     "openTable": "Open table {{name}}",
     "newTable": "New label table",
+    "template": "Start from a template",
+    "templateNone": "Empty table",
+    "templateOption": "{{name}} ({{pack}})",
     "empty": "No label tables yet. A table has typed columns per patient, CT scan or item; every column becomes a study variable.",
     "level": {
       "case": "Case",
       "scan": "Scan",
-      "item": "Item"
+      "item": "Item",
+      "event": "Event"
     },
     "levelLabel": "One row per",
     "levelHelp": {
       "case": "one row per case (patient)",
       "scan": "one row per CT scan (acquisition)",
-      "item": "one row per viewable item (scan × scope × side)"
+      "item": "one row per viewable item (scan × scope × side)",
+      "event": "any number of rows per case, one per event (surgery, treatment, recurrence, death); each has a kind and a day counted from the case's first dated scan"
     },
     "summary": "{{rows}} rows · {{cols}} columns · {{filled}} of {{total}} cells filled",
     "colProgress": "{{name}}: {{filled}} / {{total}}",

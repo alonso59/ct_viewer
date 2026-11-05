@@ -42,6 +42,7 @@ class Pack:
     description: str = ""
     plugin: str = ""
     target_profile: str = "generic"
+    clinical_tables: tuple[dict[str, Any], ...] = ()  # label table templates (`TableCreate` bodies)
 
 
 def parse_pack(raw: dict[str, Any], plugin: str) -> Pack:
@@ -58,6 +59,7 @@ def parse_pack(raw: dict[str, Any], plugin: str) -> Pack:
             phase_priority=tuple(raw.get("phase_priority") or (UNKNOWN_PHASE,)),
             plugin=plugin,
             target_profile=str(raw.get("target_profile") or "generic"),
+            clinical_tables=tuple(raw.get("clinical_tables") or ()),
         )
     except (KeyError, TypeError) as exc:
         raise ValueError(f"invalid pack: {exc}") from None

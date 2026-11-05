@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from app.variables.models import ExcludeReason
+from app.variables.models import Category, ExcludeReason
 
 # Identity, paths and phase-resolution inputs: fixed meaning, never variables.
 # The resolved phase is an item attribute with its own filter.
@@ -75,6 +75,172 @@ SENSITIVE_FIELDS: Final = frozenset({"patient_id"})  # plus every `date` variabl
 
 # raw_metadata tags flattened into variables; everything else in the blob is ignored.
 RAW_ALLOWLIST: Final = {"PatientSex": "patient_sex", "PatientAge": "patient_age"}
+
+# Fixed field → category for every converter field (one entry per name) and the raw
+# allowlist, grouped by category. A field's category is read from here, never inferred.
+CATEGORY_BY_FIELD: Final[dict[str, Category]] = {
+    # Patient
+    "patient_id": "patient",
+    "patient_folder": "patient",
+    "patient_sex": "patient",
+    "patient_age": "patient",
+    # Study
+    "study_description": "study",
+    "study_index": "study",
+    "study_uid": "study",
+    # Series (incl. the ImageType tag and its parsed indicators)
+    "acquisition_number": "series",
+    "body_part": "series",
+    "dicom_category": "series",
+    "diffusion_indicators": "series",
+    "echo_indicators": "series",
+    "image_type": "series",
+    "modality": "series",
+    "protocol_name": "series",
+    "scan_type": "series",
+    "series_description": "series",
+    "series_index_in_study": "series",
+    "series_number": "series",
+    "series_uid": "series",
+    "sop_class_name": "series",
+    "sop_class_uid": "series",
+    "temporal_indicators": "series",
+    # Equipment
+    "institution": "equipment",
+    "manufacturer": "equipment",
+    "manufacturer_model": "equipment",
+    # Technique (CT and MR acquisition parameters)
+    "convolution_kernel": "technique",
+    "echo_time": "technique",
+    "exposure": "technique",
+    "exposure_time": "technique",
+    "flip_angle": "technique",
+    "has_per_frame_functional_groups": "technique",
+    "has_shared_functional_groups": "technique",
+    "kvp": "technique",
+    "magnetic_field_strength": "technique",
+    "mr_acquisition_type": "technique",
+    "mri_component_confidence": "technique",
+    "mri_component_conflict": "technique",
+    "mri_component_status": "technique",
+    "mri_image_component": "technique",
+    "observed_mri_components": "technique",
+    "repetition_time": "technique",
+    "scanning_sequence": "technique",
+    "scan_options": "technique",
+    "sequence_name": "technique",
+    "sequence_variant": "technique",
+    "xray_tube_current": "technique",
+    # Contrast
+    "contrast_agent": "contrast",
+    "contrast_delay_seconds": "contrast",
+    "contrast_flow_duration": "contrast",
+    "contrast_flow_rate": "contrast",
+    "contrast_route": "contrast",
+    "contrast_start_time": "contrast",
+    "contrast_stop_time": "contrast",
+    "contrast_total_dose": "contrast",
+    "contrast_volume": "contrast",
+    # Geometry (plane, spacing, dimensions, slices, orientation)
+    "dim_x": "geometry",
+    "dim_y": "geometry",
+    "dim_z": "geometry",
+    "direction": "geometry",
+    "geometry_status": "geometry",
+    "geometry_warning_codes": "geometry",
+    "image_orientation": "geometry",
+    "maximum_spacing_deviation": "geometry",
+    "nominal_slice_spacing": "geometry",
+    "num_slices": "geometry",
+    "number_of_frames": "geometry",
+    "origin_x": "geometry",
+    "origin_y": "geometry",
+    "origin_z": "geometry",
+    "reconstruction_diameter": "geometry",
+    "slice_thickness": "geometry",
+    "spacing": "geometry",
+    "spacing_between_slices": "geometry",
+    "spacing_quality": "geometry",
+    "spacing_x": "geometry",
+    "spacing_y": "geometry",
+    "spacing_z": "geometry",
+    # Intensity (pixel and CT intensity)
+    "bits_allocated": "intensity",
+    "bits_stored": "intensity",
+    "ct_intensity_semantics": "intensity",
+    "ct_intensity_status": "intensity",
+    "ct_intensity_warnings": "intensity",
+    "high_bit": "intensity",
+    "pixel_representation": "intensity",
+    "pixel_type": "intensity",
+    "rescale_intercept": "intensity",
+    "rescale_slope": "intensity",
+    "rescale_type": "intensity",
+    "window_center": "intensity",
+    "window_width": "intensity",
+    # Dates & times
+    "acquisition_date": "dates",
+    "acquisition_time": "dates",
+    "content_date": "dates",
+    "content_time": "dates",
+    "days_from_first_scan": "dates",
+    "instance_creation_date": "dates",
+    "instance_creation_time": "dates",
+    "longitudinal_temporal_information_modified": "dates",
+    "scan_date": "dates",
+    "scan_datetime": "dates",
+    "scan_time": "dates",
+    "series_date": "dates",
+    "series_time": "dates",
+    "study_date": "dates",
+    "study_time": "dates",
+    # Phase & readiness (converter selection, readiness, target match, output role)
+    "analysis_readiness": "phase_readiness",
+    "analysis_readiness_reasons": "phase_readiness",
+    "curated_role": "phase_readiness",
+    "exclude_reason": "phase_readiness",
+    "include_guess": "phase_readiness",
+    "output_role": "phase_readiness",
+    "phase_guess": "phase_readiness",
+    "phase_guess_confidence": "phase_readiness",
+    "phase_guess_conflict": "phase_readiness",
+    "phase_guess_evidence": "phase_readiness",
+    "skip_reason": "phase_readiness",
+    "target_match_level": "phase_readiness",
+    "target_match_reason": "phase_readiness",
+    "target_match_term": "phase_readiness",
+    # Provenance (converter bookkeeping, sources and paths)
+    "advanced_dicom_status": "provenance",
+    "advanced_dicom_warning_codes": "provenance",
+    "case_index": "provenance",
+    "contrast_delay_source": "provenance",
+    "conversion_date": "provenance",
+    "curated_keep": "provenance",
+    "curated_quality": "provenance",
+    "dataset_id": "provenance",
+    "dicom_dir": "provenance",
+    "first_file": "provenance",
+    "mri_image_component_source": "provenance",
+    "notes": "provenance",
+    "planned_conversion": "provenance",
+    "raw_metadata": "provenance",
+    "raw_metadata_error": "provenance",
+    "scan_date_folder": "provenance",
+    "scan_datetime_source": "provenance",
+    "status": "provenance",
+    "validation": "provenance",
+    "voi_id": "provenance",
+}
+
+
+def field_category(name: str) -> Category:
+    """Category of a metadata/raw field: the fixed map, `webui_*` bookkeeping, else the
+    study `dataset` fields that fall outside the converter schema."""
+    cat = CATEGORY_BY_FIELD.get(name)
+    if cat is not None:
+        return cat
+    return "provenance" if name.startswith("webui_") else "dataset"
+
 
 UID_VALUE = re.compile(r"^\d+(\.\d+){3,}$")
 ABS_PATH_VALUE = re.compile(r"^(/|[A-Za-z]:[\\/]|\\\\)")

@@ -28,6 +28,7 @@ const lazyTool = (pick: (m: Awaited<ReturnType<typeof ctTools>>) => ComponentTyp
 export const CtToolbar = lazyTool((m) => m.default)
 
 export { configureViewer } from './budget'
+export { DicomTags } from './ImageSection'
 export { StandaloneViewer } from './StandaloneViewer'
 export { applyProjectDisplay, resetDisplay } from './display'
 export type { ViewerContext } from './model/types'

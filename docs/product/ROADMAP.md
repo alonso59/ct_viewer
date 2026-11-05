@@ -30,7 +30,8 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
 | P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
 | P7j | Deployment options: native, Docker/udocker, HPC (ADR-0043) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
-| P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | 🟨 A1–A4 done 2026-11-05, exit pending owner review |
+| P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | 🟨 K1–K3 implemented 2026-11-05 (ADR-0049 for K3), exit pending owner review. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
+| P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | 🟨 A1–A4 done 2026-11-05, exit pending owner review; independent of P7k |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -117,6 +118,28 @@ Owner decision 2026-11-03: all phases implemented in a row, then verified togeth
 - [x] S8 Measured optimizations only (stat-based checks need a new ADR)
 **Exit:** a standalone conversion of the large reference dataset imports into ct_viewer with layers, equals a workspace conversion under the same settings, resumes after interruption without reconverting verified units, and its measured resource use is recorded.
 
+### P7l — Agent interface (ADR-0048, CTFLOW.md)
+
+Independent of P7k. Stop for owner confirmation at the exit.
+- [x] A1 Agent origin; `resume`/`retry`/`diagnose`/`batches`/`batch` commands (CTF-21..23)
+- [x] A2 Batch operation reassign endpoint (API-70)
+- [x] A3 `scripts/rw-mcp.py` (CTF-24, OPS-25)
+- [x] A4 Cohort requirements for agents, in the Cohort plan (after the owner hands over the Cohort work)
+**Exit:** an MCP client lists runs, diagnoses a failed operation, retries it and reassigns a batch through `rw-mcp` with the same results as the GUI and API.
+
+### P7k — Cohort dashboard (ADR-0045, ADR-0046, COHORT.md)
+
+Steps as COHORT.md; independent of P7g–P7j. After P7k, a separate cleanup decides the Search view.
+- [x] Spec, ADR-0045 and ADR-0046 accepted, VAR-14 (2026-11-04)
+- [x] K1 C1 Origin and category in the catalog (VAR-14)
+- [x] K1 C2 Read endpoints (rows, summary)
+- [x] K1 C3 Cohort view, tab, navigator, grid, filters
+- [x] K1 C4 Compare scans, column summary, DICOM tags
+- [x] K1 C5 Export (incl. SVG / light PNG in both dashboards), keyboard/ARIA, view-only, e2e journey
+- [x] K2 Clinical & labels editing in the grid, pack templates, external tables retired, Balance check (COHORT §K2); COH-11 left out
+- [x] K3 Timeline: ADR-0049 (event level, date policy), event tables, time-to-event variables, the view
+**Exit:** on the synthetic fixtures and Dataset820, a user filters the cohort by a value from the column summary, compares a case's scans and opens one in the viewer; nothing in the Metadata section writes except the correction-queue flag.
+
 ### Pending plugin after P7g
 - [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10; default `xyz` until then)
 
@@ -126,15 +149,6 @@ Owner decision 2026-11-03: all phases implemented in a row, then verified togeth
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
 **Exit:** the desktop app connects to a local Docker backend and a forwarded remote one.
-
-### P7l — Agent interface (ADR-0048, CTFLOW.md)
-
-Stop for owner confirmation at the exit.
-- [x] A1 Agent origin; `resume`/`retry`/`diagnose`/`batches`/`batch` commands (CTF-21..23)
-- [x] A2 Batch operation reassign endpoint (API-70)
-- [x] A3 `scripts/rw-mcp.py` (CTF-24, OPS-25)
-- [x] A4 Agent requirements for Cohort, recorded in the Cohort docs
-**Exit:** an MCP client lists runs, diagnoses a failed operation, retries it and reassigns a batch through `rw-mcp` with the same results as the GUI and API.
 
 ## Migration from v2
 

@@ -23,7 +23,7 @@ import { fmtInt, fmtValue, itemName, knownPhase, useRowKeys } from '../../../lib
 import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon, token } from '../../../theme'
 import { openInContext, openItem } from '../../../features/explorer'
-import { palette, type ChartInstance } from '../Chart'
+import { chartImage, palette, type ChartImageKind, type ChartInstance } from '../Chart'
 import { useDashboardStore, useRunDashboard } from '../store'
 
 export interface ViewProps {
@@ -52,8 +52,9 @@ function downloadCsv(name: string, rows: CsvRows) {
   download(`${name}.csv`, url)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
-function downloadPng(name: string, chart: ChartInstance) {
-  download(`${name}.png`, chart.getDataURL({ pixelRatio: 2, backgroundColor: token('--bg-editor') }))
+const IMAGE_FILES: Record<ChartImageKind, string> = { png: 'png', 'png-light': 'light.png', svg: 'svg' }
+function downloadImage(name: string, chart: ChartInstance, kind: ChartImageKind) {
+  download(`${name}.${IMAGE_FILES[kind]}`, chartImage(chart, kind))
 }
 
 function ProblemState({ error }: { error: unknown }) {
@@ -167,11 +168,13 @@ export function ViewFrame({ name, controls, chart, csv, query, empty, children }
             <Icon spec={codicon('table')} />
           </button>
         ) : null}
-        {chart && !asTable ? (
-          <button type="button" className="icon-btn" title={t('dashboard.exportPng')} aria-label={t('dashboard.exportPng')} onClick={() => downloadPng(name, chart)}>
-            <Icon spec={codicon('device-camera')} />
-          </button>
-        ) : null}
+        {chart && !asTable
+          ? (['png', 'png-light', 'svg'] as const).map((kind) => (
+            <button key={kind} type="button" className="icon-btn" title={t(`dashboard.export.${kind}`)} aria-label={t(`dashboard.export.${kind}`)} onClick={() => downloadImage(name, chart, kind)}>
+              <Icon spec={codicon(kind === 'svg' ? 'symbol-misc' : kind === 'png' ? 'device-camera' : 'color-mode')} />
+            </button>
+          ))
+          : null}
         {csv ? (
           <button type="button" className="icon-btn" title={t('dashboard.exportCsv')} aria-label={t('dashboard.exportCsv')} disabled={!query?.data} onClick={() => downloadCsv(name, csv())}>
             <Icon spec={codicon('export')} />

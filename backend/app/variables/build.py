@@ -21,12 +21,14 @@ from app.variables.models import (
     BinDef,
     BrokenDerived,
     Catalog,
+    Category,
     DerivedDef,
     DominantDef,
     Excluded,
     ExcludeReason,
     ExternalTable,
     Level,
+    Origin,
     RecodeDef,
     Tag,
     VarGroup,
@@ -159,6 +161,22 @@ def _default_tags(name: str, vtype: VarType) -> list[Tag]:
     return tags
 
 
+def _origin_category(source: VarSource, name: str) -> tuple[Origin, Category | None]:
+    """Origin group and (for Metadata) category from the source and, for layers, the name."""
+    if source in ("metadata", "raw"):
+        return "metadata", schema.field_category(name)
+    if source == "external":
+        return "clinical", None
+    if source == "derived":
+        return "derived", None
+    # layer: label columns are clinical, the effective phase is review, the rest automatic
+    if name.startswith("lbl."):
+        return "clinical", None
+    if name == "phase.effective":
+        return "review", None
+    return "automatic", None
+
+
 def _make_variable(
     name: str,
     source: VarSource,
@@ -170,6 +188,7 @@ def _make_variable(
 ) -> Variable:
     tags = _default_tags(name, inference.type)
     visible = group == "study" and inference.type not in HIDDEN_TYPES and "sensitive" not in tags
+    origin, category = _origin_category(source, name)
     var = Variable(
         name=name,
         source=source,
@@ -177,6 +196,8 @@ def _make_variable(
         inferred_type=inference.type,
         level=level,
         group=group,
+        origin=origin,
+        category=category,
         tags=tags,
         visible=visible,
         confidence=round(inference.confidence, 3),
@@ -187,7 +208,8 @@ def _make_variable(
 
 
 def apply_override(var: Variable, ov: VariableOverride | None) -> Variable:
-    """A confirmed type clears the Review badge; tags/visibility replace defaults."""
+    """A confirmed type clears the Review badge; tags/visibility replace defaults. A
+    category override is honoured for Metadata variables only."""
     if ov is None:
         return var
     upd: dict[str, Any] = {}
@@ -197,6 +219,8 @@ def apply_override(var: Variable, ov: VariableOverride | None) -> Variable:
         upd |= {"visible": ov.visible, "overridden": True}
     if ov.tags is not None:
         upd |= {"tags": list(dict.fromkeys(ov.tags)), "overridden": True}
+    if ov.category is not None and var.origin == "metadata":
+        upd |= {"category": ov.category, "overridden": True}
     return var.model_copy(update=upd)
 
 
@@ -377,6 +401,7 @@ def _derive(d: DerivedDef, columns: Mapping[str, Column]) -> Column:
     units = list(by_case.values()) if level == "case" else list(by_scan.values())
     inference = infer_type(units)
     vtype: VarType = "constant" if inference.type == "constant" else "categorical"
+    origin, category = _origin_category("derived", d.name)
     var = Variable(
         name=d.name,
         source="derived",
@@ -384,6 +409,8 @@ def _derive(d: DerivedDef, columns: Mapping[str, Column]) -> Column:
         inferred_type=vtype,
         level=level,
         group="study",
+        origin=origin,
+        category=category,
         tags=[],
         visible=True,
         confidence=1.0,

@@ -234,7 +234,7 @@ def explore(unit: Unit) -> Computed:
 
 
 def contingency(
-    unit: Unit, row_levels: Obj, col_levels: Obj, override: TestOverride
+    row_levels: Obj, col_levels: Obj, override: TestOverride
 ) -> tuple[list[str], list[str], list[str], list[str], np.ndarray, Outcome]:
     """Rows/cols with n ≥ 5 → table + test; excluded levels listed separately."""
     ok = np.asarray(
@@ -261,7 +261,7 @@ def balance(unit: Unit, v: Variable, other: Variable, override: TestOverride) ->
     if v.name == other.name:
         raise bad(("body", "confounder"), "Balance check needs two different variables")
     a, b = unit.levels(v.name), unit.levels(other.name)
-    rows, cols, ex_r, ex_c, table, out = contingency(unit, a, b, override)
+    rows, cols, ex_r, ex_c, table, out = contingency(a, b, override)
     if len(rows) < 2 or len(cols) < 2:
         raise bad(
             ("body", "variable"),

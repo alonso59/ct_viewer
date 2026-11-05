@@ -149,6 +149,7 @@
     "quickOpenProjects": "Project name  ·  type > for commands"
   },
   "view": {
+    "cohort": "Cohort",
     "curation": "Curation",
     "dashboards": "Dashboards",
     "history": "History",
@@ -453,6 +454,7 @@
     "indexing": "Indexing…",
     "columns": "Columns and colour",
     "showColumns": "Show as column",
+    "showInCohort": "Show in Cohort",
     "colorBy": "Colour by",
     "noVariables": "No case-level variables",
     "itemFilter_one": "{{count}} item",
@@ -505,6 +507,7 @@
     "phase": "Phase",
     "phaseRaw": "raw {{raw}} · {{source}}",
     "showPaths": "Show paths (advanced)",
+    "showInCohort": "Show in Cohort",
     "size": "Size",
     "spacing": "Spacing",
     "type": "Type",
@@ -658,6 +661,10 @@
     "name": "Label name",
     "value": "Label value in the mask",
     "visible": "Show {{name}}"
+  },
+  "cohort": {
+    "open": "Open Cohort",
+    "showCase": "Show in Cohort"
   },
   "curation": {
     "addToQueue": "Add to correction queue",
@@ -818,8 +825,7 @@
     "constant": "constant"
   },
   "variables": {
-    "newDerived": "New derived variable…",
-    "importTable": "Import variable table…"
+    "newDerived": "New derived variable…"
   },
   "varTypeShort": {
     "continuous": "cont.",

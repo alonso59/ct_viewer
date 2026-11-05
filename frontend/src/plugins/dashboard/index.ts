@@ -1,4 +1,4 @@
-import { createElement, lazy, Suspense } from 'react'
+import { createElement, lazy, Suspense, type ComponentProps } from 'react'
 
 import i18n from '../../i18n'
 import { api, fetchSettled, keys, queryClient, useFeatures, useRuns, type RunStatus, type RunSummary } from '../../api'
@@ -14,6 +14,19 @@ const DashboardEditor = lazy(() => import('./DashboardEditor').then((m) => ({ de
 // Kept out of the initial chunk too; the panel has no Suspense boundary of its own
 const MeasurementsLazy = lazy(() => import('./MeasurementsPanel').then((m) => ({ default: m.MeasurementsPanel })))
 const MeasurementsPanel = () => createElement(Suspense, { fallback: null }, createElement(MeasurementsLazy))
+
+// A column summary for other views; the chart loads on first use
+const ValueSummaryLazy = lazy(() => import('./ValueSummary').then((m) => ({ default: m.ValueSummary })))
+export const ValueSummary = (props: ComponentProps<typeof ValueSummaryLazy>) =>
+  createElement(Suspense, { fallback: null }, createElement(ValueSummaryLazy, props))
+
+const ContingencyMapLazy = lazy(() => import('./ContingencyMap').then((m) => ({ default: m.ContingencyMap })))
+export const ContingencyMap = (props: ComponentProps<typeof ContingencyMapLazy>) =>
+  createElement(Suspense, { fallback: null }, createElement(ContingencyMapLazy, props))
+
+const EventTimelineLazy = lazy(() => import('./EventTimeline').then((m) => ({ default: m.EventTimeline })))
+export const EventTimeline = (props: ComponentProps<typeof EventTimelineLazy>) =>
+  createElement(Suspense, { fallback: null }, createElement(EventTimelineLazy, props))
 
 export const plugin: FrontendPlugin = {
   id: 'dashboard',

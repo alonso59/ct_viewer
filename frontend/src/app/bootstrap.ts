@@ -2,6 +2,7 @@
 import { createElement, lazy, Suspense } from 'react'
 
 import i18n from '../i18n'
+import { registerCohort } from '../features/cohort'
 import { registerExplorer } from '../features/explorer'
 import { registerImport } from '../features/import'
 import { registerOpen } from '../features/open'
@@ -51,6 +52,7 @@ export function bootstrap() {
   registerOpen()
   registerTasks()
   registerExplorer()
+  registerCohort()
   registerViewer()
   registerPhase() // native, whatever plugins are enabled
   activatePlugins(FIRST_PARTY) // every shipped plugin, enabled by default

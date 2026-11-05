@@ -2,7 +2,7 @@ import type { ResultRow, Variable } from '../../../api'
 import { analysisVariables, confounderVariables, fmtP, fmtStat, needsConfirmation, questionsFor, sortResults, suggestedConfounder, viewForResult } from './model'
 
 const v = (name: string, type: Variable['type'], extra: Partial<Variable> = {}): Variable => ({
-  name, source: 'metadata', type, inferred_type: type, level: 'case', group: 'study', tags: [], visible: true,
+  name, source: 'metadata', type, inferred_type: type, level: 'case', group: 'study', origin: 'metadata', category: null, tags: [], visible: true,
   confidence: 1, review: false, overridden: false, comparable: false, profile: { missing_pct: 0, n_distinct: 3, examples: [] }, ...extra,
 })
 

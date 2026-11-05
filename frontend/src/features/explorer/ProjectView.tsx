@@ -20,6 +20,7 @@ import { effectiveModality, ModalityTag, modalityKey, modalityText, namedCompone
 import { registry, runCommand, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
+import { CaseMenu, useCaseMenu } from './CaseMenu'
 import { ActiveFilterChips, FilterFields, PhaseFilter } from './FilterControls'
 import { itemLabel } from './itemLabel'
 import { openFromExplorer } from './navigate'
@@ -300,6 +301,11 @@ export function ProjectView() {
                 data-color={swatch ? String(c.variables[colorVar?.name ?? '']) : undefined}
                 onClick={() => { setCursor(v.index); activate(r) }}
                 onDoubleClick={() => activate(r, false)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  useCaseMenu.getState().open(c.case_id, e.clientX, e.clientY)
+                }}
               >
                 {/* for the mouse; the keyboard uses ←/→ and the row's aria-expanded */}
                 <button
@@ -353,6 +359,7 @@ export function ProjectView() {
       <div className="muted pv-footer">
         {visibleCases ? t('explorer.caseCount', { count: visibleCases.length }) : t('common.loading')}
       </div>
+      <CaseMenu />
     </div>
   )
 }

@@ -93,6 +93,25 @@ def test_patch_confirms_type(client: TestClient, pid: str) -> None:
     assert_problem(client.patch(url, json={"type": "weird"}), "validation")
 
 
+def test_patch_category_override(client: TestClient, pid: str) -> None:
+    # Metadata variable: the category override is honoured and survives a re-read
+    url = f"{API}/projects/{pid}/variables/manufacturer"
+    r = client.patch(url, json={"category": "technique"})
+    assert r.status_code == 200, r.text
+    v = var(r.json(), "manufacturer")
+    assert v["category"] == "technique" and v["overridden"]
+    assert var(catalog(client, pid), "manufacturer")["category"] == "technique"
+
+    # Derived variable: a category is ignored, the value stays None
+    base = f"{API}/projects/{pid}/variables/derived"
+    d = {"op": "bin", "name": "cat_hi", "source": "marker_a", "thresholds": [50],
+         "labels": ["lo", "hi"]}  # fmt: skip
+    assert client.post(base, json=d).status_code == 201
+    r = client.patch(f"{API}/projects/{pid}/variables/cat_hi", json={"category": "patient"})
+    assert r.status_code == 200, r.text
+    assert var(r.json(), "cat_hi")["category"] is None
+
+
 def test_derived_variables_and_filters(client: TestClient, pid: str) -> None:
     base = f"{API}/projects/{pid}/variables/derived"
     two = {"op": "bin", "name": "marker_hi", "source": "marker_a", "thresholds": [50],

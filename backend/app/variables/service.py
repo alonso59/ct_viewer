@@ -12,7 +12,7 @@ import asyncio
 import hashlib
 from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 import pyarrow as pa
 
@@ -24,6 +24,7 @@ from app.events.bus import EventBus
 from app.ingest.models import Item
 from app.ingest.store import IndexStore
 from app.labeling import state as labeling_state
+from app.labeling.models import LabelTable
 from app.projects.service import Workspace
 from app.variables import build as builder
 from app.variables import external as ext_mod
@@ -135,7 +136,11 @@ class VariableService:
         pdir = self._pdir(project_id)
         cells = labeling_state.cell_state(pdir)
         out: list[builder.LayerData] = self._phase_layers(project_id, items)
+        rows = labeling_state.row_state(pdir)
         for t in labeling_state.active_tables(pdir):
+            if t.level == "event":
+                out.extend(self._event_layers(t, cells, rows.get(t.table_id, []), items))
+                continue
             for c in t.columns:
                 if c.hidden or c.ref:  # a reference column mirrors another variable
                     continue
@@ -158,6 +163,49 @@ class VariableService:
                         ld.by_scan[sk] = text.get(key)
                 out.append(ld)
         return out
+
+    @staticmethod
+    def _event_layers(
+        t: LabelTable,
+        cells: dict[labeling_state.CellKey, dict[str, Any]],
+        rows: list[tuple[str, str]],
+        items: Sequence[Item],
+    ) -> list[builder.LayerData]:
+        """Per level of `kind`: days to the first such event and whether it occurred; per table the
+        last event's day. A case with no event row at all has no value (not followed up)."""
+        kind = next((c for c in t.columns if c.slug == "kind" and not c.hidden), None)
+        day = next((c for c in t.columns if c.slug == "day" and not c.hidden), None)
+        if kind is None or day is None:
+            return []
+        events: dict[str, list[tuple[str, float | None]]] = {}
+        for target, case_id in rows:
+            k = cells.get((t.table_id, kind.column_id, target), {}).get("value")
+            d = cells.get((t.table_id, day.column_id, target), {}).get("value")
+            events.setdefault(case_id, []).append(
+                (str(k) if k else "", float(d) if d is not None else None)
+            )
+        cases = {i.case_id for i in items if i.status != "excluded_upstream"}
+        out: list[builder.LayerData] = []
+        for level in kind.levels:
+            slug = labeling_state.kind_slug(level)
+            days = builder.LayerData(f"lbl.{t.slug}.{slug}_days", "case", LAYER_TYPES["number"])
+            seen = builder.LayerData(
+                f"lbl.{t.slug}.{slug}_occurred", "case", LAYER_TYPES["category"]
+            )
+            for case_id in cases:
+                mine = events.get(case_id)
+                if not mine:
+                    continue
+                hits = [d for k, d in mine if k == level and d is not None]
+                days.by_case[case_id] = _layer_text(min(hits)) if hits else None
+                seen.by_case[case_id] = "yes" if any(k == level for k, _ in mine) else "no"
+            out += [days, seen]
+        follow = builder.LayerData(f"lbl.{t.slug}.followup_days", "case", LAYER_TYPES["number"])
+        for case_id, mine in events.items():
+            known = [d for _, d in mine if d is not None]
+            if case_id in cases and known:
+                follow.by_case[case_id] = _layer_text(max(known))
+        return [*out, follow]
 
     def _save(self, project_id: str, built: builder.Built) -> Catalog:
         cat = built.catalog.model_copy(

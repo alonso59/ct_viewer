@@ -2,7 +2,7 @@
   "pack": 1,
   "id": "ccrcc",
   "title": "ccRCC (kidney CT)",
-  "description": "Kidney / tumor / cyst labels, NC \u00b7 CMP \u00b7 NP \u00b7 EP phases with their aliases, organ focus kidneys.",
+  "description": "Kidney / tumor / cyst labels, NC · CMP · NP · EP phases with their aliases, organ focus kidneys.",
   "label_map": [
     {
       "value": 1,
@@ -68,5 +68,134 @@
     "UNK"
   ],
   "target_profile": "kidneys",
-  "radiomics_profile": null
+  "radiomics_profile": null,
+  "clinical_tables": [
+    {
+      "name": "Clinical data",
+      "level": "case",
+      "columns": [
+        {
+          "name": "Histology",
+          "type": "category",
+          "levels": [
+            "Clear cell",
+            "Papillary",
+            "Chromophobe",
+            "Other"
+          ],
+          "description": "Histologic type (mCODE: histology morphology behavior)"
+        },
+        {
+          "name": "ISUP grade",
+          "type": "category",
+          "levels": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "description": "ISUP / WHO nucleolar grade"
+        },
+        {
+          "name": "Primary tumor category",
+          "type": "category",
+          "levels": [
+            "T1a",
+            "T1b",
+            "T2a",
+            "T2b",
+            "T3",
+            "T4"
+          ],
+          "description": "TNM primary tumor category (mCODE: TNM primary tumor category)"
+        },
+        {
+          "name": "Regional nodes category",
+          "type": "category",
+          "levels": [
+            "N0",
+            "N1"
+          ],
+          "description": "TNM regional nodes category"
+        },
+        {
+          "name": "Distant metastasis category",
+          "type": "category",
+          "levels": [
+            "M0",
+            "M1"
+          ],
+          "description": "TNM distant metastasis category"
+        },
+        {
+          "name": "Tumor size",
+          "type": "number",
+          "unit": "mm",
+          "min": 0,
+          "description": "Largest tumor dimension (mCODE: tumor size)"
+        },
+        {
+          "name": "Surgery",
+          "type": "category",
+          "levels": [
+            "Partial nephrectomy",
+            "Radical nephrectomy",
+            "None"
+          ],
+          "description": "Nephrectomy type"
+        },
+        {
+          "name": "Disease status",
+          "type": "category",
+          "levels": [
+            "Remission",
+            "Stable",
+            "Progression",
+            "Unknown"
+          ],
+          "description": "Cancer disease status at the last follow-up (mCODE: cancer disease status)"
+        },
+        {
+          "name": "Vital status",
+          "type": "category",
+          "levels": [
+            "Alive",
+            "Deceased",
+            "Unknown"
+          ],
+          "description": "Vital status at the last follow-up"
+        }
+      ]
+    },
+    {
+      "name": "Clinical events",
+      "level": "event",
+      "columns": [
+        {
+          "name": "Kind",
+          "type": "category",
+          "levels": [
+            "Surgery",
+            "Systemic therapy",
+            "Radiotherapy",
+            "Follow-up",
+            "Recurrence",
+            "Progression",
+            "Death"
+          ],
+          "description": "Event type (mCODE: procedure, medication administration, radiotherapy course, cancer disease status)"
+        },
+        {
+          "name": "Day",
+          "type": "number",
+          "unit": "days",
+          "description": "Days from the case's first dated scan"
+        },
+        {
+          "name": "Note",
+          "type": "text"
+        }
+      ]
+    }
+  ]
 }

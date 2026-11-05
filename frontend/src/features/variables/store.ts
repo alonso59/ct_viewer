@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type Dialog = 'derived' | 'external' | null
+type Dialog = 'derived' | null
 
 interface VariablesUi {
   collapsed: Record<string, boolean>

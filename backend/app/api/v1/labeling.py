@@ -15,6 +15,8 @@ from app.labeling.models import (
     CellsWritten,
     ImportReport,
     LabelTable,
+    RowEvent,
+    RowIn,
     TableCreate,
     TableInfo,
     TablePatch,
@@ -73,6 +75,28 @@ async def write_cells(
     x_session_id: Session = None,
 ) -> CellsWritten:  # fmt: skip
     out = await svc(ctx).write(pid, tid, body.cells, x_reviewer, x_session_id)
+    _rebuild_variables(ctx, pid)
+    return out
+
+
+@router.post("/tables/{tid}/rows", response_model=RowEvent, status_code=201)
+async def add_row(
+    ctx: Ctx, pid: str, tid: str, body: RowIn, x_reviewer: Reviewer = None,
+    x_session_id: Session = None,
+) -> RowEvent:  # fmt: skip
+    """A new row (one event of a case) in an event table; its target is `{case_id}#{n}`."""
+    out = await svc(ctx).add_row(pid, tid, body.case_id, x_reviewer, x_session_id)
+    _rebuild_variables(ctx, pid)
+    return out
+
+
+@router.delete("/tables/{tid}/rows/{target}", response_model=RowEvent)
+async def remove_row(
+    ctx: Ctx, pid: str, tid: str, target: str, x_reviewer: Reviewer = None,
+    x_session_id: Session = None,
+) -> RowEvent:  # fmt: skip
+    """Remove an event row; its history stays and its number is not reused."""
+    out = await svc(ctx).remove_row(pid, tid, target, x_reviewer, x_session_id)
     _rebuild_variables(ctx, pid)
     return out
 

@@ -248,9 +248,6 @@ export function VariablesActions() {
       <button type="button" className="icon-btn" aria-label={t('variables.newDerived')} title={t('variables.newDerived')} onClick={() => open('derived')}>
         <Icon spec={codicon('symbol-operator')} />
       </button>
-      <button type="button" className="icon-btn" aria-label={t('variables.importTable')} title={t('variables.importTable')} onClick={() => open('external')}>
-        <Icon spec={codicon('table')} />
-      </button>
     </>
   )
 }

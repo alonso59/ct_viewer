@@ -10,6 +10,13 @@ import type {
   CaseDetail,
   CaseSummary,
   CommitResult,
+  CohortRowsRequest,
+  CohortRowsResponse,
+  CohortSummary,
+  CohortBalance,
+  CohortBalanceRequest,
+  CohortSummaryRequest,
+  CohortTimeline,
   ConsoleCommand,
   ConsoleResult,
   CurationEvent,
@@ -20,7 +27,6 @@ import type {
   BrokenDerived,
   DerivedDef,
   EstimateResult,
-  ExternalImportResult,
   FeatureRow,
   FsListing,
   HashJobStarted,
@@ -74,6 +80,7 @@ import type {
   LabelCellEvent,
   LabelCellIn,
   LabelCellsPage,
+  LabelRowEvent,
   LabelImportReport,
   LabelTable,
   LabelTableCreate,
@@ -218,7 +225,10 @@ export interface Api {
   deleteDerived(pid: string, name: string): Promise<void>
   /** Stored derived definitions that no longer build (e.g. a deleted label table) */
   brokenDerived(pid: string): Promise<BrokenDerived[]>
-  importExternal(pid: string, file: File, key: 'case_id' | 'patient_id'): Promise<ExternalImportResult>
+
+  cohortRows(pid: string, body: CohortRowsRequest): Promise<CohortRowsResponse>
+  cohortSummary(pid: string, body: CohortSummaryRequest): Promise<CohortSummary>
+  cohortBalance(pid: string, body: CohortBalanceRequest): Promise<CohortBalance>
 
   listItems(pid: string, f?: ItemFilter): Promise<ItemPage>
   listItemIds(pid: string, f?: ItemFilter): Promise<string[]>
@@ -290,6 +300,9 @@ export interface Api {
   createLabelTable(pid: string, body: LabelTableCreate): Promise<LabelTable>
   patchLabelTable(pid: string, tid: string, body: LabelTablePatch): Promise<LabelTable>
   labelCells(pid: string, tid: string): Promise<LabelCellsPage>
+  addLabelRow(pid: string, tid: string, caseId: string, reviewer: string): Promise<LabelRowEvent>
+  removeLabelRow(pid: string, tid: string, target: string, reviewer: string): Promise<LabelRowEvent>
+  cohortTimeline(pid: string, caseId: string): Promise<CohortTimeline>
   writeLabelCells(pid: string, tid: string, cells: LabelCellIn[], reviewer: string): Promise<{ n_events: number }>
   labelHistory(pid: string, tid: string, target?: string, columnId?: string): Promise<LabelCellEvent[]>
   importLabelTable(pid: string, tid: string, file: File, reviewer: string): Promise<LabelImportReport>

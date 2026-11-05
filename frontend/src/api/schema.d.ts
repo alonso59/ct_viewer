@@ -750,6 +750,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-batches/{plan_id}/batches/{index}/operation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reassign */
+        post: operations["reassign_api_v1_source_batches__plan_id__batches__index__operation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/source-batches/{plan_id}/cancel": {
         parameters: {
             query?: never;
@@ -996,6 +1013,91 @@ export interface paths {
         };
         /** Get Case */
         get: operations["get_case_api_v1_projects__pid__cases__cid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/cohort/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cohort Rows
+         * @description Case → scan rows over the requested columns: filtered, sorted and paged by case.
+         *     A column shows the common value in the case row, else `null` with the column listed in
+         *     `differs`. `sort.column` is a requested column or `case_id`; missing values sort last.
+         */
+        post: operations["cohort_rows_api_v1_projects__pid__cohort_rows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/cohort/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cohort Summary
+         * @description The column over the filtered rows, at the variable's level: categorical as the top
+         *     20 values plus `other` and `missing`; numeric/date as 20 equal-width bins plus `missing`.
+         */
+        post: operations["cohort_summary_api_v1_projects__pid__cohort_summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/cohort/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cohort Balance
+         * @description Two categorical variables over the filtered rows: counts by level, χ² or Fisher exact
+         *     (expected counts under 5), Cramér's V. Levels with fewer than 5 rows are listed as excluded.
+         */
+        post: operations["cohort_balance_api_v1_projects__pid__cohort_balance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/cohort/timeline/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cohort Timeline
+         * @description One case's scans and events as days from its earliest dated scan. Only day offsets are
+         *     returned, never a calendar date.
+         */
+        get: operations["cohort_timeline_api_v1_projects__pid__cohort_timeline__case_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2136,6 +2238,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Row
+         * @description A new row (one event of a case) in an event table; its target is `{case_id}#{n}`.
+         */
+        post: operations["add_row_api_v1_plugins_labeling_projects__pid__tables__tid__rows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/rows/{target}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Row
+         * @description Remove an event row; its history stays and its number is not reused.
+         */
+        delete: operations["remove_row_api_v1_plugins_labeling_projects__pid__tables__tid__rows__target__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins/labeling/projects/{pid}/tables/{tid}/history": {
         parameters: {
             query?: never;
@@ -2759,6 +2901,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/view/{token}/cohort/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View Cohort Rows
+         * @description The cohort grid read: filters, sort and paging arrive in the body.
+         */
+        post: operations["view_cohort_rows_api_v1_view__token__cohort_rows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/view/{token}/cohort/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View Cohort Summary
+         * @description The column summary read: filters arrive in the body.
+         */
+        post: operations["view_cohort_summary_api_v1_view__token__cohort_summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/view/{token}/cohort/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View Cohort Balance
+         * @description The balance check read: filters arrive in the body.
+         */
+        post: operations["view_cohort_balance_api_v1_view__token__cohort_balance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/view/{token}/cohort/timeline/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Cohort Timeline
+         * @description The Timeline read of one case.
+         */
+        get: operations["view_cohort_timeline_api_v1_view__token__cohort_timeline__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/view/{token}/{rest}": {
         parameters: {
             query?: never;
@@ -3026,6 +3248,13 @@ export interface components {
             /** Auto */
             auto: boolean;
         };
+        /** BatchReassign */
+        BatchReassign: {
+            /** Operation Id */
+            operation_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
         /** BatchWarning */
         BatchWarning: {
             /**
@@ -3193,6 +3422,19 @@ export interface components {
             scans: components["schemas"]["ScanGroup"][];
             /** Warnings */
             warnings: components["schemas"]["QcWarning"][];
+        };
+        /** CaseRow */
+        CaseRow: {
+            /** Case Id */
+            case_id: string;
+            /** Values */
+            values?: {
+                [key: string]: number | string | null;
+            };
+            /** Differs */
+            differs?: string[];
+            /** Scans */
+            scans?: components["schemas"]["ScanRow"][];
         };
         /**
          * CaseState
@@ -3407,6 +3649,81 @@ export interface components {
         Cluster: {
             /** Features */
             features: string[];
+        };
+        /** CohortBalanceCell */
+        CohortBalanceCell: {
+            /** Row */
+            row: string;
+            /** Col */
+            col: string;
+            /** N */
+            n: number;
+            /** Expected */
+            expected?: number | null;
+        };
+        /**
+         * CohortBalanceRequest
+         * @description Two categorical variables over the filtered rows; `test` forces χ² (`default`) or Fisher.
+         */
+        CohortBalanceRequest: {
+            /** A */
+            a: string;
+            /** B */
+            b: string;
+            /** Filters */
+            filters?: {
+                [key: string]: string[];
+            };
+            /**
+             * Test
+             * @default auto
+             * @enum {string}
+             */
+            test: "auto" | "default" | "alternative";
+        };
+        /**
+         * CohortBalanceResponse
+         * @description Counts of `a` (rows) by `b` (columns) with the test; levels under 5 are `excluded_*`.
+         */
+        CohortBalanceResponse: {
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "case" | "scan";
+            /** Rows */
+            rows?: string[];
+            /** Cols */
+            cols?: string[];
+            /** Cells */
+            cells?: components["schemas"]["CohortBalanceCell"][];
+            /** Excluded Rows */
+            excluded_rows?: string[];
+            /** Excluded Cols */
+            excluded_cols?: string[];
+            /** Test */
+            test?: ("chi2" | "fisher") | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Statistic */
+            statistic?: number | null;
+            /** P */
+            p?: number | null;
+            /** Cramers V */
+            cramers_v?: number | null;
+            /**
+             * N
+             * @default 0
+             */
+            n: number;
+            /**
+             * Missing
+             * @default 0
+             */
+            missing: number;
         };
         /**
          * ColorBy
@@ -4074,7 +4391,7 @@ export interface components {
              * @default console
              * @enum {string}
              */
-            client: "console" | "terminal";
+            client: "console" | "terminal" | "agent";
         };
         /** EvalResult */
         EvalResult: {
@@ -5067,7 +5384,7 @@ export interface components {
              * Level
              * @enum {string}
              */
-            level: "case" | "scan" | "item";
+            level: "case" | "scan" | "item" | "event";
             /** Columns */
             columns?: components["schemas"]["LabelColumn"][];
             /**
@@ -5390,7 +5707,7 @@ export interface components {
              * @default gui
              * @enum {string}
              */
-            client: "gui" | "console" | "terminal" | "script";
+            client: "gui" | "console" | "terminal" | "script" | "agent";
             /** Session */
             session?: string | null;
             /** Script Run Id */
@@ -5508,6 +5825,11 @@ export interface components {
             phase_vocabulary: string[];
             /** Target Profile */
             target_profile: string;
+            /**
+             * Clinical Tables
+             * @description Label table templates the pack offers
+             */
+            clinical_tables?: components["schemas"]["TableCreate"][];
         };
         /** Page[CaseSummary] */
         Page_CaseSummary_: {
@@ -6395,6 +6717,77 @@ export interface components {
              */
             role: "source" | "derived";
         };
+        /**
+         * RowEvent
+         * @description The row created (or removed) by a `kind: "row"` line of `events/labeling.jsonl`.
+         */
+        RowEvent: {
+            /** Table Id */
+            table_id: string;
+            /** Target */
+            target: string;
+            /** Case Id */
+            case_id: string;
+            /**
+             * Removed
+             * @default false
+             */
+            removed: boolean;
+        };
+        /**
+         * RowIn
+         * @description A new row of an event table: one event of a case.
+         */
+        RowIn: {
+            /** Case Id */
+            case_id: string;
+        };
+        /** RowsRequest */
+        RowsRequest: {
+            /** Columns */
+            columns?: string[];
+            /** Filters */
+            filters?: {
+                [key: string]: string[];
+            };
+            /** Q */
+            q?: string | null;
+            /** Phase */
+            phase?: string | null;
+            sort?: components["schemas"]["RowsSort"] | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Limit
+             * @default 100
+             */
+            limit: number;
+        };
+        /** RowsResponse */
+        RowsResponse: {
+            /** N Cases */
+            n_cases: number;
+            /** N Scans */
+            n_scans: number;
+            /** Rows */
+            rows?: components["schemas"]["CaseRow"][];
+        };
+        /**
+         * RowsSort
+         * @description `column`: a requested column or `case_id`; missing values sort last.
+         */
+        RowsSort: {
+            /** Column */
+            column: string;
+            /**
+             * Desc
+             * @default false
+             */
+            desc: boolean;
+        };
         /** RunAttemptControl */
         RunAttemptControl: {
             /** Expected Attempt */
@@ -6654,6 +7047,21 @@ export interface components {
             phase: components["schemas"]["PhaseInfo"];
             /** Items */
             items: components["schemas"]["Item"][];
+        };
+        /** ScanRow */
+        ScanRow: {
+            /** Scan Idx */
+            scan_idx: string;
+            /** Item Id */
+            item_id: string;
+            /** Phase */
+            phase: string;
+            /** Modality */
+            modality?: string | null;
+            /** Values */
+            values?: {
+                [key: string]: number | string | null;
+            };
         };
         /** ScatterPoint */
         ScatterPoint: {
@@ -7482,6 +7890,47 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** SummaryBin */
+        SummaryBin: {
+            /** Lo */
+            lo: string;
+            /** Hi */
+            hi: string;
+            /** Count */
+            count: number;
+        };
+        /** SummaryRequest */
+        SummaryRequest: {
+            /** Column */
+            column: string;
+            /** Filters */
+            filters?: {
+                [key: string]: string[];
+            };
+        };
+        /**
+         * SummaryResponse
+         * @description Categorical: the top 20 values plus `other` and `missing`; numeric/date:
+         *     20 equal-width bins plus `missing`.
+         */
+        SummaryResponse: {
+            /** Counts */
+            counts?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Other
+             * @default 0
+             */
+            other: number;
+            /**
+             * Missing
+             * @default 0
+             */
+            missing: number;
+            /** Bins */
+            bins?: components["schemas"]["SummaryBin"][] | null;
+        };
         /** TableCreate */
         TableCreate: {
             /** Name */
@@ -7490,7 +7939,7 @@ export interface components {
              * Level
              * @enum {string}
              */
-            level: "case" | "scan" | "item";
+            level: "case" | "scan" | "item" | "event";
             /** Columns */
             columns?: components["schemas"]["ColumnIn"][];
         };
@@ -7506,7 +7955,7 @@ export interface components {
              * Level
              * @enum {string}
              */
-            level: "case" | "scan" | "item";
+            level: "case" | "scan" | "item" | "event";
             /** Columns */
             columns?: components["schemas"]["LabelColumn"][];
             /**
@@ -8111,6 +8560,51 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /**
+         * Timeline
+         * @description One case on a day axis. Days count from `anchor_scan`, the earliest dated scan; no calendar
+         *     date leaves the server. Without an anchor the scans cannot be placed.
+         */
+        Timeline: {
+            /** Case Id */
+            case_id: string;
+            /** Anchor Scan */
+            anchor_scan?: string | null;
+            /** Scans */
+            scans?: components["schemas"]["TimelineScan"][];
+            /** Events */
+            events?: components["schemas"]["TimelineEvent"][];
+            /** Followup Days */
+            followup_days?: number | null;
+        };
+        /** TimelineEvent */
+        TimelineEvent: {
+            /** Table Id */
+            table_id: string;
+            /** Table */
+            table: string;
+            /** Target */
+            target: string;
+            /** Kind */
+            kind?: string | null;
+            /** Day */
+            day?: number | null;
+            /** Values */
+            values?: {
+                [key: string]: number | string | null;
+            };
+        };
+        /** TimelineScan */
+        TimelineScan: {
+            /** Scan Idx */
+            scan_idx: string;
+            /** Item Id */
+            item_id: string;
+            /** Phase */
+            phase: string;
+            /** Day */
+            day?: number | null;
+        };
         /** UiConfig */
         UiConfig: {
             /** Viewer Max Loaded */
@@ -8270,6 +8764,14 @@ export interface components {
              * @enum {string}
              */
             group: "study" | "acquisition";
+            /**
+             * Origin
+             * @default metadata
+             * @enum {string}
+             */
+            origin: "metadata" | "automatic" | "review" | "clinical" | "derived";
+            /** Category */
+            category?: ("patient" | "study" | "series" | "equipment" | "technique" | "contrast" | "geometry" | "intensity" | "dates" | "phase_readiness" | "provenance" | "dataset") | null;
             /** Tags */
             tags?: ("confounder" | "outcome" | "sensitive")[];
             /** Visible */
@@ -8301,6 +8803,8 @@ export interface components {
             visible?: boolean | null;
             /** Tags */
             tags?: ("confounder" | "outcome" | "sensitive")[] | null;
+            /** Category */
+            category?: ("patient" | "study" | "series" | "equipment" | "technique" | "contrast" | "geometry" | "intensity" | "dates" | "phase_readiness" | "provenance" | "dataset") | null;
         };
         /** VerifyReport */
         VerifyReport: {
@@ -10182,6 +10686,42 @@ export interface operations {
             };
         };
     };
+    reassign_api_v1_source_batches__plan_id__batches__index__operation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchReassign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceBatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_api_v1_source_batches__plan_id__cancel_post: {
         parameters: {
             query?: never;
@@ -10691,6 +11231,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cohort_rows_api_v1_projects__pid__cohort_rows_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RowsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cohort_summary_api_v1_projects__pid__cohort_summary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cohort_balance_api_v1_projects__pid__cohort_balance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CohortBalanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CohortBalanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cohort_timeline_api_v1_projects__pid__cohort_timeline__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Timeline"];
                 };
             };
             /** @description Validation Error */
@@ -13109,6 +13786,81 @@ export interface operations {
             };
         };
     };
+    add_row_api_v1_plugins_labeling_projects__pid__tables__tid__rows_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+                "X-Session-Id"?: string | null;
+            };
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RowIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowEvent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_row_api_v1_plugins_labeling_projects__pid__tables__tid__rows__target__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+                "X-Session-Id"?: string | null;
+            };
+            path: {
+                pid: string;
+                tid: string;
+                target: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowEvent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cell_history_api_v1_plugins_labeling_projects__pid__tables__tid__history_get: {
         parameters: {
             query?: {
@@ -14331,6 +15083,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_cohort_rows_api_v1_view__token__cohort_rows_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_cohort_summary_api_v1_view__token__cohort_summary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_cohort_balance_api_v1_view__token__cohort_balance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CohortBalanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_cohort_timeline_api_v1_view__token__cohort_timeline__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Timeline"];
                 };
             };
             /** @description Validation Error */

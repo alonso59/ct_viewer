@@ -59,7 +59,7 @@ test('re-executed bootstrap, features and plugins (HMR) do not duplicate contrib
   const before = snapshot()
   const nCommands = registry.commands.size
   const nEditors = registry.editors.size
-  expect(before.views?.length).toBe(13) // the activity bar of a project (A8 reproduction)
+  expect(before.views?.length).toBe(14) // the activity bar of a project (A8 reproduction)
 
   // HMR: every module except the registry re-executes, so `done` and the plugin host's map reset
   vi.resetModules()
