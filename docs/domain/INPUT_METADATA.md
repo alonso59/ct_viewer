@@ -18,7 +18,7 @@ The converter writes only core fields and DICOM facts (DCM-13, ADR-0020). Legacy
 | IMP-04 | Commit snapshots the inputs to `sources/{import_id}/` with SHA-256 and appends to `imports.jsonl`. | M |
 | IMP-05 | Indexing runs as a job (progress, cancel) and builds `index/items.jsonl`, `index/cases.jsonl`, and the quick fingerprints. | M |
 | IMP-06 | Re-import creates a new snapshot and rebuilds the index. `item_id` is deterministic, so curation events stay attached. The index joins the latest snapshot of each source (SOURCES §Imports). | M |
-| IMP-07 | Items that were skipped or excluded upstream are indexed as `excluded_upstream` and hidden by default. | S |
+| IMP-07 | Items that were skipped or excluded upstream are indexed as `excluded_upstream` and hidden by default, also in the Project view's case items (the "show excluded" filter lists them). | S |
 | IMP-08 | Validation writes `index/qc_warnings.jsonl` (codes below); warnings show in the QC warnings panel (UI-09). | M |
 | IMP-09 | Optional "Compute full hashes" job adds SHA-256 per file, stored in `index/hashes.json` keyed by ref + quick fingerprint (a changed file loses its hash); `force` rehashes all. | C |
 | IMP-10 | Legacy `.npy` VOIs are accepted; they are converted to NIfTI in `cache/` on first view, using catalog spacing and axis order (SOURCES §NumPy). | S |

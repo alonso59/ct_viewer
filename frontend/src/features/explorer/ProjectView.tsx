@@ -106,7 +106,7 @@ export function ProjectView() {
     if (visibleCases) setOrder(visibleCases.map((c) => c.case_id))
   }, [visibleCases, setOrder])
 
-  const { itemIds, phase } = filter
+  const { itemIds, phase, showExcluded } = filter
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
     // Item filter: an expanded case lists only the chosen items
@@ -117,12 +117,13 @@ export function ProjectView() {
         const items = itemsByCase[c.case_id]
         if (!items) out.push({ kind: 'loading', caseId: c.case_id })
         else for (const item of items) {
+          if (item.status === 'excluded_upstream' && !showExcluded) continue
           if ((!only || only.has(item.item_id)) && (!phase || item.phase.canonical === phase)) out.push({ kind: 'item', item, caseId: c.case_id })
         }
       }
     }
     return out
-  }, [visibleCases, expanded, itemsByCase, itemIds, phase])
+  }, [visibleCases, expanded, itemsByCase, itemIds, phase, showExcluded])
 
   // Row heights come from the interface-size tokens, read on every render; the fallback, for a
   // document without the tokens, follows the size too

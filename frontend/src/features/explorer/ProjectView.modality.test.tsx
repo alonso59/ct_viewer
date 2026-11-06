@@ -3,7 +3,7 @@
 // without one shows the project default, marked as assumed.
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { useMemo } from 'react'
 
 import '../../i18n'
@@ -50,4 +50,24 @@ test('every scan row shows its modality badge', async () => {
     expect(tag?.textContent).toBe(item.modality ?? 'CT (assumed)')
     if (!item.modality) expect(tag).toHaveAttribute('data-tone', 'warn')
   }
+})
+
+test('scans left out upstream stay hidden until "show excluded" is on', async () => {
+  useWorkbench.setState({ pid: DEMO_PID })
+  useExplorer.setState({ filter: { q: 'case_00061' }, expanded: { case_00061: true }, order: [] })
+  const real = await api.getCase(DEMO_PID, 'case_00061')
+  const skipped = { ...real.items[0]!, item_id: 'case_00061.99.complete.-', scan_idx: '99', status: 'excluded_upstream' as const }
+  vi.spyOn(api, 'getCase').mockResolvedValue({ ...real, items: [...real.items, skipped] })
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <RTooltip.Provider>
+        <ProjectView />
+      </RTooltip.Provider>
+    </QueryClientProvider>,
+  )
+  const scans = () => screen.getAllByRole('treeitem').filter((r) => r.getAttribute('aria-level') === '2')
+  await screen.findAllByText(/^Scan \d+ · /, {}, { timeout: 3_000 })
+  expect(scans()).toHaveLength(real.items.length)
+  act(() => useExplorer.getState().setFilter({ showExcluded: true }))
+  await waitFor(() => expect(scans()).toHaveLength(real.items.length + 1))
 })
