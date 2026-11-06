@@ -175,6 +175,22 @@ def anonymize_row(row: dict[str, Any], case_id: str, salt: str) -> None:
     row["anonymized"] = "basic"
 
 
+def _drop_unreadable_private_numbers(ds: Any, omitted: list[str]) -> None:
+    """A vendor may store binary data in a private element read as DS or IS; the JSON model cannot
+    carry it, and it must not fail a series whose pixels are fine."""
+    for elem in list(ds):
+        if elem.VR == "SQ":
+            for item in elem.value:
+                _drop_unreadable_private_numbers(item, omitted)
+        elif elem.tag.is_private and elem.VR in ("DS", "IS") and elem.value not in (None, ""):
+            values = elem.value if elem.VM > 1 else [elem.value]
+            try:
+                [float(v) for v in values]
+            except (TypeError, ValueError):
+                omitted.append(f"{elem.tag.group:04X}{elem.tag.element:04X}")
+                del ds[elem.tag]
+
+
 def to_json_model(ds: Any) -> dict[str, Any]:
     """DICOM JSON Model without PixelData; bulk values > 64 KiB omitted (`_omitted` lists tags)."""
     omitted: list[str] = []
@@ -186,6 +202,7 @@ def to_json_model(ds: Any) -> dict[str, Any]:
     clean = ds.copy()
     if "PixelData" in clean:
         del clean.PixelData
+    _drop_unreadable_private_numbers(clean, omitted)
     model: dict[str, Any] = clean.to_json_dict(bulk_data_threshold=BULK_LIMIT, bulk_data_element_handler=bulk)
     for tag in omitted:
         model.pop(tag, None)

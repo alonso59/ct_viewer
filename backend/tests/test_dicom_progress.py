@@ -353,3 +353,19 @@ def test_progress_fields_are_bounded_and_withhold_speed_without_measured_work(
     event: dict[str, Any], expected: dict[str, int]
 ) -> None:
     assert progress_fields(event) == expected
+
+
+def test_a_private_element_holding_binary_data_stays_out_of_the_sidecar() -> None:
+    from pydicom.dataelem import DataElement
+    from pydicom.dataset import Dataset
+    from rw_dicom import sidecar
+
+    ds = Dataset()
+    ds.PatientID = "P001"
+    vendor = DataElement(0x01F11027, "LO", "333333\u00e3?")
+    vendor.VR = "DS"  # a file read with implicit VR keeps the raw text under the guessed VR
+    ds.add(vendor)
+    model = sidecar.to_json_model(ds)
+    assert "01F11027" not in model
+    assert model["_omitted"] == ["01F11027"]
+    assert model["00100020"]["Value"] == ["P001"]
