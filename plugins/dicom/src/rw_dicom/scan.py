@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import io
 import os
+import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -45,6 +46,8 @@ class Series:
     source_root: Path | None = field(default=None, compare=False, repr=False)
     # the inventory key, so a planned series can be loaded again when it is converted
     key: str = field(default="", compare=False)
+    # which acquisition of a split series this is (`split_series`); empty for an ordinary series
+    part: str = ""
 
 
 @dataclass
@@ -356,6 +359,91 @@ def discover(
     return sorted(found, key=lambda s: (str(s.dicom_dir), s.series_id))
 
 
+# Tags that tell the acquisitions apart when one MR series UID holds several (echoes, dynamics,
+# b-values, image types): `(tag, label prefix)`.
+SPLIT_TAGS = (
+    ("EchoNumbers", "e"),
+    ("TemporalPositionIdentifier", "t"),
+    ("DiffusionBValue", "b"),
+    ("ImageType", "i"),
+)
+
+
+def split_series(series: Series) -> list[Series]:
+    """An MR series whose slice positions repeat, split by the tags above into stacks that do not.
+
+    The split is accepted only when every group has the same size (two or more slices) and no
+    repeated position; otherwise the series stays whole, with its `DUPLICATE_SLICE_POSITION`.
+    The first group keeps the series UID as its id, the others get `uid#label`."""
+    headers = series.headers
+    if len(headers) != len(series.files) or len(headers) < 4:
+        return [series]
+    if value_to_text(getattr(headers[0], "Modality", "")).upper() != "MR":
+        return [series]
+    positions = [_floats(h, "ImagePositionPatient", 3) for h in headers]
+    if any(p is None for p in positions):
+        return [series]
+    rounded = [tuple(round(v, 2) for v in p or ()) for p in positions]
+    if len(set(rounded)) == len(rounded):
+        return [series]
+    values = [tuple(value_to_text(getattr(h, tag, "")).strip() for tag, _ in SPLIT_TAGS) for h in headers]
+    varying = [i for i in range(len(SPLIT_TAGS)) if len({v[i] for v in values}) > 1]
+    if not varying:
+        return [series]
+    groups: dict[tuple[str, ...], list[int]] = {}
+    for i, v in enumerate(values):
+        groups.setdefault(tuple(v[j] for j in varying), []).append(i)
+    sizes = {len(m) for m in groups.values()}
+    if len(sizes) != 1 or sizes.pop() < 2 or any(len({rounded[i] for i in m}) != len(m) for m in groups.values()):
+        return [series]
+
+    def order(item: tuple[tuple[str, ...], list[int]]) -> list[Any]:
+        return [_number(v) for v in item[0]]
+
+    ordered = sorted(groups.items(), key=order)
+    labels = [
+        "".join(
+            f"{SPLIT_TAGS[j][1]}{_part_value(SPLIT_TAGS[j][0], g, headers[members[0]])}"
+            for j, g in zip(varying, group, strict=True)
+        )
+        for group, members in ordered
+    ]
+    # image types that name no component (or the same one) would share a label: number them
+    labels = [label if labels.count(label) == 1 else f"{label}{n}" for n, label in enumerate(labels)]
+    return [
+        replace(
+            series,
+            series_id=series.series_id if n == 0 else f"{series.series_id}#{label}",
+            files=tuple(series.files[i] for i in members),
+            headers=tuple(headers[i] for i in members),
+            source_bytes=0,
+            part=label,
+        )
+        for n, (label, (_, members)) in enumerate(zip(labels, ordered, strict=True))
+    ]
+
+
+def select_part(series: Series, part: str) -> Series:
+    """The acquisition `split_series` labelled `part` (the whole series when `part` is empty)."""
+    if not part:
+        return series
+    return next(s for s in split_series(series) if s.part == part)
+
+
+def _number(value: str) -> tuple[int, float, str]:
+    try:
+        return (0, float(value), "")
+    except ValueError:
+        return (1, 0.0, value)
+
+
+def _part_value(tag: str, value: str, header: Any) -> str:
+    if tag == "ImageType":
+        component = mri_component([header])[0]
+        return component.lower()
+    return re.sub(r"[^0-9A-Za-z.]+", "", value)
+
+
 def _single_series_id(path: Path) -> str:
     ds = read_header(path)
     return value_to_text(getattr(ds, "SeriesInstanceUID", "")) or path.name
@@ -543,9 +631,9 @@ def _advanced(datasets: list[Any], out: Inspection) -> None:
     echoes = {value_to_text(getattr(ds, k, "")) for ds in datasets for k in ("EchoNumbers", "EchoNumber")} - {""}
     if len(echoes) > 1:
         _add(codes, "MULTI_ECHO_INDICATORS")
-    if any(value_to_text(getattr(ds, "TemporalPositionIdentifier", "")) for ds in datasets):
+    if len({value_to_text(getattr(ds, "TemporalPositionIdentifier", "")) for ds in datasets} - {""}) > 1:
         _add(codes, "TEMPORAL_POSITION_INDICATORS")
-    if any(value_to_text(getattr(ds, "DiffusionBValue", "")) for ds in datasets):
+    if any(_nonzero(getattr(ds, "DiffusionBValue", "")) for ds in datasets):
         _add(codes, "DIFFUSION_INDICATORS")
     if any(_nonzero(getattr(ds, "GantryDetectorTilt", "")) for ds in datasets):
         _add(codes, "GANTRY_TILT_INDICATOR")
@@ -560,7 +648,8 @@ MRI_ALIASES = {
 
 
 def mri_component(datasets: list[Any]) -> tuple[str, str]:
-    """An MR series' complex image component and its status: `ok`, `heterogeneous` or `unknown`."""
+    """An MR series' complex image component and its status: `ok`, `heterogeneous`, `not_complex`
+    (an image type that names none, such as a Dixon water image or an ADC map) or `unknown`."""
     seen: set[str] = set()
     for ds in datasets:
         comp = MRI_ALIASES.get(value_to_text(getattr(ds, "ComplexImageComponent", "")).strip().upper(), "")
@@ -575,6 +664,8 @@ def mri_component(datasets: list[Any]) -> tuple[str, str]:
         return "UNKNOWN", "heterogeneous"
     if seen:
         return seen.pop(), "ok"
+    if any(len(split_multi_value(getattr(ds, "ImageType", ""))) > 2 for ds in datasets):
+        return "", "not_complex"
     return "UNKNOWN", "unknown"
 
 

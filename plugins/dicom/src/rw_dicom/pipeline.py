@@ -27,7 +27,7 @@ from rw_dicom.analyzers import target as target_rules
 from rw_dicom.identity import Identity
 from rw_dicom.text import contrast_delay, geometry_codes, value_to_text
 
-VERSION = "1.1.0"  # the artifact contract; unchanged while outputs stay byte-identical
+VERSION = "1.2.0"  # the artifact contract; unchanged while outputs stay byte-identical
 # `metadata.jsonl` holds contract-v1 fields and DICOM facts only. Guesses,
 # selection results and human decisions are analyzer or curation layers, never row fields.
 STUDY_FIELDS = frozenset(
@@ -84,6 +84,7 @@ class Unit:
     order: int  # discovery order (timing IDs, row order)
     key: str
     series_id: str
+    part: str
     dicom_dir: Path
     n_files: int
     source_bytes: int
@@ -192,6 +193,12 @@ def decide_conversion(row: dict[str, Any], role: str, role_reason: str, settings
     }.get(role, settings.convert_excluded)
     if planned and "MATRIX_SIZE_CONFLICT" in geometry_codes(row):
         return False, "matrix_size_conflict"  # slices of different sizes cannot be stacked
+    if (
+        planned
+        and row.get("modality") == "MR"
+        and {"DUPLICATE_SLICE_POSITION", "ORIENTATION_CONFLICT"} & geometry_codes(row)
+    ):
+        return False, "not_volumetric"  # repeated positions no tag explains, or projections at several angles
     if planned and settings.skip_unsafe_geometry and readiness_rules.has_unsafe_geometry(row):
         return False, "unsafe_geometry"
     if not planned:
@@ -326,9 +333,12 @@ def run(
         )
         if cached_discover is None and files is None:
             tick(1)
-        for s in discovered:
+        parts: list[scan.Series] = []
+        for whole in discovered:
             if cached_discover is not None:
-                tick(len(s.files))
+                tick(len(whole.files))
+            parts += scan.split_series(whole)
+        for s in parts:
             try:
                 ds = scan.first_header(s)
             except Exception as exc:  # noqa: BLE001 - one bad series must not stop discovery
@@ -365,6 +375,7 @@ def run(
                     order=len(found) + len(per_folder),
                     key=key,
                     series_id=s.series_id,
+                    part=s.part,
                     dicom_dir=s.dicom_dir,
                     n_files=len(s.files),
                     source_bytes=source_bytes,
@@ -429,13 +440,15 @@ def run(
         if u.key.startswith("memory:"):
             return list(retained[u.key].files)
         assert inventory is not None
+        if u.part:
+            return list(scan.select_part(inventory.series(u.key), u.part).files)
         return inventory.members(u.key)
 
     def load(u: Unit) -> scan.Series:
         if u.key.startswith("memory:"):
             return retained[u.key]
         assert inventory is not None
-        return replace(inventory.series(u.key), headers=())
+        return replace(scan.select_part(inventory.series(u.key), u.part), headers=())
 
     stats: dict[int, str] = {}
     if checkpoint is not None and not dry_run:

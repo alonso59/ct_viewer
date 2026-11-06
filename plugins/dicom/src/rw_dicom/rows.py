@@ -68,7 +68,7 @@ def header_row(ds: Any, series: Series, patient_folder: str, insp: Inspection) -
         "patient_folder": patient_folder,
         "patient_id": _t(ds, "PatientID") or patient_folder,
         "study_uid": _t(ds, "StudyInstanceUID"),
-        "series_uid": _t(ds, "SeriesInstanceUID") or series.series_id,
+        "series_uid": series.series_id,
         "series_number": _t(ds, "SeriesNumber"),
         "acquisition_number": _t(ds, "AcquisitionNumber"),
         "modality": MODALITY_CODES.get(modality, modality),

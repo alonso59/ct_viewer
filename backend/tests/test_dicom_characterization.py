@@ -44,7 +44,7 @@ API = "/api/v1"
 GOLDEN = Path(__file__).parent / "data" / "dicom" / "p7i_s1_golden.json"
 SERIES = {"seed": "p7i-s1", "shape": (6, 5, 12), "marker": (2, 1, 3)}
 # Pinned by task-run resume (C11); a change re-plans unfinished runs, see ADR-0042 §1.
-TASK_JSON_HASH = "sha256:92ddcbc1605593aa1f2c66e1d338e66a51d456a652c6c9b1eb9c6d516d7d4572"
+TASK_JSON_HASH = "sha256:ebbb0cfd688ceb6d95fe2b4dcd5ced004b76a383a883b9608c4c7199a87f3d66"
 
 
 def seeded(root: Path, *, broken: bool = False) -> Path:
