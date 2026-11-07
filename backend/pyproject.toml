@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "radiology-workbench"
-version = "3.1.6"
+version = "3.1.7"
 description = "Radiology Workbench backend: CT inspection, curation and radiomics"
 requires-python = ">=3.12,<3.13"
 dependencies = [

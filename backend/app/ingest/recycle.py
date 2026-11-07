@@ -64,6 +64,8 @@ class _Plan:
     moves: dict[Path, str] = field(default_factory=dict)
     writes: dict[Path, bytes] = field(default_factory=dict)
     removed: dict[str, Any] = field(default_factory=dict)
+    # A preview only counts: it skips serialising the rewritten tables (the token ignores contents)
+    dry: bool = False
 
 
 def excluded_items(pdir: Path) -> set[str]:
@@ -108,7 +110,7 @@ class RecycleService:
     ) -> None:
         self.workspace, self.index, self.jobs, self.bus = workspace, index, jobs, bus
 
-    def _plan(self, pid: str, iid: str) -> _Plan:
+    def _plan(self, pid: str, iid: str, dry: bool = False) -> _Plan:
         selected = self.index.get_item(pid, iid)
         resolver = self.workspace.resolver(pid)
         if selected.image is None:
@@ -178,7 +180,7 @@ class RecycleService:
             projects=sorted(affected),
             token="",
         )
-        plan = _Plan(public, root, affected)
+        plan = _Plan(public, root, affected, dry=dry)
 
         def add(ref: str, project_id: str) -> None:
             r = self.workspace.resolver(project_id)
@@ -367,12 +369,15 @@ class RecycleService:
             return
         if path.is_symlink():
             raise ValidationProblem("Refusing to rewrite a symlinked feature table")
-        table = pq.read_table(path)
-        if "item_id" not in table.column_names:
+        if "item_id" not in pq.read_schema(path).names:
             return
+        table = pq.read_table(path, columns=["item_id"] if plan.dry else None)
         mask = pc.is_in(table["item_id"], value_set=pa.array(sorted(ids)))
         removed = table.filter(mask)
-        if removed.num_rows:
+        if removed.num_rows and plan.dry:
+            plan.writes[path] = b""
+            plan.removed[str(path)] = [{"rows": removed.num_rows, "backup": "original parquet"}]
+        elif removed.num_rows:
             sink = pa.BufferOutputStream()
             pq.write_table(table.filter(pc.invert(mask)), sink)
             plan.writes[path] = sink.getvalue().to_pybytes()
@@ -423,7 +428,7 @@ class RecycleService:
             pending.unlink()
 
     def preview(self, pid: str, iid: str) -> RecyclePlan:
-        return self._plan(pid, iid).public
+        return self._plan(pid, iid, dry=True).public
 
     async def recycle(
         self, pid: str, iid: str, request: RecycleRequest, reviewer: str | None
