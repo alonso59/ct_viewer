@@ -9,7 +9,7 @@ import os
 import shutil
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -138,6 +138,7 @@ class RecycleService:
             if (i.case_id, i.scan_idx) == (selected.case_id, selected.scan_idx)
         ]
         images = {resolver.resolve(i.image.ref) for i in target if i.image}
+        image_names = {p.name for p in images}
         affected = {pid: target}
         # A dataset may be open in several projects. Update every active consumer together.
         for project in self.workspace.list():
@@ -149,7 +150,9 @@ class RecycleService:
             scans = {
                 (i.case_id, i.scan_idx)
                 for i in indexed
-                if i.image and other_resolver.resolve(i.image.ref) in images
+                if i.image
+                and PurePosixPath(i.image.ref).name in image_names
+                and other_resolver.resolve(i.image.ref) in images
             }
             if scans:
                 affected[other] = [i for i in indexed if (i.case_id, i.scan_idx) in scans]
@@ -163,7 +166,9 @@ class RecycleService:
                 derived_guard=self.workspace.derived_guard,
             )
             if any(
-                row.get("image") and archived_resolver.resolve(row["image"]["ref"]) in images
+                row.get("image")
+                and PurePosixPath(row["image"]["ref"]).name in image_names
+                and archived_resolver.resolve(row["image"]["ref"]) in images
                 for row in iter_jsonl(pdir / "index/items.jsonl")
             ):
                 raise ValidationProblem(
@@ -296,6 +301,7 @@ class RecycleService:
                 resolver.guard_for(alias).check(path)
                 self._prune_jsonl(plan, path, ids, selected)
         # Never move a volume used by an unrelated scan (including a shared segmentation).
+        moved_names = {p.name for p in plan.moves}
         for project in self.workspace.list():
             other = project.project_id
             r = self.workspace.resolver(other)
@@ -306,7 +312,10 @@ class RecycleService:
                 refs = [v.ref for v in it.volumes()]
                 if isinstance(it.extra.get("dicom_sidecar"), str):
                     refs.append(it.extra["dicom_sidecar"])
-                if any(r.resolve(ref) in plan.moves for ref in refs):
+                if any(
+                    PurePosixPath(ref).name in moved_names and r.resolve(ref) in plan.moves
+                    for ref in refs
+                ):
                     raise ValidationProblem(
                         "A file is shared with another scan; recycle it separately"
                     )
