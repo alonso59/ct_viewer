@@ -200,7 +200,7 @@ function Display({ pid, project }: { pid: string; project: Project }) {
         <span className="muted psettings-help">{t('psettings.ctWindowHelp')}</span>
       </div>
       <label className="psettings-check">
-        <input type="checkbox" checked={v.use_dicom_window ?? true} onChange={(e) => d.set({ ...v, use_dicom_window: e.target.checked })} />
+        <input type="checkbox" checked={v.use_dicom_window ?? false} onChange={(e) => d.set({ ...v, use_dicom_window: e.target.checked })} />
         {t('psettings.dicomWindow')}
       </label>
       <div className="field">

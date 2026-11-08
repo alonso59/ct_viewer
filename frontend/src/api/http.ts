@@ -113,7 +113,7 @@ type Schemas = import('./schema').components['schemas']
 export const DEFAULT_DISPLAY: Project['display'] = {
   layout: 'four-up',
   wl: { CT: { ww: 400, wl: 50 }, MR: 'percentile' },
-  use_dicom_window: true,
+  use_dicom_window: false,
   wl_presets: null,
   interpolation: 'linear',
   convention: 'radiological',

@@ -67,7 +67,7 @@ class Display(BaseModel):
     layout: Layout = "four-up"
     # Initial window per modality: HU numbers, or `percentile` (1st-99th).
     wl: dict[str, WindowLevel | Literal["percentile"]] = Field(default_factory=_default_wl)
-    use_dicom_window: bool = True  # the DICOM `WindowCenter/Width` first when present
+    use_dicom_window: bool = False  # the DICOM `WindowCenter/Width` before the modality default
     wl_presets: list[WlPreset] | None = None  # null = the built-in presets
     interpolation: Literal["linear", "nearest"] = "linear"
     convention: Literal["radiological", "neurological"] = "radiological"

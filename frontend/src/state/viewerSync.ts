@@ -130,7 +130,7 @@ export const useViewerSync = create<ViewerSyncState>()(persist((set, get) => ({
   display: { invert: false, slab: { mode: 'none', mm: 10 }, interpolation: 'linear', convention: 'radiological' },
   ctWindow: [400, 50],
   customPresets: [],
-  useDicomWindow: true,
+  useDicomWindow: false,
   defaultModality: 'CT',
   measureClear: 0,
   set: (patch) => set(patch),

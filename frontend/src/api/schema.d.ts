@@ -4173,7 +4173,7 @@ export interface components {
             };
             /**
              * Use Dicom Window
-             * @default true
+             * @default false
              */
             use_dicom_window: boolean;
             /** Wl Presets */

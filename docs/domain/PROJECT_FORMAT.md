@@ -105,7 +105,7 @@ Depends: ADR-0002, ADR-0004, ADR-0005, ADR-0014, ADR-0015, ADR-0019, ADR-0020, A
   "display": {                               // PRJ-18 (was viewer_defaults)
     "layout": "four-up",                     // four-up | conventional | three-mpr | one-up-{axial,sagittal,coronal,3d}
     "wl": { "CT": { "ww": 400, "wl": 50 }, "MR": "percentile" },
-    "use_dicom_window": true, "wl_presets": null, "interpolation": "linear", "convention": "radiological"
+    "use_dicom_window": false, "wl_presets": null, "interpolation": "linear", "convention": "radiological"
   },
   "segmentations": [                          // ADR-0015
     { "seg_id": "imported", "name": "", "kind": "imported", "producer": null, "label_mapping": { "1": 1, "2": 2, "3": 3 }, "unmatched": [], "created_at": "…", "active": true, "artifact_id": null }

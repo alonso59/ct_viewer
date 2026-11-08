@@ -12,7 +12,7 @@ export function applyProjectDisplay(p: Project, withLayout: boolean) {
     display: { ...s.display, interpolation: d.interpolation ?? 'linear', convention: d.convention ?? 'radiological' },
     ctWindow,
     customPresets: (d.wl_presets ?? []).map((x) => ({ name: x.name, ww: x.ww, wl: x.wl })),
-    useDicomWindow: d.use_dicom_window ?? true,
+    useDicomWindow: d.use_dicom_window ?? false,
     defaultModality: p.default_modality,
     ...(withLayout && d.layout ? { layout: d.layout, maximized: null } : {}),
   }))
@@ -20,5 +20,5 @@ export function applyProjectDisplay(p: Project, withLayout: boolean) {
 
 /** Open mode (no project): the built-in display defaults */
 export function resetDisplay() {
-  useViewerSync.setState({ display: DEFAULT, ctWindow: [400, 50], customPresets: [], useDicomWindow: true, defaultModality: 'CT' })
+  useViewerSync.setState({ display: DEFAULT, ctWindow: [400, 50], customPresets: [], useDicomWindow: false, defaultModality: 'CT' })
 }
