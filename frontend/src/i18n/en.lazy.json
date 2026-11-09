@@ -153,10 +153,6 @@
       "pearson_r": "r",
       "cramers_v": "Cramér's V"
     },
-    "embed": {
-      "pca": "PCA",
-      "umap": "UMAP"
-    },
     "errors_one": "{{count}} failure or skip",
     "errors_other": "{{count}} failures and skips",
     "excludedLevel": "{{level}} (n < 5)",
@@ -206,7 +202,6 @@
       "queued": "{{id}} added to the correction queue"
     },
     "meta": "{{engine}} · {{hash}}",
-    "method": "Embedding method",
     "missing": {
       "absent": "absent",
       "inf": "inf",

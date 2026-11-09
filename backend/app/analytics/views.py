@@ -375,7 +375,7 @@ def correlation(frame: Frame, req: CorrelationRequest) -> CorrelationResponse:
 
 
 def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
-    """PCA (default) or UMAP (optional extra) on z-scored features."""
+    """PCA on z-scored features."""
     rd = select_features(frame.rd, req.features, req.feature_class)
     keep = _usable(rd.x)
     if len(keep) < 2 or rd.n < 3:
@@ -384,30 +384,20 @@ def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
     names = [rd.features[j] for j in keep]
     k = min(req.n_components, len(keep), rd.n)
     levels = frame.levels(req.color_by, ("body", "color_by"))
-    if req.method == "umap":
-        try:
-            import umap  # type: ignore[import-not-found]  # optional extra
-        except ImportError:
-            raise bad(("body", "method"), "UMAP is not installed (optional extra `umap`)") from None
-        coords = np.asarray(umap.UMAP(n_components=k, random_state=0).fit_transform(z))
-        evr: list[float] = []
-        loadings: list[list[Loading]] = []
-    else:
-        from sklearn.decomposition import PCA
+    from sklearn.decomposition import PCA
 
-        pca = PCA(n_components=k, random_state=0)
-        coords = pca.fit_transform(z)
-        evr = [float(v) for v in pca.explained_variance_ratio_]
-        loadings = []
-        for comp in pca.components_:
-            top = np.argsort(-np.abs(comp))[:TOP_LOADINGS]
-            loadings.append([Loading(feature=names[t], weight=float(comp[t])) for t in top])
+    pca = PCA(n_components=k, random_state=0)
+    coords = pca.fit_transform(z)
+    evr = [float(v) for v in pca.explained_variance_ratio_]
+    loadings = []
+    for comp in pca.components_:
+        top = np.argsort(-np.abs(comp))[:TOP_LOADINGS]
+        loadings.append([Loading(feature=names[t], weight=float(comp[t])) for t in top])
     points = [
         EmbeddingPoint(**_ref(frame, i, levels), coords=[float(c) for c in coords[i]])
         for i in range(min(rd.n, MAX_POINTS))
     ]
     return EmbeddingResponse(
-        method=req.method,
         n_components=k,
         explained_variance_ratio=evr,
         features_used=names,

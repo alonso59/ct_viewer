@@ -117,14 +117,12 @@ def test_embedding(mod_client: TestClient, syn: Synthetic) -> None:
         view(mod_client, syn, "embedding",
              {"n_components": 3, "color_by": {"kind": "phase"}, "filters": {"label": [2]}})
     )  # fmt: skip
-    assert body["method"] == "pca" and body["n_components"] == 3
+    assert body["n_components"] == 3
     assert len(body["explained_variance_ratio"]) == 3
     assert body["explained_variance_ratio"][0] >= body["explained_variance_ratio"][1]
     assert body["color_levels"] == ["CMP", "NP"]
     assert len(body["points"]) == len(syn.items)
     assert all(len(p["coords"]) == 3 and p["color"] in ("NP", "CMP") for p in body["points"])
-    r = view(mod_client, syn, "embedding", {"method": "umap"})
-    assert_problem(r, "validation")  # optional extra not installed
 
 
 @pytest.mark.usefixtures("rejected")

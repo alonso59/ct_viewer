@@ -162,7 +162,6 @@ class EmbeddingRequest(ViewRequest):
     features: list[str] | None = None
     feature_class: list[str] | None = None
     n_components: int = Field(default=2, ge=2, le=10)
-    method: Literal["pca", "umap"] = "pca"
     color_by: ColorBy | None = None
 
 
@@ -342,7 +341,6 @@ class Loading(BaseModel):
 
 
 class EmbeddingResponse(BaseModel):
-    method: Literal["pca", "umap"]
     n_components: int
     explained_variance_ratio: list[float]
     features_used: list[str]

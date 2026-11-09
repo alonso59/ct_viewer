@@ -3483,15 +3483,6 @@
      "filters": {
       "$ref": "#/components/schemas/GlobalFilters"
      },
-     "method": {
-      "default": "pca",
-      "enum": [
-       "pca",
-       "umap"
-      ],
-      "title": "Method",
-      "type": "string"
-     },
      "n_components": {
       "default": 2,
       "maximum": 10.0,
@@ -3526,14 +3517,6 @@
       "title": "Features Used",
       "type": "array"
      },
-     "method": {
-      "enum": [
-       "pca",
-       "umap"
-      ],
-      "title": "Method",
-      "type": "string"
-     },
      "n_components": {
       "title": "N Components",
       "type": "integer"
@@ -3557,7 +3540,6 @@
      }
     },
     "required": [
-     "method",
      "n_components",
      "explained_variance_ratio",
      "features_used",
@@ -17057,7 +17039,7 @@
  },
  "info": {
   "title": "Radiology Workbench",
-  "version": "3.1.9"
+  "version": "3.1.10"
  },
  "openapi": "3.1.0",
  "paths": {
@@ -23291,7 +23273,7 @@
   },
   "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/embedding": {
    "post": {
-    "description": "PCA (default) or UMAP (optional extra) on z-scored features.",
+    "description": "PCA on z-scored features.",
     "operationId": "embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post",
     "parameters": [
      {

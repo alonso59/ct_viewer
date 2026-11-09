@@ -2420,7 +2420,7 @@ export interface paths {
         put?: never;
         /**
          * Embedding
-         * @description PCA (default) or UMAP (optional extra) on z-scored features.
+         * @description PCA on z-scored features.
          */
         post: operations["embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post"];
         delete?: never;
@@ -4263,21 +4263,10 @@ export interface components {
              * @default 2
              */
             n_components: number;
-            /**
-             * Method
-             * @default pca
-             * @enum {string}
-             */
-            method: "pca" | "umap";
             color_by?: components["schemas"]["ColorBy"] | null;
         };
         /** EmbeddingResponse */
         EmbeddingResponse: {
-            /**
-             * Method
-             * @enum {string}
-             */
-            method: "pca" | "umap";
             /** N Components */
             n_components: number;
             /** Explained Variance Ratio */

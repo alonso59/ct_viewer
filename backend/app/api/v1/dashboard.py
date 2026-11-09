@@ -88,7 +88,7 @@ async def correlation(
 async def embedding(
     pid: str, rid: str, ctx: Ctx, body: EmbeddingRequest | None = None
 ) -> EmbeddingResponse:
-    """PCA (default) or UMAP (optional extra) on z-scored features."""
+    """PCA on z-scored features."""
     return await dashboard(ctx).view(pid, rid, body or EmbeddingRequest(), vw.embedding)
 
 
