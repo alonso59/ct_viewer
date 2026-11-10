@@ -2,7 +2,7 @@ import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ReviewerCancelled, useAppendPhase, usePhaseEvents, useProject, type ItemRecord, type NewPhaseEvent } from '../../api'
-import { Dialog, PhaseChip, fmtAgo } from '../../lib'
+import { Dialog, PhaseChip, ProblemCard, fmtAgo } from '../../lib'
 import { registry, toast, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { guessRun, phaseOptions } from './model'
@@ -68,6 +68,8 @@ export function PhaseHistoryButton({ pid, caseId, scanIdx }: { pid: string; case
       </button>
       {open ? (
         <Dialog open onOpenChange={(o) => !o && setOpen(false)} title={t('phaseSel.historyOf', { scan: `${caseId} · ${scanIdx}` })} icon={codicon('history')}>
+          {events.isLoading ? <p className="muted">{t('common.loading')}</p> : null}
+          {events.isError ? <ProblemCard error={events.error} onRetry={() => void events.refetch()} /> : null}
           {events.data && !events.data.length ? <p className="muted">{t('phaseSel.noHistory')}</p> : null}
           <ol className="phase-history">
             {(events.data ?? []).map((e) => (

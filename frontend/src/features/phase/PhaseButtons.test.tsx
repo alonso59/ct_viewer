@@ -37,6 +37,18 @@ test('a click sends the selection at once; the replaced value and the history sh
   expect(within(dlg).getByText(/Dr\. AP/)).toBeInTheDocument()
 })
 
+test('the history dialog says it is loading and offers Try again when the load fails', async () => {
+  const events = vi.spyOn(api, 'phaseEvents').mockRejectedValueOnce(new Error('boom'))
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><PhaseHistoryButton pid={DEMO_PID} caseId="case_00002" scanIdx="02" /></QueryClientProvider>)
+  fireEvent.click(screen.getByRole('button', { name: 'Phase history' }))
+  const dlg = await screen.findByRole('dialog')
+  expect(within(dlg).getByText('Loading…')).toBeInTheDocument()
+  fireEvent.click(await within(dlg).findByRole('button', { name: 'Try again' }))
+  expect(await within(dlg).findByText('Selected')).toBeInTheDocument()
+  expect(events).toHaveBeenCalledTimes(2)
+})
+
 // PHS-01 (AUD-A1-12): the case header's phase is a write, so it uses chips with the effective
 // value pressed, never the segmented style of the view toggles beside it
 test('the case header writes the phase with chips, the effective one pressed', async () => {
