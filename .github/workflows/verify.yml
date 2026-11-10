@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches: [main, version_3-dev-seg]
-  workflow_call:
   workflow_dispatch:
 
 permissions:

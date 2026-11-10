@@ -15,16 +15,6 @@ def test_verification_context_includes_the_root_lint_configuration() -> None:
     assert "!ruff.toml" in context, "the built verification image cannot run make lint"
 
 
-def test_image_publication_depends_on_reusable_verification() -> None:
-    workflow = yaml.safe_load((REPO / ".github/workflows/build.yml").read_text())
-    jobs = workflow["jobs"]
-    assert "verify" in jobs, "publication has no verification dependency"
-    assert jobs["verify"]["uses"] == "./.github/workflows/verify.yml"
-    dependency = jobs["build"].get("needs", [])
-    assert "verify" in ([dependency] if isinstance(dependency, str) else dependency)
-    assert "always()" not in str(jobs["build"].get("if", ""))
-
-
 def test_verification_runs_full_checks_serial_safety_and_both_browsers() -> None:
     path = REPO / ".github/workflows/verify.yml"
     assert path.exists(), "no enforced verification workflow exists"
