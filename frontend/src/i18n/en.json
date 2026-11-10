@@ -1103,6 +1103,7 @@
     "chooseSource": "Choose what to run on",
     "preflightFailed": "The readiness check failed; see above",
     "chooseFolder": "Choose a folder first",
+    "chooseSource": "Choose a file or folder first",
     "fixAlias": "Fix the alias above",
     "uploadMetadata": "Upload the metadata file first",
     "chooseSourceType": "Choose how to read this folder",

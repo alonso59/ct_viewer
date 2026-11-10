@@ -436,6 +436,12 @@ test('converts a DICOM folder into a workspace dataset without a project', async
   expect(await screen.findByText(`Dataset ${run!.name} is ready.`)).toBeInTheDocument()
   expect(screen.getByText(run!.dataset_dir!)).toBeInTheDocument()
   for (const name of ['View without a project', 'Create project from this', 'Add to project']) expect(screen.getByRole('button', { name })).toBeInTheDocument()
+  // cancelling the project dialog keeps the result and its next steps
+  fireEvent.click(screen.getByRole('button', { name: 'Create project from this' }))
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'New project' })).getByRole('button', { name: /^Cancel$/ }))
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New project' })).toBeNull())
+  expect(useConverter.getState().open).toBe(true)
+  expect(screen.getByRole('button', { name: 'View without a project' })).toBeInTheDocument()
 })
 
 test('a dataset name that is taken is said in the settings step (DCM-14, AUD-A2-14)', async () => {
@@ -578,7 +584,9 @@ test('U02 workspace discovery asks for project creation without allocating one i
   expect(create).not.toHaveBeenCalled()
   expect(convert).not.toHaveBeenCalled()
   fireEvent.click(within(dialog).getByRole('button', { name: /^Cancel$/ }))
-  await waitFor(() => expect(useConverter.getState().open).toBe(false))
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New project' })).toBeNull())
+  expect(useConverter.getState().open).toBe(true)
+  expect(screen.getByRole('button', { name: 'Continue import' })).toBeEnabled()
   expect(create).not.toHaveBeenCalled()
 })
 

@@ -540,6 +540,13 @@ export default function ConverterOverlay() {
     navigate(`/p/${addTo}`)
     useImportWizard.getState().open(addTo, { path: dataset, add: true })
   }
+  // Creating the project opens the import wizard in the same tick and ends here; cancelling leaves the window as it is
+  const newProjectClosed = (dismiss: () => void) => (open: boolean) => {
+    if (open) return
+    dismiss()
+    const before = useImportWizard.getState().pid
+    queueMicrotask(() => { if (useImportWizard.getState().pid !== before) close() })
+  }
 
   return (
     <>
@@ -607,7 +614,7 @@ export default function ConverterOverlay() {
               <details open><summary>{t('conv.browseFolders')}</summary><FolderBrowser path={browse} onPath={(p) => patch({ browse: p, source: p, requestKey: null })} selected={source} onSelectFile={(p) => patch({ source: p, requestKey: null })} fileFilter={() => true} /></details>
               <div className="conv-row">
                 <span className="mono conv-path">{source ?? t('conv.noSource')}</span>
-                <button type="button" className="btn btn-primary" disabled={!source} onClick={() => patch({ step: 'settings', settings: { ...settings, name: settings.name || defaultDatasetName(), destination: settings.destination || defaultDestination(source) } })}>{t('conv.next')}</button>
+                <Button className="btn btn-primary" disabled={!source} reason={t('reason.chooseSource')} onClick={() => patch({ step: 'settings', settings: { ...settings, name: settings.name || defaultDatasetName(), destination: settings.destination || defaultDestination(source) } })}>{t('conv.next')}</Button>
               </div>
             </div>
           ) : null}
@@ -731,7 +738,7 @@ export default function ConverterOverlay() {
                 </select>
                 <button type="button" className="btn" disabled={!addTo || ws.status !== 'completed'} onClick={addToProject}>{t('conv.addTo')}</button>
               </div>
-              <NewProjectDialog open={creating} onOpenChange={(o) => { setCreating(o); if (!o) close() }} prefill={{ path: dataset }} />
+              <NewProjectDialog open={creating} onOpenChange={newProjectClosed(() => setCreating(false))} prefill={{ path: dataset }} />
             </div>
           ) : null}
           {step === 'result' && run?.kind === 'project' ? (
@@ -770,8 +777,8 @@ export default function ConverterOverlay() {
           ) : null}
         </div>
       </Dialog>
-      {importDraft ? <NewProjectDialog open onOpenChange={(o) => { if (!o) { setImportDraft(null); close() } }} prefill={importDraft} /> : null}
-      {createFrom ? <NewProjectDialog open onOpenChange={(o) => { if (!o) { useConverter.setState({ createFrom: null }); close() } }} prefill={{ path: createFrom, adapter: 'nifti-files' }} /> : null}
+      {importDraft ? <NewProjectDialog open onOpenChange={newProjectClosed(() => setImportDraft(null))} prefill={importDraft} /> : null}
+      {createFrom ? <NewProjectDialog open onOpenChange={newProjectClosed(() => useConverter.setState({ createFrom: null }))} prefill={{ path: createFrom, adapter: 'nifti-files' }} /> : null}
       {derivedPrompt && pid ? <DerivedRootDialog pid={pid} onClose={() => setDerivedPrompt(false)} /> : null}
     </>
   )
