@@ -10,14 +10,14 @@ import { FolderBrowser } from './FolderBrowser'
 import { codicon } from '../../theme'
 import { useImportWizard, type WizardPrefill } from './store'
 
-/** `prefill`: "Create project from this" (Open mode) starts the import wizard on that path; `name` suggests the project name */
-type Props = { open: boolean; onOpenChange: (o: boolean) => void; prefill?: WizardPrefill; name?: string }
+/** `prefill`: "Create project from this" (Open mode) starts the import wizard on that path; `name` suggests the project name; `onCreated` runs once the project exists (not on cancel) */
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; onCreated?: () => void; prefill?: WizardPrefill; name?: string }
 
 export function NewProjectDialog(props: Props) {
   return props.open ? <ProjectDialog {...props} /> : null
 }
 
-function ProjectDialog({ open, onOpenChange, prefill, name: suggested }: Props) {
+function ProjectDialog({ open, onOpenChange, onCreated, prefill, name: suggested }: Props) {
   const { t } = useTranslation()
   const [name, setName] = useState(suggested ?? '')
   const [dataset, setDataset] = useState(prefill?.kind === 'folder' ? prefill.path : prefill?.kind === 'file' ? prefill.path.slice(0, prefill.path.lastIndexOf('/')) || '/' : (prefill?.path ?? '').replace(/\/[^/]+\.(nii(?:\.gz)?|npy|dcm)$/i, ''))
@@ -28,6 +28,7 @@ function ProjectDialog({ open, onOpenChange, prefill, name: suggested }: Props) 
   const submit = async () => {
     const p = await create.mutateAsync({ name: name.trim(), default_modality: modality, ...(dataset.trim() ? { dataset_root: dataset.trim() } : {}) })
     onOpenChange(false)
+    onCreated?.()
     setName('')
     navigate(`/p/${p.project_id}`)
     const root = dataset.trim()
