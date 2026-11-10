@@ -1,4 +1,4 @@
-# Radiology Workbench v3: dev, check, image and deploy targets (`make help`)
+# Radiology Workbench v3: dev, check and test-image targets (`make help`)
 # The repo path may contain spaces: recipes use relative paths and quote $(CURDIR).
 
 SHELL := /bin/bash
@@ -20,21 +20,19 @@ BPY := $(if $(filter /%,$(VENV)),$(VENV),../$(VENV))/bin/python
 # Docs site tools (dev-only, pinned; never in pyproject.toml, package.json or the image).
 DOCS_TOOLS ?= uvx --from sphinx==9.1.0 --with myst-parser==5.1.0 --with furo==2025.12.19
 
-# Node runtime: native | docker | udocker (native if `node` exists, else udocker).
-RUNTIME ?= $(if $(shell command -v node 2>/dev/null),native,udocker)
+# Node runtime: native | docker. Without `node` on PATH, put a conda environment's bin there
+# (conda create -n rwnode -c conda-forge nodejs=22).
+RUNTIME ?= native
 NODE_IMAGE ?= node:22-slim
-UDOCKER_NODE ?= rw-node
 ifeq ($(RUNTIME),native)
   NODE := cd frontend &&
 else ifeq ($(RUNTIME),docker)
   NODE := docker run --rm -v "$(CURDIR):/repo" -w /repo/frontend -e VITE_HOST=0.0.0.0 -p 5173:5173 $(NODE_IMAGE)
-else ifeq ($(RUNTIME),udocker)
-  NODE := python3 udocker.py run --hostenv --volume="$(CURDIR):/repo" --workdir=/repo/frontend $(UDOCKER_NODE)
 else
-  $(error RUNTIME must be native, docker or udocker)
+  $(error RUNTIME must be native or docker)
 endif
 
-.PHONY: help setup setup-backend setup-frontend setup-node fixtures dev-backend dev-frontend gen-api gen-dicom-schema record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image image-tar container-smoke udocker-selftest shellcheck up down logs udocker-run
+.PHONY: help setup setup-backend setup-frontend fixtures dev-backend dev-frontend gen-api gen-dicom-schema record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image container-smoke shellcheck
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^##@ / {printf "\n%s\n", substr($$0, 5)} /^[a-z0-9-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -53,10 +51,6 @@ setup-backend: ## Python 3.12 env + backend[dev] (override PYTHON_VERSION)
 
 setup-frontend: ## Install frontend deps from the lockfile
 	$(NODE) npm ci
-
-setup-node: ## One-time: create the udocker Node container (remote servers)
-	python3 udocker.py pull $(NODE_IMAGE)
-	python3 udocker.py create --name=$(UDOCKER_NODE) $(NODE_IMAGE)
 
 fixtures: ## Generate the synthetic dataset into FIXTURES
 	cd backend && $(BPY) -m tools.make_fixtures --out "../$(FIXTURES)"
@@ -106,7 +100,7 @@ test-runner: test-env ## Runner safety regression gate (PYTEST_WORKERS=0 for ser
 test-host: test-env ## Opt-in GPU-free Linux kernel/user-service effect tests (no skipped prerequisites)
 	cd backend && $(TEST_ENV) $(BPY) -m pytest -n 0 host_tests -ra
 
-test-host-browser: ## Real API/supervisor Chromium + Firefox controls/restart, CPU fixture; requires prepared browser container
+test-host-browser: ## Real API/supervisor Chromium + Firefox controls/restart, CPU fixture; needs `npx playwright install`
 	$(NODE) npm run build
 	cd backend && $(TEST_ENV) $(BPY) -m tools.runner_browser_acceptance
 
@@ -168,32 +162,11 @@ trace: ## Requirement -> code/test citations into build/trace/ (a report, not a 
 
 ##@ Image
 
-image: ## Build the OCI image radiology-workbench:VERSION (Docker; add PLATFORM=linux/amd64 for the server)
+image: ## Build the test image radiology-workbench:VERSION (Docker)
 	docker build $(if $(PLATFORM),--platform $(PLATFORM),) -t radiology-workbench:$(VERSION) .
-
-image-tar: ## docker save the image to build/rw-VERSION.tar, for `./rw update` on a udocker server
-	mkdir -p build && docker save radiology-workbench:$(VERSION) -o build/rw-$(VERSION).tar
-	@echo "image-tar: build/rw-$(VERSION).tar"
 
 container-smoke: ## Smoke-test the built image (Docker)
 	scripts/container-smoke.sh
 
-udocker-selftest: ## Local simulation: the image under udocker (P1, F3) as a non-root user, no sudo, in Docker
-	scripts/udocker-selftest.sh
-
-##@ Deploy (./rw wraps Docker compose or udocker)
-
-shellcheck: ## Lint ./rw and scripts/*.sh with koalaman/shellcheck:stable (Docker, files piped on stdin; not in `make check`)
-	@for f in rw scripts/*.sh; do echo "shellcheck $$f"; docker run --rm -i koalaman/shellcheck:stable -f gcc - < "$$f" || exit 1; done
-
-up: ## Start the app in the background and wait for health (./rw up; `./rw init` first)
-	./rw up
-
-down: ## Stop the app (./rw stop)
-	./rw stop
-
-logs: ## Last 200 app log lines (./rw logs)
-	./rw logs
-
-udocker-run: ## Run the image under udocker from .env in the foreground
-	scripts/udocker-run.sh
+shellcheck: ## Lint scripts/*.sh with koalaman/shellcheck:stable (Docker, files piped on stdin; not in `make check`)
+	@for f in scripts/*.sh; do echo "shellcheck $$f"; docker run --rm -i koalaman/shellcheck:stable -f gcc - < "$$f" || exit 1; done

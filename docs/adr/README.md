@@ -12,7 +12,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0004 | No accounts; link sharing; reviewer name stamp | Accepted (amended by 0019) |
 | 0005 | Register data in place with path aliases | Accepted (amended by 0014) |
 | 0006 | Radiomics via engine adapter; PyRadiomics default; IBSI reference hidden from the GUI | Accepted (spike passed; pinned upstream commit; amended by 0016) |
-| 0007 | One OCI image for Docker and udocker | Accepted (amended by 0014, 0016; native rejection superseded by 0043) |
+| 0007 | One OCI image for Docker and udocker | Superseded by 0051 |
 | 0008 | Drop MUI; Radix + tokens + codicons + dockview | Accepted |
 | 0009 | Analytics on Parquet + DuckDB; ECharts for charts | Accepted |
 | 0010 | QuPath-style layout in a VS Code shell, GitHub Dark theme | Accepted |
@@ -56,3 +56,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0048 | Agent interface over CTFlow: MCP client, agent origin, zones | Accepted (extends 0041) |
 | 0049 | Timeline events are label table rows at an `event` level, dated in days from an anchor | Accepted (extends 0046) |
 | 0050 | The VOI extractor takes sides from patient coordinates and previews boxes before cropping | Accepted (extends 0014, 0016) |
+| 0051 | Native conda is the only deployment; the image is a test artifact; udocker is removed | Accepted (supersedes 0007; partially supersedes 0043) |

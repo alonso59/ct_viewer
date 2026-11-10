@@ -6,10 +6,6 @@
 !Dockerfile
 !Dockerfile.verify
 !Dockerfile.verify.dockerignore
-!docker-compose.yml
-!.env.example
-!rw
-!udocker.py
 !backend/
 !frontend/
 !plugins/

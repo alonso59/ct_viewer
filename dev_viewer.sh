@@ -144,11 +144,12 @@ cmd_run() {
   log "[setup] installing backend[dev]"
   pip install -e './backend[dev]' -q
 
-  if ! python3 udocker.py inspect rw-node >/dev/null 2>&1; then
-    log "[setup] creating udocker node container"
-    python3 udocker.py pull node:22-slim
-    python3 udocker.py create --name=rw-node node:22-slim
+  if ! conda env list | grep -qE '^\s*rwnode\s'; then
+    log "[setup] creating conda env rwnode"
+    conda create -y -n rwnode -c conda-forge nodejs=22
   fi
+  local node_bin
+  node_bin="$(conda run -n rwnode node -p 'require("path").dirname(process.execPath)')"
 
   # npm ci wipes node_modules; only do it when the lockfile changed, so a restart
   # does not delete files another running server still has open (NFS ENOTEMPTY).
@@ -157,7 +158,7 @@ cmd_run() {
   want=$(sha256sum frontend/package-lock.json | cut -d' ' -f1)
   if [[ ! -f $stamp || $(cat "$stamp") != "$want" ]]; then
     log "[setup] npm ci (lockfile changed)"
-    python3 udocker.py run --hostenv --volume="$PWD/frontend:/app" --workdir=/app rw-node npm ci
+    (cd frontend && PATH="$node_bin:$PATH" npm ci)
     echo "$want" >"$stamp"
   else
     log "[setup] node_modules up to date, skipping npm ci"
@@ -169,7 +170,7 @@ cmd_run() {
   local backend_pid=$!
 
   log "[run] frontend on 0.0.0.0:$VITE_PORT"
-  python3 udocker.py run --hostenv --volume="$PWD/frontend:/app" --workdir=/app rw-node npm run dev &
+  (cd frontend && PATH="$node_bin:$PATH" exec npm run dev) &
   local frontend_pid=$!
 
   trap 'log "[stop] shutting down"; kill $backend_pid $frontend_pid 2>/dev/null; pkill -P $$ 2>/dev/null' EXIT TERM INT

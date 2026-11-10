@@ -27,7 +27,6 @@ frontend/src/api/openapi.json
 .workspace/
 /workspace/
 .fixtures/
-.udocker/
 webui_state/
 
 # Logs / archives / OS
@@ -45,8 +44,6 @@ webui_state/
 
 # Legacy code: reference only, read-only, safe to delete (tag legacy-reference keeps the tracked v2 copy)
 /legacy/
-.rw/
-/rw-*.tar
 
 # Personal launchers
 /scripts/claude

@@ -1,36 +1,36 @@
 # Deployment
 
-Scope: deployment options (native, Docker/udocker, HPC), OCI image, configuration, upgrades.
-Read when: building or running the image, or changing env vars.
-Depends: ADR-0007, ADR-0014, ADR-0016, ADR-0043, backend/ARCHITECTURE.md, domain/TASKS.md.
+Scope: deployment options (native, HPC), the test image, configuration, upgrades.
+Read when: deploying, building the test image, or changing env vars.
+Depends: ADR-0014, ADR-0016, ADR-0043, ADR-0051, backend/ARCHITECTURE.md, domain/TASKS.md.
 
 ## Requirements
 
 | ID | Requirement | Pri |
 |---|---|---|
 | OPS-01 | One image, `radiology-workbench:{semver}`, built in multiple stages (`node:22-slim` → `python:3.12-slim`), serves API and SPA on one port. | M |
-| OPS-02 | The image runs unchanged under Docker and udocker: no init system, no capabilities, no privileged ports, and no dependence on a specific UID. | M |
+| OPS-02 | The image runs under Docker with no init system, no capabilities, no privileged ports, and no dependence on a specific UID. | M |
 | OPS-03 | All configuration comes from env vars (§Config). The frontend receives its runtime config through API-01. | M |
 | OPS-04 | `ALLOWED_DATA_ROOTS` limits browsing and resolution (BE-02). An empty value refuses to start in container mode. | M |
 | OPS-05 | Mirror-mount convention: mount data at the **same path** inside the container as on the host, so aliases and exported absolute paths match. | S |
 | OPS-06 | `WORKSPACE_ROOT` must be writable and preferably on local disk (the lock caveat in BE-05). | M |
 | OPS-07 | Healthcheck: `GET /api/v1/health`. | M |
 | OPS-08 | Image size ≤ 1.5 GB (NFR-10). | S |
-| OPS-09 | `scripts/udocker-run.sh` reads the same `.env` file as compose and runs the equivalent command. | M |
-| OPS-10 | Upgrade = new image + restart; project `format_version` migrations run on open (PRJ-11). | M |
+| OPS-09 | Retired (ADR-0051): the udocker run script matched the compose definition. | — |
+| OPS-10 | Upgrade = new release + restart; project `format_version` migrations run on open (PRJ-11). | M |
 | OPS-11 | Derived roots are a third, **writable**, mirror-mounted mount (`DERIVED_HOST`), listed in `ALLOWED_DERIVED_ROOTS` (ADR-0014). | M |
 | OPS-12 | Startup refuses a derived root that overlaps a data root, or vice versa (`roots-overlap`). | M |
-| OPS-13 | External tasks run through `scripts/rw-runner.py` on the host (Docker or udocker alike), in the plugin's own environment; `WORKSPACE_HOST`, the data and the derived roots must be visible to it at the same paths as in the container, except the workspace, which the runner addresses by its host path (TSK-11). | M |
+| OPS-13 | External tasks run through `scripts/rw-runner.py` on the host, in the plugin's own environment; the workspace, the data and the derived roots must be visible to it at the same paths as to the app (TSK-11). | M |
 | OPS-15 | Optional `MANAGED_DERIVED_ROOT` must equal the sibling `derived/` of `WORKSPACE_ROOT`. Only that explicitly managed root may overlap an allowed source browsing root; PRJ-19 independently controls dataset-local outputs. | M |
 | OPS-14 | Builtin tasks (converter, analyzers, radiomics) stay in the image within OPS-08; heavy plugins (torch, GPU) never go into the image. | M |
 | OPS-16 | Production GPU tasks require an accepted execution backend with verified attempt ownership/whole-tree cleanup and bounded CPU, RAM, tasks and runtime. Capabilities are per deployment under ADR-0034; local/server execution requires the effective user-cgroup and Landlock/seccomp gate. Device visibility/reservations are cooperative; quota and logout persistence are reported separately. | M |
 | OPS-17 | Runner diagnostics inspect capabilities without changing host policy or starting inference. Reports distinguish observed prerequisites, verified enforcement and advisory/unavailable controls. Never install system tools, enable lingering or change driver/GPU policy as a diagnostic side effect. | M |
 | OPS-18 | Operator-owned private deployment configuration selects `local`, `server` or future `slurm`, an existing Python/conda environment, approved roots, resource limits and GPU pool. No browser executable, shell text, host paths or scheduler flags. CPU quota is at most 12 and each attempt uses at most four approved GPUs. | M |
-| OPS-19 | Where the accepted backend uses an unprivileged sandbox, verify write/network effects and inheritance before GPU admission. Sandbox installation failure refuses launch; conda, torchrun, visibility variables and udocker never certify OS isolation. Explicit runtime filesystem/device allowances and syscall limitations remain documented in domain/SEGMENTATION_RUNTIMES.md. | M |
+| OPS-19 | Where the accepted backend uses an unprivileged sandbox, verify write/network effects and inheritance before GPU admission. Sandbox installation failure refuses launch; conda, torchrun, and visibility variables never certify OS isolation. Explicit runtime filesystem/device allowances and syscall limitations remain documented in domain/SEGMENTATION_RUNTIMES.md. | M |
 | OPS-20 | SLURM execution is a separate deployment acceptance gate: approved scheduler resources, shared filesystem/environment visibility, durable scheduler identity and cleanup reconciliation. Configuration validation or fake scheduler tests do not certify an inaccessible cluster. | M |
-| OPS-21 | `scripts/ctflow.py` (CTF-18) runs with any Python 3 on the host or inside the container, standard library only, nothing installed (R4). It reaches the app at `http://127.0.0.1:$PORT` with `PORT` from the same `.env` as `./rw` (`RW_ENV`), or `--url`/`CTFLOW_URL`. Make it `ctflow` with a link on `PATH`, e.g. `ln -s "$PWD/scripts/ctflow.py" ~/.local/bin/ctflow`. It stores only `~/.config/ctflow/` (reviewer name, history without absolute paths). | S |
+| OPS-21 | `scripts/ctflow.py` (CTF-18) runs with any Python 3 on the host, standard library only, nothing installed (R4). It reaches the app at `http://127.0.0.1:$PORT` with `PORT` from an env file (`RW_ENV`, default the repository's `.env`), or `--url`/`CTFLOW_URL`. Make it `ctflow` with a link on `PATH`, e.g. `ln -s "$PWD/scripts/ctflow.py" ~/.local/bin/ctflow`. It stores only `~/.config/ctflow/` (reviewer name, history without absolute paths). | S |
 | OPS-22 | Native deployment: `scripts/rw-native.py` runs a frozen release from a conda environment pinned by the lock, as a systemd user service, without sudo. It smoke-tests a release before any restart, refuses to switch while work or a GPU allocation is active, verifies health, projects and the served web app, and restores the previous release on failure. Node is used to build only. | S |
-| OPS-23 | HPC deployment: the app and a light runner run on an approved service or submission node, in Apptainer from the image or a native conda environment; never compute on a login node. Heavy work runs only in scheduler allocations. GPU segmentation there needs OPS-20. Accepted only on a real cluster. | S |
+| OPS-23 | HPC deployment: the app and a light runner run on an approved service or submission node, in a native conda environment (§Native); never compute on a login node. Heavy work runs only in scheduler allocations. GPU segmentation there needs OPS-20. Accepted only on a real cluster. | S |
 | OPS-24 | `rw-dicom` under a scheduler: `--state-dir` keeps the inventory on node-local disk while the output stays on shared storage, and losing it costs only a new header scan; the default memory budget is half of the job's allocation; SIGTERM stops dispatch and a new job resumes. The output's file system must support `flock`. | S |
 | OPS-25 | `scripts/rw-mcp.py` (CTF-24) runs with any Python 3, standard library only (R4), and resolves the app URL and reviewer like OPS-21. Register it with an MCP client as a stdio server, e.g. `claude mcp add rw -- python3 scripts/rw-mcp.py`. | S |
 
@@ -39,8 +39,9 @@ Depends: ADR-0007, ADR-0014, ADR-0016, ADR-0043, backend/ARCHITECTURE.md, domain
 | Option | Use when | Section |
 |---|---|---|
 | Native | One server or workstation with conda, no sudo, performance matters | §Native |
-| Docker / udocker | The server has Docker, or a portable artifact matters more than speed | §Docker, §udocker |
 | HPC | SLURM cluster | §HPC |
+
+The OCI image is a test artifact that CI builds and checks (§Test image), not a deployment (ADR-0051).
 
 ## Config (env vars)
 
@@ -48,7 +49,7 @@ Depends: ADR-0007, ADR-0014, ADR-0016, ADR-0043, backend/ARCHITECTURE.md, domain
 |---|---|---|
 | `WORKSPACE_ROOT` | `/workspace` | Projects directory (rw) |
 | `ALLOWED_DATA_ROOTS` | *(required in container)* | `:`-separated absolute dirs that data may come from |
-| `HOST` | `0.0.0.0` in Docker, `127.0.0.1` in udocker | Bind address (see udocker notes) |
+| `HOST` | `0.0.0.0` in the image | Bind address; a native deployment binds `127.0.0.1` |
 | `PORT` | `8000` | Must be ≥ 1024 |
 | `PUBLIC_BASE_URL` | `http://localhost:{PORT}` | Used in share links (PRJ-03) |
 | `JOB_WORKERS` | `2` | Worker processes (BE-06) |
@@ -77,20 +78,6 @@ DICOM resource coordination (BE-16, ADR-0047): DICOM conversion no longer takes 
 
 `DICOM_RETENTION_DAYS` (30) expires completed, cleanup-verified inventory and paged-plan caches before new source work. Running, interrupted, failed/cancelled, unfinished import drafts and unclosed Open sessions remain protected regardless of age. Expired operations retain their records and a durable expiry marker; accessing expired inventory offers a fresh source operation. Source files, committed datasets, registration history and conversion journals are never deleted by this sweep.
 
-## Quick start (`./rw`)
-
-`./rw` (repo root, bash, no sudo) is the one launcher for both runtimes. It uses Docker when `docker compose` (v2) reaches a daemon, else udocker (`udocker` on `PATH` or the bundled `./udocker.py`); `RW_RUNTIME=docker|udocker` forces one. `./rw help` lists the options.
-
-```bash
-./rw init                 # writes .env from .env.example; asks DATA_HOST, optional DERIVED_HOST, PORT
-./rw up                   # starts in the background, waits for /api/v1/health, prints the URL
-./rw status | logs [-f] | stop
-./rw update rw-{version}.tar   # load a new image (docker save) and restart; ./rw update REF pulls
-./rw smoke                # TST-10 against the running app (adds one smoke project to the workspace)
-```
-
-`make up` / `make down` / `make logs` wrap it. Every command is idempotent (`init` never overwrites `.env` without `--force`; `up` on a healthy app only prints the URL). On a remote server, open the printed port through the VS Code Ports view (AGENTS R7). Under Docker, `./rw up` is `docker compose up -d` (compose builds the image when it is missing); under udocker it runs `scripts/udocker-run.sh` in the background (pid and log in `.rw/`, git-ignored).
-
 ## Native (conda, no sudo)
 
 ```bash
@@ -99,11 +86,11 @@ python3 scripts/rw-native.py deploy native-YYYYMMDD-abcdefg                     
 python3 scripts/rw-native.py rollback                                             # the release before the last deploy
 ```
 
-Needs conda, a C compiler for PyRadiomics, and `npm` on `PATH` or a conda environment with Node (`conda create -n rwnode -c conda-forge nodejs=22`). `deploy` keeps `config/runtime.env` and adds `config/native.env` (`CONTAINER_MODE=0`, release paths, the real `HOST_ALLOCATION_ROOT`). Host paths are the container's: projects need no relink. The first switch from a container also restores to it: `rollback` puts back that image's unit. `prepare` builds the commit at `HEAD`; uncommitted changes never ship.
+Needs conda, a C compiler for PyRadiomics, and `npm` on `PATH` or a conda environment with Node (`conda create -n rwnode -c conda-forge nodejs=22`). `deploy` keeps `config/runtime.env` and adds `config/native.env` (`CONTAINER_MODE=0`, release paths, the real `HOST_ALLOCATION_ROOT`). `prepare` builds the commit at `HEAD`; uncommitted changes never ship.
 
 ## HPC (SLURM)
 
-Run the app per OPS-23: `apptainer build rw.sif docker-archive:rw-{version}.tar` where the site offers Apptainer, otherwise §Native on the service node. Convert in a job (OPS-24), not through the app:
+Run the app per OPS-23 as in §Native on the service node. Convert in a job (OPS-24), not through the app:
 
 ```bash
 #!/bin/bash
@@ -114,40 +101,9 @@ exec rw-dicom convert /lustre/project/dicom /lustre/project/out --workers "$SLUR
 
 Submit the same script again to resume, on any node. Installation: `plugins/dicom/README.md`. Several jobs: one output folder each. Site policy (partition, account, QOS) and scratch location are the operator's; this path is not yet accepted on a real cluster.
 
-## Docker (local machine)
+## Test image (Docker)
 
-`docker-compose.yml` is the Docker run definition (plain compose v2, R3): `.env` as `env_file`, the container-side paths fixed in `environment:`, the mirror mounts of OPS-05/OPS-11 and `127.0.0.1:${PORT}` published. `tests/test_udocker_run.py` checks that `udocker-run.sh` resolves the same environment and volumes.
-
-**Source recycling:** Docker keeps the source mount `ro` by default. To enable CUR-16 on imported source datasets, set `DATA_MOUNT_MODE=rw` in `.env` and recreate the container. Ordinary source operations still follow R1. udocker relies on the application’s path guards and explicit confirmation.
-
-**Derived roots (owner decision 2026-09-27):** the default stays `./derived` (next to `.env`) mounted at `/derived` for both compose and udocker, so `ALLOWED_DERIVED_ROOTS=/derived`; set `DERIVED_HOST` to an absolute path to mirror-mount it instead. The external runner (nnU-Net, OPS-13) is out of scope for this default: it lives on the remote server where the repo is installed, and is configured there.
-
-## udocker (remote server, no sudo)
-
-udocker cannot build images. Build with Docker elsewhere (`make image PLATFORM=linux/amd64` for an amd64 server), then transfer the tar:
-
-```bash
-make image-tar                 # on the build machine: docker save -> build/rw-{version}.tar
-./rw update rw-{version}.tar   # on the server: normalize + udocker load (see the first note)
-./rw init && ./rw up           # runs scripts/udocker-run.sh (creates the container `rw` on first run)
-```
-
-| Note | Consequence |
-|---|---|
-| `docker save` from the containerd image store writes an OCI-layout tar; BuildKit nests the image in a second index (provenance attestation) | udocker 1.3 cannot follow that index and names OCI images by a random hash. `./rw update` first runs `scripts/oci_tar_normalize.py` (flat index, attestations dropped, blobs unchanged; needs free disk for one tar copy), then `udocker load -i FILE radiology-workbench` |
-| udocker needs `curl` (or pycurl) even offline, and fetches its engine tarball (proot, patchelf) on first use | Most servers have `curl`. Offline: copy `udocker-englib-*.tar.gz` and set `UDOCKER_TARBALL=/path/to/it` before the first run |
-| udocker does not isolate the network: the process binds host ports directly | Use `HOST=127.0.0.1` and let VS Code forward the port; `-p` mapping is not relied on |
-| Mount `:ro` is not guaranteed under every execution mode | Source safety is enforced by the app (BE-02/03), not the mount |
-| Execution mode: `P1` (proot, default) or `F3` (fakechroot, set `UDOCKER_EXECMODE=F3`) | Both pass the local simulation below; `F3` needs a username for the invoking uid (a normal server account has one). Benchmark I/O on the real server (Step 4) |
-| No compose | `udocker-run.sh` is the single source of the run command (OPS-09) |
-| Runs as the invoking user | `WORKSPACE_ROOT` must be writable by that user |
-| External tasks | Compose and `udocker-run.sh` both mount `PLUGINS_HOST` at `/plugins` (`PLUGINS_ROOT`) and the derived folder writable (§Docker); `PLUGINS_HOST` defaults to the repository's shipped `plugins/` tree, and udocker volumes carry no read-only flag. Start `scripts/rw-runner.py` in the plugin environment (`conda activate torch` for SEG-*) on the same host, outside udocker; it talks to the app only through `WORKSPACE_ROOT/queue/` (OPS-13) |
-
-### Local udocker simulation (`make udocker-selftest`)
-
-`scripts/udocker-selftest.sh` checks the udocker path without a server: it saves the image into a named volume of a throwaway Linux container (`python:3.12-slim` + `curl`, same architecture), and as uid 10001 with no sudo it installs udocker from `./udocker.py`, runs `./rw update` (udocker load), `./rw up` (→ `udocker-run.sh`), `scripts/container_smoke.py`, a source-hash check (R1) and `./rw stop`, once per mode in `EXECMODES` (default `P1 F3`). Only Docker is needed on the host (named volumes + `docker cp`, no bind mounts); the udocker engine tarball is downloaded once into `build/udocker-selftest/`.
-
-Result 2026-09-27 (linux/arm64 under colima, default Docker seccomp profile, no extra capabilities): **P1 pass** (healthy after ~13 s, TST-10 in 3 s), **F3 pass** (healthy after ~12 s including the F3 setup, TST-10 in 1 s); 191 source files unchanged. P1 (proot/ptrace) needed no `--cap-add SYS_PTRACE` or `seccomp=unconfined` on the outer container; if a stricter Docker host blocks ptrace, pass them through `OUTER_OPTS` (outer test container only; a real server has no such limit). The real remote check (amd64, real data, I/O benchmark) stays open (REL-07).
+`make image` builds the image and `make container-smoke` checks it (TST-10); CI does both on every push. Nothing deploys it.
 
 ## Persistent local user service
 
@@ -155,23 +111,22 @@ P7g GPU admission follows OPS-16..20 and ADR-0034. Unconfigured GPU execution st
 `RW_RUNNER_STORAGE_ROOT` and `RW_RUNNER_STORAGE_MAX_BYTES` are host-diagnostic inputs for an independently bounded, privately owned mounted filesystem; they do not configure a quota. `/`, symlinks and group/world-writable storage are refused. A free-space check is not an enforced budget.
 For explicitly authorized, GPU-free effect testing, use `backend`'s `tools.runner_host_probe --run`; details/results belong to `SEGMENTATION_JOB_TEST_PLAN.md`. It never enables lingering, installs tools, changes driver policy or touches input/model roots.
 
-An installation may live in `$HOME/.local/share/radiology-workbench/` independently
-of the development checkout: `launcher/` (udocker + its Python environment),
-`udocker/` (loaded release image and production container), `workspace/` (registry),
-`derived/` (global conversion fallback), and `config/runtime.env` + `release.json`.
-The container carries the compiled SPA, backend and builtin plugins; source code
-is not mounted. Dataset locations are chosen through PRJ-19 inside the explicitly
+An installation lives in `$HOME/.local/share/radiology-workbench/`, independently
+of the development checkout: `releases/` (frozen native releases), `workspace/` (registry),
+`derived/` (global conversion fallback), and `config/` (`runtime.env`, `native.env`,
+`release.json`). A release carries the compiled SPA, backend and builtin plugins.
+Dataset locations are chosen through PRJ-19 inside the explicitly
 authorized browsing root. HOME-wide access requires explicit owner authorization;
-it is not the default source mount policy. Bind only `127.0.0.1`; the persistent
+it is not the default source policy. Bind only `127.0.0.1`; the persistent
 Web UI uses port **5180** for both the compiled frontend and API. Set `PORT` and
 `PUBLIC_BASE_URL` together in `config/runtime.env` and restart the user service
 to change it. Development Vite keeps its separate 5173 convention (DEV_ENV.md).
 
-Before an image upgrade, drain work and back up workspace metadata and release configuration.
+Before an upgrade, drain work and back up workspace metadata and release configuration.
 Runs that cannot cross an upgrade must finish first or start again afterwards:
 - nnU-Net runs paused or interrupted before the `segment` command: CTFLOW.md §Implementation notes (shipped command names), including the host runner's `PLUGINS_ROOT` copy.
-- DICOM conversions pinned before ADR-0042: resume refuses them, so finish them on the old image.
-An image predating ADR-0038 does not preserve per-label exclusions when it writes project metadata;
+- DICOM conversions pinned before ADR-0042: resume refuses them, so finish them on the old release.
+A release predating ADR-0038 does not preserve per-label exclusions when it writes project metadata;
 rolling back to it requires the compatible pre-upgrade metadata snapshot after verified cleanup.
 
 `radiology-workbench.service` under `$HOME/.config/systemd/user/` runs that release,
@@ -187,14 +142,12 @@ journalctl --user -u radiology-workbench -n 100
 
 ## Electron (phase P8)
 
-The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (local Docker or a forwarded remote). It adds native folder dialogs through a preload bridge. The backend packaging is unchanged (ADR-0001).
+The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (a local or forwarded app). It adds native folder dialogs through a preload bridge. The backend packaging is unchanged (ADR-0001).
 
 ## Implementation notes
 
-- Host-side `.env` keys: `DATA_HOST`, `DATA_MOUNT_MODE` (Docker), `WORKSPACE_HOST`, `RW_VERSION` (image tag), `RUN_AS` (optional UID:GID, Docker), `UDOCKER_EXECMODE` (udocker), `DERIVED_HOST`, `PLUGINS_HOST` (defaults to `./plugins`).
 - Image: 897 MB uncompressed on linux/arm64 (the build stage drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 935 MB on linux/amd64 (277 MB compressed, `docker save | gzip` 273 MB); cross-platform builds on an Apple Silicon Mac under colima need `binfmt: true`; the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
-- Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default, `.env.example` and `udocker-run.sh` follow it (`tests/test_version.py`).
-- Build for the server's architecture: `make image PLATFORM=linux/amd64` on an Apple Silicon Mac. The tag carries no architecture, so a second build for another platform replaces the first under the same tag.
+- Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it (`tests/test_version.py`).
 - colima on the dev Mac has no host mounts by default (`$HOME` contains a space), so bind mounts appear empty; start it with `colima start --mount '<path>:w'` to use real data under Docker.
 - If Docker Desktop is not running, a CLI config with `credsStore: desktop` makes pulls hang; use a `DOCKER_CONFIG` without a creds store.

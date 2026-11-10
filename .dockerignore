@@ -1,5 +1,5 @@
 # Allowlist: the image needs only the backend, the frontend sources and the container entry point
-# (Dockerfile). Everything else (fixtures, legacy/, docs, udocker, workspaces) stays out of the context.
+# (Dockerfile). Everything else (fixtures, legacy/, docs, workspaces) stays out of the context.
 *
 !backend/pyproject.toml
 !backend/app/

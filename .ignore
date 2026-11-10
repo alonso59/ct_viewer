@@ -1,5 +1,5 @@
 # Search noise for ripgrep-based tools (Claude Code Grep, Codex `rg`). Not git-ignored: files stay
-# readable by explicit path. Only generated, lock or vendored files; keep human docs searchable.
+# readable by explicit path. Only generated or lock files; keep human docs searchable.
 
 # Generated API contract and mock recording (regenerate: make gen-api, make record-mock)
 frontend/src/api/schema.d.ts
@@ -11,6 +11,3 @@ backend/tests/openapi.snapshot.json
 # Lock files
 frontend/package-lock.json
 backend/requirements-ci.lock
-
-# Vendored udocker release
-udocker-1.3.17/

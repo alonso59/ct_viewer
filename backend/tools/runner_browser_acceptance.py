@@ -1,7 +1,7 @@
 """Opt-in real API/supervisor browser acceptance with a CPU fixture and fake GPU telemetry.
 
 Run after building frontend/dist and passing test-host. No CUDA, production workspace or model
-is used. Node and browsers run only in the existing rw-browser-verification udocker container.
+is used. Playwright runs from `frontend/` with the browsers of `npx playwright install`.
 """
 
 from __future__ import annotations
@@ -186,28 +186,21 @@ def main() -> int:
             processes.append(runner)
             browser = subprocess.Popen(
                 [
-                    "python3",
-                    "udocker.py",
-                    "run",
-                    "--hostenv",
-                    f"--volume={REPO}:{REPO}",
-                    f"--volume={root}:{root}",
-                    f"--workdir={REPO / 'frontend'}",
-                    f"--env=RW_BROWSER_ACCEPTANCE={root / 'fixture.json'}",
-                    f"--env=RW_HOST_URL={url}",
-                    "--env=LIBGL_ALWAYS_SOFTWARE=1",
-                    "--env=LP_NUM_THREADS=2",
-                    "rw-browser-verification",
-                    "xvfb-run",
-                    "-a",
+                    *(["xvfb-run", "-a"] if shutil.which("xvfb-run") else []),
                     "npx",
                     "playwright",
                     "test",
                     "--config=playwright.host.config.ts",
                     "--reporter=line",
                 ],
-                cwd=REPO,
-                env={**env, "UDOCKER_PYTHON": sys.executable},
+                cwd=REPO / "frontend",
+                env={
+                    **env,
+                    "RW_BROWSER_ACCEPTANCE": str(root / "fixture.json"),
+                    "RW_HOST_URL": url,
+                    "LIBGL_ALWAYS_SOFTWARE": "1",
+                    "LP_NUM_THREADS": "2",
+                },
             )
             processes.append(browser)
             deadline = time.monotonic() + 300

@@ -65,16 +65,14 @@ def test_test_target_uses_explicit_bounded_worker_counts() -> None:
     assert "OMP_NUM_THREADS=1" in result.stdout
 
 
-def test_product_image_lifecycle_gate_precedes_export_and_preserves_diagnostics() -> None:
+def test_product_image_lifecycle_gates_run_once_and_preserve_diagnostics() -> None:
     steps = yaml.safe_load((REPO / ".github/workflows/verify.yml").read_text())["jobs"]["image"][
         "steps"
     ]
     lifecycle = [
         i for i, step in enumerate(steps) if "tools.dicom_image_smoke" in step.get("run", "")
     ]
-    exported = [i for i, step in enumerate(steps) if "docker save" in step.get("run", "")]
-    assert len(lifecycle) == len(exported) == 1
-    assert lifecycle[0] < exported[0], "export only an image that passed native DICOM recovery"
+    assert len(lifecycle) == 1
     command = steps[lifecycle[0]]["run"]
     assert '"$(id -u):$(id -g)"' in command
     assert "radiology-workbench:verification" in command
@@ -84,7 +82,7 @@ def test_product_image_lifecycle_gate_precedes_export_and_preserves_diagnostics(
         for i, step in enumerate(steps)
         if "scripts/dicom-namespace-smoke.py" in step.get("run", "")
     ]
-    assert len(namespaces) == 1 and lifecycle[0] < namespaces[0] < exported[0]
+    assert len(namespaces) == 1 and lifecycle[0] < namespaces[0]
     assert "radiology-workbench:verification" in steps[namespaces[0]]["run"]
     assert any(
         step.get("if") == "failure()"

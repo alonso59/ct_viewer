@@ -37,7 +37,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | 2×2 viewer, NiiVue, overlays, W/L | `frontend/VIEWER.md` |
 | Radiomics dashboard | `frontend/DASHBOARD.md` |
 | Cohort dashboard: metadata, clinical and label data by origin (P7k) | `frontend/COHORT.md`; ADR-0045, ADR-0046 |
-| Deployment options (native, Docker/udocker, HPC), image, env vars | `ops/DEPLOYMENT.md` |
+| Deployment options (native, HPC), test image, env vars | `ops/DEPLOYMENT.md` |
 | Local and remote dev loop | `ops/DEV_ENV.md` |
 | Test layers, fixtures, gates | `ops/TESTING.md` |
 | Why a decision was made | `adr/README.md` → one ADR |

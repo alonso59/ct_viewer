@@ -58,7 +58,7 @@ def test_rollback_to_a_native_release_points_its_environment_back(
 def test_rollback_to_a_container_release_leaves_the_unused_file(
     tmp_path: Path, tool: ModuleType
 ) -> None:
-    backup, state = _backup(tmp_path, tool, {"deployment_kind": "local-udocker-package"})
+    backup, state = _backup(tmp_path, tool, {"deployment_kind": "container"})
     before = (state / "config/native.env").read_text()
     tool.restore(backup, state, tmp_path / "pool")
     assert (state / "config/native.env").read_text() == before

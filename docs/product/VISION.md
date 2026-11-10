@@ -81,7 +81,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 - Radiomics dashboard with click-through to the viewer (DB-*) and simple guided statistics with recommendations (ANA-*).
 - Multi-user access by shared project link, with live updates between browsers.
 - CTFlow: a command and script console for the same tasks, in the browser and in a terminal (`ctflow`); long scripts run on the server (CTF-*, ADR-0041).
-- Three deployment options without sudo where none is available: native conda, one OCI image on Docker or udocker, and HPC (OPS-22..24, ADR-0043).
+- Deployment without sudo: a native conda release on a server or workstation, and on HPC (OPS-22..24, ADR-0043, ADR-0051).
 
 ## Out of scope (v3)
 
@@ -106,7 +106,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 3. **Everything is reproducible.** Radiomics runs record their profile hash, engine versions and input fingerprints.
 4. **Portable projects.** A project folder can be copied to another machine and relinked, as in QuPath.
 5. **Quiet, dense UI.** QuPath workflow + VS Code idioms, keyboard-first, progressive disclosure.
-6. **One product everywhere.** Docker and udocker run the identical image; native and HPC deployments use the same source and lock (ADR-0043).
+6. **One product everywhere.** Server and HPC deployments use the same source and lock; CI tests the same tree in one image (ADR-0043, ADR-0051).
 7. **Study-agnostic.** No study-specific field names in code; ccRCC is a preset, not an assumption (ADR-0011).
 
 ## Assumptions
@@ -120,7 +120,6 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 | Risk | Mitigation (owner) |
 |---|---|
 | Browser memory on large volumes | `VIEWER_MAX_LOADED`, NFR-09 (VIEWER, NFR) |
-| udocker behaviour not yet verified on the remote server | ROADMAP Step 4, MVP REL-07 |
 | PHI leaking through exports, bundles or logs | NFR-17, DCM-05, audit A5 |
 | Radiomics engine drift | pinned upstream commit, IBSI checks (ADR-0006, TST-06) |
 | Docs and code drift apart | ownership table (INDEX), `make check` requirement check (SRS §1.5), `make trace` |

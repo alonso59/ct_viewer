@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Container smoke, runtime-agnostic: health OK, SPA served, one item viewable.
+"""Container smoke: health OK, SPA served, one item viewable.
 
-Talks HTTP only (stdlib, runs with any host python3), so the same check covers Docker and udocker:
-it creates a project, imports DATA_ROOT, waits for the index job and reads the first bytes of one
+Talks HTTP only (stdlib, runs with any host python3): it creates a project, imports DATA_ROOT, waits for the index job and reads the first bytes of one
 item's image.
 
     python3 scripts/container_smoke.py --url http://127.0.0.1:8000 --root /abs/data/root

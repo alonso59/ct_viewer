@@ -9,18 +9,18 @@ Depends: DEPLOYMENT.md.
 | Mode | Backend | Frontend | When |
 |---|---|---|---|
 | Local (macOS/Linux with Docker) | Native Python 3.12 venv/conda **or** dev container | Native Node 22 **or** dev container | Daily development |
-| Remote (no sudo) | Conda env `rw` (Python 3.12), native | Node 22 from a conda env on `PATH`, or udocker container `rw-node` (R4) | Server-side data access |
+| Remote (no sudo) | Conda env `rw` (Python 3.12), native | Node 22 from a conda env on `PATH` (R4) | Server-side data access |
 
 ## Make targets (runtime-agnostic)
 
-`make help` lists every target with its purpose, by group (setup, dev, check, E2E, docs, image, deploy); the Makefile is the single source.
+`make help` lists every target with its purpose, by group (setup, dev, check, E2E, docs, image); the Makefile is the single source.
 
-Knobs: `RUNTIME=native|docker|udocker` selects how Node commands run (default: `native` locally, `udocker` if `node` is missing); `VENV` selects the Python env (`$CONDA_PREFIX` on remote servers); `PYTEST_WORKERS` / `VITEST_WORKERS` bound test workers (`PYTEST_WORKERS=0` runs serially); `FULL_TESTS=1` requires radiomics and refuses skipped coverage; `make -j4 check` runs the independent gates in parallel.
+Knobs: `RUNTIME=native|docker` selects how Node commands run (default `native`); `VENV` selects the Python env (`$CONDA_PREFIX` on remote servers); `PYTEST_WORKERS` / `VITEST_WORKERS` bound test workers (`PYTEST_WORKERS=0` runs serially); `FULL_TESTS=1` requires radiomics and refuses skipped coverage; `make -j4 check` runs the independent gates in parallel.
 
 ## Rules
 
 - No machine-specific absolute paths in repo files; use `.env` (`DATA_HOST`, `WORKSPACE_HOST`, `ALLOWED_DATA_ROOTS`).
-- On remote servers: never use sudo/apt; Node comes from a conda env or udocker (AGENTS R4).
+- On remote servers: never use sudo/apt; Node comes from a conda env (AGENTS R4).
 - Remote port forwarding is handled by VS Code (AGENTS R7).
 - The dev workspace defaults to `./.workspace/` (gitignored).
 

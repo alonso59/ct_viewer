@@ -26,7 +26,7 @@ Python 3.12 · FastAPI · Pydantic v2. Package `app/`, dev tools `tools/`, tests
 **Change together**
 - Endpoint or response model → skill `rw-api-change`.
 - QC codes: `app/ingest/codes.py` is the single source; keep it equal to `docs/domain/INPUT_METADATA.md`.
-- Env var: `app/config.py` ↔ `docs/ops/DEPLOYMENT.md` §Config ↔ `.env.example`.
+- Env var: `app/config.py` ↔ `docs/ops/DEPLOYMENT.md` §Config.
 - Task or runner behavior → `plugins/AGENTS.md`.
 
 **Read more:** the owning domain doc (`docs/INDEX.md`); endpoints and error slugs `docs/backend/API.md`; jobs and concurrency `docs/backend/ARCHITECTURE.md`.

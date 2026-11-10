@@ -103,13 +103,3 @@ jobs:
             build/ci/image-namespaces
           if-no-files-found: ignore
           retention-days: 7
-      - name: Save the tested image for udocker acceptance
-        run: |
-          mkdir -p build/ci
-          docker save radiology-workbench:verification -o build/ci/radiology-workbench.tar
-          sha256sum build/ci/radiology-workbench.tar > build/ci/radiology-workbench.tar.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: verified-product-image
-          path: build/ci/radiology-workbench.tar*
-          retention-days: 7

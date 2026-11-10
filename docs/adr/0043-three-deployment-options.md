@@ -38,3 +38,5 @@ udocker gives no network or OS isolation either (ADR-0007, OPS-19), so native lo
 - Native only, dropping the image: loses the portable artifact and Docker users. Node in production or system-wide: no runtime need, and R4.
 - One environment required for the app and `torch`: conflicting pins would couple upgrades; allowed only if they happen to coexist.
 - udocker on compute nodes as the HPC default: its emulation overhead hits exactly the heavy work (table above).
+
+**Superseded in part by ADR-0051.** The Docker/udocker option, decision 4 and Apptainer on HPC are gone; native and HPC-on-native stand.

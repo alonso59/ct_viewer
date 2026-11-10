@@ -63,7 +63,6 @@ Depends: none (terms point to their owning docs by ID).
 | W/L | Window width / level for CT intensity display (HU) |
 | RAS | Right-Anterior-Superior world coordinate convention |
 | SSE | Server-Sent Events, the one-way realtime stream from server to browser |
-| udocker | User-space container runner; no root needed |
 
 ## UI terms
 

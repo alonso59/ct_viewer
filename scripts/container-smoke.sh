@@ -6,8 +6,6 @@
 #
 #   make fixtures && make image && scripts/container-smoke.sh
 #
-# udocker (remote): start with scripts/udocker-run.sh, then
-#   python3 scripts/container_smoke.py --url http://127.0.0.1:$PORT --root $DATA_HOST
 # Env: IMAGE (default radiology-workbench:<backend/pyproject.toml version>), DATA_ROOT (default the synthetic fixtures),
 # SMOKE_PORT (default 8099), SMOKE_UID (default 12345).
 set -euo pipefail

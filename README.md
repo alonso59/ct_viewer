@@ -8,7 +8,7 @@ curation and radiomics. QuPath-style layout in a VS Code shell (GitHub Dark) wit
 
 ## Quick start (development)
 
-Requirements: Python 3.12 (via `uv` or `python3.12`), Node 22+ natively **or** Docker/udocker.
+Requirements: Python 3.12 (via `uv` or `python3.12`), Node 22+ (natively or from a conda environment).
 
 ```bash
 make setup      # backend venv + frontend deps
@@ -20,21 +20,12 @@ make dev-frontend   # terminal 2: UI on 127.0.0.1:5173
 ```
 
 Remote servers without sudo: activate the conda env, then `make setup-backend VENV=$CONDA_PREFIX`,
-`make setup-node` once, and use `RUNTIME=udocker` for frontend targets. See [docs/ops/DEV_ENV.md](docs/ops/DEV_ENV.md).
+and put a conda environment with Node on `PATH` (`conda create -n rwnode -c conda-forge nodejs=22`). See [docs/ops/DEV_ENV.md](docs/ops/DEV_ENV.md).
 
-## Quick start (run the image)
+## Deployment
 
-One image serves the API and the UI on one port. `./rw` runs it with Docker (compose v2) or, on a
-server without sudo, udocker ([docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)).
-
-```bash
-./rw init    # writes .env: asks DATA_HOST (absolute), optional DERIVED_HOST and PORT
-./rw up      # starts, waits for health, prints the URL (default http://localhost:8000)
-./rw stop    # also: ./rw status | logs | update rw-<version>.tar | smoke
-```
-
-udocker cannot build images: run `make image image-tar` on a Docker machine, copy
-`build/rw-<version>.tar` to the server, then `./rw update rw-<version>.tar`.
+Production is a native conda release run as a systemd user service, without sudo:
+`python3 scripts/rw-native.py prepare`, then `deploy` ([docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)).
 On a remote server, VS Code forwards the port.
 
 Research use only; not a medical device.

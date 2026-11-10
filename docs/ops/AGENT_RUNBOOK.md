@@ -8,14 +8,14 @@ Depends: product/ROADMAP.md.
 
 - **Integration branch:** `v3`. Each lane works on its own branch in its own **git worktree**, so parallel sessions never share a working copy.
 - **Integrator:** the VS Code session. At the end of every step it merges the lane branches into `v3`, runs all checks, and stops for your approval (AGENTS.md workflow rule).
-- **Gate you cannot skip:** the P7 udocker test on the remote server.
+- **Gate you cannot skip:** the P7 test of the native release on the remote server.
 - For long shell runs, switch the permission mode with `Shift+Tab` so the agent is not blocked on every edit.
 
 ## Schedule
 
 | Step | VS Code extension (integrator) | Shell A | Shell B | Gate |
 |---|---|---|---|---|
-| 4 | Review | P7 on remote server (udocker, Dataset820, perf), after P7b | — | NFRs met |
+| 4 | Review | P7 on remote server (native release, Dataset820, perf), after P7b | — | NFRs met |
 | 5 | P8 Electron | — | — | Release |
 
 ## Lanes
@@ -33,8 +33,8 @@ Every lane may also tick its own lines in `product/ROADMAP.md`.
 | 2 | P3 viewer | `lane/2-viewer` | Shell B | `frontend/src/features/viewer/**`, `backend/app/imaging/mesh*` |
 | 3 | P4-FE + P6-FE | `lane/3-curation-dashboard` | VS Code | `frontend/src/features/{curation,dashboard}/**` |
 | 3 | P5-FE radiomics form | `lane/3-radiomics-ui` | Shell A | `frontend/src/features/radiomics/**` |
-| 3 | P7-prep packaging | `lane/3-packaging` | Shell B | `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/udocker-run.sh`, `.env.example`, `README.md` |
-| 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (udocker notes) |
+| 3 | P7-prep packaging | `lane/3-packaging` | Shell B | `Dockerfile`, `.dockerignore`, `README.md` |
+| 4 | P7 remote verification | `v3` | Shell (remote server) | `scripts/**`, `docs/ops/DEPLOYMENT.md` (§Native) |
 | P7b | Waves 1–4, sequential | `v3` | one Claude shell session (user decision 2026-09-24) | per wave, see §P7b |
 | 5 | P8 Electron | `lane/5-electron` | VS Code | `desktop/**` |
 
@@ -81,10 +81,9 @@ Steps 0 to 3b, P7b, P7c and the P7c addendum are done; their prompts are frozen 
 [LANE RULES]
 Lane: P7. You are on the remote no-sudo server. Branch: v3 (after I merge Step 3).
 Read: docs/ops/DEPLOYMENT.md, docs/ops/TESTING.md, docs/product/NFR.md.
-Owns: scripts/**, docs/ops/DEPLOYMENT.md (udocker notes only).
-1. Load the image I transferred (udocker load), create and run it via scripts/udocker-run.sh.
-2. Verify the udocker notes (bind address, ro mounts, execution mode P1 vs F3) and
-   correct DEPLOYMENT.md with what you measured.
+Owns: scripts/**, docs/ops/DEPLOYMENT.md (§Native only).
+1. Prepare and deploy a native release (scripts/rw-native.py prepare, then deploy).
+2. Verify DEPLOYMENT.md §Native against what you ran and correct it.
 3. Import Dataset820 via the API; run TST-05, TST-09 and TST-10 against it.
 Exit: all NFRs met or gaps listed with numbers. Commit and STOP.
 ```

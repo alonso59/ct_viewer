@@ -13,8 +13,8 @@ server owns every run, so closing the terminal never stops one.
   ctflow segment-phase.ctf --param phase=ART   no such local file: the library script of that name
   ctflow attach ID · ctflow logs ID [-f] · ctflow status ID · ctflow cancel ID · ctflow runs
 
-Server: --url, else CTFLOW_URL, else http://127.0.0.1:$PORT with PORT from the same `.env` as
-`./rw` (RW_ENV, default: the repository's `.env`). Reviewer: --reviewer, else CTFLOW_REVIEWER,
+Server: --url, else CTFLOW_URL, else http://127.0.0.1:$PORT with PORT from an env file
+(RW_ENV, default: the repository's `.env`). Reviewer: --reviewer, else CTFLOW_REVIEWER,
 else the name saved in ~/.config/ctflow/config.json (asked once in the console).
 Exit codes: 0 completed · 1 failed, completed with errors or interrupted · 2 refused or usage ·
 3 cancelled, paused or held for attention · 130 stopped following (the work goes on).

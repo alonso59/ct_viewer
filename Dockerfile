@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Radiology Workbench: one image for Docker and udocker.
+# Radiology Workbench: the test image CI builds and checks; production is the native release.
 #   make image   # = docker build -t radiology-workbench:<backend/pyproject.toml version> .
 # Stages: web (node:22-slim) -> build (python:3.12-slim + gcc) -> runtime (python:3.12-slim).
 # Plain Dockerfile syntax only (no BuildKit cache mounts): the legacy builder must work too.
@@ -60,7 +60,6 @@ COPY scripts/ctflow.py /app/scripts/ctflow.py
 COPY --from=web /src/frontend/dist /app/static
 WORKDIR /app/backend
 EXPOSE 8000
-# Plain Dockerfile HEALTHCHECK (compose adds nothing; udocker ignores it and `./rw up` polls).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/v1/health' % os.environ.get('PORT', '8000'), timeout=4)"]
 CMD ["python", "/app/scripts/container_app.py"]

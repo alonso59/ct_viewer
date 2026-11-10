@@ -1,5 +1,5 @@
 # ADR-0007 One OCI image for Docker and udocker
-Status: Accepted · Date: 2026-09-23
+Status: Superseded by ADR-0051 · Date: 2026-09-23
 
 **Context.** Local machines have Docker. Remote servers have no sudo; udocker runs OCI images in user space but cannot build images, has no compose, and does not isolate the network.
 

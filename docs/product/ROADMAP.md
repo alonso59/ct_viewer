@@ -20,7 +20,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P4 | Curation + multi-user sync | ✅ 2026-09-24 (human check pending: queue CSV in 3D Slicer) |
 | P5 | Radiomics engine + settings + runs | ✅ 2026-09-24 (human check pending: IBSI map vs manual) |
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
-| P7 | Packaging: Docker + udocker, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker + remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
+| P7 | Packaging: test image, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker dropped (ADR-0051); remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
 | P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
 | P7d | nnU-Net segmentation planning | ✅ 2026-10-21 (ADR-0032 accepted; Dataset220; 2–4 GPU policy) |
@@ -29,7 +29,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
 | P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
-| P7j | Deployment options: native, Docker/udocker, HPC (ADR-0043) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
+| P7j | Deployment options: native, HPC (ADR-0043, ADR-0051) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
 | P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | ✅ K1–K3 2026-11-05, exit accepted by the owner (ADR-0049 for K3); COH-11 not built. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
 | P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | ✅ 2026-11-05 (owner accepted the exit); independent of P7k |
 | P8 | Electron shell | ⬜ |
@@ -50,14 +50,14 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P7 — Packaging
-- [ ] Dockerfile, compose, `udocker-run.sh`, execution-mode benchmark (OPS-*) — Dockerfile, compose, `udocker-run.sh` done; execution-mode benchmark on the remote server (Step 4)
-- [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done; TST-10 under udocker, TST-05, TST-09 in Step 4
+- [x] Dockerfile (OPS-*) — done; compose, `udocker-run.sh` and the execution-mode benchmark dropped by ADR-0051
+- [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done; TST-05, TST-09 in Step 4
 - [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12) — BE-12 still open
 - [ ] Deferred from P1: Dataset820 import check on the remote server (ops/TESTING.md §Dataset820 import check); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done; Dataset820 check in Step 4
-- [ ] Build the image for the server's architecture (`make image PLATFORM=linux/amd64` if the server is amd64), rerun `make container-smoke`, then `docker save` → udocker — amd64 build + TST-10 under Docker done (IBSI 20/20); `docker save` → udocker in Step 4
+- [x] Build the image for amd64 and rerun `make container-smoke` — done (IBSI 20/20); the `docker save` → udocker step dropped by ADR-0051
 - [ ] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-44/45, or keep "bin into a derived variable first"
 - [ ] **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
-**Exit:** the same image runs under Docker locally and udocker remotely; NFR targets are met.
+**Exit:** the image passes TST-10 in CI and the native release runs on the server; NFR targets are met.
 
 ### P7b — Sources, derived data, tasks & plugins (ADR-0013..0017)
 Done 2026-09-24 (exit met; archive).
