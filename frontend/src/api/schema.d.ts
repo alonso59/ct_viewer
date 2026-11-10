@@ -6755,6 +6755,11 @@ export interface components {
             max_batch?: number | null;
             /** Seconds Per Item */
             seconds_per_item?: number | null;
+            /**
+             * Model Catalog
+             * @default false
+             */
+            model_catalog: boolean;
         };
         /**
          * ResultRow
@@ -7104,6 +7109,14 @@ export interface components {
             command?: string[] | null;
             /** Env Hint */
             env_hint?: string | null;
+            /** Admission */
+            admission?: string | null;
+            /** Native Commands */
+            native_commands?: string[];
+            /** Environment */
+            environment?: {
+                [key: string]: string;
+            };
         };
         /** SaveBody */
         SaveBody: {

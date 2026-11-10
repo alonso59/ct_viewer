@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -78,7 +78,13 @@ def accounted(name: str) -> dict[str, str] | None:
 
 
 class SlurmSupervisor(Supervisor):
-    backends = ("slurm",)
+    backends: ClassVar[tuple[str, ...]] = ("slurm",)
+    # the job keeps running after logout; the scheduler, not this runner, isolates devices
+    capabilities: ClassVar[dict[str, bool]] = {
+        "write_network_confinement": False,
+        "device_exclusivity": False,
+        "logout_persistence": True,
+    }
 
     def verify(self) -> dict[str, Any]:
         missing = [tool for tool in ("sbatch", "squeue", "scancel") if shutil.which(tool) is None]

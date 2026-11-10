@@ -50,9 +50,13 @@ Already completed failures do not generate notifications when opening a project.
   "requires": { "modality": ["CT"], "channels": 1, "seg": null },   // seg: {labels:[names]} when masks are read; optional scope (complete | voi) and without_vois (skip scans that already have VOI items, unless the task's `skip_existing` setting is off)
   "settings_schema": { /* JSON Schema subset: object, boolean, integer, number, string(enum), array; x-group, x-help, x-advanced */ },
   "defaults": { },
-  "runtime": { "type": "external", "command": ["python", "-m", "rw_nnunet", "{job_dir}"], "env_hint": "conda env rw-nnunet" },
+  "runtime": { "type": "external", "command": ["python", "-m", "rw_nnunet", "{job_dir}"], "env_hint": "conda env rw-nnunet",
+               "admission": "verify.py",                  // supervised: plugin script that must accept the job before a GPU is reserved
+               "native_commands": ["nnUNetv2_predict"],   // supervised: executables the attempt may launch through the broker
+               "environment": { "nnUNet_results": "{model_root}" } },   // supervised: extra environment; {model_root} = the deployment's first model root
                                          // builtin: { "type": "builtin", "entry": "plugins.analyzers.phase:run" }
-  "resources": { "gpu": "required", "max_batch": 20, "seconds_per_item": 40 },
+  "resources": { "gpu": "required", "max_batch": 20, "seconds_per_item": 40,
+                 "model_catalog": true },                 // runs on a model profile validated by the runner: catalog, frozen identity, a failed result fails the run
   "labels": { "from": "dataset.json" },  // segmentation tasks: label names ({"names": {"1": "kidney"}} inline)
   "test_only": false,                    // CI plugins: hidden from the Tasks view and from suggestions
   "command": { "name": "dicom2nii", "options": {} } }   // CTFlow name and option spellings (CTF-03); default: the task id

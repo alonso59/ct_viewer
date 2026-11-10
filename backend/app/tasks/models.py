@@ -45,6 +45,12 @@ class RuntimeSpec(BaseModel):
     entry: str | None = None  # builtin: "module.path:function"
     command: list[str] | None = None  # external: argv, `{job_dir}` is substituted
     env_hint: str | None = None
+    # External, supervised attempts: a plugin script that must accept the job before a GPU is
+    # reserved, the executables the attempt may launch outside its own sandbox, and extra
+    # environment (`{model_root}` is the deployment's first model root).
+    admission: str | None = None
+    native_commands: list[str] = Field(default_factory=list)
+    environment: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _shape(self) -> RuntimeSpec:
@@ -59,6 +65,9 @@ class Resources(BaseModel):
     gpu: Literal["none", "optional", "required"] = "none"
     max_batch: int | None = Field(default=None, ge=1)
     seconds_per_item: float | None = Field(default=None, gt=0)
+    # Runs against a model profile validated by the runner: the catalog picks the model, its
+    # identity is frozen into the run, and a failed result fails the run.
+    model_catalog: bool = False
 
 
 class SegRequirement(BaseModel):

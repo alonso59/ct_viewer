@@ -9,7 +9,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from plugins.protocol import utc_now, write_json_atomic
 from plugins.runner import gpu, service
@@ -41,7 +41,12 @@ def within(path: Path, roots: list[str]) -> bool:
 
 
 class Supervisor:
-    backends: tuple[str, ...] = ("local", "server")
+    backends: ClassVar[tuple[str, ...]] = ("local", "server")
+    capabilities: ClassVar[dict[str, bool]] = {
+        "write_network_confinement": True,
+        "device_exclusivity": False,
+        "logout_persistence": False,
+    }
 
     def __init__(self, path: Path, workspace: Path | None = None) -> None:
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
@@ -121,7 +126,8 @@ class Supervisor:
         """The devices a plugin's startup check may count on."""
         return list(self.config.get("gpu_pool", []))
 
-    def environment(self) -> dict[str, str]:
+    def environment(self, manifest: dict[str, Any] | None = None) -> dict[str, str]:
+        declared = ((manifest or {}).get("runtime") or {}).get("environment") or {}
         return {
             "PATH": f"{self.python.parent}:/usr/local/bin:/usr/bin:/bin",
             "PYTHONNOUSERSITE": "1",
@@ -132,15 +138,17 @@ class Supervisor:
             "NUMEXPR_NUM_THREADS": "1",
             "NUMEXPR_MAX_THREADS": "1",
             "BLOSC_NTHREADS": "1",
-            "nnUNet_def_n_proc": "1",
             "TORCHINDUCTOR_COMPILE_THREADS": "1",
             "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS": "1",
             "BLIS_NUM_THREADS": "1",
             "NUMBA_NUM_THREADS": "1",
             "MALLOC_CONF": "background_thread:false,narenas:2",
             "RW_CPU_WORKERS": str(self.config["limits"]["cpus"]),
-            "nnUNet_results": self.config["model_roots"][0],
             **({"RW_NNUNET_PROFILES_DIR": self.config["profiles_dir"]} if "profiles_dir" in self.config else {}),
+            **{
+                name: str(value).replace("{model_root}", self.config["model_roots"][0])
+                for name, value in declared.items()
+            },
         }
 
     def recover(self) -> None:
@@ -234,31 +242,29 @@ class Supervisor:
             "state": "launching",
             "at": utc_now(),
             "command": command,
-            "native_commands": ["nnUNetv2_predict", "nnUNetv2_apply_postprocessing"]
-            if manifest.get("id") == "segment.nnunet"
-            else [],
+            "native_commands": list(manifest["runtime"].get("native_commands") or []),
             "cwd": str(plugin),
             "write_roots": writes,
             "devices": [str(path) for path in devices],
-            "environment": {**self.environment(), "CUDA_VISIBLE_DEVICES": ",".join(selected)},
+            "environment": {**self.environment(manifest), "CUDA_VISIBLE_DEVICES": ",".join(selected)},
             "limits": self.config["limits"],
         }
 
     def admit(self, job: Path, manifest: dict[str, Any], plugin: Path) -> None:
-        if manifest.get("id") == "segment.nnunet":
-            if self.config["limits"]["cpus"] < 3:
-                raise ValueError("nnU-Net admission requires at least 3 CPU workers")
-            result = subprocess.run(
-                isolated_argv(self.python, plugin / "verify.py", str(job)),
-                cwd=plugin,
-                env=self.environment(),
-                capture_output=True,
-                text=True,
-                timeout=120,
-                check=False,
-            )
-            if result.returncode != 0:
-                raise ValueError("nnU-Net admission refused: " + result.stderr.strip()[-1500:])
+        script = manifest["runtime"].get("admission")
+        if not script:
+            return
+        result = subprocess.run(
+            isolated_argv(self.python, plugin / script, str(job)),
+            cwd=plugin,
+            env=self.environment(manifest),
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ValueError("admission refused: " + result.stderr.strip()[-1500:])
 
     def start(self, job: Path, manifest: dict[str, Any], plugin: Path, claim: Any) -> bool:
         if self.record is not None or stopping(job):

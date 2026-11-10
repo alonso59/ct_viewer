@@ -100,7 +100,7 @@ def checked_manifests(
                 isolated_argv(supervisor.python if supervisor else sys.executable, check),
                 cwd=plugin_dir,
                 env={
-                    **supervisor.environment(),
+                    **supervisor.environment(manifest),
                     "CUDA_VISIBLE_DEVICES": ",".join(supervisor.check_devices()),
                 }
                 if supervisor
@@ -173,7 +173,9 @@ class Runner:
                 "gpu": os.environ.get("CUDA_VISIBLE_DEVICES"),
                 "pid": os.getpid(),
                 "at": utc_now(),
-                "model_catalog": self.reports.get("segment.nnunet", {}).get("model_catalog"),
+                "model_catalog": next(
+                    (r["model_catalog"] for r in self.reports.values() if r.get("model_catalog")), None
+                ),
                 "running": sorted(
                     [
                         *self.running,
@@ -188,9 +190,7 @@ class Runner:
                     "backend": self.supervisor.config["backend"],
                     "limits": self.supervisor.config["limits"],
                     "allocation": self.supervisor.pool.identity(),
-                    "write_network_confinement": self.supervisor.config["backend"] != "slurm",
-                    "device_exclusivity": False,
-                    "logout_persistence": False,
+                    **self.supervisor.capabilities,
                     "last_error": self.supervisor.last_error,
                     "inventory": self.supervisor.inventory_snapshot(),
                 }

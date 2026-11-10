@@ -13,7 +13,7 @@ from app.tasks.models import TaskInfo, TaskRunOutput
 def create_identity(
     info: TaskInfo, settings: dict[str, Any], items: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    if info.manifest.id != "segment.nnunet" or info.manifest.resources.gpu != "required":
+    if not info.manifest.resources.model_catalog or info.manifest.resources.gpu != "required":
         return {}
     from plugins.runner.identity import freeze
 

@@ -10066,6 +10066,11 @@
       ],
       "title": "Max Batch"
      },
+     "model_catalog": {
+      "default": false,
+      "title": "Model Catalog",
+      "type": "boolean"
+     },
      "seconds_per_item": {
       "anyOf": [
        {
@@ -11068,6 +11073,17 @@
    },
    "RuntimeSpec": {
     "properties": {
+     "admission": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Admission"
+     },
      "command": {
       "anyOf": [
        {
@@ -11103,6 +11119,20 @@
        }
       ],
       "title": "Env Hint"
+     },
+     "environment": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Environment",
+      "type": "object"
+     },
+     "native_commands": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Native Commands",
+      "type": "array"
      },
      "type": {
       "enum": [

@@ -187,7 +187,7 @@ def test_native_image_workers_use_one_itk_thread(deployment: dict[str, Any]) -> 
 
 
 def native_command(deployment: dict[str, Any], script: str, arguments: list[str]) -> None:
-    root, job = deployment["root"], deployment["job"]
+    root = deployment["root"]
     prefix = root / "native-environment"
     (prefix / "bin").mkdir(parents=True)
     (prefix / "bin/python").symlink_to(sys.executable)
@@ -202,7 +202,8 @@ def native_command(deployment: dict[str, Any], script: str, arguments: list[str]
     # The synthetic CLI has no checkpoint to validate; a no-op verify.py meets admission.
     deployment["manifest"].with_name("verify.py").write_text("pass\n")
     manifest = json.loads(deployment["manifest"].read_text())
-    manifest["id"] = "segment.nnunet"
+    manifest["runtime"]["admission"] = "verify.py"
+    manifest["runtime"]["native_commands"] = ["nnUNetv2_predict", "nnUNetv2_apply_postprocessing"]
     manifest["runtime"]["command"] = [
         "{python}",
         "-c",
@@ -216,9 +217,6 @@ def native_command(deployment: dict[str, Any], script: str, arguments: list[str]
         *arguments,
     ]
     deployment["manifest"].write_text(json.dumps(manifest))
-    spec = json.loads((job / "job.json").read_text())
-    spec["task"]["id"] = "segment.nnunet"
-    (job / "job.json").write_text(json.dumps(spec))
 
 
 def test_official_command_gets_own_proc_metadata_and_inherited_source_protection(

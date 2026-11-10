@@ -624,7 +624,7 @@ class TaskService(DriverBase):
             raise JobConflict("Segmentation label selection changed; start a new run")
         idx = self.store.load(pid)
         items = [idx.by_id[i] for i in rec.item_ids if i in idx.by_id]
-        if m.id == "segment.nnunet" and m.resources.gpu == "required":
+        if m.resources.model_catalog and m.resources.gpu == "required":
             try:
                 outputs = committed_outputs(rec.outputs, self.workspace.resolver(pid).resolve)
                 await asyncio.to_thread(

@@ -183,7 +183,7 @@ class DriverBase(RegistrationBase):
             else:
                 await self._drive(h, live, n_todo)
             result = protocol.read_result(live.job_dir)
-            if m.id == "segment.nnunet" and result and result.get("status") == "failed":
+            if m.resources.model_catalog and result and result.get("status") == "failed":
                 failures = [
                     v.get("message")
                     for v in item_outcomes(live.run_dir).values()

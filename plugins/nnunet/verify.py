@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,8 @@ from plugins.runner.identity import verify_job
 
 
 def verify(spec: dict[str, Any], manifest: Path) -> None:
+    if int(os.environ.get("RW_CPU_WORKERS", "12")) < 3:
+        raise ValueError("nnU-Net requires a CPU worker budget of at least 3")
     profile = load_profile(str(spec.get("settings", {}).get("profile", "")))
     verify_job(
         spec,

@@ -39,9 +39,12 @@
   "runtime": {
     "type": "external",
     "command": ["{python}", "run.py", "{job_dir}"],
-    "env_hint": "Activate the torch conda environment and set nnUNet_results to the model results root"
+    "env_hint": "Activate the torch conda environment and set nnUNet_results to the model results root",
+    "admission": "verify.py",
+    "native_commands": ["nnUNetv2_predict", "nnUNetv2_apply_postprocessing"],
+    "environment": {"nnUNet_def_n_proc": "1", "nnUNet_results": "{model_root}"}
   },
-  "resources": {"gpu": "required", "seconds_per_item": 600},
+  "resources": {"gpu": "required", "seconds_per_item": 600, "model_catalog": true},
   "labels": {"from": "dataset.json"},
   "command": {"name": "segment"}
 }

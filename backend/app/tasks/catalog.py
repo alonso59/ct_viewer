@@ -14,7 +14,7 @@ def task_info(info: TaskInfo, queue: Path) -> TaskInfo:
         return info
     hosts = [r for r in runners(queue) if r.fresh and (not r.tasks or info.manifest.id in r.tasks)]
     result = info.model_copy(deep=True, update={"runner_online": bool(hosts)})
-    if info.manifest.id != "segment.nnunet" or info.manifest.resources.gpu != "required":
+    if not info.manifest.resources.model_catalog or info.manifest.resources.gpu != "required":
         return result
     catalogs = [host.model_catalog for host in hosts if host.model_catalog is not None]
     generations = {catalog.generation for catalog in catalogs}
