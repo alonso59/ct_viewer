@@ -67,7 +67,7 @@ function Field({ name, schema, required, value, error, onChange, onLeave }: {
   } else if (schema.enum) {
     input = (
       <select id={id} className="select" value={String(value ?? schema.default ?? '')} {...a11y} onChange={(e) => chose(e.target.value || undefined)}>
-        {schema.default === undefined ? <option value="">{t('tasks.fromProject')}</option> : null}
+        {schema.default === undefined ? <option value="">{t(required ? 'tasks.choose' : 'tasks.fromProject')}</option> : null}
         {schema.enum.map((o, i) => (
           <option key={String(o)} value={String(o)}>{label(schema, i, o)}</option>
         ))}
@@ -116,7 +116,7 @@ function Field({ name, schema, required, value, error, onChange, onLeave }: {
 /** Set by the batch plan, never typed by the user */
 const HIDDEN = new Set(['patient_folders'])
 
-export function SchemaForm({ schema, values, errors, onChange }: { schema: unknown; values: Record<string, unknown>; errors: Record<string, string>; onChange: (v: Record<string, unknown>) => void }) {
+export function SchemaForm({ schema, values, errors, showAllErrors, onChange }: { schema: unknown; values: Record<string, unknown>; errors: Record<string, string>; /** Show every error, not only those of fields already left (the form blocks its action) */ showAllErrors?: boolean; onChange: (v: Record<string, unknown>) => void }) {
   const { t } = useTranslation()
   const [advanced, setAdvanced] = useState(false)
   const [left, setLeft] = useState<ReadonlySet<string>>(new Set())
@@ -127,7 +127,7 @@ export function SchemaForm({ schema, values, errors, onChange }: { schema: unkno
   const leave = (name: string) => () => setLeft((s) => (s.has(name) ? s : new Set(s).add(name)))
   if (!all.length) return <p className="muted">{t('tasks.noSettings')}</p>
   const field = (f: (typeof all)[number]) => (
-    <Field key={f.name} name={f.name} schema={f.schema} required={f.required} value={values[f.name]} error={left.has(f.name) ? errors[f.name] : undefined} onChange={set(f.name)} onLeave={leave(f.name)} />
+    <Field key={f.name} name={f.name} schema={f.schema} required={f.required} value={values[f.name]} error={showAllErrors || left.has(f.name) ? errors[f.name] : undefined} onChange={set(f.name)} onLeave={leave(f.name)} />
   )
   return (
     <div className="task-form">

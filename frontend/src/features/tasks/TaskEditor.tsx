@@ -9,6 +9,7 @@ import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { DerivedRootDialog, FolderBrowser } from '../import'
 import { useExplorerFilter } from '../explorer'
+import { showOutput } from '../jobs'
 import { RADIOMICS_TASK } from './commands'
 import { ACTIVE_RUN, STOPPING_RUN, runActions, selectionFor, type RunAction, type SelectionMode } from './model'
 import { check, toSettings } from './schema'
@@ -44,7 +45,9 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
   const actions = runActions(run, registry.readOnly)
   const stale = useStaleLive()
   const fenced = run.execution?.phase_step === true || run.task.id === 'dicom.convert'
+  const [pending, setPending] = useState(false)
   const control = async (action: RunAction) => {
+    setPending(true)
     try {
       if (action === 'cancel') {
         if (fenced) await api.cancelTaskRun(pid, run.run_id, { expected_attempt: run.attempts })
@@ -58,7 +61,8 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
     } catch (e) {
       toastProblem(e)
     }
-    void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
+    await qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
+    setPending(false)
   }
   const c = run.counts
   const hasResults = !!registry.taskExtensions.get(run.task.id)?.results && !ACTIVE_RUN.includes(run.status)
@@ -71,7 +75,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       </div>
       {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} stale={stale} /> : null}
       {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
-      {run.status === 'waiting_for_runner' ? <p className="muted" title={t('tasks.waitingHelp')}>{t('tasks.waitingUser')}</p> : null}
+      {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingUser')}</p> : null}
       {run.status === 'queued' ? <p className="muted">{t('tasks.queuedHelp')}</p> : null}
       {run.status === 'waiting_for_resources' ? <p className="muted">{t('tasks.resourcesHelp')}</p> : null}
       {STOPPING_RUN.includes(run.status) ? (
@@ -82,6 +86,9 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       <span className="muted num">{run.task.id === 'dicom.convert' ? t('conv.recoveryCounts', { complete: c?.ok ?? 0, failed: c?.failed ?? 0, pending: c?.pending ?? 0 }) : t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <p className="field-error" role="alert">{run.error}</p> : null}
       <div className="task-run-actions">
+        <Button className="btn btn-sm" onClick={() => showOutput({ id: `run.${run.run_id}`, label: run.name, kind: 'project-run', ref: run.run_id, project: pid })}>
+          {t('tasks.showLog')}
+        </Button>
         {hasResults ? (
           <Button className="btn btn-sm btn-primary" onClick={() => openEditor('task', { taskId: run.task.id, runId: run.run_id })}>
             {t('tasks.showResults')}
@@ -89,7 +96,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
         ) : null}
         {actions.map((a) => {
           const button = (onClick: () => void) => (
-            <Button key={a} className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} reason={t('reason.cleanup')} onClick={onClick}>
+            <Button key={a} className="btn btn-sm" disabled={pending || ((a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true)} reason={t(pending ? 'reason.working' : 'reason.cleanup')} onClick={onClick}>
               {t(a === 'retry_failed' ? 'conv.retryFailed' : a === 'resume' && run.status === 'completed_with_errors' && run.task.id !== 'dicom.convert' ? 'tasks.retryFailed' : `tasks.${a}`)}
             </Button>
           )
@@ -107,7 +114,8 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
 function ArchivedRuns({ pid, taskId }: { pid: string; taskId: string }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const runs = (useArchivedTaskRuns(pid, open).data ?? []).filter((r) => r.task.id === taskId)
+  const archived = useArchivedTaskRuns(pid, open)
+  const runs = (archived.data ?? []).filter((r) => r.task.id === taskId)
   return (
     <>
       <div className="task-run-actions">
@@ -115,7 +123,7 @@ function ArchivedRuns({ pid, taskId }: { pid: string; taskId: string }) {
           {t(open ? 'tasks.hideArchived' : 'tasks.showArchived')}
         </button>
       </div>
-      {open ? runs.length ? <ul className="task-runs">{runs.map((r) => <RunRow key={r.run_id} pid={pid} run={r} />)}</ul> : <p className="muted">{t('tasks.noArchived')}</p> : null}
+      {open ? archived.isLoading ? <p className="muted">{t('common.loading')}</p> : runs.length ? <ul className="task-runs">{runs.map((r) => <RunRow key={r.run_id} pid={pid} run={r} />)}</ul> : <p className="muted">{t('tasks.noArchived')}</p> : null}
     </>
   )
 }
@@ -263,12 +271,12 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
   const [source, setSource] = useState<string | null>(null)
   const [browse, setBrowse] = useState<string | null>(null)
   const [values, setValues] = useState<Record<string, unknown>>({})
-  const [estimate, setEstimate] = useState<TaskEstimate | null>(null)
+  const [estimate, setEstimate] = useState<{ est: TaskEstimate; selection: unknown; values: unknown } | null>(null)
+  const [estimating, setEstimating] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
   const [selecting, setSelecting] = useState(false)
   const [askDerived, setAskDerived] = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const runs = (useTaskRuns(pid).data ?? []).filter((r) => r.task.id === m.id)
   const readsMasks = !!m.requires?.seg
   const selection = useMemo(
@@ -277,6 +285,7 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
   )
   const settings = toSettings(values)
   const errors = check(m.settings_schema, values)
+  const invalid = Object.keys(errors).length > 0
   const preflight = useQuery({
     queryKey: keys.taskPreflight(pid, m.id, { selection, settings }),
     queryFn: () => api.preflightTask(pid, m.id, selection, settings),
@@ -284,12 +293,22 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
     retry: false,
   })
   const pre = preflight.data
+  const runBlocked = invalid
+    ? 'reason.fixSettings'
+    : m.input === 'source' && !source
+      ? 'reason.chooseSource'
+      : preflight.isError
+        ? 'reason.preflightFailed'
+        : !pre
+          ? 'reason.checking'
+          : pre.n_ready === 0
+            ? 'reason.nothingReady'
+            : 'reason.working'
   const onAction = { choose_derived_root: () => setAskDerived(true), choose_source: () => setBrowse(null) }
 
   // a GPU task over many items runs for hours: ask once before starting it
   const heavy = m.resources?.gpu !== undefined && m.resources.gpu !== 'none' && (pre?.n_ready ?? 0) > CONFIRM_ABOVE
   const run = async () => {
-    setConfirming(false)
     setError(null)
     setBusy(true)
     try {
@@ -305,10 +324,13 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
   }
   const doEstimate = async () => {
     setError(null)
+    setEstimating(true)
     try {
-      setEstimate(await api.estimateTask(pid, m.id, selection, settings))
+      setEstimate({ est: await api.estimateTask(pid, m.id, selection, settings), selection, values })
     } catch (e) {
       setError(e)
+    } finally {
+      setEstimating(false)
     }
   }
 
@@ -333,10 +355,6 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
       {m.runtime.type === 'external' && info.runner_online === false ? (
         <div className="card" role="note">
           <p>{t('tasks.noRunnerUser')}</p>
-          <details>
-            <summary>{t('tasks.adminDetails')}</summary>
-            <p className="muted">{t('tasks.noRunner', { hint: m.runtime.env_hint ?? '' })}</p>
-          </details>
         </div>
       ) : null}
 
@@ -376,7 +394,7 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
 
       <Section title={t('tasks.settings')}>
         {m.runtime.type === 'external' && m.resources?.gpu && m.resources.gpu !== 'none' ? <GpuAvailability info={info} /> : null}
-        {ext?.settings ? <ext.settings pid={pid} values={values} onChange={setValues} segId={segId} /> : <SchemaForm schema={m.settings_schema} values={values} errors={errors} onChange={setValues} />}
+        {ext?.settings ? <ext.settings pid={pid} values={values} onChange={setValues} segId={segId} /> : <SchemaForm schema={m.settings_schema} values={values} errors={errors} showAllErrors={invalid} onChange={setValues} />}
       </Section>
 
       <Section title={t('tasks.preflight')}>
@@ -402,26 +420,27 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
         ) : null}
         {ext?.review ? <ext.review pid={pid} values={values} onChange={setValues} segId={segId ?? project?.default_seg ?? null} itemIds={pre?.ready_item_ids ?? null} /> : null}
         <div className="task-run-actions">
-          <button type="button" className="btn" disabled={selecting} onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
-          <Button
-            className="btn btn-primary"
-            disabled={busy || selecting || confirming || !info.available || Object.keys(errors).length > 0 || (pre ? pre.n_ready === 0 : true)}
-            reason={!info.available ? (info.unavailable_reason ?? t('reason.taskUnavailable')) : t(Object.keys(errors).length > 0 ? 'reason.fixSettings' : !pre ? 'reason.checking' : pre.n_ready === 0 ? 'reason.nothingReady' : 'reason.working')}
-            onClick={() => (heavy ? setConfirming(true) : void run())}
-          >
-            <Icon spec={codicon('play')} />
-            {t('tasks.run')}
-          </Button>
+          <button type="button" className="btn" disabled={selecting || estimating} onClick={() => void doEstimate()}>{t(estimating ? 'tasks.estimating' : 'tasks.estimate')}</button>
+          <ConfirmInline
+            question={t('tasks.confirmRun', { n: pre?.n_ready ?? 0, title: m.title })}
+            confirm={t('tasks.confirmStart')}
+            keep={t('common.cancel')}
+            onConfirm={() => void run()}
+            trigger={(ask) => (
+              <Button
+                className="btn btn-primary"
+                disabled={busy || selecting || !info.available || invalid || !pre || pre.n_ready === 0}
+                reason={!info.available ? (info.unavailable_reason ?? t('reason.taskUnavailable')) : t(runBlocked)}
+                onClick={() => (heavy ? ask() : void run())}
+              >
+                <Icon spec={codicon('play')} />
+                {t('tasks.run')}
+              </Button>
+            )}
+          />
         </div>
         {pre && pre.n_selected === 0 ? <p className="muted">{t(mode === 'list' ? 'tasks.listEmpty' : 'tasks.nothingSelected')}</p> : null}
-        {confirming ? (
-          <div className="task-confirm" role="alert">
-            <span>{t('tasks.confirmRun', { n: pre?.n_ready ?? 0, title: m.title })}</span>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void run()}>{t('tasks.confirmStart')}</button>
-            <button type="button" className="btn btn-sm" onClick={() => setConfirming(false)}>{t('common.cancel')}</button>
-          </div>
-        ) : null}
-        {estimate ? <EstimateView est={estimate} /> : null}
+        {estimate && estimate.selection === selection && estimate.values === values ? <EstimateView est={estimate.est} /> : null}
         {error ? <ProblemCard error={error} onAction={onAction} /> : null}
       </Section>
 

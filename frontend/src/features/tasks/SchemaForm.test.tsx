@@ -81,3 +81,24 @@ test('linked help, errors after leaving a field, required fields and readable ti
   expect(delay).toHaveAttribute('aria-invalid', 'true')
   expect(delay).toHaveAccessibleDescription('Default: 0 Must be ≤ 30')
 })
+
+// an untouched invalid field shows its error once the form says so (its action is blocked); a choice
+// with no default reads "Choose…" when required, "From the project preset" otherwise
+test('showAllErrors marks fields never left; an enum without default names what is missing', () => {
+  const s = {
+    type: 'object',
+    required: ['patient_limit', 'model'],
+    properties: {
+      patient_limit: { type: 'integer', minimum: 1 },
+      model: { type: 'string', title: 'Model', enum: ['a', 'b'] },
+      target: { type: 'string', title: 'Target', enum: ['x'] },
+    },
+  }
+  const errors = { patient_limit: 'tasks.err.required' }
+  const { rerender } = render(<SchemaForm schema={s} values={{}} errors={errors} onChange={vi.fn()} />)
+  expect(screen.queryByText('Required')).toBeNull()
+  rerender(<SchemaForm schema={s} values={{}} errors={errors} showAllErrors onChange={vi.fn()} />)
+  expect(screen.getByRole('spinbutton', { name: /Patient limit/ })).toHaveAttribute('aria-invalid', 'true')
+  expect(within(screen.getByLabelText(/Model/)).getByRole('option', { name: 'Choose…' })).toBeInTheDocument()
+  expect(within(screen.getByLabelText('Target')).getByRole('option', { name: 'From the project preset' })).toBeInTheDocument()
+})

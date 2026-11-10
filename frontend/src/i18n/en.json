@@ -1094,6 +1094,8 @@
   "reason": {
     "working": "Still working…",
     "checking": "Checking what is ready…",
+    "chooseSource": "Choose what to run on",
+    "preflightFailed": "The readiness check failed; see above",
     "chooseFolder": "Choose a folder first",
     "fixAlias": "Fix the alias above",
     "uploadMetadata": "Upload the metadata file first",

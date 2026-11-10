@@ -64,7 +64,25 @@ test('a running supervised run pauses; a paused one resumes or archives; view-on
   registry.setReadOnly(true)
   show({ status: 'running' })
   expect(await screen.findByText('Running')).toBeInTheDocument()
-  expect(screen.queryByRole('button')).toBeNull()
+  expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Show log'])
+})
+
+test('a run shows its log in the Output tab', async () => {
+  show({ status: 'failed' })
+  fireEvent.click(await screen.findByRole('button', { name: 'Show log' }))
+  expect(registry.outputChannels).toEqual([{ id: `run.${base.run_id}`, label: 'nnU-Net run', kind: 'project-run', ref: base.run_id, project: DEMO_PID }])
+  for (const c of registry.outputChannels) registry.removeOutputChannel(c.id)
+})
+
+test('a row\'s actions are disabled while its control request is in flight', async () => {
+  let done: () => void = () => undefined
+  vi.spyOn(api, 'archiveTaskRun').mockReturnValue(new Promise((resolve) => { done = () => resolve({} as never) }))
+  show({ status: 'paused' })
+  fireEvent.click(await screen.findByRole('button', { name: 'Archive' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Resume' })).toBeDisabled())
+  expect(screen.getByRole('button', { name: 'Archive' })).toBeDisabled()
+  done()
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Resume' })).toBeEnabled())
 })
 
 test('D29 phase controls use the displayed attempt and preserve the ordinary task controls', async () => {
@@ -93,7 +111,7 @@ test('D23 DICOM retry and resume stay disabled while cleanup is unverified', asy
 test.each([
   ['queued', 'Queued: starts when earlier work of this task finishes.'],
   ['waiting_for_resources', 'Waiting for free GPUs or memory; it starts on its own. Cancel stays available.'],
-  ['waiting_for_runner', 'Waiting for the task runner to start; it begins on its own.'],
+  ['waiting_for_runner', 'Waiting for the task runner to start; it begins on its own. If it stays here, ask the administrator to start it.'],
 ] as const)('a %s run explains its wait (UI-20)', async (status, help) => {
   show({ status })
   expect(await screen.findByText(help)).toBeInTheDocument()
