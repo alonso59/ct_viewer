@@ -6,6 +6,7 @@
 !backend/tools/
 !frontend/
 !scripts/container_app.py
+!scripts/ctflow.py
 !plugins/
 
 # Never in the image: bytecode, OS files, build output, dev-only frontend files (tests, E2E, reports).
