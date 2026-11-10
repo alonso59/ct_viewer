@@ -43,9 +43,6 @@ class PhaseService:
         self.store = store
         self.events = EventStore(workspace, locks, bus)
 
-    def _pdir(self, project_id: str) -> Path:
-        return self.workspace.project_dir(project_id)
-
     def check_value(self, project_id: str, value: str) -> str:
         """A `phase_vocabulary` value; an empty vocabulary is open."""
         vocab = self.workspace.get(project_id).phase_vocabulary
@@ -93,13 +90,13 @@ class PhaseService:
         """Every event, newest first."""
         return [
             PhaseEvent.model_validate(e)
-            for e in reversed(state.events(self._pdir(project_id)))
+            for e in reversed(state.events(self.workspace.project_dir(project_id)))
             if (case_id is None or e["case_id"] == case_id)
             and (scan_idx is None or e["scan_idx"] == scan_idx)
         ]
 
     def state(self, project_id: str, *, case_id: str | None = None) -> PhaseState:
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         selected = state.selections(pdir)
         resolved: dict[tuple[str, str], tuple[str, str]] = {}
         for i in self.store.load_resolved(project_id).items:
@@ -121,7 +118,7 @@ class PhaseService:
 
     async def export(self, project_id: str) -> PhaseExportResult:
         """`exports/phase_selections.json`, shaped like `phase.json`."""
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         async with self.events.locks(project_id):
             selected = state.selections(pdir)
             doc = {

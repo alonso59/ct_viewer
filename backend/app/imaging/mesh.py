@@ -68,20 +68,6 @@ def encode_mz3(faces: NDArray[Any], verts: NDArray[Any]) -> bytes:
     return gzip.compress(header + f.tobytes() + v.tobytes(), compresslevel=6, mtime=0)
 
 
-def decode_mz3(data: bytes) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
-    """Inverse of `encode_mz3` (faces + verts only; tests and tooling)."""
-    if data[:2] == b"\x1f\x8b":
-        data = gzip.decompress(data)
-    magic, attr, nface, nvert, nskip = MZ3_HEADER.unpack_from(data)
-    if magic != MZ3_MAGIC or attr != MZ3_ATTR_FACES_VERTS:
-        raise ValueError(f"not a faces+verts MZ3 (magic={magic}, attr={attr})")
-    off = MZ3_HEADER.size + nskip
-    faces = np.frombuffer(data, dtype="<i4", count=nface * 3, offset=off).reshape(nface, 3)
-    off += nface * 12
-    verts = np.frombuffer(data, dtype="<f4", count=nvert * 3, offset=off).reshape(nvert, 3)
-    return faces.astype(np.int32), verts.astype(np.float32)
-
-
 def _read_mask(src: Path, spacing: Sequence[float] | None) -> tuple[NDArray[Any], NDArray[Any]]:
     """(voxels, 4x4 affine). `.npy` gets affine = diag(spacing) like the npy→NIfTI cache."""
     with open_source(src) as fh:

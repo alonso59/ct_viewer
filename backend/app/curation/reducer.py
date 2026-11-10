@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from app.curation.models import SEVERITY, CaseState, CurationEvent, ItemState, TargetState
@@ -68,13 +67,6 @@ class Reduced:
                 targets=_targets([pe for pe in evs if pe[1].item_id is None]),
             )
         return out
-
-
-def reduce_events(events: Iterable[CurationEvent]) -> Reduced:
-    red = Reduced()
-    for pos, ev in enumerate(events):
-        red.add(pos, ev)
-    return red
 
 
 def _worst(evs: list[tuple[int, CurationEvent]]) -> CurationEvent:

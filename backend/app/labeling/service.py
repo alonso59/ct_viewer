@@ -11,7 +11,6 @@ import io
 import re
 from collections.abc import Sequence
 from datetime import date
-from pathlib import Path
 from typing import Any, Final
 
 import pyarrow as pa
@@ -147,19 +146,25 @@ class LabelingService:
         self.bus = bus
         self.events = EventStore(workspace, locks, bus)
 
-    def _pdir(self, pid: str) -> Path:
-        return self.workspace.project_dir(pid)
-
     def _save(self, pid: str, doc: TablesFile) -> None:
-        atomic_write_json(self._pdir(pid) / state.TABLES, doc.model_dump(mode="json"))
+        atomic_write_json(
+            self.workspace.project_dir(pid) / state.TABLES, doc.model_dump(mode="json")
+        )
 
     def _targets(self, pid: str, t: LabelTable) -> list[tuple[str, str, str | None]]:
-        rows = state.row_state(self._pdir(pid)).get(t.table_id, []) if t.level == "event" else []
+        rows = (
+            state.row_state(self.workspace.project_dir(pid)).get(t.table_id, [])
+            if t.level == "event"
+            else []
+        )
         return targets(t, self.store.load(pid).items, rows)
 
     def table(self, pid: str, tid: str) -> LabelTable:
         """A table that is not deleted; a deleted one is 404 until restored."""
-        t = next((x for x in state.active_tables(self._pdir(pid)) if x.table_id == tid), None)
+        t = next(
+            (x for x in state.active_tables(self.workspace.project_dir(pid)) if x.table_id == tid),
+            None,
+        )
         if t is None:
             raise NotFound(f"Label table {tid!r} not found")
         return t
@@ -251,7 +256,7 @@ class LabelingService:
     def tables(self, pid: str, deleted: bool) -> list[TableInfo]:
         """Progress = filled cells per column over the table's rows. `deleted` lists only the
         deleted tables instead."""
-        pdir = self._pdir(pid)
+        pdir = self.workspace.project_dir(pid)
         cells = state.cell_state(pdir)
         out: list[TableInfo] = []
         for t in state.load_tables(pdir).tables:
@@ -309,7 +314,7 @@ class LabelingService:
                 errors=[{"loc": ["body", "case_id"], "msg": "no such case"}],
             )
         async with self.locks(f"_labeling_rows:{pid}"):
-            target = f"{case_id}#{state.row_count(self._pdir(pid), tid) + 1}"
+            target = f"{case_id}#{state.row_count(self.workspace.project_dir(pid), tid) + 1}"
             body = {"table_id": tid, "kind": "row", "target": target, "case_id": case_id}
             await self.events.append(pid, state.NAMESPACE, [stamp(who, session_id, body)])
         return RowEvent(table_id=tid, target=target, case_id=case_id)
@@ -319,7 +324,7 @@ class LabelingService:
     ) -> RowEvent:
         who = require_reviewer(reviewer)
         t = self.table(pid, tid)
-        rows = dict(state.row_state(self._pdir(pid)).get(tid, []))
+        rows = dict(state.row_state(self.workspace.project_dir(pid)).get(tid, []))
         if t.level != "event" or target not in rows:
             raise NotFound(f"Row {target!r} not found")
         body = {"table_id": tid, "kind": "row", "target": target, "case_id": rows[target],
@@ -330,7 +335,7 @@ class LabelingService:
     async def create(self, pid: str, body: TableCreate) -> LabelTable:
         catalog = await self._catalog(pid, body.columns)
         async with self.locks(pid):
-            doc = state.load_tables(self._pdir(pid))
+            doc = state.load_tables(self.workspace.project_dir(pid))
             now = utc_now()
             t = LabelTable(
                 table_id=new_ulid(), slug=slugify(body.name, {x.slug for x in doc.tables}),
@@ -350,7 +355,7 @@ class LabelingService:
         its events; `hidden: false` restores it."""
         catalog = await self._catalog(pid, body.columns)
         async with self.locks(pid):
-            doc = state.load_tables(self._pdir(pid))
+            doc = state.load_tables(self.workspace.project_dir(pid))
             t = next((x for x in doc.tables if x.table_id == tid), None)
             if t is None:
                 raise NotFound(f"Label table {tid!r} not found")
@@ -399,7 +404,7 @@ class LabelingService:
         rows = self._targets(pid, t)
         if q:
             rows = [r for r in rows if q.lower() in r[0].lower()]
-        cells = state.cell_state(self._pdir(pid))
+        cells = state.cell_state(self.workspace.project_dir(pid))
         cols = [c for c in t.columns if not c.hidden]
         page = rows[cursor : cursor + limit]
         out: list[CellRow] = []
@@ -464,7 +469,7 @@ class LabelingService:
         self.table(pid, tid)
         out = [
             CellEvent(**e)
-            for e in state.events(self._pdir(pid))
+            for e in state.events(self.workspace.project_dir(pid))
             if e.get("table_id") == tid
             and e.get("kind") != "row"
             and (target is None or e.get("target") == target)

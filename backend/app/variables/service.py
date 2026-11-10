@@ -69,20 +69,17 @@ class VariableService:
         self.locks = locks
         self.bus = bus
 
-    def _pdir(self, project_id: str) -> Path:
-        return self.workspace.project_dir(project_id)
-
     def table_path(self, project_id: str) -> Path:
-        return self._pdir(project_id) / TABLE
+        return self.workspace.project_dir(project_id) / TABLE
 
     def _stored(self, project_id: str) -> Catalog | None:
-        p = self._pdir(project_id) / CATALOG
+        p = self.workspace.project_dir(project_id) / CATALOG
         return Catalog.model_validate(read_json(p)) if p.exists() else None
 
     def _external_data(self, project_id: str, cat: Catalog) -> list[builder.ExternalData]:
         out: list[builder.ExternalData] = []
         for t in cat.external:
-            raw = (self._pdir(project_id) / EXTERNAL_DIR / t.filename).read_bytes()
+            raw = (self.workspace.project_dir(project_id) / EXTERNAL_DIR / t.filename).read_bytes()
             _, _, rows, _, _ = ext_mod.parse_table(raw, t.filename, t.key)
             out.append(builder.ExternalData(t, rows))
         return out
@@ -119,7 +116,13 @@ class VariableService:
             eff.by_scan.setdefault((it.case_id, it.scan_idx), it.phase.canonical)
         out = [eff]
         run = self.workspace.get(project_id).annotation_sources.get("phase")
-        path = self._pdir(project_id) / "tasks" / "runs" / str(run) / "annotations.jsonl"
+        path = (
+            self.workspace.project_dir(project_id)
+            / "tasks"
+            / "runs"
+            / str(run)
+            / "annotations.jsonl"
+        )
         if run and path.is_file():
             guess = {str(a.get("item_id")): a.get("value") for a in iter_jsonl(path)
                      if a.get("field") == "phase"}  # fmt: skip
@@ -133,7 +136,7 @@ class VariableService:
     def _layer_data(self, project_id: str, items: Sequence[Item]) -> list[builder.LayerData]:
         """Label columns as `lbl.{table}.{column}` at their table's level
         (scan and item tables share the scan unit; an item value lands on its scan)."""
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         cells = labeling_state.cell_state(pdir)
         out: list[builder.LayerData] = self._phase_layers(project_id, items)
         rows = labeling_state.row_state(pdir)
@@ -211,7 +214,7 @@ class VariableService:
         cat = built.catalog.model_copy(
             update={"profiled_at": utc_now(), "import_id": self.store.status(project_id).import_id}
         )
-        pdir = self._pdir(project_id)
+        pdir = self.workspace.project_dir(project_id)
         tbl.write_table(pdir / TABLE, tbl.to_arrow(built))
         atomic_write_json(pdir / CATALOG, cat.model_dump(mode="json"))
         return cat
@@ -377,7 +380,9 @@ class VariableService:
                     "every column name is already taken",
                     errors=[{"loc": ["body", "file"], "msg": f"conflicts: {conflicts}"}],
                 )
-            atomic_write_bytes(self._pdir(project_id) / EXTERNAL_DIR / table.filename, data)
+            atomic_write_bytes(
+                self.workspace.project_dir(project_id) / EXTERNAL_DIR / table.filename, data
+            )
             self._save(project_id, built)
         self._publish(project_id)
         return ExternalReport(

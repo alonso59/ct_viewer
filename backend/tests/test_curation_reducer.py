@@ -11,9 +11,18 @@ from app.core.ids import new_ulid
 from app.curation import state as st
 from app.curation import v2
 from app.curation.models import SEVERITY, CurationEvent
-from app.curation.reducer import reduce_events
+from app.curation.reducer import Reduced
 
 C1, C2 = "case_00001", "case_00002"
+
+
+def reduce_events(events: list[CurationEvent]) -> Reduced:
+    red = Reduced()
+    for pos, event in enumerate(events):
+        red.add(pos, event)
+    return red
+
+
 I1, I2 = f"{C1}.01.complete.-", f"{C1}.01.voi.L"
 
 

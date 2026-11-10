@@ -38,6 +38,20 @@ NEG_AFFINE = np.array(
 POS_AFFINE = np.diag([0.8, 0.8, 1.5, 1.0])
 
 
+def decode_mz3(data: bytes) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
+    """Inverse of `mesh.encode_mz3`."""
+    if data[:2] == b"\x1f\x8b":
+        data = gzip.decompress(data)
+    magic, attr, nface, nvert, nskip = mesh.MZ3_HEADER.unpack_from(data)
+    if magic != mesh.MZ3_MAGIC or attr != mesh.MZ3_ATTR_FACES_VERTS:
+        raise ValueError(f"not a faces+verts MZ3 (magic={magic}, attr={attr})")
+    off = mesh.MZ3_HEADER.size + nskip
+    faces = np.frombuffer(data, dtype="<i4", count=nface * 3, offset=off).reshape(nface, 3)
+    off += nface * 12
+    verts = np.frombuffer(data, dtype="<f4", count=nvert * 3, offset=off).reshape(nvert, 3)
+    return faces.astype(np.int32), verts.astype(np.float32)
+
+
 def _sphere(shape: tuple[int, int, int], center: tuple[float, ...], r: float) -> NDArray[Any]:
     g = np.indices(shape, dtype=np.float32)
     d2 = sum((g[k] - center[k]) ** 2 for k in range(3))
@@ -84,7 +98,7 @@ def test_mz3_roundtrip_world_coords(tmp_path: Path) -> None:
     assert (magic, attr, nskip) == (23117, 3, 0)
     assert nface > 100 and nvert > 50
     assert len(raw) == 16 + nface * 12 + nvert * 12
-    faces, verts = mesh.decode_mz3(blob)
+    faces, verts = decode_mz3(blob)
     assert faces.shape == (nface, 3) and verts.shape == (nvert, 3)
     assert faces.min() >= 0 and faces.max() < nvert
     assert np.isfinite(verts).all()
@@ -107,7 +121,7 @@ def test_winding_outward(tmp_path: Path, affine: NDArray[Any], smooth: int) -> N
     src = _write_nii(tmp_path / "m.nii", arr, affine)  # plain .nii too
     dst = tmp_path / "cache" / "meshes" / "x.mz3"
     assert mesh.build(str(src), str(dst), 1, smooth) is None
-    faces, verts = mesh.decode_mz3(dst.read_bytes())
+    faces, verts = decode_mz3(dst.read_bytes())
     assert _signed_volume(faces, verts) > 0
     lo, hi = _world_bbox(arr == 1, affine, 0.5 + 2.0 * smooth)
     assert (verts >= lo - 1e-4).all() and (verts <= hi + 1e-4).all()
@@ -119,7 +133,7 @@ def test_label_touching_border_is_closed(tmp_path: Path) -> None:
     src = _write_nii(tmp_path / "m.nii.gz", arr, POS_AFFINE)
     dst = tmp_path / "cache" / "b.mz3"
     assert mesh.build(str(src), str(dst), 1, 0) is None
-    faces, verts = mesh.decode_mz3(dst.read_bytes())
+    faces, verts = decode_mz3(dst.read_bytes())
     # closed manifold: every edge is shared by exactly two faces
     edges = np.sort(np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]]), 1)
     _, counts = np.unique(edges, axis=0, return_counts=True)
@@ -133,7 +147,7 @@ def test_npy_mask_uses_spacing(tmp_path: Path) -> None:
     np.save(src, arr)
     dst = tmp_path / "cache" / "n.mz3"
     assert mesh.build(str(src), str(dst), 3, 0, [2.0, 1.0, 0.5]) is None
-    _, verts = mesh.decode_mz3(dst.read_bytes())
+    _, verts = decode_mz3(dst.read_bytes())
     ext = verts.max(0) - verts.min(0)
     np.testing.assert_allclose(ext, np.array([2.0, 1.0, 0.5]) * ext[1], rtol=0.1)
 
@@ -322,7 +336,7 @@ def test_http_202_200_304(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
     assert "content-encoding" not in r.headers
     cached = mesh.cache_path(env.pdir, fp, 2, 1)
     assert r.content == cached.read_bytes() and r.content[:2] == b"\x1f\x8b"
-    faces, verts = mesh.decode_mz3(r.content)
+    faces, verts = decode_mz3(r.content)
     assert len(faces) > 0 and np.isfinite(verts).all()
 
     assert c.get(url, headers={"If-None-Match": etag}).status_code == 304
