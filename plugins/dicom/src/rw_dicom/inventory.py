@@ -357,7 +357,7 @@ class SourceInventory:
                 kind = "npy"
             elif parsed is not None:
                 kind, header, uid, error = parsed
-            elif ext not in NON_IMAGES and path.name.lower() != "dicomdir":
+            elif self._candidate(path):
                 found = dicom_scan.image_info(path, self.root)
                 if found is not None:
                     ds, _ = found
@@ -730,8 +730,9 @@ class SourceInventory:
                     ds = dcmread(handle, stop_before_pixels=True, specific_tags=["PatientID"], force=True)
             except Exception:  # noqa: BLE001, S112 - an unreadable first file adds no hash
                 continue
-            if str(getattr(ds, "PatientID", "")).strip():
-                found.add(str(ds.PatientID).strip())
+            patient_id = str(getattr(ds, "PatientID", "")).strip()
+            if patient_id:
+                found.add(patient_id)
         return found
 
     @staticmethod
