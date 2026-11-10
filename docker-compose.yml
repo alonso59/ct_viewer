@@ -2,7 +2,7 @@
 #   cp .env.example .env (set DATA_HOST); docker compose up -d --build     # or: make up
 services:
   app:
-    image: radiology-workbench:${RW_VERSION:-3.3.2}
+    image: radiology-workbench:${RW_VERSION:-3.3.0}
     build: .
     env_file: .env
     # These win over .env: container-side paths and bind address are fixed by the image contract.
