@@ -486,7 +486,6 @@ button.statusbar-item:hover {
   border-bottom: var(--border-width) solid var(--border-muted);
   background: transparent;
   color: var(--fg);
-  outline: none;
 }
 .palette [cmdk-list] {
   max-height: min(420px, 60vh);
