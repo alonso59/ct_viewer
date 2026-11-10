@@ -14,9 +14,13 @@ test('Activity follows a job, filters by text, copies with a count and downloads
   await expect(page.getByRole('tree', { name: 'Explorer' })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: /Compute full hashes/ }).click()
   const output = page.getByRole('tab', { name: 'Log', exact: true })
-  if (!(await output.isVisible())) await page.keyboard.press('ControlOrMeta+j')
-  await output.click()
   const log = page.getByRole('log')
+  // a starting job can move the bottom panel while it is being opened: retry until the log shows
+  await expect(async () => {
+    if (!(await output.isVisible())) await page.keyboard.press('ControlOrMeta+j')
+    await output.click({ timeout: 2_000 })
+    await expect(log).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 30_000 })
   await expect(log).toContainText(/\[job\] Full hash: Completed/, { timeout: 90_000 })
   await expect(page.getByRole('tree', { name: 'Explorer' })).toBeVisible()
 
