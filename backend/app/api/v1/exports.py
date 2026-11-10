@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated, Final, Literal
 
 from fastapi import APIRouter, Query
@@ -103,16 +104,19 @@ async def dataset_table(
     layers = project_layers(ctx, pid)
     items = ctx.index.load(pid).items
     drop = await dropped_fields(ctx, pid, include_sensitive)
-    if format == "jsonl":
-        body, name = table.to_jsonl(items, layers, annotation_refs(ctx, pid), drop), "dataset.jsonl"
-    else:
+    refs = annotation_refs(ctx, pid) if format == "jsonl" else None
+
+    def build() -> bytes:
+        if refs is not None:
+            return table.to_jsonl(items, layers, refs, drop)
         header, data = table.rows(items, layers, drop)
-        body = (
-            table.to_parquet(header, data, [x for x in layers if x.field not in drop])
-            if format == "parquet"
-            else table.to_csv(header, data)
-        )
-        name = f"dataset_table.{format}"
+        if format == "parquet":
+            return table.to_parquet(header, data, [x for x in layers if x.field not in drop])
+        return table.to_csv(header, data)
+
+    # A whole-project table can take seconds; build it off the event loop.
+    body = await asyncio.to_thread(build)
+    name = "dataset.jsonl" if format == "jsonl" else f"dataset_table.{format}"
     return Response(
         body,
         media_type=MEDIA[format],
