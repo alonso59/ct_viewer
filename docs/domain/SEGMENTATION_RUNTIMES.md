@@ -1,7 +1,7 @@
 # Segmentation execution backends
 
 Scope: deployment topology, operator configuration and capability contracts for segmentation.
-Read when: deploying local/server inference or preparing SLURM support.
+Read when: deploying local/server inference or the SLURM backend.
 Depends: ../adr/0034-capability-based-segmentation-runtimes.md, SEGMENTATION.md, TASKS.md, ../ops/DEPLOYMENT.md.
 
 ## Deployment matrix
@@ -10,7 +10,7 @@ Depends: ../adr/0034-capability-based-segmentation-runtimes.md, SEGMENTATION.md,
 |---|---|---|---|---|
 | `local` | Web app on the workstation, native (OPS-22) | Existing Python/conda environment on the same Linux host | Verified user-service cgroup; unprivileged sandbox | Linux implementation; other desktop OS adapters and Electron remain future work |
 | `server` | Web app on `john`, native (OPS-22) | Existing `torch` conda environment | Same owned cgroup/sandbox backend; cooperative host GPU pool | Real process and inference acceptance required |
-| `slurm` | Web app plus lightweight runner on an approved submission host (OPS-23) | Compute allocations; never inference on a login node | Scheduler allocation, site policy and declared worker capabilities | Configuration contract only; submission adapter and real HPC acceptance deferred |
+| `slurm` | Web app plus lightweight runner on an approved submission host (OPS-23) | Compute allocations; never inference on a login node | Scheduler allocation, site policy and declared worker capabilities | Submission adapter tested against a fake scheduler only; real HPC acceptance open (OPS-20) |
 
 The browser and API use the same task/job protocol for every backend. A backend is a deployment choice, not arbitrary code supplied by the browser. Three deployments do not imply that a local API can spawn processes on another machine; remote dispatch needs its own approved queue/transport contract.
 
@@ -62,10 +62,29 @@ A run uses at most two GPUs (`MAX_GPUS`, fixed for every user and not a task set
 
 The task's **Check GPUs** button waits up to 20 seconds for a new runner inventory reading and refreshes the device choices, free memory and per-GPU budget. Every host GPU is listed with a state: ready (green: in the pool, enough free memory, idle), warning (yellow: usable but shared with other work) or unavailable (red: not in the approved pool or not enough free memory; it cannot be picked). It does not reserve devices or start inference. The state uses the allocator's admission rule; launch checks memory again. Shared memory can change during inference.
 
-## SLURM preparation (deferred)
+## SLURM backend
 
-Reported: quota-controlled `/lustre/`, separate from HOME and compute-node storage. Unverified: shared visibility on submission/compute nodes, quota/headroom, environment availability, partition/account/QOS/GRES policy and permitted background submission.
-Use an operator-configured Lustre workspace/derived root and separately configured node-local scratch; copy only complete validated outputs into derived storage. The future adapter will persist scheduler identity, use approved sbatch/srun resources and scheduler-provided GPU visibility, and reconcile before retry. Job arrays distribute independent case shards across nodes. No cluster access or actual scheduler execution is claimed.
+Off unless the deployment file says `"backend": "slurm"`; `local` and `server` are unchanged. The runner stays on the submission host and only submits and watches; the task runs inside the allocation.
+
+```json
+{
+  "backend": "slurm",
+  "slurm": {"partition": "gpu", "account": "research", "qos": "normal", "constraint": "a100", "scratch": "/local/scratch"},
+  "limits": {"cpus": 12, "memory_mb": 32768, "tasks": 128, "seconds": 43200, "gpus": 2}
+}
+```
+
+The other keys are those of §Operator configuration. Every `slurm` key is optional; none accepts flags or shell text.
+
+- **Resources.** One `sbatch` job per attempt: `limits` becomes `--cpus-per-task`, `--mem`, `--time` and `--gres=gpu:N`, with N capped as on a server (pending cases, `MAX_GPUS`, `limits.gpus`). The scheduler picks the devices: a run with `gpu_ids` is refused, and the task's GPU list stays empty. `limits.tasks` and `gpu_pool` are not used.
+- **Identity.** The job is named `rw-seg-{attempt}` and its id is kept with the attempt. The attempt is recorded before `sbatch` runs, so a runner that restarts, or that lost the answer of `sbatch`, finds its job again by name and never submits twice. Stopping the runner leaves the job running.
+- **Completion.** `exit.json` is written only once `squeue`, or `sacct` where the site has it, shows the job finished or gone; it carries `scheduler_state`. An attempt the scheduler does not list waits 60 s before it counts as gone or never submitted. While the scheduler does not answer, the attempt stays `cleanup_pending` and nothing new starts.
+- **Cancel.** `scancel`, also for a job still queued. The submission asks for SIGTERM 60 s before the time limit.
+- **Scratch.** HOME, TMPDIR and caches of the task live in a private folder under `slurm.scratch`, else `$SLURM_TMPDIR`, `$TMPDIR` or `/tmp` of the compute node, removed when the task ends. Outputs go straight to the derived root.
+- **Boundary.** The scheduler's allocation is the only resource boundary: no Landlock sandbox, user-service cgroup or native-command broker on compute nodes. One attempt at a time; `max_parallel` and job arrays are not implemented.
+- **Needs** the workspace, plugins, conda environment, model, source and derived roots at the same paths on the submission host and the compute nodes.
+
+Unverified, because no cluster was available: the site's GRES syntax, `sacct` availability, signal delivery, shared-storage visibility, quotas, and whether the site allows a long-lived runner on the submission host. Reported for the target site: quota-controlled `/lustre/`, separate from HOME and compute-node storage.
 
 ## Closure
 

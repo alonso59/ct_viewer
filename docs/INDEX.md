@@ -20,7 +20,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | CTFlow console: commands, targets, scripts, script runs, `ctflow` client | `domain/CTFLOW.md`; `adr/0041-ctflow-command-console.md` |
 | Plugin model, Plugin Library, catalog | `domain/PLUGINS.md` |
 | nnU-Net segmentation generation, model profiles, multi-GPU inference | `domain/SEGMENTATION.md` |
-| Local/server execution, future SLURM | `domain/SEGMENTATION_RUNTIMES.md`; `adr/0034-capability-based-segmentation-runtimes.md` |
+| Local/server and SLURM execution | `domain/SEGMENTATION_RUNTIMES.md`; `adr/0034-capability-based-segmentation-runtimes.md` |
 | DICOM → NIfTI converter | `domain/DICOM_CONVERTER.md` |
 | Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
 | Native phase selection (one-click, precedence, exports) | `domain/PHASE.md` |

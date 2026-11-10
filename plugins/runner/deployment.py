@@ -106,10 +106,13 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         "qos",
         "constraint",
         "max_parallel",
+        "scratch",
     }:
         raise ValueError("unknown slurm configuration")
     for name, value in scheduler.items():
-        if name == "max_parallel":
+        if name == "scratch":
+            absolute_path(value, "slurm scratch")
+        elif name == "max_parallel":
             if type(value) is not int or not 1 <= value <= 64:
                 raise ValueError("invalid max_parallel")
         elif not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]*", value):

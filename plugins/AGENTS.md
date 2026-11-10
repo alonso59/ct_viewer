@@ -4,7 +4,7 @@ First-party plugins (PLG-01). Each folder has a `plugin.json`; task plugins add 
 
 **Owns**
 - Task plugins: `dicom/` (converter task glue, DCM), `analyzers/` (task glue for phase, readiness, target; ANZ), `nnunet/` (segmentation, SEG), `voi/` (VOI engine + `voi.extract`, VOI; the engine also serves `backend/app/voi/`), `threshold/` (CI test task).
-- `runner/`: host-runner safety (GPU allocation, sandbox, supervised lifecycle, preflight; OPS-16..19). The host runner itself is `scripts/rw-runner.py` (TSK-11).
+- `runner/`: host-runner safety (GPU allocation, sandbox, supervised lifecycle, SLURM submission, preflight; OPS-16..20). The host runner itself is `scripts/rw-runner.py` (TSK-11).
 - Contribution-only (UI, routes or pack data): `radiomics/` (its builtin task lives in `backend/app/radiomics/`), `curation/`, `labeling/`, `dashboard/`; packs `ccrcc/`, `generic-ct/`.
 - Converter package `dicom/src/rw_dicom/` (distribution `rw-dicom`, ADR-0042): conversion, inventory, workers, dataset emission, settings, the metadata rules (`rw_dicom.analyzers`) and DICOM text helpers; also the standalone `rw-dicom` CLI and Python API. It imports neither `app` nor `plugins`.
 - Shared: `protocol.py` (task side of the run protocol, TSK-07).

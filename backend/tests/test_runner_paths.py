@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from plugins.runner.slurm import supervisor
 from plugins.runner.supervised import Supervisor
 
 
-def setup(tmp_path: Path) -> tuple[Supervisor, Path, Path, dict[str, Any]]:
+def setup(tmp_path: Path, **changes: Any) -> tuple[Supervisor, Path, Path, dict[str, Any]]:
     dataset, models, workspace = [tmp_path / name for name in ("dataset", "models", "workspace")]
     (dataset / ".workbench/projects").mkdir(parents=True)
     (dataset / "nifti").mkdir()
@@ -32,6 +33,7 @@ def setup(tmp_path: Path) -> tuple[Supervisor, Path, Path, dict[str, Any]]:
         "state_dir": str(tmp_path / "host-state"),
         "gpu_pool": ["0"],
         "limits": {"cpus": 3, "memory_mb": 128, "tasks": 32, "seconds": 30, "gpus": 1},
+        **changes,
     }
     path = tmp_path / "deployment.json"
     path.write_text(json.dumps(config))
@@ -40,7 +42,7 @@ def setup(tmp_path: Path) -> tuple[Supervisor, Path, Path, dict[str, Any]]:
         "items": [{"image": {"path": str(image)}}],
         "output_dir": str(dataset / "derived/P1/R1"),
     }
-    return Supervisor(path), job, dataset, spec
+    return supervisor(path), job, dataset, spec
 
 
 def prepare(supervisor: Supervisor, job: Path, spec: dict[str, Any]) -> dict[str, Any]:

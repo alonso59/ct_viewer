@@ -34,6 +34,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from plugins.runner.preflight import inspect_host
+from plugins.runner.slurm import supervisor as configured_supervisor
 from plugins.runner.supervised import Supervisor, isolated_argv
 
 HEARTBEAT_S = 10.0
@@ -115,7 +116,7 @@ def checked_manifests(
                 cwd=plugin_dir,
                 env={
                     **supervisor.environment(),
-                    "CUDA_VISIBLE_DEVICES": ",".join(supervisor.config.get("gpu_pool", [])),
+                    "CUDA_VISIBLE_DEVICES": ",".join(supervisor.check_devices()),
                 }
                 if supervisor
                 else os.environ,
@@ -168,7 +169,7 @@ class Runner:
         self.runner_id = f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
         self.running: dict[str, Running] = {}
         self.last_beat = 0.0
-        self.supervisor = Supervisor(deployment, workspace) if deployment else None
+        self.supervisor = configured_supervisor(deployment, workspace) if deployment else None
         if self.supervisor:
             self.supervisor.verify()
         self.reports: dict[str, Any] = {}
@@ -202,7 +203,7 @@ class Runner:
                     "backend": self.supervisor.config["backend"],
                     "limits": self.supervisor.config["limits"],
                     "allocation": self.supervisor.pool.identity(),
-                    "write_network_confinement": True,
+                    "write_network_confinement": self.supervisor.config["backend"] != "slurm",
                     "device_exclusivity": False,
                     "logout_persistence": False,
                     "last_error": self.supervisor.last_error,
@@ -383,7 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     configured: Supervisor | None = None
     if a.deployment:
         try:
-            configured = Supervisor(a.deployment, a.workspace.resolve() if a.workspace else None)
+            configured = configured_supervisor(a.deployment, a.workspace.resolve() if a.workspace else None)
         except (OSError, ValueError) as exc:
             print(f"[rw-runner] invalid deployment: {exc}", file=sys.stderr)
             return 2
