@@ -59,7 +59,7 @@ export function JobsPanel() {
   const tasks = useTasks().data?.tasks
   const cancel = useCancelJob(pid)
   const stale = useStaleLive()
-  const nameOf = (j: Job) => (j.kind === 'task' && j.key ? (tasks?.find((x) => x.manifest.id === j.key)?.manifest.title ?? j.key) : t(JOB_KIND[j.kind]))
+  const nameOf = (j: Job) => (j.kind === 'task' ? tasks?.find((x) => x.manifest.id === j.key)?.manifest.title : undefined) ?? t(JOB_KIND[j.kind])
   if (isLoading) return <div className="empty">{t('common.loading')}</div>
   if (error && !jobs.length) return <ProblemCard error={error} onRetry={() => void refetch()} />
   if (!jobs.length) return <div className="empty">{t('jobs.none')}</div>
