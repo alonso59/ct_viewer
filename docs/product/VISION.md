@@ -81,7 +81,7 @@ The golden paths. The MVP (MVP.md) and the v3 audit (archive/v3/audit/PLAN.md, c
 - Radiomics dashboard with click-through to the viewer (DB-*) and simple guided statistics with recommendations (ANA-*).
 - Multi-user access by shared project link, with live updates between browsers.
 - CTFlow: a command and script console for the same tasks, in the browser and in a terminal (`ctflow`); long scripts run on the server (CTF-*, ADR-0041).
-- Deployment without sudo: a native conda release on a server or workstation, and on HPC (OPS-22..24, ADR-0043, ADR-0051).
+- Deployment without sudo: a native conda release on a server or workstation, and on HPC; Docker for local development on any operating system (OPS-22..24, ADR-0043, ADR-0051).
 
 ## Out of scope (v3)
 

@@ -323,7 +323,7 @@ class RecycleService:
         if any(not os.access(p, os.W_OK) for p in writable):
             raise ValidationProblem(
                 "The dataset or related outputs are read-only. Enable write access before "
-                "recycling a scan."
+                "recycling a scan (Docker: set DATA_MOUNT_MODE=rw and recreate the container)."
             )
         if len(set(plan.moves.values())) != len(plan.moves):
             raise ValidationProblem("Two scan files map to the same recycle destination")

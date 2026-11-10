@@ -50,7 +50,7 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P7 — Packaging
-- [x] Dockerfile (OPS-*) — done; compose, `udocker-run.sh` and the execution-mode benchmark dropped by ADR-0051
+- [x] Dockerfile and compose (OPS-*) — done; `udocker-run.sh` and the execution-mode benchmark dropped by ADR-0051
 - [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done; TST-05, TST-09 in Step 4
 - [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12) — BE-12 still open
 - [ ] Deferred from P1: Dataset820 import check on the remote server (ops/TESTING.md §Dataset820 import check); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done; Dataset820 check in Step 4

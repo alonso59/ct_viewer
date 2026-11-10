@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Radiology Workbench: the test image CI builds and checks; production is the native release.
+# Radiology Workbench image: CI checks it and local Docker runs it; production is the native release.
 #   make image   # = docker build -t radiology-workbench:<backend/pyproject.toml version> .
 # Stages: web (node:22-slim) -> build (python:3.12-slim + gcc) -> runtime (python:3.12-slim).
 # Plain Dockerfile syntax only (no BuildKit cache mounts): the legacy builder must work too.

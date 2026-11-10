@@ -6,6 +6,8 @@
 !Dockerfile
 !Dockerfile.verify
 !Dockerfile.verify.dockerignore
+!docker-compose.yml
+!.env.example
 !backend/
 !frontend/
 !plugins/

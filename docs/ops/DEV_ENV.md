@@ -13,7 +13,7 @@ Depends: DEPLOYMENT.md.
 
 ## Make targets (runtime-agnostic)
 
-`make help` lists every target with its purpose, by group (setup, dev, check, E2E, docs, image); the Makefile is the single source.
+`make help` lists every target with its purpose, by group (setup, dev, check, E2E, docs, image, local Docker); the Makefile is the single source.
 
 Knobs: `RUNTIME=native|docker` selects how Node commands run (default `native`); `VENV` selects the Python env (`$CONDA_PREFIX` on remote servers); `PYTEST_WORKERS` / `VITEST_WORKERS` bound test workers (`PYTEST_WORKERS=0` runs serially); `FULL_TESTS=1` requires radiomics and refuses skipped coverage; `make -j4 check` runs the independent gates in parallel.
 

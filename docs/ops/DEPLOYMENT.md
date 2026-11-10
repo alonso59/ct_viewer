@@ -1,6 +1,6 @@
 # Deployment
 
-Scope: deployment options (native, HPC), the test image, configuration, upgrades.
+Scope: deployment options (native, HPC), the image for tests and local Docker, configuration, upgrades.
 Read when: deploying, building the test image, or changing env vars.
 Depends: ADR-0014, ADR-0016, ADR-0043, ADR-0051, backend/ARCHITECTURE.md, domain/TASKS.md.
 
@@ -16,7 +16,7 @@ Depends: ADR-0014, ADR-0016, ADR-0043, ADR-0051, backend/ARCHITECTURE.md, domain
 | OPS-06 | `WORKSPACE_ROOT` must be writable and preferably on local disk (the lock caveat in BE-05). | M |
 | OPS-07 | Healthcheck: `GET /api/v1/health`. | M |
 | OPS-08 | Image size ≤ 1.5 GB (NFR-10). | S |
-| OPS-09 | Retired (ADR-0051): the udocker run script matched the compose definition. | — |
+| OPS-09 | Retired (ADR-0051): the udocker run script once matched the compose definition. | — |
 | OPS-10 | Upgrade = new release + restart; project `format_version` migrations run on open (PRJ-11). | M |
 | OPS-11 | Derived roots are **writable** folders, separate from the data roots, listed in `ALLOWED_DERIVED_ROOTS` (ADR-0014). | M |
 | OPS-12 | Startup refuses a derived root that overlaps a data root, or vice versa (`roots-overlap`). | M |
@@ -41,7 +41,7 @@ Depends: ADR-0014, ADR-0016, ADR-0043, ADR-0051, backend/ARCHITECTURE.md, domain
 | Native | One server or workstation with conda, no sudo, performance matters | §Native |
 | HPC | SLURM cluster | §HPC |
 
-The OCI image is a test artifact that CI builds and checks (§Test image), not a deployment (ADR-0051).
+The OCI image is for CI and for local development under Docker (§Docker), not a production deployment (ADR-0051).
 
 ## Config (env vars)
 
@@ -101,9 +101,11 @@ exec rw-dicom convert /lustre/project/dicom /lustre/project/out --workers "$SLUR
 
 Submit the same script again to resume, on any node. Installation: `plugins/dicom/README.md`. Several jobs: one output folder each. Site policy (partition, account, QOS) and scratch location are the operator's; this path is not yet accepted on a real cluster.
 
-## Test image (Docker)
+## Docker (tests and local development)
 
-`make image` builds the image and `make container-smoke` checks it (TST-10); CI does both on every push. Nothing deploys it.
+`make image` builds the image and `make container-smoke` checks it (TST-10); CI does both on every push.
+
+For development and quick tests on any operating system: copy `.env.example` to `.env`, set `DATA_HOST`, then `make up` (`docker compose up -d --build`), `make logs`, `make down`. `docker-compose.yml` fixes the container-side paths, mirror-mounts the data (OPS-05, read-only unless `DATA_MOUNT_MODE=rw`) and the derived folder (OPS-11), and publishes `127.0.0.1:${PORT}`. Host-side keys (`DATA_HOST`, `WORKSPACE_HOST`, `DERIVED_HOST`, `PLUGINS_HOST`, `RUN_AS`, `RW_VERSION`) are explained in `.env.example`. Not a production deployment (R3).
 
 ## Persistent local user service
 
@@ -148,6 +150,6 @@ The Electron build is a thin shell that loads `PUBLIC_BASE_URL` (a local or forw
 
 - Image: 897 MB uncompressed on linux/arm64 (the build stage drops bundled `tests/` folders, pip, pyarrow headers and SimpleITK debug symbols; the web stage runs `vite build` only, type checking is a `make check` gate); 935 MB on linux/amd64 (277 MB compressed, `docker save | gzip` 273 MB); cross-platform builds on an Apple Silicon Mac under colima need `binfmt: true`; the build only succeeds if PyRadiomics passes the IBSI phantom smoke inside the image. Measure size with `du` of the rootfs: under the containerd store, `docker image inspect .Size` is the compressed size.
 - `app/main.py` serves the SPA when `STATIC_ROOT/index.html` exists (`/assets` static, `index.html` fallback, `/api/*` never falls back). The entry point `scripts/container_app.py` only validates the config (clean OPS-04 refusal) and runs uvicorn.
-- Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it (`tests/test_version.py`).
+- Version: the single source is `backend/pyproject.toml` (`{version}` above). `make image` tags it; the compose `RW_VERSION` default and `.env.example` follow it (`tests/test_version.py`).
 - colima on the dev Mac has no host mounts by default (`$HOME` contains a space), so bind mounts appear empty; start it with `colima start --mount '<path>:w'` to use real data under Docker.
 - If Docker Desktop is not running, a CLI config with `credsStore: desktop` makes pulls hang; use a `DOCKER_CONFIG` without a creds store.

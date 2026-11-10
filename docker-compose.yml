@@ -1,0 +1,25 @@
+# Local development and quick tests under Docker; production is the native release.
+#   cp .env.example .env (set DATA_HOST); docker compose up -d --build     # or: make up
+services:
+  app:
+    image: radiology-workbench:${RW_VERSION:-3.3.1}
+    build: .
+    env_file: .env
+    # These win over .env: container-side paths and bind address are fixed by the image contract.
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      WORKSPACE_ROOT: /workspace
+      ALLOWED_DATA_ROOTS: ${ALLOWED_DATA_ROOTS:-${DATA_HOST:?set DATA_HOST in .env}}
+      # Task outputs: writable, mirror-mounted below; must not overlap the data
+      ALLOWED_DERIVED_ROOTS: ${ALLOWED_DERIVED_ROOTS:-${DERIVED_HOST:-/derived}}
+      # External task manifests, read-only; the host runner reads the same folder
+      PLUGINS_ROOT: /plugins
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${PORT:-8000}}
+    user: ${RUN_AS:-0:0}
+    ports: ["127.0.0.1:${PORT:-8000}:8000"]
+    volumes:
+      - ${WORKSPACE_HOST:-./workspace}:/workspace
+      - ${DATA_HOST:?set DATA_HOST in .env}:${DATA_HOST}:${DATA_MOUNT_MODE:-ro} # mirror mount; opt in to rw for confirmed scan recycling
+      - ${DERIVED_HOST:-./derived}:${DERIVED_HOST:-/derived} # writable mirror mount
+      - ${PLUGINS_HOST:-./plugins}:/plugins:ro

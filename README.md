@@ -22,10 +22,13 @@ make dev-frontend   # terminal 2: UI on 127.0.0.1:5173
 Remote servers without sudo: activate the conda env, then `make setup-backend VENV=$CONDA_PREFIX`,
 and put a conda environment with Node on `PATH` (`conda create -n rwnode -c conda-forge nodejs=22`). See [docs/ops/DEV_ENV.md](docs/ops/DEV_ENV.md).
 
-## Deployment
+## Run it
 
-Production is a native conda release run as a systemd user service, without sudo:
-`python3 scripts/rw-native.py prepare`, then `deploy` ([docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)).
-On a remote server, VS Code forwards the port.
+- **Production:** a native conda release run as a systemd user service, without sudo:
+  `python3 scripts/rw-native.py prepare`, then `deploy`. On a remote server, VS Code forwards the port.
+- **Local, any operating system (development and quick tests):** `cp .env.example .env`, set
+  `DATA_HOST`, then `docker compose up -d --build` and open http://localhost:8000.
+
+Details: [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md).
 
 Research use only; not a medical device.
