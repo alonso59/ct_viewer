@@ -348,7 +348,6 @@
   "history": {
     "case": "Case {{id}}",
     "empty": "No decisions yet",
-    "error": "Could not load the history.",
     "item": "This item",
     "list": "Curation events",
     "noActive": "Open a case to see its history.",

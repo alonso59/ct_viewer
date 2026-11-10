@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useEvents, useProject } from '../../api'
-import { ItemName, StatusBadge, fmtAgo, fmtDate } from '../../lib'
+import { ItemName, ProblemCard, StatusBadge, fmtAgo, fmtDate } from '../../lib'
 import { useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { targetName } from './model'
@@ -15,7 +15,7 @@ export function HistoryList({ dense }: { dense?: boolean }) {
   const cid = useViewerSync((s) => s.activeCaseId)
   const [scope, setScope] = useState<'item' | 'case'>('case')
   const f = scope === 'item' && iid ? { item_id: iid } : cid ? { case_id: cid } : {}
-  const { data, isLoading, isError } = useEvents(pid, f)
+  const { data, isLoading, isError, error, refetch } = useEvents(pid, f)
   const labels = useProject(pid).data?.label_map ?? []
   if (!cid) return <div className="empty">{t('history.noActive')}</div>
   return (
@@ -27,7 +27,7 @@ export function HistoryList({ dense }: { dense?: boolean }) {
         </div>
       </div>
       {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-      {isError ? <div className="error-card">{t('history.error')}</div> : null}
+      {isError ? <ProblemCard error={error} onRetry={() => void refetch()} /> : null}
       {data?.length === 0 ? <div className="empty">{t('history.empty')}</div> : null}
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }} aria-label={t('history.list')}>
         {data?.map((e) => (

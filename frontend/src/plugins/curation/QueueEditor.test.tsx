@@ -2,11 +2,12 @@
 // CUR-09: the queue table sorts by a column (aria-sort on its header), tells a filter that hides
 // every row from an empty queue, and offers Export shown next to Export all while filtered.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { vi } from 'vitest'
 
 import '../../i18n'
 import '../../i18n/lazy'
-import { keys, type QueueRow } from '../../api'
+import { api, keys, type QueueRow } from '../../api'
 import { useWorkbench } from '../../shell'
 import { QueueEditor } from './QueueEditor'
 
@@ -21,7 +22,7 @@ function queue(rows: QueueRow[]) {
   render(<QueryClientProvider client={qc}><QueueEditor /></QueryClientProvider>)
 }
 
-afterEach(() => useWorkbench.setState({ pid: null }))
+afterEach(() => { useWorkbench.setState({ pid: null }); vi.restoreAllMocks() })
 
 test('a header sorts its column both ways and says so', () => {
   queue([row('case_00002', 'rejected', 'low'), row('case_00001', 'needs_major_correction', 'high')])
@@ -45,4 +46,14 @@ test('a status filter that hides every row is not an empty queue; Export shown a
   expect(screen.getByRole('button', { name: 'Export CSV for 3D Slicer' })).toBeEnabled()
   fireEvent.click(screen.getByRole('button', { name: 'Show all statuses' }))
   expect(screen.getAllByRole('row')).toHaveLength(2)
+})
+
+test('a queue that fails to load can be retried', async () => {
+  const load = vi.spyOn(api, 'queue').mockRejectedValueOnce(new Error('boom')).mockResolvedValue([row('case_00001', 'rejected', 'medium')])
+  useWorkbench.setState({ pid: PID })
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={qc}><QueueEditor /></QueryClientProvider>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2))
+  expect(load).toHaveBeenCalledTimes(2)
 })

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, CURATION_STATUSES, QUEUE_STATUSES, ReviewerCancelled, useCurationExports, useImportV2, useProject, useQueue, useSegmentations, type CurationStatus, type QueueRow, type V2ImportReport } from '../../api'
-import { Dialog, ItemName, PhaseChip, StatusBadge, fmtAgo, midEllipsis, problemMessage, useRowKeys } from '../../lib'
+import { Dialog, ItemName, PhaseChip, ProblemCard, StatusBadge, fmtAgo, midEllipsis, useRowKeys } from '../../lib'
 import { toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
@@ -121,7 +121,7 @@ function ImportReport({ report, onClose }: { report: V2ImportReport; onClose: ()
 export function QueueEditor() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const { data, isLoading, isError, error } = useQueue(pid)
+  const { data, isLoading, isError, error, refetch } = useQueue(pid)
   const exportsM = useCurationExports(pid)
   const importM = useImportV2(pid)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -207,7 +207,7 @@ export function QueueEditor() {
         />
       </div>
       {isLoading ? <div className="empty">{t('common.loading')}</div> : null}
-      {isError ? <div className="error-card">{problemMessage(error, t('common.error'))}</div> : null}
+      {isError ? <ProblemCard error={error} onRetry={() => void refetch()} /> : null}
       {!isLoading && !isError && rows.length === 0 ? (
         // a filter that hides every row is not an empty queue
         data?.length ? (
