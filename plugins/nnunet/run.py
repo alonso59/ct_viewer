@@ -20,12 +20,12 @@ from typing import Any
 try:
     from plugins.nnunet.profile import Predictor, Profile, load_profile
     from plugins.protocol import Job, pause_expired
-    from plugins.runner.gpu import MAX_GPUS
+    from plugins.runner.gpu import MAX_ATTEMPT_GPUS, MAX_GPUS
 except ImportError:  # runner cwd is plugins/nnunet
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from plugins.nnunet.profile import Predictor, Profile, load_profile
     from plugins.protocol import Job, pause_expired
-    from plugins.runner.gpu import MAX_GPUS
+    from plugins.runner.gpu import MAX_ATTEMPT_GPUS, MAX_GPUS
 
 VERSION = "0.1.0"
 PREDICT = "nnUNetv2_predict"
@@ -63,8 +63,8 @@ def _on_signal(_signum: int, _frame: Any) -> None:
 def _gpu_ids() -> list[str]:
     raw = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     values = [value.strip() for value in raw.split(",") if value.strip()]
-    if not 1 <= len(values) <= 4 or len(set(values)) != len(values) or "-1" in values:
-        raise ValueError("CUDA_VISIBLE_DEVICES must expose 1 to 4 distinct GPUs")
+    if not 1 <= len(values) <= MAX_ATTEMPT_GPUS or len(set(values)) != len(values) or "-1" in values:
+        raise ValueError(f"CUDA_VISIBLE_DEVICES must expose 1 to {MAX_ATTEMPT_GPUS} distinct GPUs")
     return values
 
 

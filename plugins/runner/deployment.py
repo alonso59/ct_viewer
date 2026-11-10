@@ -7,6 +7,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from plugins.runner.gpu import MAX_ATTEMPT_GPUS, MAX_POOL_GPUS
+
 BACKENDS = {"local", "server", "slurm"}
 
 
@@ -83,7 +85,7 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     if any(overlaps(state.resolve(), root.resolve()) for root in readonly):
         raise ValueError("state root overlaps source/model roots")
     limits = raw.get("limits")
-    bounds = {"cpus": 12, "memory_mb": 1048576, "tasks": 1024, "seconds": 604800, "gpus": 4}
+    bounds = {"cpus": 12, "memory_mb": 1048576, "tasks": 1024, "seconds": 604800, "gpus": MAX_ATTEMPT_GPUS}
     if not isinstance(limits, dict) or limits.keys() != bounds.keys():
         raise ValueError("limits must declare cpus, memory_mb, tasks, seconds and gpus")
     for name, maximum in bounds.items():
@@ -96,9 +98,12 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     if (
         not isinstance(pool, list)
         or len(pool) != len(set(map(str, pool)))
-        or any(not isinstance(value, str) or not re.fullmatch(r"(?:[0-7]|GPU-[A-Za-z0-9-]+)", value) for value in pool)
+        or any(
+            not isinstance(value, str) or not re.fullmatch(rf"(?:[0-{MAX_POOL_GPUS - 1}]|GPU-[A-Za-z0-9-]+)", value)
+            for value in pool
+        )
     ):
-        raise ValueError("gpu_pool must contain unique approved indices 0..7 or GPU UUIDs")
+        raise ValueError(f"gpu_pool must contain unique approved indices 0..{MAX_POOL_GPUS - 1} or GPU UUIDs")
     scheduler = raw.get("slurm", {})
     if not isinstance(scheduler, dict) or scheduler.keys() - {
         "partition",

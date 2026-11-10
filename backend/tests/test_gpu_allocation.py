@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import multiprocessing
 from pathlib import Path
 from typing import Any
 
 import pytest
+from plugins.runner import gpu
 from plugins.runner.gpu import Pool, device_path, select_devices
+
+REPO = Path(__file__).resolve().parents[2]
 
 ROWS: list[dict[str, Any]] = [
     {"index": "0", "uuid": "GPU-A", "total_mb": 46068, "used_mb": 0, "utilization": 0, "pids": []},
@@ -143,3 +147,10 @@ def test_active_gpu_with_sufficient_free_memory_can_be_selected() -> None:
     assert select_devices(rows, ["6"], ["6"], 1, minimum_mb=16000) == ["GPU-B"]
     with pytest.raises(ValueError, match="insufficient"):
         select_devices(rows, ["6"], ["6"], 1, minimum_mb=24000)
+
+
+def test_the_task_form_offers_the_devices_and_count_the_runner_admits() -> None:
+    manifest = json.loads((REPO / "plugins/nnunet/task.json").read_text())
+    field = manifest["settings_schema"]["properties"]["gpu_ids"]
+    assert field["maxItems"] == gpu.MAX_GPUS <= gpu.MAX_ATTEMPT_GPUS <= gpu.MAX_POOL_GPUS
+    assert field["items"]["enum"] == [str(index) for index in range(gpu.MAX_POOL_GPUS)]

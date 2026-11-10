@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from plugins.nnunet.catalog import catalog
+from plugins.runner.gpu import MAX_POOL_GPUS
 
 
 def trainer_available(name: str) -> bool:
@@ -48,8 +49,8 @@ def main() -> int:
         if missing:
             raise ValueError(f"missing commands: {', '.join(missing)}")
         gpus = [value.strip() for value in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if value.strip()]
-        if not 1 <= len(gpus) <= 8 or len(set(gpus)) != len(gpus) or "-1" in gpus:
-            raise ValueError("CUDA_VISIBLE_DEVICES must expose 1 to 8 distinct approved pool devices")
+        if not 1 <= len(gpus) <= MAX_POOL_GPUS or len(set(gpus)) != len(gpus) or "-1" in gpus:
+            raise ValueError(f"CUDA_VISIBLE_DEVICES must expose 1 to {MAX_POOL_GPUS} distinct approved pool devices")
     except (OSError, TypeError, ValueError) as exc:
         print(f"segment.nnunet unavailable: {exc}", file=sys.stderr)
         return 1

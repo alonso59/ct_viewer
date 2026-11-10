@@ -20,6 +20,8 @@ from plugins.protocol import write_json_atomic
 RESOURCE_POLICY = "dicom-resources.json"
 MIN_FREE_MB = 16 * 1024
 MAX_GPUS = 2  # per run, fixed for every user so other runs keep GPUs of the pool
+MAX_ATTEMPT_GPUS = 4  # the most a deployment may grant one attempt
+MAX_POOL_GPUS = 8  # host devices a pool may name, by index 0..7
 
 
 def status(row: dict[str, Any], pool: list[str], minimum_mb: int = MIN_FREE_MB) -> tuple[str, str | None]:
@@ -49,8 +51,8 @@ def select_devices(
     count: int,
     minimum_mb: int = MIN_FREE_MB,
 ) -> list[str]:
-    if not 1 <= count <= 4:
-        raise ValueError("GPU count must be 1..4")
+    if not 1 <= count <= MAX_ATTEMPT_GPUS:
+        raise ValueError(f"GPU count must be 1..{MAX_ATTEMPT_GPUS}")
     aliases: dict[str, dict[str, Any]] = {}
     for row in rows:
         for key in (str(row["index"]), str(row["uuid"])):
