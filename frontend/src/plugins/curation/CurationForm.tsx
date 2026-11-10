@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCurationState, useItem, useProject, useSegmentations, type CurationStatus, type Priority } from '../../api'
-import { ItemName, StatusBadge, StatusIcon, fmtAgo } from '../../lib'
+import { ItemName, ProblemCard, StatusBadge, StatusIcon, fmtAgo } from '../../lib'
 import { bindingOf, formatChord, registry, useWorkbench } from '../../shell'
 import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -45,8 +45,11 @@ export function CurationForm() {
   const mine = decisionsFor(stateQ.data ?? [], iid, cid, seg)
   const go = async (s: CurationStatus) => {
     setBusy(true)
-    await submitDecision(s)
-    setBusy(false)
+    try {
+      await submitDecision(s)
+    } finally {
+      setBusy(false)
+    }
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--fs-panel)' }}>
@@ -108,7 +111,7 @@ export function CurationForm() {
       ) : null}
       <div className="field">
         <span className="field-label">{t('curation.priority')}</span>
-        <div className="seg" role="group">
+        <div className="seg" role="group" aria-label={t('curation.priority')}>
           {(['low', 'medium', 'high'] as Priority[]).map((p) => (
             <button key={p} type="button" aria-pressed={d.priority === p} onClick={() => d.set({ priority: p })}>
               {t(`priority.${p}`)}
@@ -125,7 +128,7 @@ export function CurationForm() {
         {t('curation.addToQueue')}
         <span className="kbd ml-auto">{chord('curation.queue')}</span>
       </label>
-      {stateQ.isError ? <div className="error-card">{t('curation.stateError')}</div> : null}
+      {stateQ.isError ? <ProblemCard error={stateQ.error} onRetry={() => void stateQ.refetch()} /> : null}
       {mine.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} role="list" aria-label={t('curation.current')}>
           <div className="section-title" style={{ padding: 0 }}>{t('curation.current')}</div>

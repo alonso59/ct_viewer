@@ -371,8 +371,7 @@
     "progressCount": "{{done}}/{{total}} cases",
     "proposedSide": "Proposed side",
     "sideL": "Left",
-    "sideR": "Right",
-    "stateError": "Could not load the current decisions."
+    "sideR": "Right"
   },
   "rad": {
     "engine": "{{name}} {{version}}",
