@@ -61,15 +61,17 @@ test('the panel shows loading, then a retryable error, before the empty state', 
   expect(await screen.findByText('No jobs')).toBeInTheDocument()
 })
 
-test('a queued task job is cancellable by name, and a failed cancel is reported', async () => {
+test('a running task job is cancellable by name, a queued one only from its run, and a failed cancel is reported', async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
-  const job = { job_id: 'j1', kind: 'task', key: 'nnunet', status: 'queued', done: 0, total: 4, eta_s: null, error: null } as unknown as Job
-  qc.setQueryData(keys.jobs('P1'), [job])
+  const job = { job_id: 'j1', kind: 'task', key: 'nnunet', status: 'running', done: 0, total: 4, eta_s: null, error: null } as unknown as Job
+  const queued = { ...job, job_id: 'j2', status: 'queued' } as Job
+  qc.setQueryData(keys.jobs('P1'), [job, queued])
   qc.setQueryData(keys.tasks(), { tasks: [{ manifest: { id: 'nnunet', title: 'Segment kidneys' } }] })
   useWorkbench.setState({ pid: 'P1', toasts: [] })
   vi.spyOn(api, 'cancelJob').mockRejectedValue(new Error('cancel refused'))
   render(<QueryClientProvider client={qc}><JobsPanel /></QueryClientProvider>)
   expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
+  expect(screen.getAllByRole('button', { name: 'Cancel Segment kidneys' })).toHaveLength(1)
   fireEvent.click(screen.getByRole('button', { name: 'Cancel Segment kidneys' }))
   fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }))
   await waitFor(() => expect(useWorkbench.getState().toasts).toHaveLength(1))

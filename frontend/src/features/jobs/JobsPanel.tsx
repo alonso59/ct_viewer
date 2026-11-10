@@ -91,7 +91,7 @@ export function JobsPanel() {
             </td>
             <td className="num muted">{j.status === 'running' && j.eta_s !== null ? fmtDuration(j.eta_s) : ''}</td>
             <td>
-              {j.status === 'running' || j.status === 'queued' || j.status === 'waiting_for_runner' ? (
+              {j.status === 'running' || (j.status === 'queued' && j.kind !== 'task') ? (
                 <ConfirmInline
                   question={t('confirm.cancelJob')}
                   confirm={t('common.yesCancel')}
