@@ -12,7 +12,6 @@ import os
 import sqlite3
 import time
 import traceback
-from collections import Counter
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -38,8 +37,6 @@ from app.ingest.service import IngestService
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
-from app.sources import detect as source_detect
-from app.sources import formats
 from app.sources import open as open_mode
 from app.sources.open_service import RETRY as OPEN_ACTIONS
 from app.sources.open_service import guarded_source
@@ -67,7 +64,8 @@ from app.tasks.source_models import (
     SourceOperationEstimate,
     SourceOperationStart,
 )
-from app.tasks.source_plans import SourcePlanPage, read_plan_page, write_plan
+from app.tasks.source_plans import write_plan
+from app.tasks.source_queries import require_inventory
 from app.tasks.source_retention import prune_inventories
 from app.tasks.workspace_runs import (
     WORKSPACE_JOBS,
@@ -333,13 +331,6 @@ class SourceOperations:
 
     def _attempt_dir(self, record: SourceOperation) -> Path:
         return self._dir(record.operation_id) / "attempts" / str(record.attempt)
-
-    def _require_inventory(self, record: SourceOperation) -> None:
-        if record.summary.get("inventory_expired"):
-            raise JobConflict(
-                "The completed operation's inventory expired; start a new source operation",
-                actions=["choose_another_path", "home"],
-            )
 
     async def _import_view(self, record: SourceOperation) -> SourceOperation:
         context = record.import_context
@@ -743,7 +734,7 @@ class SourceOperations:
     def _submit(self, record: SourceOperation, *, reuse_inventory: bool = False) -> None:
         """`reuse_inventory`: a complete inventory is used as it is instead of walking the source
         again (a dry run right after its discovery, or the handoff of a planned conversion)."""
-        self._require_inventory(record)
+        require_inventory(record)
         job_dir = self._attempt_dir(record)
         base: dict[str, Any] = {}
         if record.work_kind == "estimate":
@@ -981,64 +972,6 @@ class SourceOperations:
             self._write(current)
             raise RuntimeError(current.error) from None
 
-    def detection(self, operation: str, *, dicom_available: bool) -> source_detect.DetectResult:
-        """Bounded adapter hints from the completed inventory, without a rescan."""
-        record = self.get(operation)
-        self._require_inventory(record)
-        if (
-            record.purpose != "discover"
-            or record.status != "completed"
-            or record.stage != "discovered"
-            or not record.cleanup_verified
-        ):
-            raise JobConflict(
-                "Finish source discovery before choosing an import adapter", actions=OPEN_ACTIONS
-            )
-        source = guarded_source(self.guard, record.source)
-        database = self._dir(operation) / "inventory.sqlite"
-        try:
-            if not database.is_file():
-                raise JobConflict("Prepared source inventory is missing")
-            with SourceInventory(database, source) as inventory:
-                summary = inventory.summary()
-                if not summary["complete"] or summary["generation"] != record.summary.get(
-                    "generation"
-                ):
-                    raise JobConflict("Prepared source inventory changed")
-                inventory.check_reader()
-                ignored: Counter[str] = Counter()
-                for rel in inventory.rels("ignored"):
-                    name = Path(rel).name
-                    if name not in formats.SKIP_NAMES:
-                        ignored[formats.extension(name)] += 1
-                counts = {key: int(summary[key]) for key in ("nifti", "dicom", "npy")}
-                counts["ignored"] = sum(ignored.values())
-                count = counts["nifti"]
-                positions = {
-                    index * count // min(count, source_detect.SAMPLE)
-                    for index in range(min(count, source_detect.SAMPLE))
-                }
-                sample = [
-                    rel for index, rel in enumerate(inventory.rels("nifti")) if index in positions
-                ]
-                meta_entry = None if inventory.single_file else inventory.entry("metadata.jsonl")
-                has_meta = meta_entry is not None and not meta_entry["error"]
-                return source_detect.from_facts(
-                    source,
-                    kind="file" if inventory.single_file else "folder",
-                    counts=counts,
-                    ignored=dict(ignored),
-                    nifti_sample=sample,
-                    has_meta=has_meta,
-                    truncated=False,
-                    dicom_available=dicom_available,
-                )
-        except (OSError, sqlite3.Error, JobConflict, ValueError) as exc:
-            raise JobConflict(
-                "Source inventory is unavailable or incompatible; discover it again",
-                actions=OPEN_ACTIONS,
-            ) from exc
-
     def open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
         self.get(operation)
         descriptor = os.open(
@@ -1058,7 +991,7 @@ class SourceOperations:
     def _load_open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
         """Restore an explicitly prepared Open result; conversion records stay separate."""
         record = self.get(operation)
-        self._require_inventory(record)
+        require_inventory(record)
         if record.purpose != "open":
             raise NotFound("This operation has no Open session")
         if record.stage != "opened" or record.status != "completed" or not record.cleanup_verified:
@@ -1339,26 +1272,6 @@ class SourceOperations:
             self._submit(record)
             return record
 
-    def plan_page(
-        self,
-        operation: str,
-        limit: int,
-        cursor: str | None,
-        action: Literal["convert", "skip"] | None = None,
-    ) -> SourcePlanPage:
-        record = self.get(operation)
-        self._require_inventory(record)
-        if record.plan_attempt is None:
-            if cursor:
-                raise JobConflict("No plan is ready for this generation")
-            return SourcePlanPage(items=[], total=0)
-        return read_plan_page(
-            self._dir(operation) / "plans" / str(record.plan_attempt),
-            limit=limit,
-            cursor=cursor,
-            action=action,
-        )
-
     async def cancel(self, operation: str, request: SourceOperationControl) -> SourceOperation:
         async with self.locks(f"_source_operation:{operation}"):
             record = self.get(operation)
@@ -1509,24 +1422,6 @@ class SourceOperations:
                 record.work_kind = "estimate"
             self._submit(record, reuse_inventory=planning or record.work_kind == "convert")
             return record
-
-    def patient_ids(self, operation: str) -> set[str]:
-        record = self.get(operation)
-        self._require_inventory(record)
-        database = self._dir(operation) / "inventory.sqlite"
-        if not database.exists():
-            return set()
-        with SourceInventory(database, Path(record.source)) as inventory:
-            return inventory.patient_ids()
-
-    def series_page(self, operation: str, limit: int, cursor: str | None) -> dict[str, Any]:
-        record = self.get(operation)
-        self._require_inventory(record)
-        database = self._dir(operation) / "inventory.sqlite"
-        if not database.exists():
-            return {"items": [], "total": 0, "next_cursor": None, "generation": None}
-        with SourceInventory(database, Path(record.source)) as inventory:
-            return inventory.page(limit=limit, cursor=cursor)
 
     async def recover_all(self) -> None:
         for record in self.list():

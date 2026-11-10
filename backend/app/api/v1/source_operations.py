@@ -11,6 +11,7 @@ from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.paging import Page, Paging, paginate
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult
+from app.tasks import source_queries
 from app.tasks.source_inventory import InventoryPage
 from app.tasks.source_models import (
     SourceImportCommit,
@@ -72,8 +73,8 @@ async def get(ctx: Ctx, oid: str) -> SourceOperation:
 
 @router.get("/source-operations/{oid}/detection", response_model=DetectResult)
 def detection(ctx: Ctx, oid: str) -> DetectResult:
-    return ctx.source_operations.detection(
-        oid, dicom_available="dicom.convert" in ctx.registry.tasks
+    return source_queries.detection(
+        ctx.source_operations, oid, dicom_available="dicom.convert" in ctx.registry.tasks
     )
 
 
@@ -91,7 +92,9 @@ async def series(
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     cursor: str | None = None,
 ) -> InventoryPage:
-    page = await asyncio.to_thread(ctx.source_operations.series_page, oid, limit, cursor)
+    page = await asyncio.to_thread(
+        source_queries.series_page, ctx.source_operations, oid, limit, cursor
+    )
     return InventoryPage.model_validate(page)
 
 
@@ -132,4 +135,6 @@ async def plan(
     cursor: str | None = None,
     action: Literal["convert", "skip"] | None = None,
 ) -> SourcePlanPage:
-    return await asyncio.to_thread(ctx.source_operations.plan_page, oid, limit, cursor, action)
+    return await asyncio.to_thread(
+        source_queries.plan_page, ctx.source_operations, oid, limit, cursor, action
+    )

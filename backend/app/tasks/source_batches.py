@@ -28,6 +28,7 @@ from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard
 from app.core.reviewer import Origin
 from app.jobs.manager import JobManager
+from app.tasks import source_queries
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.source_inventory import checked_folders
 from app.tasks.source_models import (
@@ -691,7 +692,7 @@ class SourceBatches:
         self._pause(plan, batch, record.error or "The batch conversion needs attention")
 
     async def _record_patients(self, plan: PlanRecord, batch: PlanBatch, operation: str) -> None:
-        ids = await asyncio.to_thread(self.operations.patient_ids, operation)
+        ids = await asyncio.to_thread(source_queries.patient_ids, self.operations, operation)
         hashes = sorted(
             hashlib.sha256(f"{plan.salt}:{pid}".encode()).hexdigest()[:24] for pid in ids
         )
